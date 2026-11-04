@@ -1,5 +1,5 @@
 import {
-    std/instant.Instant
+    std::instant.Instant
     helper
     import_app.{self, ImportApp}
     wallclock.{Clock, FakeClock}

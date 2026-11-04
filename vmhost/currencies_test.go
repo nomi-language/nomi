@@ -17,12 +17,12 @@ const pointsToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[mone
 // currencyProgram prints each of exprs, each a Currency.
 func currencyProgram(exprs ...string) string {
 	all := strings.Join(exprs, " ")
-	src := "import {\n    std/io\n"
+	src := "import {\n    std::io\n"
 	if strings.Contains(all, "Currency") {
-		src += "    std/currency.Currency\n"
+		src += "    std::currency.Currency\n"
 	}
 	if strings.Contains(all, "Money") {
-		src += "    std/money.Money\n"
+		src += "    std::money.Money\n"
 	}
 	src += "}\n\nfn main() {\n"
 	for _, e := range exprs {
@@ -115,7 +115,7 @@ func TestCurrencyLiteral_NoListAndNoModule(t *testing.T) {
 // A currency made from values while the program runs is not checked, nor
 // is one Currency.parse reads.
 func TestCurrency_RuntimeIsUnrestricted(t *testing.T) {
-	src := "import {\n    std/io\n    std/currency.Currency\n}\n\nfn main() {\n" +
+	src := "import {\n    std::io\n    std::currency.Currency\n}\n\nfn main() {\n" +
 		"    code = \"GEMS\"\n    digits = 3\n" +
 		"    io.print(Debug.inspect(Currency.custom(code, digits)))\n" +
 		"    io.print(Debug.inspect(Currency.parse(\"PST:0\")))\n}\n"
@@ -207,9 +207,9 @@ func TestCurrencyCustomCall_LiteralArgumentsListedIsAHint(t *testing.T) {
 // application lists PTS:0 and writes it.
 const currencyModules = `// FILE: app/main.nomi
 import {
-    std/io
-    std/currency.Currency
-    gems/shop
+    std::io
+    std::currency.Currency
+    gems::shop
 }
 
 fn main() {
@@ -232,7 +232,7 @@ require gems v0.0.0
 
 replace gems => ../gems
 // FILE: gems/shop.nomi
-import std/currency.Currency
+import std::currency.Currency
 
 pub once gems = Currency` + "`GEMS:2`" + `
 // FILE: gems/nomi.toml

@@ -1,11 +1,11 @@
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/compiler
-    std/duration.Duration
-    std/instant.Instant
-    std/tasks.Task
-    std/testing.Clock
-    std/timer
+    std::channels.{Channel, Receiver, Sender}
+    std::compiler
+    std::duration.Duration
+    std::instant.Instant
+    std::tasks.Task
+    std::testing.Clock
+    std::timer
 }
 
 fn produce(ch: Channel<Int>, n: Int) -> Unit {
@@ -51,7 +51,7 @@ fn nested_outer_body() -> Result<Int, String> {
 test "buffered rejects a capacity that is not a buffer" {
     case compiler.run(
         """
-        import std/channels.{Channel, Sender}
+        import std::channels.{Channel, Sender}
 
         fn main() {
           ch = Channel.buffered<Int>(0)
@@ -152,10 +152,10 @@ test "env context timeout cancels blocked channel receives" {
     result = compiler.run(
         """
         import {
-          std/channels.{Channel, Receiver}
-          std/duration.Duration
-          std/io
-          std/tasks.Task
+          std::channels.{Channel, Receiver}
+          std::duration.Duration
+          std::io
+          std::tasks.Task
         }
 
         struct Config {

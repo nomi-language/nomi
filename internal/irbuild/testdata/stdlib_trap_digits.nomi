@@ -2,7 +2,7 @@
 // the stdlib. `Int.to_digits` passes its argument to a host function inside
 // std/int.nomi, which traps on a negative number, and the report names the
 // line below.
-import std/io
+import std::io
 
 fn main() {
     io.print("before")

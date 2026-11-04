@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A predicate field name beside its underscore-suffixed twin. Both are legal
 // Nomi, they are two DISTINCT fields, and before predSpelling they reached one

@@ -52,8 +52,8 @@ if [[ $verify -eq 1 ]]; then
   (cd "$tmp/app" && "$tmp/nomi" add "${prefix}sql/sqlkit@$version")
   cat > "$tmp/app/main.nomi" <<'NOMI'
 import {
-    std/io
-    std/sql.{self, Conn, Error, Sql}
+    std::io
+    std::sql.{self, Conn, Error, Sql}
     sqlite
 }
 

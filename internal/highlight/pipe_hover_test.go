@@ -13,7 +13,7 @@ import (
 // The tour answers both characters of a pipe's `|>` as the editor does: the
 // incoming type, the stage and the type that comes out.
 func TestAnalyze_PipeHovers(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 fn parse(s: String) -> Result<Int, String> {
   n = s |> String.to_int() |> Maybe.to_result("bad")?

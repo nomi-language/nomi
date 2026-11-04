@@ -11,7 +11,7 @@ package irbuild
 //
 // The callee is written `testing.check`, and this confirms the qualifier
 // resolves to std/testing, or it is a bare name a selective import bound to
-// std/testing's `check` (`import std/testing.{check as verify}`). Either way
+// std/testing's `check` (`import std::testing.{check as verify}`). Either way
 // it takes one positional argument.
 //
 // The subject may be a Bool, a `Maybe`/`Result` (judged by shape in the VM)
@@ -48,7 +48,7 @@ func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 		return false
 	}
 	if id, bare := t.Func.(*ast.Ident); bare {
-		// `check(e)` after `import std/testing.check`, aliased or not.
+		// `check(e)` after `import std::testing.check`, aliased or not.
 		module, name, isStd := stdBareFileFunc(bl.g.srcFA(), id)
 		return isStd && module == "testing" && name == "check"
 	}

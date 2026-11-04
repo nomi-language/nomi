@@ -14,10 +14,10 @@ func TestConcurrentNamedArguments_Run(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	irRunSource(t, `import {
-    std/channels.{Channel, Receiver, Sender}
-    std/io
-    std/supervisors.Supervisor
-    std/tasks.Task
+    std::channels.{Channel, Receiver, Sender}
+    std::io
+    std::supervisors.Supervisor
+    std::tasks.Task
 }
 
 type TraceId String

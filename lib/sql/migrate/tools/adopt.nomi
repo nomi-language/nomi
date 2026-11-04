@@ -3,10 +3,10 @@
 // golang-migrate applied (its table `schema_migrations`) without running
 // them. After it, `up` runs only the newer ones.
 import {
-    std/io
-    std/sql
+    std::io
+    std::sql
     migrate
-    migrate/tools/internal/cli.{self, Options}
+    migrate::tools::internal::cli.{self, Options}
 }
 
 struct App {

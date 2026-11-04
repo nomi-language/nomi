@@ -8,7 +8,7 @@ func TestIRRangeInAPreludeWrapper_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     io.inspect(Some(1..=4))
@@ -32,7 +32,7 @@ func TestIRContainerOfCollectionsInAPreludeWrapper_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 struct Board {
     rows: Maybe<Vector<Vector<Int>>>

@@ -19,8 +19,8 @@ import a file, import single items from it, and rename what you import:
 
 ```nomi-run
 import {
-    std/calendar.Date.parse
-    std/io as console
+    std::calendar.Date.parse
+    std::io as console
 }
 
 fn main() {
@@ -40,11 +40,12 @@ abcd
 Ok(2026-05-27)
 -->
 
-- `std/io` imports the file `std/io`. You then reach its functions through
-  `io`, as in [`io.print`](/reference/io/#ioprint).
-- `std/calendar.Date.parse` imports the function `parse` from the type `Date`.
+- `std::io` imports the file `io` in the standard library, `std`. A path
+  joins its parts with `::`. You then reach the file's functions through its
+  last part, `io`, as in [`io.print`](/reference/io/#ioprint).
+- `std::calendar.Date.parse` imports the function `parse` from the type `Date`.
   You then call it as plain `parse`.
-- `as console` renames what you import. Here `std/io` is reached as `console`
+- `as console` renames what you import. Here `std::io` is reached as `console`
   instead of `io`. Use this when a name clashes with one you already have.
 - `String`, `Iter`, `List`, `Map` and the other prelude types need no import.
 
@@ -62,7 +63,7 @@ import shape.Shape.{self, Circle, Rectangle}
 ```
 
 That imports `Shape`, `Circle` and `Rectangle`. `self` means whatever is
-before the `.{`. So `import std/calendar.{self, Date}` imports both the file
+before the `.{`. So `import std::calendar.{self, Date}` imports both the file
 `calendar` and the type `Date`.
 
 <div class="tour-details">
@@ -71,12 +72,14 @@ before the `.{`. So `import std/calendar.{self, Date}` imports both the file
 - An imported name nothing uses is an error, item by item:
   `imported name 'Months' is unused — remove it from the import`.
 - Importing a name the prelude already gives you is an error too:
-  `import std/iter.Iter` is
+  `import std::iter.Iter` is
   `imported name 'Iter' is already in scope from the prelude — remove it from the import`.
 - A variant comes in through its enum: `import shape.Circle` is an error
   that suggests `import shape.Shape.{Circle}`.
-- Braces select names from one file. `import std/{io, regex.Regex}` is an
+- Braces select names from one file. `import std::{io, regex.Regex}` is an
   error, and `import std` alone names no file.
+- A path is written with `::`, never `/`: `import std/io` is the error
+  ``import paths use `::`: write `std::io` ``.
 - Imports come first in a file. An import at the top of a block binds its
   names in that block only.
 
@@ -115,8 +118,8 @@ more `.nomi` files.
 
 Files in a module import each other by their path from the module's
 directory, without `.nomi`. A file in the same directory is imported by its
-name (`math`). A file in a subdirectory is imported by its path
-(`http/header`).
+name (`math`). A file in a subdirectory is imported by its path, with `::`
+between directories (`http::header`).
 
 The next example is a small module with two `.nomi` files and a `nomi.toml`.
 In a real project, the three files would sit side by side in one directory.
@@ -129,7 +132,7 @@ pub fn double(n: Int) -> Int {
 
 // FILE: main.nomi
 import {
-    std/io
+    std::io
     math
 }
 
@@ -155,6 +158,74 @@ that directory's parent. `a/internal/x.nomi` is open to `a/` and below; an
 `internal/` at the module root is open to the whole module and closed to other
 modules.
 
+## Short names and full paths
+
+A file is used by its short name, the last part of its path: after
+`import db::posts`, you call `posts.post_by_id(1)`. Its full path works too,
+anywhere the short name does: `db::posts.post_by_id(1)`, a type
+`db::posts.Post`, a pattern, a struct literal.
+
+Write the full path only where the short name is taken. Two imports may share
+one, and a local or a declaration of the file may have it. Here two files are
+both `notifications`, and a function is called `users`:
+
+```nomi-run
+// FILE: db/notifications.nomi
+pub fn pending() -> Int {
+    3
+}
+
+// FILE: jobs/notifications.nomi
+pub fn pending() -> Int {
+    7
+}
+
+// FILE: views/users.nomi
+pub fn heading() -> String {
+    "Users"
+}
+
+// FILE: main.nomi
+import {
+    std::io
+    db::notifications
+    jobs::notifications
+    views::users
+}
+
+fn users() -> List<String> {
+    ["ada", "grace"]
+}
+
+fn main() {
+    io.print(db::notifications.pending() + jobs::notifications.pending())
+    io.print("${views::users.heading()}: ${users()}")
+}
+
+// FILE: nomi.toml
+[module]
+name = "app"
+entry_points = ["main"]
+```
+<!-- expect
+10
+Users: [ada, grace]
+-->
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- Using a short name two imports share is an error at the use:
+  `` `notifications` could be db::notifications or jobs::notifications; write the full path ``.
+- A full path names a file the file imports. `db::other.f()` with no
+  `import db::other` is the error `` `db::other` is not imported ``.
+- A file at the module root has a one-part path. Import it with the module's
+  name in front, `import app::users`, to get a full path for it.
+
+Spec: [Short names and full paths](/spec/files-modules-and-imports/#short-names-and-full-paths).
+
+</div>
+
 ## Visibility
 
 A declaration at the top of a file is private unless you mark it `pub`. Only
@@ -174,7 +245,7 @@ fn helper(n: Int) -> Int {
 
 // FILE: main.nomi
 import {
-    std/io
+    std::io
     math
 }
 
@@ -260,7 +331,7 @@ impl UserId {
 
 // FILE: main.nomi
 import {
-    std/io
+    std::io
     ids.UserId
 }
 
@@ -314,17 +385,17 @@ from several files, so its users import from one place:
 
 ```nomi
 // Re-export an imported type: files that import this one see `Parser`.
-pub import other/parser.Parser
+pub import other::parser.Parser
 
 // Re-export several items at once.
-pub import std/io.{print, write}
+pub import std::io.{print, write}
 
 // An alias is the name consumers see: `parse_source`, not `parse`.
-pub import other/parser.parse as parse_source
+pub import other::parser.parse as parse_source
 
 // A block re-exports every entry.
 pub import {
-    std/comparable.Ordering
+    std::comparable.Ordering
     calc.{add, subtract}
 }
 ```
@@ -337,8 +408,8 @@ So when a file you import gains a new public name, your file's API doesn't
 change. You can only re-export an item that is already `pub` where it is
 declared.
 
-You can re-export items, but not a whole file. `pub import other/parser` is
-an error. List the items your users need, or have them import `other/parser`
+You can re-export items, but not a whole file. `pub import other::parser` is
+an error. List the items your users need, or have them import `other::parser`
 themselves.
 
 `pub import` works only on imported names. A new name given with `as` must be
@@ -351,7 +422,7 @@ small function that calls it.
 <p class="tour-details-label">Fine print</p>
 
 - `self` after a type re-exports the type:
-  `pub import std/bool.Bool.{self, False, True}` is allowed. `self` after a
+  `pub import std::bool.Bool.{self, False, True}` is allowed. `self` after a
   file would re-export the file, which is an error.
 - A file that a facade imports is not one of the facade's items.
   `import facade.{leaf}` is an error that says to import `leaf` directly.
@@ -392,7 +463,7 @@ function `greet` from `shared`'s file `shared.nomi`. Change the greeting in
 ```nomi-run
 // FILE: app/main.nomi
 import {
-    std/io
+    std::io
     shared.greet
 }
 
@@ -435,7 +506,7 @@ Hello, Ada!
 
 To import a dependency's files, start the path with its short name, the
 `name` in its `nomi.toml`. If `somelib`'s `nomi.toml` says
-`name = "somelib"`, then `import somelib/parse` imports its file
+`name = "somelib"`, then `import somelib::parse` imports its file
 `parse.nomi`. `import somelib` alone imports the file at its root that has
 the module's name, `somelib.nomi`. If your own module also has a file
 named `somelib.nomi`, the import still means the dependency's file.
@@ -470,7 +541,7 @@ write `impl Multiply<Rate, Decimal> for Decimal`, and then `price * rate`
 works:
 
 ```nomi-run
-import std/io
+import std::io
 
 struct Rate {
     per_unit: Decimal

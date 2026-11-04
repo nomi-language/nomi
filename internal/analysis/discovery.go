@@ -70,7 +70,7 @@ func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, load
 // discoverProject is DiscoverProjectWithManifest that neither loads nor walks
 // a file whose key analyzed reports: one the caller already holds an
 // analysis of. A build against the shared stdlib passes the stdlib modules it
-// was handed, so `import std/io` resolves to that analysis
+// was handed, so `import std::io` resolves to that analysis
 // (resolveStdlibImport) instead of parsing and analyzing std/io and every
 // module it imports again for each program. Nil walks every file.
 //
@@ -116,7 +116,7 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 	// program needs stdlib; making users write `require std v0.0.0`
 	// is ceremony with no information value); the compiler locates
 	// the bundled stdlib at process start via StdlibPath() and
-	// pretends it was require'd. After this, `import std/strings`
+	// pretends it was require'd. After this, `import std::strings`
 	// resolves through the same b.moduleIndex path as any other
 	// cross-module import — no special-case skipping below, no
 	// std.Load() parallel pipeline. Injection failure (no bundled
@@ -162,7 +162,7 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 		}
 		modPath = ShortNameImport(modPath, p.ModuleIndex, currentModuleName)
 		key := strings.Join(modPath, "/")
-		// Self-name reference: `import todo/foo` from within todo is
+		// Self-name reference: `import todo::foo` from within todo is
 		// the same as `import foo` — strip the head and resolve
 		// against the current root. The cache key follows what the
 		// builder sees (the bare-name form), so a self-name import
@@ -330,7 +330,7 @@ func importStmtPath(stmt *ast.ImportStmt) []string {
 }
 
 // SelfNameImport reports whether modPath names a file of the current module
-// through the module's own name (`import todo/foo` inside module `todo`), and
+// through the module's own name (`import todo::foo` inside module `todo`), and
 // answers the path within the module (`foo`). An import that is the module
 // name alone (`import thing` inside module `thing`) is not one: a module is a
 // directory, not a file, so that path names the file `thing.nomi` at the
@@ -344,7 +344,7 @@ func SelfNameImport(modPath []string, currentModuleName string) ([]string, bool)
 
 // ShortNameImport answers the path an import written as another module's
 // short name alone names: the file of that name at the module's root, so
-// `import sqlite` is `import sqlite/sqlite` when module `sqlite` holds
+// `import sqlite` is `import sqlite::sqlite` when module `sqlite` holds
 // sqlite.nomi (spec §14). Any other path, a module without such a file, the
 // standard library and the current module's own name are answered as
 // written.

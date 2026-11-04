@@ -409,20 +409,20 @@ func TestListComment_BreaksAListWrittenFlat(t *testing.T) {
 func TestListComment_ImportSelector(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{
-			"import std/comparable.{\n    // the first\n    Comparable,\n    Ordering, // the second\n}\n",
-			"import std/comparable.{\n    // the first\n    Comparable,\n    Ordering, // the second\n}\n",
+			"import std::comparable.{\n    // the first\n    Comparable,\n    Ordering, // the second\n}\n",
+			"import std::comparable.{\n    // the first\n    Comparable,\n    Ordering, // the second\n}\n",
 		},
 		{
-			"import std/comparable.{Ordering, // the second\n    Comparable}\n",
-			"import std/comparable.{\n    Comparable,\n    Ordering, // the second\n}\n",
+			"import std::comparable.{Ordering, // the second\n    Comparable}\n",
+			"import std::comparable.{\n    Comparable,\n    Ordering, // the second\n}\n",
 		},
 		{
-			"import std/maybe.Maybe.{\n    self,\n    // the variant\n    Some,\n}\n",
-			"import std/maybe.Maybe.{\n    self,\n    // the variant\n    Some,\n}\n",
+			"import std::maybe.Maybe.{\n    self,\n    // the variant\n    Some,\n}\n",
+			"import std::maybe.Maybe.{\n    self,\n    // the variant\n    Some,\n}\n",
 		},
 		{
-			"import std/comparable.{\n    Comparable, // the first\n}\nimport std/comparable.Ordering\n",
-			"import std/comparable.{\n    Comparable, // the first\n    Ordering,\n}\n",
+			"import std::comparable.{\n    Comparable, // the first\n}\nimport std::comparable.Ordering\n",
+			"import std::comparable.{\n    Comparable, // the first\n    Ordering,\n}\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

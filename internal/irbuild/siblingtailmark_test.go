@@ -79,7 +79,7 @@ const siblingTailLib = `pub fn down(n: Int, acc: Int) -> Int {
 // siblingTailEntry imports the library and calls into it, which is what puts
 // lib.nomi in the program's import graph as a SIBLING.
 const siblingTailEntry = `import {
-  std/io
+  std::io
   lib
 }
 

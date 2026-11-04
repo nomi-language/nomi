@@ -36,14 +36,14 @@ import {
 }
 
 /// The SHA-256 digest of `data`: 32 bytes.
-//! import std/hash
+//! import std::hash
 //!
 //! assert Bytes.length(hash.sha256(String.to_bytes(""))) == 32
 //
 pub host fn sha256(data: Bytes) -> Bytes
 
 /// The SHA-256 digest of `data` as 64 lowercase hexadecimal digits.
-//! import std/hash
+//! import std::hash
 //!
 //! assert hash.sha256_hex(String.to_bytes(""))
 //!     == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -56,14 +56,14 @@ pub fn sha256_hex(data: Bytes) -> String {
 }
 
 /// The SHA-512 digest of `data`: 64 bytes.
-//! import std/hash
+//! import std::hash
 //!
 //! assert Bytes.length(hash.sha512(String.to_bytes(""))) == 64
 //
 pub host fn sha512(data: Bytes) -> Bytes
 
 /// The SHA-512 digest of `data` as 128 lowercase hexadecimal digits.
-//! import std/hash
+//! import std::hash
 //!
 //! assert hash.sha512_hex(
 //!     String.to_bytes("")
@@ -82,7 +82,7 @@ pub fn sha512_hex(data: Bytes) -> String {
 /// original URLs. It is broken for security, since anyone can make two
 /// inputs with the same digest; to tell whether data was changed, use
 /// `sha256`, and to sign it, `hmac_sha256`.
-//! import std/hash
+//! import std::hash
 //!
 //! assert Bytes.length(hash.md5(String.to_bytes(""))) == 16
 //
@@ -90,7 +90,7 @@ pub host fn md5(data: Bytes) -> Bytes
 
 /// The MD5 digest of `data` as 32 lowercase hexadecimal digits, the form
 /// `md5sum` prints. Not for security; see `md5`.
-//! import std/hash
+//! import std::hash
 //!
 //! // RFC 1321, appendix A.5.
 //! assert hash.md5_hex(String.to_bytes("")) == "d41d8cd98f00b204e9800998ecf8427e"
@@ -98,7 +98,7 @@ pub host fn md5(data: Bytes) -> Bytes
 //!
 //! assert hash.md5_hex(String.to_bytes("message digest")) == "f96b697d7cb7938d525a2f31aaf161d0"
 //
-//! import std/hash
+//! import std::hash
 //!
 //! // A Gravatar URL can name the MD5 of the trimmed, lowercased email.
 //! email = "  Ada@Example.com "
@@ -113,7 +113,7 @@ pub fn md5_hex(data: Bytes) -> String {
 /// formats that still name it, such as Git object names and older
 /// checksums. It is broken for security, since two inputs with the same
 /// digest have been made; to tell whether data was changed, use `sha256`.
-//! import std/hash
+//! import std::hash
 //!
 //! assert Bytes.length(hash.sha1(String.to_bytes(""))) == 20
 //
@@ -121,7 +121,7 @@ pub host fn sha1(data: Bytes) -> Bytes
 
 /// The SHA-1 digest of `data` as 40 lowercase hexadecimal digits, the form
 /// `sha1sum` prints. Not for security; see `sha1`.
-//! import std/hash
+//! import std::hash
 //!
 //! // FIPS 180 examples.
 //! assert hash.sha1_hex(String.to_bytes("")) == "da39a3ee5e6b4b0d3255bfef95601890afd80709"
@@ -137,7 +137,7 @@ pub fn sha1_hex(data: Bytes) -> String {
 /// The HMAC-SHA256 of `data` under `key` (RFC 2104): 32 bytes. The same
 /// key and data always give the same MAC, and a different key a different
 /// one.
-//! import std/hash
+//! import std::hash
 //!
 //! message = String.to_bytes("order 42")
 //! mac = hash.hmac_sha256(String.to_bytes("key"), message)
@@ -145,8 +145,8 @@ pub fn sha1_hex(data: Bytes) -> String {
 //! assert mac == hash.hmac_sha256(String.to_bytes("key"), message)
 //! assert mac != hash.hmac_sha256(String.to_bytes("other key"), message)
 //
-//! import std/hash
-//! import std/hex
+//! import std::hash
+//! import std::hex
 //!
 //! // RFC 4231, test cases 1 and 2.
 //! key = hex.decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b")!
@@ -163,13 +163,13 @@ pub fn sha1_hex(data: Bytes) -> String {
 pub host fn hmac_sha256(key: Bytes, data: Bytes) -> Bytes
 
 /// The HMAC-SHA512 of `data` under `key` (RFC 2104): 64 bytes.
-//! import std/hash
+//! import std::hash
 //!
 //! mac = hash.hmac_sha512(String.to_bytes("key"), String.to_bytes("order 42"))
 //! assert Bytes.length(mac) == 64
 //
-//! import std/hash
-//! import std/hex
+//! import std::hash
+//! import std::hex
 //!
 //! // RFC 4231, test cases 1 and 2.
 //! key = hex.decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b")!
@@ -191,7 +191,7 @@ pub host fn hmac_sha512(key: Bytes, data: Bytes) -> Bytes
 /// their lengths. Compare a MAC or a token with this, not `==`: `==` stops at
 /// the first byte that differs, and its timing tells an attacker how many
 /// leading bytes of a guess were right.
-//! import std/hash
+//! import std::hash
 //!
 //! key = String.to_bytes("key")
 //! sent = hash.hmac_sha256(key, String.to_bytes("order 42"))

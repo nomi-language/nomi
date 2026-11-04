@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // `Set<T>` — the first GENERIC stdlib STRUCT to be lowered, and the surface that
 // lets two independently-derived facts about it contradict each other.

@@ -51,8 +51,8 @@ pub struct RunFile {
 
 /// Checks `source` as a standalone Nomi entry file and returns every
 /// diagnostic as data.
-//! import std/compiler
-//! import std/strings.String
+//! import std::compiler
+//! import std::strings.String
 //!
 //! diagnostics = compiler.check(
 //!     """
@@ -75,8 +75,8 @@ pub host fn check(source: String) -> List<Diagnostic>
 /// out while `main` blocks; output printed before it is not returned.
 /// Use `compiler.check` when the diagnostic itself is the behavior under
 /// test; use `compiler.run` when output is the behavior under test.
-//! import std/compiler
-//! import std/strings.String
+//! import std::compiler
+//! import std::strings.String
 //!
 //! case compiler.run(
 //!     """
@@ -100,7 +100,7 @@ pub host fn run_file(run: RunFile) -> Result<String, String>
 /// The marker is removed before parsing. Use it only in compiler/editor tests,
 /// where it marks the cursor position without making the fixture depend on
 /// line and column numbers.
-//! import std/compiler
+//! import std::compiler
 //!
 //! hover = compiler.hover(
 //!     """
@@ -116,8 +116,8 @@ pub host fn run_file(run: RunFile) -> Result<String, String>
 pub host fn hover(source: String) -> Result<Hover, String>
 
 /// Checks an in-memory project and returns every diagnostic as data.
-//! import std/compiler
-//! import std/strings.String
+//! import std::compiler
+//! import std::strings.String
 //!
 //! diagnostics = compiler.check_project(Project{
 //!     entry_point: "main",

@@ -18,7 +18,7 @@ import (
 
 // The spec's own example: a `once` whose initializer is a loop.
 func TestIRLoopInInitializer_OnceSpecProgram(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 once total = Iter.loop(0, fn i -> {
     if i > 3 { break i * 10 }
@@ -36,9 +36,9 @@ fn main() {
 // and every reader sees the same value. A `once` holding a lambda with a
 // loop runs the loop on each call.
 func TestIRLoopInInitializer_OnceRunsOnceUnderTasks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
-import std/io
-import std/tasks.Task
+	verifyLambdaProgram(t, `import std::channels.{Channel, Receiver, Sender}
+import std::io
+import std::tasks.Task
 
 once total = {
     io.print("forcing total")
@@ -85,8 +85,8 @@ fn main() {
 // three exits. A default another file fills (a parameter default reading an
 // earlier parameter, and a field default) lowers its loop in its accessor.
 func TestIRLoopInInitializer_BootAndOtherFileDefaults(t *testing.T) {
-	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
-import std/io
+	verifyLambdaProgram(t, `import std::channels.{Channel, Receiver, Sender}
+import std::io
 import lib
 
 pub struct App {
@@ -144,7 +144,7 @@ pub fn pick(a: Int = 1, k: Int = Iter.loop(a, fn i -> {
 
 // Defaults in the caller's own file lower at the call, in the caller's body.
 func TestIRLoopInInitializer_SameFileDefaults(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Cfg {
     n: Int = Iter.loop(0, fn i -> {
@@ -172,7 +172,7 @@ fn main() {
 // setup builds.
 func TestIRLoopInInitializer_GroupBootAndSetup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "loop_test.nomi")
-	src := `import std/io
+	src := `import std::io
 
 pub struct App {
     context: Context

@@ -12,7 +12,7 @@ import (
 // no value for the IR builder to read, and `io.print(...)` or an undefined
 // name was dropped silently.
 func TestFileLevelStatement_IsAnErrorAtTheStatement(t *testing.T) {
-	errs := checkWithStdlib(`import std/io
+	errs := checkWithStdlib(`import std::io
 
 x = 3
 _ = 4

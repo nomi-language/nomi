@@ -17,7 +17,7 @@ const defaultSelfBoundScale = `interface Scale {
 `
 
 func TestDefaultSelfBound_Runs(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": "import std/io\n\n" + defaultSelfBoundScale + `
+	got := runSiblingProgram(t, map[string]string{"main.nomi": "import std::io\n\n" + defaultSelfBoundScale + `
 type Shown Int
 
 impl Display for Shown {
@@ -66,7 +66,7 @@ fn main() {
 // Inside the default, each bound in `where self: A and B` holds of `self`:
 // interpolation, a call, a list of `self` and an ordering operator.
 func TestDefaultSelfBound_SeveralBoundsRun(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 interface Scale {
     fn c(scale: self) -> String where self: Display and Hashable and Comparable {
@@ -105,7 +105,7 @@ fn main() {
 // A default that uses only its own interface's functions and Debug needs no
 // bound, and a marker interface still bounds a generic function.
 func TestDefaultSelfBound_UnboundedDefaultsStayAdmitted(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 interface Named {
     fn name(n: self) -> String
@@ -142,7 +142,7 @@ fn main() {
 }
 
 func TestDefaultSelfBound_ImplWithoutTheBoundMustWriteTheFunction(t *testing.T) {
-	rejects(t, "import std/io\n\n"+defaultSelfBoundScale+`
+	rejects(t, "import std::io\n\n"+defaultSelfBoundScale+`
 type Plain Int
 
 impl Scale for Plain {
@@ -162,7 +162,7 @@ fn main() {
 // An implementor that has the bound gets the default, and the default is
 // final unless it is `open`.
 func TestDefaultSelfBound_ImplWithTheBoundCannotOverrideAFinalDefault(t *testing.T) {
-	rejects(t, "import std/io\n\n"+defaultSelfBoundScale+`
+	rejects(t, "import std::io\n\n"+defaultSelfBoundScale+`
 type Shown Int
 
 impl Display for Shown {

@@ -112,7 +112,7 @@ my_project/
   app.nomi           # declares fn main; `import math` works
   math.nomi          # import path `math`
   models/
-    user.nomi        # import path `models/user`
+    user.nomi        # import path `models::user`
 ```
 
 ```sh
@@ -148,7 +148,7 @@ A compiled program (`.nomic`) has no source to watch and is refused.
 ```console
 $ cat hi.nomi
 #!/usr/bin/env nomi
-import std/io
+import std::io
 
 fn main() {
     io.print("hi")
@@ -388,7 +388,7 @@ path under the catalog directory, in a directory per locale, so
 `shop/cart.nomi`'s Polish catalog is `locales/pl/shop/cart.toml`. Each
 locale in `locales` must have every message, and a locale in
 `partial_locales` may leave any out. What a catalog holds is in
-[std/message](/reference/message/).
+[std::message](/reference/message/).
 
 `nomi messages accept <locale> <message>` marks a locale's translation of a
 message current: it records the message's text as it is now as the source
@@ -398,7 +398,7 @@ one of that name.
 
 ### `[money]`
 
-`nomi.toml`'s `[money]` table lists the custom currencies ([std/currency](/reference/currency/)) the
+`nomi.toml`'s `[money]` table lists the custom currencies ([std::currency](/reference/currency/)) the
 module's source may write as a literal:
 
 ```toml
@@ -723,8 +723,52 @@ by one.
 typed (`Html"..."`) or not, stays on its line however long. A triple-quoted
 one written on one line, `Html"""<i>${n}</i>"""`, stays on one line when it
 fits, and is framed, its body on lines of its own, when it does not. A
-`${...}` whose expression spans lines, in a triple-quoted body, is laid out
-from the column of its `${`, so its lines stay with the text around it.
+framed triple-quoted or multi-line backtick string's body and closing
+delimiter share one indent, taken from the line the opening delimiter is
+on. A literal that starts its line (a statement, a function's result, an
+argument on a line of its own) puts them at that line's indent:
+
+```nomi
+fn footer() -> Html {
+    Html"""
+    <footer class="site">
+      <p>Made with Nomi</p>
+    </footer>
+    """
+}
+```
+
+A literal that follows code on its line (after a binding's `=`, a struct
+field's `:`, a map entry's `=>`, a case arm's or lambda's `->`, `return`,
+or a declaration's header) puts them one level in, the way a broken
+pipeline continues after `=`:
+
+```nomi
+fn page(name: String, avatar: Maybe<String>) -> Html {
+    title = Html"""
+        <h1>${name}</h1>
+        """
+
+    case avatar {
+        Some(url) -> Html"""
+            ${title}
+            <img src="${url}" alt="">
+            """
+
+        None ->
+            title
+    }
+}
+```
+
+A case arm's or a lambda's literal stays on the `->` line. `nomi fmt` moves
+a body written at another indent to this one, with its closing delimiter,
+so the lines keep their nesting relative to each other and the string's
+value is unchanged. A
+`${...}` written on one line stays on one line, however long the line of
+text around it, since that text cannot break either. One whose expression
+spans lines, in a triple-quoted body, is laid out from the column of its
+`${`, so its lines stay with the text around it.
 `nomi fmt` never changes the text of a string, a template's markup
 included.
 
@@ -746,8 +790,10 @@ way ([below](implementation-notes.md#formatter-a-line-break-after-a-literals-ope
 
 **`case` arms.** When every arm fits on one line as `pattern -> body` and no
 body is a block, the arms sit on consecutive lines. Otherwise every arm
-breaks: a block body keeps `-> {` on the pattern's line, any other body goes
-on the next line one indent in, and one blank line separates every two arms.
+breaks: a block body keeps `-> {` on the pattern's line, and so does a
+triple-quoted body its `"""`, any other body goes on the next line one indent
+in, and one blank line separates every two arms. A triple-quoted body breaks
+the arms as a block does.
 Blank lines the source put between arms are ignored, and a comment stays
 above its arm.
 
@@ -764,9 +810,9 @@ one type lose the blank lines between them. A test group's `clock`, `boot`
 and `setup` move to the top of the group in that order.
 
 **Imports.** A file's or block's imports are combined into one `import { …
-}` block sorted with `std/` paths first, and a lone import stays bare.
+}` block sorted with `std::` paths first, and a lone import stays bare.
 Separate `import` lines of one path merge into a selector list
-(`import std/calendar.{Date, Months}`); two entries of one block do not. A
+(`import std::calendar.{Date, Months}`); two entries of one block do not. A
 comment line between two `import` statements keeps them apart, and each side
 is combined and sorted on its own. A file with both writes an `import` block
 and then a `pub import` block. An import inside a block moves to the top of
@@ -777,7 +823,8 @@ test body does is removed, including the last expression of each branch of a
 tail `if` and each arm of a tail `case`. A bare `return` at the end of a
 `Unit` body goes when an expression statement comes before it. In a test
 body, a tail `if` or `case` keeps its `return value`s, since its branches'
-values need not share a type there.
+values need not share a type there. A tail `if` with no final `else` keeps
+its `return value`s too, since its branches' values are wrapped in `Some`.
 
 **Struct literals and anonymous struct types** are kept on one line when
 short and broken one field per line, each with a comma, when long
@@ -829,7 +876,7 @@ A prebuilt `nomi-vm` must come from the same commit as `nomi`. Both carry it in 
 Two kinds of program still need Go, which builds their own `nomi-vm` from the compiler module at the release's version:
 
 - a project with Go FFI bindings, whose `nomi-vm` links them;
-- a program importing `std/compiler`, whose `nomi-vm` links the front end and is not shipped.
+- a program importing `std::compiler`, whose `nomi-vm` links the front end and is not shipped.
 
 That Go is the `go` on `PATH`, or, with none, the Go release `nomi` was built with, which `nomi` downloads ([The Go toolchain](#the-go-toolchain)), so neither needs Go installed.
 
@@ -850,13 +897,13 @@ The `js/wasm` build keeps the browser build's limits: its file system is in memo
 
 ### Capability classes
 
-A std host function that acts outside the program in a way some target cannot has a capability class: `files` for std/fs's, `processes` for std/process's, `network` for std/http's requests, `connect` for std/net's and std/tls's dials and std/net's lookups, and `listen` for a server or listener. Every target has `files`, a `js/wasm` module's in memory. A `js/wasm` module sends HTTP requests through the browser's `fetch` but cannot open other connections, start programs or serve; a `wasip1/wasm` module has none of the four.
+A std host function that acts outside the program in a way some target cannot has a capability class: `files` for std::fs's, `processes` for std::process's, `network` for std::http's requests, `connect` for std::net's and std::tls's dials and std::net's lookups, and `listen` for a server or listener. Every target has `files`, a `js/wasm` module's in memory. A `js/wasm` module sends HTTP requests through the browser's `fetch` but cannot open other connections, start programs or serve; a `wasip1/wasm` module has none of the four.
 
 `nomi build` walks what `main`, the boot and the exported functions can reach, and refuses a program that reaches a call of a class its target lacks. It writes nothing and lists each call in the program's own code that reaches the class, at that call: the std function it calls (`fs.read_text`), the host function that one reaches (`fs_host.read_text`), and the functions the call is reached through. A hint follows, to build for another target or pass `--allow-unsupported <class>`.
 
 The walk counts a call in a branch the program never takes, so `--allow-unsupported <class>` (repeatable) builds anyway. Such a call answers `Err(io.Error.Unsupported{operation, target})` when it runs; it never traps. `--no-vm` names no target and is not checked.
 
-A project with Go bindings is checked the same way, over the std calls it reaches. A Go binding itself carries no class: what a bound Go function does is opaque to the compiler, and whether its package builds for the target is Go's answer (above). A bound function that reads a file in a `js/wasm` module reaches Go's in-memory file system there, as std/fs's calls do.
+A project with Go bindings is checked the same way, over the std calls it reaches. A Go binding itself carries no class: what a bound Go function does is opaque to the compiler, and whether its package builds for the target is Go's answer (above). A bound function that reads a file in a `js/wasm` module reaches Go's in-memory file system there, as std::fs's calls do.
 
 `nomi build --web` of a program that reaches `files` prints one line, `` nomi build --web: this program uses files; in the browser it sees only the files run's "files" option gives it ``.
 
@@ -875,17 +922,17 @@ A `.nomic` file is a header followed by the program's image:
 |---|---|---|
 | 0 | 8 | Magic: the bytes `NOMIC` and three zero bytes |
 | 8 | 4 | The program format version, a little-endian u32 |
-| 12 | 4 | Flags, a little-endian u32. Bit 0: the program imports `std/compiler`. Every other bit is zero. |
+| 12 | 4 | Flags, a little-endian u32. Bit 0: the program imports `std::compiler`. Every other bit is zero. |
 | 16 | 2 | `n`, the length of the next field, a little-endian u16 |
 | 18 | `n` | The version of `nomi` that wrote it, in UTF-8, as `nomi --version` names it (the commit, or for a release, the tag and the commit) |
 | 18 + `n` | 8 | `L`, the image's length, a little-endian u64 |
 | 26 + `n` | `L` | The image, the same bytes `nomi build` appends to `nomi-vm` |
 
-`nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. `--no-network` writes the smaller `nomi-vm` that `nomi build` uses for a program that never uses std/http, std/net or std/tls: it runs any other program, and refuses one that reaches the network before running it. It comes from where `nomi build` gets one, so a release needs no Go toolchain for it. For `js/wasm` it also writes the matching `wasm_exec.js` beside it. For `wasip1/wasm` it writes the command module.
+`nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. `--no-network` writes the smaller `nomi-vm` that `nomi build` uses for a program that never uses std::http, std::net or std::tls: it runs any other program, and refuses one that reaches the network before running it. It comes from where `nomi build` gets one, so a release needs no Go toolchain for it. For `js/wasm` it also writes the matching `wasm_exec.js` beside it. For `wasip1/wasm` it writes the command module.
 
 `nomi build-vm --reactor [--compiler] [--no-network] [-o <out>]` writes `nomi-vm-reactor` with no program instead (`nomi-vm-reactor.wasm` by default), which takes its program through `nomi_load` ([Calling exported functions](#calling-exported-functions)). It writes `nomi-wasi.js` and `nomi-wasi.d.ts` beside it, the JavaScript host that runs it in a browser or Node, creating the folder they go in if it does not exist. The reactor exists only for `wasip1/wasm`, so that is its target, and `--target` with any other value is a usage error.
 
-`nomi build-vm` takes no program file, and neither form takes `nomi build`'s `--no-vm`, `--web` or `--static`: a program with an `export fn` built with `nomi build --target wasip1/wasm` is already a reactor with that program inside it. `--compiler` writes the `nomi-vm` or reactor that links `std/compiler`'s hosts, which a compiled program importing `std/compiler` needs, and which needs Go to build.
+`nomi build-vm` takes no program file, and neither form takes `nomi build`'s `--no-vm`, `--web` or `--static`: a program with an `export fn` built with `nomi build --target wasip1/wasm` is already a reactor with that program inside it. `--compiler` writes the `nomi-vm` or reactor that links `std::compiler`'s hosts, which a compiled program importing `std::compiler` needs, and which needs Go to build.
 
 A `nomi-vm` with no program of its own takes one when it starts:
 
@@ -902,9 +949,9 @@ Given a path, it reads the `.nomic` file there and passes the words after the pa
 - A `nomi-vm` whose terminal is its standard input, or whose standard input is empty or not a `.nomic` file, prints its usage. A word starting with `-` other than these is a usage error.
 - A `nomi-vm` that `nomi build` appended a program to runs that program and treats every argument as the program's, so `./app --version` passes `--version` to `app`.
 
-`nomi-vm` refuses a compiled program whose format version differs from the one it reads, before it runs anything: `` app.nomic was written by nomi v0.4.0 in program format 17, and this nomi-vm (nomi v0.5.0) reads format 18 ``, followed by how to fix it. Programs written by different versions of `nomi` in the same format run. It also refuses a program with a flag it does not know, and a program importing `std/compiler` when it does not link that module's hosts. A damaged or truncated file is an error naming it. All of these, and every usage error, exit 1, as a failed program does.
+`nomi-vm` refuses a compiled program whose format version differs from the one it reads, before it runs anything: `` app.nomic was written by nomi v0.4.0 in program format 17, and this nomi-vm (nomi v0.5.0) reads format 18 ``, followed by how to fix it. Programs written by different versions of `nomi` in the same format run. It also refuses a program with a flag it does not know, and a program importing `std::compiler` when it does not link that module's hosts. A damaged or truncated file is an error naming it. All of these, and every usage error, exit 1, as a failed program does.
 
-`nomi run <file.nomic> [args...]` runs a compiled program in the `nomi` process, as `nomi-vm` would, with `std/compiler`'s hosts linked. `nomi run` recognizes a `.nomic` file by its first eight bytes, whatever its name.
+`nomi run <file.nomic> [args...]` runs a compiled program in the `nomi` process, as `nomi-vm` would, with `std::compiler`'s hosts linked. `nomi run` recognizes a `.nomic` file by its first eight bytes, whatever its name.
 
 ### A program in the browser
 
@@ -927,7 +974,7 @@ The static files are the files of a `web/` folder: the one at the root of the pr
 - A rebuild replaces only the generated files and the static files it copies. Anything else in the output folder stays, such as a host's `_headers`, and so does a file copied by an earlier build whose source has since been deleted from `web/`.
 - A rebuild removes each locale file an earlier build wrote that it does not write. It also removes a `wasm_exec.js`, `nomi-web.js` or `nomi-worker.js` whose contents are exactly what an older `nomi build --web` wrote there, and leaves a file of that name with any other contents. A static file may have one of those names, and is copied like any other.
 
-`--static` without `--web` is a usage error, and so is `--web` with a `--target` other than `js/wasm`. A project with Go bindings builds: `app.wasm` is its own `nomi-vm`, with the bound Go packages linked in, built for `js/wasm` as `--target js/wasm` builds it ([Executables](#executables)), and a bound package that does not build for `js/wasm` is an error at its `gopkg`. A program importing `std/compiler` builds, and its `app.wasm` is larger because its `nomi-vm` links the front end; `nomi build` says how to serve a module over 20 MB.
+`--static` without `--web` is a usage error, and so is `--web` with a `--target` other than `js/wasm`. A project with Go bindings builds: `app.wasm` is its own `nomi-vm`, with the bound Go packages linked in, built for `js/wasm` as `--target js/wasm` builds it ([Executables](#executables)), and a bound package that does not build for `js/wasm` is an error at its `gopkg`. A program importing `std::compiler` builds, and its `app.wasm` is larger because its `nomi-vm` links the front end; `nomi build` says how to serve a module over 20 MB.
 
 A page runs the program with `run`:
 
@@ -959,7 +1006,7 @@ const { exitCode, fatal } = await run("./app.wasm", {
 
 The exit code is `nomi run`'s: 0, an `Exit`'s code (spec §15 *Entry callbacks*), or 1 for a `main` returning any other `Err`, a trap or a failed assertion. When the Go runtime stops (an allocation past the 1 GiB cap, a deadlock), the run resolves with exit code 2 and Go's own line, such as `fatal error: out of memory`, as `fatal`.
 
-The browser build's limits apply as under `--target js/wasm`: the program's file system is in memory ([std/fs](/reference/fs/)), a call nests at most 1,000 deep, and no signal arrives. The file system starts with the files `files` gives, by path from its working directory `/work`. The run resolves with `files`, every file in it when the program ended, by the same paths (absolute for a file outside `/work`); a run stopped by `timeoutMs` or `signal` has no `files`. The clock, `std/random`, tasks, channels and `sleep` work. Tasks share the worker's one thread, so a task that never yields starves the others.
+The browser build's limits apply as under `--target js/wasm`: the program's file system is in memory ([std::fs](/reference/fs/)), a call nests at most 1,000 deep, and no signal arrives. The file system starts with the files `files` gives, by path from its working directory `/work`. The run resolves with `files`, every file in it when the program ended, by the same paths (absolute for a file outside `/work`); a run stopped by `timeoutMs` or `signal` has no `files`. The clock, `std::random`, tasks, channels and `sleep` work. Tasks share the worker's one thread, so a task that never yields starves the others.
 
 `index.html` loads `nomi.js` with a `<script type="module" src>` and no inline script, so it works under a strict `script-src`. `nomi.js` mounts itself on every element with a `data-nomi-program="app.wasm"` attribute: an output pane with standard error in a distinct colour, an input line that is enabled while the program waits for a line (Enter sends it, Ctrl-D on an empty line ends the input), the exit status, and a button that runs the program again. A page that imports `run` itself needs no such element.
 
@@ -1096,7 +1143,7 @@ bytes before it returns, boots the program, and answers like `nomi_call`:
 - `{"error": "..."}` when the bytes are not a `.nomic` file (`` the loaded
   program: not a compiled Nomi program (.nomic) ``), are cut short or carry
   bytes after the program, are in a program format this reactor does not
-  read (the text `nomi-vm` gives, [above](#compiled-programs-and-nomi-vm)), import `std/compiler` in a reactor
+  read (the text `nomi-vm` gives, [above](#compiled-programs-and-nomi-vm)), import `std::compiler` in a reactor
   that does not link its hosts, hold neither a `fn main` nor an `export fn`,
   or the program's `boot` fails.
 
@@ -1173,13 +1220,13 @@ are carried data too.
 data, so a program prints the same text under each. A built program carries
 the data in its image, cut to the parts it reaches: one that formats numbers
 and never lists items carries no list patterns, and one that reads no locale
-data carries none. The collation data ([std/collation](/reference/collation/)) is the root
+data carries none. The collation data ([std::collation](/reference/collation/)) is the root
 order, which a program that compares with a `Collator` carries once, and
 each carried locale's tailoring. The Chinese and Korean tailorings are
 carried only by a program that lists a locale whose collation chain reaches
 them; one that lists no locales sorts Chinese and Korean in the root order.
 
-`std/calendar` embeds Go's `time/tzdata` package (≈ 450 KB) so IANA zone
+`std::calendar` embeds Go's `time/tzdata` package (≈ 450 KB) so IANA zone
 lookups (`America/New_York`, `Asia/Tokyo`, …) work on every host without
 requiring system-provided tzdata.
 

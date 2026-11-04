@@ -10,7 +10,7 @@ import (
 // type in an annotation, a lambda's parameter and an owner qualifier, and
 // outside it the module's own.
 func TestOwnerDecl_BlockImportRebindsAStdType(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Duration {
     ms: Int
@@ -23,7 +23,7 @@ impl Duration {
 }
 
 fn std_total() -> Int {
-    import std/duration.Duration
+    import std::duration.Duration
     d: Duration = Duration.seconds(2) + Duration.milliseconds(500)
     twice = fn x: Duration -> x + x
     Duration.as_millis(twice(d))
@@ -46,7 +46,7 @@ impl Duration {
 }
 
 test "a block import that rebinds a module-level name" {
-    import std/duration.Duration
+    import std::duration.Duration
     d: Duration = Duration.seconds(1)
     assert d == Duration.milliseconds(1000)
     assert Duration.as_millis(d) == 999
@@ -70,8 +70,8 @@ test "the module-level name outside the block" {
 // it, not a lookup of `Date` in this file.
 func TestOwnerDecl_BareStdMethodBesideALocalOwner(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/io
-    std/calendar.Date.parse
+    std::io
+    std::calendar.Date.parse
 }
 
 struct Date {
@@ -92,9 +92,9 @@ fn main() {
 // assertion the call's rows are recorded.
 func TestOwnerDecl_BareImportedPreludeMethods(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/io
-    std/maybe.Maybe.{with_default, to_result, is_some, map}
-    std/results.Result.{map_err}
+    std::io
+    std::maybe.Maybe.{with_default, to_result, is_some, map}
+    std::results.Result.{map_err}
 }
 
 fn main() {
@@ -107,7 +107,7 @@ fn main() {
     io.inspect(map_err(r, fn e -> "error ${e}"))
 }
 `, "1\n2\nOk(3)\nTrue\nSome(10)\nErr(\"error 6\")\n")
-	out := irTestBodyVM(t, `import std/maybe.Maybe.{with_default}
+	out := irTestBodyVM(t, `import std::maybe.Maybe.{with_default}
 
 test "bare prelude methods in an assertion" {
     assert with_default(Some(1), 2) == 1

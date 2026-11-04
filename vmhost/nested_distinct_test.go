@@ -15,7 +15,7 @@ import (
 // register holds a main.Wrapped(main.Meters(Int))" before. Found by
 // FuzzLoweredProgramsRun's rotating set.
 func TestNestedDistinct_BoxesOutOfItsRegister(t *testing.T) {
-	path := writeProgram(t, `import std/io
+	path := writeProgram(t, `import std::io
 
 type Meters Int
 

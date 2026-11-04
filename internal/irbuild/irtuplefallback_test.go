@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRTupleFallback_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"multiline fallback bindings", `import std/io
+		{"multiline fallback bindings", `import std::io
 fn main() {
   choose = fn p: #(Int, Int) -> {
     case p {
@@ -20,7 +20,7 @@ fn main() {
   }
   io.print(choose(#(2, 3)))
 }`, "2\n5\n"},
-		{"final binding pattern", `import std/io
+		{"final binding pattern", `import std::io
 fn sum(p: #(Int, Int)) -> Int {
   case p {
     #(0, y) -> y + 100
@@ -31,7 +31,7 @@ fn main() {
   io.print(sum(#(0, 2)))
   io.print(sum(#(3, 4)))
 }`, "102\n7\n"},
-		{"wildcards and captured fallback", `import std/io
+		{"wildcards and captured fallback", `import std::io
 fn main() {
   n = 100
   choose = fn p: #(Int, Int) -> {
@@ -44,7 +44,7 @@ fn main() {
   other = choose(#(1, 9))
   io.print(first(10)) io.print(other(10)) io.print(n)
 }`, "10\n19\n100\n"},
-		{"all wildcard tuple", `import std/io
+		{"all wildcard tuple", `import std::io
 fn choose(p: #(Int, String)) -> Int {
   case p {
     #(1, "yes") -> 10

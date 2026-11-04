@@ -3,7 +3,7 @@
 // and is file-private, so main.nomi cannot name it and the compiled program
 // must not be able to either.
 import {
-    std/io
+    std::io
     deeper
 }
 

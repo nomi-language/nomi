@@ -41,59 +41,59 @@ const mapLambda = "```nomi\nfn n: Int -> List<Int>\n```\n\nFills `Maybe.map`'s `
 
 func TestHover_LambdaFnAndArrow(t *testing.T) {
 	runFnHoverCases(t, []fnHoverCase{
-		{"the fn of a lambda with inferred parameters", `import std/io
+		{"the fn of a lambda with inferred parameters", `import std::io
 
 fn main() {
   io.inspect(Maybe.map(Some(1), ▮fn n -> [n]))
 }
 `, mapLambda},
-		{"its ->", `import std/io
+		{"its ->", `import std::io
 
 fn main() {
   io.inspect(Maybe.map(Some(1), fn n ▮-> [n]))
 }
 `, mapLambda},
-		{"annotated parameters", `import std/io
+		{"annotated parameters", `import std::io
 
 fn main() {
   f = ▮fn a: Int, b: Int -> a * b
   io.inspect(f(2, 3))
 }
 `, "```nomi\nfn a: Int, b: Int -> Int\n```\n\nParameter types from the annotation."},
-		{"annotated parameters of an argument", `import std/io
+		{"annotated parameters of an argument", `import std::io
 
 fn main() {
   io.inspect(Maybe.map(Some(1), fn n: Int ▮-> n + 1))
 }
 `, "```nomi\nfn n: Int -> Int\n```\n\nFills `Maybe.map`'s `f: (T) -> U`; parameter types from the annotation."},
-		{"a fold's callback", `import std/io
+		{"a fold's callback", `import std::io
 
 fn main() {
   io.inspect(Iter.reduce([1, 2], 0, ▮fn total, x -> total + x))
 }
 `, "```nomi\nfn total: Int, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types."},
-		{"zero parameters", `import std/io
+		{"zero parameters", `import std::io
 
 fn main() {
   f = ▮fn -> 42
   io.inspect(f())
 }
 `, "```nomi\nfn -> Int\n```"},
-		{"the -> of zero parameters", `import std/io
+		{"the -> of zero parameters", `import std::io
 
 fn main() {
   f = fn ▮-> 42
   io.inspect(f())
 }
 `, "```nomi\nfn -> Int\n```"},
-		{"a pattern parameter", `import std/io
+		{"a pattern parameter", `import std::io
 
 fn main() {
   pairs = [#(1, 2)] |> Iter.map(▮fn #(a, b) -> a + b) |> Iter.to_list()
   io.inspect(pairs)
 }
 `, "```nomi\nfn #(a, b): #(Int, Int) -> Int\n```\n\nFills `Iter.map`'s `f: (T) -> U`, which gives its parameter types."},
-		{"a block body", `import std/io
+		{"a block body", `import std::io
 
 fn main() {
   xs = [1, 2] |> Iter.map(fn n ▮-> {
@@ -103,7 +103,7 @@ fn main() {
   io.inspect(xs)
 }
 `, "```nomi\nfn n: Int -> String\n```\n\nFills `Iter.map`'s `f: (T) -> U`, which gives its parameter types."},
-		{"a then stage's lambda", `import std/io
+		{"a then stage's lambda", `import std::io
 
 fn main() {
   n = 3
@@ -111,7 +111,7 @@ fn main() {
   io.inspect(n)
 }
 `, "```nomi\nfn v: Int -> Int\n```\n\nThe `then` stage's lambda; its parameter is the piped value."},
-		{"a tap stage's lambda", `import std/io
+		{"a tap stage's lambda", `import std::io
 
 fn main() {
   n = 3
@@ -119,7 +119,7 @@ fn main() {
   io.inspect(n)
 }
 `, "```nomi\nfn v: Int -> Unit\n```\n\nThe `tap` stage's lambda; its parameter is the piped value."},
-		{"the expected type", `import std/io
+		{"the expected type", `import std::io
 
 fn main() {
   f: (Int) -> Int = ▮fn n -> n + 1
@@ -133,7 +133,7 @@ fn main() {
 // nested in a body.
 func TestHover_DeclarationFnKeyword(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"a top-level function", `import std/io
+		{"a top-level function", `import std::io
 
 /// Doubles n.
 ▮fn double(n: Int) -> Int {
@@ -144,7 +144,7 @@ fn main() {
   io.inspect(double(2))
 }
 `, "```nomi\nfn double(n: Int) -> Int\n```\n\nDoubles n."},
-		{"a pub function", `import std/io
+		{"a pub function", `import std::io
 
 /// Doubles n.
 pub ▮fn double(n: Int) -> Int {
@@ -155,7 +155,7 @@ fn main() {
   io.inspect(double(2))
 }
 `, "```nomi\nfn double(n: Int) -> Int\n```\n\nDoubles n."},
-		{"a nested function", `import std/io
+		{"a nested function", `import std::io
 
 fn main() {
   ▮fn triple(n: Int) -> Int {
@@ -188,7 +188,7 @@ fn main() {
 // answering nothing.
 func TestHover_OtherArrowsAnswerNothing(t *testing.T) {
 	runFnHoverCases(t, []fnHoverCase{
-		{"a return type's ->", `import std/io
+		{"a return type's ->", `import std::io
 
 fn double(n: Int) ▮-> Int {
   n * 2
@@ -198,7 +198,7 @@ fn main() {
   io.inspect(double(2))
 }
 `, ""},
-		{"a function type's ->", `import std/io
+		{"a function type's ->", `import std::io
 
 fn apply(f: (Int) ▮-> Int) -> Int {
   f(1)
@@ -208,7 +208,7 @@ fn main() {
   io.inspect(apply(fn n -> n))
 }
 `, ""},
-		{"a case arm's ->", `import std/io
+		{"a case arm's ->", `import std::io
 
 fn main() {
   n = 1
@@ -219,4 +219,30 @@ fn main() {
 }
 `, ""},
 	})
+}
+
+// A lambda parameter a sibling element of its list types (an annotation at
+// the same place in another element) shows that type on hover and as an
+// inlay hint.
+func TestHover_LambdaParamTypedByAListSibling(t *testing.T) {
+	src := "struct Day { n: Int }\n\n" +
+		"fn main() {\n" +
+		"  xs = [#(\"a\", fn d: Day -> d.n), #(\"b\", fn d -> d.n + 1)]\n" +
+		"  _ = xs\n" +
+		"}\n"
+	col := strings.LastIndex(strings.Split(src, "\n")[3], "fn d") + 3
+	got, _ := hoverAt(t, src, protocol.Position{Line: 3, Character: uint32(col)})
+	if !strings.Contains(got, "d: Day") {
+		t.Errorf("hover on the unannotated d = %q, want it to show `d: Day`", got)
+	}
+	hints := getInlayHints(t, src)
+	found := false
+	for _, h := range filterByKind(hints, InlayHintKindType) {
+		if h.Position.Line == 3 && h.Position.Character == uint32(col+1) && h.Label == ": Day" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no `: Day` inlay hint after the unannotated d: %+v", hints)
+	}
 }

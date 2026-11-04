@@ -14,7 +14,7 @@
 // *ast.Break arm, so `break walk(...)` is not tail-marked at all, and this
 // records that rather than leaving a reader to assume the loop arm is covered
 // by the reduce arm.
-import std/io
+import std::io
 
 fn walk(n: Int, acc: Int) -> Int {
     if n == 0 {

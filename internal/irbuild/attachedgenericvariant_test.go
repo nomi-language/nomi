@@ -20,7 +20,7 @@ func TestAttachedGenericVariant_Runs(t *testing.T) {
 	}
 	dir := t.TempDir()
 	files := map[string]string{
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 import shapes
 import shapes.Bag.{Items, Named}
 import shapes.Bag.{Items as I, Named as N}

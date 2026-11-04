@@ -3,8 +3,8 @@
 //# call of the capture evaluates the body, as the equivalent lambda does.
 
 import {
-    std/compiler
-    std/io
+    std::compiler
+    std::io
 }
 
 struct Point {
@@ -135,11 +135,11 @@ test "a capture evaluates its body on each call" {
 test "a parameter outside a capture is an error" {
     diagnostics =
         """
-            fn main() {
-                f: (Int) -> Int = Int.max(&1, 0)
-                _ = f
-            }
-            """
+        fn main() {
+            f: (Int) -> Int = Int.max(&1, 0)
+            _ = f
+        }
+        """
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {
@@ -153,14 +153,14 @@ test "a parameter outside a capture is an error" {
 test "a pipe fills the first argument" {
     diagnostics =
         """
-            fn halve(n: Int, by: Int) -> Int {
-                n / by
-            }
+        fn halve(n: Int, by: Int) -> Int {
+            n / by
+        }
 
-            fn main() {
-                _ = 10 |> halve(100, &1)
-            }
-            """
+        fn main() {
+            _ = 10 |> halve(100, &1)
+        }
+        """
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {
@@ -174,11 +174,11 @@ test "a pipe fills the first argument" {
 test "captures do not nest" {
     diagnostics =
         """
-            fn main() {
-                f: (Int) -> Int = &Int.max(&1, &Int.min(&1, 0))
-                _ = f
-            }
-            """
+        fn main() {
+            f: (Int) -> Int = &Int.max(&1, &Int.min(&1, 0))
+            _ = f
+        }
+        """
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {
@@ -189,11 +189,11 @@ test "captures do not nest" {
 test "with no expected function type a capture has no type" {
     diagnostics =
         """
-            fn main() {
-                f = &(&1 > 2)
-                _ = f
-            }
-            """
+        fn main() {
+            f = &(&1 > 2)
+            _ = f
+        }
+        """
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {
@@ -204,11 +204,11 @@ test "with no expected function type a capture has no type" {
 test "`_` is a discard, not a capture's parameter" {
     diagnostics =
         """
-            fn main() {
-                f: (Int) -> Int = Int.max(_, 0)
-                _ = f
-            }
-            """
+        fn main() {
+            f: (Int) -> Int = Int.max(_, 0)
+            _ = f
+        }
+        """
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {

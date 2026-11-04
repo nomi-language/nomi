@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: leap.nomi
 //# Leap years in the Gregorian calendar.
 
-import std/calendar.Date
+import std::calendar.Date
 
 /// Whether `year` is a leap year in the Gregorian calendar.
 pub fn is_leap_year(year: Int) -> Bool {

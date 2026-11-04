@@ -10,7 +10,7 @@ func TestIRStdRetention_ProgramsRunOnTheVM(t *testing.T) {
 		name, src, want string
 		retained        []string
 	}{
-		{"Int and Float rt hosts", `import std/io
+		{"Int and Float rt hosts", `import std::io
 
 fn wrap(a: Int, b: Int) -> Int {
   Int.wrapping_add(Int.wrapping_mul(a, b), Int.bitwise_xor(a, 5))
@@ -45,7 +45,7 @@ fn main() {
 }
 `, "18\nnan\ninf\n2.0\n-12\nSome(3)\nNone\n",
 			[]string{"wrap", "classify", "text", "whole", "main"}},
-		{"String hosts", `import std/io
+		{"String hosts", `import std::io
 
 fn shout(s: String) -> String {
   String.uppercase(String.replace(s, "a", "o"))
@@ -77,7 +77,7 @@ fn main() {
 }
 `, "BONONO\ntag\ntag\n[\"a\", \"b\", \"c\"]\nx-y\ncba\n",
 			[]string{"shout", "trimmed", "words", "joined"}},
-		{"Decimal ordering", `import std/io
+		{"Decimal ordering", `import std::io
 
 fn smaller(a: Decimal, b: Decimal) -> Decimal {
   if a <= b { a } else { b }
@@ -101,7 +101,7 @@ fn main() {
 }
 `, "1.50d\n1.25d\n-1\n0\n1\nTrue\n",
 			[]string{"smaller", "sign", "main"}},
-		{"lists of String pairs", `import std/io
+		{"lists of String pairs", `import std::io
 
 fn entry_name(entry: #(String, String)) -> String {
   #(name, _) = entry
@@ -145,8 +145,8 @@ fn main() {
 }
 `, "Some(\"1\")\nNone\n[\"1\", \"3\"]\nTrue\n[\"9\"]\n4\n",
 			[]string{"entry_name", "entry_value", "lookup", "values", "put", "main"}},
-		{"std Debug through io.inspect", `import std/io
-import std/calendar.{Date}
+		{"std Debug through io.inspect", `import std::io
+import std::calendar.{Date}
 
 fn show(d: Decimal) -> Decimal {
   d
@@ -165,8 +165,8 @@ fn main() {
 }
 `, "2.50d\n2024-01-02\n",
 			[]string{"show", "day", "main"}},
-		{"std/json's DecodeError and ShapeError", `import std/io
-import std/json.Json
+		{"std/json's DecodeError and ShapeError", `import std::io
+import std::json.Json
 
 fn failure() -> Json.DecodeError {
   Json.DecodeError{message: "bad", line: 2, col: 3, offset: 9}
@@ -194,8 +194,8 @@ fn main() {
 			[]string{"failure", "position", "shape", "depth", "main"}},
 		// Project carries a prelude Maybe in a field whose default std
 		// declares, and a spread replaces it.
-		{"std/compiler's Project", `import std/io
-import std/compiler.Project
+		{"std/compiler's Project", `import std::io
+import std::compiler.Project
 
 fn project() -> Project {
   Project{entry_point: "main", files: %{"main" => "fn main() {}"}}

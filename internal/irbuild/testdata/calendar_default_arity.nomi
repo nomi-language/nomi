@@ -19,8 +19,8 @@
 // it cannot be this witness, and a fixture that could not fail for the reason
 // it exists is worse than no fixture.
 import {
-    std/calendar.{DateTime, Error, NaiveDateTime}
-    std/io
+    std::calendar.{DateTime, Error, NaiveDateTime}
+    std::io
 }
 
 fn run() -> Result<Unit, Error> {

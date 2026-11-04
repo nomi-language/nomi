@@ -16,7 +16,7 @@ import (
 // empty, a non-ASCII literal matches its own bytes, and a rest may start
 // with a combining mark that follows the literal's last codepoint.
 func TestRun_StringPrefixPatternRunsWherePatternsAreTested(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Req {
   path: String
@@ -177,7 +177,7 @@ fn main() {
 // `if`, matched and not.
 func TestRun_StringPrefixPatternInATestBody(t *testing.T) {
 	const name = "main_test.nomi"
-	p, err := vmhost.LoadSource(name, `import std/io
+	p, err := vmhost.LoadSource(name, `import std::io
 
 test "string prefix" {
   r = case "/users/9" {

@@ -38,7 +38,7 @@ func TestFindMissingImports_SuggestsStdlibNamespace(t *testing.T) {
 }
 
 func TestFindMissingImports_AlreadyImported(t *testing.T) {
-	got := buildMissing(t, "import std/io\n\nfn main() {\n  io.inspect(42)\n}\n")
+	got := buildMissing(t, "import std::io\n\nfn main() {\n  io.inspect(42)\n}\n")
 	if len(got) != 0 {
 		t.Errorf("want no suggestions when already imported, got %+v", got)
 	}
@@ -102,8 +102,8 @@ func TestFindMissingImports_SuggestsStdlibModule(t *testing.T) {
 	if m.Qualifier != "Duration" || m.ModulePath != "std/duration" || m.Member != "Duration" {
 		t.Errorf("got %+v, want {Duration std/duration Duration}", m)
 	}
-	if m.ImportSpec() != "std/duration.Duration" {
-		t.Errorf("ImportSpec = %q, want std/duration.Duration", m.ImportSpec())
+	if m.ImportSpec() != "std::duration.Duration" {
+		t.Errorf("ImportSpec = %q, want std::duration.Duration", m.ImportSpec())
 	}
 }
 
@@ -116,7 +116,7 @@ func TestFindMissingImports_TypeInAnnotation(t *testing.T) {
 }
 
 func TestFindMissingImports_ModuleAlreadyImported(t *testing.T) {
-	got := buildMissing(t, "import std/duration.Duration\n\nfn main() {\n  Duration.seconds(1)\n}\n")
+	got := buildMissing(t, "import std::duration.Duration\n\nfn main() {\n  Duration.seconds(1)\n}\n")
 	if len(got) != 0 {
 		t.Errorf("want none when duration is imported, got %+v", got)
 	}
@@ -143,7 +143,7 @@ func TestFindMissingImports_LocalTypeDefinitionNoSuggestion(t *testing.T) {
 func TestFindMissingImports_SelfMergeCandidate(t *testing.T) {
 	// Importing one calendar member does not bind every sibling declaration, so
 	// a suggestion is still produced for the missing type in the same file.
-	got := buildMissing(t, "import std/calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n")
+	got := buildMissing(t, "import std::calendar.Date\n\nfn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n")
 	if len(got) != 1 || got[0].ModulePath != "std/calendar" || got[0].Member != "Time" {
 		t.Fatalf("want std/calendar.Time suggestion, got %+v", got)
 	}

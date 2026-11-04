@@ -2,11 +2,11 @@
 // arm block, a block operand, a binding's else, an assertion subject, and a
 // test body's nested blocks and setups. Each runs as it would at the top.
 import {
-    std/assertions.AssertionFailure
-    std/io
-    std/iter.Iter.loop
-    std/tasks.Task
-    std/testing
+    std::assertions.AssertionFailure
+    std::io
+    std::iter.Iter.loop
+    std::tasks.Task
+    std::testing
 }
 
 type TraceId String

@@ -18,7 +18,7 @@ import (
 // type-checking: if the front end started rejecting it, the error below
 // would be a type error and this test would say nothing about lowering.
 func TestCheck_ReportsWhatTheCompilerCannotLower(t *testing.T) {
-	path := writeProgram(t, `import std/io
+	path := writeProgram(t, `import std::io
 
 fn planted_decline(n: Int) -> Int {
   n
@@ -73,7 +73,7 @@ fn main() {
 // A body the run never reaches is not reported, and a program whose every
 // reached body lowers checks clean.
 func TestCheck_ALoweredProgramChecksClean(t *testing.T) {
-	path := writeProgram(t, `import std/io
+	path := writeProgram(t, `import std::io
 
 fn add(a: Int, b: Int) -> Int {
   a + b
@@ -92,7 +92,7 @@ fn main() {
 // stopped at: under plantDecline, the call to `planted_decline`.
 func TestCheck_ReportsADeclinedMainAtTheExpression(t *testing.T) {
 	plantDecline(t)
-	path := writeProgram(t, `import std/io
+	path := writeProgram(t, `import std::io
 
 fn planted_decline(a: Int) -> Int {
     a

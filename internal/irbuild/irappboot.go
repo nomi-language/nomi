@@ -400,20 +400,28 @@ func (g *gen) irRecordImpls() {
 			typ = g.irImplTypeSym(d.recv)
 		}
 		iface := implIface(d)
-		if iface == nil || typ == nil {
+		if iface == nil {
 			continue
 		}
 		for _, m := range iface.order {
 			it := d.items[m.name]
-			if it == nil {
-				continue
-			}
-			fn := g.irCalleeSym(it, m.name)
-			if g.irMod.FuncFor(fn) == nil {
+			if _, gap := d.gaps[m.name]; it == nil && !gap {
 				continue
 			}
 			method := g.irIfaceMethodSym(iface, m)
 			if method == nil {
+				continue
+			}
+			if it == nil {
+				g.irMod.ImplementUnretained(method)
+				continue
+			}
+			fn := g.irCalleeSym(it, m.name)
+			if typ == nil || g.irMod.FuncFor(fn) == nil {
+				// A value of the type may reach a dispatch that finds no
+				// body, which must block the program before it runs
+				// (vm.NoImplementation).
+				g.irMod.ImplementUnretained(method)
 				continue
 			}
 			g.irMod.Implement(method, typ, fn)

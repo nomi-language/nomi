@@ -9,8 +9,8 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-const taskTrapSrc = `import std/io
-import std/tasks.Task
+const taskTrapSrc = `import std::io
+import std::tasks.Task
 
 fn work(n: Int) -> Int {
   r = 10 / n
@@ -77,8 +77,8 @@ func TestDebug_AnAwaitedTaskFailureIsNotATrapStop(t *testing.T) {
 	}
 }
 
-const twoTasksSrc = `import std/io
-import std/tasks.Task
+const twoTasksSrc = `import std::io
+import std::tasks.Task
 
 fn work(n: Int) -> Int {
   r = n * 2
@@ -123,7 +123,7 @@ func TestDebug_TwoThreadsAtABreakpointAreBothReported(t *testing.T) {
 	}
 }
 
-const stdStepSrc = `import std/io
+const stdStepSrc = `import std::io
 
 fn main() {
   m = Some(2)
@@ -174,7 +174,7 @@ func TestDebug_StepInEntersTheStandardLibraryWhenNothingIsSkipped(t *testing.T) 
 	}
 }
 
-const oneLineSrc = `import std/io
+const oneLineSrc = `import std::io
 
 fn count(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { count(n - 1, acc + n) }

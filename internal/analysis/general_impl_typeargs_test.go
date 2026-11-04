@@ -111,7 +111,7 @@ func TestStdlibAddTypeArgSetsSolve(t *testing.T) {
 // hardcoded `iface.Name == "iter"` unify special-case). Goes green once
 // unifyInterfaceAgainstConcrete consults the general ImplTypeArgs registry.
 func TestGeneralInterfaceBareTypeArgSolves(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`import std/io
+	_, errs := checkSourceWithStdlib(`import std::io
 
 interface Chooser<T> {
   fn first(p: self) -> T

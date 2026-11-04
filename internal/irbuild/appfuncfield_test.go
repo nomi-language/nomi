@@ -14,7 +14,7 @@ import (
 // called through the value it holds, as a struct's function field is.
 
 func TestIRAppFuncField_EveryFormRuns(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct Cfg {
   f: (Int) -> Int
@@ -76,7 +76,7 @@ fn main() {
 
 func TestIRAppFuncField_ATestGroupCallsIt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "steps_test.nomi")
-	src := `import std/io
+	src := `import std::io
 
 pub struct App {
   context: Context
@@ -142,7 +142,7 @@ group "app steps" {
 // application field is the checker's error.
 func TestIRAppFuncField_ANamedArgumentIsRejected(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := `import std/io
+	src := `import std::io
 
 struct App {
   steps: (Int) -> Int

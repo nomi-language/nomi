@@ -16,8 +16,8 @@ Import block remains import-only
 ================================================================================
 
 import {
-  std/io
-  std/duration.Duration
+  std::io
+  std::duration.Duration
 }
 
 --------------------------------------------------------------------------------
@@ -67,10 +67,10 @@ fn echo_upper(s: String) -> String go ffi.EchoUpper
       symbol: (type_identifier))))
 
 ================================================================================
-Slash-separated module path
+Module path joined by ::
 ================================================================================
 
-import http/request
+import http::request
 
 --------------------------------------------------------------------------------
 
@@ -84,7 +84,7 @@ import http/request
 Single value selector
 ================================================================================
 
-import http/request.get
+import http::request.get
 
 --------------------------------------------------------------------------------
 
@@ -146,7 +146,7 @@ import api: PublicApi.{self, some_child}, InternalApi.{self, another_child}
 Colon owner selector list with dotted item
 ================================================================================
 
-import std/json: FromJson, ToJson, Json.{self, Case.Camel}
+import std::json: FromJson, ToJson, Json.{self, Case.Camel}
 
 --------------------------------------------------------------------------------
 
@@ -174,7 +174,7 @@ import std/json: FromJson, ToJson, Json.{self, Case.Camel}
 Drill-through type import
 ================================================================================
 
-import std/maybe.Maybe.{Some, None}
+import std::maybe.Maybe.{Some, None}
 
 --------------------------------------------------------------------------------
 
@@ -284,7 +284,7 @@ pub import models.{User as U, Point}
 Re-export of an owner type with self
 ================================================================================
 
-pub import std/bool.Bool.{self, False, True}
+pub import std::bool.Bool.{self, False, True}
 
 --------------------------------------------------------------------------------
 
@@ -328,7 +328,7 @@ Existing imports unaffected (sanity)
 ================================================================================
 
 import a
-import b/c
+import b::c
 import b.{X, Y}
 import b.{X as Y}
 import b as bb
@@ -368,8 +368,8 @@ Import block (multi-import braces)
 ================================================================================
 
 import {
-  std/io
-  std/lists as l
+  std::io
+  std::lists as l
   models.{User}
 }
 
@@ -389,3 +389,29 @@ import {
     (import_names
       (import_entry
         (type_identifier)))))
+
+================================================================================
+Module path with a keyword segment, a relative parent and an alias
+================================================================================
+
+import std::defer
+import ..::helpers
+import views::admin::users as users
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier)))
+  (import_statement
+    (module_path
+      (relative_import_parent)
+      (identifier)))
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier)
+      (identifier))
+    (identifier)))

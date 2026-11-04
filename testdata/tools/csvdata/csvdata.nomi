@@ -4,8 +4,8 @@
 //# files have not changed since.
 
 import {
-    std/fs
-    std/hash
+    std::fs
+    std::hash
 }
 
 /// The SHA-256 digest of the CSV files directly in `dir`, each path and

@@ -1,11 +1,11 @@
 // The entry file the tests boot: the app's config struct, its boot, and the
 // background work the groups run.
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/duration.Duration
-    std/io
-    std/supervisors.Supervisor
-    std/timer
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::io
+    std::supervisors.Supervisor
+    std::timer
 }
 
 pub struct Config {

@@ -38,7 +38,7 @@ import (
 // already performs; it is not a new language rule.
 //
 // Corpus fixtures mostly write `import x.{T}` and then `T`. Realistic
-// multi-module projects write `import sqlite/sqlite` and then `sqlite.Conn`,
+// multi-module projects write `import sqlite::sqlite` and then `sqlite.Conn`,
 // which is the spelling this file serves.
 //
 // # A user's FFI handle needs nothing more
@@ -73,7 +73,7 @@ import (
 // the declaration the qualifier's module exports under that name.
 //
 // Resolution is by DECLARATION NODE, through the analyzer's own scope for the
-// qualifier, so an aliased import (`import sqlite/sqlite as db`) and a renamed
+// qualifier, so an aliased import (`import sqlite::sqlite as db`) and a renamed
 // re-export reach the same `*typeDef` — which is the type's identity here, and
 // the reason foreign.go's header gives for never keying on a name.
 //
@@ -293,7 +293,7 @@ func qualifiedTypeParts(t *ast.QualifiedType) (qualifier, name string, ok bool) 
 	return t.Module, st.Name, true
 }
 
-// qualifiedStdKind is the kind `random.Error` names after `import std/random`: a
+// qualifiedStdKind is the kind `random.Error` names after `import std::random`: a
 // monomorphic std type reached through a whole-module import's qualifier,
 // reporting whether the name was one.
 //

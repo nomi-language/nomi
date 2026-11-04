@@ -27,7 +27,7 @@
 //# would win and every reading would come back 7. A fixture declaring the
 //# wanted answer second would pass against that defect.
 
-import std/io
+import std::io
 
 enum Signal {
     Go {n: Int = 3}

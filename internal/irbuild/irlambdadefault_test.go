@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRLambdaDefaults_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"captured condition and list result", `import std/io
+		{"captured condition and list result", `import std::io
 fn main() {
  choose = fn -> { io.print("choose") False }
  f = fn xs: List<Int> = if choose() { [1] } else { [2, 3] } -> xs
@@ -12,7 +12,7 @@ fn main() {
  io.inspect(alias())
  io.inspect(f([9]))
 }`, "choose\n[2, 3]\n[9]\n"},
-		{"conditional suppliers", `import std/io
+		{"conditional suppliers", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
  base = 10
@@ -21,7 +21,7 @@ fn main() {
  io.print(f(False))
  io.print(f(False, 30, 40))
 }`, "10\n11\n21\n20\n22\n42\n70\n"},
-		{"case suppliers and scoped arms", `import std/io
+		{"case suppliers and scoped arms", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
  base = 5
@@ -35,7 +35,7 @@ fn main() {
  io.print(f(2))
  io.print(f(0, 42))
 }`, "6\n6\n7\n7\n9\n9\n42\n"},
-		{"tour shape", `import std/io
+		{"tour shape", `import std::io
 fn greet(name: String, greeting: String = "Hello") -> String { "${greeting}, ${name}!" }
 fn main() {
  io.print(greet("World"))
@@ -43,7 +43,7 @@ fn main() {
  io.print(add(5))
  io.print(add(5, 2))
 }`, "Hello, World!\n15\n7\n"},
-		{"dependent defaults execute once", `import std/io
+		{"dependent defaults execute once", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
  f = fn a = mark(1), b = mark(a + 1), c = mark(b + 1) -> a + b + c
@@ -52,7 +52,7 @@ fn main() {
  io.print(f(c: mark(30), a: mark(10)))
  io.print(f(7, 8, 9))
 }`, "1\n2\n3\n6\n11\n12\n33\n30\n10\n11\n51\n24\n"},
-		{"captures and aliases", `import std/io
+		{"captures and aliases", `import std::io
 fn main() {
  base = 40
  f = fn x = base, y = x + 2 -> y
@@ -61,13 +61,13 @@ fn main() {
  io.print(alias(1, 0))
  io.print(f(10))
 }`, "42\n0\n12\n"},
-		{"callable default captures earlier parameter", `import std/io
+		{"callable default captures earlier parameter", `import std::io
 fn main() {
  apply = fn x: Int, f: (Int) -> Int = fn n: Int -> n + x -> f(2)
  io.print(apply(40))
  io.print(apply(100, fn n -> n * 3))
 }`, "42\n6\n"},
-		{"explicit ordering and zero values", `import std/io
+		{"explicit ordering and zero values", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
  f = fn a: Int, b = mark(20), c = mark(30) -> a + b + c
@@ -79,13 +79,13 @@ fn main() {
  text = fn x = "hello" -> x
  io.print("[${text("")}]")
 }`, "7\n9\n20\n36\n0\nFalse\n[]\n"},
-		{"short-circuit defaults", `import std/io
+		{"short-circuit defaults", `import std::io
 fn mark() -> Bool { io.print("unexpected") True }
 fn main() {
  f = fn a = False and mark(), b = True or mark() -> if a { 1 } else if b { 2 } else { 3 }
  io.print(f())
 }`, "2\n"},
-		{"multiline supplier cursors", `import std/io
+		{"multiline supplier cursors", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
  base = 10
@@ -96,7 +96,7 @@ fn main() {
  }
  io.print(f())
 }`, "10\n11\n21\n"},
-		{"higher order and unused suppliers", `import std/io
+		{"higher order and unused suppliers", `import std::io
 fn apply(f: (Int) -> Int) -> Int { f(2) }
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
@@ -114,7 +114,7 @@ fn main() {
 // owner function, a nested function and a copy a closure captured. The call
 // goes through the function's shorter value, which calls it by name.
 func TestIRLambdaDefault_ALocalCopyOfAFunctionKeepsItsDefaults(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
   if strict { None } else { String.to_int(s) }
@@ -156,7 +156,7 @@ fn main() {
 // binding, a field, a list element, a return and an `if` or `case` arm. A
 // default may read an earlier parameter.
 func TestIRLambdaDefault_ALambdaTakesAShorterExpectedType(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Op {
   run: (Int) -> Int

@@ -4,7 +4,7 @@
 
 import {
     item.Item
-    stringkit/pad
+    stringkit::pad
 }
 
 /// One line of the list: the id, right-aligned, then the item.

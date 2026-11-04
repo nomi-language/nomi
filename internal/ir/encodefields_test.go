@@ -29,7 +29,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Param]():         "Sym Temp Shape",
 	reflect.TypeFor[ir.Var]():           "Name Temp Type Scope Decl",
 	reflect.TypeFor[ir.StmtMark]():      "Index Pos Kind",
-	reflect.TypeFor[ir.Module]():        "name funcs cells tests boot mainFailure mainExit bootFailure testBoots impls displays rowDebugs equates hashes lint",
+	reflect.TypeFor[ir.Module]():        "name funcs cells tests boot mainFailure mainExit bootFailure testBoots impls unretainedImpls displays rowDebugs equates hashes lint",
 	reflect.TypeFor[ir.Cell]():          "owner sym ty initializer",
 	reflect.TypeFor[ir.TestCase]():      "name fn group",
 	reflect.TypeFor[ir.TestGroup]():     "Boot Startup VirtualClock BootLine BootText",

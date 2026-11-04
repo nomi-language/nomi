@@ -3,7 +3,7 @@
 // (`T.from_json(item)` in `impl FromJson for List<T>`), or through the
 // interface on a nested container (`ToJson.to_json(item)` in
 // `List.to_json<List<Note>>`).
-import std/json.{FromJson, Json, ToJson}
+import std::json.{FromJson, Json, ToJson}
 
 struct Note {
     title: String

@@ -1,6 +1,6 @@
 import {
-    std/calendar.DateTime
-    std/instant.Instant
+    std::calendar.DateTime
+    std::instant.Instant
 }
 
 test "zoned datetimes can be reprojected through another IANA zone" {

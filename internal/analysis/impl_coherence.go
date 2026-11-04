@@ -1109,7 +1109,7 @@ func collisionGroupKey(iface string, fn *ast.FuncDef, receivers, interfaceKeys m
 // `std/int` is the case that proves it: `Int`'s methods resolve through the
 // prelude, so nothing makes `std/int` reachable, and without this a program
 // with no imports could declare `impl Equatable for Int` and get no
-// diagnostic at all — while the SAME program with `import { std/io }` was
+// diagnostic at all — while the SAME program with `import { std::io }` was
 // rejected, because std/io's own import chain pulled std/int in. A rule whose
 // answer depends on an unrelated import is not a rule.
 //
@@ -1344,7 +1344,7 @@ func receiverBaseName(fn *ast.FuncDef, receivers map[*ast.FuncDef]string) string
 // members first, which puts the user's impl at index 0 for a program with no
 // imports — but the reachable set ALSO holds std's impl once anything makes
 // that module reachable, and there it comes first. So `impl Equatable for
-// Int` in a file with `import { std/io }` anchored at `line 180, col 6`,
+// Int` in a file with `import { std::io }` anchored at `line 180, col 6`,
 // std/int.nomi's line, in a file the user cannot open. The import-free
 // version of the same program anchored correctly, which is why a test
 // without an import passed with the anchor removed.
@@ -1603,7 +1603,7 @@ func orphanImplError(iface, method, recv, ifaceMod, recvMod, implMod, reason str
 // type function name declared more than once on the SAME receiver type —
 // same by nominal identity, `(declaring file, name)`, not merely by printed
 // name. Two types that share a bare name are two types, and each keeps its own
-// functions; grouping them together made `import std/calendar` un-declare
+// functions; grouping them together made `import std::calendar` un-declare
 // `Date.new` in the importer's own file. See inherent_identity.go for the
 // reproducer, and for what an unresolved receiver origin means here (it falls
 // back to the bare grouping, so the check never becomes weaker than it was).

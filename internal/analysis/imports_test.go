@@ -42,7 +42,7 @@ fn main() {
 // until LSP restart (the scenario reported on tests/15-app-and-defer/effects/).
 func TestExtractImports_BlockForm(t *testing.T) {
 	src := `import {
-  std/io
+  std::io
   math: math
   models.{User, Point}
 }

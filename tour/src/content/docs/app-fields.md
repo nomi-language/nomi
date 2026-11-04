@@ -15,7 +15,7 @@ any name you like. A context carries a deadline, explained
 ## The basic shape
 
 ```nomi-run
-import std/io
+import std::io
 
 struct App {
     port: Int
@@ -63,7 +63,7 @@ The struct's fields are the app fields, with the same types. Here,
 like any other type. The context field can have any name too:
 
 ```nomi
-import std/duration.Duration
+import std::duration.Duration
 
 struct Server {
     port: Int
@@ -104,8 +104,8 @@ field, build an updated copy of it:
 
 ```nomi-run
 import {
-    std/log.{self, Logger}
-    std/log_testing
+    std::log.{self, Logger}
+    std::log_testing
 }
 
 struct App {
@@ -162,7 +162,7 @@ function you call can't change the fields you see.
 To replace a field for only part of a function, move that part into a
 function of its own, as `audit_greet` does here.
 
-The app's [`std/log`](/reference/log/) `Logger` writes warnings and errors.
+The app's [`std::log`](/reference/log/) `Logger` writes warnings and errors.
 The test replaces it with a `log_testing` recorder, which keeps every record
 as a value, so it can check that only Alice's greeting carries the `audit`
 field.
@@ -172,7 +172,7 @@ closure returned from a function after a `with` line doesn't keep the
 replacement:
 
 ```nomi-run
-import std/io
+import std::io
 
 struct App {
     greeting: String
@@ -228,7 +228,7 @@ Spec: [`with`](/spec/program-execution/#with),
 in reverse order, last one first:
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     {
@@ -305,7 +305,7 @@ message and exits with its code, as `main` would. A trap in `boot` stops the
 program the same way a trap anywhere does.
 
 ```nomi-run error
-import std/io
+import std::io
 
 struct App {
     database: String
@@ -347,7 +347,7 @@ variables that override them. `nomi test` sets `NOMI_ENV` to `test` unless it
 is already set, so a program can pick its test settings by it:
 
 ```nomi-run
-import std/io
+import std::io
 
 struct Config {
     deployment: String = "dev"
@@ -429,7 +429,7 @@ Each test starts fresh: `boot` runs, then the group's `setup`, then the
 test's body.
 
 ```nomi-run
-import std/io
+import std::io
 
 struct Config {
     env: String
@@ -473,7 +473,7 @@ give its parameter a default. Then a group that needs no input writes
 `boot boot()`, and the others pass the inputs they want:
 
 ```nomi-run
-import std/io
+import std::io
 
 struct Config {
     verbose: Bool

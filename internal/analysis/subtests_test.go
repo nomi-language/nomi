@@ -179,7 +179,7 @@ func TestSubtests_RejectedPlacementsAndExits(t *testing.T) {
 		},
 		{
 			name: "a body that can never fail",
-			src: `import std/io
+			src: `import std::io
 
 test "t" {
     subtests [1, 2], n {
@@ -301,7 +301,7 @@ func TestSubtests_AdmittedForms(t *testing.T) {
         assert String.length(s) == n
     }
 }`},
-		{"result fn", `import std/assertions.AssertionFailure
+		{"result fn", `import std::assertions.AssertionFailure
 
 fn f(xs: List<Int>) -> Result<Unit, AssertionFailure> {
     subtests xs, x {
@@ -340,7 +340,7 @@ fn f(xs: List<Int>) -> Result<Unit, AssertionFailure> {
         })
     }
 }`},
-		{"a row that ends with a helper that asserts", `import std/assertions.AssertionFailure
+		{"a row that ends with a helper that asserts", `import std::assertions.AssertionFailure
 
 fn check_row(line: String, want: Bool) -> Result<Unit, AssertionFailure> {
     assert (line == String.reverse(line)) == want
@@ -352,7 +352,7 @@ test "t" {
         check_row(line, want)
     }
 }`},
-		{"a row whose final if or case arms end with a helper", `import std/assertions.AssertionFailure
+		{"a row whose final if or case arms end with a helper", `import std::assertions.AssertionFailure
 
 fn positive(n: Int) -> Result<Unit, AssertionFailure> {
     assert n > 0

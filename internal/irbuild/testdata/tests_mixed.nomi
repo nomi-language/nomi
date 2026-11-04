@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // Passing and failing cases in one file: they run in declaration order, a
 // case's own output lands above its result line because both share one stream,

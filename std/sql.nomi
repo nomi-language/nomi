@@ -12,7 +12,7 @@
 //#
 //# std holds no driver: drivers are modules of their own, such as the
 //# SQLite driver (`nomi add github.com/nomi-language/nomi/lib/sql/sqlite`,
-//# https://nomi-lang.org/databases/), and `std/sql_testing` has a recording
+//# https://nomi-lang.org/databases/), and `std::sql_testing` has a recording
 //# fake `Conn` and the conformance suite every driver runs. Both std modules
 //# are written in Nomi. The first-party SQLite driver and the checked-SQL
 //# library sqlkit are modules of their own in the nomi repository, under
@@ -46,7 +46,7 @@ import {
 /// implements it; code that reads or writes a database takes a `Conn`, so
 /// one function serves a connection, a transaction and a test's fake.
 ///
-/// Every driver follows these rules, and `std/sql_testing`'s conformance suite
+/// Every driver follows these rules, and `std::sql_testing`'s conformance suite
 /// checks each:
 ///
 /// - `begin` on a connection starts a transaction; `begin` on a
@@ -977,7 +977,7 @@ pub fn transaction<T>(conn: Conn, body: (Conn) -> Result<T, Error>) -> Result<T,
 /// after the body returns `Ok`, `Err` or traps, and on every other way
 /// out. The answer is the body's, or the `Err` of an `open` or a
 /// `close` that failed after the body answered `Ok`.
-//! import std/sql_testing.Fake
+//! import std::sql_testing.Fake
 //!
 //! fake = Fake.new()
 //!
@@ -1025,7 +1025,7 @@ pub fn with_connection<C, T>(
 ///     }
 /// }
 /// ```
-//! import std/sql_testing.Fake
+//! import std::sql_testing.Fake
 //!
 //! fake = Fake.new()
 //!

@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // Grapheme clusters, and the four inputs where a byte count, a code-point count
 // and a cluster count are three different numbers.

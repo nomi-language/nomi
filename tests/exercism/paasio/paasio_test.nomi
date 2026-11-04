@@ -1,5 +1,5 @@
 import {
-    std/io.{self, Reader}
+    std::io.{self, Reader}
     paasio.{MeteredReader, MeteredWriter, Stats}
 }
 

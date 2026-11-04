@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRBlockBinding_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  total = { a = 10 b = 20 a + b }
  dbg total
@@ -20,7 +20,7 @@ fn main() {
 }
 
 func TestIRBlockBinding_EscapingCallable(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  f = { base = 4 fn n: Int -> base + n }
  g = { base = 10 fn n: Int -> base * n }
@@ -36,7 +36,7 @@ fn main() {
 // arm that is itself a block, and an empty list given its type by the
 // binding.
 func TestIRBlockBinding_BranchingTail(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 enum Shape {
     Circle Int

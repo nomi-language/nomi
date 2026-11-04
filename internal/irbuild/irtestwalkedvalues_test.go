@@ -12,8 +12,8 @@ import (
 // and the VM's graph.
 func TestIRTestBody_WalkedBodiesTakeCollections(t *testing.T) {
 	const src = `import {
-  std/io
-  std/literals.{Fragment, Literal}
+  std::io
+  std::literals.{Fragment, Literal}
 }
 
 struct Upper {
@@ -111,7 +111,7 @@ test "reversed" {
 // to the binding's name, which is the name the extern table holds, and not to
 // the Go host key the builder interned the declaration under.
 func TestIRTestBody_ExternHostsCrossByBindingName(t *testing.T) {
-	const src = `import std/calendar.Date
+	const src = `import std::calendar.Date
 
 test "formats parsed date" {
   d = Date.parse("2026-05-04")?

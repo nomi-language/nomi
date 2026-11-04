@@ -81,7 +81,7 @@ func TestUnreachable_AStatementAfterItIsUnreachableCode(t *testing.T) {
 		{"    case 1 {\n        1 -> unreachable \"one\"\n        _ -> unreachable \"other\"\n    }\n    io.print(\"after\")\n",
 			"unreachable code: the `case` above traps in every arm"},
 	} {
-		_, errs := checkSourceWithStdlib("import std/io\n\nfn main() {\n" + tc.body + "}\n")
+		_, errs := checkSourceWithStdlib("import std::io\n\nfn main() {\n" + tc.body + "}\n")
 		found := false
 		for _, e := range errs {
 			if strings.HasPrefix(diagText(e), tc.want) {

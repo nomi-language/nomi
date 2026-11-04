@@ -51,7 +51,7 @@ func TestBuildWeb_GoBindingsRunInTheBrowser(t *testing.T) {
 	env := webFFIEnv(t)
 	stdDir := t.TempDir()
 	stdEntry := filepath.Join(stdDir, "main.nomi")
-	mustWrite(t, stdEntry, `import std/io
+	mustWrite(t, stdEntry, `import std::io
 
 gopkg "strings"
 
@@ -130,7 +130,7 @@ func TestBuildWeb_AGoPackageThatDoesNotBuildForTheTargetIsRefused(t *testing.T) 
 	mustWrite(t, filepath.Join(dir, "native", "native.go"), "//go:build !js && !wasip1\n\npackage native\n\n"+
 		"func Answer() int64 {\n\treturn 42\n}\n")
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, "import std/io\n\ngopkg \"nativeonly\"\n\nfn answer() -> Int go nativeonly.Answer\n\nfn main() {\n    io.print(answer())\n}\n")
+	mustWrite(t, entry, "import std::io\n\ngopkg \"nativeonly\"\n\nfn answer() -> Int go nativeonly.Answer\n\nfn main() {\n    io.print(answer())\n}\n")
 	// It builds and runs natively.
 	if r := runProcess(t, env, dir, "", nomiBin, "run", entry); r.exit != 0 || r.stdout != "42\n" {
 		t.Fatalf("nomi run: exit %d\n%s", r.exit, r.transcript())

@@ -9,17 +9,17 @@
 //#
 //# A Nomi type is read from, or bound to, a column of a SQL type family when
 //# it implements that family's interface (`SqlInt`, `SqlText`, ...), and
-//# std/sql's `FromSql` and `ToSql`. sqlkit implements them for std's types;
+//# std::sql's `FromSql` and `ToSql`. sqlkit implements them for std's types;
 //# implement them for a type of your own (`type Email String`) to read a
 //# `TEXT` column as it.
 
 import {
-    std/calendar.{Date, NaiveDateTime, Time}
-    std/channels.{Channel, Receiver, Sender}
-    std/instant.Instant
-    std/json.Json
-    std/sql.{self, Conn, Row, Statement}
-    std/uuid.Uuid
+    std::calendar.{Date, NaiveDateTime, Time}
+    std::channels.{Channel, Receiver, Sender}
+    std::instant.Instant
+    std::json.Json
+    std::sql.{self, Conn, Row, Statement}
+    std::uuid.Uuid
     migrate as runner
 }
 

@@ -133,7 +133,7 @@ fn main() {
 // (no Display impl) into a slot triggers the conformance failure. Uses
 // a project build so the LOCAL impl resolves.
 func TestTypedLiteral_SlotTypeDoesNotImplementInterface(t *testing.T) {
-	entry := `import std/literals.{Fragment, Literal}
+	entry := `import std::literals.{Fragment, Literal}
 
 pub type DisplayTag
 
@@ -157,9 +157,9 @@ fn main() {
 // a project build so the local impl resolves.
 func TestTypedLiteral_BlockFormTypeAttachedTag(t *testing.T) {
 	entry := `import {
-  std/io
-  std/literals.{Fragment, Literal}
-  std/literals.Fragment.{Dynamic, Static}
+  std::io
+  std::literals.{Fragment, Literal}
+  std::literals.Fragment.{Dynamic, Static}
 }
 
 pub struct Box { contents: String }
@@ -197,8 +197,8 @@ fn main() {
 }`
 	siblings := map[string]string{
 		"tags": `import {
-  std/literals: Fragment, Literal
-  std/strings: String
+  std::literals: Fragment, Literal
+  std::strings: String
 }
 
 pub type Tag String
@@ -224,7 +224,7 @@ impl Literal for Tag {
 // than by the name, with an imported tag type beside it.
 func TestTypedLiteral_SameNamedTagsOfTwoModules(t *testing.T) {
 	entry := `import {
-  std/literals.{Fragment, Literal}
+  std::literals.{Fragment, Literal}
   tags.Tag
 }
 
@@ -240,7 +240,7 @@ fn main() {
   s: String = Sql"select 1"
   q: Tag = Tag"hello"
 }`
-	tag := `import std/literals.{Fragment, Literal}
+	tag := `import std::literals.{Fragment, Literal}
 
 pub type Tag String
 
@@ -265,8 +265,8 @@ impl Literal for Tag {
 // tag resolves to the module's own handler.
 func TestTypedLiteral_ASqlModuleOfTheProgramIsNotStdSql(t *testing.T) {
 	entry := `import {
-  db/sql.{Query, Sql}
-  std/sql.Value
+  db::sql.{Query, Sql}
+  std::sql.Value
 }
 
 fn main() {
@@ -274,7 +274,7 @@ fn main() {
   _v = Value.Null
   _q = q
 }`
-	module := `import std/literals.{Fragment, Literal}
+	module := `import std::literals.{Fragment, Literal}
 
 pub struct Query {
   text: String
@@ -299,7 +299,7 @@ impl Literal for Sql {
 // own `Sql` are still a duplicate, named by the module's last segment.
 func TestTypedLiteral_TwoImplsForASqlModulesTypeAreADuplicate(t *testing.T) {
 	entry := `import {
-  db/sql.Sql
+  db::sql.Sql
   other
 }
 
@@ -315,7 +315,7 @@ impl Display for Sql {
   }
 }
 `
-	other := `import db/sql.Sql
+	other := `import db::sql.Sql
 
 impl Display for Sql {
   fn to_string(_value: Sql) -> String {
@@ -339,7 +339,7 @@ pub fn touch() {}
 // impl of Literal for its type, not a second one beside std/sql's `Sql`, so
 // its header need not write Literal's type arguments.
 func TestTypedLiteral_ADistinctTagIsNotASecondImplOfStdsSameNamedType(t *testing.T) {
-	entry := `import std/literals.{Fragment, Literal}
+	entry := `import std::literals.{Fragment, Literal}
 
 type Sql String
 
@@ -414,14 +414,14 @@ func TestTypedLiteral_AmbiguousHandlerIsRejected(t *testing.T) {
 			name = "inherent block declared first"
 		}
 		t.Run(name+", same file", func(t *testing.T) {
-			entry := "import std/literals.{Fragment, Literal}\n\n" + pickDecls(inherentFirst) +
+			entry := "import std::literals.{Fragment, Literal}\n\n" + pickDecls(inherentFirst) +
 				"\nfn main() {\n  q = Pick\"x\"\n}\n"
 			expectTypedLiteralError(t, checkTypedLiteralProject(t, entry, nil), want)
 		})
 		t.Run(name+", sibling file", func(t *testing.T) {
 			entry := "import pick: Pick\n\nfn main() {\n  q = Pick\"x\"\n}\n"
 			siblings := map[string]string{
-				"pick": "import std/literals.{Fragment, Literal}\n\n" + pickDecls(inherentFirst),
+				"pick": "import std::literals.{Fragment, Literal}\n\n" + pickDecls(inherentFirst),
 			}
 			expectTypedLiteralError(t, checkTypedLiteralProject(t, entry, siblings), want)
 		})
@@ -473,14 +473,14 @@ func TestTypedLiteral_ASecondInterfaceProviderIsRejected(t *testing.T) {
 			name = "rival impl declared first"
 		}
 		t.Run(name+", same file", func(t *testing.T) {
-			entry := "import std/literals.{Fragment, Literal}\n\n" + rivalIfaceDecls(rivalFirst) +
+			entry := "import std::literals.{Fragment, Literal}\n\n" + rivalIfaceDecls(rivalFirst) +
 				"\nfn main() {\n  q = Pick\"x\"\n}\n"
 			expectTypedLiteralError(t, checkTypedLiteralProject(t, entry, nil), want)
 		})
 		t.Run(name+", sibling file", func(t *testing.T) {
 			entry := "import pick: Pick\n\nfn main() {\n  q = Pick\"x\"\n}\n"
 			siblings := map[string]string{
-				"pick": "import std/literals.{Fragment, Literal}\n\n" + rivalIfaceDecls(rivalFirst),
+				"pick": "import std::literals.{Fragment, Literal}\n\n" + rivalIfaceDecls(rivalFirst),
 			}
 			expectTypedLiteralError(t, checkTypedLiteralProject(t, entry, siblings), want)
 		})
@@ -501,7 +501,7 @@ func TestTypedLiteral_ASecondInterfaceProviderIsRejected(t *testing.T) {
 // relaxed, this fails and arm 2 needs widening rather than the silent pick the
 // unstamped item would get.
 func TestTypedLiteral_ASecondInterfaceNotDeclaringFromFragmentsIsNotARival(t *testing.T) {
-	entry := "import std/literals.{Fragment, Literal}\n\npub type Pick\n\n" +
+	entry := "import std::literals.{Fragment, Literal}\n\npub type Pick\n\n" +
 		"interface Quiet {\n  fn hush(p: Pick) -> String\n}\n\n" +
 		"impl Literal for Pick {\n" +
 		"  fn from_fragments(fragments: List<Fragment<String>>) -> String {\n    \"literal\"\n  }\n}\n\n" +
@@ -523,7 +523,7 @@ func TestTypedLiteral_ASecondInterfaceNotDeclaringFromFragmentsIsNotARival(t *te
 // A local handler shares one parse and would have passed, which is why the
 // stdlib case is the one asserted.
 func TestTypedLiteral_UnrivalledHandlerIsNotReportedAsItsOwnRival(t *testing.T) {
-	entry := "import std/calendar.NaiveDateTime\n\n" +
+	entry := "import std::calendar.NaiveDateTime\n\n" +
 		"fn main() {\n  q = NaiveDateTime\"2026-11-01T01:30:00\"?\n}\n"
 	for _, e := range checkTypedLiteralProject(t, entry, nil) {
 		if strings.Contains(e.Message, "is ambiguous") {
@@ -555,7 +555,7 @@ func TestTypeQualifiedCall_InherentBeatsInterfaceImplInEitherOrder(t *testing.T)
 			name = "inherent block declared first"
 		}
 		t.Run(name, func(t *testing.T) {
-			entry := "import std/literals.{Fragment, Literal}\n\n" + pickDecls(inherentFirst) +
+			entry := "import std::literals.{Fragment, Literal}\n\n" + pickDecls(inherentFirst) +
 				"\nfn main() {\n  n: Int = Pick.from_fragments([Fragment.Static(\"x\")])\n  q = n\n}\n"
 			expectTypedLiteralError(t, checkTypedLiteralProject(t, entry, nil), "expected Int, got String")
 		})
@@ -569,7 +569,7 @@ func TestTypeQualifiedCall_InherentBeatsInterfaceImplInEitherOrder(t *testing.T)
 // fine. Without the first half the checker accepted the literal and the IR
 // builder refused the program.
 func showTagDecls() string {
-	return `import std/literals.{Fragment, Literal}
+	return `import std::literals.{Fragment, Literal}
 
 interface Show {
   fn show(value: self) -> String

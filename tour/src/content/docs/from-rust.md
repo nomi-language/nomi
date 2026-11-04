@@ -23,13 +23,14 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `Point { x: 1 }`, `(1, "a")` | `Point{x: 1}`, `#(1, "a")` |
 | `vec![1, 2]`, `HashMap` | `[1, 2]` (a list) or `#[1, 2]` (a vector), `%{"a" => 1}` |
 | `Option<T>`, `.unwrap()` | `Maybe<T>`, a postfix `!` |
+| `c.then(\|\| x)`; `if c { x }` needs `x: ()` | `if c { x }` is a `Maybe`: `Some(x)` or `None`. With a `Unit` branch it is a statement. |
 | `trait`, `fn f(&self)` | `interface`, `fn f(value: self)` |
 | `Shape::new()`, `Shape::Circle { radius: 1 }` | `Shape.new()`, `Shape.Circle{radius: 1}` or `.Circle{radius: 1}` |
 | `format!("{x}")` | `"${x}"` |
 | `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |
 | `tokio::spawn` | `Task.spawn` inside a `concurrent { .. }` block |
 | `#[test] fn t()` | `test "name" { assert .. }` |
-| `mod`, `use a::b` | A file is the unit of import: `import a.{b}` |
+| `mod`, `use a::b` | A file is the unit of import: `import a.{b}`. A path is `::`-joined like Rust's (`import db::posts`), and the file is then used by its last part, `posts.find(1)`, or by its full path, `db::posts.find(1)`. |
 
 Statements end at a newline, with no semicolons.
 

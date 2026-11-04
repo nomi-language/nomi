@@ -64,7 +64,7 @@ pub fn wrap_of(t: Tag<Int>) -> Wrap<Int> {
 func TestImportCycle_GenericSignaturesAcrossTheCycleRun(t *testing.T) {
 	for _, tc := range []struct{ name, main string }{
 		{"selective import", `import {
-    std/io
+    std::io
     a.{Wrap, tag_of}
     b.{Tag, wrap_of}
 }
@@ -81,7 +81,7 @@ fn main() {
 }
 `},
 		{"file-qualified", `import {
-    std/io
+    std::io
     a
     b
 }
@@ -122,7 +122,7 @@ fn main() {
 // reaches the file being tested, so its tests and its main run.
 func TestImportCycle_TestFileInTheCycleRuns(t *testing.T) {
 	path := writeCycleProject(t, map[string]string{
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 import ring
 
 pub fn base(n: Int) -> Int {

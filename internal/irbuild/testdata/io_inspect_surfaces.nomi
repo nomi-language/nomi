@@ -30,11 +30,11 @@
 // same one dbg_surfaces.nomi carries for the same reason.
 //
 // THE ALIASED IMPORT IS NOT DECORATION. `stdFreeCall` keys on the CANONICAL
-// module name, and the tour's own first example writes `import std/io as
+// module name, and the tour's own first example writes `import std::io as
 // console` then `console.inspect(parsed)`. A version of this arm keyed on the
 // local spelling passes every unaliased case and refuses that one — which is a
 // bug std/io already had once, recorded in stdFreeCall's header for `o.print`.
-import std/io as console
+import std::io as console
 
 opaque type Meters Int
 

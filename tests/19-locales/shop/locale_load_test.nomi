@@ -1,6 +1,6 @@
 import {
-    std/locale.{LoadError, Locale}
-    std/message.Message
+    std::locale.{LoadError, Locale}
+    std::message.Message
     cart
 }
 

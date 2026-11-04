@@ -17,13 +17,13 @@ func TestFormat_BlankLineAfterModuleComment(t *testing.T) {
 		},
 		{
 			name: "a multi-line block before an import",
-			in:   "//# Geometry.\n//#\n//# More.\nimport std/io\n\nfn main() {\n    io.print(1)\n}\n",
-			want: "//# Geometry.\n//#\n//# More.\n\nimport std/io\n\nfn main() {\n    io.print(1)\n}\n",
+			in:   "//# Geometry.\n//#\n//# More.\nimport std::io\n\nfn main() {\n    io.print(1)\n}\n",
+			want: "//# Geometry.\n//#\n//# More.\n\nimport std::io\n\nfn main() {\n    io.print(1)\n}\n",
 		},
 		{
 			name: "before an import block",
-			in:   "//# Geometry.\nimport std/io\nimport std/lists.List\n",
-			want: "//# Geometry.\n\nimport {\n    std/io\n    std/lists.List\n}\n",
+			in:   "//# Geometry.\nimport std::io\nimport std::lists.List\n",
+			want: "//# Geometry.\n\nimport {\n    std::io\n    std::lists.List\n}\n",
 		},
 		{
 			name: "a blank line already there stays one",
@@ -32,8 +32,8 @@ func TestFormat_BlankLineAfterModuleComment(t *testing.T) {
 		},
 		{
 			name: "after the imports, before a plain comment",
-			in:   "import std/io\n\n//# Section.\n// Plain.\nfn main() {\n    io.print(1)\n}\n",
-			want: "import std/io\n\n//# Section.\n\n// Plain.\nfn main() {\n    io.print(1)\n}\n",
+			in:   "import std::io\n\n//# Section.\n// Plain.\nfn main() {\n    io.print(1)\n}\n",
+			want: "import std::io\n\n//# Section.\n\n// Plain.\nfn main() {\n    io.print(1)\n}\n",
 		},
 		{
 			name: "a plain comment still attaches",

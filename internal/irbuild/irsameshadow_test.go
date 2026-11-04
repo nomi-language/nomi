@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRSameOwnerShadow_LexicalCallablesRunOnTheVM(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Number { value: Int }
 impl Number {
  fn read(n: Number) -> Int { n.value }
@@ -31,7 +31,7 @@ fn main() {
 }
 
 func TestIRSameOwnerShadow_InheritedDefaultLocal(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 interface Read {
  fn read(n: self) -> Int
  fn local(n: self) -> String {
@@ -47,7 +47,7 @@ fn main() { io.print(Read.local(Number{value: 3})) }
 }
 
 func TestIRSameOwnerShadow_FileFunctionPrecedesSibling(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn read(n: Int) -> String { "file ${n}" }
 struct Number { value: Int }
 impl Number {
@@ -59,7 +59,7 @@ fn main() { io.print(Number.use(Number{value: 3})) }
 }
 
 func TestIRSameOwnerShadow_DefaultExportPreservesFileFunction(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn read(n: Int) -> String { "file ${n}" }
 interface Read {
  fn read(n: self) -> Int { _ = n; 9 }

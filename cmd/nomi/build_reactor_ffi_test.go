@@ -16,7 +16,7 @@ import (
 // reactorFFIMain binds a function of the project's own Go package (hash.go)
 // and one of Go's standard library, and exports functions that call them.
 const reactorFFIMain = `import {
-    std/io
+    std::io
     hash
 }
 

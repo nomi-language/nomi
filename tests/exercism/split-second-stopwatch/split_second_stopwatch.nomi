@@ -1,6 +1,6 @@
 //# A stopwatch that can be started, stopped, lapped and reset.
 
-import std/duration.Duration
+import std::duration.Duration
 
 /// What a stopwatch is doing.
 pub enum State {

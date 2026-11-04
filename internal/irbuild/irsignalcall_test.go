@@ -13,7 +13,7 @@ import "testing"
 // The function itself as the callback of every iteration function that
 // takes one without a seed, positional, by name and piped.
 func TestIRSignalCall_TheCallbackItself(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn skip(x: Int) -> Int {
   if x == 2 { continue }
@@ -68,7 +68,7 @@ fn main() {
 // `from:` written first, and `Iter.loop` over a named step whose `break`,
 // `break v` and `continue` are the loop's.
 func TestIRSignalCall_ASeededCallWithFrom(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn add(acc: Int, x: Int) -> Int {
   if x == 2 { continue }
@@ -120,7 +120,7 @@ fn main() {
 // named function, an owner's function, a capture, and a lambda without a
 // default whose own `break` and `continue` act on the fold or the loop.
 func TestIRSignalCall_FromWithAnyCallback(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn plus(a: Int, b: Int) -> Int {
   a + b
@@ -153,7 +153,7 @@ fn main() {
 // a loop with no `break` does: a partial capture, a struct field's function,
 // a local function value and a named function.
 func TestIRSignalCall_ALoopOverAnyFunctionValueLowers(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 struct Cfg {
   step: (Int) -> Int
@@ -196,7 +196,7 @@ fn main() {
 
 // A pattern-bound starting value, a tuple and a struct, given as `from:`.
 func TestIRSignalCall_PatternSeedFrom(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Acc {
   total: Int
@@ -228,7 +228,7 @@ fn main() {
 // A `defer` in the function runs as it leaves, whatever it leaves with, as
 // an iteration's callback and as a loop's named step.
 func TestIRSignalCall_DefersRunAsTheFunctionLeaves(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn inner(x: Int) -> Int {
   defer io.print("inner ${x}")
@@ -254,7 +254,7 @@ fn main() {
 
 // A generic iter-sensitive function as the callback.
 func TestIRSignalCall_AGenericFunction(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn head_or_skip<T>(xs: List<T>) -> T {
   case List.head(xs) {
@@ -274,7 +274,7 @@ fn main() {
 // selective import, to an unseeded iteration, a fold with `from:` and a
 // loop with `from:`.
 func TestIRSignalCall_AnotherFilesFunction(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 import lib
 import lib.{keep, add, step}
 

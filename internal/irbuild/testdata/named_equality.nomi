@@ -6,7 +6,7 @@
 // sentence, and each is written so the two possible answers DIFFER — a
 // fixture where the impl and the structural walk agree would pass under
 // either rule.
-import std/io
+import std::io
 
 struct Point {
     x: Int

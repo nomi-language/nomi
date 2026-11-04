@@ -40,7 +40,7 @@
 //     the formatter renders the same AST, so this is the one
 //     case where the expression-position lowering has to agree with the formatter
 //     about how `assert 1 == 1` reads.
-import std/assertions.AssertionFailure
+import std::assertions.AssertionFailure
 
 fn checked_equal(a: Int, b: Int) -> Result<Unit, AssertionFailure> {
     assert a == b

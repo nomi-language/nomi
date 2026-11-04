@@ -12,7 +12,7 @@ import (
 // function parameter, a lambda parameter, and nested inside another pattern.
 // Each runs to the inner value.
 func TestDistinctDestructuring_EveryFormRuns(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 type Balance Int
 type Ratio Float

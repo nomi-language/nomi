@@ -15,7 +15,7 @@ import (
 // concurrent module + Task type import so fixtures can focus on the
 // concurrency rule under test.
 func analyzeConcurrent(src string) []analysis.TypeError {
-	src = "import std/tasks.Task\n\n" + src
+	src = "import std::tasks.Task\n\n" + src
 	return analyzeConcurrentRaw(src)
 }
 

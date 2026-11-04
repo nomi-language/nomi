@@ -46,7 +46,7 @@ func TestPartialApplication_TypeSolvedByALaterUse(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			main := `import std/io
+			main := `import std::io
 
 struct Box {
     value: Int

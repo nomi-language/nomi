@@ -26,7 +26,7 @@ func runCaptureProgram(t *testing.T, src, input string) (string, error) {
 // program's input; inside, both are the capture's, and the program's input
 // is left where it was. `dbg` inside a capture still reaches Run's writer.
 func TestCapture_RedirectsOnlyInsideTheCall(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn echo() -> Int {
     case io.read_line() {
@@ -74,7 +74,7 @@ func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
 }
 
 `
-	got, err := runCaptureProgram(t, "import std/io\n\n"+boom+`fn main() {
+	got, err := runCaptureProgram(t, "import std::io\n\n"+boom+`fn main() {
     io.print("before")
     _ = io.capture("", boom)
     io.print("unreachable")
@@ -86,7 +86,7 @@ func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
 	if got != "before\n" {
 		t.Fatalf("output = %q, want only %q", got, "before\n")
 	}
-	got, err = runCaptureProgram(t, "import std/io\nimport std/tasks.Task\n\n"+boom+`fn main() {
+	got, err = runCaptureProgram(t, "import std::io\nimport std::tasks.Task\n\n"+boom+`fn main() {
     outcome = concurrent {
         t = Task.spawn(fn -> io.capture("", boom).value)
         Task.outcome(t)
@@ -103,10 +103,10 @@ func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
 	}
 }
 
-// `import std/io.capture` brings the generic function in bare, and a bare
+// `import std::io.capture` brings the generic function in bare, and a bare
 // call lowers as the qualified one does.
 func TestCapture_SelectiveImport(t *testing.T) {
-	got, err := runCaptureProgram(t, `import std/io.{capture, print}
+	got, err := runCaptureProgram(t, `import std::io.{capture, print}
 
 fn main() {
     c = capture("", fn -> {
@@ -128,7 +128,7 @@ fn main() {
 // capture and nothing it prints inside one.
 func TestCapture_WithOutputStillReceivesNormalOutput(t *testing.T) {
 	var out bytes.Buffer
-	p, err := vmhost.LoadSource("main.nomi", `import std/io
+	p, err := vmhost.LoadSource("main.nomi", `import std::io
 
 pub fn shout() -> String {
     io.print("outside")
@@ -156,8 +156,8 @@ pub fn shout() -> String {
 // interned once per program, so the instance `io.capture` builds is the one
 // the program's annotation and std's Debug instance name.
 func TestCapture_DebugAndAnnotation(t *testing.T) {
-	got, err := runCaptureProgram(t, `import std/io
-import std/io.Captured
+	got, err := runCaptureProgram(t, `import std::io
+import std::io.Captured
 
 struct Point {
     x: Int

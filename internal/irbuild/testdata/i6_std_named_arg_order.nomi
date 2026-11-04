@@ -1,6 +1,6 @@
 import {
-    std/calendar.{Error, Time}
-    std/io
+    std::calendar.{Error, Time}
+    std::io
 }
 
 // ARGUMENT EVALUATION ORDER FOR A NAMED ARGUMENT TO A STDLIB CALLEE.

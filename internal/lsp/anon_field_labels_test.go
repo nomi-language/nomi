@@ -14,7 +14,7 @@ import (
 // signature or annotation writes: each label is a reference to the field the
 // type names, as is a field access on a value of that type. A return type,
 // a parameter type and a binding annotation.
-const anonLabelsSrc = `import std/io
+const anonLabelsSrc = `import std::io
 
 fn make(context: Context) -> #{logger: String, context: Context} {
   #{logger: "x", context}
@@ -200,7 +200,7 @@ func TestAnonLiteralLabels_HoverAndDefinition(t *testing.T) {
 // A literal with no declared anonymous type declares its own fields: its
 // labels reference nothing else.
 func TestAnonLiteralLabels_UntypedLiteralDeclaresItsOwn(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
   a = #{x: 1}

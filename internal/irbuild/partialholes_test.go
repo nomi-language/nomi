@@ -11,7 +11,7 @@ func TestPartialOverAnOpenHole_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 fn pick<T>(c: Bool, a: T, b: T) -> T {
     if c { a } else { b }

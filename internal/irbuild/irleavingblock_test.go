@@ -21,7 +21,7 @@ import (
 // deep, a function's tail and inside an arm block; each main call reaches a
 // different arm.
 func TestIRLeavingBlock_Returns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct P {
     a: Int
@@ -163,7 +163,7 @@ fn main() {
 // most recent first, then the enclosing body's, as a `return` written there
 // does.
 func TestIRLeavingBlock_Defer(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn deferred(n: Int) -> Int {
     defer io.print("outer defer")
@@ -196,7 +196,7 @@ fn main() {
 // `continue`; and in an Iter.loop body, where `return v` is the next state
 // and `break v` ends the loop.
 func TestIRLeavingBlock_LambdasAndLoops(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn lambda(n: Int) -> Int {
     f = fn m: Int -> {
@@ -268,7 +268,7 @@ fn main() {
 // nothing after it runs.
 func TestIRLeavingBlock_TestBodies(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "leaving_block_test.nomi")
-	src := `import std/io
+	src := `import std::io
 
 test "a bound block that returns" {
     n = 1

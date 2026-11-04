@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A named type reaching itself through an anonymous struct field. No value of
 // this type can be constructed (there is no base case), but the declaration

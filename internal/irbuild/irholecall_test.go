@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-const irHoleDisplaySource = `import std/io
+const irHoleDisplaySource = `import std::io
 
 fn main() {
   io.print(Maybe.to_string(None))
@@ -84,7 +84,7 @@ func TestIRHoleCall_ASolvedTypeIsNeverAHole(t *testing.T) {
 // solved can become an unreachable fault.
 func TestIRHoleCall_ASolvedTypeWithNoImplIsRejected(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
   x: Maybe<Ordering> = None
@@ -111,7 +111,7 @@ fn main() {
 	}
 }
 
-const irHoleCompareSource = `import std/io
+const irHoleCompareSource = `import std::io
 
 fn main() {
   io.inspect(Iter.min([]))
@@ -173,7 +173,7 @@ func TestIRHoleCall_HoleTypedComparisonIsPresentButUnreached(t *testing.T) {
 // and Unit is not Comparable, so the call never reaches the builder.
 func TestIRHoleCall_ASolvedUnitIsNotComparable(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
   xs: List<Unit> = []

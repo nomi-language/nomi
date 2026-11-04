@@ -18,7 +18,7 @@
 // destructuring binding, a map KEY (hash and equality), and an interpolation —
 // so a site that regresses to the bare spelling fails here rather than in a
 // corpus file three categories away.
-import std/io
+import std::io
 
 type Coord #(Int, Int)
 type Triple #(Int, Int, Int)

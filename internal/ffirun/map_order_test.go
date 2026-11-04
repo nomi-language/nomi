@@ -40,7 +40,7 @@ func TestFFIRun_AGoMapCrossesInSortedKeyOrder(t *testing.T) {
 		t.Skip("integration test invokes go run; skipped in -short mode")
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
-	entry := stageCrossingProject(t, mapOrderGo, `import std/io
+	entry := stageCrossingProject(t, mapOrderGo, `import std::io
 
 gopkg "crossing" as crossing
 

@@ -7,7 +7,7 @@
 // and a transitive hop (helpers -> deeper) that makes the reference
 // graph two edges deep rather than one.
 import {
-    std/io
+    std::io
     helpers
 }
 

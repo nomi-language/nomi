@@ -119,7 +119,7 @@ func (p *Program) CompileExpr(file string, vars []DebugParam, expr string) (*Deb
 			}
 			if path := p.declaringFile(file, stdModule, name); path != "" {
 				imported[name] = true
-				base = importAtStart(base, path+"."+name)
+				base = importAtStart(base, strings.ReplaceAll(path, "/", "::")+"."+name)
 				added = true
 			}
 		}

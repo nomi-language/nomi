@@ -1,6 +1,6 @@
 import {
-    std/compiler
-    std/json.Json.{self, Int as JInt, String as JStr}
+    std::compiler
+    std::json.Json.{self, Int as JInt, String as JStr}
     test_helpers
 }
 
@@ -286,7 +286,7 @@ test "dot-leading variant diagnostics require a contextual enum type" {
 test "bare variant construction diagnostics require enum qualification" {
     diagnostics = compiler.check(
         """
-          import std/json: Json
+          import std::json: Json
 
           enum Shape {
             Circle Float

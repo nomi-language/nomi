@@ -2,8 +2,8 @@
 // no `error: ` before it and exits with the code. Boot's cleanup runs first,
 // so its line comes before the message.
 import {
-    std/io
-    std/process.Exit
+    std::io
+    std::process.Exit
 }
 
 struct App {

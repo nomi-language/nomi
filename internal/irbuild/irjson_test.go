@@ -5,8 +5,8 @@ import (
 )
 
 const irJSONTourSrc = `import {
-  std/json.{FromJson, Json, ToJson}
-  std/json.Json.Case.Camel
+  std::json.{FromJson, Json, ToJson}
+  std::json.Json.Case.Camel
 }
 
 struct User {
@@ -54,7 +54,7 @@ dbg line 51: back = Flag{label: "a \"quoted\" label", ratio: 0.25, on: True}
 }
 
 const irJSONRoundTripSrc = `import {
-  std/json.{FromJson, Json, ToJson}
+  std::json.{FromJson, Json, ToJson}
 }
 
 struct Point {
@@ -112,7 +112,7 @@ fn main() {
 // rebuilt in an attach literal.
 func TestIRJSON_DecodedValueAndDebug(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/json.{Json}
+  std::json.{Json}
 }
 
 fn wrap(j: Json) -> Json {
@@ -134,8 +134,8 @@ fn main() {
 // retains through the nested list test and prints the expected output.
 func TestIRJSON_NestedPayloadPatternRetains(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
-  std/json.{Json}
+  std::io
+  std::json.{Json}
 }
 
 fn first(j: Json) -> Int {
@@ -155,7 +155,7 @@ fn main() {
 // Written std/json constructors outside std, alone, bound and nested, run on
 // the VM and print the expected output.
 func TestIRJSON_WrittenConstructors(t *testing.T) {
-	verifyLambdaProgram(t, `import std/json.{Json}
+	verifyLambdaProgram(t, `import std::json.{Json}
 
 fn main() {
   dbg Json.encode(Json.Int(7))

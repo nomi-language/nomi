@@ -20,8 +20,8 @@
 // spelling that would otherwise report `call to an unlowered function` for
 // the one host function this builder does lower.
 import {
-    std/io.print
-    std/strings.String.{starts_with as has}
+    std::io.print
+    std::strings.String.{starts_with as has}
     lib.{self, Widget, label, make, twice as doubled}
 }
 

@@ -77,7 +77,7 @@ impl Holds for Bag {
 }
 `,
 		"main.nomi": `import {
-    std/io
+    std::io
     impls.{Box, Bag}
     %s.Holds
 }
@@ -130,7 +130,7 @@ impl Greets for Shown<T> {
 }
 `,
 		"main.nomi": `import {
-    std/io
+    std::io
     impls.Greets
     %s.{Wrap, Shown}
 }
@@ -146,7 +146,7 @@ fn main() {
 // The same impls above the generic structs they are for, in one file. The
 // impls were typed before the structs were built.
 func TestFileOrder_ImplAboveTheGenericStructItIsFor(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 interface Greets {
     fn name(value: self) -> String

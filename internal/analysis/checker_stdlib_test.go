@@ -91,7 +91,7 @@ func TestCheckBinding_AnnotationDrivesInference(t *testing.T) {
 	// only producer of this specific error message is the unify call in
 	// checkBinding, so this assertion fails if unify is replaced with a
 	// no-op.
-	mismatch := `import std/maps: Map
+	mismatch := `import std::maps: Map
 fn main() {
   m: Map<String, Int> = Iter.to_map([#("a", "b")])
 }`
@@ -352,8 +352,8 @@ func withStdlibTestImports(src string) string {
 	addModule("sets")
 	addModule("strings")
 	addModule("vectors")
-	if strings.Contains(src, "code_points.") && !strings.Contains(src, "import std/code_points") {
-		imports = append(imports, "import std/code_points")
+	if strings.Contains(src, "code_points.") && !strings.Contains(src, "import std::code_points") {
+		imports = append(imports, "import std::code_points")
 	}
 	if len(imports) == 0 {
 		return src
@@ -826,8 +826,8 @@ fn f() -> List<String> {
 
 func TestCheckerResolvesSelectiveImportAlias(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-import std/maybe.{Maybe as Opt}
-import std/maybe.Maybe.{Some as Just, None as Nothing}
+import std::maybe.{Maybe as Opt}
+import std::maybe.Maybe.{Some as Just, None as Nothing}
 
 fn f() -> Opt<Int> {
     Just(42)
@@ -845,7 +845,7 @@ func TestCheckerMixedPartialAliases(t *testing.T) {
 	// Aliased variant imports stay reachable at construction sites and
 	// pattern sites (`Just(1)` constructs Some; `Just(n)` matches Some).
 	_, errs := checkSourceWithStdlib(`
-import std/maybe.Maybe.{Some as Just}
+import std::maybe.Maybe.{Some as Just}
 
 fn f() -> Maybe<Int> {
     case Just(1) {
@@ -859,7 +859,7 @@ fn f() -> Maybe<Int> {
 
 func TestCheckerAcceptsImportedVariantPattern(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-import std/comparable: Ordering.{Equal, Greater, Less}
+import std::comparable: Ordering.{Equal, Greater, Less}
 
 fn f(ordering: Ordering) -> Int {
     case ordering {
@@ -879,7 +879,7 @@ fn f(ordering: Ordering) -> Int {
 // module export (a function).
 func TestCheckerFieldAccessFallback_StructFieldStillWins(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-import std/maps
+import std::maps
 
 struct Callbacks { empty: Int }
 
@@ -1283,8 +1283,8 @@ fn f() -> Int {
 // Break in lists.sort_with's comparator — INVALID (comparator is not iter-callback).
 func TestCheckerBreakInSortComparator(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-import std/comparable.{Ordering}
-import std/comparable.Ordering.{Equal, Greater, Less}
+import std::comparable.{Ordering}
+import std::comparable.Ordering.{Equal, Greater, Less}
 fn f() -> List<Int> {
     Iter.sort_with([3, 1, 2], fn a, _b -> if a > 100 { break Equal } else { Less })
 }
@@ -1377,7 +1377,7 @@ fn read() -> Context {
 // An interface-impl method must not collide with a same-name ordinary
 // function brought into scope by a selective import. Universal Debug
 // synthesizes `impl Debug for A { fn inspect }` for every declared type;
-// importing io's `inspect` selectively (`import std/io.inspect`) puts a
+// importing io's `inspect` selectively (`import std::io.inspect`) puts a
 // function named `inspect` in the same scope, and the impl method's
 // scope-define spuriously reported a redeclaration. They occupy different
 // modules: bare `inspect(x)` -> the IO function; `Type.inspect(x)` /
@@ -1386,7 +1386,7 @@ func TestCheckImplMethodDoesNotCollideWithImportedFunction(t *testing.T) {
 	// Synthesized Debug (no explicit impl): universal Debug emits
 	// `impl Debug for A { fn inspect }`, whose method name must not collide
 	// with the selectively-imported io.inspect.
-	src := `import std/io.inspect
+	src := `import std::io.inspect
 
 struct A { n: Int }
 
@@ -1400,7 +1400,7 @@ fn main() {
 
 	// Hand-written impl, and a non-Debug interface whose method name
 	// collides with an imported function — both must be tolerated.
-	src2 := `import std/io.{print}
+	src2 := `import std::io.{print}
 
 interface Speak {
   fn print(s: self) -> String
@@ -1425,7 +1425,7 @@ fn main() {
 }
 
 func TestCheckBareImportedFunctionDoesNotBecomeDispatch(t *testing.T) {
-	src := `import std/io.inspect
+	src := `import std::io.inspect
 
 interface Greeting {
   fn greet(value: self) -> String

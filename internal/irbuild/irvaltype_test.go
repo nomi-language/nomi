@@ -9,7 +9,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-const irValTypeSource = `import std/io
+const irValTypeSource = `import std::io
 
 struct Tag {
   name: String

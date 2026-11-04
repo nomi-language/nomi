@@ -18,9 +18,9 @@
 // slots evaluate in nesting order rather than source order prints them
 // backwards.
 import {
-    std/calendar.Date
-    std/io
-    std/literals.{Fragment, Literal}
+    std::calendar.Date
+    std::io
+    std::literals.{Fragment, Literal}
     tally.Tally
     wrap.{Slot, Slots, Wrap}
 }

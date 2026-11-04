@@ -79,7 +79,7 @@ entry_points = ["main"]
 `)
 
 	entrySrc := `import {
-  std/io
+  std::io
 }
 
 gopkg "echobinding" as ffi
@@ -193,7 +193,7 @@ entry_points = ["main"]
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/io
+  std::io
 }
 
 gopkg "taggedbinding" as box
@@ -301,7 +301,7 @@ entry_points = ["main"]
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/io
+  std::io
 }
 
 gopkg "taggedbinding" as tup
@@ -380,7 +380,7 @@ func EchoUpper(s string) string {
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/io
+  std::io
 }
 
 gopkg "localbindingtest" as ffi
@@ -528,7 +528,7 @@ entry_points = ["main"]
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/io
+  std::io
 }
 
 gopkg "callbackbinding" as callback
@@ -634,7 +634,7 @@ entry_points = ["main"]
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/io
+  std::io
 }
 
 gopkg "rowbinding" as rows
@@ -728,8 +728,8 @@ entry_points = ["main"]
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/duration.Duration
-  std/io
+  std::duration.Duration
+  std::io
 }
 
 gopkg "durationbinding" as duration
@@ -823,7 +823,7 @@ name = "bigtest"
 entry_points = ["main"]
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import std/io
+	mustWriteHelper(t, entryPath, `import std::io
 
 gopkg "bigbinding" as bigs
 gopkg "math/big" as big
@@ -918,8 +918,8 @@ entry_points = ["nothing", "far"]
 		{"far", "far() == far()", "line 10: `results.Far` returned 3000-01-01T00:00:00Z, which is not an Instant from 1677-09-21T00:12:43Z to 2262-04-11T23:47:16Z"},
 	} {
 		entryPath := filepath.Join(projectRoot, c.name+".nomi")
-		mustWriteHelper(t, entryPath, `import std/io
-import std/instant.Instant
+		mustWriteHelper(t, entryPath, `import std::io
+import std::instant.Instant
 
 gopkg "results" as results
 
@@ -1000,8 +1000,8 @@ entry_points = ["main"]
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/instant.Instant
-  std/io
+  std::instant.Instant
+  std::io
 }
 
 gopkg "timebinding" as go_time
@@ -1080,8 +1080,8 @@ entry_points = ["main"]
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/io
-  sqlite/sqlite
+  std::io
+  sqlite::sqlite
 }
 
 fn main() {
@@ -1186,7 +1186,7 @@ entry_points = ["main"]
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import {
-  std/io
+  std::io
 }
 
 gopkg "cwdbinding" as cwd
@@ -1379,7 +1379,7 @@ name = "streamtest"
 entry_points = ["main"]
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import std/io.{self, Reader, Writer}
+	mustWriteHelper(t, entryPath, `import std::io.{self, Reader, Writer}
 
 gopkg "streams" as st
 gopkg "io" as goio

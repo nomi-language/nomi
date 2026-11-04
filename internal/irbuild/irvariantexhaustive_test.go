@@ -46,7 +46,7 @@ fn main() { _ = number(Signal.Idle) }
 
 func TestIRVariantExhaustive_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"bare variants", `import std/io
+		{"bare variants", `import std::io
 enum Color {
   Red
   Green
@@ -64,7 +64,7 @@ fn main() {
   io.print(number(Color.Green))
   io.print(number(Color.Blue))
 }`, "1\n2\n3\n"},
-		{"literal and bound payload", `import std/io
+		{"literal and bound payload", `import std::io
 enum Signal {
   Idle
   Value Int
@@ -81,7 +81,7 @@ fn main() {
   io.print(number(Signal.Idle))
   io.print(number(Signal.Value(41)))
 }`, "10\n20\n42\n"},
-		{"nested case and captured payload", `import std/io
+		{"nested case and captured payload", `import std::io
 enum Signal {
   Idle
   Value Int

@@ -64,7 +64,7 @@ func TestFieldRead_TheCheckerWallsOffThreeBackstops(t *testing.T) {
 // unwrapped value is lowered once and its field projected, as a call's result
 // is.
 func TestFieldRead_OffAnUnwrapOrATry(t *testing.T) {
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 struct P {
     x: Int

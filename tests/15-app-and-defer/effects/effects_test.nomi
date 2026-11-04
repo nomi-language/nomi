@@ -1,4 +1,4 @@
-import std/compiler.{self, RunFile}
+import std::compiler.{self, RunFile}
 
 test "effects app prints configured output" {
     result = compiler.run_file(RunFile{entry_point: "main"})

@@ -607,7 +607,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			// body is that qualified call.
 			return bl.ownerFuncRef(t)
 		}
-		if owner, isIdent := t.Object.(*ast.Ident); isIdent {
+		if owner, isIdent := ast.QualifierIdent(t.Object); isIdent {
 			// `fakes.Quiet`: a marker named through its file's qualifier.
 			// A locally bound name is a value, never a qualifier.
 			if _, local := bl.bound[owner.Name]; !local {
@@ -665,7 +665,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			qualifier := ""
 			if owner, isType := fa.Object.(*ast.TypeIdent); isType {
 				qualifier = owner.Name
-			} else if owner, isIdent := fa.Object.(*ast.Ident); isIdent && !irQualIsLocal(bl, owner.Name) {
+			} else if owner, isIdent := ast.QualifierIdent(fa.Object); isIdent && !irQualIsLocal(bl, owner.Name) {
 				qualifier = owner.Name
 			}
 			if qualifier != "" {
@@ -926,7 +926,7 @@ func (bl *irScalarBuilder) stdIntrinsicOwner(fa *ast.FieldAccess) string {
 		}
 		sym = resolvedTypeSymbol(bl.g.fa, q.Name)
 	case *ast.FieldAccess:
-		mod, isIdent := q.Object.(*ast.Ident)
+		mod, isIdent := ast.QualifierIdent(q.Object)
 		if !isIdent || q.Field == nil || irQualIsLocal(bl, mod.Name) {
 			return ""
 		}
@@ -1150,7 +1150,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		return bl.qualCall(t, fa)
 	}
 	if id, ok := t.Func.(*ast.Ident); ok && bl.bareIterLoop(id) {
-		// `import std/iter.Iter.{loop}` then `loop(...)`: Iter.loop.
+		// `import std::iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
 	if id, ok := t.Func.(*ast.Ident); ok {
@@ -1220,7 +1220,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			return v, k, mobile, ok
 		}
 	}
-	// `import std/calendar.Date.parse` puts a stdlib type's method in this
+	// `import std::calendar.Date.parse` puts a stdlib type's method in this
 	// file's scope; the bare call reaches the same route the qualified
 	// spelling reaches.
 	if _, local := bl.g.funcs[callee.Name]; !local && !hasNamed {
@@ -1231,18 +1231,18 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	sig := bl.g.funcs[callee.Name]
 	if sig == nil && !hasNamed {
 		if key, output := stdBareOutputKey(bl.g.srcFA(), callee); output || bl.inStdIO() && bl.ownOutputKey(callee, &key) {
-			// `import std/io.print` then `print(x)`: io.print itself.
+			// `import std::io.print` then `print(x)`: io.print itself.
 			return bl.hostOutputKey(t, key)
 		}
 		if f := bl.stdBareGenericFileFunc(callee); f != nil {
-			// `import std/io.capture` then `capture(...)`: the generic
+			// `import std::io.capture` then `capture(...)`: the generic
 			// stdlib function, instantiated as `io.capture(...)` is.
 			if v, k, mobile, ok, handled := bl.stdInstCallAt(t, f, kindInvalid); handled {
 				return v, k, mobile, ok
 			}
 		}
 		if module, name, isStd := stdBareFileFunc(bl.g.srcFA(), callee); isStd {
-			// `import std/io.read_line` then `read_line()`: the call
+			// `import std::io.read_line` then `read_line()`: the call
 			// `io.read_line()` plans, under any alias the import gave it.
 			lower := func() (ir.Temp, kind, bool, bool) {
 				if bl.qualBare == nil {
@@ -1497,7 +1497,7 @@ func (bl *irScalarBuilder) bareIterLoop(id *ast.Ident) bool {
 // Print and write use Display; inspect uses Debug and holds effectful operands once.
 func (bl *irScalarBuilder) hostOutput(t *ast.Call, fa *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	owner, isIdent := fa.Object.(*ast.Ident)
+	owner, isIdent := ast.QualifierIdent(fa.Object)
 	if !isIdent || fa.Field == nil || len(t.Args) != 1 {
 		return no()
 	}
@@ -1517,7 +1517,7 @@ func (bl *irScalarBuilder) hostOutput(t *ast.Call, fa *ast.FieldAccess) (ir.Temp
 }
 
 // stdBareOutputKey is the host key of a bare call to std/io's print, write
-// or inspect brought into scope by a selective import (`import std/io.print`).
+// or inspect brought into scope by a selective import (`import std::io.print`).
 func stdBareOutputKey(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
 	sym := resolvedBareSymbolAt(fa, id)
 	if sym == nil || fa.Program().StdlibModuleScopes == nil {
@@ -2357,13 +2357,20 @@ func (bl *irScalarBuilder) exitReturn(n ast.Node) {
 
 // ifRegion leaves its join open for the caller's return or enclosing jump.
 func (bl *irScalarBuilder) ifRegion(t *ast.If, sig irFuncSig) (kind, bool) {
+	sig, mode := bl.enterElseless(t, sig)
+	switch mode {
+	case elselessDeclined:
+		return kindInvalid, false
+	case elselessValue:
+		return bl.elselessAsValue(t, sig)
+	}
 	if t.CondPattern != nil {
 		return bl.patternIfRegion(t, sig)
 	}
 	// An `if` with no `else` is Unit whichever way it goes, so a
 	// Unit-valued region may omit it: the else edge writes Unit.
 	unitElse := t.Else == nil && !sig.testArms && (sig.inferResult || sig.result == kindUnit)
-	if isNilNode(t.Cond) || (t.Else == nil && !sig.testArms && !unitElse) {
+	if isNilNode(t.Cond) || (t.Else == nil && !sig.testArms && !unitElse && sig.elseless == nil) {
 		irDeclineNote("a tail `if` without a condition or `else`")
 		return kindInvalid, false
 	}
@@ -2455,6 +2462,9 @@ func irJoinArms(a, b kind, sig irFuncSig) (kind, bool) {
 // testElse lowers an `if`'s else arm. A test-body statement `if` may have
 // none, and its else edge then joins the exit directly.
 func (bl *irScalarBuilder) testElse(els, exit *ir.Block, t *ast.If, then kind, sig irFuncSig) (kind, bool) {
+	if t.Else == nil && sig.elseless != nil {
+		return bl.elselessNone(els, exit, t, sig.elseless), true
+	}
 	if t.Else == nil && sig.testArms {
 		els.SetTerm(ir.NewJump(bl.g.irNodePos(t), exit.ID()))
 		return then, true
@@ -2640,11 +2650,15 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	var ok, region bool
 	switch nested := body.(type) {
 	case *ast.If:
-		k, ok = bl.ifRegion(nested, sig)
-		region = true
+		if sig.elseless == nil || elselessArmRegion(nested, sig.elseless) {
+			k, ok = bl.ifRegion(nested, sig)
+			region = true
+		}
 	case *ast.Case:
-		k, ok = bl.caseRegion(nested, sig)
-		region = true
+		if sig.elseless == nil {
+			k, ok = bl.caseRegion(nested, sig)
+			region = true
+		}
 	}
 	if region {
 		if !ok {
@@ -2673,7 +2687,9 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		return kindDiverged, true
 	}
 	var val ir.Temp
-	if sig.inferResult {
+	if sig.elseless != nil {
+		val, k, ok = bl.elselessSome(body, sig.elseless)
+	} else if sig.inferResult {
 		val, k, _, ok = bl.lower(body)
 	} else {
 		val, k, _, ok = bl.lowerWant(body, sig.result)
@@ -2740,7 +2756,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 	if !adHoc {
 		var ok bool
 		subj, sk, _, ok = bl.lower(t.Value)
-		if !ok || (sk != kindInt && sk != kindString && sk != kindBool && !irLiteralCaseKind(sk, bl) &&
+		if !ok || (sk != kindInt && sk != kindString && sk != kindBool && sk != kindUnit && !irLiteralCaseKind(sk, bl) &&
 			(!irRetainedTupleKind(sk) && !irCaseListKind(sk) && !irVectorCaseKind(sk) && !irSetCaseKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
 			if ok {
 				irDeclineNote("a tail `case` scrutinee outside retained literal-pattern kinds: " + sk.nomi())

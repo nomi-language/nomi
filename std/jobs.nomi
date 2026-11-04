@@ -28,7 +28,7 @@
 //# ```
 //#
 //# `Queue` is the interface a backend implements: `lib/jobs/postgres`
-//# keeps jobs in a Postgres table. std/jobs_testing has `Inline`, a queue
+//# keeps jobs in a Postgres table. std::jobs_testing has `Inline`, a queue
 //# kept in memory for tests, `run_queued`, which runs the due jobs in the
 //# test's own task, and `conformance`, the suite every backend passes.
 //#
@@ -335,7 +335,7 @@ impl Worker {
 }
 
 /// Where jobs are stored. `lib/jobs/postgres` and `jobs_testing.Inline`
-/// implement it, and std/jobs_testing's `conformance` suite checks each
+/// implement it, and std::jobs_testing's `conformance` suite checks each
 /// backend.
 ///
 /// Each function but `insert` and `watch` acts for the worker named

@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# A Dungeons & Dragons character with six random abilities, each the best
 //# three of four six-sided dice, and hitpoints from its constitution.
 
-import std/random.Generator
+import std::random.Generator
 
 /// A character's six abilities and its hitpoints.
 pub struct Character {
@@ -63,7 +63,7 @@ pub fn character() -> Generator<Character> {
 
 // FILE: dnd_character_test.nomi
 import {
-    std/random.{Generator, Seed}
+    std::random.{Generator, Seed}
     dnd_character
     dnd_character.Character
 }

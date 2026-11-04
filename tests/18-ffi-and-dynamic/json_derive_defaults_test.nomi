@@ -1,6 +1,6 @@
 import {
-    std/json.{FromJson, ToJson}
-    std/json.Json
+    std::json.{FromJson, ToJson}
+    std::json.Json
 }
 
 struct Game {

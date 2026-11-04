@@ -13,7 +13,7 @@
 //# the element type survived. A row that merely called the function and dropped
 //# the result would pass against a lowering that got the type wrong.
 
-import std/io
+import std::io
 
 pub struct Half<T> {
     slot: T

@@ -13,7 +13,7 @@ func TestCheckCommand_PrintsAnErrorTwoEntriesShareOnce(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"a\", \"b\"]\n")
 	mustWrite(t, filepath.Join(dir, "shared.nomi"), "pub fn n() -> Int {\n    \"not an int\"\n}\n")
 	for _, entry := range []string{"a", "b"} {
-		mustWrite(t, filepath.Join(dir, entry+".nomi"), "import {\n    shared\n    std/io\n}\n\nfn main() {\n    io.print(shared.n())\n}\n")
+		mustWrite(t, filepath.Join(dir, entry+".nomi"), "import {\n    shared\n    std::io\n}\n\nfn main() {\n    io.print(shared.n())\n}\n")
 	}
 	out, err := runNomi(t, t.TempDir(), "check", dir)
 	if err == nil {

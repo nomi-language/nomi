@@ -161,7 +161,7 @@ func declOrderFiles(order []int, nfiles int) map[string]string {
 		}
 		var imports []string
 		if name == "main.nomi" {
-			imports = append(imports, "std/io")
+			imports = append(imports, "std::io")
 		}
 		for _, mod := range slices.Sorted(func(yield func(string) bool) {
 			for m := range byFile {

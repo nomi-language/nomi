@@ -11,7 +11,7 @@ import (
 // at compile time, so its type is T; a double-quoted one keeps the handler's
 // Result, interpolated or not.
 func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
-	src := "import std/regex.Regex\n\n" +
+	src := "import std::regex.Regex\n\n" +
 		"fn f(w: String) -> List<Regex<Unit>> {\n" +
 		"  a: Regex<Unit> = Regex`\\d+`\n" +
 		"  b: Result<Regex<Unit>, String> = Regex\"\\\\d+\"\n" +
@@ -28,7 +28,7 @@ func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 		"  a: Result<Regex<Unit>, String> = Regex`\\d+`\n",
 		"  a: Regex<Unit> = Regex\"\\\\d+\"\n",
 	} {
-		src := "import std/regex.Regex\n\nfn f() -> Unit {\n" + mistyped + "  _ = a\n}\n"
+		src := "import std::regex.Regex\n\nfn f() -> Unit {\n" + mistyped + "  _ = a\n}\n"
 		if errs := checkTypedLiteralSource(src); len(errs) == 0 {
 			t.Errorf("%q is admitted", strings.TrimSpace(mistyped))
 		}
@@ -42,7 +42,7 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 	for _, line := range []string{
 		"  digits = Regex`\\d+`?\n",
 	} {
-		src := "import std/regex.Regex\n\nfn f() -> Result<Regex<Unit>, String> {\n" + line + "  Ok(digits)\n}\n"
+		src := "import std::regex.Regex\n\nfn f() -> Result<Regex<Unit>, String> {\n" + line + "  Ok(digits)\n}\n"
 		errs := checkTypedLiteralSource(src)
 		var found *analysis.TypeError
 		for i := range errs {
@@ -62,7 +62,7 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 		}
 	}
 	// A double-quoted literal is still a Result, so `?` on it stands.
-	src := "import std/regex.Regex\n\nfn f() -> Result<Regex<Unit>, String> {\n  digits = Regex\"\\\\d+\"?\n  Ok(digits)\n}\n"
+	src := "import std::regex.Regex\n\nfn f() -> Result<Regex<Unit>, String> {\n  digits = Regex\"\\\\d+\"?\n  Ok(digits)\n}\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("try on a double-quoted literal is rejected: %v", errs)
 	}

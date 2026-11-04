@@ -156,11 +156,11 @@ func TestIRPatternAssert_UngroupedCasesAgree(t *testing.T) {
 }
 
 const irPatternAssertGroupedSource = `import {
-  std/duration.Duration
-  std/instant.Instant
-  std/tasks.Task
-  std/testing.Clock
-  std/timer
+  std::duration.Duration
+  std::instant.Instant
+  std::tasks.Task
+  std::testing.Clock
+  std::timer
 }
 
 fn long_sleep() -> Unit {

@@ -14,7 +14,7 @@ import (
 // second key is the `a` bound before the pattern ("host"), so b is the host's
 // value, in a binding with `else`, a `case` arm and a pattern `if`. A key that names the shadowed parameter is evaluated once.
 func TestRun_MapPatternKeySeesTheScopeBeforeThePattern(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 fn note(s: String) -> String {
   io.print("key ${s}")
@@ -100,7 +100,7 @@ fn main() {
 // keys ran, and the else sees the names bound before the pattern, not the
 // pattern's own.
 func TestRun_MapDestructureRebindMissingKeyRunsElse(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 fn note(s: String) -> String {
   io.print("key ${s}")
@@ -127,7 +127,7 @@ fn main() {
 // later key sees the earlier value.
 func TestRun_MapDestructureRebindInATestBody(t *testing.T) {
 	const name = "main_test.nomi"
-	p, err := vmhost.LoadSource(name, `import std/io
+	p, err := vmhost.LoadSource(name, `import std::io
 
 test "map rebind" {
   m = %{"host" => "h1", "mode" => "debug", "debug" => "D"}

@@ -1,0 +1,58 @@
+// `Unit` is a constant pattern, as `True`, `False` and `None` are: it
+// matches the one value of type Unit, at any depth.
+struct Job {
+    name: String
+    done: Unit
+}
+
+fn save(fail: Bool) -> Result<Unit, String> {
+    if fail { Err("disk full") } else { Ok(Unit) }
+}
+
+fn describe(r: Result<Unit, String>) -> String {
+    case r {
+        Ok(Unit) -> "saved"
+        Err(e) -> e
+    }
+}
+
+fn first_saved(r: Result<Unit, String>) -> String {
+    Ok(Unit) = r else { return "not saved" }
+    "saved"
+}
+
+test "Ok(Unit) matches a Result<Unit, E>" {
+    assert describe(save(False)) == "saved"
+    assert describe(save(True)) == "disk full"
+}
+
+test "Unit alone covers a Unit scrutinee" {
+    n = case (Unit) {
+        Unit -> 1
+    }
+
+    assert n == 1
+}
+
+test "Unit in tuples, struct fields and Maybe" {
+    assert #(1, Unit) is #(1, Unit)
+    job = Job{name: "a", done: Unit}
+
+    assert case job {
+        Job{name, done: Unit} -> name
+    } == "a"
+
+    assert Some(Unit) is Some(Unit)
+    assert not (None is Some(Unit))
+}
+
+test "Unit in binding else, is and or patterns" {
+    assert first_saved(save(False)) == "saved"
+    assert first_saved(save(True)) == "not saved"
+    assert save(False) is Ok(Unit)
+
+    assert case save(True) {
+        Ok(Unit) or Err("disk full") -> True
+        Err(_) -> False
+    }
+}

@@ -13,7 +13,7 @@ import (
 
 // A program whose boot takes no parameter boots and publishes its app.
 func TestIRBootStartup_AZeroParameterBootRunsMain(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct App {
   port: Int
@@ -30,7 +30,7 @@ fn main() {
 }
 
 // The entry file a group's `boot` line calls: a boot with no parameter.
-const irBootStartupZeroServer = `import std/io
+const irBootStartupZeroServer = `import std::io
 
 pub struct App {
   label: String
@@ -72,7 +72,7 @@ group "group" {
 // has a default, which prints the arguments it received. The default calls a
 // function private to the entry file, which the test file cannot name, so
 // the entry's unit must lower it.
-const irBootStartupDefaultServer = `import std/io
+const irBootStartupDefaultServer = `import std::io
 
 pub struct App {
   first: String

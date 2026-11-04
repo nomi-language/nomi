@@ -183,10 +183,10 @@ func buildProjectManifest(t *testing.T, entrySrc string, siblings map[string]str
 func TestManifestRecordedAtTypedLiteralSlot(t *testing.T) {
 	siblings := map[string]string{
 		"joiner": `import {
-  std/display: Display
-  std/iter.Iter
-  std/literals: Fragment, Literal
-  std/literals.Fragment.{Static, Dynamic}
+  std::display: Display
+  std::iter.Iter
+  std::literals: Fragment, Literal
+  std::literals.Fragment.{Static, Dynamic}
 }
 
 pub type Joiner
@@ -202,7 +202,7 @@ impl Literal for Joiner {
 }`,
 	}
 	entry := `import {
-  std/io
+  std::io
   joiner: Joiner
 }
 
@@ -239,7 +239,7 @@ func TestImplManifestUnion(t *testing.T) {
 // constraint check against the interface. The manifest must record the
 // argument type → interface pair the same way typed-literal slots do.
 func TestManifestRecordedAtGenericInstantiation(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 pub fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
@@ -328,7 +328,7 @@ fn demo() -> Foo<Int, String> {
 // by every type and records NO manifest demand, so the generic-container
 // TypeArg recursion is now exercised through Display, which is still recorded.
 func TestManifestRecursesIntoGenericContainerTypeArgs(t *testing.T) {
-	src := `import { std/io }
+	src := `import { std::io }
 
 fn main() {
   ages = %{"alice" => 30, "bob" => 25}
@@ -352,7 +352,7 @@ fn main() {
 // the demand. Vehicle is io.print (Display);
 // universal Debug records no manifest demand (see the recursion test above).
 func TestManifestRecordsInterfaceBoundsThroughPipe(t *testing.T) {
-	src := `import { std/io }
+	src := `import { std::io }
 
 fn main() {
   ages = %{"alice" => 30, "bob" => 25}
@@ -408,7 +408,7 @@ fn main() {
 // dispatch table whenever the program uses any @derive Display/Debug
 // type — regardless of the type's payloads.
 func TestManifestRecordsStringDisplayForDeriveDebugStringInterp(t *testing.T) {
-	src := `import { std/io }
+	src := `import { std::io }
 
 pub enum Maybe2<T> {
   Some2 T
@@ -434,7 +434,7 @@ fn demo() -> Maybe2<Int> {
 // triggers a Display recording on that sibling's FileAnalysis. The
 // recording must reach the program's demands so a program whose
 // entry imports the sibling and calls into it doesn't need to also
-// import std/strings explicitly. Without per-sibling CheckTypes, the
+// import std::strings explicitly. Without per-sibling CheckTypes, the
 // sibling's FA never records it.
 func TestManifestRecordsSiblingModuleBodyConformance(t *testing.T) {
 	siblings := map[string]string{
@@ -443,7 +443,7 @@ func TestManifestRecordsSiblingModuleBodyConformance(t *testing.T) {
 }`,
 	}
 	entry := `import {
-  std/io
+  std::io
   greeter
 }
 
@@ -465,7 +465,7 @@ fn main() {
 // `impl Speech for Dog { fn speak… }` method is rejected just like the old
 // decorator form was.
 func TestBareNameImplCall_Rejected(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 pub interface Speech { fn speak(s: self) -> String }
 
@@ -489,7 +489,7 @@ fn main() {
 // conformance pair recorded — the bare call resolves to the local lambda,
 // not the impl method, so the analyzer leaves it alone.
 func TestBareNameImplCall_ShadowedByLocalFn_NotRecorded(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 pub interface Speech { fn speak(s: self) -> String }
 
@@ -527,7 +527,7 @@ fn main() {
 // rejection path. (Note the default body itself uses the qualified
 // `Identity.name(value)`, which is fine.)
 func TestBareNameDefaultMethodCall_Rejected(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 pub interface Identity {
   fn name(value: self) -> String
@@ -557,7 +557,7 @@ fn main() {
 // ambiguity diagnostic unnecessary, so the bare call is rejected like any other.
 // Block-form impls reach this via implMethodIfacesFor / the project impl index.
 func TestAmbiguousBareNameImplCall_Rejected(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 pub interface Greeter { fn greet(g: self) -> String }
 pub interface Farewell { fn greet(f: self) -> String }
@@ -589,7 +589,7 @@ fn main() {
 // interface-qualified call dispatches on the runtime type. Coherence must not
 // false-positive on the multi-receiver polymorphic-dispatch shape.
 func TestMultiReceiverSameInterfaceImplCall_NotAmbiguous(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 pub interface Speech { fn speak(s: self) -> String }
 
@@ -621,7 +621,7 @@ fn main() {
 // exercises the BuildProject pipeline. It checks that the
 // program's demands, every file's own folded, carry the entry's.
 func TestImplManifestVisibleViaBuildProject(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
   io.print(Display.to_string(42))
@@ -639,7 +639,7 @@ fn main() {
 // The missing-impl diagnostic renders the @derive position + field name when
 // the demand site is a derive synthesizer.
 func TestDeriveSynthRecordsDeriveCtx(t *testing.T) {
-	src := `import { std/io }
+	src := `import { std::io }
 
 pub struct Box {
   n: Int
@@ -694,7 +694,7 @@ fn main() {
 // pointer ("add impl Display for C") lands on a synthesizer-band
 // position the user can't act on.
 func TestGenericInstantiationAttribution(t *testing.T) {
-	src := `import { std/io }
+	src := `import { std::io }
 
 pub struct C { x: Int }
 
@@ -744,10 +744,10 @@ fn main() {
 }
 
 // TestManifestRecordedForDestructuredImport checks that the
-// destructured-import form (`import std/dynamic.{Dynamic}` with
+// destructured-import form (`import std::dynamic.{Dynamic}` with
 // `d: Dynamic`) records the (Debug, Dynamic) manifest entry. The
 // module-qualified spelling `dynamic.Dynamic` after a bare
-// `import std/dynamic` names the same type and must demand the same
+// `import std::dynamic` names the same type and must demand the same
 // impl: the TypeRegistry holds a `<modAlias>.<TypeName>` key for every
 // type member of each imported SymbolModule's ModuleScope, so the
 // QualifiedType branch of ResolveTypeExpr resolves to the same
@@ -755,7 +755,7 @@ fn main() {
 // the recording sites in checker.go consume resolved Types rather than
 // raw ast.TypeExprs.
 func TestManifestRecordedForDestructuredImport(t *testing.T) {
-	src := `import std/dynamic.{Dynamic}
+	src := `import std::dynamic.{Dynamic}
 
 pub fn show(d: Dynamic) -> String {
   Debug.inspect(d)

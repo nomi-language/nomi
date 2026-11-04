@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 /// A distinct type whose `Hashable` and `Equatable` impls say every two Ids
 /// are one value, used as a Map key.

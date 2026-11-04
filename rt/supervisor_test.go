@@ -82,6 +82,40 @@ func TestSupervisorSpawnAndFlushRunTheWork(t *testing.T) {
 	}
 }
 
+type supervisedValueKey struct{}
+
+// A supervised task reads what the machine put on the spawning frame's
+// context (its locale data, message tables, streams and files), and its
+// lifetime stays the supervisor's: ending the spawner's context does not
+// stop it. A task that lost the values read empty locale data in a built
+// executable, and every date a request handler wrote came out in root's
+// patterns.
+func TestSupervisorTaskReadsTheSpawnersContextValues(t *testing.T) {
+	fr, done := supervisorFixture(t)
+	defer done()
+	sup := newTestSupervisor(fr, 1, DefaultShutdownTimeout)
+
+	spawnCtx, cancel := context.WithCancel(context.WithValue(context.Background(), supervisedValueKey{}, "machine data"))
+	spawner := NewFrame(spawnCtx)
+	cancel()
+	var got any
+	var stopped bool
+	_ = SupervisorSpawn(spawner, sup, func(taskFr *Frame) Unit {
+		got = taskFr.Context().Value(supervisedValueKey{})
+		stopped = taskFr.Context().Err() != nil
+		return Unit{}
+	})
+	if out := SupervisorFlushBounded(fr, sup, Wait{Tag: TagForever}); out.Tag != TagFlushed {
+		t.Fatalf("flush reported tag %d, want Flushed(%d)", out.Tag, TagFlushed)
+	}
+	if got != "machine data" {
+		t.Errorf("the task's context reads %v for the spawner's value, want %q", got, "machine data")
+	}
+	if stopped {
+		t.Error("the task stopped because the spawner's context ended; its lifetime is the supervisor's")
+	}
+}
+
 // TestSupervisorNewOutsideBootIsAFault is the boot-scope guard's demonstrated
 // firing, and its paired positive.
 //

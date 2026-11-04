@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A USER's own interface whose NAME is a stdlib interface's name.
 //

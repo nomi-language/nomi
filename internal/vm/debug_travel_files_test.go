@@ -10,8 +10,8 @@ import (
 )
 
 const travelFilesSrc = `import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() {
@@ -58,9 +58,9 @@ func TestTravel_StepBackNeverWritesAFileTwice(t *testing.T) {
 }
 
 const travelSandboxSrc = `import {
-    std/fs
-    std/fs_testing.{self, Sandbox}
-    std/io
+    std::fs
+    std::fs_testing.{self, Sandbox}
+    std::io
 }
 
 fn main() {

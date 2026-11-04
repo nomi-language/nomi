@@ -11,7 +11,7 @@ import "testing"
 // `as` around the pattern, a name a destructure bound, an embedded distinct,
 // and the first branch of `if Pattern = name`.
 func TestTypeNarrowing_RunsInEveryArmShape(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Circle {
     radius: Float
@@ -146,7 +146,7 @@ not a tag
 // type-qualified impl call, either side of `==`), and an interface call
 // dispatches to the embedded type's own impl, as the spec says.
 func TestTypeNarrowing_NarrowedValueWidensBackIntoTheEnum(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Circle {
     radius: Float
@@ -218,7 +218,7 @@ a shape
 // A struct field of an enum type takes a value of an embedded type from any
 // expression, a call included, and the fields still run in source order.
 func TestEmbedWiden_StructFieldFromACall(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Circle {
     radius: Float

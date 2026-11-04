@@ -7,7 +7,7 @@ import (
 
 // A type a selective import binds under another name:
 //
-//	import std/currency.{Error as CurrencyError}
+//	import std::currency.{Error as CurrencyError}
 //
 //	enum Problem {
 //	    Bad {error: CurrencyError}

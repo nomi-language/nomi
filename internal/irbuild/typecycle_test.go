@@ -123,12 +123,12 @@ func TestTypeCycle_TwoFilesRunAsOne(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"main.nomi":   "import {\n    std/io\n    std/json.ToJson\n    child.Child\n    parent.{Head, Holder, Parent, Shape}\n}\n\n" + typeCycleMain,
-		"parent.nomi": "import {\n    std/json.ToJson\n    child.Child\n}\n\n" + typeCycleParentDecls,
-		"child.nomi":  "import {\n    std/json.ToJson\n    parent.{Head, Holder, Parent, Shape}\n}\n\n" + typeCycleChildDecls,
+		"main.nomi":   "import {\n    std::io\n    std::json.ToJson\n    child.Child\n    parent.{Head, Holder, Parent, Shape}\n}\n\n" + typeCycleMain,
+		"parent.nomi": "import {\n    std::json.ToJson\n    child.Child\n}\n\n" + typeCycleParentDecls,
+		"child.nomi":  "import {\n    std::json.ToJson\n    parent.{Head, Holder, Parent, Shape}\n}\n\n" + typeCycleChildDecls,
 	}, typeCycleWant)
 	typeCycleRun(t, map[string]string{
-		"main.nomi": "import {\n    std/io\n    std/json.ToJson\n}\n\n" + typeCycleParentDecls + "\n" + typeCycleChildDecls + "\n" + typeCycleMain,
+		"main.nomi": "import {\n    std::io\n    std::json.ToJson\n}\n\n" + typeCycleParentDecls + "\n" + typeCycleChildDecls + "\n" + typeCycleMain,
 	}, typeCycleWant)
 }
 
@@ -141,7 +141,7 @@ func TestTypeCycle_ThreeFiles(t *testing.T) {
 	}
 	typeCycleRun(t, map[string]string{
 		"main.nomi": `import {
-    std/io
+    std::io
     a.A
     b.B
     c.{C, Step}
@@ -184,7 +184,7 @@ func TestTypeCycle_InterfaceField(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	typeCycleRun(t, map[string]string{
-		"main.nomi": "import {\n    std/io\n    a.A\n    b.{B, Scorer}\n}\n\n" +
+		"main.nomi": "import {\n    std::io\n    a.A\n    b.{B, Scorer}\n}\n\n" +
 			"fn main() {\n    b = B{owner: None, bonus: 10}\n    x = A{n: 5, s: b, b: Some(b)}\n    io.print(Scorer.score(x.s, x))\n}\n",
 		"a.nomi": "import b.{B, Scorer}\n\npub struct A {\n    n: Int\n    s: Scorer\n    b: Maybe<B>\n}\n",
 		"b.nomi": "import a.A\n\npub interface Scorer {\n    fn score(value: self, a: A) -> Int\n}\n\n" +
@@ -205,7 +205,7 @@ func TestTypeCycle_ARefusalReachesTheWholeCycle(t *testing.T) {
 		fmt.Fprintf(&variants, "    V%d\n", i)
 	}
 	entry := stagedProgram(t, "main.nomi", map[string]string{
-		"main.nomi": "import {\n    std/io\n    a.{A, Fine}\n}\n\n" +
+		"main.nomi": "import {\n    std::io\n    a.{A, Fine}\n}\n\n" +
 			"fn main() {\n    io.print(Fine{n: 2}.n)\n    x = A{n: 1, bs: []}\n    io.print(x.n)\n}\n",
 		"a.nomi": "import b.B\n\npub struct A {\n    n: Int\n    bs: List<B>\n}\n\npub struct Fine {\n    n: Int\n}\n",
 		"b.nomi": "import a.A\n\npub enum Big {\n" + variants.String() + "}\n\n" +

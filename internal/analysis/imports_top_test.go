@@ -17,7 +17,7 @@ import (
 
 func TestImports_TopOfFile_RejectsImportAfterDecl(t *testing.T) {
 	src := `fn main() {}
-import std/lists: List`
+import std::lists: List`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := BuildFile(nodes)
@@ -43,7 +43,7 @@ import std/lists: List`
 func TestImports_FunctionBody_RejectsImportAfterStatement(t *testing.T) {
 	src := `fn main() {
   x = 1
-  import std/lists: List
+  import std::lists: List
   io.inspect(x)
 }`
 	tokens := lexer.Lex(src)
@@ -70,7 +70,7 @@ func TestImports_FunctionBody_RejectsImportAfterStatement(t *testing.T) {
 
 func TestImports_FunctionBody_TopAllowed(t *testing.T) {
 	src := `fn main() {
-  import std/lists: List
+  import std::lists: List
   Unit
 }`
 	_, errs := checkSource(src)
@@ -90,7 +90,7 @@ func TestImports_NestedFunctionBody_RejectsImportAfterStatement(t *testing.T) {
 	src := `fn main() {
   fn helper() -> Int {
     x = 1
-    import std/lists: List
+    import std::lists: List
     x
   }
   io.inspect(helper())
@@ -121,7 +121,7 @@ func TestImports_NestedFunctionBody_RejectsImportAfterStatement(t *testing.T) {
 func TestImports_NestedFunctionBody_TopAllowed(t *testing.T) {
 	src := `fn main() {
   fn helper() -> Int {
-    import std/lists: List
+    import std::lists: List
     3
   }
   io.inspect(helper())
@@ -136,8 +136,8 @@ func TestImports_NestedFunctionBody_TopAllowed(t *testing.T) {
 }
 
 func TestImports_TopOfFile_AllImportsFirst(t *testing.T) {
-	src := `import std/lists: List
-import std/maps: Map
+	src := `import std::lists: List
+import std::maps: Map
 
 fn main() {
   Unit
@@ -155,11 +155,11 @@ fn main() {
 // ImportStmt that follows a block-form import (with no non-import in
 // between) must NOT be flagged as "after another statement."
 func TestImports_BlockFormCountsAsImport(t *testing.T) {
-	src := `import std/lists: List
+	src := `import std::lists: List
 import {
-  std/maps: Map
+  std::maps: Map
 }
-import std/strings: String
+import std::strings: String
 
 fn main() {
   Unit
@@ -175,11 +175,11 @@ fn main() {
 // Imports after a real declaration are still rejected, even if the
 // declaration is followed by another import block.
 func TestImports_AfterDecl_RejectedEvenForBlockForm(t *testing.T) {
-	src := `import std/lists: List
+	src := `import std::lists: List
 
 struct Foo { a: Int }
 
-import { std/maps: Map }`
+import { std::maps: Map }`
 	_, errs := checkSource(src)
 	found := false
 	for _, e := range errs {

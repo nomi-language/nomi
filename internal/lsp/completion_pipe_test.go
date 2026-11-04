@@ -87,7 +87,7 @@ func TestCompletion_PipeOffersImportedFileFunctions(t *testing.T) {
 // analyzed scope; looking up an owner the document does not name reads it.
 func TestCompletion_PipeOwnerLookupReadsClosedFiles(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"lib.nomi":  "import std/duration.Duration\n\npub fn pause() -> Duration {\n    Duration.seconds(1)\n}\n",
+		"lib.nomi":  "import std::duration.Duration\n\npub fn pause() -> Duration {\n    Duration.seconds(1)\n}\n",
 		"main.nomi": "fn main() {\n}\n",
 	})
 	s := NewServer()

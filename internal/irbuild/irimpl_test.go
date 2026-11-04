@@ -15,7 +15,7 @@ import (
 // of a program and requires the expected output from the VM, both in process
 // and through the `nomi` command.
 func TestIRImpl_CompleteProgramRunsOnTheVM(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 struct Left { n: Int }
 struct Right { n: Int }
@@ -78,7 +78,7 @@ fn main() {
 }
 
 func TestIRImpl_SpecializationsHaveDistinctDeclarations(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 interface Read { fn read(p: self) -> Int }
 struct Box<T> {
   item: T

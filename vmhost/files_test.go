@@ -11,10 +11,10 @@ import (
 )
 
 const filesTasksSrc = `import {
-    std/fs
-    std/fs_testing.{self, Sandbox}
-    std/io
-    std/tasks.Task
+    std::fs
+    std::fs_testing.{self, Sandbox}
+    std::io
+    std::tasks.Task
 }
 
 fn write_all(prefix: String) -> List<Result<Unit, io.Error>> {

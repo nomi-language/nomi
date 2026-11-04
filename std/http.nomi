@@ -15,6 +15,17 @@
 //# requests with a function instead of the network, in tests and in the
 //# tour. A `Client` made with `Client.new` holds its own options and
 //# connection pool.
+//#
+//# A server never reads more of a request's body than a limit allows.
+//# `Request.form` and `post_form` read at most 10 MB of a URL-encoded body
+//# (Go's `ParseForm` limit), and `multipart_form` and `form_file` at most
+//# 32 MB of a multipart one; they stop one byte past the limit and answer
+//# `Error.BodyTooLarge`. A limit on the request replaces both defaults, up
+//# or down: `Request.limit_body` or the `http.limit_body` middleware for a
+//# route, and the `Server`'s `max_body` for every request. Limits on one
+//# request only lower each other, so a route cannot pass the server's.
+//# `Body.read_all` and `Body.reader` read what the stream holds, stopped
+//# only by such a limit.
 
 import {
     base64
@@ -69,7 +80,7 @@ derive Hashable for Method
 
 impl Method {
     /// The method as it is written on the wire: `GET`, or `Other`'s text.
-    //! import std/http.Method
+    //! import std::http.Method
     //!
     //! assert Method.text(Method.Patch) == "PATCH"
     //! assert Method.text(Method.Other("PURGE")) == "PURGE"
@@ -90,7 +101,7 @@ impl Method {
     }
 
     /// The method `text` names, `Other` for one Go has no constant for.
-    //! import std/http.Method
+    //! import std::http.Method
     //!
     //! assert Method.parse("DELETE") == Method.Delete
     //! assert Method.parse("PURGE") == Method.Other("PURGE")
@@ -189,7 +200,7 @@ impl Status {
     pub once network_authentication_required = Status(511)
 
     /// The status with `code`, or an `Err` outside 100 to 999.
-    //! import std/http.Status
+    //! import std::http.Status
     //!
     //! assert Status.from_code(404) == Ok(Status.not_found)
     //! assert Status.from_code(42) |> Result.is_err()
@@ -209,7 +220,7 @@ impl Status {
     }
 
     /// Go's `StatusText`: "Not Found", or "" for a code Go does not name.
-    //! import std/http.Status
+    //! import std::http.Status
     //!
     //! assert Status.text(Status.not_found) == "Not Found"
     //! assert Status.text(Status(599)) == ""
@@ -219,7 +230,7 @@ impl Status {
     }
 
     /// The status line's code and text: "404 Not Found".
-    //! import std/http.Status
+    //! import std::http.Status
     //!
     //! assert Status.line(Status.teapot) == "418 I'm a teapot"
     //
@@ -236,7 +247,7 @@ impl Status {
     }
 
     /// 2xx.
-    //! import std/http.Status
+    //! import std::http.Status
     //!
     //! assert Status.is_success(Status.no_content)
     //! assert not Status.is_success(Status.found)
@@ -276,7 +287,7 @@ derive Equatable for Headers
 
 impl Headers {
     /// Go's `CanonicalHeaderKey`: `content-type` is `Content-Type`.
-    //! import std/http.Headers
+    //! import std::http.Headers
     //!
     //! assert Headers.canonical_key("x-request-id") == "X-Request-Id"
     //
@@ -285,7 +296,7 @@ impl Headers {
     }
 
     /// The first value of `name`.
-    //! import std/http.Headers
+    //! import std::http.Headers
     //!
     //! h = Headers[#("Accept", "text/html"), #("accept", "*/*")]
     //! assert Headers.get(h, "ACCEPT") == Some("text/html")
@@ -313,7 +324,7 @@ impl Headers {
 
     /// The fields with `name`'s values replaced by `value`, in the place of
     /// its first value, or added at the end.
-    //! import std/http.Headers
+    //! import std::http.Headers
     //!
     //! h = Headers[#("A", "1"), #("B", "2"), #("a", "3")]
     //! assert Headers.set(h, "a", "9") == Headers[#("A", "9"), #("B", "2")]
@@ -361,8 +372,8 @@ impl Headers {
     /// Writes the headers in wire format, `Name: value` lines each ending
     /// in CRLF, sorted by name, leaving out the names in `except`: Go's
     /// `Header.Write` and `WriteSubset`.
-    //! import std/http.Headers
-    //! import std/io.Writer
+    //! import std::http.Headers
+    //! import std::io.Writer
     //!
     //! #(_, written) = Writer.collect(fn w -> Headers.write_to(Headers[#("b", "2"), #("A", "1")], w))
     //! assert Bytes.to_string(written) == Ok("A: 1\r\nB: 2\r\n")
@@ -423,8 +434,11 @@ impl Body {
         }
     }
 
-    /// The whole body, a stream read to its end.
-    //! import std/http.Body
+    /// The whole body, a stream read to its end. It has no default limit:
+    /// a request's body is held whole in memory unless `limit_body` or the
+    /// server's `max_body` limits it. `Request.form` and `multipart_form`
+    /// read with a default limit.
+    //! import std::http.Body
     //!
     //! assert Body.read_all(Body.Text("hi")) == Ok(String.to_bytes("hi"))
     //
@@ -469,7 +483,7 @@ impl FormPart {
     /// `parts` as a multipart body, and the `Content-Type` that names its
     /// boundary. The boundary is a digest of the parts, so the same parts
     /// always encode to the same bytes.
-    //! import std/http.FormPart
+    //! import std::http.FormPart
     //!
     //! encoded = FormPart.encode([FormPart.Field{name: "a", value: "1"}])
     //! assert String.starts_with(encoded.content_type, "multipart/form-data; boundary=")
@@ -485,7 +499,7 @@ impl FormPart {
 
     /// The `Content-Disposition` of a file part: Go's
     /// `multipart.FileContentDisposition`.
-    //! import std/http.FormPart
+    //! import std::http.FormPart
     //!
     //! assert FormPart.file_disposition("doc", "a.txt") == "form-data; name=\"doc\"; filename=\"a.txt\""
     //
@@ -587,6 +601,59 @@ fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm {
     }
 }
 
+/// The most a URL-encoded form read takes without a request limit: Go's
+/// `ParseForm` limit, 10 MB.
+once max_form_body = 10_485_760
+
+/// The most a multipart form read takes without a request limit: Go's
+/// `defaultMaxMemory`, 32 MB.
+once max_multipart_body = 33_554_432
+
+/// At most `max` bytes of `body`, or `Error.BodyTooLarge`: it reads one byte
+/// past `max` to tell, and never the rest. A stream that `limit` (the
+/// request's `body_limit`) cut off when the read reached it was too large
+/// too.
+fn read_capped(body: Body, max: Int, limit: Maybe<Int>) -> Result<Bytes, Error> {
+    case body {
+        .Stream(r) -> {
+            #(copied, data) = Writer.collect(fn w -> copy_capped(r, w, max + 1))
+            got = Bytes.length(data)
+
+            case copied {
+                Ok(_) when got > max -> Err(Error.BodyTooLarge{limit: max})
+                Ok(_) -> Ok(data)
+                Err(_) when limit == Some(got) -> Err(Error.BodyTooLarge{limit: got})
+                Err(error) -> Err(Error.Body{error})
+            }
+        }
+
+        other -> {
+            data = Body.bytes_of(other)
+
+            if Bytes.length(data) > max {
+                Err(Error.BodyTooLarge{limit: max})
+            } else {
+                Ok(data)
+            }
+        }
+    }
+}
+
+/// Copies at most `left` bytes of `r` to `w`.
+fn copy_capped(r: Reader, w: Writer, left: Int) -> Result<Unit, io.Error> {
+    if left <= 0 { return Ok(Unit) }
+
+    case Reader.read(r, max: Int.min(left, 65_536))? {
+        Some(chunk) -> {
+            Writer.write(w, chunk)?
+            copy_capped(r, w, left - Bytes.length(chunk))
+        }
+
+        None ->
+            Ok(Unit)
+    }
+}
+
 fn text_of(data: Bytes) -> String {
     Bytes.to_string(data) |> Result.to_maybe() |> Maybe.with_default("")
 }
@@ -601,7 +668,7 @@ derive Equatable for Protocol
 
 impl Protocol {
     /// Whether the version is `major.minor` or later.
-    //! import std/http.Protocol
+    //! import std::http.Protocol
     //!
     //! assert Protocol.at_least(Protocol{major: 2, minor: 0}, 1, 1)
     //! assert not Protocol.at_least(Protocol{major: 1, minor: 0}, 1, 1)
@@ -611,7 +678,7 @@ impl Protocol {
     }
 
     /// Reads an HTTP version, `HTTP/1.1`: Go's `ParseHTTPVersion`.
-    //! import std/http.Protocol
+    //! import std::http.Protocol
     //!
     //! assert Protocol.parse("HTTP/2.0") == Some(Protocol{major: 2, minor: 0})
     //! assert Protocol.parse("HTTP/x") == None
@@ -658,6 +725,9 @@ pub struct Request {
     close: Bool = False
     /// Trailers sent after a streamed body.
     trailers: Headers = Headers[]
+    /// The most body bytes the request's readers take, which replaces
+    /// the form defaults: set by `limit_body` and the server's `max_body`.
+    body_limit: Maybe<Int> = None
     // Set by a server on a request it received.
     protocol: Protocol = Protocol{}
     remote_address: String = ""
@@ -682,9 +752,9 @@ impl Request {
     /// The form, as Go's `Request.Form`: the fields of the body
     /// (`post_form`) and then the URL's query. It reads the body, which a
     /// request can do once, so keep what it answers.
-    //! import std/http.{Body, Method, Request}
-    //! import std/http_testing
-    //! import std/url.Query
+    //! import std::http.{Body, Method, Request}
+    //! import std::http_testing
+    //! import std::url.Query
     //!
     //! r = #{..http_testing.request(Method.Post, "/?b=2"), body: Body.Form(Query[#("a", "1")])}
     //! r = #{..r, headers: Headers.set(r.headers, "Content-Type", "application/x-www-form-urlencoded")}
@@ -698,7 +768,27 @@ impl Request {
 
     /// The fields of the body, as Go's `Request.PostForm`: a URL-encoded
     /// body of a `POST`, `PUT` or `PATCH`, or a multipart form's fields.
-    /// Empty for any other request. It reads the body.
+    /// Empty for any other request. It reads the body, at most 10 MB of a
+    /// URL-encoded one or the request's `body_limit`, and answers
+    /// `Error.BodyTooLarge` past that.
+    //! import std::http.{Body, Method, Request}
+    //! import std::http_testing
+    //!
+    //! posted = fn size: Int -> {
+    //!     #{
+    //!         ..http_testing.request(Method.Post, "/"),
+    //!         headers: Headers[#("Content-Type", "application/x-www-form-urlencoded")],
+    //!         body: Body.Stream(Reader.from_text("a=${String.repeat("x", size - 2)}")),
+    //!     }
+    //! }
+    //!
+    //! assert Request.post_form(Request.limit_body(posted(8), 8)) |> Result.is_ok()
+    //!
+    //! assert Request.post_form(Request.limit_body(posted(9), 8)) == Err(Error.BodyTooLarge{limit: 8})
+    //!
+    //! twice = Request.limit_body(Request.limit_body(posted(9), 8), 100)
+    //! assert Request.post_form(twice) == Err(Error.BodyTooLarge{limit: 8})
+    //
     pub fn post_form(request: Request) -> Result<Query, Error> {
         media = Request.media_type(request)
 
@@ -711,7 +801,8 @@ impl Request {
             or request.method == Method.Patch
 
         if not posts or media != "application/x-www-form-urlencoded" { return Ok(Query[]) }
-        data = Body.read_all(request.body)?
+        max = Maybe.with_default(request.body_limit, max_form_body)
+        data = read_capped(request.body, max, request.body_limit)?
 
         text =
             Bytes.to_string(data)
@@ -733,19 +824,38 @@ impl Request {
     }
 
     /// The multipart form the body holds, as Go's
-    /// `Request.ParseMultipartForm`. A body larger than `max_memory` bytes
-    /// is refused, since the whole form is read into memory. It reads the
-    /// body.
-    pub fn multipart_form(
-        request: Request,
-        max_memory: Int = 33_554_432,
-    ) -> Result<MultipartForm, Error> {
+    /// `Request.ParseMultipartForm`. The whole form is read into memory,
+    /// so a body past 32 MB, or past the request's `body_limit` when it
+    /// has one, is `Error.BodyTooLarge`; `with_parts` streams a larger
+    /// one. It reads the body.
+    //! import std::http.{Body, FormPart, Method, Request}
+    //! import std::http_testing
+    //!
+    //! file = fn text: String -> {
+    //!     FormPart.File{field: "doc", filename: "a", content: String.to_bytes(text)}
+    //! }
+    //!
+    //! upload = fn size: Int -> {
+    //!     overhead = Bytes.length(FormPart.encode([file("")]).body)
+    //!     encoded = FormPart.encode([file(String.repeat("x", size - overhead))])
+    //!
+    //!     #{
+    //!         ..http_testing.request(Method.Post, "/upload"),
+    //!         headers: Headers[#("Content-Type", encoded.content_type)],
+    //!         body: Body.Stream(Reader.from_bytes(encoded.body)),
+    //!     }
+    //! }
+    //!
+    //! assert Request.multipart_form(upload(1000)) |> Result.is_ok()
+    //! assert Request.multipart_form(Request.limit_body(upload(1000), 1000)) |> Result.is_ok()
+    //!
+    //! assert Request.multipart_form(Request.limit_body(upload(1000), 999))
+    //!     == Err(Error.BodyTooLarge{limit: 999})
+    //
+    pub fn multipart_form(request: Request) -> Result<MultipartForm, Error> {
         content_type = Headers.get(request.headers, "Content-Type") |> Maybe.with_default("")
-        data = Body.read_all(request.body)?
-
-        if Bytes.length(data) > max_memory {
-            return Err(Error.Form{reason: "the form is larger than ${max_memory} bytes"})
-        }
+        max = Maybe.with_default(request.body_limit, max_multipart_body)
+        data = read_capped(request.body, max, request.body_limit)?
 
         flat =
             http_host.parse_multipart(content_type, data)
@@ -756,8 +866,8 @@ impl Request {
 
     /// The first file in the multipart form's field `field`, as Go's
     /// `Request.FormFile`. It reads the body.
-    //! import std/http.{Body, FormPart, Method, Request}
-    //! import std/http_testing
+    //! import std::http.{Body, FormPart, Method, Request}
+    //! import std::http_testing
     //!
     //! parts = [
     //!     FormPart.Field{name: "note", value: "hi"},
@@ -798,8 +908,8 @@ impl Request {
 
     /// The cookies the request's `Cookie` headers send, as Go's
     /// `Request.Cookies`; one that does not parse is left out.
-    //! import std/http.{Cookie, Method, Request}
-    //! import std/http_testing
+    //! import std::http.{Cookie, Method, Request}
+    //! import std::http_testing
     //!
     //! r = Request.add_cookie(http_testing.request(Method.Get, "/"), Cookie{name: "a", value: "1"})
     //! assert Request.cookie(r, "a") |> Maybe.map(fn c -> c.value) == Some("1")
@@ -834,9 +944,21 @@ impl Request {
     }
 
     /// The request with a body that fails past `max` bytes, as Go's
-    /// `MaxBytesReader`: reading it then answers an `io.Error`.
+    /// `MaxBytesReader`: reading it then answers an `io.Error`, and the
+    /// form readers `Error.BodyTooLarge`. `max` becomes the request's
+    /// `body_limit`, which replaces the form defaults, so an upload route
+    /// can raise them; a second limit only lowers the first.
     pub fn limit_body(request: Request, max: Int) -> Request {
-        #{..request, body: Body.Stream(http_host.limit_body(Body.reader(request.body), max))}
+        body_limit = case request.body_limit {
+            Some(earlier) -> Int.min(earlier, max)
+            None -> max
+        }
+
+        #{
+            ..request,
+            body: Body.Stream(http_host.limit_body(Body.reader(request.body), max)),
+            body_limit: Some(body_limit),
+        }
     }
 
     /// The `User-Agent` header.
@@ -850,8 +972,8 @@ impl Request {
     }
 
     /// The user and password of a `Basic` `Authorization` header.
-    //! import std/http.Request
-    //! import std/url.Url
+    //! import std::http.Request
+    //! import std::url.Url
     //!
     //! r = Request.with_basic_auth(Request{url: Url`https://example.com`}, "ann", "pw")
     //! assert Request.basic_auth(r) == Some(#("ann", "pw"))
@@ -895,8 +1017,8 @@ impl Request {
     /// Reads one request from `r` as it arrives on the wire, its body read
     /// whole: Go's `ReadRequest`. It reads no byte past the request, so the
     /// next one on `r` is left whole.
-    //! import std/http.{Request, Method}
-    //! import std/io.Reader
+    //! import std::http.{Request, Method}
+    //! import std::io.Reader
     //!
     //! r = Reader.from_text("POST /a?b=1 HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\nhi")
     //! request = Request.read(r)!
@@ -947,8 +1069,8 @@ impl Request {
     /// The request as text, as a server received it: httputil's
     /// `DumpRequest`. Without `body`, the body is left out. It reads the
     /// body.
-    //! import std/http.{Request, Method}
-    //! import std/url.Url
+    //! import std::http.{Request, Method}
+    //! import std::url.Url
     //!
     //! dumped = Request.dump(Request{method: Method.Get, url: Url.parse("http://x/a")!})!
     //! assert String.starts_with(dumped, "GET /a HTTP/1.1")
@@ -1063,8 +1185,8 @@ impl Response {
 
     /// Writes the response to `w` as a server sends it: Go's
     /// `Response.Write`.
-    //! import std/http.{Body, Response}
-    //! import std/io.Writer
+    //! import std::http.{Body, Response}
+    //! import std::io.Writer
     //!
     //! #(_, wire) = Writer.collect(fn w -> Response.write_to(Response{body: Body.Text("hi")}, w))
     //! assert String.starts_with(Bytes.to_string(wire)!, "HTTP/1.1 200 OK")
@@ -1102,7 +1224,7 @@ impl Response {
 
     /// The response with a `Set-Cookie` header for `cookie`, as Go's
     /// `SetCookie`; a cookie Go cannot write is left out.
-    //! import std/http.{Cookie, Response, SameSite}
+    //! import std::http.{Cookie, Response, SameSite}
     //!
     //! r = Response.set_cookie(
     //!     Response{},
@@ -1119,9 +1241,9 @@ impl Response {
 
     /// A page or a fragment of one: a 200 whose body is `page`, sent as
     /// `text/html; charset=utf-8` with its length.
-    //! import std/html.Html
-    //! import std/http.Response
-    //! import std/io.Writer
+    //! import std::html.Html
+    //! import std::http.Response
+    //! import std::io.Writer
     //!
     //! page = Html.text("a < b")
     //! #(_, wire) = Writer.collect(fn w -> Response.write_to(Response.html(page), w))
@@ -1137,7 +1259,7 @@ impl Response {
     /// A plain-text response with `status` and `message`, as Go's `Error`
     /// writes it: `text/plain; charset=utf-8`, `X-Content-Type-Options:
     /// nosniff`, and the message and a newline.
-    //! import std/http.{Response, Status}
+    //! import std::http.{Response, Status}
     //!
     //! r = Response.error(Status.forbidden, "no")
     //! assert Response.text(r) == Ok("no\n")
@@ -1159,8 +1281,8 @@ impl Response {
 
     /// Go's `Redirect`: a redirect to `to`, which may be relative to the
     /// request's path, with a short HTML body for a `GET` or `HEAD`.
-    //! import std/http.{Method, Response, Status}
-    //! import std/http_testing
+    //! import std::http.{Method, Response, Status}
+    //! import std::http_testing
     //!
     //! r = Response.redirect(http_testing.request(Method.Get, "/a/b"), "c", Status.found)
     //! assert Headers.get(r.headers, "Location") == Some("/a/c")
@@ -1181,8 +1303,8 @@ impl Response {
     /// `name` for its `Content-Type` when no header sets one, answering a
     /// `Range` with 206 and the `If-*` conditional headers against
     /// `modified` and an `ETag` header the response does not set here.
-    //! import std/http.{Method, Response, Status}
-    //! import std/http_testing
+    //! import std::http.{Method, Response, Status}
+    //! import std::http_testing
     //!
     //! request = http_testing.request(Method.Get, "/f")
     //! ranged = #{..request, headers: Headers.set(request.headers, "Range", "bytes=1-2")}
@@ -1442,7 +1564,7 @@ pub struct Protocols {
 derive Equatable for Protocols
 
 impl Display for Protocols {
-    //! import std/http.Protocols
+    //! import std::http.Protocols
     //!
     //! assert "${Protocols{}}" == "{HTTP1,HTTP2}"
     //
@@ -1539,7 +1661,7 @@ pub struct ClientOptions {
 }
 
 /// A client: its options and its connection pool. Make one with
-/// `Client.new` and keep it; the pool is Go's, which only std/http can name.
+/// `Client.new` and keep it; the pool is Go's, which only std::http can name.
 pub struct Client {
     handle: http_host.Client
     options: ClientOptions
@@ -1940,6 +2062,10 @@ pub struct Server {
     idle_timeout: Maybe<Duration> = None
     /// The largest request header, in bytes: Go's `DefaultMaxHeaderBytes`.
     max_header_bytes: Int = 1_048_576
+    /// The largest request body, in bytes: each request is limited as
+    /// `Request.limit_body` limits it, which replaces the form readers'
+    /// defaults. `None` leaves bodies unlimited but for those defaults.
+    max_body: Maybe<Int> = None
     /// Whether connections are kept open between requests.
     keep_alives: Bool = True
     /// A deadline for each request's handler, on its context.
@@ -2132,7 +2258,14 @@ fn answer(
         listener.server.request_timeout |> Maybe.map(Duration.as_nanos) |> Maybe.with_default(-1)
 
     http_host.run_request(incoming, timeout, fn context -> {
-        respond(incoming, handler(request_of(incoming, context)))
+        request = request_of(incoming, context)
+
+        limited = case listener.server.max_body {
+            Some(max) -> Request.limit_body(request, max)
+            None -> request
+        }
+
+        respond(incoming, handler(limited))
     })
 }
 
@@ -2309,8 +2442,8 @@ impl Display for Route {
 /// `HEAD`. A request whose path is not clean, or that lacks a trailing
 /// slash a pattern has, is redirected; one whose path matches only under
 /// another method answers 405 with `Allow`; anything else answers 404.
-//! import std/http.{Body, Method, Request, Response, Route, Router, Status}
-//! import std/http_testing
+//! import std::http.{Body, Method, Request, Response, Route, Router, Status}
+//! import std::http_testing
 //!
 //! router = Router.new([
 //!     #(
@@ -2342,7 +2475,7 @@ impl Router {
     /// requests with neither more specific, is `Error.Pattern`, where Go's
     /// `Handle` panics. Each pattern on its own was checked when it became
     /// a `Route`.
-    //! import std/http.{Error, Response, Route, Router}
+    //! import std::http.{Error, Response, Route, Router}
     //!
     //! conflict = Router.new([#(Route`/a/{x}`, fn _ -> Response{}), #(Route`/a/{y}`, fn _ -> Response{})])
     //! assert Result.is_err(conflict)
@@ -2447,8 +2580,8 @@ pub fn redirect_to(to: String, status: Status) -> (Request) -> Response {
 
 /// Go's `StripPrefix`: middleware that removes `prefix` from the request's
 /// path before `handler` sees it, and answers 404 to a path without it.
-//! import std/http.{Body, Method, Request, Response}
-//! import std/http_testing
+//! import std::http.{Body, Method, Request, Response}
+//! import std::http_testing
 //!
 //! show = http.strip_prefix("/static")(fn r -> Response{body: Body.Text(r.url.path)})
 //! assert Response.text(show(http_testing.request(Method.Get, "/static/a.css"))) == Ok("/a.css")
@@ -2469,9 +2602,9 @@ pub fn strip_prefix(prefix: String) -> ((Request) -> Response) -> (Request) -> R
 
 /// Go's `AllowQuerySemicolons`: middleware that reads a `;` in the query
 /// as Go did before 1.17, as a `&`.
-//! import std/http.{self, Body, Method, Request, Response}
-//! import std/http_testing
-//! import std/url.{Query, Url}
+//! import std::http.{self, Body, Method, Request, Response}
+//! import std::http_testing
+//! import std::url.{Query, Url}
 //!
 //! seen = http.allow_query_semicolons(fn r -> Response{
 //!     body: Body.Text(Query.encode(Url.query_values(r.url))),
@@ -2497,10 +2630,10 @@ pub fn allow_query_semicolons(handler: (Request) -> Response) -> (Request) -> Re
 /// Go's `TimeoutHandler`: middleware that answers `503 Service
 /// Unavailable` with `message` when the handler has not answered within
 /// `after`, and stops the handler's task.
-//! import std/duration.Duration
-//! import std/http.{self, Body, Method, Response, Status}
-//! import std/http_testing
-//! import std/timer
+//! import std::duration.Duration
+//! import std::http.{self, Body, Method, Response, Status}
+//! import std::http_testing
+//! import std::timer
 //!
 //! within = http.timeout(Duration.milliseconds(20), "too slow")
 //!
@@ -2556,8 +2689,8 @@ impl CrossOrigin {
     /// safe method passes; then a `Sec-Fetch-Site` of `same-origin` or
     /// `none`, or else an `Origin` whose host is the request's `Host`, or
     /// none at all (not a browser); and any request from a trusted origin.
-    //! import std/http.{CrossOrigin, Method, Request}
-    //! import std/http_testing
+    //! import std::http.{CrossOrigin, Method, Request}
+    //! import std::http_testing
     //!
     //! post = http_testing.request(Method.Post, "/pay")
     //!
@@ -2676,7 +2809,8 @@ pub fn cross_origin_protection(options: CrossOrigin) -> Result<((Request) -> Res
 }
 
 /// Go's `MaxBytesHandler`: middleware that limits each request's body to
-/// `max` bytes (`Request.limit_body`).
+/// `max` bytes (`Request.limit_body`), which lowers the server's
+/// `max_body` or replaces the form readers' defaults.
 pub fn limit_body(max: Int) -> ((Request) -> Response) -> (Request) -> Response {
     fn handler -> fn request -> handler(Request.limit_body(request, max))
 }
@@ -2686,7 +2820,7 @@ pub fn limit_body(max: Int) -> ((Request) -> Response) -> (Request) -> Response 
 /// is redirected to its path with a trailing slash, then answered with its
 /// `index.html` or a listing of its entries; a request for `.../index.html`
 /// is redirected to `./`. A missing file is a 404 and one that cannot be
-/// read a 403 or 500. Files come through std/fs, so `fs_testing.run` and
+/// read a 403 or 500. Files come through std::fs, so `fs_testing.run` and
 /// `fs.within` apply.
 pub fn serve_file(request: Request, file: String) -> Response {
     asked = request.url.path
@@ -2788,7 +2922,7 @@ pub fn detect_content_type(data: Bytes) -> String {
 
 /// Go's `TimeFormat` of `at`, as HTTP headers write dates:
 /// `Mon, 02 Jan 2006 15:04:05 GMT`.
-//! import std/instant.Instant
+//! import std::instant.Instant
 //!
 //! assert http.format_time(Instant.from_seconds(0)) == "Thu, 01 Jan 1970 00:00:00 GMT"
 //
@@ -2853,7 +2987,7 @@ derive Equatable for Cookie
 
 impl Cookie {
     /// The cookies of a `Cookie` header's value, as Go's `ParseCookie`.
-    //! import std/http.Cookie
+    //! import std::http.Cookie
     //!
     //! names = Cookie.parse_header("a=1; b=2")! |> Iter.map(fn c -> c.name) |> Iter.to_list()
     //! assert names == ["a", "b"]
@@ -2866,7 +3000,7 @@ impl Cookie {
 
     /// The cookie of a `Set-Cookie` header's value, as Go's
     /// `ParseSetCookie`.
-    //! import std/http.{Cookie, MaxAge}
+    //! import std::http.{Cookie, MaxAge}
     //!
     //! c = Cookie.parse_set_cookie("id=7; Path=/; Max-Age=60; Secure")!
     //! assert c.path == Some("/")
@@ -2986,8 +3120,8 @@ impl CookieJar {
     }
 
     /// The cookies the jar would send with a request to `url`.
-    //! import std/http.{Cookie, CookieJar}
-    //! import std/url.Url
+    //! import std::http.{Cookie, CookieJar}
+    //! import std::url.Url
     //!
     //! jar = CookieJar.new()
     //! CookieJar.set_cookies(jar, Url`https://example.com/`, [Cookie{name: "a", value: "1"}])
@@ -3025,7 +3159,7 @@ pub enum ConnState {
 derive Equatable for ConnState
 
 impl Display for ConnState {
-    //! import std/http.ConnState
+    //! import std::http.ConnState
     //!
     //! assert "${ConnState.Idle}" == "idle"
     //
@@ -3487,8 +3621,8 @@ fn wire_response(op: Int, response: Response, w: Writer) -> Result<String, Error
 
 /// A reader of the chunked transfer coding over `r`, which ends at the
 /// last, empty chunk: httputil's `NewChunkedReader`.
-//! import std/http
-//! import std/io.Reader
+//! import std::http
+//! import std::io.Reader
 //!
 //! r = http.chunked_reader(Reader.from_text("2\r\nhi\r\n0\r\n\r\n"))
 //! assert Reader.read_all_text(r) == Ok("hi")
@@ -3533,9 +3667,9 @@ impl Part {
 /// The parts of the multipart body `r` holds, separated by `boundary`, each
 /// read as the iteration reaches it: Go's `multipart.NewReader` and its
 /// `NextPart`, which decodes quoted-printable parts. An `Err` ends it.
-//! import std/http
-//! import std/http.Part
-//! import std/io.Reader
+//! import std::http
+//! import std::http.Part
+//! import std::io.Reader
 //!
 //! body = "--b\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\none\r\n--b--\r\n"
 //!
@@ -3579,17 +3713,14 @@ fn parts_of(reader: http_host.Handle) -> Iter<Result<Part, Error>> {
 }
 
 /// The multipart form `r` holds, read whole: Go's `Reader.ReadForm`. A
-/// form larger than `max_memory` bytes is refused.
+/// form larger than `max` bytes is `Error.BodyTooLarge`; no more than one
+/// byte past `max` is read.
 pub fn read_multipart_form(
     r: Reader,
     boundary: String,
-    max_memory: Int = 33_554_432,
+    max: Int = 33_554_432,
 ) -> Result<MultipartForm, Error> {
-    data = Reader.read_all(r) |> Result.map_err(fn e -> Error.Form{reason: "${e}"})?
-
-    if Bytes.length(data) > max_memory {
-        return Err(Error.Form{reason: "the form is larger than ${max_memory} bytes"})
-    }
+    data = read_capped(Body.Stream(r), max, None)?
 
     flat =
         http_host.parse_multipart("multipart/form-data; boundary=${boundary}", data)

@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 struct Account {
     id: Int
@@ -71,18 +71,18 @@ test "big values live in structs, enums and patterns" {
 test "int modulo by zero traps as the remainder does" {
     remainder =
         """
-            fn main() {
-              _ = 7 % 0
-            }
-            """
+        fn main() {
+          _ = 7 % 0
+        }
+        """
         |> compiler.run()
 
     modulo =
         """
-            fn main() {
-              _ = Int.modulo(7, 0)
-            }
-            """
+        fn main() {
+          _ = Int.modulo(7, 0)
+        }
+        """
         |> compiler.run()
 
     assert Err(remainder_message) = remainder

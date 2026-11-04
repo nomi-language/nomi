@@ -6,7 +6,7 @@ import (
 )
 
 // The declarations every shape-hover case reads.
-const shapeHoverDecls = `import std/io
+const shapeHoverDecls = `import std::io
 
 /// A point on the plane.
 struct Point {
@@ -81,7 +81,7 @@ func TestHover_StructLiteralHeadAndClose(t *testing.T) {
 		{"the opening brace", "fn main() {\n  p = Point▮{x: 1, y: 2}" + use, []string{pointCard, "A point on the plane."}, nil},
 		{"the closing brace", "fn main() {\n  p = Point{x: 1, y: 2▮}" + use, []string{pointCard, "A point on the plane."}, nil},
 		{"the closing brace on its own line", "fn main() {\n  p = Point{\n    x: 1,\n    y: 2,\n  ▮}" + use, []string{pointCard, "A point on the plane."}, nil},
-		{"a file-qualified name", "import std/startup\n\nfn main() {\n  p = ▮startup.Startup{env: %{}, args: []}" + use, []string{"struct Startup"}, nil},
+		{"a file-qualified name", "import std::startup\n\nfn main() {\n  p = ▮startup.Startup{env: %{}, args: []}" + use, []string{"struct Startup"}, nil},
 		{"a field is unchanged", "fn main() {\n  p = Point{▮x: 1, y: 2}" + use, []string{"x: Int"}, []string{"struct Point"}},
 		{"a value is unchanged", "fn main() {\n  p = Point{x: 1, y: ▮2}" + use, nil, nil},
 		{"a comma shows nothing", "fn main() {\n  p = Point{x: 1▮, y: 2}" + use, nil, nil},

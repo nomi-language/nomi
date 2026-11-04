@@ -18,7 +18,7 @@ import (
 func faultProject() incrementalProject {
 	return incrementalProject{name: "fault", entry: "main", texts: map[string]string{
 		"main": `import {
-    std/io
+    std::io
     fault
 }
 

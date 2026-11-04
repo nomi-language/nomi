@@ -1,12 +1,12 @@
-import std/compiler
+import std::compiler
 
 test "an unwrapped Vector.get traps on an index past the end" {
     result =
         """
-            fn main() {
-              _ = Vector.get(#[1, 2, 3, 4, 5], 7)!
-            }
-            """
+        fn main() {
+          _ = Vector.get(#[1, 2, 3, 4, 5], 7)!
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -16,10 +16,10 @@ test "an unwrapped Vector.get traps on an index past the end" {
 test "an unwrapped Vector.get traps on a negative index" {
     result =
         """
-            fn main() {
-              _ = Vector.get(#[1, 2], -1)!
-            }
-            """
+        fn main() {
+          _ = Vector.get(#[1, 2], -1)!
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -29,10 +29,10 @@ test "an unwrapped Vector.get traps on a negative index" {
 test "vector set traps on an index outside the vector" {
     result =
         """
-            fn main() {
-              _ = Vector.set(#["a"], 1, "b")
-            }
-            """
+        fn main() {
+          _ = Vector.set(#["a"], 1, "b")
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -42,10 +42,10 @@ test "vector set traps on an index outside the vector" {
 test "an unwrapped Bytes.get traps on an index outside the buffer" {
     result =
         """
-            fn main() {
-              _ = Bytes.get(String.to_bytes("hi"), 2)!
-            }
-            """
+        fn main() {
+          _ = Bytes.get(String.to_bytes("hi"), 2)!
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -56,11 +56,11 @@ test "an unwrapped Bytes.get traps on an index outside the buffer" {
 test "an index trap inside a std call is reported at the program's call" {
     result =
         """
-            fn main() {
-              rows = [#[1, 2], #[3]]
-              _ = rows |> Iter.map(&Vector.set(&1, 1, 0)) |> Iter.to_list()
-            }
-            """
+        fn main() {
+          rows = [#[1, 2], #[3]]
+          _ = rows |> Iter.map(&Vector.set(&1, 1, 0)) |> Iter.to_list()
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -75,10 +75,10 @@ test "get answers None where its unwrapping traps" {
 test "list remove_at traps on an index outside the list" {
     result =
         """
-            fn main() {
-              _ = List.remove_at([1, 2, 3], 3)
-            }
-            """
+        fn main() {
+          _ = List.remove_at([1, 2, 3], 3)
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -88,10 +88,10 @@ test "list remove_at traps on an index outside the list" {
 test "an unwrapped Map.get traps on a missing key and names the call" {
     result =
         """
-            fn main() {
-              _ = Map.get(%{"a" => 1}, "z")!
-            }
-            """
+        fn main() {
+          _ = Map.get(%{"a" => 1}, "z")!
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

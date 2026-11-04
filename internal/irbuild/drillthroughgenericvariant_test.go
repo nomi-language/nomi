@@ -21,7 +21,7 @@ func TestDrillThroughGenericVariant_Runs(t *testing.T) {
 	}
 	dir := t.TempDir()
 	files := map[string]string{
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 import same
 import shapes
 import shapes.Holder.{Of as O, Wrap as W, Empty}

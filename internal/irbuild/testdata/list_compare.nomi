@@ -8,7 +8,7 @@
 // `rt.ListCompare` with an element comparator built out of std's own
 // `Int.compare` / `Float.compare`, so the skeleton is what this fixture
 // checks, and the reference bytes are pinned absolutely in lists_test.go.
-import std/io
+import std::io
 
 /// Two structurally equal `List<Int>` built SEPARATELY, so no cons cell is
 /// shared. `rt.ListCompare` short-circuits on POINTER identity — sound, because

@@ -709,7 +709,7 @@ func (in *replInput) program(plan *replPlan) *replSource {
 	src := &replSource{}
 	// Imports first: a program holds them before anything else.
 	if plan.show && in.lastIsExpr {
-		src.gen(fmt.Sprintf("import std/io as %s", replValueImport))
+		src.gen(fmt.Sprintf("import std::io as %s", replValueImport))
 	}
 	for _, d := range plan.decls {
 		if d.isImport {

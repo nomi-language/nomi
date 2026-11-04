@@ -15,9 +15,9 @@ import (
 // makes v the next state, and none of them leaves the enclosing lambda. The
 // channel feeds each iteration a new input, so a `continue` makes progress.
 func TestIRLoopInLambda_RunsAsInANamedFunction(t *testing.T) {
-	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
-import std/io
-import std/tasks.Task
+	verifyLambdaProgram(t, `import std::channels.{Channel, Receiver, Sender}
+import std::io
+import std::tasks.Task
 
 fn feed(items: List<String>) -> Receiver<String> {
     ch = Channel.buffered<String>(10)
@@ -126,7 +126,7 @@ fn main() {
 // code after the loop runs.
 func TestIRLoopInLambda_TestBody(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "loop_test.nomi")
-	src := `import std/io
+	src := `import std::io
 
 test "a loop in a lambda in a test" {
     f = fn k: Int -> {

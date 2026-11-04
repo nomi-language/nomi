@@ -1,6 +1,6 @@
 import {
-    std/locale.Locale
-    std/strings.{ListStyle, ListWidth}
+    std::locale.Locale
+    std::strings.{ListStyle, ListWidth}
 }
 
 test "English uses the Oxford comma in a standard list" {

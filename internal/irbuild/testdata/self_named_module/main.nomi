@@ -1,10 +1,10 @@
 // A file named after its own module, imported by that name, by an alias, and
 // by the module-qualified path. Each spelling names thing.nomi.
 import {
-    std/io
+    std::io
     thing
     thing as t
-    thing/thing as full
+    thing::thing as full
 }
 
 fn main() {

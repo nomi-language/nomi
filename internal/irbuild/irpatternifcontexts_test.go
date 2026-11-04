@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRPatternIf_ResultValueAndNestedBranches(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn render(r: Result<Int, String>) -> String {
   label = if Ok(n) = r { "value ${n}" } else { "error" }
   "result " + label
@@ -26,7 +26,7 @@ fn main() {
 }
 
 func TestIRPatternIf_LambdaBody(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   choose = fn m: Maybe<Int> -> if Some(n) = m { n } else { 0 }
   io.print(choose(Some(7)))
@@ -38,7 +38,7 @@ fn main() {
 // A pattern `if` with no `else` in a Unit position retains: a miss answers
 // Unit, as the Boolean form's does.
 func TestIRPatternIf_ElselessPatternRetains(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn show(m: Maybe<Int>) {
   u = if Some(n) = m { io.print(n) }
   io.print(u == Unit)
@@ -52,7 +52,7 @@ fn main() {
 
 // A list pattern inside a pattern `if` retains through the nested list test.
 func TestIRPatternIf_ListPayloadRetains(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn choose(m: Maybe<List<Int>>) -> Int { if Some([x]) = m { x } else { 0 } }
 fn main() {
   io.print(choose(Some([7])))

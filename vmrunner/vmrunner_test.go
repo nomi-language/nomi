@@ -45,7 +45,7 @@ func executable(t *testing.T, runner, img []byte) string {
 }
 
 func TestRun_RunsTheImageAsNomiRunDoes(t *testing.T) {
-	img := image(t, "import std/io\n\nfn main() {\n  io.print(\"hi\")\n  case io.read_line() {\n    Ok(Some(l)) -> io.print(l)\n    _ -> io.print(\"none\")\n  }\n}\n")
+	img := image(t, "import std::io\n\nfn main() {\n  io.print(\"hi\")\n  case io.read_line() {\n    Ok(Some(l)) -> io.print(l)\n    _ -> io.print(\"none\")\n  }\n}\n")
 	var out, errOut bytes.Buffer
 	code := vmrunner.Run(img, &out, &errOut, strings.NewReader("typed\n"), nil, false)
 	if code != 0 || out.String() != "hi\ntyped\n" || errOut.Len() != 0 {
@@ -71,7 +71,7 @@ func (p *promptReader) Read(b []byte) (int, error) {
 }
 
 func TestRun_WriteAddsNoNewlineAndPrecedesTheRead(t *testing.T) {
-	img := image(t, `import std/io
+	img := image(t, `import std::io
 
 fn main() {
   io.write("> ")
@@ -101,7 +101,7 @@ fn main() {
 }
 
 func TestRun_WriteBySelectiveImport(t *testing.T) {
-	img := image(t, "import std/io.write\nimport std/io.print\n\nfn main() {\n  write(\"a\")\n  write(2)\n  print(\"b\")\n}\n")
+	img := image(t, "import std::io.write\nimport std::io.print\n\nfn main() {\n  write(\"a\")\n  write(2)\n  print(\"b\")\n}\n")
 	var out, errOut bytes.Buffer
 	code := vmrunner.Run(img, &out, &errOut, nil, nil, false)
 	if code != 0 || out.String() != "a2b\n" || errOut.Len() != 0 {
@@ -110,7 +110,7 @@ func TestRun_WriteBySelectiveImport(t *testing.T) {
 }
 
 func TestRun_AFaultExitsOneWithItsText(t *testing.T) {
-	img := image(t, "import std/io\n\nfn d(a: Int, b: Int) -> Int {\n  a / b\n}\n\nfn main() {\n  io.print(d(1, 0))\n}\n")
+	img := image(t, "import std::io\n\nfn d(a: Int, b: Int) -> Int {\n  a / b\n}\n\nfn main() {\n  io.print(d(1, 0))\n}\n")
 	var out, errOut bytes.Buffer
 	if code := vmrunner.Run(img, &out, &errOut, nil, nil, false); code != 1 || !strings.Contains(errOut.String(), "division by zero") {
 		t.Fatalf("exit %d, stderr %q", code, errOut.String())
@@ -163,7 +163,7 @@ func TestReadImage_ADamagedTrailerIsAnError(t *testing.T) {
 // reported by a built executable as an internal compiler error with a request
 // to report it, not as a Go crash or a BLOCKED machine limit.
 func TestRun_ACompilePanicIsAnInternalCompilerError(t *testing.T) {
-	img := image(t, "import std/io\n\nfn planted_compile_panic_target() -> Int {\n  1\n}\n\n"+
+	img := image(t, "import std::io\n\nfn planted_compile_panic_target() -> Int {\n  1\n}\n\n"+
 		"fn main() {\n  io.print(\"before\")\n  io.print(planted_compile_panic_target())\n}\n")
 	vm.CompileHook = func(f *ir.Func) {
 		if f.Name() == "planted_compile_panic_target" {

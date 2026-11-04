@@ -16,7 +16,7 @@ A `Supervisor` is an owner that lives longer. Your function can return while
 the supervisor's tasks keep running. The supervisor decides what happens
 when a task fails and when the program shuts down.
 
-Supervisors come from [`std/supervisors`](/reference/supervisors/), and
+Supervisors come from [`std::supervisors`](/reference/supervisors/), and
 they live on the app value that `boot` builds
 ([App Fields, Defer & Context](/app-fields/)).
 
@@ -27,9 +27,9 @@ Make one supervisor for each set of rules your app needs. Build them in
 
 ```nomi
 import {
-    std/channels.Channel
-    std/duration.Duration
-    std/supervisors.Supervisor
+    std::channels.Channel
+    std::duration.Duration
+    std::supervisors.Supervisor
 }
 
 struct Config {
@@ -126,10 +126,10 @@ every task under the supervisor has finished:
 
 ```nomi-run
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/duration.Duration
-    std/supervisors.Supervisor
-    std/timer
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::supervisors.Supervisor
+    std::timer
 }
 
 struct Config {
@@ -442,14 +442,14 @@ Nomi has no variable you can change. Values are immutable, and app fields
 can't change once `boot` returns. Sometimes several callers need to share
 something that changes: a rate limiter's tokens, a connection pool's free
 list, an in-memory cache. Give that state to one task, and talk to the task
-with messages. [`std/actors`](/reference/actors/) does this:
+with messages. [`std::actors`](/reference/actors/) does this:
 
 ```nomi-run
 import {
-    std/actors.{Actor, CallError, Reply}
-    std/io
-    std/supervisors.{Restart, Supervisor}
-    std/testing.Clock
+    std::actors.{Actor, CallError, Reply}
+    std::io
+    std::supervisors.{Restart, Supervisor}
+    std::testing.Clock
 }
 
 enum Counter {
@@ -535,22 +535,22 @@ the work happens.
 
 That's fine for a welcome email. It isn't fine for a password reset or a
 receipt. A longer timeout won't fix it. Instead, enqueue a job with
-[`std/jobs`](/reference/jobs/) in the same database transaction as the
+[`std::jobs`](/reference/jobs/) in the same database transaction as the
 change itself. The job is stored only if the transaction commits. A
 `Worker`, built in boot and started in `main`, runs each stored job, and
 runs it again if the process died before it finished, so a job's handler
 must be safe to run twice. `lib/jobs/postgres` keeps the jobs in a Postgres
 table.
 
-A test needs no database. std/jobs_testing's `Inline` queue keeps jobs in
-memory, std/sql_testing's `Fake` stands in for the transaction, and
+A test needs no database. std::jobs_testing's `Inline` queue keeps jobs in
+memory, std::sql_testing's `Fake` stands in for the transaction, and
 `run_queued` runs what was enqueued:
 
 ```nomi-run
 import {
-    std/jobs.{self, Failure, Job}
-    std/jobs_testing.{self, Inline}
-    std/sql_testing.Fake
+    std::jobs.{self, Failure, Job}
+    std::jobs_testing.{self, Inline}
+    std::sql_testing.Fake
 }
 
 fn send_receipt(order: Int) -> Result<Unit, Failure> {
@@ -576,15 +576,15 @@ test result: ok. 1 passed, 0 failed
 -->
 
 This handler only checks the order. A real one sends the email with
-[`std/mail`](/reference/mail/), which sends a `Message` through a `Mailer`.
+[`std::mail`](/reference/mail/), which sends a `Message` through a `Mailer`.
 In production the mailer is `mail.smtp(...)`, which reaches any SMTP relay
-or a local catcher such as Mailpit. A test passes std/mail_testing's
+or a local catcher such as Mailpit. A test passes std::mail_testing's
 `Memory`, which keeps what it is sent:
 
 ```nomi-run
 import {
-    std/mail.{self, Address, Mailer, Message}
-    std/mail_testing.Memory
+    std::mail.{self, Address, Mailer, Message}
+    std::mail_testing.Memory
 }
 
 fn send_receipt(mailer: Mailer, email: String, order: Int) -> Result<Unit, mail.Error> {

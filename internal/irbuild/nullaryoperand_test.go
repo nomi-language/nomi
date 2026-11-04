@@ -9,7 +9,7 @@ import "testing"
 // declined with "a direct callee that is not lowerable" and "a generic
 // stdlib call whose type arguments are unsolved".
 func TestNullaryGenericCall_InAnOperatorOperandRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface Blank {
     fn blank() -> self

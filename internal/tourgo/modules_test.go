@@ -11,8 +11,8 @@ import (
 )
 
 const firstQuery = `import {
-    std/io
-    std/sql.{self, Conn, Error, Row, Sql}
+    std::io
+    std::sql.{self, Conn, Error, Row, Sql}
     sqlite
 }
 
@@ -52,7 +52,7 @@ func TestSourceAttachesTheModulesABlockImports(t *testing.T) {
 	if got := tourgo.Unlinked(firstQuery); strings.Join(got, ",") != "sqlite" {
 		t.Fatalf("Unlinked outside the browser: %q", got)
 	}
-	plain := "import std/io\n\nfn main() {\n    io.print(\"sqlite\")\n}\n"
+	plain := "import std::io\n\nfn main() {\n    io.print(\"sqlite\")\n}\n"
 	if got := tourgo.Source(plain); got != plain || len(tourgo.Unlinked(plain)) != 0 {
 		t.Fatalf("a block that imports no tour module changed:\n%s", got)
 	}

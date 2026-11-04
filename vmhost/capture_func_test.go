@@ -14,7 +14,7 @@ import (
 // value stands: a callback, a pipe stage's argument, an annotated binding,
 // a struct field and a generic call.
 func TestCaptureFunc_Runs(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Point {
     x: Int
@@ -133,7 +133,7 @@ Some(2)
 // them, positionals and then named arguments, each in written order, as the
 // equivalent lambda's do, whatever slots they fill.
 func TestCaptureFunc_APartialRunsItsArgumentsInCallOrder(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 fn g(s: String) -> String {
     io.print("eval ${s}")
@@ -160,7 +160,7 @@ fn main() {
 // A capture's body is evaluated on each call, as the equivalent lambda's
 // is: nothing runs when the capture is made.
 func TestCaptureFunc_EvaluatesItsBodyOnEachCall(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Point {
     x: Int
@@ -194,7 +194,7 @@ fn main() {
 // called where it is written; a `then` stage applies one to the piped
 // value.
 func TestCaptureFunc_TheBodyIsWhatTheAmpersandMarks(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Point {
     x: Int
@@ -267,7 +267,7 @@ Some(2)
 // `&N` names (`&(&2 * 10)`, and a partial ignoring the parameter past its
 // own), and a partial capture's parameter names and defaults.
 func TestCaptureFunc_Numbering(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Point {
     x: Int
@@ -392,7 +392,7 @@ func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *t
 	}
 	for _, c := range cases {
 		t.Run(c.expr, func(t *testing.T) {
-			src := `import std/io
+			src := `import std::io
 
 fn ok() -> Result<Int, String> {
     Ok(2)

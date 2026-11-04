@@ -111,3 +111,29 @@ test "lambda defaults drive parameter inference" {
     assert Map.get(counts, "a") == Some(4)
     assert Map.get(counts, "b") == Some(2)
 }
+
+test "one element's annotation types the lambdas beside it in a literal" {
+    tokens = [
+        #("double", fn n -> n * 2),
+        #("negate", fn n: Int -> 0 - n),
+        #("square", fn n -> n * n),
+        #("twice", double),
+        #("next", fn n -> n + 1),
+    ]
+
+    applied = Iter.map(tokens, fn #(name, f) -> #(name, f(5))) |> Iter.to_list()
+    square = Iter.find(tokens, fn #(name, _) -> name == "square")
+
+    by_name = %{"inc" => fn n -> n + 1, "dec" => fn n: Int -> n - 1}
+
+    assert applied == [
+        #("double", 10),
+        #("negate", -5),
+        #("square", 25),
+        #("twice", 10),
+        #("next", 6),
+    ]
+
+    assert Maybe.map(square, fn #(_, f) -> f(7)) == Some(49)
+    assert Maybe.map(Map.get(by_name, "inc"), fn f -> f(1)) == Some(2)
+}

@@ -36,7 +36,7 @@ func checkPreludeless(t *testing.T, src string) (*analysis.FileAnalysis, []analy
 		return base(projectRoot, modulePath)
 	}
 
-	entryNodes := parse("import std/" + modName + ": Point\n")
+	entryNodes := parse("import std::" + modName + ": Point\n")
 	_, cache, extendedNodes := analysis.BuildProjectWithCache(
 		entryNodes, nil, nil, nil, "", loader,
 	)
@@ -68,10 +68,10 @@ func formatErrs(errs []analysis.TypeError) string {
 // shape std/bool.nomi ships with.
 func TestDeriveScope_PreludelessAllProtocols(t *testing.T) {
 	src := `import {
-  std/comparable.Comparable
-  std/display.Display
-  std/equatable.Equatable
-  std/hashable.Hashable
+  std::comparable.Comparable
+  std::display.Display
+  std::equatable.Equatable
+  std::hashable.Hashable
 }
 
 pub struct Point {
@@ -113,9 +113,9 @@ derive Hashable for Color
 // arg's real source position — while the other args stay quiet.
 func TestDeriveScope_PreludelessMissingImportErrors(t *testing.T) {
 	src := `import {
-  std/display.Display
-  std/equatable.Equatable
-  std/hashable.Hashable
+  std::display.Display
+  std::equatable.Equatable
+  std::hashable.Hashable
 }
 
 pub struct Point {
@@ -127,7 +127,7 @@ derive Equatable for Point
 derive Hashable for Point
 `
 	_, errs := checkPreludeless(t, src)
-	want := "`Comparable` is not in scope — import `std/comparable.Comparable`"
+	want := "`Comparable` is not in scope — import `std::comparable.Comparable`"
 	found := false
 	for _, e := range errs {
 		if strings.Contains(e.Message, want) {

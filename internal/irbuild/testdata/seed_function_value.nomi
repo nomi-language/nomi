@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A generic call's expected type gives a function named as its argument
 // its instance, and each item of a list argument its element type, as it

@@ -9,7 +9,7 @@ func TestIRBlockTailTakesTheExpectedType_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 struct Hold {
     v: Set<Int>

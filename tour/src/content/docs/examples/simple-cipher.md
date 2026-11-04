@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# along the alphabet by the number of the key's letter at its position, `a`
 //# moving it by 0, and the key repeats as often as the text needs.
 
-import std/random.{Generator, Seed}
+import std::random.{Generator, Seed}
 
 once alphabet = Iter.to_vector('a'..='z')
 once letter_count = Vector.length(alphabet)
@@ -90,7 +90,7 @@ fn number(letter: Codepoint) -> Int {
 
 // FILE: simple_cipher_test.nomi
 import {
-    std/random.Seed
+    std::random.Seed
     simple_cipher.Cipher
 }
 

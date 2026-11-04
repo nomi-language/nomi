@@ -52,8 +52,8 @@ func TestStdinCancel_ACancelledTaskStopsWaitingForInput(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := `import {
-    std/io
-    std/tasks.Task
+    std::io
+    std::tasks.Task
 }
 
 fn main() {
@@ -80,10 +80,10 @@ fn main() {
 // written; main reads it.
 func TestStdinCancel_InputThatArrivesAfterACancelledReadIsReadNext(t *testing.T) {
 	src := `import {
-    std/duration.Duration
-    std/io
-    std/tasks.Task
-    std/timer
+    std::duration.Duration
+    std::io
+    std::tasks.Task
+    std::timer
 }
 
 fn main() {
@@ -113,8 +113,8 @@ fn main() {
 // waiting on standard input among them, and the program ends.
 func TestStdinCancel_AScopesTeardownStopsATaskWaitingForInput(t *testing.T) {
 	src := `import {
-    std/io
-    std/tasks.Task
+    std::io
+    std::tasks.Task
 }
 
 fn scope() -> Result<Int, String> {

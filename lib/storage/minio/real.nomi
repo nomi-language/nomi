@@ -9,8 +9,8 @@
 // It writes objects under `conformance/` and `presigned/` in the bucket,
 // and skips the public-object check, which would need a bucket policy.
 import {
-    std/io
-    std/url.Url
+    std::io
+    std::url.Url
     minio
     s3.{Config, Credentials}
 }

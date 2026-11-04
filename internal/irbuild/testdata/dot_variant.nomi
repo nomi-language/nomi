@@ -23,7 +23,7 @@
 //# `Halt` and `Park` exist so neither enum is single-variant: a one-variant
 //# enum would make the expected type recoverable from the variant name alone.
 
-import std/io
+import std::io
 
 enum Signal {
     Go {n: Int = 3}

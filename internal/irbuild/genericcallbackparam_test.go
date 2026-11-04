@@ -13,7 +13,7 @@ func TestIRGenericCallbackOverCallerTypeParam_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn call<T, U>(item: T, initial: U, f: (U, T) -> U) -> U {
     f(initial, item)

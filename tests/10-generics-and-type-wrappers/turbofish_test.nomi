@@ -1,4 +1,4 @@
-import std/channels.{Channel, Receiver, Sender}
+import std::channels.{Channel, Receiver, Sender}
 
 test "explicit type arguments pin otherwise undetermined type parameters" {
     ch = Channel.buffered<Int>(4)

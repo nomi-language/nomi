@@ -1,8 +1,8 @@
 import {
-    std/calendar.{self, Date, DateFields, DatePattern, DateStyle, DateTime, DateTimeFields, DateTimePattern, NaiveDateTime, Time, TimeFields, TimePattern, TimeStyle, TimeUnit, Weekday}
-    std/duration.{Duration, DurationWidth}
-    std/locale.Locale
-    std/localize.Localize
+    std::calendar.{self, Date, DateFields, DatePattern, DateStyle, DateTime, DateTimeFields, DateTimePattern, NaiveDateTime, Time, TimeFields, TimePattern, TimeStyle, TimeUnit, Weekday}
+    std::duration.{Duration, DurationWidth}
+    std::locale.Locale
+    std::localize.Localize
 }
 
 test "a date is written at a style's length as the locale writes it" {

@@ -24,10 +24,10 @@
 // rt/calendar_test.go (TestCalendarEndOfMonthClamping,
 // TestCalendarCivilAndPhysicalDivergeAcrossSpringForward).
 import {
-    std/calendar.{Error, NaiveDateTime}
-    std/duration.Duration
-    std/instant.Instant
-    std/io
+    std::calendar.{Error, NaiveDateTime}
+    std::duration.Duration
+    std::instant.Instant
+    std::io
 }
 
 fn run() -> Result<Unit, Error> {

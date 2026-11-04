@@ -11,7 +11,7 @@ import (
 // ownerFunctionsSrc declares owner functions, the functions of an inherent
 // block on a generic type or an interface whose signature names none of the
 // block's type parameters, as std's `impl Iter<T>` declares `Iter.from`.
-const ownerFunctionsSrc = `import std/io
+const ownerFunctionsSrc = `import std::io
 
 pub interface Src<T> {
     fn get(s: self) -> T
@@ -109,7 +109,7 @@ fn main() {
 func TestOwnerFunctions_RunInTests(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "owner_test.nomi"
-	p, err := vmhost.LoadSource(name, strings.TrimPrefix(ownerFunctionsSrc, "import std/io\n\n")+`
+	p, err := vmhost.LoadSource(name, strings.TrimPrefix(ownerFunctionsSrc, "import std::io\n\n")+`
 test "src" {
     assert Src.seven() == 7
     assert Src.twice(1) == #(1, 1)

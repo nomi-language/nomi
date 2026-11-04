@@ -17,7 +17,7 @@
 // DECLARING file's scope, so a fill that resolved it in the caller's scope
 // answers `unknown variant` for a program whose `Mode` is not imported.
 import {
-    std/io
+    std::io
     engine.{Engine, Mode, Powered}
 }
 

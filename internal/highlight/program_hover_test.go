@@ -49,9 +49,9 @@ func TestProgramOfModulesAnswersEachTab(t *testing.T) {
 // catalog and whose locales the manifest lists.
 const programHoverSrc = `// FILE: main.nomi
 import {
-    std/io
-    std/locale.Locale
-    std/message.Message
+    std::io
+    std::locale.Locale
+    std::message.Message
     cart
 }
 

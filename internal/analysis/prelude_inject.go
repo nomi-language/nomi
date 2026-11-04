@@ -42,11 +42,11 @@ var (
 // ImportBlocks are flattened to their constituent ImportStmts.
 //
 // Why mirror prelude.nomi's structure instead of synthesizing one
-// big `import std/prelude.{NAMES}`: the legacy pre-cutover path made
+// big `import std::prelude.{NAMES}`: the legacy pre-cutover path made
 // prelude's ModuleScope the parent scope of every user file, so bare
 // lookups for `Some`, `None`, `Equal`, etc. walked through prelude's
 // Maybe / Ordering enums and found them as Members. A flat
-// `import std/prelude.{None, Some, ...}` would trip the analyzer's
+// `import std::prelude.{None, Some, ...}` would trip the analyzer's
 // `cannot import variant 'X' directly` check (variants must be
 // drill-imported via `Enum.{Variant}` or fully qualified). Mirroring
 // prelude.nomi's actual structure — including its drill-through

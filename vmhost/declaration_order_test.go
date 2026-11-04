@@ -12,7 +12,7 @@ import "testing"
 // std/maybe.nomi and std/results.nomi import each other, and
 // `Maybe.to_result`'s signature was resolved before Result had Ok and Err.
 func TestDeclarationOrder_MaybeToResultHasResultsVariants(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 fn main() {
     m = Some(3)
@@ -39,7 +39,7 @@ fn main() {
 // A struct's fields name a generic struct and a generic enum declared below
 // it in the same file.
 func TestDeclarationOrder_FieldNamesATypeDeclaredBelow(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct A {
     b: Box<Int>
@@ -74,7 +74,7 @@ fn main() {
 // A variant's payload names its own enum, which is resolved while the enum
 // is being built. No order of building declarations fixes this one.
 func TestDeclarationOrder_RecursiveVariantPayloadHasVariants(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 enum Tree<T> {
     Leaf(T)
@@ -104,7 +104,7 @@ fn main() {
 // instance had no methods: "no interface bound of type parameter 'B' (Bag)
 // declares function 'size'".
 func TestDeclarationOrder_BoundNamesAnInterfaceDeclaredBelow(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 fn sum<B>(b: B) -> Int where B: Bag<Int> {
     B.size(b) + B.first(b)
@@ -143,7 +143,7 @@ fn main() {
 // zero-sized one, and the program was "UserId wraps Int, so UserId(...)
 // takes an Int; got UserId" at the enum.
 func TestDeclarationOrder_EmbedsADistinctTypeDeclaredBelow(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 enum Shape {
     embeds UserId

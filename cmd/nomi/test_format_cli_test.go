@@ -14,7 +14,7 @@ import (
 // The records are matched to source by file and first line, so these tests
 // pin the positions as well as the statuses.
 
-const formatFixture = `import std/io
+const formatFixture = `import std::io
 
 /// Doubles.
 //! assert double(2) == 4
@@ -494,7 +494,7 @@ func TestTestCommand_JSONFormatFFI(t *testing.T) {
 	cacheRoot := t.TempDir()
 	projectRoot, _ := stageEchoFixture(t)
 	testPath := filepath.Join(projectRoot, "main_test.nomi")
-	mustWrite(t, testPath, `import std/io
+	mustWrite(t, testPath, `import std::io
 
 gopkg "echobinding" as ffi
 
@@ -537,7 +537,7 @@ test "ffi fails" {
 	}
 }
 
-const outputFixture = `import std/io
+const outputFixture = `import std::io
 
 test "passes" {
     dbg 5

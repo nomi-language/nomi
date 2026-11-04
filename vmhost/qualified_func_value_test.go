@@ -87,20 +87,20 @@ func TestQualifiedOwnerFuncValue_Runs(t *testing.T) {
 		},
 		{
 			name: "std owner function",
-			imp:  "std/json",
+			imp:  "std::json",
 			body: "    e = json.Json.encode\n    io.print(e(json.Json.Int(4)))\n",
 			want: "4\n",
 		},
 		{
 			name: "std positional variant",
-			imp:  "std/json",
+			imp:  "std::json",
 			body: "    i = json.Json.Int\n    io.print(\"${i(3) == json.Json.Int(3)}\")\n",
 			want: "True\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			main := "import {\n    std/io\n    " + tc.imp + "\n}\n\nfn main() {\n" + tc.body + "}\n"
+			main := "import {\n    std::io\n    " + tc.imp + "\n}\n\nfn main() {\n" + tc.body + "}\n"
 			for name, src := range map[string]string{
 				"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 				"leaf.nomi": qualifiedValueLeaf,

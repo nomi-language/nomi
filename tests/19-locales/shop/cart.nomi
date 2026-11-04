@@ -1,4 +1,4 @@
-import std/message.Message
+import std::message.Message
 
 /// Where an order is.
 pub enum Status {

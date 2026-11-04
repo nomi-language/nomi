@@ -12,7 +12,7 @@ does, and where something lives, is for grep and the code's own comments.
 
 **How the implementation is built.** [The engine and `nomi check`](#the-engine-and-nomi-check), [Front end](#front-end), [Keyword declarations and their inputs](#keyword-declarations-and-their-inputs), [HTML templates](#html-templates), [Language server analysis](#language-server-analysis), [IR builder](#ir-builder), [VM](#vm), [Debugging and `nomi dap`](#debugging-and-nomi-dap), [rt](#rt), [Int: exact at any size](#int-exact-at-any-size), [Stdlib](#stdlib), [std and lib](#std-and-lib), [Host functions](#host-functions), [Why std uses `host` rather than `go`](#why-std-uses-host-rather-than-go), [Files](#files), [Logging and actors](#logging-and-actors), [Background jobs](#background-jobs), [Mail](#mail), [Object storage](#object-storage), [Locale data](#locale-data), [Collation](#collation), [Embedding](#embedding), [Go FFI wrapper](#go-ffi-wrapper), [Modules](#modules), [`nomi build`](#nomi-build), [REPL](#repl).
 
-**Formatter and syntax.** [Formatter: layout](tooling.md#formatting), [Formatter: brace-bounded field constructs](#formatter-brace-bounded-field-constructs), [Formatter: fixed layouts](#formatter-fixed-layouts), [Formatter: one-line `if` and binding `else`](#formatter-one-line-if-and-binding-else), [Formatter: a line break after a literal's opening bracket](#formatter-a-line-break-after-a-literals-opening-bracket), [Formatter: filled literal lists](#formatter-filled-literal-lists), [Formatter: comparison and boolean operators](#formatter-comparison-and-boolean-operators), [Formatter: compound depth](#formatter-compound-depth), [Formatter: comments](#formatter-comments), [`or` patterns](#or-patterns), [Captures](#captures).
+**Formatter and syntax.** [Formatter: layout](tooling.md#formatting), [Formatter: brace-bounded field constructs](#formatter-brace-bounded-field-constructs), [Formatter: fixed layouts](#formatter-fixed-layouts), [Formatter: one-line `if` and binding `else`](#formatter-one-line-if-and-binding-else), [Formatter: a line break after a literal's opening bracket](#formatter-a-line-break-after-a-literals-opening-bracket), [Formatter: filled literal lists](#formatter-filled-literal-lists), [Formatter: comparison and boolean operators](#formatter-comparison-and-boolean-operators), [Formatter: compound depth](#formatter-compound-depth), [Formatter: comments](#formatter-comments), [`or` patterns](#or-patterns), [`if` without `else`](#if-without-else), [Captures](#captures).
 
 **Testing, editors and the tour.** [Test harnesses](#test-harnesses), [Grammar checks](#grammar-checks), [Editor development setup](#editor-development-setup), [Tour internals](#tour-internals).
 
@@ -71,6 +71,32 @@ The lexer leaves `>>>` as three `>` tokens. The parser joins them into the
 shift operator only after an operand, so nested type arguments such as
 `List<Maybe<Box<Int>>>` still close one `>` at a time.
 
+**Paths and full paths.** The lexer emits `::` as `COLONCOLON`, and the
+parser's constructors join each run of words with `::` between them and no
+space around it into one `PATH` token (`parser/paths.go`), so every position
+that takes a file's short name as a qualifier takes a full path with one
+extra token type. An import splits the `PATH` into its `ModulePath` segments;
+a `/` there is the error that spells the path with `::`. In an expression a
+full path is an `*ast.FilePath`, the `Object` of a `FieldAccess`. In a type,
+pattern or literal head it is a `QualifiedType` whose `Module` is its
+spelling (`db::schema`, or `db::schema.Kind` with an owner) and whose `Path`
+holds each segment's position; segments are `ast.PathSegment` values, not
+nodes, so no walk reads one as a name. Internal module keys keep `/`
+(`std/io`, the cache and `Origin` keys); only source text and messages use
+`::`.
+
+The builder binds a file import's file under its full path as well as its
+short name (`file_paths.go`), in the scope and in the builder's module
+tables, so every lookup by qualifier name resolves a full path as it does a
+short name, and nothing can shadow it. `bindFileShortName` leaves the short
+name to a declaration that holds it, and gives a short name two imports share
+an `Ambiguous` symbol, whose uses `CheckAmbiguousShortNames` reports;
+`lookupModuleScope` looks no further than the closest binding, so a local
+wins. `walkFilePath` reports a full path the file does not import and records
+a reference at each segment. Passes after the checker that resolve a
+qualifier by name and position read a `FilePath` through
+`ast.QualifierIdent`, which names it by its spelling.
+
 ## Keyword declarations and their inputs
 
 A top-level declaration that starts with a keyword and a name
@@ -127,10 +153,27 @@ visits the slot expressions once, under `Parts`. The builder walks the
 expansion in the literal's place, the checker checks it, and the IR builder
 lowers it. The added nodes are placed on characters of the literal no node
 is placed on, the quotes and each slot's `${`, since resolutions are keyed by
-position. The checker rewrites an argument-type error at a slot into what the
-slot takes, with help for its context (`htmlSlotHelp`).
+position. Those positions go in `FileAnalysis.StandIns`, as a membership
+test's `in` does: the text there does not spell the name, so semantic
+tokens, rename, find-references and document highlights skip them
+(`StandInReference`). A token there would be as long as the function's
+name and paint over the slot's code. Element content takes a `ToHtml` or another `Display`, which one
+function's parameter cannot say, so the checker checks each `slot_text`
+argument first (`chooseHtmlTextSlots`): a type that is `Display` and not
+`ToHtml`, and is not std's `Maybe`, `Result`, a collection or a tuple,
+moves the call to `slot_text_display`, and the reference at the callee's
+position with it. The same pass moves a slot whose function takes a
+`Display` (`slot_attribute`, `slot_rcdata`, `slot_url_path`,
+`slot_url_query`, `slot_url_fragment`) to its `_maybe` twin when the
+argument is a `Maybe` of a `Display`, which writes the value as the slot
+does or nothing for `None`; a `Maybe` of a `Maybe` there is an error.
+`UrlValue` and `CssValue` reach the same rule through impls for `Maybe<T>`.
+The argument's type is kept in `checkedSlots`, so checking
+the call does not check the argument again. The checker rewrites an
+argument-type error at a slot into what the slot takes, with help for its
+context (`htmlSlotHelp`).
 
-A file that imports std/html gains `import std/html as html$`
+A file that imports std/html gains `import std::html as html$`
 (`withHtmlImport`), so `html$` reaches std/html's private slot functions as
 `message$` reaches std/message's; another std file gains it as `import html
 as html$`, in std's spelling, and std/http's directory listing is a
@@ -280,6 +323,14 @@ gives, at the expression the builder stopped at and worded for the author
 reports the case as `BLOCKED` with that diagnostic. The builder's own
 decline reason is shown only with `NOMI_DEBUG_LOWERING=1`, which adds it to
 each such diagnostic as a hint.
+
+A dispatched call reaches every retained implementation of its method. One
+with none blocks the program only when some module implements the method
+without a dispatch entry (`ir.Module.ImplementUnretained`: the body was
+declined, or the type's values do not dispatch). A method nothing
+implements is not reported: no value of an implementing type exists, so
+the call runs over none (`Handler.kind` over an empty `List<Handler>`), and
+were it reached it would stop with the VM's dispatch miss.
 
 The builder's own type is `kind` (a tag plus declaration pointers, spelled
 in Nomi by `nomi()`), and a value is an `expr`: its IR temporary and its
@@ -435,6 +486,14 @@ and the test reporter. Built executables link it, so it links no front end
 (`TestRuntimeArtifactLinksNoFrontEnd`) and imports nothing outside the
 standard library, `uniseg` and itself (`TestRuntimeImportsOnlyItsAllowlist`).
 Its internal organization may change freely to serve the VM.
+
+A frame's Go context carries what the machine gives every frame: its locale
+data, message tables, streams, files and input. A supervised task's frame
+takes those values from the frame that spawned it and its cancellation from
+the supervisor, so it outlives the request that spawned it and still reads
+the program's locale data rather than `cldrdata.Default`'s, which a runner
+leaves empty (`TestSupervisorTaskReadsTheSpawnersContextValues`,
+`TestLocaleImage_ASupervisedTaskReadsTheProgramsLocales`).
 
 ## Int: exact at any size
 
@@ -724,7 +783,7 @@ A server is Go's `http.Server` (internal/stdhttp/server.go). Go calls its handle
 
 `Router` builds Go's `ServeMux` over its patterns (`http_host.new_mux`), each with a handler that only records which pattern matched and its wildcards' values; `http_host.route` runs the mux on a recorder and answers the match, or what the mux wrote itself (a redirect, a 405, a 404). So pattern syntax, precedence, conflicts and path cleaning are Go's own. `Response.redirect` and `Response.content` run Go's `Redirect` and `ServeContent` on a recorder the same way; `http.serve_file` reads through std/fs and hands the bytes to `ServeContent`. Cookies cross as lists of their fields, and a `CookieJar` is Go's cookiejar as a handle (rt.HTTPJar).
 
-A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The timeout, cross-origin and query-semicolon middleware are Nomi functions that wrap a handler.
+A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The form readers read a body through `read_capped`, in Nomi, which copies at most one byte past the limit into `Writer.collect` and leaves the rest of the stream unread; the limit is the request's `body_limit` (set by `Request.limit_body`, which also wraps the stream in Go's `MaxBytesReader` semantics, and applied to every request by `Server.max_body` in `answer`), else 10 MB for a URL-encoded form and 32 MB for a multipart one. A read that the `MaxBytesReader` cuts off exactly at `body_limit` is reported as `Error.BodyTooLarge`. The timeout, cross-origin and query-semicolon middleware are Nomi functions that wrap a handler.
 
 `std/tls` and `std/net` are lowered with each program too, and their crossings sit in `std/http_host` beside HTTP's, implemented in internal/stdhttp (tls.go, netconn.go), so the HTTP, TLS and TCP Go sides share one adapter package. A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's `*tls.Config` from its parts (`http_host.tls_config`, then `tls_with_certificate` per certificate) and holds it as a `TlsConfig` handle for that use. A `Certificate` is a handle over Go's `tls.Certificate`, its key never read back. A `Connection` is a handle (rt.NetConn) over a `net.Conn`, TCP or `*tls.Conn`, with one rt `Reader` and one unbuffered `Writer` made when it opens; a `context.AfterFunc` on the context of the task that dialed sets a past deadline when it ends, so a cancelled task's reads and writes stop. A listener (rt.NetListener) accepts on a goroutine into a channel, as the HTTP server hands requests over, so `Listener.accept` can stop for the waiting task's cancellation or an accept deadline; it registers a drain hook that closes it. `net.Error` sorts Go's errors with `errors.Is` against the system's error numbers (not matched on Windows). `http.serve_here` answers requests as tasks of the enclosing `concurrent` block, which `http_testing.with_server` uses with a certificate `http_host.test_certificate` makes; `http.reverse_proxy` is Nomi over the client's send. `dial_with`, `tls_dial` and `lookup` carry the `connect` class, which js/wasm and wasip1 lack: a browser offers a program only `fetch`, so there each answers the no-sockets error (`noSocketsMessage`).
 
@@ -819,7 +878,7 @@ lines folded before spaces at 78 characters. Boundaries are fixed strings
 starting `=_`, which neither quoted-printable nor base64 can write, so the
 output is deterministic for a given Message-ID and date. The date is
 computed from Unix time with Hinnant's civil-from-days, so std/mail does
-not import std/calendar.
+not import std::calendar.
 
 `mail_testing.with_smtp_server` serves one connection at a time on a task
 of its `concurrent` block, with `http_host.test_certificate` for STARTTLS.
@@ -838,9 +897,18 @@ returns `self` or takes two `self` operands, so it is dispatched on
 interface values, and `storage.local` and `s3.store` each answer a
 `Store` over a private struct, so boot code picks a backend with an `if` whose branches are both `Store`. Every backend calls
 `check_key` before anything else, and `check_content_type` in `put`; the
-key grammar (unreserved URL characters, no empty segment, no segment
-starting with `.`) is what keeps the local store inside its root, with no
-path cleaning.
+key grammar (no empty segment, no segment starting with `.`, no control
+character and no `\`) is what keeps the local store inside its root, with
+no path cleaning. Every other character is a key's, as S3 allows, so the
+local store writes each segment's name on disk with `%`, the characters
+Windows refuses in a name, a trailing `.` or space, and a device name's
+first letter as `%XX` (`file_names`); escaping `%` keeps the mapping
+one-to-one. `storage.join_key` escapes each segment for a public URL,
+since `Url.join_path` reads its segments as already escaped and drops a
+join whose `%` is not an escape. lib/storage/s3 signs and sends the path
+with every byte outside `A-Z a-z 0-9 - _ . ~` escaped, and its fake server
+in the conformance test refuses a request whose escaped path differs from
+that encoding.
 
 The local store goes through std/fs, so `fs_testing.run` sandboxes it. A
 `put` writes the content type to `<root>/.nomi-storage/types/<key>` and
@@ -1430,6 +1498,36 @@ guard and body are lowered once. A parameter's destructuring prologue cannot
 branch, so for an `or` inside a parameter it holds the value, and the body
 tests it before running.
 
+## `if` without `else`
+
+An `if` with no `else`, or an `else if` chain with no final `else`, whose
+branches have a value of a type T other than Unit is `Maybe<T>`. The checker
+(`analysis/elseless_if.go`) checks the chain's branches as an `if` with an
+`else` does, each link answering its branches' own type, against the
+expected Maybe's payload or, with no Maybe expected, against Unit as a
+statement's are. The joined type T makes the head `Maybe<T>` unless it is
+Unit or Infallible (every branch leaves). The head is recorded in
+`FileAnalysis.ElselessIfs` with its Maybe type; the links are not. A
+mismatch whose value is such an `if` gets a help naming it
+(`elselessIfHint`), at a function's result, a `return`, an annotation, an
+argument and a non-final statement.
+
+The IR builder reads the record (`irbuild/irelseless.go`). `ifRegion`
+lowers a recorded head's arms with `irFuncSig.elseless` set: each arm lowers
+its value at the payload's kind and wraps it in `Some`, the missing `else`
+writes `None`, and an `else if` link continues the region. A nested `if` or
+`case` in an arm is lowered as a value of its own and wrapped whole, so a
+nested `if` without `else` gives `Some(None)`, not a flattened `None`. Where
+the region's result is not a Maybe (an `Html` slot's `ToHtml`), the `if` is
+lowered as a Maybe value that then enters the result. A pipe's `if` stage
+is lowered from a copy of its node, which `gen.splicedIfs` maps back to the
+recorded one. A test body's statement `if` discards its value, so its arms
+stay test statements.
+
+`nomi fmt` strips a tail `return value` only where the value is the body's:
+a branch of an `if` with no final `else` keeps its value returns, since its
+value is wrapped.
+
 ## Captures
 
 The parser reads one postfix-level operand after `&` and refuses a body that
@@ -1747,6 +1845,27 @@ reason. It also parses each malformed source in `rejectedInputs`, which the
 Go parser must reject, and fails on one tree-sitter reads with no ERROR or
 MISSING node. It runs the CLI through `scripts/tree-sitter.sh` and skips
 when `npx` or a cached copy of the pinned CLI is missing.
+
+`tree-sitter-nomi/queries/injections.scm` hands a tagged literal's body to
+the tag's language as one document with its `${...}` slots left out: each
+pattern matches the literal's children as one repetition, so one match
+captures every body chunk, and Zed, Helix and Neovim parse the content
+nodes of one match together. Zed also groups by `@injection.host`. Neither
+`injection.combined` (every literal in the file as one document) nor a
+whole-node capture without `injection.include-children` (Zed injects the
+whole node; Neovim cuts out only named children) works across the editors.
+`TestTreeSitterInjectsASlottedLiteralAsOneDocument` (`internal/parser`)
+holds the one-match shape.
+
+An HTML node that spans a slot, such as `href="/posts/${id}/edit"`'s
+value, keeps the slot's characters inside its range, and Neovim reads a
+node's text for a predicate from the buffer over that range.
+nvim-treesitter's html injections inject JavaScript into any attribute
+value whose text matches `%${` (lit-html), so in Neovim every attribute
+value with a slot became JavaScript. The Neovim ftplugin creates a Nomi
+buffer's parser with an html injection query that leaves those patterns out
+(`editors/nvim/lua/nomi/injections.lua`); HTML files keep theirs. `make
+test-nvim` holds it, when the machine has an html parser.
 
 `scripts/tree-sitter.sh test` checks the `// ^ capture` assertions in
 `tree-sitter-nomi/test/highlight/*.nomi` against

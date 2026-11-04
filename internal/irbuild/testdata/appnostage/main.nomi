@@ -1,6 +1,6 @@
 // This boot schema is available when main.nomi is the execution entry.
 import {
-    std/io
+    std::io
     settings.Settings
 }
 

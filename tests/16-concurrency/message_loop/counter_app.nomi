@@ -20,10 +20,10 @@
 //# one answer, and it is nobody.
 
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/duration.Duration
-    std/io
-    std/supervisors.{Backoff, Restart, Supervisor}
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::io
+    std::supervisors.{Backoff, Restart, Supervisor}
 }
 
 /// What callers can ask the worker to do.

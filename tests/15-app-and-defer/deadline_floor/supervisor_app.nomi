@@ -1,9 +1,9 @@
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/duration.Duration
-    std/io
-    std/supervisors.Supervisor
-    std/timer
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::io
+    std::supervisors.Supervisor
+    std::timer
 }
 
 pub struct Config {

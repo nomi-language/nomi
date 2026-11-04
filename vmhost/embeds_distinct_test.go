@@ -102,7 +102,7 @@ func TestEmbedsDistinct_OverAStructAnEnumAndAGenericStruct(t *testing.T) {
 		"enum first":     embedsCompositeEnum + "\n" + embedsCompositeDecls,
 		"distinct first": embedsCompositeDecls + "\n" + embedsCompositeEnum,
 	} {
-		got := runSourceOutput(t, "import std/io\n\n"+src+"\n"+embedsCompositeUse)
+		got := runSourceOutput(t, "import std::io\n\n"+src+"\n"+embedsCompositeUse)
 		if got != want {
 			t.Errorf("%s: output\n%s\nwant\n%s", name, got, want)
 		}
@@ -116,7 +116,7 @@ func TestEmbedsDistinct_OverAStructAnEnumAndAGenericStruct(t *testing.T) {
 // and the IR builder found no instance for it: such a construction records
 // no call signature, and `Shape.Expired` of a generic enum was not lowered.
 func TestEmbedsDistinct_GenericEnumConstructionTakesItsInstance(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 type UserId Int
 

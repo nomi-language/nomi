@@ -30,7 +30,7 @@ func runTodo(t *testing.T, src string) (string, string, error) {
 // Reaching a `todo` stops the program with rt's text: the file and line, then
 // the reason when there is one. What ran before it ran.
 func TestTodo_ReachingOneStopsTheProgram(t *testing.T) {
-	path, out, err := runTodo(t, `import std/io
+	path, out, err := runTodo(t, `import std::io
 
 struct Header {
     name: String
@@ -69,7 +69,7 @@ func TestTodo_ABareTodoNamesOnlyItsPlace(t *testing.T) {
 // A `todo` takes the type its position expects, in every position below, and
 // one on a path the run does not take never traps.
 func TestTodo_UntakenTodosDoNotTrapInAnyPosition(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 struct Header {
     name: String
@@ -164,7 +164,7 @@ fn main() {
 	if want := "todo reached at " + path + ":3: first"; err == nil || err.Error() != want {
 		t.Fatalf("error %v, want %q", err, want)
 	}
-	path, out, err := runTodo(t, `import std/io
+	path, out, err := runTodo(t, `import std::io
 
 fn loud(n: Int) -> Int {
     io.print("piped")
@@ -212,7 +212,7 @@ func TestTodo_AnOperandTodoTrapsAtTheTodo(t *testing.T) {
 	}
 	for _, form := range forms {
 		t.Run(form, func(t *testing.T) {
-			path, out, err := runTodo(t, `import std/io
+			path, out, err := runTodo(t, `import std::io
 
 fn g(b: Bool) -> Bool {
     b
@@ -253,7 +253,7 @@ fn main() {
 // An operand `todo` on a path the run does not take never traps: the
 // short-circuit operators skip it, and so does an untaken branch.
 func TestTodo_UntakenOperandTodosDoNotTrap(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn main() {
     a = False and todo

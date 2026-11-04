@@ -53,7 +53,7 @@ func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 
 func (bl *irScalarBuilder) qualifiedOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	g := bl.g
-	owner, ok := t.Object.(*ast.Ident)
+	owner, ok := ast.QualifierIdent(t.Object)
 	if !ok || t.Field == nil || g.files == nil || g.reg == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}

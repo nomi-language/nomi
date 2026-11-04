@@ -6,7 +6,7 @@ import (
 
 func TestIRLambda_NestedCases(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"case in both Boolean arms", `import std/io
+		{"case in both Boolean arms", `import std::io
 fn main() {
  base = 10
  choose = fn a: Bool, x: Int -> {
@@ -28,7 +28,7 @@ fn main() {
  io.print(choose(False, 9))
 }
 `, "zero\n12\n13\n14\n10\n19\n"},
-		{"Boolean and case inside case", `import std/io
+		{"Boolean and case inside case", `import std::io
 fn main() {
  choose = fn x: Int, text: String, flag: Bool -> {
   case x {
@@ -46,7 +46,7 @@ fn main() {
  io.print(choose(1, "z", True))
 }
 `, "1\n2\n3\n4\nwild\n5\n"},
-		{"nested cases return closures", `import std/io
+		{"nested cases return closures", `import std::io
 fn main() {
  choose = fn x: Int, y: Int -> {
   case x {
@@ -71,7 +71,7 @@ fn main() {
  io.print(a(20))
 }
 `, "11\n12\n13\n14\n21\n"},
-		{"nested Unit cases", `import std/io
+		{"nested Unit cases", `import std::io
 fn main() {
  emit = fn x: Int, y: Int -> {
   case x {

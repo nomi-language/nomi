@@ -1,9 +1,9 @@
 import {
-    std/calendar.{Date, NaiveDateTime, Time}
-    std/instant.Instant
-    std/json.Json
-    std/sql.{self, ConstraintKind, Dialect, FromSql, Row, Sql, Statement, ToSql, Value}
-    std/uuid.Uuid
+    std::calendar.{Date, NaiveDateTime, Time}
+    std::instant.Instant
+    std::json.Json
+    std::sql.{self, ConstraintKind, Dialect, FromSql, Row, Sql, Statement, ToSql, Value}
+    std::uuid.Uuid
 }
 
 test "a literal's slots are parameters, and its text is the SQL around them" {

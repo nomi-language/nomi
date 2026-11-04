@@ -80,7 +80,7 @@ func TestNamedArgToConstructor_IsAnError(t *testing.T) {
 		{"a pipe", `fn f() -> Maybe<Int> {
   1 |> then &Some(l: &1)
 }`, "l: &1", variantNameHint},
-		{"the fuzzer's Assertable impl", `import std/assertions.{Assertable, AssertionDetails}
+		{"the fuzzer's Assertable impl", `import std::assertions.{Assertable, AssertionDetails}
 struct Same {
   a: Int
   b: Int

@@ -12,10 +12,10 @@ import (
 func TestLowering_StdInterfaceThroughItsModulesQualifier(t *testing.T) {
 	const program = `// FILE: main.nomi
 import {
-    std/display
-    std/io
-    std/sql
-    std/sql_testing.Fake
+    std::display
+    std::io
+    std::sql
+    std::sql_testing.Fake
 }
 
 fn close(c: sql.Conn) {
@@ -57,7 +57,7 @@ func TestLowering_ForeignGenericTypesOwnerFunctions(t *testing.T) {
 	const program = `// FILE: main.nomi
 import {
     boxes.Box
-    std/io
+    std::io
 }
 
 fn make<T>(item: T, f: (T) -> Int) -> Box<T> {

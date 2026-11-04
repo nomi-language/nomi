@@ -1,4 +1,4 @@
-//# Postgres for `std/sql`: `postgres.pool(url)` answers a `Conn` over a
+//# Postgres for `std::sql`: `postgres.pool(url)` answers a `Conn` over a
 //# pool of connections, and `postgres.connect(url)` one over a single
 //# connection, through the pure-Go `pgx`. `postgres.scratch()` makes a
 //# fresh empty database on a throwaway server, for tests.
@@ -20,14 +20,14 @@
 //# names it (`users_email_not_null`).
 
 import {
-    std/calendar.{Date, NaiveDateTime, Time}
-    std/channels.{Arm, Channel, Receiver, Sender}
-    std/duration.Duration
-    std/instant.Instant
-    std/json.Json
-    std/sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
-    std/supervisors.Supervisor
-    std/uuid.Uuid
+    std::calendar.{Date, NaiveDateTime, Time}
+    std::channels.{Arm, Channel, Receiver, Sender}
+    std::duration.Duration
+    std::instant.Instant
+    std::json.Json
+    std::sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
+    std::supervisors.Supervisor
+    std::uuid.Uuid
 }
 
 gopkg "github.com/nomi-language/nomi/lib/sql/postgres/goside"

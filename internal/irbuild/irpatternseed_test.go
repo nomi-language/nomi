@@ -11,7 +11,7 @@ import "testing"
 // reduce: `continue` keeps the accumulator, a bare `break` stops with it, and
 // `break v` stops with v.
 func TestIRPatternSeed_ReduceSignals(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
   skipped = Iter.reduce([1, 2, 3], #(0, []), fn #(n, xs), x -> {
@@ -36,7 +36,7 @@ fn main() {
 // scan and map_reduce: `continue` yields or adds nothing and keeps the state,
 // and a bare `break` ends the walk.
 func TestIRPatternSeed_ScanAndMapReduceSignals(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
   states = Iter.scan([1, 2, 3, 4], #(0, 0), fn #(n, k), x -> {
@@ -57,7 +57,7 @@ fn main() {
 
 // A struct pattern and a nested tuple pattern bind the seed the same way.
 func TestIRPatternSeed_StructAndNestedPatterns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Acc {
   total: Int
@@ -82,7 +82,7 @@ fn main() {
 // A named function whose own accumulator parameter is a pattern, passed as
 // the callback with its starting value as `from:`.
 func TestIRPatternSeed_NamedFunctionFrom(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn keep(#(n, xs): #(Int, List<Int>), x: Int) -> #(Int, List<Int>) {
   if x == 2 { continue }

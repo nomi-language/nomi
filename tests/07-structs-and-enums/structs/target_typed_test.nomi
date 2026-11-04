@@ -2,7 +2,7 @@
 // spread builds the nominal struct its position expects. Where no struct is
 // expected it stays an anonymous struct.
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 

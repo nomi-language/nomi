@@ -19,7 +19,7 @@
 // CONSTRUCTED has nothing that binds `T` and is refused by name. The residue is
 // that construction and only that, and
 // TestGenericEnum_BareVariantConstructionIsRefused pins it WITH its firing.
-import std/io
+import std::io
 
 enum Wrapper<T> {
     Wrapped T

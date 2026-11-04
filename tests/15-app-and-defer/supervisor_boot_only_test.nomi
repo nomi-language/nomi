@@ -1,11 +1,11 @@
-import std/compiler
+import std::compiler
 
 test "a task group created in a plain function is rejected" {
     diagnostics = compiler.check(
         """
         import {
-          std/duration.Duration
-          std/supervisors.Supervisor
+          std::duration.Duration
+          std::supervisors.Supervisor
         }
 
         fn make_group() -> Supervisor {
@@ -31,8 +31,8 @@ test "boot can create task groups" {
     diagnostics = compiler.check(
         """
         import {
-          std/duration.Duration
-          std/supervisors.Supervisor
+          std::duration.Duration
+          std::supervisors.Supervisor
         }
 
         pub struct BootApp {
@@ -67,8 +67,8 @@ test "a struct field default may create a task group" {
     diagnostics = compiler.check(
         """
         import {
-          std/duration.Duration
-          std/supervisors.Supervisor
+          std::duration.Duration
+          std::supervisors.Supervisor
         }
 
         pub struct BootApp {
@@ -100,8 +100,8 @@ test "a group-owned body must return Unit" {
     diagnostics = compiler.check(
         """
         import {
-          std/duration.Duration
-          std/supervisors.Supervisor
+          std::duration.Duration
+          std::supervisors.Supervisor
         }
 
         pub struct BootApp {
@@ -147,9 +147,9 @@ test "a constructor boot calls may create its own group" {
     diagnostics = compiler.check(
         """
         import {
-          std/channels.Channel
-          std/duration.Duration
-          std/supervisors.Supervisor
+          std::channels.Channel
+          std::duration.Duration
+          std::supervisors.Supervisor
         }
 
         pub struct Counter {
@@ -188,9 +188,9 @@ test "calling that constructor outside boot is rejected" {
     diagnostics = compiler.check(
         """
         import {
-          std/channels.Channel
-          std/duration.Duration
-          std/supervisors.Supervisor
+          std::channels.Channel
+          std::duration.Duration
+          std::supervisors.Supervisor
         }
 
         pub struct Counter {

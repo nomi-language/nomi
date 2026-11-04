@@ -3,6 +3,7 @@ package analysis
 import (
 	"maps"
 	"slices"
+	"strings"
 	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -10,7 +11,7 @@ import (
 
 // MissingImport identifies one unresolved reference the file could fix by
 // importing an exported stdlib owner. `Member` is the owner name, and the
-// rendered import is selective: `std/io` / `std/sets.Set`.
+// rendered import is selective: `std::io` / `std::sets.Set`.
 //
 // Pos is the 1-based position of the unresolved identifier — exactly where the
 // "undefined …" diagnostic lands, so the code-action handler matches the two by
@@ -33,8 +34,10 @@ func (m MissingImport) ImportSpec() string {
 	return displayImportModulePath(m.ModulePath) + "." + m.Member
 }
 
+// displayImportModulePath spells a module key (`std/io`) as an import
+// writes it (`std::io`).
 func displayImportModulePath(path string) string {
-	return path
+	return strings.ReplaceAll(path, "/", ast.PathSeparator)
 }
 
 // FindMissingImports returns the imports the file could add for references it
@@ -67,7 +70,7 @@ func FindMissingImports(fa *FileAnalysis, nodes []ast.Node) []MissingImport {
 			case *ast.GenericType: // annotation `s: Set<Int>` (the base name)
 				addTypeSuggestions(fa, typeIndex, v.Name, Pos{Line: v.Line, Col: v.Col}, seen, &out)
 			case *ast.FieldAccess: // expression-level file API ref (`io.inspect`)
-				if obj, ok := v.Object.(*ast.Ident); ok {
+				if obj, ok := ast.QualifierIdent(v.Object); ok {
 					addNamespaceSuggestion(fa, obj.Name, Pos{Line: obj.Line, Col: obj.Col}, seen, &out)
 				}
 			}

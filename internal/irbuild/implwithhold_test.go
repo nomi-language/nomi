@@ -192,7 +192,7 @@ func TestIRImplWithhold_AGenWithoutTheStdlibIndexDeclinesAOnceByName(t *testing.
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 once pi = Float.atan2(0.0, -1.0)
 

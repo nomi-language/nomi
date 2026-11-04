@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRReduceBody_FilterMapReduce(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  xs = [1, 2, 3, 4, 5]
  answer = xs
@@ -18,7 +18,7 @@ fn main() {
 }
 
 func TestIRReduceBody_SeedScopeAndOrder(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn source() -> List<Int> { io.print("source"); [1, 2] }
 fn seed(n: Int) -> Int { io.print("seed"); n }
 fn main() {
@@ -30,7 +30,7 @@ fn main() {
 }
 
 func TestIRReduceBody_NestedIndependentSeeds(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  io.print(Iter.reduce([1, 2], 100, fn outer, n -> {
   outer + Iter.reduce([3, 4], n, fn inner, x -> inner + x)
@@ -40,7 +40,7 @@ fn main() {
 }
 
 func TestIRReduceBody_EmptyAndRepeatedFilter(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn empty() -> List<Int> { [] }
 fn main() {
  xs = Iter.filter([1, 2, 3], fn n -> { io.print(n); n > 1 })
@@ -53,7 +53,7 @@ fn main() {
 }
 
 func TestIRReduceBody_CallbackFault(t *testing.T) {
-	verifyIterFault(t, `import std/io
+	verifyIterFault(t, `import std::io
 fn main() {
  io.print(Iter.reduce([1, 0, 2], 10, fn acc, n -> {
   io.print(n)
@@ -66,7 +66,7 @@ fn main() {
 // A Map whose values are Maps is an iteration source like any other map: the
 // VM iterates its `#(K, V)` pairs, and the reduction reads each key.
 func TestIRReduceBody_NestedMapSourceRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() { io.print(Iter.reduce(%{1 => %{2 => 3}}, 10, fn acc, p -> acc + p.0)) }
 `, "11\n")
 }

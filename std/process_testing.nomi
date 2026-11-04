@@ -1,5 +1,5 @@
 //# Testing code that starts programs, without starting any. Inside
-//# `process_testing.run(answers, body)`, every std/process call `body`
+//# `process_testing.run(answers, body)`, every std::process call `body`
 //# makes, and every call the tasks it starts make, is answered by the
 //# first `Answer` for its program and arguments, and recorded. `run`
 //# answers what `body` returned together with each call, in order, with
@@ -10,7 +10,7 @@
 //#
 //# ```nomi
 //# import {
-//#     std/process_testing.{self, Answer, Call}
+//#     std::process_testing.{self, Answer, Call}
 //#     branch
 //# }
 //#
@@ -43,7 +43,7 @@ import {
 
 /// How the fake answers a start of `program`: with the given output and
 /// exit code, or, when `error` is set, by failing to start with it.
-//! import std/process.{self, Command, Status}
+//! import std::process.{self, Command, Status}
 //!
 //! answers = [
 //!     Answer{program: "git", args: Some(["push"]), code: 1, stderr: "rejected\n"},
@@ -101,10 +101,10 @@ pub struct Ran<T> {
     calls: List<Call>
 }
 
-/// Runs `body` with `answers` answering every std/process call it makes,
+/// Runs `body` with `answers` answering every std::process call it makes,
 /// and answers what it returned with each call. Nothing is started. If
 /// `body` traps, the trap propagates.
-//! import std/process.{self, Command, Stdin}
+//! import std::process.{self, Command, Stdin}
 //!
 //! ran = run([
 //!     Answer{program: "wc", args: Some(["-l"]), stdout: "2\n"},

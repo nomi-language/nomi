@@ -1,6 +1,6 @@
 import {
-    std/locale.Locale
-    std/plural.PluralCategory
+    std::locale.Locale
+    std::plural.PluralCategory
     main
 }
 

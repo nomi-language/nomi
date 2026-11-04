@@ -14,7 +14,7 @@
 // every predicate below has to lower and answer, not merely avoid a refusal.
 // Each declaration below names the minting site it reaches and the
 // sanitizer that site routes through.
-import std/io
+import std::io
 
 // A free predicate: goFuncName, which strips the `?` to `_PRED`.
 fn is_positive(n: Int) -> Bool {

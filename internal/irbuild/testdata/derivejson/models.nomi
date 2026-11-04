@@ -1,6 +1,6 @@
 // The SIBLING half of testdata/derivejson: a struct whose `derive FromJson` and
 // `derive Equatable` are declared here and reached from main.nomi.
-import std/json.{FromJson, Json, ToJson}
+import std::json.{FromJson, Json, ToJson}
 
 pub struct Away {
     name: String

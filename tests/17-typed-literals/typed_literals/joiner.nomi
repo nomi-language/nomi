@@ -1,4 +1,4 @@
-import std/literals.{Fragment, Literal}
+import std::literals.{Fragment, Literal}
 
 /// Zero-sized tag carrier. `Joiner"..."` resolves to this type and
 /// dispatches its `Literal` impl — Static fragments pass through

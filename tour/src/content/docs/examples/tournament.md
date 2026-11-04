@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: tournament.nomi
 //# Tallies a small football competition into a league table.
 
-import std/reverse.Reverse
+import std::reverse.Reverse
 
 /// Why the results could not be tallied.
 pub enum Error {

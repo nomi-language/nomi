@@ -154,7 +154,7 @@ func withProgramStd(p *Program) *Program {
 // level and in blocks, by its name under std/ (`uuid`). A program's file
 // writes the module as `std/uuid`; a std module names a sibling bare
 // (`import uuid.Uuid`), which inStd says, but its `//!` prompts are written
-// as a program's code and name it `std/uuid` (`//! import std/sql_testing.Fake`
+// as a program's code and name it `std/uuid` (`//! import std::sql_testing.Fake`
 // in std/sql.nomi), so a std/ path counts in a std module too.
 func importedStdModules(nodes []ast.Node, inStd bool) []string {
 	var out []string

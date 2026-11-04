@@ -10,7 +10,7 @@ import (
 // inside the capture the read is in, and a trap in either is the
 // program's trap at the line that trapped.
 func TestReaderSources_RunWhenReadAndInsideTheReadsCapture(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
     made = io.Reader.from_chunks(["a", "", "b\nc"] |> Iter.map(fn s -> {
@@ -44,7 +44,7 @@ fn main() {
 
 func TestReaderSources_ATrapInTheSourceIsTheProgramsTrap(t *testing.T) {
 	for name, src := range map[string]string{
-		"from_fn": `import std/io
+		"from_fn": `import std::io
 
 fn main() {
     r = io.Reader.from_fn(fn -> {
@@ -54,7 +54,7 @@ fn main() {
     io.print(io.Reader.read_line(r))
 }
 `,
-		"from_chunks": `import std/io
+		"from_chunks": `import std::io
 
 fn main() {
     r = io.Reader.from_chunks(Iter.from(0) |> Iter.map(fn n -> String.to_bytes("${1 / n}")))

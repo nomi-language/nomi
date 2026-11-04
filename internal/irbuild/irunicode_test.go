@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRUnicode_TourTextProgram(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  io.print(String.length("café"))
  io.inspect(Iter.to_list("café"))
@@ -15,7 +15,7 @@ fn main() {
 }
 
 func TestIRUnicode_ClustersAndScalars(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn points(s: String) -> List<Codepoint> { String.to_codepoints(s) }
 fn numbers(s: String) -> List<Int> {
  points(s) |> Iter.map(Codepoint.to_int) |> Iter.to_list()
@@ -37,14 +37,14 @@ fn main() {
 // A list of a std named type renders through std's own Debug impl, as
 // native's container inspector does.
 func TestIRUnicode_CodepointListDebug(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() { io.inspect(String.to_codepoints("a\u{301}")) }
 `, "[Codepoint(97), Codepoint(769)]\n")
 }
 
 // `==` on two lists compares them structurally whatever their elements.
 func TestIRUnicode_CodepointListEquality(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   io.print(String.to_codepoints("a") == String.to_codepoints("a"))
   io.print(String.to_codepoints("a") != String.to_codepoints("b"))
@@ -55,7 +55,7 @@ fn main() {
 // A list pattern over a list of Codepoints tests its length and binds cells,
 // which is the same over any element.
 func TestIRUnicode_NominalListPatterns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   case String.to_codepoints("a") {
     [_, ..] -> io.print(1)

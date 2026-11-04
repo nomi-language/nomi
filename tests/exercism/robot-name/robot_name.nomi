@@ -1,6 +1,6 @@
 //# Robots with random, unique names such as `RX837`.
 
-import std/random.{Generator, Seed}
+import std::random.{Generator, Seed}
 
 once letters = Iter.to_vector('A'..='Z')
 

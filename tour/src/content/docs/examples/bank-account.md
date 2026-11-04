@@ -17,8 +17,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# teller's answer.
 
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/tasks.Task
+    std::channels.{Channel, Receiver, Sender}
+    std::tasks.Task
 }
 
 /// Why an operation is refused.
@@ -192,7 +192,7 @@ fn withdrawn(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error> {
 
 // FILE: bank_account_test.nomi
 import {
-    std/tasks.Task
+    std::tasks.Task
     bank_account
     bank_account.{Account, Error}
 }

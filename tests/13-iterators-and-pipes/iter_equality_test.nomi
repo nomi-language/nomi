@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 fn reports(source: String, text: String) -> Bool {
     compiler.check(source) |> Iter.any(fn d -> text in d.message)

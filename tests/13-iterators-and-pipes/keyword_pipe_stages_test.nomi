@@ -1,6 +1,6 @@
 import {
-    std/compiler
-    std/testing
+    std::compiler
+    std::testing
 }
 
 fn parse_id(s: String) -> Result<Int, String> {
@@ -89,7 +89,7 @@ test "bare case pipe stages match the previous value" {
 test "dbg can inspect a pipeline stage" {
     result = compiler.run(
         """
-        import std/io
+        import std::io
 
         fn double(n: Int) -> Int {
           n * 2

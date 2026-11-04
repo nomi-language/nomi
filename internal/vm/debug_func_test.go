@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-const funcBreakSrc = `import std/io
+const funcBreakSrc = `import std::io
 
 struct Card {
   n: Int

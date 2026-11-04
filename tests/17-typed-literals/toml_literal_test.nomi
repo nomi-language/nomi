@@ -3,8 +3,8 @@
 //# vmhost (checked_literals_toml_test.go).
 
 import {
-    std/calendar.{Date, OffsetDateTime, Time}
-    std/toml.{ToToml, Toml}
+    std::calendar.{Date, OffsetDateTime, Time}
+    std::toml.{ToToml, Toml}
 }
 
 struct Port {

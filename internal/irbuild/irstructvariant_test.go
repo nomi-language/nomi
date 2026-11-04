@@ -53,7 +53,7 @@ fn main() {
 // their defaults afterwards; patterns bind in their own order, may rename and
 // may omit fields, and an unmatched variant falls through to a wildcard.
 func TestIRStructVariant_OrderDefaultsAndBindings(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(label: String, n: Int) -> Int {
   io.print(label)
   n

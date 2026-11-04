@@ -32,7 +32,7 @@
 // activation, two different concrete types flowing through the same bound at
 // two call sites. A builder that cached the first TypeID for the activation
 // prints the same rendering twice here.
-import std/io
+import std::io
 
 struct Meters {
     amount: Int

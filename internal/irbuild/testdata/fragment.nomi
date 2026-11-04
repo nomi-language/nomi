@@ -16,8 +16,8 @@
 // String and `Dynamic`'s Int are different types, so a spec with the
 // two payload kinds swapped cannot produce this transcript.
 import {
-    std/io
-    std/literals.Fragment
+    std::io
+    std::literals.Fragment
 }
 
 fn describe_string(f: Fragment<String>) -> String {

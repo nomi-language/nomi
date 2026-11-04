@@ -67,7 +67,7 @@ impl Temperature for Fahrenheit {
 `
 
 func TestDistinctSelf_TemperatureRuns(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": "import std/io\n\n" + distinctTemperature + `
+	got := runSiblingProgram(t, map[string]string{"main.nomi": "import std::io\n\n" + distinctTemperature + `
 fn show<T>(t: T) -> String where T: Temperature {
     T.label(t)
 }
@@ -99,7 +99,7 @@ fn main() {
 // `T` in `where self: Distinct<T>` may be the interface's own type
 // parameter, so one interface serves wrappers of different types.
 func TestDistinctSelf_GenericInnerRuns(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 type UserId Int
 type Name String
@@ -140,7 +140,7 @@ fn main() {
 // `Distinct<T>` is a bound like any other: a generic function bounded by it
 // takes a distinct type wrapping T.
 func TestDistinctSelf_BoundOnAFunction(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 type UserId Int
 type Name String
@@ -209,7 +209,7 @@ impl Scaled for PositiveInt {
 }
 `
 	written := `import {
-    std/io
+    std::io
     meters.{self, Meters}
     positive
     scaled.Scaled

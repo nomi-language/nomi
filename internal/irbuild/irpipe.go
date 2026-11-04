@@ -105,6 +105,10 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		}
 		spliced := *r
 		spliced.Cond = t.Left
+		if bl.g.splicedIfs == nil {
+			bl.g.splicedIfs = map[*ast.If]*ast.If{}
+		}
+		bl.g.splicedIfs[&spliced] = r
 		return bl.lower(&spliced)
 	case *ast.Case:
 		if r.Value != nil {

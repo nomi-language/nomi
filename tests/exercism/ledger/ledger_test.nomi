@@ -1,6 +1,6 @@
 import {
-    std/calendar.Date
-    std/currency.Currency
+    std::calendar.Date
+    std::currency.Currency
     ledger.{self, Entry, Style}
 }
 

@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRVariantPattern_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"string payload and wildcard", `import std/io
+		{"string payload and wildcard", `import std::io
 enum Message {
   Empty
   Text String
@@ -21,7 +21,7 @@ fn main() {
   io.print(label(Message.Text("other")))
   io.print(label(Message.Empty))
 }`, "greeting\ntext\nempty\n"},
-		{"bare and bound payload", `import std/io
+		{"bare and bound payload", `import std::io
 enum Signal {
   Idle
   Value Int
@@ -36,7 +36,7 @@ fn main() {
   io.print(number(Signal.Value(41)))
   io.print(number(Signal.Idle))
 }`, "42\n0\n"},
-		{"literal payload fallthrough", `import std/io
+		{"literal payload fallthrough", `import std::io
 enum Signal {
   Idle
   Value Int
@@ -54,7 +54,7 @@ fn main() {
   io.print(label(Signal.Value(-2)))
   io.print(label(Signal.Idle))
 }`, "zero\npositive\nnegative\nidle\n"},
-		{"computed subject once", `import std/io
+		{"computed subject once", `import std::io
 enum Signal {
   Idle
   Value Int
@@ -69,7 +69,7 @@ fn main() {
   }
   io.print(n)
 }`, "subject\n3\n"},
-		{"shadowed payload and escaping capture", `import std/io
+		{"shadowed payload and escaping capture", `import std::io
 enum Signal {
   Idle
   Value Int

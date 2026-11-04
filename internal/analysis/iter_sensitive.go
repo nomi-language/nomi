@@ -87,9 +87,9 @@ func callSiteKey(call *ast.Call) string {
 //     (handles the normal user-code path);
 //  2. Resolving the callee to a Symbol and matching its owner and name
 //     against the table (handles selective-import bare names like
-//     `import std/iter.Iter.{loop}` → `loop(...)`, and unqualified calls
+//     `import std::iter.Iter.{loop}` → `loop(...)`, and unqualified calls
 //     inside the stdlib module that defines the iter-callback function);
-//  3. Canonicalizing an imported owner alias (`import std/iter as it` →
+//  3. Canonicalizing an imported owner alias (`import std::iter as it` →
 //     `it.map(...)`) back to its canonical "Owner.name" key. Inherent
 //     type-body methods (List.reduce et al.) have no module-scope symbol
 //     and no Reference at the field position, so the symbol path in (2)
@@ -171,7 +171,7 @@ func (s *iterSensitivity) slotsForStdlibCallbackSymbol(sym *Symbol) map[int]bool
 }
 
 // canonicalQualifiedOwnerKey rewrites an aliased module/interface owner
-// (`import std/iter as it` → `it.map`) to its canonical owner key
+// (`import std::iter as it` → `it.map`) to its canonical owner key
 // (`Iter.map`) by resolving the object ident and reading the real symbol name.
 func (s *iterSensitivity) canonicalQualifiedOwnerKey(call *ast.Call) string {
 	fieldAcc, ok := call.Func.(*ast.FieldAccess)
@@ -213,7 +213,7 @@ func (s *iterSensitivity) canonicalQualifiedOwnerKey(call *ast.Call) string {
 }
 
 // canonicalStdlibKey rewrites an aliased owner-qualified callee
-// (`it.map` under `import std/iter as it`) to its canonical "Owner.field"
+// (`it.map` under `import std::iter as it`) to its canonical "Owner.field"
 // key by resolving the object ident to its module symbol and pointer-
 // matching the symbol's ModuleScope against the file's stdlib module
 // scopes. Returns "" when the callee isn't an owner-qualified field

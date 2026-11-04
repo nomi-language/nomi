@@ -1,6 +1,6 @@
 // A boot's error with no Display impl prints as its Debug text, as main's
 // does.
-import std/io
+import std::io
 
 struct App {
     name: String

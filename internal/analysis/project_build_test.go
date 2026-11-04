@@ -288,7 +288,7 @@ func TestImplCollision_CrossModuleRejected(t *testing.T) {
 		"widgets": "impl Display for Int {\n  fn to_string(_n: self) -> String { \"widgets\" }\n}\n",
 		"legacy":  "impl Display for Int {\n  fn to_string(_n: self) -> String { \"legacy\" }\n}\n",
 	}
-	entry := "import {\n  std/io\n  widgets\n  legacy\n}\n\nfn main() { io.print(\"x\") }\n"
+	entry := "import {\n  std::io\n  widgets\n  legacy\n}\n\nfn main() { io.print(\"x\") }\n"
 	errs := buildProjectExpectingErrors(t, entry, siblings)
 	assertErrorContains(t, errs, "duplicate impl")
 	assertErrorContains(t, errs, "widgets")
@@ -413,7 +413,7 @@ replace stringkit => ../stringkit
 }
 
 // TestBuildProject_CrossModuleImportResolves is the happy-path test
-// for cross-module imports: an `import stringkit/pad` in todo/main.nomi must resolve
+// for cross-module imports: an `import stringkit::pad` in todo/main.nomi must resolve
 // against ../stringkit/pad.nomi (per todo/go.mod's replace directive)
 // and bring pad.nomi's symbols into the import-time scope of main.nomi.
 //
@@ -427,7 +427,7 @@ func TestBuildProject_CrossModuleImportResolves(t *testing.T) {
 }
 `
 	todoMain := `import {
-  stringkit/pad.pad_left
+  stringkit::pad.pad_left
 }
 
 fn main() {
@@ -491,7 +491,7 @@ func TestBuildProject_CrossModuleInternalRejected(t *testing.T) {
 }
 `
 	todoMain := `import {
-  stringkit/internal/secret: secret
+  stringkit::internal::secret: secret
 }
 
 fn main() {
@@ -544,7 +544,7 @@ fn main() {
 }
 
 // TestBuildProject_SelfNameReferenceResolves confirms that referring to
-// your own module by its short name (`import todo/helper` from within
+// your own module by its short name (`import todo::helper` from within
 // todo/) is equivalent to a bare `helper` import — the cross-module
 // path syntax that loops back into the current module must resolve
 // against the current project root and reach helper.nomi.
@@ -561,7 +561,7 @@ func TestBuildProject_SelfNameReferenceResolves(t *testing.T) {
 }
 `
 	todoMain := `import {
-  todo/helper
+  todo::helper
 }
 
 fn main() {
@@ -632,8 +632,8 @@ func TestOrphanImpl_CrossModuleRejected(t *testing.T) {
 }
 `
 	todoMain := `import {
-  std/display.{Display}
-  stringkit/pad.{Pad}
+  std::display.{Display}
+  stringkit::pad.{Pad}
 }
 
 impl Display for Pad {
@@ -798,7 +798,7 @@ func TestBuildProject_AllowsForeignImplBlockForExternalReceiverType(t *testing.T
   width: Int
 }
 `
-	todoMain := `import stringkit/pad: Pad
+	todoMain := `import stringkit::pad: Pad
 
 pub interface Label {
   fn label(value: self) -> String
@@ -851,7 +851,7 @@ func TestBuildProject_UnknownCrossModuleErrorsCleanly(t *testing.T) {
 	// No nomi.toml, no go.mod — single-file mode. Importing a path
 	// that doesn't exist on disk should produce a clean failure rather
 	// than panic on module-index lookup.
-	mainPath := mustWrite("main.nomi", "import { ghost/widget }\n\nfn main() {}\n")
+	mainPath := mustWrite("main.nomi", "import { ghost::widget }\n\nfn main() {}\n")
 	data, _ := os.ReadFile(mainPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 
@@ -880,7 +880,7 @@ func TestBuildProject_UnknownCrossModuleErrorsCleanly(t *testing.T) {
 // keys, because the auto-prepended prelude chain feeds them through
 // the regular discovery pipeline.
 //
-// The prelude chain `import std/prelude.{...}` (auto-
+// The prelude chain `import std::prelude.{...}` (auto-
 // prepended into every non-stdlib file) walks every stdlib file
 // prelude re-exports — at least `std/int`, `std/display`, etc.
 //
@@ -992,14 +992,14 @@ fn boot() -> Result<EffectsApp, String> {
 
 // TestOrphanRule_CacheFoldBranch_PreludeImplicitUse covers the
 // prelude-implicit path: the other tests that exercise the orphan rule against
-// stdlib types do so via explicit `import std/display.{Display}`,
+// stdlib types do so via explicit `import std::display.{Display}`,
 // which lands the stdlib FA in `all` (discovery walks it from the
 // user's import line). The cache branch of `filesByKey`'s fold in
 // project_build.go's BuildProjectWithCache is exercised only when
 // stdlib reaches the build via on-demand loading during sweeps
 // (specifically, the auto-prepended prelude chain's drill-through).
 //
-// This test deletes the explicit `import std/display.{Display}` and
+// This test deletes the explicit `import std::display.{Display}` and
 // uses `Display` purely via the prelude. The entry FA's orphan
 // diagnostic must still fire — proof that the cache-side fold makes
 // declaringModuleIndex see Display even when the user never wrote a
@@ -1024,10 +1024,10 @@ func TestOrphanRule_CacheFoldBranch_PreludeImplicitUse(t *testing.T) {
 }
 `
 	// todo's main.nomi uses Display purely via the prelude — no
-	// explicit `import std/display.{Display}`. This is the key
+	// explicit `import std::display.{Display}`. This is the key
 	// difference from TestOrphanImpl_CrossModuleRejected.
 	todoMain := `import {
-  stringkit/pad.{Pad}
+  stringkit::pad.{Pad}
 }
 
 impl Display for Pad {
@@ -1089,7 +1089,7 @@ fn main() {
 }
 func TestBuildProject_NestedStdlibKeyVisible(t *testing.T) {
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(
-		"import std/_fixtures/nested/deeper/module.Fixture\nfn main() { Unit }\n",
+		"import std::_fixtures::nested::deeper::module.Fixture\nfn main() { Unit }\n",
 	))
 	fixtureNodes, _ := parser.ParseWithRecovery(lexer.Lex("pub type Fixture\n"))
 	baseLoader := std.MakeLoader()

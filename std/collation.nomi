@@ -14,7 +14,7 @@
 //# tailorings, 160 to 250 KB each, are carried only when the program lists
 //# those locales. Case mapping for a language and caseless matching are
 //# `String.uppercase_in`, `String.lowercase_in`, `String.capitalize_in` and
-//# `String.fold_case` ([std/strings](/reference/strings/)).
+//# `String.fold_case` ([std::strings](/reference/strings/)).
 //#
 //# ## The order
 //#

@@ -14,7 +14,7 @@ import (
 // bootOnlyApp is an app's imports, with the module %s imports beside std's,
 // and its app type.
 func bootOnlyApp(module string) string {
-	return "import {\n    std/jobs.{Queue, Worker}\n    std/jobs_testing.Inline\n    " + module + "\n}\n\n" + bootOnlyAppType
+	return "import {\n    std::jobs.{Queue, Worker}\n    std::jobs_testing.Inline\n    " + module + "\n}\n\n" + bootOnlyAppType
 }
 
 const bootOnlyAppType = `pub struct App {
@@ -39,7 +39,7 @@ fn main() {
     dbg handle(1)
 }
 `,
-		"handlers.nomi": `import std/jobs.{Queue, Worker}
+		"handlers.nomi": `import std::jobs.{Queue, Worker}
 
 pub fn routes(queue: Queue) -> (Int) -> Int {
     fn n -> {
@@ -69,7 +69,7 @@ fn main() {
     dbg handlers.handle(App.queue)
 }
 `,
-		"handlers.nomi": `import std/jobs.{Queue, Worker}
+		"handlers.nomi": `import std::jobs.{Queue, Worker}
 
 pub fn handle(queue: Queue) -> Int {
     _ = Worker.new(queue, 1)
@@ -97,7 +97,7 @@ fn main() {
     Worker.start(App.worker, [])
 }
 `,
-		"workers.nomi": `import std/jobs.{Queue, Worker}
+		"workers.nomi": `import std::jobs.{Queue, Worker}
 
 pub fn make(queue: Queue) -> Worker {
     Worker.new(queue, max_running: 2)
@@ -113,13 +113,13 @@ pub fn make(queue: Queue) -> Worker {
 // creates a supervisor. Rejected from main, accepted from boot.
 func TestBootOnly_ATwoHopChainAcrossModules(t *testing.T) {
 	a := `import b
-import std/supervisors.Supervisor
+import std::supervisors.Supervisor
 
 pub fn outer() -> Supervisor {
     b.inner()
 }
 `
-	bFile := `import std/supervisors.Supervisor
+	bFile := `import std::supervisors.Supervisor
 
 pub fn inner() -> Supervisor {
     Supervisor.new(max_running: 1)
@@ -143,7 +143,7 @@ fn main() {
 
 	accepted := checkShop(t, map[string]string{
 		"main.nomi": `import a
-import std/supervisors.Supervisor
+import std::supervisors.Supervisor
 
 pub struct App {
     context: Context
@@ -171,7 +171,7 @@ fn main() {
 func TestBootOnly_ABootOnlyFunctionAsAValueIsRejected(t *testing.T) {
 	got := checkShop(t, map[string]string{
 		"main.nomi": `import a
-import std/supervisors.Supervisor
+import std::supervisors.Supervisor
 
 pub struct App {
     context: Context
@@ -186,7 +186,7 @@ fn main() {
     Unit
 }
 `,
-		"a.nomi": `import std/supervisors.Supervisor
+		"a.nomi": `import std::supervisors.Supervisor
 
 pub fn outer() -> Supervisor {
     Supervisor.new(max_running: 1)

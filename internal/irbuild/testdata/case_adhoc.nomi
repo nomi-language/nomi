@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // The scrutinee-less form. Every arm's PATTERN is an ordinary Bool expression
 // evaluated in order, `_` matches unconditionally, and a `when` guard on top

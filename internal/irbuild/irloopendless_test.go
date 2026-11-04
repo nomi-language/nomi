@@ -65,8 +65,8 @@ func TestIRLoopEndless_WorkerLoopEndsByATrap(t *testing.T) {
 	// The tour's worker shape: a stateless loop that takes the next job and
 	// goes round, as `fn main`'s last statement.
 	verifyEndlessTrap(t, `import {
-    std/channels.{Channel, Receiver, Sender}
-    std/io
+    std::channels.{Channel, Receiver, Sender}
+    std::io
 }
 
 fn work(n: Int) {
@@ -93,7 +93,7 @@ fn main() {
 func TestIRLoopEndless_ReturnAndContinueGoRound(t *testing.T) {
 	// `return v` in the callback is the next state and `continue` keeps it,
 	// so neither leaves the loop.
-	verifyEndlessTrap(t, `import std/io
+	verifyEndlessTrap(t, `import std::io
 
 fn main() {
     _ = Iter.loop(0, fn n -> {
@@ -134,7 +134,7 @@ func TestIRLoopEndless_ValuePositions(t *testing.T) {
 // endlessPositions is TestIRLoopEndless_ValuePositions's program with main
 // running only body.
 func endlessPositions(body string) string {
-	return `import std/io
+	return `import std::io
 
 fn count(limit: Int) -> Int {
     Iter.loop(0, fn n -> {
@@ -218,7 +218,7 @@ fn main() {
 func TestIRLoopEndless_InALambda(t *testing.T) {
 	// A lambda whose body ends in the loop, one that discards it, and one
 	// whose earlier `return` settles its result.
-	verifyEndlessTrap(t, `import std/io
+	verifyEndlessTrap(t, `import std::io
 
 fn main() {
     spin = fn limit: Int -> Iter.loop(0, fn n -> {
@@ -250,7 +250,7 @@ func TestIRLoopEndless_TestBodies(t *testing.T) {
 	// one running it in a `case` arm: each fails at its trap after the
 	// output before it, and nothing after the loop runs.
 	path := filepath.Join(t.TempDir(), "endless_test.nomi")
-	src := `import std/io
+	src := `import std::io
 
 test "a worker loop" {
     assert 1 == 1

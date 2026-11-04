@@ -17,8 +17,8 @@
 //#
 //# ```nomi
 //# import {
-//#     std/io.Error
-//#     std/process.{self, Command, Status}
+//#     std::io.Error
+//#     std::process.{self, Command, Status}
 //# }
 //#
 //# fn main() -> Result<Unit, Error> {
@@ -28,7 +28,7 @@
 //# }
 //# ```
 //#
-//# Tests run commands against `std/process_testing`'s fake, which starts
+//# Tests run commands against `std::process_testing`'s fake, which starts
 //# nothing. A WebAssembly target has no processes: `nomi build` for
 //# js/wasm or wasip1 refuses a program that starts one.
 
@@ -54,7 +54,7 @@ import {
 /// code 0 ends the program successfully, its message printed all the same.
 ///
 /// ```nomi
-/// import std/process.Exit
+/// import std::process.Exit
 ///
 /// fn main() -> Result<Unit, Exit> {
 ///     Err(Exit{code: 2, message: "usage: count <file>"})
@@ -167,7 +167,7 @@ derive Equatable for Output
 /// status; an `Err` means the program could not be started (`NotFound`
 /// when nothing on the `PATH` has its name). A task that is cancelled, or
 /// whose deadline passes, while it waits kills the program.
-//! import std/process_testing.{self, Answer}
+//! import std::process_testing.{self, Answer}
 //!
 //! ran = process_testing.run([Answer{program: "echo", stdout: "hi\n"}], fn -> {
 //!     output(Command{program: "echo", args: ["hi"]})
@@ -195,8 +195,8 @@ pub fn output(command: Command) -> Result<Output, Error> {
 /// Runs `command` to its end with its standard output and error going to
 /// the running program's own (and so to an `io.capture` in force), and
 /// answers its status.
-//! import std/process_testing.{self, Answer}
-//! import std/io
+//! import std::process_testing.{self, Answer}
+//! import std::io
 //!
 //! ran = process_testing.run([Answer{program: "make", stdout: "built\n"}], fn -> {
 //!     io.capture("", fn -> run(Command{program: "make"}))
@@ -217,7 +217,7 @@ pub fn run(command: Command) -> Result<Status, Error> {
 /// end. When `body` returns, traps or is cancelled, a program still
 /// running is killed, so none outlives the call. An `Err` means the
 /// program could not be started.
-//! import std/process_testing.{self, Answer, Call}
+//! import std::process_testing.{self, Answer, Call}
 //!
 //! ran = process_testing.run([Answer{program: "sort", stdout: "a\nb\n"}], fn -> {
 //!     with_spawned(Command{program: "sort"}, fn child -> {

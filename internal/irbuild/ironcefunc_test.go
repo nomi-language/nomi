@@ -13,7 +13,7 @@ import (
 // lower: the cell holds the function value in its ref register, and a call
 // through it is an indirect call on the read.
 func TestIROnce_AFunctionValuedCellIsReadAndCalled(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 fn add(a: Int) -> Int {
   a + 1

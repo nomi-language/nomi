@@ -17,7 +17,7 @@ import (
 // variantSlotSrcInterface names a variant after an imported interface and
 // uses both: the interface in a bound, an impl header and an interface-
 // qualified call; the variant qualified, dot-leading, and in patterns.
-const variantSlotSrcInterface = `import std/json.{Json, ToJson}
+const variantSlotSrcInterface = `import std::json.{Json, ToJson}
 
 enum Op {
     ToJson
@@ -83,7 +83,7 @@ func TestVariantSlot_ImportedInterfaceOutranksASameNamedVariant(t *testing.T) {
 // type in type position, an owner call and an impl header. (A user file
 // cannot re-import a prelude name, so the std/json shape, a variant `String`
 // beside `import strings.String`, is covered over the stdlib below.)
-const variantSlotSrcType = `import std/calendar.Date
+const variantSlotSrcType = `import std::calendar.Date
 
 pub enum Value {
     Date Date

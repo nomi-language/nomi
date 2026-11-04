@@ -9,7 +9,7 @@ import "testing"
 // generic reach too.
 func TestBoundCallIface_TupleAndAnImplBesideTheCaller(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     lib
 }
 

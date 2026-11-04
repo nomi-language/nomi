@@ -7,7 +7,7 @@
 //# Run it with `NOMI_ENGINE_BENCH=1 go test ./vmhost
 //# -run TestEngineBench -v -count=1`.
 
-import std/io
+import std::io
 
 fn fib(n: Int) -> Int {
     if n < 2 { n } else { fib(n - 1) + fib(n - 2) }

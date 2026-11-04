@@ -16,7 +16,7 @@ import (
 func TestPreludeLifecycleProject(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "main.nomi")
-	src := `import std/calendar.Date
+	src := `import std::calendar.Date
  struct App { context: Context
  count: Int }
  fn boot(startup: Startup) -> Result<App, String> {

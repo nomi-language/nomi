@@ -1,4 +1,4 @@
-import std/compiler.{self, Diagnostic}
+import std::compiler.{self, Diagnostic}
 
 fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
     Iter.any(diagnostics, fn diagnostic -> text in diagnostic.message)
@@ -8,7 +8,7 @@ test "an ordinary named application exposes scoped fields" {
     assert Ok(output) = compiler.run(
         """
         import {
-          std/io
+          std::io
         }
 
         struct Settings {
@@ -44,7 +44,7 @@ test "an application may rename its Context field" {
     assert Ok(output) = compiler.run(
         """
         import {
-          std/io
+          std::io
         }
 
         struct Named {
@@ -70,7 +70,7 @@ test "an anonymous application boots, and code that reads no field runs under it
     assert Ok(output) = compiler.run(
         """
         import {
-          std/io
+          std::io
         }
 
         fn boot() -> Result<#{tag: String, execution: Context}, String> {
@@ -110,7 +110,7 @@ test "an application needs no Context field" {
     assert Ok(output) = compiler.run(
         """
         import {
-          std/io
+          std::io
         }
 
         struct App {
@@ -177,7 +177,7 @@ test "field replacement preserves the declared field type" {
     diagnostics = compiler.check(
         """
         import {
-          std/io
+          std::io
         }
 
         struct App {

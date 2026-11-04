@@ -18,7 +18,7 @@ import (
 func TestProgramStd_AReferenceEditorRuns(t *testing.T) {
 	for _, c := range []struct{ name, context string }{
 		{"in the module's scope", ""},
-		{"with the module imported", "import std/uuid.{self, Uuid}"},
+		{"with the module imported", "import std::uuid.{self, Uuid}"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var out strings.Builder
@@ -26,7 +26,7 @@ func TestProgramStd_AReferenceEditorRuns(t *testing.T) {
 				"assert Uuid.parse(\"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a\") == Ok(id)\n" +
 				"assert Uuid.version(id) == 7\n" +
 				"io.print(Debug.inspect(id))\n"
-			cases, err := StdlibReference("uuid", "import std/io\n"+body, c.context, &out)
+			cases, err := StdlibReference("uuid", "import std::io\n"+body, c.context, &out)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -45,7 +45,7 @@ func TestProgramStd_AReferenceEditorRuns(t *testing.T) {
 // binding and in an assertion subject, and `sql.close_quietly(...)`, plain and
 // piped. Each lowers as the bare call does (irbuild's ownModuleCall).
 func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
-	body := "import std/sql_testing.Fake\n" +
+	body := "import std::sql_testing.Fake\n" +
 		"fake = Fake.new()\n" +
 		"count = sql.with_connection(fn -> Ok(fake), fn conn -> Conn.exec(conn, Sql\"DELETE FROM t\"))\n" +
 		"assert count == Ok(0)\n" +
@@ -59,7 +59,7 @@ func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
 		"assert Fake.is_closed(third)\n" +
 		"io.print(\"${Fake.log(fake)} ${Fake.log(again)}\")\n"
 	var out strings.Builder
-	cases, err := StdlibReference("sql", "import std/io\n"+body, "", &out)
+	cases, err := StdlibReference("sql", "import std::io\n"+body, "", &out)
 	if err != nil {
 		t.Fatalf("the front end rejects the editor, so nothing below is tested: %v", err)
 	}
@@ -79,13 +79,13 @@ func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
 // modules' types into one build (typeDeclEdges, nomiImportGraph), or the call
 // to Fake.new is not supported. LoadStdlib is `nomi test std/sql.nomi`.
 func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
-	body := "import std/sql_testing.Fake\n" +
+	body := "import std::sql_testing.Fake\n" +
 		"fake = Fake.new()\n" +
 		"assert sql.with_connection(fn -> Ok(fake), fn conn -> Conn.exec(conn, Sql\"DELETE FROM t\")) == Ok(0)\n" +
 		"assert Fake.is_closed(fake)\n" +
 		"io.print(\"${Fake.log(fake)}\")\n"
 	var out strings.Builder
-	cases, err := StdlibReference("sql", "import std/io\n"+body, "", &out)
+	cases, err := StdlibReference("sql", "import std::io\n"+body, "", &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,13 +122,13 @@ func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 // storage.check_key". A refused key fails the second assertion, so the
 // case ran.
 func TestProgramStd_AnEditorsImportCallsTheEditedModulesFunctions(t *testing.T) {
-	body := "import std/storage_testing.Memory\n" +
+	body := "import std::storage_testing.Memory\n" +
 		"store = Memory.new()\n" +
 		"assert Store.put(store, \"a/b.txt\", String.to_bytes(\"x\"), \"text/plain\") == Ok(Unit)\n" +
 		"assert Store.put(store, \"../b\", String.to_bytes(\"x\"), \"text/plain\") is Err(.InvalidKey{})\n" +
 		"io.print(\"${Memory.keys(store)}\")\n"
 	var out strings.Builder
-	cases, err := StdlibReference("storage", "import std/io\n"+body, "", &out)
+	cases, err := StdlibReference("storage", "import std::io\n"+body, "", &out)
 	if err != nil {
 		t.Fatalf("the front end rejects the editor, so nothing below is tested: %v", err)
 	}
@@ -152,12 +152,12 @@ func TestProgramStd_AnEditorsImportCallsTheEditedModulesFunctions(t *testing.T) 
 // case ran.
 func TestProgramStd_ASharedModulesEditorImportsAListedModule(t *testing.T) {
 	for _, c := range []struct{ module, body, want string }{
-		{"io", "import std/path\nprint(path.join(\"data\", \"log.txt\"))\nassert path.join(\"a/\", \"/b\") == \"a/b\"\n", "data/log.txt\n"},
-		{"io", "import std/fs\nimport std/fs_testing.{self, Sandbox}\n" +
+		{"io", "import std::path\nprint(path.join(\"data\", \"log.txt\"))\nassert path.join(\"a/\", \"/b\") == \"a/b\"\n", "data/log.txt\n"},
+		{"io", "import std::fs\nimport std::fs_testing.{self, Sandbox}\n" +
 			"ran = fs_testing.run(Sandbox{files: %{\"a.txt\" => \"x\"}}, fn -> fs.read_text(\"a.txt\"))\n" +
 			"assert ran.value == Result.Ok(\"x\")\n" +
 			"print(fs_testing.text(ran, \"/work/a.txt\"))\n", "Some(x)\n"},
-		{"strings", "import std/io\nimport std/uuid.Uuid\nio.print(Uuid.nil())\nassert Uuid.version(Uuid.nil()) == 0\n", "00000000-0000-0000-0000-000000000000\n"},
+		{"strings", "import std::io\nimport std::uuid.Uuid\nio.print(Uuid.nil())\nassert Uuid.version(Uuid.nil()) == 0\n", "00000000-0000-0000-0000-000000000000\n"},
 	} {
 		var out strings.Builder
 		cases, err := StdlibReference(c.module, c.body, "", &out)
@@ -173,7 +173,7 @@ func TestProgramStd_ASharedModulesEditorImportsAListedModule(t *testing.T) {
 			t.Errorf("std/%s: output %q, want %q", c.module, cases[0].Output, c.want)
 		}
 	}
-	cases, err := StdlibReference("io", "import std/path\nassert path.join(\"a\", \"b\") == \"a/c\"\n", "", io.Discard)
+	cases, err := StdlibReference("io", "import std::path\nassert path.join(\"a\", \"b\") == \"a/c\"\n", "", io.Discard)
 	if err != nil {
 		t.Fatalf("the front end rejects the failing editor: %v", err)
 	}
@@ -205,9 +205,9 @@ func TestProgramStd_AStdInterfaceValueWithAProgramImplRuns(t *testing.T) {
 		}
 		return
 	}
-	const src = `import std/io
-import std/_fixtures/conn
-import std/_fixtures/conn.{Closed, Conn, FromValue, Pool, Value}
+	const src = `import std::io
+import std::_fixtures::conn
+import std::_fixtures::conn.{Closed, Conn, FromValue, Pool, Value}
 
 struct Memory {
     label: String

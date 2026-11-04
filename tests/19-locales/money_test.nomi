@@ -1,9 +1,9 @@
 import {
-    std/compiler
-    std/currency.{self, Currency}
-    std/locale.Locale
-    std/localize.{Localize, NumberParseError}
-    std/money.Money
+    std::compiler
+    std::currency.{self, Currency}
+    std::locale.Locale
+    std::localize.{Localize, NumberParseError}
+    std::money.Money
 }
 
 test "an amount is written in its currency as the locale writes it" {
@@ -81,15 +81,15 @@ test "amounts add exactly in one currency" {
 test "adding two currencies traps and names both" {
     result =
         """
-            import std/currency.Currency
-            import std/money.Money
+        import std::currency.Currency
+        import std::money.Money
 
-            fn main() {
-              eur = Money{amount: 12.50d, currency: Currency`EUR`}
-              pln = Money{amount: 3d, currency: Currency`PLN`}
-              _ = eur + pln
-            }
-            """
+        fn main() {
+          eur = Money{amount: 12.50d, currency: Currency`EUR`}
+          pln = Money{amount: 3d, currency: Currency`PLN`}
+          _ = eur + pln
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -103,15 +103,15 @@ test "adding two currencies traps and names both" {
     // currencies, named with their digits.
     custom =
         """
-            import std/currency.Currency
-            import std/money.Money
+        import std::currency.Currency
+        import std::money.Money
 
-            fn main() {
-              a = Money{amount: 5d, currency: Currency`PTS:0`}
-              b = Money{amount: 5d, currency: Currency`PTS:2`}
-              _ = a - b
-            }
-            """
+        fn main() {
+          a = Money{amount: 5d, currency: Currency`PTS:0`}
+          b = Money{amount: 5d, currency: Currency`PTS:2`}
+          _ = a - b
+        }
+        """
         |> compiler.run()
 
     assert Err(text) = custom
@@ -193,13 +193,13 @@ test "an amount times a rate rounds to its currency's minor digits" {
 test "a rate that needs rounding traps under Unnecessary" {
     result =
         """
-            import std/decimal.RoundingMode
-            import std/money.Money
+        import std::decimal.RoundingMode
+        import std::money.Money
 
-            fn main() {
-              _ = Money.multiply_by(Money`19.99 EUR`, 0.23d, RoundingMode.Unnecessary)
-            }
-            """
+        fn main() {
+          _ = Money.multiply_by(Money`19.99 EUR`, 0.23d, RoundingMode.Unnecessary)
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

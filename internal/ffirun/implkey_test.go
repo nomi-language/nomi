@@ -122,7 +122,7 @@ func AddBonus(lhs Score, rhs Bonus) Score {
 	return Score{Points: lhs.Points + rhs.Points*10}
 }
 `, `import {
-  std/io
+  std::io
 }
 
 gopkg "implbinding" as go_add
@@ -177,7 +177,7 @@ func TestFFIRun_GenericReceiverImplIsCallable(t *testing.T) {
 
 func Origin() int64 { return 7 }
 `, `import {
-  std/io
+  std::io
 }
 
 gopkg "implbinding" as go_box
@@ -233,7 +233,7 @@ func Render(s Score) string { return "rendered" }
 
 func Label(n int64) string { return "label" }
 `, `import {
-  std/io
+  std::io
 }
 
 gopkg "implbinding" as go_add

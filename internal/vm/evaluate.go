@@ -248,7 +248,7 @@ var pureCrossings = map[string]bool{
 	"NaiveDateTime.to_date": true, "NaiveDateTime.to_string": true, "NaiveDateTime.to_time": true,
 	"OffsetDateTime.day": true, "OffsetDateTime.hour": true, "OffsetDateTime.minute": true,
 	"OffsetDateTime.month": true, "OffsetDateTime.nanosecond": true, "OffsetDateTime.second": true,
-	"OffsetDateTime.to_string": true, "OffsetDateTime.year": true,
+	"OffsetDateTime.to_naive": true, "OffsetDateTime.to_string": true, "OffsetDateTime.year": true,
 	"Time.to_string":         true,
 	"calendar.date_add_days": true, "calendar.date_add_months": true, "calendar.date_add_years": true,
 	"calendar.date_new_raw": true, "calendar.date_parse_raw": true,
@@ -317,7 +317,7 @@ var pureCrossings = map[string]bool{
 	"float.Float.tan": true, "float.Float.atan2": true,
 	"decimal.Decimal.to_string": true, "decimal.Decimal.equal": true, "decimal.Decimal.hash": true,
 	"decimal.Decimal.compare": true, "int.Int.to_decimal": true,
-	"strings.String.to_decimal": true, "decimal.Decimal.to_int": true,
+	"strings.String.to_decimal": true, "strings.String.to_float": true, "decimal.Decimal.to_int": true,
 	"decimal.Decimal.to_float": true, "float.Float.to_decimal": true,
 	"decimal.Decimal.normalize": true, "decimal.Decimal.scale": true, "decimal.Decimal.divide_exact": true,
 	// decimal.Decimal.divide, round and sqrt are not here: their cost is their

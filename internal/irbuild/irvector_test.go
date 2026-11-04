@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRVector_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn append(v: Vector<String>, s: String) -> Vector<String> { Vector.push(v, s) }
 fn main() {
   names = #["Ada", "Grace"]
@@ -24,7 +24,7 @@ fn main() {
 }
 
 func TestIRVector_EmptyAndConcat(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn empty() -> Vector<Int> { #[] }
 fn main() {
   v: Vector<Int> = #[]
@@ -45,7 +45,7 @@ fn main() {
 // A Vector of a wrapping distinct is an ordinary vector value; the
 // element-agnostic operations run over it.
 func TestIRVector_OfADistinctRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Meter Int
 fn main() { v = #[Meter(1)] io.print(Vector.length(v)) }
 `, "1\n")
@@ -54,7 +54,7 @@ fn main() { v = #[Meter(1)] io.print(Vector.length(v)) }
 // A Vector of function values is built from a literal of lambdas and read
 // back by the element-agnostic operations.
 func TestIRVector_OfFunctionValuesRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   v = #[fn x: Int -> x + 1, fn x: Int -> x * 2]
   io.print(Vector.length(v))
@@ -67,7 +67,7 @@ fn main() {
 }
 
 func TestIRVector_EvaluationOrder(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn vector(v: Vector<Int>) -> Vector<Int> { io.print("vector") v }
 fn main() {
@@ -83,7 +83,7 @@ fn main() {
 // spread, then the elements, are evaluated (as a list spread's tail is
 // first), and an empty `#[]` spread takes the elements' kind.
 func TestIRVector_NamedSpread(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn vector(v: Vector<Int>) -> Vector<Int> { io.print("vector") v }
 struct Team { names: Vector<String> }
@@ -111,7 +111,7 @@ fn main() {
 // passed where an `Iter<Display>` is declared, and the element-agnostic
 // operations over one.
 func TestIRVector_OfExistential(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Point {
     x: Int

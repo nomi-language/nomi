@@ -471,7 +471,7 @@ func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *ana
 // resolveImportDefinition resolves go-to-def for symbols that came from an import statement.
 // For `{self}` owner imports, jumps to the module file.
 // For item imports (import models.{User, Point}), jumps to the definition in the module file.
-// Stdlib imports (import std/lists.List, import std/maybe.Maybe) jump to the
+// Stdlib imports (import std::lists.List, import std::maybe.Maybe) jump to the
 // materialised stdlib file URI rather than a project-relative path.
 func (s *Server) resolveImportDefinition(currentURI string, imp *ast.ImportStmt, sym *analysis.Symbol) (any, error) {
 	// Build the module path string

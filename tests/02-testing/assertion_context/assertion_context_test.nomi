@@ -1,6 +1,6 @@
 import {
-    std/assertions.AssertionFailure
-    std/testing
+    std::assertions.AssertionFailure
+    std::testing
     test_helpers
 }
 
@@ -50,8 +50,8 @@ test "pattern assertion bindings expose field hovers" {
     signature = test_helpers.hover_signature(
         """
         import {
-          std/assertions.AssertionFailure
-          std/testing
+          std::assertions.AssertionFailure
+          std::testing
         }
 
         test "equality assertions record compared values" {

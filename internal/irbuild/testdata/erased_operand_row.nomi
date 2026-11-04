@@ -29,7 +29,7 @@
 // "hard-codes the only type it ever saw". Dog and Cat have DIFFERENT field names,
 // so a renderer that picked the wrong arm produces `Cat{name: …}` for a Dog and
 // the strings differ.
-import std/io
+import std::io
 
 interface Speech {
     fn speak(animal: self) -> String

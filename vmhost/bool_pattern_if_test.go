@@ -12,7 +12,7 @@ import (
 // test written as a `case` arm does: with and without `else`, as a value and
 // as a statement, spelled bare, `.True` and `Bool.False`.
 func TestRun_BoolVariantPatternIfRuns(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 fn f(y: Bool) -> String {
   if False = y { "f" } else { "t" }
@@ -53,7 +53,7 @@ fn main() {
 // The same tests in a test body, with an `as` name and a bound singleton.
 func TestRun_BoolVariantPatternIfInATestBodyRuns(t *testing.T) {
 	const name = "main_test.nomi"
-	p, err := vmhost.LoadSource(name, `import std/io
+	p, err := vmhost.LoadSource(name, `import std::io
 
 test "bool pattern if" {
   y = False

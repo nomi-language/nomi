@@ -7,7 +7,7 @@ import "testing"
 // and must print the expected output.
 func TestIRIterOps_ProgramsRunOnTheVM(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"find, first and last answer a Maybe", `import std/io
+		{"find, first and last answer a Maybe", `import std::io
 
 fn main() {
   xs = [3, 8, 5, 12]
@@ -20,7 +20,7 @@ fn main() {
   Iter.from(0) |> Iter.find(fn x -> x * x > 50) |> io.inspect()
 }
 `, "Some(8)\nNone\nSome(6)\nSome(12)\nNone\nSome(\"o\")\nSome(8)\n"},
-		{"reverse, with_index and zip", `import std/io
+		{"reverse, with_index and zip", `import std::io
 
 fn main() {
   xs = [1, 2, 3]
@@ -32,7 +32,7 @@ fn main() {
   Iter.from(5) |> Iter.take(3) |> Iter.with_index() |> Iter.map(fn p -> p.0 * p.1) |> Iter.to_list() |> io.inspect()
 }
 `, "[3, 2, 1]\n[30, 20, 10]\n[\"0:a\", \"1:b\", \"2:c\"]\n[\"a1\", \"b2\"]\n[11, 13, 15]\n[0, 6, 14]\n"},
-		{"known_count per source family", `import std/io
+		{"known_count per source family", `import std::io
 
 fn main() {
   Iter.known_count([1, 2, 3]) |> io.inspect()
@@ -43,7 +43,7 @@ fn main() {
   Iter.known_count(Iter.from(1)) |> io.inspect()
 }
 `, "Some(3)\nNone\nNone\nSome(2)\nNone\nNone\n"},
-		{"at and partition", `import std/io
+		{"at and partition", `import std::io
 
 fn main() {
   xs = [4, 7, 9, 10]
@@ -58,7 +58,7 @@ fn main() {
   none.1 |> Iter.count() |> io.print()
 }
 `, "Some(9)\nNone\nNone\n[4, 10]\n[7, 9]\n[]\n4\n"},
-		{"map and set sources", `import std/io
+		{"map and set sources", `import std::io
 
 fn main() {
   ages = %{"ann" => 31, "bo" => 22, "cy" => 40}

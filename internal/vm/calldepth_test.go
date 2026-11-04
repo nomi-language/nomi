@@ -58,7 +58,7 @@ func requireDepthFault(t *testing.T, err error, line int) {
 
 // The recursive call is on line 5, and that line is the fault's.
 func TestCallDepth_InfiniteRecursionFaultsAtTheCall(t *testing.T) {
-	out, err := runDepth(t, `import std/io
+	out, err := runDepth(t, `import std::io
 
 fn down(n: Int) -> Int {
   io.print("x")
@@ -86,7 +86,7 @@ fn main() {
 // faults.
 func TestCallDepth_RecursionUpToTheLimitRuns(t *testing.T) {
 	src := func(n int) string {
-		return fmt.Sprintf(`import std/io
+		return fmt.Sprintf(`import std::io
 
 fn sum(n: Int) -> Int {
   if n == 0 {
@@ -122,7 +122,7 @@ func TestCallDepth_RecursionThroughACallbackFaults(t *testing.T) {
 	// detector they outgrow Go's default 1 GB stack before the limit's
 	// 100,000 levels; the limit, not the Go stack, is what this tests.
 	defer debug.SetMaxStack(debug.SetMaxStack(2_000_000_000))
-	_, err := runDepth(t, `import std/io
+	_, err := runDepth(t, `import std::io
 
 fn walk(n: Int) -> Int {
   [n] |> Iter.map(fn x -> walk(x + 1) + 1) |> Iter.reduce(0, fn acc, x -> acc + x)
@@ -138,8 +138,8 @@ fn main() {
 // A fault in a spawned task is that task's failure: the spawner reads it with
 // Task.outcome and carries on. The task counts from zero, on its own stack.
 func TestCallDepth_AFaultInATaskIsItsFailure(t *testing.T) {
-	out, err := runDepth(t, `import std/io
-import std/tasks.Task
+	out, err := runDepth(t, `import std::io
+import std::tasks.Task
 
 fn down(n: Int) -> Int {
   down(n + 1) + 1

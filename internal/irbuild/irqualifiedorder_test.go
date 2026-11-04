@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRQualifiedCall_SiblingArgumentEffectsStayInSourceOrder(t *testing.T) {
-	verifyLambdaProgram(t, `import { std/io lib }
+	verifyLambdaProgram(t, `import { std::io lib }
 fn mark(n: Int) -> Int { io.print(n) return n }
 fn main() {
   io.print(lib.sum(
@@ -19,7 +19,7 @@ fn main() {
 }
 
 func TestIRQualifiedCall_ArgumentEffectsStayInSourceOrder(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Point { x: Int }
 impl Point {
   fn sum(p: Point, a: Int, b: Int) -> Int { p.x + a + b }

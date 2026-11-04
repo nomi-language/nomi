@@ -58,7 +58,7 @@ func TestParseFix_RepairsTheProgram(t *testing.T) {
 	for _, tc := range []struct{ name, title, src, want string }{
 		{
 			"case arm, body on the next line", "Put the arm's body in braces",
-			`import std/io
+			`import std::io
 
 pub fn f(r: Result<Int, String>) -> Int {
     case r {
@@ -71,7 +71,7 @@ pub fn f(r: Result<Int, String>) -> Int {
     }
 }
 `,
-			`import std/io
+			`import std::io
 
 pub fn f(r: Result<Int, String>) -> Int {
     case r {
@@ -88,7 +88,7 @@ pub fn f(r: Result<Int, String>) -> Int {
 		},
 		{
 			"case arm, body on the arrow's line", "Put the arm's body in braces",
-			`import std/io
+			`import std::io
 
 pub fn f(r: Result<Int, String>) -> Int {
     case r {
@@ -100,7 +100,7 @@ pub fn f(r: Result<Int, String>) -> Int {
     }
 }
 `,
-			`import std/io
+			`import std::io
 
 pub fn f(r: Result<Int, String>) -> Int {
     case r {
@@ -117,7 +117,7 @@ pub fn f(r: Result<Int, String>) -> Int {
 		},
 		{
 			"else arm", "Put the arm's body in braces",
-			`import std/io
+			`import std::io
 
 pub fn f(r: Result<Int, String>) -> Int {
     Ok(n) = r else {
@@ -129,7 +129,7 @@ pub fn f(r: Result<Int, String>) -> Int {
     n
 }
 `,
-			`import std/io
+			`import std::io
 
 pub fn f(r: Result<Int, String>) -> Int {
     Ok(n) = r else {
@@ -145,7 +145,7 @@ pub fn f(r: Result<Int, String>) -> Int {
 		},
 		{
 			"lambda argument", "Put the lambda's body in braces",
-			`import std/io
+			`import std::io
 
 pub fn f(xs: List<Int>) -> Int {
     xs
@@ -154,7 +154,7 @@ pub fn f(xs: List<Int>) -> Int {
         acc + x)
 }
 `,
-			`import std/io
+			`import std::io
 
 pub fn f(xs: List<Int>) -> Int {
     xs
@@ -167,7 +167,7 @@ pub fn f(xs: List<Int>) -> Int {
 		},
 		{
 			"lambda argument closed below", "Put the lambda's body in braces",
-			`import std/io
+			`import std::io
 
 pub fn f(xs: List<Int>) {
     xs
@@ -177,7 +177,7 @@ pub fn f(xs: List<Int>) {
     )
 }
 `,
-			`import std/io
+			`import std::io
 
 pub fn f(xs: List<Int>) {
     xs

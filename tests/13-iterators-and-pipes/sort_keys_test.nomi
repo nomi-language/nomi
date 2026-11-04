@@ -1,6 +1,6 @@
 import {
-    std/comparable.Direction
-    std/duration.Duration
+    std::comparable.Direction
+    std::duration.Duration
 }
 
 struct Row {

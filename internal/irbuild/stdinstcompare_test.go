@@ -37,7 +37,7 @@ pub struct Pair<T> {
 
 derive Comparable for Pair
 `}
-	src := `import std/io
+	src := `import std::io
 import ranks.Suit
 import ranks.Hand
 import ranks.Pair

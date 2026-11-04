@@ -1,11 +1,11 @@
 import {
-    std/calendar.{Date, NaiveDateTime, Time}
-    std/duration.Duration
-    std/instant.Instant
-    std/json.Json
-    std/sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
-    std/sql_testing
-    std/uuid.Uuid
+    std::calendar.{Date, NaiveDateTime, Time}
+    std::duration.Duration
+    std::instant.Instant
+    std::json.Json
+    std::sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
+    std::sql_testing
+    std::uuid.Uuid
     sqlite
 }
 

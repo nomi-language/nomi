@@ -8,20 +8,20 @@ import "testing"
 // `Ok`'s value in a lambda.
 func TestIRUnitCapture_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"a binding", `import std/io
+		{"a binding", `import std::io
 fn main() {
   u = Unit
   f = fn -> [u, u]
   io.print(Iter.count(f()))
 }`, "2\n"},
-		{"a pattern's binding", `import std/io
+		{"a pattern's binding", `import std::io
 fn main() {
   case Some(Unit) {
     Some(v) -> io.print(Iter.count((fn -> [v])()))
     None -> {}
   }
 }`, "1\n"},
-		{"Result.collect over Unit results", `import std/io
+		{"Result.collect over Unit results", `import std::io
 fn write(n: Int) -> Result<Unit, String> {
   if n > 2 { Err("too big: ${n}") } else { Ok(Unit) }
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func TestVMCrossModuleDistinctArguments(t *testing.T) {
-	p, err := AnalyzeSource("forward.nomi", `import std/instant.Instant
+	p, err := AnalyzeSource("forward.nomi", `import std::instant.Instant
 fn seconds(t: Instant) -> Int { Instant.to_seconds(t) }
 fn main() { _ = seconds(Instant.from_seconds(1)) }
 `)

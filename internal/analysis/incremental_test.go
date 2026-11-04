@@ -371,7 +371,7 @@ func genericEdits(key, text string) []editStep {
 		appendText("impl added", key, "\npub struct IncrementalProbe {\n    n: Int\n}\n\nimpl Display for IncrementalProbe {\n    fn to_string(value: IncrementalProbe) -> String {\n        \"probe\"\n    }\n}\n"),
 		replace("impl replaced by a derive", key, "impl Display for IncrementalProbe {\n    fn to_string(value: IncrementalProbe) -> String {\n        \"probe\"\n    }\n}\n", "derive Display for IncrementalProbe\n"),
 		restore("derive removed", key),
-		setText("import added", key, "import std/strings\n"+text),
+		setText("import added", key, "import std::strings\n"+text),
 		restore("import removed", key),
 		appendText("type error", key, "\nfn incremental_bad() -> Int {\n    \"text\"\n}\n"),
 		restore("type error fixed", key),
@@ -457,7 +457,7 @@ func readProject(dir, name string) (incrementalProject, error) {
 func layeredProject() incrementalProject {
 	return incrementalProject{name: "layered", entry: "main", texts: map[string]string{
 		"main": `import {
-    std/io
+    std::io
     model
     view
     util
@@ -549,7 +549,7 @@ var layeredEdits = []editStep{
 func dispatchProject() incrementalProject {
 	return incrementalProject{name: "dispatch", entry: "main", texts: map[string]string{
 		"main": `import {
-    std/io
+    std::io
     shade.{self, Shade, Tint}
 }
 
@@ -584,7 +584,7 @@ pub fn describe() -> String {
 func rateProject() incrementalProject {
 	return incrementalProject{name: "rate", entry: "main", texts: map[string]string{
 		"main": `import {
-    std/io
+    std::io
     rate.Rate
 }
 
@@ -667,7 +667,7 @@ var appTypeEdits = []editStep{
 func signalProject() incrementalProject {
 	return incrementalProject{name: "signal", entry: "main", texts: map[string]string{
 		"main": `import {
-    std/io
+    std::io
     lib
     label
 }
@@ -979,7 +979,7 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 	// A derive in an imported file over a field with no impl: the entry's
 	// coherence finds it, and both print it in the file with the derive.
 	deriveElsewhere := incrementalProject{name: "derive in an imported file", entry: "main", texts: map[string]string{
-		"main":  "import {\n    std/io\n    child.Holder\n}\n\nfn main() {\n    io.inspect(Holder{n: 1, o: Opaque{f: fn x -> x}})\n}\n",
+		"main":  "import {\n    std::io\n    child.Holder\n}\n\nfn main() {\n    io.inspect(Holder{n: 1, o: Opaque{f: fn x -> x}})\n}\n",
 		"child": "pub struct Opaque {\n    f: (Int) -> Int\n}\n\npub struct Holder {\n    n: Int\n    o: Opaque\n}\n\nderive Equatable for Holder\n",
 	}}
 	for _, p := range append([]incrementalProject{order, withTypeError, deriveElsewhere}, corpus...) {

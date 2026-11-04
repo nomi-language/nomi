@@ -31,8 +31,8 @@
 // order, and the recorded golden pins it byte for
 // byte.
 import {
-    std/assertions.AssertionFailure
-    std/testing
+    std::assertions.AssertionFailure
+    std::testing
 }
 
 fn shout(s: String) -> String {

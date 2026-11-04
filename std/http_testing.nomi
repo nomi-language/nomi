@@ -1,6 +1,6 @@
-//# Answers std/http's requests with a function instead of the network, and
+//# Answers std::http's requests with a function instead of the network, and
 //# records them. `http_testing.run(answer, body)` runs `body`; every request
-//# std/http sends in it, and in the tasks it starts, is answered by
+//# std::http sends in it, and in the tasks it starts, is answered by
 //# `answer`, and the result holds body's value and the requests, in order.
 //#
 //# ```nomi
@@ -51,9 +51,9 @@ pub struct Ran<T> {
     requests: List<Request>
 }
 
-/// Runs `body` with `answer` answering every std/http request in it.
-//! import std/http.{Body, Status}
-//! import std/http_testing
+/// Runs `body` with `answer` answering every std::http request in it.
+//! import std::http.{Body, Status}
+//! import std::http_testing
 //!
 //! ran = http_testing.run(fn request -> {
 //!     Ok(Response{status: Status.created, body: Body.Text("${request.url}")})
@@ -76,7 +76,7 @@ pub fn run<T>(answer: (Request) -> Result<Response, Error>, body: () -> T) -> Ra
 
 /// A request for `target`, a URL or a path, as a test builds one: a path is
 /// on `http://example.com`.
-//! import std/http_testing
+//! import std::http_testing
 //!
 //! r = http_testing.request(Method.Post, "/users?x=1")
 //! assert "${r.url}" == "http://example.com/users?x=1"
@@ -90,9 +90,9 @@ pub fn request(method: Method, target: String) -> Request {
 /// writes between two `Writer.flush` calls, then what is left at the end.
 /// A test of a streamed response checks it flushes where it means to (Go's
 /// `ResponseRecorder.Flushed`). Any other body is one chunk.
-//! import std/http.{Body, Response}
-//! import std/http_testing
-//! import std/io.Writer
+//! import std::http.{Body, Response}
+//! import std::http_testing
+//! import std::io.Writer
 //!
 //! streamed = Response{
 //!     body: Body.Produce(fn w -> {
@@ -165,8 +165,8 @@ impl TestServer {
 /// HTTPS with a certificate made for it, which `TestServer.client` trusts
 /// (`NewTLSServer`). `server` configures it (`NewUnstartedServer`); its
 /// address is replaced.
-//! import std/http.{Body, Client, Response}
-//! import std/http_testing
+//! import std::http.{Body, Client, Response}
+//! import std::http_testing
 //!
 //! said = http_testing.with_server(fn _ -> Response{body: Body.Text("hi")}, fn server -> {
 //!     response = Client.get(server.client, server.url)!

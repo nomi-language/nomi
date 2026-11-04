@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // Probe: THE TWO DESTRUCTURING-PARAMETER SHAPES THAT HAD NO ARM — an ANONYMOUS
 // STRUCT pattern over a NAMED struct, and a TUPLE pattern.

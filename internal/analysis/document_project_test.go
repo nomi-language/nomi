@@ -40,7 +40,7 @@ func EchoUpper(s string) string {
 	return strings.ToUpper(s)
 	}
 `)
-	mainPath := mustWrite("main.nomi", `import std/io
+	mainPath := mustWrite("main.nomi", `import std::io
 
 gopkg "localbindingtest" as ffi
 

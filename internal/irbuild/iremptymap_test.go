@@ -6,7 +6,7 @@ import (
 
 // A Set is a map value (and key): it hashes and compares order-insensitively.
 func TestIREmptyMap_ASetValueRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   m: Map<String, Set<Int>> = %{}
   io.print(Map.size(m))
@@ -17,7 +17,7 @@ fn main() {
 }
 
 func TestIREmptyMap_AnnotationsAndReturnTypes(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn empty() -> Map<String, Int> { %{} }
 fn main() {
   scores: Map<String, Int> = %{}
@@ -31,7 +31,7 @@ fn main() {
 }
 
 func TestIREmptyMap_EffectfulUntypedProducer(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn size(m: Map<String, Int>) -> Int { Map.size(m) }
 fn take(m: Map<String, Int>, n: Int) -> Int { Map.size(m) + n }
 fn mark() -> Int { io.print("mark") 1 }
@@ -48,7 +48,7 @@ fn main() {
 }
 
 func TestIREmptyMap_EffectsAndContext(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn empty() -> Map<String, Int> { io.print("empty") %{} }
 fn size(m: Map<String, Int> = %{}) -> Int { Map.size(m) }
 fn choose(b: Bool) -> Map<String, Int> {

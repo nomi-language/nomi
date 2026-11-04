@@ -10,19 +10,19 @@ import (
 // # Three shapes reach a bare call that is not a local function
 //
 //	import api.{make}                    -> make("Ada")     a SIBLING FILE's fn
-//	import std/strings.String.{length}   -> length("nomi")  a STDLIB METHOD
+//	import std::strings.String.{length}   -> length("nomi")  a STDLIB METHOD
 //	interface F { fn shout(v: self) { label(v) } }           an interface's own
 //	                                                          sibling requirement
 //
 // The first two are resolution paths, as ctrlflow.go's iterOwnerCall is for
-// `import std/iter.Iter.loop`. The first is irqualcall.go's siblingCall; the
+// `import std::iter.Iter.loop`. The first is irqualcall.go's siblingCall; the
 // second is here. The third is refused by its own name, so the refusal names
 // what the call is rather than blaming an unlowered callee.
 //
 // # Resolution is the analyzer's, and the OWNER is checked against std
 //
 // A selectively imported method binds a PROXY symbol whose Resolved carries the
-// declaration and its `OwningType`, so `import std/strings.String.{length as
+// declaration and its `OwningType`, so `import std::strings.String.{length as
 // len}` answers `String` / `length` for the local spelling `len`. Both halves
 // are needed: the local name is not the declared name, and the declared name
 // alone does not say which type owns it.
@@ -79,7 +79,7 @@ func resolvedBareSymbol(fa *analysis.FileAnalysis, name string) *analysis.Symbol
 
 // resolvedBareSymbolAt is resolvedBareSymbol for the name written at id. A
 // name the module scope does not bind may still be imported at the top of an
-// enclosing block (`import std/io.print`, which testImport admits); the
+// enclosing block (`import std::io.print`, which testImport admits); the
 // checker's reference at id is then that import's binding.
 func resolvedBareSymbolAt(fa *analysis.FileAnalysis, id *ast.Ident) *analysis.Symbol {
 	if sym := resolvedBareSymbol(fa, id.Name); sym != nil || fa == nil || fa.ModuleScope == nil {

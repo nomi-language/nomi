@@ -89,7 +89,7 @@ func TestSynthDiagnostics_NeverCarryASynthBandPosition(t *testing.T) {
 	}{
 		{
 			name: "derive FromJson of an interface-typed field",
-			src: `import { std/io; std/json.FromJson }
+			src: `import { std::io; std::json.FromJson }
 
 struct P { a: Display }
 
@@ -100,7 +100,7 @@ fn main() { io.print("x") }
 		},
 		{
 			name: "derive ToJson of an interface-typed field",
-			src: `import { std/io; std/json.ToJson }
+			src: `import { std::io; std::json.ToJson }
 
 struct P { a: Display }
 
@@ -143,7 +143,7 @@ fn main() { io.print("x") }
 // version that stamped every impl diagnostic onto the receiver declaration
 // would pass the test above.
 func TestSynthDiagnostics_AHandWrittenImplKeepsItsOwnPosition(t *testing.T) {
-	src := `import { std/io; std/display.Display }
+	src := `import { std::io; std::display.Display }
 
 struct P { a: Int }
 

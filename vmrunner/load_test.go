@@ -10,7 +10,7 @@ import (
 	"github.com/nomi-language/nomi/vmrunner"
 )
 
-const loadable = `import std/io
+const loadable = `import std::io
 
 once greeting = make_greeting()
 
@@ -62,7 +62,7 @@ func TestLoadProgram_BootsAWholeImageFileForCalls(t *testing.T) {
 // asked.
 func TestLoadProgram_AProgramWithOnlyMainListsNoExports(t *testing.T) {
 	var out bytes.Buffer
-	in, err := vmrunner.LoadProgram(nomic(t, "import std/io\n\nfn main() {\n    io.print(\"main ran\")\n}\n"), &out, &out, nil, nil)
+	in, err := vmrunner.LoadProgram(nomic(t, "import std::io\n\nfn main() {\n    io.print(\"main ran\")\n}\n"), &out, &out, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

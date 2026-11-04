@@ -1,9 +1,9 @@
-import std/compiler
+import std::compiler
 
 test "defer runs on normal exit failed acquire and early return" {
     result = compiler.run(
         """
-        import std/io
+        import std::io
 
         struct Conn {
           name: String

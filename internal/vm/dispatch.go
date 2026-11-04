@@ -24,6 +24,12 @@ func (m *Machine) addImpls(mod *ir.Module) {
 		}
 		byType[impl.Type.Name()] = impl.Func
 	}
+	for _, method := range mod.UnretainedImpls() {
+		if m.unretainedImpls == nil {
+			m.unretainedImpls = map[*ir.Symbol]bool{}
+		}
+		m.unretainedImpls[method] = true
+	}
 	for _, impl := range mod.DisplayImpls() {
 		if m.displays == nil {
 			m.displays = map[string]*ir.Symbol{}

@@ -73,6 +73,7 @@
 08-pattern-matching/or_patterns_test.nomi
 08-pattern-matching/try_error_conversion_test.nomi
 08-pattern-matching/try_test.nomi
+08-pattern-matching/unit_patterns_test.nomi
 08-pattern-matching/variant_literal_attach_test.nomi
 08-pattern-matching/variant_payloads_test.nomi
 08-pattern-matching/vector_set_patterns_test.nomi
@@ -133,6 +134,7 @@
 14-modules-and-packaging/cross_file_modules/cross_file_modules_test.nomi
 14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi
 14-modules-and-packaging/explicit_item_imports/explicit_item_imports_test.nomi
+14-modules-and-packaging/full_paths/full_paths_test.nomi
 14-modules-and-packaging/imports_and_modules_test.nomi
 14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi
 14-modules-and-packaging/partner_test_file/shapes_test.nomi

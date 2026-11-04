@@ -38,7 +38,7 @@ other Nomi functions:
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/io
+    std::io
     urls
 }
 
@@ -142,7 +142,7 @@ pass it as `Dynamic` and decode it on the Nomi side
 | `[]byte` | `Bytes` | A byte buffer, not the same type as `List<Byte>`. |
 | `[]T`, `map[K]V` | `List<T>`, `Map<K, V>` | The element, key and value types must be in this table too. |
 | `time.Duration`, `time.Time` | `Duration`, `Instant` | |
-| `io.Reader`, `io.ReadCloser`, `io.Writer`, `io.WriteCloser` | `Reader`, `Writer` from `std/io` | A Go stream becomes a Nomi stream over it. A Nomi stream passed to Go is read or written through its own buffer. |
+| `io.Reader`, `io.ReadCloser`, `io.Writer`, `io.WriteCloser` | `Reader`, `Writer` from `std::io` | A Go stream becomes a Nomi stream over it. A Nomi stream passed to Go is read or written through its own buffer. |
 | `*T` | `Maybe<T>` | A pointer to a Go type you bound with `opaque type` crosses as that opaque type instead. |
 | two or more return values | a Nomi tuple | `func(string, string) (string, string)` binds to `#(String, String)`. |
 | a trailing `error` | `Result<_, String>` | `#(T, error)` becomes `Result<T, String>`, and a lone `error` becomes `Result<Unit, String>`. The `Err` holds the Go error's message. |
@@ -184,7 +184,7 @@ A Go standard library package needs no adapter file and no `go.mod`. Bind its
 functions directly:
 
 ```nomi-run
-import std/io
+import std::io
 
 gopkg "strings"
 

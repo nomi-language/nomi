@@ -2,7 +2,7 @@
 // Each call reaches the impl span.nomi's gen built for that instantiation,
 // directly, inside a tuple or record, and per element of a list.
 import {
-    std/io
+    std::io
     span
     span.Tree
 }

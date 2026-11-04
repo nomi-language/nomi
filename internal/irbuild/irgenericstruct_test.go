@@ -7,7 +7,7 @@ import (
 )
 
 func TestIRGenericStruct_MissingFieldMetadataKeepsNativeFallback(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", "import std/io\nstruct Box<T> { value: T }\nfn main() { box = Box{value: 42} io.print(box.value) }")
+	p, err := AnalyzeSource("main.nomi", "import std::io\nstruct Box<T> { value: T }\nfn main() { box = Box{value: 42} io.print(box.value) }")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,13 +37,13 @@ func TestIRGenericStruct_MissingFieldMetadataKeepsNativeFallback(t *testing.T) {
 // A generic struct's field read runs beside a struct whose field holds a
 // Map of function values.
 func TestIRGenericStruct_BesideAFunctionMapFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, "import std/io\nstruct Box<T> { value: T }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n f: Map<String, (Int) -> Int> }\nfn main() { box = Box{value: 42} io.print(box.value) io.inspect(Outer{p: [Point{x: 2}], f: %{}}) }\n",
+	verifyLambdaProgram(t, "import std::io\nstruct Box<T> { value: T }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n f: Map<String, (Int) -> Int> }\nfn main() { box = Box{value: 42} io.print(box.value) io.inspect(Outer{p: [Point{x: 2}], f: %{}}) }\n",
 		"42\nOuter{p: [Point{x: 2}], f: %{}}\n")
 }
 
 func TestIRGenericStruct_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"generic factory and typed parameter", `import std/io
+		{"generic factory and typed parameter", `import std::io
 struct Box<T> { value: T }
 fn wrap<T>(x: T) -> Box<T> { Box{value: x} }
 fn read(box: Box<Int>) -> Int { box.value }
@@ -58,7 +58,7 @@ fn main() {
   box = Box{value: 42}
   dbg box.value
 }`, "dbg line 4: box.value = 42\n"},
-		{"distinct instances", `import std/io
+		{"distinct instances", `import std::io
 struct Box<T> { value: T }
 fn main() {
   a = Box{value: 42}
@@ -68,7 +68,7 @@ fn main() {
   io.print(b.value)
   io.print(c.value)
 }`, "42\nx\n7\n"},
-		{"source order", `import std/io
+		{"source order", `import std::io
 struct Pair<T, U> {
   first: T
   second: U

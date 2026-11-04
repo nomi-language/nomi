@@ -1,6 +1,6 @@
 import {
-    std/regex.Regex
-    std/strings.NormalForm.{NFC, NFD}
+    std::regex.Regex
+    std::strings.NormalForm.{NFC, NFD}
 }
 
 test "strings report length containment and slices" {

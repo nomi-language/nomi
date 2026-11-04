@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRLambdaReturn_CompletePrograms(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 fn main() {
  base = 10
  choose = fn n: Int -> {
@@ -24,7 +24,7 @@ fn main() {
 }
 
 func TestIRLambdaReturn_ListCoercionAndTailBranches(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 fn main() {
  choose = fn n: Int -> {
   if n < 0 { return [n] }
@@ -40,7 +40,7 @@ fn main() {
 }
 
 func TestIRLambdaReturn_ActivationAndShortCircuit(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 fn check(n: Int) -> Bool { io.print("check") n > 0 }
 fn main() {
  outer = fn n: Int -> {

@@ -9,8 +9,8 @@ import "testing"
 // name, the local one, and was refused.
 func TestIRStdIface_AQualifiedImplBesideALocalInterfaceOfItsName(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/calendar
-    std/io
+    std::calendar
+    std::io
 }
 
 interface DateParts {

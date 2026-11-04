@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: rest_api.nomi
 //# A small REST API for an IOU tracker between roommates, over JSON.
 
-import std/json.{FromJson, Json, ToJson}
+import std::json.{FromJson, Json, ToJson}
 
 /// A roommate: who they owe and how much, who owes them, and the
 /// difference, what they are owed less what they owe.
@@ -179,7 +179,7 @@ fn with_net(user: User, other: String, net: Float) -> User {
 
 // FILE: rest_api_test.nomi
 import {
-    std/json.Json
+    std::json.Json
     rest_api.{RestApi, User, Users}
 }
 

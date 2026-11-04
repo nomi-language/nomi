@@ -8,8 +8,8 @@ func TestIRInspectChannelClosed_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
-import std/channels.{ChannelClosed}
+	const src = `import std::io
+import std::channels.{ChannelClosed}
 
 fn main() {
     io.inspect(ChannelClosed)

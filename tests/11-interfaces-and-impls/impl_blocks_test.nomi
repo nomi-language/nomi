@@ -1,6 +1,6 @@
 import {
-    std/compiler.{self, Project}
-    std/literals.{Fragment, Literal}
+    std::compiler.{self, Project}
+    std::literals.{Fragment, Literal}
     test_helpers
 }
 

@@ -6,7 +6,7 @@
 // makes the cross-file one a real identity question rather than a naming one.
 // A confusion between them would print the wrong type's fields or name.
 import {
-    std/io
+    std::io
     geometry.{self, Meters, Point, Reading}
 }
 

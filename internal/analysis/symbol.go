@@ -231,6 +231,12 @@ type Symbol struct {
 	// is keyed by (OwningType, Name); this field lets a symbol reached by any
 	// other path report which type it belongs to.
 	OwningType string
+	// Ambiguous holds, for a file's short name that two imports bind
+	// (`import db::notifications` and `import jobs::notifications`), the
+	// full path of each file it could mean. The symbol is the short name's
+	// scope entry; a use of it is an error that says to write the full path.
+	// Nil for every other symbol.
+	Ambiguous []string
 	// IsImplMethod marks the symbol as an interface method registered by
 	// the block form (`impl Iface for Type { fn name ... }`). Spec §12 allows multiple
 	// types in the same module to implement the same interface — the

@@ -2,8 +2,8 @@
 // tool has the same access to files, the network and output that `nomi run`
 // gives a program: this one reads files.
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 struct App {

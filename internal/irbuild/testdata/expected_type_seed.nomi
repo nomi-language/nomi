@@ -3,7 +3,7 @@
 //# parameters from that type before checking the arguments, and the IR builder
 //# lowers each call at the instantiation it recorded.
 
-import std/io
+import std::io
 
 pub enum Direction {
     North

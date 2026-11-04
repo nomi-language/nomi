@@ -10,7 +10,7 @@ import (
 // stdBindingProgram binds three Go standard library packages with no wrapper
 // package of its own: a string function, one returning (T, error), and a
 // float function.
-const stdBindingProgram = `import std/io
+const stdBindingProgram = `import std::io
 
 gopkg "strings" as strings
 gopkg "strconv" as strconv
@@ -100,7 +100,7 @@ pub fn rep(s: String, n: Int = twice(s)) -> String go strs.Repeat
 `)
 	entry := filepath.Join(dir, "main.nomi")
 	mustWrite(t, entry, `import {
-    std/io
+    std::io
     lib
     lib.{rep}
 }
@@ -139,7 +139,7 @@ func TestFFI_StdLibraryBindingErrors(t *testing.T) {
 	}
 	env := buildEnv(t.TempDir())
 	missing := filepath.Join(dir, "missing", "main.nomi")
-	mustWrite(t, missing, `import std/io
+	mustWrite(t, missing, `import std::io
 
 gopkg "strings" as strings
 
@@ -182,7 +182,7 @@ func TestFFI_StdBigInt(t *testing.T) {
 		t.Skip("a go.mod above the temp directory")
 	}
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 gopkg "math/big" as big
 
@@ -213,7 +213,7 @@ func TestFFI_StdStreams(t *testing.T) {
 		t.Skip("a go.mod above the temp directory")
 	}
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `import std/io.{self, Reader, Writer}
+	mustWrite(t, entry, `import std::io.{self, Reader, Writer}
 
 gopkg "encoding/hex" as hex
 gopkg "io" as goio
@@ -297,7 +297,7 @@ test "in range" {
 	}
 
 	entry := filepath.Join(dir, "run", "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 gopkg "strconv" as strconv
 

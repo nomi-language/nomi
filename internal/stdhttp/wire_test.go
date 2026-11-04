@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-const wireProgram = `import std/http
-import std/http.{Body, FormPart, Headers, Method, Part, Request, Response, Status}
-import std/io.{self, Reader, Writer}
-import std/url.Url
+const wireProgram = `import std::http
+import std::http.{Body, FormPart, Headers, Method, Part, Request, Response, Status}
+import std::io.{self, Reader, Writer}
+import std::url.Url
 
 fn main() {
     request = Request{method: Method.Post, url: Url.parse("http://example.com/a?b=1")!, body: Body.Text("hello")}

@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRBoolPattern_CaseBranches(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn label(b: Bool) -> String {
   case b {
     True -> "yes"
@@ -18,7 +18,7 @@ fn main() {
 }
 
 func TestIRBoolPattern_QualifiedFallbackAndClosure(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn source(b: Bool) -> Bool { io.print("subject") b }
 fn label(b: Bool) -> String {
   case source(b) {

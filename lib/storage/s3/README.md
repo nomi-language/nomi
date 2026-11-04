@@ -15,8 +15,8 @@ directory elsewhere:
 
 ```nomi
 import {
-    std/storage.{self, Store}
-    std/url.Url
+    std::storage.{self, Store}
+    std::url.Url
     s3
 }
 

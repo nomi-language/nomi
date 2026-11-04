@@ -5,7 +5,7 @@
 //# The compiler rewrites `Sql"..."` to a call of `Sql.from_fragments`, which
 //# receives the literal split into static text and slot values.
 
-import std/literals.{Fragment, Literal}
+import std::literals.{Fragment, Literal}
 
 /// A SQL statement and the values for its `?` placeholders, in order.
 pub struct Query {

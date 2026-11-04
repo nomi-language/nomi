@@ -210,7 +210,7 @@ fn sent(token: Token) -> String {
     }
 }
 
-/// The SQL a query sends, as std/sql's `Statement` keeps it: the text
+/// The SQL a query sends, as std::sql's `Statement` keeps it: the text
 /// around each `@name` parameter, one more than there are parameters. Runs of
 /// whitespace and comments become one space, and the ends are trimmed, so
 /// the SQL does not depend on how it is indented.

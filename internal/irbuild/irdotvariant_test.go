@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRDotVariant_BareAndPositionalValues(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 enum Direction { North; South }
 enum Signal { Value Int; Idle }
 fn direction() -> Direction { .North }
@@ -31,7 +31,7 @@ fn main() {
 }
 
 func TestIRDotVariant_ImportedDeclarationIdentity(t *testing.T) {
-	verifyLambdaProgram(t, `import { std/io shapes }
+	verifyLambdaProgram(t, `import { std::io shapes }
 fn choose() -> shapes.Direction { .North }
 fn describe(d: shapes.Direction) -> String {
   case d {
@@ -56,8 +56,8 @@ fn main() {
 // same variant names, so a resolution by name would build the wrong one.
 func TestIRDotVariant_StdEnumFromTheCallee(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
-  std/json.Json
+  std::io
+  std::json.Json
 }
 enum Direction { Ascending; Descending }
 derive Display for Direction
@@ -80,8 +80,8 @@ fn main() {
 
 func TestIRDotVariant_StdStructVariantFromTheCallee(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
-  std/supervisors.Supervisor
+  std::io
+  std::supervisors.Supervisor
 }
 struct App {
   context: Context

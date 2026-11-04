@@ -42,7 +42,7 @@ func (r *completionRequest) importPathCandidates() []candidate {
 			if name == "prelude" {
 				continue
 			}
-			out = append(out, candidate{label: name, kind: protocol.CompletionItemKindModule, detail: "std/" + name, locality: 2})
+			out = append(out, candidate{label: name, kind: protocol.CompletionItemKindModule, detail: "std::" + name, locality: 2})
 		}
 		return out
 	}

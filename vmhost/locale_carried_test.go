@@ -26,7 +26,7 @@ const carriedToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18
 // localeLiteral is a program that formats in the locale tag names, written
 // as a literal.
 func localeLiteral(tag string) string {
-	return "import {\n    std/io\n    std/locale.Locale\n}\n\nfn main() {\n" +
+	return "import {\n    std::io\n    std::locale.Locale\n}\n\nfn main() {\n" +
 		"    io.print(String.join_list([\"a\", \"b\"], Locale`" + tag + "`))\n}\n"
 }
 
@@ -95,11 +95,11 @@ func mustManifest(t *testing.T, toml string) *analysis.Manifest {
 // built image alike. Locale.negotiate answers as it did.
 func TestNotCarriedLocale_FormatsAsTheSource(t *testing.T) {
 	const src = `import {
-    std/io
-    std/locale.Locale
-    std/calendar.Date
-    std/currency.Currency
-    std/money.Money
+    std::io
+    std::locale.Locale
+    std::calendar.Date
+    std::currency.Currency
+    std::money.Money
 }
 
 fn main() {

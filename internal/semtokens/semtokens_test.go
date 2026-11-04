@@ -187,7 +187,7 @@ fn read(p: Point) -> Int {
 }
 
 func TestCollect_QualifiedTypeSegmentsUseSourceSpan(t *testing.T) {
-	src := `import std/json: FromJson, Json, ToJson
+	src := `import std::json: FromJson, Json, ToJson
 
 struct User {
   first_name: String
@@ -304,10 +304,10 @@ func TestCollect_NestedFunctionParamsUseParameterTokenType(t *testing.T) {
 
 func TestCollect_ImportPathSegmentsDoNotEmitSemanticTokens(t *testing.T) {
 	src := `import {
-  std/defer: Defer
-  std/structs: Struct
-  std/type: Type
-  std/lists: List
+  std::defer: Defer
+  std::structs: Struct
+  std::type: Type
+  std::lists: List
 }
 `
 	nodes, err := parser.Parse(lexer.Lex(src))
@@ -367,11 +367,11 @@ pub fn escape_query(value: String) -> String go urltools.EscapeQuery
 
 func TestCollect_SelectiveStdEnumImportEmitsEnumToken(t *testing.T) {
 	src := `import {
-  std/channels.{self, Channel}
-  std/context.{self, Context as Ctx}
-  std/iter.Iter
-  std/supervisors.{self, Restart}
-  std/testing.Clock
+  std::channels.{self, Channel}
+  std::context.{self, Context as Ctx}
+  std::iter.Iter
+  std::supervisors.{self, Restart}
+  std::testing.Clock
 }
 
 fn main() {
@@ -385,16 +385,16 @@ fn main() {
 	}
 
 	for _, tok := range semtokens.Collect(fa) {
-		if tok.Line == 5 && tok.Col == 26 {
+		if tok.Line == 5 && tok.Col == 27 {
 			if tok.Type != "enum" || tok.Length != len("Restart") {
-				pos := analysis.Pos{Line: 5, Col: 26}
+				pos := analysis.Pos{Line: 5, Col: 27}
 				t.Fatalf("Restart import token should be enum length %d, got %+v; def=%#v ref=%#v",
 					len("Restart"), tok, fa.Definitions[pos], fa.References[pos])
 			}
 			return
 		}
 	}
-	pos := analysis.Pos{Line: 5, Col: 26}
+	pos := analysis.Pos{Line: 5, Col: 27}
 	t.Fatalf("missing Restart import semantic token; def=%#v ref=%#v tokens: %+v",
 		fa.Definitions[pos], fa.References[pos], semtokens.Collect(fa))
 }

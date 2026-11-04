@@ -25,8 +25,8 @@
 // of them, and a compiled `check` would then read the wrong payload out of its
 // own result.
 import {
-    std/assertions.AssertionFailure
-    std/testing
+    std::assertions.AssertionFailure
+    std::testing
 }
 
 fn find_name(id: Int) -> Maybe<String> {

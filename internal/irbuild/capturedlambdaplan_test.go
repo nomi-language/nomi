@@ -11,7 +11,7 @@ func TestCapturedLambdaPlan_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 fn noisy(n: Int) -> Int {
     io.print("default ${n}")

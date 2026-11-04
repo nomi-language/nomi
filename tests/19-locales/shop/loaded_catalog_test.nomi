@@ -1,6 +1,6 @@
 import {
-    std/locale.Locale
-    std/message.{Catalog, Message, Rejected}
+    std::locale.Locale
+    std::message.{Catalog, Message, Rejected}
     cart
     order
 }
@@ -9,19 +9,19 @@ import {
 // and is checked as the compiler checks the program's own.
 fn cart_items(arms: String) -> String {
     """
-        [cart.cart_items]
-        source = '''
-        .input {$count :integer}
-        .match $count
-        one {{{$count} item in your cart}}
-        * {{{$count} items in your cart}}
-        '''
-        text = '''
-        .input {$count :integer}
-        .match $count
-        ${arms}
-        '''
-        """
+    [cart.cart_items]
+    source = '''
+    .input {$count :integer}
+    .match $count
+    one {{{$count} item in your cart}}
+    * {{{$count} items in your cart}}
+    '''
+    text = '''
+    .input {$count :integer}
+    .match $count
+    ${arms}
+    '''
+    """
 }
 
 fn reasons(text: String, locale: Locale) -> List<String> {

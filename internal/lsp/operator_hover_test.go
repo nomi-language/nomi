@@ -9,8 +9,8 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const operatorHoverDecls = `import std/calendar.{Date, Days, Months}
-import std/io
+const operatorHoverDecls = `import std::calendar.{Date, Days, Months}
+import std::io
 
 struct Version {
   major: Int
@@ -135,7 +135,7 @@ impl Add<Money, Money> for Money {
   }
 }
 `,
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 import money.Money
 
 fn main() {

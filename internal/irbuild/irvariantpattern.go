@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -53,6 +54,13 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		pat = &copied
 	}
 	pk := payloadPatternKind(v)
+	if irUnitPattern(pat.Payload, pk) {
+		// `Ok(Unit)` matches every payload of a Unit variant: it is
+		// `Ok(_)`.
+		copied := *pat
+		copied.Payload = irUnitAsWildcard(pat.Payload)
+		return &copied, v, true
+	}
 	switch pat.Payload.(type) {
 	case nil, *ast.WildcardPattern, *ast.IdentPattern:
 	case *ast.IntLit:
@@ -579,8 +587,8 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 	case *ast.EnumPattern:
 		// `retryable: True`, `kind: .Some(n)`: a variant test on the field,
 		// which patternValueTest builds; `Id(n)` or `Pair(a, _)` over a
-		// distinct unwraps it.
-		return k == kindBool || (k.tag == tagNamed && (irRetainedEnumKind(k.def) || irDistinctOverValue(k.def)))
+		// distinct unwraps it. `Unit` over a Unit matches as `_` does.
+		return irUnitPattern(p, k) || k == kindBool || (k.tag == tagNamed && (irRetainedEnumKind(k.def) || irDistinctOverValue(k.def)))
 	case *ast.StructPattern:
 		return irNominalCaseKind(k) || (k.tag == tagNamed && irRetainedEnumKind(k.def))
 	case *ast.TuplePattern:
@@ -706,4 +714,16 @@ func (bl *irScalarBuilder) embeddedStructCaseTest(pat *ast.StructPattern, subj i
 		}
 	}
 	return true
+}
+
+// irUnitPattern reports whether p is the constant pattern `Unit` over a
+// value of kind Unit, which it matches as `_` does: Unit has one value.
+func irUnitPattern(p ast.Node, k kind) bool {
+	return k == kindUnit && analysis.IsUnitPattern(p)
+}
+
+// irUnitAsWildcard is the `_` a matched `Unit` pattern lowers as.
+func irUnitAsWildcard(p ast.Node) *ast.WildcardPattern {
+	ep := p.(*ast.EnumPattern)
+	return &ast.WildcardPattern{SpanCarrier: ep.SpanCarrier, Line: ep.Line, Col: ep.Col}
 }

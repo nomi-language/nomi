@@ -3,6 +3,7 @@ package rt
 import (
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -65,4 +66,63 @@ func StringToInt(s string) Maybe[Int] {
 		return None[Int]()
 	}
 	return Some(IntOf(n))
+}
+
+// StringToFloat is `std/strings`' `String.to_float`: a locale-free base-10
+// parse, with surrounding whitespace trimmed as `String.to_int` trims it, and
+// `None` for anything else. The grammar is checked here before strconv sees
+// the text, because strconv.ParseFloat reads more than Nomi means:
+//
+//	[+-] digits [ "." digits ] [ ("e" | "E") [+-] digits ]
+//
+// so hex floats (`0x1p4`), `_` separators, `Inf`/`NaN` words, and a point
+// with no digit on one side (`.5`, `5.`) are all `None`, as they are not
+// Nomi Float literals either. A value whose magnitude rounds past the largest
+// Float is `None` (strconv's ErrRange to ±Inf), as `Float.parse_in` answers
+// `OutOfRange`; one too small to hold reads as zero or a subnormal, which is
+// the nearest Float.
+func StringToFloat(s string) Maybe[float64] {
+	s = strings.TrimSpace(s)
+	if !plainFloatSyntax(s) {
+		return None[float64]()
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil && !(math.Abs(f) < 1) {
+		return None[float64]()
+	}
+	return Some(f)
+}
+
+// plainFloatSyntax reports whether s is `[+-] digits [. digits] [e [+-] digits]`.
+func plainFloatSyntax(s string) bool {
+	i := 0
+	digits := func() bool {
+		start := i
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			i++
+		}
+		return i > start
+	}
+	if i < len(s) && (s[i] == '+' || s[i] == '-') {
+		i++
+	}
+	if !digits() {
+		return false
+	}
+	if i < len(s) && s[i] == '.' {
+		i++
+		if !digits() {
+			return false
+		}
+	}
+	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
+		i++
+		if i < len(s) && (s[i] == '+' || s[i] == '-') {
+			i++
+		}
+		if !digits() {
+			return false
+		}
+	}
+	return i == len(s)
 }

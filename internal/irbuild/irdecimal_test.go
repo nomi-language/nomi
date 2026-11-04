@@ -12,7 +12,7 @@ import (
 )
 
 func TestIRDecimal_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn sum(a: Decimal, b: Decimal) -> Decimal { a + b }
 fn divide(a: Decimal, b: Decimal) -> Decimal { Decimal.divide_exact(a, b) |> Maybe.with_default(0d) }
 fn main() {
@@ -30,7 +30,7 @@ fn main() {
 }
 
 func TestIRDecimal_EffectsAndBranchValues(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(label: String, d: Decimal) -> Decimal { io.print(label) d }
 fn choose(b: Bool) -> Decimal { if b { 1.50d } else { 2.25d } }
 fn main() {

@@ -1,7 +1,7 @@
 // A local type may share its name with a stdlib one. Both keep their own
 // impls: identity is (declaring file, name), so `Seed` here and
 // `random.Seed` never share a dispatch slot.
-import std/random.{self, Generator}
+import std::random.{self, Generator}
 
 struct Seed {
     flavor: String
@@ -43,7 +43,7 @@ test "a local type does not shadow a stdlib type's members" {
 // type already uses. `Seed.from_int` here and `random.Seed.from_int` are two
 // functions on two types, so both are declarable and neither shadows the
 // other. The inherent-impl manifest keys type-owned functions by (declaring
-// file, name); keyed by BARE receiver name, `import std/random` alone would
+// file, name); keyed by BARE receiver name, `import std::random` alone would
 // make `from_int` un-declarable in this file (`duplicate type-owned function:
 // Seed.from_int is defined 2 times`), blamed on the line below for a collision
 // the author could not see.

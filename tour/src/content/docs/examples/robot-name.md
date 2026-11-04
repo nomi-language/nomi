@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: robot_name.nomi
 //# Robots with random, unique names such as `RX837`.
 
-import std/random.{Generator, Seed}
+import std::random.{Generator, Seed}
 
 once letters = Iter.to_vector('A'..='Z')
 
@@ -87,7 +87,7 @@ fn names() -> Generator<String> {
 
 // FILE: robot_name_test.nomi
 import {
-    std/random.Seed
+    std::random.Seed
     robot_name.{Factory, Robot}
 }
 

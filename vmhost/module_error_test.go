@@ -12,9 +12,9 @@ import (
 // variant literals.
 func TestModuleErrors_FileQualifiedErrorsLiveSideBySide(t *testing.T) {
 	const src = `import {
-    std/io
-    std/random.{self, Generator}
-    std/uuid.{self, Uuid}
+    std::io
+    std::random.{self, Generator}
+    std::uuid.{self, Uuid}
 }
 
 fn read_id(text: String) -> Result<Uuid, uuid.Error> {
@@ -55,9 +55,9 @@ fn main() {
 // the file-qualified spelling above is the one that works.
 func TestModuleErrors_TwoBareErrorImportsAreRejected(t *testing.T) {
 	const src = `import {
-    std/io
-    std/random.Error
-    std/uuid.Error
+    std::io
+    std::random.Error
+    std::uuid.Error
 }
 
 fn show(e: Error) -> String {

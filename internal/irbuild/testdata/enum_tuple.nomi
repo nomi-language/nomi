@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A TUPLE-PAYLOAD variant, in every position the corpus reaches it: constructed
 // FLAT and with an explicit tuple, pattern-matched both ways, rendered through

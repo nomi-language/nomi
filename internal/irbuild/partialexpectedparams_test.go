@@ -9,7 +9,7 @@ func TestIRPartialCaptureAtExpectedParameterTypes_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     found: Result<List<List<String>>, String> = Ok([["a", "b"], ["c"]])

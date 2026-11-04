@@ -9,7 +9,7 @@ func TestIRExistentialBindingHoldsTheInterface_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     d: Display = 1
@@ -29,8 +29,8 @@ func TestIRExistentialElementPositions_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
-import std/tasks.Task
+	const src = `import std::io
+import std::tasks.Task
 
 struct Holder {
     ds: List<Display>

@@ -173,6 +173,7 @@ func calendarCases() map[string][]argSet {
 		"NaiveDateTime.to_time":        unary(naives),
 		"NaiveDateTime.to_string":      unary(naives),
 		"OffsetDateTime.to_string":     unary(offsets),
+		"OffsetDateTime.to_naive":      unary(offsets),
 		"DateTime.to_string":           unary(zones),
 		"DateTime.to_offset":           unary(zones),
 		"calendar.zoned_offset_nanos":  unary(zones),

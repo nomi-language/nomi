@@ -3,7 +3,7 @@
 // argument of a generic function, a Maybe's payload. Tree and Span are also
 // instantiated at this file's own Point.
 import {
-    std/io
+    std::io
     tree
     tree.Tree
     zz

@@ -1,4 +1,4 @@
-//# Testing code that uses std/jobs. `Inline` is a `Queue` kept in memory,
+//# Testing code that uses std::jobs. `Inline` is a `Queue` kept in memory,
 //# and `run_queued` runs every due job in the test's own task, so a test
 //# enqueues, runs and asserts with no database, worker or sleep:
 //#

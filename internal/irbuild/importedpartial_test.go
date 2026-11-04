@@ -10,7 +10,7 @@ func TestImportedFnPartial_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 import lib.{add3, conn, pair, plain}
 
 fn main() {

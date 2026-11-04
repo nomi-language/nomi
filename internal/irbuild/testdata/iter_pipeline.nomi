@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // The lowered `Iter` surface, observed. Every line prints, so the recorded
 // output pins answers and not merely silence.

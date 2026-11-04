@@ -11,7 +11,7 @@ import (
 // entries both match the one value. The compiler rejects the repetition only
 // when the keys are the same constant.
 func TestRun_RepeatedRuntimeMapKeysLastWins(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 fn main() {
   x = 1

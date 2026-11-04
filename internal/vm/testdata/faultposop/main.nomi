@@ -1,6 +1,6 @@
 // The OPERATOR spelling of the same fault, as the control: `20 / zero` is on
 // line 7, and the operator path has always carried a real position.
-import std/io
+import std::io
 
 fn divide_via_operator() -> Int {
     zero = 0

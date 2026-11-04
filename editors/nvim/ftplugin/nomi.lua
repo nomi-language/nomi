@@ -23,7 +23,9 @@ local undo = {
 }
 
 -- Highlighting. Needs the `nomi` parser (parser/nomi.so on 'runtimepath');
--- `make install-nvim` builds it.
+-- `make install-nvim` builds it. The parser is made first, with the html
+-- injection query an Html literal needs (nomi.injections).
+pcall(vim.treesitter.get_parser, 0, 'nomi', require('nomi.injections').parser_opts())
 local ok, err = pcall(vim.treesitter.start, 0, 'nomi')
 if ok then
   local wo = vim.wo[0][0]

@@ -2,8 +2,8 @@
 // std struct (Date), a std host type (Decimal), a std opaque type (Instant),
 // and the prelude Maybe over any of them.
 import {
-    std/calendar.Date
-    std/instant.Instant
+    std::calendar.Date
+    std::instant.Instant
 }
 
 pub enum V {

@@ -8,7 +8,7 @@ import "testing"
 // Debug and Display, equal to a value built by `Address{...}`.
 
 func TestTargetTyped_EveryPositionBuildsTheNominalStruct(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Address {
   street: String
@@ -67,7 +67,7 @@ Some(Address{street: "7 Some", city: "Ripon", zip: "00000"})
 }
 
 func TestTargetTyped_EqualToTheNamedLiteral(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Point {
   x: Int
@@ -89,7 +89,7 @@ fn main() {
 }
 
 func TestTargetTyped_GenericStruct(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Box<T> {
   item: T
@@ -115,7 +115,7 @@ fn main() {
 // Under a spread a `..` literal at a struct-typed field updates the base's
 // value; a brace without `..` builds the field's struct.
 func TestTargetTyped_SpreadUpdateStillUpdates(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Address {
   street: String

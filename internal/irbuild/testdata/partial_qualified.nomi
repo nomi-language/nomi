@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A partial capture over an interface-qualified call, an
 // owner-qualified call, a generic function and a stdlib owner function. Each

@@ -17,9 +17,9 @@
 // The VM enters that window for the boot call itself, so a supervisor built
 // by a function boot calls is inside it too.
 import {
-    std/duration.Duration
-    std/io
-    std/supervisors.Supervisor
+    std::duration.Duration
+    std::io
+    std::supervisors.Supervisor
 }
 
 pub struct BootApp {

@@ -11,8 +11,8 @@ import "testing"
 // `String.strip_prefix` and `strip_suffix` call their own module's generic
 // `starts_with` and `ends_with`.
 func TestStdCrossModuleGeneric_NonGenericBodyCallsAnotherModulesGeneric(t *testing.T) {
-	got := runSourceOutput(t, "import std/io\n"+
-		"import std/regex.Regex\n"+
+	got := runSourceOutput(t, "import std::io\n"+
+		"import std::regex.Regex\n"+
 		"\n"+
 		"struct Rule {\n"+
 		"    name: String\n"+

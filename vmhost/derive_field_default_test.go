@@ -44,9 +44,9 @@ var deriveFieldDefaults = []struct {
 
 func deriveFieldDefaultProgram(field string) string {
 	return `import {
-    std/io
-    std/json.{FromJson, ToJson}
-    std/json.Json
+    std::io
+    std::json.{FromJson, ToJson}
+    std::json.Json
 }
 
 struct Inner {
@@ -126,7 +126,7 @@ func TestDerivedJsonFillsEveryKindOfFieldDefault(t *testing.T) {
 // position walker moved the default into the synthesized line band and a
 // mistyped default was reported twice, once at a line no file has.
 func TestDerivedFromJsonReportsABadDefaultAtItsSource(t *testing.T) {
-	src := `import std/json.FromJson
+	src := `import std::json.FromJson
 
 struct Game {
     word: String

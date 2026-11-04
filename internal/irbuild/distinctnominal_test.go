@@ -12,7 +12,7 @@ func TestIRDistinctOverNominalType_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 type Meters Int
 
@@ -136,7 +136,7 @@ fn main() {
 // co-inductively (irDistinctCoinductive), as a recursive struct is. Each is
 // built, destructured, matched, compared and rendered.
 func TestIRDistinctOverNominalType_CycleRuns(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 struct Node {
     v: Int

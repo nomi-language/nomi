@@ -41,7 +41,7 @@ The general operations live on `Iter` and work on all of them: `Iter.map`,
 it, such as `Map.get` or `List.head`.
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     result =

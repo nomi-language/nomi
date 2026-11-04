@@ -3,7 +3,7 @@
 //# a trap for a promise the caller broke. And how a resource is released
 //# whichever way the work ends: `defer`.
 
-import std/io.{self, Reader}
+import std::io.{self, Reader}
 
 /// Why a total could not be read.
 pub enum Error {

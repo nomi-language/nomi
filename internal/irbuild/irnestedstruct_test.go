@@ -35,7 +35,7 @@ fn main() {
 // Nested field chains, a function over the nested struct, derived Debug
 // through the nested impl, and patches whose values are forced around them.
 func TestIRNestedStruct_ProjectionPatchAndDebug(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Address {
   street: String

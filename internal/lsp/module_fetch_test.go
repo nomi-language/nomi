@@ -39,7 +39,7 @@ func TestModules_TheServerReportsAMissingModuleAndNeverDownloads(t *testing.T) {
 	}
 	write(filepath.Join(dir, "go.mod"), "module example.com/app\n\ngo 1.22\n\nrequire example.com/greet v0.1.0\n")
 	write(filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	src := "import {\n    greet\n    std/io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n"
+	src := "import {\n    greet\n    std::io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n"
 	path := filepath.Join(dir, "main.nomi")
 	write(path, src)
 	uri := fileuri.FromPath(path)

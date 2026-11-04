@@ -10,7 +10,7 @@
 // first: the builder's version is the enclosing
 // activation's own dictionary, and without it a bounded generic could not call
 // another one.
-import std/io
+import std::io
 
 interface Shout {
     fn shout(v: self) -> String

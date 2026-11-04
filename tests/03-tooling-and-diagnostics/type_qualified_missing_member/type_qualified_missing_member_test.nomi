@@ -1,5 +1,5 @@
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 
@@ -7,7 +7,7 @@ test "type-qualified missing member reports a diagnostic" {
     diagnostics = compiler.check(
         """
           import {
-            std/io
+            std::io
           }
 
 

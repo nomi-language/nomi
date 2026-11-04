@@ -14,7 +14,7 @@ import (
 // checkTypeParamQualifiedCall in analysis/checker.go.
 
 func TestTypeParamQualifiedDispatch_Valid(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 fn show<T>(x: T) -> String where T: Display {
   T.to_string(x)
 }
@@ -32,7 +32,7 @@ fn main() {
 // and go-to-def on it work. (The `T` qualifier keeps its own type-parameter
 // reference, recorded separately.)
 func TestTypeParamQualifiedDispatch_MethodReference(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 fn show<T>(x: T) -> String where T: Display {
   T.to_string(x)
 }
@@ -291,7 +291,7 @@ fn main() { Unit }`,
 // positions, so a call is unaffected and a bare reference becomes a usable
 // function value instead of a runtime death.
 func TestTypeParamQualifiedMember_ProvidedMemberStillTypes(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 interface Greet {
   fn hello(value: self) -> String

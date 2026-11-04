@@ -9,20 +9,20 @@
 // comments above the import block; a comment inside the block makes the
 // whole-region source actions decline.
 //
-//   ADD IO   Delete the `std/io` line. `io.print` and `io.inspect` go
-//            undefined -> "Add import std/io" / fixAll re-adds it as a
+//   ADD IO   Delete the `std::io` line. `io.print` and `io.inspect` go
+//            undefined -> "Add import std::io" / fixAll re-adds it as a
 //            block entry, preserving the import block style.
 //   ADD DURATION
-//            Delete the `std/duration.Duration` line. `Duration.seconds` goes
-//            undefined -> "Add import std/duration.Duration" / fixAll
+//            Delete the `std::duration.Duration` line. `Duration.seconds` goes
+//            undefined -> "Add import std::duration.Duration" / fixAll
 //            re-adds it as a block entry.
-//   REMOVE   Add a line `  std/lists.List` to the block. Unused -> "Remove unused
+//   REMOVE   Add a line `  std::lists.List` to the block. Unused -> "Remove unused
 //            import" / fixAll drops it.
 //   FIXALL   Several edits at once, then save with fixAll-on-save: one pass
 //            removes the unused imports and re-adds the missing ones.
 import {
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
 }
 
 fn main() {

@@ -24,9 +24,9 @@ impl Ordering {
     /// -> #(r.team, r.name))`) says the same thing and compares the second
     /// key only on a tie.
     //
-    //! import std/int.Int
-    //! import std/iter.Iter
-    //! import std/strings.String
+    //! import std::int.Int
+    //! import std::iter.Iter
+    //! import std::strings.String
     //!
     //! assert Ordering.chain(Ordering.Less, Ordering.Greater) == Ordering.Less
     //! assert Ordering.chain(Ordering.Equal, Ordering.Greater) == Ordering.Greater
@@ -89,9 +89,9 @@ derive Display for Direction
 /// on. That makes a tuple the key for a sort by several fields,
 /// `Iter.sort_by(rows, fn r -> #(r.team, r.name))`. To sort one of the keys
 /// descending, negate a number in the key (`#(-r.points, r.name)`), or
-/// wrap it in `Reverse.of` from `std/reverse`, `#(Reverse.of(r.name), r.points)`, which works for any `Comparable` key; a number can also be negated, `#(-r.points, r.name)`.
-//! import std/iter.Iter
-//! import std/maybe.Maybe.Some
+/// wrap it in `Reverse.of` from `std::reverse`, `#(Reverse.of(r.name), r.points)`, which works for any `Comparable` key; a number can also be negated, `#(-r.points, r.name)`.
+//! import std::iter.Iter
+//! import std::maybe.Maybe.Some
 //!
 //! assert #(1, "b") < #(2, "a")
 //! assert #(1, "a") < #(1, "b")

@@ -32,7 +32,7 @@ derive Equatable for Coin
 
 // FILE: main.nomi
 import {
-    std/io
+    std::io
     money.{Coin, Money}
 }
 

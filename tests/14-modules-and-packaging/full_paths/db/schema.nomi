@@ -1,0 +1,19 @@
+pub struct Post {
+    id: Int
+    title: String
+}
+
+pub enum Kind {
+    Draft
+    Published Int
+}
+
+pub fn post(id: Int) -> Post {
+    Post{id, title: "post ${id}"}
+}
+
+impl Post {
+    pub fn blank() -> Post {
+        Post{id: 0, title: ""}
+    }
+}

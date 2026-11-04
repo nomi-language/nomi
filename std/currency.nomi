@@ -15,7 +15,7 @@
 //#
 //# Two currencies are equal when their codes and minor digits are, so two
 //# libraries that each define ``Currency`PTS:0` `` share it, and `PTS:0`
-//# and `PTS:2` are two currencies. `Money` (std/money) pairs an amount with
+//# and `PTS:2` are two currencies. `Money` (std::money) pairs an amount with
 //# its currency.
 //#
 //# ## Listed custom currencies

@@ -7,8 +7,8 @@ import "testing"
 // the value where they join.
 func TestIRLoop_GuardConditionsThatBranch(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/channels.{Channel, Receiver, Sender}
-    std/io
+    std::channels.{Channel, Receiver, Sender}
+    std::io
 }
 
 fn fill(xs: List<Int>) -> Receiver<Int> {

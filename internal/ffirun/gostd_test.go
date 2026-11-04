@@ -264,7 +264,7 @@ opaque type B go strs.Builder
 // and answer them. A Go type that is both, io.ReadWriter, projects to
 // neither, and a Reader declared for an io.Writer is the mismatch.
 func TestStdBindings_StreamsCrossAsReaderAndWriter(t *testing.T) {
-	root, got := discoverStd(t, `import std/io.{Reader, Writer}
+	root, got := discoverStd(t, `import std::io.{Reader, Writer}
 
 gopkg "io" as goio
 gopkg "encoding/hex" as hex
@@ -292,13 +292,13 @@ fn hex_decoder(r: Reader) -> Reader go hex.NewDecoder
 	}
 
 	for _, c := range []struct{ src, want string }{
-		{`import std/io.Reader
+		{`import std::io.Reader
 
 gopkg "encoding/hex" as hex
 
 fn hex_encoder(w: Reader) -> Reader go hex.NewEncoder
 `, `parameter 1 "w" projects to Writer, but Nomi declares Reader`},
-		{`import std/io.Writer
+		{`import std::io.Writer
 
 gopkg "io" as goio
 

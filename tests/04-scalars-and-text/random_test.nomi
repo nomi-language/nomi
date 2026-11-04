@@ -1,4 +1,4 @@
-import std/random.{Generator, Seed}
+import std::random.{Generator, Seed}
 
 test "seeded generators produce deterministic values" {
     seed = Seed.from_int(123)

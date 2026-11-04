@@ -4,11 +4,11 @@ import "testing"
 
 func TestIRReturnOperand_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"short circuit", `import std/io
+		{"short circuit", `import std::io
 fn mark() -> Bool { io.print("marked") True }
 fn choose(flag: Bool) -> Bool { return flag and mark() }
 fn main() { choose(False) |> io.print() choose(True) |> io.print() }`, "False\nmarked\nTrue\n"},
-		{"captured lambda", `import std/io
+		{"captured lambda", `import std::io
 fn mark() -> Bool { io.print("marked") True }
 fn main() {
   base = False
@@ -16,7 +16,7 @@ fn main() {
   choose(True) |> io.print()
   choose(False) |> io.print()
 }`, "marked\nTrue\nFalse\n"},
-		{"guard before final operand", `import std/io
+		{"guard before final operand", `import std::io
 fn mark() -> Bool { io.print("marked") True }
 fn choose(early: Bool, flag: Bool) -> Bool {
   if early { return False }

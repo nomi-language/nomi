@@ -2,10 +2,10 @@
 // each migration in the directory stands against the database. It changes
 // nothing, and exits with a failure when a migration changed after it ran.
 import {
-    std/io
-    std/sql
+    std::io
+    std::sql
     migrate
-    migrate/tools/internal/cli.{self, Options}
+    migrate::tools::internal::cli.{self, Options}
 }
 
 struct App {

@@ -156,13 +156,13 @@ decimal literal ends in `d`.
 `Decimal` has `+`, `-` and `*` but no `/`, since 10 divided by 3 never ends
 in base 10. `Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven)` rounds to the
 number of digits and the rounding you name (import
-`std/decimal.RoundingMode` to name one), and `Decimal.divide_exact(10d, 4d)`
+`std::decimal.RoundingMode` to name one), and `Decimal.divide_exact(10d, 4d)`
 returns `Some(2.5d)`, or `None` when the quotient never ends.
 
 ## String interpolation and concatenation
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     name = "Nomi"
@@ -191,7 +191,7 @@ printing it.
 write `\${`. A `$` on its own, `#` and `#{` are ordinary text:
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     io.print("echo \${HOME} costs $5 #{not a struct}")
@@ -353,7 +353,7 @@ comparing text from different sources, put both in the same form with
 - A grapheme can be many code points. The family emoji `👨‍👩‍👧` is one
   grapheme of five code points, so `String.length` counts it as 1.
 - Ordering compares bytes too, which is code point order. For the order a
-  reader expects, use [`std/collation`](/reference/collation/).
+  reader expects, use [`std::collation`](/reference/collation/).
 - A `Codepoint` literal holds one ASCII character. Outside ASCII, take one
   from `String.to_codepoints` or build it with
   [`Int.to_codepoint`](/reference/int/#intto_codepoint).
@@ -366,7 +366,7 @@ Spec: [Strings](/spec/types/#strings),
 ## Binary data with `Bytes`
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     raw = String.to_bytes("café")
@@ -419,7 +419,7 @@ Spec: [Byte literals](/spec/literals/#byte-literals).
 ## Triple-quoted strings
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     name = "Alice"
@@ -446,7 +446,7 @@ usual. The indentation that every line shares is removed.
 ## Raw strings
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     pattern = `\d{3,4}`
@@ -496,7 +496,7 @@ Spec: [Raw strings](/spec/literals/#raw-strings),
 
 ## Regular expressions
 
-[`std/regex`](/reference/regex/) has `Regex`. Write a pattern in backticks,
+[`std::regex`](/reference/regex/) has `Regex`. Write a pattern in backticks,
 as ``Regex`\d+` ``, so its backslashes stay as written. The compiler checks
 the pattern, so ``Regex`[` `` is an error before the program runs
 ([Typed Literals](/typed-literals/#backtick-literals-are-checked-at-compile-time) explains how).
@@ -513,7 +513,7 @@ parentheses matched, shaped by the literal's type: `date` below is a
 text (`$$` is a literal `$`):
 
 ```nomi-run
-import std/regex.Regex
+import std::regex.Regex
 
 fn main() -> Result<Unit, String> {
     text = "Order 1042 shipped 2026-10-25, order 977 on 2026-10-26"

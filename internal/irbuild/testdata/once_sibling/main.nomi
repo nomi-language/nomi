@@ -1,5 +1,5 @@
 import {
-    std/io
+    std::io
     config.{limit, tag}
     config as cfg
 }

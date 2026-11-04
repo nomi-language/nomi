@@ -5,7 +5,7 @@ description: "Send HTTP requests, write handlers, route requests by checked patt
 
 ## Making requests
 
-[`std/http`](/reference/http/) sends HTTP requests and answers them.
+[`std::http`](/reference/http/) sends HTTP requests and answers them.
 `http.get` fetches a URL and answers a `Response` with its whole body read,
 `http.post` sends a body, and `http.fetch` sends a `Request` you build. A
 status is not an error: a 404 is a `Response` like a 200, and
@@ -14,9 +14,9 @@ such as a refused connection or a timeout:
 
 ```nomi-run
 import {
-    std/http.{self, Response, Status}
-    std/http_testing
-    std/url.Url
+    std::http.{self, Response, Status}
+    std::http_testing
+    std::url.Url
 }
 
 fn greeting(name: String) -> Result<String, http.Error> {
@@ -61,8 +61,8 @@ no network:
 
 ```nomi-run
 import {
-    std/http.{Request, Response, Route, Router}
-    std/http_testing
+    std::http.{Request, Response, Route, Router}
+    std::http_testing
 }
 
 fn show(request: Request) -> Response {
@@ -87,7 +87,7 @@ A route is checked when the program is checked, so a pattern Go would
 refuse is a compile error at the literal:
 
 ```nomi-run error
-import std/http.Route
+import std::http.Route
 
 fn main() {
     dbg Route`GET /users/{id}/posts/{id}`
@@ -111,9 +111,9 @@ triple quotes:
 
 ```nomi-run
 import {
-    std/html.Html
-    std/http.{Request, Response}
-    std/http_testing
+    std::html.Html
+    std::http.{Request, Response}
+    std::http_testing
 }
 
 fn badge(count: Int) -> Html {
@@ -140,7 +140,13 @@ fn main() {
 dbg line 24: Response.text(profile(http_testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
 -->
 
-What a slot in an attribute, a URL or a `style` takes is in the spec's
+An `if` without `else` is a `Maybe`, and a slot shows a `Maybe`'s value or
+nothing, so `${if unread > 0 { Html"<b>${unread} new</b>" }}` shows its part
+only when the condition holds. Inside a quoted attribute value it adds its
+text or nothing, as in `class='tab ${if active { "active" }}'`; an unquoted
+`class=${if active { "active" }}` writes the attribute or leaves it out.
+What a slot in an attribute, a URL or a
+`style` takes is in the spec's
 [HTML templates](/spec/typed-literals-and-keyword-declarations/#html-templates).
 
 ## Serving
@@ -155,8 +161,8 @@ within its `shutdown_timeout`:
 
 ```nomi-run compile-only
 import {
-    std/http.{self, Request, Response, Route, Router, Server}
-    std/supervisors.Supervisor
+    std::http.{self, Request, Response, Route, Router, Server}
+    std::supervisors.Supervisor
 }
 
 struct App {
@@ -183,6 +189,12 @@ fn main() -> Result<Unit, http.Error> {
 The page cannot listen on a port, so this one does not run here.
 `nomi run` serves it on port 8080.
 
+A handler that reads a posted form with `Request.form` reads at most
+10 MB of it, and `Request.multipart_form` at most 32 MB; a larger body is
+`Error.BodyTooLarge`. `Server{max_body: Some(n)}` sets one limit for every
+request, and `http.limit_body(n)` one for a route, such as an upload route
+that needs more.
+
 ## Storing files
 
 Uploaded files go in a [`Store`](/reference/storage/), which keeps each
@@ -196,11 +208,11 @@ content type:
 
 ```nomi-run
 import {
-    std/http.{Headers, Route, Router}
-    std/http_testing
-    std/storage.{self, Store}
-    std/storage_testing.Memory
-    std/url.Url
+    std::http.{Headers, Route, Router}
+    std::http_testing
+    std::storage.{self, Store}
+    std::storage_testing.Memory
+    std::url.Url
 }
 
 fn save_avatar(store: Store, user: Int, image: Bytes) -> Result<Url, storage.Error> {
@@ -223,9 +235,10 @@ dbg line 17: "${save_avatar(store, 7, String.to_bytes("png"))!}" = "/files/avata
 dbg line 21: Headers.get(response.headers, "Content-Type") = Some("image/png")
 -->
 
-A key is ASCII letters, digits, `-`, `_`, `.` and `~` in segments
-separated by `/`, and no segment starts with a dot. So a key taken from a
-request cannot reach outside a local store's directory.
+A key is segments separated by `/`. A segment may hold spaces,
+punctuation and letters of any script, but not a control character or a
+`\`, and it may not start with a dot. So a key taken from a request
+cannot reach outside a local store's directory.
 
 ## Testing against a real server
 
@@ -235,8 +248,8 @@ handler on a free port of 127.0.0.1 while its body runs, then shuts down:
 
 ```nomi-run compile-only
 import {
-    std/http.{Client, Request, Response}
-    std/http_testing
+    std::http.{Client, Request, Response}
+    std::http_testing
 }
 
 fn hello(_request: Request) -> Response {

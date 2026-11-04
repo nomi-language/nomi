@@ -63,7 +63,7 @@ import (
 // `structs.nomi` declares `pub interface Struct` with the documented
 // `host fn update`, which the tour's own prose reaches seven times as
 // `Struct.update(...)`; it had no page, so none of those had a target.
-// Being preluded is why nobody writes `import std/structs` — it is not a
+// Being preluded is why nobody writes `import std::structs` — it is not a
 // reason for the declaration to be undocumented.
 
 // The declaration kinds that make up a module's public API.
@@ -148,13 +148,13 @@ func renderModuleWithLinks(lib *std.StdLib, name string, globalLinks referenceLi
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "---\ntitle: std/%s\n---\n\n", name)
+	fmt.Fprintf(&b, "---\ntitle: std::%s\n---\n\n", name)
 	intro, guide := splitModuleDoc(moduleDoc(name))
 	if intro != "" {
 		b.WriteString(intro)
 		b.WriteString("\n\n")
 	}
-	fmt.Fprintf(&b, "Import with `import std/%s`.\n\n", name)
+	fmt.Fprintf(&b, "Import with `import std::%s`.\n\n", name)
 	if summary := renderExportsSummary(name, entries); summary != "" {
 		b.WriteString(summary)
 	}
@@ -632,11 +632,11 @@ func referenceTestContext(moduleName string, fa *analysis.FileAnalysis, entry ap
 			selectors = append(selectors, referenceTypeSelectors(ns.ModuleScope)...)
 		}
 		if len(selectors) == 1 {
-			imports = append(imports, fmt.Sprintf("import std/%s.%s", moduleName, ns.Name))
+			imports = append(imports, fmt.Sprintf("import std::%s.%s", moduleName, ns.Name))
 		} else {
 			imports = append(
 				imports,
-				fmt.Sprintf("import std/%s.%s.{%s}", moduleName, ns.Name, strings.Join(selectors, ", ")),
+				fmt.Sprintf("import std::%s.%s.{%s}", moduleName, ns.Name, strings.Join(selectors, ", ")),
 			)
 		}
 	}
@@ -973,7 +973,7 @@ func renderIndex(names []string) string {
 	b.WriteString("---\ntitle: Standard Library\n---\n\n")
 	b.WriteString("The Nomi standard library, generated from each module's `///` doc comments.\n\n")
 	for _, n := range names {
-		fmt.Fprintf(&b, "- [std/%s](/reference/%s/)\n", n, n)
+		fmt.Fprintf(&b, "- [std::%s](/reference/%s/)\n", n, n)
 	}
 	return b.String()
 }

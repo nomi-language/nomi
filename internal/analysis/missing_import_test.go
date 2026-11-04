@@ -51,16 +51,16 @@ func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
 		},
 		{
 			name:  "nested path",
-			entry: "import tools/lib\n\nfn main() {\n    lib.greet()\n}\n",
-			want:  "1:8-17: no module `tools/lib`: no file lib.nomi in tools/",
+			entry: "import tools::lib\n\nfn main() {\n    lib.greet()\n}\n",
+			want:  "1:8-18: no module `tools::lib`: no file lib.nomi in tools/",
 		},
 		{
 			// utils.nomi exists, but the `/` makes `inner` a file, not
 			// an owner inside utils.nomi.
 			name:     "missing file under an existing one",
-			entry:    "import utils/inner.Thing\n\nfn main() {\n    _ = Thing.new()\n}\n",
+			entry:    "import utils::inner.Thing\n\nfn main() {\n    _ = Thing.new()\n}\n",
 			siblings: map[string]string{"utils": utils},
-			want:     "1:8-19: no module `utils/inner`: no file inner.nomi in utils/",
+			want:     "1:8-20: no module `utils::inner`: no file inner.nomi in utils/",
 		},
 		{
 			name:     "misspelled sibling",
@@ -78,7 +78,7 @@ func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
 			name:     "directory",
 			entry:    "import sub\n\nfn main() {\n    sub.greet()\n}\n",
 			siblings: map[string]string{"sub/helper": utils},
-			want:     "1:8-11: no module `sub`: no file sub.nomi in this file's directory; `sub` is a directory; import a file in it, such as `sub/helper`",
+			want:     "1:8-11: no module `sub`: no file sub.nomi in this file's directory; `sub` is a directory; import a file in it, such as `sub::helper`",
 		},
 		{
 			name:  "nested import",
@@ -87,13 +87,13 @@ func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
 		},
 		{
 			name:  "standard library module",
-			entry: "import std/nosuchmodule\n\nfn main() {\n    nosuchmodule.x()\n}\n",
-			want:  "1:8-24: no module `std/nosuchmodule`: the standard library has no nosuchmodule.nomi",
+			entry: "import std::nosuchmodule\n\nfn main() {\n    nosuchmodule.x()\n}\n",
+			want:  "1:8-25: no module `std::nosuchmodule`: the standard library has no nosuchmodule.nomi",
 		},
 		{
 			name:  "misspelled standard library module",
-			entry: "import std/lsits\n\nfn main() {\n    lsits.x()\n}\n",
-			want:  "1:8-17: no module `std/lsits`: the standard library has no lsits.nomi; did you mean 'std/lists'?",
+			entry: "import std::lsits\n\nfn main() {\n    lsits.x()\n}\n",
+			want:  "1:8-18: no module `std::lsits`: the standard library has no lsits.nomi; did you mean 'std::lists'?",
 		},
 	}
 	for _, tc := range cases {
@@ -123,13 +123,13 @@ func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
 // An import into another module names that module and the file it lacks,
 // with the module's file the path misspells.
 func TestMissingImport_CrossModule(t *testing.T) {
-	todoMain := "import stringkit/pda.pad_left\n\nfn main() {\n  _ = pad_left(\"hi\")\n}\n"
+	todoMain := "import stringkit::pda.pad_left\n\nfn main() {\n  _ = pad_left(\"hi\")\n}\n"
 	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String) -> String {\n  s\n}\n", nil)
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 	lib := std.Load()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader())
-	want := "1:8-21: no module `stringkit/pda`: module `stringkit` has no file pda.nomi; did you mean 'stringkit/pad'?"
+	want := "1:8-22: no module `stringkit::pda`: module `stringkit` has no file pda.nomi; did you mean 'stringkit::pad'?"
 	var got []string
 	for _, e := range fa.TypeErrors {
 		s := fmt.Sprintf("%d:%d-%d: %s", e.Line, e.Col, e.EndCol, e.Message)
@@ -161,7 +161,7 @@ func TestMissingImport_NameInAnExistingModule(t *testing.T) {
 	cases := []struct {
 		entry, want string
 	}{
-		{"import std/io.nosuchname\n\nfn main() {\n    nosuchname()\n}\n", "1:15: file 'std/io' has no exported name 'nosuchname'"},
+		{"import std::io.nosuchname\n\nfn main() {\n    nosuchname()\n}\n", "1:16: file 'std::io' has no exported name 'nosuchname'"},
 		{"import utils.gret\n\nfn main() {\n    gret()\n}\n", "1:14: file 'utils' has no exported name 'gret'"},
 	}
 	for _, tc := range cases {
@@ -185,10 +185,10 @@ func TestMissingImport_NameInAnExistingModule(t *testing.T) {
 // import cycle and a nested path.
 func TestMissingImport_PresentModulesStayAccepted(t *testing.T) {
 	siblings := map[string]string{
-		"utils":       "import tools/shape\n\npub fn greet() -> Int {\n    shape.area()\n}\n",
+		"utils":       "import tools::shape\n\npub fn greet() -> Int {\n    shape.area()\n}\n",
 		"tools/shape": "import utils\n\npub enum Shape {\n    Circle(Float)\n}\n\npub fn area() -> Int {\n    1\n}\n\npub fn twice() -> Int {\n    utils.greet() + 1\n}\n",
 	}
-	entry := "import {\n    std/io\n    tools/shape.Shape.{Circle}\n    utils\n    utils.greet\n}\n\nfn main() {\n    _ = Circle(1.0)\n    io.print(Int.to_string(utils.greet() + greet()))\n}\n"
+	entry := "import {\n    std::io\n    tools::shape.Shape.{Circle}\n    utils\n    utils.greet\n}\n\nfn main() {\n    _ = Circle(1.0)\n    io.print(Int.to_string(utils.greet() + greet()))\n}\n"
 	errs := buildProjectExpectingErrors(t, entry, siblings)
 	for _, e := range errs {
 		if e.Code == analysis.UnusedBindingCode {
@@ -211,32 +211,32 @@ func TestMissingImport_ModuleRootIsNotAFile(t *testing.T) {
 		{
 			name:  "aliased selector",
 			entry: "import std.io as console\n\nfn main() {\n    console.print(\"hi\")\n}\n",
-			want:  "1:8-11: " + msg + "; did you mean `import std/io as console`?",
+			want:  "1:8-11: " + msg + "; did you mean `import std::io as console`?",
 		},
 		{
 			name:  "aliased selector in a block",
 			entry: "import {\n    std.io as console\n}\n\nfn main() {\n    console.print(\"hi\")\n}\n",
-			want:  "2:5-8: " + msg + "; did you mean `import std/io as console`?",
+			want:  "2:5-8: " + msg + "; did you mean `import std::io as console`?",
 		},
 		{
 			name:  "selector",
 			entry: "import std.io\n\nfn main() {\n    io.print(\"hi\")\n}\n",
-			want:  "1:8-11: " + msg + "; did you mean `import std/io`?",
+			want:  "1:8-11: " + msg + "; did you mean `import std::io`?",
 		},
 		{
 			name:  "brace selector",
 			entry: "import std.{io}\n\nfn main() {\n    io.print(\"hi\")\n}\n",
-			want:  "1:8-11: " + msg + "; did you mean `import std/io`?",
+			want:  "1:8-11: " + msg + "; did you mean `import std::io`?",
 		},
 		{
 			name:  "selector that is no std file",
 			entry: "import std.nosuchfile\n\nfn main() {\n    nosuchfile.x()\n}\n",
-			want:  "1:8-11: " + msg + "; import a file in it, such as `std/io`",
+			want:  "1:8-11: " + msg + "; import a file in it, such as `std::io`",
 		},
 		{
 			name:  "file API import",
 			entry: "import std\n\nfn main() {\n    std.print(\"hi\")\n}\n",
-			want:  "1:8-11: " + msg + "; import a file in it, such as `std/io`",
+			want:  "1:8-11: " + msg + "; import a file in it, such as `std::io`",
 		},
 	}
 	for _, tc := range cases {
@@ -268,7 +268,7 @@ func TestMissingImport_CrossModuleRootIsNotAFile(t *testing.T) {
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 	lib := std.Load()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader())
-	want := "1:8-17: `stringkit` is a module, not a file; an import names a file in it; did you mean `import stringkit/pad`?"
+	want := "1:8-17: `stringkit` is a module, not a file; an import names a file in it; did you mean `import stringkit::pad`?"
 	var got []string
 	for _, e := range fa.TypeErrors {
 		s := fmt.Sprintf("%d:%d-%d: %s", e.Line, e.Col, e.EndCol, e.Message)

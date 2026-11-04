@@ -10,7 +10,7 @@ func TestIRUndeterminedTypeArgument_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn ident<T>(x: T) -> T {
     x
@@ -53,7 +53,7 @@ func TestIRUndeterminedTypeArgument_StdShapesRun(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     io.inspect(Some([]))
@@ -145,7 +145,7 @@ func TestIRUndeterminedTypeArgument_MapShapesRun(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 struct Countdown {
     from: Int

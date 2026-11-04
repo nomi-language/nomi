@@ -11,7 +11,7 @@ func TestIRRangeOverUserDiscrete_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 type Id Int
 
@@ -98,7 +98,7 @@ impl Discrete for Id {
 }
 `
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     ids.Id
 }
 

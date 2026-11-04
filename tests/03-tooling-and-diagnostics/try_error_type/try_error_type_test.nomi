@@ -12,7 +12,7 @@
 // `Display.to_string`. The checker rejects these programs at the `?`,
 // naming both error types.
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 

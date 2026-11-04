@@ -15,7 +15,7 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-const inlineValueSrc = `import std/io
+const inlineValueSrc = `import std::io
 
 fn scale(xs: List<Int>, by: Int) -> List<Int> {
     factor = by * 2

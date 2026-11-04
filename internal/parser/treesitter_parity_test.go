@@ -443,7 +443,7 @@ var rejectedInputs = []parityInput{
 	{"a doubled comma in a tuple type", "fn f(p: #(Int,, Int)) -> Int {\n    0\n}\n"},
 	{"a doubled comma in a function type", "fn f(g: (Int,, Int) -> Int) -> Int {\n    0\n}\n"},
 	{"a doubled comma in a variant payload", "enum E {\n    A(Int,, Int)\n}\n"},
-	{"a doubled comma in an import list", "import std/json.{Json,, ToJson}\n"},
+	{"a doubled comma in an import list", "import std::json.{Json,, ToJson}\n"},
 }
 
 // patternInputs put a pattern where the parser reads one: the left side of a

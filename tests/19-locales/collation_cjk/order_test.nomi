@@ -1,6 +1,6 @@
 import {
-    std/collation.Collator
-    std/locale.Locale
+    std::collation.Collator
+    std::locale.Locale
 }
 
 fn sorted(words: List<String>, collator: Collator) -> List<String> {

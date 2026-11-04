@@ -32,7 +32,7 @@
 //   - `mixed` puts a two-bound generic and a one-bound generic on the same
 //     value, so the one-bound path is exercised beside the new one rather than
 //     assumed unaffected.
-import std/io
+import std::io
 
 interface Greet {
     fn hello(value: self) -> String

@@ -57,12 +57,12 @@ func TestCompletion_Derive(t *testing.T) {
 // prelude binds adds none.
 func TestCompletion_DeriveImportsTheInterface(t *testing.T) {
 	items := completeWith(t, true, deriveDecls+"\nderive ‸\n")
-	wantEdit(t, onlyEdit(t, mustItem(t, items, "ToJson")), 0, 0, 0, 0, "import std/json.ToJson\n\n")
+	wantEdit(t, onlyEdit(t, mustItem(t, items, "ToJson")), 0, 0, 0, 0, "import std::json.ToJson\n\n")
 	if it := mustItem(t, items, "Hashable"); len(it.AdditionalTextEdits) != 0 {
 		t.Fatalf("a prelude interface carries an import: %+v", it.AdditionalTextEdits)
 	}
 
-	items = completeWith(t, true, "import std/json.ToJson\n\n"+deriveDecls+"\nderive ToJson for Point\n\nderive ‸\n")
+	items = completeWith(t, true, "import std::json.ToJson\n\n"+deriveDecls+"\nderive ToJson for Point\n\nderive ‸\n")
 	if it := mustItem(t, items, "ToJson"); len(it.AdditionalTextEdits) != 0 {
 		t.Fatalf("an imported interface is imported again: %+v", it.AdditionalTextEdits)
 	}

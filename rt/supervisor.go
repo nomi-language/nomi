@@ -375,10 +375,23 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 		// dereference so a producer defect names itself.
 		Trap("Supervisor.spawn: supervisor has no runtime state")
 	}
-	// Per-task cancellable context derived from the supervisor's, so
+	// Per-task cancellable context whose lifetime is the supervisor's, so
 	// `Task.cancel` stops this task alone while a drain (or a signal reaching
 	// the registry root) still stops all of them.
-	taskCtx, taskCancel := context.WithCancel(g.ctx)
+	//
+	// Its values are the spawning frame's: what the machine put on every
+	// frame's context (its locale data, message tables, streams, files and
+	// input). The supervisor's context, made in boot from the process
+	// registry, carries none of them, and a task that read its values found
+	// cldrdata.Default's data instead of the program's: every locale with
+	// `nomi run`, none in a built executable. The spawner's cancellation and
+	// deadline are not carried; a task outlives the request that spawned it.
+	values := context.Background()
+	if fr != nil && fr.ctx != nil {
+		values = context.WithoutCancel(fr.ctx)
+	}
+	taskCtx, taskCancel := context.WithCancel(values)
+	stopWithSupervisor := context.AfterFunc(g.ctx, taskCancel)
 	t := &task[Unit]{done: make(chan struct{}), cancel: taskCancel}
 
 	// Enrol before returning. See supervisor.wg.
@@ -405,6 +418,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	go func() {
 		defer g.wg.Done()
 		defer close(t.done)
+		defer stopWithSupervisor()
 		defer taskCancel()
 
 		// Wait for a slot. A task queued behind `max_running` that is still

@@ -5,7 +5,7 @@ import "testing"
 // A destructuring state binds the pattern's names from the state at the head
 // of each iteration. A bare `break` answers the whole state.
 func TestIRLoop_DestructuredState(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Point {
     x: Int

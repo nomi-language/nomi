@@ -40,8 +40,8 @@ test "lowering probe" {
 const loweringCaptureProbe = `
 
 test "lowering capture probe" {
-  import std/io
-  import std/regex.Regex
+  import std::io
+  import std::regex.Regex
   run = io.capture("", fn -> io.print("x"))
   assert run.output == "x\n"
   _ = Regex` + "`[`" + `
@@ -221,7 +221,7 @@ func TestLoweringRun_ProgramOfSeveralFilesLowersTheAnalysis(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import std/io\nimport shapes\n\nfn main() {\n    io.inspect(shapes.area(2))\n}\n"
+	src := "import std::io\nimport shapes\n\nfn main() {\n    io.inspect(shapes.area(2))\n}\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
 		"shapes.nomi": "pub fn area(r: Int) -> Int {\n    r * 3\n}\n",

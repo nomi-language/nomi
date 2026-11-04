@@ -29,7 +29,7 @@ fn main() {
 // untouched, and a later field written twice through updates keeps its own
 // value.
 func TestIRSpread_OrderAndPersistence(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct P {
   x: Int
   y: Int

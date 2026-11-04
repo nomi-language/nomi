@@ -258,7 +258,7 @@ func fileImportEdits(dm *analysis.DocumentManager, uri, path, content string, mo
 		start, end := importPathRange(imp, n)
 		r := protocol.Range{Start: start, End: end}
 		pathRanges = append(pathRanges, r)
-		edits = append(edits, protocol.TextEdit{Range: r, NewText: strings.Join(segs, "/")})
+		edits = append(edits, protocol.TextEdit{Range: r, NewText: strings.Join(segs, ast.PathSeparator)})
 
 		oldLast := ast.ImportNodeName(imp.ModulePath[len(imp.ModulePath)-1])
 		newLast := segs[len(segs)-1]

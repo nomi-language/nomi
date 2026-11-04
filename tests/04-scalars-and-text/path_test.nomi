@@ -1,5 +1,5 @@
 // std/path: paths as Strings with `/` on every system, read as text alone.
-import std/path
+import std::path
 
 test "join and clean" {
     assert path.join("data", "2026/log.txt") == "data/2026/log.txt"

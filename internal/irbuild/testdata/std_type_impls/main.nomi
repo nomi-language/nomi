@@ -3,9 +3,9 @@
 // `Int.from_v(v)`), by the interface, through a type parameter bound to the
 // std type, and dispatched on values held as the interface.
 import {
-    std/calendar.Date
-    std/instant.Instant
-    std/io
+    std::calendar.Date
+    std::instant.Instant
+    std::io
     lib.{self, ToV, V}
 }
 

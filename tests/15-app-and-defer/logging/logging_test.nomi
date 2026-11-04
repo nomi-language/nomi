@@ -2,10 +2,10 @@
 // replaces it with log_testing's recorder, and under a virtual clock every
 // record carries the same time.
 import {
-    std/io
-    std/log.{self, Level, Logger}
-    std/log_testing
-    std/testing.Clock
+    std::io
+    std::log.{self, Level, Logger}
+    std::log_testing
+    std::testing.Clock
     orders_app.{self, App, place_order}
 }
 

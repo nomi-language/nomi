@@ -1,6 +1,6 @@
 import {
-    std/compiler
-    std/io
+    std::compiler
+    std::io
     checks
     own.{self, Diagnostic}
 }

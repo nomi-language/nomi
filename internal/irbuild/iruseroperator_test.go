@@ -47,7 +47,7 @@ fn main() {
 }
 
 func TestIRUserOperator_OverloadsEffectsAndClosure(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Score Int
 type Points Int
 fn number(x: Score) -> Int { Score(n) = x; n }
@@ -82,7 +82,7 @@ fn main() {
 }
 
 func TestIRUserOperator_GenericCaller(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Score Int
 fn number(x: Score) -> Int { Score(n) = x; n }
 impl Add<Score, Score> for Score {

@@ -8,7 +8,7 @@ import "testing"
 // ambiguous element type), two type arguments, a file-qualified generic, a
 // local and a nested generic, and `Context.value<T>`.
 func TestTurbofishCall_RunsAtTheCheckedSignature(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 type TraceId String
 
@@ -38,7 +38,7 @@ fn main() {
 // the function's own type parameters, as any generic call's does; it does
 // not name an implementor to dispatch to.
 func TestTurbofishCall_OnAnInterfaceOwnerFunction(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
     io.print(Iter.sum<Int>([]))

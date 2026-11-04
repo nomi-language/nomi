@@ -17,7 +17,7 @@ fn main() {
 }
 
 func TestIRStructEquality_FloatFieldsAndInequality(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Reading {
   label: String
   value: Float
@@ -37,7 +37,7 @@ fn main() {
 // `==` on a struct with a hand-written Equatable calls the impl rather than
 // comparing structurally; `!=` negates its answer.
 func TestIRStructEquality_HandWrittenImplIsCalled(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Loose {
   id: Int
   note: String
@@ -57,7 +57,7 @@ fn main() {
 // `equal`, `compare` and `hash` recurse into the children and end with the
 // data. The builder declined a `==` inside the `equal` it would call.
 func TestIRStructEquality_ImplRecursesIntoItsOwnTypeFields(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 enum Tree {
   Leaf
   Node#(Tree, Int)

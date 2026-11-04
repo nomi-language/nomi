@@ -27,7 +27,7 @@
 //# })
 //# ```
 //#
-//# std/mail_testing has `Memory`, a mailer that keeps what it sends for
+//# std::mail_testing has `Memory`, a mailer that keeps what it sends for
 //# tests, `Failing`, a mailer whose every send fails, `with_smtp_server`,
 //# an SMTP server for tests, and `conformance`, the suite every backend
 //# passes.
@@ -36,7 +36,7 @@
 //# be injected into, RFC 2047 encoded words for text that is not plain
 //# ASCII, quoted-printable UTF-8 bodies, multipart/alternative for text
 //# and HTML together, and CRLF line ends. A limit on how fast mail goes
-//# out belongs to the caller: std/jobs's `Rate` limits sends from jobs.
+//# out belongs to the caller: std::jobs's `Rate` limits sends from jobs.
 
 import {
     base64
@@ -432,7 +432,7 @@ pub opaque struct Smtp {
 
 /// A mailer for the SMTP server `config` describes. Nothing connects until
 /// a message is sent.
-//! import std/mail_testing.{SmtpServer, with_smtp_server}
+//! import std::mail_testing.{SmtpServer, with_smtp_server}
 //!
 //! message = Message{
 //!     from: Address.new("a@example.com")?,
@@ -850,8 +850,8 @@ fn check_attachment(attachment: Attachment) -> Result<Unit, Error> {
 /// mailer writes a message this way. `message_id` and `date` are made
 /// when they are `None`: a random id at the From address's domain, and
 /// the time now.
-//! import std/html.Html
-//! import std/instant.Instant
+//! import std::html.Html
+//! import std::instant.Instant
 //!
 //! message = Message{
 //!     from: Address.new("a@example.com", name: "Ana")?,
@@ -1189,7 +1189,7 @@ fn fold(line: String) -> String {
 }
 
 /// `at` as an RFC 5322 date in UTC.
-//! import std/instant.Instant
+//! import std::instant.Instant
 //!
 //! assert rfc5322_date(Instant.from_seconds(1793638245)) == "Mon, 02 Nov 2026 16:50:45 +0000"
 //! assert rfc5322_date(Instant.from_seconds(951782400)) == "Tue, 29 Feb 2000 00:00:00 +0000"

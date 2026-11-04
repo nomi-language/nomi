@@ -27,14 +27,14 @@ func runOrganize(t *testing.T, src string) (string, bool) {
 // Names are deliberately non-prelude so what is removed is removed for being
 // unused, not for duplicating a prelude binding.
 func TestOrganize_RemovesUnused(t *testing.T) {
-	src := "import std/timer\n" +
-		"import std/calendar.{Date, Time}\n\n" +
+	src := "import std::timer\n" +
+		"import std::calendar.{Date, Time}\n\n" +
 		"fn f(d: Date) -> Date { d }\n"
 	got, ok := runOrganize(t, src)
 	if !ok {
 		t.Fatal("expected an organize action")
 	}
-	want := "import std/calendar.Date\n\n" +
+	want := "import std::calendar.Date\n\n" +
 		"fn f(d: Date) -> Date { d }\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -43,15 +43,15 @@ func TestOrganize_RemovesUnused(t *testing.T) {
 
 // Sorts imports that are all used but out of canonical order.
 func TestOrganize_SortsUsed(t *testing.T) {
-	src := "import std/io\n" +
-		"import std/duration.Duration\n\n" +
+	src := "import std::io\n" +
+		"import std::duration.Duration\n\n" +
 		"fn f(_d: Duration) -> Unit { io.print(\"x\") }\n"
 	got, ok := runOrganize(t, src)
 	if !ok {
 		t.Fatal("expected an organize action")
 	}
-	want := "import std/duration.Duration\n" +
-		"import std/io\n\n" +
+	want := "import std::duration.Duration\n" +
+		"import std::io\n\n" +
 		"fn f(_d: Duration) -> Unit { io.print(\"x\") }\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -61,15 +61,15 @@ func TestOrganize_SortsUsed(t *testing.T) {
 // Prunes a grouped block down to one entry and collapses it to the bare form.
 func TestOrganize_BlockPrunesAndCollapses(t *testing.T) {
 	src := "import {\n" +
-		"  std/calendar.{Date, Time}\n" +
-		"  std/io\n" +
+		"  std::calendar.{Date, Time}\n" +
+		"  std::io\n" +
 		"}\n\n" +
 		"fn f(d: Date) -> Date { d }\n"
 	got, ok := runOrganize(t, src)
 	if !ok {
 		t.Fatal("expected an organize action")
 	}
-	want := "import std/calendar.Date\n\n" +
+	want := "import std::calendar.Date\n\n" +
 		"fn f(d: Date) -> Date { d }\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -78,21 +78,21 @@ func TestOrganize_BlockPrunesAndCollapses(t *testing.T) {
 
 // Idempotent: organizing an already-canonical file offers no action.
 func TestOrganize_NoActionWhenCanonical(t *testing.T) {
-	src := "import std/io\n\nfn main() { io.print(\"x\") }\n"
+	src := "import std::io\n\nfn main() { io.print(\"x\") }\n"
 	if _, ok := runOrganize(t, src); ok {
 		t.Error("expected no action for an already-canonical file")
 	}
 }
 
 func TestOrganize_DrilledFunctionImportUsedBare(t *testing.T) {
-	src := "import std/io.inspect\n\nfn main() { inspect(42) }\n"
+	src := "import std::io.inspect\n\nfn main() { inspect(42) }\n"
 	if _, ok := runOrganize(t, src); ok {
 		t.Error("expected no action when a drilled function import is used bare")
 	}
 }
 
 func TestOrganize_DrilledFunctionImportUsedInPipe(t *testing.T) {
-	src := "import std/io.inspect\n\nfn main() { 42 |> inspect() }\n"
+	src := "import std::io.inspect\n\nfn main() { 42 |> inspect() }\n"
 	if _, ok := runOrganize(t, src); ok {
 		t.Error("expected no action when a drilled function import is used as a pipe stage")
 	}
@@ -100,8 +100,8 @@ func TestOrganize_DrilledFunctionImportUsedInPipe(t *testing.T) {
 
 // Idempotence end to end: running organize on its own output is a no-op.
 func TestOrganize_IdempotentOnOutput(t *testing.T) {
-	src := "import std/lists\n" +
-		"import std/comparable.{Comparable, Ordering}\n\n" +
+	src := "import std::lists\n" +
+		"import std::comparable.{Comparable, Ordering}\n\n" +
 		"fn f<T>(x: T) -> T where T: Comparable { x }\n"
 	once, ok := runOrganize(t, src)
 	if !ok {
@@ -116,9 +116,9 @@ func TestOrganize_IdempotentOnOutput(t *testing.T) {
 // whole-region replace would otherwise silently delete it. Nomi resolves
 // whole-program, so an import after another declaration is legal.
 func TestOrganize_BailsOnInterleavedCode(t *testing.T) {
-	src := "import std/io\n\n" +
+	src := "import std::io\n\n" +
 		"fn helper() -> Int { 1 }\n\n" +
-		"import std/lists\n\n" +
+		"import std::lists\n\n" +
 		"fn main() { io.print(\"x\") l = lists.length([1]) }\n"
 	if _, ok := runOrganize(t, src); ok {
 		t.Error("expected no action when a non-import declaration is between imports")
@@ -128,8 +128,8 @@ func TestOrganize_BailsOnInterleavedCode(t *testing.T) {
 // Bails (no action) when a comment sits inside the import region, rather than
 // clobbering it with a whole-region replace.
 func TestOrganize_BailsOnCommentInRegion(t *testing.T) {
-	src := "import std/lists\n" +
-		"import std/io // keep me\n\n" +
+	src := "import std::lists\n" +
+		"import std::io // keep me\n\n" +
 		"fn main() { io.print(\"x\") }\n"
 	if _, ok := runOrganize(t, src); ok {
 		t.Error("expected no action when a comment is inside the import region")

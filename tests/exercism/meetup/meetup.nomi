@@ -1,7 +1,7 @@
 //# The date of a meetup given as a weekday of a month, such as the second
 //# Tuesday or the teenth Friday.
 
-import std/calendar.{Date, Weekday}
+import std::calendar.{Date, Weekday}
 
 /// Which of a month's days on a given weekday a meetup falls on.
 pub enum Week {

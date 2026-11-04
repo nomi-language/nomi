@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A `Decimal` as a MAP KEY and a SET ELEMENT — the one position where Decimal's
 // scale rule stops being a rendering question and becomes a bucketing question.

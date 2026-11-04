@@ -203,8 +203,8 @@ func unambiguousMissing(missing []analysis.MissingImport) []analysis.MissingImpo
 	return out
 }
 
-// importStmtFor builds the import statement m adds: selective `import std/io`
-// (module qualifier) or selective `import std/sets.Set` (type).
+// importStmtFor builds the import statement m adds: selective `import std::io`
+// (module qualifier) or selective `import std::sets.Set` (type).
 func importStmtFor(m analysis.MissingImport) *ast.ImportStmt {
 	stmt := &ast.ImportStmt{ModulePath: identPath(strings.Split(m.ModulePath, "/"))}
 	if m.Member != "" {

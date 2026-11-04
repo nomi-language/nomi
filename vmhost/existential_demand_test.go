@@ -89,7 +89,7 @@ func TestExistentialDemand_AnotherInterfaceIsAnError(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := func(decl string) string {
-				return "import std/io\n\n" + scale + decl + "\nfn main() {\n    io.print(1)\n}\n"
+				return "import std::io\n\n" + scale + decl + "\nfn main() {\n    io.print(1)\n}\n"
 			}
 			rejects(t, src(tc.bad), tc.want, tc.help)
 			admits(t, src(tc.good))
@@ -102,7 +102,7 @@ func TestExistentialDemand_AnotherInterfaceIsAnError(t *testing.T) {
 // requires, so none of them is an error on a value of interface type; and the
 // type parameter form the hint writes runs.
 func TestExistentialDemand_AllowedUsesRun(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 interface Scale {
     fn factor(s: self) -> Int
@@ -148,7 +148,7 @@ fn main() {
 // (unequal across concrete types, through a hand-written Equatable
 // otherwise). Comparable is not, so the ordering cases above stay errors.
 func TestExistentialDemand_EquatableAndHashableBoundsRun(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 interface Scale {
     fn factor(s: self) -> Int

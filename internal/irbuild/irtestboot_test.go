@@ -16,7 +16,7 @@ import (
 //
 // The VM leg runs the file function the case calls, in the app the group's
 // boot publishes; the case's printed line is the comparison.
-const irTestBootSource = `import std/io
+const irTestBootSource = `import std::io
 
 pub struct App {
   context: Context

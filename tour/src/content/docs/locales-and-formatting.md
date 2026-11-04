@@ -32,8 +32,8 @@ stay exact. A price in a currency is a `Money`, shown below.
 
 ```nomi-run
 import {
-    std/io
-    std/locale.Locale
+    std::io
+    std::locale.Locale
 }
 
 fn main() {
@@ -94,16 +94,16 @@ show the currency, and how to read a price someone typed.
 ## Dates and times
 
 An American writes October 20 as `10/20/26`, and a German as `20.10.26`.
-The types in [`std/calendar`](/reference/calendar/) (`Date`, `Time`,
+The types in [`std::calendar`](/reference/calendar/) (`Date`, `Time`,
 `NaiveDateTime` and `DateTime`) each have a `format` that writes them for a
 locale. `style:` picks how long the text is: `.Short`, `.Medium` (the
 default for a date), `.Long` or `.Full`.
 
 ```nomi-run
 import {
-    std/calendar.{Date, DateTime}
-    std/io
-    std/locale.Locale
+    std::calendar.{Date, DateTime}
+    std::io
+    std::locale.Locale
 }
 
 fn main() {
@@ -148,9 +148,9 @@ locale uses for those fields.
 
 ```nomi-run
 import {
-    std/calendar.{Date, DateFields}
-    std/io
-    std/locale.Locale
+    std::calendar.{Date, DateFields}
+    std::io
+    std::locale.Locale
 }
 
 fn main() {
@@ -197,10 +197,10 @@ long delivery takes.
 
 ```nomi-run
 import {
-    std/calendar.TimeUnit
-    std/duration.Duration
-    std/io
-    std/locale.Locale
+    std::calendar.TimeUnit
+    std::duration.Duration
+    std::io
+    std::locale.Locale
 }
 
 fn main() {
@@ -237,8 +237,8 @@ names the way the reader's language joins them:
 
 ```nomi-run
 import {
-    std/io
-    std/locale.Locale
+    std::io
+    std::locale.Locale
 }
 
 fn main() {
@@ -283,8 +283,8 @@ and the same locale you used to show it to them. The locale matters:
 
 ```nomi-run
 import {
-    std/io
-    std/locale.Locale
+    std::io
+    std::locale.Locale
 }
 
 fn main() {
@@ -331,8 +331,8 @@ reads a date written in a locale's style, `.Short` unless you pass another:
 
 ```nomi-run
 import {
-    std/calendar.Date
-    std/locale.Locale
+    std::calendar.Date
+    std::locale.Locale
 }
 
 fn main() {
@@ -372,7 +372,7 @@ When the locale comes from outside, such as a web address or a setting, use
 different spelling, such as `pl_PL.UTF-8`, which `Locale.from_posix` reads.
 
 ```nomi-run
-import std/locale.Locale
+import std::locale.Locale
 
 fn main() {
     dbg Locale.parse("EN-us")
@@ -414,7 +414,7 @@ The shop has pages in only a few languages. `Locale.negotiate` picks the one
 that suits the reader best, or a default when none comes close:
 
 ```nomi-run
-import std/locale.Locale
+import std::locale.Locale
 
 once shop = [Locale`en`, Locale`de`, Locale`pl`, Locale`pt`]
 
@@ -454,8 +454,8 @@ them, as `cart_total` does:
 
 ```nomi-run
 import {
-    std/io
-    std/locale.Locale
+    std::io
+    std::locale.Locale
 }
 
 struct App {
@@ -522,9 +522,9 @@ one language order them. Make one for the locale, then sort with its
 
 ```nomi-run
 import {
-    std/collation.Collator
-    std/io
-    std/locale.Locale
+    std::collation.Collator
+    std::io
+    std::locale.Locale
 }
 
 fn main() {
@@ -563,7 +563,7 @@ take the locale. To match text without regard to case, compare the
 results of `String.fold_case`:
 
 ```nomi-run
-import std/locale.Locale
+import std::locale.Locale
 
 fn main() {
     dbg String.uppercase("istanbul")
@@ -593,9 +593,9 @@ back. Give your own type both when it is shown to programs and to people:
 
 ```nomi-run
 import {
-    std/io
-    std/locale.Locale
-    std/localize.Localize
+    std::io
+    std::locale.Locale
+    std::localize.Localize
 }
 
 struct Weight {

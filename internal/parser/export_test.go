@@ -79,7 +79,7 @@ func TestParsePubInABlockIsRefused(t *testing.T) {
 		line, col int
 	}{
 		{"fn body", "fn main() {\n    pub fn g() {}\n}\n", 2, 5},
-		{"import in a body", "fn main() {\n    pub import std/io\n}\n", 2, 5},
+		{"import in a body", "fn main() {\n    pub import std::io\n}\n", 2, 5},
 		{"lambda", "fn main() {\n    f = fn x -> {\n        pub fn g() {}\n        x\n    }\n}\n", 3, 9},
 		{"test body", "test \"t\" {\n    pub fn g() {}\n}\n", 2, 5},
 		{"once initializer", "once v = {\n    pub fn g() {}\n    1\n}\n", 2, 5},

@@ -5,8 +5,8 @@
 //# a query changed after the last `nomi tool sqlkit generate`.
 
 import {
-    std/fs
-    std/hash
+    std::fs
+    std::hash
     migrate
 }
 

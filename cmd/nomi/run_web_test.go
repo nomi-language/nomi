@@ -237,7 +237,7 @@ func TestRunWeb(t *testing.T) {
 	src := t.TempDir()
 	entry := filepath.Join(src, "hello.nomi")
 	program := func(text string) string {
-		return "import {\n  std/io\n  words\n}\n\nfn main() {\n  io.print(\"" + text + "\")\n  io.print(words.word())\n}\n"
+		return "import {\n  std::io\n  words\n}\n\nfn main() {\n  io.print(\"" + text + "\")\n  io.print(words.word())\n}\n"
 	}
 	helper := filepath.Join(src, "words.nomi")
 	word := func(text string) string { return "pub fn word() -> String {\n  \"" + text + "\"\n}\n" }
@@ -357,7 +357,7 @@ func TestRunWeb_GoBindings(t *testing.T) {
 	goFile := filepath.Join(dir, "answer.go")
 	mustWrite(t, goFile, "package answer\n\nfunc Answer() int64 {\n\treturn 41\n}\n")
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, "import std/io\n\ngopkg \"answer\"\n\nfn answer() -> Int go answer.Answer\n\nfn main() {\n    io.print(answer())\n}\n")
+	mustWrite(t, entry, "import std::io\n\ngopkg \"answer\"\n\nfn answer() -> Int go answer.Answer\n\nfn main() {\n    io.print(answer())\n}\n")
 	s := startWebServer(t, env, entry)
 	if state := s.next(); state != (webState{Build: 1}) {
 		t.Fatalf("first state %+v, want build 1 and no error", state)
@@ -398,7 +398,7 @@ func TestRunWeb_Refusals(t *testing.T) {
 		}
 	}
 	// Without --web, a flag after the file is still the program's.
-	mustWrite(t, filepath.Join(dir, "args.nomi"), "import std/io\n\nstruct App {\n  context: Context\n}\n\nfn boot(startup: Startup) -> Result<App, String> {\n  io.print(startup.args)\n  Ok(App{context: Context.root()})\n}\n\nfn main() {\n}\n")
+	mustWrite(t, filepath.Join(dir, "args.nomi"), "import std::io\n\nstruct App {\n  context: Context\n}\n\nfn boot(startup: Startup) -> Result<App, String> {\n  io.print(startup.args)\n  Ok(App{context: Context.root()})\n}\n\nfn main() {\n}\n")
 	if got := runProcess(t, env, dir, "", nomiBin, "run", "args.nomi", "--web"); got.exit != 0 || got.stdout != "[--web]\n" {
 		t.Fatalf("nomi run args.nomi --web: exit %d\n%s", got.exit, got.transcript())
 	}
@@ -435,7 +435,7 @@ func TestRunWeb_Static(t *testing.T) {
 	src := t.TempDir()
 	entry := filepath.Join(src, "page.nomi")
 	program := func(text string) string {
-		return "import std/io\n\nfn main() {\n  io.print(\"" + text + "\")\n}\n"
+		return "import std::io\n\nfn main() {\n  io.print(\"" + text + "\")\n}\n"
 	}
 	mustWrite(t, entry, program("one"))
 	web := filepath.Join(src, "web")

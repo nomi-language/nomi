@@ -9,7 +9,7 @@
 // twice with a different implementor behind it. The two answers differ in every
 // character on purpose — see core.nomi.
 import {
-    std/io
+    std::io
     core.{self, Logger}
     extra.{self}
     wire.{self}

@@ -1,5 +1,5 @@
 import {
-    std/json.Json
+    std::json.Json
     rest_api.{RestApi, User, Users}
 }
 

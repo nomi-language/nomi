@@ -442,7 +442,7 @@ func runNew(args []string) error {
 	files := []struct{ name, text string }{
 		{"nomi.toml", manifestText(name, []string{"main"})},
 		{"go.mod", goModText(path)},
-		{"main.nomi", "import std/io\n\nfn main() {\n    io.print(\"hello\")\n}\n"},
+		{"main.nomi", "import std::io\n\nfn main() {\n    io.print(\"hello\")\n}\n"},
 		{"AGENTS.md", agentsText(name)},
 	}
 	var wrote, kept []string

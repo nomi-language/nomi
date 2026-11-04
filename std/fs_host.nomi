@@ -1,6 +1,6 @@
-//# The Go-backed half of std/fs and std/fs_testing: each crossing into
+//# The Go-backed half of std::fs and std::fs_testing: each crossing into
 //# the file system the running call reaches (internal/stdio). It is
-//# internal; a program imports std/fs, which builds its values from these
+//# internal; a program imports std::fs, which builds its values from these
 //# and gives them their documentation.
 
 import {
@@ -116,7 +116,7 @@ pub host fn sandbox_log(sandbox: FileSystem) -> List<String>
 /// The handles on the sandbox still open.
 pub host fn sandbox_open(sandbox: FileSystem) -> List<String>
 
-/// Runs `body` with `files` as the file system every `std/fs` call in it
+/// Runs `body` with `files` as the file system every `std::fs` call in it
 /// reaches, its tasks' included, and answers what it returned.
 pub fn run_in<T>(files: FileSystem, body: () -> T) -> T {
     run_on(files, body, fn value -> value)

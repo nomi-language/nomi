@@ -10,7 +10,7 @@ func TestIRDefaultedFunctionType_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn connect(host: String, port: Int = 8080) -> String {
     "${host}:${port}"
@@ -45,7 +45,7 @@ func TestIRDefaultedFunctionType_NamelessCalleesRun(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn connect(host: String, port: Int = 8080) -> String {
     "${host}:${port}"

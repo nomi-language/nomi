@@ -15,7 +15,7 @@
 // both — so a run in which one interface's table answered for the other is a
 // different transcript rather than an equal one, and a builder that merely
 // stopped crashing does not pass.
-import std/io
+import std::io
 
 pub interface Alpha {
     fn a(value: self) -> String

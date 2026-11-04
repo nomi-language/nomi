@@ -42,7 +42,7 @@ fn main() {
 // and would unify `? = String` with no error.)
 func TestTurbofishChecker_PinsReturnParam_ConflictRejected(t *testing.T) {
 	src := `import {
-  std/channels.{Channel, Sender}
+  std::channels.{Channel, Sender}
 }
 fn main() -> Unit {
   ch: Channel<String> = Channel.buffered<Int>(4)
@@ -53,7 +53,7 @@ fn main() -> Unit {
 // Turbofish consistent with the binding annotation is clean (guard).
 func TestTurbofishChecker_ConsistentUsage_Clean(t *testing.T) {
 	src := `import {
-  std/channels.{Channel, Sender}
+  std::channels.{Channel, Sender}
 }
 fn main() -> Unit {
   ch: Channel<Int> = Channel.buffered<Int>(4)
@@ -64,7 +64,7 @@ fn main() -> Unit {
 // Too many type args for the callee's declared params is rejected.
 func TestTurbofishChecker_ArityMismatch_Rejected(t *testing.T) {
 	src := `import {
-  std/channels.{Channel, Sender}
+  std::channels.{Channel, Sender}
 }
 fn main() -> Unit {
   ch = Channel.buffered<Int, String>(4)

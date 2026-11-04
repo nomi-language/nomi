@@ -1,6 +1,6 @@
 // A spread in a list, vector or set literal is any Iter of the literal's
 // elements; one that is no Iter, or an Iter of other elements, is refused.
-import std/compiler.{self, Diagnostic}
+import std::compiler.{self, Diagnostic}
 
 // whether a diagnostic at line:col reads exactly message, before any help
 fn at(diagnostics: List<Diagnostic>, line: Int, col: Int, message: String) -> Bool {

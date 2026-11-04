@@ -10,7 +10,7 @@
 // wrong while still producing a number. The receivers CARRY DATA on purpose: a
 // driver that held the members' bodies but skipped rebinding a receiver would
 // leave the zero value in that slot, and `base` is read on every single hop.
-import std/io
+import std::io
 
 struct Ping {
     base: Int

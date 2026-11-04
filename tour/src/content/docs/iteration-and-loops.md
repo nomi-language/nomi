@@ -73,7 +73,7 @@ This loop prints the lines it reads until it reads `quit` or runs out of
 input. `continue` skips a blank line and goes on to read the next one:
 
 ```nomi-run no-run
-import std/io
+import std::io
 
 fn main() {
     Iter.loop(fn -> {

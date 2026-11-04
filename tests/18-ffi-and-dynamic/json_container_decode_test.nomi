@@ -1,4 +1,4 @@
-import std/json.{FromJson, Json}
+import std::json.{FromJson, Json}
 
 // `FromJson.from_json(json: Json)` declares `self` only in its return type, so
 // no argument value carries the type being decoded. The call-site type

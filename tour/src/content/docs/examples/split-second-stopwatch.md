@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: split_second_stopwatch.nomi
 //# A stopwatch that can be started, stopped, lapped and reset.
 
-import std/duration.Duration
+import std::duration.Duration
 
 /// What a stopwatch is doing.
 pub enum State {
@@ -124,7 +124,7 @@ impl Stopwatch {
 
 // FILE: split_second_stopwatch_test.nomi
 import {
-    std/duration.Duration
+    std::duration.Duration
     split_second_stopwatch.{State, Stopwatch}
 }
 

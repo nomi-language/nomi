@@ -1,9 +1,9 @@
 import {
-    std/calendar.{Days, Error, Hours, Minutes, Months, Nanoseconds, Seconds}
-    std/calendar.Date
-    std/calendar.NaiveDateTime
-    std/calendar.Time
-    std/duration.Duration
+    std::calendar.{Days, Error, Hours, Minutes, Months, Nanoseconds, Seconds}
+    std::calendar.Date
+    std::calendar.NaiveDateTime
+    std::calendar.Time
+    std::duration.Duration
 }
 
 test "naive datetimes parse and display without zone information" {

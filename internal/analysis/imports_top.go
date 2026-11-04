@@ -128,13 +128,13 @@ func (c *checker) checkImportsAtTopOfStmts(stmts []ast.Node) {
 	}
 }
 
-// importDisplayName formats the slash-separated module path of an import
-// for use in error messages: `import std/lists` → "std/lists",
-// `import a/b.{x}` → "a/b".
+// importDisplayName formats the `::`-separated module path of an import
+// for use in error messages: `import std::lists` → "std::lists",
+// `import a::b.{x}` → "a::b".
 func importDisplayName(imp *ast.ImportStmt) string {
 	parts := make([]string, 0, len(imp.ModulePath))
 	for _, seg := range imp.ModulePath {
 		parts = append(parts, ast.ImportNodeName(seg))
 	}
-	return strings.Join(parts, "/")
+	return strings.Join(parts, ast.PathSeparator)
 }

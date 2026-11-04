@@ -135,8 +135,8 @@ func TestStdlibBacklog_CasesRunOnTheVM(t *testing.T) {
 // stdlibBacklogUserSource exercises the same builder changes from a user
 // file, where no stdlib module's own scope applies. Every assertion states
 // its expected value, so a case that runs and passes is a right answer.
-const stdlibBacklogUserSource = `import std/channels.{Channel, Sender, ChannelClosed}
-import std/tasks.{Task}
+const stdlibBacklogUserSource = `import std::channels.{Channel, Sender, ChannelClosed}
+import std::tasks.{Task}
 
 test "Maybe.None as a field access" {
   assert Maybe.is_none(Maybe.None)

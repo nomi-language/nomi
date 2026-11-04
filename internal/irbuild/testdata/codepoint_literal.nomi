@@ -2,7 +2,7 @@
 // Display and Debug, equality and order, ranges, and every pattern position a
 // literal can stand in. `Codepoint` is in the prelude, so neither the
 // parameter annotations nor the literals need an import.
-import std/io
+import std::io
 
 fn kind(cp: Codepoint) -> String {
     case cp {

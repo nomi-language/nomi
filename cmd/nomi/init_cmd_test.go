@@ -110,7 +110,7 @@ func Greet(name string) string { return "hello, " + name }
 `
 
 const showmiMain = `import {
-    std/io
+    std::io
     go_http.greet
 }
 

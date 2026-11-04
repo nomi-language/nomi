@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // The `Iter` terminals that stop early, observed. Every line prints, so
 // the recorded output pins the answers and not merely

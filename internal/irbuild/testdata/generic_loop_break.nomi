@@ -1,6 +1,6 @@
 import {
-    std/io
-    std/iter.Iter.loop
+    std::io
+    std::iter.Iter.loop
 }
 
 /// 13-iterators-and-pipes/loop_control_test.nomi's residual, in isolation.

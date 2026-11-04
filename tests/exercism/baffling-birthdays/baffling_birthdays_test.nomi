@@ -1,6 +1,6 @@
 import {
-    std/calendar.Date
-    std/random.{Generator, Seed}
+    std::calendar.Date
+    std::random.{Generator, Seed}
     baffling_birthdays
 }
 

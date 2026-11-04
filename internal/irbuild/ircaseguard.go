@@ -26,6 +26,7 @@ func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc boo
 	}
 	guarded := br.Guard != nil
 	_, wildcard := br.Pattern.(*ast.WildcardPattern)
+	wildcard = wildcard || (!adHoc && irUnitPattern(br.Pattern, sk))
 	ident, _ := br.Pattern.(*ast.IdentPattern)
 	if adHoc || !irRetainedValueKind(sk) {
 		ident = nil

@@ -1,7 +1,7 @@
 import {
-    std/instant.Instant
-    std/io
-    std/random.{Generator, Seed}
+    std::instant.Instant
+    std::io
+    std::random.{Generator, Seed}
 }
 
 fn main() {

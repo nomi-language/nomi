@@ -1,14 +1,14 @@
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/duration.Duration
-    std/hash
-    std/http.{self, Body, Headers, Method, Request, Response, Status}
-    std/http_testing
-    std/instant.Instant
-    std/storage.{self, Store}
-    std/storage_testing.{self, Memory}
-    std/testing.Clock
-    std/url.{Query, Url}
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::hash
+    std::http.{self, Body, Headers, Method, Request, Response, Status}
+    std::http_testing
+    std::instant.Instant
+    std::storage.{self, Store}
+    std::storage_testing.{self, Memory}
+    std::testing.Clock
+    std::url.{Query, Url}
     s3.{self, Addressing, Config, Credentials, Payload}
 }
 
@@ -488,6 +488,17 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
         data = Body.read_all(request.body) |> Result.with_default(String.to_bytes(""))
         sent_hash = Headers.get(request.headers, "x-amz-content-sha256") |> Maybe.with_default("")
 
+        // S3 signs the path as it arrives, so the path sent must be the one
+        // the canonical request encoded.
+        if Url.escaped_path(request.url) != s3.uri_encode(request.url.path, keep_slash: True) {
+            return Ok(
+                Response{
+                    status: Status.bad_request,
+                    body: error_body("SignatureDoesNotMatch", Url.escaped_path(request.url)),
+                }
+            )
+        }
+
         if sent_hash != "UNSIGNED-PAYLOAD" and sent_hash != hash.sha256_hex(data) {
             return Ok(
                 Response{
@@ -572,4 +583,31 @@ test "the store passes the conformance suite against a fake server" {
 
     ran = http_testing.run(fake_s3(Memory.new()), fn -> storage_testing.conformance(open))
     assert ran.value == []
+}
+
+test "a key is sent and signed with each byte outside A-Z a-z 0-9 - _ . ~ escaped once" {
+    key = "posts/Noah_-_3010(1) é!*'/50%25.jpg"
+    escaped = "/photos/posts/Noah_-_3010%281%29%20%C3%A9%21%2A%27/50%2525.jpg"
+    data = String.to_bytes("jpeg")
+    ran = http_testing.run(ok_answer, fn -> Store.put(store_of(config()), key, data, "image/jpeg"))
+    assert ran.value == Ok(Unit)
+    assert [request] = ran.requests
+    assert request.url.path == "/photos/${key}"
+    assert request.url.raw_path == Some(escaped)
+    assert "${request.url}" == "http://localhost:9000${escaped}"
+
+    #(_, canonical) = s3.canonical_request(
+        unsigned(request),
+        Url.query_values(request.url),
+        hash.sha256_hex(data),
+    )
+
+    assert String.starts_with(canonical, "PUT\n${escaped}\n\n")
+}
+
+test "a public URL escapes each segment of the key" {
+    c = #{..config(), public_base: Some(Url`https://cdn.example.com/`)}
+    u = Store.url(store_of(c), "a(1) b/50%.jpg")!
+    assert u.path == "/a(1) b/50%.jpg"
+    assert "${u}" == "https://cdn.example.com/a%281%29%20b/50%25.jpg"
 }

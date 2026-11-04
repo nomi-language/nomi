@@ -13,8 +13,8 @@
 // identities depending on which variant you built, and only one could
 // dispatch. Both shapes are pinned below for that reason.
 import {
-    std/calendar
-    std/random.Generator
+    std::calendar
+    std::random.Generator
 }
 
 test "a struct-shaped stdlib error variant renders" {

@@ -1,7 +1,7 @@
 //# Counts the letters of many texts, several texts at a time on separate
 //# tasks.
 
-import std/tasks.Task
+import std::tasks.Task
 
 /// How many texts are counted at once.
 once workers = 4

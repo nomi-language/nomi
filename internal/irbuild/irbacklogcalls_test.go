@@ -15,8 +15,8 @@ import (
 // (`calendar.Date.parse`). Each resolves to the owner the 2-segment spelling
 // would, and runs on the VM.
 func TestIRBacklogCalls_ThreeSegmentQualifier(t *testing.T) {
-	const src = `import std/calendar
-import std/json.Json
+	const src = `import std::calendar
+import std::json.Json
 
 pub enum Probe.Reading {
   Steady
@@ -160,7 +160,7 @@ pub fn twice(n: Int) -> Int {
 `,
 		"main_test.nomi": `import {
   api.{make, twice as double}
-  std/iter.Iter.loop
+  std::iter.Iter.loop
 }
 
 fn countdown(from: Int) -> Int {

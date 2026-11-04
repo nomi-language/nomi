@@ -1,6 +1,6 @@
 import {
-    std/compiler.{self, Project}
-    std/io
+    std::compiler.{self, Project}
+    std::io
 }
 
 /// `compiler.check_project` end to end, and the `Some("…")` manifest field

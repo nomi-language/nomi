@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // Probe: A SINGLE-VARIANT ENUM DESTRUCTURED WITH BRACES IN PARAMETER POSITION.
 //

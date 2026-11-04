@@ -33,8 +33,8 @@
 //
 // The variant names are imported explicitly because `Ordering` is in scope
 // unqualified but its VARIANTS are not: a bare `Less` needs
-// `import std/comparable.Ordering.{Less}` and the front end says so.
-import std/comparable.Ordering.{Equal, Greater, Less}
+// `import std::comparable.Ordering.{Less}` and the front end says so.
+import std::comparable.Ordering.{Equal, Greater, Less}
 
 pub struct Priority {
     level: Int

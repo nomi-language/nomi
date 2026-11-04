@@ -97,7 +97,7 @@ A page can also call functions in your program, as often as it likes. Mark
 each function the page may call with `export`:
 
 ```nomi-run no-run
-import std/json.{FromJson, ToJson}
+import std::json.{FromJson, ToJson}
 
 struct Game {
     word: String

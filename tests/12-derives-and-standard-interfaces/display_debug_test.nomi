@@ -1,10 +1,10 @@
 import {
-    std/calendar.Error
-    std/comparable.Direction
-    std/decimal.RoundingMode
-    std/dynamic.PathSegment
-    std/json.Json
-    std/strings.NormalForm
+    std::calendar.Error
+    std::comparable.Direction
+    std::decimal.RoundingMode
+    std::dynamic.PathSegment
+    std::json.Json
+    std::strings.NormalForm
 }
 
 struct Greeter {

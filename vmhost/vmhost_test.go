@@ -14,7 +14,7 @@ import (
 
 // blockedProgram is the fixture for a blocked program: under plantDecline
 // the builder declines `count` at its call to `planted_decline`.
-const blockedProgram = `import std/io
+const blockedProgram = `import std::io
 
 fn count(n: Int, acc: Int) -> Int {
   if n == 0 {
@@ -56,7 +56,7 @@ func writeProgram(t *testing.T, src string) string {
 }
 
 func TestRun_ARetainedProgramRunsOnTheVM(t *testing.T) {
-	path := writeProgram(t, `import std/io
+	path := writeProgram(t, `import std::io
 
 fn double(n: Int) -> Int {
   n * 2
@@ -214,7 +214,7 @@ func TestTest_LineSelectsOneCase(t *testing.T) {
 }
 
 func TestLoadSource_RunsAVirtualProgram(t *testing.T) {
-	p, err := vmhost.LoadSource("main", `import std/io
+	p, err := vmhost.LoadSource("main", `import std::io
 
 fn main() {
   io.print("hi")

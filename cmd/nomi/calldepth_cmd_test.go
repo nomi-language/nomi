@@ -13,7 +13,7 @@ import (
 // positioned message and exits 1, and `nomi test` fails the case and runs the
 // next.
 
-const recursesForever = `import std/io
+const recursesForever = `import std::io
 
 fn down(n: Int) -> Int {
   down(n + 1) + 1

@@ -1,10 +1,10 @@
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/duration.Duration
-    std/io
-    std/supervisors.Supervisor
-    std/tasks.Task
-    std/timer
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::io
+    std::supervisors.Supervisor
+    std::tasks.Task
+    std::timer
 }
 
 // A `with` on an app field, read by work that OUTLIVES the overriding scope.

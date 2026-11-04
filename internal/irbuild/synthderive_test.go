@@ -105,7 +105,7 @@ func genericTypeNamed(nodes []ast.Node, want string, synth bool) *ast.GenericTyp
 // node, that is a front-end change and this whole arm should be DELETED, not
 // loosened.
 func TestSynthPreludeAnchorIsGatedOnTheSynthBand(t *testing.T) {
-	const src = `import std/json.{FromJson, Json}
+	const src = `import std::json.{FromJson, Json}
 
 struct User {
   label: String

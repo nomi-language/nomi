@@ -471,6 +471,9 @@ func (g *gen) noteBoxedImpls(p *irBoxPlan) {
 func (g *gen) irRecordBoxedImpls() {
 	for _, e := range g.boxes.impls {
 		if e.owner == nil || e.owner.irMod == nil || e.owner.irMod.FuncFor(e.fn) == nil {
+			if e.method != nil {
+				g.irMod.ImplementUnretained(e.method)
+			}
 			continue
 		}
 		if e.method == nil {

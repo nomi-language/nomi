@@ -9,7 +9,7 @@ import (
 // reports when expr is bound to an Int.
 func literalTypeOf(t *testing.T, expr string) string {
 	t.Helper()
-	src := "import std/regex.Regex\n\nfn f(w: String) -> Unit {\n  a: Int = " + expr + "\n  _ = a\n}\n"
+	src := "import std::regex.Regex\n\nfn f(w: String) -> Unit {\n  a: Int = " + expr + "\n  _ = a\n}\n"
 	for _, e := range checkTypedLiteralSource(src) {
 		if _, got, found := strings.Cut(e.Message, ", got "); found {
 			return got
@@ -56,7 +56,7 @@ func TestRegexLiteral_TypeNamesItsCaptureGroups(t *testing.T) {
 // The capture type flows through String.captures and captures_all, and a
 // function that does not read groups takes a Regex of any capture type.
 func TestRegexLiteral_CapturesAnswerTheCaptureType(t *testing.T) {
-	src := "import std/regex.Regex\n\n" +
+	src := "import std::regex.Regex\n\n" +
 		"fn first<C>(re: Regex<C>, text: String) -> Maybe<C> {\n" +
 		"  String.captures(text, re)\n" +
 		"}\n\n" +
@@ -77,7 +77,7 @@ func TestRegexLiteral_CapturesAnswerTheCaptureType(t *testing.T) {
 		"  a: Maybe<List<Maybe<String>>> = String.captures(\"x\", Regex`(\\w)`)\n",
 		"  a: Maybe<String> = String.captures(\"x\", Regex.compile(\"(x)\")!)\n",
 	} {
-		src := "import std/regex.Regex\n\nfn f() -> Unit {\n" + mistyped + "  _ = a\n}\n"
+		src := "import std::regex.Regex\n\nfn f() -> Unit {\n" + mistyped + "  _ = a\n}\n"
 		if errs := checkTypedLiteralSource(src); len(errs) == 0 {
 			t.Errorf("%q is admitted", strings.TrimSpace(mistyped))
 		}
@@ -87,7 +87,7 @@ func TestRegexLiteral_CapturesAnswerTheCaptureType(t *testing.T) {
 // A Regex's capture type is phantom, so asking for Display or Debug of a
 // Regex<C> does not ask for them of C (a struct or Unit has no Display).
 func TestRegexLiteral_DisplayDoesNotDemandTheCaptureType(t *testing.T) {
-	src := "import std/regex.Regex\n\nfn f() -> String {\n" +
+	src := "import std::regex.Regex\n\nfn f() -> String {\n" +
 		"  Regex.to_string(Regex`x`) + Display.to_string(Regex`(?P<a>x)`) + \"${Regex`(?P<b>y)`}\"\n" +
 		"}\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {

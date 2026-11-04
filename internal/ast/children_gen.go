@@ -116,6 +116,7 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfFieldAccessor(n, fn)
 		}
+	case *FilePath:
 	case *FloatLit:
 	case *FuncDef:
 		if n != nil {
@@ -412,6 +413,8 @@ func absent(n Node) bool {
 		return n == nil
 	case *FieldAccessor:
 		return n == nil
+	case *FilePath:
+		return n == nil
 	case *FloatLit:
 		return n == nil
 	case *FuncDef:
@@ -587,6 +590,8 @@ func childrenOfDynamic(v any, fn func(Node)) {
 		if v != nil {
 			childrenOfParam(v, fn)
 		}
+	case PathSegment:
+	case *PathSegment:
 	case Span:
 	case *Span:
 	case SpanCarrier:
@@ -1751,6 +1756,7 @@ var generatedTypes = []any{
 	(*ExternType)(nil),
 	(*FieldAccess)(nil),
 	(*FieldAccessor)(nil),
+	(*FilePath)(nil),
 	(*FloatLit)(nil),
 	(*FuncDef)(nil),
 	(*FuncType)(nil),
@@ -1823,6 +1829,7 @@ var generatedTypes = []any{
 	*new(MapEntry), (*MapEntry)(nil),
 	*new(MapPatternEntry), (*MapPatternEntry)(nil),
 	*new(Param), (*Param)(nil),
+	*new(PathSegment), (*PathSegment)(nil),
 	*new(Span), (*Span)(nil),
 	*new(SpanCarrier), (*SpanCarrier)(nil),
 	*new(Spread), (*Spread)(nil),

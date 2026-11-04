@@ -16,7 +16,7 @@ func TestSiblingIter_OwnerCallsOverAnotherFilesImplRun(t *testing.T) {
 	}
 	dir := t.TempDir()
 	files := map[string]string{
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 import chains.Chain
 import stacks.Stack
 

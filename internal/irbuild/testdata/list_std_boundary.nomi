@@ -7,7 +7,7 @@
 // once and compared BY POINTER against a call site's argument kinds in a
 // different gen, so the two `List<String>` were two unequal kinds and both
 // functions refused as "stdlib function outside the scalar subset".
-import std/io
+import std::io
 
 /// A USER function whose parameter type is the same `List<String>` the stdlib
 /// produces. This is the cross-gen match made explicit: the parameter's kind is

@@ -1,6 +1,6 @@
 // `subtests` failure reports: each failed row under the test, its row
 // rendered as a `values:` row renders a value, then the count.
-import std/assertions.AssertionFailure
+import std::assertions.AssertionFailure
 
 struct Point {
     x: Int

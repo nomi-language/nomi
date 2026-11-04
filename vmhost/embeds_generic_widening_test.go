@@ -13,7 +13,7 @@ import (
 // list element, a nested Maybe, an embedded distinct and a generic
 // function's result.
 func TestRun_EmbeddedValueInUserGenericVariant(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int
@@ -110,7 +110,7 @@ circle 1
 // enum's positional and struct-shaped variant, a generic struct, a nested
 // wrapper, a list of wrappers and an embedded distinct.
 func TestRun_EqualityWidensAnEmbeddedValueInsideAGenericType(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int

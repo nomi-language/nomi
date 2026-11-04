@@ -340,15 +340,16 @@ module.exports = grammar({
     //   path                      (file namespace)
     //   path as alias             (file namespace alias)
     //   path.name                 (single-name selective)
-    //   path.Owner.Member         (a member through its owner: `std/iter.Iter.loop`)
+    //   path.Owner.Member         (a member through its owner: `std::iter.Iter.loop`)
     //   path.{Names}, path.Owner.{Names}
     //   path: Type                (selector-list selective)
     //   path: Owner.Type          (single-name owner selective)
     //   path: Owner.{Names}       (owner selective)
     //   path: {Names}             (flat selective)
     // plus an optional `as` alias. The `.` boundary is the
-    // owner/member boundary inside the declaration selector; `/` joins
-    // module-path segments inside `module_path`.
+    // owner/member boundary inside the declaration selector; `::`, written
+    // with no space before it, joins module-path segments inside
+    // `module_path`.
     _import_body: $ => seq(
       $.module_path,
       optional(choice(
@@ -367,7 +368,20 @@ module.exports = grammar({
 
     module_path: $ => seq(
       $._import_path_segment,
-      repeat(seq('/', $._import_path_segment)),
+      repeat(seq(token.immediate('::'), $._import_path_segment)),
+    ),
+
+    // A file named by its full path where a file qualifier stands, outside
+    // an import: `db::posts.post_by_id(1)`, `views::admin::users.UserDetail`,
+    // `db::schema.Kind.Active`. Two or more lowercase segments joined by
+    // `::`; a `.member` always follows it. It is a `module_path` node, as an
+    // import's path is.
+    _full_module_path: $ => seq(
+      $.identifier,
+      repeat1(seq(
+        token.immediate('::'),
+        choice($.identifier, alias($._import_path_keyword, $.identifier)),
+      )),
     ),
 
     _import_path_segment: $ => choice(
@@ -403,7 +417,7 @@ module.exports = grammar({
     import_value_selector: $ => $.identifier,
 
     // One `.`-joined member after the path: an owner type, a variant or a
-    // value, as in `std/iter.Iter.loop` or `results.Result.Ok`.
+    // value, as in `std::iter.Iter.loop` or `results.Result.Ok`.
     _import_member: $ => choice($.type_identifier, $.import_value_selector),
 
     import_names: $ => seq('{', commaSep1(choice($.import_self, $.import_entry)), '}'),
@@ -946,7 +960,7 @@ module.exports = grammar({
     // (PascalCase-only chain) and from `type_field_access` (which is
     // an expression-level rule).
     qualified_type: $ => prec.left(seq(
-      $.identifier,
+      choice($.identifier, alias($._full_module_path, $.module_path)),
       token.immediate('.'),
       $.type_identifier,
       repeat(seq(token.immediate('.'), $.type_identifier)),
@@ -1445,6 +1459,7 @@ module.exports = grammar({
     // Expressions
     _expression: $ => choice(
       $.identifier,
+      alias($._full_module_path, $.module_path),
       $.placeholder,
       $.capture,
       $.self_expression,
@@ -1510,6 +1525,7 @@ module.exports = grammar({
     // Expression excluding body — used where a { would be ambiguous (e.g., case value {)
     _non_block_expression: $ => choice(
       $.identifier,
+      alias($._full_module_path, $.module_path),
       $.self_expression,
       $.type_identifier,
       $.dot_variant,
@@ -1753,7 +1769,11 @@ module.exports = grammar({
       $._field_identifier,
     ),
 
-    _qualified_app_type: $ => seq($.identifier, token.immediate('.'), $.type_identifier),
+    _qualified_app_type: $ => seq(
+      choice($.identifier, alias($._full_module_path, $.module_path)),
+      token.immediate('.'),
+      $.type_identifier,
+    ),
 
     pipe_if_expression: $ => prec.right(11, seq(
       'if',
@@ -1988,7 +2008,7 @@ module.exports = grammar({
     // `sql.Error.Closed`, `geo.Deep.Enum.V`. The file is the module, every
     // segment but the last names the type, and the last is the variant.
     qualified_variant: $ => seq(
-      field('module', $.identifier),
+      field('module', choice($.identifier, alias($._full_module_path, $.module_path))),
       repeat1(seq(token.immediate('.'), $.type_identifier)),
     ),
 
@@ -2113,6 +2133,19 @@ module.exports = grammar({
         alias(token.immediate(/[a-z_][a-zA-Z0-9_]*/), $.identifier),
         repeat1(seq(token.immediate('.'), $.type_identifier)),
       ),
+      // `#db::schema.Point{..}`: a file named by its full path.
+      seq(
+        alias($._immediate_full_module_path, $.module_path),
+        repeat1(seq(token.immediate('.'), $.type_identifier)),
+      ),
+    ),
+
+    _immediate_full_module_path: $ => seq(
+      alias(token.immediate(/[a-z_][a-zA-Z0-9_]*/), $.identifier),
+      repeat1(seq(
+        token.immediate('::'),
+        choice($.identifier, alias($._import_path_keyword, $.identifier)),
+      )),
     ),
 
     _immediate_dot_variant: $ => seq(token.immediate('.'), $.type_identifier),
@@ -2122,7 +2155,10 @@ module.exports = grammar({
     _struct_name: $ => choice(
       $.dot_variant,
       seq($.type_identifier, repeat(seq(token.immediate('.'), $.type_identifier))),
-      seq($.identifier, repeat1(seq(token.immediate('.'), $.type_identifier))),
+      seq(
+        choice($.identifier, alias($._full_module_path, $.module_path)),
+        repeat1(seq(token.immediate('.'), $.type_identifier)),
+      ),
     ),
 
     // A struct literal that names its type, with the `{` against the name:

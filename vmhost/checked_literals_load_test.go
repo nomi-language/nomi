@@ -9,7 +9,7 @@ import (
 
 // shoutTag is a checked literal whose check refuses a `!` in the literal's
 // text, naming the static and the offset of the `!`.
-const shoutTag = "import {\n    std/io\n    std/literals.{CheckedLiteral, Fragment, LiteralError}\n}\n\n" +
+const shoutTag = "import {\n    std::io\n    std::literals.{CheckedLiteral, Fragment, LiteralError}\n}\n\n" +
 	"type Shout\n\n" +
 	"impl CheckedLiteral<Int, String> for Shout {\n" +
 	"    fn check(statics: List<String>) -> Result<Unit, LiteralError> {\n" +
@@ -96,8 +96,8 @@ func TestCheckedLiteral_RefusedTextIsACompileErrorAtItsPlace(t *testing.T) {
 // the check, however many literals use it.
 func TestCheckedLiteral_EffectfulCheckIsOneErrorAtTheCheck(t *testing.T) {
 	src := "import {\n" +
-		"    std/io\n" +
-		"    std/literals.{CheckedLiteral, Fragment, LiteralError}\n" +
+		"    std::io\n" +
+		"    std::literals.{CheckedLiteral, Fragment, LiteralError}\n" +
 		"}\n\n" +
 		"type Loud\n\n" +
 		"impl CheckedLiteral<String, String> for Loud {\n" +
@@ -128,7 +128,7 @@ func TestCheckedLiteral_EffectfulCheckIsOneErrorAtTheCheck(t *testing.T) {
 // A type implements Literal or CheckedLiteral, not both: the front end
 // refuses the CheckedLiteral impl, and the message says why.
 func TestCheckedLiteral_BothInterfacesIsAnError(t *testing.T) {
-	src := "import std/literals.{CheckedLiteral, Fragment, Literal, LiteralError}\n\n" +
+	src := "import std::literals.{CheckedLiteral, Fragment, Literal, LiteralError}\n\n" +
 		"type Twice\n\n" +
 		"impl Literal<String, String> for Twice {\n" +
 		"    fn from_fragments(fragments: List<Fragment<String>>) -> String {\n" +

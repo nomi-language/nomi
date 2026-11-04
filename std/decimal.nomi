@@ -31,7 +31,7 @@ import {
 //#
 //# `Decimal.format` and `Decimal.format_percent` write a decimal as a reader
 //# of a locale writes it, and `Decimal.parse_in` and
-//# `Decimal.parse_percent_in` read it back, by the rules std/int's page gives
+//# `Decimal.parse_percent_in` read it back, by the rules std::int's page gives
 //# for [formatting](/reference/int/#formatting-numbers-for-a-reader) and
 //# [parsing](/reference/int/#parsing-numbers-a-reader-wrote) numbers.
 

@@ -7,12 +7,12 @@ import (
 
 // serverProgram serves handle on 127.0.0.1, port 0, under a supervisor boot
 // makes, and runs main's requests against it with std/http's own client.
-const serverProgram = `import std/http
-import std/http.{Body, Client, ClientOptions, Cookie, CookieJar, Headers, Listener, Request, Response, Server, Status}
-import std/duration.Duration
-import std/io.{self, Writer}
-import std/supervisors.Supervisor
-import std/url.Url
+const serverProgram = `import std::http
+import std::http.{Body, Client, ClientOptions, Cookie, CookieJar, Headers, Listener, Request, Response, Server, Status}
+import std::duration.Duration
+import std::io.{self, Writer}
+import std::supervisors.Supervisor
+import std::url.Url
 
 struct App {
     web: Supervisor
@@ -112,11 +112,11 @@ func TestServer_AnswersWithAHandler(t *testing.T) {
 // slashed path, index.html and a listing, and a 404. /docs and
 // /docs/index.html both redirect to /docs/, as Go's FileServer does.
 func TestServer_FileServerReadsThroughStdFs(t *testing.T) {
-	got := run(t, `import std/fs_testing.{self, Sandbox}
-import std/http
-import std/http.{Headers, Method, Response, Status}
-import std/http_testing
-import std/io
+	got := run(t, `import std::fs_testing.{self, Sandbox}
+import std::http
+import std::http.{Headers, Method, Response, Status}
+import std::http_testing
+import std::io
 
 fn show(r: Response) -> String {
     "${Status.code(r.status)} ${Headers.get(r.headers, "Content-Type") |> Maybe.with_default("-")} ${Headers.get(r.headers, "Location") |> Maybe.with_default("-")} ${Response.text(r) |> Result.with_default("?")}"
@@ -149,6 +149,104 @@ fn main() {
 		`<a href='./x.png'>x.png</a>`,
 		`<a href='./y%20z.txt'>y z.txt</a>`,
 		"404 text/plain; charset=utf-8 - 404 page not found",
+	} {
+		if !strings.Contains(got, w) {
+			t.Errorf("output lacks %q:\n%s", w, got)
+		}
+	}
+}
+
+// The form readers' defaults: a URL-encoded body of exactly 10 MB is read
+// and one byte more refused, with no more than one byte past the limit
+// taken from the stream; limit_body raises the default; a multipart body
+// one byte past 32 MB is refused.
+func TestServer_FormReadersHaveDefaultLimits(t *testing.T) {
+	got := run(t, `import std::http.{Body, Headers, Method, Request}
+import std::http_testing
+import std::io.{self, Reader}
+
+fn posted(body: Reader) -> Request {
+    #{
+        ..http_testing.request(Method.Post, "/"),
+        headers: Headers[#("Content-Type", "application/x-www-form-urlencoded")],
+        body: Body.Stream(body),
+    }
+}
+
+fn form(size: Int) -> Request {
+    posted(Reader.from_text("a=${String.repeat("x", size - 2)}"))
+}
+
+fn main() {
+    io.print("at ${Request.post_form(form(10_485_760)) |> Result.is_ok()}")
+    io.print("over ${Request.post_form(form(10_485_761))}")
+    io.print("raised ${Request.post_form(Request.limit_body(form(10_485_761), 20_000_000)) |> Result.is_ok()}")
+
+    huge = Reader.from_text("a=${String.repeat("x", 19_999_998)}")
+    io.print("huge ${Request.post_form(posted(huge))}")
+    io.print("left ${Bytes.length(Reader.read_all(huge)!)}")
+
+    upload = #{
+        ..http_testing.request(Method.Post, "/upload"),
+        headers: Headers[#("Content-Type", "multipart/form-data; boundary=b")],
+        body: Body.Stream(Reader.from_bytes(String.to_bytes(String.repeat("x", 33_554_433)))),
+    }
+
+    io.print("multipart ${Request.multipart_form(upload) |> Result.map(fn _ -> "read")}")
+}
+`)
+	for _, w := range []string{
+		"at True",
+		"over Err(the body is larger than 10485760 bytes)",
+		"raised True",
+		"huge Err(the body is larger than 10485760 bytes)",
+		"left 9514239",
+		"multipart Err(the body is larger than 33554432 bytes)",
+	} {
+		if !strings.Contains(got, w) {
+			t.Errorf("output lacks %q:\n%s", w, got)
+		}
+	}
+}
+
+// A Server's max_body limits every request's body, as Request.limit_body
+// does: a form of exactly the limit is read, one byte more is
+// Error.BodyTooLarge, and a route's own limit only lowers the server's.
+func TestServer_MaxBodyLimitsEveryRequest(t *testing.T) {
+	got := run(t, `import std::http.{Body, Client, Request, Response, Server, Status}
+import std::http_testing
+import std::io
+import std::url.{Query, Url}
+
+fn echo(request: Request) -> Response {
+    limited = if request.url.path == "/small" { Request.limit_body(request, 3) } else { request }
+
+    case Request.form(limited) {
+        Ok(form) -> Response{body: Body.Text(Query.get(form, "a") |> Maybe.with_default(""))}
+        Err(e) -> Response.error(Status.request_entity_too_large, "${e}")
+    }
+}
+
+fn main() {
+    http_testing.with_server(echo, server: Server{max_body: Some(5)}, fn server -> {
+        post = fn path: String, a: String -> {
+            url = Url.resolve_text(server.url, path)!
+            r = Client.post_form(server.client, url, Query[#("a", a)])!
+            io.print("${path} ${a}: ${Status.code(r.status)} ${Response.text(r)!}")
+        }
+
+        post("/", "123")
+        post("/", "1234")
+        post("/small", "1")
+        post("/small", "12")
+    })
+}
+`)
+	for _, w := range []string{
+		"/ 123: 200 123",
+		"/ 1234: 413 the body is larger than 5 bytes",
+		"/small 1: 200 1",
+		"/small 12: 413 the body is larger than 3 bytes",
 	} {
 		if !strings.Contains(got, w) {
 			t.Errorf("output lacks %q:\n%s", w, got)

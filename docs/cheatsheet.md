@@ -19,7 +19,9 @@ compiler checks. The full rules are in the
 - A parameter may have a default, and an argument may name its parameter.
 - A lambda is `fn x -> ...` or `fn x, y -> { ... }`. Its parameters are
   inferred from where it is passed. A lambda bound to a name needs annotated
-  parameters: `fn n: Int -> n * 2`.
+  parameters: `fn n: Int -> n * 2`. In a collection literal, one element's
+  annotation types the same parameter in the others:
+  `[#("a", fn n: Int -> n), #("b", fn n -> n * 2)]`.
 - `once name = expr` is the only file-level value. It is computed on first
   use, once, even when several tasks read it at the same time.
 
@@ -64,11 +66,12 @@ test result: ok. 1 passed, 0 failed
   A type that implements `CheckedLiteral`, such as `Url`, is checked in
   every quote style, slots included: `Url"https://x.org/${id}"` is a `Url`,
   never a `Result`.
-- std/html's `Html"..."` is an HTML template the compiler checks. Each
+- std::html's `Html"..."` is an HTML template the compiler checks. Each
   `${...}` is escaped for where it stands. A one-line fragment quotes its
   attributes with `'`, since `"` ends the literal:
   `Html"<b class='x'>${n}</b>"`. Several lines go in `Html"""..."""`.
 - The constants are `True`, `False`, `None` and `Unit`. There is no `null`.
+  Each is a pattern as well: `Ok(Unit) -> ...` matches a `Result<Unit, E>`.
 
 | Shape | Literal | Named form |
 |---|---|---|
@@ -186,6 +189,14 @@ test result: ok. 1 passed, 0 failed
   types that implement one interface join as it only where the value's type
   is written as that interface, by an annotation, a parameter or a declared
   result: `shape: Shape = if round { Circle{r: 1.0} } else { Square{side: 2.0} }`.
+- An `if` without `else` whose branch has a value is a `Maybe`:
+  `if n > 0 { "positive" }` is `Some("positive")` or `None`, and so is an
+  `else if` chain with no final `else`. A branch that is `Unit` or leaves
+  (`return`, `?`) keeps the `if` a `Unit` statement. A forgotten `else`
+  shows as `expected String, got Maybe<String>`. In an `Html` literal,
+  `${if c { Html"..." }}` shows the part or nothing, and so does
+  `class='badge ${if c { "on" }}'` inside a quoted value; an unquoted
+  `class=${if c { "on" }}` writes the attribute or leaves it out.
 - There are no exceptions. A function that can fail returns `Maybe<T>`
   (`Some(v)` or `None`) or `Result<T, E>` (`Ok(v)` or `Err(e)`).
 - A postfix `?` returns an `Err` or `None` from the enclosing function, lambda
@@ -219,6 +230,7 @@ test "branching and errors" {
     assert parse_age("41") == Ok(41)
     assert parse_age("x") == Err("not a number: x")
     assert describe(Some(12)) == "minor"
+    assert (if 41 > 18 { "adult" }) == Some("adult")
     assert String.to_int("7")! == 7
     assert Some(1) is Some(_)
 }
@@ -276,9 +288,14 @@ test result: ok. 1 passed, 0 failed
 - A module is the directory tree under a `nomi.toml`. `entry_points` lists the
   files with a `fn main`. An `impl Interface for Type` needs the interface,
   the type or both to be the module's own.
-- Imports name files: `import std/io`, then `io.print(x)`. Braces bring in
-  names: `import std/io.{self, Writer}`. Several imports group under one
+- Imports name files by path, segments joined by `::` (never `/`):
+  `import std::io`, then `io.print(x)`. Braces bring in names:
+  `import std::io.{self, Writer}`. Several imports group under one
   `import { ... }`. Unused imports are errors.
+- A file is used by its short name, the path's last segment (`io`,
+  `posts`). The full path works anywhere the short name does
+  (`db::posts.find(1)`, `x: db::schema.Post`): write it when two imports
+  share a short name or a local or declaration takes it, not an alias.
 - Names are snake_case, types PascalCase. A predicate is `is_<state>`,
   `has_<thing>` or a bare verb (`contains`, `starts_with`).
 
@@ -292,14 +309,23 @@ pub fn area(box: Box) -> Int {
     box.side * box.side
 }
 
+// FILE: geo/shapes.nomi
+pub fn area(radius: Int) -> Int {
+    3 * radius * radius
+}
+
 // FILE: main.nomi
 import {
-    std/io
-    shapes.{self, Box}
+    std::io
+    demo::shapes.{self, Box}
+    geo::shapes
 }
 
 fn main() {
-    io.print(shapes.area(Box{side: 3}))
+    // `shapes` could be either file, so each is written by its full path.
+    // A file at the module root takes the module's name in front.
+    io.print(demo::shapes.area(Box{side: 3}))
+    io.print(geo::shapes.area(2))
 }
 
 // FILE: nomi.toml
@@ -309,6 +335,7 @@ entry_points = ["main"]
 ```
 <!-- expect
 9
+12
 -->
 
 ## App fields, tests and concurrency
@@ -329,15 +356,15 @@ entry_points = ["main"]
   `test "loads rows", db { ... }`. Each test runs clock, boot, setup and body
   afresh. `clock Clock.Virtual` makes waits instant.
 - Tasks start only inside `concurrent { ... }`, which waits for them:
-  `Task.spawn(fn -> ...)` and `Task.await(task)`, from `std/tasks`. Every task
-  is awaited. `std/channels` splits a channel into a `Sender` and a
+  `Task.spawn(fn -> ...)` and `Task.await(task)`, from `std::tasks`. Every task
+  is awaited. `std::channels` splits a channel into a `Sender` and a
   `Receiver`. A `Supervisor` is created only while `boot` builds the app
   struct.
 
 ```nomi-run
 import {
-    std/io
-    std/tasks.Task
+    std::io
+    std::tasks.Task
 }
 
 struct App {
@@ -381,4 +408,41 @@ hello, Ada
 ok greetings / app fields
 ok greetings / tasks
 test result: ok. 2 passed, 0 failed
+-->
+
+## Dates
+
+- There is no `strftime`-style pattern for text a person reads. Write it with
+  a skeleton and a locale: `DateTime.format_fields(at, locale,
+  DateTimeFields`yMMMd`)` names the fields and their widths, and the locale
+  gives the order, punctuation and words. `DateTime.format(at, locale, date:
+  .Long, time: .Short)` takes a style instead. `Date`, `Time` and
+  `NaiveDateTime` have the same two functions.
+- In `en-US`, a skeleton with a date and a time puts a comma after the year,
+  and writes U+202F, a narrow no-break space, before `AM` or `PM`. A test
+  that compares against a plain space fails; write `\u{202f}`.
+- `DateTimePattern`, `DatePattern` and `TimePattern` write fixed numeric text
+  for file names, logs and protocols, with `to_string_with`. They refuse
+  month and weekday names and `AM`/`PM`, which are words of a language.
+
+```nomi-run
+import {
+    std::calendar.{DateTime, DateTimeFields, DateTimePattern}
+    std::locale.Locale
+}
+
+test "dates" {
+    at = DateTime`2026-01-05T15:04:00-05:00[America/New_York]`
+    en = Locale`en-US`
+
+    assert DateTime.format_fields(at, en, DateTimeFields`yMMMd`) == "Jan 5, 2026"
+    assert DateTime.format_fields(at, en, DateTimeFields`yMMMMd`) == "January 5, 2026"
+    assert DateTime.format_fields(at, en, DateTimeFields`yMMMdjmm`) == "Jan 5, 2026, 3:04\u{202f}PM"
+    assert DateTime.format(at, en, date: .Long, time: .Short) == "January 5, 2026, 3:04\u{202f}PM"
+    assert DateTime.to_string_with(at, DateTimePattern`yyyy-MM-dd HH:mm`) == "2026-01-05 15:04"
+}
+```
+<!-- expect
+ok dates
+test result: ok. 1 passed, 0 failed
 -->

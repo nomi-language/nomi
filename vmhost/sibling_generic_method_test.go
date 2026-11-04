@@ -148,7 +148,7 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			main := "import {\n    std/io\n    leaf\n    leaf.{Box, Wrap, Pairs}\n}\n\n" +
+			main := "import {\n    std::io\n    leaf\n    leaf.{Box, Wrap, Pairs}\n}\n\n" +
 				"fn uses<P>(x: P) -> P where P: Pairs {\n    x\n}\n\n" +
 				"fn both<T>(x: T) -> #(T, T) {\n    leaf.Box.twice(x)\n}\n\n" +
 				"fn main() {\n    _ = uses(Box{ value: 0 })\n    _ = both(Wrap{ v: 0 })\n" + tc.body + "}\n"
@@ -197,7 +197,7 @@ pub fn back(p: Pod<Int>) -> Pod<#(Int, Bool)> {
 }
 `,
 		"main.nomi": `import {
-    std/io
+    std::io
     a
     a.{Cell}
     b
@@ -225,11 +225,11 @@ fn main() {
 // spelling does.
 func TestStdModuleQualifiedOwnFamily_Runs(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import {
-    std/io
-    std/iter
-    std/lists
-    std/maps
-    std/maybe
+    std::io
+    std::iter
+    std::lists
+    std::maps
+    std::maybe
 }
 
 fn main() {

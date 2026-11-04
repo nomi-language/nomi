@@ -12,7 +12,7 @@ import (
 // AFunctionOverTheEmbeddedTypeIsRefusedAsACallback); the lambda that
 // matches first, which that error's hint names, runs.
 func TestEmbedsCallback_AFunctionOverTheEnumTakesTheEmbeddedValues(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Circle {
   r: Int

@@ -31,7 +31,7 @@ func runSourceOutput(t *testing.T, src string) string {
 // payloads here are scalars of two slot types, two declared structs (one
 // slot type, so only the instance key tells them apart), and a generic enum.
 func TestGenericInstanceDebug_EachInstanceRendersThroughItsOwnBody(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Box<T> {
     v: T

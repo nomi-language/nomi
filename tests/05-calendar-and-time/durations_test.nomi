@@ -1,4 +1,4 @@
-import std/duration.Duration
+import std::duration.Duration
 
 test "durations construct from named units" {
     assert Duration.to_string(Duration.seconds(5)) == "5s"

@@ -91,7 +91,7 @@ func (s Span) Contains(line, col int) bool {
 // preserve end-of-file trivia (the formatter is the only one today) should
 // use ParseFile instead.
 func Parse(tokens []token.Token) ([]ast.Node, error) {
-	p := &Parser{tokens: tokens}
+	p := &Parser{tokens: joinPaths(tokens)}
 	stmts, err := p.parse()
 	if err = withStrayPrompt(tokens, p.firstError(err)); err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func Parse(tokens []token.Token) ([]ast.Node, error) {
 // comment the tree has no other slot for is a dangling comment on the node
 // nearest it (attachDangling).
 func ParseFile(tokens []token.Token) ([]ast.Node, []ast.Trivia, error) {
-	p := &Parser{tokens: tokens}
+	p := &Parser{tokens: joinPaths(tokens)}
 	stmts, err := p.parse()
 	if err = withStrayPrompt(tokens, p.firstError(err)); err != nil {
 		return nil, nil, err
@@ -153,7 +153,7 @@ func (p *Parser) parse() ([]ast.Node, error) {
 //
 // Like Parse, this drops end-of-file trivia.
 func ParseWithRecovery(tokens []token.Token) ([]ast.Node, []ParseError) {
-	p := &Parser{tokens: tokens}
+	p := &Parser{tokens: joinPaths(tokens)}
 	stmts, errs := p.parseWithRecovery()
 	return stmts, errs
 }
@@ -197,12 +197,12 @@ func ParseWithRecovery(tokens []token.Token) ([]ast.Node, []ParseError) {
 // not report the statements after it. The errors are in source order, each
 // once, at most MaxParseErrors of them.
 func ParseAll(tokens []token.Token) ([]ast.Node, []ParseError) {
-	strict := &Parser{tokens: tokens}
+	strict := &Parser{tokens: joinPaths(tokens)}
 	nodes, errs := strict.parseWithRecovery()
 	if len(errs) == 0 {
 		return nodes, nil
 	}
-	p := &Parser{tokens: tokens, resilient: true}
+	p := &Parser{tokens: joinPaths(tokens), resilient: true}
 	_, resilient := p.parseWithRecovery()
 	var all []ParseError
 	type at struct {
@@ -240,12 +240,12 @@ func ParseAll(tokens []token.Token) ([]ast.Node, []ParseError) {
 const MaxParseErrors = 50
 
 func ParseResilient(tokens []token.Token) ([]ast.Node, []ParseError, []Span) {
-	strict := &Parser{tokens: tokens}
+	strict := &Parser{tokens: joinPaths(tokens)}
 	nodes, errs := strict.parseWithRecovery()
 	if len(errs) == 0 {
 		return nodes, nil, nil
 	}
-	p := &Parser{tokens: tokens, resilient: true}
+	p := &Parser{tokens: joinPaths(tokens), resilient: true}
 	recovered, _ := p.parseWithRecovery()
 	return recovered, errs, p.damaged
 }
@@ -834,7 +834,7 @@ func parseAttachedTestBody(tokens []token.Token, openTok, closeTok token.Token, 
 	// The prompt's lines are a test body, so its statements are a
 	// block's: a nested `test` or a `pub` is refused there, and
 	// `subtests` is read as one.
-	bodyParser := &Parser{tokens: bodyTokens, resilient: resilient, blockDepth: 1}
+	bodyParser := &Parser{tokens: joinPaths(bodyTokens), resilient: resilient, blockDepth: 1}
 	var stmts []ast.Node
 	var endTrivia []ast.Trivia
 	for !bodyParser.atEnd() {
@@ -3105,17 +3105,17 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		// since DotVariant lands here as a regular expression.
 		return &ast.DotVariant{Name: nameTok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
 
-	case token.IDENT:
+	case token.IDENT, token.PATH:
 		// Contextual keyword: `concurrent { ... }` is the structured-
 		// concurrency scope from spec §16. We can't reserve
 		// `concurrent` as a hard keyword in the lexer because the stdlib
-		// `import std/tasks.{Task, spawn, await}` line — and any
-		// user `import std/tasks.{...}` — relies on `concurrent`
+		// `import std::tasks.{Task, spawn, await}` line — and any
+		// user `import std::tasks.{...}` — relies on `concurrent`
 		// lexing as IDENT in module-path positions. So we keep the
 		// lexer producing IDENT and check the lexeme + lookahead here,
 		// mirroring how `open` is contextual inside
 		// interface bodies (and `embeds` after a struct/enum head).
-		if tok.Lexeme == "concurrent" && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Type == token.LBRACE {
+		if tok.Type == token.IDENT && tok.Lexeme == "concurrent" && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Type == token.LBRACE {
 			return p.parseConcurrentBlock()
 		}
 		// A MODULE-QUALIFIED LIST-ATTACH HEAD. `shapes.Bag.Items[1, 2]`
@@ -3158,12 +3158,22 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 					Module:     strings.Join(owner, "."),
 					ModuleLine: tok.Line,
 					ModuleCol:  tok.Col,
+					Path:       pathSegments(tok),
 					Member:     &ast.SimpleType{Name: lastTok.Lexeme, Line: lastTok.Line, Col: lastTok.Col},
 				}
 				return p.parseTypePrefixedListLit(qualType, tok.Line, tok.Col)
 			}
 		}
 		p.advance()
+		if tok.Type == token.PATH {
+			// A file's full path qualifies a member, as its short name
+			// does: `db::posts.post_by_id(1)`. The postfix parser reads
+			// the `.member`.
+			if p.peek().Type != token.DOT {
+				return nil, filePathAlone(tok)
+			}
+			return &ast.FilePath{Segments: pathSegments(tok), Line: tok.Line, Col: tok.Col}, nil
+		}
 		return &ast.Ident{Name: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
 
 	case token.SELF:
@@ -3477,7 +3487,7 @@ func (p *Parser) parseLiteralHead(sigil token.Token) (ast.TypeExpr, bool) {
 		name := p.peek()
 		p.advance() // consume TYPE_IDENT
 		return &ast.DotVariantType{Name: name.Lexeme, Line: first.Line, Col: first.Col}, true
-	case token.IDENT:
+	case token.IDENT, token.PATH:
 		// A module-qualified name needs at least one type segment.
 		if p.peekAt(1).Type != token.DOT || p.peekAt(2).Type != token.TYPE_IDENT {
 			return nil, false
@@ -3511,6 +3521,7 @@ func (p *Parser) literalNameSegments(first token.Token) ast.TypeExpr {
 		Module:     strings.Join(owner, "."),
 		ModuleLine: first.Line,
 		ModuleCol:  first.Col,
+		Path:       pathSegments(first),
 		Member:     &ast.SimpleType{Name: last.Lexeme, Line: last.Line, Col: last.Col},
 	}
 }
@@ -5181,7 +5192,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			} else if ok {
 				pattern = prefixed
 			}
-		case token.IDENT:
+		case token.IDENT, token.PATH:
 			if p.peekAt(1).Type == token.DOT && (p.peekAt(2).Type == token.TYPE_IDENT || p.peekAt(2).Type == token.IDENT) {
 				p.advance()
 				typeExpr, _ := p.parseDottedPatternType(tok)
@@ -5191,6 +5202,8 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 				if pattern, err = p.parseHeadedPattern(typeExpr, tok.Line, tok.Col); err != nil {
 					return nil, nil, err
 				}
+			} else if tok.Type == token.PATH {
+				return nil, nil, filePathAlone(tok)
 			} else {
 				p.advance()
 				pattern = &ast.IdentPattern{Name: tok.Lexeme, Line: tok.Line, Col: tok.Col}
@@ -6376,10 +6389,10 @@ func (p *Parser) parseQualifiedTypeDeclName(keyword string) (string, token.Token
 }
 
 func (p *Parser) parseDistinctDestructureTypePrefix() (ast.TypeExpr, string, int, int, bool) {
-	if p.atEnd() || (p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT) {
+	if p.atEnd() || (p.peek().Type != token.TYPE_IDENT && !isQualifierHead(p.peek())) {
 		return nil, "", 0, 0, false
 	}
-	if p.peek().Type == token.IDENT && p.peekAt(1).Type != token.DOT {
+	if isQualifierHead(p.peek()) && p.peekAt(1).Type != token.DOT {
 		return nil, "", 0, 0, false
 	}
 	first := p.peek()
@@ -6408,6 +6421,7 @@ func (p *Parser) parseDistinctDestructureTypePrefix() (ast.TypeExpr, string, int
 		Module:     parts[0],
 		ModuleLine: first.Line,
 		ModuleCol:  first.Col,
+		Path:       pathSegments(first),
 		Member:     member,
 	}, name, first.Line, first.Col, true
 }
@@ -6512,9 +6526,12 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 		p.advance()
 		return &ast.SelfType{Line: tok.Line, Col: tok.Col}, nil
 	}
-	if tok.Type != token.TYPE_IDENT && tok.Type != token.IDENT {
+	if tok.Type != token.TYPE_IDENT && !isQualifierHead(tok) {
 		if err := p.doubledComma(); err != nil {
 			return nil, err
+		}
+		if tok.Type == token.COLONCOLON {
+			return nil, strayPathError(tok)
 		}
 		return nil, errorAt(tok.Line, tok.Col, "expected type name, got %s", tokenShown(tok))
 	}
@@ -6523,6 +6540,9 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 	nameLine := tok.Line
 	nameCol := tok.Col
 	p.advance()
+	if tok.Type == token.PATH && p.peek().Type != token.DOT {
+		return nil, filePathAlone(tok)
+	}
 
 	// Handle Mod.Type / Type.Nested.Member — qualified type reference.
 	if !p.atEnd() && p.peek().Type == token.DOT {
@@ -6556,6 +6576,7 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 				Module:     name,
 				ModuleLine: nameLine,
 				ModuleCol:  nameCol,
+				Path:       pathSegments(tok),
 				Member:     &ast.GenericType{Name: memberName, Params: params, Line: memberTok.Line, Col: memberTok.Col},
 			}, nil
 		}
@@ -6564,6 +6585,7 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 			Module:     name,
 			ModuleLine: nameLine,
 			ModuleCol:  nameCol,
+			Path:       pathSegments(tok),
 			Member:     &ast.SimpleType{Name: memberName, Line: memberTok.Line, Col: memberTok.Col},
 		}, nil
 	}
@@ -7061,8 +7083,8 @@ func (p *Parser) skipEnumVariantTrailingSeparators() {
 //	import math                       → ModulePath=[Ident"math"], Names=[]
 //	import math as m                  → ModulePath=[Ident"math"], ModuleAlias=Ident"m"
 //	import models.User                → ModulePath=[Ident"models"], Names=[TypeIdent"User"]
-//	import std/io.print               → ModulePath=[Ident"std", Ident"io"], Names=[Ident"print"]
-//	import std/iter.{self, Iter}  → ModulePath=[Ident"std", Ident"iter"], Names=[TypeIdent"Iter"], IncludeParent=true
+//	import std::io.print               → ModulePath=[Ident"std", Ident"io"], Names=[Ident"print"]
+//	import std::iter.{self, Iter}  → ModulePath=[Ident"std", Ident"iter"], Names=[TypeIdent"Iter"], IncludeParent=true
 //	import models.{A, B}              → ModulePath=[Ident"models"], Names=[TypeIdent"A", TypeIdent"B"]
 //	import models.{A as X, B}         → ModulePath=[Ident"models"], Names=[A, B], Aliases=[X, nil]
 //	import { math, models.User }      → ImportBlock with two ImportStmt entries
@@ -7123,9 +7145,13 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 	}
 
 	// Expect at least one import path segment. Keywords are allowed here:
-	// path segments are file names, so `std/defer` stays valid even
-	// though `defer` is a statement keyword.
-	if !isImportPathSegment(p.peek()) {
+	// path segments are file names, so `std::defer` stays valid even
+	// though `defer` is a statement keyword. A path of several segments
+	// arrives as one PATH token (joinPaths).
+	if p.peek().Type != token.PATH && !isImportPathSegment(p.peek()) {
+		if p.peek().Type == token.COLONCOLON {
+			return nil, strayPathError(p.peek())
+		}
 		return nil, errorAt(tok.Line, tok.Col, "expected import path after 'import'")
 	}
 
@@ -7133,10 +7159,23 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 	entryTok := p.peek()
 	tok = token.Token{Type: tok.Type, Lexeme: tok.Lexeme, Line: entryTok.Line, Col: entryTok.Col}
 
-	// Collect dotted path segments as positioned nodes.
+	// Collect the path's segments as positioned nodes.
 	var segments []ast.Node
-	segments = append(segments, p.makeImportNode(p.peek()))
-	p.advance() // consume first segment
+	if entryTok.Type == token.PATH {
+		for _, seg := range pathSegments(entryTok) {
+			segments = append(segments, p.makeImportNode(token.Token{Type: pathSegmentType(seg.Name), Lexeme: seg.Name, Line: seg.Line, Col: seg.Col}))
+		}
+	} else {
+		segments = append(segments, p.makeImportNode(entryTok))
+	}
+	p.advance() // consume the path
+	if p.peek().Type == token.COLONCOLON {
+		if p.peekAt(1).Type == token.LBRACE {
+			p.advance() // consume `::`
+			return nil, p.groupedImportPathError(segments)
+		}
+		return nil, strayPathError(p.peek())
+	}
 
 	// listPrefix and listOpen are the path before the selector list being
 	// read and the token index of its `{`, for the nested-list error.
@@ -7326,9 +7365,8 @@ loop:
 		sep := p.peek().Type
 		p.advance() // consume separator
 
-		// Check for selective import/member access. Only valid after `.`,
-		// not `/` — `/` joins module-path segments, `.` is the member-access
-		// boundary.
+		// Check for selective import/member access. Only valid after `.`:
+		// `::` joins path segments, `.` is the member-access boundary.
 		if sep == token.DOT && p.peek().Type == token.LBRACE {
 			p.advance() // consume LBRACE
 			// includeParent tracks whether the brace list carries the
@@ -7354,17 +7392,8 @@ loop:
 			break loop
 		}
 
-		// Otherwise expect another path segment. After a SLASH, any
-		// identifier-shaped segment is fine (including keywords used as file
-		// names).
-		if sep == token.SLASH && p.peek().Type == token.LBRACE {
-			return nil, p.groupedImportPathError(segments)
-		}
-		if !isImportPathSegment(p.peek()) {
-			return nil, errorAt(tok.Line, tok.Col, "expected import path segment after '/'")
-		}
-		segments = append(segments, p.makeImportNode(p.peek()))
-		p.advance() // consume segment
+		// A `/` between segments is the old spelling of `::`.
+		return nil, p.slashImportPathError(segments)
 	}
 
 	if result == nil {
@@ -7392,7 +7421,7 @@ loop:
 
 	if result == nil {
 		// No selector was seen. This is a module import, optionally aliased:
-		// `import std/io` binds `io`; `import std/io as console` binds
+		// `import std::io` binds `io`; `import std::io as console` binds
 		// `console`.
 		var moduleAlias ast.Node
 		if !p.atEnd() && p.peek().Type == token.AS {
@@ -7429,7 +7458,7 @@ func importFileSegments(path []ast.Node, slashSegments int) int {
 
 // fileReExportError reports a re-export of an import that binds a file:
 // `pub import leaf`, `pub import leaf as lf`, or a brace list whose `self` is
-// the file (`pub import std/io.{self, Error}`). A facade publishes the items
+// the file (`pub import std::io.{self, Error}`). A facade publishes the items
 // it lists, never a whole file. The parser can tell these apart from an item
 // re-export because the `/`-joined segments always name the file and
 // everything after the first `.` is an item or owner: `self` after an owner
@@ -7448,7 +7477,10 @@ func fileReExportError(entry *ast.ImportStmt, at token.Token) error {
 	for i, seg := range entry.ModulePath {
 		parts[i] = ast.ImportNodeName(seg)
 	}
-	path := strings.Join(parts, "/")
+	path := strings.Join(parts, ast.PathSeparator)
+	if entry.FileSegments > 0 {
+		path = importPathText(entry.ModulePath, entry.FileSegments)
+	}
 	hint := fmt.Sprintf("list the items to re-export, as in `pub import %s.{name, Type}`, or have importers import `%s` directly", path, path)
 	if selfIsFile {
 		hint = fmt.Sprintf("remove `self` to re-export only the listed items, or have importers import `%s` directly", path)
@@ -8445,11 +8477,14 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 			return prefixed, nil
 		}
 		return pat, nil
-	case token.IDENT:
+	case token.IDENT, token.PATH:
 		if p.peekAt(1).Type == token.DOT && (p.peekAt(2).Type == token.TYPE_IDENT || p.peekAt(2).Type == token.IDENT) {
 			p.advance()
 			typeExpr, _ := p.parseDottedPatternType(tok)
 			return p.parseHeadedPattern(typeExpr, tok.Line, tok.Col)
+		}
+		if tok.Type == token.PATH {
+			return nil, filePathAlone(tok)
 		}
 		p.advance()
 		return &ast.IdentPattern{Name: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
@@ -8544,6 +8579,7 @@ func (p *Parser) parseDottedPatternType(first token.Token) (ast.TypeExpr, token.
 		Module:     strings.Join(owner, "."),
 		ModuleLine: first.Line,
 		ModuleCol:  first.Col,
+		Path:       pathSegments(first),
 		Member:     &ast.SimpleType{Name: last.Lexeme, Line: last.Line, Col: last.Col},
 	}, last
 }

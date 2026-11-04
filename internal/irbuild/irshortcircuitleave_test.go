@@ -12,7 +12,7 @@ func TestIRShortCircuitLeavingOperand_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn check(is_ready: Bool) -> Result<Int, String> {
     ok = is_ready or {

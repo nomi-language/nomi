@@ -19,7 +19,7 @@ func TestIRRangeIter_TourCollectionsRanges(t *testing.T) {
 }
 
 func TestIRRangeIter_BoundsAndStages(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn span(lo: Int, hi: Int) -> Range<Int> { lo..=hi }
 fn main() {
   io.inspect(Iter.to_list(5..1))
@@ -38,7 +38,7 @@ fn main() {
 // An Int has no largest value, so a walk crosses 2^63 as it crosses any
 // other number, and a range ends at its bound.
 func TestIRRangeIter_AWalkCrossesSixtyFourBits(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   top = 9223372036854775807
   io.inspect(Iter.to_list(top - 1..=top + 1))
@@ -53,7 +53,7 @@ fn main() {
 // Cardinality over a Range walks the Range view and folds, as native lowers it
 // (rt.SeqCount over rt.RangeSeq), so these bodies retain and agree.
 func TestIRRangeIter_CardinalityAgrees(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   io.print(Iter.count(1..=4))
   io.print(Iter.is_empty(3..3))

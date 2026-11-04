@@ -29,8 +29,8 @@ var webPrograms = map[string]string{
 }
 `,
 	// A program a page loads and calls: main runs first, then the calls.
-	"game.nomi": `import std/io
-import std/json.{ToJson, FromJson}
+	"game.nomi": `import std::io
+import std::json.{ToJson, FromJson}
 
 struct Game {
   word: String
@@ -87,7 +87,7 @@ export fn one() -> Int {
   1
 }
 `,
-	"hello.nomi": `import std/io
+	"hello.nomi": `import std::io
 
 fn main() {
   io.write("What is your name? ")
@@ -97,7 +97,7 @@ fn main() {
   }
 }
 `,
-	"startup.nomi": `import std/io
+	"startup.nomi": `import std::io
 
 struct App {
   context: Context
@@ -113,7 +113,7 @@ fn main() {
   io.print("main ran")
 }
 `,
-	"trap.nomi": `import std/io
+	"trap.nomi": `import std::io
 
 fn main() {
   zero = String.length("")
@@ -125,7 +125,7 @@ fn main() {
   _ = Iter.loop(0, fn n -> n + 1)
 }
 `,
-	"oom.nomi": `import std/io
+	"oom.nomi": `import std::io
 
 fn main() {
   big = String.repeat("x", 1_500_000_000)
@@ -133,8 +133,8 @@ fn main() {
 }
 `,
 	"file.nomi": `import {
-  std/fs
-  std/io
+  std::fs
+  std::io
 }
 
 fn main() -> Result<Unit, io.Error> {

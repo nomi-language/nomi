@@ -117,7 +117,6 @@ text = must_replace(text, "(float) @number\n", "(float) @number.float\n", src, 1
 text = must_replace(text, "(decimal) @number\n", "(decimal) @number.float\n", src, 1)
 text = must_replace(text, "(codepoint) @string.special\n", "(codepoint) @character\n", src, 1)
 text = must_sub(text, r"@property(?![\w.])", "@variable.member", src)
-text = must_replace(text, "@module.path_separator", "@punctuation.delimiter", src, 1)
 text = must_replace(
     text,
     "(call_expression\n  . (identifier) @function)",
@@ -233,8 +232,10 @@ textobjects |= {"assignment.lhs", "assignment.rhs", "number.inner",
                 "scopename.inner", "statement.outer"}
 allowed = {
     "highlights.scm": highlight_groups,
-    # `@tag` is a helper capture read only by the #eq?/#not-eq? predicates.
-    "injections.scm": {"injection.content", "injection.language", "tag"},
+    # `@injection.host` is Zed's: it groups a literal's chunks into one
+    # injected document. Neovim reads only the captures it knows, so it
+    # ignores this one.
+    "injections.scm": {"injection.content", "injection.language", "injection.host"},
     "locals.scm": {"local.scope", "local.reference"} | {
         "local.definition." + k for k in
         ["var", "parameter", "function", "method", "type", "field", "import",

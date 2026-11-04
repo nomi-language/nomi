@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRScalarOperator_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn left() -> Int { io.print("left"); 9 }
 fn right() -> Int { io.print("right"); 4 }
 fn main() {
@@ -23,7 +23,7 @@ fn main() {
 }
 
 func TestIRScalarOperator_AZeroDivisorBlamesTheCall(t *testing.T) {
-	verifyIterFault(t, `import std/io
+	verifyIterFault(t, `import std::io
 fn divide() -> Int {
  zero = 0
  Divide.divide(20, zero)
@@ -34,7 +34,7 @@ fn main() { io.print(divide()) }
 
 // The written-out impls are exact past 64 bits, as the operators are.
 func TestIRScalarOperator_ExactPast64Bits(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  io.print(Add.add(9223372036854775807, 1))
  io.print(Subtract.subtract((-9223372036854775807 - 1), 1))
@@ -50,7 +50,7 @@ func TestIRScalarOperator_CheckedFaults(t *testing.T) {
 		{"Divide.divide(1, 0)", "division by zero"},
 	} {
 		t.Run(tc.expression, func(t *testing.T) {
-			verifyIterFault(t, "import std/io\nfn main() {\n io.print("+tc.expression+")\n}\n", "line 3: "+tc.fault, "")
+			verifyIterFault(t, "import std::io\nfn main() {\n io.print("+tc.expression+")\n}\n", "line 3: "+tc.fault, "")
 		})
 	}
 }

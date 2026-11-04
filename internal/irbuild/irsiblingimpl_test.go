@@ -6,7 +6,7 @@ import "testing"
 // impl functions a sibling file declares for its opaque type.
 func TestIRSiblingImpl_TourOpaqueTypes(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
+  std::io
   ids.UserId
 }
 

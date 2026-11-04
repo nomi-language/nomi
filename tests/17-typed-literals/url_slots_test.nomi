@@ -1,4 +1,4 @@
-import std/url.Url
+import std::url.Url
 
 // A Url"..." slot's value is escaped for where it stands, so no value can
 // change the URL's scheme, user, host or port, or climb its path. Each test

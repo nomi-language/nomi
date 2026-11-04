@@ -1,0 +1,31 @@
+// A module path's segments read as modules, in an import and where a file
+// is named by its full path, and the `::` between them as a delimiter. The
+// caret lines below each line name the highlight of the token they point at.
+import {
+    std::io
+    // ^ punctuation.delimiter
+    //   ^ module
+    std::json
+}
+
+fn show(j: std::json.Json) -> std::json.Json {
+    //     ^ module
+    //          ^ module
+    //               ^ type
+    //                        ^ module
+    //                             ^ module
+    case j {
+        std::json.Json.Null -> std::json.Json.Int(1)
+        //   ^ module
+        //             ^ constructor
+        //                                    ^ constructor
+        _ -> j
+    }
+}
+
+fn say() {
+    std::io.print("x")
+    // ^ punctuation.delimiter
+    //   ^ module
+    //      ^ function.call
+}

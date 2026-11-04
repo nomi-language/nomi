@@ -14,7 +14,7 @@ import (
 // answers a shape literal's head and closing bracket, a variant's `.` and a
 // pattern's head as the editor does.
 func TestAnalyze_ShapeHovers(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 enum Room {
   /// The cave.

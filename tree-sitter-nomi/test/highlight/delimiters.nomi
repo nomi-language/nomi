@@ -7,7 +7,7 @@
 // declaration bodies, function calls, grouping, parameter lists and types. A
 // string interpolation keeps punctuation.special. The caret lines below each
 // line name the highlight of the token they point at.
-import std/json
+import std::json
 
 struct Point {
     //       ^ punctuation.bracket

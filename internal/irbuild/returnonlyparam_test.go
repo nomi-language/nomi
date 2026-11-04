@@ -7,7 +7,7 @@ import "testing"
 // the call is expected to have: an annotated binding, an argument slot, a
 // function's result, and a turbofish.
 func TestReturnOnlyParam_RunsAtTheExpectedType(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 enum Coin {
     Heads
@@ -54,7 +54,7 @@ fn main() {
 // checker records the call at those solutions, so the builder instantiates
 // the callee rather than declining it.
 func TestReturnOnlyParam_SolvedThroughTryAndOperators(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface FromInt {
     fn from_int(n: Int) -> self

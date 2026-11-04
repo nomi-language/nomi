@@ -201,22 +201,22 @@ func TestInfiniteIter_OtherSpellings(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{
 			"Supervisor.spawn_all",
-			"import std/supervisors.Supervisor\n\nfn start(sup: Supervisor) {\n    _ = Supervisor.spawn_all(sup, Iter.repeat(1), fn _x -> Unit)\n}\n",
+			"import std::supervisors.Supervisor\n\nfn start(sup: Supervisor) {\n    _ = Supervisor.spawn_all(sup, Iter.repeat(1), fn _x -> Unit)\n}\n",
 			infiniteMessage("Supervisor.spawn_all", "Iter.repeat"),
 		},
 		{
 			"Supervisor.spawn_all piped",
-			"import std/supervisors.Supervisor\n\nfn start(sup: Supervisor) {\n    _ = sup |> Supervisor.spawn_all(Iter.from(0), fn _x -> Unit)\n}\n",
+			"import std::supervisors.Supervisor\n\nfn start(sup: Supervisor) {\n    _ = sup |> Supervisor.spawn_all(Iter.from(0), fn _x -> Unit)\n}\n",
 			infiniteMessage("Supervisor.spawn_all", "Iter.from"),
 		},
 		{
 			"Task.spawn_all",
-			"import std/tasks.Task\n\nfn main() {\n    _ = concurrent {\n        Iter.repeat(1) |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()\n    }\n}\n",
+			"import std::tasks.Task\n\nfn main() {\n    _ = concurrent {\n        Iter.repeat(1) |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()\n    }\n}\n",
 			infiniteMessage("Task.spawn_all", "Iter.repeat"),
 		},
 		{
 			"selective import",
-			"import std/iter.Iter.{repeat, to_list}\n\nfn main() {\n    _ = repeat(1) |> to_list()\n}\n",
+			"import std::iter.Iter.{repeat, to_list}\n\nfn main() {\n    _ = repeat(1) |> to_list()\n}\n",
 			infiniteMessage("Iter.to_list", "Iter.repeat"),
 		},
 	} {

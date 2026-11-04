@@ -418,7 +418,7 @@ func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 
 const idsHub = `//# Identifiers, money and levels every module shares.
 
-import std/json.ToJson
+import std::json.ToJson
 
 /// A record's identifier.
 pub type Id Int
@@ -499,7 +499,7 @@ pub once scale = 100
 
 const utilHub = `//# Generic helpers every module uses.
 
-import core/ids.{Level, Money}
+import core::ids.{Level, Money}
 
 /// A page of results and how many there were.
 pub struct Page<T> {
@@ -586,7 +586,7 @@ pub once ratio = clamp(probe(41), 0, 100)
 
 const textHub = `//# Text helpers.
 
-import core/util
+import core::util
 
 /// words joined by sep, each trimmed.
 pub fn joined(words: List<String>, sep: String) -> String {
@@ -620,15 +620,15 @@ func renderUnit(u *unit) (string, []string) {
 	w("//# Unit %d of the generated project.\n\n", i)
 	w("import {\n")
 	if !u.light {
-		w("    std/json.ToJson\n")
+		w("    std::json.ToJson\n")
 	}
-	w("    core/ids.{Describe, Id, Money}\n")
+	w("    core::ids.{Describe, Id, Money}\n")
 	if u.usesText {
-		w("    core/text\n")
+		w("    core::text\n")
 		imports = append(imports, "core/text")
 	}
 	if u.usesUtil {
-		w("    core/util\n")
+		w("    core::util\n")
 		imports = append(imports, "core/util")
 	}
 	// Each imported unit, as a file (self) when u reads it through its
@@ -651,9 +651,9 @@ func renderUnit(u *unit) (string, []string) {
 	for _, m := range keys {
 		switch items := mods[m]; {
 		case len(items) == 1 && items[0] == "self":
-			w("    %s\n", m)
+			w("    %s\n", importPath(m))
 		default:
-			w("    %s.{%s}\n", m, strings.Join(items, ", "))
+			w("    %s.{%s}\n", importPath(m), strings.Join(items, ", "))
 		}
 		imports = append(imports, m)
 	}
@@ -976,12 +976,12 @@ func indent(s string) string {
 // renderMain writes the entry, which imports every root unit.
 func renderMain(roots []*unit) (string, []string) {
 	var b strings.Builder
-	b.WriteString("//# The generated project's entry: it runs every unit no other unit imports.\n\nimport {\n    std/io\n")
+	b.WriteString("//# The generated project's entry: it runs every unit no other unit imports.\n\nimport {\n    std::io\n")
 	var imports []string
 	sorted := append([]*unit(nil), roots...)
 	sort.Slice(sorted, func(a, c int) bool { return sorted[a].key < sorted[c].key })
 	for _, u := range sorted {
-		fmt.Fprintf(&b, "    %s\n", u.key)
+		fmt.Fprintf(&b, "    %s\n", importPath(u.key))
 		imports = append(imports, u.key)
 	}
 	b.WriteString("}\n\nfn main() {\n    total = 0\n")
@@ -1035,5 +1035,11 @@ group "unit %[2]d" {
         assert Comparable.compare(Score%[2]d(1), Score%[2]d(2)) == .Less
     }
 %[5]s}
-`, u.key, u.i, u.name, u.fns-1, doubling)
+`, importPath(u.key), u.i, u.name, u.fns-1, doubling)
+}
+
+// importPath spells a file key (`billing/ledger3`) as an import writes it
+// (`billing::ledger3`).
+func importPath(key string) string {
+	return strings.ReplaceAll(key, "/", "::")
 }

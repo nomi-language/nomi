@@ -7,7 +7,7 @@ import "testing"
 // argument type, so the scrutinee is `Opt<T>` with T bound to the payload's
 // concrete type. The checker follows the binding before each pattern arm
 // inspects the type.
-const irPatternThroughTypeVarSource = `import std/io
+const irPatternThroughTypeVarSource = `import std::io
 
 enum Opt<T> {
   Nothing

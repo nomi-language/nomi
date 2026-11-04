@@ -130,6 +130,9 @@ func TestFormat_KeepsTailReturnItCannotStrip(t *testing.T) {
 		{"group setup", "group \"g\" {\n    setup {\n        x = 1\n        return x\n    }\n\n    test \"t\", x {\n        assert x == 1\n    }\n}\n"},
 		{"binding else", "fn l(x: Maybe<Int>) -> Int {\n    n = x else { return 0 }\n    n\n}\n"},
 		{"not the last statement of a tail if's block", "fn m(x: Int) -> Int {\n    if x > 0 { return 1 }\n    x\n}\n"},
+		// An `if` with no final `else` is a Maybe of its branches' value, so
+		// `return None` there is not `None`.
+		{"a branch of a tail else-if chain with no final else", "fn n(x: Int) -> Maybe<String> {\n    if x < 0 {\n        return None\n    } else if x == 0 {\n        \"zero\"\n    }\n}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			checkTailReturnCase(t, tc.src, tc.src)

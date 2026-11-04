@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Turns a small part of Markdown into HTML: headings, unordered lists,
 //# paragraphs, and bold and italic text.
 
-import std/regex.Regex
+import std::regex.Regex
 
 /// One line of Markdown, by what it becomes.
 enum Block {

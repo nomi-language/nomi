@@ -1,6 +1,6 @@
-//# The formatting, parsing and checks behind std/money's `Money`: what
+//# The formatting, parsing and checks behind std::money's `Money`: what
 //# `Money.format`, `Money.parse_in` and `Money`'s arithmetic call, over the
-//# CLDR data the program carries. The module is internal to std/money: a
+//# CLDR data the program carries. The module is internal to std::money: a
 //# program cannot import it, and uses `Money`.
 
 import {

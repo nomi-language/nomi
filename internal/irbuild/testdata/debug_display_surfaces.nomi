@@ -63,7 +63,7 @@
 //
 // `List<Bool>` is beside it because the container arm composes through the same
 // leaf, so a regression in the leaf shows here twice under two spellings.
-import std/io
+import std::io
 
 opaque type Meters Int
 

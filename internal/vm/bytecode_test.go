@@ -62,7 +62,7 @@ func TestBytecode_BenchmarkHotPathsAreTyped(t *testing.T) {
 // A call whose value is the caller's result is a transfer, and the listing
 // says so: `tail` rather than `call`.
 func TestBytecode_TailCallsCompileToTail(t *testing.T) {
-	p, err := vmhost.LoadSource("main", `import std/io
+	p, err := vmhost.LoadSource("main", `import std::io
 
 fn count(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { count(n - 1, acc + 1) }
@@ -93,8 +93,8 @@ fn main() {
 // way.
 func TestBytecode_AHostForwarderRunsAsItsCrossing(t *testing.T) {
 	p, err := vmhost.LoadSource("main", `import {
-    std/io
-    std/regex.Regex
+    std::io
+    std::regex.Regex
 }
 
 fn probe<C>(s: String, re: Regex<C>) -> Bool {

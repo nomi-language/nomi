@@ -3,7 +3,7 @@
 //# template when it checks the program (spec §18 *HTML templates*).
 //#
 //# ```nomi
-//# import std/html.Html
+//# import std::html.Html
 //#
 //# fn badge(count: Int) -> Html {
 //#     Html"<span class='badge'>${count}</span>"
@@ -11,21 +11,24 @@
 //#
 //# fn comment(author: String, body: String) -> Html {
 //#     Html"""
-//#         <article class="comment">
-//#           <p class="author">${author}</p>
-//#           <p>${body}</p>
-//#         </article>
-//#         """
+//#     <article class="comment">
+//#       <p class="author">${author}</p>
+//#       <p>${body}</p>
+//#     </article>
+//#     """
 //# }
 //# ```
 //#
-//# Each `${...}` is written by where it stands. In element text a `String`
-//# is escaped and an `Html` is inserted as it is; a quoted attribute value
+//# Each `${...}` is written by where it stands. In element text an `Html`
+//# is inserted as it is, a `ToHtml` value renders itself, and a `String` or
+//# any other `Display` value is escaped as text; a quoted attribute value
 //# takes any `Display`; the start of an `href` or `src` takes a `Url` or a
 //# `SafeUrl`; later in a URL a value is escaped for the path segment, query
 //# value or fragment it stands in, so `/p/${id}` writes a `/` in `id` as
 //# `%2F`; a `style` value takes a number or a `Css`; `checked=${on}` takes
 //# a `Bool` or a `Maybe<String>` and writes the attribute or leaves it out.
+//# Everywhere else a `Maybe` writes its value, or nothing for `None`, so an
+//# `if` with no `else` adds a class: `class="badge ${if on { "on" }}"`.
 //# A slot where no escaping is safe, markup that is not closed, and a value
 //# with no rendering where it stands are compile errors.
 //#
@@ -68,6 +71,14 @@ import {
 /// vouches for through `Html.trusted`. Two `Html` values are equal when
 /// they render the same text.
 //! assert Html.to_string(Html"<b>${"<i>"}</b>") == "<b>&lt;i&gt;</b>"
+//!
+//! // A `Maybe` in a quoted attribute value writes its value, or nothing.
+//! tag = fn on: Bool -> Html"<b class='tag ${if on { "on" }}'></b>"
+//! assert Html.to_string(tag(True)) == "<b class='tag on'></b>"
+//! assert Html.to_string(tag(False)) == "<b class='tag '></b>"
+//!
+//! count: Maybe<Int> = None
+//! assert Html.to_string(Html"<b data-count='${count}'></b>") == "<b data-count=''></b>"
 //
 pub opaque struct Html {
     text: String
@@ -134,10 +145,12 @@ impl Html {
     }
 }
 
-/// A value an element's content can show: `String` and the numbers as
-/// escaped text, an `Html` as it is, a `List<Html>` joined, and a
-/// `Maybe<Html>`'s `None` as nothing. A program's own type can render
-/// itself by implementing it.
+/// A value that renders itself in an element's content: `String` and the
+/// numbers as escaped text, an `Html` as it is, a `List<Html>` joined, and
+/// a `Maybe` of any of them as its value, or nothing for `None`, so an `if`
+/// with no `else` shows its branch or nothing. Element content writes a
+/// `Display` value that is not a `ToHtml` as escaped text; a program's own
+/// type implements `ToHtml` to render as markup instead.
 pub interface ToHtml {
     fn to_html(value: self) -> Html
 }
@@ -178,10 +191,16 @@ impl ToHtml for List<Html> {
     }
 }
 
-impl ToHtml for Maybe<Html> {
-    fn to_html(value: Maybe<Html>) -> Html {
+impl ToHtml for Maybe<T> where T: ToHtml {
+    //! n = 3
+    //! shown = Html"<p>${if n > 0 { n }}</p>"
+    //! hidden = Html"<p>${if n > 5 { Html"<b>big</b>" }}</p>"
+    //! assert Html.to_string(shown) == "<p>3</p>"
+    //! assert Html.to_string(hidden) == "<p></p>"
+    //
+    fn to_html(value: Maybe<T>) -> Html {
         case value {
-            Some(html) -> html
+            Some(inner) -> ToHtml.to_html(inner)
             None -> Html.empty()
         }
     }
@@ -208,6 +227,20 @@ pub type SafeUrl String
 impl UrlValue for SafeUrl {
     fn to_url(SafeUrl(value)) -> String {
         value
+    }
+}
+
+impl UrlValue for Maybe<T> where T: UrlValue {
+    //! home = Url.parse("https://example.com") |> Result.to_maybe()
+    //! assert Html.to_string(Html"<a href='${home}'>x</a>") == "<a href='https://example.com'>x</a>"
+    //! none: Maybe<SafeUrl> = None
+    //! assert Html.to_string(Html"<a href='${none}'>x</a>") == "<a href=''>x</a>"
+    //
+    fn to_url(value: Maybe<T>) -> String {
+        case value {
+            Some(inner) -> UrlValue.to_url(inner)
+            None -> ""
+        }
     }
 }
 
@@ -244,6 +277,18 @@ impl CssValue for Css {
     }
 }
 
+impl CssValue for Maybe<T> where T: CssValue {
+    //! wide = False
+    //! assert Html.to_string(Html"<i style='width: ${if wide { 80 }}%'></i>") == "<i style='width: %'></i>"
+    //
+    fn to_css(value: Maybe<T>) -> String {
+        case value {
+            Some(inner) -> CssValue.to_css(inner)
+            None -> ""
+        }
+    }
+}
+
 /// An attribute written or left out by its value, in `name=${value}`:
 /// `True` writes the bare attribute and `False` leaves it out; `Some(text)`
 /// writes `name="text"` and `None` leaves it out.
@@ -265,14 +310,6 @@ impl OptionalAttribute for Maybe<String> {
     }
 }
 
-/// `class` when `condition` holds, else "": for a class list.
-//! assert class_if(True, "active") == "active"
-//! assert class_if(False, "active") == ""
-//
-pub fn class_if(condition: Bool, class: String) -> String {
-    if condition { class } else { "" }
-}
-
 // The functions an `Html` literal expands into (the compiler's
 // internal/analysis/html_template.go). Each slot is a call of the one its
 // context chose, so its parameter's interface is the slot's type rule.
@@ -282,6 +319,10 @@ fn assemble(parts: List<String>) -> Html {
 
 fn slot_text(value: ToHtml) -> String {
     ToHtml.to_html(value).text
+}
+
+fn slot_text_display(value: Display) -> String {
+    escape("${value}")
 }
 
 fn slot_rcdata(value: Display) -> String {
@@ -317,5 +358,43 @@ fn slot_optional_attribute(name: String, value: OptionalAttribute) -> String {
         None -> ""
         Some("") -> " ${name}"
         Some(text) -> " ${name}=\"${escape(text)}\""
+    }
+}
+
+// A `Maybe` in a slot that takes a `Display` writes its value as the slot
+// writes one, or nothing for `None`; the checker moves a slot whose value is
+// a `Maybe` to these (chooseHtmlTextSlots).
+fn slot_rcdata_maybe<T>(value: Maybe<T>) -> String where T: Display {
+    case value {
+        Some(inner) -> slot_rcdata(inner)
+        None -> ""
+    }
+}
+
+fn slot_attribute_maybe<T>(value: Maybe<T>) -> String where T: Display {
+    case value {
+        Some(inner) -> slot_attribute(inner)
+        None -> ""
+    }
+}
+
+fn slot_url_path_maybe<T>(value: Maybe<T>) -> String where T: Display {
+    case value {
+        Some(inner) -> slot_url_path(inner)
+        None -> ""
+    }
+}
+
+fn slot_url_query_maybe<T>(value: Maybe<T>) -> String where T: Display {
+    case value {
+        Some(inner) -> slot_url_query(inner)
+        None -> ""
+    }
+}
+
+fn slot_url_fragment_maybe<T>(value: Maybe<T>) -> String where T: Display {
+    case value {
+        Some(inner) -> slot_url_fragment(inner)
+        None -> ""
     }
 }

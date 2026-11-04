@@ -5,7 +5,7 @@ description: "Calendar dates and clock times, machine timestamps, and exact dura
 
 Three standard library modules cover dates and times:
 
-- [`std/calendar`](/reference/calendar/) has the types a person reads off a
+- [`std::calendar`](/reference/calendar/) has the types a person reads off a
   calendar or a clock, plus periods such as `Days` and `Months`:
   - `Date`: a day on the calendar.
   - `Time`: a time of day.
@@ -14,8 +14,8 @@ Three standard library modules cover dates and times:
     `-04:00`.
   - `DateTime`: a date and time in a named zone such as
     `America/New_York`.
-- [`std/instant.Instant`](/reference/instant/) is a machine timestamp.
-- [`std/duration.Duration`](/reference/duration/) is an exact length of
+- [`std::instant.Instant`](/reference/instant/) is a machine timestamp.
+- [`std::duration.Duration`](/reference/duration/) is an exact length of
   time, such as 5 seconds or 30 minutes.
 
 For an event that happens at a real moment, use `DateTime`. "10:30 AM on
@@ -35,7 +35,7 @@ checked when the program compiles, so it needs no `?`. `DateTime` puts the
 zone name in square brackets at the end, a format from RFC 9557:
 
 ```nomi-run
-import std/calendar.{Date, DateTime}
+import std::calendar.{Date, DateTime}
 
 fn main() {
     d = Date`2026-06-15`
@@ -65,7 +65,7 @@ Add or subtract days, weeks, months and years from a `Date` with `+` and
 day, you get the month's last day. January 31 plus one month is February 28:
 
 ```nomi-run
-import std/calendar.{Date, Days, Months, Weeks, Years}
+import std::calendar.{Date, Days, Months, Weeks, Years}
 
 fn main() {
     start = Date`2026-05-04`
@@ -107,8 +107,8 @@ durations with `+`, `-`, `*` and `/`:
 
 ```nomi-run
 import {
-    std/duration.Duration
-    std/instant.Instant
+    std::duration.Duration
+    std::instant.Instant
 }
 
 fn main() {
@@ -140,7 +140,7 @@ equal when they are the same moment, even if their zones differ. Noon in
 New York and 6 PM in Paris on the same day are equal:
 
 ```nomi-run
-import std/calendar.DateTime
+import std::calendar.DateTime
 
 fn main() {
     ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
@@ -166,8 +166,8 @@ exactly 24 hours gives 1 PM, because that night was one hour short:
 
 ```nomi-run
 import {
-    std/calendar.{DateTime, Days}
-    std/duration.Duration
+    std::calendar.{DateTime, Days}
+    std::duration.Duration
 }
 
 fn main() {
@@ -200,8 +200,8 @@ takes a locale:
 
 ```nomi-run
 import {
-    std/calendar.Date
-    std/locale.Locale
+    std::calendar.Date
+    std::locale.Locale
 }
 
 fn main() {
@@ -226,7 +226,7 @@ keeps the same moment and shows it in another zone. Noon in New York is
 1 AM the next day in Tokyo:
 
 ```nomi-run
-import std/calendar.{DateTime, Error}
+import std::calendar.{DateTime, Error}
 
 fn main() -> Result<Unit, Error> {
     ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
@@ -253,7 +253,7 @@ dbg line 7: ny == tokyo = True
 The `Disambiguation` argument says which moment to pick:
 
 ```nomi-run
-import std/calendar.{DateTime, Error, NaiveDateTime}
+import std::calendar.{DateTime, Error, NaiveDateTime}
 
 fn main() -> Result<Unit, Error> {
     // 2026-11-01 01:30 NY happens twice (2am EDT rolls back to 1am EST).
@@ -297,7 +297,7 @@ system clock and gives the time in that zone. It is short for
 `Instant.now() |> DateTime.from_instant_in(zone)`:
 
 ```nomi-run no-run
-import std/calendar.{DateTime, Error}
+import std::calendar.{DateTime, Error}
 
 fn main() -> Result<Unit, Error> {
     now = DateTime.now_in("America/New_York")?
@@ -309,16 +309,23 @@ fn main() -> Result<Unit, Error> {
 
 The output changes each time, because it reads the real clock.
 
+A reading with no zone, such as a database `timestamp` column, is a
+`NaiveDateTime`.
+[`NaiveDateTime.from_instant(Instant.now())`](/reference/calendar/#naivedatetimefrom_instant)
+gives the UTC reading, and `NaiveDateTime.to_instant` reads one back.
+`DateTime.to_naive` and `OffsetDateTime.to_naive` drop the zone or offset
+and keep the clock reading.
+
 <div class="tour-details">
 <p class="tour-details-label">Where to look next</p>
 
 - [Typed Literals](/typed-literals/) shows how ``Date`…` `` and
   ``DateTime`…` `` literals work.
-- [`std/calendar`](/reference/calendar/) has every calendar type and
+- [`std::calendar`](/reference/calendar/) has every calendar type and
   function: weekdays, the periods, parsing ISO 8601 text and each type's
   conversions.
-- [`std/instant`](/reference/instant/) and
-  [`std/duration`](/reference/duration/) hold the machine clock's types.
+- [`std::instant`](/reference/instant/) and
+  [`std::duration`](/reference/duration/) hold the machine clock's types.
 - A built program carries the IANA time zone data, so it needs none from
   the system it runs on ([A program's locale data](/tooling/building/#a-programs-locale-data)).
 

@@ -88,7 +88,7 @@ import {
 /// comes from its pattern, so ``Regex`(\w+)@(\w+)?` `` is a
 /// `Regex<#(String, Maybe<String>)>`, and the functions that do not read
 /// groups take a `Regex` of any `C`.
-//! import std/unit.Unit
+//! import std::unit.Unit
 //!
 //! assert String.contains("order 66", Regex`\d+`)
 //! assert String.contains("room", Regex`\d+`) == False

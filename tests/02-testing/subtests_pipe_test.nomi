@@ -1,6 +1,6 @@
 import {
-    std/assertions.AssertionFailure
-    std/compiler
+    std::assertions.AssertionFailure
+    std::compiler
 }
 
 /// The first letter of each word, upper case. An attached test pipes its

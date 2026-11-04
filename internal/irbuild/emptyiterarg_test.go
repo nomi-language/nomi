@@ -8,7 +8,7 @@ func TestIREmptyCollectionAsIterArgument_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn total(xs: Iter<Int>) -> Int {
     Iter.count(xs)

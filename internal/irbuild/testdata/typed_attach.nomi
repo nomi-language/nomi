@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // The literal-ATTACH forms: `%JV.Obj{"k" => v}`, `JV.Arr[a, b]`, `%Kvs{"k" => v}`,
 // `Items[1, 2]` — where a brace or bracket body is the payload of a Map- or

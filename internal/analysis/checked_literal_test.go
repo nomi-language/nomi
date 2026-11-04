@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const checkedTag = `import std/literals.{CheckedLiteral, Fragment, LiteralError}
+const checkedTag = `import std::literals.{CheckedLiteral, Fragment, LiteralError}
 
 type Shout
 
@@ -55,7 +55,7 @@ impl Literal<Int, String> for Shout {
     }
 }
 `
-	errs := checkTypedLiteralProject(t, strings.Replace(src, "import std/literals.{CheckedLiteral, Fragment, LiteralError}", "import std/literals.{CheckedLiteral, Fragment, Literal, LiteralError}", 1), nil)
+	errs := checkTypedLiteralProject(t, strings.Replace(src, "import std::literals.{CheckedLiteral, Fragment, LiteralError}", "import std::literals.{CheckedLiteral, Fragment, Literal, LiteralError}", 1), nil)
 	want := "type `Shout` implements both `Literal` and `CheckedLiteral`; a typed literal has one handler"
 	for _, e := range errs {
 		if e.Message == want {

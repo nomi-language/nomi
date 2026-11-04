@@ -158,7 +158,7 @@ func TestModules_AddALocalModule(t *testing.T) {
 			t.Errorf("go.mod lacks %q:\n%s", want, goMod)
 		}
 	}
-	mustWrite(t, filepath.Join(app, "main.nomi"), "import {\n    std/io\n    csvdata\n}\n\nfn main() {\n    io.print(csvdata.rows())\n}\n")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import {\n    std::io\n    csvdata\n}\n\nfn main() {\n    io.print(csvdata.rows())\n}\n")
 	if out := c.must(app, "run", "main.nomi"); out != "3" {
 		t.Errorf("a program using the local module printed %q", out)
 	}

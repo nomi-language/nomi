@@ -20,7 +20,7 @@ import (
 
 // std/maybe imports neither ranges.Range nor anything binding `Range`, so a
 // case naming Range must import it. A stdlib file spells the path bare or
-// with `std/`; both run.
+// with `std::`; both run.
 func TestBlockImport_StdlibAttachedTest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; lowers and runs std/maybe's cases on the VM; -short")
@@ -53,7 +53,7 @@ pub fn block_import_probe() -> Int {
 	if err == nil || !strings.Contains(err.Error(), "undefined type or variant 'Range'") {
 		t.Fatalf("want \"undefined type or variant 'Range'\" without the import, got %v", err)
 	}
-	for _, path := range []string{"ranges.Range", "std/ranges.Range"} {
+	for _, path := range []string{"ranges.Range", "std::ranges.Range"} {
 		p, err := vmhost.LoadStdlibSource("maybe", probe("//! import "+path+"\n"))
 		if err != nil {
 			t.Fatalf("import %s: the front end rejects the case: %v", path, err)
@@ -80,23 +80,23 @@ pub fn block_import_probe() -> Int {
 // checker's reference to the block's import.
 func TestBlockImport_UserBodiesAndTests(t *testing.T) {
 	path := writeProgram(t, `fn millis() -> Int {
-  import std/duration.Duration
+  import std::duration.Duration
   Duration.seconds(2) |> Duration.as_millis()
 }
 
 fn less() -> Bool {
-  import std/comparable.Ordering.{Less}
+  import std::comparable.Ordering.{Less}
   Int.compare(1, 2) == Less
 }
 
 fn shout(message: String) {
-  import std/io.print
+  import std::io.print
 
   print(String.uppercase(message))
 }
 
 /// Three.
-//! import std/duration.Duration
+//! import std::duration.Duration
 //!
 //! assert Duration.minutes(1) |> Duration.as_seconds() == three() * 20
 fn three() -> Int {
@@ -104,16 +104,16 @@ fn three() -> Int {
 }
 
 fn main() {
-  import std/io
+  import std::io
   io.print(Int.to_string(millis()))
   io.print(Bool.to_string(less()))
   shout("hi")
 }
 
 test "a test block imports" {
-  import std/duration.Duration as D
+  import std::duration.Duration as D
   inner = {
-    import std/duration.Duration
+    import std::duration.Duration
     Duration.seconds(1) |> Duration.as_millis()
   }
   assert inner == 1000
@@ -147,7 +147,7 @@ test "a test block imports" {
 // with no import of its own type-checked against another body's.
 func TestBlockImport_DoesNotReachOtherBodies(t *testing.T) {
 	_, err := vmhost.Load(writeProgram(t, `fn millis() -> Int {
-  import std/duration.Duration
+  import std::duration.Duration
   Duration.seconds(2) |> Duration.as_millis()
 }
 

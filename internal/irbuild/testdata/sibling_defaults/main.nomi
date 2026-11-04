@@ -5,7 +5,7 @@
 // defaults, the bare spelling after a selective import, and a same-file
 // generic with a default.
 import {
-    std/io
+    std::io
     lib
     lib.{add, label, spread}
 }

@@ -3996,7 +3996,7 @@ func TestInterfaceDefPublic(t *testing.T) {
 }
 
 func TestImportFileNamespace(t *testing.T) {
-	nodes := parse(t, `import std/io`)
+	nodes := parse(t, `import std::io`)
 	imp, ok := nodes[0].(*ast.ImportStmt)
 	if !ok {
 		t.Fatalf("expected ImportStmt, got %T", nodes[0])
@@ -4015,7 +4015,7 @@ func TestImportFileNamespace(t *testing.T) {
 }
 
 func TestImportRelativeParentModule(t *testing.T) {
-	nodes := parse(t, `import ../test_helpers: TestHelpers`)
+	nodes := parse(t, `import ..::test_helpers: TestHelpers`)
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -4058,7 +4058,7 @@ func TestImportSelective(t *testing.T) {
 // Block form: entries separated by newlines (the canonical form),
 // terminated by `}`.
 func TestImportBlock_NewlineSeparated(t *testing.T) {
-	nodes := parse(t, "import {\n  std/lists: List\n  std/maps: Map\n}")
+	nodes := parse(t, "import {\n  std::lists: List\n  std::maps: Map\n}")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -4070,17 +4070,17 @@ func TestImportBlock_NewlineSeparated(t *testing.T) {
 		t.Fatalf("expected 2 entries, got %d", len(blk.Entries))
 	}
 	if ast.ImportNodeName(blk.Entries[0].ModulePath[1]) != "lists" {
-		t.Errorf("expected first entry std/lists, got %v", blk.Entries[0].ModulePath)
+		t.Errorf("expected first entry std::lists, got %v", blk.Entries[0].ModulePath)
 	}
 	if ast.ImportNodeName(blk.Entries[1].ModulePath[1]) != "maps" {
-		t.Errorf("expected second entry std/maps, got %v", blk.Entries[1].ModulePath)
+		t.Errorf("expected second entry std::maps, got %v", blk.Entries[1].ModulePath)
 	}
 }
 
 // A comma between block entries is rejected with a helpful message — commas
 // belong to the per-import selective list, not the import block.
 func TestImportBlock_CommaRejected(t *testing.T) {
-	_, err := Parse(lexer.Lex("import { std/lists: List, std/maps: Map }"))
+	_, err := Parse(lexer.Lex("import { std::lists: List, std::maps: Map }"))
 	if err == nil {
 		t.Fatal("expected comma-separated import block to be rejected")
 	}
@@ -4092,7 +4092,7 @@ func TestImportBlock_CommaRejected(t *testing.T) {
 // `self` inside a selective brace list binds the brace-list owner alongside
 // the named items. For a file-level selector, the owner is the file API object.
 func TestImportSelfMarker_FileNamespace(t *testing.T) {
-	nodes := parse(t, `import std/maybe.{self, Maybe}`)
+	nodes := parse(t, `import std::maybe.{self, Maybe}`)
 	stmt := nodes[0].(*ast.ImportStmt)
 	if !stmt.IncludeParent {
 		t.Fatal("expected self marker to set IncludeParent")
@@ -4106,7 +4106,7 @@ func TestImportSelfMarker_FileNamespace(t *testing.T) {
 }
 
 func TestImportSelfMarker_DrillThrough(t *testing.T) {
-	nodes := parse(t, `import std/maybe.Maybe.{self, None, Some}`)
+	nodes := parse(t, `import std::maybe.Maybe.{self, None, Some}`)
 	imp := nodes[0].(*ast.ImportStmt)
 	if !imp.IncludeParent {
 		t.Errorf("expected IncludeParent=true on `Maybe.{self, None, Some}`")
@@ -4117,7 +4117,7 @@ func TestImportSelfMarker_DrillThrough(t *testing.T) {
 }
 
 func TestImportSelfMarker_RejectsAlias(t *testing.T) {
-	tokens := lexer.Lex(`import std/foo.{self as bar}`)
+	tokens := lexer.Lex(`import std::foo.{self as bar}`)
 	_, errs := ParseWithRecovery(tokens)
 	if len(errs) == 0 {
 		t.Fatal("expected parse error for `self as bar` — self is a marker, not a renamable name")
@@ -4136,7 +4136,7 @@ func TestImportNestedModule(t *testing.T) {
 }
 
 func TestImportFileNamespaceAlias(t *testing.T) {
-	nodes := parse(t, `import std/lists as l`)
+	nodes := parse(t, `import std::lists as l`)
 	imp, ok := nodes[0].(*ast.ImportStmt)
 	if !ok {
 		t.Fatalf("expected ImportStmt, got %T", nodes[0])
@@ -4155,7 +4155,7 @@ func TestImportFileNamespaceAlias(t *testing.T) {
 }
 
 func TestImportSelectiveAlias(t *testing.T) {
-	nodes := parse(t, `import std/maybe.{Maybe as Opt, Some as Just, None}`)
+	nodes := parse(t, `import std::maybe.{Maybe as Opt, Some as Just, None}`)
 	imp := nodes[0].(*ast.ImportStmt)
 	if len(imp.Names) != 3 {
 		t.Fatalf("expected 3 names, got %d", len(imp.Names))
@@ -4195,12 +4195,12 @@ func TestParseImportSlashPaths(t *testing.T) {
 		wantNames []string
 		wantAlias string
 	}{
-		{"bare slash path", "import std/lists", []string{"std", "lists"}, nil, ""},
-		{"bare slash path alias", "import std/lists as l", []string{"std", "lists"}, nil, "l"},
-		{"slash with selective brace", "import std/lists.{head, tail}", []string{"std", "lists"}, []string{"head", "tail"}, ""},
-		{"slash with drill-through", "import std/maybe.Maybe.{Some, None}", []string{"std", "maybe", "Maybe"}, []string{"Some", "None"}, ""},
-		{"slash with lower-case single selective", "import std/io.print", []string{"std", "io"}, []string{"print"}, ""},
-		{"slash with single selective", "import models/users.User", []string{"models", "users"}, []string{"User"}, ""},
+		{"bare slash path", "import std::lists", []string{"std", "lists"}, nil, ""},
+		{"bare slash path alias", "import std::lists as l", []string{"std", "lists"}, nil, "l"},
+		{"slash with selective brace", "import std::lists.{head, tail}", []string{"std", "lists"}, []string{"head", "tail"}, ""},
+		{"slash with drill-through", "import std::maybe.Maybe.{Some, None}", []string{"std", "maybe", "Maybe"}, []string{"Some", "None"}, ""},
+		{"slash with lower-case single selective", "import std::io.print", []string{"std", "io"}, []string{"print"}, ""},
+		{"slash with single selective", "import models::users.User", []string{"models", "users"}, []string{"User"}, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -4265,13 +4265,13 @@ func TestParseImportTreatsDotAsSelector(t *testing.T) {
 // TestParseImportAllowsDottedDrillThrough confirms `.` is still valid as
 // the boundary between the resolved module and a drill-through type.
 func TestParseImportAllowsDottedDrillThrough(t *testing.T) {
-	if _, err := Parse(lexer.Lex("import std/maybe.Maybe.{Some, None}\n")); err != nil {
+	if _, err := Parse(lexer.Lex("import std::maybe.Maybe.{Some, None}\n")); err != nil {
 		t.Fatalf("drill-through must still parse: %v", err)
 	}
 }
 
 func TestParseImportAllowsWrappedSelectorList(t *testing.T) {
-	nodes := parse(t, `import std/calendar.{
+	nodes := parse(t, `import std::calendar.{
   DateParts,
   Days,
   Error
@@ -4290,7 +4290,7 @@ func TestParseImportAllowsWrappedSelectorList(t *testing.T) {
 }
 
 func TestParseImportAllowsDottedSelectorInsideOwnerBrace(t *testing.T) {
-	nodes := parse(t, `import std/json: Json.{self, Case.Camel}`)
+	nodes := parse(t, `import std::json: Json.{self, Case.Camel}`)
 	imp, ok := nodes[0].(*ast.ImportStmt)
 	if !ok {
 		t.Fatalf("expected *ast.ImportStmt, got %T", nodes[0])
@@ -4319,7 +4319,7 @@ func TestParseImportAllowsDottedSingleSelective(t *testing.T) {
 }
 
 func TestParseImportAllowsKeywordPathSegment(t *testing.T) {
-	nodes, err := Parse(lexer.Lex("import std/defer: Defer\n"))
+	nodes, err := Parse(lexer.Lex("import std::defer: Defer\n"))
 	if err != nil {
 		t.Fatalf("keyword path segment must parse after slash: %v", err)
 	}

@@ -139,7 +139,7 @@ func TestNamedArg_SlotPlanMirrorsResolveArgs(t *testing.T) {
 // interface, the type and a bounded type parameter, and the interface's for
 // an erased receiver.
 func TestNamedArg_InterfaceCallFillsAnEarlierDefault(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface Sum {
     fn base(value: self) -> Int

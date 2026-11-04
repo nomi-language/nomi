@@ -45,7 +45,7 @@ func stdModuleDoc(name string) string {
 }
 
 // stdModuleName is the std module an import or implicit module reference
-// names, as `std/http_testing` names `http_testing`; ok is false for a
+// names, as `std::http_testing` names `http_testing`; ok is false for a
 // project module.
 func stdModuleName(sym *analysis.Symbol, path string) (string, bool) {
 	if path == "" {
@@ -54,8 +54,8 @@ func stdModuleName(sym *analysis.Symbol, path string) (string, bool) {
 		}
 		return "", false
 	}
-	name, ok := strings.CutPrefix(path, "std/")
-	if !ok || strings.ContainsAny(name, "./") {
+	name, ok := strings.CutPrefix(path, "std::")
+	if !ok || strings.ContainsAny(name, ".:") {
 		return "", false
 	}
 	return name, true

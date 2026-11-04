@@ -1,4 +1,4 @@
-import std/int.PositiveInt
+import std::int.PositiveInt
 
 test "ints convert to floats" {
     assert Int.to_float(5) == 5.0

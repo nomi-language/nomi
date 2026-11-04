@@ -38,15 +38,15 @@ func TestFormat_ParseErrorReturnsOriginal(t *testing.T) {
 }
 
 // A top-of-file header comment above the first import stays on top even when
-// sorting reorders the imports beneath it (here std/int sorts before std/io,
-// moving the originally-first std/io down). The header is positional — it
+// sorting reorders the imports beneath it (here std::int sorts before std::io,
+// moving the originally-first std::io down). The header is positional — it
 // belongs to the head of the group, not to whichever import happened to be
 // first in source order.
 func TestFormat_SeparateImports_LeadingCommentStaysOnTop(t *testing.T) {
 	src := "// header line one\n" +
 		"// header line two\n" +
-		"import std/io\n" +
-		"import std/int: Int\n" +
+		"import std::io\n" +
+		"import std::int: Int\n" +
 		"\n" +
 		"fn main() {\n" +
 		"    io.print(Int.to_string(42))\n" +
@@ -55,7 +55,7 @@ func TestFormat_SeparateImports_LeadingCommentStaysOnTop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "// header line one\n// header line two\nimport {\n    std/int.Int\n    std/io\n}\n"
+	want := "// header line one\n// header line two\nimport {\n    std::int.Int\n    std::io\n}\n"
 	if !strings.Contains(got, want) {
 		t.Errorf("expected header to stay above the combined+sorted block, got:\n%s", got)
 	}
@@ -236,15 +236,15 @@ func TestFormat_Block_MultilineAssertionsAreBlankSeparated(t *testing.T) {
 
 func TestFormat_Block_NestedImportsSeparatedFromBody(t *testing.T) {
 	src := `fn first() -> Maybe<Int> {
-    import std/maybe: Maybe as Local
-    import std/results: Result as Outcome
+    import std::maybe: Maybe as Local
+    import std::results: Result as Outcome
     Outcome.Ok(Local.Some(1))
 }
 `
 	want := `fn first() -> Maybe<Int> {
     import {
-        std/maybe.Maybe as Local
-        std/results.Result as Outcome
+        std::maybe.Maybe as Local
+        std::results.Result as Outcome
     }
 
     Outcome.Ok(Local.Some(1))
@@ -259,12 +259,12 @@ func TestFormat_Block_NestedImportsSeparatedFromBody(t *testing.T) {
 func TestFormat_Block_NestedImportsMoveToTop(t *testing.T) {
 	src := `fn first() -> Maybe<Int> {
     x = 1
-    import std/maybe: Maybe as Local
+    import std::maybe: Maybe as Local
     Local.Some(x)
 }
 `
 	want := `fn first() -> Maybe<Int> {
-    import std/maybe.Maybe as Local
+    import std::maybe.Maybe as Local
 
     x = 1
     Local.Some(x)
@@ -3204,9 +3204,8 @@ func TestFormat_StringWithFormatChar_RoundTrips(t *testing.T) {
 }
 
 func TestFormat_TripleStringLit_Idempotent(t *testing.T) {
-	// Multi-line triple-quoted literal inside a fn body. The block adds
-	// one level of indent; the StringLit's Nest adds another, so the
-	// canonical body indent is 8.
+	// Multi-line triple-quoted literal after a binding's `=`: the body and
+	// the closing `"""` sit one level in from the line that opens it, 8.
 	src := "fn main() {\n    x = \"\"\"\n        SELECT *\n        FROM users\n        \"\"\"\n}\n"
 	once := formatOnce(t, src)
 	twice := formatOnce(t, once)
@@ -3269,6 +3268,25 @@ func TestFormat_TripleStringSingleLineBody_Idempotent(t *testing.T) {
 	}
 }
 
+// A body line that ends in a carriage return is written with a second one,
+// since the lexer reads one `\r` before a line feed as a CRLF line end.
+// FuzzFormatKeepsMeaning found `{0("""\r\r\n\n""")}`, whose value "\r\n"
+// became "\n".
+func TestFormat_TripleStringBodyLineEndingInCRKeepsIt(t *testing.T) {
+	for _, c := range []struct{ src, want string }{
+		{
+			"fn main() {\n    f(\"\"\"\r\r\n\n\"\"\")\n}\n",
+			"fn main() {\n    f(\n        \"\"\"\n        \r\r\n\n        \"\"\"\n    )\n}\n",
+		},
+		{
+			"fn main() {\n    x = `\na\r\r\nb\r\r\n`\n}\n",
+			"fn main() {\n    x = `\n        a\r\r\n        b\r\r\n        `\n}\n",
+		},
+	} {
+		formatsKeepingMeaning(t, c.src, c.want)
+	}
+}
+
 // A one-line triple-quoted literal that does not fit in the line is
 // framed, its body on its own line; a framed one stays framed.
 func TestFormat_TripleStringOneLineTooWideIsFramed(t *testing.T) {
@@ -3301,7 +3319,7 @@ func TestFormat_OneLineTypedLiteralsStayOnOneLine(t *testing.T) {
 // `${`.
 func TestFormat_AMultiLineSlotStartsAtItsDollar(t *testing.T) {
 	src := "fn f(on: Bool) -> Html {\n    Html\"\"\"\n        <p>${if on {\n            Html\"<b>on</b>\"\n        } else {\n            Html\"<i>off</i>\"\n        }}</p>\n        \"\"\"\n}\n"
-	want := "fn f(on: Bool) -> Html {\n    Html\"\"\"\n        <p>${if on {\n               Html\"<b>on</b>\"\n           } else {\n               Html\"<i>off</i>\"\n           }}</p>\n        \"\"\"\n}\n"
+	want := "fn f(on: Bool) -> Html {\n    Html\"\"\"\n    <p>${if on {\n           Html\"<b>on</b>\"\n       } else {\n           Html\"<i>off</i>\"\n       }}</p>\n    \"\"\"\n}\n"
 	once := formatOnce(t, src)
 	if once != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", once, want)
@@ -3311,9 +3329,37 @@ func TestFormat_AMultiLineSlotStartsAtItsDollar(t *testing.T) {
 	}
 }
 
+// A slot written on one line stays on it however long the line around it
+// is: the text cannot break, so breaking the slot's call only scatters it
+// down the page.
+func TestFormat_AOneLineSlotIsNotBrokenByTheWidth(t *testing.T) {
+	for _, src := range []string{
+		`pub fn avatar(email: String) -> Html {
+    Html"""
+    <span class="inline-flex size-10 items-center justify-center rounded-full outline -outline-offset-1 ${color(email)}">x</span>
+    """
+}
+`,
+		`fn f(email: String) -> String {
+    "inline-flex size-10 items-center justify-center rounded-full outline -outline-offset-1 ${color(email)} and more"
+}
+`,
+		`fn f(emails: List<String>) -> Html {
+    Html"""
+    <ul class="inline-flex size-10 items-center justify-center rounded-full">${Html.each(emails, fn e -> Html"<li>${e}</li>")}</ul>
+    """
+}
+`,
+	} {
+		if once := formatOnce(t, src); once != src {
+			t.Errorf("got:\n%s\nwant it unchanged:\n%s", once, src)
+		}
+	}
+}
+
 func TestFormat_TripleStringTopLevel_Idempotent(t *testing.T) {
-	// At top level (no enclosing block), the body indent is just
-	// defaultIndent (4 spaces).
+	// At top level (no enclosing block), the body after `q =` sits one
+	// level in, at column 4.
 	src := "q = \"\"\"\n    SELECT *\n    FROM users\n    \"\"\"\n"
 	once := formatOnce(t, src)
 	twice := formatOnce(t, once)
@@ -3457,18 +3503,314 @@ func TestFormat_RawTriple_IndentStripping(t *testing.T) {
 	}
 }
 
-// --- Triple-quoted string: call-arg layout exception ---
+// --- Triple-quoted string: body placed from the opener's line ---
 //
-// A multi-line triple-quoted string that is a direct argument of a
-// function call places its content at the SAME column as the opening
-// `"""`, not at +defaultIndent. Bindings (where the opening `"""` sits
-// on a different line from the binding name) keep the +defaultIndent
-// rule. The two halves are exercised below.
+// A multi-line triple-quoted or raw string's body and closing delimiter
+// share one indent. A literal that starts its line puts them at that
+// line's indent; one that follows code on its line puts them one level
+// in. Each case gives the body at some other indent; the formatter moves
+// it with its closing delimiter, so its value and its own nesting are
+// kept.
+
+func TestFormat_TripleStringBodyFromOpenerLine(t *testing.T) {
+	cases := []struct{ name, src, want string }{
+		{
+			name: "function result starts its line",
+			src: `fn footer() -> Html {
+    Html"""
+        <footer>
+          <p>Bye</p>
+        </footer>
+        """
+}
+`,
+			want: `fn footer() -> Html {
+    Html"""
+    <footer>
+      <p>Bye</p>
+    </footer>
+    """
+}
+`,
+		},
+		{
+			name: "binding",
+			src: `fn main() {
+    page = Html"""
+    <main>
+      <h1>${name}</h1>
+    </main>
+    """
+}
+`,
+			want: `fn main() {
+    page = Html"""
+        <main>
+          <h1>${name}</h1>
+        </main>
+        """
+}
+`,
+		},
+		{
+			name: "annotated binding",
+			src: `fn main() {
+    page: Html = Html"""
+    <p>${name}</p>
+    """
+}
+`,
+			want: `fn main() {
+    page: Html = Html"""
+        <p>${name}</p>
+        """
+}
+`,
+		},
+		{
+			name: "top-level binding",
+			src: `q = """
+SELECT *
+"""
+`,
+			want: `q = """
+    SELECT *
+    """
+`,
+		},
+		{
+			name: "struct field",
+			src: `fn main() {
+    email = Email{
+        to: user.email,
+        body: Html"""
+        <p>Hi ${user.name},</p>
+        """,
+    }
+}
+`,
+			want: `fn main() {
+    email = Email{
+        to: user.email,
+        body: Html"""
+            <p>Hi ${user.name},</p>
+            """,
+    }
+}
+`,
+		},
+		{
+			name: "map entry",
+			src: `fn main() {
+    pages = %{
+        "home" => """
+        <p>Home</p>
+        """,
+    }
+}
+`,
+			want: `fn main() {
+    pages = %{
+        "home" => """
+            <p>Home</p>
+            """,
+    }
+}
+`,
+		},
+		{
+			name: "case arm",
+			src: `fn avatar_html(avatar: Maybe<String>, initial: String) -> Html {
+    case avatar {
+        Some(url) -> Html"""
+        <img src="${url}" alt="">
+        """
+        None -> Html"<span>${initial}</span>"
+    }
+}
+`,
+			want: `fn avatar_html(avatar: Maybe<String>, initial: String) -> Html {
+    case avatar {
+        Some(url) -> Html"""
+            <img src="${url}" alt="">
+            """
+
+        None ->
+            Html"<span>${initial}</span>"
+    }
+}
+`,
+		},
+		{
+			name: "lambda body",
+			src: `fn list(posts: List<Post>) -> Html {
+    Html.each(posts, fn post -> Html"""
+    <li>${post.title}</li>
+    """)
+}
+`,
+			want: `fn list(posts: List<Post>) -> Html {
+    Html.each(posts, fn post -> Html"""
+        <li>${post.title}</li>
+        """)
+}
+`,
+		},
+		{
+			name: "return",
+			src: `fn empty(posts: List<Post>) -> Html {
+    if posts == [] {
+        return Html"""
+        <p>No posts yet.</p>
+        """
+    }
+
+    Html""
+}
+`,
+			want: `fn empty(posts: List<Post>) -> Html {
+    if posts == [] {
+        return Html"""
+            <p>No posts yet.</p>
+            """
+    }
+
+    Html""
+}
+`,
+		},
+		{
+			// A message's body is a raw string.
+			name: "keyword declaration",
+			src:  "message welcome(name: String) `\nHello, {$name}!\n`\n",
+			want: "message welcome(name: String) `\n    Hello, {$name}!\n    `\n",
+		},
+		{
+			// The list breaks its elements onto their own lines, so the
+			// literal starts its line.
+			name: "list element",
+			src: `fn main() {
+    rows = ["""
+    a
+    """]
+}
+`,
+			want: `fn main() {
+    rows = [
+        """
+        a
+        """,
+    ]
+}
+`,
+		},
+		{
+			// The call breaks its arguments onto their own lines, so the
+			// opening `"""` starts a line one level in, and the body
+			// sits there.
+			name: "argument on its own line",
+			src: `fn main() {
+    println("""
+        <div>
+          <span>${1}</span>
+        </div>
+        """)
+}
+`,
+			want: `fn main() {
+    println(
+        """
+        <div>
+          <span>${1}</span>
+        </div>
+        """
+    )
+}
+`,
+		},
+		{
+			name: "pipeline head starts its line",
+			src: `fn main() {
+    """
+        a
+        """
+        |> println()
+}
+`,
+			want: `fn main() {
+    """
+    a
+    """
+    |> println()
+}
+`,
+		},
+		{
+			name: "nested literal in a slot",
+			src: `fn page(posts: List<Post>) -> Html {
+    body = Html"""
+    <ul>
+      ${Html.each(posts, fn post -> Html"""
+      <li>${post.title}</li>
+      """)}
+    </ul>
+    """
+    body
+}
+`,
+			want: `fn page(posts: List<Post>) -> Html {
+    body = Html"""
+        <ul>
+          ${Html.each(posts, fn post -> Html"""
+              <li>${post.title}</li>
+              """)}
+        </ul>
+        """
+
+    body
+}
+`,
+		},
+		{
+			name: "raw string after return",
+			src: "fn f(on: Bool) -> String {\n" +
+				"    if on {\n" +
+				"        return `\n" +
+				"        <p>\n" +
+				"          ${raw}\n" +
+				"        </p>\n" +
+				"        `\n" +
+				"    }\n" +
+				"\n" +
+				"    \"\"\n" +
+				"}\n",
+			want: "fn f(on: Bool) -> String {\n" +
+				"    if on {\n" +
+				"        return `\n" +
+				"            <p>\n" +
+				"              ${raw}\n" +
+				"            </p>\n" +
+				"            `\n" +
+				"    }\n" +
+				"\n" +
+				"    \"\"\n" +
+				"}\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			formatsKeepingMeaning(t, c.src, c.want)
+			if twice := formatOnce(t, c.want); twice != c.want {
+				t.Fatalf("not idempotent:\n%s", twice)
+			}
+		})
+	}
+}
 
 func TestFormat_TripleStringCallArg_ContentAtOpening(t *testing.T) {
-	// Input: the +defaultIndent layout (content indented one level inside the
-	// opening `"""`'s column). The formatter must normalize it to
-	// content-at-opening: closing and body both at the opening's column.
+	// Input: the body indented one level inside the opening line. The
+	// formatter moves it, and the closing `"""`, to the opening line's
+	// indent.
 	src := "fn main() {\n" +
 		"    show(\n" +
 		"        \"label\",\n" +
@@ -3495,11 +3837,9 @@ func TestFormat_TripleStringCallArg_ContentAtOpening(t *testing.T) {
 	}
 }
 
-func TestFormat_TripleStringBinding_PreservesPlusTwo(t *testing.T) {
-	// Companion to the call-arg test: bindings keep the +defaultIndent
-	// layout. Input here is already canonical for a binding-RHS triple-
-	// quoted string (block adds one level; the StringLit's Nest adds another; the
-	// canonical body indent is 8). Round-trip must preserve it.
+func TestFormat_TripleStringBinding_Canonical(t *testing.T) {
+	// A binding's triple-quoted body already one level in from the
+	// opening line round-trips unchanged.
 	src := "fn main() {\n" +
 		"    greeting = \"\"\"\n" +
 		"        hello\n" +
@@ -3511,7 +3851,7 @@ func TestFormat_TripleStringBinding_PreservesPlusTwo(t *testing.T) {
 		t.Fatalf("not idempotent:\n  once: %q\n twice: %q", once, twice)
 	}
 	if once != src {
-		t.Errorf("binding triple-quoted layout changed (must stay at +defaultIndent):\n want: %q\n  got: %q", src, once)
+		t.Errorf("binding triple-quoted layout changed:\n want: %q\n  got: %q", src, once)
 	}
 }
 
@@ -3674,14 +4014,14 @@ func TestFormat_Import_SlashOutput(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"slash output for stdlib path", "import std/io\n", "import std/io\n"},
-		{"drill-through type stays dot", "import std/maybe.Maybe.{Some, None}\n", "import std/maybe.Maybe.{None, Some}\n"},
-		{"single value selector stays path dotted", "import std/io: print\n", "import std/io.print\n"},
-		{"single drill-through selector stays dotted", "import std/json: Json.Case.Camel\n", "import std/json.Json.Case.Camel\n"},
-		{"dotted selector can sit inside owner braces", "import {\n    std/json: FromJson, ToJson, Json.{self, Case.Camel}\n}\n", "import {\n    std/json.{FromJson, ToJson}\n    std/json.Json.{self, Case.Camel}\n}\n"},
-		{"snake_case child module stays slash path", "import app/date_time.{self, DateTime}\n", "import app/date_time.{self, DateTime}\n"},
+		{"slash output for stdlib path", "import std::io\n", "import std::io\n"},
+		{"drill-through type stays dot", "import std::maybe.Maybe.{Some, None}\n", "import std::maybe.Maybe.{None, Some}\n"},
+		{"single value selector stays path dotted", "import std::io: print\n", "import std::io.print\n"},
+		{"single drill-through selector stays dotted", "import std::json: Json.Case.Camel\n", "import std::json.Json.Case.Camel\n"},
+		{"dotted selector can sit inside owner braces", "import {\n    std::json: FromJson, ToJson, Json.{self, Case.Camel}\n}\n", "import {\n    std::json.{FromJson, ToJson}\n    std::json.Json.{self, Case.Camel}\n}\n"},
+		{"snake_case child module stays slash path", "import app::date_time.{self, DateTime}\n", "import app::date_time.{self, DateTime}\n"},
 		{"selective single name normalizes to dot selector", "import models.User\n", "import models.User\n"},
-		{"user module nested", "import http/request: Request as Req\n", "import http/request.Request as Req\n"},
+		{"user module nested", "import http::request: Request as Req\n", "import http::request.Request as Req\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -3694,8 +4034,8 @@ func TestFormat_Import_SlashOutput(t *testing.T) {
 }
 
 func TestFormat_Import_Simple(t *testing.T) {
-	src := "import std/lists: List\n"
-	want := "import std/lists.List\n"
+	src := "import std::lists: List\n"
+	want := "import std::lists.List\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q", got)
@@ -3703,8 +4043,8 @@ func TestFormat_Import_Simple(t *testing.T) {
 }
 
 func TestFormat_Import_Selective(t *testing.T) {
-	src := "import std/maybe.{None, Some}\n"
-	want := "import std/maybe.{None, Some}\n"
+	src := "import std::maybe.{None, Some}\n"
+	want := "import std::maybe.{None, Some}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -3713,8 +4053,8 @@ func TestFormat_Import_Selective(t *testing.T) {
 
 func TestFormat_Import_SelectiveAlias(t *testing.T) {
 	// Selective list is sorted by pre-alias original name: None before Some.
-	src := "import std/maybe.{None as Nothing, Some as Just}\n"
-	want := "import std/maybe.{None as Nothing, Some as Just}\n"
+	src := "import std::maybe.{None as Nothing, Some as Just}\n"
+	want := "import std::maybe.{None as Nothing, Some as Just}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -3723,8 +4063,8 @@ func TestFormat_Import_SelectiveAlias(t *testing.T) {
 
 func TestFormat_Import_SelectiveMixed(t *testing.T) {
 	// Sorted by pre-alias original name: empty, put, size.
-	src := "import std/maps.{empty, put as put_kv, size as kv_size}\n"
-	want := "import std/maps.{empty, put as put_kv, size as kv_size}\n"
+	src := "import std::maps.{empty, put as put_kv, size as kv_size}\n"
+	want := "import std::maps.{empty, put as put_kv, size as kv_size}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -3732,9 +4072,9 @@ func TestFormat_Import_SelectiveMixed(t *testing.T) {
 }
 
 func TestFormat_Import_LongSelective_WrapsSelectorList(t *testing.T) {
-	src := "import std/maps.{aaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbb, cccccccccccccccccc, dddddddddddddddddd, eeeeeeeeeeeeeeeeee}\n"
+	src := "import std::maps.{aaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbb, cccccccccccccccccc, dddddddddddddddddd, eeeeeeeeeeeeeeeeee}\n"
 	got, _ := Format(src)
-	want := `import std/maps.{
+	want := `import std::maps.{
     aaaaaaaaaaaaaaaaaa,
     bbbbbbbbbbbbbbbbbb,
     cccccccccccccccccc,
@@ -3748,12 +4088,12 @@ func TestFormat_Import_LongSelective_WrapsSelectorList(t *testing.T) {
 }
 
 func TestFormat_SortsImports_Alphabetical(t *testing.T) {
-	src := `import std/strings: String
-import std/lists: List
-import std/maps: Map
+	src := `import std::strings: String
+import std::lists: List
+import std::maps: Map
 `
 	// Distinct imports combine into one block, sorted by path.
-	want := "import {\n    std/lists.List\n    std/maps.Map\n    std/strings.String\n}\n"
+	want := "import {\n    std::lists.List\n    std::maps.Map\n    std::strings.String\n}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -3762,10 +4102,10 @@ import std/maps: Map
 
 func TestFormat_ImportSort_IgnoresNameAlias(t *testing.T) {
 	// Sort by path, not alias; aliased imported names are ordinary block entries.
-	src := `import std/lists: List as Z
-import std/maps: Map as A
+	src := `import std::lists: List as Z
+import std::maps: Map as A
 `
-	want := "import {\n    std/lists.List as Z\n    std/maps.Map as A\n}\n"
+	want := "import {\n    std::lists.List as Z\n    std::maps.Map as A\n}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -3773,8 +4113,8 @@ import std/maps: Map as A
 }
 
 func TestFormat_ImportSort_SelectiveListByOriginalName(t *testing.T) {
-	src := "import std/maybe.{Some as Just, None as Nothing}\n"
-	want := "import std/maybe.{None as Nothing, Some as Just}\n"
+	src := "import std::maybe.{Some as Just, None as Nothing}\n"
+	want := "import std::maybe.{None as Nothing, Some as Just}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -3785,18 +4125,18 @@ func TestFormat_ImportSort_StopsAtNonImport(t *testing.T) {
 	// Once a non-import is seen, trailing imports are left alone. The leading
 	// run combines into a block; the trailing single import (after code) stays
 	// bare and untouched.
-	src := `import std/strings: String
-import std/lists: List
+	src := `import std::strings: String
+import std::lists: List
 
 x = 1
 
-import std/maps: Map
+import std::maps: Map
 `
 	got, _ := Format(src)
-	if !strings.HasPrefix(got, "import {\n    std/lists.List\n    std/strings.String\n}\n") {
+	if !strings.HasPrefix(got, "import {\n    std::lists.List\n    std::strings.String\n}\n") {
 		t.Errorf("expected leading run combined+sorted, got:\n%s", got)
 	}
-	if !strings.HasSuffix(got, "import std/maps.Map\n") {
+	if !strings.HasSuffix(got, "import std::maps.Map\n") {
 		t.Errorf("expected trailing single import preserved, got:\n%s", got)
 	}
 }
@@ -4146,17 +4486,17 @@ func TestFormat_TypeAlias_SingleType_Unchanged(t *testing.T) {
 }
 
 // Canonical form: 2+ consecutive `import` statements combine into one sorted
-// block (std/* first, then alphabetical).
+// block (std::* first, then alphabetical).
 func TestFormat_SeparateImports_Combine(t *testing.T) {
-	src := `import std/maps: Map
-import std/lists: List
+	src := `import std::maps: Map
+import std::lists: List
 fn main() { 0 }
 `
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("expected parse to succeed, got: %v", err)
 	}
-	want := "import {\n    std/lists.List\n    std/maps.Map\n}\n"
+	want := "import {\n    std::lists.List\n    std::maps.Map\n}\n"
 	if !strings.Contains(got, want) {
 		t.Errorf("expected one combined sorted block, got:\n%s", got)
 	}
@@ -4165,8 +4505,8 @@ fn main() { 0 }
 // A blank line between imports is formatting noise unless a comment rides on it:
 // the formatter combines and sorts the whole leading import run.
 func TestFormat_SeparateImports_BlankGroupsCollapse(t *testing.T) {
-	src := `import std/maps: Map
-import std/lists: List
+	src := `import std::maps: Map
+import std::lists: List
 
 import other: other
 import models: Models
@@ -4177,7 +4517,7 @@ fn main() { 0 }
 	if err != nil {
 		t.Fatalf("expected parse to succeed, got: %v", err)
 	}
-	want := "import {\n    std/lists.List\n    std/maps.Map\n    models.Models\n    other.other\n}\n"
+	want := "import {\n    std::lists.List\n    std::maps.Map\n    models.Models\n    other.other\n}\n"
 	if !strings.Contains(got, want) {
 		t.Errorf("expected one combined import block, got:\n%s", got)
 	}
@@ -4185,7 +4525,7 @@ fn main() { 0 }
 
 // A single import statement stays bare (no block).
 func TestFormat_SingleImport_StaysBare(t *testing.T) {
-	src := `import std/lists: List
+	src := `import std::lists: List
 
 fn main() { 0 }
 `
@@ -4193,7 +4533,7 @@ fn main() { 0 }
 	if err != nil {
 		t.Fatalf("expected parse to succeed, got: %v", err)
 	}
-	if !strings.Contains(got, "import std/lists.List\n") || strings.Contains(got, "import {") {
+	if !strings.Contains(got, "import std::lists.List\n") || strings.Contains(got, "import {") {
 		t.Errorf("expected bare single import, got:\n%s", got)
 	}
 }
@@ -4203,13 +4543,13 @@ fn main() { 0 }
 // comma — the analog of Go's `import ( ... )`.
 func TestFormat_ImportBlock_AlwaysMultilineNoCommas(t *testing.T) {
 	src := `import {
-    std/maps: Map
-    std/lists: List
+    std::maps: Map
+    std::lists: List
 }
 `
 	want := `import {
-    std/lists.List
-    std/maps.Map
+    std::lists.List
+    std::maps.Map
 }
 `
 	got, err := Format(src)
@@ -4239,8 +4579,8 @@ func TestFormat_GoPackageHandle(t *testing.T) {
 // the old single-line collapse is gone.
 func TestFormat_ImportBlock_NoSingleLineCollapse(t *testing.T) {
 	src := `import {
-  std/io
-  std/lists.List
+  std::io
+  std::lists.List
 }
 `
 	got, err := Format(src)
@@ -4255,7 +4595,7 @@ func TestFormat_ImportBlock_NoSingleLineCollapse(t *testing.T) {
 // A single-entry block collapses to the bare per-statement form.
 func TestFormat_ImportBlock_SingleEntryCollapses(t *testing.T) {
 	src := `import {
-  std/lists: List
+  std::lists: List
 }
 
 fn main() { 0 }
@@ -4264,7 +4604,7 @@ fn main() { 0 }
 	if err != nil {
 		t.Fatalf("expected parse to succeed, got: %v", err)
 	}
-	if !strings.Contains(got, "import std/lists.List\n") || strings.Contains(got, "import {") {
+	if !strings.Contains(got, "import std::lists.List\n") || strings.Contains(got, "import {") {
 		t.Errorf("expected single-entry block to collapse to bare, got:\n%s", got)
 	}
 }
@@ -4275,7 +4615,7 @@ func TestFormat_ImportBlock_SingleEntryCollapse_PreservesLeadingComments(t *test
 	src := `// First comment line above the import.
 // Second comment line above the import.
 import {
-  std/lists: List
+  std::lists: List
 }
 
 fn main() { 0 }
@@ -4290,30 +4630,30 @@ fn main() { 0 }
 	if !strings.Contains(got, "// Second comment line above the import.\n") {
 		t.Errorf("expected second leading comment preserved, got:\n%s", got)
 	}
-	if !strings.Contains(got, "import std/lists.List\n") {
+	if !strings.Contains(got, "import std::lists.List\n") {
 		t.Errorf("expected single-entry block to collapse, got:\n%s", got)
 	}
 }
 
-// Block entries are sorted (std/* first, then alphabetical) and rendered
+// Block entries are sorted (std::* first, then alphabetical) and rendered
 // newline-separated.
 func TestFormat_ImportBlock_SortsEntries(t *testing.T) {
 	src := `import {
     log.{Logger}
     console.{Console}
     effects.{Clock}
-    runtime/prod: Prod
-    runtime/test: Test
-    runtime/dev
+    runtime::prod: Prod
+    runtime::test: Test
+    runtime::dev
 }
 `
 	want := `import {
     console.Console
     effects.Clock
     log.Logger
-    runtime/dev
-    runtime/prod.Prod
-    runtime/test.Test
+    runtime::dev
+    runtime::prod.Prod
+    runtime::test.Test
 }
 `
 	got, _ := Format(src)
@@ -4322,16 +4662,16 @@ func TestFormat_ImportBlock_SortsEntries(t *testing.T) {
 	}
 }
 
-// std/* entries sort before non-std entries within a block.
+// std::* entries sort before non-std entries within a block.
 func TestFormat_ImportBlock_StdGroupFirst(t *testing.T) {
 	src := `import {
     log.{Logger}
-    std/io.{inspect}
+    std::io.{inspect}
     console.{Console}
 }
 `
 	want := `import {
-    std/io.inspect
+    std::io.inspect
     console.Console
     log.Logger
 }
@@ -4344,13 +4684,13 @@ func TestFormat_ImportBlock_StdGroupFirst(t *testing.T) {
 
 func TestFormat_ImportGroups_BlankLineCollapses(t *testing.T) {
 	src := `import {
-    std/context.Context
-    std/duration.Duration
+    std::context.Context
+    std::duration.Duration
 }
 
 import {
-    std/startup.Startup
-    std/io
+    std::startup.Startup
+    std::io
     app.EffectsApp
 }
 
@@ -4359,10 +4699,10 @@ fn main() {
 }
 `
 	want := `import {
-    std/context.Context
-    std/duration.Duration
-    std/io
-    std/startup.Startup
+    std::context.Context
+    std::duration.Duration
+    std::io
+    std::startup.Startup
     app.EffectsApp
 }
 
@@ -4380,7 +4720,7 @@ fn main() {
 }
 
 func TestFormat_ImportGroups_CommentKeepsSection(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 // project imports
 import app.EffectsApp
@@ -4389,7 +4729,7 @@ fn main() {
     Unit
 }
 `
-	want := `import std/io
+	want := `import std::io
 
 // project imports
 import app.EffectsApp
@@ -4412,34 +4752,34 @@ fn main() {
 // names out of a module.
 func TestFormat_ImportBlock_SelectiveEntryKeepsCommas(t *testing.T) {
 	src := `import {
-  std/io
-  std/maybe.Maybe.{Some, None}
+  std::io
+  std::maybe.Maybe.{Some, None}
 }
 `
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("expected parse to succeed, got: %v", err)
 	}
-	if !strings.Contains(got, "std/maybe.Maybe.{None, Some}") {
+	if !strings.Contains(got, "std::maybe.Maybe.{None, Some}") {
 		t.Errorf("expected selective name list to keep commas (sorted), got:\n%s", got)
 	}
 }
 
 func TestFormat_ImportBlock_LongSelectiveEntryWraps(t *testing.T) {
 	src := `import {
-    modules/math
-    modules/models: Greeting, Point, User
-    visibility_chain_public/api.{Token, make, make_token}
-    visibility_chain_public/api.http.header.{self, canonical_name}
-    visibility_chain_public/api.Widget.{self, label}
+    modules::math
+    modules::models: Greeting, Point, User
+    visibility_chain_public::api.{Token, make, make_token}
+    visibility_chain_public::api.http.header.{self, canonical_name}
+    visibility_chain_public::api.Widget.{self, label}
 }
 `
 	want := `import {
-    modules/math
-    modules/models.{Greeting, Point, User}
-    visibility_chain_public/api.{Token, make, make_token}
-    visibility_chain_public/api.Widget.{self, label}
-    visibility_chain_public/api/http/header.{self, canonical_name}
+    modules::math
+    modules::models.{Greeting, Point, User}
+    visibility_chain_public::api.{Token, make, make_token}
+    visibility_chain_public::api.Widget.{self, label}
+    visibility_chain_public::api::http::header.{self, canonical_name}
 }
 `
 	got, err := Format(src)
@@ -4453,12 +4793,12 @@ func TestFormat_ImportBlock_LongSelectiveEntryWraps(t *testing.T) {
 
 func TestFormat_ImportBlock_OwnerSelfCanonical(t *testing.T) {
 	src := `import {
-    std/maybe: Maybe, Maybe.{Some, None}
+    std::maybe: Maybe, Maybe.{Some, None}
 }
 `
 	want := `import {
-    std/maybe.Maybe
-    std/maybe.Maybe.{None, Some}
+    std::maybe.Maybe
+    std::maybe.Maybe.{None, Some}
 }
 `
 	got, err := Format(src)
@@ -4473,8 +4813,8 @@ func TestFormat_ImportBlock_OwnerSelfCanonical(t *testing.T) {
 // The per-import selective list keeps commas and stays inline when it fits
 // (it selects names out of one module — distinct from the block form).
 func TestFormat_SelectiveList_KeepsCommasInline(t *testing.T) {
-	src := "import std/maps.{empty, put, size}\n"
-	want := "import std/maps.{empty, put, size}\n"
+	src := "import std::maps.{empty, put, size}\n"
+	want := "import std::maps.{empty, put, size}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("expected parse to succeed, got: %v", err)
@@ -4493,7 +4833,7 @@ func TestFormat_PubImport(t *testing.T) {
 		{"pub import some_mod.{b, a}\n", "pub import some_mod.{a, b}\n"},
 		{"pub import some_mod: a, b, c\n", "pub import some_mod.{a, b, c}\n"},
 		{"pub import some_mod.{Thing as Tng}\n", "pub import some_mod.Thing as Tng\n"},
-		{"pub import std/bool.Bool.{self, True, False}\n", "pub import std/bool.Bool.{self, False, True}\n"},
+		{"pub import std::bool.Bool.{self, True, False}\n", "pub import std::bool.Bool.{self, False, True}\n"},
 		{"pub import {\n    lists.List\n    add.Add\n}\n", "pub import {\n    add.Add\n    lists.List\n}\n"},
 		{"pub import {\n    add.Add\n}\n", "pub import add.Add\n"},
 	}
@@ -4515,17 +4855,17 @@ func TestFormat_PubImport(t *testing.T) {
 // A section holding imports and re-exports becomes two blocks, the imports
 // first, and an import never merges with a re-export of the same file.
 func TestFormat_PubImportSectionSplitsFromImports(t *testing.T) {
-	src := "pub import std/io.{print}\n" +
-		"import std/lists.List\n" +
-		"pub import std/maps.Map\n" +
-		"import std/io.{Error}\n"
+	src := "pub import std::io.{print}\n" +
+		"import std::lists.List\n" +
+		"pub import std::maps.Map\n" +
+		"import std::io.{Error}\n"
 	want := "import {\n" +
-		"    std/io.Error\n" +
-		"    std/lists.List\n" +
+		"    std::io.Error\n" +
+		"    std::lists.List\n" +
 		"}\n" +
 		"pub import {\n" +
-		"    std/io.print\n" +
-		"    std/maps.Map\n" +
+		"    std::io.print\n" +
+		"    std::maps.Map\n" +
 		"}\n"
 	got, err := Format(src)
 	if err != nil {
@@ -5009,7 +5349,7 @@ func TestFormat_CompoundDepth_Idempotent(t *testing.T) {
 // parser.ParseFile returns end-of-file trivia separately, and emitFile
 // emits it after the last node.
 func TestFormat_TrailingTopLevelComments_Preserved(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
     io.print("hello")

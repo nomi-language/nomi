@@ -10,7 +10,7 @@ func TestIRStructPatternThroughAnAlias_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 struct Person {
     name: String

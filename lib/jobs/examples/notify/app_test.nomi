@@ -1,9 +1,9 @@
 import {
-    std/duration.Duration
-    std/jobs.Worker
-    std/sql.{self, Conn, Row, Sql}
-    std/timer
-    std/uuid.Uuid
+    std::duration.Duration
+    std::jobs.Worker
+    std::sql.{self, Conn, Row, Sql}
+    std::timer
+    std::uuid.Uuid
     app.{self, App, EmailArgs, add_post, add_user, batch_job, deliveries, email_job, publish, send_email}
 }
 

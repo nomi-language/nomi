@@ -38,7 +38,8 @@ const (
 	// machine nor a bound host adapter answers.
 	NoBinding
 	// NoImplementation is a dispatched method with no retained
-	// implementation for any type.
+	// implementation for any type, which some module implements without a
+	// dispatch entry. A method no module implements is not reported.
 	NoImplementation
 )
 
@@ -260,7 +261,13 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 	case ir.CalleeDispatched:
 		impls := w.m.dispatch[n.Callee()]
 		if len(impls) == 0 {
-			w.report(NoImplementation, n.Callee().Name(), from)
+			// A method no module implements at all never runs: no value
+			// of an implementing type exists, so the call is only ever
+			// reached over none (a dispatch over an empty list). Were it
+			// reached, it stops with a DispatchMiss.
+			if w.m.unretainedImpls[n.Callee()] {
+				w.report(NoImplementation, n.Callee().Name(), from)
+			}
 			return
 		}
 		for _, impl := range impls {

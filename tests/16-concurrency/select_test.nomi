@@ -1,11 +1,11 @@
 import {
-    std/channels.{Arm, Channel, ChannelClosed, Receiver, Sender, TimedOut}
-    std/compiler
-    std/duration.Duration
-    std/instant.Instant
-    std/tasks.{Outcome, Task}
-    std/testing.Clock
-    std/timer
+    std::channels.{Arm, Channel, ChannelClosed, Receiver, Sender, TimedOut}
+    std::compiler
+    std::duration.Duration
+    std::instant.Instant
+    std::tasks.{Outcome, Task}
+    std::testing.Clock
+    std::timer
 }
 
 fn send_later(sender: Sender<Int>, wait: Duration, value: Int) -> Unit {
@@ -105,7 +105,7 @@ test "receive_within tells a value, a closed channel and a timeout apart" {
 test "a select with no arms is a fault" {
     case compiler.run(
         """
-        import std/channels.{Arm, Channel}
+        import std::channels.{Arm, Channel}
 
         fn main() {
           arms: List<Arm<Int>> = []

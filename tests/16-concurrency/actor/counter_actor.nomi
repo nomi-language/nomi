@@ -1,9 +1,9 @@
 //# A counter held by an actor, for actor_test.nomi.
 
 import {
-    std/actors.{Actor, CallError, Reply}
-    std/io
-    std/supervisors.{Restart, Supervisor}
+    std::actors.{Actor, CallError, Reply}
+    std::io
+    std::supervisors.{Restart, Supervisor}
 }
 
 pub enum Counter {

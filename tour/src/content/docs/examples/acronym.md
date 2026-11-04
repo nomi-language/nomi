@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: acronym.nomi
 //# The acronym of a phrase, from the first letter of each word.
 
-import std/regex.Regex
+import std::regex.Regex
 
 /// The acronym of `phrase`: the first letter of each word, upper-cased.
 /// Hyphens and other punctuation separate words; an apostrophe does not.

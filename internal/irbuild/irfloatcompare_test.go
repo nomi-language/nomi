@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRFloatCompare_NaNAndInfinity(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn show(a: Float, b: Float) {
  io.inspect(a == b)
  io.inspect(a != b)

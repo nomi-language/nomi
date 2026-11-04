@@ -36,7 +36,7 @@ func openLiteralDoc(t testing.TB, src string) (*Server, *analysis.DocSnapshot) {
 }
 
 func TestLiteralDiagnostics_InvalidStaticDate(t *testing.T) {
-	src := "import std/calendar.Date\n\nfn main() {\n    _ = Date\"2026-13-04\"\n}\n"
+	src := "import std::calendar.Date\n\nfn main() {\n    _ = Date\"2026-13-04\"\n}\n"
 	s, snap := openLiteralDoc(t, src)
 	diags := s.literalDiagnostics(snap, true)
 	if len(diags) != 1 {
@@ -56,7 +56,7 @@ func TestLiteralDiagnostics_InvalidStaticDate(t *testing.T) {
 }
 
 func TestLiteralDiagnostics_ValidDateHasNoneAndHoversItsValue(t *testing.T) {
-	src := "import std/calendar.Date\n\nfn main() {\n    _ = Date\"2026-05-04\"\n}\n"
+	src := "import std::calendar.Date\n\nfn main() {\n    _ = Date\"2026-05-04\"\n}\n"
 	s, snap := openLiteralDoc(t, src)
 	if diags := s.literalDiagnostics(snap, true); len(diags) != 0 {
 		t.Fatalf("a valid literal is reported: %+v", diags)
@@ -84,7 +84,7 @@ func TestLiteralDiagnostics_ValidDateHasNoneAndHoversItsValue(t *testing.T) {
 // arm returns, which panicked on ir.Lint) took the language server down with
 // it. The literal is evaluated and hovers its value.
 func TestLiteralDiagnostics_FileWithReturningElseIfChainIsEvaluated(t *testing.T) {
-	src := "import {\n    std/calendar.Date\n    std/io\n}\n\n" +
+	src := "import {\n    std::calendar.Date\n    std::io\n}\n\n" +
 		"fn sign(x: Int) -> Int {\n    if x < 0 {\n        return -1\n    } else if x == 0 {\n        return 0\n    } else {\n        return 1\n    }\n}\n\n" +
 		"fn main() {\n    _ = Date\"2026-05-04\"\n    io.print(sign(2))\n}\n"
 	s, snap := openLiteralDoc(t, src)
@@ -108,7 +108,7 @@ func TestLiteralDiagnostics_FileWithReturningElseIfChainIsEvaluated(t *testing.T
 // dispatched on a host handle. A backtick Regex literal is checked at compile
 // time, so its type and value are the handler's Ok payload.
 func TestLiteralDiagnostics_ValidRegexHoversItsValue(t *testing.T) {
-	src := "import std/regex.Regex\n\nfn main() {\n    _ = Regex`\\d+`\n}\n"
+	src := "import std::regex.Regex\n\nfn main() {\n    _ = Regex`\\d+`\n}\n"
 	s, snap := openLiteralDoc(t, src)
 	if diags := s.literalDiagnostics(snap, true); len(diags) != 0 {
 		t.Fatalf("a valid literal is reported: %+v", diags)
@@ -135,7 +135,7 @@ func TestLiteralDiagnostics_RegexHoverShowsItsCaptureType(t *testing.T) {
 		{"Regex`(?P<year>\\d{4})`", "Regex<#{year: String}>"},
 		{"Regex\"(a)\"", "Result<Regex<String>, String>"},
 	} {
-		src := "import std/regex.Regex\n\nfn main() {\n    _ = " + tc.lit + "\n}\n"
+		src := "import std::regex.Regex\n\nfn main() {\n    _ = " + tc.lit + "\n}\n"
 		s, snap := openLiteralDoc(t, src)
 		res, err := s.textDocumentHover(nil, &protocol.HoverParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(snap.URI)},
@@ -152,7 +152,7 @@ func TestLiteralDiagnostics_RegexHoverShowsItsCaptureType(t *testing.T) {
 }
 
 func TestLiteralDiagnostics_InterpolatedLiteralIsNotEvaluated(t *testing.T) {
-	src := "import std/calendar.Date\n\nfn main() {\n    month = \"13\"\n    _ = Date\"2026-${month}-04\"\n}\n"
+	src := "import std::calendar.Date\n\nfn main() {\n    month = \"13\"\n    _ = Date\"2026-${month}-04\"\n}\n"
 	s, snap := openLiteralDoc(t, src)
 	if lits := staticLiterals(snap.Content, snap.Analysis); len(lits) != 0 {
 		t.Fatalf("an interpolated literal is taken as static: %+v", lits)
@@ -165,7 +165,7 @@ func TestLiteralDiagnostics_InterpolatedLiteralIsNotEvaluated(t *testing.T) {
 // userLiteral is a file declaring the tag type Probe whose handler's body is
 // body, and a main using Probe"x".
 func userLiteral(body string) string {
-	return "import {\n    std/io\n    std/literals.{Fragment, Literal}\n}\n\n" +
+	return "import {\n    std::io\n    std::literals.{Fragment, Literal}\n}\n\n" +
 		"type Probe\n\n" +
 		"fn spin(n: Int) -> Result<Probe, String> {\n    if n < 0 {\n        Err(\"negative\")\n    } else {\n        spin(n + 1)\n    }\n}\n\n" +
 		"impl Literal for Probe {\n    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Probe, String> {\n" +
@@ -216,7 +216,7 @@ func TestLiteralDiagnostics_EffectfulHandlerIsSkipped(t *testing.T) {
 // fiftyLiterals is a file with 50 static Date literals, every fifth invalid.
 func fiftyLiterals() string {
 	var b strings.Builder
-	b.WriteString("import std/calendar.Date\n\nfn main() {\n")
+	b.WriteString("import std::calendar.Date\n\nfn main() {\n")
 	for i := range 50 {
 		month := 1 + i%12
 		if i%5 == 0 {
@@ -263,7 +263,7 @@ func BenchmarkLiteralDiagnostics_Publish(b *testing.B) {
 // A publish does not wait for the evaluation: it reports what is cached, and
 // the background evaluation publishes again with the literal's diagnostic.
 func TestLiteralDiagnostics_PublishEvaluatesInTheBackground(t *testing.T) {
-	src := "import std/calendar.Date\n\nfn main() {\n    _ = Date\"2026-02-30\"\n}\n"
+	src := "import std::calendar.Date\n\nfn main() {\n    _ = Date\"2026-02-30\"\n}\n"
 	s, snap := openLiteralDoc(t, src)
 	published := make(chan []protocol.Diagnostic, 4)
 	s.notify = func(method string, params any) {

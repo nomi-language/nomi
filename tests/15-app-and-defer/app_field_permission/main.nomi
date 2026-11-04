@@ -1,5 +1,5 @@
 import {
-    std/io
+    std::io
     imports_app
     no_app_name
     own_app_struct

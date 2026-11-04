@@ -50,8 +50,8 @@
 // rt representation, so it refuses by name, and a fixture that reached for it
 // would fail for a reason it is not about.
 import {
-    std/io
-    std/json.Json
+    std::io
+    std::json.Json
 }
 
 // A user enum with a container payload, so the local route is exercised beside

@@ -5,7 +5,7 @@
 // hand-written Equatable, which vm/keys.go consults at any depth. `Tag`
 // below has one, and its answers differ from structural equality, so a
 // comparison that skipped the impl prints a different line.
-import std/io
+import std::io
 
 type Pair #(Int, String)
 

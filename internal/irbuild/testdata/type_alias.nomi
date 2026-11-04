@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A MODULE-LEVEL `typealias` is TRANSPARENT: it introduces no type, so an
 // annotation naming it wants the TARGET's kind and there is nothing to emit.

@@ -9,7 +9,7 @@
 //
 // TestSiblingFile_SameNamedTypesKeepTheirOwnEquality runs it.
 import {
-    std/io
+    std::io
     alpha.{self, Point}
     beta.{self, Point as Coord}
 }

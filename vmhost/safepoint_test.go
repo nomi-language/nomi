@@ -24,11 +24,11 @@ import (
 // cancels it once it is running and prints its outcome.
 func safePointTask(decls, body string) string {
 	return `import {
-    std/channels.Channel
-    std/channels.Receiver
-    std/channels.Sender
-    std/io
-    std/tasks.Task
+    std::channels.Channel
+    std::channels.Receiver
+    std::channels.Sender
+    std::io
+    std::tasks.Task
 }
 
 fn note(text: String) {
@@ -127,8 +127,8 @@ func TestSafePoint_ACancelledIterationDrivenInGoStops(t *testing.T) {
 // runs.
 func TestSafePoint_ADeadlineStopsABusyLoopOnTheMainLine(t *testing.T) {
 	out, err := runSafePoint(t, `import {
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
 }
 
 struct App {
@@ -173,9 +173,9 @@ fn main() {
 // Cancelled, as a deadline reached in a wait does.
 func TestSafePoint_ADeadlineStopsABusyLoopInATask(t *testing.T) {
 	out, err := runSafePoint(t, `import {
-    std/duration.Duration
-    std/io
-    std/tasks.Task
+    std::duration.Duration
+    std::io
+    std::tasks.Task
 }
 
 struct App {

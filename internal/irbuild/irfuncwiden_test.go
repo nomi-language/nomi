@@ -14,7 +14,7 @@ func TestIRFuncWiderThanExpected_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 struct Box {
     n: Int
@@ -127,7 +127,7 @@ func TestIRFuncWiderThanExpected_EveryPosition(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 struct Holder {
     f: (List<Int>) -> Int
@@ -262,7 +262,7 @@ fn main() {
 // function of a List of Lists is expected: the adapter converts the
 // argument as a direct call's does, the inner lists included.
 func TestIRFuncWiderThanExpected_IterOfIters(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn shown(xss: Iter<Iter<Display>>) -> String {
   xss |> Iter.map(fn xs -> xs |> Iter.map(Display.to_string) |> String.join(",")) |> String.join(";")
 }

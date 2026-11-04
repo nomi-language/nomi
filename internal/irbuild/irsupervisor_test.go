@@ -15,10 +15,10 @@ import (
 func TestIRSupervisor_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"concurrency.md:L452", `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/supervisors.{Supervisor}
-  std/duration.Duration
-  std/timer
+  std::channels.{Channel, Receiver, Sender}
+  std::supervisors.{Supervisor}
+  std::duration.Duration
+  std::timer
 }
 
 struct Config {
@@ -69,10 +69,10 @@ fn main() {
 }
 `, "dbg line 47: handle_order(1) = \"order 1 accepted\"\ndbg line 48: handle_order(2) = \"order 2 accepted\"\ndbg line 52: audited_total() = 3\n"},
 		{"positional and named short calls, a bound and an await", `import {
-  std/supervisors.{Restart, Supervisor, Wait}
-  std/duration.Duration
-  std/tasks.Task
-  std/timer
+  std::supervisors.{Restart, Supervisor, Wait}
+  std::duration.Duration
+  std::tasks.Task
+  std::timer
 }
 
 struct App {
@@ -111,9 +111,9 @@ fn main() {
 }
 `, "dbg line 35: \"awaited\" = \"awaited\"\ndbg line 38: flushed = Flushed\ndbg line 39: App.label = \"app\"\n"},
 		{"a constructor boot calls with one named argument", `import {
-  std/supervisors.{Supervisor}
-  std/duration.Duration
-  std/timer
+  std::supervisors.{Supervisor}
+  std::duration.Duration
+  std::timer
 }
 
 struct App {
@@ -135,7 +135,7 @@ fn main() {
   Unit
 }
 `, "dbg line 22: Supervisor.flush(App.jobs) = Flushed\n"},
-		{"short calls to calendar's defaulted Time.new", `import std/calendar.{Error, Time}
+		{"short calls to calendar's defaulted Time.new", `import std::calendar.{Error, Time}
 
 fn noon() -> Result<Time, Error> {
   Time.new(12, 0)
@@ -191,7 +191,7 @@ fn main() {
   Unit
 }
 `, "dbg line 37: total(3) = 6\n"},
-		{"await_all over a supervised batch", strings.Replace(irSupervisorBatchHeader, "TASKS", "  std/tasks.Task\n", 1) + `
+		{"await_all over a supervised batch", strings.Replace(irSupervisorBatchHeader, "TASKS", "  std::tasks.Task\n", 1) + `
 fn main() {
   batch = Supervisor.spawn_all(App.audit, [1, 2], record)
   _ = Task.await_all(batch)
@@ -199,7 +199,7 @@ fn main() {
   Unit
 }
 `, "dbg line 38: total(2) = 3\n"},
-		{"a supervised task's outcome", strings.Replace(irSupervisorBatchHeader, "TASKS", "  std/tasks.{Outcome, Task}\n", 1) + `
+		{"a supervised task's outcome", strings.Replace(irSupervisorBatchHeader, "TASKS", "  std::tasks.{Outcome, Task}\n", 1) + `
 fn describe(o: Outcome<Unit>) -> String {
   case o {
     Outcome.Completed(_) -> "completed"
@@ -222,9 +222,9 @@ fn main() {
 }
 `, "dbg line 45: describe(Task.outcome(t)) = \"completed\"\ndbg line 48: describe(Task.outcome(u)) = \"cancelled\"\ndbg line 51: Task.outcome(u) != done = True\ndbg line 52: Task.outcome(u) == cancelled = True\n"},
 		{"named arguments with holes, reordered, and reaching the last slot", `import {
-  std/supervisors.{GiveUp, Restart, Supervisor}
-  std/duration.Duration
-  std/timer
+  std::supervisors.{GiveUp, Restart, Supervisor}
+  std::duration.Duration
+  std::timer
 }
 
 struct App {
@@ -280,10 +280,10 @@ fn main() {
 // irSupervisorBatchHeader is the app for the batch and outcome programs; TASKS
 // is replaced by the std/tasks import each program needs.
 const irSupervisorBatchHeader = `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/supervisors.{Supervisor}
-TASKS  std/duration.Duration
-  std/timer
+  std::channels.{Channel, Receiver, Sender}
+  std::supervisors.{Supervisor}
+TASKS  std::duration.Duration
+  std::timer
 }
 
 struct App {
@@ -322,7 +322,7 @@ fn total(n: Int) -> Int {
 // counting calls.
 func TestIRDefaults_EachHoleRunsOnce(t *testing.T) {
 	t.Run("user function", func(t *testing.T) {
-		verifyLambdaProgram(t, `import std/io
+		verifyLambdaProgram(t, `import std::io
 
 fn noisy(label: String, n: Int) -> Int {
   io.print(label)
@@ -340,7 +340,7 @@ fn main() {
 `, "a\ne\nb\nc\nd\n20\nc!\nb\nd\n28\n")
 	})
 	t.Run("std accessors", func(t *testing.T) {
-		src := `import std/supervisors.{GiveUp, Supervisor}
+		src := `import std::supervisors.{GiveUp, Supervisor}
 
 struct App {
   context: Context
@@ -385,8 +385,8 @@ fn main() {
 // `Unit`.
 func TestIRSupervisor_UnitPayloadDebug(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/supervisors.{Supervisor}
-  std/tasks.Task
+  std::supervisors.{Supervisor}
+  std::tasks.Task
 }
 struct App {
   context: Context

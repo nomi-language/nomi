@@ -1,6 +1,6 @@
 // A program lambda that traps while `Iter.map` runs it is the program's
 // code, so the report names the lambda's line, not the `Iter.map` call.
-import std/io
+import std::io
 
 fn main() {
     io.print("before")

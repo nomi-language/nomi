@@ -9,9 +9,9 @@ import "testing"
 // The partial is still called by the callee's names.
 func TestPartialApplication_ParameterNamedLikeTheQualifier(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{"main.nomi": `import {
-    std/io
-    std/maybe
-    std/lists
+    std::io
+    std::maybe
+    std::lists
 }
 
 fn noted(n: Int) -> Int {

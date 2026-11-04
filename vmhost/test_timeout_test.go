@@ -16,10 +16,10 @@ import (
 
 // timeoutProgram's cases never finish, each in its own way, except the last.
 const timeoutProgram = `import {
-    std/duration.Duration
-    std/tasks.Task
-    std/testing.Clock
-    std/timer
+    std::duration.Duration
+    std::tasks.Task
+    std::testing.Clock
+    std::timer
 }
 
 fn spin(n: Int) -> Int {
@@ -185,8 +185,8 @@ func TestTestTimeout_TheJSONRecordIsAFailureAtTheLine(t *testing.T) {
 // past what a limit would allow passes.
 func TestTestTimeout_ZeroIsNoLimit(t *testing.T) {
 	src := `import {
-    std/duration.Duration
-    std/timer
+    std::duration.Duration
+    std::timer
 }
 
 test "naps" {
@@ -224,8 +224,8 @@ test "naps" {
 // case must not time out (`nomi dap`).
 func TestTestTimeout_ADebuggerRunsWithoutALimit(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import {
-    std/duration.Duration
-    std/timer
+    std::duration.Duration
+    std::timer
 }
 
 test "naps" {

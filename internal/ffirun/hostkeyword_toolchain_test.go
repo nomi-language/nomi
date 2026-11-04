@@ -54,19 +54,19 @@ func TestHostKeyword_AGoBoundStdModuleLeavesTheToolchainFreePath(t *testing.T) {
 		},
 		{
 			name:         "std/calendar",
-			source:       "import std/calendar.Date\n\nfn render(d: Date) -> String {\n  Date.to_string(d)\n}\n",
+			source:       "import std::calendar.Date\n\nfn render(d: Date) -> String {\n  Date.to_string(d)\n}\n",
 			wantFastPath: true,
 			why:          "calendar's Go is nomi/stdcalendar and its facade declares host fn",
 		},
 		{
 			name:         "std/regex",
-			source:       "import std/regex.Regex\n\nfn pat<C>(r: Regex<C>) -> String {\n  Regex.pattern(r)\n}\n",
+			source:       "import std::regex.Regex\n\nfn pat<C>(r: Regex<C>) -> String {\n  Regex.pattern(r)\n}\n",
 			wantFastPath: true,
 			why:          "regex's Go is nomi/stdregex and its facade declares host fn",
 		},
 		{
 			name: "std/random",
-			source: "import std/random.Seed\n\n" +
+			source: "import std::random.Seed\n\n" +
 				"fn s(n: Int) -> Seed {\n  Seed.from_int(n)\n}\n",
 			wantFastPath: true,
 			why:          "random's Go is nomi/stdrandom and its facade declares host fn",

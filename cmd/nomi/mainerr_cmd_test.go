@@ -15,7 +15,7 @@ var mainErrPrograms = []struct {
 	stdout, stderr string
 	exit           int
 }{
-	{"string error prints without quotes", `import std/io
+	{"string error prints without quotes", `import std::io
 
 fn main() -> Result<Unit, String> {
   io.print("before")
@@ -59,7 +59,7 @@ fn main() -> Result<Unit, String> {
   Ok(Unit)
 }
 `, "", "error: no port given\n", 1},
-	{"Ok exits 0", `import std/io
+	{"Ok exits 0", `import std::io
 
 fn main() -> Result<Unit, String> {
   io.print("fine")
@@ -147,7 +147,7 @@ var bootErrPrograms = []struct {
 	name, src      string
 	stdout, stderr string
 }{
-	{"a String error, after boot's cleanup", `import std/io
+	{"a String error, after boot's cleanup", `import std::io
 
 struct App {
   port: Int

@@ -105,11 +105,10 @@ func (b *builder) checkRedeclareInScopeKind(scope *Scope, name string, line, col
 		// Same node revisited (idempotent re-entry); not a real duplicate.
 		return false
 	}
-	// Imported modules can share a name with a local declaration: Nomi's
-	// field-access semantics fall back to module resolution when a local
-	// binding has no field of that name. The canonical case is `pub fn map`
-	// alongside `import std.map` in stdlib/lists.nomi. Don't treat the
-	// pair as a redeclaration.
+	// A module symbol in the slot is a file import, which
+	// collidesWithImportedModule reports in its own words, or the file's
+	// implicit self module, which any declaration may take. Neither is
+	// reported here.
 	if prior.Kind == SymbolModule {
 		return false
 	}
@@ -144,24 +143,21 @@ func (b *builder) checkRedeclareInScopeKind(scope *Scope, name string, line, col
 	return true
 }
 
-// collidesWithImportedModule reports an error if a local definition's
-// name shadows an imported module in the same scope. Returns true if a
-// collision was reported (the caller may use this to skip further
-// processing, though the symbol is still defined to keep downstream
-// checks meaningful).
+// collidesWithImportedModule hands the slot of a file import's short name to
+// a declaration of the file with that name (spec §14 *Short names and full
+// paths*): the declaration wins, as a local would, and the file stays
+// reachable by its full path. It runs when the import was defined first (a
+// file built on its own); bindFileShortName covers the other order (a
+// project build stubs every declaration before any import). It reports
+// nothing and returns false, and the declaration's own Define then takes
+// the slot.
 func (b *builder) collidesWithImportedModule(scope *Scope, name string, line, col int) bool {
 	existing := scope.LookupLocal(name)
-	if existing == nil || existing.Kind != SymbolModule {
+	if existing == nil || existing.Kind != SymbolModule || !symbolCameFromImport(existing) {
 		return false
 	}
-	b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
-		Line: line,
-		Col:  col,
-		Message: fmt.Sprintf(
-			"name '%s' collides with imported module — alias the import (e.g. `import ... as %s2`) or rename this definition",
-			name, name),
-	})
-	return true
+	b.forgetFileShortName(name)
+	return false
 }
 
 // importMayTakeScopeSlot answers whether a selectively-imported name may
@@ -181,7 +177,7 @@ func (b *builder) collidesWithImportedModule(scope *Scope, name string, line, co
 //     synth band and has no user-visible position to report at. A local
 //     declaration of a prelude name is diagnosed at its own site by
 //     checkReservedTypeName.
-//   - An import landing on another import's slot. `import std/maybe.{Maybe}`
+//   - An import landing on another import's slot. `import std::maybe.{Maybe}`
 //     beside the prelude's own injected `Maybe` is the explicit-is-better
 //     idiom that stdlib files must write, and two selective imports of the
 //     same name have always resolved last-wins. Import-vs-import precedence

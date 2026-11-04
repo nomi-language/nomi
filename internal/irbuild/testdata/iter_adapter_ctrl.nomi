@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // `break` and `continue` in a LAZY ADAPTER callback, and in `Iter.each`.
 //

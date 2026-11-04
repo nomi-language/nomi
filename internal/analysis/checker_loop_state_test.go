@@ -83,7 +83,7 @@ func TestLoopState_StatelessBreakValueRejected(t *testing.T) {
 	expectOneLoopError(t, checkLoopSource(t, `fn main() {
   Iter.loop(fn -> { break 42 })
 }`), "a stateless `Iter.loop` answers Unit, so `break` cannot give it Int", 2, 27)
-	expectOneLoopError(t, checkLoopSource(t, `import std/io
+	expectOneLoopError(t, checkLoopSource(t, `import std::io
 
 fn main() {
   Iter.loop(fn -> {
@@ -112,7 +112,7 @@ fn main() {
 // A bare `break`, `break Unit`, `continue` and a Unit tail are a stateless
 // loop's whole vocabulary, and the loop's value is Unit.
 func TestLoopState_StatelessLoopIsUnit(t *testing.T) {
-	expectClean(t, checkLoopSource(t, `import std/io
+	expectClean(t, checkLoopSource(t, `import std::io
 
 fn pick() -> Bool { True }
 
@@ -186,11 +186,11 @@ func TestLoop_BareNameWithoutImportRejected(t *testing.T) {
 	expectErrorContaining(t, checkWithStdlib(src), "undefined variable 'loop'")
 }
 
-// `import std/iter.Iter.{loop}` restores the bare spelling — and the
+// `import std::iter.Iter.{loop}` restores the bare spelling — and the
 // iter-sensitivity pass must recognise the selective-import call as an
 // iter-callback position, so `break` inside the callback stays legal.
 func TestLoop_SelectiveImportBareSpellingWithBreak(t *testing.T) {
-	src := `import std/iter.Iter.{loop}
+	src := `import std::iter.Iter.{loop}
 fn main() -> Unit {
   n = loop(0, fn n -> if n > 2 { break n } else { n + 1 })
 }`
@@ -207,11 +207,11 @@ fn main() -> Unit {
 }
 
 // Aliased Iter callbacks go through the same symbol-resolution path
-// as selective imports: `import std/iter.Iter as It` + `It.map(...)` never
+// as selective imports: `import std::iter.Iter as It` + `It.map(...)` never
 // matches the syntactic "Iter.map" key in iterCallbackSlots, so break/continue
 // legality rests on discovering the imported owner scope through the alias.
 func TestIterCallback_ImportAliasWithBreak(t *testing.T) {
-	src := `import std/iter.Iter as It
+	src := `import std::iter.Iter as It
 fn main() -> Unit {
   xs = [1, 2, 3]
   ys = It.map(xs, fn x -> if x == 2 { break } else { x })

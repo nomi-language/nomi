@@ -1,19 +1,19 @@
 //# lib/storage/s3 against a real S3-protocol server. `with_minio` starts a
 //# MinIO for a body, and `checks` runs what this project checks against
-//# any server: std/storage_testing's conformance suite, presigned URLs
+//# any server: std::storage_testing's conformance suite, presigned URLs
 //# fetched with no credentials, and a public object read with none.
 
 import {
-    std/duration.Duration
-    std/fs
-    std/http.{self, Body, Headers, Method, Request, Response, Status}
-    std/instant.Instant
-    std/net
-    std/process.{self, Command}
-    std/storage.Store
-    std/storage_testing
-    std/timer
-    std/url.Url
+    std::duration.Duration
+    std::fs
+    std::http.{self, Body, Headers, Method, Request, Response, Status}
+    std::instant.Instant
+    std::net
+    std::process.{self, Command}
+    std::storage.Store
+    std::storage_testing
+    std::timer
+    std::url.Url
     s3.{self, Config, Credentials}
 }
 

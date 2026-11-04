@@ -285,13 +285,13 @@ func (bl *irScalarBuilder) sourceViewFunc(at ast.Node, sk, elem kind) (ir.Temp, 
 func (bl *irScalarBuilder) iterConstructor(t *ast.Call, args irQualArgs, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if method == "repeat" {
-		if len(args.temps) != 1 || !irCallableValueKind(args.kinds[0]) {
+		if len(args.temps) != 1 || !irCallOperandKind(args.kinds[0]) {
 			return no()
 		}
 		k := seqKindIn(bl.g, args.kinds[0])
 		return bl.iterAppend(t, ir.IterRepeat, ir.IterOverNothing, k, args.temps[0]), k, false, true
 	}
-	if len(args.temps) != 2 || !irCallableValueKind(args.kinds[0]) {
+	if len(args.temps) != 2 || !irCallOperandKind(args.kinds[0]) {
 		return no()
 	}
 	elem := args.kinds[0]

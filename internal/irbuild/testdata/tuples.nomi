@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A tuple constructed and read, a heterogeneous tuple, tuple patterns, tuple
 // destructuring, and the equality cases where a field-by-field machine `==`

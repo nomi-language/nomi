@@ -11,7 +11,7 @@ import "testing"
 // implementor: directly, piped, through a result, inside a lambda, and into a
 // bounded parameter.
 func TestDefaultSelf_IntoAGenericFunctionRuns(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 fn insp<T>(x: T) -> String {
     Debug.inspect(x)
@@ -93,7 +93,7 @@ fn main() {
 // Display-typed parameter and a List<Display>, boxed at the implementor.
 // `where self: Add<self, self>` gives `self` the operator.
 func TestDefaultSelf_IntoAnInterfaceTypeRuns(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 fn shown(x: Display) -> String {
     Display.to_string(x)
@@ -190,7 +190,7 @@ fn main() {
 // plain default calls its sibling `label` by its bare name.
 func TestDefaultSelf_CrossFileDefaultRuns(t *testing.T) {
 	main := `import {
-    std/io
+    std::io
     grams.Grams
     scale.Scale
 }

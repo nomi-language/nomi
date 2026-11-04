@@ -7,7 +7,7 @@
 //# numbers:
 //#
 //# ```nomi
-//# import std/bits.Bits
+//# import std::bits.Bits
 //#
 //# once continuation = Bits`10aa_aaaa`
 //#

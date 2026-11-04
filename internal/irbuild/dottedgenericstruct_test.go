@@ -6,7 +6,7 @@ import "testing"
 // its fields solve, as an undotted one's does, and a value of it passes to
 // a generic function.
 func TestDottedGenericStruct_LiteralRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Tree.Node<T> {
     v: T

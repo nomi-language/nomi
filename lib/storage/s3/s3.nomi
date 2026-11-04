@@ -1,6 +1,6 @@
-//# A `std/storage` backend for any server that speaks the S3 protocol:
+//# A `std::storage` backend for any server that speaks the S3 protocol:
 //# DigitalOcean Spaces, MinIO, Cloudflare R2, Backblaze B2 and AWS. It is
-//# Nomi over std/http, with SigV4 signing over std/hash, and needs no Go
+//# Nomi over std::http, with SigV4 signing over std::hash, and needs no Go
 //# code or AWS SDK.
 //#
 //# ```nomi
@@ -20,7 +20,7 @@
 //# unless the config says `Addressing.VirtualHost`, and sign a SHA-256 of
 //# each body unless it says `Payload.Unsigned`.
 //#
-//# Each request runs under the context in force, as all of std/http does,
+//# Each request runs under the context in force, as all of std::http does,
 //# and each attempt is bounded by `Config.timeout`. A call that fails with
 //# `Unavailable` (a network failure, a timeout, or a 429, 500, 502, 503 or
 //# 504) is tried again `retries` times, after 100 ms and then 400 ms, each
@@ -33,16 +33,16 @@
 //# make. Listing, multipart uploads and streaming are not built.
 
 import {
-    std/calendar.{DateTime, DateTimePattern}
-    std/duration.Duration
-    std/hash
-    std/hex
-    std/http.{self, Body, Client, ClientOptions, Headers, Method, Request, Response, Status}
-    std/instant.Instant
-    std/regex.Regex
-    std/storage.{self, Info, Object, Store}
-    std/timer
-    std/url.{Query, Url}
+    std::calendar.{DateTime, DateTimePattern}
+    std::duration.Duration
+    std::hash
+    std::hex
+    std::http.{self, Body, Client, ClientOptions, Headers, Method, Request, Response, Status}
+    std::instant.Instant
+    std::regex.Regex
+    std::storage.{self, Info, Object, Store}
+    std::timer
+    std::url.{Query, Url}
 }
 
 /// How requests name the bucket.
@@ -317,7 +317,7 @@ impl Store for Bucket {
         storage.check_key(key)?
 
         case bucket.config.public_base {
-            Some(base) -> Ok(Url.join_path(base, [key]))
+            Some(base) -> Ok(storage.join_key(base, key))
             None -> Ok(object_url(bucket.config, key))
         }
     }

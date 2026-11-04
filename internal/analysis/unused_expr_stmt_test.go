@@ -64,7 +64,7 @@ fn hello() -> String {
 
 func TestUnusedExprStmt_IOPrintIsAccepted(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-import std/io
+import std::io
 
 fn hello() -> String {
   io.print("side effect")
@@ -80,7 +80,7 @@ fn hello() -> String {
 
 func TestUnusedExprStmt_DebugInspectRequiresDiscard(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-import std/debug: Debug
+import std::debug: Debug
 
 fn hello() -> String {
   Debug.inspect("value")

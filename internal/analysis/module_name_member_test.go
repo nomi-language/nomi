@@ -25,7 +25,7 @@ func TestModuleNameIsNotAFileMember(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import std/io\n\nfn main() {\n" + tc.body + "\n}\n"
+			src := "import std::io\n\nfn main() {\n" + tc.body + "\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			if len(errs) == 0 {
 				t.Fatalf("the front end admits this:\n%s", src)

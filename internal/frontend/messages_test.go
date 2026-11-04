@@ -65,7 +65,7 @@ func shopFiles() map[string]string {
 	return map[string]string{
 		"nomi.toml": shopManifest,
 		"cart.nomi": shopCart,
-		"main.nomi": "import {\n    std/io\n    std/locale.Locale\n    std/message.Message\n    cart\n}\n\nfn main() {\n    io.print(Message.format(cart.cart_items(3), Locale`pl`))\n    io.print(Message.format(cart.order_status(cart.Status.Pending), Locale`pl`))\n}\n",
+		"main.nomi": "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    cart\n}\n\nfn main() {\n    io.print(Message.format(cart.cart_items(3), Locale`pl`))\n    io.print(Message.format(cart.order_status(cart.Status.Pending), Locale`pl`))\n}\n",
 		"locales/pl/cart.toml": entry("cart_items", cartItemsSource,
 			".input {$count :integer}\n.match $count\none {{{$count} produkt}}\nfew {{{$count} produkty}}\nmany {{{$count} produktów}}\n* {{{$count} produktu}}") +
 			entry("order_status", orderStatusSource, ".input {$status :string}\n.match $status\nPending {{Czeka}}\nShipped {{Wysłane}}\n* {{Wysłane}}"),

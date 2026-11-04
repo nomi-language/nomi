@@ -19,9 +19,9 @@ import (
 func TestIRContext_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"concurrency.md:L800", `import {
-  std/tasks.Task
-  std/duration.Duration
-  std/timer
+  std::tasks.Task
+  std::duration.Duration
+  std::timer
 }
 
 fn slow() -> Int {
@@ -63,9 +63,9 @@ fn boot() -> Result<Run, String> {
 }
 `, "dbg line 34: result = \"timed out, falling back\"\n"},
 		{"a wider inner rebind keeps the outer deadline", `import {
-  std/tasks.Task
-  std/duration.Duration
-  std/timer
+  std::tasks.Task
+  std::duration.Duration
+  std::timer
 }
 
 fn inner() -> Int {
@@ -96,8 +96,8 @@ fn boot() -> Result<Run, String> {
 }
 `, "dbg line 23: outcome = Cancelled\n"},
 		{"the deadline ends with the rebinding activation", `import {
-  std/duration.Duration
-  std/timer
+  std::duration.Duration
+  std::timer
 }
 
 fn bounded(n: Int) -> Int {
@@ -120,9 +120,9 @@ fn boot() -> Result<Run, String> {
 }
 `, "dbg line 14: a = 2\n"},
 		{"a custom boot's Context field and a deadline that does not expire", `import {
-  std/tasks.Task
-  std/duration.Duration
-  std/timer
+  std::tasks.Task
+  std::duration.Duration
+  std::timer
 }
 
 struct App {
@@ -173,7 +173,7 @@ func TestIRContext_UnsupportedShapesPreserveEmission(t *testing.T) {
 		// A Context value whose type (a generic Maybe) has no single-name identity.
 		"_ = Context.with_value(Context.with_timeout(Run.context, Duration.seconds(1)), Some(1))\n 1",
 	} {
-		p, err := AnalyzeSource("main.nomi", "import std/duration.Duration\nfn run() -> Int {\n"+body+"\n}\nfn main() { _ = run() }\n"+
+		p, err := AnalyzeSource("main.nomi", "import std::duration.Duration\nfn run() -> Int {\n"+body+"\n}\nfn main() { _ = run() }\n"+
 			"struct Run {\n context: Context\n}\nfn boot() -> Result<Run, String> { Ok(Run{context: Context.root()}) }")
 		if err != nil {
 			t.Fatalf("the front end now rejects this, so the preservation below is untested: %v", err)
@@ -207,10 +207,10 @@ func TestIRContext_AnExpiredDeadlineInABlockOnTheMainLine(t *testing.T) {
 		vm        bool
 	}{
 		{"nested block rebind", `import {
-  std/channels.{Channel, Receiver}
-  std/duration.Duration
-  std/io
-  std/tasks.Task
+  std::channels.{Channel, Receiver}
+  std::duration.Duration
+  std::io
+  std::tasks.Task
 }
 
 struct Config {
@@ -239,10 +239,10 @@ fn main() {
 }
 `, false},
 		{"function rebind", `import {
-  std/duration.Duration
-  std/io
-  std/tasks.Task
-  std/timer
+  std::duration.Duration
+  std::io
+  std::tasks.Task
+  std::timer
 }
 
 fn slow() -> Int {

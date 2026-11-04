@@ -3,7 +3,7 @@
 // equality says so, its hand-written Equatable when it has one. So `==`, a
 // Set's elements, a Map's keys and std's generic functions over them agree.
 import {
-    std/io
+    std::io
     protocols.{Circle, Glyph, Name, Point, Shape, Show, Spot, Tag}
 }
 

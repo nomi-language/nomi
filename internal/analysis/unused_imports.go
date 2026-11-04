@@ -10,7 +10,7 @@ import (
 // CheckUnusedImports reports a TypeError for every imported item that no
 // visible text in the file uses. Granularity is per imported ITEM:
 //
-//   - a selective brace item (`import std/comparable.{Comparable, Ordering}`
+//   - a selective brace item (`import std::comparable.{Comparable, Ordering}`
 //     with `Ordering` dead) errors on that name at its own position;
 //   - an aliased item is used through its alias (the alias IS the binding);
 //   - `self` in a brace list is its own item, used iff the parent
@@ -212,6 +212,12 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 			// access requires explicit visibility), so name-matching is
 			// sound within one file.
 			byModuleName[it.sym.Name] = i
+			// A use by full path, `db::posts.find(1)`, uses the import
+			// as its short name does.
+			if full := importFullPath(it.stmt); full != "" {
+				byModuleName[full] = i
+				byQualifiedObjectName[full] = i
+			}
 		}
 		if it.sym.Kind == SymbolEnumVariant {
 			byVariantName[it.sym.Name] = i
@@ -275,7 +281,7 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 				}
 			}
 		}
-		if ref.Kind == SymbolModule {
+		if ref.Kind == SymbolModule && ref.Ambiguous == nil {
 			if i, ok := byModuleName[ref.Name]; ok {
 				used[i] = true
 			}
@@ -342,6 +348,10 @@ func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []boo
 						if i, ok := byName[obj.Name]; ok {
 							used[i] = true
 						}
+					}
+				case *ast.FilePath:
+					if i, ok := byName[obj.Spelling()]; ok {
+						used[i] = true
 					}
 				}
 				// A dotted name is the qualifier of `Probe.Reading.Steady`
@@ -488,7 +498,7 @@ func collectImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem 
 			continue
 		}
 		if len(n.Names) == 0 {
-			// File import (`import std/io`, `import std/io as console`): the
+			// File import (`import std::io`, `import std::io as console`): the
 			// file API object is the one item. A file is never re-exported,
 			// so no `pub` exempts it.
 			bindNode := n.ModulePath[len(n.ModulePath)-1]

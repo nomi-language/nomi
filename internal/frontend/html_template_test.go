@@ -16,7 +16,7 @@ import (
 
 func htmlDiagnostics(t *testing.T, body string) frontend.Diagnostics {
 	t.Helper()
-	src := "import std/html.Html\n\nfn page(name: String, n: Int, h: Html) -> Html {\n" + body + "\n}\n"
+	src := "import std::html.Html\n\nfn page(name: String, n: Int, h: Html) -> Html {\n" + body + "\n}\n"
 	err := checkSource(t, src)
 	if err == nil {
 		return nil
@@ -38,11 +38,15 @@ func htmlDiagnostics(t *testing.T, body string) frontend.Diagnostics {
 func TestHtmlTemplate_Accepted(t *testing.T) {
 	for _, body := range []string{
 		`    Html"<p class='${name}'>${n}</p>"`,
+		`    Html"<p>${n > 0}</p>"`,
 		`    Html"<a href='/u/${name}?q=${n}#${name}'>${h}</a>"`,
 		`    Html"<input checked=${n > 0} title=${Some(name)}/>"`,
 		`    Html"<div style='width: ${n}%'>${[h, h]}</div>"`,
 		"    Html\"\"\"\n        <!DOCTYPE html>\n        <html><title>${name}</title></html>\n        \"\"\"",
 		"    Html`<p>${name}</p>`",
+		`    Html"<p class='a ${if n > 0 { name }} ${Some(n)}'><title>${if n > 0 { name }}</title></p>"`,
+		`    Html"<a href='/u/${Some(name)}?q=${if n > 0 { n }}#${Some(n)}'>x</a>"`,
+		`    Html"<b style='width: ${Some(n)}%'></b>"`,
 	} {
 		if ds := htmlDiagnostics(t, body); len(ds) > 0 {
 			t.Errorf("the front end rejects %s: %v", body, ds)
@@ -90,8 +94,12 @@ func TestHtmlTemplate_SlotTypeErrorsSayWhatTheContextTakes(t *testing.T) {
 		{`    Html"<a href='${name}'>x</a>"`, "this slot takes a `UrlValue`, and a `String` is not one", "a URL attribute's value starts with a `Url`"},
 		{`    Html"<b style='${name}'></b>"`, "this slot takes a `CssValue`, and a `String` is not one", "a `style` value takes a number, or a `Css`"},
 		{`    Html"<input checked=${name}>"`, "this slot takes an `OptionalAttribute`, and a `String` is not one", "pass a `Bool` or a `Maybe<String>`"},
-		{`    Html"<p>${n > 0}</p>"`, "this slot takes a `ToHtml`, and a `Bool` is not one", "an element's content takes"},
-		{`    Html"<p>${#(n, n)}</p>"`, "this slot takes a `ToHtml`", "an element's content takes"},
+		{`    Html"<p>${Some(n > 0)}</p>"`, "element content does not show a `Maybe<Bool>`", "unwrap it; a `Maybe` of a `ToHtml` value shows its value"},
+		{`    Html"<p>${[name]}</p>"`, "element content does not show a `List<String>`", "render its elements with `Html.each`"},
+		{`    Html"<p>${#(n, n)}</p>"`, "element content does not show a `#(Int, Int)`", "put each part in a slot of its own"},
+		{`    Html"<p class='${Some(Some(n))}'></p>"`, "this slot does not show a `Maybe<Maybe<Int>>`", "flatten it with `Maybe.flatten`"},
+		{`    Html"<p class='${Some(h)}'></p>"`, "this slot takes a `Display`, and a `Maybe<Html>` is not one", "or a `Maybe` of one, which writes nothing for `None`"},
+		{`    Html"<p>${fn x: Int -> x}</p>"`, "this slot takes a `ToHtml` or a `Display`, and a `(Int) -> Int` is neither", "or any other `Display` value, escaped as text"},
 	}
 	for _, tc := range cases {
 		ds := htmlDiagnostics(t, tc.body)
@@ -113,7 +121,7 @@ func TestHtmlTemplate_SlotTypeErrorsSayWhatTheContextTakes(t *testing.T) {
 // A type of the program's own named Html is an ordinary typed-literal
 // prefix: its literal goes to its own handler, not to the template reader.
 func TestHtmlTemplate_AProgramsOwnHtmlIsAnOrdinaryPrefix(t *testing.T) {
-	src := `import std/literals.{Fragment, Literal}
+	src := `import std::literals.{Fragment, Literal}
 
 type Html String
 

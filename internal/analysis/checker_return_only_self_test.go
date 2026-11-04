@@ -12,7 +12,7 @@ import (
 // type, which names something else here. The return type used to win and
 // solved self as Int, which reported `expected List<Int>, got Int`.
 func TestReturnOnlySelf_SolvedFromTheExpectedType(t *testing.T) {
-	src := `import std/json.{FromJson, Json}
+	src := `import std::json.{FromJson, Json}
 
 fn count(parsed: Json) -> Result<Int, Json.ShapeError> {
   ids: List<Int> = FromJson.from_json(parsed)?
@@ -36,7 +36,7 @@ func TestReturnOnlySelf_SeededFromTheExpectedTypeIsRecorded(t *testing.T) {
 	}
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
-			src := "import std/json.{FromJson, Json}\n\nfn read(json: Json) -> Result<Maybe<Int>, Json.ShapeError> {\n" + body + "\n}\n"
+			src := "import std::json.{FromJson, Json}\n\nfn read(json: Json) -> Result<Maybe<Int>, Json.ShapeError> {\n" + body + "\n}\n"
 			fa, errs := checkSourceWithStdlib(src)
 			expectClean(t, errs)
 			pos, found := analysis.Pos{}, false

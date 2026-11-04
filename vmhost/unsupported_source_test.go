@@ -11,7 +11,7 @@ import (
 
 // declinedSource blocks under plantDecline: the builder declines `evens` at
 // the call to `planted_decline` in its callback.
-const declinedSource = `import std/io
+const declinedSource = `import std::io
 
 fn planted_decline(n: Int) -> Int {
   n
@@ -89,7 +89,7 @@ func TestLoadSource_ADeclineReadsAsOnDisk(t *testing.T) {
 func TestLoadSource_ADeclineInAVirtualSiblingQuotesIt(t *testing.T) {
 	plantDecline(t)
 	entry := `import {
-  std/io
+  std::io
   lib
 }
 

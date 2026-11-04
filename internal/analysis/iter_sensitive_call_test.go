@@ -154,7 +154,7 @@ func TestIterSensitiveCall_RejectsEveryCall(t *testing.T) {
 		{"outside every callback", "_ = skip(1)", "skip", both, mapSkip, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			src := "import std/io\n\n" + keepHelpers + "\nfn main() {\n    " + c.body + "\n}\n"
+			src := "import std::io\n\n" + keepHelpers + "\nfn main() {\n    " + c.body + "\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			want := iterSensitiveCallError(c.callee, c.words, c.shape)
 			if c.inCallback {
@@ -191,7 +191,7 @@ func TestIterSensitiveCall_SuggestsAShapeThatFits(t *testing.T) {
 		// Three parameters fit no callback.
 		{"_ = Iter.map([1], fn x -> three(x, 1, 2)) |> Iter.to_list()", "three", "`continue`", ""},
 	} {
-		src := "import std/io\n\n" + keepHelpers + threeHelper + "\nfn main() {\n    " + c.body + "\n}\n"
+		src := "import std::io\n\n" + keepHelpers + threeHelper + "\nfn main() {\n    " + c.body + "\n}\n"
 		want := iterSensitiveCallError(c.callee, c.words, c.shape)
 		got := iterSensitivityErrors(src)
 		found := false

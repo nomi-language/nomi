@@ -10,7 +10,7 @@
 // A `sync.Once`-shaped lowering with no cycle test would DEADLOCK here rather
 // than report, which is why rt.OnceCell tests the lineage before taking the
 // lock.
-import std/io
+import std::io
 
 fn read_seed() -> Int {
     seed

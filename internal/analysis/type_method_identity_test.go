@@ -292,8 +292,8 @@ func stdlibProjectIndex(t *testing.T) *analysis.ProjectImplIndex {
 	// the index covers every analyzed file regardless, and naming them makes
 	// that independence explicit rather than incidental.
 	src := `import {
-  std/calendar
-  std/random
+  std::calendar
+  std::random
 }
 
 fn main() -> Unit { Unit }

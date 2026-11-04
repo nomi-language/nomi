@@ -1,10 +1,10 @@
 import {
-    std/calendar.Date
-    std/currency.Currency
-    std/locale.Locale
-    std/localize.Localize
-    std/message.Message
-    std/money.Money
+    std::calendar.Date
+    std::currency.Currency
+    std::locale.Locale
+    std::localize.Localize
+    std::message.Message
+    std::money.Money
     order
 }
 

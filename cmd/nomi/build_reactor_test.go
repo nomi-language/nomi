@@ -16,8 +16,8 @@ import (
 	"testing"
 )
 
-const reactorProgram = `import std/io
-import std/json.{ToJson, FromJson}
+const reactorProgram = `import std::io
+import std::json.{ToJson, FromJson}
 
 struct Point {
     x: Int
@@ -55,7 +55,7 @@ export fn shout(text: String) {
 }
 `
 
-const reactorWithMain = `import std/io
+const reactorWithMain = `import std::io
 
 fn main() {
     io.print("main ran")
@@ -66,7 +66,7 @@ export fn twice(n: Int) -> Int {
 }
 `
 
-const commandOnly = `import std/io
+const commandOnly = `import std::io
 
 fn main() {
     io.print("command")

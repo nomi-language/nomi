@@ -1,6 +1,6 @@
 // wallclock.nomi — Clock interface + FakeClock impl. FakeClock just
 // returns its stored `at` Instant, so its `now` impl is pure.
-import std/instant.Instant
+import std::instant.Instant
 
 pub interface Clock {
     fn now(value: self) -> Instant

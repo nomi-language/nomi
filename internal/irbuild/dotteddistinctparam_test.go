@@ -7,7 +7,7 @@ import "testing"
 // parameter, a lambda's and a `case` arm. It used to be read as a variant of
 // `Civil`, so the parameter took a `Civil` and the call declined.
 func TestIRDottedDistinct_APatternHeadNamesTheNamespacedType(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Civil {}
 

@@ -27,10 +27,10 @@ for looking while you work: `nomi build` refuses a program that still has a
 `dbg`.
 
 To print output for the people using your program, use
-[`std/io`](/reference/io/):
+[`std::io`](/reference/io/):
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     io.print("Hello, Nomi!")
@@ -450,6 +450,10 @@ dbg line 22: range = "medium"
 -->
 
 - `if` takes a `Bool` condition.
+- An `if` without `else` gives a `Maybe`: `if x > 50 { "big" }` is
+  `Some("big")` when the condition holds and `None` when it does not. When
+  its branch is `Unit`, such as a print, or leaves with `return`, the `if`
+  is a statement with no value.
 - `case x { ... }` compares `x` against each pattern in turn and uses the
   first arm that matches. `_` matches anything.
 - `case { ... }`, with nothing after `case`, takes the first arm whose

@@ -31,7 +31,7 @@ fn main() {
 // match them through positional, brace and bare patterns; a single Event
 // renders through its derived Debug.
 func TestIREmbeds_WideningCasesAndDebug(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Click {
   x: Int

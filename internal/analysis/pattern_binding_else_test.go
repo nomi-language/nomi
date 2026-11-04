@@ -282,7 +282,7 @@ func TestPatternBinding_RefutableVariantWithoutElse(t *testing.T) {
 		// The program from a user's report: a pipe, whose hint is the
 		// a `?` stage stage, ending in `Maybe.to_result`, whose Result was
 		// copied before std/results.nomi filled in its variants.
-		"a pipe ending in Maybe.to_result": {`import std/io
+		"a pipe ending in Maybe.to_result": {`import std::io
 
 fn main() -> Result<Unit, String> {
     Ok(balance) =

@@ -118,7 +118,7 @@ fn main() { apply(fn n -> n + 1, 5) }`
 
 func TestCheckTypesStdlibCallArgMismatch(t *testing.T) {
 	// String.length takes (s: String): Int — passing an Int should error
-	src := `import std/strings.String
+	src := `import std::strings.String
 fn main() { String.length(42) }`
 	lib := std.Load()
 	tokens := lexer.Lex(src)
@@ -138,7 +138,7 @@ fn main() { String.length(42) }`
 }
 
 func TestInlayHintStdlibCallParams(t *testing.T) {
-	src := `import std/strings.String
+	src := `import std::strings.String
 fn main() { String.length("hello") }`
 	hints := getInlayHints(t, src)
 	paramHints := filterByKind(hints, InlayHintKindParameter)
@@ -156,7 +156,7 @@ fn main() { String.length("hello") }`
 
 func TestInlayHintWrappedInModuleCall(t *testing.T) {
 	// Tests that hints work inside io.Inspect() etc.
-	src := `import std/io
+	src := `import std::io
 fn add(x: Int, y: Int) -> Int { x + y }
 fn main() {
     io.inspect(add(1, 2))

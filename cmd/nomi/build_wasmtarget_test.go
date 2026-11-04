@@ -94,7 +94,7 @@ func TestBuildCommand_WasmTargetsWriteValidModules(t *testing.T) {
 	env := buildEnv(cacheRoot)
 	dir := t.TempDir()
 	programs := map[string]string{
-		"mixed.nomi": `import std/io
+		"mixed.nomi": `import std::io
 
 fn main() {
   counts =
@@ -117,7 +117,7 @@ fn main() {
   io.print("${100 / zero}")
 }
 `,
-		"stdin.nomi": `import std/io
+		"stdin.nomi": `import std::io
 
 fn main() {
   case io.read_line() {
@@ -126,7 +126,7 @@ fn main() {
   }
 }
 `,
-		"args.nomi": `import std/io
+		"args.nomi": `import std::io
 
 struct App {
   context: Context

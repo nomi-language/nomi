@@ -91,7 +91,7 @@ Where Windows differs:
 
 - `nomi build` with no `-o` writes `<entry>.exe`.
 - The managed Go toolchain is kept in `%LocalAppData%\nomi\go`.
-- Paths in a Nomi program use `/`, and std/fs also takes `\`; a drive is
+- Paths in a Nomi program use `/`, and std::fs also takes `\`; a drive is
   `C:/Users`.
 - The debugger's integrated terminal needs Windows 10 version 1803 or later
   (it connects over a Unix socket).

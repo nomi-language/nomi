@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-const bigIntProgram = `import std/io
+const bigIntProgram = `import std::io
 
 struct Account {
   id: Int
@@ -124,7 +124,7 @@ func TestBigInt_ValuesPastInt64RunThroughEveryWordPath(t *testing.T) {
 // bound past int64's range reads as past the collection, so `get(...)!`
 // finds nothing there.
 func TestBigInt_AnIndexPastInt64IsPastAnyCollection(t *testing.T) {
-	out, err := runDepth(t, `import std/io
+	out, err := runDepth(t, `import std::io
 
 fn main() {
   big = Int.pow(10, 30)
@@ -147,7 +147,7 @@ fn main() {
 // TestBigInt_AZeroDivisorFaultsWhateverTheDividend: the one Int fault is a
 // zero divisor, reported at its operator, whatever the dividend's size.
 func TestBigInt_AZeroDivisorFaultsWhateverTheDividend(t *testing.T) {
-	_, err := runDepth(t, `import std/io
+	_, err := runDepth(t, `import std::io
 
 fn main() {
   zero = 0

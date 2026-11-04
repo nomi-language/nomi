@@ -15,10 +15,10 @@ func TestStdFileCall_DefaultsCrossModuleAndGoRows(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	verifyLambdaProgram(t, `import {
-    std/base64
-    std/hash
-    std/io
-    std/random
+    std::base64
+    std::hash
+    std::io
+    std::random
 }
 
 fn main() {

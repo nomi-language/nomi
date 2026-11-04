@@ -12,7 +12,7 @@ import (
 // --- identity ----------------------------------------------------------------
 
 func TestStdIface_ShadowingDeclarationIsNotTheSharedDef(t *testing.T) {
-	g := stdIfaceGen(t, `import std/io
+	g := stdIfaceGen(t, `import std::io
 
 pub interface ToJson {
   fn to_string(value: self) -> String
@@ -224,7 +224,7 @@ func TestStdIfaceSpecsAreReachable(t *testing.T) {
 
 // --- helpers ------------------------------------------------------------------
 
-const stdIfaceProbeSource = `import std/io
+const stdIfaceProbeSource = `import std::io
 
 fn show(d: Display) -> String {
   Display.to_string(d)

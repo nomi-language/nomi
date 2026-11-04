@@ -38,7 +38,7 @@ func checkDiagnostics(t *testing.T, src string, want []wantDiag) {
 }
 
 func TestRecursiveRender_DisplayRendersItsReceiver(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct Foo {
     name: String
@@ -72,7 +72,7 @@ fn main() {
 }
 
 func TestRecursiveRender_DebugRendersItsReceiver(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct Foo {
     name: String
@@ -104,7 +104,7 @@ fn main() {
 // Rendering a field, another value of the same type, or the receiver through
 // the other interface terminates, and stays legal.
 func TestRecursiveRender_TerminatingRenderingsAreAccepted(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 enum Tree {
     Leaf
@@ -145,7 +145,7 @@ fn main() {
 }
 
 func TestUnconditionalRecursion_EveryPathRecurses(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn spin(x: Int) -> Int {
     spin(x)
@@ -209,7 +209,7 @@ fn main() {
 // lambda (returned, or handed to Iter.reduce as in spec §7 *Tail-call optimization*), a tail call
 // after an effect (a deliberate loop), and mutual recursion are all accepted.
 func TestUnconditionalRecursion_TerminatingOrDeliberateIsAccepted(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn base(x: Int) -> Int {
     if x == 0 { 0 } else { base(x) }
@@ -292,7 +292,7 @@ fn main() {
 // forever. `a == b` inside P's `equal` passed the checker and was declined
 // by the builder.
 func TestRecursiveProtocol_OwnArgumentsAreRejected(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct P {
     x: Int
@@ -340,7 +340,7 @@ fn main() {
 // Comparing or hashing fields, including fields of the impl's own type, ends
 // with the data and stays legal, as do comparisons of other types.
 func TestRecursiveProtocol_FieldsAndOtherValuesAreAccepted(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 enum Tree {
     Leaf

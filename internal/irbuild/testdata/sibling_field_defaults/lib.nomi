@@ -1,7 +1,7 @@
 // Field defaults the constructing file (main.nomi) omits. Each is lowered by
 // this file's gen, so the defaults may name this file's private once,
 // function and enum, none of which main.nomi imports.
-import std/io
+import std::io
 
 once greeting = "lib"
 

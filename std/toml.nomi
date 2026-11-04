@@ -20,14 +20,14 @@
 //#   makes it safe there.
 //#
 //# ```nomi
-//# import std/toml.Toml
+//# import std::toml.Toml
 //#
 //# fn server(name: String, port: Int, hosts: List<String>) -> Toml {
 //#     Toml"""
-//#         [servers.${name}]
-//#         port = ${port}
-//#         hosts = ${hosts}
-//#         """
+//#     [servers.${name}]
+//#     port = ${port}
+//#     hosts = ${hosts}
+//#     """
 //# }
 //# ```
 //#
@@ -84,7 +84,7 @@ impl Toml {
 /// `Int` is written as its decimal digits. TOML integers are 64-bit, so a
 /// reader may refuse an `Int` outside that range. `Table` is an inline
 /// table, `{"a" = 1, "b" = 2}`, its keys in the map's order.
-//! import std/toml.Toml
+//! import std::toml.Toml
 //!
 //! v = Toml.Value.Array([Toml.Value.Int(1), Toml.Value.String("a\"b")])
 //! assert Toml.Value.text(v) == "[1, \"a\\\"b\"]"
@@ -175,7 +175,7 @@ impl Toml.Value {
 /// No impl can write TOML text. The literal writes every `Toml.Value`
 /// itself, quoting and escaping each string and key, so a slot cannot add a
 /// key or break the document's structure.
-//! import std/toml.{ToToml, Toml}
+//! import std::toml.{ToToml, Toml}
 //!
 //! assert ToToml.to_toml("a\"b") == Toml.Value.String("a\"b")
 //! assert ToToml.to_toml([1, 2]) == Toml.Value.Array([Toml.Value.Int(1), Toml.Value.Int(2)])
@@ -274,7 +274,7 @@ impl CheckedLiteral<ToToml, Toml> for Toml {
     /// with a stand-in for each slot, must be TOML, and each slot must stand
     /// for a whole key or value. In value position a slot is its value's
     /// TOML; in key position it is one quoted key part.
-    //! import std/toml.Toml
+    //! import std::toml.Toml
     //!
     //! name = "web 1"
     //! port = 8080

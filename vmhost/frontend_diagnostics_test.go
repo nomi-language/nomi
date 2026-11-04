@@ -179,7 +179,7 @@ func TestSyntaxErrorStillRefusedByRunAndCheck(t *testing.T) {
 	}
 
 	// Positive control: the same shape with the operand supplied loads.
-	const control = "import std/io\n" +
+	const control = "import std::io\n" +
 		"\n" +
 		"fn compute(n: Int) -> Int {\n" +
 		"  f = fn x: Int -> n + x\n" +
@@ -265,7 +265,7 @@ func TestUserImplForAPrimitiveIsADuplicateOfStdlibs(t *testing.T) {
 // modules reachable twice, and an import-free program passes under the
 // mutant.
 func TestACleanProgramReportsNoDuplicateImpl(t *testing.T) {
-	err := checkEntry(t, "import {\n  std/io\n}\n\nfn main() {\n  io.print(\"x\")\n}\n")
+	err := checkEntry(t, "import {\n  std::io\n}\n\nfn main() {\n  io.print(\"x\")\n}\n")
 	if err == nil {
 		return
 	}
@@ -320,7 +320,7 @@ func TestExternStdImplsCannotBeReplaced(t *testing.T) {
 func TestImplCollisionAnchorsAtAPositionTheUserCanOpen(t *testing.T) {
 	for _, recv := range []string{"Int", "Bool", "Float"} {
 		t.Run(recv, func(t *testing.T) {
-			src := "import {\n  std/io\n}\n\n" +
+			src := "import {\n  std::io\n}\n\n" +
 				"impl Equatable for " + recv + " {\n" +
 				"  fn equal(a: " + recv + ", b: " + recv + ") -> Bool { False }\n" +
 				"}\n" +

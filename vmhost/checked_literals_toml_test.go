@@ -22,7 +22,7 @@ func TestCheckedLiteral_TomlRefusesMisplacedSlotsAndBadText(t *testing.T) {
 		{`    _ = Toml"a = = 1"`, "typed literal Toml\"a = = 1\" is invalid: expected value but found '=' instead", 18},
 		{`    _ = Toml"a = 1\na = ${v}"`, "typed literal Toml\"a = 1\\na = ${v}\" is invalid: Key 'a' has already been defined.", 21},
 	} {
-		src := "import {\n    std/io\n    std/toml.Toml\n}\n\nfn main() {\n    v = \"x\"\n    io.print(v)\n" + c.line + "\n}\n"
+		src := "import {\n    std::io\n    std::toml.Toml\n}\n\nfn main() {\n    v = \"x\"\n    io.print(v)\n" + c.line + "\n}\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.line, len(ds), ds)
@@ -41,7 +41,7 @@ func TestCheckedLiteral_TomlRefusesMisplacedSlotsAndBadText(t *testing.T) {
 func TestCheckedLiteral_ErrorPlacedInAFileOnDisk(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	src := "import std/toml.Toml\n\nfn main() {\n    _ = Toml\"a = = 1\"\n}\n"
+	src := "import std::toml.Toml\n\nfn main() {\n    _ = Toml\"a = = 1\"\n}\n"
 	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
 		t.Fatal(err)
 	}

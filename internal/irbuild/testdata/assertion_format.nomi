@@ -17,9 +17,9 @@
 // reason — an Assertable subject is refused, so it cannot be reached from a
 // lowered program at all.
 import {
-    std/assertions.AssertionFailure
-    std/io
-    std/testing
+    std::assertions.AssertionFailure
+    std::io
+    std::testing
 }
 
 // Declared `zed` BEFORE `alpha`, which is the point of the type. An assertion's

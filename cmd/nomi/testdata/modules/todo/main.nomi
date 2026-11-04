@@ -1,6 +1,6 @@
 import {
-    std/io
-    internal/report
+    std::io
+    internal::report
     item.Item
 }
 

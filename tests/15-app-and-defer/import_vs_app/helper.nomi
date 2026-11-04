@@ -2,7 +2,7 @@
 // It only names the `Instant` type it was handed and calls the
 // type-promoted `Instant.to_seconds`, so the caller's app usage cannot
 // disturb this file's API.
-import std/instant.Instant
+import std::instant.Instant
 
 pub fn format(t: Instant) -> String {
     "epoch=${Instant.to_seconds(t)}"

@@ -12,7 +12,7 @@ import "testing"
 // callback's control answer, and an arm whose region's kind is inferred
 // writes nothing to it.
 func TestIRSignalArm_AdapterAndReduceCallbacks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
     xs = [1, 2, 3, 4, 5, 6]
@@ -131,7 +131,7 @@ fn main() {
 // A named function passed as the callback signals from an arm as a lambda
 // does.
 func TestIRSignalArm_NamedCallbacks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn tens(n: Int) -> Int {
     case n % 3 {
@@ -195,8 +195,8 @@ fn main() {
 // The channel feeds each iteration a new input, so a `continue` makes
 // progress. early_state's `return 5` used to leave early_state itself.
 func TestIRSignalArm_IterLoop(t *testing.T) {
-	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
-import std/io
+	verifyLambdaProgram(t, `import std::channels.{Channel, Receiver, Sender}
+import std::io
 
 struct Account {
     owner: String
@@ -322,7 +322,7 @@ fn main() {
 // holding a guard, a binding whose arm leaves the iteration from below
 // another arm, and a region inside the tail's operand.
 func TestIRSignalArm_IterLoopBranchingStatements(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn stmt_if() -> Int {
     Iter.loop(0, fn n -> {
@@ -371,7 +371,7 @@ fn main() {
     io.inspect(operand())
 }
 `, "even 0\nodd 1\neven 2\nodd 3\n3\n21\n4\n")
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn f() -> Int {
     Iter.loop(0, fn n -> {

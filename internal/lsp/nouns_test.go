@@ -14,7 +14,7 @@ import (
 // go to implementations, and the quick fixes that add a missing gender arm
 // and a missing form.
 
-const orderNouns = "import std/message.Noun\n\n" +
+const orderNouns = "import std::message.Noun\n\n" +
 	"/// A book, a product category.\n" +
 	"pub noun book `.input {$count :integer} .match $count one {{book}} * {{books}}`\n\n" +
 	"pub noun laptop `.input {$count :integer} .match $count one {{laptop}} * {{laptops}}`\n\n" +
@@ -37,7 +37,7 @@ const polishOrder = "[book]\nsource = '''.input {$count :integer} .match $count 
 func nounProject() map[string]string {
 	return map[string]string{
 		"nomi.toml":             "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
-		"main.nomi":             "import {\n    std/io\n    std/locale.Locale\n    std/message.Message\n    order\n}\n\nfn main() {\n    io.print(Message.format(order.has_shipped(order.book), Locale`pl`))\n}\n",
+		"main.nomi":             "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    order\n}\n\nfn main() {\n    io.print(Message.format(order.has_shipped(order.book), Locale`pl`))\n}\n",
 		"order.nomi":            orderNouns,
 		"locales/pl/order.toml": polishOrder,
 	}

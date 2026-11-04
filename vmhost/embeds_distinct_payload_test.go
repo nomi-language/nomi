@@ -17,7 +17,7 @@ import (
 // tuple, list, map and distinct payload pattern over the other embedded
 // distincts, and a fallback whose payload pattern destructures a distinct.
 func TestRun_EmbeddedDistinctPayloadPatterns(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int
@@ -231,7 +231,7 @@ fn main() {
 // an `assert pattern = value` and in a `case` arm, matched and not.
 func TestRun_EmbeddedDistinctPayloadPatternsInATestBody(t *testing.T) {
 	const name = "main_test.nomi"
-	p, err := vmhost.LoadSource(name, `import std/io
+	p, err := vmhost.LoadSource(name, `import std::io
 
 struct Circle {
   r: Int
@@ -299,7 +299,7 @@ test "case" {
 // field, `List.head`, `Map.get`, a nested Maybe and `==` over Maybe<Shape>
 // run too.
 func TestRun_PreludeWrappersHoldAnEnumWithEmbeds(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int

@@ -24,8 +24,8 @@ func nounsProject(tb testing.TB) incrementalProject {
 		"locales/pl/stock.toml": "[laptop]\nsource = '''laptop'''\ngender = \"inanimate\"\nnominative = '''laptop'''\ngenitive = '''laptopa'''\n",
 	}
 	p := incrementalProject{name: "nouns", entry: "main", dir: dir, texts: map[string]string{
-		"main":  "import {\n    std/io\n    std/locale.Locale\n    std/message.Message\n    shop\n    stock\n}\n\nfn main() {\n    io.print(Message.format(shop.has_shipped(stock.laptop), Locale`pl`))\n}\n",
-		"shop":  "import std/message.Noun\n\npub noun book `" + book + "`\n\npub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\npub message sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n",
+		"main":  "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    shop\n    stock\n}\n\nfn main() {\n    io.print(Message.format(shop.has_shipped(stock.laptop), Locale`pl`))\n}\n",
+		"shop":  "import std::message.Noun\n\npub noun book `" + book + "`\n\npub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\npub message sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n",
 		"stock": "pub noun laptop `laptop`\n",
 	}}
 	for key, text := range p.texts {

@@ -10,10 +10,10 @@
 //# "yesterday". The calendar is the Gregorian one; the words and patterns
 //# come from CLDR, from the data the program carries.
 //#
-//# `std/calendar` covers the civil date-time surface: wall-clock readings,
+//# `std::calendar` covers the civil date-time surface: wall-clock readings,
 //# zoned moments, the conversions between them, and DST-aware arithmetic.
-//# With `std/instant` (the absolute-instant clock and the `Instant` type)
-//# and `std/duration` (exact elapsed time, `Duration`), it is the whole
+//# With `std::instant` (the absolute-instant clock and the `Instant` type)
+//# and `std::duration` (exact elapsed time, `Duration`), it is the whole
 //# date and time story.
 //#
 //# ## The type ladder
@@ -32,11 +32,11 @@
 //#
 //# Two adjacent types live in sibling modules:
 //#
-//# - **`Instant`** (`std/instant`): pure UTC nanoseconds since the Unix
+//# - **`Instant`** (`std::instant`): pure UTC nanoseconds since the Unix
 //#   epoch. No calendar, no zone, no display ceremony. `Instant + Duration`
 //#   and `Instant - Duration` are Instants; `a - b` on two Instants is the
 //#   `Duration` from `b` to `a` (`Instant.between(b, a)`).
-//# - **`Duration`** (`std/duration`): exact elapsed time, in nanoseconds at
+//# - **`Duration`** (`std::duration`): exact elapsed time, in nanoseconds at
 //#   the storage layer. Construct it with unit functions such as
 //#   `Duration.seconds(5)`, or with a literal as `Display` writes it,
 //#   ``Duration`1h30m` ``. Hours, minutes and seconds exist there; months
@@ -273,7 +273,7 @@
 //#
 //# ## Embedded IANA tzdata
 //#
-//# `std/calendar` carries the IANA time zone database, so zone lookups
+//# `std::calendar` carries the IANA time zone database, so zone lookups
 //# (`America/New_York`, `Asia/Tokyo`, ...) work on every host without
 //# system-provided tzdata. Programs ship with their own zone database, and
 //# behavior is the same on every operating system and in minimal Docker
@@ -1158,6 +1158,42 @@ impl NaiveDateTime {
     pub fn between(earlier: NaiveDateTime, later: NaiveDateTime) -> Duration {
         Duration.nanoseconds(naive_between_nanos(earlier, later))
     }
+
+    /// The wall reading of an `Instant` at a fixed UTC `offset`, UTC when
+    /// no offset is given: what a clock at that offset showed at that
+    /// moment. A sub-second offset is truncated to whole seconds, as
+    /// `OffsetDateTime.from_instant` truncates it. For a reading in an
+    /// IANA zone, read `DateTime.from_instant_in(i, zone)` with
+    /// `DateTime.to_naive`.
+    //! assert NaiveDateTime.from_instant(Instant.from_seconds(0)) == NaiveDateTime`1970-01-01T00:00:00`
+    //!
+    //! assert NaiveDateTime.from_instant(Instant.from_seconds(0), Duration.hours(-5))
+    //!     == NaiveDateTime`1969-12-31T19:00:00`
+    //
+    pub fn from_instant(i: Instant, offset: Duration = Duration.seconds(0)) -> NaiveDateTime {
+        OffsetDateTime.to_naive(OffsetDateTime.from_instant(i, offset))
+    }
+
+    /// The `Instant` a clock at a fixed UTC `offset` showed this reading
+    /// at, reading it as UTC when no offset is given: the inverse of
+    /// `NaiveDateTime.from_instant`. Faults, as `Instant.from_nanos` does,
+    /// when the moment is outside the years an `Instant` holds. To resolve
+    /// a reading in an IANA zone, use `DateTime.in_zone`.
+    //! assert NaiveDateTime.to_instant(NaiveDateTime`1970-01-01T00:00:42`) == Instant.from_seconds(42)
+    //!
+    //! assert NaiveDateTime.to_instant(NaiveDateTime`1969-12-31T19:00:00`, Duration.hours(-5))
+    //!     == Instant.from_seconds(0)
+    //!
+    //! i = Instant.from_nanos(-1_700_000_000_123_456_789)
+    //!
+    //! assert NaiveDateTime.to_instant(NaiveDateTime.from_instant(i, Duration.hours(9)), Duration.hours(9))
+    //!     == i
+    //
+    pub fn to_instant(dt: NaiveDateTime, offset: Duration = Duration.seconds(0)) -> Instant {
+        days = Date.days_between(Date{year: 1970, month: 1, day: 1}, NaiveDateTime.to_date(dt))
+        seconds = ((days * 24 + dt.hour) * 60 + dt.minute) * 60 + dt.second
+        Instant.from_nanos(seconds * 1_000_000_000 + dt.nanosecond - Duration.as_nanos(offset))
+    }
 }
 
 derive Equatable for NaiveDateTime
@@ -1449,6 +1485,13 @@ impl OffsetDateTime {
     pub fn between(earlier: OffsetDateTime, later: OffsetDateTime) -> Duration {
         Duration.nanoseconds(later.instant_nanos - earlier.instant_nanos)
     }
+
+    /// The wall reading at the value's offset, with the offset dropped: the
+    /// date and time its clock showed.
+    //! assert OffsetDateTime.to_naive(OffsetDateTime`2026-05-04T14:30:00-05:00`)
+    //!     == NaiveDateTime`2026-05-04T14:30:00`
+    //
+    pub host fn to_naive(odt: OffsetDateTime) -> NaiveDateTime
 }
 
 impl Literal for OffsetDateTime {
@@ -1914,6 +1957,16 @@ impl DateTime {
     //!     == OffsetDateTime`2026-06-15T12:00:00-04:00`
     //
     pub host fn to_offset(d: DateTime) -> OffsetDateTime
+
+    /// The wall reading in the value's zone, with the zone dropped: the
+    /// date and time its clock showed. A UTC reading of an `Instant` is
+    /// `NaiveDateTime.from_instant(i)`.
+    //! assert DateTime.to_naive(DateTime`2026-06-15T12:00:00-04:00[America/New_York]`)
+    //!     == NaiveDateTime`2026-06-15T12:00:00`
+    //
+    pub fn to_naive(d: DateTime) -> NaiveDateTime {
+        OffsetDateTime.to_naive(DateTime.to_offset(d))
+    }
 
     /// Same instant, different IANA zone — re-project the wall reading
     /// through a new zone. Fails only on `UnknownZone`.

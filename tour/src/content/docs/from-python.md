@@ -27,7 +27,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `f"{name} has {n}"` | `"${name} has ${n}"` |
 | `for x in xs:`, `while` | `Iter.each`, a fold, recursion, or `Iter.loop` |
 | `if xs:` on any value | `if` takes a `Bool`: `if Iter.is_empty(xs)`, `if count > 0` |
-| `import json` | `import std/json` |
+| `import json` | `import std::json` |
 | `def test_x():` with pytest | `test "name" { assert .. }` beside the code |
 
 `1 / 2` on two `Int`s is `0`; convert an operand with `Int.to_float` for a

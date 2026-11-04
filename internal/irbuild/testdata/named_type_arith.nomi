@@ -1,7 +1,7 @@
 import {
-    std/duration.Duration
-    std/instant.Instant
-    std/io
+    std::duration.Duration
+    std::instant.Instant
+    std::io
 }
 
 // Probe: ARITHMETIC ON A NAMED TYPE, across two stdlib modules.

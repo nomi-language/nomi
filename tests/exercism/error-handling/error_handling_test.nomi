@@ -1,6 +1,6 @@
 import {
-    std/io.{self, Reader}
-    std/tasks.Task
+    std::io.{self, Reader}
+    std::tasks.Task
     error_handling
 }
 

@@ -31,7 +31,7 @@ func (r *completionRequest) memberCandidates() []candidate {
 		}
 	} else if id, ok := obj.(*ast.Ident); ok && r.s.std != nil && r.scope.Lookup(id.Name) == nil {
 		// A stdlib file the document has not imported yet (`io.` with no
-		// `import std/io`): its members, so the name being typed can be
+		// `import std::io`): its members, so the name being typed can be
 		// found before the import is added.
 		if scope := r.s.std.Modules[id.Name]; scope != nil {
 			return scopeMemberCandidates(scope, valueSymbol)

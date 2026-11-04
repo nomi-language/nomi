@@ -1,10 +1,10 @@
 import {
-    std/calendar.{Hours, Minutes, Nanoseconds, Seconds}
-    std/calendar.DateTime
-    std/calendar.NaiveDateTime
-    std/calendar.OffsetDateTime
-    std/duration.Duration
-    std/instant.Instant
+    std::calendar.{Hours, Minutes, Nanoseconds, Seconds}
+    std::calendar.DateTime
+    std::calendar.NaiveDateTime
+    std::calendar.OffsetDateTime
+    std::duration.Duration
+    std::instant.Instant
 }
 
 test "zoned datetimes parse and display RFC 9557 bracket form" {

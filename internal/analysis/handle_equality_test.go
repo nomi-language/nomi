@@ -27,7 +27,7 @@ func TestHandleEquality_IsRejected(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import {\n    std/channels.Channel\n    std/tasks.Task\n}\n\nfn main() {\n    " + tc.body + "\n}\n"
+			src := "import {\n    std::channels.Channel\n    std::tasks.Task\n}\n\nfn main() {\n    " + tc.body + "\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			var got []string
 			for _, e := range errs {

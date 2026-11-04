@@ -1,7 +1,7 @@
 // A boot that returns `Err` stops the program before `main`: the cleanup it
 // registered runs, most recent first, and the run prints `error: ` and the
 // error's Display text on stderr and exits 1.
-import std/io
+import std::io
 
 struct App {
     port: Int

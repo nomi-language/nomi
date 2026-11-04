@@ -20,7 +20,7 @@ import (
 // imports, and a test file that imports the library.
 var incrementalProject = map[string]string{
 	"main.nomi": `import {
-    std/io
+    std::io
     shapes.{self, Shape, Circle, Square}
 }
 

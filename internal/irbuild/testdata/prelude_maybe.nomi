@@ -5,7 +5,7 @@
 // Every line here is written to be observable. The transcript this pins is in
 // prelude_test.go, spelled out rather than compared, because the
 // representation `Maybe` lowers to lives in rt and is implemented once.
-import std/io
+import std::io
 
 struct Box {
     slot: Maybe<Int>

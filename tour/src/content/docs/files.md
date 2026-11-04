@@ -5,7 +5,7 @@ description: "Read and write files, a line or a piece at a time, list and walk d
 
 ## Reading and writing
 
-[`std/fs`](/reference/fs/) reads and writes files by path, and a path is a
+[`std::fs`](/reference/fs/) reads and writes files by path, and a path is a
 `String`. `fs.read_text` returns a whole file as text, and `fs.write_text`
 replaces a file with new text. Both return a `Result`, since a file can be
 missing or locked.
@@ -17,8 +17,8 @@ program starts with, so you can edit `todo.txt` below and run it again:
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() -> Result<Unit, io.Error> {
@@ -52,8 +52,8 @@ and its `Display` text names the path and the problem for the rest:
 
 ```nomi-run
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() {
@@ -89,7 +89,7 @@ the directory. `fs.create_dir("logs")` makes it.
 - A browser build has no disk; its program gets a file system in memory
   ([Files in the browser](#files-in-the-browser)).
 
-[`std/fs`](/reference/fs/) has every function and error, and the tooling
+[`std::fs`](/reference/fs/) has every function and error, and the tooling
 reference's [The test environment](/tooling/running-tests/#the-test-environment)
 has the test rules.
 
@@ -106,8 +106,8 @@ returns a `Result`, and stops at the first `Err`:
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn count_errors(path: String) -> Result<Int, io.Error> {
@@ -159,8 +159,8 @@ writer:
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/fs
-    std/io.{self, Reader, Writer}
+    std::fs
+    std::io.{self, Reader, Writer}
 }
 
 fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
@@ -213,7 +213,7 @@ runs, so unlike `fs.lines` it runs only once. `io.lines()` is the lines of
 standard input:
 
 ```nomi-run
-import std/io.{self, Reader}
+import std::io.{self, Reader}
 
 fn count_lines(r: Reader) -> Result<Int, io.Error> {
     lines = Reader.lines(r) |> Result.collect()?
@@ -233,7 +233,7 @@ Ok(2)
 
 `Reader.from_text` and `Reader.from_bytes` make a reader over data the
 program already holds, which is how a test feeds a function that takes a
-`Reader`. [`std/io`](/reference/io/#type-reader) also has readers that make
+`Reader`. [`std::io`](/reference/io/#type-reader) also has readers that make
 their bytes as they are read.
 
 <div class="tour-details">
@@ -249,7 +249,7 @@ their bytes as they are read.
 - A `Writer` passed to Go is written through the same buffer as the
   program's own writes, so the two stay in order.
 
-Spec: [Safe points](/spec/concurrency/#safe-points). [`std/io`](/reference/io/)
+Spec: [Safe points](/spec/concurrency/#safe-points). [`std::io`](/reference/io/)
 has the stream functions.
 
 </div>
@@ -257,15 +257,15 @@ has the stream functions.
 ## Directories and paths
 
 `fs.list` returns a directory's entries sorted by name, so a listing is the
-same on every computer. [`std/path`](/reference/path/) puts paths together
+same on every computer. [`std::path`](/reference/path/) puts paths together
 and takes them apart. It only reads the text, so it never fails:
 
 ```nomi-run read-only:photos/*
 // FILE: main.nomi
 import {
-    std/fs
-    std/io
-    std/path
+    std::fs
+    std::io
+    std::path
 }
 
 fn main() -> Result<Unit, io.Error> {
@@ -297,7 +297,7 @@ True
 -->
 
 Paths use `/` on every operating system, Windows included.
-[`std/fs`](/reference/fs/) also removes, renames and copies files, reads
+[`std::fs`](/reference/fs/) also removes, renames and copies files, reads
 their metadata and permissions, and makes and reads symlinks.
 
 ## Walking a tree
@@ -311,8 +311,8 @@ directories:
 ```nomi-run read-only:notes/* read-only:notes/2026/*
 // FILE: main.nomi
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() -> Result<Unit, io.Error> {
@@ -356,8 +356,8 @@ through a symlink, is an error instead of a file:
 ```nomi-run read-only:private.txt
 // FILE: main.nomi
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn page(name: String) -> Result<String, io.Error> {
@@ -386,15 +386,15 @@ changed while the function runs cannot lead out either.
 ## Testing code that uses files
 
 A test should not depend on what is on the disk of the computer it runs
-on. [`std/fs_testing`](/reference/fs_testing/) runs a function against a
+on. [`std::fs_testing`](/reference/fs_testing/) runs a function against a
 sandbox: a file system in memory, made from the files you give it.
 `fs_testing.run` returns the function's result and every file afterwards:
 
 ```nomi-run
 import {
-    std/fs
-    std/fs_testing.{self, Failure, Sandbox}
-    std/io
+    std::fs
+    std::fs_testing.{self, Failure, Sandbox}
+    std::io
 }
 
 fn sort_file(input: String, output: String) -> Result<Int, io.Error> {

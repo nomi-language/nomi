@@ -104,7 +104,7 @@ host fn os_state() -> Result<Int, String>
 /// random source, for keys, tokens, salts and nonces. Unlike a `Generator`
 /// it takes no seed and never repeats, so a test cannot predict its bytes.
 /// A negative `count` is a runtime error.
-//! import std/random
+//! import std::random
 //!
 //! key = random.secure_bytes(32)
 //! assert Bytes.length(key) == 32

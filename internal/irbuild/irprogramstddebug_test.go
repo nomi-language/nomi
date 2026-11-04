@@ -11,13 +11,13 @@ func TestIRProgramStdDebugErasure_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
-import std/url.Url
-import std/money.Money
-import std/http.{Method, Status}
-import std/sql.Dialect
-import std/tls
-import std/toml.Toml
+	const src = `import std::io
+import std::url.Url
+import std::money.Money
+import std::http.{Method, Status}
+import std::sql.Dialect
+import std::tls
+import std::toml.Toml
 
 fn show(d: Debug) -> String {
     Debug.inspect(d)

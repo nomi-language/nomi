@@ -200,7 +200,7 @@ func TestStdHostIdentityIsGuardedByTheFrontEndFirst(t *testing.T) {
 }
 
 func TestStdHostInferredProjectionRequiresDeclaredIdentity(t *testing.T) {
-	p, err := AnalyzeSource("main", `import std/dynamic.Dynamic
+	p, err := AnalyzeSource("main", `import std::dynamic.Dynamic
 fn identity(value:Dynamic) ->Dynamic{value}`)
 	if err != nil {
 		t.Fatal(err)

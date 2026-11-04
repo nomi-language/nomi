@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 test "startup environment can be passed to ordinary helpers" {
     diagnostics = compiler.check(

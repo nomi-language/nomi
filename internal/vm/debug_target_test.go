@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-const targetSrc = `import std/io
+const targetSrc = `import std::io
 
 fn main() {
   f = fn k: Int -> k + 1

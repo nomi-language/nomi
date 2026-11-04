@@ -13,9 +13,9 @@ const strayDocMessage = "a `///` doc comment must be followed by a declaration i
 // error: accepted, nothing would read it and `nomi fmt` would delete the line.
 func TestStrayDocComment_IsAnError(t *testing.T) {
 	cases := map[string]string{
-		"import":                              "/// Explains the imports.\nimport std/io\n",
+		"import":                              "/// Explains the imports.\nimport std::io\n",
 		"test block":                          "/// Explains the test.\ntest \"t\" {\n  assert True\n}\n",
-		"after a blank line before an import": "fn f() -> Int {\n  1\n}\n\n/// Stray.\nimport std/io\n",
+		"after a blank line before an import": "fn f() -> Int {\n  1\n}\n\n/// Stray.\nimport std::io\n",
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestStrayDocComment_IsAnError(t *testing.T) {
 
 // The resilient parse the LSP uses reports the same error and keeps the item.
 func TestStrayDocComment_ResilientParseReportsIt(t *testing.T) {
-	nodes, errs, _ := ParseResilient(lexer.Lex("/// Stray.\nimport std/io\n"))
+	nodes, errs, _ := ParseResilient(lexer.Lex("/// Stray.\nimport std::io\n"))
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, strayDocMessage) {
 		t.Fatalf("ParseResilient errors = %v, want one stray-doc-comment error", errs)
 	}

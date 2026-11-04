@@ -42,10 +42,10 @@
 // The unbounded control is what makes the bounded rows non-vacuous: without it
 // a build that reported `Cancelled` for every task would pass.
 import {
-    std/duration.Duration
-    std/io
-    std/tasks.{Outcome, Task}
-    std/timer
+    std::duration.Duration
+    std::io
+    std::tasks.{Outcome, Task}
+    std::timer
 }
 
 // The context is read and replaced as an application field, which needs a

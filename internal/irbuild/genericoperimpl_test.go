@@ -8,7 +8,7 @@ import "testing"
 // type, as `Add.add(a, b)` is.
 
 func TestIRGenericOperImpl_UserType(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Box<T> {
     items: List<T>
@@ -33,7 +33,7 @@ fn main() {
 }
 
 func TestIRGenericOperImpl_StdSet(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn plus<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hashable {
     a + b
@@ -62,7 +62,7 @@ fn main() {
 // block (`concat(lhs, rhs)` in Vector's and List's `Add` impls) lowers that
 // call as the owner-qualified `Vector.concat` / `List.concat` it names.
 func TestIRGenericOperImpl_StdBareHostSibling(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Point {
     x: Int
@@ -87,7 +87,7 @@ fn main() {
 // `Map + Map` lowers through std/maps' generic `Add` instance, whose body is
 // the owner-qualified `Map.merge`: the right-hand map wins on a shared key.
 func TestIRGenericOperImpl_StdMap(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Point {
     x: Int
@@ -115,9 +115,9 @@ fn main() {
 // Duration` is an Instant and `Instant - Instant` is a Duration. Operator and
 // interface-qualified calls each select the impl by the right operand's type.
 func TestIRGenericOperImpl_InstantSubtract(t *testing.T) {
-	verifyLambdaProgram(t, `import std/duration.Duration
-import std/instant.Instant
-import std/io
+	verifyLambdaProgram(t, `import std::duration.Duration
+import std::instant.Instant
+import std::io
 
 fn main() {
     a = Instant.from_seconds(15)

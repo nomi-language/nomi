@@ -26,7 +26,7 @@ func TestDeclinePosition_IsTheInnermostNode(t *testing.T) {
 	}{
 		{
 			name: "a call in a tail if's arm",
-			src: `import std/io
+			src: `import std::io
 
 ` + planted + `
 fn first(x: Int) -> Int {

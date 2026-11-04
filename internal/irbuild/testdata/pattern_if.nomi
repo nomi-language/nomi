@@ -1,6 +1,6 @@
 import {
-    std/io
-    std/iter.Iter.loop
+    std::io
+    std::iter.Iter.loop
 }
 
 /// `if pattern = expr` — the refutable match outside a `case`.
@@ -23,9 +23,9 @@ fn label(m: Maybe<String>) -> String {
 /// NO else arm. The then-arm runs on a hit and NOT on a miss, and control
 /// continues past the `if` either way — the "after" line is what says so. The
 /// value is Unit either way, which the `== Unit` is for: an `if` with no
-/// else whose then-arm is not Unit is a front-end error (if_else_test.nomi's
-/// "if without else returns Unit"), so Unit is the only answer it can have and
-/// the assertion is that the MISS produces one too.
+/// else whose then-arm is Unit is Unit (one whose then-arm has a value is a
+/// Maybe, elseless_if.nomi), so the assertion is that the MISS produces Unit
+/// too.
 fn side_effect(m: Maybe<Int>) -> Bool {
     result = if Some(n) = m { io.print("hit ${n}") }
 

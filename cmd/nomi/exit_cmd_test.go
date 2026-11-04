@@ -15,8 +15,8 @@ var exitPrograms = []struct {
 	exit           int
 }{
 	{"main's Exit sets the status", `import {
-  std/io
-  std/process.Exit
+  std::io
+  std::process.Exit
 }
 
 fn main() -> Result<Unit, Exit> {
@@ -25,27 +25,27 @@ fn main() -> Result<Unit, Exit> {
   Err(Exit{code: 3, message: "usage: count <file>"})
 }
 `, "before\n", "warning\nusage: count <file>\n", 3},
-	{"an empty message prints nothing", `import std/process.Exit
+	{"an empty message prints nothing", `import std::process.Exit
 
 fn main() -> Result<Unit, Exit> {
   Err(Exit{code: 42})
 }
 `, "", "", 42},
-	{"code 0 succeeds and still prints the message", `import std/process.Exit
+	{"code 0 succeeds and still prints the message", `import std::process.Exit
 
 fn main() -> Result<Unit, Exit> {
   Err(Exit{code: 0, message: "nothing to do"})
 }
 `, "", "nothing to do\n", 0},
-	{"a code past 255 is a trap", `import std/process.Exit
+	{"a code past 255 is a trap", `import std::process.Exit
 
 fn main() -> Result<Unit, Exit> {
   Err(Exit{code: 256, message: "x"})
 }
 `, "", "exit code 256 is outside 0 to 255\n", 1},
 	{"boot's Exit sets the status after its cleanup", `import {
-  std/io
-  std/process.Exit
+  std::io
+  std::process.Exit
 }
 
 struct App {

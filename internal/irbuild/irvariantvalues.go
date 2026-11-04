@@ -645,7 +645,7 @@ func (bl *irScalarBuilder) stdQualifiedOwnerDef(n ast.Node) *typeDef {
 	if !isFA || q.Field == nil {
 		return nil
 	}
-	mod, isIdent := q.Object.(*ast.Ident)
+	mod, isIdent := ast.QualifierIdent(q.Object)
 	if !isIdent || irQualIsLocal(bl, mod.Name) {
 		return nil
 	}
@@ -1099,7 +1099,7 @@ func (bl *irScalarBuilder) variantFinish(at ast.Node, t *ast.StructLit, d *typeD
 }
 
 // importedVariantCall builds a std enum's positional variant named bare, as a
-// selective or aliased import binds it (`import std/json.Json.{String as
+// selective or aliased import binds it (`import std::json.Json.{String as
 // JStr}` then `JStr("Ada")`), the call form of the bare arm lowerNode takes
 // for a payload-free one.
 func (bl *irScalarBuilder) importedVariantCall(call *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {

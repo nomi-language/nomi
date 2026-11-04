@@ -77,7 +77,7 @@ func (d Diagnostic) String() string {
 // OneLineHint is hint on one line, for the short form: its lines trimmed and
 // joined with "; ", except that a line ending in ':' or '{', or a line that
 // is only '}', joins with a space. The import-block hint reads
-// `... an import block: import { std/io; std/regex.Regex }`.
+// `... an import block: import { std::io; std::regex.Regex }`.
 func OneLineHint(hint string) string {
 	var b strings.Builder
 	prev := ""

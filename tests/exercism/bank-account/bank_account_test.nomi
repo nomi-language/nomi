@@ -1,5 +1,5 @@
 import {
-    std/tasks.Task
+    std::tasks.Task
     bank_account
     bank_account.{Account, Error}
 }

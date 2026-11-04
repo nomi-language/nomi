@@ -19,7 +19,7 @@
 // once directly and once through the erased route — and the two must agree. A
 // fixture holding only the erased case cannot see the direct case regress, and
 // the direct case is what `stdiface.go` declined a Debug table to protect.
-import std/io
+import std::io
 
 struct Rev {
     zeta: Int

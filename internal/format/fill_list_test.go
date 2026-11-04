@@ -189,7 +189,7 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 		{
 			"multi-line string",
 			"[" + sevens + ", \"\"\"\n        a\n        \"\"\"]",
-			"[\n" + onePerLine + "        \"\"\"\n            a\n            \"\"\",\n    ]",
+			"[\n" + onePerLine + "        \"\"\"\n        a\n        \"\"\",\n    ]",
 		},
 		{"trailing comment", "[" + sevens + ", // c\n    5]", "[\n" + strings.TrimSuffix(onePerLine, ",\n") + ", // c\n        5,\n    ]"},
 		{"leading comment", "[\n        // lead\n        " + sevens + "]", "[\n        // lead\n" + onePerLine + "    ]"},

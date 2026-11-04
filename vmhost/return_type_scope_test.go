@@ -8,7 +8,7 @@ import "testing"
 // `Result<Unit, String>` (g's return) and the case was rejected as
 // mismatching f's `Result<Int, String>`.
 func TestReturnTypeScope_BoundArmsRun(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 fn f() -> Result<Int, String> { Ok(1) }
 

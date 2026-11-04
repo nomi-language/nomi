@@ -3,10 +3,10 @@
 // same fake, a nested run takes over for its own call, and a program no
 // answer names fails to start as a missing one does.
 import {
-    std/io.{self, Reader, Writer}
-    std/process.{self, Child, Command, Status, Stdin}
-    std/process_testing.{self, Answer, Call}
-    std/tasks.Task
+    std::io.{self, Reader, Writer}
+    std::process.{self, Child, Command, Status, Stdin}
+    std::process_testing.{self, Answer, Call}
+    std::tasks.Task
 }
 
 fn current_branch() -> Result<String, io.Error> {

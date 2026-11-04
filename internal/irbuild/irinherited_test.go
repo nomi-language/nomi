@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRInherited_Defaults(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface Formatted {
   fn label(value: self) -> String
@@ -47,7 +47,7 @@ fn main() {
 }
 
 func TestIRInherited_DefaultReadsARequiredFunction(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface HasName {
   fn name(value: self) -> String
@@ -87,7 +87,7 @@ fn main() {
 }
 
 func TestIRInherited_SpecializedDefaultsAndEffects(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 interface Label {
  fn label(value: self) -> String
  fn format(prefix: String, value: self) -> String { prefix + label(value) }
@@ -114,7 +114,7 @@ fn main() {
 }
 
 func TestIRInherited_SameOwnerAndLocalClosure(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Number { value: Int }
 impl Number {
  fn read(n: Number) -> Int { n.value }

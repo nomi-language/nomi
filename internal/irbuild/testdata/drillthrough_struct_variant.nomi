@@ -1,8 +1,8 @@
 import {
-    std/duration.Duration
-    std/io
-    std/supervisors.Backoff
-    std/supervisors.Backoff.Exponential
+    std::duration.Duration
+    std::io
+    std::supervisors.Backoff
+    std::supervisors.Backoff.Exponential
 }
 
 // A std enum's struct-shaped variant imported by name and built from a bare

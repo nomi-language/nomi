@@ -12,7 +12,7 @@ import (
 
 // Tour and editor hover resolve application-field reads to their declared field types.
 const appFieldHoverSrc = `import {
-  std/io
+  std::io
 }
 
 struct Cfg {
@@ -144,7 +144,7 @@ func TestAnalyze_AppFieldReadHovers(t *testing.T) {
 
 // A read in a helper that a program and a `group` both run names its
 // type, so it hovers as that type's field whichever boot runs it.
-const twoBootHoverSrc = `import std/io
+const twoBootHoverSrc = `import std::io
 
 struct App {
   logger: String

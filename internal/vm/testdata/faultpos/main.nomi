@@ -1,6 +1,6 @@
 // The line-0 reproduction, as a `fn main` program the three engines can each
 // run. Line numbers matter here: `Divide.divide` is on line 7.
-import std/io
+import std::io
 
 fn divide_via_impl() -> Int {
     zero = 0

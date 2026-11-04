@@ -4,7 +4,7 @@
 // zulu.nomi and alpha.nomi are lowered in an order that makes some instances
 // arrive after their declaring file's own walk.
 import {
-    std/io
+    std::io
     alpha
     ping
     zeta

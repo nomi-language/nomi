@@ -24,11 +24,11 @@
 // midnight UTC 2000-01-01 and advances by exactly the sleep, so these numbers
 // are deterministic; a real clock would produce 30001 or 30004.
 import {
-    std/duration.Duration
-    std/instant.Instant
-    std/io
-    std/testing.Clock
-    std/timer
+    std::duration.Duration
+    std::instant.Instant
+    std::io
+    std::testing.Clock
+    std::timer
 }
 
 /// Sleep for `d` and report how much time the clock says passed.

@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRResultMapErr_ConvertedTryLinks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 enum ParseError { NotANumber String; OutOfRange Int }
 fn error_text(err: ParseError) -> String {
  case err {
@@ -37,7 +37,7 @@ fn main() {
 }
 
 func TestIRResultMapErr_CallbackEffectsAndCapture(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn source(ok: Bool) -> Result<Int, String> {
  io.print("source")
  if ok { Ok(7) } else { Err("bad") }
@@ -52,7 +52,7 @@ fn main() {
 }
 
 func TestIRResultMapErr_CallbackFault(t *testing.T) {
-	verifyIterFault(t, `import std/io
+	verifyIterFault(t, `import std::io
 fn source() -> Result<Int, Int> { Err(0) }
 fn main() {
  io.inspect(Result.map_err(source(), fn n: Int -> {
@@ -65,7 +65,7 @@ fn main() {
 }
 
 func TestIRScalarText_ConcreteCalls(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn number() -> Int { io.print("number"); 7 }
 fn main() {
  io.print(Int.to_string(number()) + Float.to_string(1.5))
@@ -77,7 +77,7 @@ fn main() {
 
 // A struct with a list field is a retained struct, so a map_err over it runs.
 func TestIRResultMapErr_StructPayloadRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Problem { tags: List<String> }
 fn convert(r: Result<Int, Problem>) -> Result<Int, String> {
  Result.map_err(r, fn _p: Problem -> "bad")
@@ -87,7 +87,7 @@ fn main() { io.inspect(convert(Err(Problem{tags: ["x"]}))) }
 }
 
 func TestIRResultMapErr_ListPayload(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn failed() -> Result<List<Int>, String> { Err("bad") }
 fn succeeded() -> Result<List<Int>, String> { Ok([1, 2]) }
 fn main() {
@@ -100,7 +100,7 @@ fn main() {
 // Maybe.to_result is a host call to rt.MaybeToResult, prefix and piped
 // under `?`, with an enum error payload beside the String one.
 func TestIRMaybeToResult_PrefixAndPipedTry(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 enum Why { Missing; Empty }
 fn tenfold(m: Maybe<Int>) -> Result<Int, String> {
  n =

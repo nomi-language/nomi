@@ -31,7 +31,7 @@ import {
 //#
 //# ## Searching
 //#
-//# A `String` matches its own text, a `Regex` (`std/regex`) matches its
+//# A `String` matches its own text, a `Regex` (`std::regex`) matches its
 //# pattern, and a `Codepoint` matches itself, so `String.split("a,b", ",")`
 //# and ``String.split(text, Regex`\s+`)`` are the same function. The thing
 //# to look for is called a matcher, not a pattern, because a pattern in Nomi
@@ -86,7 +86,7 @@ impl Contains<String> for String {
 
 impl<C> Contains<Regex<C>> for String {
     /// True if `x` matches anywhere in `c`.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! assert String.contains("order 66", Regex`\d+`)
     //! refute String.contains("room", Regex`\d+`)
@@ -109,7 +109,7 @@ impl Contains<Codepoint> for String {
 impl String {
     /// True if `prefix` matches at the start of `s`. `prefix` is a `String` or
     /// a `Regex`.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! assert String.starts_with("hello", "he")
     //! assert String.starts_with("42 apples", Regex`\d+`)
@@ -121,7 +121,7 @@ impl String {
 
     /// True if `suffix` matches at the end of `s`. `suffix` is a `String` or a
     /// `Regex`.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! assert String.ends_with("hello.txt", ".txt")
     //! assert String.ends_with("report.PDF", Regex`(?i)\.pdf`)
@@ -273,7 +273,7 @@ impl String {
     /// `regexp` does: `$1` or `${1}` is group 1, `${name}` a named group, `$0`
     /// the whole match and `$$` a literal `$`; a reference to no group is
     /// empty. With any other matcher, `new` is literal text.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! assert String.replace("a.b.c", ".", "-") == "a-b-c"
     //! assert String.replace("call 555-0100", Regex`\d`, "#") == "call ###-####"
@@ -452,7 +452,7 @@ impl String {
     /// consumed and never appears in the output. Adjacent matches produce
     /// empty-string entries. An empty string `separator` splits at every UTF-8
     /// codepoint boundary (one entry per codepoint). Inverse of `String.join`.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! assert String.split("a,b,c", ",") == ["a", "b", "c"]
     //! assert String.split("a, b, c", ", ") == ["a", "b", "c"]
@@ -472,7 +472,7 @@ impl String {
     /// Every non-overlapping match of `needle` in `s`, left to right. With a
     /// `String` needle each match is the needle itself, so the list's length is
     /// the number of occurrences.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
     //! assert String.find_all("banana", "an") == ["an", "an"]
@@ -486,7 +486,7 @@ impl String {
     /// none. It is the first element `find_all` would return. With a `String`
     /// needle the match is the needle itself, and an empty needle matches at the
     /// start of any text; an empty regex match is `Some("")`.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! assert String.find("order 66, aisle 7", Regex`\d+`) == Some("66")
     //! assert String.find("banana", "an") == Some("an")
@@ -508,7 +508,7 @@ impl String {
     /// unnamed group, and `Unit` when there is none. A regex compiled while
     /// the program runs is a `Regex<List<Maybe<String>>>`, whose groups are
     /// a list.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! assert String.captures("ann@home", Regex`(\w+)@(\w+)`) == Some(#("ann", "home"))
     //! assert String.captures("b", Regex`(a)|(b)`) == Some(#(None, Some("b")))
@@ -528,7 +528,7 @@ impl String {
     /// The capture groups of every non-overlapping match of `re` in `s`, left
     /// to right, each as `String.captures` gives them; `[]` when nothing
     /// matches. The matches are the ones `String.find_all` returns.
-    //! import std/regex.Regex
+    //! import std::regex.Regex
     //!
     //! pairs = String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`)
     //! assert pairs == [#("a", "1"), #("b", "22")]
@@ -582,6 +582,23 @@ impl String {
     //! assert String.to_int("") == None
     //
     pub host fn to_int(s: String) -> Maybe<Int>
+
+    /// Parses `s` as a base-10 Float, the same in every locale: an optional
+    /// sign, digits, an optional `.` with digits on both sides, and an
+    /// optional exponent (`e` or `E`, an optional sign, digits).
+    /// Surrounding whitespace is tolerated, as `String.to_int` tolerates it.
+    /// Returns None for anything else: empty text, `_` separators, hex,
+    /// `.5` or `5.`, the words `Inf` and `NaN`, and a value too large for a
+    /// Float. The result is the Float nearest the text. To read what a
+    /// reader of some locale wrote (`1.234,5`), use `Float.parse_in`.
+    //! assert String.to_float("19.99") == Some(19.99)
+    //! assert String.to_float("-2.5e3") == Some(-2500.0)
+    //! assert String.to_float(" 7 ") == Some(7.0)
+    //! assert String.to_float("1,5") == None
+    //! assert String.to_float(".5") == None
+    //! assert String.to_float("1e400") == None
+    //
+    pub host fn to_float(s: String) -> Maybe<Float>
 
     /// Parses `s` as a plain base-10 Decimal. It accepts an optional sign,
     /// `_` digit separators and one fractional part, and the number of

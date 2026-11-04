@@ -22,7 +22,7 @@
 //     and dispatched at another.
 //   - Two implementors throughout: with one, a table and a hard-coded direct
 //     call are indistinguishable.
-import std/io
+import std::io
 
 interface Tagger {
     fn tag(label: String, target: self) -> String

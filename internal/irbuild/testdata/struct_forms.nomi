@@ -20,7 +20,7 @@
 //# `a` then `z`, with an Int against a String, so a positional copy is a
 //# type error rather than a silent answer.
 
-import std/io
+import std::io
 
 struct User {
     name: String

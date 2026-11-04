@@ -14,7 +14,7 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
-const stdFFIText = `import std/io
+const stdFFIText = `import std::io
 
 gopkg "strings" as strings
 gopkg "math" as math

@@ -1,10 +1,10 @@
 // `io.capture(input, run)` calls `run` with `input` as its stdin and answers
 // what it returned and everything it printed.
 import {
-    std/duration.Duration
-    std/io.{self, Reader, Writer}
-    std/tasks.Task
-    std/timer
+    std::duration.Duration
+    std::io.{self, Reader, Writer}
+    std::tasks.Task
+    std::timer
 }
 
 fn read_words(acc: List<String>) -> List<String> {

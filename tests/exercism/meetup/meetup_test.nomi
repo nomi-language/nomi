@@ -1,5 +1,5 @@
 import {
-    std/calendar.{Date, Weekday}
+    std::calendar.{Date, Weekday}
     meetup.{self, Week}
 }
 

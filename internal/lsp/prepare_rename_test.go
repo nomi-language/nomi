@@ -9,9 +9,9 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const prepareRenameMain = `import models/users
-import models/users.User
-import std/io
+const prepareRenameMain = `import models::users
+import models::users.User
+import std::io
 
 fn double(n: Int) -> Int { n * 2 }
 
@@ -131,7 +131,7 @@ func TestPrepareRename(t *testing.T) {
 		{"interface method", occ(src, "label(value: self)", 0, 0), "interface method"},
 		{"implementation of a project interface", occ(src, "label(value: User)", 0, 0), "implements Named.label"},
 		{"implementation of a stdlib interface", occ(src, "to_string(u", 0, 0), "implements Display.to_string"},
-		{"import path directory", occ(src, "models/users\n", 0, 0), "import path"},
+		{"import path directory", occ(src, "models::users\n", 0, 0), "import path"},
 	}
 	for _, c := range refuse {
 		params := protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}, Position: c.pos}

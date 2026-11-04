@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A NAMESPACED type name: a declaration whose own name carries a dot, declared
 // beside the type it is named after. The parser admits it

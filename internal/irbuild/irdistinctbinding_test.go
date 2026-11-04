@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRDistinctBinding_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"named unwrap and operand effects", `import std/io
+		{"named unwrap and operand effects", `import std::io
 type Id Int
 fn mark(n: Int) -> Id { io.print("make") Id(n) }
 fn read(id: Id) -> Int {
@@ -18,7 +18,7 @@ fn main() {
   io.print(value)
   read(Id(8)) |> io.print()
 }`, "make\n4\n9\n"},
-		{"captured lambda and guard arm", `import std/io
+		{"captured lambda and guard arm", `import std::io
 type Label String
 fn main() {
   label = Label("hello")

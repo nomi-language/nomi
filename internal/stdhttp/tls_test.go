@@ -54,15 +54,15 @@ func selfSigned(t *testing.T, dir string) (certPath, keyPath string) {
 	return certPath, keyPath
 }
 
-const tlsProgram = `import std/http
-import std/http.{Body, Client, ClientOptions, Listener, Request, Response, Server, Status}
-import std/io.{self, Reader, Writer}
-import std/net.{self, Connection}
-import std/supervisors.Supervisor
-import std/tls.{self, Certificate, ClientConfig, Roots, ServerConfig, Version}
-import std/url.Url
-import std/duration.Duration
-import std/instant.Instant
+const tlsProgram = `import std::http
+import std::http.{Body, Client, ClientOptions, Listener, Request, Response, Server, Status}
+import std::io.{self, Reader, Writer}
+import std::net.{self, Connection}
+import std::supervisors.Supervisor
+import std::tls.{self, Certificate, ClientConfig, Roots, ServerConfig, Version}
+import std::url.Url
+import std::duration.Duration
+import std::instant.Instant
 
 struct App {
     web: Supervisor

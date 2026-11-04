@@ -15,7 +15,7 @@ import (
 // `==`'s equality (rt.EqFloat, rt.EqDecimal), so `0.0` matches `-0.0` at
 // any depth, a NaN matches no literal, and `1.5d` matches `1.50d`.
 func TestRun_FloatAndDecimalLiteralPatternsRunWherePatternsAreTested(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Price {
   amount: Decimal
@@ -209,7 +209,7 @@ fn main() {
 // value`, at the top and nested, and in a `case` arm, matched and not.
 func TestRun_FloatAndDecimalLiteralPatternsInATestBody(t *testing.T) {
 	const name = "main_test.nomi"
-	p, err := vmhost.LoadSource(name, `import std/io
+	p, err := vmhost.LoadSource(name, `import std::io
 
 test "assert matched" {
   assert #(1.5, n) = #(1.5, 2)

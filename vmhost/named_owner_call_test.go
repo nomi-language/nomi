@@ -12,7 +12,7 @@ import (
 // written order, then the call made in parameter order, with a slot left
 // out before a supplied one taking its default.
 func TestNamedArgs_StdOwnerAndHostCalls(t *testing.T) {
-	out, err := runVM(t, `import { std/io std/calendar.Time }
+	out, err := runVM(t, `import { std::io std::calendar.Time }
 
 fn mark(label: String, s: String) -> String {
     io.print(label)

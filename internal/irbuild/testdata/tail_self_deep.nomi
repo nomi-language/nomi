@@ -3,7 +3,7 @@
 // 1e8 hops. A shallow depth would survive ordinary recursion, so this
 // depth, and not a smaller one, is what separates a loop from a recursive
 // call.
-import std/io
+import std::io
 
 fn count(n: Int) -> Int {
     if n == 0 { 0 } else { count(n - 1) }

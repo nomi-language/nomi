@@ -22,7 +22,7 @@
 // the same code. The wording is the constructor-call phrasing verbatim, which
 // is the only one of the two existing phrasings that can describe a non-
 // interface mismatch.
-import std/compiler.{self, Diagnostic}
+import std::compiler.{self, Diagnostic}
 
 // Local rather than in a sibling `test_helpers.nomi` the way the
 // `03-tooling-and-diagnostics` cases spell it: those share the helper across

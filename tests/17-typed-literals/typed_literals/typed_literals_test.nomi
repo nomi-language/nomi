@@ -1,8 +1,8 @@
 import {
-    std/compiler
-    std/literals.Literal
-    std/literals.Fragment.{self, Dynamic, Static}
-    std/regex.Regex
+    std::compiler
+    std::literals.Literal
+    std::literals.Fragment.{self, Dynamic, Static}
+    std::regex.Regex
     html_tags.{Raw, Safe}
     joiner.Joiner
     sql.{Query, SQL}
@@ -56,7 +56,7 @@ test "Fragment variants can be constructed and matched directly" {
 test "compiler checks plain source strings" {
     diagnostics = compiler.check(
         """
-          import std/io
+          import std::io
           fn main() {
             io.print(List.empty())
           }

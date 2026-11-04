@@ -19,8 +19,8 @@ import (
 // byte.
 func TestIRTestBody_BacklogTypes(t *testing.T) {
 	const src = `import {
-  std/json.{FromJson}
-  std/json.Json.{self, String as JStr, Int as JInt}
+  std::json.{FromJson}
+  std::json.Json.{self, String as JStr, Int as JInt}
 }
 
 type Dur Int

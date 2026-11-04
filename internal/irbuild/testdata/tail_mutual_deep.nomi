@@ -4,7 +4,7 @@
 // lowering does it, so this shape is the one that needs a shared
 // driver rather than a loop rewrite. 1e8 hops: see tail_self_deep.nomi for why
 // that number.
-import std/io
+import std::io
 
 fn is_even(n: Int) -> Bool {
     if n == 0 { True } else { is_odd(n - 1) }

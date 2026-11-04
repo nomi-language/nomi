@@ -15,11 +15,11 @@ import (
 // value is that Err fails with the assertion's report. The slow task would
 // sleep five seconds and print; it is cancelled, so neither happens.
 func TestTest_AnAssertionEndsItsConcurrentBlock(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `import std/assertions.{AssertionFailure}
-import std/duration.{Duration}
-import std/io
-import std/tasks.{Task}
-import std/timer
+	p, err := vmhost.Load(writeProgram(t, `import std::assertions.{AssertionFailure}
+import std::duration.{Duration}
+import std::io
+import std::tasks.{Task}
+import std::timer
 
 fn slow() -> Int {
   timer.sleep(Duration.seconds(5))

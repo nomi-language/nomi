@@ -7,7 +7,7 @@
 // pointer in this package and in the entry's, so a route that skipped the
 // translation would compare two spellings of one type and refuse the call it
 // had just resolved.
-import std/literals.{Fragment, Literal}
+import std::literals.{Fragment, Literal}
 
 pub struct Boxed {
     text: String

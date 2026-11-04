@@ -12,9 +12,9 @@ import comparable.{Comparable, Ordering}
 ///
 /// To sort a whole list descending, pass `Direction.Descending` to
 /// `Iter.sort` or `Iter.sort_by` instead.
-//! import std/iter.Iter
-//! import std/maybe.Maybe.Some
-//! import std/reverse.Reverse
+//! import std::iter.Iter
+//! import std::maybe.Maybe.Some
+//! import std::reverse.Reverse
 //!
 //! assert Reverse.of(1) > Reverse.of(2)
 //!

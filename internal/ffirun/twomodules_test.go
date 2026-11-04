@@ -77,9 +77,9 @@ replace example.com/sql/pg => ./pg
 `, repoRoot(t)),
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import {
-    std/io
-    lite/describe as ld
-    pg/describe as pd
+    std::io
+    lite::describe as ld
+    pg::describe as pd
 }
 
 fn main() {

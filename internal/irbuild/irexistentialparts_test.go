@@ -12,7 +12,7 @@ func TestIRExistentialAndUnitParts_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 once shown: Display = 5
 

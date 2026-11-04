@@ -12,7 +12,7 @@ import (
 // that matches binds the names, a guard applies to the arm whichever
 // alternative matched, and a failed guard goes on to the next arm.
 func TestOrPattern_RunsInEveryPosition(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 enum Tri {
     Equilateral

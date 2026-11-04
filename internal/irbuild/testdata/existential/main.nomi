@@ -16,7 +16,7 @@
 // Two implementors are stored into each field, which is what makes the answers
 // below evidence of dispatch rather than of a fixed call.
 import {
-    std/io
+    std::io
     effects.{Clock, Logger}
     handlers.{Fixed, Prod, Tagged, Zero}
 }

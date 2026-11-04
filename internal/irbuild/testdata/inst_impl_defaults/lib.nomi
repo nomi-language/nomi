@@ -1,4 +1,4 @@
-import std/duration.Duration
+import std::duration.Duration
 
 // A generic type whose constructor has a default the caller's file cannot
 // name (`Duration`), before a trailing function.

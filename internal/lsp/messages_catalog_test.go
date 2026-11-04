@@ -52,7 +52,7 @@ const portugueseCart = "[cart_items]\nsource = '''\n" + cartItemsSource + "'''\n
 func shopProject() map[string]string {
 	return map[string]string{
 		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\", \"pt\", \"pt-PT\"]\npartial_locales = [\"de\"]\n",
-		"main.nomi":            "import {\n    std/io\n    std/locale.Locale\n    std/message.Message\n    cart\n}\n\nfn main() {\n    io.print(Message.format(cart.cart_items(3), Locale`pl`))\n    io.print(Message.format(cart.order_status(.Shipped), Locale`pl`))\n}\n",
+		"main.nomi":            "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    cart\n}\n\nfn main() {\n    io.print(Message.format(cart.cart_items(3), Locale`pl`))\n    io.print(Message.format(cart.order_status(.Shipped), Locale`pl`))\n}\n",
 		"cart.nomi":            shopCart,
 		"locales/pl/cart.toml": polishCart,
 		"locales/pt/cart.toml": portugueseCart,

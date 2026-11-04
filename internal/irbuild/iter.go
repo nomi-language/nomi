@@ -169,7 +169,7 @@ func (g *gen) loadIter() {
 		return
 	default:
 		// `Iter` is not in this file's scope at all, which happens for exactly
-		// one legal spelling: `import std/iter.Iter.loop` imports the FUNCTION
+		// one legal spelling: `import std::iter.Iter.loop` imports the FUNCTION
 		// and not its owner. The anchor is then read out of std/iter's own
 		// scope, which the analyzer hands every file that can reach the module.
 		// At least as strong as rule 1 — it is std's declaration by

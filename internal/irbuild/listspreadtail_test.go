@@ -8,7 +8,7 @@ func TestIRListSpreadTailOfAnyElement_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     lines = [1, 2] |> Iter.map(fn x -> x * 10) |> Iter.to_list()

@@ -50,8 +50,8 @@ func wantInternalError(t *testing.T, how string, err error) {
 	}
 }
 
-const plantedProgram = `import std/io
-import std/tasks.Task
+const plantedProgram = `import std::io
+import std::tasks.Task
 
 fn planted_compile_panic_target(n: Int) -> Int {
     n + 1

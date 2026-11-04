@@ -413,7 +413,7 @@ func parseStdTypeExprUnchecked(t *testing.T, src string) ast.TypeExpr {
 // `make(n: Int) -> Result<self, String>`, and `List.make(2)` at a List of
 // Maybes.
 func TestStdRecvGeneric_SelflessCallQualifiedByTheContainer(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface Make {
     fn make(n: Int) -> Result<self, String>

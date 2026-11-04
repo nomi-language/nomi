@@ -22,7 +22,7 @@ func findOnlyUnused(t *testing.T, items []analysis.UnusedImport) analysis.Unused
 }
 
 func TestFindUnusedImports_WholeModule(t *testing.T) {
-	items, _, _ := findUnusedWithStdlib(t, "import std/io\n\nfn main() { Unit }\n")
+	items, _, _ := findUnusedWithStdlib(t, "import std::io\n\nfn main() { Unit }\n")
 	u := findOnlyUnused(t, items)
 	if u.ItemKind != analysis.UnusedWholeModule {
 		t.Errorf("kind: got %v, want UnusedWholeModule", u.ItemKind)
@@ -42,7 +42,7 @@ func TestFindUnusedImports_WholeModule(t *testing.T) {
 }
 
 func TestFindUnusedImports_BraceItemSole(t *testing.T) {
-	items, _, _ := findUnusedWithStdlib(t, "import std/comparable.{Ordering}\n\nfn main() { Unit }\n")
+	items, _, _ := findUnusedWithStdlib(t, "import std::comparable.{Ordering}\n\nfn main() { Unit }\n")
 	u := findOnlyUnused(t, items)
 	if u.ItemKind != analysis.UnusedBraceItem {
 		t.Errorf("kind: got %v, want UnusedBraceItem", u.ItemKind)
@@ -56,7 +56,7 @@ func TestFindUnusedImports_BraceItemSole(t *testing.T) {
 }
 
 func TestFindUnusedImports_BraceItemOneOfSeveral(t *testing.T) {
-	src := "import std/comparable.{Comparable, Ordering}\n\nfn f<T>(x: T) -> T where T: Comparable { x }\n"
+	src := "import std::comparable.{Comparable, Ordering}\n\nfn f<T>(x: T) -> T where T: Comparable { x }\n"
 	items, _, _ := findUnusedWithStdlib(t, src)
 	u := findOnlyUnused(t, items)
 	if u.ItemKind != analysis.UnusedBraceItem {
@@ -71,7 +71,7 @@ func TestFindUnusedImports_BraceItemOneOfSeveral(t *testing.T) {
 }
 
 func TestFindUnusedImports_SelfMarker(t *testing.T) {
-	src := "import std/results.Result.{self, Ok}\n\nfn f() -> Maybe<Int> { o = Ok(1)\n  None }\n"
+	src := "import std::results.Result.{self, Ok}\n\nfn f() -> Maybe<Int> { o = Ok(1)\n  None }\n"
 	items, _, _ := findUnusedWithStdlib(t, src)
 	u := findOnlyUnused(t, items)
 	if u.ItemKind != analysis.UnusedSelfMarker {
@@ -148,7 +148,7 @@ func expectUnusedContaining(t *testing.T, errs []analysis.TypeError, substr stri
 // A dead brace item errors on that item specifically — message and position
 // pinned. The sibling item used in the body stays silent.
 func TestUnusedImport_DeadBraceItem(t *testing.T) {
-	src := `import std/comparable.{Comparable, Ordering}
+	src := `import std::comparable.{Comparable, Ordering}
 
 fn f<T>(x: T) -> T where T: Comparable { x }
 `
@@ -170,7 +170,7 @@ fn f<T>(x: T) -> T where T: Comparable { x }
 
 // A whole-file import with no qualified access anywhere is dead.
 func TestUnusedImport_DeadModuleImport(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `import std/io
+	errs := buildErrsWithStdlib(t, `import std::io
 
 fn main() { Unit }
 `)
@@ -180,18 +180,18 @@ fn main() { Unit }
 // A module import used via member access (`io.print`) is live; one used
 // only in a qualified type annotation (`Instant`) is live too.
 func TestUnusedImport_ModuleUses(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/io
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::io
 
 fn main() { io.print("hi") }
 `))
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/instant.Instant
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::instant.Instant
 
 fn f(t: Instant) -> Instant { t }
 `))
 }
 
 func TestUnusedImport_DiscardBindingValueUsesImport(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/io
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::io
 
 fn main() {
   _ = io.inspect("hi")
@@ -201,7 +201,7 @@ fn main() {
 
 // A dead selective alias errors naming both the item and its binding.
 func TestUnusedImport_SelectiveAlias(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `import std/maybe.Maybe.{Some as Just, None as Nothing}
+	errs := buildErrsWithStdlib(t, `import std::maybe.Maybe.{Some as Just, None as Nothing}
 
 fn f() -> Maybe<Int> { Just(42) }
 `)
@@ -216,14 +216,14 @@ fn f() -> Maybe<Int> { Just(42) }
 // `self` in a brace list is its own item: dead when the parent name is
 // never referenced, live when it is.
 func TestUnusedImport_SelfItem(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `import std/results.Result.{self, Ok}
+	errs := buildErrsWithStdlib(t, `import std::results.Result.{self, Ok}
 
 fn f() -> Maybe<Int> { o = Ok(1)
   None }
 `)
 	expectUnusedContaining(t, errs, "imported name 'self' (binding 'Result') is unused")
 
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/results.Result.{self, Ok}
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::results.Result.{self, Ok}
 
 fn f() -> Result<Int, String> { Ok(1) }
 `))
@@ -233,16 +233,16 @@ fn f() -> Result<Int, String> { Ok(1) }
 // owner type's `self` included. (The prelude is the canonical consumer of
 // this carve-out.)
 func TestUnusedImport_ReExportIsUse(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std/maybe.{Maybe}
+	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std::maybe.{Maybe}
 `))
-	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std/results.Result.{self, Ok}
+	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std::results.Result.{self, Ok}
 `))
 }
 
 // A `derive Iface` conformance line counts as a use of the imported protocol
 // (derive args are real scope references).
 func TestUnusedImport_DeriveArgIsUse(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/equatable.{Equatable}
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::equatable.{Equatable}
 
 struct P {
   x: Int
@@ -255,7 +255,7 @@ derive Equatable for P
 // Pattern positions count as uses (`Some(v)` in a case arm references the
 // drill-through import).
 func TestUnusedImport_PatternIsUse(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/maybe.Maybe.{Some, None}
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::maybe.Maybe.{Some, None}
 
 fn f(m: Maybe<Int>) -> Int {
   case m {
@@ -269,7 +269,7 @@ fn f(m: Maybe<Int>) -> Int {
 // A typed-literal tag (`Date"..."`) counts as a use of the imported tag
 // type, even though the tag reference is recorded as a proxy symbol.
 func TestUnusedImport_TypedLiteralTagIsUse(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/calendar.Date
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::calendar.Date
 
 fn main() {
   d = Date"2024-01-15"
@@ -281,7 +281,7 @@ fn main() {
 // Drill-through granularity: the brace items are what's checked; using one
 // variant doesn't keep an unused sibling alive.
 func TestUnusedImport_DrillThroughPerItem(t *testing.T) {
-	errs := buildErrsWithStdlib(t, `import std/maybe.Maybe.{Some, None}
+	errs := buildErrsWithStdlib(t, `import std::maybe.Maybe.{Some, None}
 
 fn f() -> Maybe<Int> { Some(1) }
 `)

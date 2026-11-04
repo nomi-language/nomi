@@ -1,11 +1,11 @@
 ---
 title: "Money"
-description: "Amounts of money with std/money: writing them, adding them, rounding them, custom currencies, showing them to a reader, and reading prices people type."
+description: "Amounts of money with std::money: writing them, adding them, rounding them, custom currencies, showing them to a reader, and reading prices people type."
 ---
 
-[`std/money`](/reference/money/) has `Money`, an amount in a currency. The
+[`std::money`](/reference/money/) has `Money`, an amount in a currency. The
 amount is a `Decimal`, so it is exact. The currency is a
-[`Currency`](/reference/currency/) from `std/currency`.
+[`Currency`](/reference/currency/) from `std::currency`.
 
 ## Writing an amount
 
@@ -16,9 +16,9 @@ value from its fields with `Money{...}`:
 
 ```nomi-run
 import {
-    std/currency.Currency
-    std/io
-    std/money.Money
+    std::currency.Currency
+    std::io
+    std::money.Money
 }
 
 fn main() {
@@ -44,7 +44,7 @@ The compiler checks a `Money` literal, so a missing currency, an unknown
 code or a malformed amount is an error before the program runs:
 
 ```nomi-run error
-import std/money.Money
+import std::money.Money
 
 fn main() {
     price = Money`19.99`
@@ -68,8 +68,8 @@ rounding:
 
 ```nomi-run
 import {
-    std/io
-    std/money.Money
+    std::io
+    std::money.Money
 }
 
 fn main() {
@@ -105,8 +105,8 @@ program, as a division by zero does. The message names both currencies:
 
 ```nomi-run error
 import {
-    std/io
-    std/money.Money
+    std::io
+    std::money.Money
 }
 
 fn main() {
@@ -133,8 +133,8 @@ dollar, none for the yen.
 
 ```nomi-run
 import {
-    std/io
-    std/money.Money
+    std::io
+    std::money.Money
 }
 
 fn main() {
@@ -182,10 +182,10 @@ This example is a small project of two files; each tab is one file:
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/currency.Currency
-    std/io
-    std/locale.Locale
-    std/money.Money
+    std::currency.Currency
+    std::io
+    std::locale.Locale
+    std::money.Money
 }
 
 fn main() {
@@ -239,7 +239,7 @@ error: typed literal Money`5 PST:0`: `PST:0` is a custom currency this module do
 - A single file with no `nomi.toml`, like the other examples on this page,
   may write any custom currency.
 - [`[money]`](/tooling/projects/#money) lists what an entry may hold, and
-  [`std/currency`](/reference/currency/) what a custom currency can do.
+  [`std::currency`](/reference/currency/) what a custom currency can do.
 
 </div>
 
@@ -251,9 +251,9 @@ currency's symbol in the right place. How a locale writes numbers is in
 
 ```nomi-run
 import {
-    std/io
-    std/locale.Locale
-    std/money.Money
+    std::io
+    std::locale.Locale
+    std::money.Money
 }
 
 fn main() {
@@ -293,8 +293,8 @@ narrow symbol, its code, or its name.
 
 ```nomi-run
 import {
-    std/locale.Locale
-    std/money.Money
+    std::locale.Locale
+    std::money.Money
 }
 
 fn main() {
@@ -326,9 +326,9 @@ takes the amount alone.
 
 ```nomi-run
 import {
-    std/currency.Currency
-    std/locale.Locale
-    std/money.Money
+    std::currency.Currency
+    std::locale.Locale
+    std::money.Money
 }
 
 fn main() {

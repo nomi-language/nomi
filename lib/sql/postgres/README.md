@@ -12,8 +12,8 @@ nomi add github.com/nomi-language/nomi/lib/sql/postgres
 
 ```nomi
 import {
-    std/io
-    std/sql.{self, Conn, Error, Row, Sql}
+    std::io
+    std::sql.{self, Conn, Error, Row, Sql}
     postgres
 }
 

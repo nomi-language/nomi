@@ -12,7 +12,7 @@ import (
 // The tour answers a lambda's `fn` and `->`, and a declaration's `fn`, as
 // the editor does.
 func TestAnalyze_FnHovers(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 /// Doubles n.
 fn double(n: Int) -> Int {

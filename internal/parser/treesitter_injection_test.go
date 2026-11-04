@@ -63,3 +63,66 @@ func TestTreeSitterInjectsHtmlLiterals(t *testing.T) {
 		t.Errorf("an Html literal's tag is captured as a language name, not the static `html`:\n%s", out)
 	}
 }
+
+// A tagged literal with `${...}` slots is one injected document: one match
+// of the injection query captures every body chunk around the slots, and
+// the literal as Zed's `@injection.host`. A match per chunk would parse
+// each chunk alone, so the HTML after a slot would start mid-attribute.
+func TestTreeSitterInjectsASlottedLiteralAsOneDocument(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the tree-sitter CLI")
+	}
+	runCLI := treeSitterCLI(t)
+	src := "fn menu(avatar: String, initial: String) -> Html {\n" +
+		"    Html\"\"\"\n" +
+		"    <span class=\"a\">\n" +
+		"      <img src=\"${avatar}\" alt=\"\" class=\"b\">\n" +
+		"      <span class=\"c\">${initial}</span>\n" +
+		"    </span>\n" +
+		"    \"\"\"\n" +
+		"}\n\n" +
+		"fn row(id: Int, name: String) -> Sql {\n" +
+		"    Sql\"SELECT * FROM users WHERE id = ${id} AND name = ${name}\"\n" +
+		"}\n"
+	path := filepath.Join(t.TempDir(), "slots.nomi")
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCLI("query", "queries/injections.scm", path)
+	if err != nil {
+		t.Fatalf("tree-sitter query: %v\n%s", err, out)
+	}
+	// The CLI prints each match as a `pattern:` line and its captures.
+	matches := strings.Split(out, "  pattern: ")[1:]
+	cases := []struct {
+		name   string
+		chunks []string
+	}{
+		{"Html", []string{"start: (1, 11), end: (3, 16)", "start: (3, 25), end: (4, 22)", "start: (4, 32), end: (6, 4)"}},
+		{"Sql", []string{"text: `SELECT * FROM users WHERE id = `", "text: ` AND name = `"}},
+	}
+	for _, c := range cases {
+		var found []string
+		for _, m := range matches {
+			if strings.Contains(m, c.chunks[0]) {
+				found = append(found, m)
+			}
+		}
+		if len(found) != 1 {
+			t.Errorf("%s: %d matches capture the first chunk, want 1:\n%s", c.name, len(found), out)
+			continue
+		}
+		m := found[0]
+		if got := strings.Count(m, "injection.content"); got != len(c.chunks) {
+			t.Errorf("%s: the match captures %d content nodes, want %d:\n%s", c.name, got, len(c.chunks), m)
+		}
+		for _, chunk := range c.chunks {
+			if !strings.Contains(m, chunk) {
+				t.Errorf("%s: the match does not capture %q:\n%s", c.name, chunk, m)
+			}
+		}
+		if !strings.Contains(m, "injection.host") {
+			t.Errorf("%s: the match does not capture the literal as @injection.host:\n%s", c.name, m)
+		}
+	}
+}

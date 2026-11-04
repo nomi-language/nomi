@@ -8,7 +8,7 @@ func TestIRIterBranchJoin_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn in_order(values: Range<Int>, descending: Bool) -> Iter<Int> {
     if descending {
@@ -52,7 +52,7 @@ func TestIRInterfaceBranchJoin_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 interface Shape {
     fn area(shape: self) -> Float

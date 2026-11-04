@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // `Map.keys` / `Map.values` / `Map.map_values`, and map destructuring.
 //

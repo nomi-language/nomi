@@ -23,8 +23,8 @@ interface for a type apply:
 
 ```nomi-run
 import {
-    std/io
-    std/literals.{Fragment, Literal}
+    std::io
+    std::literals.{Fragment, Literal}
 }
 
 type Html String
@@ -69,7 +69,7 @@ Nomi splits the string into a list of
 escapes each dynamic value, so a name holding `<` can't add markup to the
 page.
 
-std/sql's [`Sql`](/reference/sql/#type-sql) literal works the same way, but
+std::sql's [`Sql`](/reference/sql/#type-sql) literal works the same way, but
 keeps each value apart from the SQL as a query parameter, so a value can
 never change what a query does. The [Databases](/databases/#parameters)
 chapter shows it.
@@ -105,7 +105,7 @@ The prefix can be any type, so you have two choices:
   `Box"x"` builds a `Box`, the same as `Box{contents: "x"}`:
 
 ```nomi-run
-import std/literals.{Fragment, Literal}
+import std::literals.{Fragment, Literal}
 
 struct Box {
     contents: String
@@ -144,7 +144,7 @@ Both lines build a `Box`.
 A backtick string has no `${...}` interpolation, so its text is the same
 every time. If the type's `from_fragments` can fail (it returns a
 `Result`), Nomi runs it while it checks your program. `Regex` from
-`std/regex` is one such type:
+`std::regex` is one such type:
 
 - If it returns `Ok(v)`, the literal is the value itself. `` Regex`\d+` `` is
   a `Regex`, not a `Result`. It needs no `?`, and you can use it anywhere,
@@ -159,7 +159,7 @@ A double-quoted literal is built when the program runs, so it stays a
 value, and unwrap it with `?` or `case`:
 
 ```nomi-run
-import std/regex.Regex
+import std::regex.Regex
 
 once digits = Regex`\d+`
 
@@ -212,7 +212,7 @@ Spec: [Raw literals are checked at compile time](/spec/typed-literals-and-keywor
 
 [Scalars & Strings](/scalars-and-strings/#regular-expressions) shows what
 you can do with a `Regex`: find, split, replace and read capture groups.
-[`Bits`](/reference/bits/) from `std/bits` is checked the same way:
+[`Bits`](/reference/bits/) from `std::bits` is checked the same way:
 ``Bits`10aa_aaaa` `` is a bit pattern whose `x`s match any bit and whose
 letters name a field, and ``Bits`10z2` `` does not compile.
 
@@ -233,7 +233,7 @@ value's TOML, so a `String` is quoted and escaped, and a slot inside a TOML
 string is a compile error. Spec:
 [Checked literals](/spec/typed-literals-and-keyword-declarations/#checked-literals).
 
-std/html's `Html`, which [HTTP](/http/) uses for pages, is not the `Html`
+std::html's `Html`, which [HTTP](/http/) uses for pages, is not the `Html`
 this page declares. The compiler checks its literals itself, as HTML
 templates.
 

@@ -1,5 +1,5 @@
 import {
-    std/compiler.{self, RunFile}
+    std::compiler.{self, RunFile}
     shapes
 }
 

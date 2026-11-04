@@ -1,7 +1,7 @@
 // `dbg` over values of another file's types, alone and inside containers,
 // beside `Debug.inspect` of the same values.
 import {
-    std/io
+    std::io
     notes
 }
 

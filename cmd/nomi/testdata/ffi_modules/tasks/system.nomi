@@ -1,8 +1,8 @@
 //# Where the time comes from and where lines are read and written.
 
 import {
-    std/instant.Instant
-    std/io
+    std::instant.Instant
+    std::io
 }
 
 pub interface Clock {

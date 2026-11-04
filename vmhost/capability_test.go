@@ -10,8 +10,8 @@ import (
 )
 
 const filesNotes = `import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn save(text: String) -> Result<Unit, io.Error> {
@@ -81,8 +81,8 @@ func TestCheckTarget_NamesTheProgramsOwnCallSites(t *testing.T) {
 func TestCheckTarget_ACrossingDeepInStdIsReportedAtTheProgramsCall(t *testing.T) {
 	defer vmhost.LackingTargetForTest("nomitest", "nofiles", vmhost.ClassFiles)()
 	src := `import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn scratch() -> Result<Int, io.Error> {
@@ -123,8 +123,8 @@ fn main() {
 // --allow-unsupported processes. A native target builds it.
 func TestCheckTarget_WebAssemblyRefusesProcesses(t *testing.T) {
 	src := `import {
-    std/io
-    std/process.{self, Command}
+    std::io
+    std::process.{self, Command}
 }
 
 fn main() -> Result<Unit, io.Error> {
@@ -180,7 +180,7 @@ func TestCheckTarget_WebAssemblyRefusesAServerAndKeepsTheClient(t *testing.T) {
 		}
 		return p
 	}
-	server := load(`import std/http
+	server := load(`import std::http
 
 fn main() -> Result<Unit, http.Error> {
     listener = http.listen()?
@@ -189,8 +189,8 @@ fn main() -> Result<Unit, http.Error> {
 }
 `)
 	client := load(`import {
-    std/http
-    std/url.Url
+    std::http
+    std::url.Url
 }
 
 fn main() -> Result<Unit, http.Error> {

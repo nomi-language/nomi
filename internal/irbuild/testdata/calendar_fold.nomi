@@ -37,9 +37,9 @@
 // rt owns the projection (rt/calendar.go), so the pinned text in
 // stdfold_test.go is the guard for both properties.
 import {
-    std/calendar.{DateTime, Disambiguation, Error, NaiveDateTime}
-    std/instant.Instant
-    std/io
+    std::calendar.{DateTime, Disambiguation, Error, NaiveDateTime}
+    std::instant.Instant
+    std::io
 }
 
 // `?` inside `fn main()` is refused by the builder (`try boundary mismatch`:

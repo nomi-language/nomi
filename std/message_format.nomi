@@ -1,10 +1,10 @@
-//# The MessageFormat 2 formatter that `Message.format` (std/message) runs.
+//# The MessageFormat 2 formatter that `Message.format` (std::message) runs.
 //# A `message` declaration's text and its catalogs' translations are
 //# MessageFormat 2, which the compiler checks and stores in the program;
 //# formatting one picks the text for the locale, selects its variant by the
 //# locale's plural rules or an enum's variant, and writes its numbers as
 //# the locale does, from the CLDR data the program carries. The module is
-//# internal to std/message: only std and a `message` declaration's
+//# internal to std::message: only std and a `message` declaration's
 //# expansion import it, and a program calls `Message.format`.
 
 import {
@@ -17,7 +17,7 @@ import {
 /// The name of the variant `value` is, for an enum whose variants carry
 /// nothing: what a message's `:string` formats and selects such a value by.
 /// It is the name the declaration writes, whatever the enum's `Debug` says.
-//! import std/comparable.Ordering
+//! import std::comparable.Ordering
 //!
 //! assert message_format.variant_name(Ordering.Less) == "Less"
 //
@@ -44,7 +44,7 @@ pub fn format(
 /// The catalog `text` holds for `locale`, checked against the program's
 /// compiled messages and nouns: the accepted entries, encoded as `format`
 /// reads a catalog, then each rejected entry's name and the reason, in
-/// turn. What `Catalog.load` (std/message) calls.
+/// turn. What `Catalog.load` (std::message) calls.
 pub fn load(text: String, locale: Locale) -> List<String> {
     load_raw(text, locale)
 }

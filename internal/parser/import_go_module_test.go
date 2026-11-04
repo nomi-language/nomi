@@ -19,7 +19,7 @@ func TestImportOfModuleNamedGo(t *testing.T) {
 		{"import go.hi\n", "import {\n  go.hi\n}\n"},
 		{"import go as g\n", "import {\n  go as g\n}\n"},
 		{"import go.{hi, Lo}\n", "import {\n  go.{hi, Lo}\n}\n"},
-		{"import a/go\n", "import {\n  a/go\n}\n"},
+		{"import a::go\n", "import {\n  a::go\n}\n"},
 	} {
 		flat, err := Parse(lexer.Lex(tc.flat))
 		if err != nil {

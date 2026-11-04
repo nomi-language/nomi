@@ -31,7 +31,7 @@ fn main() {
 // Defaults run per construction, after the written fields, in declaration
 // order, and resolve against the declaring file rather than the caller.
 func TestIRFieldDefault_OrderAndScope(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(label: String, n: Int) -> Int {
   io.print(label)
   n
@@ -90,7 +90,7 @@ fn main() {
 }
 
 func TestIRNominalDisplay_TourPrintUser(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct User {
   name: String
@@ -110,7 +110,7 @@ fn main() {
 }
 
 func TestIRNominalDisplay_InspectNamed(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct P {
   x: Int
   s: String

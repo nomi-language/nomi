@@ -17,8 +17,8 @@ import (
 // here — this is the unification capability.
 func TestUnificationGap_UnsolvedParamIntoConcreteParam(t *testing.T) {
 	src := `import {
-  std/channels.{Channel, Sender}
-  std/io
+  std::channels.{Channel, Sender}
+  std::io
 }
 fn produce(ch: Channel<Int>, n: Int) -> Unit {
   r = Sender.send(ch.sender, n)
@@ -52,7 +52,7 @@ fn main() -> Unit {
 }
 
 func TestUnificationGap_MapGetWrongKey_Direct(t *testing.T) {
-	src := `import std/maps: Map
+	src := `import std::maps: Map
 fn main() -> Unit {
   m = %{1 => "one"}
   v = Map.get(m, "wrong")
@@ -61,7 +61,7 @@ fn main() -> Unit {
 }
 
 func TestUnificationGap_MapGetWrongKey_Pipe(t *testing.T) {
-	src := `import std/maps: Map
+	src := `import std::maps: Map
 fn main() -> Unit {
   m = %{1 => "one"}
   v = m |> Map.get("wrong")
@@ -148,7 +148,7 @@ func TestLoopStatefulKeywordSugar_Clean(t *testing.T) {
 // binds a placeholder so downstream references don't cascade; the checker
 // does not also call the placeholder private.
 func TestControlNotImportable(t *testing.T) {
-	src := withStdlibTestImports(`import std/iter.{Control}
+	src := withStdlibTestImports(`import std::iter.{Control}
 fn main() -> Unit {
   io_check = 1
 }`)

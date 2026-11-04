@@ -13,7 +13,7 @@ func TestIRAppBoot_ProgramsBootThroughTheVM(t *testing.T) {
 		retained        []string
 	}{
 		{"app-fields.md:L13", `import {
-  std/io
+  std::io
 }
 
 struct App {
@@ -30,7 +30,7 @@ fn main() {
 }
 `, "listening on :8080\n", []string{"boot", "main"}},
 		{"app-fields.md:L80", `import {
-  std/io
+  std::io
 }
 
 interface Logger {
@@ -76,7 +76,7 @@ fn greet(name: String) {
 }
 `, "[log] hello, World\n[audit] hello, Alice\n[log] hello, Bob\n",
 			[]string{"boot", "main", "audit_greet", "greet", "Stdout.log", "PrefixedLogger.log"}},
-		{"field reads in a helper", `import std/io
+		{"field reads in a helper", `import std::io
 
 struct App {
   name: String
@@ -97,7 +97,7 @@ fn main() {
   io.print(App.port + 1)
 }
 `, "api:8080\n8081\n", []string{"boot", "address", "main"}},
-		{"a struct-typed field", `import std/io
+		{"a struct-typed field", `import std::io
 
 struct Config {
   host: String
@@ -118,7 +118,7 @@ fn main() {
   io.print("${c.host}:${c.port}")
 }
 `, "localhost:5432\n", []string{"boot", "main"}},
-		{"a scoped write restored after the function returns", `import std/io
+		{"a scoped write restored after the function returns", `import std::io
 
 struct App {
   level: Int
@@ -151,7 +151,7 @@ fn main() {
   io.print(show())
 }
 `, "base@1\n11\nloud@11\nloud@22\nbase@1\n", []string{"boot", "show", "louder", "deeper", "main"}},
-		{"an erased field bound, then dispatched", `import std/io
+		{"an erased field bound, then dispatched", `import std::io
 
 interface Shape {
   fn area(shape: self) -> Int
@@ -203,7 +203,7 @@ fn main() {
 // The deferred call reads the app as it was when the `defer` statement ran:
 // `done 8080`, not the 9090 the `with` installs after it.
 func TestIRAppBoot_DeferAndBranchRun(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct Ports {
   port: Int
@@ -246,7 +246,7 @@ fn main() {
 // A boot answering an anonymous record retains and runs; with no name, its
 // fields are read by no one.
 func TestIRAppBoot_AnonymousBootRuns(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 fn boot() -> Result<#{port: Int, execution: Context}, String> {
   Ok(#{port: 8080, execution: Context.root()})
@@ -262,7 +262,7 @@ fn main() {
 // app-field read) retains and runs: the receiver is a temporary like any
 // operand, so nothing forces it first.
 func TestIRAppBoot_AFinalErasedReceiverRuns(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 interface Named {
   fn name(named: self) -> String
@@ -296,7 +296,7 @@ fn main() {
 // the function returned. Each retains and runs; the closure reads the field in
 // force where it is called.
 func TestIRAppBoot_WithStatementShapesRun(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct App {
   label: String
@@ -358,7 +358,7 @@ fn main() {
 // ran it: each jump back to the head, and the `break` out, restores the scope
 // read at the head. A stateless loop's `with` ends with its iteration too.
 func TestIRAppBoot_WithInALoopEndsWithTheIteration(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct App {
   label: String
@@ -406,7 +406,7 @@ fn main() {
 // to the end of the else block, including its fallback value, and ends
 // there: the statements after the binding read the field as it was.
 func TestIRAppBoot_WithInALoopBindingElseFallback(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct App {
   label: String
@@ -452,7 +452,7 @@ fn main() {
 // The deferred call reads the app as it was at the `defer`. The same holds
 // for a bare `return` in a Unit function and for a lambda's `return`.
 func TestIRAppBoot_BlockStatementReturnsEarly(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct App {
   label: String
@@ -523,7 +523,7 @@ fn main() {
 // A block statement in a lambda's body is its own scope: a `with` in it ends
 // with the block, and the lambda's later statements read the field as it was.
 func TestIRAppBoot_WithInALambdasBlockStatement(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct App {
   label: String

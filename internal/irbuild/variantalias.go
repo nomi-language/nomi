@@ -10,7 +10,7 @@ import (
 // A selectively imported enum variant has TWO names, and every resolver in this
 // package that reads only one of them is wrong for the alias spelling.
 //
-//	import std/json.Json.{String as JStr}
+//	import std::json.Json.{String as JStr}
 //	JStr("Ada")
 //
 // # What the front end records
@@ -82,7 +82,7 @@ func variantRefAt(fa *analysis.FileAnalysis, local string, line, col int) (ref *
 }
 
 // importedVariantAt resolves a variant named bare through a drill-through
-// import (`import shapes.Holder.{Of}`, `import std/json.Json.{String as
+// import (`import shapes.Holder.{Of}`, `import std::json.Json.{String as
 // JStr}`) at the node `at` that builds or names it, to the def and the
 // variant. A std enum resolves through stdEnumVariantAt. Any other enum
 // resolves through the type the checker gave `at`, so a generic enum's

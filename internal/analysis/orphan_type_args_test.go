@@ -112,8 +112,8 @@ impl Multiply<Shares, Decimal> for Decimal {
 // operator, qualified call and bound, beside std's own Decimal impls.
 func TestLocalTypeArgument_TwoLibrariesImplementOneStdInterfaceForOneStdType(t *testing.T) {
 	files := appModule(`import {
-    fx/rate.Rate
-    shares/count.Shares
+    fx::rate.Rate
+    shares::count.Shares
 }
 
 fn scale<T>(x: T, r: Rate) -> T where T: Multiply<Rate, T> {
@@ -199,7 +199,7 @@ fn main() {
 		},
 		{
 			name: "an earlier type argument is a bare type parameter",
-			files: library(appModule(`import ops/combine.Combine
+			files: library(appModule(`import ops::combine.Combine
 
 struct Rate {
     n: Int
@@ -279,8 +279,8 @@ fn main() {
 		{
 			name: "a typed literal's handler",
 			files: appModule(`import {
-    std/calendar.{Date, Error}
-    std/literals.{Fragment, Literal}
+    std::calendar.{Date, Error}
+    std::literals.{Fragment, Literal}
 }
 
 struct Rate {
@@ -301,7 +301,7 @@ fn main() {
 		},
 		{
 			name: "a type another module declares",
-			files: library(appModule(`import fx/rate.Rate
+			files: library(appModule(`import fx::rate.Rate
 
 impl Add<Rate, Rate> for Decimal {
     fn add(lhs: Decimal, rhs: Rate) -> Rate {
@@ -353,7 +353,7 @@ fn main() {
 // A library's result-only impl is an orphan impl of the library's module,
 // reported in the program that uses it.
 func TestLocalTypeArgument_AnOrphanInALibrary(t *testing.T) {
-	files := library(appModule(`import fx/rate.Rate
+	files := library(appModule(`import fx::rate.Rate
 
 fn main() {
     _r = Rate{per_unit: 1d}

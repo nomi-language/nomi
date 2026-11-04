@@ -127,7 +127,7 @@ func replaceBound(decl, bound string) string {
 
 // Debug is universal and `==` compares structurally, so neither needs a bound.
 func TestTypeParamBound_DebugAndEqualityNeedNone(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 fn look<T>(x: T) -> String {
     "${Debug.inspect(x)} ${x == x}"
@@ -147,7 +147,7 @@ fn main() {
 
 // Each bounded form the error's hint writes runs.
 func TestTypeParamBound_BoundedFormsRun(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 fn shown<U>(u: U) -> String where U: Display {
     Display.to_string(u)
@@ -208,7 +208,7 @@ fn main() {
 // `impl Display for List<T> where T: Display`: a list of a type without
 // Display is the element's missing impl, named at the call.
 func TestTypeParamBound_ConditionalImplNamesTheElement(t *testing.T) {
-	rejects(t, `import std/io
+	rejects(t, `import std::io
 
 type Foo Int
 

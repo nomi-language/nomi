@@ -105,7 +105,7 @@ func TestCompletion_TriggerCharacters(t *testing.T) {
 		{"closing a block", "}", "fn f() {\n    x = 1\n}" + cursorMark + "\n", false},
 		{"auto-paired block", "}", "fn f() {" + cursorMark + "}\n", false},
 		{"anonymous block after a name", "{", "fn f() -> Int {\n    case n{" + cursorMark + "}\n}\n", false},
-		{"typed literal", `"`, "import std/calendar.Date\n\nfn f() {\n    _ = Date\"" + cursorMark + "\"\n}\n", true},
+		{"typed literal", `"`, "import std::calendar.Date\n\nfn f() {\n    _ = Date\"" + cursorMark + "\"\n}\n", true},
 		{"plain string", `"`, "fn f() {\n    _ = \"" + cursorMark + "\"\n}\n", false},
 		{"parameter annotation", ":", "struct Game {\n    turn: Int\n}\n\nfn slay(game:" + cursorMark + ") {}\n", true},
 		{"binding annotation", ":", "fn f() {\n    n:" + cursorMark + "\n}\n", true},

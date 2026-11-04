@@ -15,8 +15,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# a birthday, estimated by drawing random groups and counting.
 
 import {
-    std/calendar.{Date, Days}
-    std/random.Generator
+    std::calendar.{Date, Days}
+    std::random.Generator
 }
 
 /// 1 January of each year a random birthdate falls in: the years from 1900
@@ -79,8 +79,8 @@ fn birthdate() -> Generator<Date> {
 
 // FILE: baffling_birthdays_test.nomi
 import {
-    std/calendar.Date
-    std/random.{Generator, Seed}
+    std::calendar.Date
+    std::random.{Generator, Seed}
     baffling_birthdays
 }
 

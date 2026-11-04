@@ -15,8 +15,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# canonical flags.
 
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 /// The canonical flags.
@@ -106,8 +106,8 @@ fn matches(line: String, pattern: String, flags: Set<Flag>) -> Bool {
 
 // FILE: grep_test.nomi
 import {
-    std/fs_testing.{self, Sandbox}
-    std/io
+    std::fs_testing.{self, Sandbox}
+    std::io
     grep.{self, Flag}
 }
 

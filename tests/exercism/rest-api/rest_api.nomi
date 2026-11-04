@@ -1,6 +1,6 @@
 //# A small REST API for an IOU tracker between roommates, over JSON.
 
-import std/json.{FromJson, Json, ToJson}
+import std::json.{FromJson, Json, ToJson}
 
 /// A roommate: who they owe and how much, who owes them, and the
 /// difference, what they are owed less what they owe.

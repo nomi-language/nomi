@@ -160,7 +160,7 @@ func TestIRTestBody_RebindingBesideALambdaRuns(t *testing.T) {
 // Iter.sort over a stdlib element type with no local Comparable impl takes
 // std's retained Comparable.compare, as Int and String elements do.
 func TestIRIterSort_StdElementTakesStdComparator(t *testing.T) {
-	const src = `import std/calendar.Time
+	const src = `import std::calendar.Time
 
 test "std elements sort by std's comparator" {
   assert Ok(a) = Time"09:30:00"
@@ -225,7 +225,7 @@ ok <path> :: a nested fn captures and returns early
 // closure over the same body and the same captured values. A lambda inside
 // the body captures that name like any other.
 func TestIRNestedFn_RecursionRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   fn fact(n: Int) -> Int {
     if n <= 1 { return 1 }
@@ -251,7 +251,7 @@ fn main() {
 // filled with the closure itself; its body builds no second closure over
 // itself.
 func TestIRNestedFn_RecursionIsASelfCapture(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", "import std/io\nfn main() {\n  fn fact(n: Int) -> Int {\n    if n <= 1 { return 1 }\n    n * fact(n - 1)\n  }\n\n  io.print(fact(5))\n}\n")
+	p, err := AnalyzeSource("main.nomi", "import std::io\nfn main() {\n  fn fact(n: Int) -> Int {\n    if n <= 1 { return 1 }\n    n * fact(n - 1)\n  }\n\n  io.print(fact(5))\n}\n")
 	if err != nil {
 		t.Fatalf("the front end now rejects this, so nothing below is tested: %v", err)
 	}

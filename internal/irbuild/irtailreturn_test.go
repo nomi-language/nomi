@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRTailReturn_UnannotatedLambda(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   base = 8
   read = fn early: Bool -> {
@@ -18,7 +18,7 @@ fn main() {
 
 func TestIRTailReturn_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"named valued return", `import std/io
+		{"named valued return", `import std::io
 fn mark(n: Int) -> Int { io.print("returning") n }
 fn next(n: Int) -> Int {
   value = n + 1
@@ -38,7 +38,7 @@ fn main() { done() }`, "dbg line 2: \"done\" = \"done\"\n"},
   done = fn -> { dbg "done" return }
   done()
 }`, "dbg line 2: \"done\" = \"done\"\n"},
-		{"lambda valued return and guard", `import std/io
+		{"lambda valued return and guard", `import std::io
 fn use(read: (Bool) -> Int) {
   read(True) |> io.print()
   read(False) |> io.print()

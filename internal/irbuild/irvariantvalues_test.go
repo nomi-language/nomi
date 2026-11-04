@@ -11,7 +11,7 @@ import (
 
 func TestIRVariantValues_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"constructed and passed payload", `import std/io
+		{"constructed and passed payload", `import std::io
 enum Wrapper { Only Int }
 fn unwrap(Wrapper.Only(n)) -> Int { n }
 fn make(n: Int) -> Wrapper { Wrapper.Only(n + 1) }
@@ -20,7 +20,7 @@ fn main() {
   wrapped = make(41)
   io.print(unwrap(identity(wrapped)))
 }`, "42\n"},
-		{"conditional results and closure capture", `import std/io
+		{"conditional results and closure capture", `import std::io
 enum Text { Value String }
 fn unwrap(Text.Value(s)) -> String { s }
 fn main() {
@@ -31,7 +31,7 @@ fn main() {
   io.print(unwrap(choose(True)))
   io.print(unwrap(choose(False)))
 }`, "outer\nother\n"},
-		{"payload effects and multiline arguments", `import std/io
+		{"payload effects and multiline arguments", `import std::io
 enum Number { Value Int }
 fn item(n: Int) -> Int { io.print(n) n + 10 }
 fn unwrap(Number.Value(n)) -> Int { n }

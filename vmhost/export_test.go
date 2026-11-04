@@ -48,7 +48,7 @@ export fn reset(_: Game) -> Unit {
 // loads with no main, refuses `nomi run` and a native build by pointing at
 // `nomi build --web`, and builds for the web.
 func TestExport_AProgramWithNoMainBuildsForTheWeb(t *testing.T) {
-	p, _, err := loadFiles(t, map[string]string{"main.nomi": "import std/json.{ToJson, FromJson}\n\n" + exportGame})
+	p, _, err := loadFiles(t, map[string]string{"main.nomi": "import std::json.{ToJson, FromJson}\n\n" + exportGame})
 	if err != nil {
 		t.Fatalf("the front end rejects a program of exported functions: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestExport_AProgramWithNoMainBuildsForTheWeb(t *testing.T) {
 // `planted_decline` (plantDecline).
 func TestExport_AnUnreachedExportedFunctionIsChecked(t *testing.T) {
 	plantDecline(t)
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
     io.print("hi")
@@ -107,7 +107,7 @@ fn planted_decline(x: Int) -> Int {
 }
 
 func TestExport_SignatureRefusals(t *testing.T) {
-	header := "import std/json.{ToJson, FromJson}\n\n" + exportGame + `
+	header := "import std::json.{ToJson, FromJson}\n\n" + exportGame + `
 enum Outcome {
     Won
     Lost
@@ -212,7 +212,7 @@ func TestExport_NamesAreUniqueAcrossTheProgram(t *testing.T) {
 // nomi.d.ts declares a typed `call` per exported function, mapping each
 // Nomi type to the TypeScript type of the JSON it crosses as.
 func TestExport_WebDeclarations(t *testing.T) {
-	src := `import std/json.{Json, ToJson, FromJson}
+	src := `import std::json.{Json, ToJson, FromJson}
 
 struct Point {
     x_pos: Int

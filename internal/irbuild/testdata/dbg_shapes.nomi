@@ -32,7 +32,7 @@
 // SAME shape because the parser desugars a keyword-prefixed stage into
 // `(5 |> double()) |> dbg`. The formatter re-sugars a pipe, so both render as
 // pipes, and both call one function on one node.
-import std/io
+import std::io
 
 struct Rev {
     zeta: Int

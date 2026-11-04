@@ -32,7 +32,7 @@
 //     to be in scope inside its own body for the recursive call to resolve.
 //     A TAIL call to a nested `fn` is refused by name instead, because
 //     valueCall has no tail-position check.
-import std/io
+import std::io
 
 once base: Int = 7
 

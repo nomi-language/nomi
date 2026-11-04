@@ -7,7 +7,7 @@ import "testing"
 // type: in a lambda whose expected result is a type parameter (`Maybe.map`'s
 // U), and in a function returning `Maybe<String>`.
 func TestBareVariantGeneric_TakesTheTypeItsCallFixes(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn pick<T>(c: Bool, a: T, b: T) -> T {
     if c { a } else { b }

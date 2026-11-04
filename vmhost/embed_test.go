@@ -15,7 +15,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-const embedProgram = `import std/io
+const embedProgram = `import std::io
 
 host fn shout(s: String) -> String
 
@@ -135,7 +135,7 @@ func TestCall_AnUnretainedFunctionIsBlocked(t *testing.T) {
 func TestCheck_RunsTheFrontEndOnly(t *testing.T) {
 	dir := t.TempDir()
 	clean := filepath.Join(dir, "clean.nomi")
-	if err := os.WriteFile(clean, []byte("import std/io\n\nfn main() {\n  io.print(\"ran\")\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(clean, []byte("import std::io\n\nfn main() {\n  io.print(\"ran\")\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := vmhost.Check(clean); err != nil {

@@ -9,24 +9,24 @@
 //#   the program runs. A backtick literal has no slots, so when
 //#   `from_fragments` returns a `Result` the compiler calls it while it
 //#   checks the program: an `Err` is a compile error, and the literal is the
-//#   `Ok` value. std/calendar's `Date`, std/regex's `Regex` and std/sql's
+//#   `Ok` value. std::calendar's `Date`, std::regex's `Regex` and std::sql's
 //#   `Sql` work this way.
 //# - `CheckedLiteral`: `check` reads the literal's text around its slots
 //#   while the program is checked, and `build` makes the value when it runs.
 //#   The literal is the value in every quote style, slots included, never a
 //#   `Result`. `check` refuses text with a `LiteralError`, which names the
-//#   character the compile error points at. std/url's `Url` and std/toml's
+//#   character the compile error points at. std::url's `Url` and std::toml's
 //#   `Toml` work this way.
 //#
 //# A type implements one of the two, never both. Choose `CheckedLiteral`
 //# when the text alone tells whether every slot value will build, as a URL's
 //# does: a slot in its path is escaped as one segment whatever it holds.
-//# std/literals_testing's `build_each` tests that a `build` keeps to this.
+//# std::literals_testing's `build_each` tests that a `build` keeps to this.
 //#
 //# A program's own type gets literals from an impl:
 //#
 //# ```nomi
-//# import std/literals.{Fragment, Literal}
+//# import std::literals.{Fragment, Literal}
 //#
 //# pub struct Box {
 //#     contents: String
@@ -106,7 +106,7 @@ pub interface Literal<I, R> {
 /// - `build` runs when the program runs and gets the fragments
 ///   `Literal.from_fragments` would get. It cannot fail: once `check`
 ///   accepts the text, every slot value must build. A `build` that traps
-///   anyway traps where the literal runs. std/literals_testing's
+///   anyway traps where the literal runs. std::literals_testing's
 ///   `build_each` tests this.
 ///
 /// A type implements `Literal` or `CheckedLiteral`, never both.

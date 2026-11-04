@@ -10,7 +10,7 @@ import (
 // The hover on a discard `_` is the type of what it discards and, where the
 // match may fail, what it matches.
 func TestHover_Discard(t *testing.T) {
-	const coin = `import std/io
+	const coin = `import std::io
 
 enum Coin {
   Penny

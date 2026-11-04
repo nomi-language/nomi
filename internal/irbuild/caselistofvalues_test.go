@@ -9,7 +9,7 @@ func TestCaseOverListOfValues_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
     it = [1, 2] |> Iter.map(fn n -> n * 2)

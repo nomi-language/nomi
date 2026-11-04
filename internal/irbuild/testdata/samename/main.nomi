@@ -16,7 +16,7 @@
 // That program is not kept here because a permanently-erroring `.nomi` file
 // in the repository makes the LSP's workspace-quiet test fail.
 import {
-    std/io
+    std::io
     geometry
     shapes
 }

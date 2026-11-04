@@ -12,7 +12,7 @@ func TestPartialOmittedDefault_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 fn base() -> Int {
     io.print("base")

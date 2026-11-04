@@ -339,7 +339,7 @@ func TestPreludeInstancesAreDistinctTypes(t *testing.T) {
 // silently stops anchoring cannot pass as "nothing to check".
 func preludeGenForTest(t *testing.T) *gen {
 	t.Helper()
-	const src = "import {\n  std/literals.Fragment\n  std/tasks.Outcome\n}\n\n" +
+	const src = "import {\n  std::literals.Fragment\n  std::tasks.Outcome\n}\n\n" +
 		"fn tag(_f: Fragment<String>) -> Int {\n  0\n}\n\n" +
 		"fn ended(_o: Outcome<Int>) -> Int {\n  0\n}\n\n" +
 		"fn main() -> Unit {\n  if True { } \n}\n"

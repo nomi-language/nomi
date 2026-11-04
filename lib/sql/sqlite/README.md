@@ -9,8 +9,8 @@ instead ([In the browser](#in-the-browser)).
 
 ```nomi
 import {
-    std/io
-    std/sql.{self, Conn, Error, Row, Sql}
+    std::io
+    std::sql.{self, Conn, Error, Row, Sql}
     sqlite
 }
 

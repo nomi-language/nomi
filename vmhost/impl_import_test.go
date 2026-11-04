@@ -43,20 +43,20 @@ func TestImplImport_UsedForAnImplIsNotReported(t *testing.T) {
 	}{
 		{
 			name: "type-qualified call",
-			main: "import {\n    std/io\n    impls\n    types.{self, Thing}\n}\n\n" +
+			main: "import {\n    std::io\n    impls\n    types.{self, Thing}\n}\n\n" +
 				"fn main() {\n    io.print(Int.to_string(Thing.go(types.thing(3))))\n}\n",
 			want: "3\n",
 		},
 		{
 			name: "bound",
-			main: "import {\n    std/io\n    impls\n    types.{self, Alpha}\n}\n\n" +
+			main: "import {\n    std::io\n    impls\n    types.{self, Alpha}\n}\n\n" +
 				"fn run<T>(x: T) -> Int where T: Alpha {\n    T.go(x)\n}\n\n" +
 				"fn main() {\n    io.print(Int.to_string(run(types.thing(4))))\n}\n",
 			want: "4\n",
 		},
 		{
 			name: "interpolation",
-			main: "import {\n    std/io\n    impls\n    types\n}\n\n" +
+			main: "import {\n    std::io\n    impls\n    types\n}\n\n" +
 				"fn main() {\n    t = types.thing(5)\n    io.print(\"${t}\")\n}\n",
 			want: "thing 5\n",
 		},
@@ -84,7 +84,7 @@ func TestImplImport_UsedForAnImplIsNotReported(t *testing.T) {
 // An import of a file whose impl blocks the program never uses is unused like
 // any other.
 func TestImplImport_UnusedImplsAreReported(t *testing.T) {
-	main := "import {\n    std/io\n    impls\n    types\n}\n\nfn main() {\n    io.print(Int.to_string(types.thing(1).n))\n}\n"
+	main := "import {\n    std::io\n    impls\n    types\n}\n\nfn main() {\n    io.print(Int.to_string(types.thing(1).n))\n}\n"
 	path := writeImplImportProgram(t, main)
 	err := vmhost.Check(path)
 	if err == nil {

@@ -124,12 +124,12 @@ fn migrations_source(db: Database) -> String {
 }
 
 /// The import block of a file.
-//! imports = %{"sqlkit" => %["self"], "std/sql" => %["self"], "schema" => %["User", "Order"]}
+//! imports = %{"sqlkit" => %["self"], "std::sql" => %["self"], "schema" => %["User", "Order"]}
 //!
 //! assert codegen.import_block(imports)
-//!     == "import {\n    std/sql\n    schema.{Order, User}\n    sqlkit\n}\n"
+//!     == "import {\n    std::sql\n    schema.{Order, User}\n    sqlkit\n}\n"
 //!
-//! assert codegen.import_block(%{"sqlkit/inputs" => %["self"]}) == "import sqlkit/inputs\n"
+//! assert codegen.import_block(%{"sqlkit::inputs" => %["self"]}) == "import sqlkit::inputs\n"
 //
 /// The imports a generated file needs are each module path with the
 /// names it imports from it, `self` for the module itself.
@@ -140,7 +140,7 @@ pub fn import_block(imports: Map<String, Set<String>>) -> String {
         map
         |> Map.keys()
         |> Iter.sort_by(fn path -> {
-            if String.starts_with(path, "std/") or path == "std" {
+            if String.starts_with(path, "std::") or path == "std" {
                 "0${path}"
             } else {
                 "1${path}"
@@ -178,19 +178,19 @@ fn imports_of(entries: List<#(String, String)>) -> Map<String, Set<String>> {
 }
 
 /// The module path and the names an import entry as written imports:
-/// `shop.Report`, `std/calendar.{Date, Time}`, `shop` (the module).
+/// `shop.Report`, `std::calendar.{Date, Time}`, `shop` (the module).
 //! assert codegen.entry("shop.Report") == #("shop", ["Report"])
-//! assert codegen.entry("std/calendar.{Date, Time}") == #("std/calendar", ["Date", "Time"])
+//! assert codegen.entry("std::calendar.{Date, Time}") == #("std::calendar", ["Date", "Time"])
 //! assert codegen.entry("shop") == #("shop", ["self"])
 //
 pub fn entry(text: String) -> #(String, List<String>) {
-    segments = String.split(text, "/") |> Iter.to_list()
+    segments = String.split(text, "::") |> Iter.to_list()
     last = Iter.last(segments) |> Maybe.with_default("")
 
     dir =
         segments
         |> Iter.take(Iter.count(segments) - 1)
-        |> Iter.map(fn s -> s + "/")
+        |> Iter.map(fn s -> s + "::")
         |> String.join()
 
     case String.split(last, ".") |> Iter.to_list() {
@@ -351,9 +351,9 @@ pub fn schema_file(s: Schema, migrations: List<#(String, String)>, digest: Strin
     sql_value = Iter.any(plain, fn f -> f == None)
 
     base = if any_enum {
-        [#("sqlkit", "self"), #("sqlkit/runtime", "self"), #("std/sql", "self")]
+        [#("sqlkit", "self"), #("sqlkit::runtime", "self"), #("std::sql", "self")]
     } else if sql_value {
-        [#("sqlkit", "self"), #("std/sql", "self")]
+        [#("sqlkit", "self"), #("std::sql", "self")]
     } else {
         [#("sqlkit", "self")]
     }
@@ -429,7 +429,7 @@ pub fn test_file(db: Database, digest: String) -> String {
     header(
         "${migrations_source(db)} and ${db.queries}",
         digest,
-    ) + "import sqlkit/inputs\n\n" + "// Fails when a migration or a query changed after the last\n" + "// `nomi tool sqlkit generate`: run it again. The paths are under the\n" + "// module root, where `nomi test` resolves a test's relative paths.\n" + "test \"generated sql is current\" {\n" + "    assert inputs.current(${quote(
+    ) + "import sqlkit::inputs\n\n" + "// Fails when a migration or a query changed after the last\n" + "// `nomi tool sqlkit generate`: run it again. The paths are under the\n" + "// module root, where `nomi test` resolves a test's relative paths.\n" + "test \"generated sql is current\" {\n" + "    assert inputs.current(${quote(
         db.migrations
     )}, ${quote(db.queries)})\n" + "        == Ok(${quote(digest)})\n" + "}\n"
 }
@@ -451,13 +451,26 @@ pub fn queries_file(
         })
         |> Iter.to_list()
 
+    imported =
+        explicit
+        |> Iter.filter(fn #(_, n) -> n != "self")
+        |> Iter.map(fn #(path, n) -> #(used_as(n), #(path, n)))
+        |> Iter.to_map()
+
+    modules =
+        explicit
+        |> Iter.filter(fn #(_, n) -> n == "self")
+        |> Iter.map(fn #(path, _) -> #(last_segment(path), path))
+        |> Iter.to_map()
+
     resolver = Resolver{
-        explicit: explicit
-        |> Iter.map(fn #(_, n) -> String.split(n, " as ") |> Iter.last() |> Maybe.with_default(n))
-        |> Iter.map(String.trim)
-        |> Iter.to_list(),
+        imported,
+        modules,
         schema: schema_types(s),
+        rows: s.rows,
         schema_module: s.module,
+        qualifier: last_segment(s.module),
+        file: file.path,
     }
 
     results =
@@ -487,9 +500,11 @@ pub fn queries_file(
         })
         |> Iter.to_list()
 
+    // An `-- import:` no signature uses is left out, since an unused
+    // import is an error.
     needs = made |> Iter.flat_map(fn m -> m.imports) |> Iter.to_list()
-    base = [#("std/sql", "self"), #("sqlkit/runtime", "self")]
-    imports = imports_of(base + needs + explicit)
+    base = [#("std::sql", "self"), #("sqlkit::runtime", "self")]
+    imports = imports_of(base + needs)
     functions = made |> Iter.map(fn m -> "\n" + m.text) |> String.join()
 
     Ok(
@@ -500,11 +515,43 @@ pub fn queries_file(
 }
 
 /// What a type name in a query's signature resolves to: a name the file
-/// imports itself, a type of the schema, or one of std's.
+/// imports itself, a type of the schema, or one of std's, in that order.
+/// A type of the schema that an import shadows is written qualified by
+/// the schema's module, `schema.Post`.
 struct Resolver {
-    explicit: List<String>
+    // Each type the file imports, by the name it is used as, with the
+    // module path and the name as the import entry writes it: `Post` from
+    // `-- import: models.{Post}` is `#("models", "Post")`.
+    imported: Map<String, #(String, String)>
+
+    // Each module the file imports itself, by its last segment.
+    modules: Map<String, String>
     schema: List<String>
+
+    // Each table's row struct, by table.
+    rows: Map<String, String>
     schema_module: String
+
+    // The name the schema module is used as: its path's last segment.
+    qualifier: String
+
+    // The query file, as its problems name it.
+    file: String
+}
+
+/// The name an import entry's name is used as: `Post as Model` is used as
+/// `Model`.
+fn used_as(name: String) -> String {
+    String.split(name, " as ") |> Iter.last() |> Maybe.with_default(name) |> String.trim()
+}
+
+/// The last segment of a module path, the name the module is used as:
+/// `db::schema` is used as `schema`.
+//! assert codegen.last_segment("db::schema") == "schema"
+//! assert codegen.last_segment("schema") == "schema"
+//
+pub fn last_segment(path: String) -> String {
+    String.split(path, "::") |> Iter.last() |> Maybe.with_default(path)
 }
 
 /// A generated function and the imports it needs.
@@ -535,13 +582,13 @@ once prelude: List<String> = [
 
 // std's types a query may name, and the module each is in.
 once std_types: Map<String, String> = %{
-    "Date" => "std/calendar",
-    "Duration" => "std/duration",
-    "Instant" => "std/instant",
-    "Json" => "std/json",
-    "NaiveDateTime" => "std/calendar",
-    "Time" => "std/calendar",
-    "Uuid" => "std/uuid",
+    "Date" => "std::calendar",
+    "Duration" => "std::duration",
+    "Instant" => "std::instant",
+    "Json" => "std::json",
+    "NaiveDateTime" => "std::calendar",
+    "Time" => "std::calendar",
+    "Uuid" => "std::uuid",
 }
 
 /// The type names a type as written names, outside a qualified name:
@@ -576,31 +623,160 @@ pub fn type_names(text: String) -> List<String> {
     |> Iter.to_list()
 }
 
-// The imports the types in `text` need, or the problem with the first
-// type nothing gives.
-fn resolve(r: Resolver, text: String) -> Result<List<#(String, String)>, String> {
-    type_names(text)
-    |> Iter.filter(fn n -> not Iter.contains(prelude, n) and not Iter.contains(r.explicit, n))
-    |> Iter.map(fn n -> {
-        if Iter.contains(r.schema, n) {
-            Ok(#(r.schema_module, n))
+/// The qualified type names a type as written names, each as its module's
+/// name and the type's: `Maybe<schema.Post>` names `#("schema", "Post")`.
+//! assert codegen.qualified_names("Map<sql.Value, List<schema.Post>>") == [
+//!     #("sql", "Value"),
+//!     #("schema", "Post"),
+//! ]
+//!
+//! assert codegen.qualified_names("Post") == []
+//
+pub fn qualified_names(text: String) -> List<#(String, String)> {
+    solid =
+        sqltext.tokens(text)
+        |> Iter.filter(fn t -> t.kind != sqltext.Kind.Space)
+        |> Iter.to_vector()
+
+    solid
+    |> Iter.with_index()
+    |> Iter.flat_map(fn #(i, t) -> {
+        module = text_at(solid, i - 2)
+
+        if text_at(solid, i - 1) == "."
+            and t.kind == sqltext.Kind.Word
+            and sqltext.is_name(module) {
+            [#(module, t.text)]
         } else {
-            case Map.get(std_types, n) {
-                Some(m) -> Ok(#(m, n))
-                None -> Err(n)
-            }
+            []
         }
     })
-    |> Result.collect()
+    |> Iter.to_list()
 }
 
-fn unknown_type(q: Query, col: Int, name: String) -> Problem {
-    at_annotation(
-        q,
-        col,
-        "`${name}` is not a type of the schema, the prelude or std",
-        ["import it at the top of the file: `-- import: path/to/file.${name}`"],
-    )
+// The text of the token at `i`, or "" when there is none.
+fn text_at(tokens: Vector<Token>, i: Int) -> String {
+    if i < 0 { return "" }
+
+    Vector.get(tokens, i) |> Maybe.map(fn t -> t.text) |> Maybe.with_default("")
+}
+
+// The imports the types in `text` need, or what is wrong with the first
+// type nothing gives, as a message and its hints. A name the file imports
+// is the imported type, before a type of the schema of that name.
+fn resolve(r: Resolver, text: String) -> Result<List<#(String, String)>, #(String, List<String>)> {
+    bare =
+        type_names(text)
+        |> Iter.reject(&Iter.contains(prelude, &1))
+        |> Iter.map(fn n -> {
+            case Map.get(r.imported, n) {
+                Some(entry) ->
+                    Ok(entry)
+
+                None ->
+                    if Iter.contains(r.schema, n) {
+                        Ok(#(r.schema_module, n))
+                    } else {
+                        case Map.get(std_types, n) {
+                            Some(m) ->
+                                Ok(#(m, n))
+
+                            None ->
+                                Err(
+                                    #(
+                                        "`${n}` is not a type of the schema, the prelude or std",
+                                        [
+                                            "import it at the top of the file: `-- import: path::to::file.${n}`",
+                                        ],
+                                    )
+                                )
+                        }
+                    }
+            }
+        })
+
+    qualified = qualified_names(text) |> Iter.map(fn #(m, n) -> qualified_import(r, m, n))
+    bare |> Iter.concat(qualified) |> Result.collect()
+}
+
+// The import a qualified type name needs: `schema.Post` the schema's
+// module, `shop.Report` a module the file imports, `sql.Value` std/sql.
+fn qualified_import(
+    r: Resolver,
+    module: String,
+    name: String,
+) -> Result<#(String, String), #(String, List<String>)> {
+    if module == r.qualifier {
+        if Iter.contains(r.schema, name) { return Ok(#(r.schema_module, "self")) }
+
+        return Err(
+            #(
+                "`${module}.${name}` is not a type of the schema",
+                [
+                    "the schema's types are each table's row struct and each `CHECK (column IN (...))` enum: ${r.schema
+                    |> Iter.map(fn t -> "`${module}.${t}`")
+                    |> String.join(", ")}",
+                ],
+            )
+        )
+    }
+
+    case #(Map.get(r.modules, module), module) {
+        #(Some(path), _) ->
+            Ok(#(path, "self"))
+
+        #(None, "sql") ->
+            Ok(#("std::sql", "self"))
+
+        #(None, "sqlkit") ->
+            Ok(#("sqlkit", "self"))
+
+        _ -> {
+            hint = if Iter.contains(r.schema, name) {
+                "the schema's `${name}` is `${r.qualifier}.${name}`"
+            } else {
+                "import it at the top of the file: `-- import: path::to::${module}`"
+            }
+
+            Err(#("`${module}` in `${module}.${name}` is not a module the file imports", [hint]))
+        }
+    }
+}
+
+/// `text`, a type sqlkit writes for a column, with each type of the schema
+/// or std that an import of the file shadows qualified by its module, and
+/// the imports it needs: with `Instant` imported from elsewhere, std's is
+/// `instant.Instant`.
+fn generated(r: Resolver, text: String) -> #(String, List<#(String, String)>) {
+    solid = sqltext.tokens(text) |> Iter.to_vector()
+
+    #(parts, imports) = Iter.reduce(Iter.with_index(solid), #([], []), fn acc, #(i, t) -> {
+        #(parts, imports) = acc
+
+        module = if Iter.contains(r.schema, t.text) {
+            Some(r.schema_module)
+        } else {
+            Map.get(std_types, t.text)
+        }
+
+        case module {
+            Some(m) when t.kind == sqltext.Kind.Word and text_at(solid, i - 1) != "." ->
+                if Maybe.is_none(Map.get(r.imported, t.text)) {
+                    #([t.text, ..parts], [#(m, t.text), ..imports])
+                } else {
+                    #(["${last_segment(m)}.${t.text}", ..parts], [#(m, "self"), ..imports])
+                }
+
+            _ ->
+                #([t.text, ..parts], imports)
+        }
+    })
+
+    #(parts |> Iter.reverse() |> String.join(), imports)
+}
+
+fn unresolved(q: Query, col: Int, found: #(String, List<String>)) -> Problem {
+    at_annotation(q, col, found.0, found.1)
 }
 
 // The function a query generates, or what is wrong with it.
@@ -622,13 +798,13 @@ fn function(
     signature_imports =
         q.params
         |> Iter.map(fn p -> {
-            resolve(r, p.type_text) |> Result.map_err(fn n -> unknown_type(q, p.col, n))
+            resolve(r, p.type_text) |> Result.map_err(fn found -> unresolved(q, p.col, found))
         })
         |> Iter.concat([
             row
             |> Maybe.map(fn t -> resolve(r, t))
             |> Maybe.with_default(Ok([]))
-            |> Result.map_err(fn n -> unknown_type(q, q.result_col, n)),
+            |> Result.map_err(fn found -> unresolved(q, q.result_col, found)),
         ])
         |> Iter.to_list()
 
@@ -687,8 +863,54 @@ fn function(
         })
         |> Iter.to_list()
 
-    text = function_source(q, final_shape, row, sqltext.parts(tokens), markers, fields)
+    text = function_source(
+        q,
+        final_shape,
+        row,
+        shadowing(r, row),
+        sqltext.parts(tokens),
+        markers,
+        fields,
+    )
+
     Ok(Made{text, imports: found_imports + field_imports + shape_imports})
+}
+
+/// The comment a function whose row type is an imported type that shadows
+/// a table's row struct carries above the row it builds, for whoever reads
+/// a type error there: the import wins, and the table's row is qualified.
+fn shadowing(r: Resolver, row: Maybe<String>) -> String {
+    case row {
+        Some(name) ->
+            case #(
+                Map.get(r.imported, name),
+                Map.keys(r.rows)
+                |> Iter.sort()
+                |> Iter.find(fn t -> Map.get(r.rows, t) == Some(name)),
+            ) {
+                #(Some(#(path, entry_name)), Some(table)) -> {
+                    imported =
+                        String.split(entry_name, " as ")
+                        |> Iter.first()
+                        |> Maybe.with_default(entry_name)
+                        |> String.trim()
+
+                    text = "`${name}` is ${last_segment(path)}.${imported}, which ${r.file} imports. The row of the table `${table}` is `${r.qualifier}.${name}`."
+
+                    wrap(text)
+                    |> String.split("\n")
+                    |> Iter.filter(fn l -> l != "")
+                    |> Iter.map(fn l -> "    ${l}\n")
+                    |> String.join()
+                }
+
+                _ ->
+                    ""
+            }
+
+        None ->
+            ""
+    }
 }
 
 /// Every `@name` names a parameter, every parameter is used, and no
@@ -764,12 +986,14 @@ fn shape_of(q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
 
             if text == "Changed" or text == "sqlkit.Changed" { return Ok(#(Shape.Changed, None)) }
 
-            #(shape, inner, prefix) = if is_wrapped(text, "Maybe") {
-                #(Shape.Optional, unwrap(text, "Maybe"), "Maybe<")
+            #(shape, inner, wrapper) = if is_wrapped(text, "Maybe") {
+                #(Shape.Optional, unwrap(text, "Maybe"), "Maybe")
             } else if is_wrapped(text, "List") {
-                #(Shape.Many, unwrap(text, "List"), "List<")
+                #(Shape.Many, unwrap(text, "List"), "List")
             } else if is_wrapped(text, "Rows") {
-                #(Shape.Stream, unwrap(text, "Rows"), "Rows<")
+                #(Shape.Stream, unwrap(text, "Rows"), "Rows")
+            } else if Iter.contains(["Maybe", "List", "Rows"], text) {
+                #(Shape.One, "", text)
             } else {
                 #(Shape.One, text, "")
             }
@@ -779,14 +1003,73 @@ fn shape_of(q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
                     at_annotation(
                         q,
                         q.result_col,
-                        "a query's result names its row type: `-> ${prefix}User>`",
-                        [],
+                        "`-> ${wrapper}` names no row type: write `-> ${wrapper}<MyRow>`",
+                        [
+                            "or leave the result type out to read the rows as a `List` of anonymous structs",
+                        ],
+                    )
+                )
+            }
+
+            if not is_scalar(inner)
+                and not is_row_name(inner)
+                and not is_qualified_row_name(inner) {
+                result_hint = if String.starts_with(text, "Result") {
+                    [
+                        "the generated function already answers a `Result<T, sql.Error>`: write `-> T`",
+                    ]
+                } else {
+                    []
+                }
+
+                return Err(
+                    at_annotation(
+                        q,
+                        q.result_col,
+                        "`${inner}` is not a row type: a row type names a struct, or for a query of one column one of std's value types",
+                        result_hint + [result_forms],
                     )
                 )
             }
 
             Ok(#(shape, Some(inner)))
         }
+    }
+}
+
+// The results a query may declare.
+once result_forms: String = "a query's result is `-> T`, `-> Maybe<T>`, `-> List<T>` or `-> Rows<T>`; `-> Changed` or `-> Unit` on SQL that returns no rows; or nothing, for a `List` of anonymous structs"
+
+/// Whether a row type is a struct's name: one capitalized name that is
+/// not one of the prelude's other types.
+//! assert codegen.is_row_name("User")
+//! refute codegen.is_row_name("List")
+//! refute codegen.is_row_name("Result<User, String>")
+//! refute codegen.is_row_name("user")
+//! refute codegen.is_row_name("shop.User")
+//
+pub fn is_row_name(text: String) -> Bool {
+    first = String.slice(text, 0, 1)
+
+    first != ""
+        and first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        and Iter.all(text, fn c -> {
+            c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+        })
+        and not Iter.contains(prelude, text)
+}
+
+/// Whether a row type is a struct's name qualified by its module's:
+/// `schema.Post`.
+//! assert codegen.is_qualified_row_name("schema.Post")
+//! refute codegen.is_qualified_row_name("schema.post")
+//! refute codegen.is_qualified_row_name("Schema.Post")
+//! refute codegen.is_qualified_row_name("a.b.Post")
+//
+pub fn is_qualified_row_name(text: String) -> Bool {
+    case String.split(text, ".") |> Iter.to_list() {
+        [module, name] -> sqltext.is_name(module) and is_row_name(name)
+        _ -> False
     }
 }
 
@@ -860,6 +1143,20 @@ fn described_shape(
                     result_col,
                     "`${q.name}` returns no rows, so it has no row type",
                     [count_hint],
+                )
+            )
+
+        #(_, Some(t), False) when is_scalar(t) and Iter.count(columns) != 1 ->
+            Err(
+                at_annotation(
+                    q,
+                    result_col,
+                    "`${q.name}` returns ${Iter.count(
+                        columns
+                    )} columns, so its row type cannot be `${t}`",
+                    [
+                        "a value type reads a query of one column; name a struct with a field per column, `-> List<MyRow>`, or leave the result type out to read the rows as anonymous structs",
+                    ],
                 )
             )
 
@@ -965,11 +1262,26 @@ fn field_of(
         #(None, None, _) -> #("value", "")
     }
 
-    type_text = case #(type_override, enum_name, family) {
-        #(Some(t), _, _) -> Some(t)
-        #(None, Some(e), _) -> Some(e)
-        #(None, None, Some(f)) -> Some(f.nomi)
-        #(None, None, None) -> None
+    // A type sqlkit picks is qualified where an import shadows it.
+    chosen = case #(enum_name, family) {
+        #(Some(e), _) -> Some(e)
+        #(None, Some(f)) -> Some(f.nomi)
+        #(None, None) -> None
+    }
+
+    #(written, written_imports) = case chosen {
+        Some(t) -> {
+            #(text, imports) = generated(r, t)
+            #(Some(text), imports)
+        }
+
+        None ->
+            #(None, [])
+    }
+
+    type_text = case type_override {
+        Some(t) -> Some(t)
+        None -> written
     }
 
     field = Field{name: column.name, position, reader, args, type_text, nullable}
@@ -977,8 +1289,8 @@ fn field_of(
     // Only an anonymous row names a column's type in the generated code.
     if not anonymous { return #(field, [], None) }
 
-    case type_text {
-        None -> {
+    case #(type_override, type_text) {
+        #(_, None) -> {
             problem = at(
                 "SQLite reports no type for the column `${column.name}` of `${q.name}`: it is an expression",
                 [
@@ -989,25 +1301,14 @@ fn field_of(
             #(field, [], Some(problem))
         }
 
-        Some(t) ->
+        #(Some(t), _) ->
             case resolve(r, t) {
-                Ok(needs) ->
-                    #(field, needs, None)
-
-                Err(n) ->
-                    #(
-                        field,
-                        [],
-                        Some(
-                            at(
-                                "`${n}` is not a type of the schema, the prelude or std",
-                                [
-                                    "import it at the top of the file: `-- import: path/to/file.${n}`",
-                                ],
-                            )
-                        ),
-                    )
+                Ok(needs) -> #(field, needs, None)
+                Err(found) -> #(field, [], Some(at(found.0, found.1)))
             }
+
+        #(None, Some(_)) ->
+            #(field, written_imports, None)
     }
 }
 
@@ -1062,6 +1363,7 @@ fn function_source(
     q: Query,
     shape: Shape,
     row: Maybe<String>,
+    note: String,
     parts: List<String>,
     markers: List<Token>,
     fields: List<Field>,
@@ -1134,7 +1436,7 @@ fn function_source(
         }
     }
 
-    doc + signature + statement + body + "}\n"
+    doc + signature + statement + note + body + "}\n"
 }
 
 // Whether a line fits the formatter's width.
@@ -1266,7 +1568,7 @@ fn field_line(field: Field, name: String, anonymous: Bool) -> String {
 //! refute codegen.is_scalar("User")
 //
 pub fn is_scalar(text: String) -> Bool {
-    inner = if String.starts_with(text, "Maybe<") {
+    inner = if String.starts_with(text, "Maybe<") and String.ends_with(text, ">") {
         text |> sqltext.cut_prefix("Maybe<") |> sqltext.cut_suffix(">")
     } else {
         text

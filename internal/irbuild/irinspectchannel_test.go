@@ -16,9 +16,9 @@ func TestIRInspectChannel_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/channels.Channel
-import std/io
-import std/tasks.Task
+	const src = `import std::channels.Channel
+import std::io
+import std::tasks.Task
 
 struct Counter {
     inbox: Channel<Int>

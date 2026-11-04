@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRListEquality_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn left() -> List<Int> { io.print("left"); [1, 2] }
 fn right() -> List<Int> { io.print("right"); [1, 2] }
 fn empty() -> List<Int> { [] }
@@ -21,7 +21,7 @@ fn main() {
 }
 
 func TestIRListEquality_FindLinksThroughProcess(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn find(list: List<Int>, target: Int) -> Maybe<Int> {
  if list == [] { None } else {
   Iter.reduce(list, None, fn acc, x ->
@@ -45,7 +45,7 @@ fn main() {
 // Equatable` for both is `a == b`), and the VM's comparison runs rt.Equal:
 // a Map compares order-insensitively, and NaN equals itself.
 func TestIRListEquality_VectorsAndMapsCompareStructurally(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  io.print(#[1, 2] == #[1, 2])
  io.print(#[1, 2] != #[2, 1])
@@ -61,7 +61,7 @@ fn main() {
 // over two such lists compares structurally:
 // it never dispatches on an element. TestIRTestBody_BacklogTypes runs it.
 func TestIRListEquality_DistinctElementsRetain(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", `import std/io
+	p, err := AnalyzeSource("main.nomi", `import std::io
 type Id Int
 fn main() { io.print([Id(1)] == [Id(1)]) }`)
 	if err != nil {

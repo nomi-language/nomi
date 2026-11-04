@@ -16,8 +16,8 @@ import (
 func TestToolMarked_WritesTheProjectsFiles(t *testing.T) {
 	src := `// FILE: main.nomi
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() {
@@ -29,8 +29,8 @@ fn main() {
 
 // FILE: tools/bump.nomi
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() -> Result<Unit, String> {

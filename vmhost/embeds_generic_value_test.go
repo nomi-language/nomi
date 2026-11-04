@@ -19,7 +19,7 @@ import (
 // Each position runs: a binding, a function argument, a return, and either
 // side of `==` and `!=`.
 func TestRun_EmbeddedValueInsideAGenericValueIsRebuilt(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int
@@ -199,7 +199,7 @@ Some(Some(Circle{r: 1}))
 // itself for the tail, alone and inside a list; a Vector and an anonymous
 // record are rebuilt too.
 func TestRun_EmbeddedValueInsideARecursiveGenericValueIsRebuilt(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int
@@ -273,7 +273,7 @@ False
 // other operand's is the narrower by `embeds`, in either order: a list, a
 // tuple, a Maybe and a map, equal and not.
 func TestRun_ComparisonLiteralTakesTheWiderType(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int

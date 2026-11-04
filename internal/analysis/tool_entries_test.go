@@ -95,10 +95,10 @@ func TestToolEntry_DocumentsSeeAnUnlistedTool(t *testing.T) {
 	root := t.TempDir()
 	writeToolEntryFile(t, root, "go.mod", "module cafe\n\ngo 1.26.3\n")
 	writeToolEntryFile(t, root, "nomi.toml", "[module]\nname = \"cafe\"\nentry_points = [\"main\"]\n")
-	writeToolEntryFile(t, root, "main.nomi", "import std/io\n\nfn main() {\n    io.print(\"cafe\")\n}\n")
+	writeToolEntryFile(t, root, "main.nomi", "import std::io\n\nfn main() {\n    io.print(\"cafe\")\n}\n")
 	tool := writeToolEntryFile(t, root, "tools/greet.nomi", `import {
-    std/io
-    tools/internal/words
+    std::io
+    tools::internal::words
 }
 
 fn main() {

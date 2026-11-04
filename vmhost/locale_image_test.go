@@ -20,8 +20,8 @@ import (
 )
 
 const localeProgram = `import {
-    std/io
-    std/locale.Locale
+    std::io
+    std::locale.Locale
 }
 
 fn main() {
@@ -135,9 +135,9 @@ func TestLocaleImage_CarriesOnlyTheReachedParts(t *testing.T) {
 		{"fallbacks", `io.print("${Result.map(Locale.parse("es-MX"), Locale.fallbacks)}")`,
 			[]string{"parent\tes-MX\tes-419"}, []string{"locale\t", "cardinal\t", "symbols\t"}},
 	} {
-		src := "import {\n    std/io\n    std/locale.Locale\n    std/plural.PluralCategory\n}\n\nfn main() {\n    " + c.body + "\n}\n"
+		src := "import {\n    std::io\n    std::locale.Locale\n    std::plural.PluralCategory\n}\n\nfn main() {\n    " + c.body + "\n}\n"
 		if !strings.Contains(c.body, "Plural") {
-			src = strings.Replace(src, "    std/plural.PluralCategory\n", "", 1)
+			src = strings.Replace(src, "    std::plural.PluralCategory\n", "", 1)
 		}
 		data, _ := imageLocales(t, loadWithLocales(t, src, "de", "pl"))
 		for _, w := range c.want {
@@ -152,7 +152,7 @@ func TestLocaleImage_CarriesOnlyTheReachedParts(t *testing.T) {
 		}
 	}
 	// A program that reads no locale data carries none.
-	data, _ := imageLocales(t, loadWithLocales(t, "import std/io\n\nfn main() {\n    io.print(\"hi\")\n}\n", "de"))
+	data, _ := imageLocales(t, loadWithLocales(t, "import std::io\n\nfn main() {\n    io.print(\"hi\")\n}\n", "de"))
 	if len(data) != 0 {
 		t.Errorf("a program that formats nothing carries %d bytes of locale data", len(data))
 	}
@@ -198,4 +198,61 @@ func funcName(fn any) string {
 func takesFrame(fn any) bool {
 	ft := reflect.TypeOf(fn)
 	return ft.NumIn() > 0 && ft.In(0) == reflect.TypeFor[*rt.Frame]()
+}
+
+// A task a supervisor runs reads the program's locale data, as main does.
+// The shape is a server's: boot makes the supervisor, each request is a
+// task on it, and the handler formats a date with a `once` locale and a
+// skeleton passed in. A runner links no locale data of its own, so a task
+// that lost the machine's read empty data and wrote root's patterns
+// (`2025 9 10` for `September 10, 2025`).
+func TestLocaleImage_ASupervisedTaskReadsTheProgramsLocales(t *testing.T) {
+	src := `import {
+    std::calendar.{DateTime, DateTimeFields, NaiveDateTime}
+    std::io
+    std::locale.Locale
+    std::supervisors.Supervisor
+}
+
+pub struct App {
+    context: Context
+    web: Supervisor
+}
+
+pub fn boot() -> Result<App, String> {
+    Ok(App{context: Context.root(), web: Supervisor.new(max_running: 2)})
+}
+
+once en = Locale` + "`en-US`" + `
+
+fn written(at: NaiveDateTime, fields: DateTimeFields) -> String {
+    DateTime.format_fields(DateTime.in_zone(at, "UTC")!, en, fields)
+}
+
+fn handle() -> Unit {
+    at = NaiveDateTime.new(2025, 9, 10, 13, 0)!
+    io.print(written(at, DateTimeFields` + "`yMMMMd`" + `))
+    io.print(written(at, DateTimeFields` + "`hmm`" + `))
+    io.print("${Locale.available()}")
+}
+
+fn main() {
+    _ = Supervisor.spawn(App.web, fn -> handle())
+    _ = Supervisor.flush(App.web)
+}
+`
+	p := loadWithLocales(t, src, "en", "pl")
+	_, image := imageLocales(t, p)
+	want := "September 10, 2025\n1:00 PM\n[en, pl]\n"
+	var inProcess bytes.Buffer
+	if err := p.Run(context.Background(), &inProcess, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	if inProcess.String() != want {
+		t.Errorf("in process:\n%s\nwant:\n%s", inProcess.String(), want)
+	}
+	var built, stderr bytes.Buffer
+	if code := vmrunner.Run(image, &built, &stderr, nil, nil, false); code != 0 || built.String() != want {
+		t.Errorf("the built image exits %d and prints:\n%s%s\nwant:\n%s", code, built.String(), stderr.String(), want)
+	}
 }

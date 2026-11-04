@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // Probe: A LAMBDA PARAMETER WHOSE TYPE THE PROGRAMMER NEVER WROTE.
 //

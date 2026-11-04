@@ -13,7 +13,7 @@ const RedundantPreludeImportCode = "redundant-prelude-import"
 
 // CheckRedundantPreludeImports reports a TypeError for every imported item
 // that re-imports a name the prelude already puts in scope. Writing
-// `import std/iter.Iter` in a user file binds `Iter` to exactly the symbol
+// `import std::iter.Iter` in a user file binds `Iter` to exactly the symbol
 // the prelude's `pub import iter.Iter` already bound, so the import is inert
 // text: deleting it cannot change what the file means.
 //
@@ -42,13 +42,13 @@ const RedundantPreludeImportCode = "redundant-prelude-import"
 //
 // WHAT IS NOT REDUNDANT, and why each case must survive:
 //
-//   - a whole-file import (`import std/strings`) binds a file API object;
+//   - a whole-file import (`import std::strings`) binds a file API object;
 //     the prelude deliberately exports no file API objects, so `strings.foo`
 //     needs it.
-//   - an aliased item (`import std/iter.Iter as It`) establishes a NEW name.
+//   - an aliased item (`import std::iter.Iter as It`) establishes a NEW name.
 //   - a drill-through the prelude stops short of
-//     (`import std/iter.Iter.{loop}` binds bare `loop`;
-//     `import std/comparable.Ordering.{Less}` binds bare `Less`) — the
+//     (`import std::iter.Iter.{loop}` binds bare `loop`;
+//     `import std::comparable.Ordering.{Less}` binds bare `Less`) — the
 //     prelude exports the owner, not these members.
 //   - a same-named item from a DIFFERENT module than the prelude's. Identity
 //     is compared through the resolved declaration, not the spelling, so a

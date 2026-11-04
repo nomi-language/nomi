@@ -1,8 +1,8 @@
 // A generic type whose functions take a defaulted parameter before a
 // trailing callback, for main.nomi.
 import {
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
 }
 
 pub struct Box<T> {

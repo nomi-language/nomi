@@ -24,7 +24,7 @@
 //# (Go reported none, so they all read `line 1, col 1`) and every message is
 //# now stable across host-toolchain upgrades.
 
-import std/json.Json
+import std::json.Json
 
 fn decode_error(src: String) -> String {
     case Json.decode(src) {

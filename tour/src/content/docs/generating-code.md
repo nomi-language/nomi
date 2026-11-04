@@ -55,7 +55,7 @@ Roast: light medium dark
 
 // FILE: main.nomi
 import {
-    std/io
+    std::io
     enums.{Roast, Size}
 }
 
@@ -93,8 +93,8 @@ pub enum Roast {
 // enum per line. A line `Size: small medium large` declares
 // `pub enum Size` with the variants `Small`, `Medium` and `Large`.
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() -> Result<Unit, String> {
@@ -210,7 +210,7 @@ which `nomi check` reports.
 
 Generated files go stale when an input changes and nobody runs the tool
 again. This tool guards against that in two ways. It records a SHA-256
-digest of its inputs (`hash.sha256_hex` from [std/hash](/reference/hash/))
+digest of its inputs (`hash.sha256_hex` from [std::hash](/reference/hash/))
 at the top of each file it writes:
 
 ```nomi
@@ -332,8 +332,8 @@ replace csvdata => ../csvdata
 //# files have not changed since.
 
 import {
-    std/fs
-    std/hash
+    std::fs
+    std::hash
 }
 
 /// The SHA-256 digest of the CSV files directly in `dir`, each path and
@@ -362,8 +362,8 @@ pub fn inputs_digest(dir: String) -> Result<String, String> {
 // a comma and a value. With `--check` it writes nothing and fails when a
 // file is not what it would write.
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
     csvdata
 }
 

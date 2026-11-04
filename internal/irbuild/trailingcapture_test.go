@@ -12,7 +12,7 @@ func TestVM_CaptureRoutesAsATrailingCallback(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 struct Point {
     x: Int

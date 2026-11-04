@@ -26,7 +26,7 @@ func TestUselessReturn_Rejected(t *testing.T) {
 		},
 		{
 			"bare return with a comment after a Unit statement",
-			"import std/io\n\nfn greet() {\n    io.print(\"hi\")\n    return // done\n}\n",
+			"import std::io\n\nfn greet() {\n    io.print(\"hi\")\n    return // done\n}\n",
 			5, 5, 11,
 			"this `return` does nothing: it is the last statement of `greet`",
 			"remove it",
@@ -40,21 +40,21 @@ func TestUselessReturn_Rejected(t *testing.T) {
 		},
 		{
 			"bare return ending a lambda",
-			"import std/io\n\nfn f(xs: List<Int>) {\n    xs\n    |> Iter.each(fn x -> {\n        io.print(\"${x}\")\n        // done\n        return\n    })\n}\n",
+			"import std::io\n\nfn f(xs: List<Int>) {\n    xs\n    |> Iter.each(fn x -> {\n        io.print(\"${x}\")\n        // done\n        return\n    })\n}\n",
 			8, 9, 15,
 			"this `return` does nothing: it is the last statement of this lambda",
 			"remove it",
 		},
 		{
 			"bare return alone in a tail branch",
-			"import std/io\n\nfn f(x: Int) {\n    if x > 0 { return } else { io.print(\"x\") }\n}\n",
+			"import std::io\n\nfn f(x: Int) {\n    if x > 0 { return } else { io.print(\"x\") }\n}\n",
 			4, 16, 22,
 			"this `return` does nothing: it is the last statement of `f`",
 			"remove it",
 		},
 		{
 			"bare return as a tail case arm",
-			"import std/io\n\nfn f(x: Int) {\n    case x {\n        0 -> return\n        _ -> io.print(\"x\")\n    }\n}\n",
+			"import std::io\n\nfn f(x: Int) {\n    case x {\n        0 -> return\n        _ -> io.print(\"x\")\n    }\n}\n",
 			5, 14, 20,
 			"this `return` does nothing: it is the last statement of `f`",
 			"remove it",
@@ -75,7 +75,7 @@ func TestUselessReturn_Rejected(t *testing.T) {
 		},
 		{
 			"tail if whose only branch returns",
-			"import std/io\n\nfn f(done: Bool) {\n    io.print(\"x\")\n    if done { return }\n}\n",
+			"import std::io\n\nfn f(done: Bool) {\n    io.print(\"x\")\n    if done { return }\n}\n",
 			5, 5, 7,
 			"this `if` does nothing: every branch returns and nothing follows it",
 			"remove the `if`; keep what it tests only if evaluating that has an effect you need",
@@ -120,11 +120,11 @@ func TestUselessReturn_Rejected(t *testing.T) {
 func TestUselessReturn_Accepted(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
 		{"empty body", "fn reset() {}\n"},
-		{"early return", "import std/io\n\nfn f(x: Int) {\n    if x > 0 { return }\n    io.print(\"x\")\n}\n"},
-		{"early return in a lambda", "import std/io\n\nfn f(xs: List<Int>) {\n    xs\n    |> Iter.each(fn x -> {\n        if x > 0 { return }\n        io.print(\"x\")\n    })\n}\n"},
+		{"early return", "import std::io\n\nfn f(x: Int) {\n    if x > 0 { return }\n    io.print(\"x\")\n}\n"},
+		{"early return in a lambda", "import std::io\n\nfn f(xs: List<Int>) {\n    xs\n    |> Iter.each(fn x -> {\n        if x > 0 { return }\n        io.print(\"x\")\n    })\n}\n"},
 		{"tail value return", "fn f(x: Int) -> Int {\n    y = x + 1\n    return y\n}\n"},
 		{"tail if returning values", "fn f(x: Int) -> Int {\n    if x > 0 { return 1 } else { return 2 }\n}\n"},
-		{"tail if with work in a branch", "import std/io\n\nfn f(x: Int) {\n    if x > 0 {\n        io.print(\"x\")\n    }\n}\n"},
+		{"tail if with work in a branch", "import std::io\n\nfn f(x: Int) {\n    if x > 0 {\n        io.print(\"x\")\n    }\n}\n"},
 		{"bare return after dbg", "fn f() {\n    dbg 1\n    return\n}\n"},
 		{"bare return after a dbg stage", "fn f() {\n    1 |> dbg\n\n    return\n}\n"},
 		{"return in a binding else", "fn f(x: Maybe<Int>) -> Int {\n    n = x else { return 0 }\n    n\n}\n"},

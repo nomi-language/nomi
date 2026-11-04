@@ -247,10 +247,10 @@ func testCertificate(t *testing.T, dir string) (*tls.Config, string) {
 }
 
 const mailProgram = `import {
-    std/html.Html
-    std/io
-    std/mail.{self, Address, Attachment, Credentials, Mailer, Message, Security, SmtpConfig}
-    std/tls.{ClientConfig, Roots}
+    std::html.Html
+    std::io
+    std::mail.{self, Address, Attachment, Credentials, Mailer, Message, Security, SmtpConfig}
+    std::tls.{ClientConfig, Roots}
 }
 
 fn show(answer: Result<Unit, mail.Error>) -> String {

@@ -13,7 +13,7 @@ import (
 // output.
 
 func TestIREmbedCtor_EmbeddedStructCallForms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Circle {
   radius: Float = 3.14
@@ -45,7 +45,7 @@ fn main() {
 }
 
 func TestIREmbedCtor_InlineStructVariantCallForms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 enum Shape {
   Rectangle {width: Float = 2.5, height: Float}
@@ -73,7 +73,7 @@ fn main() {
 }
 
 func TestIREmbedCtor_EmbeddedMarker(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Live {
   since: Int

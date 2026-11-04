@@ -6,18 +6,18 @@
 //# exact length. `Instant + Duration` is an `Instant`, and so is `Instant -
 //# Duration`; `a - b` on two instants is the `Duration` from `b` to `a`.
 //#
-//# A time-bearing type of `std/calendar` adds a `Duration` as exact
+//# A time-bearing type of `std::calendar` adds a `Duration` as exact
 //# elapsed time: `start + Duration.hours(24)` moves the instant by 24 real
-//# hours, wherever the wall clock lands. The civil periods of `std/calendar`
+//# hours, wherever the wall clock lands. The civil periods of `std::calendar`
 //# (`Hours(24)`, `Days(1)`, `Months(1)`) move the wall reading instead, so
 //# across a daylight-saving change `+ Hours(24)` is not always `+
-//# Duration.hours(24)`; [std/calendar](/reference/calendar/#arithmetic-duration-and-civil-periods)
+//# Duration.hours(24)`; [std::calendar](/reference/calendar/#arithmetic-duration-and-civil-periods)
 //# gives both.
 //#
 //# A length reads for a person with `Duration.format`, in the locale's
 //# words, and as a stopwatch shows it with `Duration.clock`, the same in
 //# every locale. A count of civil units from now ("in 3 days",
-//# "yesterday") is `TimeUnit.format_relative` in `std/calendar`, which
+//# "yesterday") is `TimeUnit.format_relative` in `std::calendar`, which
 //# takes a unit and a count, not a `Duration`, because a month is no fixed
 //# length.
 
@@ -53,7 +53,7 @@ import {
 ///
 /// `Duration` is a time-domain quantity and deliberately does not interact
 /// with `Date`; civil calendar and wall-clock arithmetic use calendar period
-/// types from `std/calendar`. It pairs with `Instant` and backs
+/// types from `std::calendar`. It pairs with `Instant` and backs
 /// `timer.sleep` / `Context.with_timeout`.
 ///
 /// A Duration holds a signed 64-bit count of nanoseconds, about 292 years

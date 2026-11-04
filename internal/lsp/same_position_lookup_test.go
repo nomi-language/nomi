@@ -91,7 +91,7 @@ func definitionAt(t *testing.T, s *Server, uri string, at protocol.Position) pro
 // line and column (here a "fake" module beside json) is a different
 // declaration, and used to win whenever the Files map yielded it first.
 func TestDefinition_StdSymbolLandsInItsOwnFileBesideASamePositionedTwin(t *testing.T) {
-	main := "import std/json.{Json, ToJson}\n" +
+	main := "import std::json.{Json, ToJson}\n" +
 		"\n" +
 		"struct Point { x: Int }\n" +
 		"\n" +
@@ -120,7 +120,7 @@ func TestDefinition_StdSymbolLandsInItsOwnFileBesideASamePositionedTwin(t *testi
 // interface another std module declares (the "fake" module here), which
 // the first module the Modules map yielded used to decide.
 func TestDefinition_ImplMethodGoesToTheInterfaceItsHeaderNames(t *testing.T) {
-	main := "import std/json\n" +
+	main := "import std::json\n" +
 		"\n" +
 		"struct Point { x: Int }\n" +
 		"\n" +

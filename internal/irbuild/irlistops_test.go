@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRListOps_EmptyTailAndPersistence(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   xs = [1, 2]
   empty: List<Int> = []
@@ -21,7 +21,7 @@ fn main() {
 }
 
 func TestIRListOps_NestedPayloadAndEvaluationOrder(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn source(label: String, value: Int) -> List<Int> {
   io.print(label)
   [value]

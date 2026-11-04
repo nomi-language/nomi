@@ -14,11 +14,11 @@
 //# runs.
 
 import {
-    std/fs.{self, Kind}
-    std/matcher.Matcher
-    std/regex.Regex
-    std/sql.{self, Conn, Row, Sql, Statement}
-    migrate/checksum
+    std::fs.{self, Kind}
+    std::matcher.Matcher
+    std::regex.Regex
+    std::sql.{self, Conn, Row, Sql, Statement}
+    migrate::checksum
 }
 
 /// One migration: its path and its SQL. Its version, what

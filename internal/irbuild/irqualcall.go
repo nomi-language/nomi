@@ -490,7 +490,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		return no()
 	}
 	method := fa.Field.Name
-	obj, isIdent := fa.Object.(*ast.Ident)
+	obj, isIdent := ast.QualifierIdent(fa.Object)
 	ti, isType := fa.Object.(*ast.TypeIdent)
 	if isType {
 		if owner, mod, rebound := bl.g.stdOwnerByDecl(ti); rebound {
@@ -506,7 +506,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 			return no()
 		}
 		if canon := bl.g.stdOwnerAlias(ti); canon != "" {
-			// `import std/iter.Iter as It`, then `It.count(xs)`: the call
+			// `import std::iter.Iter as It`, then `It.count(xs)`: the call
 			// is std's `Iter.count`, which every arm below names by its
 			// own name.
 			ti = &ast.TypeIdent{Name: canon, Line: ti.Line, Col: ti.Col}
@@ -1516,7 +1516,7 @@ func (bl *irScalarBuilder) qualFilePlan(t *ast.Call, args irQualArgs, ownerID *a
 }
 
 // stdFilePlan plans a call to std file std's top-level function method,
-// written `io.read_line()` or bare after `import std/io.read_line`.
+// written `io.read_line()` or bare after `import std::io.read_line`.
 func (bl *irScalarBuilder) stdFilePlan(t *ast.Call, args irQualArgs, std, method string) *irQualPlan {
 	if bl.g.std == nil {
 		return nil
@@ -1946,7 +1946,7 @@ func (bl *irScalarBuilder) qualDottedOwner(n ast.Node) (owner, stdModule string,
 	if name, dotted := bl.g.dottedTypeQualifier(n); dotted {
 		return name, "", true
 	}
-	mod, isIdent := inner.Object.(*ast.Ident)
+	mod, isIdent := ast.QualifierIdent(inner.Object)
 	if !isIdent || irQualIsLocal(bl, mod.Name) {
 		return "", "", false
 	}
@@ -2132,7 +2132,7 @@ func (bl *irScalarBuilder) stdModuleTypePlan(t *ast.Call, args irQualArgs, modul
 }
 
 // stdOwnerAlias is the std type an owner qualifier names under an import
-// alias (`import std/iter.Iter as It` makes `It` name `Iter`), or "" when the
+// alias (`import std::iter.Iter as It` makes `It` name `Iter`), or "" when the
 // qualifier is not such an alias. The canonical name must not name a type
 // this file declares, which would make it mean something else here.
 func (g *gen) stdOwnerAlias(ti *ast.TypeIdent) string {

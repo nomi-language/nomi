@@ -14,7 +14,7 @@ fn main() {
 }
 
 func TestIRDistinctDebug_UserOverride(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Id Int
 impl Debug for Id {
  fn inspect(value: Id) -> String { _ = value; io.print("inspect"); "custom" }
@@ -27,7 +27,7 @@ fn main() {
 }
 
 func TestIRDistinctDebug_ScalarLeavesAndTransparency(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Name String
 type Ratio Float
 type Enabled Bool

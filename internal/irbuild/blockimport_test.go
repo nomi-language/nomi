@@ -10,16 +10,16 @@ import (
 // a type named through that qualifier (a variant's owner, a struct-shaped
 // variant's owner, an annotation) resolves as through a file-level import.
 func TestBlockImport_TypesThroughTheQualifier(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn encoded() -> String {
-    import std/json
+    import std::json
     v: json.Json = json.Json.Int(3)
     Debug.inspect(v)
 }
 
 fn main() {
-    import std/json
+    import std::json
     io.inspect(json.Json.Null)
     io.print(encoded())
     io.inspect(json.Json.decode("[1]"))
@@ -32,20 +32,20 @@ fn main() {
 // file that block imports: a function's, another function's, a lambda's
 // enclosing block and a binding's block.
 func TestBlockImport_OneQualifierOfTwoFiles(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn a() -> Int {
-    import std/duration as d
+    import std::duration as d
     d.Duration.as_micros(d.Duration.seconds(1))
 }
 
 fn b() -> String {
-    import std/json as d
+    import std::json as d
     d.Json.encode(d.Json.Null)
 }
 
 fn c() -> List<String> {
-    import std/json as d
+    import std::json as d
     [1, 2] |> Iter.map(fn _ -> d.Json.encode(d.Json.Bool(True))) |> Iter.to_list()
 }
 
@@ -54,7 +54,7 @@ fn main() {
     io.print(b())
     io.inspect(c())
     w = {
-        import std/duration as d
+        import std::duration as d
         d.Duration.as_millis(d.Duration.seconds(2))
     }
     io.print(Int.to_string(w))
@@ -72,7 +72,7 @@ func TestBlockImport_ProjectFileRuns(t *testing.T) {
 	}
 	dir := t.TempDir()
 	files := map[string]string{
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 
 fn main() {
     import shapes
@@ -107,7 +107,7 @@ fn main() {
 // A block-local struct may name a type an import at the top of its block
 // binds, as an expression in the block may.
 func TestBlockImport_ABlockLocalTypeNamesIt(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
     import b.B
@@ -127,7 +127,7 @@ fn main() {
 // the import graph and the type groups must count it (nomiImportGraph,
 // typeDeclEdges), or the field's type is refused as a sibling type cycle.
 func TestBlockImport_ClosesATypeCycle(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 pub struct A {
     n: Int

@@ -73,7 +73,7 @@ diagnostics, test reports and the editor. `#!` anywhere else is the error
 
 ```nomi
 #!/usr/bin/env nomi
-import std/io
+import std::io
 
 fn main() {
     io.print("hi")
@@ -214,6 +214,7 @@ even inside `fn f(derive: Int)`.
 | `=` | binding and declaration punctuation (below) |
 | `..` `..=` | ranges (§3); `..` is also a spread and a rest pattern |
 | `.` | field access, `.Variant`, field accessor |
+| `::` | joins the segments of a file's path, with no space around it (§14) |
 | `#` | starts a vector, struct or tuple literal (§3) |
 | `&` | a capture, and `&1`, `&2`, ... its parameters (§7) |
 | `,` `:` `;` | separators |
@@ -681,8 +682,8 @@ a range of a `Discrete` type walks its values with it. `Steppable<S>`'s
 `step_by(v, by)` moves `v` by a step of type `S`, and `Range.step_by` walks
 a range of a `Steppable` type by a step the caller gives, as
 `Range.step_by(0d..1d, 0.25d)` does for `Decimal`.
-[std/discrete](/reference/discrete/) and
-[std/steppable](/reference/steppable/) list their implementors.
+[std::discrete](/reference/discrete/) and
+[std::steppable](/reference/steppable/) list their implementors.
 
 ```nomi
 fn main() {
@@ -697,7 +698,7 @@ fn main() {
 
 Reversed bounds give an empty range. An unbounded range comes from
 `Range.from(n)` or `Range.naturals()`, and a step from `Range.step_by`
-([std/ranges](/reference/ranges/)).
+([std::ranges](/reference/ranges/)).
 
 `..` binds tighter than comparison and the pipe, and looser than arithmetic:
 `1 + 2..5 + 6` is `(1 + 2)..(5 + 6)`.
@@ -718,8 +719,8 @@ time, and a failure is a compile error at the literal.
 Date"2026-05-04" // quoted, interpolated
 
 Date"""
-    2026-05-04
-    """
+2026-05-04
+"""
 
 // triple-quoted, interpolated
 Regex`\d{3,4}` // raw
@@ -786,7 +787,7 @@ and `Float`.
 
 - `+`, `-` and `*` never round; the scale grows as needed
   (`1.50d * 1.5d == 2.250d`). Rounding happens only in functions that name a
-  `RoundingMode` ([std/decimal](/reference/decimal/)). There is no global
+  `RoundingMode` ([std::decimal](/reference/decimal/)). There is no global
   precision or rounding context.
 - `Decimal` has no `/`, since whether an exact quotient exists depends on
   the divisor's value (`10d` by `4d` is `2.50d`; `10d` by `3d` has none).
@@ -843,7 +844,7 @@ Equality, hashing and ordering compare the UTF-8 bytes, with no
 normalization; byte order is codepoint order. A precomposed `"é"` (U+00E9)
 and a decomposed `"e"` followed by U+0301 are one grapheme each and are not
 `==`. `String.normalize` converts between forms. The functions over strings
-are in [std/strings](/reference/strings/).
+are in [std::strings](/reference/strings/).
 
 ### Float Special Values
 
@@ -867,7 +868,7 @@ NaN and the infinities pass through arithmetic and rounding as IEEE 754
 says. `-0.0` and `0.0` are two values that are `==`. How `==`, `compare` and
 `<` treat NaN is §5 *Equality and Ordering Semantics*. No `Float` function
 traps on a NaN operand. The functions over floats are in
-[std/float](/reference/float/).
+[std::float](/reference/float/).
 
 ### Built-in Types
 
@@ -882,16 +883,16 @@ value.
   (below).
 - `Range<T>` is a range of a `Comparable` type, written `a..b` or `a..=b`
   (§3 *Range literals*). It is opaque: its parts are reached through
-  [std/ranges](/reference/ranges/). It implements `Iter<T>` when `T`
+  [std::ranges](/reference/ranges/). It implements `Iter<T>` when `T`
   implements `Discrete`.
 - `#(A, B, ...)` is a tuple and `#{name: A, ...}` an anonymous struct
   (below).
 - `(A, B) -> C` is a function type (§7).
 
 The functions over each type are in the standard library reference:
-[std/lists](/reference/lists/), [std/vectors](/reference/vectors/),
-[std/maps](/reference/maps/), [std/sets](/reference/sets/),
-[std/ranges](/reference/ranges/) and [std/iter](/reference/iter/).
+[std::lists](/reference/lists/), [std::vectors](/reference/vectors/),
+[std::maps](/reference/maps/), [std::sets](/reference/sets/),
+[std::ranges](/reference/ranges/) and [std::iter](/reference/iter/).
 
 #### Tuples
 
@@ -2002,9 +2003,20 @@ function-typed annotation, a declared return type, or a generic parameter the
 call's own expected type fixes (`f: (Int) -> Int = ident(fn x -> x + 1)`,
 `g: Maybe<(Int) -> Int> = Some(fn x -> x * 3)`).
 
-Where no function type is expected, it is `cannot infer type for parameter x`,
-whose help says a later use does not type it. That covers an unannotated
-binding (`f = fn x -> x`), a tuple or list element, and the argument of a
+In a list, vector or set literal, or a map literal's keys or values, with no
+expected type, the elements share one type, so a parameter annotated in one
+element types the unannotated parameter at the same place in the others,
+before or after it. A place is the lambda's position inside the element,
+through tuples, records and nested collection literals: in
+`[#("a", fn d: Date -> f(d)), #("b", fn d -> g(d))]` the second `d` is a
+`Date`. An earlier element that is a function value rather than a lambda
+(`#("a", month_name)`) types the places of the elements after it. Elements
+that annotate different types at one place are an element type mismatch.
+
+Anywhere else no function type is expected, it is `cannot infer type for
+parameter x`, whose help says a later use does not type it. That covers an
+unannotated binding (`f = fn x -> x`), a tuple element, a collection literal
+whose elements type nothing at the parameter's place, and the argument of a
 generic constructor with no expected type (`h = Some(fn x -> x)`).
 
 ### No Implicit Conversion
@@ -2016,7 +2028,7 @@ are three types, and arithmetic needs one: `x + y` with an `Int` and a
 `Float` is `binary + type mismatch: Int vs Float`. Conversions are
 functions: `Int.to_float(x)` is total, and `Float.to_int(y)` is a
 `Maybe<Int>` that truncates toward zero and is `None` for NaN and the
-infinities ([std/int](/reference/int/), [std/float](/reference/float/)).
+infinities ([std::int](/reference/int/), [std::float](/reference/float/)).
 
 ### Equality and Ordering Semantics
 
@@ -2931,7 +2943,7 @@ page, or a WASI runtime. Its arguments and result cross as JSON, through
 reference](/tooling/building/#calling-exported-functions).
 
 ```nomi
-import std/json.{FromJson, ToJson}
+import std::json.{FromJson, ToJson}
 
 struct Game {
     word: String
@@ -3132,7 +3144,7 @@ Where a value must fit a machine integer, the boundary says so:
 - A library type with a 64-bit range says so in its reference:
   [`Duration`](/reference/duration/) and `Instant` count nanoseconds in 64
   bits, and a database driver refuses an `Int` its engine cannot store.
-  [std/json](/reference/json/) reads and writes an `Int` of any size, and an
+  [std::json](/reference/json/) reads and writes an `Int` of any size, and an
   `export fn` result past ±2⁵³ fails the call (§7 *Exported Functions*).
 
 #### Integer division and remainder
@@ -3148,7 +3160,7 @@ sign of the dividend, so `(a / b) * b + (a % b) == a`: `-7 / 3 == -2` and `-7
 - `Float` has no `%`.
 
 Floored division and modulo, powers, roots and digits are functions in
-[std/int](/reference/int/).
+[std::int](/reference/int/).
 
 #### Decimal arithmetic
 
@@ -3166,7 +3178,7 @@ fail on `10d / 3d`.
   a compile error at the operator: ``Decimal has no `/`: write
   `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)`
   for a quotient that must terminate``.
-- [std/decimal](/reference/decimal/)'s `Decimal.divide` rounds to a scale
+- [std::decimal](/reference/decimal/)'s `Decimal.divide` rounds to a scale
   and `RoundingMode`, and `Decimal.divide_exact` answers `None` for a
   quotient that does not terminate.
 
@@ -3234,11 +3246,11 @@ interface Summable {
 
 Interfaces do not extend one another (§12), so code that sums names both
 bounds, `where T: Add<T, T> and Summable`, as `Iter.sum` does.
-[std/summable](/reference/summable/) lists the std types that implement it.
+[std::summable](/reference/summable/) lists the std types that implement it.
 
 **Productable.** The same for `*`: `empty_product()` is the product of no
 values. `Iter.product` is bounded by `where T: Multiply<T, T> and
-Productable`, and [std/productable](/reference/productable/) lists the std
+Productable`, and [std::productable](/reference/productable/) lists the std
 types that implement it.
 
 ```nomi
@@ -3432,7 +3444,7 @@ interface Contains<T> {
 The std collections implement it: a `Set` holds its members, a `Map` its
 keys, a `Range` the values between its ends, a `List`, `Vector` or `Bytes`
 its elements, and a `String` a substring, a `Regex` match or a `Codepoint`.
-[std/contains](/reference/contains/) says how each one looks and what it
+[std::contains](/reference/contains/) says how each one looks and what it
 costs.
 
 ```nomi
@@ -3626,7 +3638,7 @@ capture. The value is computed once and the function runs once, at that point
 in the pipeline.
 
 ```nomi
-import std/io
+import std::io
 
 fn main() {
     shout =
@@ -3729,8 +3741,44 @@ fn main() {
 }
 ```
 
-- `else` is required when the branches have a value other than `Unit`. An `if`
-  without `else` has the value `Unit`.
+- An `if` without `else` whose branch has a value of a type `T` other than
+  `Unit` is a `Maybe<T>`: `Some` of the branch's value when the condition
+  holds, `None` when it does not. An `else if` chain with no final `else` is
+  the same: `if a { "a" } else if b { "b" }` is a `Maybe<String>`, `None`
+  when no branch runs, and its branches have one type as any `if`'s do.
+- An `if` without `else` is `Unit` when its branch is `Unit`, or when the
+  branch leaves (`return`, `break`, a `?` that propagates, a call that never
+  returns), so `if debug { log.debug("x") }` and `if n < 0 { return Err(e) }`
+  are statements.
+- Nothing flattens: a branch that is a `Maybe<U>` makes the `if` a
+  `Maybe<Maybe<U>>`, as `if c { Map.get(m, k) }` and `if a { if b { x } }`
+  are.
+- The position's expected type reaches the branch: where a `Maybe<T>` is
+  expected, the branch is checked against `T`, so
+  `shape: Maybe<Shape> = if round { .Circle(1.0) }` resolves `.Circle`.
+- A forgotten `else` shows as a Maybe where the value is used. `fn label(n:
+  Int) -> String { if n > 0 { "positive" } }` is the error `return type
+  mismatch: expected String, got Maybe<String>`, with the help ``an `if`
+  without `else` is a `Maybe`, `None` when no branch runs; add an `else` to
+  return a String``. Before a block's end, `if c { 5 }` is the error
+  `non-final expression has type Maybe<Int>, but only Unit results can be
+  ignored`, whose help says so too.
+
+```nomi
+fn sign(n: Int) -> Maybe<String> {
+    if n > 0 {
+        "positive"
+    } else if n < 0 {
+        "negative"
+    }
+}
+
+fn main() {
+    dbg sign(3) // Some("positive")
+    dbg sign(0) // None
+}
+```
+
 - The branches have one type. Two types are the error `if/else branch type
   mismatch: then is Range<Int>, else is List<Int>`. Two joins need nothing
   written: a concrete type beside an interface it implements is the
@@ -3772,8 +3820,9 @@ fn in_order(values: Range<Int>, descending: Bool) -> Iter<Int> {
 
 **Pattern `if`.** `if Pattern = value { ... } else { ... }` runs the first
 branch when the value matches the pattern, with the pattern's names bound
-there only, and the `else` branch otherwise. Without `else` the expression is
-`Unit`.
+there only, and the `else` branch otherwise. Without `else` it is a `Maybe` of
+the branch's value, or `Unit`, as an `if` without `else` is:
+`if Some(n) = m { n + 1 }` is a `Maybe<Int>`.
 
 ```nomi
 fn label(maybe_name: Maybe<String>) -> String {
@@ -3881,7 +3930,7 @@ or `continue`. Statements end at a newline (§2).
   (§7 *Returning*).
 
 ```nomi
-import std/io
+import std::io
 
 fn main() {
     total = 2 + 3
@@ -3934,7 +3983,7 @@ Taught in [App Fields, Defer and Context](/app-fields/#defer-runs-block-scoped-c
   `setup` runs when that test finishes (§15, §17).
 
 ```nomi
-import std/io
+import std::io
 
 fn work(n: Int) -> Int {
     defer io.print("a ${n}")
@@ -4006,7 +4055,7 @@ the function when it fails (§17). The function must return a
 ``. An assertion in a lambda is an error.
 
 ```nomi
-import std/assertions.AssertionFailure
+import std::assertions.AssertionFailure
 
 fn checked(n: Int) -> Result<Int, AssertionFailure> {
     assert n > 2
@@ -4058,6 +4107,12 @@ value equal to the literal. The value must have the literal's type, at any
 depth. A literal never converts: `case n { "a" -> ... }` over an `Int` is the
 error `pattern "a" is a String, but the value is an Int`, and `3` does not
 match a `Float` (write `3.0`).
+
+The constants are patterns too. `True`, `False` and `None` are variant
+patterns (*Variant patterns*), and `Unit` matches the one value of type
+Unit, so it covers its type: `Ok(Unit)` and `Err(e)` are exhaustive over a
+`Result<Unit, E>`. `Unit` over a value of another type is the error
+`pattern Unit is a Unit, but the value is an Int`.
 
 ### Variant patterns
 
@@ -4649,8 +4704,8 @@ enum Result<T, E> {
 
 A program handles one with `case`, a pattern `if`, a binding with `else` (§10
 *Bindings with `else`*), `?` (*Propagating with `?`*) or `!` (*Unwrapping with
-`!`*). The functions over them are in [std/maybe](/reference/maybe/) and
-[std/results](/reference/results/).
+`!`*). The functions over them are in [std::maybe](/reference/maybe/) and
+[std::results](/reference/results/).
 
 ### Propagating with `?`
 
@@ -5371,6 +5426,28 @@ from the function's `where`, its impl block's, or its type's declaration. That
 covers an interface-qualified call or pipe, `"${value}"`, an ordering or
 arithmetic operator, and a call of a generic function that bounds it.
 
+A `T` value with `where T: Iface` also enters any position of type `Iface`:
+a parameter, an annotated binding, a list element, a result or a struct
+field. It is held there as an interface value of the type argument the
+caller passed (*Interface values*). For a generic interface the bound's type
+arguments must be the position's: `where T: Conv<String>` does not make a
+`T` a `Conv<Int>`.
+
+```nomi
+fn take(x: Display) -> String {
+    "${x}"
+}
+
+fn wrap<T>(v: T) -> String where T: Display {
+    take(v)
+}
+```
+
+Without the bound it is the position's ordinary mismatch, with a hint
+showing the signature with the bound added: `take(v)` in `fn wrap<T>(v: T)
+-> String` is `argument 1: expected Display, got T`, with the help ``require
+it in the signature: `fn wrap<T>(v: T) -> String where T: Display` ``.
+
 - Without the bound the use is an error: `` `x` is a `T`, and `f` does not
   require Display of `T` ``, with a hint showing the signature with `where T:
   Display`. A value that holds `T` is reported as `` `xs` holds values of `T`,
@@ -5772,7 +5849,7 @@ fn main() {
   A derive in another file is an error.
 - **Scope.** The interface name resolves through ordinary scope: it counts as a
   use, and a name not in scope is an error with the import to add: ``
-  `ToJson` is not in scope — import `std/json.ToJson` ``. Names in `with`
+  `ToJson` is not in scope — import `std::json.ToJson` ``. Names in `with`
   options are uses too. `Debug` needs no import. Names only the synthesized
   code uses (`Ordering`, `True`, the recursive calls, `Map.get` in `derive
   FromJson`) need none.
@@ -5831,7 +5908,7 @@ fn main() {
   (`User.from_json(value)`), an explicit type argument
   (`FromJson.from_json<User>(value)`) or an expected type. `Json.encode_as` and
   `Json.decode_as` convert and encode or decode in one call
-  ([std/json](/reference/json/)).
+  ([std::json](/reference/json/)).
 
 `derive Debug` on a type that is neither opaque nor a host type is redundant,
 since the synthesized `Debug` is the same. It is accepted.
@@ -5868,7 +5945,7 @@ Taught in [Iteration and Loops](/iteration-and-loops/).
 
 Taught in [Collections](/collections/#iter).
 
-`Iter<T>` in `std/iter` is the one iteration protocol. It is a push iterator:
+`Iter<T>` in `std::iter` is the one iteration protocol. It is a push iterator:
 
 ```nomi
 interface Iter<T> {
@@ -5898,7 +5975,7 @@ interface Iter<T> {
 - `each_while` reads a value it never changes, so an iterator can be run
   again. A stream's iterators (`Reader.lines`, `Reader.chunks`, `io.lines`) are
   the exception: they read the stream as they run
-  ([std/io](/reference/io/#standard-streams)).
+  ([std::io](/reference/io/#standard-streams)).
 - An `Iter<T>` is an ordinary value: a binding, a parameter, a result, a
   field, a tuple or record part, a payload, a list element and a capture can
   hold one. Holding it runs nothing, and each consumer runs it from its start.
@@ -5909,7 +5986,7 @@ interface Iter<T> {
 `Map<K, V>` is an `Iter<#(K, V)>`, `String` an `Iter<String>` of grapheme
 clusters, and `Maybe<T>` an `Iter<T>` of zero or one element. A range is an
 `Iter` when its element type is `Discrete` (§3 *Range literals*). What each std
-source yields is in [std/iter](/reference/iter/).
+source yields is in [std::iter](/reference/iter/).
 
 **A collection is an `Iter`; an `Iter` is not a collection.** An `Iter<T>`
 where a collection is expected (an annotation, an argument, a field, an
@@ -5940,7 +6017,7 @@ line 6: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; l
 A terminal that may stop early (`first`, `find`, `any`, ...) does not trap.
 An iterator that never ends without saying so (a type that does not write
 `is_infinite`, a `take_while` whose predicate never fails) runs until
-something stops it. [std/iter](/reference/iter/) lists when each adapter is
+something stops it. [std::iter](/reference/iter/) lists when each adapter is
 infinite and which terminals trap.
 
 When the whole pipeline is written where the terminal is, the checker reports
@@ -5971,7 +6048,7 @@ fn coins(coin: Int) -> List<Int> {
 
 Every generic iteration algorithm is an owner function of `Iter` over any
 `Iter<T>`: `Iter.map`, `Iter.filter`, `Iter.reduce`, `Iter.count`, and the rest
-([std/iter](/reference/iter/)). They are owner functions, not interface
+([std::iter](/reference/iter/)). They are owner functions, not interface
 functions, and do not dispatch; `known_count` and `is_infinite` are the only
 dispatched defaults.
 
@@ -6030,7 +6107,7 @@ fn main() {
 Taught in [Iteration and Loops](/iteration-and-loops/#loops-with-iterloop).
 
 `Iter.loop(start, step)` calls `step` with a state, `start` first, and takes
-its result as the next state, until a `break`. `import std/iter.Iter.{loop}` allows the bare `loop`.
+its result as the next state, until a `break`. `import std::iter.Iter.{loop}` allows the bare `loop`.
 
 ```nomi
 fn main() {
@@ -6070,7 +6147,7 @@ fn main() {
   (§7 *Tail-call optimization*).
 
 ```nomi
-import std/io
+import std::io
 
 fn main() {
     // stateless: echo lines until "quit" or the end of the input
@@ -6183,70 +6260,90 @@ Taught in [Modules & Imports](/modules-and-imports/#files-and-modules).
 
 A **file** is one `.nomi` source file. It is the unit of import, scope and visibility. A **Nomi module** is the directory tree rooted at a `nomi.toml`, with a `go.mod` when it is distributed. It is what ships together, and it is the unit the orphan rule (§12) checks. Projects, `nomi.toml` and dependencies are in the [tooling reference](/tooling/modules-and-dependencies/).
 
-A file's import path is its path from the module root, without `.nomi`, with `/` between directories. Nothing in the file declares it, so renaming the file renames the path.
+A file's import path is its path from the module root, without `.nomi`, with `::` between directories. Nothing in the file declares it, so renaming the file renames the path.
 
 | File | Import path |
 |---|---|
 | `users.nomi` | `users` |
-| `users/helpers.nomi` | `users/helpers` |
-| `http/request.nomi` | `http/request` |
+| `users/helpers.nomi` | `users::helpers` |
+| `http/request.nomi` | `http::request` |
 
-File names are snake_case. A file cannot be reopened or split across files. Importing `http` does not import `http/request`; each file is imported on its own.
+File names are snake_case. A file cannot be reopened or split across files. Importing `http` does not import `http::request`; each file is imported on its own.
 
-A **file API object** is the qualifier a path-only import binds: `import http/request` binds `request`, and `request.get(...)` calls its `pub fn get`. Inside a file, the last segment of its own path is also that file's qualifier when no top-level declaration of the file has that name: `users.nomi` may call its own `pub fn new` as `users.new(...)`. In `main.nomi`, `fn main` owns the name, so there is no `main` qualifier.
+A **file API object** is the qualifier a path-only import binds: `import http::request` binds `request`, and `request.get(...)` calls its `pub fn get`. Inside a file, the last segment of its own path is also that file's qualifier when no top-level declaration of the file has that name: `users.nomi` may call its own `pub fn new` as `users.new(...)`. In `main.nomi`, `fn main` owns the name, so there is no `main` qualifier.
 
-**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app/models/user` inside `my_app`). A path into another module starts with that module's short name: `import sqlite/driver` names `driver.nomi` at the root of module `sqlite`. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root. From another module, a dependency's short name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite/sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file has no file named by its short name alone. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a/internal/x` from `main.nomi` at the root is the error `cannot import "a/internal/x" from "main": outside the parent subtree of a/internal/`.
+**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another module starts with that module's short name: `import sqlite::driver` names `driver.nomi` at the root of module `sqlite`. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root. From another module, a dependency's short name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file has no file named by its short name alone. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a::internal::x` from `main.nomi` at the root is the error `cannot import "a::internal::x" from "main": outside the parent subtree of a/internal/`.
 
 ### Import forms
 
 Taught in [Modules & Imports](/modules-and-imports/#import-syntax).
 
-Import paths separate segments with `/`. An import takes one of these forms:
+Import paths separate segments with `::`, written with no space around it. An import takes one of these forms:
 
 | Form | Binds |
 |---|---|
-| `import http/request` | the file API object `request` |
-| `import http/request as req` | the file API object, renamed `req` |
+| `import http::request` | the file API object `request` |
+| `import http::request as req` | the file API object, renamed `req` |
 | `import task_parser.parse` | the exported item `parse`, bare |
-| `import std/maybe.Maybe.Some as Just` | an item, renamed |
+| `import std::maybe.Maybe.Some as Just` | an item, renamed |
 | `import users.{User, Role}` | each listed item |
-| `import std/io.{self, print}` | `self` binds the file API object `io`, beside `print` |
+| `import std::io.{self, print}` | `self` binds the file API object `io`, beside `print` |
 | `import shape.Shape.{Circle, Square}` | variants selected through their enum |
-| `import std/calendar.Disambiguation.{self, Earlier}` | `self` binds the owner type `Disambiguation`, beside the variant |
+| `import std::calendar.Disambiguation.{self, Earlier}` | `self` binds the owner type `Disambiguation`, beside the variant |
 
 Several imports may be written as one block, one entry per line, with no commas:
 
 ```nomi
 import {
-    std/io.{self, print}
-    std/maybe.Maybe.{None as Nothing, Some as Just}
-    http/request
+    std::io.{self, print}
+    std::maybe.Maybe.{None as Nothing, Some as Just}
+    http::request
 }
 ```
 
 The rules:
 
-- `X.Y` after an import names a member of `X`, never a file: `import utils/inner.Thing` needs `utils/inner.nomi`, and does not look inside `utils.nomi`. A top-level function imported this way is called bare; a file imported path-only is reached through its qualifier.
-- Between the path and the selected names, only PascalCase segments are owners, since an owner is a type. A lowercase segment after a dot with more after it is a path segment, so `import std.io.print` is `import std/io.print`.
-- Braces select names from one file; a path cannot be grouped. `import std/{io, regex.Regex}` is the error `` braces select names from one file, as in `std/regex.{Regex, Match}` ``.
+- `X.Y` after an import names a member of `X`, never a file: `import utils::inner.Thing` needs `utils/inner.nomi`, and does not look inside `utils.nomi`. A top-level function imported this way is called bare; a file imported path-only is reached through its qualifier.
+- Between the path and the selected names, only PascalCase segments are owners, since an owner is a type. A lowercase segment after a dot with more after it is a path segment, so `import std.io.print` is `import std::io.print`.
+- A `/` between segments is an error that spells the path with `::`: `import std::io` is `` import paths use `::`: write `std::io` ``. A `::` with a space on either side joins nothing, and is the error `` `::` joins the lowercase segments of a file's path, with no space around it, as in `std::io` or `db::posts.post_by_id` ``.
+- Braces select names from one file; a path cannot be grouped. `import std::{io, regex.Regex}` is the error `` braces select names from one file, as in `std::regex.{Regex, Match}` ``.
 - A selector list cannot hold another: `import shapes.{self, Shape.{Circle, Square}}` is the error `a selector list cannot hold another list`. Write `shapes` and `shapes.Shape.{Circle, Square}` as two entries of a block.
 - A variant is imported through its enum. `import shape.Circle` is the error `` cannot import variant 'Circle' directly — use 'import shape.Shape.{Circle}' to lift specific variants, or 'import shape.{Shape}' and qualify as 'Shape.Circle' ``.
 - There is no glob import (`import path.*`).
-- Standard library files start with `std/`: `import std/io`. `std` alone names a module, not a file. `import std` is the error `` `std` is a module, not a file; an import names a file in it ``, whose hint suggests `std/io`, and `import std.io` is the same error with the hint ``did you mean `import std/io`?``.
+- Standard library files start with `std::`: `import std::io`. `std` alone names a module, not a file. `import std` is the error `` `std` is a module, not a file; an import names a file in it ``, whose hint suggests `std::io`, and `import std.io` is the same error with the hint ``did you mean `import std::io`?``.
 
 Two imports that bind one name to two declarations are an error at the second: `import a.{Thing}` then `import b.{Thing}` is `'Thing' is already imported on line 1 from another file; two imports cannot bind one name`, with the hint to import one under another name (`Thing as OtherThing`). Importing the same declaration twice is an unused import.
 
-A top-level declaration may not share a name with an imported name: `import other.helper` beside `fn helper` is `'helper' is already defined in this scope as a function`. Alias the import to keep both.
+A top-level declaration may not share a name with an imported item: `import other.helper` beside `fn helper` is `'helper' is already defined in this scope as a function`. A file import's short name is different; see *Short names and full paths* below.
 
-**Placement.** Imports come first: at the top of a file, before any declaration, and at the top of a block, before any other statement. An import after a declaration is the error `imports must appear at the top of the file — 'std/io' came after another statement`, and one after a statement in a block is `imports must appear at the top of this block — 'std/io' came after another statement`.
+### Short names and full paths
+
+Taught in [Modules & Imports](/modules-and-imports/#short-names-and-full-paths).
+
+An import that binds a file binds it under two names: its **short name**, the last segment of its path or its `as` alias, and its **full path**. After `import db::posts`, `posts.post_by_id(1)` and `db::posts.post_by_id(1)` call the same function. A file is used by its short name; the full path is how a file is reached when its short name is taken.
+
+The full path may be written wherever the short name may: a call (`db::posts.post_by_id(1)`), a type (`views::admin::users.UserDetail`, `std::http.Response<Int>`), a pattern (`db::schema.Kind.Draft`, `db::schema.Post{id, title}`), a struct literal (`db::schema.Post{id: 1, title: "x"}`), an owner function (`db::schema.Post.blank()`) and a variant (`db::schema.Kind.Published(4)`). Like a short name, a full path alone is not a value: `` `db::posts` is a file, not a value; name one of its members, as in `db::posts.name` ``.
+
+- **A full path names an imported file.** It names a file this file imports path-only, with an alias or with `self` in its brace list. Any other full path is the error `` `views::admin::reports` is not imported `` at the path, whose hint is `` a full path names a file this file imports: add `import views::admin::reports` ``. A full path never imports a file on its own.
+- **Two imports may share a short name.** `import db::notifications` beside `import jobs::notifications` is not an error. Neither file is reachable by `notifications`: a use of it is the error `` `notifications` could be db::notifications or jobs::notifications; write the full path ``, at the use, and each file is reached by its full path.
+- **A declaration keeps its name.** A top-level declaration of the file named like an import's short name is what the name means, as a local would be, and the file is reached by its full path: beside `fn users`, `import views::admin::users` is used as `views::admin::users.render(u)`.
+- **A local keeps its name.** A local, a parameter or a pattern binding named like an import's short name wins in its scope, and `name.member` there reads the local. The file stays reachable by its full path.
+- When a member access on a local or a declaration fails and the file imports a file of that short name, the error's hint names the full path: `views.record(...)` where `views` is a function and `db::views` is imported is `` () -> Int has no field 'record' ``, with the hint `` `views` here is the function on line 3, not the file db::views; write `db::views.record` ``.
+- An import used only by its full path is used. An import whose file nothing uses, by either name, is an unused import.
+- An alias is a short name. `import jobs::mail as notifications` binds the file as `notifications` and as `jobs::mail`.
+- A file at the module root has a one-segment path, so its full path is its short name. Where that name is taken, import the file with its module's name in front (`import my_app::users`, *Files and modules* above), and `my_app::users` is its full path.
+
+Prefer the short name, and write the full path only where the short name is ambiguous or taken (Writing Nomi: *Imports*).
+
+**Placement.** Imports come first: at the top of a file, before any declaration, and at the top of a block, before any other statement. An import after a declaration is the error `imports must appear at the top of the file — 'std::io' came after another statement`, and one after a statement in a block is `imports must appear at the top of this block — 'std::io' came after another statement`.
 
 An import inside a function body binds its names in that block only, and shadows a file-level binding of the same name. It costs nothing per call.
 
 ```nomi
-import std/io
+import std::io
 
 fn main() {
-    import std/io.print
+    import std::io.print
 
     print("bare")
     io.print("qualified")
@@ -6264,12 +6361,12 @@ Every file outside the standard library starts with the imports in `std/prelude.
 
 What it leaves out:
 
-- File API objects. `String` is in scope but `strings` is not, so `String.uppercase(s)` needs no import and `io.print` needs `import std/io`.
+- File API objects. `String` is in scope but `strings` is not, so `String.uppercase(s)` needs no import and `io.print` needs `import std::io`.
 - Bare functions. The prelude binds types, interfaces and variants only.
 - `Ordering`'s variants. Code writes `Ordering.Less` or `.Less`.
 - `Literal` and `Fragment` (§18 *Typed literals*) and assertion types such as `Assertable` and `AssertionFailure`. Code that names them imports them.
 
-Owner functions on a prelude type need no import (`Iter.map`, `Map.get`, `Result.is_ok`). An owner function on another type needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`).
+Owner functions on a prelude type need no import (`Iter.map`, `Map.get`, `Result.is_ok`). An owner function on another type needs that type imported (`import std::assertions.AssertionFailure` for `AssertionFailure.format`).
 
 Standard library files do not get the prelude; each imports what it uses. A std file's `//!` prompts (§17 *Attached tests*) see the file's scope, so a prompt that writes a bare `False` needs the file to import it.
 
@@ -6297,19 +6394,19 @@ An import path that names no file is an error at the path, in every import form,
 | Case | Error |
 |---|---|
 | No such file | ``no module `lib`: no file lib.nomi in this file's directory`` |
-| No such file in a directory | ``no module `utils/inner`: no file inner.nomi in utils/`` |
-| No such std module | ``no module `std/nosuch`: the standard library has no nosuch.nomi`` |
+| No such file in a directory | ``no module `utils::inner`: no file inner.nomi in utils/`` |
+| No such std module | ``no module `std::nosuch`: the standard library has no nosuch.nomi`` |
 | No file, no directory, and no `require` in `go.mod` | ``no module `csvdata`: no file csvdata.nomi in this file's directory, and go.mod has no `require` line for `csvdata` `` |
 | A `replace` with no `require` | `` go.mod replaces `csvdata` with ../csvdata but does not require it; run `nomi add ../csvdata` `` |
 | A required module with no `nomi.toml` | ``no module `csvdata`: go.mod replaces `csvdata` with ./generators/csvdata, which has no nomi.toml`` |
 
-A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or a file inside a directory the path names (`` `sub` is a directory; import a file in it, such as `sub/inner` ``). When `go.mod` requires a module the Go module cache does not hold, the hint says to run `nomi fetch`. When the first name is neither a file nor a directory and `go.mod` does not require it, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or directory otherwise.
+A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or a file inside a directory the path names (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When `go.mod` requires a module the Go module cache does not hold, the hint says to run `nomi fetch`. When the first name is neither a file nor a directory and `go.mod` does not require it, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or directory otherwise.
 
-A selected name the file does not export is an error at the name: `file 'std/io' has no exported name 'nosuchname'`.
+A selected name the file does not export is an error at the name: `file 'std::io' has no exported name 'nosuchname'`.
 
 #### Unused imports are errors
 
-An imported item that nothing in the file uses is an error. There are no warnings in Nomi. The unit is the item: in `import std/calendar.{Days, Months}` with `Months` unused, the error is at `Months`, `imported name 'Months' is unused — remove it from the import`. An unused file import is `imported module 'io' is unused — remove the import`.
+An imported item that nothing in the file uses is an error. There are no warnings in Nomi. The unit is the item: in `import std::calendar.{Days, Months}` with `Months` unused, the error is at `Months`, `imported name 'Months' is unused — remove it from the import`. An unused file import is `imported module 'io' is unused — remove the import`.
 
 - An aliased item is used through its alias.
 - `self` in a brace list is its own item, used when the name it binds is used.
@@ -6322,13 +6419,13 @@ An import of a whole project file also brings that file's impl blocks into the p
 
 #### Re-importing a prelude name is an error
 
-Importing a name the prelude already binds is an error at the item, even when the item is used: `import std/iter.Iter` is `imported name 'Iter' is already in scope from the prelude — remove it from the import`. A `self` under a prelude type (`import std/maybe.Maybe.{self, None}`) is the same error. The rule follows from `prelude.nomi` and applies only where the prelude is in scope, so standard library files are exempt.
+Importing a name the prelude already binds is an error at the item, even when the item is used: `import std::iter.Iter` is `imported name 'Iter' is already in scope from the prelude — remove it from the import`. A `self` under a prelude type (`import std::maybe.Maybe.{self, None}`) is the same error. The rule follows from `prelude.nomi` and applies only where the prelude is in scope, so standard library files are exempt.
 
 These are not re-imports:
 
-- a whole-file import (`import std/strings`), since the prelude binds no file API object;
-- an aliased item (`import std/iter.Iter as It`), which binds a new name;
-- a selection below what the prelude binds (`import std/comparable.Ordering.{Less}` binds bare `Less`);
+- a whole-file import (`import std::strings`), since the prelude binds no file API object;
+- an aliased item (`import std::iter.Iter as It`), which binds a new name;
+- a selection below what the prelude binds (`import std::comparable.Ordering.{Less}` binds bare `Less`);
 - a same-named item of another module, since identity is the resolved declaration, not the spelling.
 
 ### Visibility
@@ -6382,7 +6479,7 @@ test "area" {
 - **Impl functions follow the interface.** If the interface is `pub`, other files can call an impl's functions; if it is private, they cannot. There is no per-function `pub` in an `impl Iface for Type` block.
 - **No renames at the declaration.** A declaration is published under its own name. An imported item is re-exported under its local name.
 - **`opaque`.** `pub opaque struct`, `pub opaque enum` and `pub opaque type Name Inner` publish the type's name and keep its construction, destructuring and field access private (§4 *Opaque distinct types*). `opaque` on anything else is an error: `'pub opaque' must be followed by 'struct', 'enum', or 'type'`, and on a zero-sized type `` cannot declare 'Marker' as opaque — zero-sized distinct types have no representation to hide ``.
-- **Std's internals.** A std file's private declarations, and the internal modules `std/message_format` and `std/money_format`, belong to std. Naming one is the error `` `message.compiled` is internal to std/message ``, or `` `std/money_format` is internal to std/money `` for an import.
+- **Std's internals.** A std file's private declarations, and the internal modules `std::message_format` and `std::money_format`, belong to std. Naming one is the error `` `message.compiled` is internal to std::message ``, or `` `std::money_format` is internal to std::money `` for an import.
 
 ### Visibility consistency
 
@@ -6419,13 +6516,13 @@ Taught in [Modules & Imports](/modules-and-imports/#re-exports).
 
 ```nomi
 pub import {
-    std/bool.Bool.{self, False, True} // the type and its variants
-    std/io.{print, write}
+    std::bool.Bool.{self, False, True} // the type and its variants
+    std::io.{print, write}
     other.{Helper as Helpr, Thing}
 }
 ```
 
-- **Items only, never a file.** `pub import leaf`, `pub import leaf as lf` and a brace list whose `self` is the file (`pub import std/io.{self, Error}`) are each the error `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file. A `self` after an owner type (`Bool.{self, False, True}`) is the type, and is re-exported like any item.
+- **Items only, never a file.** `pub import leaf`, `pub import leaf as lf` and a brace list whose `self` is the file (`pub import std::io.{self, Error}`) are each the error `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file. A `self` after an owner type (`Bool.{self, False, True}`) is the type, and is re-exported like any item.
 - A file that a facade imports is not one of the facade's items: `import facade.{leaf}` is the error `` `leaf` is a file that `facade` imports, not an item it exports; import `leaf` directly ``.
 - The upstream item must be public: `pub import other.{private_thing}` is `'private_thing' is private and cannot be imported`.
 - `pub import` applies only to imported names. To publish a local declaration under another name, rename it or write a wrapper.
@@ -6444,6 +6541,7 @@ How `X.Y` resolves:
 
 1. When `X` is a value (a local, a parameter, a `once`, a local function), `X.Y` is field access on that value. A file of the same name is never consulted, since files are not values.
 2. When `X` is an imported file API object, type or interface, `X.Y` is a qualified name, and `Y` must be a public member of `X`.
+3. When `X` is a full path (`db::posts`), `X.Y` is always a qualified name: nothing shadows a full path.
 
 ## 15. Program execution
 
@@ -6471,10 +6569,10 @@ fn run() -> Result<Unit, String> {
 } // as `main`: prints `error: config file not found` and exits 1
 ```
 
-To choose the status, `main` returns std/process's `Exit` in its `Err`. `Exit` is a struct with the fields `code: Int = 1` and `message: String = ""`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to standard error, with no `error: ` before it, when the message is not empty, and exits with `e.code`. A code of 0 exits 0, and its message still prints. A code outside 0 to 255 is the trap `exit code 300 is outside 0 to 255`, and exits 1.
+To choose the status, `main` returns std::process's `Exit` in its `Err`. `Exit` is a struct with the fields `code: Int = 1` and `message: String = ""`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to standard error, with no `error: ` before it, when the message is not empty, and exits with `e.code`. A code of 0 exits 0, and its message still prints. A code outside 0 to 255 is the trap `exit code 300 is outside 0 to 255`, and exits 1.
 
 ```nomi
-import std/process.Exit
+import std::process.Exit
 
 fn run() -> Result<Unit, Exit> {
     Err(Exit{code: 2, message: "usage: count <file>"})
@@ -6507,7 +6605,7 @@ pub struct Startup {
 Startup is not ambient. Boot passes what helpers need as ordinary arguments, and a test builds one as an ordinary struct (`Startup{args: ["-v"]}`). The runtime calls a boot that takes no parameter with no arguments, and passes the process's `Startup` to one that takes it. The parameter may have a default, `startup: Startup = Startup{}`; the runtime always passes the real one, so the default serves only a `group`'s `boot` line that passes none (§17 *Groups*).
 
 ```nomi
-import std/io
+import std::io
 
 struct App {
     name: String
@@ -6566,7 +6664,7 @@ fn in_region() {
 An override changes the fields in force; it does not change values already computed. A closure reads the fields in force when it is called, not when it was created. A task started with `Task.spawn` takes a snapshot of the fields in force when it starts.
 
 ```nomi
-import std/io
+import std::io
 
 struct App {
     greeting: String
@@ -6615,7 +6713,7 @@ A `defer` in the outer block of an entry boot runs after `main` returns and the 
 A boot that returns `Err(e)` fails the program: `main` does not run, work boot started is stopped, the calls boot registered with `defer` run, most recent first, and the program exits as one whose `main` returned `Err(e)` does (*Exit status* above). A program with exported functions answers that error in place of the booted program (§7 *Exported Functions*). In a `group`, a boot that returns `Err` fails each test it serves before the body runs, with the report of an early `?` (§17 *Groups*). A trap in boot is a trap like any other.
 
 ```nomi
-import std/io
+import std::io
 
 struct App {
     name: String
@@ -6653,12 +6751,12 @@ The context is a field rather than an ambient value so that each `with` line is 
 
 #### Context values
 
-A context value is metadata that follows the current unit of work: a trace ID, an auth subject, a request ID. It is not how a program passes dependencies (use application fields such as `App.store`) or a locale (pass a `Locale`, [std/locale](/reference/locale/#how-code-gets-a-locale)).
+A context value is metadata that follows the current unit of work: a trace ID, an auth subject, a request ID. It is not how a program passes dependencies (use application fields such as `App.store`) or a locale (pass a `Locale`, [std::locale](/reference/locale/#how-code-gets-a-locale)).
 
-A value's Nomi type is its key. `Context.with_value(c, v)` returns a child of `c` holding `v` under `v`'s type, and `Context.value(c, TraceId)` the nearest value of that type from `c` up through its ancestors; `TraceId` there is a type witness (§4 *Type witnesses*). [std/context](/reference/context/) has the functions.
+A value's Nomi type is its key. `Context.with_value(c, v)` returns a child of `c` holding `v` under `v`'s type, and `Context.value(c, TraceId)` the nearest value of that type from `c` up through its ancestors; `TraceId` there is a type witness (§4 *Type witnesses*). [std::context](/reference/context/) has the functions.
 
 ```nomi
-import std/io
+import std::io
 
 type TraceId String
 
@@ -6680,7 +6778,7 @@ fn main() {
 }
 ```
 
-The functions of `Context` are in [std/context](/reference/context/).
+The functions of `Context` are in [std::context](/reference/context/).
 
 ## 16. Concurrency
 
@@ -6694,12 +6792,12 @@ Taught in [Concurrency](/concurrency/#concurrent-taskspawn-taskawait).
 
 Control flow in the block is scoped to the block, as in a lambda: `return`, `?`, `break` and `continue` leave the block, not the enclosing function. Any exit other than reaching the end cancels every task still running in the block before the exit continues outward.
 
-`Task<T>`, from `std/tasks`, is the handle of a running task; `T` is its body's result. `Task.spawn(body)` starts `body`, a function of no parameters, as a task of the enclosing block, and returns its `Task<T>` at once. The body runs alongside the code that started it, and the values it captures are shared, immutably. `Task.await(task)` waits for the task and returns its `T`. The other task operations (`Task.spawn_all`, `Task.await_all`, `Task.outcome`, `Task.cancel`) are in [std/tasks](/reference/tasks/).
+`Task<T>`, from `std::tasks`, is the handle of a running task; `T` is its body's result. `Task.spawn(body)` starts `body`, a function of no parameters, as a task of the enclosing block, and returns its `Task<T>` at once. The body runs alongside the code that started it, and the values it captures are shared, immutably. `Task.await(task)` waits for the task and returns its `T`. The other task operations (`Task.spawn_all`, `Task.await_all`, `Task.outcome`, `Task.cancel`) are in [std::tasks](/reference/tasks/).
 
 ```nomi
 import {
-    std/io
-    std/tasks.Task
+    std::io
+    std::tasks.Task
 }
 
 fn square(n: Int) -> Int {
@@ -6781,17 +6879,17 @@ A task that was cancelled, or whose deadline has passed, stops at the first safe
 
 Taught in [Concurrency](/concurrency/#channels).
 
-A channel is a typed FIFO queue between tasks, held as two halves. `std/channels` declares `Channel<T>`, a struct of a `Sender<T>` (`ch.sender`) and a `Receiver<T>` (`ch.receiver`). A function that takes one half can use only that direction; nothing at run time keeps the halves apart.
+A channel is a typed FIFO queue between tasks, held as two halves. `std::channels` declares `Channel<T>`, a struct of a `Sender<T>` (`ch.sender`) and a `Receiver<T>` (`ch.receiver`). A function that takes one half can use only that direction; nothing at run time keeps the halves apart.
 
-- `Sender.send` returns an `Err` once the channel is closed, and `Receiver.receive` returns `None` once it is closed and drained. Only a `Sender` closes it. [std/channels](/reference/channels/) has the functions.
+- `Sender.send` returns an `Err` once the channel is closed, and `Receiver.receive` returns `None` once it is closed and drained. Only a `Sender` closes it. [std::channels](/reference/channels/) has the functions.
 - A `send`, `receive` or `select` blocked when its context is cancelled unwinds like any cancelled wait.
 - A channel belongs to no block. It may be made in one block, returned, and used in a later one, and its memory is reclaimed when nothing refers to it.
 
 ```nomi
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/io
-    std/tasks.Task
+    std::channels.{Channel, Receiver, Sender}
+    std::io
+    std::tasks.Task
 }
 
 fn produce(out: Sender<Int>, n: Int) -> Unit {
@@ -6833,8 +6931,8 @@ fn main() -> Unit {
 
 ```nomi
 import {
-    std/channels.{Arm, Channel}
-    std/duration.Duration
+    std::channels.{Arm, Channel}
+    std::duration.Duration
 }
 
 fn main() {
@@ -6857,22 +6955,22 @@ fn main() {
 
 `Receiver.receive_within(receiver, wait)` is the one-channel case: `Ok(Some(value))`, `Ok(None)` when the channel is closed and drained, or `Err(TimedOut)` when `wait` runs out first. A value already waiting is received even when `wait` is zero.
 
-Fan-in from producers that share one message type needs no `select`: they send on one channel of a tagged enum, as [std/channels](/reference/channels/#multiplexing) shows. `select` is for timeouts, sends that must not block, and channels of different types or owners.
+Fan-in from producers that share one message type needs no `select`: they send on one channel of a tagged enum, as [std::channels](/reference/channels/#multiplexing) shows. `select` is for timeouts, sends that must not block, and channels of different types or owners.
 
 ### Supervision
 
 Taught in [Background Work](/background-work/#declaring-your-supervisors).
 
-Long-lived background work is owned by a `Supervisor`, from `std/supervisors`. A supervisor is a set of tasks that share one policy: a required `max_running` bound, a shutdown budget (`shutdown_timeout`, with a default for ordinary background work) and a restart policy. `max_running` is required because no default bound is safe for an unknown downstream.
+Long-lived background work is owned by a `Supervisor`, from `std::supervisors`. A supervisor is a set of tasks that share one policy: a required `max_running` bound, a shutdown budget (`shutdown_timeout`, with a default for ordinary background work) and a restart policy. `max_running` is required because no default bound is safe for an unknown downstream.
 
 A supervisor is created only while `boot` builds the application value, in boot or in something boot calls, and is usually kept in an application field. Anywhere else, `Supervisor.new` is the error `` a supervisor here would be a new one every time this runs, and each is kept for the life of the program with a `max_running` of its own — so the bound would be per call rather than per downstream. Create it while `boot` builds the app value: in boot, or in something boot calls ``.
 
-The checker follows this across the whole program, std included. A function is *boot-only* when it calls `Supervisor.new` or another boot-only function, directly or through any chain of calls in any module: std/jobs's `Worker.new` is one, and so is an app's function that calls it. Code starts running outside boot in `fn main`, in a test body, in a lambda or capture (wherever it is written, since it runs whenever it is called), and in a private function nothing calls. Each call such code makes to a boot-only function is an error at that call, naming the chain down to `Supervisor.new`: `` `make_worker` creates a supervisor (through `Worker.new` at workers.nomi:4, then `Supervisor.new` at jobs.nomi:483), so it can only be called while `boot` builds the app value ``. A call inside a boot-only function is not itself an error; the call into that function is. A `pub` function nothing calls is not checked from inside: it is another module's to call. `boot`, and a function a test group's `boot` calls, runs inside boot. A boot-only function named as a value (`f = Worker.new`) is an error where it is named, in boot too, since a function value may be called anywhere. The runtime traps with the same message as a backstop.
+The checker follows this across the whole program, std included. A function is *boot-only* when it calls `Supervisor.new` or another boot-only function, directly or through any chain of calls in any module: std::jobs's `Worker.new` is one, and so is an app's function that calls it. Code starts running outside boot in `fn main`, in a test body, in a lambda or capture (wherever it is written, since it runs whenever it is called), and in a private function nothing calls. Each call such code makes to a boot-only function is an error at that call, naming the chain down to `Supervisor.new`: `` `make_worker` creates a supervisor (through `Worker.new` at workers.nomi:4, then `Supervisor.new` at jobs.nomi:483), so it can only be called while `boot` builds the app value ``. A call inside a boot-only function is not itself an error; the call into that function is. A `pub` function nothing calls is not checked from inside: it is another module's to call. `boot`, and a function a test group's `boot` calls, runs inside boot. A boot-only function named as a value (`f = Worker.new`) is an error where it is named, in boot too, since a function value may be called anywhere. The runtime traps with the same message as a backstop.
 
 ```nomi
 import {
-    std/duration.Duration
-    std/supervisors.Supervisor
+    std::duration.Duration
+    std::supervisors.Supervisor
 }
 
 struct App {
@@ -6908,7 +7006,7 @@ The program drains every supervisor when `main` returns or the process receives 
 
 #### Failures and restarts
 
-`Task.outcome(task)` reports how a task ended, as std/tasks's `Outcome<T>`:
+`Task.outcome(task)` reports how a task ended, as std::tasks's `Outcome<T>`:
 
 ```nomi
 enum Outcome<T> {
@@ -6918,7 +7016,7 @@ enum Outcome<T> {
 }
 ```
 
-A body that returns `Err(e)` produced a value, so its outcome is `Completed(Err(e))`. `Failed` is a trap (§11 *Traps, `Maybe` and `Result`*). A supervisor may restart failed work, and never restarts a cancelled task, since cancellation is not a failure. [std/supervisors](/reference/supervisors/) has the restart policies and `Supervisor.flush`.
+A body that returns `Err(e)` produced a value, so its outcome is `Completed(Err(e))`. `Failed` is a trap (§11 *Traps, `Maybe` and `Result`*). A supervisor may restart failed work, and never restarts a cancelled task, since cancellation is not a failure. [std::supervisors](/reference/supervisors/) has the restart policies and `Supervisor.flush`.
 
 ## 17. Tests
 
@@ -6972,7 +7070,7 @@ group "defaults" {
 
 **Each test starts fresh.** For each test of a group: its clock is selected, the `boot` line's call runs and publishes the application value, `setup` runs, then the test's body. Nothing carries from one test to the next. A `defer` in the boot or the setup runs when that test finishes, after its body and its work.
 
-**`clock`.** `clock Clock.Virtual` or `clock Clock.System` (the default), with `Clock` from `std/testing`. Under a virtual clock, time moves only when every task in the test is blocked, so a test that sleeps or waits on a deadline costs no time and takes the same path every run. Work that can never finish is reported as a deadlock, and so is a wait on something outside the program (reading input, a network call), since that never lets a virtual clock move.
+**`clock`.** `clock Clock.Virtual` or `clock Clock.System` (the default), with `Clock` from `std::testing`. Under a virtual clock, time moves only when every task in the test is blocked, so a test that sleeps or waits on a deadline costs no time and takes the same path every run. Work that can never finish is reported as a deadlock, and so is a wait on something outside the program (reading input, a network call), since that never lets a virtual clock move.
 
 **`boot`.** The `boot` line calls an entry's boot (§15 *Scoped application fields*) as an ordinary call checked against the boot's signature: `boot server.boot()` calls a boot that takes no parameter or whose parameter has a default, and `boot server.boot(startup)` passes a `Startup`. The test file imports the entry file. A test outside a group, or in a group with no `boot` line, runs with no boot and cannot read application fields. A boot that returns `Err` fails each test it serves before the body runs, with the report of an early `?`: the `boot` line, and the `Err` it returned.
 
@@ -7009,7 +7107,7 @@ group "store" {
 }
 ```
 
-A test's standard input and output are captured with `io.capture` and `io.replay` ([std/io](/reference/io/)), and its files with [std/fs_testing](/reference/fs_testing/).
+A test's standard input and output are captured with `io.capture` and `io.replay` ([std::io](/reference/io/)), and its files with [std::fs_testing](/reference/fs_testing/).
 
 ### Attached tests
 
@@ -7062,12 +7160,12 @@ assert "Ada Lovelace"
     |> String.contains("Ada")
 ```
 
-**`testing.check`.** `testing.check(expr)`, from `std/testing`, takes the subjects `assert` takes and returns `Result<Subject, AssertionFailure>` instead of leaving: `Ok` of the assertion's value, or `Err` of its failure.
+**`testing.check`.** `testing.check(expr)`, from `std::testing`, takes the subjects `assert` takes and returns `Result<Subject, AssertionFailure>` instead of leaving: `Ok` of the assertion's value, or `Err` of its failure.
 
 **A final `Err(AssertionFailure)` fails the test.** A test body or a `setup` whose final value is `Err(AssertionFailure)` fails with that failure's report. The rule reaches through a final `if`, `case` or block to the arm that ran, and applies to `return value`. A body whose final statement is itself an assertion is judged by the assertion. The body still needs an assertion of its own (*Tests* above).
 
 ```nomi
-import std/testing
+import std::testing
 
 test "total" {
     total = 10
@@ -7174,7 +7272,7 @@ A typed literal is a type name written directly against a string literal: `Date"
 
 #### The `Literal` interface
 
-A type backs its literals by implementing `Literal`, from `std/literals`:
+A type backs its literals by implementing `Literal`, from `std::literals`:
 
 ```nomi
 pub interface Literal<I, R> {
@@ -7191,8 +7289,8 @@ The impl chooses `I`, what each `${...}` slot's value must be, and `R`, the lite
 
 ```nomi
 import {
-    std/io
-    std/literals.{Fragment, Literal}
+    std::io
+    std::literals.{Fragment, Literal}
 }
 
 pub struct Box {
@@ -7229,7 +7327,7 @@ The prefix is a type, found by ordinary name lookup, and its `Literal` or `Check
 - A type with no `Literal` impl is ``type 'Plain' has no typed-literal handler — write `impl Literal for Plain { fn from_fragments(fragments: List<Fragment<I>>) -> R }` ``.
 - A slot whose type does not implement `I`, or is not `I`, is an error at the slot: `slot expression of type 'Int' does not match required type 'String' (required by tag 'Joiner')`.
 
-**`Html` is a prefix the compiler knows.** std/html's `Html` has no `Literal` handler: the compiler reads an `Html` literal's text as an HTML template (§18 *HTML templates*), and the literal is an `Html`, never a `Result`. A type named `Html` declared anywhere else is an ordinary prefix, since a type's identity is its declaring file and name.
+**`Html` is a prefix the compiler knows.** std::html's `Html` has no `Literal` handler: the compiler reads an `Html` literal's text as an HTML template (§18 *HTML templates*), and the literal is an `Html`, never a `Result`. A type named `Html` declared anywhere else is an ordinary prefix, since a type's identity is its declaring file and name.
 
 **One `from_fragments` per prefix.** A typed literal names no interface, so its prefix type may declare `from_fragments` only once. When another of its impls, or its inherent block, also declares `from_fragments`, the literal is an error at the prefix that names the rival declaration:
 
@@ -7258,7 +7356,7 @@ Joiner.from_fragments(
 
 A triple-quoted typed literal strips its leading newline, common indentation and trailing newline as a triple-quoted string does, and the `${...}` and `\${` rules of strings apply inside a non-raw body (§3 *String Literals*). A raw (backtick) body has no slots: it is one `Static` holding the text as written.
 
-The type of a double-quoted typed literal is `R`, interpolated or not: `Date"2026-05-04"` is a `Result<Date, Error>`, built when the program runs. A checked literal is an exception: its type is its `build`'s result in every quote style (§18 *Checked literals*), and an `Html` literal is always an `Html`. A `Regex` literal is the one whose type depends on its text: with no `${...}`, `Regex"(\\d+)"` is `Result<Regex<String>, String>`, while `Regex"room ${n}"` is `Result<Regex<List<Maybe<String>>>, String>` ([std/regex](/reference/regex/#capture-types)).
+The type of a double-quoted typed literal is `R`, interpolated or not: `Date"2026-05-04"` is a `Result<Date, Error>`, built when the program runs. A checked literal is an exception: its type is its `build`'s result in every quote style (§18 *Checked literals*), and an `Html` literal is always an `Html`. A `Regex` literal is the one whose type depends on its text: with no `${...}`, `Regex"(\\d+)"` is `Result<Regex<String>, String>`, while `Regex"room ${n}"` is `Result<Regex<List<Maybe<String>>>, String>` ([std::regex](/reference/regex/#capture-types)).
 
 #### Raw literals are checked at compile time
 
@@ -7274,8 +7372,8 @@ A `?` on such a literal is the ordinary error `` `?` requires a Result or Maybe,
 
 ```nomi
 import {
-    std/io
-    std/regex.Regex
+    std::io
+    std::regex.Regex
 }
 
 once letters = Regex`[A-Za-z]+`
@@ -7291,7 +7389,7 @@ When the program runs, a raw literal still calls its handler, once per literal s
 
 #### Checked literals
 
-A type may implement `CheckedLiteral<I, T>` from std/literals instead of `Literal`:
+A type may implement `CheckedLiteral<I, T>` from std::literals instead of `Literal`:
 
 ```nomi
 pub interface CheckedLiteral<I, T> {
@@ -7308,12 +7406,12 @@ Its literals are checked literals. A checked literal's type is `T` in every quot
 
 A type implements `Literal` or `CheckedLiteral`, not both: ``type `Twice` implements both `Literal` and `CheckedLiteral`; a typed literal has one handler``. The orphan rule below applies to both.
 
-std/url's `Url` is a checked literal. A slot in its path, query or fragment is escaped for where it stands, and a slot in its scheme, user or host is a compile error at the slot: ``typed literal Url"https://${host}/greet" is invalid: a slot in the scheme, user or host cannot be escaped``.
+std::url's `Url` is a checked literal. A slot in its path, query or fragment is escaped for where it stands, and a slot in its scheme, user or host is a compile error at the slot: ``typed literal Url"https://${host}/greet" is invalid: a slot in the scheme, user or host cannot be escaped``.
 
 ```nomi
 import {
-    std/io
-    std/url.Url
+    std::io
+    std::url.Url
 }
 
 fn main() {
@@ -7323,12 +7421,12 @@ fn main() {
 }
 ```
 
-std/toml's `Toml` is a checked literal too. Its text, with a stand-in for each slot, must be TOML. A slot in value position (after `=`, or as an array item) is its value's TOML. The slot interface `ToToml` turns the value into a `Toml.Value` (a string, number, boolean, date or time, an array, or an inline table), and the literal writes that itself: a `String` quoted and escaped, a `List` as an array, a `Map<String, V>` as an inline table with quoted keys. No impl writes TOML text, so no slot can add a key. A slot in key position (at the start of a line, after a `.` in a dotted key, in a table header, or as an inline table's key) is one quoted key. A slot anywhere else is a compile error at the slot: ``typed literal Toml"user = \"${name}\"" is invalid: a slot cannot go inside a TOML string; write it where the whole value goes, as in `key = ${value}` ``.
+std::toml's `Toml` is a checked literal too. Its text, with a stand-in for each slot, must be TOML. A slot in value position (after `=`, or as an array item) is its value's TOML. The slot interface `ToToml` turns the value into a `Toml.Value` (a string, number, boolean, date or time, an array, or an inline table), and the literal writes that itself: a `String` quoted and escaped, a `List` as an array, a `Map<String, V>` as an inline table with quoted keys. No impl writes TOML text, so no slot can add a key. A slot in key position (at the start of a line, after a `.` in a dotted key, in a table header, or as an inline table's key) is one quoted key. A slot anywhere else is a compile error at the slot: ``typed literal Toml"user = \"${name}\"" is invalid: a slot cannot go inside a TOML string; write it where the whole value goes, as in `key = ${value}` ``.
 
 ```nomi
 import {
-    std/io
-    std/toml.Toml
+    std::io
+    std::toml.Toml
 }
 
 fn main() {
@@ -7337,7 +7435,7 @@ fn main() {
 }
 ```
 
-A `?` or `!` on a checked literal is the ordinary error for a value that is not a `Result`, and a `?`'s hint says the literal is already its type: `` a `Url` literal is checked when the program is checked, so this one is already a Url: remove the `?` ``. std/literals_testing's `build_each` runs a type's `check` and then its `build` over test values, so a library's tests can hold `build` to its contract.
+A `?` or `!` on a checked literal is the ordinary error for a value that is not a `Result`, and a `?`'s hint says the literal is already its type: `` a `Url` literal is checked when the program is checked, so this one is already a Url: remove the `?` ``. std::literals_testing's `build_each` runs a type's `check` and then its `build` over test values, so a library's tests can hold `build` to its contract.
 
 #### Coherence
 
@@ -7345,14 +7443,14 @@ A handler is an ordinary interface impl, so the impl rules apply (§12). There i
 
 #### HTML templates
 
-An `Html` literal, with std/html's `Html` as its prefix, is a fragment of HTML that the compiler reads when it checks the program. It is zero or more nodes: text, elements and comments, with an optional `<!DOCTYPE html>` at its start. Every element opened in the literal is closed in it.
+An `Html` literal, with std::html's `Html` as its prefix, is a fragment of HTML that the compiler reads when it checks the program. It is zero or more nodes: text, elements and comments, with an optional `<!DOCTYPE html>` at its start. Every element opened in the literal is closed in it.
 
 A small fragment is usually written on one line with double quotes, its attributes quoted with `'`, since a `"` ends the literal. Markup of several lines is triple-quoted:
 
 ```nomi
 import {
-    std/html.Html
-    std/io
+    std::html.Html
+    std::io
 }
 
 fn badge(count: Int) -> Html {
@@ -7361,11 +7459,11 @@ fn badge(count: Int) -> Html {
 
 fn comment(author: String, body: String, likes: Int) -> Html {
     Html"""
-        <article class="comment">
-          <p>${author} ${badge(likes)}</p>
-          <p>${body}</p>
-        </article>
-        """
+    <article class="comment">
+      <p>${author} ${badge(likes)}</p>
+      <p>${body}</p>
+    </article>
+    """
 }
 
 fn main() {
@@ -7393,17 +7491,52 @@ Each `${...}` slot has the context of where it stands, which decides how its val
 
 | Context | Example | The value must be | Written as |
 |---|---|---|---|
-| Element content | `<p>${x}</p>` | `ToHtml` | `String` and numbers escaped as text; `Html` as it is; `List<Html>` joined; `Maybe<Html>`'s `None` as nothing |
-| Text of `<title>` or `<textarea>` | `<title>${t}</title>` | `Display` | escaped text; an `Html` is refused, since its markup could end the element |
-| Quoted attribute value | `class='a ${c}'`, `data-reaction="${kind}"` | `Display` | escaped for an attribute: `&`, `<`, `>`, `"` and `'` |
-| URL attribute, the start of its value | `href="${link}"` | `UrlValue` (`Url`, `SafeUrl`) | a `Url` whose scheme is not `http`, `https`, `mailto` or `tel` as `about:invalid#unsafe-url`; then escaped |
-| URL attribute, after text | `href="/posts/${id}"`, `?q=${q}`, `#${f}` | `Display` | percent-encoded as a path segment (`/` and `:` included), a query value or a fragment, then escaped |
-| `style` attribute | `style="width: ${pct}%"` | `CssValue` (`Int`, `Float`, `Decimal`, `Css`) | a number as written; a `Css` as it is; escaped |
+| Element content | `<p>${x}</p>` | `ToHtml`, or another `Display` | a `ToHtml` value by its `to_html`: `String` and numbers escaped as text, `Html` as it is, `List<Html>` joined, a `Maybe` of a `ToHtml` value as that value and `None` as nothing; another `Display` value's text escaped |
+| Text of `<title>` or `<textarea>` | `<title>${t}</title>` | `Display`, or a `Maybe` of one | escaped text; an `Html` is refused, since its markup could end the element |
+| Quoted attribute value | `class='a ${c}'`, `data-reaction="${kind}"` | `Display`, or a `Maybe` of one | escaped for an attribute: `&`, `<`, `>`, `"` and `'` |
+| URL attribute, the start of its value | `href="${link}"` | `UrlValue` (`Url`, `SafeUrl`, a `Maybe` of one) | a `Url` whose scheme is not `http`, `https`, `mailto` or `tel` as `about:invalid#unsafe-url`; then escaped |
+| URL attribute, after text | `href="/posts/${id}"`, `?q=${q}`, `#${f}` | `Display`, or a `Maybe` of one | percent-encoded as a path segment (`/` and `:` included), a query value or a fragment, then escaped |
+| `style` attribute | `style="width: ${pct}%"` | `CssValue` (`Int`, `Float`, `Decimal`, `Css`, a `Maybe` of one) | a number as written; a `Css` as it is; escaped |
 | A whole unquoted value | `checked=${on}`, `title=${tip}` | `OptionalAttribute` (`Bool`, `Maybe<String>`) | `True` writes `checked`; `False` and `None` leave the attribute out; `Some(s)` writes `title="..."` escaped |
 
 The URL attributes are `action`, `background`, `cite`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns`, and `data` on `<object>`.
 
 A value of the wrong type is an error at the slot that says what the slot takes: `<title>${page}</title>` with an `Html` is ``this slot takes a `Display`, and an `Html` is not one``, with help for the context.
+
+In element content, a type that implements `ToHtml` renders itself, even when it is also `Display`. Std's `Maybe`, `Result`, collections and tuples are `Display`, but their text is not the value's, `Some(x)` or `[a, b]`, so element content refuses one that is not `ToHtml`: `<p>${names}</p>` with a `List<String>` is ``element content does not show a `List<String>` ``, with help to render the elements with `Html.each`. A value of a type parameter is taken as a `ToHtml`.
+
+An `if` without `else` is a `Maybe` (§8 *`if`/`else`*), so a slot shows a part of the page only when a condition holds. In a whole unquoted value a `Maybe` writes the attribute or leaves it out. In every other context it writes its value as that context writes one, or nothing for `None`, so a `Maybe`'s text, `Some(...)`, is never written:
+
+```nomi
+import {
+    std::html.Html
+    std::io
+}
+
+fn inbox(unread: Int, active: Bool) -> Html {
+    Html"<a class=${if active { "active" }}>Inbox${if unread > 0 { Html" <b>${unread}</b>" }}</a>"
+}
+
+fn badge(label: String, urgent: Bool, count: Maybe<Int>) -> Html {
+    Html"<span class='badge ${if urgent { "urgent" }}' data-count='${count}'>${label}</span>"
+}
+
+fn main() {
+    io.print(Html.to_string(inbox(2, True)))
+    io.print(Html.to_string(inbox(0, False)))
+    io.print(Html.to_string(badge("new", True, Some(3))))
+    io.print(Html.to_string(badge("old", False, None)))
+}
+```
+
+```text
+<a class="active">Inbox <b>2</b></a>
+<a>Inbox</a>
+<span class='badge urgent' data-count='3'>new</span>
+<span class='badge ' data-count=''>old</span>
+```
+
+The rule goes by the slot's type when the program is checked: a value whose type is a type parameter or `Display` writes its `Display` text, `Some(...)` included, when it holds a `Maybe`. In a context that takes a `Display`, a `Maybe` of a `Maybe` is an error at the slot, ``this slot does not show a `Maybe<Maybe<Int>>` ``, with help to flatten it with `Maybe.flatten`. `None` in a URL attribute's value writes an empty value, `href=''`, which is a link to the page itself.
 
 A slot anywhere else is an error at the slot:
 
@@ -7424,7 +7557,7 @@ A raw body, ``Html`...` ``, is a template with no slots under the same rules.
 
 **The value.** Static text is written exactly as it stands, after a triple-quoted literal's indentation strip; no whitespace is collapsed. An `Html` built from templates, `Html.text`, `Html.each` and `Html.concat` is balanced markup, because each template was checked and each slot's value was escaped or was itself such an `Html`. `Html.trusted(markup)` is the one way to insert markup unchecked, for HTML a trusted renderer produced, such as Markdown.
 
-**How it is built.** The literal is read once, when the program is checked; nothing is parsed when it runs. It stands for a call of std/html's `assemble` over the static text and one call per slot. The slot's context picks that function, and the function's parameter type is the slot's type rule:
+**How it is built.** The literal is read once, when the program is checked; nothing is parsed when it runs. It stands for a call of std::html's `assemble` over the static text and one call per slot. The slot's context picks that function, and in element content the value's type does too (`slot_text` for a `ToHtml`, `slot_text_display` for another `Display`), as it does for a `Maybe` in a context that takes a `Display` (`slot_attribute_maybe`); the function's parameter type is the slot's type rule:
 
 ```text
 html.assemble(["<p class=\"", html.slot_attribute(c), "\">", html.slot_text(x), "</p>"])
@@ -7470,11 +7603,11 @@ pub message cart_items(count: Int) `
 
 #### The declaration
 
-A `message` declares a function of the same name whose parameters are the message's and whose result is a `Message` (`std/message`). It is called like any function of its file (`cart.cart_items(3)`) and takes a doc comment and `pub`. It writes no result type. Its body is the text in the source locale, `[i18n].source_locale`, English unless the manifest says otherwise.
+A `message` declares a function of the same name whose parameters are the message's and whose result is a `Message` (`std::message`). It is called like any function of its file (`cart.cart_items(3)`) and takes a doc comment and `pub`. It writes no result type. Its body is the text in the source locale, `[i18n].source_locale`, English unless the manifest says otherwise.
 
 A `Message` holds which message and its arguments, and no locale; `Message.format(message, locale)` writes it in one. Two messages are equal when they are the same declaration with equal arguments, `Debug` shows `cart.cart_items(3)`, and `Message` implements `Localize`, so a message passed to another message is formatted in the same locale.
 
-MF2 text formats with the stable functions `:string`, `:number`, `:integer`, `:percent` and `:currency`, the draft `:date`, `:time` and `:datetime`, and Nomi's own `:nomi:noun`, `:nomi:gender`, `:nomi:list` and `:nomi:weekday`. Each takes a parameter of the types and the options [std/message](/reference/message/#functions-in-a-text) lists, and anything else is a compile error at the placeholder:
+MF2 text formats with the stable functions `:string`, `:number`, `:integer`, `:percent` and `:currency`, the draft `:date`, `:time` and `:datetime`, and Nomi's own `:nomi:noun`, `:nomi:gender`, `:nomi:list` and `:nomi:weekday`. Each takes a parameter of the types and the options [std::message](/reference/message/#functions-in-a-text) lists, and anything else is a compile error at the placeholder:
 
 - A field the value lacks is an error at the option, ``en: `hour` names a time of day, and `$day` is a `Date`, which has none``, and so are styles beside fields. `:date`, `:time` and `:datetime` select nothing: ``en: `:date` writes a calendar value and selects nothing``, whose help points to `:nomi:weekday`.
 - `:nomi:weekday` only selects. A selector that names one day needs all seven, and a placeholder that writes it is ``en: `:nomi:weekday` selects by the day of the week and writes nothing``.
@@ -7486,10 +7619,10 @@ MF2 text formats with the stable functions `:string`, `:number`, `:integer`, `:p
 
 Taught in [Translating Text](/translating-text/#nouns).
 
-A sentence often agrees with a noun: in Polish, the possessive, auxiliary and participle of "Your book has shipped" follow the noun's gender. A `noun` declaration names such a thing as a value of std/message's `Noun`:
+A sentence often agrees with a noun: in Polish, the possessive, auxiliary and participle of "Your book has shipped" follow the noun's gender. A `noun` declaration names such a thing as a value of std::message's `Noun`:
 
 ```nomi
-import std/message.Noun
+import std::message.Noun
 
 pub noun book `.input {$count :integer} .match $count one {{book}} * {{books}}`
 
@@ -7566,7 +7699,7 @@ host fn abs(n: Int) -> Int
 - `host fn name(params) -> R` declares a function with no body. It may also be an item of an `impl` block, where its host key is `module.Type.function`.
 - Host declarations take doc comments like any declaration.
 
-**`host` for the standard library, `go` for user bindings.** Every std declaration whose implementation is Go is a `host fn` or `host type`, whichever Go package implements it, so importing any std module, `std/regex` included, needs no Go toolchain. A user binds Go code with `gopkg` and `go` (*Binding Go packages* below); there is no Go-side registration function. Why std does not use `go` is in [`implementation-notes.md`](implementation-notes.md#why-std-uses-host-rather-than-go).
+**`host` for the standard library, `go` for user bindings.** Every std declaration whose implementation is Go is a `host fn` or `host type`, whichever Go package implements it, so importing any std module, `std::regex` included, needs no Go toolchain. A user binds Go code with `gopkg` and `go` (*Binding Go packages* below); there is no Go-side registration function. Why std does not use `go` is in [`implementation-notes.md`](implementation-notes.md#why-std-uses-host-rather-than-go).
 
 #### `host` declarations and embedders
 
@@ -7574,7 +7707,7 @@ A Go program that embeds Nomi answers the `host fn`s its Nomi program declares f
 
 - A plain `host type` in such a program is an opaque handle. The table's functions create and read its values; Nomi code passes them around and stores them. The type needs no registration.
 - A table answers each function by its declaration's key: its name in the entry file, `module.name` in another file.
-- A program's own host functions never answer a std call, nor the reverse, even when a file of the program has a Go-backed std module's name: a project's `regex.nomi` may bind a Go function named `compile` and use it beside `std/regex`'s.
+- A program's own host functions never answer a std call, nor the reverse, even when a file of the program has a Go-backed std module's name: a project's `regex.nomi` may bind a Go function named `compile` and use it beside `std::regex`'s.
 
 ### Binding Go packages: `gopkg` and `go`
 
@@ -7608,8 +7741,8 @@ A binding's Nomi types project to Go types:
 | `Byte` | `uint8` |
 | `Float` | `float64`; also `float32` |
 | `Bytes` | `[]byte` |
-| std/io's `Reader` | `io.Reader` or `io.ReadCloser` |
-| std/io's `Writer` | `io.Writer` or `io.WriteCloser` |
+| std::io's `Reader` | `io.Reader` or `io.ReadCloser` |
+| std::io's `Writer` | `io.Writer` or `io.WriteCloser` |
 | `Duration` | `time.Duration` |
 | `Instant` | `time.Time` |
 | `List<T>` | `[]T` |

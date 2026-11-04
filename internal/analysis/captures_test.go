@@ -94,7 +94,7 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"a call reordering its parameters", "fn f() -> (Int, Int) -> Int { &divide(&2, &1) }\n", "(Int, Int) -> Int"},
 		{"a call reusing its parameter", "fn f() -> (Int) -> Int { &add(&1, &1) }\n", "(Int) -> Int"},
 		{"a call with a deeper parameter", "fn f() -> (Int) -> Maybe<Int> { &Some(&1 + 1) }\n", "(Int) -> Maybe<Int>"},
-		{"a call of a type parameter's function", "import std/json.{Json, FromJson}\n\nfn f<T>(xs: List<Json>) -> List<Result<T, Json.ShapeError>> where T: FromJson {\n    Iter.map(xs, &T.from_json(&1)) |> Iter.to_list()\n}\n", "(Json) -> Result<T, Json.ShapeError>"},
+		{"a call of a type parameter's function", "import std::json.{Json, FromJson}\n\nfn f<T>(xs: List<Json>) -> List<Result<T, Json.ShapeError>> where T: FromJson {\n    Iter.map(xs, &T.from_json(&1)) |> Iter.to_list()\n}\n", "(Json) -> Result<T, Json.ShapeError>"},
 		{"named struct", "fn f() -> (Int) -> Point { &Point{x: &1, y: 0} }\n", "(Int) -> Point"},
 		{"named struct, two parameters", "fn f() -> (Int, Int) -> Point { &Point{y: &1, x: &2} }\n", "(Int, Int) -> Point"},
 		{"anonymous struct where a Point is expected", "fn f() -> (Int) -> Point { &#{x: &1, y: 0} }\n", "(Int) -> Point"},
@@ -114,7 +114,7 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"a partial ignoring a parameter", "fn f() -> Int { apply2(&add(&1, 100)) }\n", "(Int, Int) -> Int"},
 		{"a then stage", "fn f() -> Int { 10 |> then &divide(100, &1) }\n", "(Int) -> Int"},
 		{"a then stage with no partial", "fn f() -> Int { 10 |> then &(&1 + 1) }\n", "(Int) -> Int"},
-		{"a tap stage", "import std/io\n\nfn f() -> Int { 10 |> tap &io.print(Int.to_string(&1)) }\n", "(Int) -> Unit"},
+		{"a tap stage", "import std::io\n\nfn f() -> Int { 10 |> tap &io.print(Int.to_string(&1)) }\n", "(Int) -> Unit"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := captureTypes(t, tc.body)

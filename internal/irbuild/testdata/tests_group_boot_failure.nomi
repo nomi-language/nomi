@@ -1,7 +1,7 @@
 // A group whose boot returns `Err` fails each case before its body runs,
 // reported as a `?` on the `boot` line that returned the `Err`, and the
 // cleanup the boot registered runs when the case ends.
-import std/io
+import std::io
 
 struct App {
     name: String

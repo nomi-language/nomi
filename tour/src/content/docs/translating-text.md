@@ -74,9 +74,9 @@ is one file. Edit the Polish and run it again:
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/io
-    std/locale.Locale
-    std/message.Message
+    std::io
+    std::locale.Locale
+    std::message.Message
     cart
 }
 
@@ -237,9 +237,9 @@ The full cart page puts these together:
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/io
-    std/locale.Locale
-    std/message.Message
+    std::io
+    std::locale.Locale
+    std::message.Message
     cart
 }
 
@@ -259,7 +259,7 @@ fn main() {
 }
 
 // FILE: cart.nomi
-import std/message.Message
+import std::message.Message
 
 /// Where an order is.
 pub enum Status {
@@ -395,11 +395,11 @@ A message takes a `Money` and the calendar types like any other value.
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/calendar.Date
-    std/io
-    std/locale.Locale
-    std/message.Message
-    std/money.Money
+    std::calendar.Date
+    std::io
+    std::locale.Locale
+    std::message.Message
+    std::money.Money
     order
 }
 
@@ -417,8 +417,8 @@ fn main() {
 
 // FILE: order.nomi
 import {
-    std/calendar.Date
-    std/money.Money
+    std::calendar.Date
+    std::money.Money
 }
 
 /// The order's total, in its currency.
@@ -454,7 +454,7 @@ Wysyłka: wtorek, 20 października
 The compiler checks the types here as well: `:currency` on a `Decimal` is
 an error, since a `Decimal` has no currency. A translation can also choose
 its words by the day of the week with `:nomi:weekday`, which the
-[`std/message` reference](/reference/message/) describes.
+[`std::message` reference](/reference/message/) describes.
 
 ## Nouns
 
@@ -474,9 +474,9 @@ forms, and the translation of a message chooses a variant by the gender with
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/io
-    std/locale.Locale
-    std/message.Message
+    std::io
+    std::locale.Locale
+    std::message.Message
     shop
 }
 
@@ -491,7 +491,7 @@ fn main() {
 }
 
 // FILE: shop.nomi
-import std/message.Noun
+import std::message.Noun
 
 pub noun book `
     .input {$count :integer}

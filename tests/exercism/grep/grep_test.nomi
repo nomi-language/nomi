@@ -1,6 +1,6 @@
 import {
-    std/fs_testing.{self, Sandbox}
-    std/io
+    std::fs_testing.{self, Sandbox}
+    std::io
     grep.{self, Flag}
 }
 

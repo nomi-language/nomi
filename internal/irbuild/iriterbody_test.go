@@ -12,7 +12,7 @@ import (
 )
 
 func TestIRIterBody_TourMap(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  [1, 2, 3]
  |> Iter.map(fn n -> n * n)
@@ -23,7 +23,7 @@ fn main() {
 }
 
 func TestIRIterBody_CallbackFaultKeepsItsPosition(t *testing.T) {
-	verifyIterFault(t, `import std/io
+	verifyIterFault(t, `import std::io
 fn main() {
  xs = Iter.map([1, 0, 2], fn n -> {
   io.print(n)
@@ -70,7 +70,7 @@ func verifyIterFault(t *testing.T, src, fault, output string) {
 	}
 }
 func TestIRIterBody_LazyRepeatableAndCaptured(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn source() -> List<Int> { io.print("source"); [1, 2] }
 fn main() {
  offset = 10
@@ -83,7 +83,7 @@ fn main() {
 }
 
 func TestIRIterBody_ListIdentityAndEmptyMap(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn empty() -> List<Int> { [] }
 fn size(_xs: List<Int>, n: Int) -> Int { n }
 fn after() -> Int { io.print("after"); 9 }
@@ -98,13 +98,13 @@ fn main() {
 
 // A Map whose values are Maps is an iteration source like any other map.
 func TestIRIterBody_NestedMapSourceRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() { io.inspect(Iter.to_list(Iter.map(%{1 => %{2 => 3}}, fn p -> p.0 + 1))) }
 `, "[2]\n")
 }
 
 func TestIRIterBody_CallbackReturnKeepsMapping(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  mapped = [1, 2, 3, 4, 5]
  |> Iter.map(fn x -> {

@@ -1,6 +1,6 @@
-//# The Go-backed half of std/toml: placing a `Toml"..."` literal's slots,
+//# The Go-backed half of std::toml: placing a `Toml"..."` literal's slots,
 //# reading its text as TOML, and writing its slots' values
-//# (internal/stdtoml). It is internal; a program imports std/toml.
+//# (internal/stdtoml). It is internal; a program imports std::toml.
 
 import {
     float.Float

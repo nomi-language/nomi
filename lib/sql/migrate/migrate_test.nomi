@@ -1,9 +1,9 @@
 import {
-    std/fs
-    std/sql.{self, Conn, Row, Sql, Statement}
-    std/tasks.Task
+    std::fs
+    std::sql.{self, Conn, Row, Sql, Statement}
+    std::tasks.Task
     migrate.{self, Error, Migration, Status}
-    migrate/checksum
+    migrate::checksum
     postgres
     sqlite
 }

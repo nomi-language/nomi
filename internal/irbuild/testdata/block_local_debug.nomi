@@ -6,7 +6,7 @@
 // (registerBlockLocalDebug). Every line below must read as it would for the
 // same declaration at module level. `Pt` declares its fields out of
 // alphabetical order, so declaration order and sorted order differ.
-import std/io
+import std::io
 
 fn main() {
     type Token String

@@ -24,7 +24,7 @@ func TestBuildCommand_RefusesDbgsAndTodosTogether(t *testing.T) {
 	}
 	entry := filepath.Join(dir, "main.nomi")
 	mustWrite(t, entry, `import {
-    std/io
+    std::io
     header
 }
 

@@ -1,6 +1,6 @@
 //# The delivery date a description such as `NOW`, `EOW` or `2Q` stands for.
 
-import std/calendar.{Date, Days, Hours, Months, NaiveDateTime, Weekday}
+import std::calendar.{Date, Days, Hours, Months, NaiveDateTime, Weekday}
 
 /// A delivery date description: one of the three fixed words, or the N-th
 /// month or quarter.

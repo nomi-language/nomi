@@ -163,7 +163,7 @@ func TestSemanticTokens_LegendNamesAttachedTest(t *testing.T) {
 func TestSemanticTokens_SourceGoBindingDoesNotPaintImportLine(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
-	src := `import std/io
+	src := `import std::io
 
 gopkg "example.com/binding/ffi" as ffi
 
@@ -188,6 +188,73 @@ fn main() {
 			t.Fatalf("semantic token leaked into import line: %+v; all tokens: %+v", tok, toks)
 		}
 	}
+}
+
+// An `Html` literal stands for a call of std/html functions whose names the
+// analysis places on the literal's quotes and on each slot's `$` and `{`.
+// None of them is in the text, so none gets a token: a `slot_url_start`
+// token on the `{` of `${SafeUrl(format.url(email))}` painted `{SafeUrl(forma`
+// as a function in Zed. Every token covers a name it spells, and a slot's
+// own names keep theirs. A membership test's `in` is the same kind of
+// stand-in.
+func TestSemanticTokens_HtmlLiteralCalleesGetNoTokens(t *testing.T) {
+	src := `import std::html.Html
+import std::html.SafeUrl
+
+fn url(email: String) -> String { email }
+
+pub fn avatar(email: String, name: String, color: String) -> Html {
+    ok = "a" in ["a"]
+    Html"""
+    <img src="${SafeUrl(url(email))}" alt="${name}" />
+    <span class="x ${color}">${name}</span> ${ok}
+    """
+}
+`
+	s := NewServer()
+	uri := pathToURI(filepath.Join(t.TempDir(), "main.nomi"))
+	doc := s.docs.Open(uri, src)
+	if doc.Analysis == nil || len(doc.Analysis.TypeErrors) > 0 {
+		t.Fatalf("the source does not check: %v", doc.Analysis.TypeErrors)
+	}
+	lines := strings.Split(src, "\n")
+	spelled := map[[2]int]string{}
+	for _, tok := range decodeSemanticTokenData(encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content)) {
+		line := lines[tok.line]
+		end := min(tok.col+tok.length, len(line))
+		text := line[tok.col:end]
+		spelled[[2]int{tok.line, tok.col}] = text
+		if end != tok.col+tok.length || !isIdentText(text) {
+			t.Errorf("token at %d:%d of length %d covers %q, not a name", tok.line, tok.col, tok.length, text)
+		}
+	}
+	for _, want := range []struct {
+		line int
+		name string
+	}{{8, "SafeUrl"}, {8, "url"}, {8, "email"}, {8, "name"}, {9, "color"}, {9, "name"}, {9, "ok"}} {
+		found := false
+		for _, after := range []string{"(", ")", "}"} {
+			if col := strings.Index(lines[want.line], want.name+after); col >= 0 && spelled[[2]int{want.line, col}] == want.name {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("no token for the slot's %q on line %d", want.name, want.line)
+		}
+	}
+}
+
+func isIdentText(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		if r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || i > 0 && r >= '0' && r <= '9' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func TestSemanticTokens_AllKinds(t *testing.T) {

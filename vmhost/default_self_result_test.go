@@ -9,7 +9,7 @@ import "testing"
 // a type parameter bounded by the interface, and interface-qualified on a
 // concrete value.
 func TestDefaultSelfResult_Runs(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 interface Sized {
     fn size(x: self) -> Int
@@ -127,7 +127,7 @@ func TestDefaultSelfResult_RunsFromAnotherFile(t *testing.T) {
     }
 }
 `,
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 import shapes.Grow
 
 struct Pot {
@@ -236,7 +236,7 @@ func TestDefaultSelfResult_ExistentialCallIsAnError(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := func(decl string) string {
-				return "import std/io\n\n" + iface + decl + "\nfn main() {\n    io.print(1)\n}\n"
+				return "import std::io\n\n" + iface + decl + "\nfn main() {\n    io.print(1)\n}\n"
 			}
 			rejects(t, src(tc.bad), tc.want, tc.help)
 			admits(t, src(tc.good))

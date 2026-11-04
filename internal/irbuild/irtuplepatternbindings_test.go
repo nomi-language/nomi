@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRTuplePatternBindings_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"structural components and discarded names", `import std/io
+		{"structural components and discarded names", `import std::io
 fn choose(p: #(Int, List<Int>, String)) -> List<Int> {
   case p {
     #(1, xs, _ignored) -> xs
@@ -17,7 +17,7 @@ fn main() {
   io.inspect(choose(#(2, [30], "yes")))
   io.inspect(choose(#(2, [40], "no")))
 }`, "[10, 20]\n[30]\n[]\n"},
-		{"bindings before and after tests", `import std/io
+		{"bindings before and after tests", `import std::io
 fn choose(p: #(Int, String, Int)) -> Int {
   case p {
     #(n, "yes", 2) -> n + 10
@@ -32,7 +32,7 @@ fn main() {
   io.print(choose(#(0, "yes", 7)))
   io.print(choose(#(8, "yes", 7)))
 }`, "13\n24\n37\n40\n"},
-		{"shadowed names and captured results", `import std/io
+		{"shadowed names and captured results", `import std::io
 fn main() {
   n = 100
   choose = fn p: #(Int, Int) -> {
@@ -48,7 +48,7 @@ fn main() {
   io.print(first(10)) io.print(second(10)) io.print(other(10))
   io.print(n)
 }`, "13\n40\n90\n100\n"},
-		{"multiline binding positions and nested bodies", `import std/io
+		{"multiline binding positions and nested bodies", `import std::io
 fn choose(p: #(Int, String, Int)) -> Int {
   case p {
     #(

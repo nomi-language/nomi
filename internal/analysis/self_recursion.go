@@ -470,7 +470,7 @@ func (r *selfRecursion) isStdIORender(callee ast.Node, display bool) bool {
 	default:
 		return false
 	}
-	obj, ok := fa.Object.(*ast.Ident)
+	obj, ok := ast.QualifierIdent(fa.Object)
 	if !ok {
 		return false
 	}

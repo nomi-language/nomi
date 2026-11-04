@@ -8,7 +8,7 @@ import "testing"
 // interface method's parameter names, evaluated in Nomi's order: positionals
 // first, then named arguments as written.
 func TestNamedArgConstructor_PositionalFormsAndInterfaceNamesRun(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 enum Shape {
     Sq Int

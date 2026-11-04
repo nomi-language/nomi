@@ -215,10 +215,10 @@ fn f(s: Shape) -> Int {
 An import reaches a member through its owner
 ================================================================================
 
-import std/iter.Iter.loop
+import std::iter.Iter.loop
 
 import {
-    std/supervisors.Backoff.Exponential
+    std::supervisors.Backoff.Exponential
     results.Result.Ok
     bool.Bool.False
 }

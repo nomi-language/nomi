@@ -85,7 +85,7 @@ local function test(name, fn)
 end
 
 local source = {
-  'import std/io', --  1
+  'import std::io', --  1
   '', --  2
   '//! assert double(2) == 4', --  3
   'fn double(x: Int) -> Int {', --  4
@@ -706,6 +706,79 @@ end)
 
 test('data-shape delimiters read as type, and block, call, grouping, type and interpolation ones do not', function()
   check_highlight_fixture('delimiters.nomi', 'type', 200)
+end)
+
+-- nvim-treesitter's html injections, in the shapes that matter: the lit-html
+-- rules that test an attribute value's text for `${`, and a rule beside them
+-- that must stay. They inject `lua` and `vim`, which Neovim bundles.
+local html_injections = [[
+; <a style="/* css */">
+((attribute
+  (attribute_name) @_attr
+  (quoted_attribute_value
+    (attribute_value) @injection.content))
+  (#eq? @_attr "style")
+  (#set! injection.language "vim"))
+
+; lit-html style template interpolation
+; <a @click=${e => console.log(e)}>
+((attribute
+  (quoted_attribute_value
+    (attribute_value) @injection.content))
+  (#lua-match? @injection.content "%${")
+  (#offset! @injection.content 0 2 0 -1)
+  (#set! injection.language "lua"))
+
+((attribute
+  (attribute_value) @injection.content)
+  (#lua-match? @injection.content "%${")
+  (#offset! @injection.content 0 2 0 -2)
+  (#set! injection.language "lua"))
+]]
+
+test("an Html literal's html injections leave out the rules that test for ${", function()
+  local injections = require('nomi.injections')
+  local got = injections.without_slot_patterns(html_injections)
+  check(got and got:find('"style"', 1, true) ~= nil, 'the style rule was dropped')
+  check(got and not got:gsub(';[^\n]*', ''):find('%${', 1, true), 'a ${ rule was kept')
+  eq(injections.without_slot_patterns('((comment) @injection.content (#set! injection.language "comment"))'), nil,
+    'a query with no ${ rule')
+end)
+
+-- The whole path, when this machine has an html parser: a slot in an href
+-- injects nothing into the attribute value, and style= still injects.
+test('an attribute value holding a slot is not injected into', function()
+  if not pcall(vim.treesitter.language.add, 'html') then
+    io.stdout:write('skip: no html parser\n')
+    return
+  end
+  local rtp = dir .. '/rtp'
+  vim.fn.mkdir(rtp .. '/queries/html', 'p')
+  vim.fn.writefile(vim.split(html_injections, '\n'), rtp .. '/queries/html/injections.scm')
+  -- Only these html queries: none this machine has installed. The parsers
+  -- are loaded first, while 'runtimepath' still finds them.
+  vim.treesitter.language.add('lua')
+  vim.treesitter.language.add('vim')
+  local saved_rtp = vim.o.rtp
+  vim.o.rtp = table.concat({ plugin, rtp, vim.env.VIMRUNTIME }, ',')
+  local path = write('html_slot.nomi', {
+    'fn row(id: Int) -> Html {',
+    '    Html"""',
+    '        <a href="/admin/posts/${id}/edit" style="x">',
+    '        """',
+    '}',
+  })
+  vim.cmd('edit ' .. vim.fn.fnameescape(path))
+  vim.b.did_ftplugin = nil
+  vim.cmd('runtime! ftplugin/nomi.lua')
+  local parser = vim.treesitter.get_parser(0, 'nomi')
+  parser:parse(true)
+  local html = parser:children().html
+  check(html ~= nil, 'no html injection')
+  local langs = html and vim.tbl_keys(html:children()) or {}
+  table.sort(langs)
+  eq(langs, { 'vim' }, 'languages injected into the html')
+  vim.o.rtp = saved_rtp
 end)
 
 test('a module with locales has its catalogs under the directory [i18n] names', function()

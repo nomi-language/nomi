@@ -7,7 +7,7 @@
 //# Run it with `NOMI_ENGINE_BENCH=1 go test ./vmhost
 //# -run TestEngineBench -v -count=1`.
 
-import std/io
+import std::io
 
 fn main() {
     xs = 1..=300000 |> Iter.to_list()

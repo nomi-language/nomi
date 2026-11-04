@@ -19,7 +19,7 @@ func TestUnreachable_BuildAcceptsItAndReachingItTraps(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 fn position(n: Int, ns: List<Int>) -> Int {
     Some(i) = ns |> Iter.find_index(&(&1 == n)) else {

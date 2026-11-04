@@ -8,7 +8,7 @@ func TestInstImpl_EveryCallFormRunsTheChosenImpl(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 interface Holds<T> {
     fn holds(b: self, x: T) -> Bool
@@ -58,7 +58,7 @@ func TestInstImpl_TheExpectedTypeChoosesTheImpl(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 interface Make<T> {
     fn make(seed: self) -> T
@@ -129,7 +129,7 @@ func TestInstImpl_AValueHeldAsAnInstantiationDispatches(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 interface Gets<T> {
     fn got(h: self) -> T
@@ -190,7 +190,7 @@ func TestInstImpl_AReceiverlessFunctionAtSeveralArguments(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 interface Parse<T> {
     fn parse(x: T) -> self

@@ -13,7 +13,7 @@ import (
 // `?` in the case's body does: an Err or None fails the case with the
 // early-return report, and nothing of the case's body runs.
 func TestTest_TryInSetupEndsTheCase(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `import std/io
+	p, err := vmhost.Load(writeProgram(t, `import std::io
 
 fn parse(s: String) -> Result<Int, String> {
   case s {
@@ -99,9 +99,9 @@ group "an Ok in setup" {
 // written first: the setup runs before each test's body and its value is
 // what the test binds.
 func TestTest_GroupLinesAfterTheTestsRunFirst(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `import std/io
+	p, err := vmhost.Load(writeProgram(t, `import std::io
 
-import std/testing.Clock
+import std::testing.Clock
 
 group "lines after the tests" {
   test "reads setup", n {
@@ -138,7 +138,7 @@ group "lines after the tests" {
 // A `?` in a nested fn leaves the nested fn, the boundary the checker
 // records for it, in `main` as in any other body.
 func TestRun_TryInANestedFnLeavesTheNestedFn(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `import std/io
+	p, err := vmhost.Load(writeProgram(t, `import std::io
 
 fn parse(s: String) -> Result<Int, String> {
   case s {
@@ -172,8 +172,8 @@ fn main() {
 // `Iter.sort_by` chooses its key's comparator as `Iter.sort` chooses its
 // element's, and both take a std type's own compare, called from `main`.
 func TestRun_SortByTakesEveryOrderedKey(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `import std/io
-import std/duration.Duration
+	p, err := vmhost.Load(writeProgram(t, `import std::io
+import std::duration.Duration
 
 fn main() {
   Iter.sort_by([3, 1, 2], fn n -> [n]) |> io.inspect()

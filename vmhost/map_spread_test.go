@@ -12,7 +12,7 @@ import (
 // literal key replacing the base's value in place, a new key appended in
 // the order written.
 func TestMapSpread_Runs(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Settings {
     name: String

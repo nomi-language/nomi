@@ -3,7 +3,7 @@
 //
 // 1e8 hops is a thousand times the VM's call-depth limit, so the VM prints
 // only if each of these tail calls replaces the caller's activation.
-import std/io
+import std::io
 
 interface Stepper {
     fn step(value: self, n: Int) -> Int

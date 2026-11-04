@@ -34,7 +34,7 @@ const irSiblingLinkLib = `pub fn double(n: Int) -> Int {
 `
 
 const irSiblingLinkEntry = `import {
-  std/io
+  std::io
   lib
 }
 

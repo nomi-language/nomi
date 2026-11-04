@@ -13,7 +13,7 @@ func TestVM_ReceiverlessInterfaceFunctionAtAGenericInstance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 interface Zero {
     fn zero(n: Int) -> self

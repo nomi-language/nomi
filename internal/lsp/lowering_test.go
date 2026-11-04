@@ -20,7 +20,7 @@ import (
 // end accepts it and, under plantDecline, the IR builder declines `evens`,
 // so `nomi check` reports the call. loweringFixed passes `planted_decline`
 // itself, which is no call, and lowers.
-const loweringBlocked = `import std/io
+const loweringBlocked = `import std::io
 
 fn planted_decline(n: Int) -> Int {
   n
@@ -164,7 +164,7 @@ func TestLoweringDiagnostics_BlockImportedProjectFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import std/io\n\nfn main() {\n    import shapes\n    io.inspect(shapes.area(2))\n}\n"
+	src := "import std::io\n\nfn main() {\n    import shapes\n    io.inspect(shapes.area(2))\n}\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi":   src,
 		"shapes.nomi": "pub fn area(r: Int) -> Int {\n    r * 3\n}\n",
@@ -181,7 +181,7 @@ func TestLoweringDiagnostics_AStdModuleLoweredWithTheProgram(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import {\n    std/io\n    std/uuid.Uuid\n}\n\nfn main() {\n    id = Uuid.nil()\n    io.print(\"${id} ${Uuid.version(id)}\")\n}\n"
+	src := "import {\n    std::io\n    std::uuid.Uuid\n}\n\nfn main() {\n    id = Uuid.nil()\n    io.print(\"${id} ${Uuid.version(id)}\")\n}\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
@@ -213,7 +213,7 @@ func TestLoweringDiagnostics_InvalidBacktickLiteral(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import std/regex.Regex\n\nfn main() {\n    _ = Regex`[`\n}\n"
+	src := "import std::regex.Regex\n\nfn main() {\n    _ = Regex`[`\n}\n"
 	dir := writeProject(t, map[string]string{
 		"main.nomi": src,
 		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",

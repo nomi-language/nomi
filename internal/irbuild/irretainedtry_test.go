@@ -7,7 +7,7 @@ import (
 // A `?` runs before a struct whose field holds a Map of function values
 // is built from its value.
 func TestIRRetainedTry_BesideAFunctionMapFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
@@ -24,7 +24,7 @@ fn main() { io.inspect(work()) }
 }
 
 func TestIRRetainedTry_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn get(ok: Bool) -> Result<Int, String> { if ok { Ok(42) } else { Err("bad") } }
 fn transform(ok: Bool) -> Result<String, String> {
   n = get(ok)?
@@ -40,7 +40,7 @@ fn main() { io.print(show(True)) io.print(show(False)) }
 }
 
 func TestIRRetainedTry_MaybeAndPipes(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn get(ok: Bool) -> Maybe<Int> { if ok { Some(42) } else { None } }
 fn transform(ok: Bool) -> Maybe<String> {
   n = ok
@@ -56,7 +56,7 @@ fn main() { io.print(show(True)) io.print(show(False)) }
 }
 
 func TestIRRetainedTry_OperandOrderAndNestedCalls(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(n: Int) -> Int { io.print(n) return n }
 fn get(ok: Bool) -> Result<Int, String> {
   io.print("get")
@@ -79,7 +79,7 @@ fn main() { io.print(show(True)) io.print(show(False)) }
 }
 
 func TestIRRetainedTry_PureAndConditionalOperands(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn transform(r: Result<Int, String>, flag: Bool) -> Result<Int, String> {
   if flag { Ok(r?) } else { Ok(Ok(7)?) }
 }

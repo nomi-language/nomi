@@ -14,7 +14,7 @@ func TestTestCommand_RelativePathsAreUnderTheModuleRoot(t *testing.T) {
 	root := filepath.Join(outer, "app")
 	mustWrite(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\n")
 	mustWrite(t, filepath.Join(root, "data", "greeting.txt"), "hello\n")
-	test := `import std/fs
+	test := `import std::fs
 
 test "a relative path is under the module root" {
     assert fs.read_text("data/greeting.txt") == Ok("hello\n")

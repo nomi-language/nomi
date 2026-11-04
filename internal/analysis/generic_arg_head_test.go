@@ -51,7 +51,7 @@ fn main() {
 // are shapes that stay accepted.
 func TestGenericArgHead_ADistinctTypeIsAFixedHead(t *testing.T) {
 	errs := checkWithStdlib(`
-import std/tasks.Task
+import std::tasks.Task
 
 type UserId Int
 

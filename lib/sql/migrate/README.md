@@ -16,7 +16,7 @@ the program:
 
 ```nomi
 import {
-    std/sql
+    std::sql
     migrate
     postgres
 }

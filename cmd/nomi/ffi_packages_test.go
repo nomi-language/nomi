@@ -75,7 +75,7 @@ func CountIf(cells []Cell, keep core.Check) ID {
 	return n
 }
 `,
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 
 gopkg "example.com/app/adapter"
 

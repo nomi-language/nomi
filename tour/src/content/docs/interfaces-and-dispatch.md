@@ -21,7 +21,7 @@ or through the interface's name, as in
 ## Defining and implementing an interface
 
 ```nomi-run
-import std/io
+import std::io
 
 interface Speech {
     fn speak(animal: self) -> String
@@ -76,7 +76,7 @@ also write the interface's name: `Speech.speak(dog)`. Both call the `Dog`
 impl:
 
 ```nomi-run
-import std/io
+import std::io
 
 interface Speech {
     fn speak(animal: self) -> String
@@ -163,7 +163,7 @@ An impl must write every function that has no body.
 A type can't replace a default unless the interface marks it `open`:
 
 ```nomi-run
-import std/io
+import std::io
 
 interface Formatted {
     fn label(value: self) -> String
@@ -246,7 +246,7 @@ that doesn't must write the function itself. An `impl` that does neither is
 an error.
 
 ```nomi-run
-import std/io
+import std::io
 
 interface Scale {
     fn unit(value: self) -> String
@@ -359,7 +359,7 @@ your types don't get it automatically. Write an `impl Display for Type { ... }`
 block with a `to_string` function:
 
 ```nomi-run
-import std/io
+import std::io
 
 struct User {
     name: String
@@ -718,7 +718,7 @@ share one function body. For `Celsius`, `self(n)` unwraps a `Celsius` and
 `self(x)` makes one.
 
 ```nomi-run
-import std/io
+import std::io
 
 type Celsius Decimal
 type Fahrenheit Decimal

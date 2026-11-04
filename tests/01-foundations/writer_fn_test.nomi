@@ -2,8 +2,8 @@
 // function, `Writer.collect` writes into memory, and `Writer.write_all` and
 // `Writer.write_lines` write a sequence into any writer.
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/io.{self, Error, Writer}
+    std::channels.{Channel, Receiver, Sender}
+    std::io.{self, Error, Writer}
 }
 
 fn text(data: Bytes) -> String {

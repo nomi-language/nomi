@@ -1,7 +1,7 @@
 //# TCP connections. `net.dial` opens a connection,
 //# and `net.listen` with `net.serve` answers the connections that arrive,
 //# each as a task of a supervisor, as `http.serve` answers requests. A
-//# connection is read and written through std/io's streams:
+//# connection is read and written through std::io's streams:
 //#
 //# ```nomi
 //# conn = net.dial("example.com:7")?
@@ -14,7 +14,7 @@
 //# ```
 //#
 //# Dialing runs under the context in force, and a connection's reads and
-//# writes stop when the task that opened it is cancelled. std/tls runs TLS
+//# writes stop when the task that opened it is cancelled. std::tls runs TLS
 //# over the same `Connection`.
 
 import {
@@ -124,12 +124,12 @@ impl Connection {
         http_host.conn_multipath(conn.handle)
     }
 
-    /// For std/tls: the connection a handle holds.
+    /// For std::tls: the connection a handle holds.
     pub fn of_handle(handle: http_host.Conn) -> Connection {
         Connection{handle}
     }
 
-    /// For std/tls: the handle a connection holds.
+    /// For std::tls: the handle a connection holds.
     pub fn handle_of(conn: Connection) -> http_host.Conn {
         conn.handle
     }
@@ -297,7 +297,7 @@ pub fn dial(address: String, options: DialOptions = DialOptions{}) -> Result<Con
     Ok(Connection{handle})
 }
 
-/// For std/tls: a duration in nanoseconds, 0 for `None`.
+/// For std::tls: a duration in nanoseconds, 0 for `None`.
 pub fn nanos(d: Maybe<Duration>) -> Int {
     d |> Maybe.map(Duration.as_nanos) |> Maybe.with_default(0)
 }
@@ -473,12 +473,12 @@ impl Listener {
         http_host.net_listener_close(listener.handle)
     }
 
-    /// For std/tls: the listener a handle holds.
+    /// For std::tls: the listener a handle holds.
     pub fn of_handle(handle: http_host.TcpListener) -> Listener {
         Listener{handle}
     }
 
-    /// For std/tls: the handle a listener holds.
+    /// For std::tls: the handle a listener holds.
     pub fn handle_of(listener: Listener) -> http_host.TcpListener {
         listener.handle
     }

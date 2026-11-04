@@ -7,7 +7,7 @@
 // not from the argument's kind. A lowering that read only the argument would
 // produce `rt.Result[int64, ?]` and either fail to compile or pick a wrong E —
 // so `both_directions` below builds one Result each way and reads both back.
-import std/io
+import std::io
 
 struct Outcome {
     parsed: Result<Int, String>

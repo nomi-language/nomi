@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Readers and writers that count the bytes and operations passing through
 //# them.
 
-import std/io.{self, Reader, Writer}
+import std::io.{self, Reader, Writer}
 
 /// What a stream has carried: how many bytes, in how many operations.
 pub struct Stats {
@@ -82,7 +82,7 @@ impl MeteredWriter {
 
 // FILE: paasio_test.nomi
 import {
-    std/io.{self, Reader}
+    std::io.{self, Reader}
     paasio.{MeteredReader, MeteredWriter, Stats}
 }
 

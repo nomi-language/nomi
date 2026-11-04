@@ -17,7 +17,7 @@ import (
 // Each program leaves by a trap after its exact output.
 func TestIRLoopEndless_BlockEndingInALoop(t *testing.T) {
 	// The block statement ending main, nested two deep.
-	verifyEndlessTrap(t, `import std/io
+	verifyEndlessTrap(t, `import std::io
 
 fn main() {
     zero = 0
@@ -37,7 +37,7 @@ fn main() {
 
 	// A block value bound to a name, with code after it that never runs,
 	// and a block ending an Int function.
-	verifyEndlessTrap(t, `import std/io
+	verifyEndlessTrap(t, `import std::io
 
 fn tail_block() -> Int {
     {
@@ -64,7 +64,7 @@ fn main() {
 	// Arms that are blocks ending in a block that never finishes, in a
 	// binding's `case` and a statement `if`, and a block that never
 	// finishes as an operand. Each main reaches a different one.
-	pick := `import std/io
+	pick := `import std::io
 
 fn pick(flag: Int) -> Int {
     y = case flag {
@@ -117,7 +117,7 @@ fn main() {
 
 	// A lambda's body, a loop body and a concurrent body, each ending in a
 	// block that never finishes.
-	verifyEndlessTrap(t, `import std/io
+	verifyEndlessTrap(t, `import std::io
 
 fn main() {
     zero = 0
@@ -145,7 +145,7 @@ fn main() {
 }
 `, "line 10: division by zero", "outer 0\nouter 1\n2\nconcurrent\nlambda\nlambda loop\n")
 
-	verifyEndlessTrap(t, `import std/io
+	verifyEndlessTrap(t, `import std::io
 
 fn main() {
     _ = Iter.loop(0, fn i -> {
@@ -167,7 +167,7 @@ fn main() {
 // before it, and nothing after the block runs.
 func TestIRLoopEndless_TestBodyBlocks(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "endless_block_test.nomi")
-	src := `import std/io
+	src := `import std::io
 
 test "a block statement" {
     assert 1 == 1

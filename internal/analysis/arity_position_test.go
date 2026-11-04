@@ -97,9 +97,9 @@ fn id<T>(a: T) -> T {
 			"no parameter named 'c'", "+1:14-+1:15"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import std/io\n\n" + decls + "fn main() {\n  _ = " + tc.call + "\n}\n"
+			src := "import std::io\n\n" + decls + "fn main() {\n  _ = " + tc.call + "\n}\n"
 			if strings.HasPrefix(tc.call, "io.") {
-				src = "import std/io\n\n" + decls + "fn main() {\n  " + strings.Repeat(" ", 4) + tc.call + "\n}\n"
+				src = "import std::io\n\n" + decls + "fn main() {\n  " + strings.Repeat(" ", 4) + tc.call + "\n}\n"
 			}
 			callLine := strings.Count(src[:strings.Index(src, "fn main()")], "\n") + 2
 			_, errs := checkSourceWithStdlib(src)
@@ -150,7 +150,7 @@ func TestArityErrorsOfOtherCalleesAreAtTheCall(t *testing.T) {
 			"struct Q {\n  x: Int\n}\n\nfn main() {\n  _ = Q(#{x: 1}, 2)\n}\n",
 			"Q takes 1 argument, got 2; expected Q(#{...}) with the struct's fields", "6:18-6:19"},
 		{"testing.check, too many",
-			"import std/testing\n\ntest \"t\" {\n  _ = testing.check(true, false)\n  assert true\n}\n",
+			"import std::testing\n\ntest \"t\" {\n  _ = testing.check(true, false)\n  assert true\n}\n",
 			"testing.check expects 1 argument, got 2", "4:27-4:32"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

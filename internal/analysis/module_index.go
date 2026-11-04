@@ -11,7 +11,7 @@ import (
 // ModuleIndex maps a Nomi short-name (as declared in a require'd
 // module's nomi.toml) to that module's absolute filesystem root.
 // Built once per project at the start of analysis, this index is
-// what lets a cross-module import like `import stringkit/pad` find
+// what lets a cross-module import like `import stringkit::pad` find
 // its dependency's source files.
 type ModuleIndex map[string]string
 

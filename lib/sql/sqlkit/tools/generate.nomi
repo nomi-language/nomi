@@ -18,18 +18,18 @@
 // warning, and a Postgres type sqlkit has no family for is a note: it is
 // read as text.
 import {
-    std/fs
-    std/io
-    std/json.Json
-    postgres/describe as pg
-    sqlite/describe
-    sqlkit/codegen
-    sqlkit/databases.{self, Database}
-    sqlkit/described.{Column, QueryError, Table, TableColumn}
-    sqlkit/inputs.{self, Input}
-    sqlkit/queryfile.{self, Problem}
-    sqlkit/sqltext.{self, Kind, Token}
-    sqlkit/types
+    std::fs
+    std::io
+    std::json.Json
+    postgres::describe as pg
+    sqlite::describe
+    sqlkit::codegen
+    sqlkit::databases.{self, Database}
+    sqlkit::described.{Column, QueryError, Table, TableColumn}
+    sqlkit::inputs.{self, Input}
+    sqlkit::queryfile.{self, Problem}
+    sqlkit::sqltext.{self, Kind, Token}
+    sqlkit::types
 }
 
 gopkg "github.com/nomi-language/nomi/lib/sql/sqlkit/toolside"

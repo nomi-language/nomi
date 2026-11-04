@@ -4,7 +4,7 @@
 //
 // Every row below exists to let two independently-derived facts contradict
 // each other; see the notes at each group.
-import std/io
+import std::io
 
 // A WRITTEN impl, so the payload's hash is a number nothing structural would
 // ever produce. This is the row that separates `Hashable.hash` — which a

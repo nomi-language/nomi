@@ -606,7 +606,7 @@ func (x *fileIndex) walkReferences(fa *analysis.FileAnalysis, from int, n ast.No
 	}
 	switch t := n.(type) {
 	case *ast.FieldAccess:
-		if owner, named := t.Object.(*ast.Ident); named {
+		if owner, named := ast.QualifierIdent(t.Object); named {
 			if to, ok := x.lookupQualifier(fa, owner); ok && to != from {
 				x.reaches[from][to] = true
 			}
@@ -820,7 +820,7 @@ func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {
 }
 
 // qualifierScope is moduleScopeOf for the qualifier written at id. A name the
-// module scope does not bind may still name a file: `import std/io` at the
+// module scope does not bind may still name a file: `import std::io` at the
 // top of a block binds `io` in that block only (testImport admits it), and
 // the checker's reference at id is that import's symbol.
 func qualifierScope(fa *analysis.FileAnalysis, id *ast.Ident) *analysis.Scope {
@@ -849,7 +849,7 @@ func (x *fileIndex) lookupQualifier(fa *analysis.FileAnalysis, id *ast.Ident) (i
 // std file and also for a user file this index failed to resolve, and the
 // second is a bug that would then report itself under the first's name.
 //
-// The CANONICAL name rather than the spelling, because `import std/timer as t`
+// The CANONICAL name rather than the spelling, because `import std::timer as t`
 // binds `t` and the registry is keyed on the file: reading the local spelling
 // would make an aliased import unresolvable and it would then refuse under a
 // key that says the extern is missing. Same correction canonicalStdFile makes

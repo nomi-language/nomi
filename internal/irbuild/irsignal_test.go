@@ -31,7 +31,7 @@ func TestIRSignal_TourBreakAndContinue(t *testing.T) {
 }
 
 func TestIRSignal_ReduceAndAdapterOutcomes(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn seed() -> Int {
   io.print("seed")
   100
@@ -71,7 +71,7 @@ fn main() {
 // as one ending a guard arm does: `break` stops with the accumulator, `break
 // v` with v, and `continue` keeps the accumulator.
 func TestIRSignal_CaseArmSignalLeavesTheCallback(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   total = [1, 2, 3] |> Iter.reduce(0, fn acc, x -> {
     case x {

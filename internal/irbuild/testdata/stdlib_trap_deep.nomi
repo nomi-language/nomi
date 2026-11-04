@@ -3,8 +3,8 @@
 // holds, which std/duration.nomi faults on. The report names the program's
 // call to `Iter.sum`.
 import {
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
 }
 
 fn main() {

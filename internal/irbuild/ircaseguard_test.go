@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRCaseGuard_CompleteProgram(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn classify(n: Int) -> String {
   case n {
     0 -> "zero"
@@ -24,7 +24,7 @@ fn main() {
 // A final unguarded identifier arm binds the subject, for Int and String
 // subjects, and its body may shadow and read it.
 func TestIRCaseGuard_IdentifierFallback(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn describe(s: String) -> String {
   case s {
     "q" -> "quit"

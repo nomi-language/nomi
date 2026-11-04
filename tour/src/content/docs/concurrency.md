@@ -29,7 +29,7 @@ single worker, or the number of CPU cores.
 Start with a block:
 
 ```nomi-run
-import std/tasks.Task
+import std::tasks.Task
 
 fn double(n: Int) -> Int {
     n * 2
@@ -96,9 +96,9 @@ until the channel is closed.
 
 ```nomi-run
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/io
-    std/tasks.Task
+    std::channels.{Channel, Receiver, Sender}
+    std::io
+    std::tasks.Task
 }
 
 fn produce(out: Sender<Int>, n: Int) -> Unit {
@@ -173,9 +173,9 @@ Each arm's handler turns its own outcome into the one result:
 
 ```nomi-run
 import {
-    std/channels.{Arm, Channel, Sender}
-    std/duration.Duration
-    std/tasks.Task
+    std::channels.{Arm, Channel, Sender}
+    std::duration.Duration
+    std::tasks.Task
 }
 
 fn main() {
@@ -233,9 +233,9 @@ cancels the other tasks, waits for them to stop, and returns the error:
 
 ```nomi-run
 import {
-    std/duration.Duration
-    std/tasks.Task
-    std/timer
+    std::duration.Duration
+    std::tasks.Task
+    std::timer
 }
 
 fn short_fail() -> Result<Int, String> {
@@ -332,9 +332,9 @@ at once will use up the connection pool.
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/fs
-    std/io
-    std/tasks.Task
+    std::fs
+    std::io
+    std::tasks.Task
 }
 
 // How many words a file holds.
@@ -430,9 +430,9 @@ cancelled:
 
 ```nomi-run
 import {
-    std/duration.Duration
-    std/tasks.Task
-    std/timer
+    std::duration.Duration
+    std::tasks.Task
+    std::timer
 }
 
 fn serve_conn() -> Int {
@@ -545,9 +545,9 @@ outside it:
 
 ```nomi-run
 import {
-    std/duration.Duration
-    std/tasks.Task
-    std/timer
+    std::duration.Duration
+    std::tasks.Task
+    std::timer
 }
 
 struct Config {

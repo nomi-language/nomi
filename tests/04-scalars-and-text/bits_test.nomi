@@ -1,6 +1,6 @@
 import {
-    std/bits.{self, Bits}
-    std/compiler
+    std::bits.{self, Bits}
+    std::compiler
 }
 
 test "a pattern matches the Ints whose fixed bits it names" {
@@ -67,12 +67,12 @@ test "an error says what is wrong with the text" {
 test "a pattern with no field letter has no field to read" {
     result =
         """
-            import std/bits.Bits
+        import std::bits.Bits
 
-            fn main() {
-              _ = Bits.field(Bits`10xx`, 8)
-            }
-            """
+        fn main() {
+          _ = Bits.field(Bits`10xx`, 8)
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

@@ -1,6 +1,6 @@
 // Standard output and standard error, through the io functions and through
 // the stream handles. A run's record holds the two streams apart.
-import std/io.{self, Reader, Writer}
+import std::io.{self, Reader, Writer}
 
 fn main() -> Result<Unit, io.Error> {
     io.print("out: print")

@@ -58,10 +58,10 @@ derive Display for Point
 derive Equatable for Point
 derive Hashable for Point
 `)
-	expectError(t, errs, "`Comparable` is not in scope — import `std/comparable.Comparable`")
-	expectError(t, errs, "`Display` is not in scope — import `std/display.Display`")
-	expectError(t, errs, "`Equatable` is not in scope — import `std/equatable.Equatable`")
-	expectError(t, errs, "`Hashable` is not in scope — import `std/hashable.Hashable`")
+	expectError(t, errs, "`Comparable` is not in scope — import `std::comparable.Comparable`")
+	expectError(t, errs, "`Display` is not in scope — import `std::display.Display`")
+	expectError(t, errs, "`Equatable` is not in scope — import `std::equatable.Equatable`")
+	expectError(t, errs, "`Hashable` is not in scope — import `std::hashable.Hashable`")
 	// The arg errors carry real source positions (the @derive line), never
 	// synth-band ones.
 	for _, e := range errs {

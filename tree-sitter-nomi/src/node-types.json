@@ -127,6 +127,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -431,6 +435,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -693,6 +701,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "or_pattern",
             "named": true
           },
@@ -926,6 +938,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -1193,6 +1209,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -1448,6 +1468,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -1672,6 +1696,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -1970,6 +1998,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "once_binding",
           "named": true
         },
@@ -2222,6 +2254,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -2431,6 +2467,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -2734,6 +2774,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -3025,6 +3069,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "or_pattern",
           "named": true
         },
@@ -3248,6 +3296,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -3444,6 +3496,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -3750,6 +3806,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "once_binding",
           "named": true
         },
@@ -3994,6 +4054,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -4291,6 +4355,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -4538,6 +4606,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -4819,6 +4891,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }
@@ -4926,6 +5002,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -5133,6 +5213,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -5375,6 +5459,10 @@
         },
         {
           "type": "map_pattern",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -5679,6 +5767,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -6252,6 +6344,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -6540,6 +6636,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -7075,6 +7175,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -7287,6 +7391,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -7612,6 +7720,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -8404,6 +8516,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -8717,6 +8833,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -9570,6 +9690,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -9793,6 +9917,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -10003,6 +10131,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }
@@ -10133,6 +10265,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -10256,6 +10392,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }
@@ -10376,6 +10516,10 @@
         },
         {
           "type": "map_pattern",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -10611,6 +10755,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -10898,6 +11046,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -11290,6 +11442,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -11528,6 +11684,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -11739,6 +11899,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -11942,6 +12106,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -12172,6 +12340,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -12508,6 +12680,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -12654,6 +12830,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "type_identifier",
           "named": true
         }
@@ -12685,6 +12865,10 @@
         "types": [
           {
             "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           }
         ]
@@ -12807,6 +12991,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -13062,6 +13250,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -13195,6 +13387,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }
@@ -13303,6 +13499,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -13429,6 +13629,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }
@@ -13537,6 +13741,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -13748,6 +13956,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -14039,6 +14251,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "once_binding",
           "named": true
         },
@@ -14313,6 +14529,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -14477,6 +14697,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }
@@ -14585,6 +14809,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -14749,6 +14977,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }
@@ -14902,6 +15134,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -15113,6 +15349,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -15335,6 +15575,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -15583,6 +15827,10 @@
           },
           {
             "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -16047,6 +16295,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -16266,6 +16518,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -16755,6 +17011,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -17039,6 +17299,10 @@
           "named": true
         },
         {
+          "type": "module_path",
+          "named": true
+        },
+        {
           "type": "paren_expression",
           "named": true
         },
@@ -17286,6 +17550,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -17420,6 +17688,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "type_identifier",
             "named": true
           }
@@ -17528,6 +17800,10 @@
         },
         {
           "type": "map_construction",
+          "named": true
+        },
+        {
+          "type": "module_path",
           "named": true
         },
         {
@@ -17651,6 +17927,10 @@
           },
           {
             "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "module_path",
             "named": true
           },
           {
@@ -17935,6 +18215,10 @@
             "named": true
           },
           {
+            "type": "module_path",
+            "named": true
+          },
+          {
             "type": "paren_expression",
             "named": true
           },
@@ -18140,6 +18424,10 @@
   },
   {
     "type": ":",
+    "named": false
+  },
+  {
+    "type": "::",
     "named": false
   },
   {

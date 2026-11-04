@@ -32,9 +32,9 @@
 // functions in different places, so a fraction-suppression or zero-padding bug
 // shows up as text rather than as a failure.
 import {
-    std/calendar.{Date, Days, Error, Months, NaiveDateTime, Time, Weeks, Years}
-    std/duration.Duration
-    std/io
+    std::calendar.{Date, Days, Error, Months, NaiveDateTime, Time, Weeks, Years}
+    std::duration.Duration
+    std::io
 }
 
 fn run() -> Result<Unit, Error> {

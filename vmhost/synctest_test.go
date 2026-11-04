@@ -96,10 +96,10 @@ func assertVirtualized(t *testing.T, elapsed time.Duration, what string) {
 // Three ten-second sleeps in parallel inside a `concurrent` block.
 func TestSynctestConcurrentBlockVirtualizesSleeps(t *testing.T) {
 	src := `
-import std/tasks.Task
-import std/duration.Duration
-import std/io
-import std/timer
+import std::tasks.Task
+import std::duration.Duration
+import std::io
+import std::timer
 
 fn main() -> Unit {
   concurrent {
@@ -121,9 +121,9 @@ fn main() -> Unit {
 // of parallelism could collapse.
 func TestSynctestSequentialSleepsAdvanceVirtualTime(t *testing.T) {
 	src := `
-import std/duration.Duration
-import std/io
-import std/timer
+import std::duration.Duration
+import std::io
+import std::timer
 
 fn main() -> Unit {
   timer.sleep(Duration.minutes(1))
@@ -141,11 +141,11 @@ fn main() -> Unit {
 // consumer is parked on a receive while virtual time moves.
 func TestSynctestChannelsWorkInABubble(t *testing.T) {
 	src := `
-import std/channels.{Channel, Receiver, Sender}
-import std/tasks.Task
-import std/duration.Duration
-import std/io
-import std/timer
+import std::channels.{Channel, Receiver, Sender}
+import std::tasks.Task
+import std::duration.Duration
+import std::io
+import std::timer
 
 fn produce(ch: Channel<Int>, n: Int) -> Unit {
   timer.sleep(Duration.seconds(30))
@@ -185,10 +185,10 @@ fn main() -> Unit {
 // A failing sibling cancels the others through the same ctx-aware sleeps.
 func TestSynctestCancellationCascadeIsInstant(t *testing.T) {
 	src := `
-import std/tasks.Task
-import std/duration.Duration
-import std/io
-import std/timer
+import std::tasks.Task
+import std::duration.Duration
+import std::io
+import std::timer
 
 fn slow_task() -> Result<Int, String> {
   timer.sleep(Duration.minutes(5))
@@ -223,10 +223,10 @@ fn main() -> Unit {
 func supervisorProgram(groupArgs, rest string) string {
 	return `
 import {
-  std/supervisors.Supervisor
-  std/duration.Duration
-  std/io
-  std/timer
+  std::supervisors.Supervisor
+  std::duration.Duration
+  std::io
+  std::timer
 }
 
 struct Config {
@@ -318,8 +318,8 @@ fn main() -> Unit {
   _ = Supervisor.spawn(Config.notify, fn -> breaks())
 }
 `)
-	src = strings.Replace(src, "  std/supervisors.Supervisor\n", "  std/supervisors.{Backoff, Restart, Supervisor}\n", 1)
-	src = strings.Replace(src, "  std/timer\n", "", 1)
+	src = strings.Replace(src, "  std::supervisors.Supervisor\n", "  std::supervisors.{Backoff, Restart, Supervisor}\n", 1)
+	src = strings.Replace(src, "  std::timer\n", "", 1)
 	out, elapsed := runInBubble(t, src)
 	if n := strings.Count(out, "run\n"); n != 4 {
 		t.Fatalf("expected 4 runs (1 + 3 restarts), got %d: %q", n, out)

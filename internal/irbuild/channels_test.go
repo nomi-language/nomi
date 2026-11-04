@@ -364,11 +364,11 @@ func TestChannelDefsArePackageNeutral(t *testing.T) {
 // The population is derived from one source of truth, the spec tables, so
 // adding a row cannot pass by not being listed.
 func TestChannelKindsAgreeAcrossEveryChannel(t *testing.T) {
-	src := "import std/channels.{Arm, Channel, ChannelClosed, Receiver, Sender, TimedOut}\n" +
+	src := "import std::channels.{Arm, Channel, ChannelClosed, Receiver, Sender, TimedOut}\n" +
 		// `Task<T>` is a stdGenHostSpecs row too, and the population below is
 		// derived from that table — so the witness has to name it or the
 		// ANNOTATION door has nothing in scope to resolve and reads as a refusal.
-		"import std/tasks.Task\n\n" +
+		"import std::tasks.Task\n\n" +
 		"fn a(_x: Channel<Int>) -> Int { 1 }\n" +
 		"fn e(_x: Task<Int>) -> Int { 1 }\n" +
 		"fn b(_x: Sender<Int>) -> Int { 1 }\n" +

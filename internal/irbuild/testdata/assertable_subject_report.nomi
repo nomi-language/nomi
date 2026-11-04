@@ -26,9 +26,9 @@
 // `None`, so its failure carries no details at all and says `refute failed` in
 // its own words.
 import {
-    std/assertions.Assertable
-    std/assertions.AssertionDetail
-    std/assertions.AssertionDetails
+    std::assertions.Assertable
+    std::assertions.AssertionDetail
+    std::assertions.AssertionDetails
 }
 
 struct Equals {

@@ -30,7 +30,7 @@ import {
 //#
 //# `Float.format` and `Float.format_percent` write a float as a reader of a
 //# locale writes it, and `Float.parse_in` and `Float.parse_percent_in` read
-//# it back, by the rules std/int's page gives for
+//# it back, by the rules std::int's page gives for
 //# [formatting](/reference/int/#formatting-numbers-for-a-reader) and
 //# [parsing](/reference/int/#parsing-numbers-a-reader-wrote) numbers.
 
@@ -128,7 +128,7 @@ impl Float {
     /// that exact value, and the answer is the Float nearest the rounded
     /// decimal, so `Float.round(0.125, 2)` prints `0.12` but is not exactly
     /// 0.12 either. Round a `Decimal` when the decimal digits must be exact.
-    //! import std/decimal.RoundingMode
+    //! import std::decimal.RoundingMode
     //!
     //! assert Float.round(3.5) == 4.0
     //! assert Float.round(2.5) == 2.0

@@ -7,7 +7,7 @@ import (
 
 // A file named after its own module (testdata/self_named_module, module
 // "thing", file thing.nomi) is reached by `import thing`, by an alias of it,
-// and by `import thing/thing`. The bare name used to be read as the module
+// and by `import thing::thing`. The bare name used to be read as the module
 // itself with nothing left to load, so the import bound no file and every
 // call through it declined.
 func TestSelfNamedModule_ImportByModuleNameReachesTheFile(t *testing.T) {

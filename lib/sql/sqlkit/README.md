@@ -76,6 +76,55 @@ must name a table the migrations create. An enum is named after its
 table's row and its column: `orders.status` is `OrderStatus`, and with
 `people = "Person"`, `people.status` is `PersonStatus`.
 
+The schema's types are in scope in every query file, with no import line,
+two ways: by their own name (`Post`), and qualified by the schema file's
+name (`schema.Post`, or with `schema = "db"`, `db.Post`). A query file may
+also import a type of the same name as a row, such as an application's own
+`Post`:
+
+```sql
+-- import: models.{Post}
+
+-- query: post(id: Int) -> Maybe<Post>
+SELECT id, title FROM posts WHERE id = @id;
+
+-- query: post_row(id: Int) -> Maybe<schema.Post>
+SELECT id, title, body, created_at FROM posts WHERE id = @id;
+```
+
+- A name the file imports means the imported type: `post` builds a
+  `models.Post`.
+- `schema.Post` always means the table's row.
+- A name the file does not import means the table's row, as before.
+
+The generated file imports `models.Post` for the first and the schema
+module for the second, each only when a query names it, so neither import
+is unused. As in sqlc and Prisma, the generated types are in their own
+namespace, and an application type of the same name needs no rename in
+nomi.toml.
+
+When the bare name means the import but the SQL selects columns only the
+row has, the generated code does not check, and the error is at the
+field the imported type lacks. Had `post_row` written `-> Maybe<Post>`,
+`nomi check` would say so at `body`, and a comment just above names the
+row:
+
+```
+error: Post has no field 'body'
+  --> queries.nomi:36:13
+   |
+36 |             body: runtime.text("post_row", row, 2)?,
+   |             ^^^^
+```
+
+```
+    // `Post` is models.Post, which db/queries/queries.sql imports. The row of the
+    // table `posts` is `schema.Post`.
+    runtime.optional(conn, "post_row", statement, fn row -> Ok(Post{
+```
+
+Write `-> Maybe<schema.Post>` for the row.
+
 ## Queries
 
 A query file holds queries, each an annotation that gives its Nomi name,
@@ -113,13 +162,22 @@ parameter and the values to bind. Each column is read into its field by a
 reader for the column's type (`text_null` for a nullable `TEXT` column).
 
 The generated file imports what its signatures name: a type of the schema
-(`User`, `OrderStatus`), one of std's (`Instant`, `Date`, `Uuid`, ...), or
-the prelude's. Any other type comes from an `-- import:` line before the
-first query, written as an entry of an import block:
+(`User`, `schema.User`, `OrderStatus`), one of std's (`Instant`, `Date`,
+`Uuid`, ...), or the prelude's. Any other type comes from an `-- import:`
+line before the first query, written as an entry of an import block:
 
 ```sql
 -- import: reports.CustomerRevenue
 ```
+
+A path joins its directories with `::`, as an import does
+(`-- import: app::reports.CustomerRevenue`).
+
+An import no signature uses is left out of the generated file. A module
+the file imports itself (`-- import: reports`) names its types qualified,
+`reports.CustomerRevenue`. A type sqlkit writes for a column of an
+anonymous row is qualified when an import shadows it: an enum column reads
+as `schema.PostStatus` in a file that imports another `PostStatus`.
 
 `@name` is SQL's own named parameter. It marks where the parameter is
 bound, and the value is never spliced into the SQL. An `@` followed by a
@@ -175,6 +233,11 @@ error: 1 problem in the SQL; nothing was written
 - A result type that does not fit whether the SQL returns rows: none, or a
   row type, on SQL that returns no rows; `-> Unit` or `-> Changed` on SQL
   that returns rows.
+- A result that names no row type: `-> List` or `-> Maybe` with no type
+  argument, `-> Result<...>` or another generic, a lower-case name, and a
+  value type such as `-> Int` on a query of more than one column.
+- A qualified name whose module is neither the schema's nor one the file
+  imports, and `schema.X` where the schema declares no `X`.
 - A column whose name cannot be a field's, two columns of one name, and an
   expression with no type in an anonymous row.
 - A type in a signature that nothing imports.

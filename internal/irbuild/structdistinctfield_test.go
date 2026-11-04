@@ -9,7 +9,7 @@ func TestIRStructFieldOfCompositeDistinct_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 type Pair #(Int, Int)
 

@@ -1,7 +1,7 @@
 import {
-    std/duration
-    std/io
-    std/random.{self, Error}
+    std::duration
+    std::io
+    std::random.{self, Error}
 }
 
 // Std types named through their module's qualifier in signatures.

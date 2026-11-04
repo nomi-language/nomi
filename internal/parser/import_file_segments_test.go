@@ -20,14 +20,14 @@ func TestImportFileSegments(t *testing.T) {
 		file int
 	}{
 		{"import std.a000000.A0000000000000000000000", 2, 2},
-		{"import std/a000000.A0000000000000000000000", 2, 2},
+		{"import std::a000000.A0000000000000000000000", 2, 2},
 		{"import std.io.print", 2, 2},
 		{"import std.io.{self, print}", 2, 2},
 		{"import api.http.Header.{self, Name}", 3, 2},
 		{"import shape.Shape.{Circle}", 2, 1},
 		{"import shape.Shape.Inner.Circle", 3, 1},
 		{"import foo.Bar.baz.Q", 3, 3},
-		{"import a/B.c", 2, 2},
+		{"import a::b.C.d", 3, 2},
 		{"import calc: add, Shape.{Circle}", 1, 1},
 		{"fn main() {\n    {\n        import std.a.B\n    }\n}", 2, 2},
 	}

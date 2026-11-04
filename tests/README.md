@@ -48,7 +48,7 @@ rejected shape; when a bad expression only needs to be referenced, prefer
 
 ```nomi
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 

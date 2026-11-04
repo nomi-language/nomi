@@ -39,7 +39,7 @@ func TestUnknownNames_SuggestTheClosestName(t *testing.T) {
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			dir := t.TempDir()
-			imports := "import std/io\n"
+			imports := "import std::io\n"
 			if tc.kind == "import item" {
 				imports += "import helper.{greett}\n"
 			}

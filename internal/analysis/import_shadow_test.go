@@ -15,7 +15,7 @@ import (
 // declaration stubs before any file's annotations, so a selective import's
 // scope.Define always wrote LAST and silently replaced whatever the file
 // declared under that name. For every declaring kind —
-// interface, struct, enum, function — `import std/json.{ToJson}` beside a local
+// interface, struct, enum, function — `import std::json.{ToJson}` beside a local
 // `ToJson` declaration left ModuleScope pointing at the ImportStmt symbol, with
 // the only diagnostic being "imported name 'ToJson' is unused". That message
 // names the SURVIVOR and calls it dead; the local declaration is what became
@@ -45,7 +45,7 @@ func TestModuleScope_LocalDeclarationOutranksASelectiveImport(t *testing.T) {
 	for _, c := range declKindCases {
 		c := c
 		t.Run(c.kind, func(t *testing.T) {
-			fa, _ := reservedNamesFA(t, "import std/json.{ToJson}\n\n"+c.decl)
+			fa, _ := reservedNamesFA(t, "import std::json.{ToJson}\n\n"+c.decl)
 			sym := fa.ModuleScope.LookupLocal("ToJson")
 			if sym == nil {
 				t.Fatal("ToJson is absent from module scope entirely")
@@ -65,7 +65,7 @@ func TestModuleScope_ImportOnADeclaredNameIsReported(t *testing.T) {
 	for _, c := range declKindCases {
 		c := c
 		t.Run(c.kind, func(t *testing.T) {
-			errs := buildAndCollectErrs(t, "import std/json.{ToJson}\n\n"+c.decl)
+			errs := buildAndCollectErrs(t, "import std::json.{ToJson}\n\n"+c.decl)
 			for _, e := range errs {
 				if strings.Contains(e, "already defined in this scope") && strings.Contains(e, "ToJson") {
 					return
@@ -85,8 +85,8 @@ func TestModuleScope_DeclarationOrderDoesNotDecideTheWinner(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"import first", "import std/json.{ToJson}\n\n" + decl},
-		{"declaration first", decl + "\nimport std/json.{ToJson}\n"},
+		{"import first", "import std::json.{ToJson}\n\n" + decl},
+		{"declaration first", decl + "\nimport std::json.{ToJson}\n"},
 	} {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
@@ -103,7 +103,7 @@ func TestModuleScope_DeclarationOrderDoesNotDecideTheWinner(t *testing.T) {
 }
 
 // TestModuleScope_ExplicitPreludeReimportStaysLegal is the boundary, and it is
-// the half that a wider fix gets wrong. `import std/maybe.{Maybe}` beside the
+// the half that a wider fix gets wrong. `import std::maybe.{Maybe}` beside the
 // prelude's own injected `Maybe` is the explicit-is-better idiom; stdlib files
 // and several analysis fixtures write it. An import landing on ANOTHER IMPORT's
 // slot is not a collision and must stay silent.
@@ -113,8 +113,8 @@ func TestModuleScope_DeclarationOrderDoesNotDecideTheWinner(t *testing.T) {
 // broke exactly these: four analysis tests, on `Maybe` and on `Display`.
 func TestModuleScope_ExplicitPreludeReimportStaysLegal(t *testing.T) {
 	for _, c := range []struct{ name, src string }{
-		{"Maybe", "import std/maybe.{Maybe}\n\npub fn f(_m: Maybe<Int>) -> Int { 0 }\n"},
-		{"Display", "import std/display.{Display}\n\npub fn g(_d: Display) -> Int { 0 }\n"},
+		{"Maybe", "import std::maybe.{Maybe}\n\npub fn f(_m: Maybe<Int>) -> Int { 0 }\n"},
+		{"Display", "import std::display.{Display}\n\npub fn g(_d: Display) -> Int { 0 }\n"},
 	} {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestModuleScope_ExplicitPreludeReimportStaysLegal(t *testing.T) {
 // a pinned observation rather than an aspiration: if someone gives it a rule,
 // this test fires and points at the decision.
 func TestModuleScope_TwoSelectiveImportsStillLastWins(t *testing.T) {
-	src := "import std/json.{ToJson}\nimport std/json.{ToJson}\n\npub fn f(_x: ToJson) -> Int { 0 }\n"
+	src := "import std::json.{ToJson}\nimport std::json.{ToJson}\n\npub fn f(_x: ToJson) -> Int { 0 }\n"
 	fa, _ := reservedNamesFA(t, src)
 	sym := fa.ModuleScope.LookupLocal("ToJson")
 	if sym == nil {

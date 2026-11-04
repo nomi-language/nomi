@@ -18,9 +18,9 @@ func (p *Parser) groupedImportPathError(segments []ast.Node) error {
 	for i, seg := range segments {
 		prefix[i] = ast.ImportNodeName(seg)
 	}
-	paths := p.groupedImportPaths(strings.Join(prefix, "/") + "/")
+	paths := p.groupedImportPaths(strings.Join(prefix, ast.PathSeparator) + ast.PathSeparator)
 	if len(paths) == 0 {
-		paths = []string{"std/io", "std/regex.Regex"}
+		paths = []string{"std::io", "std::regex.Regex"}
 	}
 	var hint strings.Builder
 	hint.WriteString("to import several files, list each in an import block:\nimport {")
@@ -31,7 +31,7 @@ func (p *Parser) groupedImportPathError(segments []ast.Node) error {
 	return ParseError{
 		Line:    open.Line,
 		Col:     open.Col,
-		Message: "braces select names from one file, as in `std/regex.{Regex, Match}`",
+		Message: "braces select names from one file, as in `std::regex.{Regex, Match}`",
 		Hints:   []string{hint.String()},
 	}
 }
@@ -77,7 +77,7 @@ func (p *Parser) groupedImportPaths(prefix string) []string {
 			}
 		case tok.Type == token.AS:
 			entry.WriteString(" as ")
-		case tok.Type == token.DOT || tok.Type == token.SLASH || isImportPathSegment(tok):
+		case tok.Type == token.DOT || tok.Type == token.PATH || isImportPathSegment(tok):
 			entry.WriteString(tok.Lexeme)
 		default:
 			return nil
@@ -87,14 +87,14 @@ func (p *Parser) groupedImportPaths(prefix string) []string {
 }
 
 // importPathText spells path as an import entry writes it: its first
-// fileSegments joined by `/`, the rest by `.`.
+// fileSegments joined by `::`, the rest by `.`.
 func importPathText(path []ast.Node, fileSegments int) string {
 	var b strings.Builder
 	for i, seg := range path {
 		switch {
 		case i == 0:
 		case i < fileSegments:
-			b.WriteString("/")
+			b.WriteString(ast.PathSeparator)
 		default:
 			b.WriteString(".")
 		}
@@ -135,4 +135,27 @@ func (p *Parser) nestedImportListError(prefix string, open int) error {
 		Message: "a selector list cannot hold another list",
 		Hints:   []string{hint.String()},
 	}
+}
+
+// slashImportPathError is the error for a `/` in an import path, which `::`
+// replaced: `import std::io` is now written `import std::io`. segments is the
+// path read before the slash, and the parser stands just after the slash.
+// The message spells the whole path the slashes join.
+func (p *Parser) slashImportPathError(segments []ast.Node) error {
+	slash := p.tokens[p.pos-1]
+	parts := make([]string, 0, len(segments)+1)
+	for _, seg := range segments {
+		parts = append(parts, ast.ImportNodeName(seg))
+	}
+	for i := p.pos; i < len(p.tokens); i += 2 {
+		next := p.tokens[i]
+		if next.Type != token.PATH && (!isImportPathSegment(next) || next.Type == token.DOTDOT) {
+			break
+		}
+		parts = append(parts, next.Lexeme)
+		if i+1 >= len(p.tokens) || p.tokens[i+1].Type != token.SLASH {
+			break
+		}
+	}
+	return errorAt(slash.Line, slash.Col, "import paths use `::`: write `%s`", strings.Join(parts, ast.PathSeparator))
 }

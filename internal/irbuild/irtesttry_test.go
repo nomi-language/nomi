@@ -71,7 +71,7 @@ test "a try after an assertion that passed" {
 // an early return, which the VM runner does not build, so the case is not
 // retained.
 func TestIRTestBody_TryOverACheckKeepsNative(t *testing.T) {
-	const src = `import std/testing
+	const src = `import std::testing
 
 test "a try over a check" {
   passed = testing.check(1 == 2)?

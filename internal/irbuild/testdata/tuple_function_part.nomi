@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A tuple or anonymous record holding a function value. It is built,
 // projected, destructured, matched, passed and returned, and the held function

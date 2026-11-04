@@ -13,7 +13,7 @@ func TestPartialComputedDefault_Runs(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     lib
 }
 
@@ -76,7 +76,7 @@ fn main() {
     io.inspect(n)
 }
 `, "h:3\nbase\nh:11\n99\nbase\nx:11\ny:5\n#(4, 8, 12)\n#(4, 1, 5)\n#(3, 6, 7)\n#(1, 1)\nBox{v: 3}\n14\n6\n14\n"+
-		"lib base\nl:42\nl:1\n100\n", map[string]string{"lib.nomi": `import std/io
+		"lib base\nl:42\nl:1\n100\n", map[string]string{"lib.nomi": `import std::io
 
 fn base() -> Int {
     io.print("lib base")
@@ -99,7 +99,7 @@ func TestPartialComputedDefault_ALaterPlaceholderFillsFirst(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn span(a: Int, b: Int = a * 2) -> #(Int, Int) {
     #(a, b)
@@ -137,11 +137,11 @@ fn main() {
 // named bare and through its module.
 func TestPartialComputedDefault_StdCallee(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/io
-    std/locale.Locale
-    std/strings
-    std/strings.ListStyle
-    std/strings.ListWidth
+    std::io
+    std::locale.Locale
+    std::strings
+    std::strings.ListStyle
+    std::strings.ListWidth
 }
 
 fn main() {

@@ -262,7 +262,7 @@ pub fn draw<T>(x: T) -> String where T: Renderer {
 // bound side ever disagreed about which file declared `Display`, this fails
 // while the two witnesses above keep passing.
 func TestInterfaceIdentity_StdlibBoundsStillHold(t *testing.T) {
-	errs := buildSiblingProject(t, `import std/io
+	errs := buildSiblingProject(t, `import std::io
 
 fn describe<T>(x: T) -> String where T: Display {
   Display.to_string(x)

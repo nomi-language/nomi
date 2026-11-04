@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // TestDrillThroughStructVariant_Runs pins a std enum's struct-shaped variant
-// imported by name (`import std/supervisors.Backoff.Exponential`) and built
+// imported by name (`import std::supervisors.Backoff.Exponential`) and built
 // bare (`Exponential{}`), declared defaults filled as the qualified spelling
 // fills them. The builder declined the bare head, since no type is named
 // `Exponential`.

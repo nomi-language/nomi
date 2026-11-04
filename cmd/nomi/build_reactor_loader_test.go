@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-const wasiGame = `import std/json.{ToJson, FromJson}
+const wasiGame = `import std::json.{ToJson, FromJson}
 
 struct Game {
     word: String
@@ -46,7 +46,7 @@ export fn divide(a: Int, b: Int) -> Int {
 }
 `
 
-const wasiGreet = `import std/io
+const wasiGreet = `import std::io
 
 fn main() {
     Ok(Some(name)) = io.read_line() else { return }
@@ -54,7 +54,7 @@ fn main() {
 }
 `
 
-const wasiTrap = `import std/io
+const wasiTrap = `import std::io
 
 fn main() {
     io.print("before")
@@ -65,10 +65,10 @@ fn main() {
 
 // wasiSleep's tasks sleep 50 and 20 ms under concurrent, so the run takes at
 // least 50 ms.
-const wasiSleep = `import std/io
-import std/tasks.Task
-import std/timer
-import std/duration.Duration
+const wasiSleep = `import std::io
+import std::tasks.Task
+import std::timer
+import std::duration.Duration
 
 fn main() {
     total = concurrent {

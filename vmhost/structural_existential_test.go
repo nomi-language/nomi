@@ -8,7 +8,7 @@ import "testing"
 // tuples compare equal, and it renders as `"${t}"` renders it, nested in a
 // collection of interface values too.
 func TestStructuralExistentials_HashCompareAndRenderAsTheValueItself(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct P {
     a: Int

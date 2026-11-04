@@ -92,7 +92,7 @@ func TestReleaseArchive_RunsAGoBindingFromAFetchedModule(t *testing.T) {
 	app := filepath.Join(tmp, "app")
 	mustWrite(t, filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	mustWrite(t, filepath.Join(app, "main.nomi"), "import {\n    greet\n    std/io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import {\n    greet\n    std::io\n}\n\nfn main() {\n    io.print(greet.hello(\"you\"))\n}\n")
 
 	toolchains := filepath.Join(tmp, "toolchains")
 	env := []string{

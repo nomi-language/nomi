@@ -105,7 +105,7 @@ func TestWordBounds(t *testing.T) {
 // and none of the functions declared in its `impl` blocks, which the checker
 // rejects when spelled file-qualified (`duration.seconds`).
 func TestCompletion_FileObjectOmitsTypeOwnedFunctions(t *testing.T) {
-	items := complete(t, "import std/duration\n\nfn main() {\n  duration."+cursorMark+"\n}\n")
+	items := complete(t, "import std::duration\n\nfn main() {\n  duration."+cursorMark+"\n}\n")
 	labelsExclude(t, items, "seconds", "as_seconds")
 	if !slices.Contains(itemLabels(items), "Duration") {
 		t.Fatalf("completion on `duration.` did not reach the file's members (want Duration): %v", itemLabels(items))

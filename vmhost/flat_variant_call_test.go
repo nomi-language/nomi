@@ -25,7 +25,7 @@ pub enum Seg {
     Pair #(Int, String)
 }
 `,
-		"main.nomi": `import std/io
+		"main.nomi": `import std::io
 import two.Two
 import two.Two.{Both}
 import two.Two.{Both as B2}

@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 fn add(x: Int, y: Int) -> Int {
     x + y
@@ -185,13 +185,13 @@ test "a trailing named function routes like a trailing lambda" {
 test "a positional before a named argument does not skip its slot" {
     result =
         """
-            import std/io
-            fn sum(a: Int, b: Int) -> Int { a + b }
+        import std::io
+        fn sum(a: Int, b: Int) -> Int { a + b }
 
-            fn main() {
-              io.print(Display.to_string(sum(1, a: 2)))
-            }
-            """
+        fn main() {
+          io.print(Display.to_string(sum(1, a: 2)))
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

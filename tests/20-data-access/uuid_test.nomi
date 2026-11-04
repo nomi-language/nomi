@@ -1,10 +1,10 @@
 import {
-    std/duration.Duration
-    std/instant.Instant
-    std/random
-    std/testing.Clock
-    std/timer
-    std/uuid.{self, Uuid}
+    std::duration.Duration
+    std::instant.Instant
+    std::random
+    std::testing.Clock
+    std::timer
+    std::uuid.{self, Uuid}
 }
 
 test "parsing reads either case and displays lowercase" {

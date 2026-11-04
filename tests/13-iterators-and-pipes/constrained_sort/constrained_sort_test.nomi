@@ -1,5 +1,5 @@
 import {
-    std/comparable.Direction
+    std::comparable.Direction
     named_widget.{self, NamedWidget}
     sort_widget.{self, SortWidget}
 }

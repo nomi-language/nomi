@@ -1,9 +1,9 @@
 import {
-    std/calendar.Error
-    std/calendar.DateTime
-    std/calendar.Disambiguation
-    std/calendar.NaiveDateTime
-    std/instant.Instant
+    std::calendar.Error
+    std::calendar.DateTime
+    std::calendar.Disambiguation
+    std::calendar.NaiveDateTime
+    std::instant.Instant
 }
 
 test "DST fall-back can choose the earlier repeated wall reading" {

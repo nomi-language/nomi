@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 360
-declared-cases 180
+records 362
+declared-cases 181
 failing 0
 C app-fields.md:L105
 E 0
@@ -185,7 +185,7 @@ T dbg line 5: size = "small"
 T dbg line 13: label = "many"
 T dbg line 22: range = "medium"
 T
-C bindings-and-expressions.md:L463
+C bindings-and-expressions.md:L467
 E 0
 N 0
 H 2c5d5933a76b066781c055af8e23078df59868d2d4fe8e12893d5bcdbf35e2f7
@@ -219,41 +219,42 @@ T example.com/search tags=[go, nomi]
 T a+b%2Bc
 T Err(invalid URL escape "%zz")
 T
-C cheat-sheet.md:L130
+C cheat-sheet.md:L133
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L202
+C cheat-sheet.md:L213
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L254
+C cheat-sheet.md:L266
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L288
+C cheat-sheet.md:L305
 E 0
 N 0
-H 2e6d31a5983a91251bfae5aefa1c0a19d8ba3cf601d0e8a706b4cfa9661a6b8a
+H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
 T 9
+T 12
 T
-C cheat-sheet.md:L29
+C cheat-sheet.md:L31
 E 0
 N 1
 H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L340
+C cheat-sheet.md:L367
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -262,7 +263,14 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L85
+C cheat-sheet.md:L431
+E 0
+N 1
+H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
+T ok dates
+T test result: ok. 1 passed, 0 failed
+T
+C cheat-sheet.md:L88
 E 0
 N 1
 H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
@@ -1806,14 +1814,14 @@ H 9a99ee5f06ecd57afeda01cb5386e5896ef9825352f6cc02294aa484dfe8175c
 T no settings.toml, so the defaults
 T logs: not found
 T
-C from-elixir.md:L55
+C from-elixir.md:L56
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C from-go.md:L58
+C from-go.md:L59
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
@@ -1841,7 +1849,7 @@ H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C from-rust.md:L64
+C from-rust.md:L65
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
@@ -1869,7 +1877,7 @@ H f6ccf37ab3ee63b6e0ad8400466695f930c851fb4f99f3d4eb56d58d05d846be
 T dbg line 11: add(3, 4) = 7
 T dbg line 12: abs(-9) = 9
 T
-C functions-and-lambdas.md:L184
+C functions-and-lambdas.md:L185
 E 0
 N 0
 H 41732bf383823f41415afcdec076d138095dbffa40e2be0721f8b497e57bdd5e
@@ -1878,7 +1886,7 @@ T dbg line 7: greet("World", "Hi") = "Hi, World!"
 T dbg line 11: add(5) = 15
 T dbg line 12: add(5, 2) = 7
 T
-C functions-and-lambdas.md:L242
+C functions-and-lambdas.md:L243
 E 0
 N 0
 H 5a75baa21186e7996be93bb40480a8abfdcb0f66042a04e61111288d5c50fa29
@@ -1886,7 +1894,7 @@ T dbg line 6: connect("localhost") = "localhost:8080:30"
 T dbg line 7: connect("localhost", timeout: 10) = "localhost:8080:10"
 T dbg line 8: connect(host: "api", port: 443, timeout: 5) = "api:443:5"
 T
-C functions-and-lambdas.md:L282
+C functions-and-lambdas.md:L283
 E 0
 N 0
 H 2dd345f90f7d867c1f990360e879b4c0045f7be19a25e6aa0bd1d7472f6741ee
@@ -1894,7 +1902,7 @@ T dbg line 22: diff = 7
 T dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
 T dbg line 24: add_pair(#(20, 22)) = 42
 T
-C functions-and-lambdas.md:L345
+C functions-and-lambdas.md:L346
 E 0
 N 0
 H 1b3f2615e5310cafc065aef3b352e88fdd3769495725b2a187d165775ed4973f
@@ -1902,7 +1910,7 @@ T dbg line 10: transform(5, fn x -> x + 1) = 6
 T dbg line 11: transform(5, factor: 3, fn x -> x + 1) = 16
 T dbg line 12: transform(5, factor: 3, double) = 30
 T
-C functions-and-lambdas.md:L408
+C functions-and-lambdas.md:L409
 E 0
 N 0
 H 603dda6a246f0e461002dfc04a26b5a6a18bb3eb8c627c4a7fc9746d699b4ac0
@@ -1916,7 +1924,7 @@ H 6d937e12fce5d55237e781170fb756678f434131ad22c87813b3a2df7b924afb
 T dbg line 3: inc(41) = 42
 T dbg line 10: describe("cart", 3) = "cart: 3 items"
 T
-C functions-and-lambdas.md:L75
+C functions-and-lambdas.md:L76
 E 0
 N 0
 H a28532a973e68b08c9dd6310c4befdc63f1fc3ec803dd9e02e317969db795f5c
@@ -1970,7 +1978,7 @@ N 0
 H b2d081ab19838216aa3178588b98237b4643bd979c1b80c5b81b74734a70f366
 T dbg line 20: ran.value = Ok("hello from /greet/ann b")
 T
-C http.md:L197
+C http.md:L209
 E 0
 N 0
 H 7a85e46390ce5ea6c5dc0967f13c2693d828a917d1b6e03ae486a121de9ea31d
@@ -2313,17 +2321,18 @@ T order-1042,1250g
 T en-US: ships at 1.25 kg
 T de: ships at 1,25 kg
 T
-C modules-and-imports.md:L124
+C modules-and-imports.md:L127
 E 0
 N 0
 H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
 T 14
 T
-C modules-and-imports.md:L164
+C modules-and-imports.md:L172
 E 0
 N 0
-H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
-T 14
+H 81c4e20d4d7c1dc2dc681b8875e2e945be0d0f6f90a274bfe130fea2d98ebd46
+T 10
+T Users: [ada, grace]
 T
 C modules-and-imports.md:L20
 E 0
@@ -2334,20 +2343,26 @@ T 3
 T abcd
 T Ok(2026-05-27)
 T
-C modules-and-imports.md:L242
+C modules-and-imports.md:L235
+E 0
+N 0
+H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
+T 14
+T
+C modules-and-imports.md:L313
 E 0
 N 0
 H 8edb29ad3fa5a82585349eec1056eeb77f2a018f84a67fd640ed9def17226968
 T 42
 T error: user IDs must be positive
 T
-C modules-and-imports.md:L392
+C modules-and-imports.md:L463
 E 0
 N 0
 H 902f4d30a6318ad21ab741f67b38666b0049d410161f1b813e69f49ba1e3897a
 T Hello, Ada!
 T
-C modules-and-imports.md:L472
+C modules-and-imports.md:L543
 E 0
 N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da

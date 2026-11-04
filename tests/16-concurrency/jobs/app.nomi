@@ -2,13 +2,13 @@
 // channel each job reports on, so a test waits for jobs instead of
 // sleeping. `rated` starts at most two jobs a second.
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/duration.Duration
-    std/io
-    std/jobs.{self, Failure, Job, Rate, Worker}
-    std/jobs_testing.Inline
-    std/json.{FromJson, ToJson}
-    std/sql_testing.Fake
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::io
+    std::jobs.{self, Failure, Job, Rate, Worker}
+    std::jobs_testing.Inline
+    std::json.{FromJson, ToJson}
+    std::sql_testing.Fake
 }
 
 pub struct Greeting {

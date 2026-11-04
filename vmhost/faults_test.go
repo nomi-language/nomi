@@ -23,7 +23,7 @@ func runVM(t *testing.T, src string) (string, error) {
 // A cyclic `once` is the program's fault, with rt's text at the line of the
 // read that re-entered it, not a limit of the machine.
 func TestRun_ACyclicOnceIsTheProgramsFault(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 fn read_seed() -> Int {
   seed
@@ -69,7 +69,7 @@ fn main() {
 // pattern always matches is a front-end error; see
 // internal/analysis/if_pattern_irrefutable_test.go.)
 func TestRun_ElselessPatternIfRuns(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 fn side_effect(m: Maybe<Int>) -> Bool {
   result = if Some(n) = m {
@@ -92,7 +92,7 @@ fn main() {
 // A boot answering a struct whose interface-typed field holds a concrete
 // value is retained: the field enters by erasure.
 func TestRun_ABootRecordWithAnErasedFieldRuns(t *testing.T) {
-	out, err := runVM(t, `import {std/io}
+	out, err := runVM(t, `import {std::io}
 interface Logger {fn log(logger:self,msg:String) ->Unit}
 struct Console {}
 impl Logger for Console {fn log(logger:Console,msg:String) ->Unit{ _ = logger;io.print("console ${msg}")}}
@@ -109,7 +109,7 @@ fn main(){Logger.log(App.logger,"hi")}
 // A fault inside a hand-written Hashable body a Set construction runs is the
 // program's fault, with the body's line.
 func TestRun_AFaultInAKeyHashIsTheProgramsFault(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Bad {
   n: Int

@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRReduceContext_EarlyBareVariant(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn reduce(xs: List<Int>) -> Maybe<Int> {
  Iter.reduce(xs, None, fn _acc: Maybe<Int>, x: Int -> {
   if x == 0 { return None }

@@ -1,6 +1,6 @@
 import {
-    std/hash as std_hash
-    std/io
+    std::hash as std_hash
+    std::io
     hash
     urls
 }

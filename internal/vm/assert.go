@@ -422,7 +422,7 @@ func stringDiff(fn *ir.Func, n *ir.Assert, rows []rt.AssertionValueContext) (*rt
 		return nil, nil
 	}
 	lhsText, rhsText := lhs.Text(), rhs.Text()
-	if lhsText == "" || rhsText == "" || n.Text() != lhsText+" == "+rhsText {
+	if lhsText == "" || rhsText == "" || !sameIgnoringLineIndent(n.Text(), lhsText+" == "+rhsText) {
 		return nil, nil
 	}
 	actual, ok := operandString(fn, cmp.Lhs(), lhsText, rows)
@@ -439,6 +439,26 @@ func stringDiff(fn *ir.Func, n *ir.Assert, rows []rt.AssertionValueContext) (*rt
 	}
 	d.ExpectedLine = literalFirstLine(rhs, expected)
 	return d, rhs
+}
+
+// sameIgnoringLineIndent reports whether a and b are the same text apart
+// from the indentation of each line. An operand is rendered on its own, and
+// `nomi fmt`'s layout indents a multi-line literal's body by what precedes
+// its opening delimiter on its line: `"""` alone puts the body at its own
+// indent, and `out == """` puts it one level in. The literal's value is the
+// same either way, since its body is dedented to the closing delimiter.
+func sameIgnoringLineIndent(a, b string) bool {
+	for {
+		la, ra, moreA := strings.Cut(a, "\n")
+		lb, rb, moreB := strings.Cut(b, "\n")
+		if strings.TrimLeft(la, " \t") != strings.TrimLeft(lb, " \t") || moreA != moreB {
+			return false
+		}
+		if !moreA {
+			return true
+		}
+		a, b = ra, rb
+	}
 }
 
 // operandRecord is the `values:` row instruction recorded for t, or nil.

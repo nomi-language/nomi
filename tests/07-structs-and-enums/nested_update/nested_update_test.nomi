@@ -15,9 +15,9 @@
 // field defaults. Anywhere else a bare `..` has no value to update and is a
 // compile error.
 import {
-    std/assertions.AssertionFailure
-    std/compiler.{self, Diagnostic, Project}
-    std/testing
+    std::assertions.AssertionFailure
+    std::compiler.{self, Diagnostic, Project}
+    std::testing
 }
 
 struct Address {

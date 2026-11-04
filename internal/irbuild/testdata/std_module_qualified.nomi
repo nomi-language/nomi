@@ -3,13 +3,13 @@
 // is the only spelling left for std's, so each must resolve by the
 // declaration the analyzer bound it to, not by the bare name.
 import {
-    std/channels
-    std/duration.Duration
-    std/io
-    std/json
-    std/random
-    std/supervisors
-    std/tasks
+    std::channels
+    std::duration.Duration
+    std::io
+    std::json
+    std::random
+    std::supervisors
+    std::tasks
 }
 
 struct Task {

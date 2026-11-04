@@ -38,22 +38,22 @@ func admits(t *testing.T, src string) {
 }
 
 func TestUnreachableCodeIsACheckError(t *testing.T) {
-	rejects(t, "import std/io\n\nfn early(n: Int) -> Int {\n  return n\n  io.print(\"never\")\n  n + 1\n}\n\n"+
+	rejects(t, "import std::io\n\nfn early(n: Int) -> Int {\n  return n\n  io.print(\"never\")\n  n + 1\n}\n\n"+
 		"fn main() {\n  io.print(\"${early(1)}\")\n}\n",
 		"main.nomi:5:3: unreachable code after return")
 }
 
 func TestSkippedNonTrailingDefaultIsACheckError(t *testing.T) {
-	rejects(t, "import std/io\n\nfn middle(a: Int, b: Int = 10, c: Int) -> Int {\n  a + b + c\n}\n\n"+
+	rejects(t, "import std::io\n\nfn middle(a: Int, b: Int = 10, c: Int) -> Int {\n  a + b + c\n}\n\n"+
 		"fn main() {\n  io.print(\"${middle(1, 2)}\")\n}\n",
 		"main.nomi:8:15: missing argument for parameter 'c'; positional arguments fill parameters in order "+
 			"and cannot skip the defaulted 'b', so pass this one by name (c: ...)")
-	admits(t, "import std/io\n\nfn middle(a: Int, b: Int = 10, c: Int) -> Int {\n  a + b + c\n}\n\n"+
+	admits(t, "import std::io\n\nfn middle(a: Int, b: Int = 10, c: Int) -> Int {\n  a + b + c\n}\n\n"+
 		"fn main() {\n  io.print(\"${middle(1, c: 3)}\")\n}\n")
 }
 
 func TestCaseWithoutCatchAllIsACheckError(t *testing.T) {
-	rejects(t, "import std/io\n\nfn sign(x: Int) -> String {\n  case {\n    x > 0 -> \"positive\"\n    x == 0 -> \"zero\"\n  }\n}\n\n"+
+	rejects(t, "import std::io\n\nfn sign(x: Int) -> String {\n  case {\n    x > 0 -> \"positive\"\n    x == 0 -> \"zero\"\n  }\n}\n\n"+
 		"fn word(s: String) -> Int {\n  case s {\n    \"a\" -> 1\n    \"b\" -> 2\n  }\n}\n\n"+
 		"fn main() {\n  io.print(sign(-1))\n  io.print(\"${word(\"c\")}\")\n}\n",
 		"main.nomi:4:3: non-exhaustive case: add a `_` arm",
@@ -67,16 +67,16 @@ func TestDecoratorIsAParseError(t *testing.T) {
 }
 
 func TestRedundantPreludeImportIsACheckError(t *testing.T) {
-	rejects(t, "import std/iter.Iter\nimport std/float.Float\nimport std/maybe.Maybe.{self, None}\n\n"+
+	rejects(t, "import std::iter.Iter\nimport std::float.Float\nimport std::maybe.Maybe.{self, None}\n\n"+
 		"fn main() {\n  _n = Iter.count([1])\n  _s = Float.to_string(1.5)\n  _m: Maybe<Int> = None\n}\n",
-		"main.nomi:1:17: imported name 'Iter' is already in scope from the prelude — remove it from the import",
-		"main.nomi:2:18: imported name 'Float' is already in scope from the prelude — remove it from the import",
-		"main.nomi:3:25: imported name 'Maybe' is already in scope from the prelude — remove it from the import",
-		"main.nomi:3:31: imported name 'None' is already in scope from the prelude — remove it from the import")
+		"main.nomi:1:18: imported name 'Iter' is already in scope from the prelude — remove it from the import",
+		"main.nomi:2:19: imported name 'Float' is already in scope from the prelude — remove it from the import",
+		"main.nomi:3:26: imported name 'Maybe' is already in scope from the prelude — remove it from the import",
+		"main.nomi:3:32: imported name 'None' is already in scope from the prelude — remove it from the import")
 }
 
 func TestLoadBearingStdImportsStayAdmitted(t *testing.T) {
-	admits(t, "import std/iter.Iter as It\nimport std/comparable.Ordering.{Less}\n\n"+
+	admits(t, "import std::iter.Iter as It\nimport std::comparable.Ordering.{Less}\n\n"+
 		"fn main() {\n  _n = It.count([1])\n  _o = Less\n}\n")
 }
 

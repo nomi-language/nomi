@@ -10,9 +10,9 @@ func TestIRContextValueStdLeafWitness_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
-import std/duration.Duration
-import std/regex.Regex
+	const src = `import std::io
+import std::duration.Duration
+import std::regex.Regex
 
 fn main() {
     io.inspect(Context.value(Context.root(), Duration))

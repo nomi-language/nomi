@@ -353,7 +353,7 @@ func TestBuildPublishedDiagnosticsReportsDbgWarning(t *testing.T) {
 // the operator's UTF-16 column, one less than its byte column.
 func TestOperatorDiagnosticsStartAtTheOperator(t *testing.T) {
 	src := strings.Join([]string{
-		"import std/instant.Instant",
+		"import std::instant.Instant",
 		"",
 		"fn main() {",
 		"    _ = Instant.from_seconds(15) - 5",
@@ -438,8 +438,8 @@ func TestDocumentManager_DiscardBindingSuppressesIgnoredExpressionDiagnostic(t *
 func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"main.nomi":   "import std/io\nimport helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
-		"helper.nomi": "import std/regex\n\nstruct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
+		"main.nomi":   "import std::io\nimport helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
+		"helper.nomi": "import std::regex\n\nstruct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
 	})
 	lib := std.Load()
 	dm := analysis.NewDocumentManager()
@@ -463,7 +463,7 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 	}
 	want := []string{
 		"7:6: 'A' is already defined in this scope as a type\nhelp: pick a different name",
-		"1:12: imported module 'regex' is unused — remove the import",
+		"1:13: imported module 'regex' is unused — remove the import",
 	}
 	if got := published("helper.nomi"); strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("helper.nomi publishes:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
@@ -478,7 +478,7 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-		"main.nomi":   "import std/io\nimport helper\nimport lib\n\nfn main() {\n  io.print(helper.greet())\n  lib.go()\n}\n",
+		"main.nomi":   "import std::io\nimport helper\nimport lib\n\nfn main() {\n  io.print(helper.greet())\n  lib.go()\n}\n",
 		"helper.nomi": "import utlis\n\npub fn greet() -> String {\n  utlis.name()\n}\n",
 		"utils.nomi":  "pub fn name() -> String {\n  \"hi\"\n}\n",
 	})
@@ -517,14 +517,14 @@ func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 // block the hint spells.
 func TestGroupedImportPathPublishesAtTheBrace(t *testing.T) {
 	dm := analysis.NewDocumentManager()
-	src := "import std/{io, regex.Regex}\n\nfn main() {\n}\n"
+	src := "import std::{io, regex.Regex}\n\nfn main() {\n}\n"
 	doc := dm.Open("file:///test.nomi", src)
 	var got []string
 	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, nil) {
 		got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
 	}
-	want := "1:12: braces select names from one file, as in `std/regex.{Regex, Match}`\n" +
-		"help: to import several files, list each in an import block:\nimport {\n    std/io\n    std/regex.Regex\n}"
+	want := "1:13: braces select names from one file, as in `std::regex.{Regex, Match}`\n" +
+		"help: to import several files, list each in an import block:\nimport {\n    std::io\n    std::regex.Regex\n}"
 	if strings.Join(got, "\n---\n") != want {
 		t.Errorf("publishes:\n%s\nwant:\n%s", strings.Join(got, "\n---\n"), want)
 	}
@@ -618,7 +618,7 @@ func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 	// whose one impl it does not.
 	files["spare.nomi"] = "import decls.{Alpha, Other}\n\nimpl Alpha for Other {\n    fn go(x: Other) -> Int {\n        x.n\n    }\n}\n"
 	files["extra.nomi"] = "import {\n    hop\n    spare\n}\n\npub fn one() -> Int {\n    1\n}\n"
-	files["main.nomi"] = strings.Replace(files["main.nomi"], "    std/io\n", "    std/io\n    extra\n", 1)
+	files["main.nomi"] = strings.Replace(files["main.nomi"], "    std::io\n", "    std::io\n    extra\n", 1)
 	// The derive is there because opening another file type-checks main.nomi
 	// as that file's entry, from a tree the editor parsed but did not lower.
 	files["main.nomi"] = strings.Replace(files["main.nomi"], "fn main() {\n",

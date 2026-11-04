@@ -9,7 +9,7 @@ import (
 // An interface call runs beside a struct whose field holds a Map of
 // function values.
 func TestIRInterfaceCall_BesideAFunctionMapFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Token
 struct Point { x: Int }
 struct Outer {
@@ -26,7 +26,7 @@ fn main() { io.print(Named.name(Token)); io.inspect(Outer{p: [Point{x: 1}]}) }
 // DISPATCHED call selected by the runtime type, never a direct call to one
 // implementation, and it prints the expected output.
 func TestIRInterfaceCall_ErasedReceiverDispatches(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 type Token
 struct Box { n: Int }
 interface Named { fn name(value: self) -> String }

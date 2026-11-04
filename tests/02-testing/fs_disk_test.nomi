@@ -2,10 +2,10 @@
 // makes and removes: each WriteMode, streams, listings, metadata and the
 // errors that name their path.
 import {
-    std/fs.{self, Kind}
-    std/fs_testing
-    std/io.{self, File, Reader, Writer}
-    std/path
+    std::fs.{self, Kind}
+    std::fs_testing
+    std::io.{self, File, Reader, Writer}
+    std::path
 }
 
 test "the disk keeps the rules the sandbox models" {

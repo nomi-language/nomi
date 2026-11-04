@@ -1,7 +1,7 @@
 // A reader as an iterator: `Reader.lines` and `Reader.chunks` read the
 // stream as they run, so they run once, and a failure is the last item.
 // `io.lines()` reads standard input the way `io.read_line` does.
-import std/io.{self, Error, Reader}
+import std::io.{self, Error, Reader}
 
 test "a reader over text yields its lines" {
     lines = Reader.from_text("pear\napple\r\n\nfig") |> Reader.lines() |> Result.collect()

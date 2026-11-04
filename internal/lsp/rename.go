@@ -21,7 +21,7 @@ import (
 func buildRenameEdits(fa *analysis.FileAnalysis, target *analysis.Symbol, id symIdentity, newName string) []protocol.TextEdit {
 	var edits []protocol.TextEdit
 	for pos, sym := range fa.References {
-		if !analysis.IsSynthesizedLine(pos.Line) && !fa.MembershipReference(pos) && matchesSymbol(sym, target, id) {
+		if !analysis.IsSynthesizedLine(pos.Line) && !fa.StandInReference(pos) && matchesSymbol(sym, target, id) {
 			if _, punned := fa.PunnedFieldLabels[pos]; punned {
 				edits = append(edits, makeTextEdit(pos, sym.Name, sym.Name+": "+newName))
 				continue

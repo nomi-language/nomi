@@ -12,7 +12,7 @@ import (
 // position: a binding, a list, a field, a result, an argument, an operand,
 // and a literal pattern at the top of a case, in a payload and in a tuple.
 func TestIRBytes_Literals(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Header {
  tag: Byte
  length: Int
@@ -57,7 +57,7 @@ fn main() {
 // The literal is a Byte constant in the IR, not an Int the VM converts.
 func TestIRBytes_LiteralIsAByteConstant(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	src := "import std/io\nfn main() {\n b: Byte = 0x81\n io.inspect(b)\n}\n"
+	src := "import std::io\nfn main() {\n b: Byte = 0x81\n io.inspect(b)\n}\n"
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}

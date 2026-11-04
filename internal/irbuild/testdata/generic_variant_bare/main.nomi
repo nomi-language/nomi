@@ -4,7 +4,7 @@
 // builds the variant there. Both a local enum and another file's, named both
 // ways, run.
 import {
-    std/io
+    std::io
     tree.{self, Tree}
 }
 

@@ -1140,7 +1140,7 @@ fn dump<T>(value: T) -> String where T: Showable {
 // harness (not BuildFile) because the dispatch target is only recorded when
 // ProjectImpls is populated.
 func TestHover_InterfaceQualifiedCallRendersConcreteImpl(t *testing.T) {
-	input := "import std/io\n" +
+	input := "import std::io\n" +
 		"\n" +
 		"fn main() {\n" +
 		"  io.print(Display.to_string(42))\n" +
@@ -1178,7 +1178,7 @@ func TestHover_InterfaceQualifiedCallRendersConcreteImpl(t *testing.T) {
 // abstract interface contract (`to_string(value: self)`, param `value`) —
 // block-form EXTERN interface impls render their concrete source too.
 func TestHover_InterfaceQualifiedCall_ExternImpl_RendersConcreteImpl(t *testing.T) {
-	input := "import std/io\n" +
+	input := "import std::io\n" +
 		"\n" +
 		"fn main() {\n" +
 		"  io.print(Display.to_string(3.14))\n" +
@@ -1211,7 +1211,7 @@ func TestHover_InterfaceQualifiedCall_ExternImpl_RendersConcreteImpl(t *testing.
 }
 
 func TestHover_FileFunctionRendersConcreteSignature(t *testing.T) {
-	inputWithMarker := `import std/int.{Int, PositiveInt}
+	inputWithMarker := `import std::int.{Int, PositiveInt}
 
 fn main() {
   p = Int.to_positive(5)?
@@ -1342,7 +1342,7 @@ impl Equal for Maybe<T> {
 }
 
 func TestHover_BareImportedFunctionBeatsSynthesizedDebugMethod(t *testing.T) {
-	inputWithMarker := `import std/io.inspect
+	inputWithMarker := `import std::io.inspect
 
 interface Greeting {
   fn greet(value: self) -> String
@@ -2041,7 +2041,7 @@ fn main() {
 }
 
 func TestHover_ImportedFileStructFieldReference(t *testing.T) {
-	apiSrc := `import std/results.Result
+	apiSrc := `import std::results.Result
 
 pub struct RunResult {
   output: String
@@ -2087,7 +2087,7 @@ fn main() {
 }
 
 // Hover on the `self` marker in a drill-through selective import
-// (`import std/foo.Bar.{self, ...}`) should render the enum definition
+// (`import std::foo.Bar.{self, ...}`) should render the enum definition
 // the same way hovering on the `Bar` path segment does. The self
 // symbol's Resolved pointer feeds the renderer the real enum.
 func TestHover_SelfMarkerDrillThrough(t *testing.T) {
@@ -2594,7 +2594,7 @@ func TestHover_IfKeyword(t *testing.T) {
 		t.Fatal("expected a symbol at the `if` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nif: Bool -> String\n```\n\nBranches on a `Bool`. With `else`, both branches must produce compatible values; without `else`, the expression returns `Unit`."
+	expected := "```nomi\nif: Bool -> String\n```\n\nBranches on a `Bool`. With `else`, both branches must produce compatible values. Without `else`, a branch with a value makes the `if` a `Maybe`, `None` when no branch runs; a `Unit` branch leaves it `Unit`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2617,7 +2617,7 @@ fn label(maybe_name: Box<String>) -> String {
 		t.Fatal("expected a symbol at the pattern `if` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nif: Box<String> -> String\n```\n\nMatches the input value against the condition pattern. On mismatch, runs `else`; without `else`, the expression returns `Unit`."
+	expected := "```nomi\nif: Box<String> -> String\n```\n\nMatches the input value against the condition pattern. On mismatch, runs `else`. Without `else`, a branch with a value makes the `if` a `Maybe`, `None` on mismatch; a `Unit` branch leaves it `Unit`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -3208,7 +3208,7 @@ func TestHover_ThenKeyword(t *testing.T) {
 
 // A `tap` stage's hover shows the piped type going in and coming out.
 func TestHover_TapKeyword(t *testing.T) {
-	got := hoverText(t, "tap", "import std/io\n\nfn label(n: Int) -> Int {\n  n\n  |> ▮tap fn v -> io.print(Int.to_string(v))\n}\n")
+	got := hoverText(t, "tap", "import std::io\n\nfn label(n: Int) -> Int {\n  n\n  |> ▮tap fn v -> io.print(Int.to_string(v))\n}\n")
 	expected := "```nomi\ntap: Int -> Int\n```\n\nRuns the lambda on the piped value for its effect, then passes the value on unchanged. The lambda returns `Unit`. Its body ends at the next `|>`; braces keep a pipe inside it."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)

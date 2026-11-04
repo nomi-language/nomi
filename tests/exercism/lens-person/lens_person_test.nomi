@@ -1,5 +1,5 @@
 import {
-    std/calendar.Date
+    std::calendar.Date
     lens_person.{self, Person}
 }
 

@@ -1,5 +1,5 @@
 import {
-    std/html.Html
+    std::html.Html
     markdown
 }
 

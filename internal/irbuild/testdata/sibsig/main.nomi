@@ -16,7 +16,7 @@
 // second. testdata/sibsig_impl and testdata/sibsig_orphan are the two negative
 // halves. See foreign.go's foreignNoEquatableImpl.
 import {
-    std/io
+    std::io
     alpha.{self, Point}
     beta.{self, Point as Coord}
 }

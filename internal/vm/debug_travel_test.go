@@ -81,8 +81,8 @@ func (s *travelSession) topLocals(thread int) string {
 	return s.locals(frames[0].ID)
 }
 
-const travelSrc = `import std/io
-import std/instant.Instant
+const travelSrc = `import std::io
+import std::instant.Instant
 
 fn twice(n: Int) -> Int {
     m = n * 2
@@ -169,7 +169,7 @@ func TestTravel_StepBackReplaysWithRecordedEffects(t *testing.T) {
 	}
 }
 
-const addSrc = `import std/io
+const addSrc = `import std::io
 
 fn add(acc: Int, n: Int) -> Int {
     s = acc + n
@@ -311,8 +311,8 @@ func TestTravel_StepBackAfterARestart(t *testing.T) {
 // A program that starts a task turns step back off from the spawn on.
 func TestTravel_ATaskTurnsStepBackOff(t *testing.T) {
 	s := travelProgram(t, `import {
-    std/io
-    std/tasks.Task
+    std::io
+    std::tasks.Task
 }
 
 fn work(n: Int) -> Int {

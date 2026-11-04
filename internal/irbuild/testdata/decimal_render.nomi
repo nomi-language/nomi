@@ -8,7 +8,7 @@
 // else — which is what an absolute pin should be.
 //
 // The rules live in rt, and this text is the absolute pin over them.
-import std/io
+import std::io
 
 fn main() {
     // Exactness. Under a float64 the first line reads

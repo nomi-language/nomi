@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // The RHS prints, which is the only way laziness and exactly-once are
 // observable from outside the program. `tag` is read three times below and

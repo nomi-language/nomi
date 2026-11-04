@@ -1,0 +1,7 @@
+pub struct UserDetail {
+    name: String
+}
+
+pub fn render(user: UserDetail) -> String {
+    "<${user.name}>"
+}

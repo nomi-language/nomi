@@ -18,7 +18,7 @@ import (
 )
 
 var imagePrograms = map[string]string{
-	"echo.nomi": `import std/io
+	"echo.nomi": `import std::io
 
 struct App {
   context: Context
@@ -38,8 +38,8 @@ fn main() {
 `,
 	// std/uuid is lowered with the program, so its bodies are in the image.
 	"uuid.nomi": `import {
-  std/io
-  std/uuid.Uuid
+  std::io
+  std::uuid.Uuid
 }
 
 fn main() {
@@ -48,7 +48,7 @@ fn main() {
   io.print(Debug.inspect([id, Uuid.nil()] |> Iter.sort() |> Iter.to_list()))
 }
 `,
-	"trap.nomi": `import std/io
+	"trap.nomi": `import std::io
 
 fn main() {
   io.print("dividing")

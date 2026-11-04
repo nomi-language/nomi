@@ -10,7 +10,7 @@ import (
 // into Bool's derived impls (whose `True(x) -> Display.to_string(x)` would
 // then call itself). The body retains and prints the expected output.
 func TestIRBoolPattern_SingletonPayloadBindsAMarker(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn choose(b: Bool) -> String {
   case b {

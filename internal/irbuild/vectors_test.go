@@ -16,7 +16,7 @@ func TestVector_TheOwnerNameIsReserved(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	path := stagedProgram(t, "main.nomi", map[string]string{
-		"main.nomi": "import std/io\n\n" +
+		"main.nomi": "import std::io\n\n" +
 			"struct Vector {\n  n: Int\n}\n\n" +
 			"fn main() {\n  v = Vector{n: 1}\n  io.print(\"${v.n}\")\n}\n",
 	})

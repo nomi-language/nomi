@@ -1,9 +1,9 @@
-import std/compiler
+import std::compiler
 
 test "dbg expression prints source and returns value" {
     result = compiler.run(
         """
-        import std/io
+        import std::io
 
         fn main() {
           x = dbg 41 + 1
@@ -24,7 +24,7 @@ test "dbg expression prints source and returns value" {
 test "dbg pipe stage prints source and passes the value through" {
     result = compiler.run(
         """
-        import std/io
+        import std::io
 
         fn double(n: Int) -> Int {
           n + n

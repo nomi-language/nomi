@@ -2,7 +2,7 @@ package lsp
 
 import "testing"
 
-const variantHoverDecls = `import std/io
+const variantHoverDecls = `import std::io
 
 /// Where the game is.
 enum Room {
@@ -60,7 +60,7 @@ func TestHover_VariantEverywhere(t *testing.T) {
 		{"the . of a pattern with no doc", in(pattern, "▮.Hall"), hallDot, nil},
 		{"the qualified name", in(value, "Room.▮Cave"), cave, []string{"from the expected type"}},
 		{"the qualified name with no doc", in(value, "Room.Ha▮ll"), hall, []string{"from the expected type"}},
-		{"an imported name", "import std/io\n\nenum Room {\n  /// The cave.\n  Cave\n}\n\nfn main() {\n  r = Room.Cave\n  case r {\n    ▮Cave -> io.print(\"c\")\n  }\n}\n", []string{"```nomi\nRoom.Cave\n```", "The cave."}, nil},
+		{"an imported name", "import std::io\n\nenum Room {\n  /// The cave.\n  Cave\n}\n\nfn main() {\n  r = Room.Cave\n  case r {\n    ▮Cave -> io.print(\"c\")\n  }\n}\n", []string{"```nomi\nRoom.Cave\n```", "The cave."}, nil},
 		{"the . of a payload constructor", in(value, "▮.Pit(2)"), []string{"```nomi\nRoom.Pit(Int)\n```", "*`Room` from the expected type*", "Where the game is."}, nil},
 		{"the name of a payload constructor", in(value, ".P▮it(2)"), []string{"```nomi\nRoom.Pit(Int)\n```", "*`Room` from the expected type*"}, nil},
 		{"the ( of a payload constructor", in(value, ".Pit▮(2)"), []string{"```nomi\nRoom.Pit(Int)\n```", "*`Room` from the expected type*"}, nil},

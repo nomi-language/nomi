@@ -124,8 +124,8 @@ fn body(helper: String) {
 `
 
 const conformanceImports = `import {
-    std/io.{self, Error, Reader, Writer}
-    std/process.{self, Child, Command, Status, Stdin}
+    std::io.{self, Error, Reader, Writer}
+    std::process.{self, Child, Command, Status, Stdin}
 `
 
 const conformanceWant = `echo: a b
@@ -152,7 +152,7 @@ fn main() -> Result<Unit, Error> {
 }
 `, helper) + strings.Replace(conformanceBody, "fn body(helper: String) {", "fn body(helper: String) -> Result<Unit, Error> {", 1)
 
-	fakeSrc := conformanceImports + "    std/process_testing.{self, Answer}\n}\n" + fmt.Sprintf(`
+	fakeSrc := conformanceImports + "    std::process_testing.{self, Answer}\n}\n" + fmt.Sprintf(`
 fn main() -> Result<Unit, Error> {
     helper = %q
     a = fn args: List<String>, stdout: String -> Answer{program: helper, args: Some(["nomi-process-helper", ..args]), stdout}
@@ -185,8 +185,8 @@ fn main() -> Result<Unit, Error> {
 // still runs does not wait for it; the program is killed.
 func TestWithSpawnedKillsWhatItStarted(t *testing.T) {
 	src := fmt.Sprintf(`import {
-    std/io.Error
-    std/process.{self, Command}
+    std::io.Error
+    std::process.{self, Command}
 }
 
 fn main() -> Result<Unit, Error> {
@@ -207,8 +207,8 @@ func TestDirRunsTheProgramThere(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := fmt.Sprintf(`import {
-    std/io.{self, Error}
-    std/process.{self, Command}
+    std::io.{self, Error}
+    std::process.{self, Command}
 }
 
 fn main() -> Result<Unit, Error> {
@@ -230,8 +230,8 @@ func TestClearEnvLeavesOnlyTheCommandsVariables(t *testing.T) {
 	}
 	t.Setenv("NOMI_INHERITED", "yes")
 	src := fmt.Sprintf(`import {
-    std/io.{self, Error}
-    std/process.{self, Command}
+    std::io.{self, Error}
+    std::process.{self, Command}
 }
 
 fn main() -> Result<Unit, Error> {
@@ -251,8 +251,8 @@ fn main() -> Result<Unit, Error> {
 // failure.
 func TestWithSpawnedKillsWhenTheBodyTraps(t *testing.T) {
 	src := fmt.Sprintf(`import {
-    std/io.Error
-    std/process.{self, Command}
+    std::io.Error
+    std::process.{self, Command}
 }
 
 fn main() -> Result<Unit, Error> {

@@ -48,7 +48,7 @@ test "f" {
 // prelude Bool, Maybe or Result variant, keeps its enum type in the arm, so
 // it flows where that enum is expected.
 func TestTypeNarrowing_APlainVariantArmKeepsTheEnum(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Circle {
     radius: Float

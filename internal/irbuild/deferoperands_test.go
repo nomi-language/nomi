@@ -11,7 +11,7 @@ func TestDeferOperands_AreEvaluatedAtTheDefer(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Spot {
     n: Int

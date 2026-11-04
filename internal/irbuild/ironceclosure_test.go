@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIROnceClosure_ImportedResultInference(t *testing.T) {
-	verifyLambdaProgram(t, `import { std/io config }
+	verifyLambdaProgram(t, `import { std::io config }
 fn main() {
   read = fn -> config.tag
   io.print("created")
@@ -15,7 +15,7 @@ fn main() {
 }
 
 func TestIROnceClosure_SelectiveAliasAndExplicitReturn(t *testing.T) {
-	verifyLambdaProgram(t, `import { std/io config.{tag as label} }
+	verifyLambdaProgram(t, `import { std::io config.{tag as label} }
 fn main() {
   read = fn -> { return label }
   io.print(read())

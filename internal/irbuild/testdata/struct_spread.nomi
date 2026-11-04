@@ -13,7 +13,7 @@
 //     field.
 //   - `copy` carries the head's TYPE, not merely its field values. `Display`
 //     is the instrument: an anonymous result would render `{x: …, y: …}`.
-import std/io
+import std::io
 
 struct Point {
     x: Int

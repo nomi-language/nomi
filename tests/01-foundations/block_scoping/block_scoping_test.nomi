@@ -1,5 +1,5 @@
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 
@@ -98,13 +98,13 @@ test "nested functions do not leak outside their enclosing function" {
 
 test "imports can be declared inside function bodies" {
     fn first() -> Maybe<Int> {
-        import std/maybe.Maybe as Local
+        import std::maybe.Maybe as Local
 
         Local.Some(1)
     }
 
     fn second() -> Result<Int, String> {
-        import std/results.Result as Local
+        import std::results.Result as Local
 
         Local.Ok(2)
     }

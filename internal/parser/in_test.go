@@ -115,7 +115,7 @@ func TestIn_IsAKeyword(t *testing.T) {
 			t.Errorf("%q parses", src)
 		}
 	}
-	for _, src := range []string{"index = 1\n", "inner = 1\n", "import std/in\n"} {
+	for _, src := range []string{"index = 1\n", "inner = 1\n", "import std::in\n"} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {
 			t.Errorf("%q: %v", src, err)
 		}

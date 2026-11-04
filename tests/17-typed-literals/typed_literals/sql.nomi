@@ -1,4 +1,4 @@
-import std/literals.{Fragment, Literal}
+import std::literals.{Fragment, Literal}
 
 /// A SQL query produced by a `SQL"..."` typed literal: the
 /// placeholder-shaped statement plus the heterogeneous list of

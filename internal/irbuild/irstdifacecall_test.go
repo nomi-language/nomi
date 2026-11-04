@@ -7,7 +7,7 @@ import (
 // A user-written interface-qualified stdlib call retains, and its Ordering
 // compares as an enum.
 func TestIRStdIfaceCall_UserSpellingRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   io.print(Comparable.compare(1, 2) == Ordering.Less)
 }
@@ -34,7 +34,7 @@ fn main() {
 }
 
 func TestIRDerivedCompare_StructOrdering(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct User {
   first_name: String
   age: Int

@@ -33,7 +33,7 @@ test "assert a tuple pattern holding a tuple distinct" {
 	},
 	{
 		name: "gapBindingElseTupleCompositeDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Pair #(Int, String)
 
@@ -49,7 +49,7 @@ fn main() {
 	},
 	{
 		name: "gapBindingTupleCompositeDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Pair #(Int, String)
 
@@ -65,7 +65,7 @@ fn main() {
 	},
 	{
 		name: "gapCChunksFnList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fs = [fn x: Int -> x + 1, fn x: Int -> x * 2]
@@ -79,7 +79,7 @@ fn main() {
 	},
 	{
 		name: "gapCConcatFnList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fs = [fn x: Int -> x + 1]
@@ -93,7 +93,7 @@ fn main() {
 	},
 	{
 		name: "gapCFlatMapFnList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fs = [1, 2] |> Iter.flat_map(fn x -> [fn y: Int -> y + x]) |> Iter.to_list()
@@ -103,7 +103,7 @@ fn main() {
 	},
 	{
 		name: "gapCFlattenFnLists",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fs = [[fn y: Int -> y + 1], [fn y: Int -> y]]
@@ -113,7 +113,7 @@ fn main() {
 	},
 	{
 		name: "gapCGroupByFnList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fs = [fn x: Int -> x + 1, fn x: Int -> x * 2]
@@ -124,7 +124,7 @@ fn main() {
 	},
 	{
 		name: "gapCIterParamEmptySet",
-		src: `import std/io
+		src: `import std::io
 
 fn total(xs: Iter<Int>) -> Int {
     Iter.count(xs)
@@ -137,7 +137,7 @@ fn main() {
 	},
 	{
 		name: "gapCIterParamUserSourceKnownCount",
-		src: `import std/io
+		src: `import std::io
 
 struct Pair {
     a: Int
@@ -165,7 +165,7 @@ fn main() {
 	},
 	{
 		name: "gapCLoopFinalBreakEmptyList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     xs = Iter.loop([1], fn acc: List<Int> -> {
@@ -179,7 +179,7 @@ fn main() {
 	},
 	{
 		name: "gapCLoopFnState",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     f = Iter.loop(fn x: Int -> x, fn g -> {
@@ -193,7 +193,7 @@ fn main() {
 	},
 	{
 		name: "gapCLoopGuardBreakEmptyList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     xs = Iter.loop([1], fn acc: List<Int> -> {
@@ -207,7 +207,7 @@ fn main() {
 	},
 	{
 		name: "gapCLoopGuardReturnEmptyList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     xs = Iter.loop([1], fn acc: List<Int> -> {
@@ -222,7 +222,7 @@ fn main() {
 	},
 	{
 		name: "gapCLoopIfElseBreakEmptyList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     xs = Iter.loop([1], fn acc: List<Int> -> {
@@ -239,7 +239,7 @@ fn main() {
 	},
 	{
 		name: "gapCLoopIfLetTail",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     m: Maybe<Int> = Some(3)
@@ -255,7 +255,7 @@ fn main() {
 	},
 	{
 		name: "gapCLoopTailEmptyList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     xs = Iter.loop([1], fn acc: List<Int> -> {
@@ -269,7 +269,7 @@ fn main() {
 	},
 	{
 		name: "gapCToMapFnValues",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     m = Iter.to_map([#(1, fn x: Int -> x)])
@@ -279,7 +279,7 @@ fn main() {
 	},
 	{
 		name: "gapCUserSourceKnownCount",
-		src: `import std/io
+		src: `import std::io
 
 struct Pair {
     a: Int
@@ -307,7 +307,7 @@ fn main() {
 	},
 	{
 		name: "gapCZipFnListRight",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fs = [fn x: Int -> x + 1]
@@ -321,7 +321,7 @@ fn main() {
 	},
 	{
 		name: "gapCZipUserDiscreteRange",
-		src: `import std/io
+		src: `import std::io
 
 type Id Int
 
@@ -348,7 +348,7 @@ fn main() {
 	},
 	{
 		name: "gapCapturedDefaultLambdaCall",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     f = fn x: Int, y: Int = 2 -> x + y
@@ -359,7 +359,7 @@ fn main() {
 	},
 	{
 		name: "gapCapturedLambdaNamedArgs",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     f = fn x: Int, y: Int -> x - y
@@ -372,7 +372,7 @@ fn main() {
 		name: "gapContextValueQualifiedWitness",
 		src: `// FILE: main.nomi
 import {
-    std/io
+    std::io
     domain
 }
 
@@ -386,7 +386,7 @@ pub type Token Int
 	},
 	{
 		name: "gapDistinctTupleCallformIterWiden",
-		src: `import std/io
+		src: `import std::io
 
 struct Circle {
     r: Int
@@ -409,7 +409,7 @@ fn main() {
 	},
 	{
 		name: "gapElseFallbackTupleCompositeDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Pair #(Int, String)
 
@@ -427,7 +427,7 @@ fn main() {
 	},
 	{
 		name: "gapEmbeddedStructFieldCompositeDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Pair #(Int, String)
 
@@ -454,7 +454,7 @@ fn main() {
 	},
 	{
 		name: "gapFieldAccessorRecordExistential",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     d: Display = 1
@@ -470,7 +470,7 @@ fn main() {
 	},
 	{
 		name: "gapFieldDefaultIterWiden",
-		src: `import std/io
+		src: `import std::io
 
 struct Circle {
     r: Int
@@ -495,7 +495,7 @@ fn main() {
 		name: "gapForeignFnIter",
 		src: `// FILE: main.nomi
 import {
-    std/io
+    std::io
     nums
 }
 
@@ -524,7 +524,7 @@ pub fn px(p: #{x: Int, y: Int}) -> Int {
 		name: "gapGenericBoundImplOtherFile",
 		src: `// FILE: main.nomi
 import {
-    std/io
+    std::io
     lib
 }
 
@@ -549,7 +549,7 @@ pub struct Dog {
 	},
 	{
 		name: "gapGenericVariantUnsolvedParam",
-		src: `import std/io
+		src: `import std::io
 
 enum Either2<A, B> {
     L {a: A}
@@ -563,7 +563,7 @@ fn main() {
 	},
 	{
 		name: "gapGoFnDefaultedParam",
-		src: `import std/io
+		src: `import std::io
 
 gopkg "strings" as strs
 
@@ -576,7 +576,7 @@ fn main() {
 	},
 	{
 		name: "gapInterfaceInFnBody",
-		src: `import std/io
+		src: `import std::io
 
 fn c(x: Int) -> Int {
     interface Foo {
@@ -593,7 +593,7 @@ fn main() {
 	},
 	{
 		name: "gapLambdaReturnEmptyList",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     a = fn x: Int -> {
@@ -607,7 +607,7 @@ fn main() {
 	},
 	{
 		name: "gapLambdaReturnEmptyListFirst",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     g = fn x: Int -> {
@@ -622,7 +622,7 @@ fn main() {
 	},
 	{
 		name: "gapListDistinctUntypedListPattern",
-		src: `import std/io
+		src: `import std::io
 
 type Stack List<Int>
 
@@ -640,7 +640,7 @@ fn main() {
 	},
 	{
 		name: "gapLoopArmReturnEmpty",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     r = Iter.loop([1, 2, 3], fn xs -> {
@@ -658,8 +658,8 @@ fn main() {
 	{
 		name: "gapLoopElseFallbackIf",
 		src: `import {
-    std/io
-    std/iter.Iter.loop
+    std::io
+    std::iter.Iter.loop
 }
 
 fn find(n: Int) -> Maybe<Int> {
@@ -682,8 +682,8 @@ fn main() {
 	{
 		name: "gapLoopElseIfBothBreak",
 		src: `import {
-    std/io
-    std/iter.Iter.loop
+    std::io
+    std::iter.Iter.loop
 }
 
 fn find(n: Int) -> Maybe<Maybe<Int>> {
@@ -704,7 +704,7 @@ fn main() {
 	},
 	{
 		name: "gapLoopNestedGuardReturnEmpty",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     r = Iter.loop([1, 2, 3], fn xs -> {
@@ -725,7 +725,7 @@ fn main() {
 	},
 	{
 		name: "gapMapBreakEmptyListFirst",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     ys =
@@ -743,7 +743,7 @@ fn main() {
 	},
 	{
 		name: "gapMapOfFunctions",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     ops = %{"inc" => fn x: Int -> x + 1}
@@ -757,7 +757,7 @@ fn main() {
 	},
 	{
 		name: "gapMapValueLiteralAttachDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Kvs Map<String, Int>
 
@@ -775,7 +775,7 @@ fn main() {
 	},
 	{
 		name: "gapNamedGapGenericParam",
-		src: `import std/io
+		src: `import std::io
 
 struct Box<T> {
     v: T
@@ -797,7 +797,7 @@ fn main() {
 	},
 	{
 		name: "gapNestedGenericBoundCallTuple",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fn txt<T>(x: T) -> String where T: Display {
@@ -810,7 +810,7 @@ fn main() {
 	},
 	{
 		name: "gapPartialCapturedLambda",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     f = fn a: Int, b: Int -> a * b
@@ -821,7 +821,7 @@ fn main() {
 	},
 	{
 		name: "gapPartialOmittedNonliteralDefault",
-		src: `import std/io
+		src: `import std::io
 
 fn base() -> Int {
     10
@@ -839,7 +839,7 @@ fn main() {
 	},
 	{
 		name: "gapRecordFieldLiteralAttachDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Stack List<Int>
 
@@ -857,7 +857,7 @@ fn main() {
 	},
 	{
 		name: "gapRecursiveNestedFnEmptyListTail",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fn r(n: Int) -> List<Int> {
@@ -894,9 +894,9 @@ group "a setup binding whose every arm returns" {
 	{
 		name: "gapShadowedStdInterfaceThroughItsModule",
 		src: `import {
-    std/calendar
-    std/calendar.Date
-    std/io
+    std::calendar
+    std::calendar.Date
+    std::io
 }
 
 struct DateParts {
@@ -914,7 +914,7 @@ fn main() {
 		name: "gapSiblingDefaultGenericHole",
 		src: `// FILE: main.nomi
 import {
-    std/io
+    std::io
     lib
 }
 
@@ -938,7 +938,7 @@ pub fn show(x: Int, flag: Bool = is_some(None)) -> String {
 		name: "gapSiblingFnReturnsStructWithRecordField",
 		src: `// FILE: main.nomi
 import {
-    std/io
+    std::io
     shapes
 }
 
@@ -963,7 +963,7 @@ pub fn width(b: Box) -> Int {
 		name: "gapSiblingGenericEmptyList",
 		src: `// FILE: main.nomi
 import {
-    std/io
+    std::io
     lib.cnt
 }
 
@@ -978,7 +978,7 @@ pub fn cnt<T>(xs: List<T>) -> Int {
 	},
 	{
 		name: "gapStructSpreadIterFieldWiden",
-		src: `import std/io
+		src: `import std::io
 
 struct Circle {
     r: Int
@@ -1004,7 +1004,7 @@ fn main() {
 	},
 	{
 		name: "gapStructUpdateNamedIterFieldWiden",
-		src: `import std/io
+		src: `import std::io
 
 struct Circle {
     r: Int
@@ -1030,7 +1030,7 @@ fn main() {
 	},
 	{
 		name: "gapStructVariantFieldCompositeDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Pair #(Int, String)
 
@@ -1053,7 +1053,7 @@ fn main() {
 	},
 	{
 		name: "gapStructVariantPatternAliasQualifier",
-		src: `import std/io
+		src: `import std::io
 
 enum Shape {
     Rec {
@@ -1079,7 +1079,7 @@ fn main() {
 	},
 	{
 		name: "gapStructVariantRecordPayloadPattern",
-		src: `import std/io
+		src: `import std::io
 
 enum Shape {
     Rec {
@@ -1104,8 +1104,8 @@ fn main() {
 	{
 		name: "gapSupervisorSpawnAllNamedArg",
 		src: `import {
-    std/io
-    std/supervisors.Supervisor
+    std::io
+    std::supervisors.Supervisor
 }
 
 struct App {
@@ -1125,8 +1125,8 @@ fn main() {
 	{
 		name: "gapSupervisorSpawnNamedArg",
 		src: `import {
-    std/io
-    std/supervisors.Supervisor
+    std::io
+    std::supervisors.Supervisor
 }
 
 struct App {
@@ -1146,8 +1146,8 @@ fn main() {
 	{
 		name: "gapTaskAwaitNamedArg",
 		src: `import {
-    std/io
-    std/tasks.Task
+    std::io
+    std::tasks.Task
 }
 
 fn main() {
@@ -1163,8 +1163,8 @@ fn main() {
 	{
 		name: "gapTaskSpawnAllVector",
 		src: `import {
-    std/io
-    std/tasks.Task
+    std::io
+    std::tasks.Task
 }
 
 fn double(n: Int) -> Int {
@@ -1214,7 +1214,7 @@ test "a pipe binding whose stage holds a pipe" {
 	},
 	{
 		name: "gapTestingCheckNestedPipe",
-		src: `import std/testing
+		src: `import std::testing
 
 fn double(n: Int) -> Int {
     n * 2
@@ -1230,7 +1230,7 @@ test "testing.check over a pipe whose stage holds a pipe" {
 	},
 	{
 		name: "gapTupleDestructureRebindsFunction",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     f = fn x: Int -> x
@@ -1242,7 +1242,7 @@ fn main() {
 	},
 	{
 		name: "gapTupleEmptyListEquality",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     io.inspect(#(1, []) == #(1, [2]))
@@ -1251,7 +1251,7 @@ fn main() {
 	},
 	{
 		name: "gapTuplePatternCompositeDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Pair #(Int, String)
 
@@ -1269,7 +1269,7 @@ fn main() {
 	},
 	{
 		name: "gapTurbofishTwoTypeArgs",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     io.inspect(Maybe.map<Int, String>(Some(1), fn x -> "${x}"))
@@ -1278,7 +1278,7 @@ fn main() {
 	},
 	{
 		name: "gapUpdateBaseDeclines",
-		src: `import std/io
+		src: `import std::io
 
 struct P {
     x: Int
@@ -1299,7 +1299,7 @@ fn main() {
 	},
 	{
 		name: "gapVariantPatternAliasQualifier",
-		src: `import std/io
+		src: `import std::io
 
 enum Shape {
     Num Int
@@ -1322,7 +1322,7 @@ fn main() {
 	},
 	{
 		name: "gapVariantPayloadAsCompositeDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Pair #(Int, String)
 
@@ -1345,7 +1345,7 @@ fn main() {
 	},
 	{
 		name: "gapVariantPayloadTupleCompositeDistinct",
-		src: `import std/io
+		src: `import std::io
 
 type Pair #(Int, String)
 
@@ -1369,8 +1369,8 @@ fn main() {
 	{
 		name: "gapVectorCapturedElemWiden",
 		src: `import {
-    std/io
-    std/io.Captured
+    std::io
+    std::io.Captured
 }
 
 struct Circle {
@@ -1392,8 +1392,8 @@ fn main() {
 	{
 		name: "gapVectorItemsJoinCaptured",
 		src: `import {
-    std/io
-    std/io.Captured
+    std::io
+    std::io.Captured
 }
 
 struct Circle {
@@ -1415,7 +1415,7 @@ fn main() {
 	},
 	{
 		name: "gapVectorOfFunctions",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     fs = #[fn x: Int -> x + 1, fn x: Int -> x * 2]

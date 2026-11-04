@@ -12,9 +12,9 @@ func TestIRStdLeafErasure_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
-import std/duration.Duration
-import std/calendar.{Date, Time}
+	const src = `import std::io
+import std::duration.Duration
+import std::calendar.{Date, Time}
 
 fn show(d: Display) -> String {
     "<${d}>"

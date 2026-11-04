@@ -182,7 +182,7 @@ func TestCheck_GenericTypeHoldingItsOwnInstanceLowers(t *testing.T) {
 	}
 	for name, body := range genericSelfShapes {
 		t.Run(name, func(t *testing.T) {
-			src := "import std/io\n\n" + body
+			src := "import std::io\n\n" + body
 			if err := vmhost.Check(writeProgram(t, src)); err != nil {
 				t.Fatalf("check: %v", err)
 			}
@@ -200,7 +200,7 @@ func TestCheck_GenericTypeHoldingItsOwnInstanceLowers(t *testing.T) {
 // passed through generic functions. The compiler decides the type once, not
 // once per level.
 func TestRun_GenericTreeOfItsOwnInstances(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Point {
     x: Int
@@ -348,7 +348,7 @@ fn main() {
 // List of itself, and two generic enums holding each other, each built,
 // matched, compared, printed, hashed and built 1000 deep.
 func TestRun_GenericSelfInstanceForms(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Point {
     x: Int
@@ -622,7 +622,7 @@ fn main() {
 // element by the enum's own adapter, which the element adapter takes as a
 // capture.
 func TestRun_WideningAGenericEnumThatHoldsItselfInACollection(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
     r: Int

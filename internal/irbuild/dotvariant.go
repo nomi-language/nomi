@@ -66,7 +66,7 @@ import (
 // WHAT THE NAME ROUTE CANNOT DO, and it is UNREACHABLE rather than a hole:
 // canonicalize an ALIAS. `t.Name` is the LOCAL spelling and the
 // declaration-name mapping lives only in the reference map this route exists to
-// avoid, so `import std/maybe.Maybe.{None as Nothing}` followed by `.Nothing`
+// avoid, so `import std::maybe.Maybe.{None as Nothing}` followed by `.Nothing`
 // would find no variant on the spec and decline. The analyzer refuses that
 // program first — "no variant 'Nothing' on enum Maybe" — because the dot
 // shorthand resolves against the DECLARATION's variant names and an import

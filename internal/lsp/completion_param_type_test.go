@@ -262,7 +262,7 @@ func TestCompletion_ParamTypeRunsNoAnalysis(t *testing.T) {
 // `main.Place` and `prelude.Int` name no type.
 func TestCompletion_TypePositionOffersOnlyImportedModules(t *testing.T) {
 	s := NewServer()
-	items := completeIn(t, s, "file:///main.nomi", "import std/calendar\n\nenum Place {\n    Cave\n}\n\nfn f(x: "+cursorMark+") {}\n").Items
+	items := completeIn(t, s, "file:///main.nomi", "import std::calendar\n\nenum Place {\n    Cave\n}\n\nfn f(x: "+cursorMark+") {}\n").Items
 	mustItem(t, items, "calendar")
 	mustItem(t, items, "Place")
 	for _, it := range items {

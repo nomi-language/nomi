@@ -1,5 +1,5 @@
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 

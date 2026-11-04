@@ -3,7 +3,7 @@ Shebang first line
 ==========
 
 #!/usr/bin/env nomi
-import std/io
+import std::io
 
 fn main() {
   io.print("hi")

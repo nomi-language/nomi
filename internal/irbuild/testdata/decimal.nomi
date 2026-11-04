@@ -31,8 +31,8 @@
 //     arbitrary-precision, so this must round-trip exactly, and one step
 //     beyond it must fail to convert rather than wrap.
 import {
-    std/comparable.Ordering.{Equal, Greater, Less}
-    std/decimal.RoundingMode.{Ceiling, Down, Floor, HalfDown, HalfEven, HalfUp, Unnecessary, Up}
+    std::comparable.Ordering.{Equal, Greater, Less}
+    std::decimal.RoundingMode.{Ceiling, Down, Floor, HalfDown, HalfEven, HalfUp, Unnecessary, Up}
 }
 
 test "literals keep their scale and render it" {

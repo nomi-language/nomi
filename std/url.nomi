@@ -61,7 +61,7 @@ import {
 /// `text` percent-encoded as a query string's key or value: letters, digits
 /// and `-_.~` stay, a space becomes `+`, and every other byte of its UTF-8 is
 /// `%` and two uppercase hexadecimal digits.
-//! import std/url
+//! import std::url
 //!
 //! assert url.escape_query("tea & cake") == "tea+%26+cake"
 //! assert url.escape_query("a/b?c=d") == "a%2Fb%3Fc%3Dd"
@@ -73,7 +73,7 @@ pub fn escape_query(text: String) -> String {
 
 /// The text a query string's key or value holds: `%` escapes decoded, and
 /// `+` read as a space.
-//! import std/url
+//! import std::url
 //!
 //! assert url.unescape_query("tea+%26+cake") == Ok("tea & cake")
 //! assert url.unescape_query("caf%C3%A9") == Ok("café")
@@ -86,7 +86,7 @@ pub fn unescape_query(text: String) -> Result<String, String> {
 
 /// `text` percent-encoded as one segment of a URL path: a space becomes
 /// `%20`, and `/` and `?` are escaped so the text stays one segment.
-//! import std/url
+//! import std::url
 //!
 //! assert url.escape_path_segment("tea & cake") == "tea%20&%20cake"
 //! assert url.escape_path_segment("a/b?c") == "a%2Fb%3Fc"
@@ -97,7 +97,7 @@ pub fn escape_path_segment(text: String) -> String {
 
 /// The text a URL path segment holds: `%` escapes decoded, and `+` kept as
 /// itself.
-//! import std/url
+//! import std::url
 //!
 //! assert url.unescape_path_segment("tea%20&%20cake") == Ok("tea & cake")
 //! assert url.unescape_path_segment("a+b") == Ok("a+b")
@@ -164,7 +164,7 @@ derive Hashable for Query
 impl Url {
     /// `text` read as a URL, absolute or relative, as Go's `url.Parse`
     /// reads it.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! u = Url.parse("https://ann:pw@example.com:8080/a%20b?q=1#top")!
     //! assert u.scheme == "https"
@@ -183,7 +183,7 @@ impl Url {
 
     /// `text` read as the target of an HTTP request: an absolute URL or an
     /// absolute path, with no fragment. Go's `url.ParseRequestURI`.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert Url.parse_request_uri("/users?id=7")!.path == "/users"
     //! assert Url.parse_request_uri("users") |> Result.is_err()
@@ -195,7 +195,7 @@ impl Url {
     }
 
     /// Whether the URL has a scheme.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert Url.is_absolute(Url`https://example.com`)
     //! assert not Url.is_absolute(Url`/a/b`)
@@ -206,7 +206,7 @@ impl Url {
 
     /// The host without its port, and without the brackets of an IPv6
     /// address.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert Url.hostname(Url`http://[::1]:8080/`) == "::1"
     //
@@ -215,7 +215,7 @@ impl Url {
     }
 
     /// The host's port, if it names one.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert Url.port(Url`http://example.com:8080`) == Some("8080")
     //! assert Url.port(Url`http://example.com`) == None
@@ -229,7 +229,7 @@ impl Url {
 
     /// The path as it is written in the URL: `raw_path` when it is set,
     /// else `path` escaped.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert Url.escaped_path(Url`https://example.com/a b`) == "/a%20b"
     //
@@ -238,7 +238,7 @@ impl Url {
     }
 
     /// The fragment as it is written in the URL.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert Url.escaped_fragment(Url`https://example.com/#a b`) == "a%20b"
     //
@@ -248,7 +248,7 @@ impl Url {
 
     /// The target an HTTP request line carries: the escaped path and the
     /// query, or the opaque part.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert Url.request_uri(Url`https://example.com/a b?q=1#top`) == "/a%20b?q=1"
     //
@@ -257,7 +257,7 @@ impl Url {
     }
 
     /// The URL written with its password, if any, replaced by `xxxxx`.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert Url.redacted(Url`https://ann:secret@example.com/`) == "https://ann:xxxxx@example.com/"
     //
@@ -267,7 +267,7 @@ impl Url {
 
     /// The URL's query read into pairs. A pair Go cannot read is left
     /// out; `Query.parse` reports it instead.
-    //! import std/url.{Query, Url}
+    //! import std::url.{Query, Url}
     //!
     //! assert Url.query_values(Url`https://example.com/?a=1&b=2&a=3`) == Query[
     //!     #("a", "1"),
@@ -281,7 +281,7 @@ impl Url {
 
     /// The URL with its query replaced by `query`, encoded as
     /// `Query.encode` writes it, the pairs in their order.
-    //! import std/url.{Query, Url}
+    //! import std::url.{Query, Url}
     //!
     //! u = Url.with_query(Url`https://example.com/s`, Query[#("q", "tea & cake"), #("n", "2")])
     //! assert "${u}" == "https://example.com/s?q=tea+%26+cake&n=2"
@@ -292,7 +292,7 @@ impl Url {
 
     /// `reference` resolved against `base`, as RFC 3986 section 5.2 does:
     /// how a browser follows a link.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! base = Url`https://example.com/a/b/c`
     //! assert "${Url.resolve(base, Url`../d?x=1`)}" == "https://example.com/a/d?x=1"
@@ -303,7 +303,7 @@ impl Url {
     }
 
     /// `reference` parsed and resolved against `base`.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert "${Url.resolve_text(Url`https://example.com/a/`, "b")!}" == "https://example.com/a/b"
     //
@@ -315,7 +315,7 @@ impl Url {
     /// joins them, and `.` and `..` cleaned from the result. A `/` in a
     /// segment separates segments; escape one with
     /// `url.escape_path_segment` to keep it whole.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! u = Url.join_path(Url`https://example.com/api/`, ["users", "7", "../8"])
     //! assert "${u}" == "https://example.com/api/users/8"
@@ -327,7 +327,7 @@ impl Url {
 
 impl Display for Url {
     /// The URL written back, escaped as Go's `URL.String` writes it.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! assert "${Url.parse("https://example.com/a b?q=1#x y")!}" == "https://example.com/a%20b?q=1#x%20y"
     //
@@ -355,7 +355,7 @@ impl Query {
     /// `text`, a query string without its `?`, read into pairs in order.
     /// Each key and value is unescaped, `+` read as a space. A `;` or a
     /// bad escape is an `Err`.
-    //! import std/url.Query
+    //! import std::url.Query
     //!
     //! assert Query.parse("q=tea+cake&n=2")! == Query[#("q", "tea cake"), #("n", "2")]
     //! assert Query.parse("a=1;b=2") |> Result.is_err()
@@ -368,7 +368,7 @@ impl Query {
     }
 
     /// The first value of `key`.
-    //! import std/url.Query
+    //! import std::url.Query
     //!
     //! assert Query.get(Query[#("a", "1"), #("a", "2")], "a") == Some("1")
     //! assert Query.get(Query[], "a") == None
@@ -391,7 +391,7 @@ impl Query {
 
     /// The query with `key`'s values replaced by `value`, in the place of
     /// its first value, or added at the end.
-    //! import std/url.Query
+    //! import std::url.Query
     //!
     //! q = Query[#("a", "1"), #("b", "2"), #("a", "3")]
     //! assert Query.set(q, "a", "9") == Query[#("a", "9"), #("b", "2")]
@@ -437,7 +437,7 @@ impl Query {
 
     /// The query encoded: each pair as `key=value`, both escaped as
     /// `url.escape_query` does, in the pairs' order and joined with `&`.
-    //! import std/url.Query
+    //! import std::url.Query
     //!
     //! assert Query.encode(Query[#("b", "x y"), #("a", "1"), #("b", "&")]) == "b=x+y&a=1&b=%26"
     //
@@ -464,7 +464,7 @@ impl CheckedLiteral<String, Url> for Url {
     /// of `.` or `..` in the path is escaped too, so it cannot climb the path.
     /// A slot in the scheme, user or host is a compile error, since no
     /// escaping makes it safe there; build such a URL with `Url.parse`.
-    //! import std/url.Url
+    //! import std::url.Url
     //!
     //! id = "a/b c"
     //! tab = "x&y"

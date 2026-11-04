@@ -12,7 +12,7 @@ import (
 // written, it says so, then names the few types that implement a narrow
 // interface or, for a broad one, says to wrap the type.
 func TestBoundErrorHelp(t *testing.T) {
-	const decls = `import std/matcher.Matcher
+	const decls = `import std::matcher.Matcher
 
 struct Point {
     x: Int

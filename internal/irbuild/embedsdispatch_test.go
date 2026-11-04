@@ -9,7 +9,7 @@ import "testing"
 //
 // Every impl prints its own name, so a line of output says which one ran.
 
-const embedsDispatchDecls = `import std/io
+const embedsDispatchDecls = `import std::io
 
 struct Circle {
   radius: Float

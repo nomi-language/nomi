@@ -10,7 +10,7 @@
 // The print before the fault is the other half of the fixture: stdout must carry
 // `before` before the error reaches stderr, which is what rt.Print
 // writing unbuffered straight to fd 1 buys.
-import std/io
+import std::io
 
 fn main() {
     io.print("before")

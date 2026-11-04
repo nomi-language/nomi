@@ -13,7 +13,7 @@ import (
 func TestLiteralCompletion_DateOffersItsDocumentedExamples(t *testing.T) {
 	s := NewServer()
 	s.snippetSupport = true
-	src := "import std/calendar.Date\n\nfn f() {\n    _ = Date\"" + cursorMark + "\"\n}\n"
+	src := "import std::calendar.Date\n\nfn f() {\n    _ = Date\"" + cursorMark + "\"\n}\n"
 	items := completeIn(t, s, "file:///literal_completion.nomi", src).Items
 	if len(items) == 0 {
 		t.Fatal("no examples offered inside Date\"\"")
@@ -48,7 +48,7 @@ func TestLiteralCompletion_DateOffersItsDocumentedExamples(t *testing.T) {
 
 func TestLiteralCompletion_PlainTextReplacesTheTypedBody(t *testing.T) {
 	s := NewServer()
-	src := "import std/calendar.Date\n\nfn f() {\n    _ = Date\"20" + cursorMark + "\n}\n"
+	src := "import std::calendar.Date\n\nfn f() {\n    _ = Date\"20" + cursorMark + "\n}\n"
 	items := completeIn(t, s, "file:///literal_completion.nomi", src).Items
 	it := mustItem(t, items, "2026-05-04")
 	edit := it.TextEdit.(protocol.TextEdit)
@@ -62,7 +62,7 @@ func TestLiteralCompletion_PlainTextReplacesTheTypedBody(t *testing.T) {
 }
 
 func TestLiteralCompletion_TypeWithoutExamplesOffersNothing(t *testing.T) {
-	src := "import std/literals.{Fragment, Literal}\n\n/// A probe.\ntype Probe\n\nimpl Literal for Probe {\n" +
+	src := "import std::literals.{Fragment, Literal}\n\n/// A probe.\ntype Probe\n\nimpl Literal for Probe {\n" +
 		"    fn from_fragments(fragments: List<Fragment<String>>) -> Probe {\n        _ = fragments\n        Probe\n    }\n}\n\n" +
 		"fn f() -> Probe {\n    Probe\"" + cursorMark + "\"\n}\n"
 	if items := complete(t, src); len(items) != 0 {
@@ -71,7 +71,7 @@ func TestLiteralCompletion_TypeWithoutExamplesOffersNothing(t *testing.T) {
 }
 
 func TestLiteralCompletion_UserTypeExamples(t *testing.T) {
-	src := "import std/literals.{Fragment, Literal}\n\n/// A probe, written `Probe\"a-1\"`.\ntype Probe\n\nimpl Literal for Probe {\n" +
+	src := "import std::literals.{Fragment, Literal}\n\n/// A probe, written `Probe\"a-1\"`.\ntype Probe\n\nimpl Literal for Probe {\n" +
 		"    //! assert Probe.name(Probe\"b-2\") == \"\"\n" +
 		"    fn from_fragments(fragments: List<Fragment<String>>) -> Probe {\n        _ = fragments\n        Probe\n    }\n}\n\n" +
 		"fn f() -> Probe {\n    Probe\"" + cursorMark + "\"\n}\n"

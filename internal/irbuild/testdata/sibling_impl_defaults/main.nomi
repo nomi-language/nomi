@@ -3,7 +3,7 @@
 // trailing, all of them, or skipped by a named argument, and a generic owner
 // function instantiated at Unit.
 import {
-    std/io
+    std::io
     lib.{Box, Runner}
 }
 

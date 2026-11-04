@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRRebind_RefinementsAndTypeChanges(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   name = "  JANE  "
   name = String.trim(name)
@@ -19,7 +19,7 @@ fn main() {
 }
 
 func TestIRRebind_ParameterAndNestedScope(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(n: Int) -> Int { io.print(n) return n }
 fn work(n: Int) -> Int {
   n = mark(n + 1)
@@ -49,7 +49,7 @@ func TestIRRebind_CapturesKeepTheValueAtCreation(t *testing.T) {
 		{"f = one _ = f f = two io.print(f())", "2\n"},
 	} {
 		t.Run(tc.body, func(t *testing.T) {
-			verifyLambdaProgram(t, "import std/io\nfn one() -> Int { 1 }\nfn two() -> Int { 2 }\nfn main() { "+tc.body+" }", tc.want)
+			verifyLambdaProgram(t, "import std::io\nfn one() -> Int { 1 }\nfn two() -> Int { 2 }\nfn main() { "+tc.body+" }", tc.want)
 		})
 	}
 }
@@ -57,7 +57,7 @@ func TestIRRebind_CapturesKeepTheValueAtCreation(t *testing.T) {
 // TestIRRebind_ACapturedParameterRebindRuns: a closure over a parameter keeps
 // the argument after the body rebinds the parameter.
 func TestIRRebind_ACapturedParameterRebindRuns(t *testing.T) {
-	verifyLambdaProgram(t, "import std/io\nfn p(n: Int) -> Int {\n k = fn -> n\n n = 5\n k() * 10 + n\n}\nfn main() { io.print(p(1)) }", "15\n")
+	verifyLambdaProgram(t, "import std::io\nfn p(n: Int) -> Int {\n k = fn -> n\n n = 5\n k() * 10 + n\n}\nfn main() { io.print(p(1)) }", "15\n")
 }
 
 // TestIRRebind_ASpawnedTaskReadsTheValueAtItsCreation: a task's body is a
@@ -66,9 +66,9 @@ func TestIRRebind_ACapturedParameterRebindRuns(t *testing.T) {
 // rebinding x, so a capture that followed the rebinding would answer 22.
 func TestIRRebind_ASpawnedTaskReadsTheValueAtItsCreation(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/io
-  std/tasks.Task
+  std::channels.{Channel, Receiver, Sender}
+  std::io
+  std::tasks.Task
 }
 
 fn main() {

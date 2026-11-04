@@ -1,6 +1,6 @@
 import {
     api.{Widget, label, make, make_token, reveal}
-    api/http/header.{self, canonical_name}
+    api::http::header.{self, canonical_name}
     math
     models.{Greeting, Point, User}
 }

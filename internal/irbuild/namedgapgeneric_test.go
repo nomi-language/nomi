@@ -6,7 +6,7 @@ import "testing"
 // empty (`Box.pick(b, n: 2)` over `other: Maybe<T> = None`) fills that slot
 // at the call's instantiation.
 func TestNamedGapGeneric_FillsTheSlotAtTheInstance(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Box<T> {
     v: T

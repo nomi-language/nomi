@@ -8,8 +8,8 @@
 // reached by writing INTO a path whose parent is a regular file, which is
 // ENOTDIR rather than ENOENT.
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 once path: String = "${fs.temp_dir()}/nomi-io-files-fixture.txt"

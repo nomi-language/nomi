@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: lens_person.nomi
 //# Reads and updates fields deep inside a nested record, as lenses do.
 
-import std/calendar.{self, Date}
+import std::calendar.{self, Date}
 
 /// A person: their name, where and when they were born, and where they live.
 pub struct Person {
@@ -73,7 +73,7 @@ pub fn rename_streets(person: Person, rename: (String) -> String) -> Person {
 
 // FILE: lens_person_test.nomi
 import {
-    std/calendar.Date
+    std::calendar.Date
     lens_person.{self, Person}
 }
 

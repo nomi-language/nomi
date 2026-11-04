@@ -194,7 +194,7 @@ func TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile(t *testing.T) {
 // bind, the build keeps the base.
 func TestStdBase_AProgramDeclaringAPrimitiveUnderAStdlibNameFoldsEveryFile(t *testing.T) {
 	program := func(name string) stdBaseSeed {
-		seed := stdBaseSeed{name: name, src: "import std/io\n\ntypealias " + name + " Int\n\nfn main() {\n    value: " + name + " = 2\n    io.print(value)\n}\n"}
+		seed := stdBaseSeed{name: name, src: "import std::io\n\ntypealias " + name + " Int\n\nfn main() {\n    value: " + name + " = 2\n    io.print(value)\n}\n"}
 		if _, diags := checkSeed(t, seed); diags != "" {
 			t.Fatalf("the program with %s does not check: %s", name, diags)
 		}
@@ -229,7 +229,7 @@ func dumpWithoutBase(t *testing.T, seed stdBaseSeed) string {
 func TestStdBase_AProgramsBuildVisitsNoStdlibFile(t *testing.T) {
 	root := appScopeProject(t, map[string]string{
 		"main.nomi": `import {
-    std/io
+    std::io
     shapes.{Shape, Circle}
 }
 

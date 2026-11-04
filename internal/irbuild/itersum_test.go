@@ -10,8 +10,8 @@ import "testing"
 // or in a sibling file.
 func TestIterSum_AtStdTypesTheModuleDoesNotName(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
 }
 
 fn main() {
@@ -25,7 +25,7 @@ fn main() {
 func TestIterSum_AtProgramTypes(t *testing.T) {
 	verifyLambdaProgram(t, `import {
     money.{Coins, Point}
-    std/io
+    std::io
 }
 
 type Cents Int
@@ -87,7 +87,7 @@ impl Summable for Point {
 // inner lists left open. No element is built or observed, so the hole is
 // filled as an empty list's is.
 func TestIterSum_OfEmptyLists(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
     io.print(Iter.sum([[]]) == [])

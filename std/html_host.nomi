@@ -1,6 +1,6 @@
-//# The Go-backed half of std/html: the escaping an `Html` template's slots
+//# The Go-backed half of std::html: the escaping an `Html` template's slots
 //# write their values with (rt/html.go). It is internal; a program imports
-//# std/html.
+//# std::html.
 
 import strings.String
 

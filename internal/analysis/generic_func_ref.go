@@ -61,7 +61,7 @@ func (c *checker) genericFuncRef(node ast.Node, ty Type) (*FuncType, []*TypePara
 		case *ast.FieldAccess:
 			// `display.Display.to_string`: an interface named through its
 			// module.
-			if module, isIdent := owner.Object.(*ast.Ident); isIdent && owner.Field != nil {
+			if module, isIdent := ast.QualifierIdent(owner.Object); isIdent && owner.Field != nil {
 				qualified = module.Name + "." + owner.Field.Name + "." + n.Field.Name
 			}
 		}

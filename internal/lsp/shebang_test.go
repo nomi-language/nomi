@@ -13,7 +13,7 @@ import (
 func TestShebangFile_PositionsAreUnshifted(t *testing.T) {
 	const uri = "file:///shebang_script.nomi"
 	src := "#!/usr/bin/env nomi\n" +
-		"import std/io\n" +
+		"import std::io\n" +
 		"\n" +
 		"fn double(n: Int) -> Int {\n" +
 		"    n + n\n" +
@@ -70,7 +70,7 @@ func TestShebangFile_PositionsAreUnshifted(t *testing.T) {
 	if err != nil || toks == nil || len(toks.Data) < 5 {
 		t.Fatalf("no semantic tokens: %v", err)
 	}
-	// The first token's line is absolute: `io` in `import std/io` on line 1
+	// The first token's line is absolute: `io` in `import std::io` on line 1
 	// (0-based) at the earliest, never the shebang's line 0.
 	if toks.Data[0] == 0 {
 		t.Errorf("a semantic token on the shebang line: %v", toks.Data[:5])
@@ -96,14 +96,14 @@ func TestShebangFile_PositionsAreUnshifted(t *testing.T) {
 // A file's first import goes below its shebang, which must stay line 1.
 func TestImportInsertEdit_KeepsShebangFirst(t *testing.T) {
 	cases := map[string]struct{ content, want string }{
-		"no shebang":         {"fn main() {}\n", "import std/io\n\nfn main() {}\n"},
-		"shebang":            {"#!/usr/bin/env nomi\nfn main() {}\n", "#!/usr/bin/env nomi\nimport std/io\n\nfn main() {}\n"},
-		"only a shebang":     {"#!/usr/bin/env nomi", "#!/usr/bin/env nomi\nimport std/io\n"},
-		"shebang then blank": {"#!/usr/bin/env nomi\n\nfn main() {}\n", "#!/usr/bin/env nomi\nimport std/io\n\n\nfn main() {}\n"},
+		"no shebang":         {"fn main() {}\n", "import std::io\n\nfn main() {}\n"},
+		"shebang":            {"#!/usr/bin/env nomi\nfn main() {}\n", "#!/usr/bin/env nomi\nimport std::io\n\nfn main() {}\n"},
+		"only a shebang":     {"#!/usr/bin/env nomi", "#!/usr/bin/env nomi\nimport std::io\n"},
+		"shebang then blank": {"#!/usr/bin/env nomi\n\nfn main() {}\n", "#!/usr/bin/env nomi\nimport std::io\n\n\nfn main() {}\n"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			edit := importInsertEdit(tc.content, lineOffsets(tc.content), nil, "import std/io")
+			edit := importInsertEdit(tc.content, lineOffsets(tc.content), nil, "import std::io")
 			got := applyEditsForShebangTest(tc.content, edit)
 			if got != tc.want {
 				t.Fatalf("got %q, want %q", got, tc.want)

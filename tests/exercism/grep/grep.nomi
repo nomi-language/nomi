@@ -2,8 +2,8 @@
 //# canonical flags.
 
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 /// The canonical flags.

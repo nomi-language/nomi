@@ -52,13 +52,13 @@ func TestSortDirection_TheFrontEndRejectsEveryWrongSpelling(t *testing.T) {
 		src  string
 	}{
 		{"a LOCAL enum of the same name and shape",
-			"import {\n  std/io\n}\n\nenum Direction {\n  Ascending\n  Descending\n}\n\n" +
+			"import {\n  std::io\n}\n\nenum Direction {\n  Ascending\n  Descending\n}\n\n" +
 				"fn main() {\n  xs = [3, 1, 2] |> Iter.sort(Direction.Descending)\n  io.print(\"${xs}\")\n}\n"},
 		{"an unrelated type entirely",
-			"import {\n  std/io\n}\n\n" +
+			"import {\n  std::io\n}\n\n" +
 				"fn main() {\n  xs = [3, 1, 2] |> Iter.sort(7)\n  io.print(\"${xs}\")\n}\n"},
 		{"a variant of a DIFFERENT std enum",
-			"import {\n  std/io\n}\n\n" +
+			"import {\n  std::io\n}\n\n" +
 				"fn main() {\n  xs = [3, 1, 2] |> Iter.sort(Ordering.Less)\n  io.print(\"${xs}\")\n}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

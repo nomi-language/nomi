@@ -14,7 +14,7 @@ fn main() {
 }
 
 func TestIRMarker_CustomDebugAndClosure(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Ready
 impl Debug for Ready {
  fn inspect(value: Ready) -> String { _ = value; io.print("inspect"); "ready!" }
@@ -40,7 +40,7 @@ fn main() { _ = identity(Ready) }
 // same value as the selectively imported name: it satisfies an interface,
 // equals the bare spelling, and renders as the type's name.
 func TestIRMarker_ThroughItsFileQualifier(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 import fakes
 import fakes as f
 import fakes.Quiet

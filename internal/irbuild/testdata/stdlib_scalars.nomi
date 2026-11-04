@@ -29,7 +29,7 @@
 //     calls `to_string` — a SIBLING of a different impl block on the same
 //     receiver. That resolution is what makes a lowered stdlib body able to reach
 //     its own type's method table.
-import std/io
+import std::io
 
 fn main() {
     io.print("contains: ${String.contains("hello world", "o w")}")

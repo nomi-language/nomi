@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A user enum whose payload is a List of a user struct, positionally and as a
 // struct-shaped variant's field, and an enum that reaches itself back through

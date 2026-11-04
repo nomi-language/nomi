@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // Anonymous structs — a RECORD — in every position the builder lowers, plus
 // the two renderings, in one run.

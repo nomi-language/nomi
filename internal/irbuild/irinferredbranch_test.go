@@ -4,25 +4,25 @@ import "testing"
 
 func TestIRInferredBranch_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"output operand", `import std/io
+		{"output operand", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
   io.print(if True { mark(4) } else { mark(9) })
   io.print(case 2 { 0 -> "zero" _ -> "other" })
 }`, "4\n4\nother\n"},
-		{"lambda return", `import std/io
+		{"lambda return", `import std::io
 fn main() {
   base = 7
   choose = fn flag: Bool -> { return if flag { base } else { base + 1 } }
   choose(True) |> io.print()
   choose(False) |> io.print()
 }`, "7\n8\n"},
-		{"nested arithmetic", `import std/io
+		{"nested arithmetic", `import std::io
 fn main() {
   io.print((if True { 4 } else { 8 }) + (case 1 { 0 -> 2 _ -> 3 }))
   io.print(if (if False { False } else { True }) { 1 } else { 2 })
 }`, "7\n1\n"},
-		{"nested value arms", `import std/io
+		{"nested value arms", `import std::io
 fn choose(a: Bool, b: Bool) -> Int {
   if a { if b { 1 } else { 2 } } else { case 1 { 0 -> 3 _ -> 4 } }
 }
@@ -31,7 +31,7 @@ fn main() {
   choose(True, False) |> io.print()
   choose(False, True) |> io.print()
 }`, "1\n2\n4\n"},
-		{"conditional case subject", `import std/io
+		{"conditional case subject", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
   io.print(case (if True { mark(2) } else { mark(9) }) {
@@ -52,7 +52,7 @@ func TestIRInferredBranch_ListArmBesideASequenceArm(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn pick<T>(c: Bool, a: T, b: T) -> T {
     if c { a } else { b }

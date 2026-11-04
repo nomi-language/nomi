@@ -32,7 +32,7 @@ func (p *Parser) namedBraceAhead(offset int) (n int, ok bool) {
 		for p.peekAt(i).Type == token.DOT && p.peekAt(i+1).Type == token.TYPE_IDENT {
 			i += 2
 		}
-	case token.IDENT:
+	case token.IDENT, token.PATH:
 		if p.peekAt(i+1).Type != token.DOT || p.peekAt(i+2).Type != token.TYPE_IDENT {
 			return 0, false
 		}

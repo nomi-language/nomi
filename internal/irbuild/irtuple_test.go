@@ -33,11 +33,11 @@ func TestVM_TupleFunctionPart(t *testing.T) {
 
 func TestIRTuple_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"construction and indexing", `import std/io
+		{"construction and indexing", `import std::io
 fn make(n: Int) -> #(Int, String) { #(n + 1, "answer") }
 fn main() { pair = make(41) io.print(pair.0) io.print(pair.1) }
 `, "42\nanswer\n"},
-		{"effects and destructuring", `import std/io
+		{"effects and destructuring", `import std::io
 fn item(n: Int) -> Int { io.print(n) n + 10 }
 fn main() {
   #(a, _, c) = #(item(
@@ -45,7 +45,7 @@ fn main() {
   ), item(2), item(3))
   io.print(a) io.print(c)
 }`, "1\n2\n3\n11\n13\n"},
-		{"nested and destructured parameters", `import std/io
+		{"nested and destructured parameters", `import std::io
 fn sum(#(a, b): #(Int, Int)) -> Int { a + b }
 fn main() {
   nested = #(#(10, 20), "nested")
@@ -53,7 +53,7 @@ fn main() {
   io.print(sum(inner))
   io.print(nested.1)
 }`, "30\nnested\n"},
-		{"conditional and callable tuples", `import std/io
+		{"conditional and callable tuples", `import std::io
 fn choose(flag: Bool) -> #(Int, String) {
   if flag { #(1, "first") } else { #(2, "second") }
 }
@@ -62,7 +62,7 @@ fn main() {
   #(n, text) = get(False)
   io.print(n) io.print(text)
 }`, "2\nsecond\n"},
-		{"list and struct components", `import std/io
+		{"list and struct components", `import std::io
 struct Point { x: Int }
 fn main() {
   pair = #([1, 2], Point{x: 7})
@@ -70,7 +70,7 @@ fn main() {
   point = pair.1
   io.inspect(xs) io.print(point.x)
 }`, "[1, 2]\n7\n"},
-		{"computed projection and discard", `import std/io
+		{"computed projection and discard", `import std::io
 fn make(n: Int) -> #(Int, Int) {
   io.print(n)
   #(n, n + 1)

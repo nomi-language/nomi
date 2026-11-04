@@ -52,7 +52,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 	// receiver type — render it as that type (`self = List<T>`). Without this
 	// we'd follow sym.Resolved (the receiver type's own symbol) below, which
 	// for a primitive like List/String surfaces the unhelpful "import
-	// std/lists" / "import std/strings" origin instead of telling you what
+	// std/lists" / "import std::strings" origin instead of telling you what
 	// `self` stands for.
 	// Import-path `self` markers (`std/calendar.{self, Date}`) carry a
 	// non-ImplBlock node, so they fall through to their module/enum hover.
@@ -63,7 +63,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			// hover card (its body, doc comment, and opacity) so `self`
 			// surfaces what the type *is*, not just its name. Skip it for
 			// other receivers: a primitive like List/String resolves to an
-			// unhelpful "import std/lists" origin (the reason this branch
+			// unhelpful "import std::lists" origin (the reason this branch
 			// exists at all), and a distinct `type` head adds nothing over
 			// the header.
 			if r := sym.Resolved; r != nil && isStructOrEnumDecl(r) {
@@ -1776,9 +1776,9 @@ func renderControlFlowHover(sym *analysis.Symbol) string {
 	switch info.Keyword {
 	case "if":
 		if info.PatternInput {
-			b.WriteString("Matches the input value against the condition pattern. On mismatch, runs `else`; without `else`, the expression returns `Unit`.")
+			b.WriteString("Matches the input value against the condition pattern. On mismatch, runs `else`. Without `else`, a branch with a value makes the `if` a `Maybe`, `None` on mismatch; a `Unit` branch leaves it `Unit`.")
 		} else {
-			b.WriteString("Branches on a `Bool`. With `else`, both branches must produce compatible values; without `else`, the expression returns `Unit`.")
+			b.WriteString("Branches on a `Bool`. With `else`, both branches must produce compatible values. Without `else`, a branch with a value makes the `if` a `Maybe`, `None` when no branch runs; a `Unit` branch leaves it `Unit`.")
 		}
 	case "case":
 		if info.HasInput {
@@ -2090,7 +2090,7 @@ func renderImportPath(imp *ast.ImportStmt) string {
 	for i, n := range modulePath {
 		parts[i] = ast.ImportNodeName(n)
 	}
-	out := strings.Join(parts, "/")
+	out := strings.Join(parts, ast.PathSeparator)
 	if drillThrough != "" {
 		out += "." + drillThrough
 	}

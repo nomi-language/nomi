@@ -62,7 +62,8 @@ A lambda is written `fn params -> body`. Several parameters are separated by
 commas, and a body of more than one line goes in a `{ ... }` block. Write a
 parameter's type when nothing else tells the compiler what it is. When the
 lambda is passed to a function that expects a certain type, the type is
-inferred.
+inferred. In a list of lambdas, writing the type in one element is enough:
+`[#("a", fn n: Int -> n), #("b", fn n -> n * 2)]`.
 
 A lambda is a value. You can bind it to a name, pass it to a function, or
 return it from one.

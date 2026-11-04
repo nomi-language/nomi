@@ -10,7 +10,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-const entriesSource = `import std/io
+const entriesSource = `import std::io
 
 fn count_down(n: Int) -> Int {
   if n <= 0 {

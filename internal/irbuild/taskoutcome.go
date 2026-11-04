@@ -287,7 +287,7 @@ func (s *namedPayloadSpec) matchesDecl(decl *ast.EnumDef) bool {
 // `stdEnumSpecs` is that NO CORPUS FILE
 // mentions it, so a public registry row would be scaffolding by that table's own
 // bar. It is NOT that the language forbids naming it: `Failure` is an ordinary
-// `pub enum` in std/tasks and `import std/tasks.{Outcome, Failure}` is a program
+// `pub enum` in std/tasks and `import std::tasks.{Outcome, Failure}` is a program
 // the front end accepts.
 //
 // Left unnameable, `Outcome.Failed(Failure.Errored("x"))` would refuse

@@ -2,7 +2,7 @@
 // file's distinct type. Each is ordered by its own Comparable impl and stepped
 // by its own Steppable impl.
 import {
-    std/io
+    std::io
     units
 }
 

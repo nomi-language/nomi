@@ -81,7 +81,7 @@ func expectErrContaining(t *testing.T, errs []analysis.TypeError, substr string)
 // clean — Debug is universally satisfied, so no `where T: Debug` bound is
 // needed. Callers at concrete types (Int / String) must also check.
 func TestUniversalDebug_NoBoundGenericTypeChecks(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn show<T>(x: T) -> String {
     Debug.inspect(x)
@@ -102,7 +102,7 @@ fn main() -> Unit {
 // Debug makes Debug satisfied by every type, so the interface-bound check
 // passes.
 func TestUniversalDebug_BoundDebugOnNonDebugTypeChecks(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct P { x: Int }
 
@@ -122,7 +122,7 @@ fn main() -> Unit {
 // error (Display is opt-in; its bound is real). The diagnostic must name
 // Display, not Debug.
 func TestUniversalDebug_DisplayBoundStillErrors(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct P { x: Int }
 

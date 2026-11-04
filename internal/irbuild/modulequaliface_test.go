@@ -21,12 +21,12 @@ func TestModuleQualifiedInterfaceCall_Runs(t *testing.T) {
 	}
 	dir := t.TempDir()
 	files := map[string]string{
-		"main.nomi": `import std/io
-import std/matcher
-import std/sql
-import std/sql_testing.Fake
-import std/storage as st
-import std/storage_testing.Memory
+		"main.nomi": `import std::io
+import std::matcher
+import std::sql
+import std::sql_testing.Fake
+import std::storage as st
+import std::storage_testing.Memory
 import shapes
 import shapes.Square
 

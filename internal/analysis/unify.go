@@ -220,6 +220,15 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	// below), so a generic caller's own `E` arrives as a against the
 	// callee's `T` as b: `call(item, list, fn rest, _item -> rest)` inside `fn
 	// b<E>` solves T to E and is recorded at `List<E>`, the type it runs at.
+	// A value of the checked function's own type parameter entering an
+	// interface position conforms through the parameter's bounds; the
+	// parameter is not solved to the interface (`d: Display = v` with `v:
+	// T` needs `where T: Display`).
+	if iface, ok := a.(*InterfaceType); ok && subs != nil {
+		if tp, ok := b.(*TypeParam_); ok && rigid[tp.Name_] == tp {
+			return typeParamConforms(m, iface, tp, subs, impls, implTypeArgs, rigid)
+		}
+	}
 	if tpa, ok := a.(*TypeParam_); ok && subs != nil && rigid[tpa.Name_] == tpa {
 		if tpb, ok := b.(*TypeParam_); ok && rigid[tpb.Name_] != tpb {
 			return bindParam(m, tpb, a, subs, impls, implTypeArgs, rigid)
@@ -533,6 +542,13 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 			return nil
 		}
 		return fmt.Errorf("%s does not implement %s", concrete, iface)
+	}
+	// A type parameter conforms through its bounds: inside `fn f<T>(v: T)
+	// where T: Display`, `v` enters a `Display` position, and every type
+	// argument a caller passes implements it (spec §12 *Bounds and dispatch
+	// in generic code*).
+	if tp, ok := concrete.(*TypeParam_); ok {
+		return typeParamConforms(m, iface, tp, subs, impls, implTypeArgs, rigid)
 	}
 	// A tuple, an anonymous struct or a function has no impls of its own
 	// (structural_bounds.go).
@@ -1501,4 +1517,46 @@ func projectThroughBound(iface *InterfaceType, tp *TypeParam_, subs map[*TypePar
 		}
 		return
 	}
+}
+
+// typeParamConforms admits a value of type parameter tp where iface is
+// expected when one of tp's bounds is iface: the same interface declaration,
+// at type arguments that unify with iface's. Debug needs no bound, since
+// every type implements it. A bound of a generic interface solves iface's
+// type arguments, as `where T: Into<String>` makes a `T` an `Into<String>`.
+func typeParamConforms(m unifyMode, iface *InterfaceType, tp *TypeParam_, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+	if iface.Name == "Debug" {
+		return nil
+	}
+	bind := func(bound *InterfaceType, into map[*TypeParam_]Type) error {
+		for i := range iface.TypeArgs {
+			if err := unifyIn(m.iterElem(iface), iface.TypeArgs[i], bound.TypeArgs[i], into, impls, implTypeArgs, rigid); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, bound := range tp.Bounds {
+		if bound == nil || len(bound.TypeArgs) != len(iface.TypeArgs) ||
+			!sameNominalIdentity(bound.Origin, bound.Name, iface.Origin, iface.Name) {
+			continue
+		}
+		if len(iface.TypeArgs) == 0 {
+			return nil
+		}
+		var trial map[*TypeParam_]Type
+		if subs != nil {
+			trial = make(map[*TypeParam_]Type, len(subs))
+			for k, v := range subs {
+				trial[k] = v
+			}
+		}
+		saved := saveTypeVars(append(append([]Type{}, iface.TypeArgs...), bound.TypeArgs...)...)
+		err := bind(bound, trial)
+		saved.restore()
+		if err == nil {
+			return bind(bound, subs)
+		}
+	}
+	return typeErrorf("%s does not implement %s", tp, iface)
 }

@@ -20,7 +20,7 @@
 //     the identity, which is the inductive step: a callee may trust `x: T`
 //     because every caller was made to establish it.
 //   - the turbofish rows — the identity named explicitly rather than solved.
-import std/io
+import std::io
 
 interface Cmp {
     fn cmp(a: self, b: self) -> Int

@@ -28,7 +28,7 @@ func TestCoTenant_APrivateIfaceFieldOfAPublicStructIsAFrontEndError(t *testing.T
 		t.Skip("integration; -short")
 	}
 	entry := stagedProgram(t, "main.nomi", map[string]string{
-		"main.nomi": "import {\n  std/io\n  core.{self}\n  wire.{self}\n}\n\n" +
+		"main.nomi": "import {\n  std::io\n  core.{self}\n  wire.{self}\n}\n\n" +
 			"fn main() {\n  io.print(wire.relay(core.loud()))\n}\n",
 		"core.nomi": "import wire\n\n" +
 			"interface Logger {\n  fn log(value: self, message: String) -> String\n}\n\n" +

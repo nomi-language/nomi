@@ -40,7 +40,7 @@ pub interface Powered {
 }
 `,
 			main: `import {
-    std/io
+    std::io
     lib.{Powered, Point}
 }
 
@@ -68,7 +68,7 @@ pub interface Powered {
 }
 `,
 			main: `import {
-    std/io
+    std::io
     lib.{Powered, Point}
 }
 
@@ -93,7 +93,7 @@ pub interface Powered {
 }
 `,
 			main: `import {
-    std/io
+    std::io
     lib.Powered
 }
 
@@ -119,7 +119,7 @@ fn main() {
     fn label(w: self) -> String
 
     fn shout(w: self) {
-        import std/io.print
+        import std::io.print
         print(Powered.label(w) + "!")
     }
 }

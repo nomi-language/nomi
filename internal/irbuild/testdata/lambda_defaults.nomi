@@ -30,7 +30,7 @@
 //     parameter in the signature would break.
 //   - `multi:` — more than one omitted slot, and the fully-supplied call beside
 //     it.
-import std/io
+import std::io
 
 fn counted() -> Int {
     io.print("count: default ran")

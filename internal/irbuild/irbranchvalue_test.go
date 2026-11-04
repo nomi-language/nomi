@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRLambda_BranchBindings(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"Unit binding", `import std/io
+		{"Unit binding", `import std::io
 fn main() {
  emit = fn flag: Bool -> {
   done = if flag { io.print("left") } else { io.print("right") }
@@ -14,7 +14,7 @@ fn main() {
  emit(False)
 }
 `, "left\nright\n"},
-		{"named function", `import std/io
+		{"named function", `import std::io
 fn choose(x: Int) -> Int {
  first = if x > 0 { x + 1 } else { 3 }
  second = case first { 2 -> 20; _ -> first + 10 }
@@ -26,7 +26,7 @@ fn main() {
  io.print(choose(0))
 }
 `, "21\n14\n14\n"},
-		{"sequential bindings", `import std/io
+		{"sequential bindings", `import std::io
 fn main() {
  choose = fn x: Int -> {
   first = if x > 0 { x + 1 } else { 3 }
@@ -39,7 +39,7 @@ fn main() {
  io.print(choose(0))
 }
 `, "2\n21\n3\n14\n3\n14\n"},
-		{"binding inside arms", `import std/io
+		{"binding inside arms", `import std::io
 fn main() {
  choose = fn x: Int, flag: Bool -> {
   answer = if flag {
@@ -59,7 +59,7 @@ fn main() {
  io.print(choose(1, False))
 }
 `, "left\n15\nleft\n16\nright\n27\nright\n26\n"},
-		{"closure binding", `import std/io
+		{"closure binding", `import std::io
 fn main() {
  choose = fn flag: Bool -> {
   add = if flag {

@@ -10,7 +10,7 @@ import (
 
 // A stdlib enum's variant imported WITHOUT its type name.
 //
-// `import std/decimal.RoundingMode.{Floor, HalfEven, Up}` binds three VARIANTS
+// `import std::decimal.RoundingMode.{Floor, HalfEven, Up}` binds three VARIANTS
 // and does not bind `RoundingMode`. See stdenum.go's stdEnumSpecOfSymbol for
 // why the variant's own resolution is a stronger anchor than a name lookup.
 

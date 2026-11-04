@@ -10,8 +10,8 @@ import (
 // A Float in a generic parameter's Float slot lowers and runs; an Int there is
 // the checker's argument mismatch, never a call the builder declines.
 func TestGenericFloatSlot_FloatsRunAndIntsAreRejected(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
-import std/random.Generator
+	got := runSourceOutput(t, `import std::io
+import std::random.Generator
 
 fn weight<T>(pair: #(Float, T)) -> Float {
     pair.0
@@ -26,7 +26,7 @@ fn main() {
 		t.Fatalf("output: got %q, want %q", got, want)
 	}
 
-	_, err := vmhost.LoadSource("main.nomi", `import std/random.Generator
+	_, err := vmhost.LoadSource("main.nomi", `import std::random.Generator
 
 fn main() {
     _ = Generator.weighted(#(-10, "bad"), [])

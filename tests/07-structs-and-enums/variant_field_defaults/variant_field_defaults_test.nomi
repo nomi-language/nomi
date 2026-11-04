@@ -9,9 +9,9 @@
 //# and reported nothing, rather than failing where the mistake was.
 
 import {
-    std/compiler
+    std::compiler
     policy.{Backoff, Retry}
-    policy/nested.Timeout
+    policy::nested.Timeout
 }
 
 test "an omitted field takes its declared default across a file boundary" {

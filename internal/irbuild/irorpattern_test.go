@@ -13,7 +13,7 @@ import (
 // alternatives join, so its guard and body are lowered once and the debugger
 // sees one variable per name, declared at the first alternative's site.
 func TestOrPattern_OneBindingWhereTheAlternativesJoin(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 enum Ev {
   A Int

@@ -10,8 +10,8 @@ import (
 // literal, as `Backoff.Exponential{}` does. The checker typed `Exponential{}`
 // as the variant's constructor function and checked none of its fields.
 func TestDrillThroughStructVariantLit_TypesAsTheEnum(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`import std/supervisors.Backoff
-import std/supervisors.Backoff.Exponential
+	_, errs := checkSourceWithStdlib(`import std::supervisors.Backoff
+import std::supervisors.Backoff.Exponential
 
 fn main() {
   a: Backoff = Exponential{}
@@ -25,7 +25,7 @@ fn main() {
 }
 
 func TestDrillThroughStructVariantLit_ChecksFields(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`import std/supervisors.Backoff.Exponential
+	_, errs := checkSourceWithStdlib(`import std::supervisors.Backoff.Exponential
 
 fn main() {
   _a = Exponential{max_restarts: "three"}

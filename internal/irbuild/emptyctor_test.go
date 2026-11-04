@@ -16,7 +16,7 @@ import (
 // emits feeds a retyping Copy, and both temporaries carry a stored type
 // (`ir.Lint`).
 func TestIREmptyCtor_GenericEmptyLiteralsRun(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct P {
   x: Int

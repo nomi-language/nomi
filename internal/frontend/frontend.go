@@ -172,8 +172,8 @@ func (c *Checker) virtualInput(path string) (string, bool) {
 	return text, ok
 }
 
-// Loader is the file loader analysis runs with: virtual files first for a
-// one-segment import, then the embedded stdlib and disk, with the synthetic
+// Loader is the file loader analysis runs with: virtual files first for an
+// import, by its path, then the embedded stdlib and disk, with the synthetic
 // host declarations injected into every loaded file and its keyword
 // declarations expanded.
 func (c *Checker) Loader() analysis.FileLoader {
@@ -205,11 +205,12 @@ func (c *Checker) innerLoader() analysis.FileLoader {
 	return func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		var nodes []ast.Node
 		virtual := false
-		if len(modulePath) == 1 {
-			if src, ok := c.cfg.VirtualFiles[modulePath[0]]; ok {
+		if len(modulePath) > 0 {
+			key := strings.Join(modulePath, "/")
+			if src, ok := c.cfg.VirtualFiles[key]; ok {
 				var errs []parser.ParseError
 				nodes, errs = parser.ParseWithRecovery(lexer.Lex(src))
-				c.recordSyntax(modulePath[0]+".nomi", errs)
+				c.recordSyntax(key+".nomi", errs)
 				virtual = true
 			}
 		}

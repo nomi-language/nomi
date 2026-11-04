@@ -471,7 +471,7 @@ func stdImportModuleOf(sym *analysis.Symbol, importerKey string) (string, bool) 
 //
 // The second case exists because the prelude reaches a user file two ways.
 // With the stdlib on disk the analyzer prepends a copy of the prelude's
-// re-exports to the file (`import std/context.{Context}`), and the name is the
+// re-exports to the file (`import std::context.{Context}`), and the name is the
 // file's own. Without it — an installed binary with no source tree, the tour's
 // wasm in a browser — the prelude's module scope is the file's PARENT, and the
 // name is the prelude's own import statement, which spells its sibling bare

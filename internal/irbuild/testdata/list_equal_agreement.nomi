@@ -14,7 +14,7 @@
 //
 // Every row is `assert (a == b) == List.equal(a, b)`, so a row passes only when
 // both spellings answer the same thing — including when both answer False.
-import std/io
+import std::io
 
 fn main() {
     xs = [1, 2, 3]

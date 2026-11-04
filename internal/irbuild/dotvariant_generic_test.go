@@ -14,7 +14,7 @@ func TestDotVariant_GenericEnumBareVariant(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     trees.Slot
 }
 
@@ -81,7 +81,7 @@ func TestDotVariant_GenericSlotSolvedByItsSiblings(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 enum Tree<T> {
     Leaf

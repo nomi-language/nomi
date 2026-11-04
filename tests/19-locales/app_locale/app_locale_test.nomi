@@ -1,5 +1,5 @@
 import {
-    std/locale.Locale
+    std::locale.Locale
     main.{self, App}
 }
 

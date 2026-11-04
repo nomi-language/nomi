@@ -1,7 +1,7 @@
 import {
-    std/calendar.Error
-    std/calendar.{Days, Months, Weeks, Years}
-    std/calendar.Date
+    std::calendar.Error
+    std::calendar.{Days, Months, Weeks, Years}
+    std::calendar.Date
 }
 
 test "dates parse and expose components" {

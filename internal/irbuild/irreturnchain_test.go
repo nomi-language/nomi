@@ -15,7 +15,7 @@ import (
 // discards, so the Unit chains here are written that way.
 func TestIRReturnChain_EveryArmReturnsInTailPosition(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"else if chain", `import std/io
+		{"else if chain", `import std::io
 fn sign(x: Int) -> Int {
  if x < 0 {
   return -1
@@ -30,7 +30,7 @@ fn main() {
  io.print(sign(0))
  io.print(sign(5))
 }`, "-1\n0\n1\n"},
-		{"case", `import std/io
+		{"case", `import std::io
 enum Shape {
  Circle(Int)
  Square(Int)
@@ -54,7 +54,7 @@ fn main() {
  io.print(area(Shape.Square(3)))
  io.print(area(Shape.Dot))
 }`, "12\n9\n0\n"},
-		{"subjectless case", `import std/io
+		{"subjectless case", `import std::io
 fn size(x: Int) -> String {
  case {
   x > 10 -> {
@@ -73,7 +73,7 @@ fn main() {
  io.print(size(1))
  io.print(size(0))
 }`, "big\npositive\nother\n"},
-		{"nested if and case", `import std/io
+		{"nested if and case", `import std::io
 fn which(x: Int, y: Int) -> String {
  if x > 0 {
   if y > 0 {
@@ -101,7 +101,7 @@ fn main() {
  io.print(which(0, 0))
  io.print(which(-1, 0))
 }`, "both\nx only\ny only\nzero\nneither\n"},
-		{"pattern if chain", `import std/io
+		{"pattern if chain", `import std::io
 fn pick(m: Maybe<Int>, loud: Bool) -> String {
  if Some(n) = m {
   return "some ${n}"
@@ -116,7 +116,7 @@ fn main() {
  io.print(pick(None, True))
  io.print(pick(None, False))
 }`, "some 4\nNONE\nnone\n"},
-		{"some arms return and others fall through", `import std/io
+		{"some arms return and others fall through", `import std::io
 fn mixed(x: Int) -> Int {
  if x < 0 {
   return -1
@@ -150,7 +150,7 @@ fn main() {
  io.print(named(200))
  io.print(named(3))
 }`, "-1\n0\n8\none\ntwo\nhuge\nmany\n"},
-		{"lambda", `import std/io
+		{"lambda", `import std::io
 fn main() {
  sign: (Int) -> Int = fn x -> {
   if x < 0 {

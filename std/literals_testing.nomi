@@ -1,4 +1,4 @@
-//# Tests for a `CheckedLiteral` (std/literals). Its `check` runs when the
+//# Tests for a `CheckedLiteral` (std::literals). Its `check` runs when the
 //# program is checked and its `build` when the program runs, and `build` may
 //# not fail once `check` has accepted the literal's text. `build_each` runs
 //# both as the compiler and the program would, over slot values a test
@@ -20,7 +20,7 @@ import {
 /// A `build` that fails for a value traps, and the test fails there. Every
 /// slot gets the same value in one build; a test of mixed slot values calls
 /// `build` itself.
-//! import std/url.Url
+//! import std::url.Url
 //!
 //! statics = ["https://example.com/users/", "?tab=", ""]
 //! built = build_each(statics, ["", "..", "a/b c"], Url.check, Url.build)

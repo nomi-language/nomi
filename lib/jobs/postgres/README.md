@@ -15,10 +15,10 @@ worker started in `main` runs it:
 
 ```nomi
 import {
-    std/io
-    std/jobs.{self, Failure, Job, Queue, Worker}
-    std/json.{FromJson, ToJson}
-    std/sql.{self, Conn, Sql}
+    std::io
+    std::jobs.{self, Failure, Job, Queue, Worker}
+    std::json.{FromJson, ToJson}
+    std::sql.{self, Conn, Sql}
     pgjobs
     postgres
 }

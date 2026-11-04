@@ -16,7 +16,7 @@
 //     containing one answers True only through rt.EqFloat.
 //   - the nested lists exercise the comparator's recursion: an inner list needs
 //     its own rt.ListEqual, not an address test one level down.
-import std/io
+import std::io
 
 fn main() {
     xs = [1, 2, 3]

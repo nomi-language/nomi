@@ -1,9 +1,9 @@
 import {
-    std/comparable.Ordering.{Equal, Less as Lt}
-    std/io
-    std/json.Json.{self, Int as Arr, Null as JNull, Obj as JObj, String as JStr}
-    std/maybe.Maybe.{None as Nothing, Some as Just}
-    std/results.Result.{Err as Bad, Ok as Good}
+    std::comparable.Ordering.{Equal, Less as Lt}
+    std::io
+    std::json.Json.{self, Int as Arr, Null as JNull, Obj as JObj, String as JStr}
+    std::maybe.Maybe.{None as Nothing, Some as Just}
+    std::results.Result.{Err as Bad, Ok as Good}
 }
 
 // A selectively imported enum variant, with and without an `as` alias.

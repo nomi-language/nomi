@@ -12,13 +12,13 @@ fn main() {
  dbg choose(2)
  Unit
 }`, "dbg line 4: nested() = [[], [1]]\ndbg line 5: choose(0) = []\ndbg line 6: choose(2) = [2]\n"},
-		{"empty-only spread", `import std/io
+		{"empty-only spread", `import std::io
 fn main() {
  empty = fn -> { io.print("empty") [] }
  dbg [..empty()]
  Unit
 }`, "empty\ndbg line 4: [..empty()] = []\n"},
-		{"empty argument order", `import std/io
+		{"empty argument order", `import std::io
 fn pair(xs: List<Int>, n: Int) -> List<Int> { [n, ..xs] }
 fn mark() -> Int { io.print("mark") 2 }
 fn main() {
@@ -42,7 +42,7 @@ fn main() {
  dbg choose(0)
  Unit
 }`, "dbg line 6: xs = []\ndbg line 7: empty() = []\ndbg line 8: accept() = []\ndbg line 9: accept(xs) = []\ndbg line 10: [1, ..[]] = [1]\ndbg line 11: [empty(), [1]] = [[], [1]]\ndbg line 12: [[2], empty()] = [[2], []]\ndbg line 13: choose(0) = []\n"},
-		{"empty lambda effects", `import std/io
+		{"empty lambda effects", `import std::io
 fn accept(xs: List<Int>) -> List<Int> { xs }
 fn main() {
  empty = fn -> { io.print("empty") [] }
@@ -63,7 +63,7 @@ fn main() {
  dbg xs
  Unit
 }`, "dbg line 4: xs = [1, 2]\ndbg line 6: whole = [0, 1, 2]\ndbg line 7: xs = [1, 2]\n"},
-		{"operand order", `import std/io
+		{"operand order", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn tail() -> List<Int> { io.print(3) [3, 4] }
 fn main() {
@@ -97,7 +97,7 @@ fn main() {
  dbg xs
  Unit
 }`, "dbg line 3: xs = [\"a\\nb\\t\\\"\\\\z\"]\n"},
-		{"multiline elements", `import std/io
+		{"multiline elements", `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn main() {
  xs = [

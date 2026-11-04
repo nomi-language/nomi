@@ -89,7 +89,7 @@ Bytes(1)
 `,
 		},
 		{
-			name: "Regex", inner: "Regex<Unit>", imports: "import std/regex.Regex\n", v1: "Regex`a+`", v2: "Regex`b`",
+			name: "Regex", inner: "Regex<Unit>", imports: "import std::regex.Regex\n", v1: "Regex`a+`", v2: "Regex`b`",
 			derives: []string{"Display"},
 			want: "Regex`a+`\nRegex`b`\nRegex`a+`\nW(Regex`a+`)\n[W(Regex`a+`), W(Regex`b`)]\n[Regex`a+`, Regex`b`]\n" +
 				"W(Regex`a+`)\nRegex`b`\nS{w: W(Regex`a+`)}\na+\n",
@@ -178,7 +178,7 @@ S{w: W(Empty{})}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			var src strings.Builder
-			src.WriteString("import std/io\n" + c.imports + c.decls + "\ntype W " + c.inner + "\n\n")
+			src.WriteString("import std::io\n" + c.imports + c.decls + "\ntype W " + c.inner + "\n\n")
 			for _, d := range c.derives {
 				src.WriteString("derive " + d + " for W\n")
 			}
@@ -253,7 +253,7 @@ fn main() {
 // a destructured function parameter declined before ("a destructured name's
 // kind outside the domain").
 func TestDistinctOverFunction_DestructuresAndCalls(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 type Rate (Decimal) -> Decimal
 
@@ -286,7 +286,7 @@ fn main() {
 // it declined as "a ListLit" before, which left `[Unit, Unit] |>
 // Iter.map(Done)` for `type Done Unit` unable to run.
 func TestListOfUnit_Builds(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
     xs = [Unit, Unit]

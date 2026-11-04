@@ -80,7 +80,7 @@ func (e errorString) Error() string { return string(e) }
 func helloIR(t *testing.T) *irbuild.Result {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "hello.nomi")
-	if err := os.WriteFile(path, []byte("import std/io\n\nfn main() {\n  io.print(\"hello\")\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("import std::io\n\nfn main() {\n  io.print(\"hello\")\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	prog, err := irbuild.Analyze(path)

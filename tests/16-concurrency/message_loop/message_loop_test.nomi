@@ -1,7 +1,7 @@
 // Exercises the message-driven counter in counter_app.nomi, booted as that
 // entry file boots it.
 import {
-    std/testing.Clock
+    std::testing.Clock
     counter_app.{self, Config, explode, get, increment}
 }
 

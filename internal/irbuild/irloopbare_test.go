@@ -8,8 +8,8 @@ import "testing"
 // function's tail, and a binding with code after it that never runs.
 func TestIRLoopEndless_BareAndAliasedLoop(t *testing.T) {
 	verifyEndlessTrap(t, `import {
-    std/io
-    std/iter.Iter.{loop, loop as forever}
+    std::io
+    std::iter.Iter.{loop, loop as forever}
 }
 
 fn spin() -> Int {
@@ -31,8 +31,8 @@ fn main() {
 }
 `, "line 16: division by zero", "bound 0\nbound 1\nbound 10\n")
 	verifyEndlessTrap(t, `import {
-    std/io
-    std/iter.Iter.{loop as forever}
+    std::io
+    std::iter.Iter.{loop as forever}
 }
 
 fn main() {
@@ -48,7 +48,7 @@ fn main() {
 // A local function named `loop` is an ordinary call: the statement after it
 // runs.
 func TestIRLoop_LocalFunctionNamedLoopIsACall(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn loop(f: () -> Unit) {
     f()

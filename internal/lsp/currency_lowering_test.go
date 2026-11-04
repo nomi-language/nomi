@@ -16,7 +16,7 @@ func TestLoweringDiagnostics_CustomCurrencies(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import {\n    std/io\n    std/currency.Currency\n}\n\nfn main() {\n" +
+	src := "import {\n    std::io\n    std::currency.Currency\n}\n\nfn main() {\n" +
 		"    io.print(Currency`PST:0`)\n" +
 		"    io.print(Debug.inspect(Currency.custom(\"PTS\", 0)))\n}\n"
 	dir := writeProject(t, map[string]string{

@@ -10,7 +10,7 @@
 // asymmetry is real: the bare spelling is minted by callSibling's same-package
 // arm and the qualified one by its other arm.
 import {
-    std/io
+    std::io
     app
     prod
     test as t

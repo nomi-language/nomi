@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRInterfaceCall_Tour(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface Speech {
   fn speak(animal: self) -> String
@@ -36,7 +36,7 @@ fn main() {
 }
 
 func TestIRInterfaceCall_NonFirstReceiverAndEffects(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 interface Speech {
  fn speak(prefix: String, animal: self) -> String
 }
@@ -60,7 +60,7 @@ fn main() {
 }
 
 func TestIRInterfaceCall_MultilineInterpolationCursor(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn message(name: String) -> String {
  """
  hello
@@ -73,7 +73,7 @@ fn main() { io.print(message("Nomi")) }
 }
 
 func TestIRInterfaceCall_MultilineInterpolationEffects(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn piece(s: String) -> String { io.print(s); s }
 fn message() -> String {
  """

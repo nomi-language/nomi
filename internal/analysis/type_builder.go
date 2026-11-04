@@ -366,10 +366,10 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node) *fileTyping {
 	}
 	// Register module-qualified type names (e.g. `dynamic.Dynamic`) so a
 	// type annotation written as `d: dynamic.Dynamic` after a bare
-	// `import std/dynamic` (without destructuring) resolves through
+	// `import std::dynamic` (without destructuring) resolves through
 	// ResolveTypeExpr's QualifiedType branch, which looks up by the full
 	// dotted name. Without this, only the destructured-import form
-	// (`import std/dynamic.{Dynamic}` — lifts `Dynamic` directly into
+	// (`import std::dynamic.{Dynamic}` — lifts `Dynamic` directly into
 	// file scope) would resolve, and the qualified form would fail with
 	// `unknown type "dynamic.Dynamic"`. The two import shapes are
 	// supposed to be symmetric.
@@ -2505,14 +2505,14 @@ func applyWhereBoundsToTypeParams(fa *FileAnalysis, reg *TypeRegistry, typeParam
 }
 
 // registerModuleQualifiedTypes walks `scope`'s direct symbols looking
-// for SymbolModule entries (bare `import std/dynamic` etc.) and
+// for SymbolModule entries (bare `import std::dynamic` etc.) and
 // registers each type member of the imported module's scope in `reg`
 // under the qualified name `<alias>.<TypeName>`. This makes the
 // QualifiedType branch of ResolveTypeExpr — which keys lookups on
 // `n.TypeString()` — symmetric with destructured imports: a user can
-// write `d: dynamic.Dynamic` after `import std/dynamic` and the type
+// write `d: dynamic.Dynamic` after `import std::dynamic` and the type
 // resolves to the same `*PrimitiveType{Name_: "Dynamic"}` the
-// destructured form (`import std/dynamic.{Dynamic}` → bare-name
+// destructured form (`import std::dynamic.{Dynamic}` → bare-name
 // `Dynamic` lookup) produces. Symmetric resolution is a prerequisite
 // for symmetric impl-manifest recording downstream — the same
 // `(Debug, Dynamic)` pair lands either way.

@@ -18,7 +18,7 @@
 // bodies, so `- Months(1)` reaching the wrong `+ Months(-1)` shows up as a
 // wrong date in the VM's output.
 import {
-    std/calendar.{
+    std::calendar.{
         DateTime,
         Days,
         Error,
@@ -33,8 +33,8 @@ import {
         Weeks,
         Years
     }
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
 }
 
 fn run() -> Result<Unit, Error> {

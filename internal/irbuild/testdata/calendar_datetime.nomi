@@ -18,10 +18,10 @@
 // only round-tripped one formatted string could not catch a re-zoning that lost
 // the instant.
 import {
-    std/calendar.{DateTime, Error}
-    std/duration.Duration
-    std/instant.Instant
-    std/io
+    std::calendar.{DateTime, Error}
+    std::duration.Duration
+    std::instant.Instant
+    std::io
 }
 
 // `?` inside `fn main()` is refused by the builder (`try boundary mismatch`,

@@ -2,7 +2,7 @@
 // both declared in std, so the impl is rejected even though `Date` reaches
 // this file only through an explicit import.
 // expect type-error: orphan impl: `Display`
-import std/calendar.Date
+import std::calendar.Date
 
 impl Display for Date {
     fn to_string(_d: Date) -> String {

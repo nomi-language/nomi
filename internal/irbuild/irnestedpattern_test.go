@@ -35,7 +35,7 @@ func irRetainedFuncNames(t *testing.T, src string) map[string]bool {
 	return names
 }
 
-const irNestedPatternSource = `import std/io
+const irNestedPatternSource = `import std::io
 
 enum Shape {
   Circle Int
@@ -97,8 +97,8 @@ func TestIRNestedPattern_VariantInsidePreludePayload(t *testing.T) {
 }
 
 const irChannelFieldSource = `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/io
+  std::channels.{Channel, Receiver, Sender}
+  std::io
 }
 
 enum Request {
@@ -201,10 +201,10 @@ func TestIRNestedPattern_MessageLoopCorpusProgram(t *testing.T) {
 }
 
 const irSpawnCallSupervisorSource = `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/duration.Duration
-  std/supervisors.{Restart, Supervisor}
-  std/testing.Clock
+  std::channels.{Channel, Receiver, Sender}
+  std::duration.Duration
+  std::supervisors.{Restart, Supervisor}
+  std::testing.Clock
 }
 
 pub struct App {
@@ -266,7 +266,7 @@ func TestIRNestedPattern_SpawnOverACalledSupervisor(t *testing.T) {
 // rather than recursing into. It keeps the walk's Sources.
 func TestIRNestedPattern_BoundariesPreserveFallback(t *testing.T) {
 	for _, tc := range []struct{ name, fn, why, src string }{
-		{"self-carrying channel", "pick", "an ident kind outside the domain: Channel<Request>", `import std/channels.{Channel, Receiver}
+		{"self-carrying channel", "pick", "an ident kind outside the domain: Channel<Request>", `import std::channels.{Channel, Receiver}
 
 enum Request {
   Ask {reply: Channel<Request>}
@@ -283,7 +283,7 @@ fn pick(inbox: Channel<Request>) -> Int {
 
 fn main() { _ = pick(Channel.buffered<Request>(1)) }
 `},
-		{"self-carrying channel of a composite", "pick", "an ident kind outside the domain: Channel<Request>", `import std/channels.{Channel, Receiver}
+		{"self-carrying channel of a composite", "pick", "an ident kind outside the domain: Channel<Request>", `import std::channels.{Channel, Receiver}
 
 enum Request {
   Ask {reply: Channel<List<Request>>}
@@ -335,7 +335,7 @@ fn main() { _ = pick(Channel.buffered<Request>(1)) }
 // A Float field sub-pattern inside a nested struct-shaped variant is a literal
 // test on the projected field, as an Int one is: rt.Equal compares it.
 func TestIRNestedPattern_FloatFieldSubPatternRuns(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 enum Shape {
   Box {w: Float, h: Int}
@@ -392,8 +392,8 @@ test "an inner tag mismatch fails the assertion" {
 // func literal.
 func TestIRNestedPattern_SpawnOverACalledAppSupervisor(t *testing.T) {
 	src := `import {
-  std/io
-  std/supervisors.{Supervisor}
+  std::io
+  std::supervisors.{Supervisor}
 }
 pub struct App {
   context: Context
@@ -427,9 +427,9 @@ fn main() {
 // tasks' own order is the scheduler's, so they print nothing.
 func TestIRNestedPattern_SpawnOverAMultilineCalledSupervisor(t *testing.T) {
 	src := `import {
-  std/duration.Duration
-  std/io
-  std/supervisors.{Backoff, Restart, Supervisor}
+  std::duration.Duration
+  std::io
+  std::supervisors.{Backoff, Restart, Supervisor}
 }
 pub struct App {
   context: Context

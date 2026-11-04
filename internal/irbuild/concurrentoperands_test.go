@@ -13,9 +13,9 @@ func TestConcurrentOperands_Run(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	irRunSource(t, `import {
-    std/io
-    std/supervisors.Supervisor
-    std/tasks.Task
+    std::io
+    std::supervisors.Supervisor
+    std::tasks.Task
 }
 
 struct App {

@@ -13,7 +13,7 @@ import (
 func TestExports_ListEachExportedFunctionWithItsBodyAndTypes(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	src := `import std/json.{ToJson, FromJson}
+	src := `import std::json.{ToJson, FromJson}
 
 struct Game {
     word: String

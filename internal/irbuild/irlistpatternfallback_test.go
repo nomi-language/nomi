@@ -9,7 +9,7 @@ import (
 // admits, still lowers. A literal head (`[1, ..]`) retains through
 // listCaseTestNested; TestIRListPattern_LiteralHeadRetains runs one.
 func TestIRListPattern_SuffixOnlyMatchesEveryList(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn pick(xs: List<Int>) -> Int { case xs { [.._rest] -> 1; _ -> 0 } }
 fn all(xs: List<Int>) -> List<Int> { case xs { [..rest] -> rest } }
 fn main() {
@@ -21,7 +21,7 @@ fn main() {
 }
 
 func TestIRListPattern_LiteralHeadRetains(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn pick(xs: List<Int>) -> Int { case xs { [1, ..] -> 1; _ -> 0 } }
 fn main() {
   io.print(pick([1, 2]))

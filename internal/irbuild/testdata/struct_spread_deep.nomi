@@ -23,7 +23,7 @@
 // the same value.
 //
 // So `same` is the control and `foreign` is the question.
-import std/io
+import std::io
 
 struct Inner {
     a: Int

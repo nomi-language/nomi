@@ -4,7 +4,7 @@
 // `rules.ping()` is here so rules.nomi is genuinely part of the program's
 // reference graph rather than an inert file beside it.
 import {
-    std/io
+    std::io
     money.{self, Money}
     rules
 }

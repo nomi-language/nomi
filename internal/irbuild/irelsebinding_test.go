@@ -94,7 +94,7 @@ fn main() {
 // `return v` there; it declined every one of these. vmhost's
 // TestLambdaElseReturn_RunsInEveryCallback runs them.
 func TestBindingElse_BareReturnLeavesALambda(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn block(xs: List<Maybe<Int>>) {
     Iter.each(xs, fn m -> {
@@ -167,7 +167,7 @@ func TestBindingElse_ATrapEndsALeavingElse(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn pair(xs: List<Int>) -> Int {
     [a, b, ..] = xs else {
@@ -243,7 +243,7 @@ func TestBindingElse_ATrapInALeavingElseTraps(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	verifyIterFault(t, `import std/io
+	verifyIterFault(t, `import std::io
 
 fn pair(xs: List<Int>) -> Int {
     [a, b, ..] = xs else {

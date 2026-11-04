@@ -24,10 +24,10 @@ func TestAwaitCancelledTask_PropagatesTheCancellation(t *testing.T) {
 		fails             bool
 	}{
 		{"await on the main line", `import {
-  std/duration.Duration
-  std/io
-  std/tasks.Task
-  std/timer
+  std::duration.Duration
+  std::io
+  std::tasks.Task
+  std::timer
 }
 
 fn main() {
@@ -44,10 +44,10 @@ fn main() {
 }
 `, "", true},
 		{"await_all under a live deadline", `import {
-  std/duration.Duration
-  std/io
-  std/tasks.Task
-  std/timer
+  std::duration.Duration
+  std::io
+  std::tasks.Task
+  std::timer
 }
 
 fn main() {
@@ -71,9 +71,9 @@ fn boot() -> Result<Run, String> {
 }
 `, "", true},
 		{"await inside a task", `import {
-  std/duration.Duration
-  std/tasks.Task
-  std/timer
+  std::duration.Duration
+  std::tasks.Task
+  std::timer
 }
 
 fn inner() -> Int {

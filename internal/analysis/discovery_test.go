@@ -59,7 +59,7 @@ func TestDiscoverProject_FollowsBlockImports(t *testing.T) {
 		return full
 	}
 	mainPath := mustWrite("main.nomi", "fn main() {\n    import shapes\n    Unit\n}\n")
-	mustWrite("shapes.nomi", "pub fn area() -> Int {\n    f = fn x: Int -> {\n        import geo/units\n        x\n    }\n    f(1)\n}\n")
+	mustWrite("shapes.nomi", "pub fn area() -> Int {\n    f = fn x: Int -> {\n        import geo::units\n        x\n    }\n    f(1)\n}\n")
 	mustWrite("geo/units.nomi", "pub fn scale() -> Int { 2 }\n")
 
 	entryNodes := parseFileForDiscoveryTest(t, mainPath)

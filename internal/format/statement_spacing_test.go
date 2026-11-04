@@ -374,7 +374,7 @@ func TestFormat_StatementSpacingMeasuresFromTheBlockIndent(t *testing.T) {
 // pipe statement follows the multi-line rule like any other statement.
 func TestFormat_StatementSpacingKeepsTheImportRule(t *testing.T) {
 	src := `fn f(xs: List<Int>) -> Int {
-    import std/io
+    import std::io
     n = xs |> Iter.count()
     m = n + 1
     io.print(m)
@@ -382,7 +382,7 @@ func TestFormat_StatementSpacingKeepsTheImportRule(t *testing.T) {
 }
 `
 	want := `fn f(xs: List<Int>) -> Int {
-    import std/io
+    import std::io
 
     n = xs |> Iter.count()
     m = n + 1

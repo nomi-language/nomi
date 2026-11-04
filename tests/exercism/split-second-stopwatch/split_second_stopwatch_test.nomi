@@ -1,5 +1,5 @@
 import {
-    std/duration.Duration
+    std::duration.Duration
     split_second_stopwatch.{State, Stopwatch}
 }
 

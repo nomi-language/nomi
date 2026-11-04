@@ -1,15 +1,15 @@
 import {
-    std/calendar.{Date, NaiveDateTime, Time}
-    std/channels.{Arm, Channel, Receiver}
-    std/duration.Duration
-    std/instant.Instant
-    std/json.Json
-    std/sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
-    std/sql_testing
-    std/tasks.{Outcome, Task}
-    std/uuid.Uuid
+    std::calendar.{Date, NaiveDateTime, Time}
+    std::channels.{Arm, Channel, Receiver}
+    std::duration.Duration
+    std::instant.Instant
+    std::json.Json
+    std::sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
+    std::sql_testing
+    std::tasks.{Outcome, Task}
+    std::uuid.Uuid
     postgres.{self, Listener, Notification}
-    postgres/describe
+    postgres::describe
 }
 
 // Every test runs on a fresh database of the process's scratch server,

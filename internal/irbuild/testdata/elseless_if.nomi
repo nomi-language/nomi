@@ -1,0 +1,102 @@
+import {
+    std::html.Html
+    std::io
+}
+
+enum Shape {
+    Circle Float
+    Square Float
+}
+
+/// An `if` with no `else` whose branch has a value is a Maybe: `Some` of the
+/// value when the condition holds, `None` when it does not.
+fn positive(n: Int) -> Maybe<String> {
+    if n > 0 { "positive" }
+}
+
+/// An `else if` chain with no final `else`: the branch that runs gives
+/// `Some`, and none running gives `None`. A branch that returns leaves the
+/// function and gives the chain nothing.
+fn bucket(n: Int) -> Maybe<String> {
+    if n < 0 {
+        return None
+    } else if n == 0 {
+        "zero"
+    } else if n < 10 {
+        "small"
+    }
+}
+
+/// A branch that leaves keeps the `if` Unit, a statement.
+fn checked(n: Int) -> Result<Int, String> {
+    if n < 0 { return Err("negative") }
+
+    Ok(n)
+}
+
+/// No flattening: a branch that is already a Maybe gives a Maybe of one.
+fn lookup(m: Map<String, Int>, k: String, on: Bool) -> Maybe<Maybe<Int>> {
+    if on { Map.get(m, k) }
+}
+
+fn nested(a: Bool, b: Bool) -> Maybe<Maybe<Int>> {
+    if a { if b { 1 } }
+}
+
+/// The expected type reaches the branch: `.Circle` is the Maybe's Shape.
+fn shape(round: Bool) -> Maybe<Shape> {
+    if round { .Circle(1.0) }
+}
+
+/// A pattern `if` with no `else`.
+fn incremented(m: Maybe<Int>) -> Maybe<Int> {
+    if Some(n) = m { n + 1 }
+}
+
+/// A generic body.
+fn only_if<T>(on: Bool, value: T) -> Maybe<T> {
+    if on { value }
+}
+
+/// A pipe's `if` stage.
+fn doubled(n: Int) -> Maybe<Int> {
+    (n > 0) |> if { n * 2 }
+}
+
+fn main() {
+    io.inspect(positive(3))
+    io.inspect(positive(-3))
+    io.inspect(bucket(-1))
+    io.inspect(bucket(0))
+    io.inspect(bucket(5))
+    io.inspect(bucket(50))
+    io.inspect(checked(-1))
+    io.inspect(checked(1))
+    m = %{"a" => 1}
+    io.inspect(lookup(m, "a", True))
+    io.inspect(lookup(m, "b", True))
+    io.inspect(lookup(m, "a", False))
+    io.inspect(nested(True, True))
+    io.inspect(nested(True, False))
+    io.inspect(nested(False, True))
+    io.inspect(shape(True))
+    io.inspect(shape(False))
+    io.inspect(incremented(Some(1)))
+    io.inspect(incremented(None))
+    io.inspect(only_if(True, "x"))
+    io.inspect(only_if(False, [1]))
+    io.inspect(doubled(4))
+    io.inspect(doubled(-4))
+
+    bound = if m == %{} { 1 }
+    io.inspect(bound)
+    annotated: Maybe<Int> = if True { 2 }
+    io.inspect(annotated)
+    picked = [1, 2, 3] |> Iter.map(fn n -> if n > 1 { n }) |> Iter.to_list()
+    io.inspect(picked)
+    io.inspect(Maybe.with_default(if False { 3 }, 0))
+
+    io.print(Html.to_string(Html"<p>${if True { 4 }}</p>"))
+    io.print(Html.to_string(Html"<p>${if False { "hidden" }}</p>"))
+    io.print(Html.to_string(Html"<p class=${if True { "on" }}>x</p>"))
+}

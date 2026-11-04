@@ -35,7 +35,7 @@ func TestIRMarker_ZeroSizedEnumPayloadRuns(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 type Ready
 

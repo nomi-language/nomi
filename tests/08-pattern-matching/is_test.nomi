@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 enum Shape {
     Circle {r: Float}
@@ -89,11 +89,11 @@ test "is in lambdas and captures" {
 test "a name in the pattern is an error" {
     result =
         """
-            fn main() {
-              m = Some(1)
-              _ = m is Some(n)
-            }
-            """
+        fn main() {
+          m = Some(1)
+          _ = m is Some(n)
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -103,17 +103,17 @@ test "a name in the pattern is an error" {
 test "a bare or before a pattern asks for parentheses" {
     result =
         """
-            enum K {
-              A
-              B
-              C
-            }
+        enum K {
+          A
+          B
+          C
+        }
 
-            fn main() {
-              k = K.A
-              _ = k is .A or .B
-            }
-            """
+        fn main() {
+          k = K.A
+          _ = k is .A or .B
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -123,10 +123,10 @@ test "a bare or before a pattern asks for parentheses" {
 test "is does not chain with a comparison" {
     result =
         """
-            fn main() {
-              _ = 1 == 1 is True
-            }
-            """
+        fn main() {
+          _ = 1 == 1 is True
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -136,10 +136,10 @@ test "is does not chain with a comparison" {
 test "a pattern that cannot match the type is the case arm's error" {
     result =
         """
-            fn main() {
-              _ = 1 is "one"
-            }
-            """
+        fn main() {
+          _ = 1 is "one"
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -149,10 +149,10 @@ test "a pattern that cannot match the type is the case arm's error" {
 test "a pattern that always matches is an error" {
     result =
         """
-            fn main() {
-              _ = 1 is _
-            }
-            """
+        fn main() {
+          _ = 1 is _
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

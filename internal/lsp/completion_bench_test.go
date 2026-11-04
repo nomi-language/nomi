@@ -43,7 +43,7 @@ func BenchmarkCompletion(b *testing.B) {
 		"owner member":        "fn main() {\n" + body.String() + "    String." + cursorMark + "\n}\n",
 		"dot variant":         "fn f() -> Ordering {\n" + body.String() + "    ." + cursorMark + "\n}\n",
 		"parameter type":      "fn main() {\n" + body.String() + "}\n\nfn sum(list" + cursorMark,
-		"expected type":       "import std/calendar.Date\n\nfn main() {\n" + body.String() + "    d: Date = " + cursorMark + "\n}\n",
+		"expected type":       "import std::calendar.Date\n\nfn main() {\n" + body.String() + "    d: Date = " + cursorMark + "\n}\n",
 		"generic call member": "struct P {\n    n: Int\n}\n\nfn f(ps: List<P>, p: P) -> Int {\n" + body.String() + "    Maybe.with_default(List.head(ps), p)." + cursorMark + "\n}\n",
 	}
 	for name, src := range cases {

@@ -7,8 +7,8 @@
 //# the column cannot hold fails to check at the column.
 
 import {
-    std/decimal.RoundingMode
-    std/sql.{self, Conn, FromSql, Row, Statement, ToSql, Value}
+    std::decimal.RoundingMode
+    std::sql.{self, Conn, FromSql, Row, Statement, ToSql, Value}
     sqlkit.{
         Changed,
         Rows,

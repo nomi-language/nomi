@@ -8,12 +8,12 @@
 // payload, a struct payload destructured, a struct-shaped variant with field
 // sub-patterns, and a guard over a payload binding.
 import {
-    std/io
+    std::io
     by_import
     by_module
     dotted
     ticket
-    tracker/severity.{self, Severity}
+    tracker::severity.{self, Severity}
 }
 
 fn rank(n: Int) -> String {

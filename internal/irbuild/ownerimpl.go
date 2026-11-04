@@ -320,7 +320,7 @@ func (bl *irScalarBuilder) siblingOwnerSpelling(qual ast.Node, method string) (s
 	if !isFA || inner.Field == nil {
 		return "", false
 	}
-	mod, isIdent := inner.Object.(*ast.Ident)
+	mod, isIdent := ast.QualifierIdent(inner.Object)
 	if !isIdent || irQualIsLocal(bl, mod.Name) {
 		return "", false
 	}

@@ -14,7 +14,7 @@
 // through a turbofish, resolving a type argument through the caller's own
 // bindings, which is the only way a separate generic helper ever sees the
 // binding.
-import std/io
+import std::io
 
 interface Zero {
     fn zero() -> self

@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-const irMapPatternSource = `import std/io
+const irMapPatternSource = `import std::io
 
 enum JV {
   Num Int
@@ -99,7 +99,7 @@ func TestIRMapPattern_CaseDestructureAndAttach(t *testing.T) {
 // refutable, and a missing key is a miss, not a trap. Each key is a
 // side-effecting call evaluated once, on the hit and on the miss.
 func TestIRMapPattern_MissingBoundKeyRunsElse(t *testing.T) {
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 fn note(k: Int) -> Int {
   io.print("key ${k}")
@@ -118,7 +118,7 @@ fn main() {
 `, "key 1\nkey 2\nmissing\nkey 1\nkey 2\nx\n")
 }
 
-const irMapFuncsSource = `import std/io
+const irMapFuncsSource = `import std::io
 
 type Key Int
 
@@ -144,7 +144,7 @@ func TestIRMapFuncs_Intrinsics(t *testing.T) {
 		"Some(2)\n[\"q\", \"r\"]\n[2]\n%{\"q\" => 10, \"r\" => 20}\nTrue\n%{\"q\" => 1, \"r\" => 9, \"s\" => 3}\n%{False => 2, True => 3}\n0\nTrue\n")
 }
 
-const irEnumFieldSource = `import std/io
+const irEnumFieldSource = `import std::io
 
 struct Circle {
   radius: Float

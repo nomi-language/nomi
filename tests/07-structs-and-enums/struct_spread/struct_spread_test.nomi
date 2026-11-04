@@ -40,7 +40,7 @@
 // replaces the field wherever the value is anything else; the tests below
 // cover both sides of that line.
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 

@@ -3,7 +3,7 @@
 //# `io.print`, `io.write` and `io.inspect` write to standard output,
 //# `io.eprint` and `io.ewrite` to standard error, and `io.read_line` reads
 //# standard input. `Reader` and `Writer` are streams: the standard ones
-//# (`io.stdin`, `io.stdout`, `io.stderr`), files that `std/fs` opens, and
+//# (`io.stdin`, `io.stdout`, `io.stderr`), files that `std::fs` opens, and
 //# readers and writers the program makes over data or functions. A `File`
 //# is a file read and written at a position. `io.capture` and `io.replay`
 //# run a function against given input and answer what it printed, which is
@@ -368,7 +368,7 @@ pub once stdin: Reader = standard_input()
 /// The program's standard output. `Writer.print(io.stdout, x)` writes where
 /// `io.print(x)` writes, in order with it, and inside `io.capture` into the
 /// capture's output.
-//! import std/io
+//! import std::io
 //!
 //! w = io.stdout
 //! run = capture("", fn -> Writer.print(w, "inside"))
@@ -399,7 +399,7 @@ impl Reader {
     ///     Err(e) -> io.eprint(e)
     /// }
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! run = capture("a\nb", fn -> {
     //!     [Reader.read_line(io.stdin), io.read_line(), Reader.read_line(io.stdin)]
@@ -456,7 +456,7 @@ impl Reader {
     /// ```nomi
     /// text = Reader.read_all_text(io.stdin)?
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! run = capture("one\ntwo\n", fn -> Reader.read_all_text(io.stdin))
     //! assert run.value == Result.Ok("one\ntwo\n")
@@ -539,7 +539,7 @@ impl Reader {
     /// ```nomi
     /// copied = Reader.copy_to(io.stdin, io.stdout)?
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! run = capture("", fn -> Reader.copy_to(Reader.from_text("hello\n"), io.stdout))
     //! assert run.value == Result.Ok(6)
@@ -665,7 +665,7 @@ impl Writer {
     /// ```nomi
     /// Writer.write(io.stdout, String.to_bytes("hi\n"))
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! run = capture("", fn -> Writer.write(io.stderr, String.to_bytes("oops")))
     //! assert run.value == Result.Ok(Unit)
@@ -678,7 +678,7 @@ impl Writer {
     /// ```nomi
     /// Writer.write_text(w, "# generated\n")
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! run = capture("", fn -> Writer.write_text(io.stdout, "a"))
     //! assert run.output == "a"
@@ -691,7 +691,7 @@ impl Writer {
     /// ```nomi
     /// Writer.print(io.stderr, "warning: low disk")
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! run = capture("", fn -> {
     //!     io.print("one")
@@ -712,7 +712,7 @@ impl Writer {
     /// ```nomi
     /// Writer.flush(w)?
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! assert Writer.flush(io.stdout) == Result.Ok(Unit)
     //
@@ -726,7 +726,7 @@ impl Writer {
     /// ```nomi
     /// Writer.close(w)?
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! assert Writer.close(io.stdout) == Result.Ok(Unit)
     //
@@ -741,7 +741,7 @@ impl Writer {
     ///
     /// defer Writer.close_quietly(w)
     /// ```
-    //! import std/io
+    //! import std::io
     //!
     //! run = capture("", fn -> Writer.close_quietly(io.stdout))
     //! assert run.value == Unit

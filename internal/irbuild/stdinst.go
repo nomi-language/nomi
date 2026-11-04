@@ -266,7 +266,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 		}
 	}
 	for _, k := range view.params {
-		if !irCallableValueKind(k) {
+		if !irCallOperandKind(k) {
 			return nil, "a generic stdlib instance's parameter outside the domain: " + f.key + " at " + kindsNomi(args)
 		}
 	}
@@ -872,7 +872,7 @@ func (bl *irScalarBuilder) stdGenericFileCall(t *ast.Call, ownerID *ast.Ident, m
 }
 
 // stdBareGenericFileFunc is the generic top-level stdlib function a bare name
-// was selectively imported as (`import std/io.capture`), or nil.
+// was selectively imported as (`import std::io.capture`), or nil.
 func (bl *irScalarBuilder) stdBareGenericFileFunc(id *ast.Ident) *stdFunc {
 	g := bl.g
 	if g.stdInsts == nil {
@@ -900,9 +900,9 @@ func stdModuleInstFunc(v *stdModuleView, recv, name string) *stdFunc {
 
 // stdBareFileFunc names the std file and the declared name of the top-level
 // stdlib function a bare name was selectively imported as, aliased or not:
-// `read_line` after `import std/io.read_line` is ("io", "read_line"), and
-// `next_line` after `import std/io.{read_line as next_line}` is too. A member
-// of a type (`import std/calendar.Date.parse`) is not a file's function.
+// `read_line` after `import std::io.read_line` is ("io", "read_line"), and
+// `next_line` after `import std::io.{read_line as next_line}` is too. A member
+// of a type (`import std::calendar.Date.parse`) is not a file's function.
 func stdBareFileFunc(fa *analysis.FileAnalysis, id *ast.Ident) (string, string, bool) {
 	if fa == nil {
 		return "", "", false

@@ -41,7 +41,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // `testing`, or the bare name `check` a selective import binds. The bare
 // match is wider than the reader (a user `check` matches too), and recording
 // a stage nobody reads costs rows, not meaning. An aliased selective import
-// (`import std/testing.{check as verify}`) is not matched, so a pipe-bound
+// (`import std::testing.{check as verify}`) is not matched, so a pipe-bound
 // name it checks has no recorded stages and its check declines
 // (assertDefinedAs) rather than printing a wrong row.
 
@@ -92,6 +92,6 @@ func isTestingCheckCallee(n ast.Node) bool {
 	if !ok || fa.Field == nil || fa.Field.Name != "check" {
 		return false
 	}
-	owner, ok := fa.Object.(*ast.Ident)
+	owner, ok := ast.QualifierIdent(fa.Object)
 	return ok && owner.Name == "testing"
 }

@@ -34,7 +34,7 @@
 // concrete qualifier and once through the erased table. Both must agree with
 // the recorded output, and they must agree with each OTHER — a monomorphization
 // that is correct only on the direct path is the failure this catches.
-import std/io
+import std::io
 
 interface Formatted {
     fn label(value: self) -> String

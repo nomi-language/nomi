@@ -24,7 +24,7 @@ import {
 /// first. Call the String functions rather than these; they exist so a type can
 /// say how it is found, and so a function of your own can take any matcher with
 /// `where M: Matcher`.
-//! import std/regex.Regex
+//! import std::regex.Regex
 //!
 //! digits = Regex`\d+`
 //! assert String.contains("order 66", digits)

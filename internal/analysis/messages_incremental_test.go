@@ -21,7 +21,7 @@ func messagesProject(tb testing.TB) incrementalProject {
 		"locales/de/cart.toml": "[cart_items]\nsource = '''{$count :integer} items'''\ntext = '''{$count :integer} Artikel'''\n",
 	}
 	p := incrementalProject{name: "messages", entry: "main", dir: dir, texts: map[string]string{
-		"main": "import {\n    std/io\n    std/locale.Locale\n    std/message.Message\n    cart\n}\n\nfn main() {\n    io.print(Message.format(cart.cart_items(3), Locale`pl`))\n}\n",
+		"main": "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    cart\n}\n\nfn main() {\n    io.print(Message.format(cart.cart_items(3), Locale`pl`))\n}\n",
 		"cart": "pub message cart_items(count: Int) `{$count :integer} items`\n",
 	}}
 	for key, text := range p.texts {

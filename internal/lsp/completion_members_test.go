@@ -160,18 +160,22 @@ func TestCompletion_UserFileMembersAndImports(t *testing.T) {
 	labelsInclude(t, items, "std", "server", "lib")
 	labelsExclude(t, items, "main")
 
-	items = completeIn(t, s, uri, "import std/"+cursorMark+"\n\nfn main() {\n}\n").Items
+	items = completeIn(t, s, uri, "import std::"+cursorMark+"\n\nfn main() {\n}\n").Items
 	labelsInclude(t, items, "io", "json", "strings")
 	labelsExclude(t, items, "prelude", "server")
 
-	items = completeIn(t, s, uri, "import lib/"+cursorMark+"\n\nfn main() {\n}\n").Items
+	items = completeIn(t, s, uri, "import lib::"+cursorMark+"\n\nfn main() {\n}\n").Items
 	labelsInclude(t, items, "text")
+
+	// After a full path, the file's public names.
+	items = completeIn(t, s, uri, "import lib::text\n\nfn main() {\n    lib::text."+cursorMark+"\n}\n").Items
+	labelsInclude(t, items, "shout")
 
 	items = completeIn(t, s, uri, "import server.{start, "+cursorMark+"}\n\nfn main() {\n}\n").Items
 	labelsInclude(t, items, "Config", "self")
 	labelsExclude(t, items, "start", "hidden")
 
-	items = completeIn(t, s, uri, "import std/io.{"+cursorMark+"}\n\nfn main() {\n}\n").Items
+	items = completeIn(t, s, uri, "import std::io.{"+cursorMark+"}\n\nfn main() {\n}\n").Items
 	labelsInclude(t, items, "print", "self")
 }
 

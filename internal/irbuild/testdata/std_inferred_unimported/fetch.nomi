@@ -1,6 +1,6 @@
 import {
-    std/duration.Duration
-    std/random.Error
+    std::duration.Duration
+    std::random.Error
 }
 
 pub fn fetch(ok: Bool) -> Result<Int, Error> {

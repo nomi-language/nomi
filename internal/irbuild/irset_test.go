@@ -6,7 +6,7 @@ import (
 
 // A Set's size builds a struct whose field holds a Map of function values.
 func TestIRSet_BesideAFunctionMapFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
@@ -18,7 +18,7 @@ fn main() { s = %[1, 2] io.inspect(Outer{p: [Point{x: Set.size(s)}]}) }
 
 // A declared distinct is a set element: hashed and compared as `==` is.
 func TestIRSet_DeclaredElementsRun(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Meter Int
 fn main() {
   s = %[Meter(1), Meter(2), Meter(1)]
@@ -29,7 +29,7 @@ fn main() {
 }
 
 func TestIRSet_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn add(s: Set<Int>, n: Int) -> Set<Int> { Set.insert(s, n) }
 fn main() {
   one = 1
@@ -52,7 +52,7 @@ fn main() {
 }
 
 func TestIRSet_EmptyAndScalarSemantics(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn empty() -> Set<Int> { %[] }
 fn main() {
   s: Set<Int> = %[]
@@ -75,7 +75,7 @@ fn main() {
 }
 
 func TestIRSet_EvaluationOrder(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn set(s: Set<Int>) -> Set<Int> { io.print("set") s }
 fn main() {

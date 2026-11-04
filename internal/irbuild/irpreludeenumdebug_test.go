@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRPreludeEnumDebug_TransparentAndOrdered(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn get() -> Maybe<Int> { io.print("get") Some(42) }
 fn read(m: Maybe<Int>) -> Int { case m { Some(n) -> n None -> 0 } }
 fn main() {
@@ -17,14 +17,14 @@ fn main() {
 // A custom Debug impl on a user enum is called through its declaration; it
 // is never replaced by structural rendering.
 func TestIRPreludeEnumDebug_CustomImplIsCalled(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 enum Answer { Ok Int }
 impl Debug for Answer { fn inspect(_a: Answer) -> String { "custom" } }
 fn main() { io.inspect(Answer.Ok(42)) }`, "custom\n")
 }
 
 func TestIRPreludeEnumDebug_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import { std/io std/literals.Fragment }
+	verifyLambdaProgram(t, `import { std::io std::literals.Fragment }
 fn maybe(ok: Bool) -> Maybe<String> { if ok { Some("a\\\"b") } else { None } }
 fn result(ok: Bool) -> Result<Int, String> { if ok { Ok(42) } else { Err("bad") } }
 fn main() {

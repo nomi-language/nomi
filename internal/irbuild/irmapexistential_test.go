@@ -9,7 +9,7 @@ func TestIRMapPutIntoExistentialValues_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     m: Map<String, Display> = Map.put(Map.put(%{}, "a", 1), "b", True)

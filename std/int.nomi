@@ -40,9 +40,9 @@ import {
 //# everywhere, because that text goes into file names, URLs, headers and CSV.
 //# Text for a reader comes from owner functions that take a `Locale`, with
 //# options as named arguments: `Int.format`, `Float.format` and
-//# `Float.format_percent` ([std/float](/reference/float/)), and
+//# `Float.format_percent` ([std::float](/reference/float/)), and
 //# `Decimal.format` and `Decimal.format_percent`
-//# ([std/decimal](/reference/decimal/)). These rules hold for all of them:
+//# ([std::decimal](/reference/decimal/)). These rules hold for all of them:
 //#
 //# - **Symbols and patterns** are the locale's CLDR decimal and percent
 //#   patterns and number symbols: decimal and group separators, plus, minus
@@ -64,7 +64,7 @@ import {
 //# `Int.parse_in`, `Float.parse_in` and `Decimal.parse_in`, and the
 //# `parse_percent_in` forms of `Float` and `Decimal`, read what the matching
 //# formatter writes, and answer a `NumberParseError`
-//# ([std/localize](/reference/localize/)) when the text is not a number in
+//# ([std::localize](/reference/localize/)) when the text is not a number in
 //# the locale. Parsing never guesses the locale: `1.234` is one thousand two
 //# hundred thirty-four in `de` and one point two three four in `en`.
 //#

@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A function's declared result widens its tail as an annotation widens a
 // binding's value: the Pt in the tuple becomes a Named.

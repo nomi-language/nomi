@@ -33,7 +33,7 @@ func TestRandomModuleTypechecksAsPrimary(t *testing.T) {
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(s))
 		return nodes
 	}
-	entryNodes := parse("import std/random: Random\n")
+	entryNodes := parse("import std::random: Random\n")
 	_, cache, extended := analysis.BuildProjectWithCache(entryNodes, nil, nil, nil, "", std.MakeLoader())
 	fa := cache["std/random"]
 	if fa == nil {

@@ -82,7 +82,7 @@ test "an owner-qualified impl fn" {
 // reduction takes it as its callback with the starting value as `from:`, so
 // its signals stop the reduction.
 func TestNamedCallback_IterSensitiveFunctionsRun(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 fn skip_odd(n: Int) -> Int {
   if n % 2 == 1 {
@@ -202,8 +202,8 @@ test "reduce stops through parentheses" {
 // `random.Generator.bool()` names a std module's type whose member is
 // instantiated per program; it lowers as `Generator.bool()` does.
 func TestNamedCallback_StdModuleTypeQualifiedGenericMember(t *testing.T) {
-	const src = `import std/random
-import std/random.{Generator, Seed}
+	const src = `import std::random
+import std::random.{Generator, Seed}
 
 test "the module-qualified spelling" {
   seed = random.Seed.from_int(7)
@@ -219,8 +219,8 @@ test "the module-qualified spelling" {
 
 // A std type imported under an alias is that type as an owner qualifier.
 func TestNamedCallback_StdOwnerImportedUnderAnAlias(t *testing.T) {
-	const src = `import std/iter.Iter as It
-import std/strings.String as Str
+	const src = `import std::iter.Iter as It
+import std::strings.String as Str
 
 test "aliased owners" {
   assert It.count([1, 2]) == 2
@@ -234,7 +234,7 @@ test "aliased owners" {
 // `derive FromJson` decodes a `Maybe<T>` field with `Maybe<T>.from_json`,
 // a call qualified by an applied generic type.
 func TestNamedCallback_DeriveFromJsonMaybeField(t *testing.T) {
-	const src = `import std/json.{Json, FromJson}
+	const src = `import std::json.{Json, FromJson}
 
 struct User {
   name: String
@@ -330,8 +330,8 @@ test "a failing one reports the written arguments" {
 // as "a named argument".
 func TestNamedCallback_StdShortCallWithAHoleInAnAssertion(t *testing.T) {
 	const src = `import {
-    std/locale.Locale
-    std/strings.ListWidth
+    std::locale.Locale
+    std::strings.ListWidth
 }
 
 test "a named argument past an omitted default" {

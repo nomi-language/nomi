@@ -34,7 +34,7 @@
 // The last test
 // FAILS on purpose so a `values:` block follows its `dbg` lines and the
 // interleaving of all three is in the transcript.
-import std/io
+import std::io
 
 opaque type Meters Int
 

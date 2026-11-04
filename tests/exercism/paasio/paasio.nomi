@@ -1,7 +1,7 @@
 //# Readers and writers that count the bytes and operations passing through
 //# them.
 
-import std/io.{self, Reader, Writer}
+import std::io.{self, Reader, Writer}
 
 /// What a stream has carried: how many bytes, in how many operations.
 pub struct Stats {

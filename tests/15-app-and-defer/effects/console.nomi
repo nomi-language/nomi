@@ -1,7 +1,7 @@
 // Console implementations. The Console interface itself lives in
 // effects.nomi.
 import {
-    std/io
+    std::io
     effects.Console
 }
 

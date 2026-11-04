@@ -7,7 +7,7 @@ import "testing"
 // program runs on the VM and must print the expected output.
 func TestIRIterSig_ProgramsRunOnTheVM(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"sequence results, captures and branch values", `import std/io
+		{"sequence results, captures and branch values", `import std::io
 
 fn main() {
   base = [1, 2, 3, 4, 5]
@@ -31,7 +31,7 @@ fn main() {
   s |> Iter.reduce(0, fn a, x -> a + x) |> io.print()
 }
 `, "[6, 12]\n[1]\n2\n14\n[10, 20]\n6\n"},
-		{"a user source pushes through its own each_while", `import std/io
+		{"a user source pushes through its own each_while", `import std::io
 
 struct Span {
   lo: Int
@@ -65,7 +65,7 @@ fn main() {
 			"True\n" +
 			"visit 1\nvisit 2\nvisit 3\n[1, 3]\n" +
 			"visit 1\nvisit 2\nvisit 3\n[1, 3]\n"},
-		{"a vector source", `import std/io
+		{"a vector source", `import std::io
 
 fn main() {
   v = #[3, 1, 4, 1, 5]
@@ -77,7 +77,7 @@ fn main() {
   Vector.push(v, 9) |> Iter.filter(fn x -> x > 3) |> Iter.to_list() |> io.inspect()
 }
 `, "[6, 2, 8, 2, 10]\n5\n[1, 1, 3, 4, 5]\nTrue\nFalse\n[4, 5, 9]\n"},
-		{"each_while over a list", `import std/io
+		{"each_while over a list", `import std::io
 
 fn main() {
   xs = [1, 2, 3]

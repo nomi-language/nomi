@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A `fn` declared inside a field's default is checked as one inside a
 // function body is, so its body and its call have types and the default

@@ -8,7 +8,7 @@ import (
 // TestDerive_NeedsOnlyTheInterfaceInScope pins that a file deriving an
 // interface needs nothing in scope beyond the interface itself. The five
 // prelude interfaces need no import at all (re-importing a prelude name is an
-// error); ToJson and FromJson need only their own name from std/json, although
+// error); ToJson and FromJson need only their own name from std::json, although
 // the code they synthesize builds and matches `Json` and `Json.ShapeError`.
 // Each row also covers the shapes whose synthesized bodies differ: a struct,
 // an enum and a distinct type.
@@ -38,13 +38,13 @@ type Meters Int
 		{"Comparable", "", []string{"P", "Shape", "Meters"}},
 		{"Debug", "", []string{"P", "Shape", "Meters"}},
 		{"Display", "", []string{"P", "Shape", "Meters"}},
-		{"ToJson", "; std/json.ToJson", []string{"P", "Shape", "Meters"}},
-		{"FromJson", "; std/json.FromJson", []string{"P", "Shape", "Meters"}},
+		{"ToJson", "; std::json.ToJson", []string{"P", "Shape", "Meters"}},
+		{"FromJson", "; std::json.FromJson", []string{"P", "Shape", "Meters"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.iface, func(t *testing.T) {
 			var src strings.Builder
-			src.WriteString("import { std/io" + tc.imports + " }\n")
+			src.WriteString("import { std::io" + tc.imports + " }\n")
 			src.WriteString(types)
 			for _, target := range tc.targets {
 				src.WriteString("\nderive " + tc.iface + " for " + target + "\n")
@@ -61,7 +61,7 @@ type Meters Int
 // `Json` import that nothing but derived code needs is reported unused, since
 // derived code does not reach `Json` through it.
 func TestDerive_JsonImportUsedOnlyByDerivedCodeIsUnused(t *testing.T) {
-	src := `import { std/io; std/json.{FromJson, Json, ToJson} }
+	src := `import { std::io; std::json.{FromJson, Json, ToJson} }
 
 struct P { a: Int }
 

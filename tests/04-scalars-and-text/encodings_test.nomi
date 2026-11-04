@@ -1,10 +1,10 @@
 import {
-    std/base64
-    std/compiler
-    std/hash
-    std/hex
-    std/random
-    std/url
+    std::base64
+    std::compiler
+    std::hash
+    std::hex
+    std::random
+    std::url
 }
 
 test "a signed token round-trips through base64 and checks in constant time" {
@@ -44,12 +44,12 @@ test "a query and a path segment escape what their place needs" {
 test "secure bytes of a negative count trap at the program's call" {
     result =
         """
-            import std/random
+        import std::random
 
-            fn main() {
-              _ = random.secure_bytes(-1)
-            }
-            """
+        fn main() {
+          _ = random.secure_bytes(-1)
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

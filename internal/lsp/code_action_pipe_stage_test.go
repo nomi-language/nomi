@@ -45,7 +45,7 @@ const pipeStageURI = "file:///pipestage/main.nomi"
 // Each bare stage gets its own fix, and applying them all leaves a program
 // that checks.
 func TestBarePipeStageFix_AppendsParentheses(t *testing.T) {
-	src := "import std/io\n\nfn double(n: Int) -> Int {\n    n * 2\n}\n\nfn main() {\n    3 |> double |> io.print\n}\n"
+	src := "import std::io\n\nfn double(n: Int) -> Int {\n    n * 2\n}\n\nfn main() {\n    3 |> double |> io.print\n}\n"
 	s := NewServer()
 	actions := pipeStageActions(t, s, pipeStageURI, src)
 	var titles []string
@@ -63,7 +63,7 @@ func TestBarePipeStageFix_AppendsParentheses(t *testing.T) {
 	}
 	edited := applyWorkspaceEdit(t, src, actions[0], pipeStageURI)
 	edited = applyWorkspaceEdit(t, edited, pipeStageActions(t, s, pipeStageURI, edited)[0], pipeStageURI)
-	want := "import std/io\n\nfn double(n: Int) -> Int {\n    n * 2\n}\n\nfn main() {\n    3 |> double() |> io.print()\n}\n"
+	want := "import std::io\n\nfn double(n: Int) -> Int {\n    n * 2\n}\n\nfn main() {\n    3 |> double() |> io.print()\n}\n"
 	if edited != want {
 		t.Fatalf("got\n%s\nwant\n%s", edited, want)
 	}

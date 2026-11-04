@@ -44,10 +44,10 @@ func TestLiteralSibling_TwoProvidersOfOneHandlerAreRejectedByTheFrontEnd(t *test
 			entry   string
 		}{{
 			name:  "declared in the entry file",
-			entry: "import std/literals.{Fragment, Literal}\n\n" + spelling.decls + "\nfn main() {\n  _ = Pick`x`\n}\n",
+			entry: "import std::literals.{Fragment, Literal}\n\n" + spelling.decls + "\nfn main() {\n  _ = Pick`x`\n}\n",
 		}, {
 			name:    "declared in a sibling file",
-			sibling: "import std/literals.{Fragment, Literal}\n\n" + spelling.decls,
+			sibling: "import std::literals.{Fragment, Literal}\n\n" + spelling.decls,
 			entry:   "import pick.Pick\n\nfn main() {\n  _ = Pick`x`\n}\n",
 		}} {
 			t.Run(spelling.name+", "+tc.name, func(t *testing.T) {

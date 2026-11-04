@@ -1,4 +1,4 @@
-import std/literals.{Fragment, Literal}
+import std::literals.{Fragment, Literal}
 
 // Two tag types in one file — `Safe` and `Raw` live side by side,
 // dispatching to opposite escaping policies through their own

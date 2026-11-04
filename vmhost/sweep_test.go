@@ -112,8 +112,8 @@ var sweepConstructs = []sweepConstruct{
 	{"hand group by", sweepHand, "g = [H{k: 1, note: \"x\"}, H{k: 1, note: \"y\"}] |> Iter.group_by(fn h -> h)\n  assert Map.size(g) == 1"},
 }
 
-const sweepPrelude = `import std/io
-import std/tasks.{Task}
+const sweepPrelude = `import std::io
+import std::tasks.{Task}
 
 struct P {
   a: Int

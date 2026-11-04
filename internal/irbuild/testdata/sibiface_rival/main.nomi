@@ -7,7 +7,7 @@
 // one. Getting it wrong is not a wrong string — it is an `ambiguous interface
 // call` refusal, so both rows fail LOUDLY rather than drifting.
 import {
-    std/io
+    std::io
     extra.{self}
     parts.{self, Combine}
 }

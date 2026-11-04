@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: gigasecond.nomi
 //# The moment one gigasecond after a given one.
 
-import std/calendar.{NaiveDateTime, Seconds}
+import std::calendar.{NaiveDateTime, Seconds}
 
 /// One gigasecond: a thousand million seconds.
 once gigasecond = Seconds(1_000_000_000)
@@ -25,7 +25,7 @@ pub fn add(moment: NaiveDateTime) -> NaiveDateTime {
 
 // FILE: gigasecond_test.nomi
 import {
-    std/calendar.{Date, NaiveDateTime}
+    std::calendar.{Date, NaiveDateTime}
     gigasecond
 }
 

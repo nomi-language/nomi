@@ -1,6 +1,6 @@
 import {
-    std/comparable.Direction
-    std/io
+    std::comparable.Direction
+    std::io
     widget.{self, Backwards, Ranked, Unordered, Widget}
 }
 

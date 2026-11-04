@@ -1,7 +1,7 @@
 import {
-    std/duration.Duration
-    std/io
-    std/timer
+    std::duration.Duration
+    std::io
+    std::timer
 }
 
 fn main() -> Unit {

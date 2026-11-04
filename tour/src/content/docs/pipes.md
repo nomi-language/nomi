@@ -179,7 +179,7 @@ Spec: [The `then` stage](/spec/expressions/#the-then-stage).
 ## The `tap` stage
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     shout =

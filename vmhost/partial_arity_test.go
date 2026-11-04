@@ -25,7 +25,7 @@ func TestPartialApplication_ArgumentCountIsChecked(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := `import std/io
+			src := `import std::io
 
 fn pick<T>(c: Bool, a: T, b: T) -> T {
     if c { a } else { b }
@@ -68,7 +68,7 @@ fn main() {
 // capture is made; and a partial that gives every slot, with defaults left
 // to the callee, runs.
 func TestPartialCapture_WrittenArgumentsRunOnEachCall(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn pick<T>(c: Bool, a: T, b: T) -> T {
     if c { a } else { b }

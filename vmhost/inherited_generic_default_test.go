@@ -10,7 +10,7 @@ import "testing"
 // to go and the IR builder could not solve the default's `U`.
 func TestTypeQualifiedInheritedGenericDefault_Runs(t *testing.T) {
 	t.Run("same file", func(t *testing.T) {
-		got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+		got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 struct Box {
     value: Int
@@ -44,7 +44,7 @@ fn main() {
 		}
 	})
 	t.Run("another file", func(t *testing.T) {
-		main := "import {\n    std/io\n    leaf\n    leaf.{Box, Pairs}\n}\n\n" +
+		main := "import {\n    std::io\n    leaf\n    leaf.{Box, Pairs}\n}\n\n" +
 			"fn main() {\n    b = Box{ value: 1 }\n    io.inspect(Pairs.second(b, 0))\n" +
 			"    io.inspect(Box.second(b, \"y\"))\n    io.inspect(leaf.Box.second(b, 3))\n}\n"
 		got := runSiblingProgram(t, map[string]string{"leaf.nomi": siblingGenericLeaf, "main.nomi": main})

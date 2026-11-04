@@ -17,8 +17,8 @@ import (
 // vmhost's TestCheckTarget_*.
 
 const filesProgram = `import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn save(text: String) -> Result<Unit, io.Error> {
@@ -88,8 +88,8 @@ func TestBuildCommand_WebAssemblyRefusesAProgramThatStartsOne(t *testing.T) {
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "make.nomi")
 	mustWrite(t, entry, `import {
-    std/io
-    std/process.{self, Command}
+    std::io
+    std::process.{self, Command}
 }
 
 fn main() -> Result<Unit, io.Error> {

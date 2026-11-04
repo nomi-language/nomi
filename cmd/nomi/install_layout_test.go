@@ -65,8 +65,8 @@ func TestInstalledBinaryRunsWithoutASourceTree(t *testing.T) {
 	}
 	write("nomi.toml", "[module]\nname = \"installcheck\"\nentry_points = [\"main\"]\n")
 	write("main.nomi", `import {
-  std/io
-  std/calendar.Date
+  std::io
+  std::calendar.Date
 }
 
 fn main() {
@@ -100,7 +100,7 @@ fn main() {
 	if err := os.MkdirAll(bootDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(bootDir, "main.nomi"), []byte(`import std/io
+	if err := os.WriteFile(filepath.Join(bootDir, "main.nomi"), []byte(`import std::io
 
 struct App {
   port: Int
@@ -173,7 +173,7 @@ func TestDevelopmentBuildWithoutSourceRunsAGoFFIProjectOnlyWithACheckout(t *test
 	write("ffi.nomi", "gopkg \"fficheck\" as shout\n\n"+
 		"pub fn shout_it(s: String) -> String go shout.Shout\n")
 	write("main.nomi", `import {
-  std/io
+  std::io
   ffi
 }
 

@@ -1,6 +1,6 @@
 // A block may declare a type or an interface, but behavior is declared at
 // module top level: an `impl` or `derive` inside a body is an error.
-import std/compiler.{self, Diagnostic}
+import std::compiler.{self, Diagnostic}
 
 fn only(diagnostics: List<Diagnostic>) -> List<#(Int, Int, String)> {
     diagnostics

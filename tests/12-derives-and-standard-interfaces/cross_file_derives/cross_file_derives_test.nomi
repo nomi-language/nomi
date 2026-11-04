@@ -2,7 +2,7 @@
 // whose type another file declares, through that file's impl: derived for
 // `Money`, `Coin` and `Cents`, written by hand for `Tally`.
 import {
-    std/json.{FromJson, Json, ToJson}
+    std::json.{FromJson, Json, ToJson}
     money.{Cents, Coin, Money, Tally}
 }
 

@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 type Id Int
 
@@ -51,17 +51,17 @@ test "a positional variant over a tuple takes the tuple" {
 test "a type name and a generic constructor with nothing to solve it stay errors" {
     diagnostics =
         """
-            struct Point {
-              x: Int
-            }
+        struct Point {
+          x: Int
+        }
 
-            fn main() {
-              a = Iter.map([1], Int) |> Iter.to_list()
-              b = Point
-              c = Some
-              _ = #(a, b, c)
-            }
-            """
+        fn main() {
+          a = Iter.map([1], Int) |> Iter.to_list()
+          b = Point
+          c = Some
+          _ = #(a, b, c)
+        }
+        """
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {

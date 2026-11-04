@@ -1,4 +1,4 @@
-//# Markdown for std/html: `markdown.render(text)` is `text` rendered as
+//# Markdown for std::html: `markdown.render(text)` is `text` rendered as
 //# HTML, an `Html` a template can insert as it is.
 //#
 //# The renderer is goldmark: CommonMark with GitHub's extensions (tables,
@@ -9,7 +9,7 @@
 //# ```nomi
 //# import {
 //#     markdown
-//#     std/html.Html
+//#     std::html.Html
 //# }
 //#
 //# fn post(title: String, body: String) -> Html {
@@ -22,7 +22,7 @@
 //# }
 //# ```
 
-import std/html.Html
+import std::html.Html
 
 gopkg "github.com/nomi-language/nomi/lib/markdown/goside"
 

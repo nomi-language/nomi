@@ -9,9 +9,9 @@ func TestQualifiedTypeName_StdInterfaceThroughItsModule(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/sql
-import std/sql_testing.Fake
+	irRunSource(t, `import std::io
+import std::sql
+import std::sql_testing.Fake
 
 struct Holder {
     db: sql.Conn
@@ -36,9 +36,9 @@ func TestQualifiedTypeName_AppFieldThroughItsModule(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/sql
-import std/sql_testing.Fake
+	irRunSource(t, `import std::io
+import std::sql
+import std::sql_testing.Fake
 
 struct App {
     db: sql.Conn
@@ -64,7 +64,7 @@ func TestQualifiedTypeName_ProgramInterfaceThroughItsModule(t *testing.T) {
 	typeCycleRun(t, map[string]string{
 		"nomi.toml": "[module]\nname = \"held\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import shapes
-import std/io
+import std::io
 
 struct Holder {
     s: shapes.Shape

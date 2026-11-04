@@ -500,9 +500,10 @@
   (identifier) @attribute
   (#eq? @attribute "internal"))
 
-; Module path in imports
-(module_path
-  "/" @module.path_separator)
+; A module path: an import's (`std::io`, `..::helpers`) and a file named by
+; its full path in an expression, type or pattern (`db::posts.find(1)`,
+; `views::admin::users.UserDetail`). Every segment is a module; the `::`
+; between them is a delimiter (below).
 (module_path
   (relative_import_parent) @module)
 (module_path
@@ -720,6 +721,7 @@
 "%[" @punctuation.bracket
 "#" @punctuation.bracket
 ":" @punctuation.delimiter
+"::" @punctuation.delimiter
 "," @punctuation.delimiter
 ";" @punctuation.delimiter
 "." @punctuation.delimiter

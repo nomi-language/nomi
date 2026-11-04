@@ -11,9 +11,9 @@ func TestTestingCheckRef_Runs(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	irRunSource(t, `import {
-    std/io
-    std/testing
-    std/testing.{check as verify}
+    std::io
+    std::testing
+    std::testing.{check as verify}
 }
 
 fn main() {

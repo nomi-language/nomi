@@ -11,7 +11,7 @@
 // Refused rather than lowered, and never run: the whole program is refused, so
 // there is no VM output to compare.
 import {
-    std/io
+    std::io
     money.{self, Money}
 }
 

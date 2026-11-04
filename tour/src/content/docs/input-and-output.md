@@ -3,8 +3,8 @@ title: "Input & Output"
 description: "Print to standard output and standard error, read input, read the arguments and environment, exit with a status, and run other programs."
 ---
 
-A program talks to the world outside it through [`std/io`](/reference/io/)
-and [`std/process`](/reference/process/). It prints to standard output,
+A program talks to the world outside it through [`std::io`](/reference/io/)
+and [`std::process`](/reference/process/). It prints to standard output,
 reports problems on standard error, reads standard input, reads its
 arguments and environment, and runs other programs. When it ends, its exit
 status tells the shell whether it worked. Reading and writing files is the
@@ -17,7 +17,7 @@ newline, and `io.inspect` writes it the way `dbg` shows values, as Nomi
 code:
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     io.print("hello")
@@ -53,7 +53,7 @@ because a stream can fail, for example when the program reading it has
 stopped:
 
 ```nomi-run
-import std/io.{self, Error, Writer}
+import std::io.{self, Error, Writer}
 
 /// Write a report to whichever stream the caller picks.
 fn report(to: Writer, count: Int) -> Result<Unit, Error> {
@@ -85,7 +85,7 @@ returns `Ok(Some(line))`, `Ok(None)` when the input has ended, or an `Err`
 when reading fails. A loop over the input stops at `None`:
 
 ```nomi-run
-import std/io
+import std::io
 
 // The lines of standard input that are not blank, until it ends.
 fn count_lines(count: Int) -> Result<Int, io.Error> {
@@ -118,7 +118,7 @@ A program reads its command-line arguments and environment variables in
 struct:
 
 ```nomi-run
-import std/io
+import std::io
 
 struct App {
     args: List<String>
@@ -147,13 +147,13 @@ returns an `Err` prints `error: ` and the error, and exits with status 1, as
 [Pattern Matching](/pattern-matching/#passing-failures-up) shows.
 
 To exit with another status, return [`Exit`](/reference/process/) from
-`std/process`. Its `message` is printed to standard error as it is, with no
+`std::process`. Its `message` is printed to standard error as it is, with no
 `error: ` before it, and its `code` is the exit status:
 
 ```nomi-run error
 import {
-    std/io
-    std/process.Exit
+    std::io
+    std::process.Exit
 }
 
 fn main() -> Result<Unit, Exit> {
@@ -192,9 +192,9 @@ program could not be started at all, such as `NotFound` when nothing on the
 
 ```nomi-run
 import {
-    std/io
-    std/process.{self, Command, Status}
-    std/process_testing.{self, Answer}
+    std::io
+    std::process.{self, Command, Status}
+    std::process_testing.{self, Answer}
 }
 
 /// The current git branch, or `None` when git fails, as it does outside a

@@ -1,6 +1,6 @@
 import {
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
     app.{self, EffectsApp}
     clocks.FakeClock
     effects.{Clock, Console, Logger}

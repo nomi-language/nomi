@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // Named arguments to a generic function fill the parameter they name, in a
 // direct call and in a pipe, in any order.

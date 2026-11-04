@@ -655,7 +655,7 @@ fn main() {
 // three, on the top-level struct `Config` (deployment, database_url,
 // max_connections), its development defaults.
 var fieldDefaultDenominator = map[string]int{
-	"std":             219,
+	"std":             221,
 	"tests":           63,
 	"tour (nomi-run)": 26,
 	"tour (nomi)":     0,

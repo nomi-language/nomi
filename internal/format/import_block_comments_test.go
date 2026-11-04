@@ -13,8 +13,8 @@ import (
 func TestFormat_ImportBlockComments(t *testing.T) {
 	src := "import {\n" +
 		"  // network things\n" +
-		"  std/io\n" +
-		"  std/iter // for loops\n" +
+		"  std::io\n" +
+		"  std::iter // for loops\n" +
 		"  // trailing note\n" +
 		"}\n\n" +
 		"fn main() {\n" +
@@ -42,10 +42,10 @@ func TestFormat_ImportBlockComments(t *testing.T) {
 // is the prelude shape (every import is re-exported).
 func TestFormat_BlankBeforeCommentInPubImportBlock(t *testing.T) {
 	src := "pub import {\n" +
-		"    std/maps.Map\n" +
+		"    std::maps.Map\n" +
 		"\n" +
 		"    // a comment\n" +
-		"    std/unit.Unit\n" +
+		"    std::unit.Unit\n" +
 		"}\n"
 	got, err := Format(src)
 	if err != nil {
@@ -70,10 +70,10 @@ func TestFormat_GoPackageHandleInImportRegion(t *testing.T) {
 
 func TestFormat_GoPackageHandleStaysSeparateFromNomiImports(t *testing.T) {
 	src := "gopkg \"database/sql\"\n" +
-		"import std/results.Result\n"
+		"import std::results.Result\n"
 	want := "gopkg \"database/sql\"\n" +
 		"\n" +
-		"import std/results.Result\n"
+		"import std::results.Result\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("Format: %v", err)

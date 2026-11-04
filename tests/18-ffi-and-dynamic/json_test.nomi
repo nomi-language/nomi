@@ -1,6 +1,6 @@
 import {
-    std/dynamic.Dynamic
-    std/json.Json
+    std::dynamic.Dynamic
+    std::json.Json
 }
 
 fn describe_root(jv: Json) -> String {
@@ -40,15 +40,15 @@ fn extract_first_tag(jv: Json) -> Maybe<String> {
 
 fn sample_json() -> String {
     """
-        {
-          "name": "Ada",
-          "age": 36,
-          "active": true,
-          "tags": ["admin", "user"],
-          "address": {"city": "London", "zip": "EC1"},
-          "favorite": null
-        }
-        """
+    {
+      "name": "Ada",
+      "age": 36,
+      "active": true,
+      "tags": ["admin", "user"],
+      "address": {"city": "London", "zip": "EC1"},
+      "favorite": null
+    }
+    """
 }
 
 test "Json decode supports nested pattern matching and encode round trip" {

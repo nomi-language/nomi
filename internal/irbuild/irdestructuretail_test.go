@@ -11,7 +11,7 @@ import (
 // each with `_` parts, end a function, an `if` arm, a block statement, a
 // lambda and `main` itself.
 func TestIRDestructureTail_EndsABodyWithUnit(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 struct Point {
   x: Int
@@ -80,7 +80,7 @@ fn main() {
 
 // A test body ending in a destructure runs it and passes.
 func TestIRDestructureTail_EndsATestBody(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 fn make(n: Int) -> #(Int, Int) {
   io.print("make ${n}")

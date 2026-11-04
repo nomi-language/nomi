@@ -14,7 +14,7 @@ import (
 // Maybe.map callback, a nested lambda, or a lambda bound to a name and
 // called.
 func TestLambdaElseReturn_RunsInEveryCallback(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 fn a() {
     Iter.each([1.5, -2.0], fn f -> {
@@ -158,7 +158,7 @@ fn main() {
 // The reported program: a Decimal conversion whose else leaves the Iter.each
 // callback.
 func TestLambdaElseReturn_DecimalFromFloat(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 fn main() {
     Iter.each([212.0, 33.8, 2.675, -0.05], fn f -> {

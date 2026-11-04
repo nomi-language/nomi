@@ -1,6 +1,6 @@
 //# An entry that logs through its app field, for logging_test.nomi.
 
-import std/log.{self, Logger}
+import std::log.{self, Logger}
 
 pub struct App {
     context: Context

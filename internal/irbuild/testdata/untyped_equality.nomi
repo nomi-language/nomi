@@ -42,7 +42,7 @@
 // A row that is deliberately ABSENT: `None == None`. The checker rejects it —
 // neither side determines a type — so it is a front-end error and not this
 // builder's business.
-import std/io
+import std::io
 
 fn to_maybe(n: Int) -> Maybe<Int> {
     if n > 0 { Some(n) } else { None }

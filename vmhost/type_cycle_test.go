@@ -43,7 +43,7 @@ func TestTypeCycleAcrossFilesIsACheckError(t *testing.T) {
 // either. Aliases were built in source order, so each of these was an
 // "unknown type" error.
 func TestTypeAliasDeclaredLaterRuns(t *testing.T) {
-	got := runOutput(t, `import std/io
+	got := runOutput(t, `import std::io
 
 type A Later
 

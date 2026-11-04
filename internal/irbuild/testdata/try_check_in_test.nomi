@@ -36,8 +36,8 @@
 //     `test returned early`. A fix that routed every test-body `?` through
 //     the assertion arm would break this row.
 import {
-    std/io
-    std/testing
+    std::io
+    std::testing
 }
 
 fn parse(n: Int) -> Result<Int, String> {

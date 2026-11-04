@@ -30,7 +30,7 @@ func funcNames(t *testing.T, img []byte) (map[string]bool, []string) {
 	return names, mods
 }
 
-const prunedProgram = `import std/io
+const prunedProgram = `import std::io
 
 interface Shape {
   fn area(s: self) -> Int
@@ -106,7 +106,7 @@ func TestBuild_TheImageHoldsOnlyWhatTheProgramReaches(t *testing.T) {
 // function anyway fails with an error that names it rather than running
 // something else. A pruning bug therefore cannot pass as a different output.
 func TestRun_AnImageMissingACalleeFailsLoudly(t *testing.T) {
-	img := image(t, "import std/io\n\nfn helper() {\n  io.print(\"after\")\n}\n\nfn main() {\n  io.print(\"before\")\n  helper()\n}\n")
+	img := image(t, "import std::io\n\nfn helper() {\n  io.print(\"after\")\n}\n\nfn main() {\n  io.print(\"before\")\n  helper()\n}\n")
 	im, err := ir.DecodeImage(img)
 	if err != nil {
 		t.Fatal(err)

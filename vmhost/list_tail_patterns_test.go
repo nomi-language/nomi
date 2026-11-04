@@ -8,7 +8,7 @@ import "testing"
 // select the arm their length and ends match, in a case and in a binding's
 // else.
 func TestListPatternWithTails_Runs(t *testing.T) {
-	got := runOutput(t, `import std/io
+	got := runOutput(t, `import std::io
 
 fn shape(xs: List<Int>) -> String {
     case xs {

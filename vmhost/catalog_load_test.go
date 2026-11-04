@@ -28,7 +28,7 @@ var catalogProject = map[string]string{
 		"[status]\nsource = '''\n.input {$status :string}\n.match $status\nOpen {{open}}\nClosed {{closed}}\n* {{open}}\n'''\n" +
 		"text = '''\n.input {$status :string}\n.match $status\nOpen {{otwarte}}\nClosed {{zamknięte}}\n* {{otwarte}}\n'''\n\n" +
 		"[unused]\nsource = '''{$name} is never shown'''\ntext = '''{$name} nie jest pokazywane'''\n",
-	"main.nomi": "import {\n    std/io\n    std/locale.Locale\n    std/message.{Catalog, Message}\n    text\n}\n\n" +
+	"main.nomi": "import {\n    std::io\n    std::locale.Locale\n    std::message.{Catalog, Message}\n    text\n}\n\n" +
 		"fn main() {\n    loaded = \"\"\"\n" +
 		"    [text.items]\n    source = '''\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    '''\n" +
 		"    text = '''\n    .input {$count :integer}\n    .match $count\n    one {{{$count} sztuka}}\n    few {{{$count} sztuki}}\n    many {{{$count} sztuk}}\n    * {{{$count} sztuki}}\n    '''\n\n" +

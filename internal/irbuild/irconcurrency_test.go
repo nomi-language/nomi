@@ -12,7 +12,7 @@ import (
 
 func TestIRConcurrency_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"concurrency.md:L31", `import std/tasks.Task
+		{"concurrency.md:L31", `import std::tasks.Task
 
 fn double(n: Int) -> Int {
   n * 2
@@ -29,9 +29,9 @@ fn main() {
 }
 `, "dbg line 14: total = 120\n"},
 		{"concurrency.md:L79", `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/io
-  std/tasks.Task
+  std::channels.{Channel, Receiver, Sender}
+  std::io
+  std::tasks.Task
 }
 
 fn produce(out: Sender<Int>, n: Int) -> Unit {
@@ -71,9 +71,9 @@ fn main() {
 }
 `, "dbg line 40: total = 60\n"},
 		{"concurrency.md:L159", `import {
-  std/tasks.Task
-  std/duration.Duration
-  std/timer
+  std::tasks.Task
+  std::duration.Duration
+  std::timer
 }
 
 fn short_fail() -> Result<Int, String> {
@@ -99,7 +99,7 @@ fn main() {
 }
 `, "dbg line 26: outcome = Err(\"boom\")\n"},
 		{"concurrency.md:L243", `import {
-  std/tasks.Task
+  std::tasks.Task
 }
 
 fn is_active(id: Int) -> Bool {
@@ -121,9 +121,9 @@ fn main() {
 }
 `, "dbg line 20: results = [\"user-3\", \"user-1\"]\n"},
 		{"concurrency.md:L650", `import {
-  std/tasks.Task
-  std/duration.Duration
-  std/timer
+  std::tasks.Task
+  std::duration.Duration
+  std::timer
 }
 
 fn serve_conn() -> Int {
@@ -153,7 +153,7 @@ fn main() {
 // outcome, a Maybe try, a lambda batch body and the scalar Display spellings.
 func TestIRConcurrency_Mechanisms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"captures, String tasks and a conditional tail", `import std/tasks.Task
+		{"captures, String tasks and a conditional tail", `import std::tasks.Task
 
 fn greet(name: String, n: Int) -> String {
   "${name}-${Display.to_string(n)}"
@@ -173,8 +173,8 @@ fn main() {
 }
 `, "dbg line 16: label = \"ada-41\"\n"},
 		{"nested blocks and a Unit task", `import {
-  std/io
-  std/tasks.Task
+  std::io
+  std::tasks.Task
 }
 
 fn inner(n: Int) -> Int {
@@ -198,7 +198,7 @@ fn main() {
   Unit
 }
 `, "from a task\ndbg line 23: outer = 6\n"},
-		{"a completed outcome and a Maybe try", `import std/tasks.Task
+		{"a completed outcome and a Maybe try", `import std::tasks.Task
 
 fn half(n: Int) -> Maybe<Int> {
   if n % 2 == 0 { Some(n / 2) } else { None }
@@ -221,7 +221,7 @@ fn main() {
   Unit
 }
 `, "dbg line 12: outcome = Completed(42)\ndbg line 20: found = None\n"},
-		{"a lambda batch body over a mapped sequence", `import std/tasks.Task
+		{"a lambda batch body over a mapped sequence", `import std::tasks.Task
 
 fn main() {
   offset = 100
@@ -236,9 +236,9 @@ fn main() {
 }
 `, "dbg line 11: results = [110, 120, 130, 140]\n"},
 		{"an unbuffered channel, a send after close and a drained receive", `import {
-  std/channels.{Channel, ChannelClosed, Receiver, Sender}
-  std/io
-  std/tasks.Task
+  std::channels.{Channel, ChannelClosed, Receiver, Sender}
+  std::io
+  std::tasks.Task
 }
 
 fn report(r: Result<Unit, ChannelClosed>) -> String {
@@ -300,7 +300,7 @@ fn main() {
   Unit
 }
 `, "dbg line 32: pick(5) = 70\ndbg line 33: classify(0) = \"long\"\ndbg line 34: find() = 5\n"},
-		{"scalar Display calls", `import std/io
+		{"scalar Display calls", `import std::io
 
 fn show(n: Int, x: Float, b: Bool, s: String) -> String {
   Display.to_string(n) + " " + Display.to_string(x) + " " + Display.to_string(b) + " " + Display.to_string(s)
@@ -321,10 +321,10 @@ fn main() {
 func TestIRConcurrency_TryAndLoopInsideTheBlockRun(t *testing.T) {
 	// A try inside a task body leaves the task's lambda, whose boundary it
 	// is.
-	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = Some(2)?\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\n"+
+	verifyLambdaProgram(t, "import {\n std::io\n std::tasks.Task\n}\nfn run() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = Some(2)?\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\n"+
 		"fn missing() -> Maybe<Int> { None }\nfn none() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = missing()?\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\nfn main() {\n io.print(run())\n io.print(none())\n}\n", "2\n0\n")
 	// An Iter.loop inside the block runs, as one inside any lambda does.
-	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run() -> Int {\nconcurrent {\n t = Task.spawn(fn -> 1)\n n0 = Task.await(t)\n Iter.loop(n0, fn n -> {\n if n > 3 { break n * 10 }\n n + 1\n })\n }\n}\nfn main() {\n io.print(run())\n}\n", "40\n")
+	verifyLambdaProgram(t, "import {\n std::io\n std::tasks.Task\n}\nfn run() -> Int {\nconcurrent {\n t = Task.spawn(fn -> 1)\n n0 = Task.await(t)\n Iter.loop(n0, fn n -> {\n if n > 3 { break n * 10 }\n n + 1\n })\n }\n}\nfn main() {\n io.print(run())\n}\n", "40\n")
 }
 
 // A task whose body reaches a function the producer did not retain fails the
@@ -336,9 +336,9 @@ func TestIRConcurrency_AMachineLimitInATaskFailsTheRun(t *testing.T) {
 	plantDecline(t)
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import {
-  std/tasks.Task
-  std/duration.Duration
-  std/timer
+  std::tasks.Task
+  std::duration.Duration
+  std::timer
 }
 
 fn planted_decline(n: Int) -> Int {
@@ -406,11 +406,11 @@ func TestIRConcurrency_ACancelledTaskRunsItsDeferredCalls(t *testing.T) {
 	const want = "cleanup\ndbg line 24: outcome = Cancelled\n"
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/io
-  std/tasks.Task
-  std/duration.Duration
-  std/timer
+  std::channels.{Channel, Receiver, Sender}
+  std::io
+  std::tasks.Task
+  std::duration.Duration
+  std::timer
 }
 
 fn work(started: Sender<Int>) -> Int {

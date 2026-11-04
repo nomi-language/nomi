@@ -11,7 +11,7 @@ import (
 // type it names, in every position: with no expected type, against the
 // enum, against a list of the enum, and as a function's result.
 func TestRun_TypePrefixedListLiterals(t *testing.T) {
-	out := runOutput(t, `import std/io
+	out := runOutput(t, `import std::io
 
 enum JV {
   Num Int

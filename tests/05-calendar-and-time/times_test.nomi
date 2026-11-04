@@ -1,7 +1,7 @@
 import {
-    std/calendar.Error
-    std/calendar.Time
-    std/duration.Duration
+    std::calendar.Error
+    std::calendar.Time
+    std::duration.Duration
 }
 
 test "times parse and expose components" {

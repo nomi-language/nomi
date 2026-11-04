@@ -68,7 +68,7 @@ func TestGenStructSigAndAnnotationPathsAgree(t *testing.T) {
 		// is a front-end error, so the import is written only when the prelude
 		// does not already bind the name; that is read from the prelude itself,
 		// so no future row has a precondition to violate.
-		item := s.origin + "." + s.nomi
+		item := strings.ReplaceAll(s.origin, "/", "::") + "." + s.nomi
 		if lib.Primitives.Lookup(s.nomi) != nil {
 			item = ""
 		}
@@ -251,7 +251,7 @@ func TestGenHostSigAndAnnotationPathsAgree(t *testing.T) {
 			args[j] = "String"
 		}
 		src := s.nomi + "<" + strings.Join(args, ", ") + ">"
-		item := s.origin + "." + s.nomi
+		item := strings.ReplaceAll(s.origin, "/", "::") + "." + s.nomi
 		if lib.Primitives.Lookup(s.nomi) != nil {
 			item = ""
 		}

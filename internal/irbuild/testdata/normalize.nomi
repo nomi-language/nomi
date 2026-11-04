@@ -2,7 +2,7 @@
 // nomi/stdstrings, has an EXTERNAL dependency (golang.org/x/text), so this
 // fixture pins the four forms' answers through that dependency on the VM's
 // own host table.
-import std/strings.NormalForm
+import std::strings.NormalForm
 
 test "NFC composes and NFD decomposes" {
     composed = "\u{00e9}"

@@ -88,20 +88,20 @@ independent declarations.
 
 Import a file for its file-level functions and a type by name (spec §14
 *Import forms*; tour: [Modules & Imports](/modules-and-imports/#import-syntax)).
-`import std/io` and then `io.print(x)` keeps the file's name at each call, so
-the reader sees where `print` comes from. `import std/calendar.Date` and then
+`import std::io` and then `io.print(x)` keeps the file's name at each call, so
+the reader sees where `print` comes from. `import std::calendar.Date` and then
 `Date.parse(text)` names the type once, and every call through it says which
 type it works on. Don't import a file only to write `calendar.Date` at every use.
 
 ```nomi
 import {
-    std/calendar.{Date, Months}
-    std/io
-    myapp/config.Config
+    std::calendar.{Date, Months}
+    std::io
+    myapp::config.Config
 }
 ```
 
-Several names from one path go in one selector list, as `std/calendar` above.
+Several names from one path go in one selector list, as `std::calendar` above.
 
 Use `self` only when you need both an owner (a file or an enum type) and
 selected children from it. `self` inside an owner selector binds the owner as
@@ -124,6 +124,32 @@ sake: `import shape.Shape` and `import shape.Shape.Circle` stay as they are.
 A dot-shorthand pattern (`.Some(v)`) names no imported variant, so don't
 import a variant you only match with the dot form.
 
+Use a file by its short name, the last part of its path: `posts.find(1)`, not
+`db::posts.find(1)`. Write the full path only where the short name is
+ambiguous (two imports share it) or taken (a local or a declaration has it),
+and write it there instead of an alias (spec §14 *Short names and full paths*;
+tour: [Modules & Imports](/modules-and-imports/#short-names-and-full-paths)).
+The full path says which file at the use itself; an alias is one more name to
+look up.
+
+```nomi
+// no
+import {
+    db::notifications as db_notifications
+    jobs::notifications as job_notifications
+}
+
+// yes
+import {
+    db::notifications
+    jobs::notifications
+}
+
+fn pending() -> Int {
+    db::notifications.pending() + jobs::notifications.pending()
+}
+```
+
 ## Names and bindings
 
 ### 4. Naming
@@ -137,10 +163,10 @@ it `foo`.
 Write an acronym as a word: `Json`, `Toml`, `Uuid`, `HttpClient`, `IoError`.
 
 Split a file's name into words as any other value name is split:
-`std/message_format`, `std/code_points`, `order_lines.nomi`, never
+`std::message_format`, `std::code_points`, `order_lines.nomi`, never
 `orderlines`. A name ends in `_test` only when the
 file holds tests, since `_test.nomi` is what marks a test file; a module that
-helps tests run is named for what it holds, as `std/sql_testing` holds the
+helps tests run is named for what it holds, as `std::sql_testing` holds the
 fake `Conn` and the conformance suite.
 
 Don't repeat the file's name in a type the file is about. A module with one
@@ -151,7 +177,7 @@ error types names each for what failed: `Json.DecodeError`,
 `NumberParseError`.
 
 ```nomi
-import std/uuid.Uuid
+import std::uuid.Uuid
 
 fn read_id(text: String) -> Result<Uuid, uuid.Error> {
     Uuid.parse(text)
@@ -799,7 +825,7 @@ not compile.
 
 ### 22. Reach for `DateTime`, not `NaiveDateTime`, for real timestamps
 
-[`std/calendar`](/reference/calendar/) gives the bare name to the safe default
+[`std::calendar`](/reference/calendar/) gives the bare name to the safe default
 (tour: [Dates & Times](/dates-and-times/)): `DateTime` is zoned by
 an IANA time zone, DST-aware, and equal only to the same instant.
 `NaiveDateTime` carries its prefix as a warning. It is a wall-clock reading
@@ -973,6 +999,21 @@ size = if bytes < 1_024 {
 A plain `if`/`else` of two branches stays an `if`, and so does a chain
 whose branches run statements for their effects rather than produce a
 value.
+
+An `if` without `else` whose branch has a value is a `Maybe` of it (spec §8
+*`if`/`else`*). Write one where a `Maybe` is what the position takes, as an
+`Html` literal's slot does, which shows the branch or nothing, in element
+content and inside a quoted attribute value alike:
+
+```nomi
+Html"<p class='inbox ${if unread > 0 { "unread" }}'>Inbox${if unread > 0 { Html" <b>${unread}</b>" }}</p>"
+```
+
+not `${if unread > 0 { ... } else { Html.empty() }}` or `else { "" }`. To
+leave a whole attribute out, give it an unquoted value:
+`class=${if active { "active" }}`. Where the value is used
+as itself, keep the `else`: `if c { x } else { y }`, not an `if` without
+`else` followed by `Maybe.with_default(y)`.
 
 ### 28. Negate with `!=`, `refute` and `Iter.reject` before `not`
 
@@ -1181,7 +1222,7 @@ A bounds check is a range membership test too: `not square in 1..=64`, not
 
 When code asks what stands at positions of a grid, read the grid once into a
 `Set` of the positions that hold something, or a `Map` from each position to
-what is there ([std/sets](/reference/sets/), [std/maps](/reference/maps/);
+what is there ([std::sets](/reference/sets/), [std::maps](/reference/maps/);
 tour: [Collections](/collections/#sets)), and ask that. A position off the
 grid is absent, so a neighbour needs no bounds check and no
 `Vector.get(...)!` pair:
@@ -1209,7 +1250,7 @@ rows and columns by index, as a matrix does.
 
 ### 33. Reach for a named fold before `Iter.reduce`
 
-[`std/iter`](/reference/iter/) names the common folds (tour:
+[`std::iter`](/reference/iter/) names the common folds (tour:
 [Iteration & Loops](/iteration-and-loops/#keeping-every-step-with-iterscan)). A
 fold that starts from the empty sum and adds each element is `Iter.sum`:
 
@@ -1358,7 +1399,7 @@ Tuples compare element by element (spec §5 *Ordering requires a declared
 [Interfaces & Dispatch](/interfaces-and-dispatch/#deriving-vs-sorting-by-key)),
 so a sort by several keys is one
 `Iter.sort_by` whose key is a tuple of them, most significant first. Wrap a
-key in `Reverse.of` (`std/reverse`) to sort it descending; it works for any
+key in `Reverse.of` (`std::reverse`) to sort it descending; it works for any
 `Comparable` key, and reads as intent where negating a number reads as
 arithmetic:
 
@@ -1638,7 +1679,7 @@ it. Keep a value one test uses in that test.
 ### 43. Test an interactive program with `io.replay`
 
 Test an interactive program, one that prompts and reads in turn, with
-`assert io.replay(script, main)` ([std/io](/reference/io/); tour:
+`assert io.replay(script, main)` ([std::io](/reference/io/); tour:
 [Testing](/testing/#input-and-output)) and a `"""` script, not with
 `io.capture(input, main)` and separate input and output strings. The script
 shows each answer next to the prompt it answers, so the reader follows one

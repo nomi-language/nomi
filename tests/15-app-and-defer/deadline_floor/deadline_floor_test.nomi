@@ -1,7 +1,7 @@
 import {
-    std/channels.Receiver
-    std/compiler
-    std/supervisors.Supervisor
+    std::channels.Receiver
+    std::compiler
+    std::supervisors.Supervisor
     supervisor_app.{self, Config}
 }
 
@@ -22,37 +22,37 @@ import {
 // short there, not that the program failed early for some unrelated reason.
 fn escape_program(attempt: String) -> String {
     """
-          import {
-            std/duration.Duration
-            std/io
-            std/timer
-          }
+      import {
+        std::duration.Duration
+        std::io
+        std::timer
+      }
 
-          struct Config {
-            context: Context
+      struct Config {
+        context: Context
 
-            spare: #{context: Context}
-          }
+        spare: #{context: Context}
+      }
 
-          fn boot() -> Result<Config, String> {
-            Ok(Config{context: Context.root(), spare: #{context: Context.root()}})
-          }
+      fn boot() -> Result<Config, String> {
+        Ok(Config{context: Context.root(), spare: #{context: Context.root()}})
+      }
 
-          fn inner() {
-            with Config.context = ${attempt}
-            io.print("entered")
-            timer.sleep(Duration.seconds(5))
-            io.print("escaped the deadline")
-          }
+      fn inner() {
+        with Config.context = ${attempt}
+        io.print("entered")
+        timer.sleep(Duration.seconds(5))
+        io.print("escaped the deadline")
+      }
 
-          fn main() {
-            with Config.context = Context.with_timeout(
-              Config.context,
-              Duration.milliseconds(20),
-            )
-            inner()
-          }
-        """
+      fn main() {
+        with Config.context = Context.with_timeout(
+          Config.context,
+          Duration.milliseconds(20),
+        )
+        inner()
+      }
+    """
 }
 
 test "Context.root() cannot widen an inherited deadline" {
@@ -70,9 +70,9 @@ test "a nested deadline still tightens" {
     assert Err(fault) = compiler.run(
         """
         import {
-          std/duration.Duration
-          std/io
-          std/timer
+          std::duration.Duration
+          std::io
+          std::timer
         }
 
         struct Empty {

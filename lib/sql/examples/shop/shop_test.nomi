@@ -1,7 +1,7 @@
 import {
-    std/duration.Duration
-    std/instant.Instant
-    std/sql.{self, ConstraintKind}
+    std::duration.Duration
+    std::instant.Instant
+    std::sql.{self, ConstraintKind}
     queries
     schema.{self, Order, OrderStatus, User}
     shop

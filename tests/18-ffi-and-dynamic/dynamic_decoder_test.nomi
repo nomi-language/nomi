@@ -1,4 +1,4 @@
-import std/dynamic.{self, PathSegment}
+import std::dynamic.{self, PathSegment}
 
 test "dynamic.Error display renders root field and index paths" {
     empty = dynamic.Error{path: [], expected: "Object", got: "List"}

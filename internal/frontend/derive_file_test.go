@@ -17,7 +17,7 @@ func TestDeriveMissingImplInAnImportedFileNamesThatFile(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
 		"main.nomi": `import {
-    std/io
+    std::io
     child.Holder
 }
 

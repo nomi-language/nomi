@@ -1,4 +1,4 @@
-//# A durable `std/jobs` queue in a Postgres table. `pgjobs.queue(db, url)`
+//# A durable `std::jobs` queue in a Postgres table. `pgjobs.queue(db, url)`
 //# answers a `Queue` whose jobs live in the `nomi_jobs` table of the
 //# database `db` points at; an enqueue writes on the caller's `Conn`, so it
 //# commits or rolls back with the caller's transaction.
@@ -26,16 +26,16 @@
 //# deleted by any worker.
 
 import {
-    std/channels.{Arm, Channel, Receiver, Sender}
-    std/duration.Duration
-    std/instant.Instant
-    std/jobs.{self, Claimed, JobId, NewJob, Queue, Settle}
-    std/json.Json
-    std/matcher.Matcher
-    std/regex.Regex
-    std/sql.{self, Conn, Row, Sql, Statement, Value}
-    std/supervisors.Supervisor
-    std/tasks.Task
+    std::channels.{Arm, Channel, Receiver, Sender}
+    std::duration.Duration
+    std::instant.Instant
+    std::jobs.{self, Claimed, JobId, NewJob, Queue, Settle}
+    std::json.Json
+    std::matcher.Matcher
+    std::regex.Regex
+    std::sql.{self, Conn, Row, Sql, Statement, Value}
+    std::supervisors.Supervisor
+    std::tasks.Task
     postgres.{self, Listener, Notification}
 }
 
@@ -62,23 +62,23 @@ pub fn install(conn: Conn, table: String = "nomi_jobs") -> Result<Unit, sql.Erro
 
     statements = [
         Sql"""
-            CREATE TABLE IF NOT EXISTS nomi_jobs (
-                id           bigserial   PRIMARY KEY,
-                queue        text        NOT NULL DEFAULT 'default',
-                kind         text        NOT NULL,
-                args         jsonb       NOT NULL,
-                state        text        NOT NULL DEFAULT 'available'
-                             CHECK (state IN ('available', 'running', 'completed', 'discarded')),
-                attempt      integer     NOT NULL DEFAULT 0,
-                max_attempts integer     NOT NULL,
-                run_at       timestamptz NOT NULL DEFAULT now(),
-                locked_until timestamptz,
-                locked_by    text,
-                errors       jsonb       NOT NULL DEFAULT '[]',
-                inserted_at  timestamptz NOT NULL DEFAULT now(),
-                finished_at  timestamptz
-            )
-            """,
+        CREATE TABLE IF NOT EXISTS nomi_jobs (
+            id           bigserial   PRIMARY KEY,
+            queue        text        NOT NULL DEFAULT 'default',
+            kind         text        NOT NULL,
+            args         jsonb       NOT NULL,
+            state        text        NOT NULL DEFAULT 'available'
+                         CHECK (state IN ('available', 'running', 'completed', 'discarded')),
+            attempt      integer     NOT NULL DEFAULT 0,
+            max_attempts integer     NOT NULL,
+            run_at       timestamptz NOT NULL DEFAULT now(),
+            locked_until timestamptz,
+            locked_by    text,
+            errors       jsonb       NOT NULL DEFAULT '[]',
+            inserted_at  timestamptz NOT NULL DEFAULT now(),
+            finished_at  timestamptz
+        )
+        """,
         Sql"CREATE INDEX IF NOT EXISTS nomi_jobs_due ON nomi_jobs (queue, run_at, id) WHERE state = 'available'",
         Sql"CREATE INDEX IF NOT EXISTS nomi_jobs_lease ON nomi_jobs (locked_until) WHERE state = 'running'",
         Sql"CREATE INDEX IF NOT EXISTS nomi_jobs_done ON nomi_jobs (finished_at) WHERE state IN ('completed', 'discarded')",
@@ -115,9 +115,7 @@ pub fn stuck(
 
     statement = Sql"""
         SELECT id, queue, kind, run_at FROM nomi_jobs
-        WHERE state = 'available' AND run_at < now() - ${millis(
-                                                           older_than
-                                                       )} * interval '1 millisecond'
+        WHERE state = 'available' AND run_at < now() - ${millis(older_than)} * interval '1 millisecond'
         ORDER BY run_at, id LIMIT 100
         """
 
@@ -221,33 +219,29 @@ impl Queue for Table {
         id = id_of(job.id)
 
         statement = case how {
-            .Completed ->
-                Sql"""
-                    UPDATE nomi_jobs SET state = 'completed', finished_at = now(), locked_by = NULL, locked_until = NULL
-                    WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
-                    """
+            .Completed -> Sql"""
+                UPDATE nomi_jobs SET state = 'completed', finished_at = now(), locked_by = NULL, locked_until = NULL
+                WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
+                """
 
-            .Retry{at, error} ->
-                Sql"""
-                    UPDATE nomi_jobs SET state = 'available', run_at = ${at}, locked_by = NULL, locked_until = NULL,
-                        errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
-                    WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
-                    """
+            .Retry{at, error} -> Sql"""
+                UPDATE nomi_jobs SET state = 'available', run_at = ${at}, locked_by = NULL, locked_until = NULL,
+                    errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
+                WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
+                """
 
-            .Snoozed{at, error} ->
-                Sql"""
-                    UPDATE nomi_jobs SET state = 'available', run_at = ${at}, attempt = attempt - 1,
-                        locked_by = NULL, locked_until = NULL,
-                        errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
-                    WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
-                    """
+            .Snoozed{at, error} -> Sql"""
+                UPDATE nomi_jobs SET state = 'available', run_at = ${at}, attempt = attempt - 1,
+                    locked_by = NULL, locked_until = NULL,
+                    errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
+                WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
+                """
 
-            .Discarded(error) ->
-                Sql"""
-                    UPDATE nomi_jobs SET state = 'discarded', finished_at = now(), locked_by = NULL, locked_until = NULL,
-                        errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
-                    WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
-                    """
+            .Discarded(error) -> Sql"""
+                UPDATE nomi_jobs SET state = 'discarded', finished_at = now(), locked_by = NULL, locked_until = NULL,
+                    errors = errors || jsonb_build_array(jsonb_build_object('attempt', attempt, 'at', now(), 'error', ${error}::text))
+                WHERE id = ${id} AND attempt = ${job.attempt} AND locked_by = ${worker} AND state = 'running'
+                """
         }
 
         changed = Conn.exec(t.db, in_table(t.table, statement))?

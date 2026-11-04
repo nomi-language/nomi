@@ -220,18 +220,18 @@ test "parse" {
         #(
             "empty graph",
             """
-                graph {
-                }
-                """,
+            graph {
+            }
+            """,
             Graph{nodes: %{}, edges: %{}, attrs: %{}},
         ),
         #(
             "graph with one node",
             """
-                graph {
-                    a;
-                }
-                """,
+            graph {
+                a;
+            }
+            """,
             #{
                 nodes: %{"a" => %{}},
                 edges: %{},
@@ -241,10 +241,10 @@ test "parse" {
         #(
             "graph with one node with attribute",
             """
-                graph {
-                    a [color=green];
-                }
-                """,
+            graph {
+                a [color=green];
+            }
+            """,
             #{
                 nodes: %{"a" => %{"color" => .Text("green")}},
                 edges: %{},
@@ -254,10 +254,10 @@ test "parse" {
         #(
             "graph with one edge",
             """
-                graph {
-                    a -- b;
-                }
-                """,
+            graph {
+                a -- b;
+            }
+            """,
             #{
                 nodes: %{"a" => %{}, "b" => %{}},
                 edges: %{#("a", "b") => %{}},
@@ -267,36 +267,36 @@ test "parse" {
         #(
             "graph with one attribute",
             """
-                graph {
-                    [foo=1];
-                }
-                """,
+            graph {
+                [foo=1];
+            }
+            """,
             #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
         ),
         #(
             "graph with comments",
             """
-                graph {
-                    // a C-like comment
-                    # a shell-like comment
-                    [foo=1];
-                }
-                """,
+            graph {
+                // a C-like comment
+                # a shell-like comment
+                [foo=1];
+            }
+            """,
             #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
         ),
         #(
             "graph with nodes, edges, and attributes",
             """
-                graph {
-                    [foo=1];
-                    [title="Testing Attrs"];
-                    a [color=green];
-                    b [label="Beta!"];
-                    b -- c;
-                    a -- b [color=blue];
-                    [bar=true];
-                }
-                """,
+            graph {
+                [foo=1];
+                [title="Testing Attrs"];
+                a [color=green];
+                b [label="Beta!"];
+                b -- c;
+                a -- b [color=blue];
+                [bar=true];
+            }
+            """,
             #{
                 nodes: %{
                     "a" => %{"color" => .Text("green")},
@@ -314,10 +314,10 @@ test "parse" {
         #(
             "multiple edges on one line",
             """
-                graph {
-                    a -- b -- c -- d [style=dotted];
-                }
-                """,
+            graph {
+                a -- b -- c -- d [style=dotted];
+            }
+            """,
             #{
                 nodes: %{"a" => %{}, "b" => %{}, "c" => %{}, "d" => %{}},
                 edges: %{
@@ -331,12 +331,12 @@ test "parse" {
         #(
             "only 1 edge between nodes",
             """
-                graph {
-                    a -- b;
-                    a -- b;
-                    b -- a [color=blue];
-                }
-                """,
+            graph {
+                a -- b;
+                a -- b;
+                b -- a [color=blue];
+            }
+            """,
             #{
                 nodes: %{"a" => %{}, "b" => %{}},
                 edges: %{#("a", "b") => %{"color" => .Text("blue")}},
@@ -354,82 +354,82 @@ test "parse errors" {
         #(
             "malformed input",
             """
-                graphical {
-                }
-                """,
+            graphical {
+            }
+            """,
             "invalid graph",
         ),
         #(
             "malformed edge",
             """
-                graph {
-                    a --;
-                }
-                """,
+            graph {
+                a --;
+            }
+            """,
             "invalid edge",
         ),
         #(
             "malformed edge 2",
             """
-                graph {
-                    a b;
-                }
-                """,
+            graph {
+                a b;
+            }
+            """,
             "invalid edge",
         ),
         #("invalid edge type", "graph {\n    a == b;\n} ", "invalid edge"),
         #(
             "multiple edges missing a node",
             """
-                graph {
-                    a -- b --;
-                }
-                """,
+            graph {
+                a -- b --;
+            }
+            """,
             "invalid edge",
         ),
         #(
             "multiple edges missing a connector",
             """
-                graph {
-                    a -- b c;
-                }
-                """,
+            graph {
+                a -- b c;
+            }
+            """,
             "invalid edge",
         ),
         #(
             "empty attribute",
             """
-                graph {
-                    a [];
-                }
-                """,
+            graph {
+                a [];
+            }
+            """,
             "invalid attribute",
         ),
         #(
             "malformed attribute",
             """
-                graph {
-                    a [name];
-                }
-                """,
+            graph {
+                a [name];
+            }
+            """,
             "invalid attribute",
         ),
         #(
             "empty attribute name",
             """
-                graph {
-                    a [=value];
-                }
-                """,
+            graph {
+                a [=value];
+            }
+            """,
             "invalid attribute",
         ),
         #(
             "non-alphanumeric node name",
             """
-                graph {
-                    ? [key=value];
-                }
-                """,
+            graph {
+                ? [key=value];
+            }
+            """,
             "node name must be alphanumeric",
         ),
     ]

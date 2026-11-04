@@ -7,7 +7,7 @@
 // retained-function probe would drive its endless `each_while`. The checker
 // rejects each of these pipelines written out whole, so each source here
 // reaches its terminal through `hide`.
-import std/tasks.Task
+import std::tasks.Task
 
 struct Ticks {
     n: Int

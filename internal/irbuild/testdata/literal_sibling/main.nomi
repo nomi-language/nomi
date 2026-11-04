@@ -10,7 +10,7 @@
 // payloads are the same type: a spec with them swapped is invisible there
 // and puts a String where an Int belongs at `T = Int`.
 import {
-    std/io
+    std::io
     frag
 }
 

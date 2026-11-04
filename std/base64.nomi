@@ -22,7 +22,7 @@ import {
 
 /// `data` in base64's standard alphabet, padded with `=` to a multiple of
 /// four characters, or with no padding when `padded` is `False`.
-//! import std/base64
+//! import std::base64
 //!
 //! // RFC 4648, section 10.
 //! assert base64.encode(String.to_bytes("")) == ""
@@ -44,7 +44,7 @@ host fn standard(data: Bytes, padded: Bool) -> String
 
 /// The bytes `text` holds in base64's standard alphabet, with or without
 /// `=` padding.
-//! import std/base64
+//! import std::base64
 //!
 //! assert base64.decode("Zm9vYmE=") == Ok(String.to_bytes("fooba"))
 //! assert base64.decode("Zm9vYmE") == Ok(String.to_bytes("fooba"))
@@ -55,7 +55,7 @@ pub host fn decode(text: String) -> Result<Bytes, String>
 /// `data` in base64's URL and file name safe alphabet, `-` and `_` in place
 /// of `+` and `/`, padded with `=`, or with no padding when `padded` is
 /// `False`, the form JWTs and many other tokens use.
-//! import std/base64
+//! import std::base64
 //!
 //! data = Bytes.from_list([251, 255, 191])
 //! assert base64.encode(data) == "+/+/"
@@ -71,7 +71,7 @@ host fn url_safe(data: Bytes, padded: Bool) -> String
 
 /// The bytes `text` holds in base64's URL-safe alphabet, with or without
 /// `=` padding.
-//! import std/base64
+//! import std::base64
 //!
 //! assert base64.decode_url("-_-_") == Ok(Bytes.from_list([251, 255, 191]))
 //! assert base64.decode_url("Zg") == Ok(String.to_bytes("f"))

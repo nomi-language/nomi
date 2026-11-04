@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRIterSort_CompleteGenericProgram(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn first_two_sorted<T>(xs: List<T>) -> List<T> where T: Comparable {
  xs |> Iter.sort() |> Iter.take(2) |> Iter.to_list()
 }
@@ -17,7 +17,7 @@ fn main() {
 }
 
 func TestIRIterSort_StableExplicitComparator(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  xs = [21, 12, 11, 22, 31]
  ys = Iter.sort_with(xs, fn a, b -> Int.compare(a % 10, b % 10))
@@ -33,8 +33,8 @@ fn main() {
 // keys keep their input order either way.
 func TestIRIterSort_DescendingDirection(t *testing.T) {
 	verifyLambdaProgram(t, `import {
- std/io
- std/comparable.Direction
+ std::io
+ std::comparable.Direction
 }
 fn main() {
  io.inspect(Iter.sort([2, 3, 1], Direction.Descending))
@@ -46,7 +46,7 @@ fn main() {
 }
 
 func TestIRIterSort_TakeIsLazyAndRepeatable(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn empty() -> List<Int> { [] }
 fn main() {
  xs = Iter.map([3, 1, 2], fn n -> { io.print(n); n })
@@ -62,7 +62,7 @@ fn main() {
 }
 
 func TestIRIterSort_CallbackFault(t *testing.T) {
-	verifyIterFault(t, `import std/io
+	verifyIterFault(t, `import std::io
 fn main() {
  xs = Iter.map([2, 1], fn n -> { io.print(n); n })
  io.inspect(Iter.sort_with(xs, fn a, b -> {
@@ -76,7 +76,7 @@ fn main() {
 // Decimal's `compare` is a `host fn`: the sort's comparator is a function
 // value forwarding to it (irHostForward), over a Set or a List.
 func TestIRIterSort_DecimalsSortByTheirHostCompare(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  io.inspect(Iter.sort(%[2.5d, 1.5d]))
  io.inspect(Iter.sort([2.50d, 10d, 1.5d]))

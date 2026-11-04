@@ -1,12 +1,12 @@
 ---
 title: "JSON & Dynamic"
-description: "Encode and decode JSON with std/json, through your own types or the Json value, and read data of unknown shape with Dynamic."
+description: "Encode and decode JSON with std::json, through your own types or the Json value, and read data of unknown shape with Dynamic."
 ---
 
 Data from outside a program has a shape the program did not choose: a
 request body, a configuration file, a message from another service.
-[`std/json`](/reference/json/) reads and writes JSON, and
-[`std/dynamic`](/reference/dynamic/) reads a value whose shape is known only
+[`std::json`](/reference/json/) reads and writes JSON, and
+[`std::dynamic`](/reference/dynamic/) reads a value whose shape is known only
 at run time.
 
 ## Your own types as JSON
@@ -15,7 +15,7 @@ at run time.
 by field. Options after `with` rename the fields:
 
 ```nomi-run
-import std/json.{FromJson, Json, ToJson}
+import std::json.{FromJson, Json, ToJson}
 
 struct User {
     first_name: String
@@ -43,7 +43,7 @@ dbg line 16: user = User{first_name: "Ada", age: 36}
 
 `Json.encode_as` turns a value into JSON text, and `Json.decode_as` reads it
 back. The annotation `user: User` tells `decode_as` which type to read, since
-no argument says so. [`std/json`](/reference/json/) has the other options,
+no argument says so. [`std::json`](/reference/json/) has the other options,
 and how enums and `Maybe` fields map to JSON.
 
 ## The Json value
@@ -54,8 +54,8 @@ the shape varies, or when you need only a part of a document:
 
 ```nomi-run
 import {
-    std/io
-    std/json.Json
+    std::io
+    std::json.Json
 }
 
 fn describe(jv: Json) -> String {
@@ -98,7 +98,7 @@ decoded payload, loosely typed configuration, or data from another runtime.
 
 Take the value in as `Dynamic`, then decode it into a real type once you
 know what shape to expect. Every function in
-[`std/dynamic`](/reference/dynamic/) that reads a `Dynamic` returns a
+[`std::dynamic`](/reference/dynamic/) that reads a `Dynamic` returns a
 `Result`. Its error is a [`dynamic.Error`](/reference/dynamic/#struct-error),
 which holds the path to the bad part, what was expected, and what was
 there. So when a payload is wrong, the error tells you where.
@@ -109,10 +109,10 @@ users has one bad entry:
 ```nomi-run
 // FILE: main.nomi
 import {
-    std/dynamic.{self, Dynamic}
-    std/fs
-    std/io
-    std/json.Json
+    std::dynamic.{self, Dynamic}
+    std::fs
+    std::io
+    std::json.Json
 }
 
 struct User {
@@ -168,10 +168,10 @@ data real types.
 ## Bytes in text
 
 JSON, URLs and HTTP headers carry text, so bytes travel in them encoded.
-[`std/base64`](/reference/base64/) and [`std/hex`](/reference/hex/) write
+[`std::base64`](/reference/base64/) and [`std::hex`](/reference/hex/) write
 bytes as text and read them back, a decode returning a `Result`.
-[`std/url`](/reference/url/) percent-encodes text for a query or a path, and
-[`std/hash`](/reference/hash/) signs data with an HMAC:
+[`std::url`](/reference/url/) percent-encodes text for a query or a path, and
+[`std::hash`](/reference/hash/) signs data with an HMAC:
 
 ```nomi
 signature = hash.hmac_sha256(key, body) |> base64.encode_url(padded: False)

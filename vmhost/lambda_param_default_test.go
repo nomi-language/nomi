@@ -9,7 +9,7 @@ import "testing"
 // tuple, a struct and a nested pattern. The default's supplier is built as a
 // plain parameter's is, and the pattern binds from whichever value arrives.
 func TestLambdaParamDefault_DestructuringPatternsRun(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Point {
     x: Int

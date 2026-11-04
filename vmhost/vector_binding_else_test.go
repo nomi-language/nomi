@@ -6,7 +6,7 @@ import "testing"
 // refutable: the checker admits the else, and the VM runs the else for a
 // vector the pattern does not match.
 func TestVectorPatternWithTailsBindingElse_Runs(t *testing.T) {
-	got := runOutput(t, `import std/io
+	got := runOutput(t, `import std::io
 
 fn ends_one_three(v: Vector<Int>) -> Bool {
     #[1, .., 3] = v else {

@@ -14,10 +14,10 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Prints a ledger of dated entries as a table, in American or Dutch style.
 
 import {
-    std/calendar.{Date, DateFields}
-    std/currency.Currency
-    std/locale.Locale
-    std/money.{CurrencySign, Money}
+    std::calendar.{Date, DateFields}
+    std::currency.Currency
+    std::locale.Locale
+    std::money.{CurrencySign, Money}
 }
 
 /// One line of the ledger: when, what for, and the change in cents, negative
@@ -114,8 +114,8 @@ fn format_change(change: Money, style: Style) -> String {
 
 // FILE: ledger_test.nomi
 import {
-    std/calendar.Date
-    std/currency.Currency
+    std::calendar.Date
+    std::currency.Currency
     ledger.{self, Entry, Style}
 }
 

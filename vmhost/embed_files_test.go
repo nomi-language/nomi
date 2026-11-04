@@ -136,9 +136,9 @@ func (l *loggedFiles) MakeTempDir() (string, error) {
 }
 
 const embedFilesSrc = `import {
-    std/fs
-    std/io.{self, File}
-    std/path
+    std::fs
+    std::io.{self, File}
+    std::path
 }
 
 fn main() -> Result<Unit, io.Error> {
@@ -207,8 +207,8 @@ func TestEmbedFiles_DiskFilesWrapped(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := `import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() -> Result<Unit, io.Error> {

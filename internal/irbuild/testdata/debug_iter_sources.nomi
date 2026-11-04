@@ -4,7 +4,7 @@
 // is a Nomi impl the renderer must be told about: a Range (std's generic
 // impl), a user `Iter` implementor, and collections of a declared struct. The
 // list of Ints and the pipeline are the controls that needed no impl.
-import std/io
+import std::io
 
 struct Point {
     x: Int

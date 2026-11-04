@@ -34,18 +34,18 @@ func TestRenderImports_Canonical(t *testing.T) {
 	}{
 		{
 			name: "single module",
-			src:  "import std/io\n",
-			want: "import std/io",
+			src:  "import std::io\n",
+			want: "import std::io",
 		},
 		{
 			name: "selective list alphabetized",
-			src:  "import std/calendar.{Days, Error}\n",
-			want: "import std/calendar.{Days, Error}",
+			src:  "import std::calendar.{Days, Error}\n",
+			want: "import std::calendar.{Days, Error}",
 		},
 		{
 			name: "self first",
-			src:  "import std/io\n",
-			want: "import std/io",
+			src:  "import std::io\n",
+			want: "import std::io",
 		},
 	}
 	for _, tc := range cases {
@@ -62,7 +62,7 @@ func TestRenderImports_Canonical(t *testing.T) {
 }
 
 func TestRenderImports_Idempotent(t *testing.T) {
-	src := "import std/results.{Result}\nimport std/io\nimport std/lists: List\n"
+	src := "import std::results.{Result}\nimport std::io\nimport std::lists: List\n"
 	first, err := RenderImports(importNodesFrom(t, src))
 	if err != nil {
 		t.Fatalf("RenderImports: %v", err)

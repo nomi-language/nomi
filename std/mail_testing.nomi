@@ -1,4 +1,4 @@
-//# Testing code that uses std/mail. `Memory` is a `Mailer` that keeps
+//# Testing code that uses std::mail. `Memory` is a `Mailer` that keeps
 //# what it sends in memory, so a test sends and asserts with no server:
 //#
 //# ```nomi
@@ -66,7 +66,7 @@ struct State {
 /// A `Mailer` that keeps every message it sends, shared by every copy of
 /// the value. It writes each message with `mail.render` first, so a
 /// message any mailer refuses is refused here too.
-//! import std/mail.{Address, Mailer, Message}
+//! import std::mail.{Address, Mailer, Message}
 //!
 //! memory = Memory.new()
 //!
@@ -146,7 +146,7 @@ fn peek(state: Channel<State>) -> State {
 /// A `Mailer` whose every send fails with `error`, for testing what a
 /// caller does when mail cannot go out. The default `error` is a
 /// `Network` one.
-//! import std/mail.{Address, Error, Mailer, Message}
+//! import std::mail.{Address, Error, Mailer, Message}
 //!
 //! failing = Failing{error: Error.Rejected{command: "RCPT TO", code: 550, reply: "no"}}
 //!
@@ -194,7 +194,7 @@ impl SmtpServer {
 /// no mail until a client authenticates with them. It refuses a recipient
 /// whose address starts with `reject`, with a 550. It serves one
 /// connection at a time.
-//! import std/mail.{self, Address, Credentials, Mailer, Message}
+//! import std::mail.{self, Address, Credentials, Mailer, Message}
 //!
 //! message = Message{
 //!     from: Address.new("a@example.com")?,
@@ -594,7 +594,7 @@ impl Display for Broken {
 /// non-ASCII message arriving as 7-bit CRLF text, a line starting with a
 /// dot arriving intact, text and HTML as multipart/alternative, extra
 /// headers in order, and an attachment.
-//! import std/mail
+//! import std::mail
 //!
 //! memory = fn -> {
 //!     m = Memory.new()

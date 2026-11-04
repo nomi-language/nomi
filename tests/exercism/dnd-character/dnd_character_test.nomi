@@ -1,5 +1,5 @@
 import {
-    std/random.{Generator, Seed}
+    std::random.{Generator, Seed}
     dnd_character
     dnd_character.Character
 }

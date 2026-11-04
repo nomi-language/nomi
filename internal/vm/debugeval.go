@@ -164,6 +164,7 @@ func (m *Machine) evalView(views *sync.Map, entry *ir.Module, rest []*ir.Module)
 	v.rowDebugs = cloneMap(m.rowDebugs)
 	v.equates = cloneMap(m.equates)
 	v.hashes = cloneMap(m.hashes)
+	v.unretainedImpls = cloneMap(m.unretainedImpls)
 	v.dispatch = make(map[*ir.Symbol]map[string]*ir.Symbol, len(m.dispatch))
 	for method, byType := range m.dispatch {
 		v.dispatch[method] = cloneMap(byType)

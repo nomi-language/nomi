@@ -648,8 +648,8 @@ func TestReferenceEditorShowsTheTestsOwnImports(t *testing.T) {
 	if collect == nil {
 		t.Fatalf("std/maybe reference has no Maybe.collect editor\n%s", page)
 	}
-	if !strings.HasPrefix(collect.Body, "import std/ranges.Range\n") {
-		t.Errorf("Maybe.collect editor does not open with `import std/ranges.Range`:\n%s", collect.Body)
+	if !strings.HasPrefix(collect.Body, "import std::ranges.Range\n") {
+		t.Errorf("Maybe.collect editor does not open with `import std::ranges.Range`:\n%s", collect.Body)
 	}
 	if strings.Contains(collect.Context, "ranges.Range") {
 		t.Errorf("the editor's hidden context repeats the import it shows: %q", collect.Context)
@@ -661,7 +661,7 @@ func TestReferenceEditorShowsTheTestsOwnImports(t *testing.T) {
 	for _, name := range names {
 		for _, tc := range referenceTestBodies(renderModuleWithLinks(lib, name, nil), name) {
 			for _, line := range strings.Split(tc.Body, "\n") {
-				if imp, ok := strings.CutPrefix(line, "import "); ok && !strings.HasPrefix(imp, "std/") {
+				if imp, ok := strings.CutPrefix(line, "import "); ok && !strings.HasPrefix(imp, "std::") {
 					t.Errorf("std/%s %s: an editor opens with a stdlib import a user program cannot write: %q", name, tc.Label, line)
 				}
 			}

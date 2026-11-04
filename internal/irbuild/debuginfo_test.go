@@ -12,7 +12,7 @@ import (
 // program: each function's variables with their types and scopes, and its
 // statement marks with their kinds and lines.
 
-const debugInfoSrc = `import std/io
+const debugInfoSrc = `import std::io
 
 fn describe(pair: #(Int, Int), limit: Int) -> String {
   #(a, b) = pair

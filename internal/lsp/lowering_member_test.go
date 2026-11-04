@@ -21,7 +21,7 @@ import (
 // duplicate impl, and a test reading an application field with no boot.
 var memberOrderProject = map[string]string{
 	"main.nomi": `import {
-    std/io
+    std::io
     shapes.{Shape, Circle}
     report
     settings.Settings
@@ -114,7 +114,7 @@ pub fn default_tag() -> String {
 var memberLibrary = map[string]string{
 	"nomi.toml": entryToml,
 	"main.nomi": `import {
-    std/io
+    std::io
     lib
 }
 
@@ -163,7 +163,7 @@ pub fn halves(xs: List<Int>) -> List<Int> {
 var memberForeignImpl = map[string]string{
 	"nomi.toml": entryToml,
 	"main.nomi": `import {
-    std/io
+    std::io
     shapes.{Circle, Shape}
 }
 

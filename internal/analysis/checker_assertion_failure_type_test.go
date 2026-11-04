@@ -60,8 +60,8 @@ func TestAssertionFailureType_IsTheCanonicalDeclaration(t *testing.T) {
 // 'bogus'`.
 func TestAssertionFailureType_IgnoresAShadowingDeclaration(t *testing.T) {
 	src := `import {
-  std/io
-  std/testing
+  std::io
+  std::testing
 }
 
 struct AssertionFailure {
@@ -101,8 +101,8 @@ fn main() -> Unit {
 // which is a different failure with no other cover.
 func TestAssertionFailureType_ResolvesWithoutAnImport(t *testing.T) {
 	src := `import {
-  std/io
-  std/testing
+  std::io
+  std::testing
 }
 
 fn main() -> Unit {

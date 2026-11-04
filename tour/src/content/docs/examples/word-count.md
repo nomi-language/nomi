@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: word_count.nomi
 //# Counts the words in a sentence.
 
-import std/regex.Regex
+import std::regex.Regex
 
 /// How many times each word occurs in `sentence`, lower-cased. A word is a
 /// run of letters and digits, and may hold an apostrophe between two of them,

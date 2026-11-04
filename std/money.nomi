@@ -1,5 +1,5 @@
 //# Money: an exact amount in a currency. A `Money` pairs a `Decimal`
-//# amount with a `Currency` (std/currency), so payment, invoicing and
+//# amount with a `Currency` (std::currency), so payment, invoicing and
 //# exchange-rate libraries share one type:
 //#
 //# ```nomi
@@ -212,7 +212,7 @@ impl Money {
     /// rate first, with `Float.to_decimal(rate, 4, RoundingMode.HalfEven)`.
     /// `RoundingMode.Unnecessary` traps when the product has more digits
     /// than the currency, as `Decimal.round` does.
-    //! import std/float.Float
+    //! import std::float.Float
     //!
     //! assert Money.multiply_by(Money`19.99 EUR`, 0.23d) == Money`4.60 EUR`
     //! assert Money.multiply_by(Money`0.25 EUR`, 0.5d) == Money`0.12 EUR`
@@ -368,7 +368,7 @@ impl Summable for Money {
     /// which `+` leaves the other amount alone for. So `Iter.sum` of a
     /// cart's prices is their total in their currency, and of an empty cart
     /// zero in no currency.
-    //! import std/iter.Iter
+    //! import std::iter.Iter
     //!
     //! prices = [Money`12.50 EUR`, Money`3 EUR`]
     //! assert Iter.sum(prices) == Money`15.50 EUR`

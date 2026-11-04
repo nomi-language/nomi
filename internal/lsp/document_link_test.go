@@ -24,15 +24,15 @@ func TestDocumentLinks(t *testing.T) {
 	write("models/users.nomi", "pub struct User {\n    name: String\n}\n")
 	write("game.nomi", "pub struct Game {\n    turn: Int\n}\n")
 	src := `import {
-    std/iter
-    std/maybe.Maybe.{None}
-    models/users
-    app/models/users.User
-    models/users.User.{self}
+    std::iter
+    std::maybe.Maybe.{None}
+    models::users
+    app::models::users.User
+    models::users.User.{self}
     game.Game
-    missing/thing
+    missing::thing
 }
-import std/io as console
+import std::io as console
 `
 	write("main.nomi", src)
 	uri := pathToURI(filepath.Join(dir, "main.nomi"))
@@ -60,13 +60,13 @@ import std/io as console
 		got = append(got, fmtRange(l.Range)+" "+target)
 	}
 	want := []string{
-		"1:4-1:12 std:iter.nomi",
-		"2:4-2:13 std:maybe.nomi",
-		"3:4-3:16 models/users.nomi",
-		"4:4-4:20 models/users.nomi",
-		"5:4-5:16 models/users.nomi",
+		"1:4-1:13 std:iter.nomi",
+		"2:4-2:14 std:maybe.nomi",
+		"3:4-3:17 models/users.nomi",
+		"4:4-4:22 models/users.nomi",
+		"5:4-5:17 models/users.nomi",
 		"6:4-6:8 game.nomi",
-		"9:7-9:13 std:io.nomi",
+		"9:7-9:14 std:io.nomi",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("links:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

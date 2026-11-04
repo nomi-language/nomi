@@ -14,7 +14,7 @@ import (
 func TestDeriveMissingImplIsPublishedOnTheFileWithTheDerive(t *testing.T) {
 	files := map[string]string{
 		"main.nomi": `import {
-    std/io
+    std::io
     child.Holder
 }
 

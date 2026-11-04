@@ -19,7 +19,7 @@ func TestIRLeftovers_ProgramsRunOnTheVM(t *testing.T) {
 		name, src, want string
 		retained        []string
 	}{
-		{"range count and known_count", `import std/io
+		{"range count and known_count", `import std::io
 
 fn count(n: Int) -> Int {
   Iter.count(1..=n)
@@ -52,7 +52,7 @@ fn main() {
 }
 `, "5\n0\nSome(4)\nSome(0)\nSome(0)\nSome(5)\nNone\nNone\nTrue\nTrue\n4\n",
 			[]string{"count", "known", "empty", "full", "main"}},
-		{"group_by builds a Map of Lists", `import std/io
+		{"group_by builds a Map of Lists", `import std::io
 
 fn by_parity(xs: List<Int>) -> Map<Int, List<Int>> {
   xs |> Iter.group_by(fn x -> x % 2)
@@ -74,7 +74,7 @@ fn main() {
 }
 `, "%{1 => [5, 3, 1], 0 => [2, 4, 6]}\nSome([5, 3, 1])\n2\n%{}\n%{\"2\" => [\"ab\", \"de\"], \"1\" => [\"c\"], \"3\" => [\"fgh\"]}\n%{False => [1, 2, 3], True => [4, 5, 6]}\n%{True => [10], False => [20, 30]}\n",
 			[]string{"by_parity", "by_initial", "main"}},
-		{"field sub-patterns inside a variant pattern", `import std/io
+		{"field sub-patterns inside a variant pattern", `import std::io
 
 enum Shape {
   Box {w: Int, h: Int}
@@ -138,7 +138,7 @@ fn main() {
 }
 `, "narrow box of height 5\nflat box of width 7\nother\ntriangle-ish 3\nnamed sq\nother\nnothing\n1\n12\n0\npoint o\nbig 5\ncircle 2\nblank\n",
 			[]string{"describe", "top", "drawn", "main"}},
-		{"nested variant patterns in if-patterns", `import std/io
+		{"nested variant patterns in if-patterns", `import std::io
 
 enum Req {
   Get(Int)

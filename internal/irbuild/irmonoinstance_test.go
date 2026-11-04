@@ -9,7 +9,7 @@ import (
 )
 
 func TestIRMonoInstance_DistinctDeclarations(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 fn instance_pair_sum<T>(pair: #(T, T)) -> T where T: Add<T, T> { pair.0 + pair.1 }
 fn main() {
   io.print(instance_pair_sum(#(1, 2)))

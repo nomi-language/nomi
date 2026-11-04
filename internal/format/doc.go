@@ -45,6 +45,9 @@ type docWithIndent struct {    // see WithIndent
 type docWithColumn struct { // see WithColumn
 	f func(col, indent, width int) Doc
 }
+type docAtLineIndent struct { // see AtLineIndent
+	f func(startsLine bool) Doc
+}
 type docLineSuffix struct { // see LineSuffix and CommentBefore
 	s      string
 	before bool
@@ -58,21 +61,22 @@ type docInString struct{ d Doc } // see InString
 // in a tail and is never rendered.
 type docBrokenTail struct{ d Doc }
 
-func (docNil) doc()         {}
-func (docText) doc()        {}
-func (docLine) doc()        {}
-func (docHard) doc()        {}
-func (docConcat) doc()      {}
-func (docNest) doc()        {}
-func (docGroup) doc()       {}
-func (docIfBroken) doc()    {}
-func (docLocalBroken) doc() {}
-func (docHidden) doc()      {}
-func (docWithIndent) doc()  {}
-func (docWithColumn) doc()  {}
-func (docLineSuffix) doc()  {}
-func (docInString) doc()    {}
-func (docBrokenTail) doc()  {}
+func (docNil) doc()          {}
+func (docText) doc()         {}
+func (docLine) doc()         {}
+func (docHard) doc()         {}
+func (docConcat) doc()       {}
+func (docNest) doc()         {}
+func (docGroup) doc()        {}
+func (docIfBroken) doc()     {}
+func (docLocalBroken) doc()  {}
+func (docHidden) doc()       {}
+func (docWithIndent) doc()   {}
+func (docWithColumn) doc()   {}
+func (docAtLineIndent) doc() {}
+func (docLineSuffix) doc()   {}
+func (docInString) doc()     {}
+func (docBrokenTail) doc()   {}
 
 // Nil is the empty document.
 func Nil() Doc { return docNil{} }
@@ -189,6 +193,14 @@ func WithIndent(f func(indent, width int) Doc) Doc { return docWithIndent{f: f} 
 // builds at column 0 with an unbounded width, so f must answer one whose
 // flat text is the same at every column.
 func WithColumn(f func(col, indent, width int) Doc) Doc { return docWithColumn{f: f} }
+
+// AtLineIndent builds a document from whether it starts its line (only
+// indentation precedes it) and renders it with the nest indent set to the
+// indentation of that line, whatever Nests enclose it. A multi-line
+// string's body takes its indent from the line its opening delimiter is on
+// this way. An ancestor fits check measures f(true); f must answer
+// documents whose flat text is the same either way.
+func AtLineIndent(f func(startsLine bool) Doc) Doc { return docAtLineIndent{f: f} }
 
 // LineSuffix is a line comment written at the end of the line it renders on,
 // just before the next line break, after whatever else the line holds. It is

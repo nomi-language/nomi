@@ -7,7 +7,7 @@ import "testing"
 // binding, an if condition, a case guard, reversed, under `and`, and with an
 // ordering operator.
 func TestRun_ComparisonOperandTakesTheOtherOperandsType(t *testing.T) {
-	out := runOutput(t, `import std/io
+	out := runOutput(t, `import std::io
 
 enum Kind {
     Deposit

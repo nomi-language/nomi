@@ -1,5 +1,5 @@
 //# Files and directories. Every function takes a path as a `String`
-//# (std/path works on them) and answers a `Result` whose error is
+//# (std::path works on them) and answers a `Result` whose error is
 //# `io.Error`, which names the path it is about: `NotFound`,
 //# `AlreadyExists`, `IsADirectory` and the rest. An empty path or one
 //# holding a NUL byte is `InvalidPath`, and every error names the path as
@@ -21,8 +21,8 @@
 //#
 //# ```nomi
 //# import {
-//#     std/fs
-//#     std/io
+//#     std::fs
+//#     std::io
 //# }
 //#
 //# fn main() -> Result<Unit, io.Error> {
@@ -51,7 +51,7 @@ import {
 }
 
 /// How a write treats what is already at its path.
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"log.txt" => "a\n"}}, fn -> {
 //!     _ = write_text("log.txt", "b\n", mode: WriteMode.Append)
@@ -129,7 +129,7 @@ fn mode_code(mode: WriteMode) -> Int {
 /// ```nomi
 /// data = fs.read("photo.png")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{binary: %{"b.bin" => String.to_bytes("ab")}}, fn -> read("b.bin"))
 //! assert ran.value == Ok(String.to_bytes("ab"))
@@ -150,7 +150,7 @@ pub fn read(path: String) -> Result<Bytes, Error> {
 ///     Err(e) -> io.eprint("cannot read the notes: ${e}")
 /// }
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"notes.txt" => "milk"}}, fn -> {
 //!     [read_text("notes.txt"), read_text("todo.txt")]
@@ -170,7 +170,7 @@ pub fn read_text(path: String) -> Result<String, Error> {
 /// ```nomi
 /// fs.write("out.bin", data)?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{}, fn -> {
 //!     [write("a.bin", String.to_bytes("a")), write("missing/b.bin", String.to_bytes("b"))]
@@ -192,7 +192,7 @@ pub fn write(
 /// ```nomi
 /// fs.write_text("log.txt", "started\n", mode: .Append)?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"out.txt" => "old"}}, fn -> {
 //!     write_text("out.txt", "new", mode: WriteMode.ReplaceAtomically)
@@ -219,7 +219,7 @@ pub fn write_text(
 /// ```nomi
 /// names = Result.collect(fs.lines("names.txt"))?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"in.txt" => "pear\r\napple"}}, fn -> {
 //!     each = lines("in.txt")
@@ -244,7 +244,7 @@ pub fn lines(path: String) -> Iter<Result<String, Error>> {
 /// ```nomi
 /// pieces = fs.chunks("big.bin", size: 4096) |> Iter.count()
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "abcde"}}, fn -> {
 //!     chunks("a.txt", size: 2) |> Result.collect()
@@ -305,7 +305,7 @@ impl Iter<Result<Bytes, Error>> for Chunks {
 ///
 /// defer Reader.close_quietly(r)
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "one\ntwo\n"}}, fn -> {
 //!     r = open("a.txt")?
@@ -328,7 +328,7 @@ pub fn open(path: String) -> Result<Reader, Error> {
 /// ```nomi
 /// w = fs.create("out.txt", mode: .New)?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{}, fn -> {
 //!     w = create("out.txt")?
@@ -349,7 +349,7 @@ pub fn create(path: String, mode: WriteMode = WriteMode.Replace) -> Result<Write
 /// ```nomi
 /// first = fs.with_reader("names.txt", fn r -> Reader.read_line(r))?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "x\n"}}, fn -> {
 //!     with_reader("a.txt", fn r -> Reader.read_all_text(r))
@@ -384,7 +384,7 @@ pub fn with_reader<T>(path: String, body: (Reader) -> Result<T, Error>) -> Resul
 ///     })
 /// }
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"out.txt" => "old"}}, fn -> {
 //!     with_writer<Unit>("out.txt", mode: WriteMode.ReplaceAtomically, fn w -> {
@@ -431,7 +431,7 @@ derive Equatable for Access
 ///
 /// defer File.close_quietly(f)
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{}, fn -> {
 //!     [
@@ -495,7 +495,7 @@ pub fn open_file(path: String, access: Access = Access.Read) -> Result<File, Err
 ///     fs.with_file(db, fn f -> File.write_at(f, 0, header), access: .ReadWrite)
 /// }
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"db" => "v1-data"}}, fn -> {
 //!     with_file("db", fn f -> File.write_at(f, 0, String.to_bytes("v2")), access: Access.ReadWrite)
@@ -517,7 +517,7 @@ pub fn with_file<T>(
     Ok(value)
 }
 
-/// Runs `body` with every std/fs call in it, and in the tasks it starts,
+/// Runs `body` with every std::fs call in it, and in the tasks it starts,
 /// confined to the directory `dir`. Inside, a relative path is under
 /// `dir`, an absolute path must be under it, `fs.current_dir()` answers it,
 /// and a path that leads outside it, by `..` or through a symlink, is
@@ -544,7 +544,7 @@ pub fn with_file<T>(
 ///     })
 /// }
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"secret.txt" => "s", "site/index.html" => "<p>"}}, fn -> {
 //!     within("site", fn -> Ok([read_text("index.html"), read_text("../secret.txt")]))
@@ -574,7 +574,7 @@ pub fn within<T>(dir: String, body: () -> Result<T, Error>) -> Result<T, Error> 
 /// ```nomi
 /// entries = fs.list("photos")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"d/b.txt" => "", "d/a.txt" => ""}, dirs: ["d/sub"]}, fn -> {
 //!     list("d")
@@ -648,7 +648,7 @@ fn decoded(dir: String, coded: String) -> Result<Entry, Error> {
 ///     |> Iter.filter(fn e -> Result.map(e, fn e -> e.kind == fs.Kind.File) == Ok(True))
 ///     |> Iter.count()
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{
 //!     files: %{"d/b.txt" => "", "d/a/x.txt" => ""},
@@ -732,7 +732,7 @@ fn walk_entries(
 /// ```nomi
 /// sources = fs.glob("src/**/*.nomi")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! files = %{
 //!     "src/main.nomi" => "",
@@ -839,7 +839,7 @@ fn walk_matches(w: Walk, base: String, pattern: String) -> Result<List<String>, 
 /// ```nomi
 /// fs.create_dir("out/2026", parents: True)?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{}, fn -> {
 //!     [create_dir("a/b"), create_dir("a/b", parents: True), create_dir("a")]
@@ -862,7 +862,7 @@ pub fn create_dir(path: String, parents: Bool = False) -> Result<Unit, Error> {
 /// ```nomi
 /// fs.remove("old.txt")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"d/x" => ""}}, fn -> {
 //!     [remove("d"), remove("d/x"), remove("d"), remove("d")]
@@ -885,7 +885,7 @@ pub fn remove(path: String) -> Result<Unit, Error> {
 /// ```nomi
 /// fs.remove_all("build")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"build/a/b.o" => "", "keep.txt" => ""}}, fn -> {
 //!     [remove_all("build"), remove_all("build")]
@@ -904,7 +904,7 @@ pub fn remove_all(path: String) -> Result<Unit, Error> {
 /// ```nomi
 /// fs.rename("draft.txt", "final.txt")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "a", "b.txt" => "b"}}, fn -> {
 //!     rename("a.txt", "b.txt")
@@ -923,7 +923,7 @@ pub fn rename(from: String, to: String) -> Result<Unit, Error> {
 /// ```nomi
 /// fs.copy("config.toml", "config.toml.bak")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "a"}}, fn -> copy("a.txt", "b.txt"))
 //! assert ran.value == Ok(Unit)
@@ -938,7 +938,7 @@ pub fn copy(from: String, to: String) -> Result<Unit, Error> {
 /// ```nomi
 /// size = (fs.metadata("big.bin")?).size
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "four"}}, fn -> {
 //!     m = metadata("a.txt")?
@@ -959,7 +959,7 @@ pub fn metadata(path: String) -> Result<Metadata, Error> {
 /// ```nomi
 /// is_link = (fs.link_metadata("current")?).kind == .Symlink
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "four"}, links: %{"b" => "a.txt"}}, fn -> {
 //!     followed = metadata("b")?
@@ -992,7 +992,7 @@ fn metadata_of(path: String, fields: List<Int>) -> Result<Metadata, Error> {
 /// ```nomi
 /// fs.create_symlink("current", target: "releases/2026-10")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"releases/v2/app" => "v2"}}, fn -> {
 //!     create_symlink("current", target: "releases/v2")?
@@ -1011,7 +1011,7 @@ pub fn create_symlink(path: String, target: String) -> Result<Unit, Error> {
 /// ```nomi
 /// release = fs.read_link("current")?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => ""}, links: %{"b" => "a.txt"}}, fn -> {
 //!     [read_link("b"), read_link("a.txt")]
@@ -1035,7 +1035,7 @@ pub fn read_link(path: String) -> Result<String, Error> {
 /// ```nomi
 /// fs.set_mode("deploy.sh", 0o755)?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"run.sh" => ""}}, fn -> {
 //!     set_mode("run.sh", 0o755)?
@@ -1063,7 +1063,7 @@ fn kind_at(position: Int) -> Kind {
 /// ```nomi
 /// if fs.exists("config.toml")? { ... }
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => ""}}, fn -> {
 //!     [exists("a.txt"), exists("b.txt"), exists(".")]
@@ -1088,7 +1088,7 @@ pub fn exists(path: String) -> Result<Bool, Error> {
 /// ```nomi
 /// fs.temp_dir() // "/tmp"
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! assert fs_testing.run(Sandbox{}, fn -> temp_dir()).value == "/tmp"
 //
@@ -1108,7 +1108,7 @@ pub fn temp_dir() -> String {
 /// ```nomi
 /// fs.with_temp_dir(fn dir -> fs.write_text(path.join(dir, "x.txt"), "x"))
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! ran = fs_testing.run(Sandbox{}, fn -> {
 //!     with_temp_dir(fn dir -> {
@@ -1139,7 +1139,7 @@ fn remove_quietly(dir: String) -> Unit {
 /// ```nomi
 /// here = fs.current_dir()?
 /// ```
-//! import std/fs_testing.{self, Sandbox}
+//! import std::fs_testing.{self, Sandbox}
 //!
 //! assert fs_testing.run(Sandbox{cwd: "/home/ada"}, fn -> current_dir()).value == Ok("/home/ada")
 //

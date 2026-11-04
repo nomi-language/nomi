@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: swift_scheduling.nomi
 //# The delivery date a description such as `NOW`, `EOW` or `2Q` stands for.
 
-import std/calendar.{Date, Days, Hours, Months, NaiveDateTime, Weekday}
+import std::calendar.{Date, Days, Hours, Months, NaiveDateTime, Weekday}
 
 /// A delivery date description: one of the three fixed words, or the N-th
 /// month or quarter.
@@ -166,7 +166,7 @@ fn at(day: Date, hour: Int) -> NaiveDateTime {
 
 // FILE: swift_scheduling_test.nomi
 import {
-    std/calendar.NaiveDateTime
+    std::calendar.NaiveDateTime
     swift_scheduling
 }
 

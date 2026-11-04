@@ -64,7 +64,7 @@ Write a first program in a directory of your own, outside the checkout. Save
 this as `~/hello-nomi/hello.nomi`:
 
 ```nomi
-import std/io
+import std::io
 
 fn main() {
     io.print("Hello, Nomi!")

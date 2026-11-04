@@ -2,10 +2,10 @@
 // migrations in the directory that the database has not run, and print each
 // one it ran. The URL defaults to $DATABASE_URL.
 import {
-    std/io
-    std/sql
+    std::io
+    std::sql
     migrate
-    migrate/tools/internal/cli.{self, Options}
+    migrate::tools::internal::cli.{self, Options}
 }
 
 struct App {

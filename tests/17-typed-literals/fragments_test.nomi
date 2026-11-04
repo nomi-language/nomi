@@ -1,4 +1,4 @@
-import std/literals.{Fragment, Literal}
+import std::literals.{Fragment, Literal}
 
 // A typed literal's fragments always alternate Static, Dynamic, ..., Static:
 // the first and last Static are there even when empty, and two slots side by

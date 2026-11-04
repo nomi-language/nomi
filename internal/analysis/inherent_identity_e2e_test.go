@@ -71,7 +71,7 @@ func duplicateTypeOwnedDiagnostics(fa *analysis.FileAnalysis) []string {
 // anchored on the user's line for a collision they could not see.
 func TestInherentIdentity_LocalTypeOwnedFnBesideAStdlibOne(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"main.nomi": `import std/calendar
+		"main.nomi": `import std::calendar
 
 struct Date {
   flavor: String
@@ -98,7 +98,7 @@ fn main() {
 // dispatch slot and are still rejected.
 func TestInherentIdentity_TwoFunctionsOnOneTypeStillRejected(t *testing.T) {
 	fa := buildInherentFixture(t, map[string]string{
-		"main.nomi": `import std/calendar
+		"main.nomi": `import std::calendar
 
 struct Date {
   flavor: String

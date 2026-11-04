@@ -2,7 +2,7 @@
 // generic function, struct and enum. Only this file names `Point`, so the
 // program is legal, and span.nomi builds each instance over it.
 import {
-    std/io
+    std::io
     span
 }
 

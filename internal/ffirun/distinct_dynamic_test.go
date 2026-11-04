@@ -87,9 +87,9 @@ func TestFFIRun_DistinctTypesRoundTrip(t *testing.T) {
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	entry := stageCrossingProject(t, distinctGo, `import {
-  std/io
-  std/duration.Duration
-  std/instant.Instant
+  std::io
+  std::duration.Duration
+  std::instant.Instant
 }
 
 gopkg "crossing" as crossing
@@ -243,9 +243,9 @@ func TestFFIRun_DynamicRoundTrip(t *testing.T) {
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	entry := stageCrossingProject(t, dynamicGo, `import {
-  std/io
-  std/json.Json
-  std/dynamic.Dynamic
+  std::io
+  std::json.Json
+  std::dynamic.Dynamic
 }
 
 gopkg "crossing" as crossing
@@ -347,7 +347,7 @@ type Handle struct {
 
 func New(n int64) *Handle   { return &Handle{inner: &box[int64]{v: n}} }
 func Get(h *Handle) int64   { return h.inner.v + h.counter.n }
-`, `import std/io
+`, `import std::io
 
 gopkg "crossing" as crossing
 
@@ -369,7 +369,7 @@ fn main() {
 func TestPrepareRefusesDistinctsAndDynamicThatDoNotCross(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	entry := stageCrossingProject(t, refusedGo, `import {
-  std/dynamic.Dynamic
+  std::dynamic.Dynamic
 }
 
 gopkg "crossing" as crossing

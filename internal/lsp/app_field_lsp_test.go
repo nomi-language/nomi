@@ -71,7 +71,7 @@ func wantDefinitionAt(t *testing.T, what string, loc protocol.Location, uri stri
 // read sits inside string interpolation. The field name is the field; the
 // type name is the type.
 func TestAppFieldHoverAndDefinition_InInterpolation(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 /// The running application.
 struct App {
@@ -117,7 +117,7 @@ fn main() {
 // read. Renaming the field edits every read and the target; renaming the type
 // edits the owner of each.
 func TestAppFieldHoverAndDefinition_WithTargetAndCallArgument(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct Logger {
   prefix: String

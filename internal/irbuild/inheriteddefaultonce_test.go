@@ -21,7 +21,7 @@ pub interface Powered {
 }
 `
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     lib.Powered
 }
 

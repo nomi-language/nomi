@@ -1,11 +1,11 @@
 import {
-    std/channels.{Channel, Receiver, TimedOut}
-    std/duration.Duration
-    std/instant.Instant
-    std/jobs.{self, Failure, Job, Queue, Settle}
-    std/jobs_testing.{self, Opened}
-    std/sql.{self, Conn, Row, Sql}
-    std/tasks.Task
+    std::channels.{Channel, Receiver, TimedOut}
+    std::duration.Duration
+    std::instant.Instant
+    std::jobs.{self, Failure, Job, Queue, Settle}
+    std::jobs_testing.{self, Opened}
+    std::sql.{self, Conn, Row, Sql}
+    std::tasks.Task
     pgjobs
     postgres.{self, Listener, Notification}
 }

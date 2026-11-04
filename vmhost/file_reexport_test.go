@@ -47,7 +47,7 @@ func TestFileReExport_ItemFacadeRuns(t *testing.T) {
 		"facade.nomi": "pub import {\n    leaf.{Box, make_box, open_box}\n}\n",
 		"leaf.nomi":   reexportLeaf,
 		"main.nomi": `import {
-    std/io
+    std::io
     facade.{Box, make_box, open_box as open}
 }
 

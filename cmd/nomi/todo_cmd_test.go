@@ -22,7 +22,7 @@ func TestBuildCommand_RefusesTodos(t *testing.T) {
 	}
 	entry := filepath.Join(dir, "main.nomi")
 	mustWrite(t, entry, `import {
-    std/io
+    std::io
     header
 }
 
@@ -76,7 +76,7 @@ func TestRunCommand_ReachingATodoReportsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, "import std/io\n\nfn main() {\n    io.print(\"start\")\n    todo \"finish main\"\n}\n")
+	mustWrite(t, entry, "import std::io\n\nfn main() {\n    io.print(\"start\")\n    todo \"finish main\"\n}\n")
 	r := runProcess(t, env, dir, "", nomiBin, "run", entry)
 	if r.exit == 0 || r.stdout != "start\n" || r.stderr != "todo reached at main.nomi:5: finish main\n" {
 		t.Fatalf("exit %d\n%s", r.exit, r.transcript())

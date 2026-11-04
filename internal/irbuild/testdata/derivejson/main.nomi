@@ -38,8 +38,8 @@
 // decode returned the wrong variant, or if `==` answered structurally where an
 // impl should have run.
 import {
-    std/io
-    std/json.{FromJson, Json, ToJson}
+    std::io
+    std::json.{FromJson, Json, ToJson}
     models.{self, Away}
 }
 

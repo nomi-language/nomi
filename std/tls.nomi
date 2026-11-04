@@ -1,7 +1,7 @@
 //# TLS: the certificates a side presents, the roots
 //# it trusts, and the versions, cipher suites and protocols it allows. A
-//# `ClientConfig` or `ServerConfig` is a value, used by std/http
-//# (`ClientOptions.tls`, `Server.tls`) and std/net (`tls.dial`,
+//# `ClientConfig` or `ServerConfig` is a value, used by std::http
+//# (`ClientOptions.tls`, `Server.tls`) and std::net (`tls.dial`,
 //# `tls.listen`, `tls.client`, `tls.server`).
 //#
 //# ```nomi
@@ -433,8 +433,8 @@ fn verify_hook(verify: Maybe<(ConnectionState) -> Result<Unit, String>>) -> (
 }
 
 impl ClientConfig {
-    /// The configuration Go builds for this config, for std/http and
-    /// std/net.
+    /// The configuration Go builds for this config, for std::http and
+    /// std::net.
     pub fn host(config: ClientConfig) -> Result<http_host.TlsConfig, Error> {
         made =
             http_host.tls_config(
@@ -475,8 +475,8 @@ impl ClientConfig {
 }
 
 impl ServerConfig {
-    /// The configuration Go builds for this config, for std/http and
-    /// std/net.
+    /// The configuration Go builds for this config, for std::http and
+    /// std::net.
     pub fn host(config: ServerConfig) -> Result<http_host.TlsConfig, Error> {
         made =
             http_host.tls_config(

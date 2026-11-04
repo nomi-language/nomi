@@ -1,5 +1,5 @@
 import {
-    std/instant.Instant
+    std::instant.Instant
     commands.{self, Command}
     store.Store
     system.Clock

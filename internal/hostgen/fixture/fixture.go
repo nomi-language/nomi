@@ -24,8 +24,8 @@ import (
 )
 
 // Source is the Nomi module the bindings implement, loaded as module `ffx`.
-const Source = `import std/duration.{Duration}
-import std/instant.{Instant}
+const Source = `import std::duration.{Duration}
+import std::instant.{Instant}
 
 pub struct Point {
   x: Int

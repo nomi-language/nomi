@@ -1,5 +1,5 @@
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 
@@ -7,8 +7,8 @@ test "unused imports report the unused item" {
     diagnostics = compiler.check(
         """
         import {
-          std/io
-          std/lists: List
+          std::io
+          std::lists: List
         }
 
         fn main() {

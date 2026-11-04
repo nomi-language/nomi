@@ -259,7 +259,7 @@ func llmsFull(plainCheat, spec, style string) string {
 func plainStdlib(lib *std.StdLib) string {
 	var b strings.Builder
 	b.WriteString("# Standard library\n\n")
-	b.WriteString("Every module's public API, from its doc comments. A module is imported as `import std/<module>`.\n\n")
+	b.WriteString("Every module's public API, from its doc comments. A module is imported as `import std::<module>`.\n\n")
 	for _, name := range referenceCandidates(lib) {
 		b.WriteString(plainModule(lib, name))
 	}
@@ -276,7 +276,7 @@ func plainModule(lib *std.StdLib, name string) string {
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "## std/%s\n\n", name)
+	fmt.Fprintf(&b, "## std::%s\n\n", name)
 	if doc := strings.TrimSpace(moduleDoc(name)); doc != "" {
 		b.WriteString(demoteHeadings(doc, 2))
 		b.WriteString("\n\n")

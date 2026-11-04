@@ -4,7 +4,7 @@
 // interface function, and another file's plain function through a `self`
 // import.
 import {
-    std/io
+    std::io
     shapes.{self, Square}
 }
 

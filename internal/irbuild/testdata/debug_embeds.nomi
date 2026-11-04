@@ -67,7 +67,7 @@
 // is the four surfaces over one value, including a `case` arm materializing
 // the singleton out of a tag, and not `embeds` delegation, which is this
 // file's subject.
-import std/io
+import std::io
 
 opaque type Meters Int
 

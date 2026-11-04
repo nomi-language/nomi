@@ -1510,7 +1510,7 @@ func (g *gen) projectStdEnum(ty *analysis.EnumType) (kind, bool) {
 //
 // `variant` is the LOCAL spelling — how the programmer wrote it here — and the
 // declaration's own name for it comes back from variantRefAt. The two differ
-// for `import std/json.Json.{String as JStr}`: comparing the canonical name
+// for `import std::json.Json.{String as JStr}`: comparing the canonical name
 // against the local spelling after following the resolution would be
 // vacuously right without an alias and wrong with one. See variantalias.go
 // for the symbol shapes.
@@ -1556,7 +1556,7 @@ func (g *gen) stdEnumVariantAt(variant string, line, col int) (*typeDef, *varian
 // whole surface for a type a program writes down — `m: RoundingMode` needs
 // `RoundingMode` imported — and it is NOT the surface for a variant:
 //
-//	import std/decimal.RoundingMode.{Floor, HalfEven, Up}
+//	import std::decimal.RoundingMode.{Floor, HalfEven, Up}
 //
 // binds three variants and does not bind `RoundingMode`, so with a name lookup
 // alone every bare `HalfEven` would refuse `type reference` while the type has

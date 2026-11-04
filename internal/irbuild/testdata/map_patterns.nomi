@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // Map patterns in `case`, in all three spellings, plus the four rules that are
 // each a wrong answer if missed.

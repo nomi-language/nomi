@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // `Debug.inspect` over a CONTAINER, with the two element kinds whose leaves come
 // from different places: a scalar (std's own `Debug.inspect` at that receiver)

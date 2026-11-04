@@ -16,7 +16,7 @@
 //
 // both running entirely client-side — the engine behind an interactive language
 // tour (no server). The stdlib is //go:embed'd into the binary, so
-// `import std/io` and friends work in the browser with no filesystem.
+// `import std::io` and friends work in the browser with no filesystem.
 //
 //	GOWORK=$PWD/internal/tourgo/tour.work GOOS=js GOARCH=wasm go build -o nomi.wasm ./cmd/nomi-wasm
 //

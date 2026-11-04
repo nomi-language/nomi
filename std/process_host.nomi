@@ -1,7 +1,7 @@
-//# The Go-backed half of std/process and std/process_testing: each
+//# The Go-backed half of std::process and std::process_testing: each
 //# crossing that starts a program, reads and writes its streams and waits
 //# for it (internal/stdprocess). It is internal; a program imports
-//# std/process, which builds its values from these and gives them their
+//# std::process, which builds its values from these and gives them their
 //# documentation.
 
 import {
@@ -99,7 +99,7 @@ pub host fn fake_env(fake: Fake, i: Int) -> Map<String, String>
 /// What the call at position `i` was given on its standard input.
 pub host fn fake_input(fake: Fake, i: Int) -> Bytes
 
-/// Runs `body` with `fake` answering every std/process call in it, its
+/// Runs `body` with `fake` answering every std::process call in it, its
 /// tasks' included, and answers what it returned.
 pub fn run_in<T>(fake: Fake, body: () -> T) -> T {
     run_on(fake, body, fn value -> value)

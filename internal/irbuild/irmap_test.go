@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRMap_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn add(m: Map<String, Int>) -> Map<String, Int> { Map.put(m, "c", 3) }
 fn main() {
   a = "a"
@@ -26,7 +26,7 @@ fn main() {
 }
 
 func TestIRMap_EvaluationOrder(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn key(s: String) -> String { io.print(s) s }
 fn val(n: Int) -> Int { io.print(n) n }
 fn mark(m: Map<String, Int>) -> Map<String, Int> { io.print("map") m }
@@ -40,7 +40,7 @@ fn main() {
 }
 
 func TestIRMap_FloatAndBoolKeys(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   nan = 0.0 / 0.0
   m = %{nan => "first", 0.0 / 0.0 => "last", -0.0 => "zero"}
@@ -56,7 +56,7 @@ fn main() {
 }
 
 func TestIRMap_MultilineAndPipelines(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn key(s: String) -> String { io.print(s) s }
 fn val(n: Int) -> Int { io.print(n) n }
 fn pick(b: Bool, a: Map<String, Int>, c: Map<String, Int>) -> Map<String, Int> {
@@ -80,7 +80,7 @@ fn main() {
 // A struct field holding a Map of function values is a value like any
 // other: it is defaulted, built from a literal of lambdas and rendered.
 func TestIRMap_FunctionValuedFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Point { x: Int }
 struct Outer {
   p: List<Point>

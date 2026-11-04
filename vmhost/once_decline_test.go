@@ -32,7 +32,7 @@ func TestUnsupported_NamesTheOnceItsReaderDeclinedFor(t *testing.T) {
 			// The once has a type the builder represents, and its
 			// initializer declines: the reader lowers and is withdrawn.
 			name: "initializer declines",
-			src: `import std/io
+			src: `import std::io
 
 fn planted_decline(a: Int) -> Int {
     a

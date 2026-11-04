@@ -1,7 +1,7 @@
 // An orphan impl: `Display` is declared in std and `Pad` in the orphan_dep
 // module, so neither side belongs to this module and the impl is rejected.
 // expect type-error: orphan impl: `Display`
-import orphan_dep/pad.Pad
+import orphan_dep::pad.Pad
 
 impl Display for Pad {
     fn to_string(p: Pad) -> String {

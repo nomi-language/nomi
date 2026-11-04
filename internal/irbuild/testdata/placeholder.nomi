@@ -3,7 +3,7 @@
 //
 // Every `noisy` print is a row about EVALUATION ORDER or COUNT, which is the
 // half a value-only fixture cannot see.
-import std/io
+import std::io
 
 fn noisy(label: String, v: Int) -> Int {
     io.print("  eval ${label}")

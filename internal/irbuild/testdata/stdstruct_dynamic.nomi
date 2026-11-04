@@ -45,9 +45,9 @@
 // `derive Display for PathSegment` is the same question one level down, and
 // `seg_display` asks it of the enum.
 import {
-    std/dynamic
-    std/dynamic.PathSegment
-    std/io
+    std::dynamic
+    std::dynamic.PathSegment
+    std::io
 }
 
 // seg renders a segment through a `case`, so both payload positions are read.

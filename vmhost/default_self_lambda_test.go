@@ -153,7 +153,7 @@ const defaultSelfLambdaWant = "C,C\nF,F\n3\n3\n%sCCC\nFFF\nC2\nF2\n" +
 
 func TestDefaultSelfLambda_Runs(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{
-		"main.nomi": "import std/io\n\n" + fmt.Sprintf(defaultSelfLambdaIface, defaultSelfLambdaPrinted) + "\n" +
+		"main.nomi": "import std::io\n\n" + fmt.Sprintf(defaultSelfLambdaIface, defaultSelfLambdaPrinted) + "\n" +
 			fmt.Sprintf(defaultSelfLambdaImpls, "    Celsius.printed(c)\n    Fahrenheit.printed(f)\n"),
 	})
 	want := fmt.Sprintf(defaultSelfLambdaWant, "each C\neach C\neach F\neach F\n")
@@ -167,7 +167,7 @@ func TestDefaultSelfLambda_Runs(t *testing.T) {
 func TestDefaultSelfLambda_InterfaceInASiblingFile(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{
 		"temps.nomi": "pub " + fmt.Sprintf(defaultSelfLambdaIface, ""),
-		"main.nomi":  "import {\n    std/io\n    temps.{Temperature}\n}\n\n" + fmt.Sprintf(defaultSelfLambdaImpls, ""),
+		"main.nomi":  "import {\n    std::io\n    temps.{Temperature}\n}\n\n" + fmt.Sprintf(defaultSelfLambdaImpls, ""),
 	})
 	want := fmt.Sprintf(defaultSelfLambdaWant, "")
 	if got != want {
@@ -180,7 +180,7 @@ func TestDefaultSelfLambda_InterfaceInASiblingFile(t *testing.T) {
 // own implementor, while the `self` values beside it are the implementor
 // the default is lowered for.
 func TestDefaultSelfLambda_InterfaceValueStaysExistential(t *testing.T) {
-	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std/io
+	got := runSiblingProgram(t, map[string]string{"main.nomi": `import std::io
 
 interface Temperature {
     fn unit(t: self) -> String

@@ -8,7 +8,7 @@ import "testing"
 // nothing about a value that is not returned. In a function returning
 // `Result<Int, String>`, the `Err` here is a `Result<#(String, Bool), String>`.
 func TestReturnInfer_AnArgumentTakesItsCallsType(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn ok<T>(x: T) -> Result<T, String> {
     Ok(x)

@@ -1,7 +1,7 @@
 import {
-    std/calendar.Date
-    std/message.Noun
-    std/money.Money
+    std::calendar.Date
+    std::message.Noun
+    std::money.Money
 }
 
 /// A book, one of the shop's product categories.

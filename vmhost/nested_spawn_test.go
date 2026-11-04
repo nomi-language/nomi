@@ -16,8 +16,8 @@ import (
 // A helper called from a task body spawns, and the task awaits what it spawned.
 func TestNestedSpawn_AwaitedByTheTaskThatSpawnedIt(t *testing.T) {
 	src := `
-import std/tasks.Task
-import std/io
+import std::tasks.Task
+import std::io
 
 fn square(n: Int) -> Int {
   n * n
@@ -51,10 +51,10 @@ fn main() -> Unit {
 // block and the run does not hang on its five-minute sleep.
 func TestNestedSpawn_UnawaitedIsCancelledAndWaitedForAtBlockExit(t *testing.T) {
 	src := `
-import std/tasks.Task
-import std/duration.Duration
-import std/io
-import std/timer
+import std::tasks.Task
+import std::duration.Duration
+import std::io
+import std::timer
 
 fn background() -> Int {
   timer.sleep(Duration.minutes(5))
@@ -87,10 +87,10 @@ fn main() -> Unit {
 // block, and the block's other tasks are cancelled.
 func TestNestedSpawn_FailurePropagatesToTheBlock(t *testing.T) {
 	src := `
-import std/tasks.Task
-import std/duration.Duration
-import std/io
-import std/timer
+import std::tasks.Task
+import std::duration.Duration
+import std::io
+import std::timer
 
 fn fast_fail() -> Result<Int, String> {
   Err("boom")
@@ -127,7 +127,7 @@ fn main() -> Unit {
 // task fails the program with the trap's text.
 func TestNestedSpawn_TrapFailsTheAwaiter(t *testing.T) {
 	src := `
-import std/tasks.Task
+import std::tasks.Task
 
 fn divide(n: Int) -> Int {
   100 / n
@@ -161,10 +161,10 @@ fn main() -> Unit {
 // block, is cancelled and waited for when the block exits.
 func TestNestedSpawn_CancellingTheParent(t *testing.T) {
 	src := `
-import std/tasks.Task
-import std/duration.Duration
-import std/io
-import std/timer
+import std::tasks.Task
+import std::duration.Duration
+import std::io
+import std::timer
 
 fn slow() -> Int {
   timer.sleep(Duration.minutes(5))

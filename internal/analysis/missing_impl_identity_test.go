@@ -79,7 +79,7 @@ func hasMissingImpl(msgs []string, iface, typeName string) bool {
 // a regression whichever direction it moves in, so neither is written as
 // "expect no error".
 func TestMissingImpl_TheOnlyVariableIsTheTypesName(t *testing.T) {
-	const tmpl = `import { std/io }
+	const tmpl = `import { std::io }
 
 pub enum %[1]s {
   Bad String
@@ -106,7 +106,7 @@ fn main() {
 // std/calendar also declares an `Error` would turn a correct program into an
 // error, which is strictly worse than the bug being fixed.
 func TestMissingImpl_AnEntryImplIsNotMistakenForAnotherModules(t *testing.T) {
-	const src = `import { std/io }
+	const src = `import { std::io }
 
 pub enum Error {
   Bad String
@@ -138,8 +138,8 @@ fn main() {
 // the user's position and nothing in std.
 func TestMissingImpl_StdlibsOwnDemandsAreNotBlamedOnTheUser(t *testing.T) {
 	const src = `import {
-  std/io
-  std/calendar.{DateTime}
+  std::io
+  std::calendar.{DateTime}
 }
 
 pub enum Error {
@@ -359,7 +359,7 @@ func implIdentityProjectErrs(t *testing.T, src string, files map[string]string) 
 // the other.
 func TestMissingImpl_AQualifiedReceiverIsTheOtherFilesType(t *testing.T) {
 	users := map[string]string{"users.nomi": "pub struct User {\n  name: String\n}\n"}
-	const both = `import { std/io  users }
+	const both = `import { std::io  users }
 
 interface Html {
   fn to_html(value: self) -> String
@@ -389,7 +389,7 @@ fn main() {
 	// Only the entry's User has the impl: the missing one names the other
 	// file's type by its module, since a bare `User` would name the type
 	// that has it.
-	const one = `import { std/io  users }
+	const one = `import { std::io  users }
 
 interface Html {
   fn to_html(value: self) -> String

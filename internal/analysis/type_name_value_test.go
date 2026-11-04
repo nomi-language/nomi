@@ -275,7 +275,7 @@ func TestTypeName_PipedIntoAStructIsTheCallForm(t *testing.T) {
 		{"", `1 |> Point()`, "Point expects an anonymous struct literal #{...} matching its fields, got Int"},
 		{"", `#{x: 1} |> Point(2)`, "Point takes the piped record as its only argument, got 1 more"},
 		{"", `#{y: 1} |> Point()`, "Point has no field 'y'"},
-		{"import std/instant.Instant\n\n", `1 |> Instant()`, "constructor of opaque type 'Instant' is private to its defining module"},
+		{"import std::instant.Instant\n\n", `1 |> Instant()`, "constructor of opaque type 'Instant' is private to its defining module"},
 	} {
 		src := tc.imports + typeNameDecls + "fn main() {\n  _ = " + tc.expr + "\n}\n"
 		_, errs := checkSourceWithStdlib(src)

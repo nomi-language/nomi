@@ -17,9 +17,9 @@
 // that never failed would pass a fixture that only checked Ok. The Err rows also
 // print `expected`/`got`, which is where the vocabulary is observable.
 import {
-    std/dynamic.{self, Dynamic}
-    std/io
-    std/json.Json
+    std::dynamic.{self, Dynamic}
+    std::io
+    std::json.Json
 }
 
 fn describe(label: String, r: Result<String, dynamic.Error>) -> String {

@@ -9,8 +9,8 @@ import "testing"
 // front end rejects the program.
 func TestImportAlias_StdEnumAsAFieldType(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/currency.{Currency, Error as CurrencyError}
-  std/io
+  std::currency.{Currency, Error as CurrencyError}
+  std::io
 }
 enum Error { Mine }
 derive Display for Error
@@ -53,10 +53,10 @@ fn main() {
 // a generic std struct at a type argument.
 func TestImportAlias_StdOpaqueEnumAndGenericFields(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/comparable.{Ordering as Order}
-  std/duration.{Duration as Span}
-  std/io
-  std/sets.{Set as Bag}
+  std::comparable.{Ordering as Order}
+  std::duration.{Duration as Span}
+  std::io
+  std::sets.{Set as Bag}
 }
 struct Holder {
   span: Span
@@ -93,7 +93,7 @@ fn main() {
 func TestImportAlias_UserTypesFromAnotherFile(t *testing.T) {
 	verifyLambdaProgram(t, `import {
   shapes.{Box as Crate, Point as P, Shade as Tone}
-  std/io
+  std::io
 }
 enum Problem {
   At {spot: P}

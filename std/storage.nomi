@@ -26,7 +26,7 @@
 //# }
 //# ```
 //#
-//# std/storage_testing has `Memory`, a store kept in memory for tests,
+//# std::storage_testing has `Memory`, a store kept in memory for tests,
 //# `Failing`, a store whose every call fails, and `conformance`, the suite
 //# every backend passes.
 //#
@@ -35,21 +35,28 @@
 //# Every backend enforces one key grammar (`storage.check_key`), so a key
 //# that works on the local store works on S3:
 //#
-//# - 1 to 1,024 bytes, in segments separated by `/`, none of them empty;
+//# - 1 to 1,024 bytes of UTF-8, in segments separated by `/`, none of
+//#   them empty;
 //# - each segment at most 255 bytes, and none starting with `.`;
-//# - only ASCII letters, digits, `-`, `_`, `.` and `~`.
+//# - no control character and no `\`.
 //#
-//# So `../etc/passwd` and `/abs` are refused before any backend builds a
-//# path or a URL from them. Objects move whole, as `Bytes`; there is no
-//# listing, streaming or multipart upload.
+//# Anything else is allowed: spaces, punctuation such as `(`, `!`, `%`,
+//# `#` and `?`, and letters of any script, so a store can address the
+//# objects a bucket already holds. `../etc/passwd`, `/abs` and `a\b` are
+//# refused before any backend builds a path or a URL from them.
+//#
+//# Objects move whole, as `Bytes`; there is no listing, streaming or
+//# multipart upload.
 
 import {
     bool.Bool.{self, False, True}
     bytes.Bytes
+    code_points.Codepoint
     debug.Debug
     display.Display
     equatable.Equatable
     fs.{self, Kind, WriteMode}
+    hex
     http.{self, Headers, Request, Response, Status}
     instant.Instant
     int.Int
@@ -60,7 +67,7 @@ import {
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
-    url.Url
+    url.{self, Url}
 }
 
 /// Why a store call failed.
@@ -135,7 +142,7 @@ derive Debug for Object
 /// A place objects live, each under a key. `storage.local`, `lib/storage/s3`
 /// and `storage_testing.Memory` implement it.
 ///
-/// Every backend follows these rules, and std/storage_testing's
+/// Every backend follows these rules, and std::storage_testing's
 /// `conformance` suite checks each:
 ///
 /// - Every function checks its key with `check_key` first, and answers its
@@ -148,7 +155,7 @@ derive Debug for Object
 /// - `get` of a missing key is `Err(.NotFound)`; `info` of one is
 ///   `Ok(None)`; `delete` of one is `Ok`.
 /// - `url` does no I/O. It answers a URL whether or not the object exists.
-//! import std/storage_testing.Memory
+//! import std::storage_testing.Memory
 //!
 //! store: Store = Memory.new()
 //! assert Store.put(store, "notes/a.txt", String.to_bytes("hi"), "text/plain") == Ok(Unit)
@@ -177,10 +184,13 @@ pub interface Store {
 }
 
 /// `Ok` when `key` is a valid key, else `Err(.InvalidKey)` saying why. A
-/// key is 1 to 1,024 bytes of segments separated by `/`; each segment is 1
-/// to 255 bytes of ASCII letters, digits, `-`, `_`, `.` and `~`, and does
-/// not start with `.`.
+/// key is 1 to 1,024 bytes of segments separated by `/`. Each segment is 1
+/// to 255 bytes, does not start with `.`, and holds no control character
+/// (U+0000 to U+001F, U+007F to U+009F) and no `\`. Any other character
+/// is allowed, as S3 allows it.
 //! assert check_key("posts/2024-05-01/a_1.jpg") == Ok(Unit)
+//! assert check_key("posts/Noah_-_3010(1).jpg") == Ok(Unit)
+//! assert check_key("100% café/a b#1?.txt") == Ok(Unit)
 //!
 //! assert check_key("../etc/passwd") == Err(Error.InvalidKey{
 //!         key: "../etc/passwd",
@@ -188,24 +198,29 @@ pub interface Store {
 //!     })
 //!
 //! assert check_key("a//b") is Err(.InvalidKey{})
-//! assert check_key("a b") is Err(.InvalidKey{})
+//! assert check_key("a\\b") is Err(.InvalidKey{})
+//! assert check_key("a\nb") is Err(.InvalidKey{})
 //! assert check_key("") is Err(.InvalidKey{})
 //
 pub fn check_key(key: String) -> Result<Unit, Error> {
     bad = fn reason: String -> Err(Error.InvalidKey{key, reason})
     if key == "" { return bad("it is empty") }
-    size = Bytes.length(String.to_bytes(key))
+    size = byte_length(key)
     if size > 1024 { return bad("it is ${size} bytes, over 1024") }
 
-    if Some(c) = Iter.find(key, fn c -> not String.contains(key_characters(), c)) {
-        return bad("it holds \"${c}\", which is not an ASCII letter, a digit, -, _, . or ~")
+    if Some(c) = Iter.find(String.to_codepoints(key), is_control) {
+        return bad("it holds the control character ${String.to_literal("${c}")}")
+    }
+
+    if String.contains(key, "\\") {
+        return bad("it holds \\, which a file system may read as a separator")
     }
 
     segments = String.split(key, "/")
     if Iter.any(segments, fn s -> s == "") { return bad("it has an empty segment") }
 
-    if Some(long) = Iter.find(segments, fn s -> String.length(s) > 255) {
-        return bad("a segment is ${String.length(long)} bytes, over 255")
+    if Some(long) = Iter.find(segments, fn s -> byte_length(s) > 255) {
+        return bad("a segment is ${byte_length(long)} bytes, over 255")
     }
 
     if Some(dotted) = Iter.find(segments, fn s -> String.starts_with(s, ".")) {
@@ -215,8 +230,26 @@ pub fn check_key(key: String) -> Result<Unit, Error> {
     Ok(Unit)
 }
 
-fn key_characters() -> String {
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/"
+fn byte_length(text: String) -> Int {
+    Bytes.length(String.to_bytes(text))
+}
+
+// C0 controls, DEL and C1 controls.
+fn is_control(c: Codepoint) -> Bool {
+    n = Codepoint.to_int(c)
+    n < 0x20 or n >= 0x7f and n <= 0x9f
+}
+
+/// `base` with the segments of `key` joined to its path, each escaped, so
+/// that a `%`, `?` or `#` in a key stays part of the path. A backend's
+/// `url` answers it for its public base. `key` is not checked.
+//! u = join_key(Url`https://cdn.example.com/files/`, "a b/50%(1)#2.jpg")
+//! assert u.path == "/files/a b/50%(1)#2.jpg"
+//! assert "${u}" == "https://cdn.example.com/files/a%20b/50%25%281%29%232.jpg"
+//
+pub fn join_key(base: Url, key: String) -> Url {
+    segments = String.split(key, "/") |> Iter.map(url.escape_path_segment) |> Iter.to_list()
+    Url.join_path(base, segments)
 }
 
 /// `Ok` when `content_type` can be stored: 1 to 255 characters of
@@ -247,6 +280,15 @@ pub fn check_content_type(content_type: String) -> Result<Unit, Error> {
 /// `<root>/.nomi-storage/types/<key>`, which no key can name. `root` is
 /// created on the first `put`.
 ///
+/// A few characters of a key are written on disk as `%` and two
+/// hexadecimal digits, because some file system cannot hold them in a
+/// name: `%` itself, `<`, `>`, `:`, `"`, `|`, `?` and `*`; a `.` or space
+/// that ends a segment, which Windows drops; and the first letter of a
+/// segment Windows keeps for a device (`CON`, `nul.txt`, `COM1`). So the
+/// key `a:b.txt` is the file `a%3Ab.txt`, and a file copied in by hand is
+/// found under the key its name spells only when its name holds none of
+/// these.
+///
 /// `public_base` is where the app serves the directory, as
 /// `Some(Url`/files/`)` with a route to `storage.handler`; `url` joins the
 /// key to it. With `None`, `url` answers `Err(.NoPublicUrl)`.
@@ -266,11 +308,13 @@ pub fn check_content_type(content_type: String) -> Result<Unit, Error> {
 ///   other's type. Keys that never collide, as ones built from a timestamp
 ///   or a UUID, are safe.
 /// - On a case-insensitive file system, as macOS and Windows have by
-///   default, keys that differ only in case name one file.
+///   default, keys that differ only in case name one file, and on macOS
+///   keys that differ only in Unicode normalization (`é` as one code
+///   point or two) do too.
 ///
-/// The calls go through std/fs, so `fs_testing.run` sandboxes the store in
+/// The calls go through std::fs, so `fs_testing.run` sandboxes the store in
 /// tests, and `fs.within` applies.
-//! import std/fs_testing
+//! import std::fs_testing
 //!
 //! ran = fs_testing.run(fs_testing.Sandbox{}, fn -> {
 //!     store = local("files", public_base: Some(Url`/files/`))
@@ -293,11 +337,11 @@ struct Local {
 
 impl Local {
     fn object_path(local: Local, key: String) -> String {
-        path.join(local.root, key)
+        path.join_all([local.root, ..file_names(key)])
     }
 
     fn type_path(local: Local, key: String) -> String {
-        path.join_all([local.root, ".nomi-storage", "types", key])
+        path.join_all([local.root, ".nomi-storage", "types", ..file_names(key)])
     }
 
     // The stored type of the object at `key`, else what its bytes look like.
@@ -405,10 +449,50 @@ impl Store for Local {
         check_key(key)?
 
         case local.public_base {
-            Some(base) -> Ok(Url.join_path(base, [key]))
+            Some(base) -> Ok(join_key(base, key))
             None -> Err(Error.NoPublicUrl)
         }
     }
+}
+
+// The names on disk of the segments of `key`, as `local` describes them.
+fn file_names(key: String) -> List<String> {
+    String.split(key, "/") |> Iter.map(file_name) |> Iter.to_list()
+}
+
+fn file_name(segment: String) -> String {
+    codepoints = String.to_codepoints(segment)
+    last = Iter.count(codepoints) - 1
+    device = is_device_name(segment)
+
+    codepoints
+    |> Iter.with_index()
+    |> Iter.map(fn #(i, c) -> {
+        text = "${c}"
+
+        escaped = String.contains("%<>:\"|?*", c)
+            or i == last and (c == '.' or c == ' ')
+            or i == 0 and device
+
+        if escaped {
+            "%${String.uppercase(hex.encode(String.to_bytes(text)))}"
+        } else {
+            text
+        }
+    })
+    |> String.join("")
+}
+
+// Whether Windows keeps `segment` for a device: its part before the first
+// `.`, in any case, is CON, PRN, AUX, NUL, or COM or LPT and a digit.
+fn is_device_name(segment: String) -> Bool {
+    stem =
+        String.split(segment, ".") |> Iter.first() |> Maybe.with_default("") |> String.uppercase()
+
+    Iter.contains(["CON", "PRN", "AUX", "NUL"], stem)
+        or String.length(stem) == 4
+            and (String.starts_with(stem, "COM") or String.starts_with(stem, "LPT"))
+            and String.contains("0123456789", String.drop(stem, 3))
 }
 
 // Create the directories above the file at `file`, which holds `key`.
@@ -471,9 +555,9 @@ fn io_code(error: io.Error) -> String {
 /// It sets no `Cache-Control`: an app whose keys never change wraps the
 /// handler and adds one. It reads the whole object into memory first,
 /// which suits images and documents, not video.
-//! import std/http.{Method, Status}
-//! import std/http_testing
-//! import std/storage_testing.Memory
+//! import std::http.{Method, Status}
+//! import std::http_testing
+//! import std::storage_testing.Memory
 //!
 //! store = Memory.new()
 //! _ = Store.put(store, "a/b.css", String.to_bytes("p{}"), "text/css")

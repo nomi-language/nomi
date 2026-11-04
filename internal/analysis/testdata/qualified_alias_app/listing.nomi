@@ -1,6 +1,6 @@
 // `items.Item` is another module's typealias of a third module's struct,
 // named through the qualifier of the file that declares the alias.
-import qualified_alias_dep/items
+import qualified_alias_dep::items
 
 pub once all: List<items.Item> = [items.Item{n: 1}, items.Item{n: 2}]
 

@@ -1,6 +1,6 @@
 import {
-    std/io
-    std/regex.Regex
+    std::io
+    std::regex.Regex
 }
 
 struct Holder {

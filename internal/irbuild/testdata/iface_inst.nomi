@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A generic interface with a REQUIRED function whose result is the type
 // parameter, plus a DEFAULT whose body mentions neither. `announce`'s default

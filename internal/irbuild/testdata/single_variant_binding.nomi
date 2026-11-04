@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A single-variant enum's pattern always matches, so `E.V(x) = value`
 // binds the payload as the parameter `fn open(E.V(x))` does.

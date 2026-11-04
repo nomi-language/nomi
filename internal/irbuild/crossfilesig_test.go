@@ -99,8 +99,8 @@ test "an Iter from another file" {
 func TestCrossFileSignature_QualifiedPreludeTypes(t *testing.T) {
 	irBacklogProgramVM(t, map[string]string{
 		"other.nomi": `import {
-  std/maybe
-  std/results
+  std::maybe
+  std::results
 }
 
 pub fn first(xs: List<Int>) -> maybe.Maybe<Int> {

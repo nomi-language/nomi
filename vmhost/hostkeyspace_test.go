@@ -18,9 +18,9 @@ import (
 // the other's calls.
 func TestHosts_AProjectFileNamedLikeAStdModuleRunsBesideIt(t *testing.T) {
 	const main = `import {
-    std/hash as digest
-    std/io
-    std/regex.Regex
+    std::hash as digest
+    std::io
+    std::regex.Regex
     hash
     regex
 }

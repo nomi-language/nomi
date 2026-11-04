@@ -18,7 +18,7 @@ const multiManifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
 // multiMain imports shapes and calls `shapes.evens`, which the IR builder
 // declines under plantDecline (loweringBlocked's shape), and declines a body
 // of its own.
-const multiMain = `import std/io
+const multiMain = `import std::io
 import shapes
 
 fn planted_decline(n: Int) -> Int {
@@ -50,7 +50,7 @@ pub fn evens(xs: List<Int>) -> List<Int> {
 `
 
 // multiRingMain and multiRing import each other.
-const multiRingMain = `import std/io
+const multiRingMain = `import std::io
 import ring
 
 pub fn base(n: Int) -> Int {

@@ -2,7 +2,7 @@
 // different receivers call each other in tail position, owner-qualified.
 //
 // 1e8 hops: see tail_impl_free_deep.nomi for why that number.
-import std/io
+import std::io
 
 struct Up {}
 

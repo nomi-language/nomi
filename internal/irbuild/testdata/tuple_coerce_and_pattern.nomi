@@ -29,7 +29,7 @@
 // recorded type — so it must keep refusing rather than guess. That last one is
 // commented out precisely because it is a REFUSAL and this file pins answers;
 // its refusal is asserted in coercetuple_test.go instead.
-import std/io
+import std::io
 
 fn take_pair(t: #(Int, List<Int>)) -> Int {
     #(n, _rest) = t

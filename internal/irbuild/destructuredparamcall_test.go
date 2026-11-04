@@ -29,7 +29,7 @@ pub fn area(#(w, h): #(Int, Int), scale: Int = w) -> Int {
 }
 `
 	const main = `import {
-    std/io
+    std::io
     lib
     lib.Point
 }

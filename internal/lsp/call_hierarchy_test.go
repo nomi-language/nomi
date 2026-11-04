@@ -25,9 +25,9 @@ impl User {
 }
 `
 
-const callMainSrc = `import models/users
-import models/users.User
-import std/io
+const callMainSrc = `import models::users
+import models::users.User
+import std::io
 
 fn main() {
     u = users.make()

@@ -31,7 +31,7 @@ import (
 //	                                 (no explicit import) — would
 //	                                 resolve via auto-prepend if it
 //	                                 received one
-//	<project>/main.nomi          — `import std/consumer.{use}`; the
+//	<project>/main.nomi          — `import std::consumer.{use}`; the
 //	                                 import forces discovery to walk
 //	                                 std/consumer.nomi and analyze
 //	                                 it, surfacing the bare reference
@@ -57,12 +57,12 @@ func TestPreludeAutoprepend_SuppressedInStdlibFiles(t *testing.T) {
 	// Minimal fake stdlib. nomi.toml is required for the resolver to
 	// accept this as a real module root.
 	mustWrite("nomi.toml", "[module]\nname = \"std\"\nentry_points = []\n")
-	mustWrite("prelude.nomi", "pub import std/probe.{OrphanProbe}\n")
+	mustWrite("prelude.nomi", "pub import std::probe.{OrphanProbe}\n")
 	mustWrite("probe.nomi", "pub type OrphanProbe\n")
 	// Stdlib's consumer.nomi: bare reference to OrphanProbe. The whole
 	// point of the test — would resolve via auto-prepend if stdlib
 	// files weren't suppressed. The `pub fn use_probe() -> OrphanProbe`
-	// signature carries the bare reference (no `import std/probe`).
+	// signature carries the bare reference (no `import std::probe`).
 	mustWrite("consumer.nomi", "pub fn use_probe() -> OrphanProbe { OrphanProbe }\n")
 	t.Setenv("NOMI_STD_PATH", stdRoot)
 
@@ -71,7 +71,7 @@ func TestPreludeAutoprepend_SuppressedInStdlibFiles(t *testing.T) {
 	// OrphanProbe bare — that's the user-file half of the assertion.
 	projRoot := t.TempDir()
 	mainPath := filepath.Join(projRoot, "main.nomi")
-	mainSrc := `import std/consumer.{use_probe}
+	mainSrc := `import std::consumer.{use_probe}
 
 fn main() {
   x: OrphanProbe = OrphanProbe

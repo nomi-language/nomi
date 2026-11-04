@@ -53,7 +53,7 @@ func TestReplVM_ATypeDefinedEarlierIsUsedLater(t *testing.T) {
 // each input's program lowers std/uuid again: equal to a literal written
 // later, a key a later input finds, and ordered and rendered by std's impls.
 func TestReplVM_AStdUuidCarriesBetweenInputs(t *testing.T) {
-	replExpect(t, "import std/uuid.Uuid\n"+
+	replExpect(t, "import std::uuid.Uuid\n"+
 		"id = Uuid`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`\n"+
 		"m = %{id => 1}\n"+
 		"id == Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`\n"+
@@ -68,7 +68,7 @@ func TestReplVM_AStdUuidCarriesBetweenInputs(t *testing.T) {
 // A value is computed once, when its input runs. Reading it later reads the
 // stored value: the effect in its initializer does not repeat.
 func TestReplVM_AnEffectHappensOnce(t *testing.T) {
-	replExpect(t, "import std/io\n"+
+	replExpect(t, "import std::io\n"+
 		"fn noisy() -> Int {\n  io.print(\"computed\")\n  7\n}\n"+
 		"v = noisy()\nv + 1\nv + 2\nonce o = noisy() * 10\no\no + 1\n",
 		"computed\n8\n9\ncomputed\n70\n71\n")
@@ -140,7 +140,7 @@ func TestReplVM_AFunctionValuedBindingIsUsedByALaterFunction(t *testing.T) {
 // A once runs its initializer on first use, in whichever input that is, and
 // never again.
 func TestReplVM_AOnceIsForcedOnFirstUse(t *testing.T) {
-	replExpect(t, "import std/io\n"+
+	replExpect(t, "import std::io\n"+
 		"fn noisy() -> Int {\n  io.print(\"computed\")\n  7\n}\n"+
 		"once o = noisy()\n1\nfn plus(n: Int) -> Int {\n  n + o\n}\nplus(1)\no\nonce o = 100\no\nplus(1)\n"+
 		"once f: (Int) -> Int = plus\nf(2)\n",
@@ -195,7 +195,7 @@ func TestReplVM_ABlockedInputChangesNothing(t *testing.T) {
 }
 
 func TestReplVM_AnImportIsUsedByLaterInputs(t *testing.T) {
-	replExpect(t, "import std/io\nio.print(\"hi\")\nx = 2\nio.print(Int.to_string(x))\n",
+	replExpect(t, "import std::io\nio.print(\"hi\")\nx = 2\nio.print(Int.to_string(x))\n",
 		"hi\n2\n")
 }
 
@@ -218,7 +218,7 @@ func TestReplVM_AnInputWithNoRetainedEntryIsBlocked(t *testing.T) {
 	}{
 		{"after an earlier input", replPlantedDecl + "x = 1\nv = planted_decline(1)\nx\n",
 			"1\n", "[main] not retained"},
-		{"value stored", replPlantedDecl + "v = planted_decline(1)\nv\nimport std/io\nio.print(\"after\")\n",
+		{"value stored", replPlantedDecl + "v = planted_decline(1)\nv\nimport std::io\nio.print(\"after\")\n",
 			"after\n", "[main] not retained"},
 	}
 	for _, c := range cases {
@@ -243,9 +243,9 @@ func TestReplVM_AnInputWithNoRetainedEntryIsBlocked(t *testing.T) {
 func TestReplVM_AnInputImportsAndCallsTogether(t *testing.T) {
 	var out, errOut bytes.Buffer
 	s := newReplSession(&out, &errOut)
-	s.eval("import std/duration.Duration\nd = Duration.seconds(2)", &out, &errOut)
+	s.eval("import std::duration.Duration\nd = Duration.seconds(2)", &out, &errOut)
 	s.eval("Duration.as_millis(d)", &out, &errOut)
-	s.eval("import std/duration\nduration.seconds(1)", &out, &errOut)
+	s.eval("import std::duration\nduration.seconds(1)", &out, &errOut)
 	s.eval("Duration.as_seconds(d)", &out, &errOut)
 	if got, want := out.String(), "2000\n2\n"; got != want {
 		t.Errorf("stdout:\n%s\nwant:\n%s\nstderr:\n%s", got, want, errOut.String())
@@ -258,16 +258,16 @@ func TestReplVM_AnInputImportsAndCallsTogether(t *testing.T) {
 // An inherent function is not a file export, so importing it by name is an
 // analysis error, not a crash.
 func TestReplVM_ImportingAnInherentFunctionByNameIsRejected(t *testing.T) {
-	replExpect(t, "import std/duration.{seconds}\nx = 1\nx\n",
+	replExpect(t, "import std::duration.{seconds}\nx = 1\nx\n",
 		"1\n",
-		"file 'std/duration' has no exported name 'seconds'")
+		"file 'std::duration' has no exported name 'seconds'")
 }
 
 // A value the session cannot carry is reported and the input still runs.
 func TestReplVM_AValueThatCannotBeKeptIsReported(t *testing.T) {
 	// A type from a module the session imported whole is spelled short
 	// (`Date`), which does not resolve in a later input.
-	replExpect(t, "import std/calendar\nd = calendar.Date.new(2020, 1, 2)\nx = 1\nx\n",
+	replExpect(t, "import std::calendar\nd = calendar.Date.new(2020, 1, 2)\nx = 1\nx\n",
 		"1\n",
 		"note: d is not kept for later inputs")
 }

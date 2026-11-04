@@ -89,7 +89,7 @@ func loadAppProjectWithLeaf(t *testing.T, leaf string) error {
 		"// FILE: main.nomi",
 		"import {",
 		"",
-		"  std/io",
+		"  std::io",
 		"  svc.Svc",
 		"  leaf",
 		"}",

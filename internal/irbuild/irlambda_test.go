@@ -13,7 +13,7 @@ import (
 // TestIRLambda_CompleteProgramsRunOnTheVM runs a program with
 // lambdas on the VM and requires the expected output.
 func TestIRLambda_CompleteProgramsRunOnTheVM(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 fn main() {
  offset = 2
  add = fn x: Int -> x + offset
@@ -27,7 +27,7 @@ fn main() {
 
 func TestIRLambda_NestedBooleanArms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"nested scopes and effects", `import std/io
+		{"nested scopes and effects", `import std::io
 fn main() {
  base = 10
  choose = fn a: Bool, b: Bool -> {
@@ -54,7 +54,7 @@ fn main() {
  io.print(base)
 }
 `, "both\n12\nfirst\n13\n14\n15\n10\n"},
-		{"else if and escaping captures", `import std/io
+		{"else if and escaping captures", `import std::io
 fn main() {
  choose = fn x: Int -> {
   if x < 0 {
@@ -82,7 +82,7 @@ fn main() {
  io.print(a(20))
 }
 `, "11\n12\n13\n14\n21\n"},
-		{"nested unit", `import std/io
+		{"nested unit", `import std::io
 fn main() {
  emit = fn a: Bool, b: Bool -> {
   if a {
@@ -155,7 +155,7 @@ func verifyLambdaProgram(t *testing.T, src, want string, extraFiles ...map[strin
 
 func TestIRLambda_CaptureAndCallSemantics(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"factory activations", `import std/io
+		{"factory activations", `import std::io
 fn adder(n: Int) -> (Int) -> Int { fn x: Int -> x + n }
 fn main() {
  a = adder(3)
@@ -164,26 +164,26 @@ fn main() {
  io.print(b(1))
  io.print(a(2))
 }`, "4\n8\n5\n"},
-		{"parameter shadow", `import std/io
+		{"parameter shadow", `import std::io
 fn main() {
  x = 100
  f = fn x: Int -> x + 1
  io.print(x)
  io.print(f(2))
 }`, "100\n3\n"},
-		{"argument order", `import std/io
+		{"argument order", `import std::io
 fn mark(x: Int) -> Int { dbg x }
 fn main() {
  f = fn a: Int, b: Int -> a - b
  io.print(f(mark(7), mark(2)))
 }`, "dbg line 2: x = 7\ndbg line 2: x = 2\n5\n"},
-		{"capture parameter", `import std/io
+		{"capture parameter", `import std::io
 fn apply(n: Int) -> Int {
  f = fn x: Int -> x + n + n
  f(2)
 }
 fn main() { io.print(apply(3)) }`, "8\n"},
-		{"discard parameter", `import std/io
+		{"discard parameter", `import std::io
 fn main() {
  f = fn _x: Int -> 9
  io.print(f(2))
@@ -195,19 +195,19 @@ fn main() {
 
 func TestIRLambda_HigherOrderBodies(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"named function and captured parameter", `import std/io
+		{"named function and captured parameter", `import std::io
 fn double(x: Int) -> Int { x * 2 }
 fn wrap(f: (Int) -> Int) -> (Int) -> Int { fn x: Int -> f(x) + 1 }
 fn main() {
  f = wrap(double)
  io.print(f(3))
 }`, "7\n"},
-		{"higher order lambda", `import std/io
+		{"higher order lambda", `import std::io
 fn main() {
  apply = fn f: (Int) -> Int, x: Int -> f(x) + 1
  io.print(apply(fn n -> n * 3, 4))
 }`, "13\n"},
-		{"callee before argument", `import std/io
+		{"callee before argument", `import std::io
 fn make() -> (Int) -> Int {
  io.print("callee")
  fn x: Int -> x + 1
@@ -224,14 +224,14 @@ fn main() { io.print(make()(arg())) }`, "callee\nargument\n5\n"},
 
 func TestIRLambda_StatementBodies(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"single expression on later line", `import std/io
+		{"single expression on later line", `import std::io
 fn main() {
  f = fn x: Int -> {
   x
  }
  io.print(f(3))
 }`, "3\n"},
-		{"multiline arithmetic", `import std/io
+		{"multiline arithmetic", `import std::io
 fn main() {
  f = fn x: Int -> {
   y = (x +
@@ -241,7 +241,7 @@ fn main() {
  }
  io.print(f(3))
 }`, "8\n"},
-		{"conditional closure", `import std/io
+		{"conditional closure", `import std::io
 fn make(n: Int) -> (Int) -> Int {
  if n > 0 {
   fn x: Int -> {
@@ -256,7 +256,7 @@ fn make(n: Int) -> (Int) -> Int {
  }
 }
 fn main() { io.print(make(2)(3)); io.print(make(-2)(3)) }`, "5\n5\n"},
-		{"capture and effects", `import std/io
+		{"capture and effects", `import std::io
 fn main() {
  base = 3
  callback = fn x: Int -> {
@@ -266,7 +266,7 @@ fn main() {
  }
  io.print(callback(4))
 }`, "7\n14\n"},
-		{"inline final callback", `import std/io
+		{"inline final callback", `import std::io
 fn apply(x: Int, f: (Int) -> Int) -> Int { f(x) }
 fn main() {
  io.print(apply(2, fn x: Int -> {
@@ -274,7 +274,7 @@ fn main() {
   y * 2
  }))
 }`, "6\n"},
-		{"callback before later argument", `import std/io
+		{"callback before later argument", `import std::io
 fn apply(f: (Int) -> Int, x: Int) -> Int { f(x) }
 fn main() {
  n = 4
@@ -284,7 +284,7 @@ fn main() {
  },
  n))
 }`, "5\n"},
-		{"nested escaping closure", `import std/io
+		{"nested escaping closure", `import std::io
 fn make(base: Int) -> (Int) -> (Int) -> Int {
  fn x: Int -> {
   subtotal = base + x
@@ -298,7 +298,7 @@ fn main() {
  add = make(2)(3)
  io.print(add(4))
 }`, "9\n"},
-		{"returned local", `import std/io
+		{"returned local", `import std::io
 fn main() {
  f = fn x: Int -> {
   y = x + 1
@@ -314,13 +314,13 @@ fn main() {
 
 func TestIRLambda_ControlFlow(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"unit conditional", `import std/io
+		{"unit conditional", `import std::io
 fn main() {
  emit = fn flag: Bool -> if flag { io.print("yes") } else { io.print("no") }
  emit(True)
  emit(False)
 }`, "yes\nno\n"},
-		{"captured conditional", `import std/io
+		{"captured conditional", `import std::io
 fn main() {
  cutoff = 3
  classify = fn x: Int -> {
@@ -330,7 +330,7 @@ fn main() {
  io.print(classify(1))
  io.print(classify(5))
 }`, "low\nhigh\n"},
-		{"only selected arm runs", `import std/io
+		{"only selected arm runs", `import std::io
 fn yes() -> Int { io.print("yes"); 1 }
 fn no() -> Int { io.print("no"); 2 }
 fn main() {
@@ -338,7 +338,7 @@ fn main() {
  io.print(select(True))
  io.print(select(False))
 }`, "yes\n1\nno\n2\n"},
-		{"integer case", `import std/io
+		{"integer case", `import std::io
 fn main() {
  classify = fn x: Int -> {
   case x {
@@ -351,7 +351,7 @@ fn main() {
  io.print(classify(1))
  io.print(classify(9))
 }`, "zero\none\nother\n"},
-		{"string case with capture", `import std/io
+		{"string case with capture", `import std::io
 fn main() {
  suffix = "!"
  classify = fn word: String -> case word {
@@ -361,7 +361,7 @@ fn main() {
  io.print(classify("yes"))
  io.print(classify("no"))
 }`, "accepted!\nunknown!\n"},
-		{"escaping conditional", `import std/io
+		{"escaping conditional", `import std::io
 fn make(cutoff: Int) -> (Int) -> String {
  fn x: Int -> if x > cutoff { "high" } else { "low" }
 }
@@ -370,7 +370,7 @@ fn main() {
  io.print(f(2))
  io.print(f(4))
 }`, "low\nhigh\n"},
-		{"conditional returns callable", `import std/io
+		{"conditional returns callable", `import std::io
 fn main() {
  choose = fn flag: Bool -> if flag { fn x: Int -> x + 1 } else { fn x: Int -> x - 1 }
  io.print(choose(True)(5))
@@ -383,7 +383,7 @@ fn main() {
 
 func TestIRLambda_StatementArms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"local shadows sibling capture", `import std/io
+		{"local shadows sibling capture", `import std::io
 fn main() {
  outer = 10
  choose = fn flag: Bool -> if flag {
@@ -397,7 +397,7 @@ fn main() {
  io.print(choose(False))
  io.print(outer)
 }`, "11\n3\n10\n"},
-		{"sibling locals and shared capture", `import std/io
+		{"sibling locals and shared capture", `import std::io
 fn main() {
  base = 10
  choose = fn flag: Bool -> if flag {
@@ -412,7 +412,7 @@ fn main() {
  io.print(choose(True))
  io.print(choose(False))
 }`, "left\n11\nright\n12\n"},
-		{"escaping branch local", `import std/io
+		{"escaping branch local", `import std::io
 fn main() {
  choose = fn flag: Bool -> if flag {
   amount = 2
@@ -427,7 +427,7 @@ fn main() {
  io.print(right(10))
  io.print(left(20))
 }`, "12\n15\n22\n"},
-		{"case blocks", `import std/io
+		{"case blocks", `import std::io
 fn main() {
  base = 3
  choose = fn x: Int -> case x {
@@ -445,7 +445,7 @@ fn main() {
  io.print(choose(0))
  io.print(choose(4))
 }`, "zero\n4\nother\n7\n"},
-		{"unit arms", `import std/io
+		{"unit arms", `import std::io
 fn main() {
  emit = fn flag: Bool -> if flag {
   message = "left"
@@ -463,7 +463,7 @@ fn main() {
 }
 
 func TestIRLambda_ArmBindingAndCaptureIdentity(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", `import std/io
+	p, err := AnalyzeSource("main.nomi", `import std::io
 fn main() {
  base = 10
  f = fn flag: Bool -> if flag { answer = base + 1; answer } else { answer = base + 2; answer }

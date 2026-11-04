@@ -1,6 +1,6 @@
 import {
-    std/locale.Locale
-    std/localize.{Localize, NumberParseError}
+    std::locale.Locale
+    std::localize.{Localize, NumberParseError}
 }
 
 test "grouping follows the locale" {

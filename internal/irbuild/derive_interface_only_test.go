@@ -6,7 +6,7 @@ import "testing"
 // FromJson. The bodies `derive ToJson` and `derive FromJson` synthesize build
 // `Json.Obj`, `Json.Arr` and `Json.String`, match `Json.Obj(fields)` and build
 // `Json.ShapeError`, none of which shapes.nomi binds; the derived code names
-// them through the hidden `import std/json as json$` the derive adds.
+// them through the hidden `import std::json as json$` the derive adds.
 func TestDeriveInterfaceOnly_RunsWithoutJsonInScope(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -35,9 +35,9 @@ func TestDeriveInterfaceOnly_RunsWithoutJsonInScope(t *testing.T) {
 // `Json` stays its own.
 func TestDeriveJson_BesideAFilesOwnJson(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
-  std/json
-  std/json.{FromJson, ToJson}
+  std::io
+  std::json
+  std::json.{FromJson, ToJson}
 }
 struct Json {
   text: String

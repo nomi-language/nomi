@@ -54,9 +54,9 @@ fn main() {
 }
 `)
 	configPath := mustWrite("configuration.nomi", `import {
-  configuration/dev: build as dev_build
-  configuration/prod: build as prod_build
-  configuration/test: build as test_build
+  configuration::dev: build as dev_build
+  configuration::prod: build as prod_build
+  configuration::test: build as test_build
 }
 
 pub struct AppEnv {

@@ -48,31 +48,31 @@ func TestCompletion_AutoImportStdlib(t *testing.T) {
 			"type into a file with no imports",
 			"fn f() -> Int {\n    w: Wee" + cursorMark + " = Weeks(1)\n    1\n}\n",
 			"Weeks",
-			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 0, 0, 0, "import std/calendar.Weeks\n\n") },
+			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 0, 0, 0, "import std::calendar.Weeks\n\n") },
 		},
 		{
 			"type merged into the same file's import",
-			"import std/calendar.Months\n\nfn f(m: Months) -> Int {\n    w: Wee" + cursorMark + "\n    1\n}\n",
+			"import std::calendar.Months\n\nfn f(m: Months) -> Int {\n    w: Wee" + cursorMark + "\n    1\n}\n",
 			"Weeks",
-			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 7, 0, 26, "std/calendar.{Months, Weeks}") },
+			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 7, 0, 27, "std::calendar.{Months, Weeks}") },
 		},
 		{
 			"file object after the last import",
-			"import std/io\n\nfn f() -> Int {\n    jso" + cursorMark + "\n}\n",
+			"import std::io\n\nfn f() -> Int {\n    jso" + cursorMark + "\n}\n",
 			"json",
-			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 1, 0, 1, 0, "import std/json\n") },
+			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 1, 0, 1, 0, "import std::json\n") },
 		},
 		{
 			"file object into an import block",
-			"import {\n    std/io\n    std/strings\n}\n\nfn f() -> Int {\n    jso" + cursorMark + "\n}\n",
+			"import {\n    std::io\n    std::strings\n}\n\nfn f() -> Int {\n    jso" + cursorMark + "\n}\n",
 			"json",
-			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 3, 0, 3, 0, "    std/json\n") },
+			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 3, 0, 3, 0, "    std::json\n") },
 		},
 		{
 			"function through its file object",
 			"fn f() {\n    read_li" + cursorMark + "\n}\n",
 			"io.read_line",
-			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 0, 0, 0, "import std/io\n\n") },
+			func(t *testing.T, e protocol.TextEdit) { wantEdit(t, e, 0, 0, 0, 0, "import std::io\n\n") },
 		},
 	}
 	for _, tt := range tests {
@@ -103,7 +103,7 @@ func TestCompletion_AutoImportFunctionInsertsQualifiedCall(t *testing.T) {
 	}
 
 	// Already imported: the same item, no edit.
-	items = completeWith(t, true, "import std/io\n\nfn f() {\n    read_li"+cursorMark+"\n}\n")
+	items = completeWith(t, true, "import std::io\n\nfn f() {\n    read_li"+cursorMark+"\n}\n")
 	it = mustItem(t, items, "io.read_line")
 	if len(it.AdditionalTextEdits) != 0 {
 		t.Fatalf("an imported file's function carries an import edit: %+v", it.AdditionalTextEdits)

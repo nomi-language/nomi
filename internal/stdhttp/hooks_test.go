@@ -5,15 +5,15 @@ import (
 	"testing"
 )
 
-const hooksProgram = `import std/http
-import std/http.{Body, Client, ClientOptions, ConnState, Listener, Request, Response, Server, Headers, Tracer, TraceEvent}
-import std/io.{self, Reader, Writer}
-import std/net.{self, Connection}
-import std/supervisors.Supervisor
-import std/tls.{self, Certificate, ClientConfig, ClientHello, ConnectionState, Roots, ServerConfig}
-import std/url.Url
-import std/channels.{Channel, Receiver, Sender}
-import std/duration.Duration
+const hooksProgram = `import std::http
+import std::http.{Body, Client, ClientOptions, ConnState, Listener, Request, Response, Server, Headers, Tracer, TraceEvent}
+import std::io.{self, Reader, Writer}
+import std::net.{self, Connection}
+import std::supervisors.Supervisor
+import std::tls.{self, Certificate, ClientConfig, ClientHello, ConnectionState, Roots, ServerConfig}
+import std::url.Url
+import std::channels.{Channel, Receiver, Sender}
+import std::duration.Duration
 
 struct App {
     web: Supervisor

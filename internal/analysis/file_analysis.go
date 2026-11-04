@@ -39,6 +39,11 @@ type FileAnalysis struct {
 // FileDecls is the declaration part of a file's analysis. See FileAnalysis.
 type FileDecls struct {
 	ModuleScope *Scope
+	// ImportedFiles maps the short name of each file the file imports at
+	// its top as a file to the full paths imported under it, for the hint
+	// that names the full path where a local or a declaration shadows the
+	// short name. A single-segment path has no entry.
+	ImportedFiles map[string][]string
 	// FilePath is the absolute path of the file this analysis describes.
 	// Set by BuildProject for every project-loaded file. A user file's
 	// symbols carry it as their SourceFile (builder.define). Empty for an
@@ -179,6 +184,13 @@ type FileBodies struct {
 	// binding's `else` fallback stands in for a payload whose pattern always
 	// matches. Nil until the first record.
 	CoveringOrPatterns map[*ast.OrPattern]bool
+	// ElselessIfs maps each `if` with no `else`, or the head of an `else if`
+	// chain with no final `else`, whose branches have a value of a type T
+	// other than Unit, to its type `Maybe<T>`: a branch that runs gives
+	// `Some` of its value, and none running gives `None` (spec §8 *`if`/`else`*).
+	// The IR builder wraps each branch's value and lowers the missing
+	// `else` as `None`. Nil until the first record.
+	ElselessIfs map[*ast.If]Type
 	// ExprTypes maps every node the checker checked to the type it gave the
 	// node, and ExpectedTypes maps every node checked against an expected
 	// type to that expected type: the declared parameter type at an argument,
@@ -222,6 +234,14 @@ type FileBodies struct {
 	// call, so it records what a written call records, and the IR builder
 	// lowers it with x evaluated first. Nil until the first record.
 	Memberships map[*ast.Binary]*ast.Call
+	// StandIns holds each position, by line and column, where References
+	// holds a name that the text there does not spell: the two columns of a
+	// membership test's `in` (`Contains` and its `contains`), and the
+	// characters an `Html` literal's expansion places its callees on (the
+	// quotes, and each slot's `$` and `{`). A tool that edits, colors or
+	// lists a name's occurrences skips them (StandInReference). Nil until
+	// the first record.
+	StandIns map[Pos]bool
 	// FieldAccessors maps a field accessor (`.name`, `.address.city`) the
 	// checker accepted to the type it reads from: the parameter type of the
 	// function type its position expected. The IR builder lowers the
@@ -344,11 +364,9 @@ type keptDecls struct {
 	blockImports map[*ast.ImportStmt]*Scope
 	symbols      map[string]*Symbol
 	scopes       int
-	// builder built the file. builderImported and builderBlockImports are its
-	// tables the bodies walk adds to: a block's `import m.{self}` binds m in
-	// imported, and every block import is noted in blockImports.
+	// builder built the file. builderBlockImports is its table the bodies
+	// walk adds to: every block import is noted in blockImports.
 	builder             *builder
-	builderImported     map[string]*Scope
 	builderBlockImports map[*ast.ImportStmt]bool
 	// typing is set while BuildTypes works on the declarations, after the
 	// bodies are walked: what it writes then is recorded here, so a rebuild
@@ -397,7 +415,6 @@ func (fa *FileAnalysis) keepDecls(b *builder) {
 		symbols:             maps.Clone(fa.ModuleScope.Symbols),
 		scopes:              len(fa.ModuleScope.Children),
 		builder:             b,
-		builderImported:     maps.Clone(b.imported),
 		builderBlockImports: maps.Clone(b.blockImports),
 	}
 }
@@ -489,7 +506,6 @@ func (fa *FileAnalysis) walkBodiesAgain(nodes []ast.Node) bool {
 	fa.ModuleScope.Symbols = maps.Clone(k.symbols)
 	fa.ModuleScope.Children = fa.ModuleScope.Children[:k.scopes]
 	b := k.builder
-	b.imported = maps.Clone(k.builderImported)
 	b.blockImports = maps.Clone(k.builderBlockImports)
 	b.fileScope = fa.ModuleScope
 	b.buildModuleBodies(nodes, fa.ModuleScope)

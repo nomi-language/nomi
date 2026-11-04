@@ -13,7 +13,7 @@ func TestQualifiedAlias_LiteralThroughAnAliasOfAnImportedStruct(t *testing.T) {
 	typeCycleRun(t, map[string]string{
 		"nomi.toml": "[module]\nname = \"aliased\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import shapes
-import std/io
+import std::io
 
 fn main() {
     p = shapes.P{x: 1}
@@ -44,7 +44,7 @@ func TestQualifiedAlias_TargetOfTheSameName(t *testing.T) {
 	typeCycleRun(t, map[string]string{
 		"nomi.toml": "[module]\nname = \"samename\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import items
-import std/io
+import std::io
 
 fn main() {
     all: List<items.Item> = [items.Item{n: 4}]

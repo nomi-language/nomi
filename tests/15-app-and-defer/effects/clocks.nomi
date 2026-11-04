@@ -1,5 +1,5 @@
 import {
-    std/instant.Instant
+    std::instant.Instant
 
     // Clock implementations. The Clock interface itself lives in
     // effects.nomi.

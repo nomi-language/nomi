@@ -2,7 +2,7 @@
 // the prelude supplies the other five, and the code `derive ToJson` and
 // `derive FromJson` synthesize reaches `Json` and `Json.ShapeError` without
 // this file naming them.
-import std/json.{FromJson, ToJson}
+import std::json.{FromJson, ToJson}
 
 pub struct Point {
     x: Int

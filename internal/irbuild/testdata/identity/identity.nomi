@@ -2,7 +2,7 @@
 // so the output is the entry file's alone. An unused import is an analysis
 // error, so the `pub import` of `origin_x` is what keeps the import, and with
 // it the second `Point`, in the program.
-import std/io
+import std::io
 pub import shapes.origin_x
 
 /// The entry file's own `Point`, unrelated to `shapes.Point` beyond the

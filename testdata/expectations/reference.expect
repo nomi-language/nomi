@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
 records 73
-declared-cases 816
+declared-cases 825
 failing 0
 C actors
 E 0
@@ -75,8 +75,8 @@ T ok Bytes.compare (impl Comparable for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
-N 60
-H 8c66439b27a7685e77a5d917b2183de6b1743fe26a9667a113a3e68b26562e48
+N 64
+H b6830343f92d8abaf44cea4f85380fb8d53edb9c00968d98d542686e324aec47
 T ok type Months
 T ok type Hours
 T ok struct Date
@@ -113,10 +113,13 @@ T ok NaiveDateTime.to_time
 T ok NaiveDateTime.new
 T ok NaiveDateTime.parse
 T ok NaiveDateTime.between
+T ok NaiveDateTime.from_instant
+T ok NaiveDateTime.to_instant
 T ok OffsetDateTime.with_offset
 T ok OffsetDateTime.from_instant
 T ok OffsetDateTime.parse
 T ok OffsetDateTime.between
+T ok OffsetDateTime.to_naive
 T ok enum Disambiguation
 T ok struct DateTime
 T ok DateTime.format
@@ -126,6 +129,7 @@ T ok DateTime.in_zone
 T ok DateTime.from_instant_in
 T ok DateTime.now_in
 T ok DateTime.to_offset
+T ok DateTime.to_naive
 T ok DateTime.with_zone
 T ok DateTime.parse
 T ok DateTime.between
@@ -383,8 +387,8 @@ T ok hex.encode
 T ok hex.decode
 C html
 E 0
-N 8
-H 8be585bd7320b53dc0fc27aabae9ef459ed1f55fa6fd198fc7702bd8e2a4fcdd
+N 7
+H 7c3bbed324a8fd0a6311fcd06af69195e587d37f00b9011a3a0ab07f94baacfb
 T ok struct Html
 T ok Html.inspect (impl Debug for Html)
 T ok Html.trusted
@@ -392,11 +396,10 @@ T ok Html.text
 T ok Html.empty
 T ok Html.concat
 T ok Html.each
-T ok html.class_if
 C http
 E 0
-N 44
-H feb87c0bb61bf9bcffb32a695bf05b075a58a419de6a2e950a38363bd7aaf25e
+N 46
+H bb441b380eded47fc187c839d302b6a4315ed2138455de452f93038e0d207014
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -413,6 +416,8 @@ T ok FormPart.file_disposition
 T ok Protocol.at_least
 T ok Protocol.parse
 T ok Request.form
+T ok Request.post_form
+T ok Request.multipart_form
 T ok Request.form_file
 T ok Request.cookies
 T ok Request.basic_auth
@@ -748,8 +753,8 @@ H 90184696d8d380b04e0ccff629ad1df93c1ddaca7d61ee18d9d2f1d7931c48aa
 T ok interface Matcher
 C maybe
 E 0
-N 10
-H 5dbbf504d1e78dce1761d0196a79c8c91cb85348d8cf18bab76ee395ce7438e6
+N 11
+H c029b1765a6422f84e6404686dd32c20e2f78d5b6edf991514b48a3f0dc7c50b
 T ok enum Maybe
 T ok Maybe.is_some
 T ok Maybe.is_none
@@ -757,6 +762,7 @@ T ok Maybe.map
 T ok Maybe.with_default
 T ok Maybe.to_result
 T ok Maybe.flat_map
+T ok Maybe.flatten
 T ok Maybe.collect
 T ok Maybe.values
 T ok Maybe.each_while (impl Iter for Maybe<T>)
@@ -944,28 +950,30 @@ T ok sql_testing.conformance
 T ok sql_testing.rules
 C storage
 E 0
-N 6
-H 537cb0cb9797f081b3ba24b0a08c80bceaa75ba9e13175f2b3c59441a29be768
+N 7
+H 08d76698325e2fe0c481da1413cc94d71662a4bdb38425e435f45a2f057fbfed
 T ok enum Error
 T ok interface Store
 T ok storage.check_key
+T ok storage.join_key
 T ok storage.check_content_type
 T ok storage.local
 T ok storage.handler
 C storage_testing
 E 0
-N 6
-H bb6a26bbe3fb4f752db21ce906f7a060b4702767cfece8b2eaf8268fd545fe00
+N 7
+H ccacda8924baf3877eab103b71de5967c2e7c50ec4c66dc1e26534a68f17ffea
 T ok struct Memory
 T ok Memory.keys
 T ok struct Failing
 T ok storage_testing.conformance
 T ok storage_testing.rules
 T ok storage_testing.invalid_keys
+T ok storage_testing.odd_keys
 C strings
 E 0
-N 49
-H eca0e1c97b0168c027ae7bf5449315b8e17773bc71f6aae4aa54c72e1122e578
+N 50
+H 1486ebf1c804c4c4a462874125094bb762fdfe9fa6016ac11adde1fe7ea0a473
 T ok String.contains Contains<String> (impl Contains<String> for String)
 T ok String.contains Contains<Regex<C>> (impl Contains<Regex<C>> for String)
 T ok String.contains Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -1004,6 +1012,7 @@ T ok String.words
 T ok String.lines
 T ok String.trim
 T ok String.to_int
+T ok String.to_float
 T ok String.to_decimal
 T ok String.to_bytes
 T ok String.to_codepoints

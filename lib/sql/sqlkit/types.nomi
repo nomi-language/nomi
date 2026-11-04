@@ -26,7 +26,7 @@
 
 /// A family: the reader `runtime` names it by, its interface (`bound`), and the
 /// Nomi type it reads by default, with the std module that type is
-/// imported from, if any (`Date` is `std/calendar`'s).
+/// imported from, if any (`Date` is `std::calendar`'s).
 pub struct Family {
     reader: String
     bound: String
@@ -76,7 +76,7 @@ pub fn of(declared: String) -> Maybe<Family> {
         _ -> upper
     }
 
-    calendar = Some("std/calendar")
+    calendar = Some("std::calendar")
 
     case name {
         "" ->
@@ -107,16 +107,16 @@ pub fn of(declared: String) -> Maybe<Family> {
             Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
 
         "TIMESTAMPTZ" ->
-            Some(family("timestamptz", "SqlTimestamptz", "Instant", Some("std/instant")))
+            Some(family("timestamptz", "SqlTimestamptz", "Instant", Some("std::instant")))
 
         "UUID" ->
-            Some(family("uuid", "SqlUuid", "Uuid", Some("std/uuid")))
+            Some(family("uuid", "SqlUuid", "Uuid", Some("std::uuid")))
 
         "JSON" ->
-            Some(family("json", "SqlJson", "Json", Some("std/json")))
+            Some(family("json", "SqlJson", "Json", Some("std::json")))
 
         "JSONB" ->
-            Some(family("json", "SqlJson", "Json", Some("std/json")))
+            Some(family("json", "SqlJson", "Json", Some("std::json")))
 
         "BLOB" ->
             Some(family("bytes", "SqlBytes", "Bytes", None))

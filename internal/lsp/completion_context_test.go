@@ -52,8 +52,8 @@ func TestClassifyCompletion(t *testing.T) {
 		{"case arm", "fn f(c: Color) {\n  case c {\n    ‸\n  }\n}\n", ctxCaseArm},
 		{"second case arm", "fn f(c: Color) {\n  case c {\n    .Red -> 1\n    ‸\n  }\n}\n", ctxCaseArm},
 		{"import path", "import ‸\n", ctxImportPath},
-		{"import path segment", "import std/‸\n", ctxImportPath},
-		{"import selector", "import std/io.{‸}\n", ctxImportName},
+		{"import path segment", "import std::‸\n", ctxImportPath},
+		{"import selector", "import std::io.{‸}\n", ctxImportName},
 		{"group line", "group \"g\" {\n  ‸\n}\n", ctxTestGroup},
 		{"group after boot", "group \"g\" {\n  boot server.boot(s)\n  se‸\n}\n", ctxTestGroup},
 		{"group boot call", "group \"g\" {\n  boot ‸\n}\n", ctxTestBoot},
@@ -90,11 +90,11 @@ func TestClassifyCompletion_Details(t *testing.T) {
 	if c.prefix != "is_empty" {
 		t.Fatalf("prefix = %q, want is_empty", c.prefix)
 	}
-	c = classifyAt(t, "import std/io.{‸}\n")
+	c = classifyAt(t, "import std::io.{‸}\n")
 	if c.importStmt == nil {
 		t.Fatal("import selector: no import statement")
 	}
-	c = classifyAt(t, "import a/b/‸\n")
+	c = classifyAt(t, "import a::b::‸\n")
 	if c.importSeg != 2 {
 		t.Fatalf("import segment = %d, want 2", c.importSeg)
 	}

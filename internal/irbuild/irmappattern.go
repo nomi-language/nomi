@@ -198,6 +198,9 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 		}
 		return bl.tupleCaseTest(p, value, k, arm, next)
 	case *ast.EnumPattern, *ast.StructPattern:
+		if irUnitPattern(p, k) {
+			return jump()
+		}
 		if irNominalCaseKind(k) {
 			return bl.nominalCaseTest(p, value, k, arm, next)
 		}

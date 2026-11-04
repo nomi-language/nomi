@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRCaseComputed_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"effectful selector evaluated once", `import std/io
+		{"effectful selector evaluated once", `import std::io
 fn source(n: Int) -> Int { io.print(n) n }
 fn classify(n: Int) -> String {
  case source(n) { 0 -> "zero" 1 -> "one" _ -> "other" }
@@ -16,7 +16,7 @@ fn main() {
  label = case source(2) { 2 -> "two" _ -> "other" }
  io.print(label)
 }`, "0\nzero\n1\none\n3\nother\n2\ntwo\n"},
-		{"arithmetic and text selectors", `import std/io
+		{"arithmetic and text selectors", `import std::io
 fn number(n: Int) -> String {
  case (
   n +
@@ -32,7 +32,7 @@ fn main() {
  io.print(text("ost"))
  io.print(text("lain"))
 }`, "zero\ntwo\nother\n1\n2\n3\n"},
-		{"lambda capture and defaulted selector", `import std/io
+		{"lambda capture and defaulted selector", `import std::io
 fn source(n: Int = 4) -> Int { io.print(n) n }
 fn main() {
  base = 1

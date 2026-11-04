@@ -10,8 +10,8 @@ import (
 // the program loads.
 func TestBitsLiteral_IsTheParsedPattern(t *testing.T) {
 	const src = "import {\n" +
-		"    std/bits.Bits\n" +
-		"    std/io\n" +
+		"    std::bits.Bits\n" +
+		"    std::io\n" +
 		"}\n\n" +
 		"once lead = Bits`110a_aaaa`\n\n" +
 		"fn main() {\n" +
@@ -43,7 +43,7 @@ func TestBitsLiteral_InvalidTextIsACompileError(t *testing.T) {
 		{"Bits`aa_bb`", "typed literal Bits`aa_bb` is invalid: `b` at index 3 names a second field: this pattern's field is `a`, and a pattern has one"},
 		{"Bits`aa0a`", "typed literal Bits`aa0a` is invalid: `a` at index 3 splits field `a`: write its bits together"},
 	} {
-		src := "import std/bits.Bits\n\nfn main() {\n    _ = " + c.literal + "\n}\n"
+		src := "import std::bits.Bits\n\nfn main() {\n    _ = " + c.literal + "\n}\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.literal, len(ds), ds)

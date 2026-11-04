@@ -382,6 +382,10 @@ type gen struct {
 	// stdUnlowered names, for a stdlib gen, each function whose body the IR
 	// did not lower, with the reason. See irnative.go.
 	stdUnlowered map[string]string
+	// splicedIfs maps the copy of a pipe's `if` stage that is lowered with
+	// the piped value as its condition (irpipe.go) to the stage's own node,
+	// which the checker's records name.
+	splicedIfs map[*ast.If]*ast.If
 	// irPrebuilding is set while a stdlib module's graphs are built ahead of
 	// its module walk; see irPrebuildStdBodies.
 	irPrebuilding bool

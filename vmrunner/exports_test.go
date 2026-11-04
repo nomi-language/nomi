@@ -30,8 +30,8 @@ func webImage(t *testing.T, src string) []byte {
 	return img
 }
 
-const hangman = `import std/io
-import std/json.{ToJson, FromJson}
+const hangman = `import std::io
+import std::json.{ToJson, FromJson}
 
 struct Game {
     word: String
@@ -206,7 +206,7 @@ func TestInstance_PrintsAndSharesOnceValuesAcrossCalls(t *testing.T) {
 }
 
 func TestInstance_RunsMainFirst(t *testing.T) {
-	src := "import std/io\n\nonce count = counted()\n\nfn counted() -> Int {\n    io.print(\"counted\")\n    3\n}\n\n" +
+	src := "import std::io\n\nonce count = counted()\n\nfn counted() -> Int {\n    io.print(\"counted\")\n    3\n}\n\n" +
 		"fn main() {\n    io.print(\"main ${count}\")\n}\n\nexport fn twice() -> Int {\n    count * 2\n}\n"
 	in, out := start(t, src)
 	if got := call(t, in, "twice", `[]`); got != "6" {
@@ -233,7 +233,7 @@ func TestInstance_AFailingMainIsTheStartError(t *testing.T) {
 // an Instance, with the text `nomi run` prints, and the cleanup it
 // registered has run.
 func TestInstance_AFailingBootIsTheStartError(t *testing.T) {
-	src := "import std/io\n\nstruct App {\n    n: Int\n}\n\nfn boot() -> Result<App, String> {\n    defer io.print(\"cleanup\")\n    Err(\"no database\")\n}\n\n" +
+	src := "import std::io\n\nstruct App {\n    n: Int\n}\n\nfn boot() -> Result<App, String> {\n    defer io.print(\"cleanup\")\n    Err(\"no database\")\n}\n\n" +
 		"fn main() {\n    io.print(\"main ran\")\n}\n\nexport fn one() -> Int {\n    App.n\n}\n"
 	for name, open := range map[string]func([]byte, *bytes.Buffer, *bytes.Buffer) (*vmrunner.Instance, error){
 		"Start": func(image []byte, out, errOut *bytes.Buffer) (*vmrunner.Instance, error) {
@@ -270,7 +270,7 @@ func TestInstance_ExportsListsSignatures(t *testing.T) {
 // Boot does not run main; Main runs it over the stdin Boot was given, as
 // often as it is asked, on the booted program.
 func TestInstance_BootLeavesMainToTheHost(t *testing.T) {
-	src := "import std/io\n\nfn main() {\n    case io.read_line() {\n        Ok(Some(line)) -> io.print(\"main read ${line}\")\n        _ -> io.print(\"main read nothing\")\n    }\n}\n\n" +
+	src := "import std::io\n\nfn main() {\n    case io.read_line() {\n        Ok(Some(line)) -> io.print(\"main read ${line}\")\n        _ -> io.print(\"main read nothing\")\n    }\n}\n\n" +
 		"export fn one() -> Int {\n    1\n}\n"
 	var out, errOut bytes.Buffer
 	in, err := vmrunner.Boot(webImage(t, src), &out, &errOut, strings.NewReader("a line\n"), nil)

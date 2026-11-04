@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: run_length_encoding.nomi
 //# Run-length encoding and decoding of text.
 
-import std/regex.Regex
+import std::regex.Regex
 
 /// `text` with each run of a repeated character written as its length and
 /// the character once. A character that is not repeated keeps no count.

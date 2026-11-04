@@ -15,7 +15,7 @@
 // operand's. `is_positive` is why that is not optional — it tries a
 // `Result<Int, String>` inside a function returning `Result<Bool, String>`, and
 // those are two types.
-import std/io
+import std::io
 
 fn parse(n: Int) -> Result<Int, String> {
     if n < 0 {

@@ -103,14 +103,14 @@
 //# | `:integer` | `Int` | `select`, `useGrouping`, `minimumIntegerDigits` |
 //# | `:number`, `:percent` | `Int`, `Float`, `Decimal` | those, `minimumFractionDigits`, `maximumFractionDigits` |
 //# | `:string` | `String`, an enum whose variants carry nothing | none |
-//# | `:currency` | `Money` (std/money) | `currencyDisplay` (`symbol`, `narrowSymbol`, `code`, `name`) |
+//# | `:currency` | `Money` (std::money) | `currencyDisplay` (`symbol`, `narrowSymbol`, `code`, `name`) |
 //# | `:date` | `Date`, `NaiveDateTime`, `DateTime` | `style` (`full`, `long`, `medium` when left out, `short`) |
 //# | `:time` | `Time`, `NaiveDateTime`, `DateTime` | `style` (`short` when left out) |
 //# | `:datetime` | `Date`, `Time`, `NaiveDateTime`, `DateTime` | `dateStyle`, `timeStyle`, or the fields `weekday`, `era`, `year`, `month`, `day`, `hour`, `minute`, `second`, `fractionalSecondDigits`, with `hourCycle` |
 //# | `:nomi:noun` | `Noun` | `case` (a case of the locale's language, `nominative` when left out), `count` (a whole number or an `Int` parameter, 1 when left out) |
 //# | `:nomi:gender` | `Noun` | none |
 //# | `:nomi:list` | `List<String>` | none |
-//# | `:nomi:weekday` | `Date` (std/calendar) | none |
+//# | `:nomi:weekday` | `Date` (std::calendar) | none |
 //#
 //# - `select` is `plural` (the default), `ordinal` or `exact`; `useGrouping` is `auto`, `always`, `never` or `min2`.
 //# - `:currency` writes an amount as `Money.format` does. `:date` and `:time` write a value at a style, and `:datetime` at its `dateStyle` and `timeStyle` or by the fields its options name, as a skeleton (`weekday=long month=long day=numeric` is `MMMMEEEEd`; `hour=numeric` is `j`, which `hourCycle` makes `h` or `H`); with neither, it writes the date at `medium` and the time at `short`. A field the value lacks is an error at the option, ``en: `hour` names a time of day, and `$day` is a `Date`, which has none``, and so are styles beside fields. None of these selects: ``en: `:date` writes a calendar value and selects nothing``, whose help points to `:nomi:weekday`.

@@ -2,7 +2,7 @@ import strings.String
 
 //# The `Debug` interface: a value as a developer reads it, what `dbg`,
 //# `io.inspect` and an assertion's `values:` row write. Every value has a
-//# `Debug` form; `Display` (`std/display`) is the user-facing one.
+//# `Debug` form; `Display` (`std::display`) is the user-facing one.
 //#
 //# ## How built-in values render
 //#

@@ -17,7 +17,7 @@ func TestReExport_ATypeReExportedByAnotherFileNamesTheType(t *testing.T) {
 		"other":  "pub struct Helper {\n    n: Int\n}\n\npub fn make(n: Int) -> Helper {\n    Helper{n}\n}\n",
 		"facade": "pub import other.{Helper, make}\n",
 	}
-	main := "import std/io\nimport facade.{Helper, make}\n\nfn double(h: Helper) -> Int {\n    h.n * 2\n}\n\nfn main() {\n    h: Helper = make(4)\n    io.print(\"${double(h)}\")\n}\n"
+	main := "import std::io\nimport facade.{Helper, make}\n\nfn double(h: Helper) -> Int {\n    h.n * 2\n}\n\nfn main() {\n    h: Helper = make(4)\n    io.print(\"${double(h)}\")\n}\n"
 	var out bytes.Buffer
 	p, err := vmhost.LoadSource("main", main, vmhost.WithVirtualFiles(files), vmhost.WithOutput(&out))
 	if err != nil {

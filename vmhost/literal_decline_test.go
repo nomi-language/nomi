@@ -24,7 +24,7 @@ func literalDeclineProgram(t *testing.T, literal string) string {
 		}
 		return path
 	}
-	write("helper.nomi", `import std/regex.Regex
+	write("helper.nomi", `import std::regex.Regex
 
 pub fn planted_decline() -> Int {
     1
@@ -37,7 +37,7 @@ pub fn digits() -> List<String> {
 	return write("main.nomi", `import {
     helper
     helper.planted_decline
-    std/io
+    std::io
 }
 
 fn main() {

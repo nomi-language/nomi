@@ -6,7 +6,7 @@
 //
 // Both operands are built through locals deliberately, so the operations run
 // on values rather than on constants.
-import std/io
+import std::io
 
 fn main() {
     zero = 0.0

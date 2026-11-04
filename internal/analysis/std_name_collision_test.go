@@ -85,8 +85,8 @@ fn demo() -> String {
 
 func TestBootScope_StdSupervisorNewOutsideBoot_Errors(t *testing.T) {
 	src := `import {
-  std/duration.Duration
-  std/supervisors.Supervisor
+  std::duration.Duration
+  std::supervisors.Supervisor
 }
 
 fn make_group() -> Supervisor {

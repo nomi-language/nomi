@@ -1,4 +1,4 @@
-import std/json.{FromJson, ToJson}
+import std::json.{FromJson, ToJson}
 
 pub struct Note {
     title: String

@@ -6,7 +6,7 @@ import (
 
 // A Range test inside a struct with a Map-of-functions field runs.
 func TestIRRange_InAStructWithAFunctionMapFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
@@ -17,7 +17,7 @@ fn main() { r = 1..5 io.inspect(Outer{p: [Point{x: if Range.contains(r, 3) { 1 }
 }
 
 func TestIRRange_NaNOrdering(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   nan = 0.0 / 0.0
   io.print(Range.contains(nan..=nan, nan))
@@ -30,7 +30,7 @@ fn main() {
 }
 
 func TestIRRange_EvaluationOrder(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(n: Int) -> Int { io.print(n) n }
 fn mark_range(r: Range<Int>) -> Range<Int> { io.print("range") r }
 fn main() {
@@ -42,7 +42,7 @@ fn main() {
 }
 
 func TestIRRange_Containment(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn interval() -> Range<Int> { 1..=5 }
 fn main() {
   io.print(Range.contains("a".."m", "h"))
@@ -61,8 +61,8 @@ fn main() {
 
 func TestIRRange_OrderingDependencies(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
-  std/comparable.Ordering.{Less as Low}
+  std::io
+  std::comparable.Ordering.{Less as Low}
 }
 fn lower() -> Ordering { Low }
 fn rank(o: Ordering) -> Int {

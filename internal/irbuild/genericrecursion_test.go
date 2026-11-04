@@ -11,7 +11,7 @@ import (
 // is what the builder reads to find the instance.
 func TestGenericRecursion_RunsEveryForm(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"direct, not in tail position", `import std/io
+		{"direct, not in tail position", `import std::io
 fn walk<T>(xs: List<T>) -> Int {
   case xs {
     [] -> 0
@@ -23,7 +23,7 @@ fn main() {
   io.print(walk(["a", "b"]))
   io.print(walk(1..=10000 |> Iter.to_list()))
 }`, "3\n2\n10000\n"},
-		{"direct, in tail position", `import std/io
+		{"direct, in tail position", `import std::io
 fn count<T>(xs: List<T>, acc: Int) -> Int {
   case xs {
     [] -> acc
@@ -38,7 +38,7 @@ fn main() {
   io.print(count(1..=10000 |> Iter.to_list(), 0))
   io.print(spin("s", 1000000))
 }`, "4\n10000\ns\n"},
-		{"mutual", `import std/io
+		{"mutual", `import std::io
 fn evens<T>(xs: List<T>) -> List<T> {
   case xs {
     [] -> []
@@ -63,7 +63,7 @@ fn main() {
   io.print(evens(1..=10000 |> Iter.to_list()) |> Iter.count())
   io.print(ping("p", 1000000))
 }`, "[1, 3, 5]\n[\"a\", \"c\"]\n5000\np\n"},
-		{"through a lambda", `import std/io
+		{"through a lambda", `import std::io
 enum Tree<T> {
   Leaf(T)
   Node(List<Tree<T>>)
@@ -78,7 +78,7 @@ fn main() {
   io.print(depth(Tree.Node([Tree.Leaf(1), Tree.Node([Tree.Leaf(2)])])))
   io.print(depth(Tree.Leaf("x")))
 }`, "3\n1\n"},
-		{"a generic impl function", `import std/io
+		{"a generic impl function", `import std::io
 struct Stack<T> {
   items: List<T>
 }
@@ -103,7 +103,7 @@ fn main() {
 // grows, needs infinitely many instances. The front end rejects it, so the
 // builder never instantiates it.
 func TestGenericRecursion_PolymorphicIsRejected(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 fn f<T>(x: T, n: Int) -> Int {
   if n == 0 { 0 } else { f(#(x, x), n - 1) }
 }
@@ -123,7 +123,7 @@ fn main() { io.print(f(1, 3)) }`
 // sees `Box<Int>`.
 func TestGenericLambda_ParamAtTheEnclosingTypeParameter(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"a generic enum", `import std/io
+		{"a generic enum", `import std::io
 enum Box<T> {
   One(T)
   Two(#(Box<T>, Box<T>))
@@ -141,7 +141,7 @@ fn main() {
   io.print(leaves(wrap(Box.One(1), 3)))
   io.print(leaves(wrap(Box.One("a"), 4)))
 }`, "8\n16\n"},
-		{"a list and a bare parameter", `import std/io
+		{"a list and a bare parameter", `import std::io
 fn grow<T>(t: List<T>, n: Int) -> List<T> {
   1..=n |> Iter.reduce(t, fn acc, _ -> List.concat(acc, t))
 }

@@ -1,4 +1,4 @@
-import std/regex.Regex
+import std::regex.Regex
 
 // A name compared without case, so membership goes through its own `equal`.
 struct Tag {

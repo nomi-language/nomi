@@ -2,8 +2,8 @@
 // Each call takes the impl its arguments choose, and a type argument only
 // the result names is chosen by the type the result is expected to have.
 import {
-    std/compiler
-    std/regex.Regex
+    std::compiler
+    std::regex.Regex
     test_helpers
 }
 

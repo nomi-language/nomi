@@ -369,7 +369,7 @@ func statementBounds(content string, lineOffs []int, stmt *ast.ImportStmt) (int,
 		}
 	}
 	// Brace statements run to the closing `}`, which sits after the last item.
-	// Colon single-name imports (`import std/io`) also have Names, but no
+	// Colon single-name imports (`import std::io`) also have Names, but no
 	// brace; do not scan past the line looking for an unrelated `}`.
 	if len(stmt.Names) > 0 && end <= len(content) {
 		lineEnd := len(content)

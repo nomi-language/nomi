@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A file with BOTH `fn main` and tests. `nomi test` runs the tests and never
 // calls main, so a compiled test binary must not either.

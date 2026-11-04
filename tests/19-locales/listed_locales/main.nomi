@@ -4,8 +4,8 @@
 // locale (fr as de). A literal of such a locale is a compile error, so fr
 // is read as text, as a reader's choice would be.
 import {
-    std/io
-    std/locale.Locale
+    std::io
+    std::locale.Locale
 }
 
 pub fn total(n: Int, locale: Locale) -> String {

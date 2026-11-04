@@ -1,8 +1,8 @@
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/sql.{self, Conn, Dialect, Row, Sql, Statement, Value}
-    std/sql_testing.{self, Fake}
-    std/tasks.{Outcome, Task}
+    std::channels.{Channel, Receiver, Sender}
+    std::sql.{self, Conn, Dialect, Row, Sql, Statement, Value}
+    std::sql_testing.{self, Fake}
+    std::tasks.{Outcome, Task}
 }
 
 fn insert(conn: Conn, name: String) -> Result<Unit, sql.Error> {

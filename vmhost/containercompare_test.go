@@ -30,7 +30,7 @@ func runOutput(t *testing.T, src string) string {
 // scalars, Bools, a declared type, and Lists and Vectors nested in each
 // other. Equality and hashing are held for Set as well.
 func TestRun_ContainerComparisonSurface(t *testing.T) {
-	out := runOutput(t, `import std/io
+	out := runOutput(t, `import std::io
 
 struct P {
   a: Int
@@ -73,7 +73,7 @@ fn main() {
 // compared directly or by operator, a sort of them and a sort by a tuple
 // key, with tuples nested in tuples and a declared type as an element.
 func TestRun_TuplesCompareLexicographically(t *testing.T) {
-	out := runOutput(t, `import std/io
+	out := runOutput(t, `import std::io
 
 struct P {
   a: Int
@@ -112,7 +112,7 @@ func TestLoad_OrderingOverAnAnonymousStructIsACompileError(t *testing.T) {
 		{"[#(1, Unit)] < [#(1, Unit)]", "no impl of `Comparable` for `Unit`"},
 		{"Iter.sort([#(1, Unit)])", "is Comparable when each element is, and `Unit` is not"},
 	} {
-		_, err := vmhost.Load(writeProgram(t, "import std/io\n\nfn main() {\n  io.inspect("+c.expr+")\n}\n"))
+		_, err := vmhost.Load(writeProgram(t, "import std::io\n\nfn main() {\n  io.inspect("+c.expr+")\n}\n"))
 		if err == nil {
 			t.Fatalf("%s: the front end now ACCEPTS this", c.expr)
 		}

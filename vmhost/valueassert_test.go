@@ -15,7 +15,7 @@ import (
 // `fn` a failure is the function's Err(AssertionFailure). Each form here
 // ran into a lowering gap before; the parameter subject (`assert x`) did too.
 func TestRun_AnAssertionAsAValueInAFunction(t *testing.T) {
-	out := runSourceOutput(t, `import std/assertions.AssertionFailure
+	out := runSourceOutput(t, `import std::assertions.AssertionFailure
 
 fn stmt(x: Bool) -> Result<Int, AssertionFailure> {
   assert x
@@ -126,7 +126,7 @@ dbg line 83: tail(Ok(4)) = Ok(4)
 
 // A failed assertion bound in `main` ends the program with its report.
 func TestRun_AFailedAssertionBoundInMainEndsTheProgram(t *testing.T) {
-	p, err := vmhost.LoadSource("main.nomi", `import std/assertions.AssertionFailure
+	p, err := vmhost.LoadSource("main.nomi", `import std::assertions.AssertionFailure
 
 fn main() -> Result<Unit, AssertionFailure> {
   n = 0

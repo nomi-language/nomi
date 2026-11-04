@@ -1,4 +1,4 @@
-import std/compiler.Diagnostic
+import std::compiler.Diagnostic
 
 // A sibling file's signature naming a STD type whose representation rt declares. The
 // entry file calls this and never names `Diagnostic` itself: its only mention of

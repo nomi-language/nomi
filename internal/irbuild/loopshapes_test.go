@@ -10,7 +10,7 @@ func TestIRLoopShapes_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     m: Maybe<Int> = Some(3)

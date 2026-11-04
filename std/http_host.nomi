@@ -1,6 +1,6 @@
-//# The Go-backed half of std/http and std/http_testing: Go's net/http
+//# The Go-backed half of std::http and std::http_testing: Go's net/http
 //# client over a request's parts (internal/stdhttp), and the fake
-//# `http_testing.run` installs. It is internal; a program imports std/http,
+//# `http_testing.run` installs. It is internal; a program imports std::http,
 //# which builds its values from these and gives them their documentation.
 
 import {
@@ -23,7 +23,7 @@ pub host type Client
 /// A response a client answered, its body read or open.
 pub host type Exchange
 
-/// One of the Go values std/http keeps for a program: a TLS ClientHello, a
+/// One of the Go values std::http keeps for a program: a TLS ClientHello, a
 /// request tracer, a streaming multipart reader or writer.
 pub host type Handle
 
@@ -301,7 +301,7 @@ host fn request_on<T, R>(
     finish: (T) -> R,
 ) -> R
 
-/// Runs `body` with `answer` answering every request std/http sends in it,
+/// Runs `body` with `answer` answering every request std::http sends in it,
 /// and in the tasks it starts.
 pub fn with_fake<Q, A, T>(answer: (Q) -> A, body: () -> T) -> T {
     run_on(answer, body, fn v -> v)
@@ -336,16 +336,16 @@ pub host fn encode_multipart(parts: List<Bytes>) -> List<Bytes>
 /// Go's `multipart.FileContentDisposition`.
 pub host fn file_content_disposition(field: String, filename: String) -> String
 
-/// A certificate chain and its private key, for std/tls.
+/// A certificate chain and its private key, for std::tls.
 pub host type Certificate
 
-/// Go's TLS configuration, built from a std/tls config for one use.
+/// Go's TLS configuration, built from a std::tls config for one use.
 pub host type TlsConfig
 
-/// A network connection, TCP or TLS over TCP, for std/net.
+/// A network connection, TCP or TLS over TCP, for std::net.
 pub host type Conn
 
-/// A listening TCP socket, for std/net.
+/// A listening TCP socket, for std::net.
 pub host type TcpListener
 
 /// Go's `X509KeyPair`. An `Err` is a `tls.Error` variant's name and fields.
@@ -400,7 +400,7 @@ pub host fn cipher_suites(insecure: Bool) -> List<List<String>>
 /// Go's `CipherSuiteName`.
 pub host fn cipher_suite_name(id: Int) -> String
 
-/// A TCP connection to `address`, with std/net's DialOptions. A duration
+/// A TCP connection to `address`, with std::net's DialOptions. A duration
 /// is in nanoseconds, 0 Go's default; `local` is "" for any. An `Err` is a
 /// `net.Error` variant's name and fields.
 pub host fn dial_with(
@@ -470,7 +470,7 @@ pub host fn tracer_events(tracer: Handle) -> List<List<List<String>>>
 /// "" when `host` matches the peer's certificate, else why not.
 pub host fn tls_verify_hostname(conn: Conn, host: String) -> String
 
-/// A TCP listener on `address`, with std/net's ListenOptions.
+/// A TCP listener on `address`, with std::net's ListenOptions.
 pub host fn net_listen_with(
     address: String,
     keep_alive: Bool,

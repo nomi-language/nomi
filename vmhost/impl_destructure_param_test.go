@@ -15,7 +15,7 @@ import (
 // "destructuring parameter", so every call to one stopped the program with
 // "this call to `Balance.cents` is not supported yet".
 func TestImplDestructuringParams_Run(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 type Balance Int
 
@@ -145,7 +145,7 @@ impl Shape for Pair {
 
 // FILE: main.nomi
 import {
-    std/io
+    std::io
     money.Balance
     money.Pair
     money.Shape

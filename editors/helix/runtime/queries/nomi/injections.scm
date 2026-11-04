@@ -2,112 +2,112 @@
 ;
 ; These queries drive editor-side embedded-language highlighting. The tag
 ; on a tagged literal (`Sql"..."`, raw `Regex`...``, etc.) is a PascalCase
-; type name, captured as `@injection.language` — tree-sitter treats it as
-; the *name* of the language to inject. The body content is captured as
-; `@injection.content`, which becomes the source text fed to that
-; language's parser/highlighter.
+; type name, captured as `@injection.language`: tree-sitter treats it as
+; the name of the language to inject. A tag whose type name has no
+; installed grammar injects nothing. `Toml`, `Regex` and `Html` need a
+; lowercase spelling (`toml`, `regex`, `html`), so static rules before the
+; generic dynamic rule set it.
 ;
-; Most injection languages are dynamic — the tag's type name. `Sql"..."`
-; injects the `Sql` grammar; a tag whose type name has no installed grammar
-; falls back to no-injection. Tags that need a spelling alias can be handled
-; by a static rule before the generic dynamic rule; `Toml` injects the
-; editor's `toml` grammar. `Regex` likewise injects the lowercase
-; `regex` grammar, and `Html` the lowercase `html` one.
+; One literal is one injected document, with its `${...}` slots left out.
+; Each pattern matches the literal's children as one repetition of body
+; chunks, slots and escapes, so a single match captures every body chunk
+; (`string_content`, `triple_string_content`) as `@injection.content`.
+; Zed, Helix and Neovim each parse the content nodes of one match as one
+; document over several ranges, so `<img src="${avatar}" alt="">` and
+; `${initial}</span>` parse as HTML would with the slots filled in. The
+; slots, and escapes such as `\"`, are not in the injected text; they stay
+; Nomi. Zed also groups by `@injection.host`, the literal, so a body split
+; over several matches would still be one document there.
 ;
-; No `(#set! injection.combined)`: that flag concatenates ALL matching
-; `@injection.content` captures across the whole file into one virtual
-; document before parsing, so multiple `Sql"..."` literals get joined
-; into one malformed `SELECT ... SELECT ... INSERT ...` statement and
-; the injected parser produces inconsistent state across literals
-; (visible as the same keyword rendering in different colors). Per-
-; literal injection avoids that. The cost in theory is fragmenting a
-; keyword that straddles a `${...}` slot, but that doesn't happen in
-; practice — SQL/HTML/etc. keywords are single tokens.
+; Rejected alternatives. A pattern per chunk (`(string_content)
+; @injection.content`) parses each chunk as its own document, so HTML after
+; the first slot starts mid-attribute. `(#set! injection.combined)` joins
+; every literal of that language in the whole file into one document.
+; Capturing the whole literal without `injection.include-children`, with the
+; body tokens hidden, leaves the slots out only in Helix and tree-sitter's
+; own highlighter: Zed ignores that rule and injects the whole node, tag,
+; quotes and slots included, and Neovim cuts out only named children, so the
+; quotes would stay in.
 ;
-; For interpolated forms, this means each `string_content` /
-; `triple_string_content` chunk between slots is its own injection.
-; That's fine: each chunk is a complete fragment of the embedded
-; language at the parser's resolution.
+; tree-sitter's own highlighter (`tree-sitter highlight`) injects only the
+; last content node of a match, so it highlights only a literal's last
+; chunk. No editor uses it.
 
 ; TOML typed literals use the editor's lowercase `toml` grammar name.
-(tagged_type_string
-  tag: (type_identifier) @tag
-  (string_content) @injection.content
-  (#eq? @tag "Toml")
+((tagged_type_string
+  tag: (type_identifier) @_tag
+  [(string_content) @injection.content (string_interpolation) (escape_sequence)]+) @injection.host
+  (#eq? @_tag "Toml")
   (#set! injection.language "toml"))
 
-(tagged_type_triple_string
-  tag: (type_identifier) @tag
-  (triple_string_content) @injection.content
-  (#eq? @tag "Toml")
+((tagged_type_triple_string
+  tag: (type_identifier) @_tag
+  [(triple_string_content) @injection.content (string_interpolation)]+) @injection.host
+  (#eq? @_tag "Toml")
   (#set! injection.language "toml"))
 
 (raw_tagged_string
-  tag: (type_identifier) @tag
+  tag: (type_identifier) @_tag
   (raw_string_content) @injection.content
-  (#eq? @tag "Toml")
+  (#eq? @_tag "Toml")
   (#set! injection.language "toml"))
 
 ; Regex typed literals use the editor's lowercase `regex` grammar name.
-(tagged_type_string
-  tag: (type_identifier) @tag
-  (string_content) @injection.content
-  (#eq? @tag "Regex")
+((tagged_type_string
+  tag: (type_identifier) @_tag
+  [(string_content) @injection.content (string_interpolation) (escape_sequence)]+) @injection.host
+  (#eq? @_tag "Regex")
   (#set! injection.language "regex"))
 
-(tagged_type_triple_string
-  tag: (type_identifier) @tag
-  (triple_string_content) @injection.content
-  (#eq? @tag "Regex")
+((tagged_type_triple_string
+  tag: (type_identifier) @_tag
+  [(triple_string_content) @injection.content (string_interpolation)]+) @injection.host
+  (#eq? @_tag "Regex")
   (#set! injection.language "regex"))
 
 (raw_tagged_string
-  tag: (type_identifier) @tag
+  tag: (type_identifier) @_tag
   (raw_string_content) @injection.content
-  (#eq? @tag "Regex")
+  (#eq? @_tag "Regex")
   (#set! injection.language "regex"))
 
-; HTML typed literals (std/html's templates) use the editor's lowercase
+; HTML typed literals (std::html's templates) use the editor's lowercase
 ; `html` grammar.
-(tagged_type_string
-  tag: (type_identifier) @tag
-  (string_content) @injection.content
-  (#eq? @tag "Html")
+((tagged_type_string
+  tag: (type_identifier) @_tag
+  [(string_content) @injection.content (string_interpolation) (escape_sequence)]+) @injection.host
+  (#eq? @_tag "Html")
   (#set! injection.language "html"))
 
-(tagged_type_triple_string
-  tag: (type_identifier) @tag
-  (triple_string_content) @injection.content
-  (#eq? @tag "Html")
+((tagged_type_triple_string
+  tag: (type_identifier) @_tag
+  [(triple_string_content) @injection.content (string_interpolation)]+) @injection.host
+  (#eq? @_tag "Html")
   (#set! injection.language "html"))
 
 (raw_tagged_string
-  tag: (type_identifier) @tag
+  tag: (type_identifier) @_tag
   (raw_string_content) @injection.content
-  (#eq? @tag "Html")
+  (#eq? @_tag "Html")
   (#set! injection.language "html"))
 
-; Interpolated single-line tagged literal: `<Tag>"...${expr}..."`.
-; Body content is `string_content`; interpolation holes
-; (`string_interpolation`) are skipped so the host language continues
-; to parse them.
-(tagged_type_string
+; Every other tag injects the language its type name names: `Sql"..."`,
+; `Json"""..."""`, `Css`...``.
+((tagged_type_string
   tag: (type_identifier) @injection.language
-  (string_content) @injection.content
+  [(string_content) @injection.content (string_interpolation) (escape_sequence)]+) @injection.host
   (#not-eq? @injection.language "Toml")
   (#not-eq? @injection.language "Regex")
   (#not-eq? @injection.language "Html"))
 
-; Interpolated triple-quoted tagged literal: `<Tag>"""..."""`.
-(tagged_type_triple_string
+((tagged_type_triple_string
   tag: (type_identifier) @injection.language
-  (triple_string_content) @injection.content
+  [(triple_string_content) @injection.content (string_interpolation)]+) @injection.host
   (#not-eq? @injection.language "Toml")
   (#not-eq? @injection.language "Regex")
   (#not-eq? @injection.language "Html"))
 
-; Raw tagged literal: `<Tag>`...``. No interpolation; the body is one
-; `raw_string_content` token.
+; A raw literal has no slots: its body is one `raw_string_content` token.
 (raw_tagged_string
   tag: (type_identifier) @injection.language
   (raw_string_content) @injection.content

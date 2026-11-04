@@ -8,7 +8,7 @@ import "testing"
 // default, an annotated binding, a return value, a generic struct, a generic
 // body, a function-valued field, a tuple index and an anonymous struct.
 func TestIRFieldAccessor_RunsWhereTheCheckerAcceptsIt(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Address {
   city: String

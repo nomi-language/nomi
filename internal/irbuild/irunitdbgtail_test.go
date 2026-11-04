@@ -9,7 +9,7 @@ import "testing"
 // last stage is `|> dbg`. A non-Unit body ending in dbg still answers the
 // observed value.
 func TestIRUnitDbgTail_RunsAndPrints(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Box {
   n: Int

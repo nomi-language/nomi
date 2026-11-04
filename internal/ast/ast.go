@@ -203,12 +203,18 @@ func (n *SimpleType) TypeString() string { return n.Name }
 
 // QualifiedType is a module-qualified type like io.Reader or io.List<Int>.
 // Module holds the qualifier ("io") with position; Member is the resolved type part.
+//
+// A qualifier written as a file's full path (`db::schema.Post`) keeps its
+// spelling in Module (`db::schema`, or `db::schema.Shape` with an owner) and
+// its segments, each at its own position, in Path. Path is nil when the
+// qualifier starts with a plain name.
 type QualifiedType struct {
 	TriviaCarrier
 	SpanCarrier
 	Module     string
 	ModuleLine int
 	ModuleCol  int
+	Path       []PathSegment
 	Member     TypeExpr // SimpleType or GenericType for the member part
 }
 
@@ -1231,6 +1237,51 @@ func (n *FieldAccessor) Spelling() string {
 	return b.String()
 }
 
+// FilePath is a file named by its full import path, `db::posts`, as the
+// qualifier of a member access: `db::posts.post_by_id(1)` is a Call whose
+// Func is a FieldAccess whose Object is the FilePath. Segments holds each
+// path segment at its own position. A file is not a value, so a FilePath
+// stands only as a FieldAccess's Object.
+type FilePath struct {
+	TriviaCarrier
+	SpanCarrier
+	Segments []PathSegment
+	Line     int
+	Col      int
+}
+
+// PathSegment is one segment of a file's full path, at its position. It is
+// not a node: a segment names a directory or a file, never a binding, so a
+// walk over expressions never meets one as a name.
+type PathSegment struct {
+	Name string
+	Line int
+	Col  int
+}
+
+// PathSpelling joins segments as source writes them: `db::posts`.
+func PathSpelling(segs []PathSegment) string {
+	parts := make([]string, len(segs))
+	for i, seg := range segs {
+		parts[i] = seg.Name
+	}
+	return strings.Join(parts, PathSeparator)
+}
+
+func (*FilePath) NodeType() string { return "FilePath" }
+func (n *FilePath) LineNum() int   { return n.Line }
+
+// Spelling is the path as written: `db::posts`. It is also the name the
+// analyzer binds an imported file under besides its short name.
+func (n *FilePath) Spelling() string { return PathSpelling(n.Segments) }
+
+// PathSeparator joins the segments of a file's import path in source.
+const PathSeparator = "::"
+
+// IsFullPath reports whether name is a file's full path, `db::posts`,
+// rather than a single name.
+func IsFullPath(name string) bool { return strings.Contains(name, PathSeparator) }
+
 type FieldAccess struct {
 	TriviaCarrier
 	SpanCarrier
@@ -2050,10 +2101,10 @@ func AttachedTestsOf(n Node) []AttachedTest {
 // ImportStmt represents an import statement.
 // ModulePath contains positioned nodes for each slash-separated path segment.
 // Names contains positioned nodes for explicitly imported items. An empty Names
-// slice is a file import: `import std/io` binds an imported file API object
+// slice is a file import: `import std::io` binds an imported file API object
 // under the last path segment (`io`) unless ModuleAlias supplies a local alias.
 // Import aliasing:
-//   - ModuleAlias is set by file aliases: `import std/io as console`.
+//   - ModuleAlias is set by file aliases: `import std::io as console`.
 //   - Aliases is a parallel slice to Names (same length) used for selective
 //     aliases: `import mod.{Name as Alias}`. Aliases[i] is nil when the i-th
 //     selected name has no alias.

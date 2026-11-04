@@ -11,7 +11,7 @@ func TestDefaultedFuncRef_IsTheFullFunction(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     lib
 }
 
@@ -50,7 +50,7 @@ func TestDefaultedFuncRef_FillsWhereFewerParametersAreExpected(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     lib
     lib.shout
 }

@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRBareReturn_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"named sequential guards", `import std/io
+		{"named sequential guards", `import std::io
 fn check(n: Int) -> Bool { io.print("check") n > 0 }
 fn visit(n: Int) {
   if n < 0 {
@@ -22,7 +22,7 @@ fn main() {
   visit(1)
   io.print("done")
 }`, "negative\nzero\ncheck\ndone\n"},
-		{"captured lambda activation", `import std/io
+		{"captured lambda activation", `import std::io
 fn main() {
   message = "tail"
   visit = fn stop: Bool -> {
@@ -37,7 +37,7 @@ fn main() {
   visit(False)
   io.print("main")
 }`, "early\ntail\nmain\n"},
-		{"nested lambda activation", `import std/io
+		{"nested lambda activation", `import std::io
 fn main() {
   outer = fn stop: Bool -> {
     inner = fn -> {

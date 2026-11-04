@@ -10,7 +10,7 @@ import (
 // A postfix `!` leaves the expression before it as it was: hover and
 // go-to-definition on a call's function, signature help inside its argument
 // list and completion of an argument answer as they do without the `!`.
-const unwrapSource = `import std/io
+const unwrapSource = `import std::io
 
 /// Halves an even number.
 fn half(n: Int) -> Result<Int, String> {

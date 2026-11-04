@@ -13,7 +13,7 @@ import (
 // renders, compares and hashes (a map key and a set member), and a `case` on
 // it reads the `Ok` payload with the `Err` arm never taken.
 func TestInfallible_AResultThatCannotFailRendersComparesAndHashes(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn get() -> Result<Int, Infallible> {
     Ok(3)
@@ -54,7 +54,7 @@ fn main() {
 // Collections, tuples and variants over Infallible: an empty one is a value
 // like any other, and one that would hold a `todo` stops at the `todo`.
 func TestInfallible_EmptyCollectionsOfItAreValues(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn none() -> List<Infallible> {
     []
@@ -88,7 +88,7 @@ func TestInfallible_AValueHoldingATodoStopsAtTheTodo(t *testing.T) {
 		{"variant", "Some(todo)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			path, out, err := runTodo(t, `import std/io
+			path, out, err := runTodo(t, `import std::io
 
 fn main() {
     io.print("before")
@@ -121,7 +121,7 @@ func TestInfallible_ACallToANeverReturningFunctionStops(t *testing.T) {
 		{"todo case subject", "case todo {\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    }"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			path, out, err := runTodo(t, `import std/io
+			path, out, err := runTodo(t, `import std::io
 
 fn nev() -> Infallible {
     todo "never"
@@ -153,7 +153,7 @@ fn main() {
 // A branch, an arm or a lambda that would call a never-returning function
 // completes when the run does not take it.
 func TestInfallible_UntakenNeverReturningCallsComplete(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn nev() -> Infallible {
     todo "never"
@@ -188,7 +188,7 @@ fn main() {
 // A user enum with an Infallible payload is declared, built at its other
 // variants, rendered, compared and hashed.
 func TestInfallible_AnEnumWithAnInfalliblePayload(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 enum Shape {
     Circle(Int)
@@ -213,7 +213,7 @@ fn main() {
 
 // `fn main() -> Result<Unit, Infallible>`, the spec's own example.
 func TestInfallible_MainReturningAResultThatCannotFail(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn main() -> Result<Unit, Infallible> {
     io.print("ran")
@@ -235,7 +235,7 @@ fn main() -> Result<Unit, Infallible> {
 // `Err` payload's hash into arithmetic (`1 * 31 + Hashable.hash(e)`), which
 // stops at `e`.
 func TestInfallible_ItsDisplayEquatableAndHashableImpls(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn get() -> Result<Int, Infallible> {
     Ok(3)
@@ -279,7 +279,7 @@ fn main() {
 // A function over Infallible can be written with its impls and is never
 // called: each lowers, and the arm that would call it is never taken.
 func TestInfallible_FunctionsOverItLowerAndAreNeverCalled(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn show(x: Infallible) -> String {
     Display.to_string(x)
@@ -321,7 +321,7 @@ fn main() {
 // error type is open solves that type to Infallible, in either order: the
 // literal is a collection of one instance, which lowers.
 func TestInfallible_ALiteralBesideAnOpenOkTakesItsType(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn main() {
     q: Result<Int, Infallible> = Ok(3)
@@ -347,7 +347,7 @@ fn main() {
 // Infallible's impl functions are std bodies like any other, so each can be
 // passed as a function value. Over an empty list none is called.
 func TestInfallible_ItsImplFunctionsAreValues(t *testing.T) {
-	_, out, err := runTodo(t, `import std/io
+	_, out, err := runTodo(t, `import std::io
 
 fn main() {
     xs: List<Infallible> = []

@@ -10,7 +10,7 @@ func TestIRBlockDeclaredTypes_RunAnywhere(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn pick(c: Bool) -> Int {
     if c {

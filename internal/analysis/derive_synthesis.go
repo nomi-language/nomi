@@ -28,7 +28,7 @@ var deriveSupported = func() map[string]bool {
 // module. Used by the derive-arg scope check (walkTypeDeclDecoratorArgs) to
 // suggest the exact import in its diagnostic: a `@derive Comparable` arg
 // names `Comparable` in visible source text, so the file must have it in
-// scope — "`Comparable` is not in scope — import `std/comparable.Comparable`".
+// scope — "`Comparable` is not in scope — import `std::comparable.Comparable`".
 // Debug is exempt (compiler-known universally: every type is Debug-conformant,
 // synthesis is automatic, and the impl headers resolve without the name).
 var deriveProtocolHomeModule = map[string]string{
@@ -3925,7 +3925,7 @@ func fromJsonCallForType(target ast.TypeExpr, arg ast.Node, line, col int) ast.N
 // means std's `Json` whatever the file itself binds that name to.
 const jsonModuleAlias = "json$"
 
-// jsonImport is `import std/json as json$`, on the line of the message
+// jsonImport is `import std::json as json$`, on the line of the message
 // expansions' hidden imports (hiddenImportLine), after their columns.
 func jsonImport() *ast.ImportStmt {
 	l := hiddenImportLine

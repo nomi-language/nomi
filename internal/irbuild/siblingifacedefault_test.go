@@ -28,7 +28,7 @@ impl Shape for Sq {
 }
 `
 	t.Run("interface and impl in another file", func(t *testing.T) {
-		verifyLambdaProgram(t, `import std/io
+		verifyLambdaProgram(t, `import std::io
 import shapes.{Shape, Sq}
 
 fn main() {
@@ -38,7 +38,7 @@ fn main() {
 `, "7\n10\n", map[string]string{"shapes.nomi": shapes})
 	})
 	t.Run("impl in another file", func(t *testing.T) {
-		verifyLambdaProgram(t, `import std/io
+		verifyLambdaProgram(t, `import std::io
 import sq.Sq
 
 pub interface Shape {

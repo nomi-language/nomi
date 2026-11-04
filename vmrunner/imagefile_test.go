@@ -15,7 +15,7 @@ import (
 	"github.com/nomi-language/nomi/vmrunner"
 )
 
-const echoProgram = `import std/io
+const echoProgram = `import std::io
 
 struct App {
   context: Context
@@ -73,7 +73,7 @@ func TestRunBare_RunsAnImageFileByPath(t *testing.T) {
 // An Int literal past int64's range is a constant the image carries: written
 // by the encoder, read back by the decoder, and loaded beside its word.
 func TestRunBare_AnImageCarriesABigIntConstant(t *testing.T) {
-	src := "import std/io\n\nfn main() {\n  io.print(123456789012345678901234567890 * 2)\n  io.print(-9223372036854775808)\n}\n"
+	src := "import std::io\n\nfn main() {\n  io.print(123456789012345678901234567890 * 2)\n  io.print(-9223372036854775808)\n}\n"
 	path := writeImageFile(t, vmrunner.EncodeImageFile(image(t, src), 0, "test"))
 	var out, errOut bytes.Buffer
 	code := vmrunner.RunBare([]string{path}, &out, &errOut, strings.NewReader(""), false, vmrunner.ErrNoImage)

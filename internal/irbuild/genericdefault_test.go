@@ -5,7 +5,7 @@ import "testing"
 // A generic function's omitted default is lowered at the call's instance:
 // a lambda whose parameter takes its type from T, and an empty list of T.
 func TestGenericDefault_LowersAtTheInstance(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn apply<T>(x: T, f: (T) -> T = fn y -> y) -> T {
     f(x)

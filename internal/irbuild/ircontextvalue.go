@@ -147,7 +147,7 @@ func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 // namedWitnessKind is the kind the bare type name at spells: one this file
 // declares or a primitive (qualifierKind), else the X of the `Type<X>` the
 // checker typed at as, which names an imported std type (`Duration` after
-// `import std/duration.Duration`) that this file's type table does not
+// `import std::duration.Duration`) that this file's type table does not
 // hold.
 func (g *gen) namedWitnessKind(at ast.Node, name string) kind {
 	// kindInvalid: lookup — a name this file's table does not hold tries the checker's type.

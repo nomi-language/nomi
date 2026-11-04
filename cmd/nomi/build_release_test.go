@@ -159,7 +159,7 @@ func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {
 	return env
 }
 
-const releaseHello = "import std/io\n\nfn main() {\n  io.print(\"hi\")\n}\n"
+const releaseHello = "import std::io\n\nfn main() {\n  io.print(\"hi\")\n}\n"
 
 // TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram: a release-shaped
 // `nomi` with its archive's nomi-vm beside it, no compiler source and no
@@ -218,7 +218,7 @@ func TestBuildFromRelease_AVariantNamedLikeAnInterfaceBuilds(t *testing.T) {
 	b := releaseBuild(t)
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "levels.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 enum Level {
   Info
@@ -275,8 +275,8 @@ func TestBuildFromRelease_StdCompilerNeedsGoToBuildItsRunner(t *testing.T) {
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "nested.nomi")
 	mustWrite(t, entry, `import {
-  std/compiler
-  std/io
+  std::compiler
+  std::io
 }
 
 fn main() {

@@ -175,10 +175,10 @@ var infiniteIterUntested = map[string]string{
 func infiniteIterProgram(expr string) string {
 	src := strings.Replace(infiniteIterMain, "EXPR", expr, 1)
 	if strings.Contains(expr, "Task.") {
-		src = "import std/tasks.Task\n\n" + src
+		src = "import std::tasks.Task\n\n" + src
 	}
 	if strings.Contains(expr, "Reader.") {
-		src = "import std/io.Reader\n\n" + src
+		src = "import std::io.Reader\n\n" + src
 	}
 	return src
 }

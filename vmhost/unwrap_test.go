@@ -14,7 +14,7 @@ import (
 // bangProgram is the declarations every `!` call case runs against: a
 // sibling file, a local function, a function value, an interface's
 // function, a generic function, and errors with and without Display.
-const bangProgram = `import std/io
+const bangProgram = `import std::io
 import helper
 
 struct Oops {

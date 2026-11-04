@@ -2,8 +2,8 @@
 // migrations, add a user, place an order, mark it paid, read the user back
 // and count each user's orders with the checked queries.
 import {
-    std/io
-    std/sql.{self, Error}
+    std::io
+    std::sql.{self, Error}
     queries
     schema
     sqlite

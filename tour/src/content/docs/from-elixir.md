@@ -26,9 +26,10 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `%{name: "Ada"}` (atom keys) | `#{name: "Ada"}`, an anonymous struct |
 | `%User{name: "Ada"}` | `User{name: "Ada"}`: `#` is a struct, `%` a map or set |
 | `"#{x}"` | `"${x}"` |
-| `cond do`, `if .. do` | `if .. { } else if .. { }` |
+| `cond do`, `if .. do` | `if .. { } else if .. { }`. Without `else` it is `Some(x)` or `None`, where Elixir's is `x` or `nil`. |
 | `when` guards | `when` guards, the same |
 | `defp` | A declaration without `pub` |
+| `alias MyApp.Db.Posts`, then `Posts.find(1)` | `import db::posts`, then `posts.find(1)`: a file is used by its path's last part. The full path, `db::posts.find(1)`, works too. |
 | `spawn`, `send`, `receive` | `Task.spawn` in `concurrent { .. }`, and channels |
 | `Supervisor` | `Supervisor.new` in `boot` |
 | `ExUnit` | `test "name" { assert .. }` |

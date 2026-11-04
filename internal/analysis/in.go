@@ -35,6 +35,8 @@ func (c *checker) checkIn(n *ast.Binary) Type {
 	c.memberships[call] = n
 	// The `in` names std's Contains, as the call's qualifier does.
 	c.fa.References[Pos{Line: n.Line, Col: n.Col}] = contains
+	c.fa.recordStandIn(n.Line, n.Col)
+	c.fa.recordStandIn(n.Line, n.Col+1)
 	before := len(c.errors)
 	c.checkNode(call)
 	// The callee is written at the `in`, so an error there about the
@@ -67,17 +69,20 @@ func membershipCall(n *ast.Binary) *ast.Call {
 	}
 }
 
-// MembershipReference reports whether pos is a column of the `in` of a
-// membership test, where References holds `Contains` and its function
-// (checkIn) though the text there is the keyword: a tool that edits, colors
-// or lists a name's occurrences skips it.
-func (fa *FileAnalysis) MembershipReference(pos Pos) bool {
-	for b := range fa.Memberships {
-		if b.Line == pos.Line && (b.Col == pos.Col || b.Col+1 == pos.Col) {
-			return true
-		}
+// StandInReference reports whether References holds a name at pos that the
+// text there does not spell (FileAnalysis.StandIns): a column of the `in`
+// of a membership test, or a quote, `$` or `{` of an `Html` literal. A tool
+// that edits, colors or lists a name's occurrences skips it.
+func (fa *FileAnalysis) StandInReference(pos Pos) bool {
+	return fa.StandIns[Pos{Line: pos.Line, Col: pos.Col}]
+}
+
+// recordStandIn adds the position line:col to fa.StandIns.
+func (fa *FileAnalysis) recordStandIn(line, col int) {
+	if fa.StandIns == nil {
+		fa.StandIns = map[Pos]bool{}
 	}
-	return false
+	fa.StandIns[Pos{Line: line, Col: col}] = true
 }
 
 // argLabel names the argument at 0-based position i of the call n in a

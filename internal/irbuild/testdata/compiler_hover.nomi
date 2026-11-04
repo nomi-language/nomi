@@ -31,8 +31,8 @@
 // which is why `markdown_starts_fenced` and `signature_is_one_line` are printed
 // as separate rows from two reads of one value.
 import {
-    std/compiler
-    std/io
+    std::compiler
+    std::io
 }
 
 // signature_of is the corpus helper's shape, kept so this fixture exercises the

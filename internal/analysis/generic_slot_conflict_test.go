@@ -73,7 +73,7 @@ fn walk<T>(xs: List<T>) -> Int {
 func genericSlotSource(stmt string) (src string, line int) {
 	imports := ""
 	if strings.Contains(stmt, "Generator.") {
-		imports = "import std/random.Generator\n\n"
+		imports = "import std::random.Generator\n\n"
 	}
 	head := imports + genericSlotDecls + "fn main() {\n"
 	return head + "    " + stmt + "\n    _ = x\n}\n", strings.Count(head, "\n") + 1

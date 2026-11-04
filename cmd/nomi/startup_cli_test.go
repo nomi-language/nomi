@@ -11,7 +11,7 @@ func TestStartupCLIInputs(t *testing.T) {
 	dir := t.TempDir()
 	source := filepath.Join(dir, "main.nomi")
 	mustWrite(t, source, `import {
- std/io
+ std::io
 }
 struct Settings {
   context: Context

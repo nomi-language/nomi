@@ -763,7 +763,7 @@ func isUnsolved(ty analysis.Type) bool {
 // line and col are where the analyzer recorded the VARIANT's reference: the
 // TypeIdent's own position for `Some(3)`, the field's for `Maybe.Some(3)`.
 //
-// `variant` is the LOCAL spelling. `import std/maybe.Maybe.{Some as Just}`
+// `variant` is the LOCAL spelling. `import std::maybe.Maybe.{Some as Just}`
 // makes that `Just`, and the spec's variant list holds the declaration's own
 // `Some`, so the lookup below takes the canonical name from variantRefAt and
 // the position match keeps using the local one. See variantalias.go.

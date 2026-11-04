@@ -2,9 +2,9 @@
 //# line in `nomi.toml`. It prints the sample list.
 
 import {
-    std/io
-    internal/report
-    tools/internal/samples
+    std::io
+    internal::report
+    tools::internal::samples
 }
 
 fn main() {

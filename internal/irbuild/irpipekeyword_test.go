@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRPipeKeyword_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(s: String) -> String { io.print(s) return s }
 fn main() {
   label = mark("Ada")
@@ -24,7 +24,7 @@ fn main() {
 }
 
 func TestIRPipeKeyword_BareStagesAndFollowingCalls(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn choose(b: Bool) -> String {
   b |> if { "yes" } else { "no" } |> String.lowercase()
 }

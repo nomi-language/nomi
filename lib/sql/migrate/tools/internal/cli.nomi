@@ -1,7 +1,7 @@
 // What the migrate tools share: their arguments and the connection they
 // open.
 import {
-    std/sql.{self, Conn}
+    std::sql.{self, Conn}
     postgres
     sqlite
 }

@@ -23,7 +23,7 @@
 // group below is a small `Maybe`-returning helper plus a rendering that
 // supplies a visible sentinel for `None`, and every helper takes an Int so the
 // same validation runs on both sides of each boundary.
-import std/io
+import std::io
 
 // --- the surface, one helper per declaration -------------------------------
 fn to_int_of(n: Int) -> Maybe<Int> {

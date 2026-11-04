@@ -15,7 +15,7 @@ import (
 func messageProject() map[string]string {
 	return map[string]string{
 		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
-		"main.nomi":            "import {\n    std/io\n    std/locale.Locale\n    std/message.Message\n    cart\n}\n\nfn main() {\n    io.print(Message.format(cart.greeting(\"Anna\"), Locale`pl`))\n}\n",
+		"main.nomi":            "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    cart\n}\n\nfn main() {\n    io.print(Message.format(cart.greeting(\"Anna\"), Locale`pl`))\n}\n",
 		"cart.nomi":            "/// Greets a customer.\npub message greeting(name: String) `Hello, {$name}!`\n",
 		"locales/pl/cart.toml": "[greeting]\nsource = '''Hi, {$name}!'''\ntext = '''Cześć, {$name}!'''\n",
 	}

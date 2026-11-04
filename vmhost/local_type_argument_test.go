@@ -16,9 +16,9 @@ import (
 // two libraries, beside std's own `Multiply<Decimal, Decimal>`.
 const localTypeArgumentProgram = `// FILE: app/main.nomi
 import {
-    std/io
-    fx/rate.Rate
-    shares/count.Shares
+    std::io
+    fx::rate.Rate
+    shares::count.Shares
 }
 
 fn scale<T>(x: T, r: Rate) -> T where T: Multiply<Rate, T> {

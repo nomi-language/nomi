@@ -1,6 +1,6 @@
 import {
-    std/html.{self, Css, Html, SafeUrl, ToHtml}
-    std/url.Url
+    std::html.{Css, Html, SafeUrl, ToHtml}
+    std::url.Url
 }
 
 fn render(page: Html) -> String {
@@ -41,9 +41,6 @@ test "a quoted attribute escapes both quotes, in either quote" {
     assert render(Html"<i data-kind='${kind}'></i>") == "<i data-kind='a&#34;b&#39;c'></i>"
 
     assert render(Html"""<i data-kind="${kind}"></i>""") == "<i data-kind=\"a&#34;b&#39;c\"></i>"
-
-    assert render(Html"<span class='badge ${html.class_if(True, "on")}'>x</span>")
-        == "<span class='badge on'>x</span>"
 }
 
 test "the start of a URL takes a Url or a SafeUrl, and refuses a javascript scheme" {
@@ -114,4 +111,95 @@ test "a raw literal is a template with no slots" {
 test "Html values are equal by their text" {
     assert Html"<b>x</b>" == Html.trusted("<b>x</b>")
     assert Html"<b>${"<"}</b>" != Html.trusted("<b><</b>")
+}
+
+struct Handle {
+    name: String
+}
+
+impl Display for Handle {
+    fn to_string(handle: Handle) -> String {
+        "<@${handle.name}>"
+    }
+}
+
+struct Badge {
+    count: Int
+}
+
+impl Display for Badge {
+    fn to_string(badge: Badge) -> String {
+        "${badge.count}"
+    }
+}
+
+impl ToHtml for Badge {
+    fn to_html(badge: Badge) -> Html {
+        Html"<span class='badge'>${badge.count}</span>"
+    }
+}
+
+fn shown(value: Display) -> Html {
+    Html"<td>${value}</td>"
+}
+
+test "element text writes any other Display value as escaped text" {
+    assert render(Html"<td>${Handle{name: "bo&co"}}</td>") == "<td>&lt;@bo&amp;co&gt;</td>"
+    assert render(Html"<td>${3 > 2}</td>") == "<td>True</td>"
+    assert render(shown(Handle{name: "x"})) == "<td>&lt;@x&gt;</td>"
+
+    // A type that renders itself is written by its ToHtml.
+    assert render(Html"<td>${Badge{count: 2}}</td>") == "<td><span class='badge'>2</span></td>"
+}
+
+fn badge(on: Bool) -> Html {
+    Html"<span class='badge ${if on { "on" }}'>x</span>"
+}
+
+test "a Maybe in a quoted attribute writes its value, or nothing for None" {
+    assert render(badge(True)) == "<span class='badge on'>x</span>"
+    assert render(badge(False)) == "<span class='badge '>x</span>"
+
+    tips = %{"save" => "Save \"draft\" <now>"}
+
+    assert render(Html"<b title='${Map.get(tips, "save")}'></b>")
+        == "<b title='Save &#34;draft&#34; &lt;now&gt;'></b>"
+
+    assert render(Html"<b title='${Map.get(tips, "quit")}'></b>") == "<b title=''></b>"
+
+    on = True
+    off = False
+
+    assert render(Html"<i class='${if on { "a" }} b ${if off { "c" }}${if on { " d" }}'></i>")
+        == "<i class='a b  d'></i>"
+
+    count: Maybe<Int> = Some(3)
+    none: Maybe<Int> = None
+
+    assert render(Html"<i data-n='${count}' data-m='${none}'>${count}</i>")
+        == "<i data-n='3' data-m=''>3</i>"
+
+    // An unquoted value still writes the attribute or leaves it out.
+    assert render(Html"<i class=${if on { "a" }}></i><i class=${if off { "a" }}></i>")
+        == "<i class=\"a\"></i><i></i>"
+}
+
+test "a Maybe in a URL, a style value or a title writes its value, or nothing" {
+    on = True
+    off = False
+    id: Maybe<String> = Some("a/b")
+
+    assert render(Html"<a href='/p/${id}?q=${if off { 1 }}#${if on { "x y" }}'>x</a>")
+        == "<a href='/p/a%2Fb?q=#x%20y'>x</a>"
+
+    home = Url.parse("https://example.com") |> Result.to_maybe()
+    bad = Url.parse("javascript:alert(1)") |> Result.to_maybe()
+    assert render(Html"<a href='${home}'>x</a>") == "<a href='https://example.com'>x</a>"
+    assert render(Html"<a href='${bad}'>x</a>") == "<a href='about:invalid#unsafe-url'>x</a>"
+    assert render(Html"<a href='${if off { SafeUrl("/") }}'>x</a>") == "<a href=''>x</a>"
+
+    assert render(Html"<i style='width: ${if on { 3 }}%; ${if off { Css("color: red") }}'></i>")
+        == "<i style='width: 3%; '></i>"
+
+    assert render(Html"<title>${if on { "a < b" }}</title>") == "<title>a &lt; b</title>"
 }

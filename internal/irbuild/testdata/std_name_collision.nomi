@@ -8,7 +8,7 @@
 // std/tasks' concurrent-block rule to a user `Task.spawn` and
 // std/supervisors' boot rule to a user `Supervisor.new`. The second group of
 // functions carries exactly those std names.
-import std/io
+import std::io
 
 struct Duration {
     n: Int

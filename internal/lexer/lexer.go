@@ -1258,6 +1258,12 @@ func (l *lexer) scanOperatorOrDelimiter() {
 		l.advance()
 		l.tokens = append(l.tokens, token.Token{Type: token.COMMA, Lexeme: ",", Line: startLine, Col: startCol})
 	case ':':
+		if l.peekAt(1) == ':' {
+			l.advance()
+			l.advance()
+			l.tokens = append(l.tokens, token.Token{Type: token.COLONCOLON, Lexeme: "::", Line: startLine, Col: startCol})
+			break
+		}
 		l.advance()
 		l.tokens = append(l.tokens, token.Token{Type: token.COLON, Lexeme: ":", Line: startLine, Col: startCol})
 	case '(':

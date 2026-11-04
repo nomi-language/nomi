@@ -236,7 +236,7 @@ func (r *completionRequest) enumSymbol(et *analysis.EnumType) *analysis.Symbol {
 }
 
 // moduleMemberCandidates offers the public members of the file object bound
-// to name at the cursor (`io` after `import std/io`), filtered by keep.
+// to name at the cursor (`io` after `import std::io`), filtered by keep.
 func (r *completionRequest) moduleMemberCandidates(name string, keep func(*analysis.Symbol) bool) []candidate {
 	return scopeMemberCandidates(r.moduleScopeOf(name), keep)
 }

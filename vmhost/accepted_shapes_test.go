@@ -10,7 +10,7 @@ import "testing"
 // With None in the first branch, the builder takes None's type from what
 // the checker recorded for it rather than from the branch alone.
 func TestRun_NoneInALambdaPassedToAGeneric(t *testing.T) {
-	out := runOutput(t, `import std/io
+	out := runOutput(t, `import std::io
 
 fn apply<T, U>(x: T, f: (T) -> U) -> U {
   f(x)
@@ -40,7 +40,7 @@ fn main() {
 // expected type fixes takes them from it: `ident(fn x -> x + 1)` against
 // `(Int) -> Int`. It was rejected as `expected (Int) -> Int, got (?) -> Unit`.
 func TestRun_LambdaTypedByTheCallsExpectedType(t *testing.T) {
-	out := runOutput(t, `import std/io
+	out := runOutput(t, `import std::io
 
 fn ident<T>(x: T) -> T {
   x
@@ -64,7 +64,7 @@ fn main() {
 // met it instead: `f: (Int) -> Int = pick(True, _, 4)` solved T as
 // `(Int) -> Int` and rejected the 4.
 func TestRun_PartialApplicationAgainstAFunctionType(t *testing.T) {
-	out := runOutput(t, `import std/io
+	out := runOutput(t, `import std::io
 
 fn pick<T>(c: Bool, a: T, b: T) -> T {
   if c { a } else { b }
@@ -93,7 +93,7 @@ fn main() {
 // a turbofish's, and those in a nested block. The checker rejected each
 // with `unknown type "Meters"`.
 func TestRun_BlockLocalTypeInAnnotations(t *testing.T) {
-	out := runOutput(t, `import std/io
+	out := runOutput(t, `import std::io
 
 fn ident<T>(x: T) -> T {
   x

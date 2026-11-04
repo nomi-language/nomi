@@ -43,7 +43,7 @@ import (
 // Module is one Nomi module the tour links for its blocks.
 type Module struct {
 	// Name is the module's name, its nomi.toml's, which a block imports
-	// (`import sqlite`, `import sqlite/describe`).
+	// (`import sqlite`, `import sqlite::describe`).
 	Name string
 	// Path is its Go module path, as a go.mod requires it.
 	Path string

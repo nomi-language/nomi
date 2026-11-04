@@ -146,7 +146,7 @@ impl Divide<NonZeroInt, Int> for Int {
 func TestFindDefinition_GoBindingAliasResolvesToGopkg(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
-	input, pos := definitionMarkerPosition(t, `import std/io
+	input, pos := definitionMarkerPosition(t, `import std::io
 
 gopkg "example.com/binding/ffi" as ffi
 
@@ -179,7 +179,7 @@ fn main() {
 func TestFindDefinition_GoPackagePathResolvesToGoPackage(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
-	input, pos := definitionMarkerPosition(t, `import std/io
+	input, pos := definitionMarkerPosition(t, `import std::io
 
 gopkg "example.com/▮binding/ffi" as ffi
 
@@ -213,7 +213,7 @@ fn main() {
 func TestFindDefinition_GoBindingNameResolvesToGoFunction(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
-	input, pos := definitionMarkerPosition(t, `import std/io
+	input, pos := definitionMarkerPosition(t, `import std::io
 
 gopkg "example.com/binding/ffi" as ffi
 
@@ -244,7 +244,7 @@ fn main() {
 func TestFindDefinition_GoBindingTypeResolvesToGoType(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
-	input, pos := definitionMarkerPosition(t, `import std/io
+	input, pos := definitionMarkerPosition(t, `import std::io
 
 gopkg "example.com/binding/ffi" as ffi
 
@@ -277,7 +277,7 @@ fn main() {
 func TestFindDefinition_ForeignBindingLocalCallResolvesToNomiBinding(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
-	input, pos := definitionMarkerPosition(t, `import std/io
+	input, pos := definitionMarkerPosition(t, `import std::io
 
 gopkg "example.com/binding/ffi" as ffi
 
@@ -440,14 +440,14 @@ pub enum Bool {
 }
 
 // Go-to-def on a stdlib selective-import name (e.g. `Result` in
-// `import std/results.Result`) should jump to the real definition
+// `import std::results.Result`) should jump to the real definition
 // site inside the stdlib module file — not stay parked at the click
 // position. The local binding's `Resolved` points at the real stdlib
 // symbol; the trailing block of textDocumentDefinition must use that
 // resolved Pos and Name (not the local sym's) when computing both
 // the target URI and the in-file location.
 func TestFindDefinition_StdlibSelectiveImportResolvesToRealDefinition(t *testing.T) {
-	input := "import std/results.Result\n"
+	input := "import std::results.Result\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
@@ -487,23 +487,23 @@ func TestFindDefinition_StdlibSelectiveImportResolvesToRealDefinition(t *testing
 }
 
 // Go-to-def on a drill-through selective-import name (e.g. `Some` in
-// `import std/maybe.Maybe.{Some, None}`) should land at the real
+// `import std::maybe.Maybe.{Some, None}`) should land at the real
 // variant definition inside maybe.nomi. Same bug as the flat selective
 // case — manifests on every drill-through stdlib variant in
 // prelude.nomi.
 func TestFindDefinition_StdlibDrillThroughVariantResolvesToRealDefinition(t *testing.T) {
-	input := "import std/maybe.Maybe.{Some, None}\n"
+	input := "import std::maybe.Maybe.{Some, None}\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
 	s.docs.Open(uri, input)
 
-	// `Some` is at column 25 (1-based) in the import line.
-	// Place the cursor at line 0 char 24 (zero-based) — inside `Some`.
+	// `Some` is at column 26 (1-based) in the import line.
+	// Place the cursor at line 0 char 25 (zero-based) — inside `Some`.
 	params := &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: 0, Character: 24},
+			Position:     protocol.Position{Line: 0, Character: 25},
 		},
 	}
 
@@ -528,12 +528,12 @@ func TestFindDefinition_StdlibDrillThroughVariantResolvesToRealDefinition(t *tes
 }
 
 // Go-to-def on a path segment of a stdlib import (`std`/`list` in
-// `import std/lists`) should jump to the materialised stdlib file URI,
+// `import std::lists`) should jump to the materialised stdlib file URI,
 // not return nil. Returning nil makes Zed silently fall back to a
 // references list, which is the wrong UX. Cross-file project imports
 // keep working through the existing project-relative path resolution.
 func TestFindDefinition_StdlibImportSegmentResolvesToStdlibFile(t *testing.T) {
-	input := "import std/lists.List\n"
+	input := "import std::lists.List\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
@@ -544,13 +544,13 @@ func TestFindDefinition_StdlibImportSegmentResolvesToStdlibFile(t *testing.T) {
 		t.Fatal("doc not in manager after Open")
 	}
 
-	// The "list" path segment is at line 1 col 12 (after `import std.`).
-	// Place the cursor at line 0 char 11 (zero-based) — that's somewhere
-	// inside "list" in `import std/lists.List`.
+	// The "lists" path segment is at line 1 col 13 (after `import std::`).
+	// Place the cursor at line 0 char 12 (zero-based) — that's somewhere
+	// inside "lists" in `import std::lists.List`.
 	params := &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: 0, Character: 11},
+			Position:     protocol.Position{Line: 0, Character: 12},
 		},
 	}
 
@@ -559,7 +559,7 @@ func TestFindDefinition_StdlibImportSegmentResolvesToStdlibFile(t *testing.T) {
 		t.Fatalf("definition request returned error: %v", err)
 	}
 	if result == nil {
-		t.Fatal("expected a Location for `list` in `import std/lists.List`, got nil — editor will fall back to references")
+		t.Fatal("expected a Location for `list` in `import std::lists.List`, got nil — editor will fall back to references")
 	}
 	loc, ok := result.(*protocol.Location)
 	if !ok {
@@ -582,7 +582,7 @@ func TestFindDefinition_StdlibImportSegmentResolvesToStdlibFile(t *testing.T) {
 // reference at the method-name position via lookupTypeMethodSymbol; without
 // it the editor can't navigate (the call still type-checks permissively).
 func TestFindDefinition_OnTypeQualifiedMethodResolvesToImpl(t *testing.T) {
-	input := `import std/io
+	input := `import std::io
 
 pub interface Speech {
   fn speak(animal: self) -> String
@@ -641,7 +641,7 @@ fn main() {
 // bare call resolves like `Point.get(p)` without exposing a module-level
 // binding.
 func TestFindDefinition_OnBareSameOwnerMethodResolvesToSibling(t *testing.T) {
-	input := `import std/io
+	input := `import std::io
 
 pub struct Point {
   x: Int
@@ -692,7 +692,7 @@ fn main() {
 }
 
 func TestFindDefinition_OnDeriveDecoratorArgResolvesToInterface(t *testing.T) {
-	input := `import std/equatable.{Equatable}
+	input := `import std::equatable.{Equatable}
 
 pub struct Point {
   x: Int
@@ -795,7 +795,7 @@ impl Speech for Dog {
 // editor silently falls back to the references list.
 func TestFindDefinition_OnImplHeaderImportedInterfaceResolvesToInterface(t *testing.T) {
 	input := `import {
-  std/display.Display
+  std::display.Display
 }
 
 pub struct AppEnv {
@@ -843,11 +843,11 @@ impl Display for AppEnv {
 }
 
 // Go-to-def on the `self` marker in a drill-through selective import
-// (`import std/maybe.Maybe.{self, Some, None}`) should land on the
+// (`import std::maybe.Maybe.{self, Some, None}`) should land on the
 // enum's real definition inside maybe.nomi, the same place a click on
 // `Maybe` (the trailing path segment) goes.
 func TestFindDefinition_SelfMarkerDrillThroughStdlib(t *testing.T) {
-	input := "import std/maybe.Maybe.{self, Some, None}\n"
+	input := "import std::maybe.Maybe.{self, Some, None}\n"
 	uri := "file:///test.nomi"
 
 	s := NewServer()
@@ -890,7 +890,7 @@ func TestFindDefinition_SelfMarkerDrillThroughStdlib(t *testing.T) {
 // answers "what is the contract"; go-to-def should answer "where does
 // this call actually land."
 func TestFindDefinition_InterfaceQualifiedCallResolvesToConcreteImpl(t *testing.T) {
-	input := "import std/io\n" +
+	input := "import std::io\n" +
 		"\n" +
 		"fn main() {\n" +
 		"  io.print(Display.to_string(42))\n" +
@@ -932,7 +932,7 @@ func TestFindDefinition_InterfaceQualifiedCallResolvesToConcreteImpl(t *testing.
 // not the Display interface decl — block-form EXTERN interface impls are
 // navigable dispatch targets too.
 func TestFindDefinition_InterfaceQualifiedCall_ExternImpl_ResolvesToConcreteImpl(t *testing.T) {
-	input := "import std/io\n" +
+	input := "import std::io\n" +
 		"\n" +
 		"fn main() {\n" +
 		"  io.print(Display.to_string(3.14))\n" +
@@ -974,7 +974,7 @@ func TestFindDefinition_InterfaceQualifiedCall_ExternImpl_ResolvesToConcreteImpl
 // the concrete impl isn't written anywhere. (Bool's Display is written out
 // in bool.nomi, so it is no longer the witness.)
 func TestFindDefinition_InterfaceQualifiedCall_DerivedImpl_FallsBackToInterface(t *testing.T) {
-	input := "import std/io\n" +
+	input := "import std::io\n" +
 		"\n" +
 		"fn main() {\n" +
 		"  io.print(Display.to_string(Ordering.Less))\n" +
@@ -1010,7 +1010,7 @@ func TestFindDefinition_InterfaceQualifiedCall_DerivedImpl_FallsBackToInterface(
 // impl, not the interface decl. Exercises the "" → open-doc-URI branch
 // of moduleKeyToURI.
 func TestFindDefinition_InterfaceQualifiedCallResolvesToUserImpl(t *testing.T) {
-	input := "import std/io\n" +
+	input := "import std::io\n" +
 		"\n" +
 		"pub struct Greeter { name: String }\n" +
 		"\n" +
@@ -1105,8 +1105,8 @@ func TestFindDefinition_InterfaceQualifiedCallGenericFallsBackToInterface(t *tes
 // USER's file while the range carries the stdlib position, bumping the cursor to
 // a nonsense line (clamped to EOF in the editor).
 func TestFindDefinition_OnStdlibModuleFunctionResolvesToStdlibFile(t *testing.T) {
-	input := `import std/io
-import std/lists
+	input := `import std::io
+import std::lists
 
 fn main() {
   first = List.head([3, 1, 2])

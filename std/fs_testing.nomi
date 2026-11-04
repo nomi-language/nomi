@@ -1,5 +1,5 @@
 //# Testing code that reads and writes files, without the disk. Inside
-//# `fs_testing.run(sandbox, body)`, every std/fs call `body` makes, and
+//# `fs_testing.run(sandbox, body)`, every std::fs call `body` makes, and
 //# every call the tasks it starts make, goes to an in-memory file system
 //# built from the sandbox. `run` answers what `body` returned together
 //# with the files afterwards, each operation in order and the handles left
@@ -14,7 +14,7 @@
 //#
 //# ```nomi
 //# import {
-//#     std/fs_testing.{self, Sandbox}
+//#     std::fs_testing.{self, Sandbox}
 //#     sort_lines
 //# }
 //#
@@ -207,14 +207,14 @@ pub fn text<T>(ran: Ran<T>, at: String) -> Maybe<String> {
     }
 }
 
-/// A rule of std/fs that a file system broke, from `conformance`.
+/// A rule of std::fs that a file system broke, from `conformance`.
 pub struct ConformanceFailure {
     rule: String
     /// What happened, and what the rule wants.
     reason: String
 }
 
-/// Runs every rule of std/fs against the directory `root`, which must
+/// Runs every rule of std::fs against the directory `root`, which must
 /// exist and be empty, and answers the rules the file system there broke.
 /// Each rule works in a directory of its own under `root`. The rules cover
 /// each `WriteMode`, `NotFound` for a missing parent, sorted listings,

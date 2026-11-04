@@ -58,9 +58,9 @@
 // declaration, so a permuted or renamed field produces no anchor at all. The
 // field reads below are what would disagree if the layout were wrong.
 import {
-    std/assertions.AssertionDetail
-    std/assertions.AssertionDetails
-    std/io
+    std::assertions.AssertionDetail
+    std::assertions.AssertionDetails
+    std::io
 }
 
 // shown renders a Maybe<String> without depending on Debug's layout, so the

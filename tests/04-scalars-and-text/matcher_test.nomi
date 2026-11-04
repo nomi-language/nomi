@@ -1,7 +1,7 @@
 import {
-    std/compiler
-    std/matcher.Matcher
-    std/regex.Regex
+    std::compiler
+    std::matcher.Matcher
+    std::regex.Regex
 }
 
 test "split takes a string or a regex" {
@@ -108,8 +108,8 @@ test "a matcher prints what each call finds" {
     output = compiler.run(
         """
         import {
-            std/io
-            std/regex.Regex
+            std::io
+            std::regex.Regex
         }
 
         fn main() -> Result<Unit, String> {

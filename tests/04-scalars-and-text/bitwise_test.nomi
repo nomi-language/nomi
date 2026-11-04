@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 type Flags Int
 
@@ -101,11 +101,11 @@ test "shifts past 64 bits are exact" {
 test "a negative shift count stops the program" {
     result =
         """
-            fn main() {
-              n = 0 - 1
-              _ = 1 <<< n
-            }
-            """
+        fn main() {
+          n = 0 - 1
+          _ = 1 <<< n
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -115,10 +115,10 @@ test "a negative shift count stops the program" {
 test "a negative right shift count stops the program" {
     result =
         """
-            fn main() {
-              _ = Int.shift_right(8, -2)
-            }
-            """
+        fn main() {
+          _ = Int.shift_right(8, -2)
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -128,10 +128,10 @@ test "a negative right shift count stops the program" {
 test "a type with no impl names the interface" {
     result =
         """
-            fn main() {
-              _ = 1.5 &&& 2.0
-            }
-            """
+        fn main() {
+          _ = 1.5 &&& 2.0
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -145,11 +145,11 @@ test "a type with no impl names the interface" {
 test "a Byte has no shift" {
     result =
         """
-            fn main() {
-              b: Byte = 1
-              _ = b <<< 1
-            }
-            """
+        fn main() {
+          b: Byte = 1
+          _ = b <<< 1
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -197,10 +197,10 @@ test "bit count and bit length" {
 test "a negative bit count stops the program" {
     result =
         """
-            fn main() {
-              _ = Int.bit_count(-5)
-            }
-            """
+        fn main() {
+          _ = Int.bit_count(-5)
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

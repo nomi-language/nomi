@@ -6,7 +6,7 @@
 // Int here, so a lowering that read the two the other way round fails. At
 // `T = String`, which is what most of the corpus writes, the two are the
 // same type and the swap is invisible.
-import std/literals.{Fragment, Literal}
+import std::literals.{Fragment, Literal}
 
 /// Zero-sized tag carrier. `Tally"..."` sums the `${...}` slots and counts the
 /// characters of the static text around them.

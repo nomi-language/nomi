@@ -4,7 +4,7 @@ import "testing"
 
 func TestIRTypedLiteral_TourStructHandler(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/literals.{Fragment, Literal}
+  std::literals.{Fragment, Literal}
 }
 
 struct Box {
@@ -32,8 +32,8 @@ fn main() {
 
 func TestIRTypedLiteral_TourDistinctHandler(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
-  std/literals.{Fragment, Literal}
+  std::io
+  std::literals.{Fragment, Literal}
 }
 
 type Sql String
@@ -60,8 +60,8 @@ fn main() {
 
 func TestIRTypedLiteral_SlotOrderAndPayloadKinds(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
-  std/literals.{Fragment, Literal}
+  std::io
+  std::literals.{Fragment, Literal}
 }
 
 struct Sum {

@@ -1,6 +1,6 @@
 import {
-    std/calendar.Date
-    std/io
+    std::calendar.Date
+    std::io
     fetch
 }
 

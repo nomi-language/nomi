@@ -1,9 +1,9 @@
 import {
-    std/assertions.Assertable
-    std/assertions.AssertionDetail
-    std/assertions.AssertionDetails
-    std/assertions.AssertionFailure
-    std/testing
+    std::assertions.Assertable
+    std::assertions.AssertionDetail
+    std::assertions.AssertionDetails
+    std::assertions.AssertionFailure
+    std::testing
 }
 
 struct EqualsAssertion {

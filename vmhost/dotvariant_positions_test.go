@@ -18,7 +18,7 @@ import (
 // FuzzFrontEndAcceptsSoItLowers, which put whitespace after the dot (`. Ok(0)`);
 // the whitespace parses to the same node.
 func TestDotVariant_PreludeVariantsWhereNoKindIsExpected(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 enum Shape {
     Circle(Float)

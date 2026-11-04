@@ -1,5 +1,5 @@
 // RunFile supplies the immutable Startup environment consumed by boot.
-import std/io
+import std::io
 
 struct Probe {
     context: Context

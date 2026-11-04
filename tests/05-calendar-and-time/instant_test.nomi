@@ -1,6 +1,6 @@
 import {
-    std/duration.Duration
-    std/instant.Instant
+    std::duration.Duration
+    std::instant.Instant
 }
 
 test "instants add durations" {

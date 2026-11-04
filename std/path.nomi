@@ -1,5 +1,5 @@
 //# Paths, as `String`s. A Nomi path uses `/` on every operating system, so
-//# a program and its tests behave the same everywhere: on Windows std/fs
+//# a program and its tests behave the same everywhere: on Windows std::fs
 //# accepts `\` too and answers `/`, and a drive is written `C:/Users`.
 //# These functions read the text alone; none of them looks at the file
 //# system, so a typed literal's handler may call them.

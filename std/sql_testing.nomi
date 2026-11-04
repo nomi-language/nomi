@@ -1,4 +1,4 @@
-//# Testing code that uses `std/sql`. `Fake` is a `Conn` that runs no SQL:
+//# Testing code that uses `std::sql`. `Fake` is a `Conn` that runs no SQL:
 //# it records every statement and transaction command sent to it, keeps
 //# track of which statements took effect (a rolled-back transaction's did
 //# not), and answers each statement with a function the test gives it.

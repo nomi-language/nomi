@@ -6,7 +6,7 @@
 // cross-file call and must still answer "lib". A default that names one of
 // lib's own declarations is testdata/sibling_field_defaults.
 import {
-    std/io
+    std::io
     lib.{Backoff, Limits, origin}
 }
 

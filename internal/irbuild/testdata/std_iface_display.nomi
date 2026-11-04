@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A STDLIB interface in a TYPE position, in each of the four positions an
 // interface type can take: a PARAMETER, a RETURN, a TYPE

@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A zero-sized marker embedded in an enum. The corpus shape this pins lives in
 // tests/10-generics-and-type-wrappers/embedded_variants_test.nomi,

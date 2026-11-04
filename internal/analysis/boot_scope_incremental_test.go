@@ -25,7 +25,7 @@ fn main() {
     1
 }
 `
-	bootOnly := `import std/supervisors.Supervisor
+	bootOnly := `import std::supervisors.Supervisor
 
 pub fn make() -> Int {
     _ = Supervisor.new(max_running: 1)

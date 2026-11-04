@@ -547,7 +547,7 @@ pub fn build() -> DemoApp {
   DemoApp{label: "dev"}
 }
 `)
-	appPath := mustWrite("effects/app.nomi", `import app/dev
+	appPath := mustWrite("effects/app.nomi", `import app::dev
 
 pub struct DemoApp {
   label: String

@@ -10,7 +10,7 @@ import (
 // cursor position — hover highlights the whole token, and anchoring at the
 // cursor made the highlight appear to begin mid-token.
 func TestTokenAt_AnchorsAtTokenStart(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 fn main() {
   io.print("hi")
 }`

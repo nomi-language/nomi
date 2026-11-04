@@ -18,7 +18,7 @@
 //# defaults.
 
 import {
-    std/json.Json
+    std::json.Json
     sqltext
 }
 
@@ -183,17 +183,20 @@ pub fn defaults(name: String) -> Database {
 //! assert databases.out_file(#{..databases.defaults("main"), out: "src/db/"}, "q") == "src/db/q.nomi"
 //
 pub fn out_file(db: Database, name: String) -> String {
-    "${module_of(db, name)}.nomi"
+    "${String.replace(module_of(db, name), "::", "/")}.nomi"
 }
 
-/// The import path, from the module root, of the generated file `name`.
+/// The import path, from the module root, of the generated file `name`:
+/// its directories and its name joined by `::`.
+//! assert databases.module_of(#{..databases.defaults("main"), out: "src/db/"}, "q") == "src::db::q"
+//
 pub fn module_of(db: Database, name: String) -> String {
     dir = sqltext.cut_suffix(db.out, "/")
 
     if dir == "" or dir == "." {
         name
     } else {
-        "${sqltext.cut_prefix(dir, "./")}/${name}"
+        "${String.replace(sqltext.cut_prefix(dir, "./"), "/", "::")}::${name}"
     }
 }
 

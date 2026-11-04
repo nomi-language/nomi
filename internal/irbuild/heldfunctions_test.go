@@ -12,7 +12,7 @@ func TestIRHeldFunctionValues_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn size(xs: List<(Int) -> Int>) -> Int {
     case xs {

@@ -9,7 +9,7 @@ import "testing"
 // Each position a bare `break` can take in a stated loop, with Int and
 // struct states, and in a stateless loop, whose state is Unit.
 func TestIRLoop_BareBreakAnswersTheCurrentState(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Tally {
     label: String
@@ -126,7 +126,7 @@ Unit
 // The program that read an opening balance: the end of the input stops the
 // loop with the account as the last failed parse left it.
 func TestIRLoop_BareBreakInAnElseKeepsTheStructState(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Account {
     name: String = "x"

@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A list literal printed, an empty list, a nested list, the spread form, and
 // `==`. Prints from inside the element expressions so a reordering cannot pass:

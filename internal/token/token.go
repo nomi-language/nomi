@@ -19,33 +19,38 @@ const (
 	// Identifiers
 	IDENT      // lowercase start
 	TYPE_IDENT // uppercase start
+	// PATH is a file's full import path written as a qualifier, `db::posts`:
+	// lowercase segments joined by `::` with no space around it. The lexer
+	// never emits it; the parser joins IDENT COLONCOLON IDENT ... into one.
+	PATH
 
 	// Operators
-	PLUS      // +
-	MINUS     // -
-	STAR      // *
-	SLASH     // /
-	PERCENT   // %
-	BANG      // !
-	QUESTION  // ? (postfix: propagate an Err or a None)
-	EQ        // = (binding)
-	DOT       // .
-	COMMA     // ,
-	COLON     // :
-	ARROW     // ->
-	PIPE      // |>
-	FAT_ARROW // =>
-	BAR       // |
-	DOTDOT    // .. (half-open range)
-	DOTDOTEQ  // ..= (inclusive range)
-	AT        // @ (decorator marker)
-	HASH      // # (collection literal sigil)
-	CARET     // ^ (reserved; not an expression prefix)
-	BIT_AND   // &&& (bitwise and)
-	BIT_OR    // ||| (bitwise or)
-	BIT_XOR   // ^^^ (bitwise exclusive or)
-	BIT_NOT   // ~~~ (prefix bitwise not)
-	SHL       // <<< (shift left); `>>>` is three adjacent GTs, which the parser joins
+	PLUS       // +
+	MINUS      // -
+	STAR       // *
+	SLASH      // /
+	PERCENT    // %
+	BANG       // !
+	QUESTION   // ? (postfix: propagate an Err or a None)
+	EQ         // = (binding)
+	DOT        // .
+	COMMA      // ,
+	COLON      // :
+	COLONCOLON // :: (joins the segments of a file's path)
+	ARROW      // ->
+	PIPE       // |>
+	FAT_ARROW  // =>
+	BAR        // |
+	DOTDOT     // .. (half-open range)
+	DOTDOTEQ   // ..= (inclusive range)
+	AT         // @ (decorator marker)
+	HASH       // # (collection literal sigil)
+	CARET      // ^ (reserved; not an expression prefix)
+	BIT_AND    // &&& (bitwise and)
+	BIT_OR     // ||| (bitwise or)
+	BIT_XOR    // ^^^ (bitwise exclusive or)
+	BIT_NOT    // ~~~ (prefix bitwise not)
+	SHL        // <<< (shift left); `>>>` is three adjacent GTs, which the parser joins
 
 	// Comparison
 	EQEQ   // ==
@@ -183,6 +188,7 @@ var tokenNames = [...]string{
 	STRING:                           "STRING",
 	IDENT:                            "IDENT",
 	TYPE_IDENT:                       "TYPE_IDENT",
+	PATH:                             "PATH",
 	PLUS:                             "PLUS",
 	MINUS:                            "MINUS",
 	STAR:                             "STAR",
@@ -194,6 +200,7 @@ var tokenNames = [...]string{
 	DOT:                              "DOT",
 	COMMA:                            "COMMA",
 	COLON:                            "COLON",
+	COLONCOLON:                       "COLONCOLON",
 	ARROW:                            "ARROW",
 	PIPE:                             "PIPE",
 	FAT_ARROW:                        "FAT_ARROW",

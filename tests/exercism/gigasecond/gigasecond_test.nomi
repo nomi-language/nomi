@@ -1,5 +1,5 @@
 import {
-    std/calendar.{Date, NaiveDateTime}
+    std::calendar.{Date, NaiveDateTime}
     gigasecond
 }
 

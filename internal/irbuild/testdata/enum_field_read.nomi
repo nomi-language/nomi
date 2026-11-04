@@ -27,7 +27,7 @@
 // than how a field is read. Field access agrees however it is wrapped, so
 // pinning it here would tie this fixture to the coercion instead of to field
 // access.
-import std/io
+import std::io
 
 struct Circle {
     radius: Float

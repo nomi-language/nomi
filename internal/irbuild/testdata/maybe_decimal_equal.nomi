@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // `Maybe.equal` and `Result.equal` over a Decimal payload. Maybe's derived
 // Equatable reaches Decimal's through `Equatable.equal`, whose host body is

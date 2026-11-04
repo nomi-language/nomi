@@ -139,7 +139,7 @@ func TestRunFile_PureNomiSingleFile_FastPath(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
-	if err := os.WriteFile(entry, []byte(`import std/io
+	if err := os.WriteFile(entry, []byte(`import std::io
 fn main() {
   io.print("ok")
 }
@@ -292,9 +292,9 @@ func TestRunFile_GoBindingsInTwoFilesWithOneBaseName(t *testing.T) {
 	}
 	entry := filepath.Join(root, "main.nomi")
 	mustWrite(t, entry, `import {
-    std/io
-    a/util
-    b/util as butil
+    std::io
+    a::util
+    b::util as butil
 }
 
 fn main() {
@@ -337,7 +337,7 @@ func TestRunFile_FFINumericWidthHelpersRoundTrip(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	cacheRoot := t.TempDir()
-	projectRoot, entryPath := stageNumericWidthFixture(t, `import std/io
+	projectRoot, entryPath := stageNumericWidthFixture(t, `import std::io
 
 gopkg "widthbinding" as ffi
 
@@ -372,7 +372,7 @@ func TestRunFile_FFINumericWidthHelperOverflow(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	cacheRoot := t.TempDir()
-	projectRoot, entryPath := stageNumericWidthFixture(t, `import std/io
+	projectRoot, entryPath := stageNumericWidthFixture(t, `import std::io
 
 gopkg "widthbinding" as ffi
 
@@ -483,7 +483,7 @@ func TestSyntaxErrorRefusedByRun(t *testing.T) {
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
 	// `fn x -> n + ` with the operand not yet typed, as mid-edit in an editor.
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 fn compute(n: Int) -> Int {
   total = n * 2
@@ -509,7 +509,7 @@ fn main() {
 	// refusal above is about the syntax error rather than about the fixture
 	// failing for some other reason.
 	fixed := filepath.Join(dir, "fixed.nomi")
-	mustWrite(t, fixed, `import std/io
+	mustWrite(t, fixed, `import std::io
 
 fn compute(n: Int) -> Int {
   f = fn x: Int -> n + x
@@ -618,7 +618,7 @@ func TestCheckAndRun_ReturningElseIfChain(t *testing.T) {
 	}
 	cacheRoot := t.TempDir()
 	entry := filepath.Join(t.TempDir(), "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 fn sign(x: Int) -> Int {
   if x < 0 {
@@ -726,7 +726,7 @@ pub fn read() -> String {
 }
 `)
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `import {
-    std/io
+    std::io
     reader
     settings.Settings
 }
@@ -1008,7 +1008,7 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "main_test.nomi")
 	mustWrite(t, testPath, "import {\n"+
-		"  std/regex.Regex\n"+
+		"  std::regex.Regex\n"+
 		"}\n\n"+
 		"test \"regex literals compile and match\" {\n"+
 		"  digits = Regex`\\d+`\n"+
@@ -1043,8 +1043,8 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 
 	mainPath := filepath.Join(dir, "main.nomi")
 	mustWrite(t, mainPath, "import {\n"+
-		"  std/io\n"+
-		"  std/regex.Regex\n"+
+		"  std::io\n"+
+		"  std::regex.Regex\n"+
 		"}\n\n"+
 		"fn main() -> Result<Unit, String> {\n"+
 		"  digits = Regex`\\d+`\n"+
@@ -1062,7 +1062,7 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	// An invalid backtick pattern is a compile error, from `nomi check` and
 	// from `nomi test` alike.
 	badPath := filepath.Join(dir, "bad_test.nomi")
-	mustWrite(t, badPath, "import std/regex.Regex\n\n"+
+	mustWrite(t, badPath, "import std::regex.Regex\n\n"+
 		"test \"an invalid backtick literal does not compile\" {\n"+
 		"  assert String.contains(\"[\", Regex`[`)\n"+
 		"}\n")
@@ -1180,13 +1180,13 @@ func TestTestCommand_DefaultsNomiEnvToTest(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "env_test.nomi")
-	mustWrite(t, testPath, `import std/compiler
+	mustWrite(t, testPath, `import std::compiler
 
 test "nomi test defaults NOMI_ENV" {
   assert compiler.run(
     """
     import {
-      std/io
+      std::io
     }
 
     struct Env {
@@ -1343,7 +1343,7 @@ func TestTestCommand_FailedReplayNumbersTheScript(t *testing.T) {
 	}
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "bank_test.nomi"), `import std/io
+	mustWrite(t, filepath.Join(dir, "bank_test.nomi"), `import std::io
 
 fn main() {
     io.print("")
@@ -1500,7 +1500,7 @@ func TestTestCommand_FinalCheckFailureResultFailsTest(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "failure_test.nomi")
-	mustWrite(t, testPath, `import std/testing
+	mustWrite(t, testPath, `import std::testing
 
 test "fails" {
   assert True
@@ -1551,7 +1551,7 @@ func TestTestCommand_FinalRefuteCheckFailureResultPasses(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "refute_check_test.nomi")
-	mustWrite(t, testPath, `import std/testing
+	mustWrite(t, testPath, `import std::testing
 
 test "refute check failure" {
   refute testing.check(1 == 2)
@@ -2339,8 +2339,8 @@ func TestTestCommand_LineFilterUsesImportsFromUnselectedTests(t *testing.T) {
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "line_filter_imports_test.nomi")
 	mustWrite(t, testPath, `import {
-  std/comparable.Direction
-  std/comparable.Ordering.{Less}
+  std::comparable.Direction
+  std::comparable.Ordering.{Less}
 }
 
 test "selected" {
@@ -2428,7 +2428,7 @@ func TestTestCommand_SetupDeferCleansUpPerTest(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "setup_defer_test.nomi")
-	mustWrite(t, testPath, `import std/io
+	mustWrite(t, testPath, `import std::io
 
 struct Conn {
   label: String
@@ -2678,7 +2678,7 @@ func TestRunCommand_AssertionsOutsideTestsRun(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	mustWrite(t, path, `import std/assertions.AssertionFailure
+	mustWrite(t, path, `import std::assertions.AssertionFailure
 
 fn main() -> Result<Unit, AssertionFailure> {
   assert 1 + 1 == 2
@@ -2699,7 +2699,7 @@ func TestRunCommand_AssertionFailureShowsComparisonValues(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	mustWrite(t, path, `import std/assertions.AssertionFailure
+	mustWrite(t, path, `import std::assertions.AssertionFailure
 
 fn main() -> Result<Unit, AssertionFailure> {
   a = 4
@@ -2725,7 +2725,7 @@ func TestRunCommand_AssertionFailureSuppressesObviousLiteralValues(t *testing.T)
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	mustWrite(t, path, `import std/assertions.AssertionFailure
+	mustWrite(t, path, `import std::assertions.AssertionFailure
 
 fn main() -> Result<Unit, AssertionFailure> {
   assert 1 == 2
@@ -2751,8 +2751,8 @@ func TestRunCommand_AssertionFailureCanBeHandledAsResult(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	mustWrite(t, path, `import std/assertions.AssertionFailure
-import std/io
+	mustWrite(t, path, `import std::assertions.AssertionFailure
+import std::io
 
 fn validate() -> Result<Unit, AssertionFailure> {
   assert 1 == 2
@@ -2883,7 +2883,7 @@ entry_points = ["main"]
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 gopkg "echobinding" as ffi
 
@@ -2951,7 +2951,7 @@ entry_points = ["main"]
 `)
 
 	mustWrite(t, filepath.Join(root, "store.nomi"), `import {
-  sqlite/sqlite
+  sqlite::sqlite
 }
 
 pub struct Store {
@@ -2999,7 +2999,7 @@ pub fn close_store(store: Store) -> Unit {
 
 	entry := filepath.Join(root, "main.nomi")
 	mustWrite(t, entry, `import {
-  std/io
+  std::io
   store
 }
 
@@ -3068,7 +3068,7 @@ entry_points = ["main"]
 
 	entry := filepath.Join(root, "main.nomi")
 	mustWrite(t, entry, `import {
-  std/io
+  std::io
 }
 
 gopkg "bytebinding" as ffi
@@ -3149,7 +3149,7 @@ entry_points = ["main"]
 
 	entry := filepath.Join(root, "main.nomi")
 	mustWrite(t, entry, `import {
-  std/io
+  std::io
 }
 
 gopkg "mapbinding" as ffi
@@ -3290,7 +3290,7 @@ entry_points = ["main"]
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 gopkg "maybeokbinding" as ffi
 
@@ -3379,7 +3379,7 @@ entry_points = ["main"]
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 gopkg "resultbinding" as ffi
 
@@ -3492,7 +3492,7 @@ entry_points = ["main"]
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 gopkg "structbinding" as ffi
 
@@ -3595,7 +3595,7 @@ name = "badselector"
 entry_points = ["main"]
 `)
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 gopkg "hiddenbinding" as ffi
 

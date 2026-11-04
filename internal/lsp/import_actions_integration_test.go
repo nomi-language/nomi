@@ -85,7 +85,7 @@ func TestImportActionsFixture_CleanAsCommitted(t *testing.T) {
 
 func TestSelectiveInspectFixture_BareImportedInspectIsClean(t *testing.T) {
 	content := readSelectiveInspectFixture(t)
-	if !strings.Contains(content, "std/io.inspect") {
+	if !strings.Contains(content, "std::io.inspect") {
 		t.Fatal("selective inspect fixture should import io.inspect selectively")
 	}
 	if _, ok := runOrganize(t, content); ok {
@@ -122,8 +122,8 @@ func TestSelectiveInspectFixture_ServerFixAllKeepsBareImportedInspect(t *testing
 			continue
 		}
 		edited := applyWorkspaceEdit(t, content, action, uri)
-		if !strings.Contains(edited, "std/io.inspect") {
-			t.Fatalf("server fixAll removed std/io.inspect:\n%s", edited)
+		if !strings.Contains(edited, "std::io.inspect") {
+			t.Fatalf("server fixAll removed std::io.inspect:\n%s", edited)
 		}
 	}
 }
@@ -175,9 +175,9 @@ func TestStdMap_ServerFixAllKeepsSomeImport(t *testing.T) {
 // preserving the block — never a stray flat statement.
 func TestImportActionsFixture_AddExperiment(t *testing.T) {
 	content := readImportActionsFixture(t)
-	edited := strings.Replace(content, "  std/io\n", "", 1)
+	edited := strings.Replace(content, "  std::io\n", "", 1)
 	if edited == content {
-		t.Fatal("fixture no longer contains the `  std/io` block entry the ADD IO experiment targets")
+		t.Fatal("fixture no longer contains the `  std::io` block entry the ADD IO experiment targets")
 	}
 	got, ok := runFixAll(t, edited)
 	if !ok {
@@ -185,10 +185,10 @@ func TestImportActionsFixture_AddExperiment(t *testing.T) {
 	}
 	// entry-level checks (robust to the demo's other imports): std/io rejoins as
 	// a block entry, never as a stray flat statement.
-	if !strings.Contains(got, "  std/io\n") {
+	if !strings.Contains(got, "  std::io\n") {
 		t.Errorf("expected std/io re-added as a block entry, got:\n%s", got)
 	}
-	if strings.Contains(got, "\nimport std/io\n") {
+	if strings.Contains(got, "\nimport std::io\n") {
 		t.Errorf("std/io should rejoin the block, not appear as a flat statement:\n%s", got)
 	}
 }
@@ -197,16 +197,16 @@ func TestImportActionsFixture_AddExperiment(t *testing.T) {
 // `Duration.seconds` undefined; fixAll re-adds it as a block entry.
 func TestImportActionsFixture_AddTypeExperiment(t *testing.T) {
 	content := readImportActionsFixture(t)
-	edited := strings.Replace(content, "  std/duration.Duration\n", "", 1)
+	edited := strings.Replace(content, "  std::duration.Duration\n", "", 1)
 	if edited == content {
-		t.Fatal("fixture no longer contains the `  std/duration.Duration` entry the ADD DURATION experiment targets")
+		t.Fatal("fixture no longer contains the `  std::duration.Duration` entry the ADD DURATION experiment targets")
 	}
 	got, ok := runFixAll(t, edited)
 	if !ok {
 		t.Fatal("expected fixAll to act after removing std/duration")
 	}
 	// entry-level (the header comment also mentions std/duration.Duration).
-	if !strings.Contains(got, "  std/duration.Duration\n") {
+	if !strings.Contains(got, "  std::duration.Duration\n") {
 		t.Errorf("expected std/duration.Duration re-added as a block entry, got:\n%s", got)
 	}
 }
@@ -214,9 +214,9 @@ func TestImportActionsFixture_AddTypeExperiment(t *testing.T) {
 // REMOVE experiment: adding an unused `std/lists.List` block entry; fixAll drops it.
 func TestImportActionsFixture_RemoveExperiment(t *testing.T) {
 	content := readImportActionsFixture(t)
-	edited := strings.Replace(content, "  std/duration.Duration\n", "  std/duration.Duration\n  std/lists.List\n", 1)
+	edited := strings.Replace(content, "  std::duration.Duration\n", "  std::duration.Duration\n  std::lists.List\n", 1)
 	if edited == content {
-		t.Fatal("fixture no longer contains the `  std/duration.Duration` entry the REMOVE experiment anchors on")
+		t.Fatal("fixture no longer contains the `  std::duration.Duration` entry the REMOVE experiment anchors on")
 	}
 	got, ok := runFixAll(t, edited)
 	if !ok {
@@ -224,10 +224,10 @@ func TestImportActionsFixture_RemoveExperiment(t *testing.T) {
 	}
 	// Match the import ENTRY line specifically — "std/lists" also appears in the
 	// header comment that documents this experiment.
-	if strings.Contains(got, "  std/lists.List\n") {
+	if strings.Contains(got, "  std::lists.List\n") {
 		t.Errorf("unused std/lists.List import should be removed, got:\n%s", got)
 	}
-	if !strings.Contains(got, "  std/duration.Duration\n") {
+	if !strings.Contains(got, "  std::duration.Duration\n") {
 		t.Errorf("expected std/duration.Duration to remain, got:\n%s", got)
 	}
 }

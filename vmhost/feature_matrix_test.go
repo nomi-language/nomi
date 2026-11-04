@@ -899,13 +899,13 @@ func (c mxCell) name() string {
 
 // mxStdImports are the std names a program may use, with what imports them.
 var mxStdImports = []struct{ name, module, item string }{
-	{"io", "std/io", ""},
-	{"Task", "std/tasks", "Task"},
-	{"Json", "std/json", "Json"},
-	{"ToJson", "std/json", "ToJson"},
-	{"FromJson", "std/json", "FromJson"},
-	{"Message", "std/message", "Message"},
-	{"Locale", "std/locale", "Locale"},
+	{"io", "std::io", ""},
+	{"Task", "std::tasks", "Task"},
+	{"Json", "std::json", "Json"},
+	{"ToJson", "std::json", "ToJson"},
+	{"FromJson", "std::json", "FromJson"},
+	{"Message", "std::message", "Message"},
+	{"Locale", "std::locale", "Locale"},
 }
 
 var (

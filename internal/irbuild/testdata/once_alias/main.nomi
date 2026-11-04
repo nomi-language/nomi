@@ -7,7 +7,7 @@
 // lib.nomi. So a resolution that read the local spelling MISSES, and one that
 // searched units by the declared name answers 99 where 7 is correct.
 import {
-    std/io
+    std::io
     decoy
     lib.{config as cfg, spare}
 }

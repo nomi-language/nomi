@@ -32,7 +32,7 @@ func TestListElement_GenuineMismatchStillRefuses(t *testing.T) {
 	// asserted HERE so an analyzer that later admitted the program produces a
 	// red test instead of a silent guess.
 	const src = `import {
-  std/io
+  std::io
 }
 
 fn main() {
@@ -58,8 +58,8 @@ func TestDotVariant_AliasThroughTheDotIsAFrontEndError(t *testing.T) {
 	// decline on the local spelling and the site will refuse by name — which is
 	// safe, but somebody should know, hence a red test rather than a comment.
 	const src = `import {
-  std/io
-  std/maybe.Maybe.{None as Nothing}
+  std::io
+  std::maybe.Maybe.{None as Nothing}
 }
 
 fn main() {

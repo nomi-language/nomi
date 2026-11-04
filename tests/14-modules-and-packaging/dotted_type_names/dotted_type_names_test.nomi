@@ -8,7 +8,7 @@
 //# segment finds nothing to walk into.
 
 import {
-    std/tasks.Outcome
+    std::tasks.Outcome
     signal.Signal.Level
     telemetry
     telemetry.Probe.Reading

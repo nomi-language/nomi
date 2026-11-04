@@ -12,8 +12,8 @@ import (
 // run, nothing after it runs, and a returned value is the body's final value,
 // so a returned failed `testing.check` fails the case.
 func TestTest_ReturnEndsTheCase(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `import std/io
-import std/testing
+	p, err := vmhost.Load(writeProgram(t, `import std::io
+import std::testing
 
 fn note(s: String) {
   io.print(s)
@@ -90,8 +90,8 @@ test "return a discarded value" {
 // deferred calls pending there run, the rest of the body does not, and a
 // returned failed check fails the case. The other arms bind as usual.
 func TestTest_ReturnFromAValueArmEndsTheCase(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, `import std/io
-import std/testing
+	p, err := vmhost.Load(writeProgram(t, `import std::io
+import std::testing
 
 fn note(s: String) {
   io.print(s)

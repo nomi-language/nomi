@@ -65,7 +65,7 @@ func TestBlockBindingBranches_RunInTests(t *testing.T) {
 // the enclosing function. The call is to `planted_decline` (plantDecline).
 func TestBlockBindingDecline_IsReportedAtTheStatement(t *testing.T) {
 	plantDecline(t)
-	src := `import std/io
+	src := `import std::io
 
 fn planted_decline(a: Int) -> Int {
     a
@@ -105,7 +105,7 @@ fn main() {
 // the check passed, the IR builder declined the body, and `nomi check`
 // said the body was not supported yet.
 func TestBlockBinding_UnreadShadowAtTheEndIsNeverRead(t *testing.T) {
-	_, err := LoadSource("main.nomi", `import std/io
+	_, err := LoadSource("main.nomi", `import std::io
 
 fn main() {
     total = 1
@@ -132,7 +132,7 @@ fn main() {
 // A block may end in a binding: one the block reads, or a `_` one. The
 // block's value is then Unit, and the program runs.
 func TestBlockBinding_ABlockEndingInABindingRuns(t *testing.T) {
-	p, err := LoadSource("main.nomi", `import std/io
+	p, err := LoadSource("main.nomi", `import std::io
 
 fn helper(n: Int) {
     if n > 0 {

@@ -48,7 +48,7 @@ func loadIterSensitiveProject(t *testing.T, entry, other string) (*vmhost.Progra
 // entry as the callback itself, a fold's with its starting value as `from:`.
 func TestIterSensitive_AnotherFilesFunctionAsACallback(t *testing.T) {
 	p, err := loadIterSensitiveProject(t, `import {
-  std/io
+  std::io
   lib
 }
 
@@ -72,7 +72,7 @@ func TestIterSensitive_AnotherFilesFunctionCalledDirectlyIsRejected(t *testing.T
 	const want = "`lib.keep` uses `break` and `continue`, so it cannot be called: pass it as an iteration callback itself"
 	for _, c := range []struct{ name, entry, other, file string }{
 		{"as the whole body of a callback lambda", `import {
-  std/io
+  std::io
   lib
 }
 
@@ -81,7 +81,7 @@ fn main() {
 }
 `, "", "main.nomi:7:"},
 		{"from the entry", `import {
-  std/io
+  std::io
   lib
 }
 
@@ -90,7 +90,7 @@ fn main() {
 }
 `, "", "main.nomi:7:"},
 		{"from a file the entry imports", `import {
-  std/io
+  std::io
   other
 }
 

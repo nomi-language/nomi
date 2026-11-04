@@ -2,10 +2,10 @@
 // sandbox, tasks started inside reach the same one, a nested run takes over
 // for its own call, and injected failures fail the operation they name.
 import {
-    std/fs.{self, Entry, Kind, WriteMode}
-    std/fs_testing.{self, Failure, Operation, Sandbox}
-    std/io.{self, Reader, Writer}
-    std/tasks.Task
+    std::fs.{self, Entry, Kind, WriteMode}
+    std::fs_testing.{self, Failure, Operation, Sandbox}
+    std::io.{self, Reader, Writer}
+    std::tasks.Task
 }
 
 fn sort_file(input: String, output: String) -> Result<Int, io.Error> {

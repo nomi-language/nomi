@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# a trap for a promise the caller broke. And how a resource is released
 //# whichever way the work ends: `defer`.
 
-import std/io.{self, Reader}
+import std::io.{self, Reader}
 
 /// Why a total could not be read.
 pub enum Error {
@@ -72,8 +72,8 @@ fn total(reader: Reader, read: (String) -> Result<Int, Error>) -> Result<Int, Er
 
 // FILE: error_handling_test.nomi
 import {
-    std/io.{self, Reader}
-    std/tasks.Task
+    std::io.{self, Reader}
+    std::tasks.Task
     error_handling
 }
 

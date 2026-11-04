@@ -37,7 +37,7 @@ func checkInternalAccess(importerModRel, importeeModRel string, sameModule bool)
 			continue
 		}
 		if !sameModule {
-			return fmt.Errorf("cannot import %q: internal/ paths are unreachable from other modules", importeeModRel)
+			return fmt.Errorf("cannot import %q: internal/ paths are unreachable from other modules", strings.ReplaceAll(importeeModRel, "/", "::"))
 		}
 		// Allowed iff importer's module-relative path is rooted at the
 		// directory containing this `internal/`. That directory's
@@ -52,7 +52,7 @@ func checkInternalAccess(importerModRel, importeeModRel string, sameModule bool)
 			return nil
 		}
 		return fmt.Errorf("cannot import %q from %q: outside the parent subtree of %s/internal/",
-			importeeModRel, importerModRel, parent)
+			strings.ReplaceAll(importeeModRel, "/", "::"), strings.ReplaceAll(importerModRel, "/", "::"), parent)
 	}
 	return nil
 }

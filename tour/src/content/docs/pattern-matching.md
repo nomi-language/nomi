@@ -457,7 +457,7 @@ is printed with `Debug`.
 type is a compile error, because nothing would use the value. To show a value,
 print it with `io.print` and return `Ok(Unit)`.
 
-To exit with a status other than 1, make `E` an `Exit` from `std/process` and
+To exit with a status other than 1, make `E` an `Exit` from `std::process` and
 return it in an `Err`, as [Input & Output](/input-and-output/#exit-codes)
 shows.
 

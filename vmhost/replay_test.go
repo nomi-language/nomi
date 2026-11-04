@@ -10,7 +10,7 @@ import (
 
 // bankProgram is the interactive program the replay tests drive: it prompts on
 // a line of its own, then on a partial line, and reads until end of input.
-const bankProgram = `import std/io
+const bankProgram = `import std::io
 
 fn main() -> Result<Unit, String> {
     io.print("What is the starting balance?")
@@ -103,7 +103,7 @@ test "no input at all" {
 // The session from the io.write prompt example reads as the terminal shows
 // it: the prompt is output on its own line and the typed text is below it.
 func TestReplay_APartialLinePromptIsOutput(t *testing.T) {
-	out := runReplayTests(t, `import std/io
+	out := runReplayTests(t, `import std::io
 
 fn main() {
     io.print("What is your name?")
@@ -137,7 +137,7 @@ test "asks name and age" {
 // starts with `>` follows `> `, and the prompt left waiting at end of input
 // is output on the last line.
 func TestReplay_APromptStartingWithTheMarker(t *testing.T) {
-	out := runReplayTests(t, `import std/io
+	out := runReplayTests(t, `import std::io
 
 fn main() {
     io.print("Exits: north, east.")
@@ -178,7 +178,7 @@ test "walks north" {
 	if !strings.HasSuffix(out, "test result: ok. 1 passed, 0 failed\n") {
 		t.Fatalf("want the replay to pass:\n%s", out)
 	}
-	got, err := runCaptureProgram(t, `import std/io
+	got, err := runCaptureProgram(t, `import std::io
 
 fn main() {
     run = io.capture("north\n", fn -> {
@@ -206,7 +206,7 @@ fn main() {
 // without the backslash the line is input, which the program never reads.
 // A backslash anywhere else is the character itself.
 func TestReplay_OutputThatReadsAsInputIsEscaped(t *testing.T) {
-	out := runReplayTests(t, `import std/io
+	out := runReplayTests(t, `import std::io
 
 fn quoted() {
     io.print("    > quoted")
@@ -442,7 +442,7 @@ test result: FAILED. 0 passed, 1 failed
 // them when the inner transcript is printed). A replay writes each
 // read at the indentation its script line has.
 func TestReplay_TranscriptFields(t *testing.T) {
-	got, err := runCaptureProgram(t, `import std/io
+	got, err := runCaptureProgram(t, `import std::io
 
 fn main() {
     run = io.capture("Ada\nGrace\n", fn -> {
@@ -528,7 +528,7 @@ test "run first" {
 // line that starts with a space keeps it, and so does output whose every
 // line is indented, as padded columns are.
 func TestReplay_AScriptWithNoInputIsTheOutputAsWritten(t *testing.T) {
-	out := runReplayTests(t, `import std/io
+	out := runReplayTests(t, `import std::io
 
 fn main() {
     io.print("-10.0 C |   14.0 F")
@@ -581,7 +581,7 @@ test "the indentation counts" {
 // same line diff, its lines numbered by source line and shown as written,
 // indentation included.
 func TestReplay_AScriptWithNoInputFailsWithALineDiff(t *testing.T) {
-	out := runReplayTests(t, `import std/io
+	out := runReplayTests(t, `import std::io
 
 fn main() {
     io.print("-10.0 C |   14.0 F")

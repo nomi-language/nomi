@@ -10,7 +10,7 @@ import "testing"
 // that is not the declared return type").
 func TestIRNestedFn_RunsInEveryExpressionPosition(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"list element", `import std/io
+		{"list element", `import std::io
 fn main() {
   xs = [{
     fn one() -> Int {
@@ -21,7 +21,7 @@ fn main() {
   io.inspect(xs)
 }
 `, "[1, 2]\n"},
-		{"tuple element", `import std/io
+		{"tuple element", `import std::io
 fn main() {
   v = #({
     fn name() -> String {
@@ -32,7 +32,7 @@ fn main() {
   io.inspect(v)
 }
 `, "#(\"t\", 3)\n"},
-		{"struct field", `import std/io
+		{"struct field", `import std::io
 struct Point {
   x: Int
   y: Int
@@ -47,7 +47,7 @@ fn main() {
   io.inspect(p)
 }
 `, "Point{x: 4, y: 5}\n"},
-		{"operand", `import std/io
+		{"operand", `import std::io
 fn main() {
   n = 10 + {
     fn six() -> Int {
@@ -58,7 +58,7 @@ fn main() {
   io.inspect(n)
 }
 `, "16\n"},
-		{"field receiver", `import std/io
+		{"field receiver", `import std::io
 struct Point {
   x: Int
   y: Int
@@ -73,7 +73,7 @@ fn main() {
   io.inspect(x)
 }
 `, "7\n"},
-		{"lambda body in a tuple", `import std/io
+		{"lambda body in a tuple", `import std::io
 fn main() {
   #(f, label) = #(fn n: Int -> {
     fn twice(k: Int) -> Int {
@@ -85,7 +85,7 @@ fn main() {
   io.inspect(f(6))
 }
 `, "twice\n12\n"},
-		{"then body", `import std/io
+		{"then body", `import std::io
 fn main() {
   n = 5
     |> then fn k -> {
@@ -97,7 +97,7 @@ fn main() {
   io.inspect(n)
 }
 `, "6\n"},
-		{"pipe head", `import std/io
+		{"pipe head", `import std::io
 fn main() {
   n = {
     fn base() -> List<Int> {
@@ -109,7 +109,7 @@ fn main() {
   io.inspect(n)
 }
 `, "3\n"},
-		{"interpolation", `import std/io
+		{"interpolation", `import std::io
 fn main() {
   io.print("v=${{
     fn word() -> String {
@@ -119,7 +119,7 @@ fn main() {
   }}")
 }
 `, "v=w\n"},
-		{"case on the nested fn's call", `import std/io
+		{"case on the nested fn's call", `import std::io
 fn main() {
   xs = [{
     fn pick() -> Maybe<Int> {
@@ -133,7 +133,7 @@ fn main() {
   io.inspect(xs)
 }
 `, "[9]\n"},
-		{"try in the nested fn", `import std/io
+		{"try in the nested fn", `import std::io
 fn main() {
   xs = [{
     fn attempt() -> Result<Int, String> {
@@ -148,7 +148,7 @@ fn main() {
   io.inspect(xs)
 }
 `, "[11]\n"},
-		{"capture in an operand", `import std/io
+		{"capture in an operand", `import std::io
 fn main() {
   base = 40
   n = 1 + {

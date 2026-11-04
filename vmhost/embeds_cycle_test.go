@@ -166,7 +166,7 @@ func TestCheck_EmbeddedStructReachingItsEnumBackLowers(t *testing.T) {
 	}
 	for name, body := range embedCycleShapes {
 		t.Run(name, func(t *testing.T) {
-			src := "import std/io\n\n" + body
+			src := "import std::io\n\n" + body
 			if err := vmhost.Check(writeProgram(t, src)); err != nil {
 				t.Fatalf("check: %v", err)
 			}
@@ -183,7 +183,7 @@ func TestCheck_EmbeddedStructReachingItsEnumBackLowers(t *testing.T) {
 // set element and a map key, and built 1000 deep, which the compiler decides
 // once per type and not once per level.
 func TestRun_EmbeddedStructReachingItsEnumBack(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int
@@ -271,7 +271,7 @@ fn main() {
 // and two enums embedding each other's structs: a payload pattern through the
 // distinct, nested patterns across both enums, equality and hashing.
 func TestRun_EmbeddedDistinctAndMutualEmbedsReachingBack(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Circle {
   r: Int
@@ -350,7 +350,7 @@ fn main() {
 // A recursive enum without `embeds` is a set element and a map key: the
 // structural hash and equality assume the type they are already expanding.
 func TestRun_RecursiveEnumIsAKey(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 enum Tree {
   N(List<Tree>)

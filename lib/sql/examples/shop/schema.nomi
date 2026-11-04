@@ -2,11 +2,11 @@
 // change the SQL and generate again.
 // inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
 import {
-    std/calendar.Date
-    std/instant.Instant
-    std/sql
+    std::calendar.Date
+    std::instant.Instant
+    std::sql
     sqlkit
-    sqlkit/runtime
+    sqlkit::runtime
 }
 
 /// A row of the table `orders`.

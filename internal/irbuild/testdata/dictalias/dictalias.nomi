@@ -8,7 +8,7 @@
 // alias at the import site cannot change which impl answers. A dispatch keyed
 // on the runtime type name would see the alias there and find no impl.
 import {
-    std/io
+    std::io
     gadget.{Gadget as Doodad, Shout}
 }
 

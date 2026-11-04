@@ -52,7 +52,7 @@ func isHiddenImportAlias(alias string) bool {
 // internalToStd is the error for a program naming what, a private
 // declaration of the std module std.
 func internalToStd(what, std string) string {
-	return fmt.Sprintf("`%s` is internal to std/%s", what, std)
+	return fmt.Sprintf("`%s` is internal to std::%s", what, std)
 }
 
 // checkInternalStdImport reports an import of an internal std module from
@@ -76,8 +76,8 @@ func (c *checker) checkInternalStdImport(n *ast.ImportStmt) {
 	if !ok {
 		return
 	}
-	c.report(errAt(segs[1], fmt.Sprintf("`std/%s` is internal to std/%s", name, owner)).
-		WithHint(fmt.Sprintf("import std/%s and use its functions", owner)))
+	c.report(errAt(segs[1], fmt.Sprintf("`std::%s` is internal to std::%s", name, owner)).
+		WithHint(fmt.Sprintf("import std::%s and use its functions", owner)))
 }
 
 // stdModuleOf answers the std module (`message`) the file API object obj

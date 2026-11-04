@@ -895,7 +895,6 @@ type builder struct {
 	file              *FileAnalysis
 	modules           map[string]*Scope        // module name -> scope (stdlib + resolved user modules)
 	moduleSyms        map[string]*Symbol       // module name -> synthetic symbol for go-to-def
-	imported          map[string]*Scope        // module name -> scope, populated only by explicit user imports (or the prelude)
 	blockImports      map[*ast.ImportStmt]bool // imports at the top of a block, which bind only inside it
 	loader            FileLoader
 	projectRoot       string
@@ -1431,6 +1430,7 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 func checkUnused(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	var errs []TypeError
 	errs = append(errs, CheckUnusedImports(fa, nodes)...)
+	errs = append(errs, CheckAmbiguousShortNames(fa)...)
 	errs = append(errs, CheckRedundantPreludeImports(fa, nodes)...)
 	errs = append(errs, CheckUnusedBindings(fa)...)
 	errs = append(errs, CheckUselessReturns(nodes)...)
@@ -3595,7 +3595,7 @@ func (b *builder) walkTypeDeclDecoratorArgs(decorators []ast.Decorator, scope *S
 				b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 					Line: line, Col: col,
 					Message: fmt.Sprintf("`%s` is not in scope — import `%s.%s`",
-						name, deriveProtocolHomeModule[name], name),
+						name, strings.ReplaceAll(deriveProtocolHomeModule[name], "/", ast.PathSeparator), name),
 				})
 			}
 		}
@@ -3896,15 +3896,17 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			b.reportMissingModule(n, n.ModulePath, miss)
 		}
 		sym.ModuleScope = modScope
-		scope.Define(sym)
+		shortBound := b.bindFileShortName(scope, sym, n)
 		b.define(sym.Pos, sym)
+		b.bindFileFullPath(scope, sym, n, nested)
 
 		// Top-level imports also update b.modules so qualified-type
 		// resolution and FieldAccess (which currently consult it) use the
 		// alias. Nested imports skip these mutations — see the comment on
 		// defineImport — and instead rely on sym.ModuleScope, which is set
-		// above for both nested and top-level cases.
-		if nested {
+		// above for both nested and top-level cases. A short name a
+		// declaration holds, or that two imports bind, reaches no file.
+		if nested || !shortBound {
 			// A nested import binds sym and nothing else.
 		} else if b.isStdlibImport(modPathStrings) {
 			b.moduleSyms[bindName] = sym
@@ -3915,24 +3917,12 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				}
 				delete(b.moduleSyms, origName)
 			}
-			// Track explicit import for the function-shadow fallback.
-			if modScope != nil {
-				if b.imported == nil {
-					b.imported = make(map[string]*Scope)
-				}
-				b.imported[bindName] = modScope
-			}
 		} else if modScope != nil {
 			if b.modules == nil {
 				b.modules = make(map[string]*Scope)
 			}
 			b.modules[bindName] = modScope
 			b.moduleSyms[bindName] = sym
-			// Track explicit import for the function-shadow fallback.
-			if b.imported == nil {
-				b.imported = make(map[string]*Scope)
-			}
-			b.imported[bindName] = modScope
 		}
 	} else {
 		// Selective import: import models.{User, Point} (with optional aliases).
@@ -3958,7 +3948,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 
 		var modScope *Scope
 		// The `/`-joined segments name the file, so the module is never a
-		// shorter prefix of them: `import utils/inner.Thing` with no
+		// shorter prefix of them: `import utils::inner.Thing` with no
 		// utils/inner.nomi is a missing file, not an owner `inner` in
 		// utils.nomi.
 		minSplit := max(1, n.FileSegments)
@@ -4141,7 +4131,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				// form and is permitted; the bare flat form hides the
 				// originating enum and is rejected.
 				if len(ownerSegments) == 0 && real.Kind == SymbolEnumVariant {
-					modName := strings.Join(modulePath, "/")
+					modName := strings.Join(modulePath, ast.PathSeparator)
 					enumName := ""
 					for _, s := range modScope.Symbols {
 						if s.Kind == SymbolEnum && s.Members != nil {
@@ -4169,7 +4159,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				// or a removed/renamed export at the source. The local symbol
 				// is still defined so downstream references don't cascade
 				// into "undefined" errors that obscure the real cause.
-				modName := strings.Join(modulePath, "/")
+				modName := strings.Join(modulePath, ast.PathSeparator)
 				if len(ownerSegments) > 0 {
 					modName += "." + strings.Join(ownerSegments, ".")
 				}
@@ -4207,7 +4197,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			//     position to report at. A local declaration of a prelude
 			//     name is diagnosed at its own site by checkReservedTypeName.
 			//   - An import colliding with another IMPORT is left to the check
-			//     above. `import std/maybe.{Maybe}` beside the prelude's own
+			//     above. `import std::maybe.{Maybe}` beside the prelude's own
 			//     injected `Maybe` is the explicit-is-better idiom, not an
 			//     error, and stdlib files must write it.
 			// Two user-written imports that bind one name to two different
@@ -4286,9 +4276,9 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					}
 				}
 			} else {
-				// A file import with `self` (`import std/io.{self, Error}`):
+				// A file import with `self` (`import std::io.{self, Error}`):
 				// bind the last path segment as the file API object, as
-				// `import std/io` does.
+				// `import std::io` does.
 				last := n.ModulePath[len(n.ModulePath)-1]
 				bindName := ast.ImportNodeName(last)
 				sym := &Symbol{
@@ -4298,18 +4288,15 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					Node:        n,
 					ModuleScope: modScope,
 				}
-				scope.Define(sym)
+				shortBound := b.bindFileShortName(scope, sym, n)
 				b.define(sym.Pos, sym)
-				if b.imported == nil {
-					b.imported = map[string]*Scope{}
-				}
-				b.imported[bindName] = modScope
-				// As a plain `import std/io` does, the binding replaces
+				b.bindFileFullPath(scope, sym, n, nested)
+				// As a plain `import std::io` does, the binding replaces
 				// the module table's placeholder for the name, which
 				// carries no scope: a `file.member` reference resolved to
 				// the placeholder, so `io.no_such_function(1)` was never
 				// reported as a missing member.
-				if !nested && modScope != nil {
+				if !nested && modScope != nil && shortBound {
 					if b.moduleSyms == nil {
 						b.moduleSyms = make(map[string]*Symbol)
 					}
@@ -4628,6 +4615,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 			b.file.References[Pos{Line: n.Line, Col: n.Col}] = sym
 		}
 
+	case *ast.FilePath:
+		b.walkFilePath(n, scope)
+
 	case *ast.TypeIdent:
 		sym := scope.Lookup(n.Name)
 		if sym != nil {
@@ -4688,13 +4678,12 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 				moduleName = obj.Name
 			case *ast.TypeIdent:
 				moduleName = obj.Name
+			case *ast.FilePath:
+				moduleName = obj.Spelling()
 			}
 			if moduleName != "" {
-				// Resolve which module-scope this name refers to. lookupModuleScope
-				// handles the full set: closest binding when it is a
-				// SymbolModule with a ModuleScope; the function-
-				// shadow scope-walk past a local binding; b.imported as the final
-				// fallback for same-scope shadowing. There is no silent fallback to
+				// Resolve which module-scope this name refers to: the closest
+				// binding, when it is a file. There is no silent fallback to
 				// `b.modules` — module access in user code requires explicit
 				// visibility (prelude or import). `b.modules` itself is still
 				// used elsewhere (resolveStdlibImport, defineImport, qualified
@@ -4710,7 +4699,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 					// resolved by the checker against the value's type.
 					if localSym := scope.Lookup(moduleName); localSym != nil && localSym.Kind == SymbolModule {
 						refSym := localSym
-						// A block's own `import std/io` binds `io` in that
+						// A block's own `import std::io` binds `io` in that
 						// block only; its use resolves to that binding,
 						// whatever this project's module table holds under
 						// the name.
@@ -4723,6 +4712,8 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 								b.file.References[Pos{Line: obj.Line, Col: obj.Col}] = refSym
 							case *ast.TypeIdent:
 								b.file.References[Pos{Line: obj.Line, Col: obj.Col}] = refSym
+							case *ast.FilePath:
+								b.recordFilePathRefs(obj, refSym)
 							}
 						}
 						// A module name in that scope (its self binding, a
@@ -4939,7 +4930,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 
 	case *ast.TaggedString:
 		// Resolve the tag identifier as a module reference using the same
-		// scope-chain + b.imported fallback that FieldAccess uses for
+		// scope lookup that FieldAccess uses for
 		// `<module>.<member>` lookups. The full type-check (signature
 		// shape, slot conformance, return type) lives in checker.go's
 		// checkTaggedString — here we just register the references the
@@ -5107,33 +5098,14 @@ func (b *builder) isBlockImportBinding(sym *Symbol, scope *Scope) bool {
 	return false
 }
 
-// lookupModuleScope returns the *Scope of the module bound to `name` in
-// the given scope, or nil if no such module is reachable. It mirrors the
-// resolution path FieldAccess uses for `<module>.<member>`: closest
-// scope binding when it is itself a SymbolModule with a ModuleScope,
-// then walk up the scope chain past any shadow looking for a parent
-// SymbolModule with the same name, then b.imported as the final
-// fallback for same-scope shadowing.
+// lookupModuleScope returns the *Scope of the file bound to `name` in the
+// given scope, or nil if the closest binding of the name is not a file. It
+// is the resolution FieldAccess uses for `<file>.<member>`. A local or a
+// declaration of the name wins over a file import of it (spec §14 *Short
+// names and full paths*): the file stays reachable by its full path, which
+// nothing shadows.
 func (b *builder) lookupModuleScope(name string, scope *Scope) *Scope {
-	localSym := scope.Lookup(name)
-	if ms := moduleScopeOfSym(localSym); ms != nil {
-		return ms
-	}
-	if localSym != nil {
-		for s := scope; s != nil; s = s.Parent {
-			if sym, ok := s.Symbols[name]; ok && sym != localSym {
-				if ms := moduleScopeOfSym(sym); ms != nil {
-					return ms
-				}
-			}
-		}
-		if b.imported != nil {
-			if imp, ok := b.imported[name]; ok {
-				return imp
-			}
-		}
-	}
-	return nil
+	return moduleScopeOfSym(scope.Lookup(name))
 }
 
 // synthStdFileQualifier resolves the file qualifier of a std function call

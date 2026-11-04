@@ -22,8 +22,8 @@ import (
 // to be complements. It is a property, not a table: adding a form to typeOf
 // without adding it here fails without anybody remembering to update a list.
 func TestSigReason_NamesAReasonForExactlyWhatTypeOfRefuses(t *testing.T) {
-	src := `import std/io
-import std/literals.Literal
+	src := `import std::io
+import std::literals.Literal
 
 struct Point {
   x: Int

@@ -1,7 +1,7 @@
 import {
-    std/comparable.Ordering.{Equal, Greater, Less}
-    std/compiler
-    std/decimal.RoundingMode.{Floor, HalfEven, Up}
+    std::comparable.Ordering.{Equal, Greater, Less}
+    std::compiler
+    std::decimal.RoundingMode.{Floor, HalfEven, Up}
     test_helpers
 }
 
@@ -119,10 +119,10 @@ test "decimal arithmetic supports money-shaped totals" {
 test "decimal arithmetic rejects mixed numeric types" {
     diagnostics =
         """
-            fn main() {
-              dbg 1 + 1.50d
-            }
-            """
+        fn main() {
+          dbg 1 + 1.50d
+        }
+        """
         |> compiler.check()
 
     assert test_helpers.has_diagnostic(diagnostics, "binary + type mismatch: Int vs Decimal")
@@ -131,16 +131,16 @@ test "decimal arithmetic rejects mixed numeric types" {
 test "decimal has no division operator" {
     diagnostics =
         """
-            fn half(a: Decimal, b: Decimal) -> Decimal {
-              a / b
-            }
+        fn half(a: Decimal, b: Decimal) -> Decimal {
+          a / b
+        }
 
-            fn main() {
-              dbg 1d / 3d
-              dbg 1d / 3
-              dbg 1 / 3d
-            }
-            """
+        fn main() {
+          dbg 1d / 3d
+          dbg 1d / 3
+          dbg 1 / 3d
+        }
+        """
         |> compiler.check()
 
     message = "Decimal has no `/`: write `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)` for a quotient that must terminate"
@@ -169,10 +169,10 @@ test "divide_exact is None when the quotient does not terminate" {
 test "divide_exact by zero is a runtime error" {
     result =
         """
-            fn main() {
-              _ = Decimal.divide_exact(1d, 0d)
-            }
-            """
+        fn main() {
+          _ = Decimal.divide_exact(1d, 0d)
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

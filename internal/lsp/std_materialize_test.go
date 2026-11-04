@@ -89,7 +89,7 @@ func lineAt(t *testing.T, uri protocol.DocumentUri, line uint32) string {
 	return lines[line]
 }
 
-const someImport = "import std/maybe.Maybe.{Some, None}\n\nfn main() {\n    _ = Some(1)\n}\n"
+const someImport = "import std::maybe.Maybe.{Some, None}\n\nfn main() {\n    _ = Some(1)\n}\n"
 
 // Two servers built from different std sources, sharing one cache root,
 // materialize to two directories: the second writes nothing the first's
@@ -108,7 +108,7 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 		t.Fatal(err)
 	}
 	uri := fileuri.FromPath(path)
-	somePos := protocol.Position{Line: 0, Character: 24}
+	somePos := protocol.Position{Line: 0, Character: 25}
 
 	a := startRPC(t, materializedServer(cacheRoot, current), dir)
 	a.open(uri, someImport)
@@ -152,7 +152,7 @@ func TestStdMaterialize_TwoServersWriteTwoVersions(t *testing.T) {
 	}
 }
 
-const regexUser = "import std/regex.Regex\n\nfn main() {\n    _ = Regex.compile(\"a\")\n}\n"
+const regexUser = "import std::regex.Regex\n\nfn main() {\n    _ = Regex.compile(\"a\")\n}\n"
 
 // newerRegex is std/regex as a newer std might have it: every declaration
 // a line lower, and `compile` renamed, so a user file analyzed against it
@@ -189,7 +189,7 @@ func TestStdBuffer_ChangedTextStaysInItsOwnBuffer(t *testing.T) {
 
 			stdURI := fileuri.FromPath(filepath.Join(stdRoot, "regex.nomi"))
 			if shape == "materialized" {
-				stdURI = string(c.definition(uri, protocol.Position{Line: 0, Character: 18}).URI)
+				stdURI = string(c.definition(uri, protocol.Position{Line: 0, Character: 19}).URI)
 				if !strings.HasSuffix(stdURI, "/regex.nomi") || strings.HasPrefix(stdURI, fileuri.FromPath(stdRoot)) {
 					t.Fatalf("definition of Regex lands in %s, want the materialized regex.nomi", stdURI)
 				}
@@ -221,7 +221,7 @@ func TestStdBuffer_ChangedTextStaysInItsOwnBuffer(t *testing.T) {
 	}
 }
 
-const someAndRegex = "import std/maybe.Maybe.{Some}\nimport std/regex.Regex\n\nfn main() {\n    _ = Some(1)\n    _ = Regex.compile(\"a\")\n}\n"
+const someAndRegex = "import std::maybe.Maybe.{Some}\nimport std::regex.Regex\n\nfn main() {\n    _ = Some(1)\n    _ = Regex.compile(\"a\")\n}\n"
 
 // Go-to-definition into std lands in the checkout's std source tree only for
 // a file whose content is the std the server runs. A checkout file changed
@@ -253,8 +253,8 @@ func TestStdCheckout_ChangedFileJumpsToTheMaterializedCopy(t *testing.T) {
 	c := startRPC(t, s, dir)
 	c.open(uri, someAndRegex)
 	c.waitDiagnostics(uri)
-	somePos := protocol.Position{Line: 0, Character: 24}
-	regexPos := protocol.Position{Line: 1, Character: 18}
+	somePos := protocol.Position{Line: 0, Character: 25}
+	regexPos := protocol.Position{Line: 1, Character: 19}
 
 	// jump asks for the definition at pos and checks that it lands in
 	// under's file rel, at a column where name starts.

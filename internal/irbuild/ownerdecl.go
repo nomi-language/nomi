@@ -16,7 +16,7 @@ import (
 // declaration the module scope binds. That is the checker's answer wherever
 // the name means the same thing at the call as at module scope. It is not
 // where something between the two rebinds it: an `import` at the top of a
-// block (`import std/duration.Duration` in a test body, beside a module-level
+// block (`import std::duration.Duration` in a test body, beside a module-level
 // `struct Duration`), or an alias of a std type whose own name this file
 // declares. There the checker's reference at the owner is the answer, and a
 // std owner it names is lowered through the module-qualified route
@@ -77,7 +77,7 @@ func (g *gen) stdNameTaken(name string) bool {
 
 // bareStdMethodCall lowers a bare call whose callee the checker resolved to a
 // std type's method, brought into scope by a selective import
-// (`import std/maybe.Maybe.{with_default}`, then `with_default(m, 0)`). The
+// (`import std::maybe.Maybe.{with_default}`, then `with_default(m, 0)`). The
 // owner is the method's declared owning type, and the call takes the route
 // its qualified spelling takes over the call as written, so the checker's
 // facts about this call node (its solved signature, the types of its bare
@@ -160,7 +160,7 @@ func (g *gen) stdTypeRebind(sym *analysis.Symbol) bool {
 
 // stdOwnerByDecl answers the std type an owner qualifier names, as its own
 // name and its module, when the checker bound the qualifier to a std type the
-// spelling does not reach by name here: an alias (`import std/iter.Iter as
+// spelling does not reach by name here: an alias (`import std::iter.Iter as
 // It`) of a type whose own name this file takes, or a name this file's tables
 // bind to another declaration. rebound is false wherever the name-keyed
 // routes reach the same declaration, and inside a std module, whose own types

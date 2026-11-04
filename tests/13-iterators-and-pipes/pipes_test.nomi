@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 fn double(x: Int) -> Int {
     x * 2
@@ -47,7 +47,7 @@ test "partial applications leave placeholder arguments open" {
 test "bare dbg pipe stages inspect and pass through the previous value" {
     result = compiler.run(
         """
-          import std/io
+          import std::io
 
           fn double(x: Int) -> Int {
             x * 2

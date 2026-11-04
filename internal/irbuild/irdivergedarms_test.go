@@ -14,8 +14,8 @@ import "testing"
 // arms all leave followed by statements that never run. The loops read a
 // channel so a `continue` makes progress.
 func TestIRDivergedArms_IterLoopTail(t *testing.T) {
-	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
-import std/io
+	verifyLambdaProgram(t, `import std::channels.{Channel, Receiver, Sender}
+import std::io
 
 struct Account {
     owner: String
@@ -212,7 +212,7 @@ fn main() {
 // stops. A callback none of whose arms gives a value takes its result type
 // from the callee's parameter.
 func TestIRDivergedArms_Callbacks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
     xs = [1, 2, 3, 4, 5]
@@ -306,8 +306,8 @@ fn main() {
 // A lambda whose tail leaves in every arm, and an Iter.loop inside a lambda
 // whose tail does.
 func TestIRDivergedArms_Lambdas(t *testing.T) {
-	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
-import std/io
+	verifyLambdaProgram(t, `import std::channels.{Channel, Receiver, Sender}
+import std::io
 
 fn feed(items: List<String>) -> Receiver<String> {
     ch = Channel.buffered<String>(10)
@@ -367,7 +367,7 @@ fn main() {
 // A binding whose arms all return, in a named function, followed by
 // statements that never run.
 func TestIRDivergedArms_NamedFunctionBinding(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn f(x: Int) -> Int {
     y = case x {
@@ -400,7 +400,7 @@ fn main() {
 // construct that would read it never runs; the operands evaluated before it
 // do, in order, and nothing after it does.
 func TestIRDivergedArms_Operands(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 struct Point {
     x: Int

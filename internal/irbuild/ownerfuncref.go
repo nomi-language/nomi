@@ -47,7 +47,7 @@ func ownerSpelling(n ast.Node) (string, bool) {
 		if o.Field == nil {
 			return "", false
 		}
-		if root, isIdent := o.Object.(*ast.Ident); isIdent {
+		if root, isIdent := ast.QualifierIdent(o.Object); isIdent {
 			return root.Name + "." + o.Field.Name, true
 		}
 		q, ok := ownerSpelling(o.Object)

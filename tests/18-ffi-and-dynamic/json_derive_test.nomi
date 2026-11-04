@@ -1,6 +1,6 @@
 import {
-    std/json.{FromJson, ToJson}
-    std/json.Json.{self, Case.Camel}
+    std::json.{FromJson, ToJson}
+    std::json.Json.{self, Case.Camel}
 }
 
 struct User {

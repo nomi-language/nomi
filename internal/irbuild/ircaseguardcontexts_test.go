@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRCaseGuard_EffectsStopAtTheSelectedArm(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn subject(n: Int) -> Int { io.print("subject") n }
 fn check(label: String, matched: Bool) -> Bool { io.print(label) matched }
 fn classify(n: Int) -> String {
@@ -22,7 +22,7 @@ fn main() {
 }
 
 func TestIRCaseGuard_StringBindingsAndShadowing(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn classify(s: String) -> String {
   result = case s {
     s when String.length(s) == 0 -> "empty"

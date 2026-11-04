@@ -11,7 +11,7 @@ import (
 // TestCompletion_DestructuringParamPlaceholder: a parameter written as a
 // pattern is offered by its pattern, never by the parser's binding slot.
 func TestCompletion_DestructuringParamPlaceholder(t *testing.T) {
-	items := completeWith(t, true, "import std/calendar.{Date, Days}\n\nfn f(d: Date) -> Date {\n    Date.ad"+cursorMark+"\n}\n")
+	items := completeWith(t, true, "import std::calendar.{Date, Days}\n\nfn f(d: Date) -> Date {\n    Date.ad"+cursorMark+"\n}\n")
 	it := mustItem(t, items, "add")
 	te := textEditOf(t, it)
 	t.Logf("insert: %s", te.NewText)

@@ -14,7 +14,7 @@ import (
 // output is reported under its case, after the verdict line.
 func TestEndlessLoopUsesTheStepBudget(t *testing.T) {
 	for _, c := range []struct{ name, src, transcript, output string }{
-		{"main", `import std/io
+		{"main", `import std::io
 
 fn main() {
     io.print("start")
@@ -24,7 +24,7 @@ fn main() {
     })
 }
 `, "start\n0\n1\n2\n\n--- too long: ", ""},
-		{"a test case", `import std/io
+		{"a test case", `import std::io
 
 test "spins" {
     assert 1 == 1
@@ -66,10 +66,10 @@ func TestTourWorkerLoopChecks(t *testing.T) {
 		t.Fatal("concurrency.md has no plain block declaring `fn outbox_worker()`")
 	}
 	src := `import {
-    std/channels.{Channel, Receiver}
-    std/duration.Duration
-    std/io
-    std/timer
+    std::channels.{Channel, Receiver}
+    std::duration.Duration
+    std::io
+    std::timer
 }
 
 struct Config {

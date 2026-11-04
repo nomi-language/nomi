@@ -23,9 +23,9 @@ func TestBuildCommand_Wasip1TempDirNeedsAPreopenedDirectory(t *testing.T) {
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "scratch.nomi")
 	mustWrite(t, entry, `import {
-    std/fs
-    std/io
-    std/path
+    std::fs
+    std::io
+    std::path
 }
 
 fn main() {

@@ -117,6 +117,14 @@ func (c *checker) mismatchHint(want, have Type) string {
 			if h := c.boundHelp(have, iface); h != "" {
 				return h
 			}
+		case *TypeParam_:
+			// A type parameter enters an interface position through a
+			// bound; the help shows the declaration with it added.
+			tp := resolveTypeVar(have).(*TypeParam_)
+			if tp.Name_ != "self" && tp != c.defaultSelf && c.fnTypeParams[tp.Name_] == tp {
+				_, help := c.typeParamBoundOwner(tp, iface.String())
+				return help
+			}
 		}
 	}
 	return mismatchHint(want, have)

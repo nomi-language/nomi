@@ -1,6 +1,6 @@
 import {
-    std/compiler
-    std/duration.Duration
+    std::compiler
+    std::duration.Duration
 }
 
 // A user type that sums: its own `+` and the value that `+` leaves alone.
@@ -106,10 +106,10 @@ test "a sum past 64 bits is exact as + is" {
 test "summing a type that is not Summable is a compile error" {
     diagnostics =
         """
-            fn main() {
-                _ = Iter.sum([True, False])
-            }
-            """
+        fn main() {
+            _ = Iter.sum([True, False])
+        }
+        """
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {

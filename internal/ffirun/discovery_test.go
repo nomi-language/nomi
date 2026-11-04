@@ -222,7 +222,7 @@ func TestPrepareSkipsNestedNomiPackagesOutsideEntryScope(t *testing.T) {
 go 1.26.3
 `)
 	parentDir := filepath.Join(root, "tests", "18-ffi-and-dynamic")
-	mustWriteHelper(t, filepath.Join(parentDir, "json_test.nomi"), `import std/json
+	mustWriteHelper(t, filepath.Join(parentDir, "json_test.nomi"), `import std::json
 
 test "plain json test" {
   assert True
@@ -289,7 +289,7 @@ require example.com/dep v0.0.0
 
 replace example.com/dep => %s
 `, nomiRoot))
-	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `import dep/binding
+	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `import dep::binding
 
 fn main() {
   _ = binding.ping()
@@ -333,7 +333,7 @@ replace (
 	example.com/two v0.0.0 => ../two
 )
 `)
-	mustWriteHelper(t, filepath.Join(app, "main.nomi"), "import {\n    one/binding\n    two/binding as other\n}\n\nfn main() {\n  _ = binding.ping()\n  _ = other.ping()\n}\n")
+	mustWriteHelper(t, filepath.Join(app, "main.nomi"), "import {\n    one::binding\n    two::binding as other\n}\n\nfn main() {\n  _ = binding.ping()\n  _ = other.ping()\n}\n")
 
 	got, err := Discover(app)
 	if err != nil {

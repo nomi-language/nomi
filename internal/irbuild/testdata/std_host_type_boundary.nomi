@@ -40,7 +40,7 @@
 // BOTH as `ambiguous stdlib method`. Including it would refuse the whole
 // fixture rather than one line. The rule is pinned ABSOLUTELY in
 // rt/bytes_test.go instead, at the representation level.
-import std/io
+import std::io
 
 /// A USER function whose PARAMETER is the stdlib primitive, so `Bytes` is
 /// forced into a function signature rather than only into a local binding.

@@ -1,6 +1,6 @@
 import {
-    std/locale.Locale
-    std/message.Message
+    std::locale.Locale
+    std::message.Message
     cart
     cart.Status
 }

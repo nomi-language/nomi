@@ -28,13 +28,13 @@ func runFixAll(t *testing.T, src string) (string, bool) {
 
 // The headline: one pass removes an unused import AND adds a missing one.
 func TestFixAll_RemovesAndAdds(t *testing.T) {
-	src := "import std/lists.List\n\n" +
+	src := "import std::lists.List\n\n" +
 		"fn main() {\n  io.inspect(42)\n}\n"
 	got, ok := runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import std/io\n\n" +
+	want := "import std::io\n\n" +
 		"fn main() {\n  io.inspect(42)\n}\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -47,7 +47,7 @@ func TestFixAll_AddOnlyNoImports(t *testing.T) {
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import std/io\n\nfn main() {\n  io.inspect(42)\n}\n"
+	want := "import std::io\n\nfn main() {\n  io.inspect(42)\n}\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -56,13 +56,13 @@ func TestFixAll_AddOnlyNoImports(t *testing.T) {
 // The missing type's file already has a selective import, so merge into it
 // rather than adding a duplicate statement.
 func TestFixAll_SelfMerge(t *testing.T) {
-	src := "import std/calendar.Date\n\n" +
+	src := "import std::calendar.Date\n\n" +
 		"fn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n"
 	got, ok := runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import std/calendar.{Date, Time}\n\n" +
+	want := "import std::calendar.{Date, Time}\n\n" +
 		"fn f(_t: Time, _d: Date) -> Bool {\n  True\n}\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -72,15 +72,15 @@ func TestFixAll_SelfMerge(t *testing.T) {
 // With nothing missing, fixAll behaves like organize: prune + canonicalize.
 func TestFixAll_RemoveLikeOrganizeWhenNothingMissing(t *testing.T) {
 	src := "import {\n" +
-		"  std/lists.List\n" +
-		"  std/io\n" +
+		"  std::lists.List\n" +
+		"  std::io\n" +
 		"}\n\n" +
 		"fn main() { io.print(\"x\") }\n"
 	got, ok := runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import std/io\n\nfn main() { io.print(\"x\") }\n"
+	want := "import std::io\n\nfn main() { io.print(\"x\") }\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -90,7 +90,7 @@ func TestFixAll_RemoveLikeOrganizeWhenNothingMissing(t *testing.T) {
 // only from an attached extern-test body. That reference still counts, so
 // fixAll must leave the import alone.
 func TestFixAll_KeepsImportUsedOnlyByAttachedExternTest(t *testing.T) {
-	src := "import std/duration.Duration\n\n" +
+	src := "import std::duration.Duration\n\n" +
 		"pub host type Thing\n\n" +
 		"//! assert Duration.as_seconds(Duration.seconds(1)) == 1\n" +
 		"pub host fn value() -> Int\n"
@@ -100,7 +100,7 @@ func TestFixAll_KeepsImportUsedOnlyByAttachedExternTest(t *testing.T) {
 }
 
 func TestFixAll_KeepsImportUsedByFileFunction(t *testing.T) {
-	src := "import std/duration.Duration\n\n" +
+	src := "import std::duration.Duration\n\n" +
 		"pub host type Thing\n\n" +
 		"fn one_second(value: Thing) -> Duration {\n" +
 		"  Duration.seconds(1)\n" +
@@ -114,18 +114,18 @@ func TestFixAll_KeepsImportUsedByFileFunction(t *testing.T) {
 // present without import → import added. Together these make the
 // comment-out-to-test loop lossless under fixAll-on-save.
 func TestFixAll_RoundTrip(t *testing.T) {
-	removed, ok := runFixAll(t, "import std/io\n\nfn main() {\n  Unit\n}\n")
+	removed, ok := runFixAll(t, "import std::io\n\nfn main() {\n  Unit\n}\n")
 	if !ok {
 		t.Fatal("expected removal direction to act")
 	}
-	if strings.Contains(removed, "import std/io") {
+	if strings.Contains(removed, "import std::io") {
 		t.Errorf("unused io import should be removed:\n%s", removed)
 	}
 	added, ok := runFixAll(t, "fn main() {\n  io.inspect(1)\n}\n")
 	if !ok {
 		t.Fatal("expected add direction to act")
 	}
-	if !strings.Contains(added, "import std/io") {
+	if !strings.Contains(added, "import std::io") {
 		t.Errorf("missing io import should be added:\n%s", added)
 	}
 }
@@ -133,7 +133,7 @@ func TestFixAll_RoundTrip(t *testing.T) {
 // Self-merge into a selective import that lives inside a grouped block.
 func TestFixAll_SelfMergeInBlock(t *testing.T) {
 	src := "import {\n" +
-		"  std/calendar.Date\n" +
+		"  std::calendar.Date\n" +
 		"}\n\n" +
 		"fn f(t: Time, d: Date) -> Bool {\n" +
 		"  Iter.count([1])\n" +
@@ -143,7 +143,7 @@ func TestFixAll_SelfMergeInBlock(t *testing.T) {
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import std/calendar.{Date, Time}\n\n" +
+	want := "import std::calendar.{Date, Time}\n\n" +
 		"fn f(t: Time, d: Date) -> Bool {\n" +
 		"  Iter.count([1])\n" +
 		"  True\n" +
@@ -158,7 +158,7 @@ func TestFixAll_SelfMergeInBlock(t *testing.T) {
 // survives the redundant-prelude prune and the block stays a block.
 func TestFixAll_AddJoinsExistingBlock(t *testing.T) {
 	src := "import {\n" +
-		"    std/duration.Duration\n" +
+		"    std::duration.Duration\n" +
 		"}\n\n" +
 		"fn main() {\n" +
 		"    d = Duration.seconds(1)\n" +
@@ -169,8 +169,8 @@ func TestFixAll_AddJoinsExistingBlock(t *testing.T) {
 		t.Fatal("expected a fixAll action")
 	}
 	want := "import {\n" +
-		"    std/duration.Duration\n" +
-		"    std/io\n" +
+		"    std::duration.Duration\n" +
+		"    std::io\n" +
 		"}\n\n" +
 		"fn main() {\n" +
 		"    d = Duration.seconds(1)\n" +
@@ -188,7 +188,7 @@ func TestFixAll_MultipleMissing(t *testing.T) {
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import std/io\n\n" +
+	want := "import std::io\n\n" +
 		"fn main() {\n  io.inspect(42)\n  Iter.count([1])\n}\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -196,17 +196,17 @@ func TestFixAll_MultipleMissing(t *testing.T) {
 }
 
 // Removing a redundant prelude import must not be undone by the add half of
-// the same pass, or fixAll-on-save would oscillate: strip `import std/iter.Iter`
+// the same pass, or fixAll-on-save would oscillate: strip `import std::iter.Iter`
 // on one save, re-add it on the next, forever. Auto-import declines the name
 // because the prelude already resolves it, so the second pass offers nothing.
 func TestFixAll_RedundantPreludeRemovalIsIdempotent(t *testing.T) {
-	src := "import std/iter.Iter\n\n" +
+	src := "import std::iter.Iter\n\n" +
 		"fn main() {\n  io.inspect(Iter.count([1, 2]))\n}\n"
 	once, ok := runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import std/io\n\n" +
+	want := "import std::io\n\n" +
 		"fn main() {\n  io.inspect(Iter.count([1, 2]))\n}\n"
 	if once != want {
 		t.Fatalf("first pass: got %q, want %q", once, want)
@@ -226,19 +226,19 @@ func TestUnambiguousMissing(t *testing.T) {
 		{Qualifier: "Foo", ModulePath: "std/b", Member: "Foo", Pos: p1},
 		{Qualifier: "Duration", ModulePath: "std/duration", Member: "Duration", Pos: p2},
 	})
-	if len(got) != 1 || got[0].ImportSpec() != "std/duration.Duration" {
-		t.Errorf("want only the unambiguous std/duration.Duration, got %+v", got)
+	if len(got) != 1 || got[0].ImportSpec() != "std::duration.Duration" {
+		t.Errorf("want only the unambiguous std::duration.Duration, got %+v", got)
 	}
 }
 
 // fixAll adds a missing stdlib owner import, joining the block.
 func TestFixAll_AddsModuleIntoBlock(t *testing.T) {
-	src := "import {\n    std/io\n}\n\nfn main() {\n    io.inspect(Duration.seconds(5))\n}\n"
+	src := "import {\n    std::io\n}\n\nfn main() {\n    io.inspect(Duration.seconds(5))\n}\n"
 	got, ok := runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import {\n    std/duration.Duration\n    std/io\n}\n\nfn main() {\n    io.inspect(Duration.seconds(5))\n}\n"
+	want := "import {\n    std::duration.Duration\n    std::io\n}\n\nfn main() {\n    io.inspect(Duration.seconds(5))\n}\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -247,9 +247,9 @@ func TestFixAll_AddsModuleIntoBlock(t *testing.T) {
 // fixAll inherits organize's region-safety bails: a non-import declaration
 // between imports means decline rather than clobber.
 func TestFixAll_BailsOnInterleavedCode(t *testing.T) {
-	src := "import std/io\n\n" +
+	src := "import std::io\n\n" +
 		"fn helper() -> Int { 1 }\n\n" +
-		"import std/lists\n\n" +
+		"import std::lists\n\n" +
 		"fn main() {\n  io.print(\"x\")\n  io.print(List.head([1]))\n}\n"
 	if _, ok := runFixAll(t, src); ok {
 		t.Error("expected no fixAll action when a declaration is interleaved between imports")
@@ -257,35 +257,35 @@ func TestFixAll_BailsOnInterleavedCode(t *testing.T) {
 }
 
 // A missing import never joins a re-export: merging `Time` into
-// `pub import std/calendar.Date`, or adding `std/io` to a `pub import { ... }`
+// `pub import std::calendar.Date`, or adding `std/io` to a `pub import { ... }`
 // block, would re-export it. The add is a plain import of its own.
 func TestFixAll_NeverAddsToAReExport(t *testing.T) {
-	src := "pub import std/calendar.Date\n\n" +
+	src := "pub import std::calendar.Date\n\n" +
 		"pub fn f(_t: Time) -> Bool {\n  True\n}\n"
 	got, ok := runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	want := "import std/calendar.Time\n" +
-		"pub import std/calendar.Date\n\n" +
+	want := "import std::calendar.Time\n" +
+		"pub import std::calendar.Date\n\n" +
 		"pub fn f(_t: Time) -> Bool {\n  True\n}\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 
 	src = "pub import {\n" +
-		"    std/calendar.Date\n" +
-		"    std/duration.Duration\n" +
+		"    std::calendar.Date\n" +
+		"    std::duration.Duration\n" +
 		"}\n\n" +
 		"fn main() {\n  io.inspect(42)\n}\n"
 	got, ok = runFixAll(t, src)
 	if !ok {
 		t.Fatal("expected a fixAll action")
 	}
-	if !strings.HasPrefix(got, "import std/io\n") && !strings.Contains(got, "\nimport std/io\n") {
+	if !strings.HasPrefix(got, "import std::io\n") && !strings.Contains(got, "\nimport std::io\n") {
 		t.Errorf("std/io was not added as a plain import:\n%s", got)
 	}
-	if !strings.Contains(got, "pub import {\n    std/calendar.Date\n    std/duration.Duration\n}\n") {
+	if !strings.Contains(got, "pub import {\n    std::calendar.Date\n    std::duration.Duration\n}\n") {
 		t.Errorf("the re-export block changed:\n%s", got)
 	}
 }

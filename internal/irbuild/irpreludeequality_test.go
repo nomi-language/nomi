@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRPreludeEquality_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import { std/io std/literals.Fragment }
+	verifyLambdaProgram(t, `import { std::io std::literals.Fragment }
 fn same(a: Maybe<String>, b: Maybe<String>) -> Bool { a == b }
 fn different(a: Result<Int, String>, b: Result<Int, String>) -> Bool { a != b }
 fn main() {
@@ -25,7 +25,7 @@ fn main() {
 }
 
 func TestIRPreludeEquality_LambdaPipelineEffects(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn mark(s: String) -> Maybe<String> { io.print(s) Some(s) }
 fn main() {
   expected = Some("left")
@@ -41,7 +41,7 @@ fn main() {
 // `==` on an enum with a hand-written Equatable calls the impl; `!=` negates
 // its answer.
 func TestIRPreludeEquality_NominalDispatchCallsTheImpl(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 enum Answer {
   Value Int
 }

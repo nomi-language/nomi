@@ -92,11 +92,11 @@ func server(t *testing.T) *httptest.Server {
 // 404 is a response, not an error.
 func TestClient_GetPostAndStatus(t *testing.T) {
 	s := server(t)
-	got := run(t, strings.ReplaceAll(`import std/http
-import std/http.{Body, Headers, Request, Response, Status}
-import std/io
-import std/json.Json
-import std/url.{Query, Url}
+	got := run(t, strings.ReplaceAll(`import std::http
+import std::http.{Body, Headers, Request, Response, Status}
+import std::io
+import std::json.Json
+import std::url.{Query, Url}
 
 fn main() -> Result<Unit, http.Error> {
     base = Url.parse("BASE")!
@@ -132,11 +132,11 @@ func TestClient_OptionsAndErrors(t *testing.T) {
 	}
 	closed := "http://" + l.Addr().String()
 	l.Close()
-	got := run(t, strings.ReplaceAll(strings.ReplaceAll(`import std/duration.Duration
-import std/http
-import std/http.{Client, ClientOptions, Error, Redirects, Request, Response}
-import std/io
-import std/url.Url
+	got := run(t, strings.ReplaceAll(strings.ReplaceAll(`import std::duration.Duration
+import std::http
+import std::http.{Client, ClientOptions, Error, Redirects, Request, Response}
+import std::io
+import std::url.Url
 
 fn kind(e: Error) -> String {
     case e {
@@ -185,10 +185,10 @@ fn main() {
 // body, and a 307 sends the same method and body again.
 func TestClient_RedirectsDecide(t *testing.T) {
 	s := server(t)
-	got := run(t, strings.ReplaceAll(`import std/http
-import std/http.{Body, Client, ClientOptions, Redirect, Redirects, Request, Response, Status}
-import std/io
-import std/url.Url
+	got := run(t, strings.ReplaceAll(`import std::http
+import std::http.{Body, Client, ClientOptions, Redirect, Redirects, Request, Response, Status}
+import std::io
+import std::url.Url
 
 fn log_and_follow(next: Request, via: List<Request>) -> Redirect {
     io.print("to ${next.method} ${next.url.path} after ${Iter.count(via)}")
@@ -227,10 +227,10 @@ fn main() -> Result<Unit, http.Error> {
 // reads: its fields and its files with their names and content types.
 func TestClient_MultipartBody(t *testing.T) {
 	s := server(t)
-	got := run(t, strings.ReplaceAll(`import std/http
-import std/http.{Body, FormPart, Response}
-import std/io
-import std/url.Url
+	got := run(t, strings.ReplaceAll(`import std::http
+import std::http.{Body, FormPart, Response}
+import std::io
+import std::url.Url
 
 fn main() -> Result<Unit, http.Error> {
     parts = [

@@ -1,6 +1,6 @@
 import {
-    std/decimal.RoundingMode.{self, Ceiling, Down, HalfEven, Unnecessary, Up}
-    std/strings.NormalForm.{self, NFC, NFD, NFKC, NFKD}
+    std::decimal.RoundingMode.{self, Ceiling, Down, HalfEven, Unnecessary, Up}
+    std::strings.NormalForm.{self, NFC, NFD, NFKC, NFKD}
 }
 
 // Two stdlib enums reached through a VARIANT-ONLY selective import, which is the

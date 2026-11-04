@@ -6,7 +6,7 @@ import "testing"
 // call (`Struct.update(p, ...)` calls P's Up impl), while `Struct.update`
 // outside the generic is still std's struct update.
 func TestTypeParamNamedStruct_CallsTheInstancesImpl(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface Up {
     fn update(a: self, b: #{x: Int}) -> self

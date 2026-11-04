@@ -10,7 +10,7 @@ package analysis
 // therefore shared one manifest slot, so importing a stdlib module could make
 // a name in the user's own file un-declarable. For example:
 //
-//	import std/calendar
+//	import std::calendar
 //	struct Date { flavor: String }
 //	impl Date { pub fn new(a: String, b: String) -> Date { Date{flavor: a} } }
 //

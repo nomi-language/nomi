@@ -43,7 +43,7 @@ func verifyDeferProgram(t *testing.T, src, want string, retained ...string) {
 }
 
 func TestIRDefer_TourScopedBlock(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 struct Conn {
   name: String
@@ -70,7 +70,7 @@ fn main() {
 }
 
 func TestIRDefer_FunctionBodiesBlockValuesAndEarlyReturns(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
@@ -121,7 +121,7 @@ fn main() {
 // A scoped block's names are its own: a shadow inside it and a later outer
 // binding of a name it used are separate locals.
 func TestIRDefer_ScopedBlockNamesStayLocal(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 fn main() {
   x = 1
@@ -142,7 +142,7 @@ fn main() {
 }
 
 func TestIRDefer_TryPropagationRunsDeferredCalls(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
@@ -170,7 +170,7 @@ fn main() {
 // A fault inside a scope runs every pending deferred call, innermost first,
 // before the fault leaves the program.
 func TestIRDefer_AFaultRunsEveryPendingDeferredCall(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
@@ -230,7 +230,7 @@ fn main() {
 // `break` and `continue`. Several run most recent first. The builder
 // declined a defer in any lambda.
 func TestIRDefer_ALambdaRunsItsDeferredCallsWhenEachInvocationEnds(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
@@ -280,7 +280,7 @@ fn main() {
 // `return` from the callback, a `break`, and a block statement's own scope
 // inside it, innermost first. The builder declined a defer in a loop callback.
 func TestIRDefer_AnIterLoopIterationRunsItsDeferredCalls(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
@@ -326,7 +326,7 @@ fn main() {
 // iteration's; a value arm runs its own where it ends, and the paths that
 // did not pass a `defer` run nothing for it.
 func TestIRDefer_AnArmLeavingAnIterationRunsItsDeferredCalls(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
@@ -368,7 +368,7 @@ fn main() {
 // A trap inside a lambda or a loop iteration runs that invocation's pending
 // deferred calls, then the enclosing function's, before it leaves.
 func TestIRDefer_ATrapInALambdaOrIterationRunsItsDeferredCalls(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
@@ -404,7 +404,7 @@ fn main() {
 // `Iter.loop` callback) runs its deferred calls when that block ends, and
 // on a failed assertion inside it, as it does in a function body.
 func TestIRDefer_ATestBodyValueArmRunsItsDeferredCalls(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 test "an if arm" {
   x = if True {

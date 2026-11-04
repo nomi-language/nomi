@@ -1,9 +1,9 @@
 // std/actors: a counter folded in one task, cast and call, a call that
 // times out, and a stopped actor.
 import {
-    std/actors.{Actor, CallError}
-    std/duration.Duration
-    std/testing.Clock
+    std::actors.{Actor, CallError}
+    std::duration.Duration
+    std::testing.Clock
     counter_actor.{self, App, get}
 }
 

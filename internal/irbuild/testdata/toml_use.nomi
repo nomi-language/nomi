@@ -10,8 +10,8 @@
 // unwrap, from a module that declares neither the type nor any
 // function over it.
 import {
-    std/io
-    std/toml.Toml
+    std::io
+    std::toml.Toml
 }
 
 fn unwrap(t: Toml) -> String {

@@ -25,7 +25,7 @@ func TestTailCall_DeepSelfRecursionRunsInConstantStack(t *testing.T) {
 	// several gigabytes for this loop; the cap turns that into a crash rather
 	// than a slow pass.
 	defer debug.SetMaxStack(debug.SetMaxStack(64 << 20))
-	out, err := runDepth(t, `import std/io
+	out, err := runDepth(t, `import std::io
 
 fn count(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { count(n - 1, acc + 1) }
@@ -48,7 +48,7 @@ fn main() {
 // runs past the depth limit like the top-level loop above, from main and from
 // a `once` initializer's lambda.
 func TestTailCall_NestedFnSelfRecursionRunsInConstantStack(t *testing.T) {
-	out, err := runDepth(t, `import std/io
+	out, err := runDepth(t, `import std::io
 
 once total: Int = {
   fn down(n: Int, acc: Int) -> Int {
@@ -77,7 +77,7 @@ fn main() {
 // a tail call through a parameter that holds one, and a tail call in an `if`
 // arm that reaches an interface dispatch.
 func TestTailCall_MutualIndirectAndDispatchedCallsRunInConstantStack(t *testing.T) {
-	out, err := runDepth(t, `import std/io
+	out, err := runDepth(t, `import std::io
 
 fn is_even(n: Int) -> Bool {
   case n {
@@ -137,7 +137,7 @@ fn main() {
 // A call that is not in tail position keeps its caller's frame, so the same
 // loop written `1 + f(...)` still reaches the limit at that call's line.
 func TestTailCall_ANonTailCallStillReachesTheDepthLimit(t *testing.T) {
-	_, err := runDepth(t, `import std/io
+	_, err := runDepth(t, `import std::io
 
 fn count(n: Int) -> Int {
   if n == 0 { 0 } else { 1 + count(n - 1) }
@@ -153,7 +153,7 @@ fn main() {
 // A fault a million tail calls deep is one fault at its own line: there is one
 // frame to report it from.
 func TestTailCall_AFaultInADeepLoopReportsItsLine(t *testing.T) {
-	out, err := runDepth(t, `import std/io
+	out, err := runDepth(t, `import std::io
 
 fn spin(n: Int) -> Int {
   if n == 0 {
@@ -188,7 +188,7 @@ fn main() {
 // returns, as it would after any other call, so each `leave` follows the
 // calls below it.
 func TestTailCall_DeferredCallsRunAfterACallInTailPosition(t *testing.T) {
-	out, err := runDepth(t, `import std/io
+	out, err := runDepth(t, `import std::io
 
 fn note(label: String, n: Int) {
   io.print("${label} ${n}")
@@ -231,8 +231,8 @@ fn main() {
 // A task body's tail loop runs in constant stack on the task's own goroutine
 // and its value reaches the awaiting caller.
 func TestTailCall_ATaskBodyLoopsInConstantStack(t *testing.T) {
-	out, err := runDepth(t, `import std/io
-import std/tasks.Task
+	out, err := runDepth(t, `import std::io
+import std::tasks.Task
 
 fn count(n: Int, acc: Int) -> Int {
   if n == 0 { acc } else { count(n - 1, acc + 1) }
@@ -261,7 +261,7 @@ fn main() {
 // than MaxCallDepth tail calls runs, where the same number of ordinary calls
 // faults (TestCallDepth_InfiniteRecursionFaultsAtTheCall).
 func TestTailCall_TailCallsDoNotCountTowardTheLimit(t *testing.T) {
-	src := strings.ReplaceAll(`import std/io
+	src := strings.ReplaceAll(`import std::io
 
 fn count(n: Int) -> Int {
   if n == 0 { 0 } else { count(n - 1) }

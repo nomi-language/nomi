@@ -22,7 +22,7 @@ fn main() {
 // Container Debug calls each nominal element's own impl, custom or derived,
 // through lists, tuples and records.
 func TestIRNominalList_ContainerDebugCallsImpls(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct P {
   x: Int
 }

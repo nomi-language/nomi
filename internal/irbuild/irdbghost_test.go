@@ -11,8 +11,8 @@ import (
 // does, and match the golden record of `nomi test`.
 
 const irDbgHostSource = `import {
-  std/io
-  std/json.Json
+  std::io
+  std::json.Json
 }
 
 test "dbg and inspect of a Dynamic" {

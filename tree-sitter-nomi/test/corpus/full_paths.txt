@@ -1,0 +1,197 @@
+================================================================================
+Full path as a call's file
+================================================================================
+
+fn main() {
+  p = db::posts.post_by_id(1)
+  views::admin::users.render(p)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (call_expression
+          function: (field_access
+            (module_path
+              (identifier)
+              (identifier))
+            (identifier))
+          (integer)))
+      (call_expression
+        function: (field_access
+          (module_path
+            (identifier)
+            (identifier)
+            (identifier))
+          (identifier))
+        (identifier)))))
+
+================================================================================
+Full path in types
+================================================================================
+
+fn show(d: views::admin::users.UserDetail) -> std::http.Response<Int> {
+  d
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (qualified_type
+          (module_path
+            (identifier)
+            (identifier)
+            (identifier))
+          (type_identifier))))
+    return_type: (generic_type
+      (qualified_type
+        (module_path
+          (identifier)
+          (identifier))
+        (type_identifier))
+      (type_identifier))
+    (body
+      (identifier))))
+
+================================================================================
+Full path in a struct literal, an owner function, a variant and a with
+================================================================================
+
+fn main() {
+  s = db::schema.Post{id: 1}
+  o = db::schema.Post.new(1)
+  k = db::schema.Kind.Active
+  m = %db::schema.Kvs{"a" => 1}
+  with db::schema.Post.id = 2
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (struct_construction
+          type: (module_path
+            (identifier)
+            (identifier))
+          type: (type_identifier)
+          field_name: (identifier)
+          (integer)))
+      (binding
+        (identifier)
+        (call_expression
+          function: (field_access
+            (type_field_access
+              (module_path
+                (identifier)
+                (identifier))
+              (type_identifier))
+            (identifier))
+          (integer)))
+      (binding
+        (identifier)
+        (type_field_access
+          (type_field_access
+            (module_path
+              (identifier)
+              (identifier))
+            (type_identifier))
+          (type_identifier)))
+      (binding
+        (identifier)
+        (map_construction
+          type: (module_path
+            (identifier)
+            (identifier))
+          type: (type_identifier)
+          (map_entry
+            (string
+              (string_content))
+            (integer))))
+      (with_statement
+        target: (field_access
+          (type_field_access
+            (module_path
+              (identifier)
+              (identifier))
+            (type_identifier))
+          (identifier))
+        value: (integer)))))
+
+================================================================================
+Full path in patterns
+================================================================================
+
+fn kind(k: db::schema.Kind) -> Int {
+  case k {
+    db::schema.Kind.Active -> 1
+    db::schema.Shape.Circle(r) -> 2
+    db::schema.Post{id, title: t} -> 3
+    _ -> 4
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (qualified_type
+          (module_path
+            (identifier)
+            (identifier))
+          (type_identifier))))
+    return_type: (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (qualified_variant
+            module: (module_path
+              (identifier)
+              (identifier))
+            (type_identifier)
+            (type_identifier))
+          (integer))
+        (case_branch
+          (enum_pattern
+            (qualified_variant
+              module: (module_path
+                (identifier)
+                (identifier))
+              (type_identifier)
+              (type_identifier))
+            (identifier))
+          (integer))
+        (case_branch
+          (struct_pattern
+            type: (module_path
+              (identifier)
+              (identifier))
+            type: (type_identifier)
+            (pattern_field
+              name: (identifier))
+            (pattern_field
+              name: (identifier)
+              (identifier)))
+          (integer))
+        (case_branch
+          (integer))))))

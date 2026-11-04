@@ -15,7 +15,7 @@ import (
 // vmBlockedProgram reaches a function the IR builder declines under
 // withPlantedDecline (`count`, at its call to `planted_decline`), from
 // `main` and from one test case.
-const vmBlockedProgram = `import std/io
+const vmBlockedProgram = `import std::io
 
 fn count(n: Int, acc: Int) -> Int {
   if n == 0 {
@@ -224,7 +224,7 @@ func TestTestCommand_VMJSONFormatPutsOutputInItsRecord(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	dir := t.TempDir()
-	mustWrite(t, filepath.Join(dir, "print_test.nomi"), `import std/io
+	mustWrite(t, filepath.Join(dir, "print_test.nomi"), `import std::io
 
 test "prints" {
   io.print("hello from a vm test")
@@ -253,7 +253,7 @@ func TestRunCommand_EachWhileRunsDirectly(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	entry := filepath.Join(t.TempDir(), "main.nomi")
-	mustWrite(t, entry, `import std/io
+	mustWrite(t, entry, `import std::io
 
 fn main() {
   b = String.to_bytes("abc")
@@ -293,7 +293,7 @@ func TestRunCommand_EmptyBodiesAnswerUnit(t *testing.T) {
 	}
 
 	others := filepath.Join(dir, "others.nomi")
-	mustWrite(t, others, `import std/io
+	mustWrite(t, others, `import std::io
 
 fn nothing() {}
 

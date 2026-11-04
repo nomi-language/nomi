@@ -10,7 +10,7 @@ import "testing"
 // read as Int instead, since Unit implements no interface.
 func TestUnsolvedTypeArg_AnInstanceAtUnitRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     lib
 }
 
@@ -73,7 +73,7 @@ pub fn show(x: Int, flag: Bool = is_some(None)) -> String {
 // variants that each fix one argument meet in a list.
 func TestUnsolvedTypeArg_AGenericLiteralWithAnOpenArgumentRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     shapes.Holder.{Empty}
     shapes
 }
@@ -139,7 +139,7 @@ fn main() {
 // a bounded parameter.
 func TestUnsolvedTypeArg_ASiblingGenericCallRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/io
+    std::io
     lib.{cnt}
     lib
 }

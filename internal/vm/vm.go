@@ -92,6 +92,9 @@ type Machine struct {
 	// dispatch is every module's dispatch entries: by interface method, the
 	// implementing body for each declared type name a value carries.
 	dispatch map[*ir.Symbol]map[string]*ir.Symbol
+	// unretainedImpls are the interface methods some module implements
+	// without a dispatch entry (ir.Module.ImplementUnretained).
+	unretainedImpls map[*ir.Symbol]bool
 	// displays is every module's `impl Display` bodies by the declared type
 	// name a value carries, which an erased Display rendering selects by.
 	displays map[string]*ir.Symbol

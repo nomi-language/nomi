@@ -1,6 +1,6 @@
 import {
-    std/channels.{Channel, ChannelClosed, Receiver, Sender}
-    std/io
+    std::channels.{Channel, ChannelClosed, Receiver, Sender}
+    std::io
 }
 
 // `std/channels` — a buffered channel driven SYNCHRONOUSLY, which is what makes

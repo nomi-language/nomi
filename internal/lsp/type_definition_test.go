@@ -9,7 +9,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const typeDefMain = `import models/users
+const typeDefMain = `import models::users
 
 struct Point {
     x: Int
@@ -41,7 +41,7 @@ func TestTypeDefinition(t *testing.T) {
 	}
 	write("nomi.toml", "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	write("models/users.nomi", "pub struct User {\n    name: String\n}\n\npub fn make() -> User { User{name: \"a\"} }\n\npub fn maybe() -> Maybe<User> { None }\n")
-	src := strings.Replace(typeDefMain, "import models/users\n", "import models/users\nimport std/io\n", 1)
+	src := strings.Replace(typeDefMain, "import models::users\n", "import models::users\nimport std::io\n", 1)
 	write("main.nomi", src)
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)

@@ -1,4 +1,4 @@
-import std/assertions.AssertionFailure
+import std::assertions.AssertionFailure
 
 struct Point {
     x: Int

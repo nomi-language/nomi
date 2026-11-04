@@ -19,7 +19,7 @@
 //
 // The refused route cannot appear here without refusing the program. The DICTIONARY
 // route is dict_self_identity.nomi.
-import std/io
+import std::io
 
 interface Cmp {
     fn cmp(a: self, b: self) -> Int

@@ -7,7 +7,7 @@ import "testing"
 // operands have run, side effects included, rather than declining at the
 // rt crossing, which takes no Unit payload.
 func TestIRWithDefaultOverUnit_Runs(t *testing.T) {
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 fn act(ok: Bool) -> Result<Unit, String> {
     io.print("act ${ok}")

@@ -230,7 +230,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	}
 	if method == "reduce" {
 		fk := args.kinds[1]
-		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem || funcParams(fk)[0] != funcResult(fk) || !irCallableValueKind(funcResult(fk)) {
+		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem || funcParams(fk)[0] != funcResult(fk) || !irCallOperandKind(funcResult(fk)) {
 			return no()
 		}
 		result = funcResult(fk)
@@ -243,7 +243,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	if method == "scan" {
 		// A reduce's callback whose every state is emitted.
 		fk := args.kinds[1]
-		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem || funcParams(fk)[0] != funcResult(fk) || !irCallableValueKind(funcResult(fk)) {
+		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem || funcParams(fk)[0] != funcResult(fk) || !irCallOperandKind(funcResult(fk)) {
 			return no()
 		}
 		accK = funcResult(fk)
@@ -262,7 +262,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		accK = funcParams(fk)[0]
 		r := funcResult(fk)
 		if r.tag != tagTuple || r.comp == nil || len(r.comp.parts) != 2 || r.comp.parts[0] != accK ||
-			!irCallableValueKind(accK) || !(irCallableValueKind(r.comp.parts[1]) || r.comp.parts[1] == kindUnit) {
+			!irCallOperandKind(accK) || !irCallOperandKind(r.comp.parts[1]) {
 			return no()
 		}
 		result = bl.g.tupleKind([]kind{accK, listKindIn(bl.g, r.comp.parts[1])})

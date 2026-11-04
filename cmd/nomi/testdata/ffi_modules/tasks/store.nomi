@@ -2,9 +2,9 @@
 //# `SqliteStore` keeps tasks in a SQLite file.
 
 import {
-    std/instant.Instant
-    sql_literals/sql.{Query, Sql}
-    sqlite/sqlite
+    std::instant.Instant
+    sql_literals::sql.{Query, Sql}
+    sqlite::sqlite
     task.{Status, Task}
 }
 

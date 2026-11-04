@@ -42,9 +42,13 @@ func Collect(fa *analysis.FileAnalysis) []Token {
 			return
 		}
 		// Synthesized @derive bodies sit in a line band past EOF; they have
-		// no on-screen text to color. An `in` is a keyword the grammars
-		// color, though it references Contains.
-		if analysis.IsSynthesizedLine(pos.Line) || fa.MembershipReference(pos) {
+		// no on-screen text to color. A stand-in reference names what the
+		// text there does not spell: an `in` is a keyword the grammars
+		// color, though it references Contains, and an `Html` literal's
+		// quotes, `$` and `{` reference the std/html functions its
+		// expansion calls. A token there, as long as the function's name,
+		// would paint over the slot's own code.
+		if analysis.IsSynthesizedLine(pos.Line) || fa.StandInReference(pos) {
 			return
 		}
 		if isHoverOnlySymbol(sym.Kind) {

@@ -56,10 +56,10 @@ process.exit(0);
 // could deadlock.
 const program = `
 import {
-  std/supervisors.Supervisor
-  std/tasks.Task
-  std/duration.Duration
-  std/timer
+  std::supervisors.Supervisor
+  std::tasks.Task
+  std::duration.Duration
+  std::timer
 }
 
 struct Config {

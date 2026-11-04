@@ -7,9 +7,9 @@
 //# failure means.
 
 import {
-    std/supervisors.Supervisor
-    std/tasks.{Outcome, Task}
-    std/testing.Clock
+    std::supervisors.Supervisor
+    std::tasks.{Outcome, Task}
+    std::testing.Clock
     app.{self, Config, drain_alerts, record_audit, send_welcome, slow_work}
 }
 

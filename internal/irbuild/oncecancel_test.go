@@ -25,9 +25,9 @@ func TestOnceCancellation_RunsOnTheVM(t *testing.T) {
 		exit                      int
 	}{
 		{"task cancelled while forcing", `import {
-  std/duration.Duration
-  std/tasks.Task
-  std/timer
+  std::duration.Duration
+  std::tasks.Task
+  std::timer
 }
 
 once slow: Int = {
@@ -47,9 +47,9 @@ fn main() {
 }
 `, "dbg line 19: outcome = Cancelled\n", "", 0},
 		{"deadline runs out while main forces", `import {
-  std/duration.Duration
-  std/io
-  std/timer
+  std::duration.Duration
+  std::io
+  std::timer
 }
 
 once slow: Int = {
@@ -72,9 +72,9 @@ fn boot() -> Result<Run, String> {
 }
 `, "entered\n", deadline, 1},
 		{"a later force re-runs the RHS", `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/io
-  std/tasks.Task
+  std::channels.{Channel, Receiver, Sender}
+  std::io
+  std::tasks.Task
 }
 
 once started: Channel<Int> = Channel.buffered(2)

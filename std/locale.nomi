@@ -20,16 +20,16 @@
 //# so a program carries them only when it lists `zh` or `ko`; without them,
 //# Chinese and Korean sort in the basic order.
 //#
-//# `std/locale` is one of a family of modules. [std/plural](/reference/plural/)
+//# `std::locale` is one of a family of modules. [std::plural](/reference/plural/)
 //# provides CLDR's plural rules. `Int`, `Float`, `Decimal` and `String` format
 //# and parse numbers and join lists for a locale
-//# ([std/int](/reference/int/), [std/strings](/reference/strings/)),
-//# [std/currency](/reference/currency/) and [std/money](/reference/money/)
-//# provide `Currency` and `Money`, [std/collation](/reference/collation/)
+//# ([std::int](/reference/int/), [std::strings](/reference/strings/)),
+//# [std::currency](/reference/currency/) and [std::money](/reference/money/)
+//# provide `Currency` and `Money`, [std::collation](/reference/collation/)
 //# orders text, the calendar types and `Duration` format and parse dates,
-//# times and lengths of time, [std/localize](/reference/localize/) holds the
+//# times and lengths of time, [std::localize](/reference/localize/) holds the
 //# `Localize` interface and the parse error, and
-//# [std/message](/reference/message/) holds the `Message` a `message`
+//# [std::message](/reference/message/) holds the `Message` a `message`
 //# declaration returns. All the locale data comes from one pinned CLDR
 //# release, 48.2. Which locales a program carries is set in `nomi.toml`'s
 //# [`[i18n]`](/tooling/projects/#i18n) table.

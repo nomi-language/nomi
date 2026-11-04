@@ -12,7 +12,7 @@ func TestIRLambdaAtIterResult_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     fn cb1(xs: List<Int>) -> List<Int> {

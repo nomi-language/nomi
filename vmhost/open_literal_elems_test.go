@@ -12,7 +12,7 @@ import (
 // `%{1 => [], 2 => [1]}`, whose value kinds join only through the checked
 // type.
 func TestOpenLiteralElems_MapsRun(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
     a = %{Some(1) => 1, None => 2}
@@ -51,7 +51,7 @@ fn main() {
 // list beside a List<Int>) have no embeds join. An embedded value beside
 // an empty collection still widens into its enum.
 func TestOpenLiteralElems_SetsAndVectorsRun(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct Circle {
   r: Int
@@ -119,7 +119,7 @@ fn main() {
 // lowered against the checked element type, so the empty collection is
 // typed where it sits.
 func TestOpenLiteralElems_NestedEmptyCollectionsRun(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 struct P {
   a: List<Int>

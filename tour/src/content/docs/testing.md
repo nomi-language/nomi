@@ -81,7 +81,7 @@ This is a good way to check for a particular enum variant, such as one kind of
 error:
 
 ```nomi-run
-import std/calendar.Date
+import std::calendar.Date
 
 test "assert can match an error variant" {
     assert Err(.InvalidFormat(_)) = Date.parse("not-a-date")
@@ -116,7 +116,7 @@ Spec: [Assertions](/spec/tests/#assertions),
 </div>
 
 ```nomi-run
-import std/calendar.Date
+import std::calendar.Date
 
 test "formats parsed date" {
     d = Date.parse("2026-05-04")?
@@ -319,7 +319,7 @@ does the same with a file system in memory, as
 [Files](/files/#testing-code-that-uses-files) shows.
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     case io.read_line() {
@@ -355,7 +355,7 @@ What the function writes to standard error, with `io.eprint` and
 `io.ewrite`, goes to `errors` instead, kept apart from `output`:
 
 ```nomi-run
-import std/io
+import std::io
 
 fn parse_count(text: String) -> Int {
     case String.to_int(text) {
@@ -394,7 +394,7 @@ whole session:
 checks that the program printed each output line, at the right point.
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     io.print("What is your name?")
@@ -447,7 +447,7 @@ A program that reads nothing gets a script of output lines only. The second
 line below expects one leading space.
 
 ```nomi-run
-import std/io
+import std::io
 
 fn main() {
     io.print("-10.0 C |   14.0 F")
@@ -540,9 +540,9 @@ so waiting takes no real time.
 
 ```nomi-run
 import {
-    std/duration.Duration
-    std/testing.Clock
-    std/timer
+    std::duration.Duration
+    std::testing.Clock
+    std::timer
 }
 
 group "retry policy" {
@@ -564,7 +564,7 @@ the clock only moves when the program is waiting.
 
 `clock` takes an ordinary expression naming a
 [`testing.Clock`](/reference/testing/) variant, so `Clock` has to be imported,
-as above. If you import `std/testing` instead, write
+as above. If you import `std::testing` instead, write
 `clock testing.Clock.Virtual`.
 
 A group's `clock`, `boot` and `setup` lines can be in any order. They always

@@ -12,7 +12,7 @@
 // from the ARGUMENT's static kind — the same path a name-keyed builder would
 // take, which is what makes this a test of identity rather than of plumbing.
 import {
-    std/io
+    std::io
     other.other_announced
     shout.Shout
 }

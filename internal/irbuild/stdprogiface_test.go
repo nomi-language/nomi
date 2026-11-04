@@ -10,7 +10,7 @@ func TestStdProgIface_HashableHeldAsAValue(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 struct P {
     n: Int
@@ -70,7 +70,7 @@ func TestStdProgIface_ContainsHeldAtAnInstantiation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 struct Bag {
     n: Int
@@ -114,8 +114,8 @@ func TestStdProgIface_HostImplsDispatchThroughThunks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/matcher.Matcher
+	irRunSource(t, `import std::io
+import std::matcher.Matcher
 
 fn main() {
     m: Matcher = "a"
@@ -134,7 +134,7 @@ func TestStdProgIface_AcrossFiles(t *testing.T) {
 	typeCycleRun(t, map[string]string{
 		"nomi.toml": "[module]\nname = \"held\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import shapes.{Square, Bag, total, holds}
-import std/io
+import std::io
 
 struct Local {
     v: Int
@@ -195,8 +195,8 @@ func TestStdProgIface_EveryMatcherFunctionOnAnErasedReceiver(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/matcher.Matcher
+	irRunSource(t, `import std::io
+import std::matcher.Matcher
 
 struct Letter {
     c: String
@@ -260,9 +260,9 @@ func TestStdProgIface_StdTypesHeldAsStdInterfaces(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/matcher.Matcher
-import std/regex.Regex
+	irRunSource(t, `import std::io
+import std::matcher.Matcher
+import std::regex.Regex
 
 struct Bag {
     n: Int
@@ -309,9 +309,9 @@ func TestStdProgIface_StdRecordsLeavesAndUnimportedSignatureTypes(t *testing.T) 
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/calendar.{Date, DateParts}
-import std/json.ToJson
+	irRunSource(t, `import std::io
+import std::calendar.{Date, DateParts}
+import std::json.ToJson
 
 struct P {
     n: Int
@@ -340,9 +340,9 @@ func TestStdProgIface_BoxedStdValueAcrossFiles(t *testing.T) {
 	typeCycleRun(t, map[string]string{
 		"nomi.toml": "[module]\nname = \"held\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import shapes.{holds, first_match}
-import std/io
-import std/matcher.Matcher
-import std/regex.Regex
+import std::io
+import std::matcher.Matcher
+import std::regex.Regex
 
 fn main() {
     io.print(Bool.to_string(holds([1, 2, 3], 2)))
@@ -351,7 +351,7 @@ fn main() {
     io.print(first_match(m, "foo"))
 }
 `,
-		"shapes.nomi": `import std/matcher.Matcher
+		"shapes.nomi": `import std::matcher.Matcher
 
 pub fn holds(c: Contains<Int>, x: Int) -> Bool {
     x in c
@@ -372,9 +372,9 @@ func TestStdProgIface_ShadowedBareNameThroughItsModule(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/matcher
-import std/regex.Regex
+	irRunSource(t, `import std::io
+import std::matcher
+import std::regex.Regex
 
 struct Matcher {
     s: String
@@ -404,8 +404,8 @@ func TestStdProgIface_InterfaceCallsAnswerAsTheDirectCall(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	irRunSource(t, `import {
-    std/io
-    std/calendar.Date
+    std::io
+    std::calendar.Date
 }
 
 struct P {
@@ -481,9 +481,9 @@ func TestStdProgIface_SignatureNamesATypeTheFileAlsoDeclares(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/json
-import std/json.ToJson
+	irRunSource(t, `import std::io
+import std::json
+import std::json.ToJson
 
 struct Json {
     raw: String
@@ -544,8 +544,8 @@ func TestStdProgIface_SignatureNameShadowedAcrossFiles(t *testing.T) {
 	typeCycleRun(t, map[string]string{
 		"nomi.toml": "[module]\nname = \"held\"\nentry_points = [\"main\"]\n",
 		"main.nomi": `import boxes
-import std/io
-import std/json.ToJson
+import std::io
+import std::json.ToJson
 
 struct Json {
     raw: String
@@ -559,7 +559,7 @@ fn main() {
     io.print(Json{raw: "own"}.raw)
 }
 `,
-		"boxes.nomi": `import std/json.ToJson
+		"boxes.nomi": `import std::json.ToJson
 
 pub struct Json {
     n: Int
@@ -588,9 +588,9 @@ func TestStdProgIface_LiteralHandlerBesideAFileFragment(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
-import std/literals
-import std/literals.Literal
+	irRunSource(t, `import std::io
+import std::literals
+import std::literals.Literal
 
 struct Fragment {
     x: Int

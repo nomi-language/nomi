@@ -1,10 +1,10 @@
 import {
-    std/calendar.{Date, DateTime, Time}
-    std/compiler
-    std/currency.Currency
-    std/locale.Locale
-    std/message.Message
-    std/money.Money
+    std::calendar.{Date, DateTime, Time}
+    std::compiler
+    std::currency.Currency
+    std::locale.Locale
+    std::message.Message
+    std::money.Money
 }
 
 /// A payment's receipt line: the amount by its code, the day at length.
@@ -74,7 +74,7 @@ test "each function takes the type it writes" {
 
     assert messages(
         """
-          import std/calendar.Time
+          import std::calendar.Time
 
           message opens(at: Time) `Opens on {$at :date}`
         """
@@ -84,7 +84,7 @@ test "each function takes the type it writes" {
 
     assert messages(
         """
-          import std/calendar.Date
+          import std::calendar.Date
 
           message due(day: Date) `Due {$day :datetime hour=numeric}`
         """
@@ -96,7 +96,7 @@ test "each function takes the type it writes" {
 test "options are checked by name and value" {
     assert messages(
         """
-          import std/calendar.Date
+          import std::calendar.Date
 
           message due(day: Date) `Due {$day :datetime month=loud}`
         """
@@ -106,7 +106,7 @@ test "options are checked by name and value" {
 
     assert messages(
         """
-          import std/money.Money
+          import std::money.Money
 
           message total(amount: Money) `Total: {$amount :currency currencyDisplay=icon}`
         """
@@ -116,7 +116,7 @@ test "options are checked by name and value" {
 
     assert messages(
         """
-          import std/calendar.Date
+          import std::calendar.Date
 
           message due(day: Date) `Due {$day :datetime dateStyle=long month=long}`
         """
@@ -128,7 +128,7 @@ test "options are checked by name and value" {
 test "a date or an amount does not select" {
     assert messages(
         """
-          import std/calendar.Date
+          import std::calendar.Date
 
           message due(day: Date) `
               .input {$day :date}

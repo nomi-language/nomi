@@ -1,6 +1,6 @@
 import {
-    std/locale.Locale
-    std/plural.PluralCategory.{self, Few, Many, One, Other, Two, Zero}
+    std::locale.Locale
+    std::plural.PluralCategory.{self, Few, Many, One, Other, Two, Zero}
 }
 
 fn cardinals_of(counts: List<Int>, locale: Locale) -> List<PluralCategory> {

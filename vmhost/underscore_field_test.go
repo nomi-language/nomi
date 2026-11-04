@@ -10,8 +10,8 @@ import "testing"
 // FromJson on a struct bound `_a_value` the same way. A program that builds,
 // matches, compares, hashes, encodes and prints such values runs.
 func TestUnderscoreField_VariantAndStructFieldsRun(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
-import std/json.{ToJson, FromJson}
+	got := runSourceOutput(t, `import std::io
+import std::json.{ToJson, FromJson}
 
 enum Plain {
     Trim {_w: Int}

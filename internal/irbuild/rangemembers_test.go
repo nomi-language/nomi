@@ -8,7 +8,7 @@ func TestIRRangeAsKeyAndOverBool_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     io.inspect(Iter.to_set([1..2, 3..4, 1..2]))
@@ -33,7 +33,7 @@ func TestIRRangeMembers_Run(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     io.print(Range.to_string(1..4))

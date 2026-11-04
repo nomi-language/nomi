@@ -1,7 +1,7 @@
 // Types the test file's derives reach across a file boundary: a struct, an
 // enum and a distinct type that derive every interface, and a struct whose
 // impls are written by hand.
-import std/json.{FromJson, Json, ToJson}
+import std::json.{FromJson, Json, ToJson}
 
 pub struct Money {
     cents: Int

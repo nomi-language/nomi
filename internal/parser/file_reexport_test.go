@@ -19,11 +19,11 @@ func TestFileReExportIsAParseError(t *testing.T) {
 	}{
 		{"pub import leaf", "leaf", "list the items to re-export, as in `pub import leaf.{name, Type}`, or have importers import `leaf` directly", 1, 1},
 		{"pub import leaf as lf", "leaf", "or have importers import `leaf` directly", 1, 1},
-		{"pub import {\n    std/comparable.Ordering\n    lib/leaf\n}", "leaf", "`pub import lib/leaf.{name, Type}`", 1, 1},
-		{"pub import std/io.{self, Error}", "io", "remove `self` to re-export only the listed items, or have importers import `std/io` directly", 1, 1},
-		{"pub import std/io.{self}", "io", "remove `self`", 1, 1},
+		{"pub import {\n    std::comparable.Ordering\n    lib::leaf\n}", "leaf", "`pub import lib::leaf.{name, Type}`", 1, 1},
+		{"pub import std::io.{self, Error}", "io", "remove `self` to re-export only the listed items, or have importers import `std::io` directly", 1, 1},
+		{"pub import std::io.{self}", "io", "remove `self`", 1, 1},
 		// A lowercase segment after a dot is a path step, so this `self`
-		// is the file `std/io` too.
+		// is the file `std::io` too.
 		{"pub import std.io.{self}", "io", "remove `self`", 1, 1},
 	}
 	for _, tc := range cases {
@@ -54,7 +54,7 @@ func TestPubImportMarksEveryEntry(t *testing.T) {
 		pub     bool
 	}{
 		{"pub import add.Add", 1, true},
-		{"pub import std/comparable.{Comparable, Ordering}", 1, true},
+		{"pub import std::comparable.{Comparable, Ordering}", 1, true},
 		{"pub import calc.{add, subtract as minus}", 1, true},
 		{"pub import bool.Bool.{self, False, True}", 1, true},
 		{"pub import {\n    leaf.{add, double}\n    parser_lib.greet\n}", 2, true},
@@ -97,7 +97,7 @@ func TestPubImportMarksEveryEntry(t *testing.T) {
 // `pub` before `import` parses as a re-export, not a misplaced visibility
 // keyword.
 func TestPubBeforeImportParses(t *testing.T) {
-	if _, err := Parse(lexer.Lex("pub import std/comparable.Ordering\nfn f() -> Int { 1 }")); err != nil {
+	if _, err := Parse(lexer.Lex("pub import std::comparable.Ordering\nfn f() -> Int { 1 }")); err != nil {
 		t.Fatal(err)
 	}
 }

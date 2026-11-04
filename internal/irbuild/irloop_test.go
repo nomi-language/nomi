@@ -23,7 +23,7 @@ func TestIRLoop_CompletePrograms(t *testing.T) {
   dbg a
   dbg b
 }`, "dbg line 7: countdown = 0\ndbg line 15: a = 89\ndbg line 16: b = 144\n"},
-		{"guards, return advance and repeated calls", `import std/io
+		{"guards, return advance and repeated calls", `import std::io
 fn count_to(limit: Int) -> Int {
   Iter.loop(0, fn n -> {
     step = n + 1
@@ -53,7 +53,7 @@ fn main() {
   })
   io.print(label)
 }`, "stop at 4\nstop at 5\ndbg line 22: a = 40\ndbg line 23: b = 50\ndbg line 24: total = 103\nabb!\n"},
-		{"operand positions", `import std/io
+		{"operand positions", `import std::io
 fn f() -> Int {
   io.print("f")
   3
@@ -113,13 +113,13 @@ fn main() { _ = count_to(3) + count_to(4) }`)
 func TestIRLoop_BranchingTailAndFirstBreak(t *testing.T) {
 	// A branching tail writes the tail slot from two arms, and a final `break
 	// v` leaves on the first iteration.
-	verifyLambdaProgram(t, "import std/io\nfn run() -> Int {\nIter.loop(0, fn n -> {\n if n > 3 { break n }\n if n > 1 { n + 2 } else { n + 1 }\n })\n}\n"+
+	verifyLambdaProgram(t, "import std::io\nfn run() -> Int {\nIter.loop(0, fn n -> {\n if n > 3 { break n }\n if n > 1 { n + 2 } else { n + 1 }\n })\n}\n"+
 		"fn first_break() -> Int {\nIter.loop(7, fn n -> { break n })\n}\nfn main() {\n io.print(run())\n io.print(first_break())\n}\n", "4\n7\n")
 }
 
 // A final `return v` is the next state, as a tail value is (vm-maps-iters).
 func TestIRLoop_FinalReturnIsTheNextState(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn run() -> Int {
   Iter.loop(0, fn n -> {
     if n > 3 { break n }
@@ -135,7 +135,7 @@ fn main() {
 // A loop longer than any transfer bound the machine might impose: the VM runs
 // it to its break.
 func TestIRLoop_LongLoopRunsToItsBreak(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   n = Iter.loop(0, fn i -> {
     if i == 600000 { break i }
@@ -151,8 +151,8 @@ fn main() {
 // discard-named state, an inferred `= Unit` seed, the loop's Unit answer
 // bound and printed, and a loop in a lambda.
 func TestIRLoop_UnitState(t *testing.T) {
-	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
-import std/io
+	verifyLambdaProgram(t, `import std::channels.{Channel, Receiver, Sender}
+import std::io
 
 fn feed(items: List<String>) -> Receiver<String> {
     ch = Channel.buffered<String>(10)
@@ -217,8 +217,8 @@ fn main() {
 // lambda too.
 func TestIRLoop_StatelessLoopEndings(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-    std/channels.{Channel, Receiver, Sender}
-    std/io
+    std::channels.{Channel, Receiver, Sender}
+    std::io
 }
 
 fn fill(xs: List<Int>) -> Receiver<Int> {

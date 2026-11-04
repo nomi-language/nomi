@@ -6,7 +6,7 @@ import (
 
 func TestIRTuplePattern_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"conjunction and fallthrough", `import std/io
+		{"conjunction and fallthrough", `import std::io
 fn classify(p: #(Int, Int)) -> String {
   case p {
     #(0, 0) -> "origin"
@@ -20,7 +20,7 @@ fn main() {
   io.print(classify(#(0, 0))) io.print(classify(#(0, 2)))
   io.print(classify(#(3, 0))) io.print(classify(#(3, 2)))
 }`, "origin\ny-axis\nx-axis\nother\n"},
-		{"ordered overlapping arms", `import std/io
+		{"ordered overlapping arms", `import std::io
 fn classify(p: #(String, Int, Int)) -> Int {
   case p {
     #("yes", _, 1) -> { n = 10 n + 1 }
@@ -33,7 +33,7 @@ fn main() {
   io.print(classify(#("yes", 2, 1))) io.print(classify(#("no", 2, 1)))
   io.print(classify(#("yes", 2, 0))) io.print(classify(#("no", 0, 0)))
 }`, "11\n22\n33\n44\n"},
-		{"nested arms and multiline patterns", `import std/io
+		{"nested arms and multiline patterns", `import std::io
 fn main() {
   base = 10
   choose = fn p: #(Int, String), flag: Bool -> {
@@ -55,7 +55,7 @@ fn main() {
   io.print(choose(#(3, "yes"), False))
   io.print(choose(#(1, "no"), True))
 }`, "12\n13\n20\n30\n40\n"},
-		{"computed subject once", `import std/io
+		{"computed subject once", `import std::io
 fn subject() -> #(Int, Int) { io.print("subject") return #(1, 2) }
 fn main() {
   result = case subject() {

@@ -17,7 +17,7 @@ import (
 // runs are preserved as grouping boundaries. The file ends with a trailing
 // newline.
 //
-// Imports are rendered as one group: a single import stays `import std/io`,
+// Imports are rendered as one group: a single import stays `import std::io`,
 // and two or more (whether written as separate statements or as blocks) merge
 // into one sorted, newline-separated `import { ... }` block.
 //
@@ -90,7 +90,7 @@ func emitFileEndTrivia(trivia []ast.Trivia, hasPrecedingNode bool) Doc {
 }
 
 // collapseSingleEntryBlocks rewrites any single-entry brace block
-// (`import { std/io }`) to the per-statement form (`import std/io`).
+// (`import { std::io }`) to the per-statement form (`import std::io`).
 // A one-item block is just a heavier spelling of a one-line import, so the
 // canonical form is the standalone statement.
 //
@@ -638,6 +638,8 @@ func emitNode(n ast.Node) Doc {
 		return Text(encodeNomiString(v.Value))
 	case *ast.Ident:
 		return Text(v.Name)
+	case *ast.FilePath:
+		return Text(v.Spelling())
 	case *ast.SelfExpr:
 		return Text("self")
 	case *ast.TypeIdent:
@@ -1166,36 +1168,46 @@ func emitStringInterp(v *ast.StringInterp) Doc {
 
 // emitInterpolatedExpr renders the expression of a `${...}`. A pipeline
 // there keeps the line layout it was written with: a `then` stage stacks a
-// pipeline elsewhere, but a line break would split a one-line string.
+// pipeline elsewhere, but a line break would split a one-line string. An
+// expression written on one line stays on it however long its line is,
+// since the text around it cannot break: `${color(email)}` at the end of a
+// long line of markup is not split into `${color(` and `email` and `)}`.
 func emitInterpolatedExpr(n ast.Node) Doc {
+	var d Doc
 	if pipe, ok := n.(*ast.Binary); ok && pipe.Op == "|>" {
-		return withPipeDangling(pipe, emitPipeChainWithMode(pipe, pipeStackAsWritten))
+		d = withPipeDangling(pipe, emitPipeChainWithMode(pipe, pipeStackAsWritten))
+	} else {
+		d = emit(n)
 	}
-	return emit(n)
+	if nodeStartLine(n) != nodeEndLine(n) {
+		return d
+	}
+	if flat := Render(d, 1<<30); !strings.Contains(flat, "\n") {
+		return Text(flat)
+	}
+	return d
 }
 
 // emitTripleStringLit renders a triple-quoted non-interpolated string.
 //
 // Canonical shape:
 //
-//	"""
-//	  line1
-//	  line2
-//	  """
+//	x = """
+//	    line1
+//	    line2
+//	    """
 //
-// where each `  ` is `defaultIndent` spaces of additional indent beyond the
-// current pretty-printer indent. The opening `"""` sits on the current
-// line; a HardLine immediately follows; each line of the decoded value
-// renders as `Text(line)` followed by a HardLine; the closing `"""` sits
-// on its own line at the body indent. Wrapping the body and closing in
-// `Nest(defaultIndent, ...)` is what bumps every embedded HardLine to the
-// body-indent column — this is the formatter's existing indent mechanism,
-// not a hand-rolled string of spaces.
+// The body lines and the closing `"""` sit at one indent, which
+// bodyFromOpenerLine measures from the line the opening `"""` is on. The
+// opening `"""` sits on the current line; a HardLine immediately follows;
+// each line of the decoded value renders as `Text(line)` followed by a
+// HardLine; the closing `"""` sits on its own line. Every HardLine breaks
+// to that indent, so the body needs no Nest of its own.
 //
-// The lexer strips the indent of the line preceding the closing `"""`
-// from every body line, so the closing-quote indent and the body indent
-// must match for the round-trip to be lossless. Both come from the same
-// Nest, so they always agree.
+// The lexer strips the indent of the closing `"""` from every body line,
+// so the closing-quote indent and the body indent must match for the
+// round-trip to be lossless. Both are the same indent, so they always
+// agree, and the body's own nesting is kept relative to it.
 //
 // Content encoding: triple-quoted source preserves real newlines, real
 // `"`, real `\`, etc. The only re-encoding rule is `${` -> `\${`, which is
@@ -1208,27 +1220,40 @@ func emitTripleStringLit(v *ast.StringLit) Doc {
 	if strings.HasSuffix(v.Value, "\r") && !strings.Contains(v.Value, "\n") {
 		return Text(`"""` + encodeTripleStringContent(v.Value) + `"""`)
 	}
-	return tripleLiteral("", []ast.StringPart{ast.StringText{Value: v.Value}}, false, v.EndLine == v.Line, defaultIndent)
+	return tripleLiteral("", []ast.StringPart{ast.StringText{Value: v.Value}}, false, v.EndLine == v.Line)
 }
 
-// tripleStringFraming wraps a body Doc in `<prefix>"""\n  <body>\n  """`,
-// using a Nest to thread the body indent through the pretty-printer
-// rather than emitting hand-rolled spaces. `prefix` is empty for plain
-// triple-quoted strings; raw backtick strings use rawBacktickFraming.
-// framing. `bodyIndent` is how many spaces beyond the current pretty-
-// printer indent the body and closing `"""` sit at — `defaultIndent` for
-// the default case (binding RHS, struct field value, etc.), `0` for the
-// call-arg case (content-at-opening's-column; see emitCallArg).
-func tripleStringFraming(prefix string, body Doc, bodyIndent int) Doc {
-	return Concat(
+// tripleStringFraming wraps a body Doc in `<prefix>"""\n<body>\n"""`,
+// with the body and closing `"""` placed by bodyFromOpenerLine. `prefix`
+// is a typed literal's tag, or empty; raw backtick strings use
+// rawBacktickFraming.
+func tripleStringFraming(prefix string, body Doc) Doc {
+	return bodyFromOpenerLine(Concat(
 		Text(prefix+`"""`),
-		InString(Nest(bodyIndent, Concat(
+		InString(Concat(
 			HardLine(),
 			body,
 			HardLine(),
 			Text(`"""`),
-		))),
-	)
+		)),
+	))
+}
+
+// bodyFromOpenerLine renders a framed multi-line literal, whose body and
+// closing delimiter sit at one indent, measured from the line its opening
+// delimiter is on. A literal that starts its line (a statement, a
+// function's result, an argument on a line of its own) puts them at that
+// line's indent. One that follows code on its line (`page = Html"""`,
+// `body: Html"""`, `Some(url) -> Html"""`, `return Html"""`) puts them one
+// level in, as a broken pipeline or call continues after `=`. The decision
+// is made from the rendered line, not from the literal's parent node.
+func bodyFromOpenerLine(framed Doc) Doc {
+	return AtLineIndent(func(startsLine bool) Doc {
+		if startsLine {
+			return framed
+		}
+		return Nest(defaultIndent, framed)
+	})
 }
 
 // emitTripleStringInterp renders a triple-quoted interpolated string. Same
@@ -1237,12 +1262,12 @@ func tripleStringFraming(prefix string, body Doc, bodyIndent int) Doc {
 // and dynamic parts emit as `${ <expr> }`. Static text content is run
 // through encodeTripleStringContent so a literal `${` round-trips.
 func emitTripleStringInterp(v *ast.StringInterp) Doc {
-	return tripleLiteral("", v.Parts, false, v.EndLine == v.Line, defaultIndent)
+	return tripleLiteral("", v.Parts, false, v.EndLine == v.Line)
 }
 
 // tripleLiteral renders a triple-quoted literal, or a multi-line raw one,
 // with prefix (a typed literal's tag) before its opening delimiter and its
-// body bodyIndent beyond the current indent.
+// body and closing delimiter placed by bodyFromOpenerLine.
 //
 // Two rules keep a template readable:
 //
@@ -1251,24 +1276,25 @@ func emitTripleStringInterp(v *ast.StringInterp) Doc {
 //     the column it starts at. One that does not fit is framed.
 //   - A slot whose expression spans lines is laid out from the column of
 //     its `${` (tripleSlot), so its lines stay with the markup around it.
-func tripleLiteral(prefix string, parts []ast.StringPart, raw, oneLine bool, bodyIndent int) Doc {
+func tripleLiteral(prefix string, parts []ast.StringPart, raw, oneLine bool) Doc {
 	var body []Doc
-	for _, p := range parts {
+	for i, p := range parts {
 		switch part := p.(type) {
 		case ast.StringText:
+			last := i == len(parts)-1
 			if raw {
-				body = append(body, tripleBodyDoc(part.Value))
+				body = append(body, tripleBodyDoc(part.Value, last))
 			} else {
-				body = append(body, tripleBodyDoc(encodeTripleStringContent(part.Value)))
+				body = append(body, tripleBodyDoc(encodeTripleStringContent(part.Value), last))
 			}
 		case ast.StringExpr:
 			body = append(body, tripleSlot(part.Expr))
 		}
 	}
 	if raw {
-		return rawBacktickFraming(prefix, Concat(body...), bodyIndent)
+		return rawBacktickFraming(prefix, Concat(body...))
 	}
-	framed := tripleStringFraming(prefix, Concat(body...), bodyIndent)
+	framed := tripleStringFraming(prefix, Concat(body...))
 	if !oneLine {
 		return framed
 	}
@@ -1322,7 +1348,7 @@ func emitTaggedString(v *ast.TaggedString) Doc {
 	if v.Triple {
 		// Triple-quoted, or a multi-line raw literal, whose one
 		// StringText is its body with no escaping.
-		return tripleLiteral(prefix, v.Parts, v.Raw, taggedOnOneLine(v), defaultIndent)
+		return tripleLiteral(prefix, v.Parts, v.Raw, taggedOnOneLine(v))
 	}
 	// Single-line: walk Parts emitting `<prefix>"<encoded body>"`.
 	// Raw single-line typed literals carry exactly one StringText
@@ -1373,7 +1399,7 @@ func emitRawStringLit(v *ast.StringLit) Doc {
 
 // emitRawTripleStringLit renders a raw multi-line backtick string.
 //
-// Same framing as the non-raw triple form (Nest-based body indent,
+// Same framing as the non-raw triple form (body at the current indent,
 // HardLine boundaries promoted from `\n`s in the body), but the body
 // content is emitted verbatim — no `${` escaping and no other
 // transformation. A literal `${name}` in the source becomes `${name}`
@@ -1382,26 +1408,33 @@ func emitRawStringLit(v *ast.StringLit) Doc {
 // On re-lex the backtick opener again puts the lexer into raw mode, so
 // the round-trip is lossless.
 func emitRawTripleStringLit(v *ast.StringLit) Doc {
-	body := tripleBodyDoc(v.Value)
-	return rawBacktickFraming("", body, defaultIndent)
+	body := tripleBodyDoc(v.Value, true)
+	return rawBacktickFraming("", body)
 }
 
-func rawBacktickFraming(prefix string, body Doc, bodyIndent int) Doc {
-	return Concat(
+// rawBacktickFraming is tripleStringFraming for a multi-line raw string:
+// the body and closing backtick are placed by bodyFromOpenerLine.
+func rawBacktickFraming(prefix string, body Doc) Doc {
+	return bodyFromOpenerLine(Concat(
 		Text(prefix+"`"),
-		InString(Nest(bodyIndent, Concat(
+		InString(Concat(
 			HardLine(),
 			body,
 			HardLine(),
 			Text("`"),
-		))),
-	)
+		)),
+	))
 }
 
 // tripleBodyDoc converts an already-hash-escaped string into a Doc whose
-// `\n` boundaries have been promoted to HardLines, so the Nest re-indents
-// each body line to the chosen body-indent column.
-func tripleBodyDoc(s string) Doc {
+// `\n` boundaries have been promoted to HardLines, so each body line
+// breaks to the current indent. endsBody says s is the body's last text,
+// so the closing delimiter's line break follows it.
+//
+// A line that ends in `\r` just before a line break is written with one
+// more `\r`: the lexer reads the `\r` right before a line feed as part of
+// a CRLF line end and drops it, and drops only that one.
+func tripleBodyDoc(s string, endsBody bool) Doc {
 	if s == "" {
 		return Nil()
 	}
@@ -1410,6 +1443,9 @@ func tripleBodyDoc(s string) Doc {
 	for i, line := range lines {
 		if i > 0 {
 			parts = append(parts, HardLine())
+		}
+		if strings.HasSuffix(line, "\r") && (i < len(lines)-1 || endsBody) {
+			line += "\r"
 		}
 		if line != "" {
 			parts = append(parts, Verbatim(line))
@@ -2244,6 +2280,8 @@ func containsHardLine(d Doc) bool {
 		return containsHardLine(v.f(0, unboundedWidth))
 	case docWithColumn:
 		return containsHardLine(v.f(0, 0, unboundedWidth))
+	case docAtLineIndent:
+		return containsHardLine(v.f(true))
 	}
 	return false
 }
@@ -2672,14 +2710,17 @@ func emitCase(v *ast.Case) Doc {
 
 // emitCaseArms lays out case arms, each on its own line after a HardLine,
 // followed by endTrivia, the comments between the last arm and the `}`.
-// When every arm fits on its line and none has a block body, the arms sit on
-// consecutive lines; otherwise each arm breaks and a blank line separates them.
+// When every arm fits on its line and none has a block or triple-quoted body,
+// the arms sit on consecutive lines; otherwise each arm breaks and a blank
+// line separates them.
 func emitCaseArms(branches []ast.CaseBranch, endTrivia []ast.Trivia) Doc {
 	return WithIndent(func(indent, width int) Doc {
 		flat := true
 		for i := range branches {
 			b := &branches[i]
-			if _, isBlock := b.Body.(*ast.Block); isBlock {
+			// A block or triple-quoted body spans lines, as a block does:
+			// every arm breaks, and blank lines separate them.
+			if _, isBlock := b.Body.(*ast.Block); isBlock || isTripleLiteral(b.Body) {
 				flat = false
 				break
 			}
@@ -2719,9 +2760,10 @@ func caseArmKeepsBroken(b *ast.CaseBranch, line Doc) bool {
 
 // caseArmLine renders one arm, `<pattern> [when <guard>] -> <body>`, without
 // its comments. A block body follows `-> ` on the pattern's line and is always
-// broken, its statements on the lines below. Any other
-// body follows on the same line, or with broken on the next line one indent
-// in.
+// broken, its statements on the lines below. A triple-quoted or multi-line
+// raw literal follows `-> ` on the pattern's line too, its body one level in
+// (bodyFromOpenerLine). Any other body follows on the same line, or with
+// broken on the next line one indent in.
 func caseArmLine(b *ast.CaseBranch, broken bool) Doc {
 	prefix := emitGroupedPattern(b.Pattern)
 	if b.Guard != nil {
@@ -2732,7 +2774,7 @@ func caseArmLine(b *ast.CaseBranch, broken bool) Doc {
 		// arm's body starts on the line after its pattern, one indent in.
 		return Concat(prefix, Text(" -> "), emitBlockForceBroken(block))
 	}
-	if broken {
+	if broken && !isTripleLiteral(b.Body) {
 		return Concat(prefix, Text(" ->"), Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(b.Body))))
 	}
 	return Concat(prefix, Text(" -> "), emit(b.Body))
@@ -2816,9 +2858,10 @@ func emitCall(v *ast.Call) Doc {
 				)
 				return Concat(callee, Concat(parts...))
 			}
-			if isStructLitExpr(expr) {
+			if isStructLitExpr(expr) || isTripleLiteral(expr) {
 				// A struct literal body stays on the parameters' line and
-				// breaks itself, as in emitLambdaKeepingBraces.
+				// breaks itself, as in emitLambdaKeepingBraces, and so does
+				// a triple-quoted or multi-line raw literal.
 				parts := []Doc{Text("(")}
 				for _, a := range leading {
 					parts = append(parts, emitCallArg(a), Text(", "))
@@ -2975,49 +3018,11 @@ func emitArgList(args []ast.Node) Doc {
 	))
 }
 
-// emitCallArg renders one argument inside a call's argument list. It is a
-// thin wrapper over emit() that applies the call-arg layout exception for
-// multi-line triple-quoted strings: content aligns with the opening `"""`'s
-// column (`bodyIndent = 0`) rather than the default `+defaultIndent` rule
-// used for bindings, struct field values, etc.
-//
-// The exception only fires when the AST shape is exactly "Call's Args slot
-// directly contains a triple-quoted StringLit/StringInterp/TaggedString" —
-// no NamedArg wrapper, no nested expression. Bindings (where the opening
-// `"""` sits on a different line from the binding name) keep the `+defaultIndent`
-// rule; it reads naturally there and the existing
-// tests/triple_quoted_strings.nomi convention lives at that
-// layout.
-//
-// Rationale: every major prescriptive formatter that strips indentation
-// in multi-line strings (Python's Black, Swift's swift-format, Elixir's
-// mix format) settled on content-at-opening. The closing `"""` at the
-// same column serves as the strip baseline; no extra indent for free.
+// emitCallArg renders one argument inside a call's argument list. A pipe
+// chain as an argument is always laid out stacked.
 func emitCallArg(n ast.Node) Doc {
-	switch v := n.(type) {
-	case *ast.Binary:
-		if v.Op == "|>" {
-			return withPipeDangling(v, emitPipeChainForced(v))
-		}
-	case *ast.StringLit:
-		switch {
-		case v.Raw && v.Triple:
-			body := tripleBodyDoc(v.Value)
-			return rawBacktickFraming("", body, 0)
-		case v.Triple:
-			if strings.HasSuffix(v.Value, "\r") && !strings.Contains(v.Value, "\n") {
-				return emitTripleStringLit(v)
-			}
-			return tripleLiteral("", []ast.StringPart{ast.StringText{Value: v.Value}}, false, v.EndLine == v.Line, 0)
-		}
-	case *ast.StringInterp:
-		if v.Triple {
-			return tripleLiteral("", v.Parts, false, v.EndLine == v.Line, 0)
-		}
-	case *ast.TaggedString:
-		if v.Triple {
-			return tripleLiteral(v.Tag, v.Parts, v.Raw, taggedOnOneLine(v), 0)
-		}
+	if v, ok := n.(*ast.Binary); ok && v.Op == "|>" {
+		return withPipeDangling(v, emitPipeChainForced(v))
 	}
 	return emit(n)
 }
@@ -3135,11 +3140,13 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 					Text("}"),
 				))
 			}
-			if isStructLitExpr(es.Expr) {
+			if isStructLitExpr(es.Expr) || isTripleLiteral(es.Expr) {
 				// A struct literal body stays on the parameters' line and
 				// breaks itself when too wide. Read back, a broken literal
 				// is stacked, which keeps it on that line, so moving it to
-				// the next line would not survive a second format.
+				// the next line would not survive a second format. A
+				// triple-quoted or multi-line raw literal stays there too,
+				// its body one level in (bodyFromOpenerLine).
 				return Concat(header, Text(" "), emit(es.Expr))
 			}
 			// A body too long for the parameters' line moves below them as
@@ -3196,6 +3203,21 @@ func isStructLitExpr(n ast.Node) bool {
 	}
 	_, ok := n.(*ast.StructLit)
 	return ok
+}
+
+// isTripleLiteral reports whether n is a triple-quoted literal or a
+// multi-line raw one, tagged or not: a literal that frames its body on the
+// lines below its opening delimiter.
+func isTripleLiteral(n ast.Node) bool {
+	switch v := n.(type) {
+	case *ast.StringLit:
+		return v.Triple
+	case *ast.StringInterp:
+		return v.Triple
+	case *ast.TaggedString:
+		return v.Triple
+	}
+	return false
 }
 
 func lambdaExprBodyShouldBreak(expr ast.Node) bool {
@@ -5748,7 +5770,7 @@ func importKeyword(pub bool) string {
 // its body).
 func emitImportBody(v *ast.ImportStmt) Doc {
 	pathParts, owners := importPathAndOwners(v)
-	path := strings.Join(pathParts, "/")
+	path := strings.Join(pathParts, ast.PathSeparator)
 	parts := []Doc{Text(path)}
 	if cs, ok := nodesComments(v.Names); ok {
 		// A comment in the list: the owners join the path, and the
@@ -5818,7 +5840,7 @@ func emitImportSelectorBody(path string, selectors []string) Doc {
 }
 
 // importPathAndOwners splits an import's path into the file path, written
-// `/`-joined, and the owners after it. A parsed import records the split
+// `::`-joined, and the owners after it. A parsed import records the split
 // (FileSegments); one built without it takes its trailing PascalCase
 // segments as owners, the rule the parser applies.
 func importPathAndOwners(v *ast.ImportStmt) ([]string, []string) {
@@ -5889,8 +5911,8 @@ func importHasItemModifiers(v *ast.ImportStmt) bool {
 // emitImportBlock renders the brace block form:
 //
 //	import {
-//	  std/io
-//	  std/lists: List
+//	  std::io
+//	  std::lists: List
 //	}
 //
 // or the same after `pub` for a block of re-exports. Always multiline, one entry per line, newline-separated — no commas and no

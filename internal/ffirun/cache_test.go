@@ -539,7 +539,7 @@ pub fn twice(n: Int) -> Int {
 }
 `
 	const main = `import {
-    std/io
+    std::io
     shapes
 }
 

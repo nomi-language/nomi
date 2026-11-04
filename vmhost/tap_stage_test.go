@@ -26,7 +26,7 @@ func runTapProgram(t *testing.T, src string) string {
 // value the stage before it answered, and passes that value on unchanged.
 // The value is computed once: `next` prints once per call.
 func TestTapStage_RunsInOrderAndPassesTheValueOn(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn next(n: Int) -> Int {
     io.print("next ${n}")
@@ -66,7 +66,7 @@ fn main() {
 // A `tap` inside a captured call prints into the capture, in order with the
 // rest of the call's output, and the call's value is the tapped value.
 func TestTapStage_InsideACapture(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
     run = io.capture("", fn -> {
@@ -88,7 +88,7 @@ fn main() {
 // A body ending in `dbg` is a Unit body: the observation prints and the
 // piped value, not the dbg operand, goes on.
 func TestTapStage_DbgTail(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn main() {
     n = 4 |> tap fn v -> dbg v * 2
@@ -104,7 +104,7 @@ fn main() {
 // A generic function can tap a value of its type parameter, and a lambda's
 // body can hold a `tap` stage.
 func TestTapStage_GenericAndInLambda(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn logged<T>(x: T, label: String) -> T {
     x |> tap fn v -> io.print("${label}: ${Debug.inspect(v)}")

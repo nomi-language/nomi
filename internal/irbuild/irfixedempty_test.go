@@ -12,8 +12,8 @@ func TestIREmptyLiteralAtItsFixedType_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
-import std/io.Captured
+	const src = `import std::io
+import std::io.Captured
 
 fn main() {
     g = fn x: Int -> {

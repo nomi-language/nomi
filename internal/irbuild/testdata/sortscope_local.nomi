@@ -1,6 +1,6 @@
 import {
-    std/comparable.Direction
-    std/io
+    std::comparable.Direction
+    std::io
 }
 
 // The CONTROL for testdata/sortscope/, differing in exactly ONE thing: the

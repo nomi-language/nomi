@@ -2,8 +2,8 @@
 //# a birthday, estimated by drawing random groups and counting.
 
 import {
-    std/calendar.{Date, Days}
-    std/random.Generator
+    std::calendar.{Date, Days}
+    std::random.Generator
 }
 
 /// 1 January of each year a random birthdate falls in: the years from 1900

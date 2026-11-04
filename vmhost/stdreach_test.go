@@ -9,9 +9,9 @@ func TestRun_ReachableStdBodiesRun(t *testing.T) {
 	cases := []struct {
 		name, src, want string
 	}{
-		{"Backoff's Debug and its defaulted variant", `import std/io
-import std/duration.{Duration}
-import std/supervisors.{Backoff}
+		{"Backoff's Debug and its defaulted variant", `import std::io
+import std::duration.{Duration}
+import std::supervisors.{Backoff}
 
 fn main() {
   a: Backoff = Backoff.Exponential{}
@@ -20,7 +20,7 @@ fn main() {
   io.print(Debug.inspect(b))
 }
 `, "Exponential{max_restarts: 10, max_elapsed: 15m}\nExponential{max_restarts: 3, max_elapsed: 1m}\n"},
-		{"Range.from and Range.naturals as function values", `import std/io
+		{"Range.from and Range.naturals as function values", `import std::io
 
 fn main() {
   f = Range.from
@@ -30,7 +30,7 @@ fn main() {
   g() |> Iter.take(2) |> Iter.to_list() |> io.inspect()
 }
 `, "2..\n[1.., 2..]\n[0, 1]\n"},
-		{"Bytes.hash and a Set of Bytes", `import std/io
+		{"Bytes.hash and a Set of Bytes", `import std::io
 
 fn main() {
   a = String.to_bytes("ab")
@@ -39,8 +39,8 @@ fn main() {
   io.print(Set.size(%[a, String.to_bytes("ab")]))
 }
 `, "True\nFalse\n1\n"},
-		{"OffsetDateTime keys by instant", `import std/io
-import std/calendar.{OffsetDateTime}
+		{"OffsetDateTime keys by instant", `import std::io
+import std::calendar.{OffsetDateTime}
 
 fn main() {
   a = OffsetDateTime"2024-01-01T12:00:00+00:00"
@@ -50,14 +50,14 @@ fn main() {
   io.print(Map.get(%{a => 1}, b))
 }
 `, "True\n1\nSome(1)\n"},
-		{"Decimal sorts and fills a Vector", `import std/io
+		{"Decimal sorts and fills a Vector", `import std::io
 
 fn main() {
   io.inspect(Iter.sort([2.50d, 1.5d, 10d]))
   io.inspect(Vector.get(#[1.5d, 2.5d], 1))
 }
 `, "[1.5d, 2.50d, 10d]\nSome(2.5d)\n"},
-		{"Hashable.hash on a tuple is the derive mix", `import std/io
+		{"Hashable.hash on a tuple is the derive mix", `import std::io
 
 struct H {
   k: Int
@@ -83,7 +83,7 @@ fn main() {
   io.print(Hashable.hash(E.Pair(#(1, 2))) == Hashable.hash(#(1, 2)))
 }
 `, "33\n1026\n62003\nTrue\n"},
-		{"a struct-shaped variant's positional binding is its record", `import std/io
+		{"a struct-shaped variant's positional binding is its record", `import std::io
 
 enum Wrap {
   One {y: Int}
@@ -100,7 +100,7 @@ fn main() {
   })
 }
 `, "#{y: 1}\nTrue\nzero\n"},
-		{"a tuple slot of a hand-written Equatable compares through it", `import std/io
+		{"a tuple slot of a hand-written Equatable compares through it", `import std::io
 
 struct Tag {
   name: String
@@ -119,7 +119,7 @@ fn main() {
   io.print([Tag{name: "x", note: "1"}] == [Tag{name: "x", note: "2"}])
 }
 `, "True\nTrue\nTrue\n"},
-		{"a hand-written Equatable with no Hashable keys by equal", `import std/io
+		{"a hand-written Equatable with no Hashable keys by equal", `import std::io
 
 struct Loose {
   name: String

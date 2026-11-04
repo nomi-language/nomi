@@ -1,5 +1,5 @@
 import {
-    std/calendar.NaiveDateTime
+    std::calendar.NaiveDateTime
     swift_scheduling
 }
 

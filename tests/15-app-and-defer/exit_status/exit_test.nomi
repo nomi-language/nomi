@@ -1,6 +1,6 @@
 // A test checks an exit as a value: `main` returns the `Exit` and nothing
 // ends the test.
-import std/process.Exit
+import std::process.Exit
 
 fn main() -> Result<Unit, Exit> {
     Err(Exit{code: 2, message: "usage: count <file>"})

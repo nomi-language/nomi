@@ -8,7 +8,7 @@ import "testing"
 // step of another numeric type is a checker error
 // (TestBoundTypeArgs_StepByRejectsAStepOfAnotherNumericType).
 func TestRangeStepBy_RunsForEverySteppableElement(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 fn main() {
     1..=10 |> Range.step_by(3) |> Iter.to_list() |> Debug.inspect() |> io.print()

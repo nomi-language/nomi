@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 fn positive(n: Int) -> Bool {
     n > 0
@@ -75,10 +75,10 @@ test "a capture negates in parentheses" {
 test "the C-family ! names not" {
     result =
         """
-            fn main() {
-              _ = !True
-            }
-            """
+        fn main() {
+          _ = !True
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -88,10 +88,10 @@ test "the C-family ! names not" {
 test "not under a tighter operator asks for parentheses" {
     result =
         """
-            fn main() {
-              _ = True == not False
-            }
-            """
+        fn main() {
+          _ = True == not False
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result
@@ -101,10 +101,10 @@ test "not under a tighter operator asks for parentheses" {
 test "not takes a Bool" {
     result =
         """
-            fn main() {
-              _ = not 1
-            }
-            """
+        fn main() {
+          _ = not 1
+        }
+        """
         |> compiler.run()
 
     assert Err(message) = result

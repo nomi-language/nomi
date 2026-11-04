@@ -694,7 +694,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	}
 	if d, v, isVariant := bl.g.importedVariantAt(t, tn.Name, tn.Line, tn.Col); isVariant {
 		// A std enum's struct-shaped variant imported by name
-		// (`import std/supervisors.Backoff.Exponential`, then
+		// (`import std::supervisors.Backoff.Exponential`, then
 		// `Exponential{}`), which the checker types as the variant.
 		return bl.variantStructLitOf(t, d, v)
 	}

@@ -1,5 +1,5 @@
 import {
-    std/compiler
+    std::compiler
     engine.{Engine, Mode, Powered}
     priority
     test_helpers
@@ -317,7 +317,7 @@ test "function-level where clauses on required signatures reject unsatisfied arg
 test "interface method-local generics must be declared explicitly" {
     diagnostics = compiler.check(
         """
-        import std/comparable: Comparable
+        import std::comparable: Comparable
 
         interface Chooser<T> {
           fn item(c: self) -> T

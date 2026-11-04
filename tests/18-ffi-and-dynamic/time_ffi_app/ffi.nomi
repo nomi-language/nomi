@@ -1,4 +1,4 @@
-import std/instant.Instant
+import std::instant.Instant
 
 gopkg "timeffiapp" as ffi
 

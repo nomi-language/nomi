@@ -1,4 +1,4 @@
-//# Testing code that uses std/storage. `Memory` is a `Store` kept in
+//# Testing code that uses std::storage. `Memory` is a `Store` kept in
 //# memory, so a test stores, reads and asserts with no directory or
 //# server:
 //#
@@ -105,7 +105,7 @@ impl Store for Memory {
 
     fn url(memory: Memory, key: String) -> Result<Url, Error> {
         storage.check_key(key)?
-        Ok(Url.join_path(memory.public_base, [key]))
+        Ok(storage.join_key(memory.public_base, key))
     }
 }
 
@@ -197,7 +197,8 @@ impl Display for Broken {
 /// replacing another, a missing key for each function, a delete, every
 /// invalid key refused by every function with nothing stored, invalid
 /// content types, an empty object, every byte value, an object of 5 MiB,
-/// and `url`. There is no rule that keys `a` and `a/b` can both exist:
+/// keys with punctuation, spaces and other scripts (`odd_keys`), and
+/// `url`. There is no rule that keys `a` and `a/b` can both exist:
 /// S3 allows it and `storage.local` cannot.
 //! assert conformance(fn -> Ok(Memory.new())) == []
 //
@@ -237,10 +238,34 @@ pub fn invalid_keys() -> List<String> {
         "..",
         "a/../b",
         ".hidden",
-        "a b",
-        "ü",
         "a\\b",
+        "a\\../b",
+        "a\nb",
+        "a\u{0}b",
+        "a\u{7f}b",
+        "a\u{85}b",
         String.repeat("k", 1025),
+    ]
+}
+
+/// Valid keys a backend must store and address as written: each
+/// punctuation character S3 allows, spaces, `%` escapes that are not
+/// escapes, and letters outside ASCII. The conformance suite puts, reads,
+/// deletes and links each under `conformance/`.
+//! assert Iter.all(odd_keys(), fn key -> storage.check_key("conformance/${key}") == Ok(Unit))
+//
+pub fn odd_keys() -> List<String> {
+    [
+        "Noah_-_3010(1)_20260609-210857.jpg",
+        "a b/c  d.txt",
+        "!'*()-_.~.txt",
+        "&$@=;:+,.txt",
+        "?#[]{}^`|<>\".txt",
+        "50%25 off%.txt",
+        "café/日本語/émoji 🙂.txt",
+        "é.txt",
+        "trailing. /dot.",
+        "con/nul.txt/COM1",
     ]
 }
 
@@ -490,6 +515,41 @@ fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
             fn store -> {
                 data = bytes(String.repeat("0123456789abcdef", 5 * 1024 * 64))
                 round_trips(store, "conformance/large.bin", data, "application/octet-stream")
+            },
+        ),
+        #(
+            "keys with punctuation, spaces and other scripts round-trip",
+            fn store -> {
+                _ =
+                    odd_keys()
+                    |> Iter.map(fn name -> {
+                        key = "conformance/${name}"
+                        round_trips(store, key, bytes(name), "text/plain")?
+
+                        case Store.url(store, key) {
+                            Ok(u) ->
+                                expect(
+                                    String.ends_with(u.path, "/${key}"),
+                                    "url of ${key} answered the path ${u.path}",
+                                )?
+
+                            Err(.NoPublicUrl) ->
+                                Unit
+
+                            Err(e) ->
+                                return Err("url ${key}: ${e}")
+                        }
+
+                        Store.delete(store, key) |> Result.map_err(fn e -> "delete ${key}: ${e}")?
+
+                        expect(
+                            Store.info(store, key) == Ok(None),
+                            "a deleted ${key} is still there",
+                        )
+                    })
+                    |> Result.collect()?
+
+                Ok(Unit)
             },
         ),
         #(

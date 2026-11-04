@@ -10,7 +10,7 @@ func TestIRBlockLocalTypeInAnnotations_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn ident<T>(x: T) -> T {
     x

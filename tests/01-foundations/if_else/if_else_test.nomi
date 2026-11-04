@@ -1,5 +1,5 @@
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 
@@ -17,7 +17,35 @@ test "if without else returns Unit either way" {
     assert when_false == Unit
 }
 
-test "if without else rejects non-Unit branch results" {
+test "if without else is a Maybe when its branch has a value" {
+    when_true = if True { 1 }
+    when_false = if False { 1 }
+
+    assert when_true == Some(1)
+    assert when_false == None
+}
+
+test "an else if chain without a final else is a Maybe" {
+    pick = fn n: Int -> {
+        if n > 0 {
+            "positive"
+        } else if n < 0 {
+            "negative"
+        }
+    }
+
+    assert pick(1) == Some("positive")
+    assert pick(-1) == Some("negative")
+    assert pick(0) == None
+}
+
+test "if without else does not flatten a Maybe branch" {
+    nested = if True { if False { 1 } }
+
+    assert nested == Some(None)
+}
+
+test "a Maybe if is not a statement" {
     diagnostics = compiler.check(
         """
           fn main() {
@@ -27,7 +55,22 @@ test "if without else rejects non-Unit branch results" {
         """
     )
 
-    assert test_helpers.has_diagnostic(diagnostics, "if without else returns Unit")
+    assert test_helpers.has_diagnostic(diagnostics, "non-final expression has type Maybe<Int>")
+}
+
+test "a forgotten else is a Maybe where a value is expected" {
+    diagnostics = compiler.check(
+        """
+          fn label(n: Int) -> String {
+            if n > 0 { "positive" }
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic(
+        diagnostics,
+        "return type mismatch: expected String, got Maybe<String>",
+    )
 }
 
 test "if without else allows Unit side effects" {

@@ -8,7 +8,7 @@ import (
 // A type declared in a `//!` test, on a declaration or on an impl's item,
 // is typed as one declared in a `test` body is: its constructor's call has a
 // type, a value wrapping it is locally determined, and an annotation names it.
-const attachedTestTypes = `import std/io
+const attachedTestTypes = `import std::io
 
 struct User {
     name: String

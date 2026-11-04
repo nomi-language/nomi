@@ -41,8 +41,8 @@
 // here so this file covers what that program covers plus the five arities and
 // bounds it does not.
 import {
-    std/calendar.{Error, NaiveDateTime}
-    std/io
+    std::calendar.{Error, NaiveDateTime}
+    std::io
 }
 
 // `?` inside `fn main()` is refused by the builder (`try boundary mismatch`:

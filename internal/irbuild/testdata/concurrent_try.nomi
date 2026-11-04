@@ -15,7 +15,7 @@
 //
 // Deliberately NO task and NO channel — a task would make the ordering a
 // scheduling question, and the subject here is purely where a `return` lands.
-import std/io
+import std::io
 
 fn fails() -> Result<Int, String> {
     Err("nope")

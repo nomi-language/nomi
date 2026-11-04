@@ -1,4 +1,4 @@
-import std/compiler.{self, RunFile}
+import std::compiler.{self, RunFile}
 
 struct Pair<A, B> {
     first: A

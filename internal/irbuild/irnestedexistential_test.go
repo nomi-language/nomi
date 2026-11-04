@@ -10,7 +10,7 @@ func TestIRNestedFnExistentialResult_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn apply(f: (Int) -> Display, n: Int) -> String {
     Display.to_string(f(n))

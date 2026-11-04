@@ -30,7 +30,7 @@ import (
 // compiler rejects — and no other test in this file would reach it.
 func TestTail_ASynthesizedBodyIsNeverACycleMember(t *testing.T) {
 	src := `import {
-  std/io
+  std::io
 }
 
 struct Inner {

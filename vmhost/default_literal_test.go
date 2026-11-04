@@ -22,7 +22,7 @@ func TestSiblingDefault_ATypedLiteralTheCallerCannotName(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
 		"nomi.toml": "[module]\nname = \"demo\"\nentry_points = [\"main\"]\n",
-		"links.nomi": `import std/url.Url
+		"links.nomi": `import std::url.Url
 
 pub struct Box {
     base: Url
@@ -39,7 +39,7 @@ pub fn link(name: String, base: Url = Url` + "`https://b.test/`" + `) -> String 
 }
 `,
 		"main.nomi": `import {
-    std/io
+    std::io
     links.{self, Box}
 }
 

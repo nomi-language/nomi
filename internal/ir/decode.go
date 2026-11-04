@@ -433,6 +433,7 @@ func (d *decoder) module(r *rbuf) *Module {
 			m.impls[i] = Impl{Method: d.sym(r.uv()), Type: d.sym(r.uv()), Func: d.sym(r.uv())}
 		}
 	}
+	m.unretainedImpls = d.symList(r)
 	if n, isNil := r.slen(); !isNil {
 		m.displays = make([]DisplayImpl, n)
 		for i := range m.displays {

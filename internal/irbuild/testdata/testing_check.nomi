@@ -10,10 +10,10 @@
 // `xs == []` and `Result.is_ok` all lower; substitutes stay anyway, and so must
 // this block's LENGTH: pins count it.
 import {
-    std/assertions.AssertionBinding
-    std/assertions.AssertionFailure
-    std/assertions.AssertionValue
-    std/testing
+    std::assertions.AssertionBinding
+    std::assertions.AssertionFailure
+    std::assertions.AssertionValue
+    std::testing
 }
 
 test "a passing subject is Ok carrying the subject itself" {

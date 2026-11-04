@@ -10,11 +10,12 @@ import "github.com/nomi-language/nomi/internal/ast"
 //
 // Tail position starts at the body of every `fn` (free, impl and interface
 // default), every lambda, `then` lambdas and iteration callbacks included,
-// and every test body, and runs through the last statement of a block, both
-// branches of an `if`, every arm of a `case`, and a braced arm body.
-// Nothing else is tail position: a `group`'s `setup`, a `once`
-// initializer, a `concurrent` block, a binding's `else` and any non-last
-// statement keep their `return`s.
+// and every test body, and runs through the last statement of a block, every
+// branch of an `if`, every arm of a `case`, and a braced arm body. An `if`
+// with no final `else` whose branches have a value is a Maybe of it, so its
+// branches keep their value returns. Nothing else is tail position: a
+// `group`'s `setup`, a `once` initializer, a `concurrent` block, a binding's
+// `else` and any non-last statement keep their `return`s.
 //
 // A `return value` becomes `value`, a brace-opening value included: a
 // return's value, a statement and an arm body are parsed by the same
@@ -124,10 +125,17 @@ func (s tailStripper) expr(n ast.Node) {
 	case *ast.Block:
 		s.block(v)
 	case *ast.If:
-		if v.Then != nil {
-			s.branch().block(v.Then)
+		b := s.branch()
+		if ifChainLacksElse(v) {
+			// An `if` with no final `else` whose branches have a value is
+			// a Maybe of it, so `return x` in a branch is not `x` there. A
+			// bare `return` after a Unit statement still goes.
+			b.keepValues = true
 		}
-		s.branch().expr(v.Else)
+		if v.Then != nil {
+			b.block(v.Then)
+		}
+		b.expr(v.Else)
 	case *ast.Case:
 		for i := range v.Branches {
 			s.branch().arm(&v.Branches[i])
@@ -188,4 +196,19 @@ func endsInDbg(n ast.Node) bool {
 		return v.Op == "|>" && endsInDbg(v.Right)
 	}
 	return false
+}
+
+// ifChainLacksElse reports whether n, followed through its `else if`s, ends
+// with no `else`.
+func ifChainLacksElse(n *ast.If) bool {
+	for {
+		next, isIf := n.Else.(*ast.If)
+		if !isIf {
+			return n.Else == nil
+		}
+		if next == nil {
+			return true
+		}
+		n = next
+	}
 }

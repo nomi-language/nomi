@@ -10,7 +10,7 @@ import (
 // Replaying forward through a recorded restart with no breakpoint to stop
 // at restarts the frame again, so the recording stays in step.
 func TestTravel_ReplayingForwardRestartsWhereTheRecordingDid(t *testing.T) {
-	s := travelProgram(t, `import std/io
+	s := travelProgram(t, `import std::io
 
 fn add(acc: Int, n: Int) -> Int {
     io.print("adding ${acc} ${n}")
@@ -58,7 +58,7 @@ fn main() {
 // its target and no more, and answers each recorded crossing from the log
 // without crossing.
 func TestTravel_GoingBackCostsTheStatementsBeforeItsTarget(t *testing.T) {
-	s := travelProgram(t, `import std/io
+	s := travelProgram(t, `import std::io
 
 fn count(n: Int, acc: Int) -> Int {
     case n {

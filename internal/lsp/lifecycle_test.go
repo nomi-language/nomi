@@ -370,7 +370,7 @@ func TestRPC_HoverWaitsForTheEditsAnalysis(t *testing.T) {
 func TestRPC_LiteralDiagnosticsFollowTheLatestEdit(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")
-	invalid := "import std/calendar.Date\n\nfn main() {\n    _ = Date\"2026-02-30\"\n}\n"
+	invalid := "import std::calendar.Date\n\nfn main() {\n    _ = Date\"2026-02-30\"\n}\n"
 	valid := strings.Replace(invalid, "2026-02-30", "2026-02-28", 1)
 	if err := os.WriteFile(path, []byte(invalid), 0o644); err != nil {
 		t.Fatal(err)
@@ -444,8 +444,8 @@ func TestCompletion_StaleAnalysisMapsPositions(t *testing.T) {
 	if len(it.AdditionalTextEdits) != 1 {
 		t.Fatalf("json offered with edits %+v, want one import edit", it.AdditionalTextEdits)
 	}
-	if e := it.AdditionalTextEdits[0]; e.Range.Start.Line != 0 || e.NewText != "import std/json\n\n" {
-		t.Errorf("import edit = %+v, want `import std/json` at the top of the latest text", e)
+	if e := it.AdditionalTextEdits[0]; e.Range.Start.Line != 0 || e.NewText != "import std::json\n\n" {
+		t.Errorf("import edit = %+v, want `import std::json` at the top of the latest text", e)
 	}
 }
 

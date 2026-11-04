@@ -1,4 +1,4 @@
-import std/duration.Duration
+import std::duration.Duration
 
 gopkg "durationffiapp" as ffi
 

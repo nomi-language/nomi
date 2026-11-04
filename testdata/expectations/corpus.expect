@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 658
-declared-cases 3786
+records 664
+declared-cases 3804
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -47,11 +47,15 @@ T test result: ok. 2 passed, 0 failed
 T
 C 01-foundations/if_else/if_else_test.nomi
 E 0
-N 10
-H 9b15f6f7b25388b54e217ca7963938ad80f6c07e1dec8ee1bc70b25bb4bfe170
+N 14
+H 52f257bc0fca89d221258cf1717f42a09da8086d5b4606bda3a3f45e0ecae810
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if else is an expression
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else returns Unit either way
-T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else rejects non-Unit branch results
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else is a Maybe when its branch has a value
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: an else if chain without a final else is a Maybe
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else does not flatten a Maybe branch
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: a Maybe if is not a statement
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: a forgotten else is a Maybe where a value is expected
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else allows Unit side effects
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else allows early return branches
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: nested if expressions return branch values
@@ -59,7 +63,7 @@ T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if can match and b
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if pattern mismatch evaluates else
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if pattern bindings are scoped to the then branch
 T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: else if chains select the first matching branch
-T test result: ok. 10 passed, 0 failed
+T test result: ok. 14 passed, 0 failed
 T
 C 01-foundations/if_else/test_helpers.nomi
 E 1
@@ -1464,6 +1468,16 @@ T ok <root>/tests/08-pattern-matching/try_test.nomi :: unwraps? Maybe values and
 T ok <root>/tests/08-pattern-matching/try_test.nomi :: `?` can unwrap the previous pipe stage
 T test result: ok. 4 passed, 0 failed
 T
+C 08-pattern-matching/unit_patterns_test.nomi
+E 0
+N 4
+H 431f61412f99fe7b1514210447c311eeebd3c08a8c2c5bf8d8f823fdcd93094b
+T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Ok(Unit) matches a Result<Unit, E>
+T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Unit alone covers a Unit scrutinee
+T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Unit in tuples, struct fields and Maybe
+T ok <root>/tests/08-pattern-matching/unit_patterns_test.nomi :: Unit in binding else, is and or patterns
+T test result: ok. 4 passed, 0 failed
+T
 C 08-pattern-matching/variant_literal_attach_test.nomi
 E 0
 N 3
@@ -1554,12 +1568,13 @@ T test result: ok. 14 passed, 0 failed
 T
 C 09-functions-and-control-flow/closures_and_lambdas_test.nomi
 E 0
-N 3
-H e7b38929f216595278860def17731239d724c5ae967af841e9429356d44954f9
+N 4
+H d49072b466e3afea5145e7e18217696b2d20a36e290ae8c5d240a0fb35e93b26
 T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :: closures capture values and lambdas infer local parameter types
 T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :: lambdas compose through iterator pipelines
 T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :: lambda defaults drive parameter inference
-T test result: ok. 3 passed, 0 failed
+T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :: one element's annotation types the lambdas beside it in a literal
+T test result: ok. 4 passed, 0 failed
 T
 C 09-functions-and-control-flow/constructor_values_test.nomi
 E 0
@@ -2725,6 +2740,44 @@ H 22a3b69deeaec626631e49f1a558c9c61fdea78129f50a3152b3c2a051524e74
 T --- stderr ---
 T nomi run: <root>/tests/14-modules-and-packaging/file_import_display/shapes.nomi declares no `fn main`, so there is no program to run
 T
+C 14-modules-and-packaging/full_paths/db/notifications.nomi
+E 1
+N 0
+H 4daec09bee59c8d8e885b75e711946b77423020f4902b77668d4c822b1acd051
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/full_paths/db/notifications.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/full_paths/db/schema.nomi
+E 1
+N 0
+H d6547521706c8740926d7ed29ad344124e4a416b5f090af5bd3ab06399f4e50d
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/full_paths/db/schema.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/full_paths/full_paths_test.nomi
+E 0
+N 4
+H 185595db50c55cef2c9828d7fb5eb0b9b5c74c029419dc8da3ce48a54069336f
+T ok <root>/tests/14-modules-and-packaging/full_paths/full_paths_test.nomi :: a short name and a full path name the same file
+T ok <root>/tests/14-modules-and-packaging/full_paths/full_paths_test.nomi :: a full path names a variant
+T ok <root>/tests/14-modules-and-packaging/full_paths/full_paths_test.nomi :: two files of one short name are each reached by full path
+T ok <root>/tests/14-modules-and-packaging/full_paths/full_paths_test.nomi :: a declaration keeps its name, and the file is reached by full path
+T test result: ok. 4 passed, 0 failed
+T
+C 14-modules-and-packaging/full_paths/jobs/notifications.nomi
+E 1
+N 0
+H 69f0a58cd962784c59b7f57ea00d0c166941260124273ddafa75bcb538dbedba
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/full_paths/jobs/notifications.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/full_paths/views/admin/users.nomi
+E 1
+N 0
+H 6eed78ce58efceb3accfe99537fc3bdc650ce04e40324108a57712cc4a6b8587
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/full_paths/views/admin/users.nomi declares no `fn main`, so there is no program to run
+T
 C 14-modules-and-packaging/imports_and_modules_test.nomi
 E 0
 N 3
@@ -3372,8 +3425,8 @@ T test result: ok. 2 passed, 0 failed
 T
 C 17-typed-literals/html_templates_test.nomi
 E 0
-N 11
-H f45d320026295b9198e541a640ce944e34e379de2f513fe3a66d2ae555f9056f
+N 14
+H 8491001c0e9518f6ee19ecb5da35fbaf2a6169a002551c13b322189d5a59489b
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: element text escapes a String and keeps an Html
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a List, a Maybe and a program's own type render in element text
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a quoted attribute escapes both quotes, in either quote
@@ -3385,7 +3438,10 @@ T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: title and textar
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a multi-line template keeps its text, with its indentation stripped
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a raw literal is a template with no slots
 T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: Html values are equal by their text
-T test result: ok. 11 passed, 0 failed
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: element text writes any other Display value as escaped text
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a Maybe in a quoted attribute writes its value, or nothing for None
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a Maybe in a URL, a style value or a title writes its value, or nothing
+T test result: ok. 14 passed, 0 failed
 T
 C 17-typed-literals/toml_literal_test.nomi
 E 0
@@ -3916,8 +3972,8 @@ T test result: ok. 20 passed, 0 failed
 T
 C 20-data-access/storage_test.nomi
 E 0
-N 12
-H fae8eaa3f77a22614b0fab9459112b044a9f0ea077a8df009695d6e1e1c0a661
+N 14
+H d5159ee8400db0761e9c00668d9b9d87e0a922f7e9ebbbb4e518c2d4f3dbada4
 T ok <root>/tests/20-data-access/storage_test.nomi :: Memory passes the conformance suite
 T ok <root>/tests/20-data-access/storage_test.nomi :: the local store passes the conformance suite in a sandbox
 T ok <root>/tests/20-data-access/storage_test.nomi :: the local store passes the conformance suite on disk
@@ -3930,7 +3986,9 @@ T ok <root>/tests/20-data-access/storage_test.nomi :: a store with no public bas
 T ok <root>/tests/20-data-access/storage_test.nomi :: the handler serves an object with its stored type
 T ok <root>/tests/20-data-access/storage_test.nomi :: the handler answers a range, a HEAD and a conditional request
 T ok <root>/tests/20-data-access/storage_test.nomi :: the handler maps store errors to statuses
-T test result: ok. 12 passed, 0 failed
+T ok <root>/tests/20-data-access/storage_test.nomi :: the local store writes the characters a file name cannot hold as escapes
+T ok <root>/tests/20-data-access/storage_test.nomi :: a key's URL routes back to its object
+T test result: ok. 14 passed, 0 failed
 T
 C 20-data-access/transactions_test.nomi
 E 0

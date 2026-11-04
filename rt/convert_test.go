@@ -138,3 +138,63 @@ func TestRefinedTypesAreNominallyDistinct(t *testing.T) {
 		t.Fatalf("PositiveInt reflects as %q; an alias would report int64", got)
 	}
 }
+
+func TestStringToFloat_Absolute(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   string
+		some bool
+		want float64
+	}{
+		{"plain", "19.99", true, 19.99},
+		{"whole", "42", true, 42},
+		{"negative", "-0.5", true, -0.5},
+		{"explicit plus", "+2.5", true, 2.5},
+		{"exponent", "1e3", true, 1000},
+		{"signed exponent", "2.5E-2", true, 0.025},
+		{"surrounding whitespace is trimmed", "  3.5\n", true, 3.5},
+		{"leading zeros", "007.50", true, 7.5},
+		{"nearest Float", "0.1", true, 0.1},
+		{"underflow reads as zero", "1e-400", true, 0},
+		{"largest Float", "1.7976931348623157e308", true, math.MaxFloat64},
+
+		{"empty", "", false, 0},
+		{"blank", "  ", false, 0},
+		{"letters", "abc", false, 0},
+		{"overflow", "1e400", false, 0},
+		{"negative overflow", "-1e400", false, 0},
+		{"no digit before the point", ".5", false, 0},
+		{"no digit after the point", "5.", false, 0},
+		{"two points", "1.2.3", false, 0},
+		{"exponent without digits", "1e", false, 0},
+		{"exponent sign without digits", "1e+", false, 0},
+		{"hex float", "0x1p4", false, 0},
+		{"underscore separators", "1_000.5", false, 0},
+		{"infinity word", "Inf", false, 0},
+		{"infinity symbol", "\u221e", false, 0},
+		{"NaN word", "NaN", false, 0},
+		{"a locale's comma", "1,5", false, 0},
+		{"interior whitespace", "1 .5", false, 0},
+		{"sign alone", "-", false, 0},
+		{"non-ASCII digits", "\u0663", false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := StringToFloat(tc.in)
+			if !tc.some {
+				if got.Tag != TagNone {
+					t.Fatalf("StringToFloat(%q) = Some(%v), want None", tc.in, got.Some)
+				}
+				return
+			}
+			if got.Tag != TagSome {
+				t.Fatalf("StringToFloat(%q) = None, want Some(%v)", tc.in, tc.want)
+			}
+			if got.Some != tc.want {
+				t.Fatalf("StringToFloat(%q) = Some(%v), want Some(%v)", tc.in, got.Some, tc.want)
+			}
+		})
+	}
+	if got := StringToFloat("-0.0"); got.Tag != TagSome || !math.Signbit(got.Some) {
+		t.Fatalf("StringToFloat(\"-0.0\") = %v, want Some(-0.0)", got)
+	}
+}

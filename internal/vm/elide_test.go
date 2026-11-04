@@ -29,7 +29,7 @@ func runElideTests(t *testing.T, src string) string {
 // `io.replay` script and for the expected side of `==` alike. A literal the
 // diff shows without numbers is written `""" ... """`.
 func TestElide_ADiffedLiteralIsCollapsedInTheEcho(t *testing.T) {
-	out := runElideTests(t, `import std/io
+	out := runElideTests(t, `import std::io
 
 fn main() {
     io.print("a")

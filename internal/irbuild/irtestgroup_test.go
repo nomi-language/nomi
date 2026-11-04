@@ -94,7 +94,7 @@ func irTestGroupVMFiles(t *testing.T, src string, siblings map[string]string, wa
 	return run
 }
 
-const irTestGroupBootSetupSource = `import std/io
+const irTestGroupBootSetupSource = `import std::io
 
 pub struct App {
   context: Context
@@ -190,11 +190,11 @@ func TestIRTestGroup_FailureReportsAgree(t *testing.T) {
 }
 
 const irTestGroupVirtualSource = `import {
-  std/duration.Duration
-  std/io
-  std/supervisors.Supervisor
-  std/testing.Clock
-  std/timer
+  std::duration.Duration
+  std::io
+  std::supervisors.Supervisor
+  std::testing.Clock
+  std::timer
 }
 
 pub struct App {
@@ -377,7 +377,7 @@ func TestIRTestGroup_TheRunnerRefusesAnUnrecordedBoot(t *testing.T) {
 // return skips the rest of the setup; a return inside a block runs the block's
 // deferred calls on the way out.
 func TestIRTestGroup_ASetupReturnIsItsValue(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {}
 
@@ -494,7 +494,7 @@ group "bare return in a Unit setup" {
 // setup, a block setup's tail and a `return`. An `Ok` is the setup's value,
 // which the test binds.
 func TestIRTestGroup_ASetupsFailedCheckFailsTheTest(t *testing.T) {
-	const src = `import std/testing
+	const src = `import std::testing
 
 fn main() {}
 

@@ -3,7 +3,7 @@
 // (`span.Span{...}`). Both spellings reach the one template span.nomi
 // declares, so a value built one way passes where the other is annotated.
 import {
-    std/io
+    std::io
     span.{self, Span}
 }
 

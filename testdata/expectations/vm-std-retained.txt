@@ -125,6 +125,7 @@ calendar.nomi:DateTime.now_in	ran
 calendar.nomi:DateTime.offset	ran
 calendar.nomi:DateTime.parse	ran
 calendar.nomi:DateTime.to_instant	ran
+calendar.nomi:DateTime.to_naive	ran
 calendar.nomi:DateTime.to_string_with	ran
 calendar.nomi:DateTime.with_zone	ran
 calendar.nomi:DateTimeFields.equal	ran
@@ -202,6 +203,7 @@ calendar.nomi:NaiveDateTime.fields_of	ran
 calendar.nomi:NaiveDateTime.format	ran
 calendar.nomi:NaiveDateTime.format_fields	ran
 calendar.nomi:NaiveDateTime.from_fragments	ran
+calendar.nomi:NaiveDateTime.from_instant	ran
 calendar.nomi:NaiveDateTime.hash	ran
 calendar.nomi:NaiveDateTime.hour	ran
 calendar.nomi:NaiveDateTime.inspect	ran
@@ -215,6 +217,7 @@ calendar.nomi:NaiveDateTime.of	ran
 calendar.nomi:NaiveDateTime.parse	ran
 calendar.nomi:NaiveDateTime.parse_with	ran
 calendar.nomi:NaiveDateTime.second	ran
+calendar.nomi:NaiveDateTime.to_instant	ran
 calendar.nomi:NaiveDateTime.to_string_with	ran
 calendar.nomi:NaiveDateTime.year	ran
 calendar.nomi:Nanoseconds.compare	ran
@@ -328,10 +331,14 @@ calendar.nomi:calendar.NaiveDateTime.format arity 2	ran
 calendar.nomi:calendar.NaiveDateTime.format arity 3	ran
 calendar.nomi:calendar.NaiveDateTime.format default 3	ran
 calendar.nomi:calendar.NaiveDateTime.format default 4	ran
+calendar.nomi:calendar.NaiveDateTime.from_instant arity 1	ran
+calendar.nomi:calendar.NaiveDateTime.from_instant default 2	ran
 calendar.nomi:calendar.NaiveDateTime.new arity 5	ran
 calendar.nomi:calendar.NaiveDateTime.new arity 6	ran
 calendar.nomi:calendar.NaiveDateTime.new default 6	ran
 calendar.nomi:calendar.NaiveDateTime.new default 7	ran
+calendar.nomi:calendar.NaiveDateTime.to_instant arity 1	ran
+calendar.nomi:calendar.NaiveDateTime.to_instant default 2	ran
 calendar.nomi:calendar.Time.format arity 2	ran
 calendar.nomi:calendar.Time.format default 3	ran
 calendar.nomi:calendar.Time.new arity 2	ran

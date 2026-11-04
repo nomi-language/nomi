@@ -13,7 +13,7 @@ import (
 // checker typed by its first element, `List<#(Int, Circle)>`, though the
 // second holds a Dot.
 func TestEmbedsJoin_CollectionLiteralsWidenTheEmbeddedValues(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 struct Circle {
   r: Int

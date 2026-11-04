@@ -8,7 +8,7 @@ import (
 )
 
 // The declarations every pipe-hover case reads.
-const pipeHoverDecls = `import std/io
+const pipeHoverDecls = `import std::io
 
 struct Point {
   x: Int

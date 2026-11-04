@@ -27,7 +27,7 @@
 // `Tag.inspect` is the contrast: an EXPLICIT `impl Debug for Tag` overrides the
 // derive, so the same spelling reaches a hand-written body in the sibling.
 import {
-    std/io
+    std::io
     shapes.{self, Status, Tag}
 }
 

@@ -158,6 +158,9 @@ type Module struct {
 	testBoots []*Symbol
 	// impls are the dispatch entries this unit's retained impl bodies answer.
 	impls []Impl
+	// unretainedImpls are the interface methods this unit implements for
+	// some type without a dispatch entry. See ImplementUnretained.
+	unretainedImpls []*Symbol
 	// displays are this unit's retained `impl Display` bodies, by the
 	// declared type whose values they render. See ImplementDisplay.
 	displays []DisplayImpl
@@ -399,6 +402,32 @@ func (m *Module) Implement(method, typ, fn *Symbol) {
 	m.impls = append(m.impls, Impl{Method: method, Type: typ, Func: fn})
 }
 
+// ImplementUnretained records that this unit implements interface method
+// method for some type whose dispatch entry it did not record: the impl
+// body was not retained, or values of the type do not dispatch. A
+// dispatched call to a method with no dispatch entry in any module never
+// runs unless some module records the method here, since no value of an
+// implementing type exists (vm.NoImplementation).
+func (m *Module) ImplementUnretained(method *Symbol) {
+	if method == nil {
+		panic("ir.Module.ImplementUnretained: no method")
+	}
+	for _, s := range m.unretainedImpls {
+		if s == method {
+			return
+		}
+	}
+	m.unretainedImpls = append(m.unretainedImpls, method)
+}
+
+// UnretainedImpls are the methods ImplementUnretained recorded, in order.
+func (m *Module) UnretainedImpls() []*Symbol {
+	if m == nil {
+		return nil
+	}
+	return m.unretainedImpls
+}
+
 // DisplayImpl names the retained `Display.to_string` body for values of one
 // declared type.
 type DisplayImpl struct {
@@ -568,6 +597,7 @@ func (m *Module) Pruned(keep func(*Func) bool, keepBody func(*Symbol) bool) *Mod
 			out.impls = append(out.impls, im)
 		}
 	}
+	out.unretainedImpls = m.unretainedImpls
 	filter := func(table []DisplayImpl) []DisplayImpl {
 		var rows []DisplayImpl
 		for _, d := range table {
@@ -587,6 +617,6 @@ func (m *Module) Pruned(keep func(*Func) bool, keepBody func(*Symbol) bool) *Mod
 // Empty reports whether m holds nothing a consumer could run or look up.
 func (m *Module) Empty() bool {
 	return len(m.funcs) == 0 && len(m.cells) == 0 && len(m.tests) == 0 && m.boot == nil &&
-		m.mainFailure == nil && m.bootFailure.Boot == nil && len(m.testBoots) == 0 && len(m.impls) == 0 && len(m.displays) == 0 &&
+		m.mainFailure == nil && m.bootFailure.Boot == nil && len(m.testBoots) == 0 && len(m.impls) == 0 && len(m.unretainedImpls) == 0 && len(m.displays) == 0 &&
 		len(m.rowDebugs) == 0 && len(m.equates) == 0 && len(m.hashes) == 0
 }

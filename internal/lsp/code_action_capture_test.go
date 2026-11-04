@@ -11,7 +11,7 @@ const pointDecl = "struct Point {\n    x: Int\n    y: Int\n}\n\n"
 
 // captureMain is decls, then body in `fn main() { ... }`.
 func captureMain(decls, body string) string {
-	return strings.TrimPrefix(fnMainAfter(decls, body), "import std/io\n\n")
+	return strings.TrimPrefix(fnMainAfter(decls, body), "import std::io\n\n")
 }
 
 // A lambda the style rule writes as a capture becomes one: `&` against a

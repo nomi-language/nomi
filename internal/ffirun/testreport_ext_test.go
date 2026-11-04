@@ -79,7 +79,7 @@ func TestWrapperTestReportIsTheCommandsOwnReport(t *testing.T) {
 	// therefore the shape worth pinning. Nothing about the failing assertions
 	// depends on it.
 	//
-	// It used to be `import std/regex.Regex`. That stopped working, in the
+	// It used to be `import std::regex.Regex`. That stopped working, in the
 	// good direction: std/regex declares `host fn` now and its Go lives in
 	// `nomi/stdregex`, so importing it selects no Go package and needs no
 	// toolchain. See hostkeyword_toolchain_test.go.

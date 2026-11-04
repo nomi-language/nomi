@@ -12,9 +12,9 @@ import (
 // import, whose lowering asks the retention predicates most of their
 // questions.
 const kindMemoHTTPProgram = `import {
-    std/http.{self, Response, Status}
-    std/http_testing
-    std/url.Url
+    std::http.{self, Response, Status}
+    std::http_testing
+    std::url.Url
 }
 
 fn greeting(name: String) -> Result<String, http.Error> {

@@ -103,8 +103,8 @@ func TestIRAssertSubject_AssertableCarriesItsAnswer(t *testing.T) {
 
 const irAssertSubjectSource = `
 import {
-  std/assertions.AssertionFailure
-  std/testing
+  std::assertions.AssertionFailure
+  std::testing
 }
 
 fn find(n: Int) -> Maybe<String> {

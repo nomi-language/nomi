@@ -31,6 +31,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `fmt.Sprintf("%d items", n)` | `"${n} items"` |
 | `func Map[T any](..)` | `fn map<T>(..)` |
 | `_test.go` files | `test "name" { assert .. }` blocks beside the code |
+| `import "app/db/posts"`, then `posts.Find(1)` | `import db::posts`, then `posts.find(1)`; the full path `db::posts.find(1)` works where `posts` is taken, instead of an import alias |
 
 ## The same program
 

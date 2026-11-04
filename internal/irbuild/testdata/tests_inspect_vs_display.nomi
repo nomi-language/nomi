@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // One value, two renderings, in one run. `io.print` renders a List through
 // `impl Display for List<T>`, whose elements go through Display.to_string;

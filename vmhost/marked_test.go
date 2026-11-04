@@ -167,7 +167,7 @@ func TestLoadMarked_AProjectOfModulesLoadsAsItsFiles(t *testing.T) {
 // test case says `app/main.nomi`, never the directory.
 func TestLoadMarked_ARunNamesFilesFromTheProjectRoot(t *testing.T) {
 	src := "// FILE: app/main.nomi\n" +
-		"import std/io\n\nfn main() {\n  io.print(\"start\")\n  todo \"finish main\"\n}\n\n" +
+		"import std::io\n\nfn main() {\n  io.print(\"start\")\n  todo \"finish main\"\n}\n\n" +
 		"test \"unfinished\" {\n  assert 1 == 1\n  todo\n}\n" +
 		"// FILE: nomi.toml\n[module]\nname = \"demo\"\nentry_points = [\"app/main\"]\n" +
 		"// FILE: go.mod\nmodule demo\n\ngo 1.27.0\n"
@@ -204,7 +204,7 @@ func TestLoadMarked_ARunNamesFilesFromTheProjectRoot(t *testing.T) {
 // order, including one whose group boots the entry's app.
 func TestLoadMarked_RunsEveryFilesTests(t *testing.T) {
 	const files = `// FILE: main.nomi
-import std/io
+import std::io
 
 pub struct App {
     greeting: String

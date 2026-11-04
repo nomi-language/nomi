@@ -23,8 +23,8 @@ import (
 // Any other top-level std function (`io.read_line`, `json.shape_error_root`)
 // is named the same way: a function of the referenced signature whose body is
 // the call stdFilePlan plans over its parameters. A selective import names
-// both kinds bare (`print` after `import std/io.print`, `next_line` after
-// `import std/io.{read_line as next_line}`), and funcRef sends them here.
+// both kinds bare (`print` after `import std::io.print`, `next_line` after
+// `import std::io.{read_line as next_line}`), and funcRef sends them here.
 
 // fileFuncRef lowers `owner.name` where owner is a file qualifier. handled is
 // false when owner names no file this builder resolves, so the caller's field

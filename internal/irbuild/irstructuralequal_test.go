@@ -9,7 +9,7 @@ func TestIRStructuralHashAndEqual_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn same<T>(a: T, b: T) -> Bool where T: Equatable {
     Equatable.equal(a, b)
@@ -41,7 +41,7 @@ func TestIRMaybeEqualAsTheOperator_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 struct Inner {
     a: Int

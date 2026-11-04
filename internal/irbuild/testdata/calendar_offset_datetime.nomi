@@ -31,7 +31,7 @@
 // bodies, so `- Months(1)` reaching the wrong `+ Months(-1)` prints a wrong
 // value here.
 import {
-    std/calendar.{
+    std::calendar.{
         Days,
         Error,
         Hours,
@@ -44,12 +44,12 @@ import {
         Weeks,
         Years
     }
-    std/calendar.DateTime
-    std/calendar.NaiveDateTime
-    std/calendar.OffsetDateTime
-    std/duration.Duration
-    std/instant.Instant
-    std/io
+    std::calendar.DateTime
+    std::calendar.NaiveDateTime
+    std::calendar.OffsetDateTime
+    std::duration.Duration
+    std::instant.Instant
+    std::io
 }
 
 fn run() -> Result<Unit, Error> {

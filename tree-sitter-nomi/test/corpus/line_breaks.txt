@@ -258,7 +258,7 @@ A dotted type name and a dotted import member
 ================================================================================
 
 import strings.String
-import std/iter.Iter.loop
+import std::iter.Iter.loop
 
 pub type Probe.Absent
 

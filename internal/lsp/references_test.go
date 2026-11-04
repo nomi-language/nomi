@@ -170,7 +170,7 @@ func TestFindReferences_IncludeDeclaration(t *testing.T) {
 func TestFindReferences_DeriveSkipsSynthBand(t *testing.T) {
 	dir := t.TempDir()
 	mainFile := filepath.Join(dir, "main.nomi")
-	src := `import std/equatable.{Equatable}
+	src := `import std::equatable.{Equatable}
 
 pub struct Point {
   x: Int

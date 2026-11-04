@@ -14,7 +14,7 @@
 // qualifier IS the thing that says "run this one", so that spelling must reach
 // the body the operator must not.
 import {
-    std/io
+    std::io
     shapes.{self, Loose, Point}
 }
 

@@ -2,8 +2,8 @@
 // binds only through its module qualifier: in a user generic, and in std's
 // `List<T>` instance.
 import {
-    std/io
-    std/json.{FromJson, Json, ToJson}
+    std::io
+    std::json.{FromJson, Json, ToJson}
     notes
 }
 

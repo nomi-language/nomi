@@ -7,7 +7,7 @@ import (
 // An enum with a variant whose payload is a map of function values is built
 // and rendered like any other.
 func TestIRDotVariant_FunctionMapPayloadRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 enum Shape {
   Circle Float
   Polygon { sides: Map<String, (Int) -> Int> }

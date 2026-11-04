@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRIterTerminal_CountAndShortCircuit(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn empty() -> List<Int> { [] }
 fn main() {
  io.print(Iter.count([]))
@@ -25,7 +25,7 @@ fn main() {
 func TestIRIterTerminal_CallbackFault(t *testing.T) {
 	for _, op := range []string{"count", "is_empty"} {
 		t.Run(op, func(t *testing.T) {
-			verifyIterFault(t, `import std/io
+			verifyIterFault(t, `import std::io
 fn main() {
  xs = Iter.map([0, 1], fn n -> {
   io.print(n)
@@ -40,7 +40,7 @@ fn main() {
 }
 
 func TestIRIterTerminal_TourPipelines(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  io.print(Iter.count(Iter.filter([1, 2, 3, 4, 5], fn n -> n > 2)))
  [1, 2, 3, 4, 5]

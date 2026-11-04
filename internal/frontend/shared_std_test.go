@@ -27,9 +27,9 @@ import (
 // file that imports std itself. The entry also declares a dotted name under a
 // prelude type. Under -race, a write to a shared std symbol fails this test.
 func TestSharedStd_ConcurrentChecksWriteNothingShared(t *testing.T) {
-	const entry = `import std/io
-import std/calendar.{Days}
-import std/json.Json.{self, Null}
+	const entry = `import std::io
+import std::calendar.{Days}
+import std::json.Json.{self, Null}
 import helper.{greet}
 
 pub enum Maybe.Extra {
@@ -47,8 +47,8 @@ fn main() {
   io.print(Debug.inspect(Maybe.Extra.A))
 }
 `
-	const helper = `import std/calendar.{Days}
-import std/io
+	const helper = `import std::calendar.{Days}
+import std::io
 
 pub fn greet(name: String) -> String {
   m: Maybe<String> = Some(name)
@@ -135,8 +135,8 @@ func TestSharedStd_ChecksLeaveItUnchanged(t *testing.T) {
 	// A single-file build defines a file's imports before its later
 	// declarations, so these reach the stdlib's own symbols.
 	for _, src := range []string{
-		"import std/json.{Json}\n\nimpl Json {\n  pub fn extra() -> Int {\n    1\n  }\n}\n",
-		"import std/json.{Json}\n\npub enum Json.Extra {\n  A\n}\n",
+		"import std::json.{Json}\n\nimpl Json {\n  pub fn extra() -> Int {\n    1\n  }\n}\n",
+		"import std::json.{Json}\n\npub enum Json.Extra {\n  A\n}\n",
 		"pub enum Maybe.Extra {\n  A\n}\n",
 	} {
 		nodes, err := parser.Parse(lexer.Lex(src))

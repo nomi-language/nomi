@@ -19,10 +19,10 @@ func TestReverseProxy_ForwardsThroughATestServer(t *testing.T) {
 			r.Header.Get("X-Forwarded-Host"), r.Header.Get("Keep-Alive"))
 	}))
 	defer backend.Close()
-	got := run(t, strings.ReplaceAll(`import std/http.{self, Client, Headers, Request, Response, ReverseProxy}
-import std/http_testing
-import std/io
-import std/url.Url
+	got := run(t, strings.ReplaceAll(`import std::http.{self, Client, Headers, Request, Response, ReverseProxy}
+import std::http_testing
+import std::io
+import std::url.Url
 
 fn main() {
     proxy = http.reverse_proxy(ReverseProxy.to(Url.parse("BACKEND/base")!))
@@ -62,11 +62,11 @@ func TestReverseProxy_StreamsAndLogs(t *testing.T) {
 	defer backend.Close()
 	unblock := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { close(first) }))
 	defer unblock.Close()
-	got := run(t, strings.ReplaceAll(strings.ReplaceAll(`import std/http.{self, Client, Request, Response, ReverseProxy}
-import std/http_testing
-import std/http_testing.TestServer
-import std/io.{self, Reader}
-import std/url.Url
+	got := run(t, strings.ReplaceAll(strings.ReplaceAll(`import std::http.{self, Client, Request, Response, ReverseProxy}
+import std::http_testing
+import std::http_testing.TestServer
+import std::io.{self, Reader}
+import std::url.Url
 
 fn main() {
     proxy = http.reverse_proxy(ReverseProxy.to(Url.parse("BACKEND")!))

@@ -7,7 +7,7 @@ import (
 // A String host call's result builds a struct whose field holds a Map of
 // function values.
 func TestIRStringHost_BesideAFunctionMapFieldRuns(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Point { x: String }
 struct Outer {
   p: List<Point>
@@ -18,7 +18,7 @@ fn main() { s = String.trim(" x ") io.inspect(Outer{p: [Point{x: s}]}) }
 }
 
 func TestIRStringHost_PipelineConstructors(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Meter Int
 enum Signal {
   Ready Int
@@ -35,7 +35,7 @@ fn main() {
 }
 
 func TestIRStringHost_CompletePrograms(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn parse(s: String) -> Maybe<Int> {
   s |> String.trim() |> String.to_int()? |> Some()
 }
@@ -53,7 +53,7 @@ fn main() {
 }
 
 func TestIRStringHost_EffectsAndSiblingCaller(t *testing.T) {
-	verifyLambdaProgram(t, `import { std/io lib }
+	verifyLambdaProgram(t, `import { std::io lib }
 fn mark(s: String) -> String { io.print(s) return s }
 fn main() {
   io.inspect(String.contains(
@@ -68,7 +68,7 @@ fn main() {
 }
 
 func TestIRStringHost_CustomDistinctEquality(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 type Slug String
 impl Equatable for Slug {
   fn equal(a: Slug, b: Slug) -> Bool {

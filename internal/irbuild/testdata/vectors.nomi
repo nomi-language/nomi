@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // `Vector<T>` — the first GENERIC STD HOST TYPE with an operation surface, and
 // the OPPOSITE case to sets.nomi.

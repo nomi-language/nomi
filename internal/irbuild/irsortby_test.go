@@ -20,7 +20,7 @@ fn main() {
 // Keys are projected per comparison through the bound key function; equal keys
 // keep source order; a nominal key orders through its Comparable impl.
 func TestIRSortBy_KeysStabilityAndNominalKeys(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Rank {
   n: Int
 }

@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // The one call shape that needs a table: the parameter's type is an
 // INTERFACE, so the concrete type is erased at the call and the callee is a

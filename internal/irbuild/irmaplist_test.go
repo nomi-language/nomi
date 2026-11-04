@@ -27,7 +27,7 @@ fn main() {
 }
 
 func TestIRMapList_DebugAndPersistence(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   counts = %{"a\"q" => 1, "b" => 2}
   dbg counts

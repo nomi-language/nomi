@@ -556,6 +556,10 @@
 08-pattern-matching/try_test.nomi:try_arithmetic	ran
 08-pattern-matching/try_test.nomi:try_boolean_expression	ran
 08-pattern-matching/try_test.nomi:try_multiple_operands	ran
+08-pattern-matching/unit_patterns_test.nomi:Job.inspect	ran
+08-pattern-matching/unit_patterns_test.nomi:describe	ran
+08-pattern-matching/unit_patterns_test.nomi:first_saved	ran
+08-pattern-matching/unit_patterns_test.nomi:save	ran
 08-pattern-matching/variant_literal_attach_test.nomi:JV.inspect	ran
 08-pattern-matching/variant_payloads_test.nomi:Box.inspect	ran
 08-pattern-matching/variant_payloads_test.nomi:Circle.inspect	ran
@@ -1428,6 +1432,18 @@
 14-modules-and-packaging/file_import_display/shapes.nomi:origin	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:price	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:red	ran
+14-modules-and-packaging/full_paths/db/notifications.nomi:pending	ran
+14-modules-and-packaging/full_paths/db/schema.nomi:Kind.inspect	ran
+14-modules-and-packaging/full_paths/db/schema.nomi:Post.blank	ran
+14-modules-and-packaging/full_paths/db/schema.nomi:Post.inspect	ran
+14-modules-and-packaging/full_paths/db/schema.nomi:post	ran
+14-modules-and-packaging/full_paths/full_paths_test.nomi:describe	ran
+14-modules-and-packaging/full_paths/full_paths_test.nomi:title	ran
+14-modules-and-packaging/full_paths/full_paths_test.nomi:users	ran
+14-modules-and-packaging/full_paths/jobs/notifications.nomi:EmailArgs.inspect	ran
+14-modules-and-packaging/full_paths/jobs/notifications.nomi:pending	ran
+14-modules-and-packaging/full_paths/views/admin/users.nomi:UserDetail.inspect	ran
+14-modules-and-packaging/full_paths/views/admin/users.nomi:render	ran
 14-modules-and-packaging/imports_and_modules_test.nomi:Account.inspect	ran
 14-modules-and-packaging/imports_and_modules_test.nomi:Axis.inspect	ran
 14-modules-and-packaging/imports_and_modules_test.nomi:GeometryPoint.inspect	ran
@@ -1661,11 +1677,18 @@
 17-typed-literals/fragments_test.nomi:Count.inspect	ran
 17-typed-literals/fragments_test.nomi:Shape.from_fragments	ran
 17-typed-literals/fragments_test.nomi:Shape.inspect	ran
+17-typed-literals/html_templates_test.nomi:Badge.inspect	ran
+17-typed-literals/html_templates_test.nomi:Badge.to_html	ran
+17-typed-literals/html_templates_test.nomi:Badge.to_string	ran
 17-typed-literals/html_templates_test.nomi:Campaign.inspect	ran
 17-typed-literals/html_templates_test.nomi:Campaign.to_html	ran
-17-typed-literals/html_templates_test.nomi:check Url literal at 50:74 failure	ran
-17-typed-literals/html_templates_test.nomi:check Url literal at 51:67 failure	ran
+17-typed-literals/html_templates_test.nomi:Handle.inspect	ran
+17-typed-literals/html_templates_test.nomi:Handle.to_string	ran
+17-typed-literals/html_templates_test.nomi:badge	ran
+17-typed-literals/html_templates_test.nomi:check Url literal at 47:74 failure	ran
+17-typed-literals/html_templates_test.nomi:check Url literal at 48:67 failure	ran
 17-typed-literals/html_templates_test.nomi:render	ran
+17-typed-literals/html_templates_test.nomi:shown	ran
 17-typed-literals/toml_literal_test.nomi:Port.inspect	ran
 17-typed-literals/toml_literal_test.nomi:Port.to_toml	ran
 17-typed-literals/toml_literal_test.nomi:Sneaky.inspect	ran
@@ -2349,9 +2372,13 @@
 20-data-access/sql_test.nomi:round_trips	ran
 20-data-access/sql_test.nomi:round_trips	ran
 20-data-access/sql_test.nomi:user_row	ran
+20-data-access/storage_test.nomi:`!` failure Error	ran
+20-data-access/storage_test.nomi:`!` failure Error	ran
+20-data-access/storage_test.nomi:check Url literal at 182:37 failure	ran
 20-data-access/storage_test.nomi:check Url literal at 20:57 failure	ran
 20-data-access/storage_test.nomi:check Url literal at 58:35 failure	ran
 20-data-access/storage_test.nomi:fresh_local	ran
+20-data-access/storage_test.nomi:literal Route`GET /files/{key...}` at 183:28 failure	ran
 20-data-access/storage_test.nomi:serve	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.begin	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.close	ran
@@ -3602,6 +3629,7 @@ std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Sandbox.binary default	ran
 std/fs_testing.nomi:Sandbox.cwd default	ran
 std/fs_testing.nomi:Sandbox.dirs default	ran
@@ -3691,6 +3719,8 @@ std/fs_testing.nomi:run	ran
 std/fs_testing.nomi:run	ran
 std/fs_testing.nomi:run	ran
 std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
@@ -3717,22 +3747,33 @@ std/html.nomi:Html.write_to	ran
 std/html.nomi:Int.to_css	ran
 std/html.nomi:Int.to_html	ran
 std/html.nomi:List<Html>.to_html	ran
+std/html.nomi:Maybe<Css>.to_css	ran
 std/html.nomi:Maybe<Html>.to_html	ran
+std/html.nomi:Maybe<Int>.to_css	ran
+std/html.nomi:Maybe<Int>.to_html	ran
+std/html.nomi:Maybe<SafeUrl>.to_url	ran
 std/html.nomi:Maybe<String>.attribute	ran
+std/html.nomi:Maybe<Url>.to_url	ran
 std/html.nomi:SafeUrl.inspect	ran
 std/html.nomi:SafeUrl.to_url	ran
 std/html.nomi:String.to_html	ran
 std/html.nomi:Url.to_url	ran
 std/html.nomi:assemble	ran
-std/html.nomi:class_if	ran
 std/html.nomi:slot_attribute	ran
+std/html.nomi:slot_attribute_maybe	ran
+std/html.nomi:slot_attribute_maybe	ran
 std/html.nomi:slot_css	ran
 std/html.nomi:slot_optional_attribute	ran
 std/html.nomi:slot_rcdata	ran
+std/html.nomi:slot_rcdata_maybe	ran
 std/html.nomi:slot_text	ran
+std/html.nomi:slot_text_display	ran
 std/html.nomi:slot_url_fragment	ran
+std/html.nomi:slot_url_fragment_maybe	ran
 std/html.nomi:slot_url_path	ran
+std/html.nomi:slot_url_path_maybe	ran
 std/html.nomi:slot_url_query	ran
+std/html.nomi:slot_url_query_maybe	ran
 std/html.nomi:slot_url_start	ran
 std/http.nomi:Body.bytes_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Body.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3821,6 +3862,7 @@ std/http.nomi:Redirects.inspect	NETWORK: declared in std/http, std/net or std/tl
 std/http.nomi:Request.add_cookie	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.basic_auth	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.body default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.body_limit default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.close default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.content_length default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.context default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3843,7 +3885,6 @@ std/http.nomi:Request.limit_body	NETWORK: declared in std/http, std/net or std/t
 std/http.nomi:Request.local_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.media_type	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.multipart_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Request.multipart_form default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.path_value	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.path_values default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.pattern default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3852,6 +3893,7 @@ std/http.nomi:Request.post_form_value	NETWORK: declared in std/http, std/net or 
 std/http.nomi:Request.protocol default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.referer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.remote_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.request_uri default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.tls default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.trace default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3924,6 +3966,7 @@ std/http.nomi:answer	NETWORK: declared in std/http, std/net or std/tls, so it is
 std/http.nomi:chunked_reader	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:chunked_writer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:conn_state	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:copy_capped	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:cross_origin_protection	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:default_client	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:detect_content_type	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3958,6 +4001,7 @@ std/http.nomi:post_form	NETWORK: declared in std/http, std/net or std/tls, so it
 std/http.nomi:protocol_flags	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:proxy_log	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:pump	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:read_capped	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:read_multipart_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:read_multipart_form default 3	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:redirect_to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4564,13 +4608,18 @@ std/storage.nomi:Local.type_path	ran
 std/storage.nomi:Local.url	ran
 std/storage.nomi:Object.equal	ran
 std/storage.nomi:Object.inspect	ran
+std/storage.nomi:byte_length	ran
 std/storage.nomi:check_content_type	ran
 std/storage.nomi:check_key	ran
+std/storage.nomi:file_name	ran
+std/storage.nomi:file_names	ran
 std/storage.nomi:from_io	ran
 std/storage.nomi:handler	ran
 std/storage.nomi:handler default 2	ran
 std/storage.nomi:io_code	ran
-std/storage.nomi:key_characters	ran
+std/storage.nomi:is_control	ran
+std/storage.nomi:is_device_name	ran
+std/storage.nomi:join_key	ran
 std/storage.nomi:local	ran
 std/storage.nomi:local default 2	ran
 std/storage.nomi:make_parent	ran
@@ -4604,6 +4653,7 @@ std/storage_testing.nomi:conformance	ran
 std/storage_testing.nomi:expect	ran
 std/storage_testing.nomi:get_object	ran
 std/storage_testing.nomi:invalid_keys	ran
+std/storage_testing.nomi:odd_keys	ran
 std/storage_testing.nomi:peek	ran
 std/storage_testing.nomi:put	ran
 std/storage_testing.nomi:put_object	ran

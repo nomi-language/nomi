@@ -1,4 +1,4 @@
-import std/compiler
+import std::compiler
 
 interface Numberish {
     fn label(value: self) -> String

@@ -12,8 +12,8 @@ import (
 // irTestGroupVM against its golden record.
 
 const irGroupGapsChannelSource = `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/duration.Duration
+  std::channels.{Channel, Receiver, Sender}
+  std::duration.Duration
 }
 
 pub struct App {
@@ -75,12 +75,12 @@ func TestIRGroupGaps_ChannelAndMaybeEqualityInASubject(t *testing.T) {
 }
 
 const irGroupGapsTaskSource = `import {
-  std/channels.{Channel, Receiver, Sender}
-  std/duration.Duration
-  std/supervisors.Supervisor
-  std/tasks.{Outcome, Task}
-  std/testing.Clock
-  std/timer
+  std::channels.{Channel, Receiver, Sender}
+  std::duration.Duration
+  std::supervisors.Supervisor
+  std::tasks.{Outcome, Task}
+  std::testing.Clock
+  std::timer
 }
 
 pub struct App {
@@ -177,11 +177,11 @@ func TestIRGroupGaps_OutcomeAnyAllAndAnEmptySeededLoop(t *testing.T) {
 }
 
 const irGroupGapsClockSource = `import {
-  std/instant.Instant
-  std/duration.Duration
-  std/tasks.Task
-  std/testing.Clock
-  std/timer
+  std::instant.Instant
+  std::duration.Duration
+  std::tasks.Task
+  std::testing.Clock
+  std::timer
 }
 
 fn long_sleep() -> Unit {
@@ -230,7 +230,7 @@ func TestIRGroupGaps_InstantNowAndConcurrentBlocks(t *testing.T) {
 	}
 }
 
-const irGroupGapsLoopProgram = `import std/io
+const irGroupGapsLoopProgram = `import std::io
 
 fn collect(n: Int) -> List<Int> {
   Iter.loop([], fn seen ->

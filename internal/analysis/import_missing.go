@@ -36,7 +36,7 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 	for i, seg := range segs {
 		written[i] = ast.ImportNodeName(seg)
 	}
-	name := strings.Join(written, "/")
+	name := strings.Join(written, ast.PathSeparator)
 
 	var msg, hint string
 	if len(miss.path) == 0 {
@@ -52,7 +52,7 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 		rel := strings.Join(miss.path, "/")
 		msg = fmt.Sprintf("no module `%s`: the standard library has no %s.nomi", name, rel)
 		if best := closestName(rel, b.stdlibModuleNames()); best != "" {
-			hint = "did you mean 'std/" + best + "'?"
+			hint = "did you mean 'std::" + strings.ReplaceAll(best, "/", ast.PathSeparator) + "'?"
 		}
 	default:
 		dir := filepath.Join(append([]string{miss.root}, miss.path[:len(miss.path)-1]...)...)
@@ -123,21 +123,21 @@ func importPathError(n *ast.ImportStmt, segs []ast.Node, msg string) TypeError {
 // module's short name alone (`import std`, `import std.io`). A module is a
 // directory, so there is no file to import. When the import selects a name
 // that is a file in that module, the hint spells the file import: `std.io`
-// is `std/io`.
+// is `std::io`.
 func (b *builder) moduleRootImport(n *ast.ImportStmt, name string, miss *importMiss) (string, string) {
 	msg := fmt.Sprintf("`%s` is a module, not a file; an import names a file in it", name)
 	if len(n.Names) == 0 {
-		return msg, fmt.Sprintf("import a file in it, such as `%s/%s`", name, b.exampleFile(miss))
+		return msg, fmt.Sprintf("import a file in it, such as `%s::%s`", name, b.exampleFile(miss))
 	}
 	selected := ast.ImportNodeName(n.Names[0])
 	if b.moduleHasFile(miss, selected) {
-		spelled := name + "/" + selected
+		spelled := name + ast.PathSeparator + selected
 		if !n.Braced && len(n.Names) == 1 && len(n.Aliases) == 1 && n.Aliases[0] != nil {
 			spelled += " as " + ast.ImportNodeName(n.Aliases[0])
 		}
 		return msg, fmt.Sprintf("did you mean `import %s`?", spelled)
 	}
-	return msg, fmt.Sprintf("import a file in it, such as `%s/%s`", name, b.exampleFile(miss))
+	return msg, fmt.Sprintf("import a file in it, such as `%s::%s`", name, b.exampleFile(miss))
 }
 
 // moduleHasFile reports whether file.nomi is at the root of the module miss
@@ -197,7 +197,7 @@ func (b *builder) describeDir(dir string) string {
 // the sibling file its name is a misspelling of.
 func missingModuleHint(dir, leaf string, written []string) string {
 	spell := func(name string) string {
-		return strings.Join(append(append([]string(nil), written[:len(written)-1]...), name), "/")
+		return strings.Join(append(append([]string(nil), written[:len(written)-1]...), name), ast.PathSeparator)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -213,7 +213,7 @@ func missingModuleHint(dir, leaf string, written []string) string {
 		inner, _ := os.ReadDir(filepath.Join(dir, leaf))
 		for _, e := range inner {
 			if !e.IsDir() && strings.HasSuffix(e.Name(), ".nomi") && !strings.HasSuffix(e.Name(), "_test.nomi") {
-				return fmt.Sprintf("`%s` is a directory; import a file in it, such as `%s/%s`",
+				return fmt.Sprintf("`%s` is a directory; import a file in it, such as `%s::%s`",
 					spell(leaf), spell(leaf), strings.TrimSuffix(e.Name(), ".nomi"))
 			}
 		}

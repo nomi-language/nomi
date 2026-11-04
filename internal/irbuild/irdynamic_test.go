@@ -9,9 +9,9 @@ import "testing"
 // each scalar kind, a list and a dict, reads both decode failures, and
 // renders the whole value.
 func TestIRDynamic_NavigationAndExtractionRunOnTheVM(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
-import std/json.Json
-import std/dynamic.{self, Dynamic}
+	verifyLambdaProgram(t, `import std::io
+import std::json.Json
+import std::dynamic.{self, Dynamic}
 
 fn show_error(e: dynamic.Error) -> String {
   "expected " + e.expected + ", got " + e.got

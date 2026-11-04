@@ -25,7 +25,7 @@
 // The two spellings' TEXT differs and both are pinned: the prefix arm renders
 // the `?` node (`parse(-1)?`) and the pipe arm renders the whole pipe
 // (`-1 |> parse()?`).
-import std/io
+import std::io
 
 fn parse(n: Int) -> Result<Int, String> {
     if n < 0 {

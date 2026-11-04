@@ -10,7 +10,7 @@ nomi add github.com/nomi-language/nomi/lib/markdown
 
 ```nomi
 import {
-    std/html.Html
+    std::html.Html
     markdown
 }
 

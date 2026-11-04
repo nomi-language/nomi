@@ -7,7 +7,7 @@
 //# A program keeps its logger in an app field and logs through it
 //# (`log.info(App.logger, …)`), so a test or one part of the program can
 //# replace it with `with App.logger = …`. A library takes a `Logger`
-//# parameter. `std/log_testing` records what a body logs as values.
+//# parameter. `std::log_testing` records what a body logs as values.
 //#
 //# ## Levels
 //#
@@ -163,7 +163,7 @@ impl Logger {
     /// as slog's text handler does: `time=… level=INFO msg="order placed"
     /// order=42`. A value with a space, `=`, `"` or a control character, or
     /// an empty one, is quoted.
-    //! import std/io.Writer
+    //! import std::io.Writer
     //!
     //! #(_, out) = Writer.collect(fn w -> info(Logger.text(w), "hi", [int("n", 2)]))
     //! line = Bytes.to_string(out)!
@@ -176,7 +176,7 @@ impl Logger {
     /// A logger that writes each record as one JSON object on one line,
     /// as slog's JSON handler does: `{"time":…,"level":"INFO","msg":"order
     /// placed","order":42}`, its fields after `msg` in order.
-    //! import std/io.Writer
+    //! import std::io.Writer
     //!
     //! #(_, out) = Writer.collect(fn w -> warn(Logger.json(w), "slow", [bool("cached", False)]))
     //! line = Bytes.to_string(out)!

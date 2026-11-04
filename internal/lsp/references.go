@@ -126,7 +126,7 @@ func (s *Server) textDocumentReferences(ctx *glsp.Context, params *protocol.Refe
 		// numbers >= 1<<30 and would surface as phantom Locations past
 		// EOF in the editor.
 		for refPos, refSym := range fa.References {
-			if analysis.IsSynthesizedLine(refPos.Line) || fa.MembershipReference(refPos) {
+			if analysis.IsSynthesizedLine(refPos.Line) || fa.StandInReference(refPos) {
 				continue
 			}
 			if matchesAnyTarget(refSym, targets) {

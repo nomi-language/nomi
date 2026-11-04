@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // `Iter.loop`, lowered as an inline loop: every control outcome that can
 // appear in a TERMINATING program, printed, so a comparison which happens to be

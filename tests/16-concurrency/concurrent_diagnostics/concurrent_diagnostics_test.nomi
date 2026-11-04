@@ -1,12 +1,12 @@
 import {
-    std/compiler
+    std::compiler
     test_helpers
 }
 
 test "spawn is only allowed inside concurrent blocks" {
     diagnostics = compiler.check(
         """
-        import std/tasks.Task
+        import std::tasks.Task
 
         fn main() {
           t = Task.spawn(fn -> 42)
@@ -21,7 +21,7 @@ test "spawn is only allowed inside concurrent blocks" {
 test "task values cannot escape their concurrent block" {
     diagnostics = compiler.check(
         """
-        import std/tasks.Task
+        import std::tasks.Task
 
         fn spawn_one() -> Task<Int> {
           concurrent {
@@ -44,7 +44,7 @@ test "task values cannot escape their concurrent block" {
 test "task bindings must be awaited" {
     diagnostics = compiler.check(
         """
-        import std/tasks.Task
+        import std::tasks.Task
 
         fn main() {
           _ = concurrent {

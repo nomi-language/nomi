@@ -150,7 +150,7 @@ func fnMainAfter(decls, body string) string {
 			lines[i] = "    " + l
 		}
 	}
-	return "import std/io\n\n" + decls + "fn main() {\n" + strings.Join(lines, "\n") + "\n}\n"
+	return "import std::io\n\n" + decls + "fn main() {\n" + strings.Join(lines, "\n") + "\n}\n"
 }
 
 // TestRefactor_DamagedDeclarationOffersNoRewrite: in a declaration the
@@ -165,7 +165,7 @@ func TestRefactor_DamagedDeclarationOffersNoRewrite(t *testing.T) {
 		"fn count(n: Int) -> Int {\n    ‸if n == 0 { 0 } else { count(n -)} n))\n    }\n}\n",
 		// Convert from pipe, over a pipe whose lambda is broken.
 		"fn main() {\n    mapped =\n        [1, 2, 3]\n        |> Iter.map(‸fn x -> {\n            if x })0 }\n            x * 10\n        })\n        |> Iter.to_list()\n    dbg mapped\n}\n",
-		"import std/io\n\nfn main() {\n    result =\n        Range.naturals()\n        |> Iter.map(fn n -> {\n            io.print(\"squaring ${}\")})   |> Iter.take‸(2)\n        |> Iter.to_list()\n    dbg result\n}\n",
+		"import std::io\n\nfn main() {\n    result =\n        Range.naturals()\n        |> Iter.map(fn n -> {\n            io.print(\"squaring ${}\")})   |> Iter.take‸(2)\n        |> Iter.to_list()\n    dbg result\n}\n",
 	} {
 		actions, _ := refactorActions(t, NewServer(), src)
 		for _, a := range actions {

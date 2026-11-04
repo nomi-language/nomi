@@ -2,8 +2,8 @@
 // enum per line. A line `Size: small medium large` declares
 // `pub enum Size` with the variants `Small`, `Medium` and `Large`.
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
 }
 
 fn main() -> Result<Unit, String> {

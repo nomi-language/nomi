@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 /// `Link` carries a `Chain`, so a flat inline struct would have infinite size.
 /// The payload slot is boxed and construction

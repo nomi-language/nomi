@@ -13,8 +13,8 @@ import (
 // The tour answers an operator as the editor does: its operand and result
 // types, what it does on them, and the impl the checker chose.
 func TestAnalyze_OperatorHovers(t *testing.T) {
-	const src = `import std/calendar.{Date, Days, Months}
-import std/io
+	const src = `import std::calendar.{Date, Days, Months}
+import std::io
 
 struct Money {
   cents: Int

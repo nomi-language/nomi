@@ -1,6 +1,6 @@
 //# One task on the list and its status.
 
-import std/instant.Instant
+import std::instant.Instant
 
 pub struct Task {
     id: Int

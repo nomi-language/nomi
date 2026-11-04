@@ -1,7 +1,7 @@
 // The shop's operations, over any `Conn`: a connection, a transaction, or
 // a test's.
 import {
-    std/sql.{self, Conn, Error}
+    std::sql.{self, Conn, Error}
     queries
     sqlkit.Rows
 }

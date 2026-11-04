@@ -12,8 +12,8 @@ func TestFormat_KeepsShebang(t *testing.T) {
 	}{
 		{
 			name: "no blank line after it",
-			in:   "#!/usr/bin/env nomi\nimport std/io\nfn main() {\n  io.print(1)\n}\n",
-			want: "#!/usr/bin/env nomi\nimport std/io\n\nfn main() {\n    io.print(1)\n}\n",
+			in:   "#!/usr/bin/env nomi\nimport std::io\nfn main() {\n  io.print(1)\n}\n",
+			want: "#!/usr/bin/env nomi\nimport std::io\n\nfn main() {\n    io.print(1)\n}\n",
 		},
 		{
 			name: "blank lines after it collapse to one",

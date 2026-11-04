@@ -11,7 +11,7 @@ import "testing"
 // beside a required function read through it, Float literal patterns and
 // Decimal set elements.
 func TestIRBacklogCorpus_MixedShapesRunOnTheVM(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 type Coord #(Int, Int)
 

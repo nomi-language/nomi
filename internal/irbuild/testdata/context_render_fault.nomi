@@ -34,10 +34,10 @@
 // It also exercises `EnterDeadline`'s already-spent path, where the fault must
 // still report the deadline rather than a bare `context.Canceled`.
 import {
-    std/duration.Duration
-    std/instant.Instant
-    std/io
-    std/timer
+    std::duration.Duration
+    std::instant.Instant
+    std::io
+    std::timer
 }
 
 // The context is read and replaced as an application field, which needs a

@@ -12,8 +12,8 @@ func TestIRChannelOfMessagesWithChannels_Runs(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	const src = `import {
-    std/channels.{Channel, Receiver, Sender}
-    std/io
+    std::channels.{Channel, Receiver, Sender}
+    std::io
 }
 
 enum Request {
@@ -63,9 +63,9 @@ func TestIRHandleOfCompositeInAField_Runs(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	const src = `import {
-    std/channels.{Arm, Channel, Receiver, Sender}
-    std/io
-    std/tasks.Task
+    std::channels.{Arm, Channel, Receiver, Sender}
+    std::io
+    std::tasks.Task
 }
 
 pub struct M {

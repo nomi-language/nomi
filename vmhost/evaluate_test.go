@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const evaluateSource = `import std/io
+const evaluateSource = `import std::io
 
 fn answer() -> Int {
     Iter.reduce(1..=4, 0, fn acc, n -> acc + n)

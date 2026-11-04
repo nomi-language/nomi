@@ -183,7 +183,7 @@ func (g *gen) lowerStdCases(nodes []ast.Node) {
 }
 
 // listedStdModulesOfCases is each module in programStdModules that the cases
-// of nodes, a shared stdlib module's, import (`//! import std/path`). A
+// of nodes, a shared stdlib module's, import (`//! import std::path`). A
 // shared module itself imports none (TestProgramStdModulesQualify), so every
 // one is a case's.
 func listedStdModulesOfCases(nodes []ast.Node) []string {
@@ -263,19 +263,19 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 // case, a function body) as a statement with no effect. Each name it binds is
 // one of:
 //
-//   - a name the module scope does not bind (`import std/duration.Duration`,
-//     `import std/io`, `import std/maybe.Maybe as Local`). No name-keyed
+//   - a name the module scope does not bind (`import std::duration.Duration`,
+//     `import std::io`, `import std::maybe.Maybe as Local`). No name-keyed
 //     lookup against the module scope finds it, so such a lookup declines,
 //     and every use the builder admits resolves by the checker's reference
 //     at its position (qualifierScope for a file qualifier).
 //   - a name the module scope binds to the same declaration (std/compiler's
-//     prompts open with `import std/strings.String`), or to the same module
-//     (std/hash's prompts open with `import std/hex`, which the module
+//     prompts open with `import std::strings.String`), or to the same module
+//     (std/hash's prompts open with `import std::hex`, which the module
 //     imports as `hex`).
 //   - a whole-module import of the stdlib module whose test body this is,
 //     whose alias the builder resolves as that module's own file alias.
 //   - a monomorphic std struct, enum or distinct type, whatever the module
-//     scope binds the name to (`import std/duration.Duration` beside a local
+//     scope binds the name to (`import std::duration.Duration` beside a local
 //     `struct Duration`). The block's overlay answers the name in a type
 //     position (bindBlockImports), and an owner qualifier naming it is
 //     lowered through its module (stdOwnerByDecl).
@@ -341,7 +341,7 @@ func importPathString(n *ast.ImportStmt) string {
 // (stdlibSibling) keeps stdOwnFileQualifier's route.
 func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast.Call, bool) {
 	g := bl.g
-	obj, isIdent := fa.Object.(*ast.Ident)
+	obj, isIdent := ast.QualifierIdent(fa.Object)
 	if !isIdent || fa.Field == nil || irQualIsLocal(bl, obj.Name) {
 		return nil, false
 	}

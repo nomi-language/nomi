@@ -17,9 +17,9 @@
 // time has been spent, so the case is genuinely inside a bubble that has
 // advanced its clock when it dies.
 import {
-    std/duration.Duration
-    std/testing.Clock
-    std/timer
+    std::duration.Duration
+    std::testing.Clock
+    std::timer
 }
 
 fn boom(n: Int) -> Int {

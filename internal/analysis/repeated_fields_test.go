@@ -94,7 +94,7 @@ func TestRepeatedFields_SpreadMayRepeatItsBase(t *testing.T) {
 // TestRepeatedFields_OnceForDeriveOptions pins that a repeated derive option
 // keeps its own diagnostic and is not reported a second time as a field.
 func TestRepeatedFields_OnceForDeriveOptions(t *testing.T) {
-	src := `import std/json.{Json, ToJson}
+	src := `import std::json.{Json, ToJson}
 
 struct User {
     first_name: String

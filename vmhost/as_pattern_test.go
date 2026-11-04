@@ -11,7 +11,7 @@ import (
 // `P as name` runs in every position a pattern takes: the name holds the
 // whole value P matched, and P's own names bind as they do without it.
 func TestAsPattern_RunsInEveryPosition(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 enum Kind {
     Deposit

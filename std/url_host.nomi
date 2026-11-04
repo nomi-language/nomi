@@ -1,5 +1,5 @@
-//# The Go-backed half of std/url: percent-encoding and Go's net/url over a
-//# URL's parts (rt/url.go). It is internal; a program imports std/url, which
+//# The Go-backed half of std::url: percent-encoding and Go's net/url over a
+//# URL's parts (rt/url.go). It is internal; a program imports std::url, which
 //# builds its `Url` and `Query` from these and gives them their
 //# documentation.
 

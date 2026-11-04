@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The date of a meetup given as a weekday of a month, such as the second
 //# Tuesday or the teenth Friday.
 
-import std/calendar.{Date, Weekday}
+import std::calendar.{Date, Weekday}
 
 /// Which of a month's days on a given weekday a meetup falls on.
 pub enum Week {
@@ -65,7 +65,7 @@ fn teenth(days: Vector<Date>) -> Date {
 
 // FILE: meetup_test.nomi
 import {
-    std/calendar.{Date, Weekday}
+    std::calendar.{Date, Weekday}
     meetup.{self, Week}
 }
 

@@ -227,7 +227,7 @@ func (fa *FileAnalysis) AlwaysExits(stmt ast.Node) bool { return fa.alwaysExits(
 //
 // The callee is std's `Iter.loop` written qualified (`Iter` is a reserved
 // type name, so `Iter.loop` is always std's) or a bare name whose recorded
-// reference resolves to it: `loop` from `import std/iter.Iter.{loop}`, or
+// reference resolves to it: `loop` from `import std::iter.Iter.{loop}`, or
 // `forever` from `Iter.{loop as forever}`. A bare `loop` that names a local
 // function or binding is not one.
 func (fa *FileAnalysis) LoopNeverBreaks(n ast.Node) bool {

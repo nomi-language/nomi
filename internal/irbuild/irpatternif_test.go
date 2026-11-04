@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRPatternIf_CompleteProgram(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn lookup(id: Int) -> Maybe<String> {
   io.print(id)
   case id {

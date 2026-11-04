@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-const irIterStageSource = `import std/io
+const irIterStageSource = `import std::io
 
 fn main() {
   io.inspect(Iter.iterate(1, fn x -> x * 3) |> Iter.take(4) |> Iter.to_list())
@@ -38,7 +38,7 @@ func TestIRIterStage_AdaptersAndMaterializers(t *testing.T) {
 			"%{\"a\" => 3, \"b\" => 2}\n[1, 10, 2, 20]\n[1, 2, 3]\n[[1, 2], [3, 4], [5]]\n[[1, 1], [2], [1]]\nTrue\n")
 }
 
-const irIterToVectorSource = `import std/io
+const irIterToVectorSource = `import std::io
 
 struct Countdown {
   from: Int
@@ -79,7 +79,7 @@ func TestIRIterToVector_EverySourceFamily(t *testing.T) {
 			"#[20, 40]\n#[]\n#[1, 2]\n#[1]\n#[\"p\", \"q\"]\n")
 }
 
-const irStringJoinSource = `import std/io
+const irStringJoinSource = `import std::io
 
 struct Countdown {
   from: Int
@@ -118,7 +118,7 @@ func TestIRStringJoin_EverySourceFamily(t *testing.T) {
 		"a, b, c\nhello\n[]\nsolo\nx+y\nh.é.l.l.o\nHÉLLO\n1-2-3\n3,2,1\n2 4 6\nk=1\np/q\nr\n")
 }
 
-const irSetAlgebraSource = `import std/io
+const irSetAlgebraSource = `import std::io
 
 fn main() {
   a = %[1, 2, 3]
@@ -145,7 +145,7 @@ func TestIRSetAlgebra_AndContainerCompare(t *testing.T) {
 // A bare `None` in a vector or set literal takes the other items' kind,
 // before or after them, as it does in a list literal.
 func TestIRVectorSetLiteral_BareNoneTakesTheItemsKind(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
   io.inspect(#[Some(1), None])

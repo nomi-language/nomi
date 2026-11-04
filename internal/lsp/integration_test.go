@@ -183,7 +183,7 @@ impl Display for Point {
 }
 
 func TestGoToDefinition_StdlibFunction(t *testing.T) {
-	source := `import std/io
+	source := `import std::io
 io.inspect(42)`
 
 	tokens := lexer.Lex(source)

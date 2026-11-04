@@ -2157,7 +2157,7 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	}
 	body.WriteString("io.inspect(s0)\n")
 	// One program in four spells its output through an aliased selective
-	// import (`import std/io.{inspect as peek}`), called bare and passed as
+	// import (`import std::io.{inspect as peek}`), called bare and passed as
 	// a function value. Decided by i alone, so no other program changes.
 	selective := i%4 == 3
 	if selective {
@@ -2201,39 +2201,39 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	out := src.String()
 	switch {
 	case !selective:
-		out = "import std/io\n\n" + out
+		out = "import std::io\n\n" + out
 	case uses(out, "io"):
-		out = "import std/io\nimport std/io.{inspect as peek}\n\n" + out
+		out = "import std::io\nimport std::io.{inspect as peek}\n\n" + out
 	default:
-		out = "import std/io.{inspect as peek}\n\n" + out
+		out = "import std::io.{inspect as peek}\n\n" + out
 	}
 	// leafDistinctBlock's std types outside the prelude.
 	if strings.Contains(out, "Regex`") {
-		out = "import std/regex.Regex\n" + out
+		out = "import std::regex.Regex\n" + out
 	}
 	// fixedKindBlock's Captured.
 	if strings.Contains(out, "Captured{") {
-		out = "import std/io.Captured\n" + out
+		out = "import std::io.Captured\n" + out
 	}
 	// callBlock's std types outside the prelude.
 	if strings.Contains(out, "Task.") {
-		out = "import std/tasks.Task\n" + out
+		out = "import std::tasks.Task\n" + out
 	}
 	if strings.Contains(out, "Channel.") {
-		out = "import std/channels.{Channel, Receiver, Sender}\n" + out
+		out = "import std::channels.{Channel, Receiver, Sender}\n" + out
 	}
 	// holdBlock's ChannelClosed.
 	if strings.Contains(out, "ChannelClosed") {
-		out = "import std/channels.ChannelClosed\n" + out
+		out = "import std::channels.ChannelClosed\n" + out
 	}
 	if strings.Contains(out, "testing.check") {
-		out = "import std/testing\n" + out
+		out = "import std::testing\n" + out
 	}
 	if strings.Contains(out, "impl Literal for") {
-		out = "import std/literals.{Fragment, Literal}\n" + out
+		out = "import std::literals.{Fragment, Literal}\n" + out
 	}
 	if strings.Contains(out, "Duration.seconds(") {
-		out = "import std/duration.Duration\n" + out
+		out = "import std::duration.Duration\n" + out
 	}
 	if formatted, err := format.Format(out); err == nil {
 		out = formatted

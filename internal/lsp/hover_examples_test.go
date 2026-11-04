@@ -16,7 +16,7 @@ func TestHover_StdFunctionShowsItsExamples(t *testing.T) {
 }
 `)
 	want := "Inverse of `String.join`.\n\n**Examples**\n\n```nomi\n" +
-		"import std/regex.Regex\n\n" +
+		"import std::regex.Regex\n\n" +
 		"assert String.split(\"a,b,c\", \",\") == [\"a\", \"b\", \"c\"]\n"
 	if !strings.Contains(got, want) {
 		t.Fatalf("hover on String.split lacks its example after the doc:\n%s", got)

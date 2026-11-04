@@ -29,8 +29,8 @@ func renameProject(t *testing.T) (*Server, string) {
 	write("nomi.toml", "[module]\nname = \"app\"\n")
 	write("models/users.nomi", "pub fn make() -> Int { 1 }\n\npub struct User {\n    name: String\n}\n")
 	write("models/roles.nomi", "pub fn admin() -> Int { 2 }\n")
-	main := `import models/users
-import models/roles
+	main := `import models::users
+import models::roles
 
 fn main() {
     x = users.make() + roles.admin()
@@ -39,14 +39,14 @@ fn main() {
 `
 	write("main.nomi", main)
 	write("report.nomi", `import {
-    app/models/users.User
-    models/users as u
-    models/roles.{admin}
+    app::models::users.User
+    models::users as u
+    models::roles.{admin}
 }
 
 pub fn report(p: User) -> Int { u.make() + admin() }
 `)
-	write("audit.nomi", "import models/users\nimport models/users.User.{self}\n\npub fn audit() -> Int { users.make() }\npub fn name(u: User) -> String { u.name }\n")
+	write("audit.nomi", "import models::users\nimport models::users.User.{self}\n\npub fn audit() -> Int { users.make() }\npub fn name(u: User) -> String { u.name }\n")
 	s := NewServer()
 	s.docs.SetWorkspaceRoot(dir)
 	s.docs.Open(pathToURI(filepath.Join(dir, "main.nomi")), main)
@@ -101,14 +101,14 @@ func TestWillRenameFiles_File(t *testing.T) {
 	s, dir := renameProject(t)
 	got := willRename(t, s, dir, "models/users.nomi", "models/people.nomi")
 	wantEdits(t, got, []string{
-		"audit.nomi: 0:7-0:19 models/people",
-		"audit.nomi: 1:7-1:19 models/people",
+		"audit.nomi: 0:7-0:20 models::people",
+		"audit.nomi: 1:7-1:20 models::people",
 		"audit.nomi: 3:24-3:29 people",
-		"main.nomi: 0:7-0:19 models/people",
+		"main.nomi: 0:7-0:20 models::people",
 		"main.nomi: 4:8-4:13 people",
 		"main.nomi: 5:8-5:13 people",
-		"report.nomi: 1:4-1:20 app/models/people",
-		"report.nomi: 2:4-2:16 models/people",
+		"report.nomi: 1:4-1:22 app::models::people",
+		"report.nomi: 2:4-2:17 models::people",
 	})
 }
 
@@ -117,8 +117,8 @@ func TestWillRenameFiles_Move(t *testing.T) {
 	s, dir := renameProject(t)
 	got := willRename(t, s, dir, "models/roles.nomi", "auth/roles.nomi")
 	wantEdits(t, got, []string{
-		"main.nomi: 1:7-1:19 auth/roles",
-		"report.nomi: 3:4-3:16 auth/roles",
+		"main.nomi: 1:7-1:20 auth::roles",
+		"report.nomi: 3:4-3:17 auth::roles",
 	})
 }
 
@@ -127,13 +127,13 @@ func TestWillRenameFiles_Folder(t *testing.T) {
 	s, dir := renameProject(t)
 	got := willRename(t, s, dir, "models", "domain")
 	wantEdits(t, got, []string{
-		"audit.nomi: 0:7-0:19 domain/users",
-		"audit.nomi: 1:7-1:19 domain/users",
-		"main.nomi: 0:7-0:19 domain/users",
-		"main.nomi: 1:7-1:19 domain/roles",
-		"report.nomi: 1:4-1:20 app/domain/users",
-		"report.nomi: 2:4-2:16 domain/users",
-		"report.nomi: 3:4-3:16 domain/roles",
+		"audit.nomi: 0:7-0:20 domain::users",
+		"audit.nomi: 1:7-1:20 domain::users",
+		"main.nomi: 0:7-0:20 domain::users",
+		"main.nomi: 1:7-1:20 domain::roles",
+		"report.nomi: 1:4-1:22 app::domain::users",
+		"report.nomi: 2:4-2:17 domain::users",
+		"report.nomi: 3:4-3:17 domain::roles",
 	})
 }
 

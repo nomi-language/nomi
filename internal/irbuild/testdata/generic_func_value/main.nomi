@@ -4,7 +4,7 @@
 // `io.inspect`, an annotated binding, and a generic body passing its own
 // type parameter on.
 import {
-    std/io
+    std::io
     span
     span.twice
 }

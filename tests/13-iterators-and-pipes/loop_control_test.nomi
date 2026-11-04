@@ -1,4 +1,4 @@
-import std/iter.Iter.loop
+import std::iter.Iter.loop
 
 test "loop advances state through callback return values" {
     result = loop(1, fn n -> {

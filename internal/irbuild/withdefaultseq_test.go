@@ -9,7 +9,7 @@ func TestIRWithDefaultAtIterPayload_Runs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	const src = `import std/io
+	const src = `import std::io
 
 fn main() {
     f: (List<Bool>) -> Int = fn xs -> Iter.count(xs)

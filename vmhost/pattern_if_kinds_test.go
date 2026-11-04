@@ -17,7 +17,7 @@ import (
 // variant. Each runs once matched and once not, as a value with `else` and as
 // a statement without one.
 func TestRun_PatternIfLowersEveryCasePatternKind(t *testing.T) {
-	out, err := runVM(t, `import std/io
+	out, err := runVM(t, `import std::io
 
 struct Point {
   x: Int
@@ -177,7 +177,7 @@ fn main() {
 // statement and as a value, matched and not, and in a lambda.
 func TestRun_PatternIfOverMapListAndTupleInATestBody(t *testing.T) {
 	const name = "main_test.nomi"
-	p, err := vmhost.LoadSource(name, `import std/io
+	p, err := vmhost.LoadSource(name, `import std::io
 
 test "pattern if kinds" {
   m = %{"mode" => "debug"}

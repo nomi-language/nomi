@@ -139,7 +139,7 @@ func (s *debugSession) at(st vm.Stop, reason vm.StopReason, stack, locals string
 	return frames
 }
 
-const stepSrc = `import std/io
+const stepSrc = `import std::io
 
 fn double(n: Int) -> Int {
   m = n * 2
@@ -196,7 +196,7 @@ func TestDebug_ABreakpointLandsOnTheNextStatement(t *testing.T) {
 	}
 }
 
-const lambdaSrc = `import std/io
+const lambdaSrc = `import std::io
 
 fn main() {
   xs = [1, 2, 3]
@@ -273,7 +273,7 @@ func TestDebug_StepInEntersTheStagesAndTheirCallbacks(t *testing.T) {
 	}
 }
 
-const tailSrc = `import std/io
+const tailSrc = `import std::io
 
 fn count(n: Int, acc: Int) -> Int {
   if n == 0 {
@@ -301,7 +301,7 @@ func TestDebug_ATailCallReplacesItsCaller(t *testing.T) {
 	}
 }
 
-const shadowSrc = `import std/io
+const shadowSrc = `import std::io
 
 fn main() {
   x = 1
@@ -332,7 +332,7 @@ func TestDebug_AShadowedNameShowsTheBindingInForce(t *testing.T) {
 	}
 }
 
-const boxedSrc = `import std/io
+const boxedSrc = `import std::io
 
 interface Show {
   fn show(value: self) -> String
@@ -369,7 +369,7 @@ func TestDebug_ABoxedExistentialShowsItsValue(t *testing.T) {
 	}
 }
 
-const trapSrc = `import std/io
+const trapSrc = `import std::io
 
 fn ratio(a: Int, b: Int) -> Int {
   q = a / b
@@ -450,8 +450,8 @@ func TestDebug_AnErrFromMainStopsBeforeMainEnds(t *testing.T) {
 	}
 }
 
-const taskSrc = `import std/io
-import std/tasks.Task
+const taskSrc = `import std::io
+import std::tasks.Task
 
 fn work(n: Int) -> Int {
   r = n * 2
@@ -490,7 +490,7 @@ func TestDebug_ABreakpointInATask(t *testing.T) {
 	}
 }
 
-const loopSrc = `import std/io
+const loopSrc = `import std::io
 
 fn main() {
   n = Iter.loop(0, fn i ->

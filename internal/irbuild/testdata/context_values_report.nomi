@@ -28,8 +28,8 @@
 // markerValue's zero-sized value lowers perfectly well and would pass every
 // type check on the way in.
 import {
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
 }
 
 type TraceId String

@@ -15,7 +15,7 @@ import (
 // `return` is bare are Unit.
 func TestRun_SetupValuesTestsBind(t *testing.T) {
 	const name = "main_test.nomi"
-	p, err := vmhost.LoadSource(name, `import std/io
+	p, err := vmhost.LoadSource(name, `import std::io
 
 fn flag() -> Bool {
   False

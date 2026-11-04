@@ -1,6 +1,6 @@
 import {
-    std/assertions.AssertionFailure
-    std/testing
+    std::assertions.AssertionFailure
+    std::testing
 }
 
 test "assert and refute accept expected booleans" {

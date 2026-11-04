@@ -47,7 +47,7 @@
 // fixture would hang the suite rather than fail it. Same class as an unbounded
 // range through a consuming terminal, and handled the same way: bounded first, or
 // not at all.
-import std/io
+import std::io
 
 // --- rendering helpers, so every answer is one printed line -----------------
 fn show_ints(xs: List<Int>) -> String {

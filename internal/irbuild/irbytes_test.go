@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRBytes_TourProgram(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
  raw = String.to_bytes("café")
  dbg Bytes.length(raw)
@@ -20,7 +20,7 @@ fn main() {
 }
 
 func TestIRBytes_BoundariesAndImmutableViews(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn echo(data: Bytes) -> Bytes { data }
 fn main() {
  raw = echo(String.to_bytes("café"))
@@ -57,7 +57,7 @@ fn main() { dbg Packet{data: String.to_bytes("a")} return }
 // declined, so did every function naming it, and main blocked on the
 // `handle` it passes to a Go binding as "an ident bound nowhere".
 func TestIRBytes_UserStructFieldsCrossCallsAndCallbacks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Request {
  path: String
  body: Bytes

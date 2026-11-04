@@ -1,8 +1,8 @@
 // A boot whose error is std/process's `Exit` stops the program before `main`
 // and exits with the code, after the cleanup it deferred.
 import {
-    std/io
-    std/process.Exit
+    std::io
+    std::process.Exit
 }
 
 struct App {

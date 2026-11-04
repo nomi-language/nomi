@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // A function with a defaulted parameter is used as a one-parameter function
 // through a lambda or a partial application, which leave the default to the

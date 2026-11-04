@@ -4,8 +4,8 @@
 //# teller's answer.
 
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/tasks.Task
+    std::channels.{Channel, Receiver, Sender}
+    std::tasks.Task
 }
 
 /// Why an operation is refused.

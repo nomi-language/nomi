@@ -13,7 +13,7 @@ import (
 // The tour answers a discard `_` as the editor does: the type it discards,
 // and what it matches where a match may fail.
 func TestAnalyze_DiscardHovers(t *testing.T) {
-	const src = `import std/io
+	const src = `import std::io
 
 enum Coin {
   Penny

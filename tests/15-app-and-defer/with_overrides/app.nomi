@@ -1,6 +1,6 @@
 // The entry whose boot the tests name. `main` shows one override lasting to
 // the end of its block.
-import std/io
+import std::io
 
 pub enum Level {
     Info

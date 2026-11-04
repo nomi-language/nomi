@@ -27,7 +27,7 @@ import (
 // boot).
 var orderProject = map[string]string{
 	"main.nomi": `import {
-    std/io
+    std::io
     shapes.{Shape, Circle}
     report
     settings.Settings

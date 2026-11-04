@@ -13,7 +13,7 @@ func TestIterMaybeTerminalsOverInterfaceElements(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 interface Named {
     fn name(n: self) -> String
@@ -71,7 +71,7 @@ func TestIterMaybeTerminalsOverFunctionElements(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std/io
+	irRunSource(t, `import std::io
 
 struct Foo {
     n: Int

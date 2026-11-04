@@ -347,7 +347,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// last. Pre-cutover, stdlib was fully built before BuildProject ran
 	// so user files always saw populated stdlib scopes; post-cutover
 	// stdlib goes through the same Sweep A/B/C path and a `Context`
-	// symbol resolution in a user file's `import std/context.Context`
+	// symbol resolution in a user file's `import std::context.Context`
 	// would observe an empty std/context FA if Sweep A hadn't reached
 	// std/context yet. Ordering stdlib before user files restores the
 	// invariant.
@@ -658,7 +658,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// filesByKey folds two sources together: `all` (every file in
 	// `proj.Files` + the entry) and `cache` (files loaded on-demand
 	// during the sweeps via resolveImport — notably stdlib files reached
-	// through the auto-prepended `import std/prelude` chain, which
+	// through the auto-prepended `import std::prelude` chain, which
 	// discovery walked PAST because the auto-prepend happens AFTER
 	// DiscoverProject returns). Built here so the project impl index
 	// (below) and downstream consumers (orphan check, etc.) share one
@@ -897,7 +897,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// lives in `cache`; lib.Modules from a parallel std.Load() carries
 	// a DIFFERENT Context instance with no shared pointer identity.
 	// User code's `context: Context` field is resolved via the cache
-	// chain (auto-prepended `import std/context.Context` flows
+	// chain (auto-prepended `import std::context.Context` flows
 	// through resolveImport→cache), so ContextType must match. Without
 	// it the no-boot synthesized `App` and any cross-file
 	// `expected Context, got Context` argument-type comparisons fire
@@ -1443,7 +1443,7 @@ func IsStdlibKey(modKey string) bool {
 // makes ONE file ONE module key regardless of which spelling reached it.
 //
 // Leaving the bare form alone instead is not an option: `std/lists`'s `iter`
-// and an outside `import std/iter` would then be two keys for one file, and
+// and an outside `import std::iter` would then be two keys for one file, and
 // every type it declares would have two declarations. That is the same defect
 // the nested-facade layout produced at the runtime's key derivation, where it
 // cost 26 attached-test failures reading "expected Date, got Date — same name,
@@ -1462,7 +1462,7 @@ func QualifyIntraStdlibImport(importerKey string, modPath []string) []string {
 // when the cache doesn't include `std/context`. Mirror of the
 // `modules`-keyed findContextType but routed through the post-cutover
 // cache so the Context identity matches what user files resolve via
-// their auto-prepended `import std/context.Context` (or via
+// their auto-prepended `import std::context.Context` (or via
 // import-side propagation through other modules).
 func findContextTypeFromCache(cache map[string]*FileAnalysis) Type {
 	ctxFA, ok := cache["std/context"]

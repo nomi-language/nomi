@@ -23,7 +23,7 @@ type typedLiteralProject struct {
 func newTypedLiteralProject() typedLiteralProject {
 	return typedLiteralProject{
 		mainSrc: `import {
-  std/io
+  std::io
   joiner: Joiner
 }
 
@@ -33,7 +33,7 @@ fn main() {
   io.print(msg)
 }
 `,
-		joinerSrc: `import std/literals.{Fragment, Literal}
+		joinerSrc: `import std::literals.{Fragment, Literal}
 
 pub type Joiner
 
@@ -253,7 +253,7 @@ fn main() {
   msg = Joiner"x = ${helper}"
 }
 `
-	joinerSrc := `import std/literals.{Fragment, Literal}
+	joinerSrc := `import std::literals.{Fragment, Literal}
 
 pub type Joiner
 
@@ -311,7 +311,7 @@ fn main() {
   msg = Joiner"sum: ${add(1, 2)}"
 }
 `
-	joinerSrc := `import std/literals.{Fragment, Literal}
+	joinerSrc := `import std::literals.{Fragment, Literal}
 
 pub type Joiner
 

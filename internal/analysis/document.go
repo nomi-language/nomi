@@ -1034,7 +1034,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// Use BuildProjectFromEntry so the entry's FilePath is populated
 	// from docPath. Without this, internal/-access checks
 	// compute the importer mod-rel from an empty FilePath and
-	// falsely reject `import foo/internal/x` from any non-main entry —
+	// falsely reject `import foo::internal::x` from any non-main entry —
 	// a secondary entry like tools/seed.nomi opened in the LSP would
 	// see "outside the parent subtree of foo/internal/" even when the
 	// access is valid.

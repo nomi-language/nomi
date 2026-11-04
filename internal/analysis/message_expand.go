@@ -27,7 +27,7 @@ const messageFormatAlias = "message_format$"
 // no source index.
 var hiddenImportLine = synthSlot(synthOriginPrelude, synthIndexCap-1, synthKindEquatable)
 
-// messageImports are `import std/message as message$` and `import
+// messageImports are `import std::message as message$` and `import
 // std/message_format as message_format$`.
 func messageImports() []ast.Node {
 	l := hiddenImportLine

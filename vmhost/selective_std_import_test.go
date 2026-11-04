@@ -15,12 +15,12 @@ import (
 // through `io.capture`, so the program reads no real stdin.
 func TestSelectiveStdImport_BareCalls(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "note.txt")
-	src := strings.ReplaceAll(`import std/io.{read_line, print, write, inspect}
-import std/fs.{read_text, write_text}
-import std/io.{capture, capture as run_with}
-import std/io.{read_line as next_line, print as say}
-import std/json.{shape_error_root, Json}
-import std/testing.{check, check as verify}
+	src := strings.ReplaceAll(`import std::io.{read_line, print, write, inspect}
+import std::fs.{read_text, write_text}
+import std::io.{capture, capture as run_with}
+import std::io.{read_line as next_line, print as say}
+import std::json.{shape_error_root, Json}
+import std::testing.{check, check as verify}
 
 fn main() {
     lines = capture("one\ntwo", fn -> [read_line(), next_line(), read_line()])
@@ -60,11 +60,11 @@ False
 
 // The same names, bare or aliased, are function values.
 func TestSelectiveStdImport_FunctionValues(t *testing.T) {
-	got, err := runCaptureProgram(t, `import std/io
-import std/fs.{self, read_text}
-import std/io.{print, write, inspect, capture}
-import std/io.{read_line as next_line, print as say}
-import std/json.{shape_error_root, Json}
+	got, err := runCaptureProgram(t, `import std::io
+import std::fs.{self, read_text}
+import std::io.{print, write, inspect, capture}
+import std::io.{read_line as next_line, print as say}
+import std::json.{shape_error_root, Json}
 
 fn main() {
     Iter.each([1, 2], print)

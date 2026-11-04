@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRCaseDiscard_EffectsWithoutResultStorage(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn source() -> Int { io.print("subject") 2 }
 fn main() {
   case source() {
@@ -16,7 +16,7 @@ fn main() {
 }
 
 func TestIRCaseDiscard_NestedGuardedScopes(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   name = "outer"
   case 2 {
@@ -40,7 +40,7 @@ fn main() {
 }
 
 func TestIRCaseDiscard_OperandKeepsResultBeforeSubject(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn source() -> Int { io.print("subject") 2 }
 fn main() {
   _ = case source() {
@@ -53,7 +53,7 @@ fn main() {
 }
 
 func TestIRCaseDiscard_ListPayloadThenClosure(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 fn main() {
   nested = [[1, 2], [3]]
   case List.head(nested) {

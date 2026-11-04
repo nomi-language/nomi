@@ -6,7 +6,7 @@ import "testing"
 // propagates a Maybe of a function and calls its payload. `try` is an
 // ordinary name, for a binding and a function alike.
 func TestQuestion_AfterANameThenCallRuns(t *testing.T) {
-	got := runSourceOutput(t, `import std/io
+	got := runSourceOutput(t, `import std::io
 
 fn apply(handler: Maybe<(Int) -> Int>, x: Int) -> Maybe<Int> {
     Some(handler?(x))

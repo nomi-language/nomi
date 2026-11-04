@@ -22,7 +22,7 @@ pub struct Holder {
 
 // FILE: main.nomi
 import {
-    std/io
+    std::io
     named.{Holder, Named}
 }
 

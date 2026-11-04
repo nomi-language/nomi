@@ -60,7 +60,7 @@ fn main() {
   io.print(seen)
 }
 `, "booted\nbooted\n"},
-		{"a task forces it", "\n  std/tasks.Task", plainBoot, `once seen: String = App.label
+		{"a task forces it", "\n  std::tasks.Task", plainBoot, `once seen: String = App.label
 
 fn main() {
   got = concurrent {
@@ -90,7 +90,7 @@ fn main() {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "main.nomi")
-			if err := os.WriteFile(path, []byte("import {\n  std/io"+tc.imports+"\n}\n"+header+tc.boot+tc.body), 0600); err != nil {
+			if err := os.WriteFile(path, []byte("import {\n  std::io"+tc.imports+"\n}\n"+header+tc.boot+tc.body), 0600); err != nil {
 				t.Fatal(err)
 			}
 			got := vmReference(path)

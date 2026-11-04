@@ -7,7 +7,7 @@ import (
 )
 
 func TestIRExtern_TourRegexLiterals(t *testing.T) {
-	verifyLambdaProgram(t, "import {\n  std/regex.Regex\n}\n\nfn main() -> Result<Unit, String> {\n  digits = Regex`\\d+`\n  prefixed = Regex\"room ${Regex.pattern(digits)}\"?\n  text = \"room 42, floor 7\"\n\n  dbg Regex.pattern(digits)\n  dbg String.contains(text, digits)\n  dbg String.find(text, digits)\n  dbg String.find_all(text, digits)\n  dbg String.contains(text, prefixed)\n\n  Ok(Unit)\n}\n", "dbg line 10: Regex.pattern(digits) = \"\\\\d+\"\ndbg line 11: String.contains(text, digits) = True\ndbg line 12: String.find(text, digits) = Some(\"42\")\ndbg line 13: String.find_all(text, digits) = [\"42\", \"7\"]\ndbg line 14: String.contains(text, prefixed) = True\n")
+	verifyLambdaProgram(t, "import {\n  std::regex.Regex\n}\n\nfn main() -> Result<Unit, String> {\n  digits = Regex`\\d+`\n  prefixed = Regex\"room ${Regex.pattern(digits)}\"?\n  text = \"room 42, floor 7\"\n\n  dbg Regex.pattern(digits)\n  dbg String.contains(text, digits)\n  dbg String.find(text, digits)\n  dbg String.find_all(text, digits)\n  dbg String.contains(text, prefixed)\n\n  Ok(Unit)\n}\n", "dbg line 10: Regex.pattern(digits) = \"\\\\d+\"\ndbg line 11: String.contains(text, digits) = True\ndbg line 12: String.find(text, digits) = Some(\"42\")\ndbg line 13: String.find_all(text, digits) = [\"42\", \"7\"]\ndbg line 14: String.contains(text, prefixed) = True\n")
 }
 
 // A `?` in main leaves main with the Err, which fails the run: the error on
@@ -15,8 +15,8 @@ func TestIRExtern_TourRegexLiterals(t *testing.T) {
 func TestIRExtern_RegexHandlesAndErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import {
-  std/io
-  std/regex.Regex
+  std::io
+  std::regex.Regex
 }
 
 fn words<C>(re: Regex<C>, text: String) -> List<String> {

@@ -15,7 +15,7 @@ import "testing"
 // later element matches, `break True` answers this element and `break False`
 // stops with None.
 func TestIRSignal_FindCallbacks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn odd_but_one(x: Int) -> Bool {
   if x == 1 {
@@ -71,7 +71,7 @@ fn main() {
 // for any and True for all, so a bare `break` answers that; `break v`
 // answers v. The visits show the walk stops at the break.
 func TestIRSignal_AnyAllCallbacks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn passes_but_three(x: Int) -> Bool {
   if x == 3 {
@@ -134,7 +134,7 @@ fn main() {
 // and `break False` emits it and ends. flat_map: the value is the element's
 // expansion, so `break v` emits v's elements and ends.
 func TestIRSignal_DropWhileAndFlatMapCallbacks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn drop_small(x: Int) -> Bool {
   if x == 5 {
@@ -213,7 +213,7 @@ fn main() {
 // stops with the entries so far, and `break v` keeps this entry under v and
 // stops.
 func TestIRSignal_MapTransformCallbacks(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn tens_but_two(v: Int) -> Int {
   if v == 2 {
@@ -265,7 +265,7 @@ fn main() {
 // terminal sees only what the stage emitted before it: without that, the
 // filter below would let 6 through to find.
 func TestIRSignal_BreakReachesTheConsumingTerminal(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 fn main() {
   stopped = [1, 2, 3, 4, 5, 6] |> Iter.filter(fn x -> {

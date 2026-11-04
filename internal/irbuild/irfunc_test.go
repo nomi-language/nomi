@@ -150,7 +150,7 @@ func TestIRFunc_TheShapeAdmitsAndDeclines(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "import std/io\n\n" + tc.body + "\nfn main() {\n  io.print(\"go\")\n}\n"
+			src := "import std::io\n\n" + tc.body + "\nfn main() {\n  io.print(\"go\")\n}\n"
 			var c irFuncRetentionCount
 			restore := c.observe(t, irFromModule)
 			defer restore()
@@ -193,7 +193,7 @@ func TestIRFunc_TheShapeAdmitsAndDeclines(t *testing.T) {
 // instruction reads in a retained corpus-shaped function is defined by an
 // instruction in that same function, and `Func.Def` names it.
 func TestIRFunc_ARetainedFunctionAnswersForItsOwnTemporaries(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 
 fn step(acc: Int) -> Int {
   acc + (acc % 7) + 1

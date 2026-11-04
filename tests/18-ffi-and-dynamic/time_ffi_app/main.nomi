@@ -1,6 +1,6 @@
 import {
-    std/instant.Instant
-    std/io
+    std::instant.Instant
+    std::io
     ffi
 }
 

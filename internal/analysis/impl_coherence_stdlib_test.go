@@ -67,7 +67,7 @@ func TestStdlibHasNoImplCollisions(t *testing.T) {
 //
 // Stdlib coverage is exercised via the prelude-promoted name Int: it
 // impl Display, Debug, Equatable, Comparable, and Hashable in
-// std/int. A trivial entry program that doesn't even import std/int
+// std/int. A trivial entry program that doesn't even import std::int
 // reaches every one of those pairs via the stdlibFAs eager fold in
 // BuildProjectWithCache, so the test asserts the fold is wired.
 func TestProjectImplIndex_PopulatedAfterBuild(t *testing.T) {

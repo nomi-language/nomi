@@ -17,7 +17,7 @@ var checkerFixPrograms = []struct {
 		// function's type parameters: `fn v: T ->` names the T of the signature,
 		// and the elements next_item yields are that T.
 		name: "type parameter only inside an opaque type",
-		src: `import std/io
+		src: `import std::io
 
 fn heads<T>(a: Vector<T>, b: Vector<T>) -> Int {
     case #(Vector.next_item(a), Vector.next_item(b)) {
@@ -43,7 +43,7 @@ fn main() {
 		// struct's field, in the literal and the call form, as they reach
 		// one in a generic enum variant's payload.
 		name: "annotation into a generic struct literal's field lambda",
-		src: `import std/io
+		src: `import std::io
 
 struct Box<T> {
     v: T
@@ -85,7 +85,7 @@ fn main() {
 		// of a file and in an impl block: the nested fn's signature is
 		// built, so the call and the `once` have a type.
 		name: "unannotated once declaring a nested fn",
-		src: `import std/io
+		src: `import std::io
 
 once g = {
     fn h(x: Int) -> Int {
@@ -121,7 +121,7 @@ fn main() {
 		// with the open E as a hole: the Err arm's dispatch on E is
 		// unreachable, as it is for an explicit `Display.to_string(c)`.
 		name: "interpolated result with an open error type",
-		src: `import std/io
+		src: `import std::io
 
 fn main() {
     c = concurrent {

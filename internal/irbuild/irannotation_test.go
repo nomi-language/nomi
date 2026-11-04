@@ -15,7 +15,7 @@ func TestIRAnnotation_CompletePrograms(t *testing.T) {
  dbg add(22)
  Unit
 }`, "dbg line 7: text = \"answer\"\ndbg line 8: flag = True\ndbg line 9: add(22) = 42\n"},
-		{"lists and annotated discards", `import std/io
+		{"lists and annotated discards", `import std::io
 fn main() {
  empty = fn -> { io.print("empty") [] }
  xs: List<Int> = empty()

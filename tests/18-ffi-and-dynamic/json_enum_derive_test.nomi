@@ -1,4 +1,4 @@
-import std/json.{FromJson, Json, ToJson}
+import std::json.{FromJson, Json, ToJson}
 
 struct Circle {
     radius: Float

@@ -10,8 +10,8 @@ func TestLiteralFuncResult_Runs(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	irRunSource(t, `import {
-    std/io
-    std/literals.{Fragment, Literal}
+    std::io
+    std::literals.{Fragment, Literal}
 }
 
 type Adder

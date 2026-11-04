@@ -597,3 +597,15 @@ func structPatternFields(p ast.Node, fields []FieldDef) ([]ast.Node, bool) {
 	}
 	return args, true
 }
+
+// IsUnitPattern reports whether p is the constant pattern `Unit`, which
+// matches the one value of type Unit. The parser reads it as a bare variant
+// pattern; the name is reserved, so it means nothing else.
+func IsUnitPattern(p ast.Node) bool {
+	ep, ok := p.(*ast.EnumPattern)
+	if !ok || ep.Payload != nil || ep.Binding != "" {
+		return false
+	}
+	st, ok := ep.Variant.(*ast.SimpleType)
+	return ok && st.Name == "Unit"
+}

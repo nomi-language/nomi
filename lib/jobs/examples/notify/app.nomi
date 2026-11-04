@@ -6,13 +6,13 @@
 // twice sends once. Deliveries go to a channel in place of Mailgun, and the
 // worker starts at most four a second, as the app's Mailgun limiter did.
 import {
-    std/channels.{Channel, Receiver, Sender}
-    std/duration.Duration
-    std/io
-    std/jobs.{self, Failure, Job, Queue, Rate, Worker}
-    std/json.{FromJson, ToJson}
-    std/sql.{self, Conn, Row, Sql}
-    std/uuid.Uuid
+    std::channels.{Channel, Receiver, Sender}
+    std::duration.Duration
+    std::io
+    std::jobs.{self, Failure, Job, Queue, Rate, Worker}
+    std::json.{FromJson, ToJson}
+    std::sql.{self, Conn, Row, Sql}
+    std::uuid.Uuid
     pgjobs
     postgres
 }

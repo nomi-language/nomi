@@ -15,8 +15,8 @@
 // so a distinct wrapping a struct with a custom impl diverges under a derive
 // too; that is a separate open item and not what this fixture pins.
 import {
-    std/duration.Duration
-    std/io
+    std::duration.Duration
+    std::io
 }
 
 enum Color {

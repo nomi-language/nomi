@@ -1,4 +1,4 @@
-import std/compiler.{self, Diagnostic}
+import std::compiler.{self, Diagnostic}
 
 pub fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
     Iter.any(diagnostics, fn diagnostic -> text in diagnostic.message)

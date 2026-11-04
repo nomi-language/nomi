@@ -39,7 +39,7 @@ func TestIROnceSibling_CycleKeepsForcingLineage(t *testing.T) {
 
 func TestIROnceSibling_AliasesShareOneLazyCell(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
+  std::io
   config as cfg
   config.{tag as label, limit}
   decoy
@@ -58,7 +58,7 @@ fn main() {
   io.print(cfg.tag)
 }
 `, "created\nforcing\nservice\nservice\nservice\n3\n99\nlocal\nrecord\n", map[string]string{
-		"config.nomi": `import std/io
+		"config.nomi": `import std::io
 fn initialize() -> String { io.print("forcing") "service" }
 pub once tag: String = initialize()
 pub once limit = 3

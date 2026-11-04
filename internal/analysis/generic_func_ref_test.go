@@ -11,25 +11,25 @@ import (
 // type its position expects, as a call instantiates it from its arguments.
 func TestGenericFuncRef_InstantiatedAgainstExpectedType(t *testing.T) {
 	cases := map[string]string{
-		"stdlib io.print into Iter.each": `import std/io
+		"stdlib io.print into Iter.each": `import std::io
 fn main() {
   ["x", "y"] |> Iter.each(io.print)
 }`,
-		"user generic into Iter.map": `import std/io
+		"user generic into Iter.map": `import std::io
 fn ident<T>(x: T) -> T {
   x
 }
 fn main() {
   [1, 2] |> Iter.map(ident) |> Iter.each(io.print)
 }`,
-		"bounded generic at a type meeting the bound": `import std/io
+		"bounded generic at a type meeting the bound": `import std::io
 fn show<T>(x: T) -> String where T: Display {
   Display.to_string(x)
 }
 fn main() {
   [1, 2] |> Iter.map(show) |> Iter.each(io.print)
 }`,
-		"annotated binding": `import std/io
+		"annotated binding": `import std::io
 fn ident<T>(x: T) -> T {
   x
 }
@@ -37,7 +37,7 @@ fn main() {
   f: (Int) -> Int = ident
   io.print(f(1))
 }`,
-		"non-generic parameter": `import std/io
+		"non-generic parameter": `import std::io
 fn ident<T>(x: T) -> T {
   x
 }
@@ -47,7 +47,7 @@ fn apply(f: (Int) -> Int, x: Int) -> Int {
 fn main() {
   io.print(apply(ident, 7))
 }`,
-		"generic body passes its own type parameter on": `import std/io
+		"generic body passes its own type parameter on": `import std::io
 fn ident<T>(x: T) -> T {
   x
 }
@@ -99,7 +99,7 @@ fn main() {
 
 // The bound is checked at the instantiation, as a call checks it.
 func TestGenericFuncRef_BoundCheckedAtInstantiation(t *testing.T) {
-	src := `import std/io
+	src := `import std::io
 struct Opaque {
   n: Int
 }

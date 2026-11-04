@@ -95,7 +95,7 @@ test "a bound range" {
   assert Iter.count(r) == 4
 }
 `
-	const native = `import std/io
+	const native = `import std::io
 
 test "two ranges compared" {
   assert 1..4 == 1..5
@@ -134,7 +134,7 @@ test "debug keeps the range syntax" {
 // the VM prints the golden report — the failing
 // cases included, so a row, a "defined as:" block or a line number that
 // differed inside a branch would show.
-const irTestBodyControlSource = `import std/io
+const irTestBodyControlSource = `import std::io
 
 enum Code {
   Num(Int)
@@ -484,7 +484,7 @@ test "fifth, walk-only and failing" {
 // block ends in a block that returns ends the case too, and so does an
 // operand of the subject that leaves, before anything is judged.
 func TestIRTestBody_ReturnArmInAssertionSubject(t *testing.T) {
-	out := irTestBodyVM(t, `import std/io
+	out := irTestBodyVM(t, `import std::io
 
 fn get(ok: Bool) -> Result<String, String> {
   if ok {
@@ -548,8 +548,8 @@ test "a subject's operand that leaves" {
 // returns there, judging nothing, as a binding of the same value does.
 func TestIRTestBody_AssertionOperandLeavesAFunction(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/assertions.AssertionFailure
-  std/io
+  std::assertions.AssertionFailure
+  std::io
 }
 fn f(n: Int) -> Result<Int, AssertionFailure> {
   assert n == {

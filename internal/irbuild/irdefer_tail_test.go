@@ -5,7 +5,7 @@ import "testing"
 // A `defer` that is a block's last statement registers its call, which runs
 // right after it as the block ends, and the block answers Unit.
 func TestIRDefer_ADeferEndingABlockRunsAsTheBlockEnds(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
+	verifyDeferProgram(t, `import std::io
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")
@@ -38,8 +38,8 @@ fn main() {
 // A `defer` written directly in a `concurrent { }` body runs when the body
 // ends, after the tasks it awaited, and on a trap out of the body.
 func TestIRDefer_AConcurrentBodyRunsItsDeferredCalls(t *testing.T) {
-	verifyDeferProgram(t, `import std/io
-import std/tasks.Task
+	verifyDeferProgram(t, `import std::io
+import std::tasks.Task
 
 fn note(label: String) -> Unit {
   io.print("cleanup ${label}")

@@ -1,4 +1,4 @@
-//# SQLite for `std/sql`: `sqlite.open(path)` and `sqlite.memory()` answer a
+//# SQLite for `std::sql`: `sqlite.open(path)` and `sqlite.memory()` answer a
 //# `Conn` to one SQLite database, over the pure-Go `modernc.org/sqlite`, so
 //# a program that uses it builds with no C compiler and cross-compiles to
 //# every target Go's SQLite port supports. A browser build runs on SQLite's
@@ -26,12 +26,12 @@
 //# of the column's scale.
 
 import {
-    std/calendar.{Date, NaiveDateTime, OffsetDateTime, Time}
-    std/duration.Duration
-    std/instant.Instant
-    std/json.Json
-    std/sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
-    std/uuid.Uuid
+    std::calendar.{Date, NaiveDateTime, OffsetDateTime, Time}
+    std::duration.Duration
+    std::instant.Instant
+    std::json.Json
+    std::sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
+    std::uuid.Uuid
 }
 
 gopkg "github.com/nomi-language/nomi/lib/sql/sqlite/goside"

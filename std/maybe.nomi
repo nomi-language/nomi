@@ -12,8 +12,8 @@ import {
 //# `Maybe<T>`: a value that may be absent, `Some(value)` or `None`. Its
 //# owner functions are called `Maybe.map(m, f)` and so on: test it with
 //# `is_some` and `is_none`, transform the value with `map` and `flat_map`,
-//# take it out with `with_default`, and turn it into a `Result` with
-//# `to_result`. `collect` and `values` work over many maybes at once.
+//# unnest a `Maybe<Maybe<T>>` with `flatten`, take the value out with
+//# `with_default`, and turn it into a `Result` with `to_result`. `collect` and `values` work over many maybes at once.
 //#
 //# A `Maybe` is an `Iter` of zero or one elements, so it goes wherever an
 //# `Iter` does. It renders, in `Display` and in `Debug`, as its variant
@@ -112,9 +112,25 @@ impl Maybe<T> {
         }
     }
 
+    /// Removes one level of nesting: `Some(Some(v))` becomes `Some(v)`, and
+    /// both `Some(None)` and `None` become `None`.
+    //! assert Maybe.flatten(Maybe.Some(Maybe.Some(3))) == Maybe.Some(3)
+    //! assert Maybe.flatten(Maybe.Some(Maybe.None)) == Maybe.None
+    //!
+    //! nothing: Maybe<Maybe<Int>> = Maybe.None
+    //! assert Maybe.flatten(nothing) == Maybe.None
+    //! assert Maybe.flatten(Maybe.None) == Maybe.None
+    //
+    pub fn flatten<T>(maybe: Maybe<Maybe<T>>) -> Maybe<T> {
+        case maybe {
+            Some(inner) -> inner
+            None -> Maybe.None
+        }
+    }
+
     /// Returns Some of every value in order when every element is Some, and
     /// otherwise None. It stops consuming the iterator at the first None.
-    //! import std/ranges.Range
+    //! import std::ranges.Range
     //!
     //! assert Maybe.collect([Maybe.Some(1), Maybe.Some(2)]) == Maybe.Some([1, 2])
     //! assert Maybe.collect([Maybe.Some(1), Maybe.None, Maybe.Some(3)]) == Maybe.None

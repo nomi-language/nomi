@@ -640,14 +640,14 @@ func TestRunInputClassifies(t *testing.T) {
 		want      runClass
 		skip      string
 	}{
-		{"ok", "import std/io\n\nfn main() {\n    io.print(1 + 2)\n}\n", runOK, ""},
-		{"a trap", "import std/io\n\nfn half(n: Int) -> Int {\n    10 / n\n}\n\nfn main() {\n    io.print(half(0))\n}\n", runTrap, ""},
+		{"ok", "import std::io\n\nfn main() {\n    io.print(1 + 2)\n}\n", runOK, ""},
+		{"a trap", "import std::io\n\nfn half(n: Int) -> Int {\n    10 / n\n}\n\nfn main() {\n    io.print(half(0))\n}\n", runTrap, ""},
 		{"a failed test case", "test \"t\" {\n    assert 1 == 2\n}\n", runTrap, ""},
-		{"recursion past the budget", "import std/io\n\nfn spin(n: Int) -> Int {\n    spin(n + 1)\n}\n\nfn main() {\n    io.print(spin(0))\n}\n", runTooLong, "it may loop"},
-		{"pure std functions", "import std/io\n\nfn main() {\n    io.print(String.pad_start(\"7\", 3, \"0\"))\n    io.inspect(String.words(\"a b\"))\n    io.inspect(String.lines(\"a\\nb\"))\n}\n", runOK, ""},
-		{"a file read", "import {\n    std/fs\n    std/io\n}\n\nfn main() {\n    io.inspect(fs.read_text(\"x\"))\n}\n", runSkipped, "it reaches outside the machine"},
+		{"recursion past the budget", "import std::io\n\nfn spin(n: Int) -> Int {\n    spin(n + 1)\n}\n\nfn main() {\n    io.print(spin(0))\n}\n", runTooLong, "it may loop"},
+		{"pure std functions", "import std::io\n\nfn main() {\n    io.print(String.pad_start(\"7\", 3, \"0\"))\n    io.inspect(String.words(\"a b\"))\n    io.inspect(String.lines(\"a\\nb\"))\n}\n", runOK, ""},
+		{"a file read", "import {\n    std::fs\n    std::io\n}\n\nfn main() {\n    io.inspect(fs.read_text(\"x\"))\n}\n", runSkipped, "it reaches outside the machine"},
 		{"a rejection", "fn main() {\n    x = \n}\n", runSkipped, "the front end rejects it"},
-		{"a planted compile panic", "import std/io\n\nfn " + plantedTarget + "() -> Int {\n    1\n}\n\nfn main() {\n    io.print(" + plantedTarget + "())\n}\n", runCrash, ""},
+		{"a planted compile panic", "import std::io\n\nfn " + plantedTarget + "() -> Int {\n    1\n}\n\nfn main() {\n    io.print(" + plantedTarget + "())\n}\n", runCrash, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

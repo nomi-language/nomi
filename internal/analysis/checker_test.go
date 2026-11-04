@@ -4136,13 +4136,13 @@ func TestNaming_TypeParamOnInterface_Rejected(t *testing.T) {
 // --- Imports ---
 
 func TestNaming_ImportSegmentMixed_Rejected(t *testing.T) {
-	src := `import std/bad_Mix: BadMix`
+	src := `import std::bad_Mix: BadMix`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
 }
 
 func TestNaming_ImportTypeNameUnderscore_Rejected(t *testing.T) {
-	src := `import std/maybe.{Some_Thing}`
+	src := `import std::maybe.{Some_Thing}`
 	_, errs := checkSource(src)
 	expectError(t, errs, "PascalCase")
 }
@@ -4210,7 +4210,7 @@ func TestNaming_ModuleImportAliasPascalCase_Rejected(t *testing.T) {
 
 func TestNaming_ImportBlockFunctionAliasPascalCase_Rejected(t *testing.T) {
 	src := `import {
-  parsers/date.parse as Parse
+  parsers::date.parse as Parse
 }`
 	_, errs := checkSourceWithModules(t, src, map[string]string{
 		"parsers/date": `pub fn parse(_text: String) -> Int { 0 }`,

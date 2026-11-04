@@ -418,7 +418,7 @@ func TestTryBoundary_AssertionInAConcurrentBlockNeedsAResult(t *testing.T) {
 // A block producing Result<_, AssertionFailure> holds its assertions; one
 // producing another error type is the try boundary's own mismatch.
 func TestTryBoundary_AssertionInAResultConcurrentBlock(t *testing.T) {
-	ok := `import std/assertions.{AssertionFailure}
+	ok := `import std::assertions.{AssertionFailure}
 
 fn demo() -> Result<Int, AssertionFailure> {
   concurrent {

@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 // note prints as a side effect and returns its input, so a line's ORDER is
 // observable where its value alone would not be.

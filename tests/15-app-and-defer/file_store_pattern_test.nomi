@@ -4,9 +4,9 @@
 //
 // The test writes an empty file at the start so re-runs are deterministic.
 import {
-    std/fs
-    std/instant.Instant
-    std/io
+    std::fs
+    std::instant.Instant
+    std::io
 }
 
 once test_path: String = "${fs.temp_dir()}/nomi-file-store-pattern.tsv"

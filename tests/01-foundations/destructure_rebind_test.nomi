@@ -1,4 +1,4 @@
-import std/calendar.{self, Days}
+import std::calendar.{self, Days}
 
 type Name String
 

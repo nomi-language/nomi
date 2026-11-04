@@ -92,7 +92,7 @@ func (r *completionRequest) autoImportCandidates(types, values bool) []candidate
 			out = append(out, candidate{
 				label:      src.name,
 				kind:       protocol.CompletionItemKindModule,
-				detail:     "import " + src.path,
+				detail:     "import " + strings.ReplaceAll(src.path, "/", ast.PathSeparator),
 				locality:   3,
 				importFrom: &analysis.MissingImport{ModulePath: src.path},
 			})
@@ -194,7 +194,8 @@ func declIsType(k analysis.SymbolKind) bool {
 	return false
 }
 
-// importedPath is the module path a file object's import statement names.
+// importedPath is the module key (`std/io`) a file object's import
+// statement names.
 func importedPath(sym *analysis.Symbol) string {
 	stmt, ok := sym.Node.(*ast.ImportStmt)
 	if !ok {

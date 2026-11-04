@@ -20,7 +20,7 @@
 // false. See `interface function with more than one self-typed parameter`
 // in impl.go.
 import {
-    std/io
+    std::io
     shapes.{theirs, theirs_ordered}
 }
 

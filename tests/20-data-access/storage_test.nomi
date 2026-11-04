@@ -1,14 +1,14 @@
 import {
-    std/duration.Duration
-    std/fs
-    std/fs_testing.{self, Sandbox}
-    std/http.{self, Headers, Method, Request, Response, Status}
-    std/http_testing
-    std/instant.Instant
-    std/storage.{self, Store}
-    std/storage_testing.{self, Memory}
-    std/url.Url
-    std/uuid.Uuid
+    std::duration.Duration
+    std::fs
+    std::fs_testing.{self, Sandbox}
+    std::http.{self, Headers, Method, Request, Response, Route, Router, Status}
+    std::http_testing
+    std::instant.Instant
+    std::storage.{self, Store}
+    std::storage_testing.{self, Memory}
+    std::url.Url
+    std::uuid.Uuid
 }
 
 // A store under a directory of its own, so each conformance rule starts
@@ -153,4 +153,45 @@ test "the handler maps store errors to statuses" {
         |> Iter.to_list()
 
     assert statuses == [Status.forbidden, Status.service_unavailable, Status.internal_server_error]
+}
+
+test "the local store writes the characters a file name cannot hold as escapes" {
+    ran = fs_testing.run(Sandbox{}, fn -> {
+        store = storage.local("files")
+
+        _ =
+            ["a:b*?.txt", "100%/x(1) é.jpg", "con.txt", "end. ", "Noah_-_3010(1).jpg"]
+            |> Iter.map(fn key -> Store.put(store, key, String.to_bytes(key), "text/plain"))
+            |> Result.collect()?
+
+        Store.get(store, "a:b*?.txt") |> Result.map(fn object -> object.data)
+    })
+
+    assert ran.value == Ok(String.to_bytes("a:b*?.txt"))
+    assert fs_testing.text(ran, "/work/files/a%3Ab%2A%3F.txt") == Some("a:b*?.txt")
+    assert fs_testing.text(ran, "/work/files/100%25/x(1) é.jpg") == Some("100%/x(1) é.jpg")
+    assert fs_testing.text(ran, "/work/files/%63on.txt") == Some("con.txt")
+    assert fs_testing.text(ran, "/work/files/end.%20") == Some("end. ")
+    assert fs_testing.text(ran, "/work/files/Noah_-_3010(1).jpg") == Some("Noah_-_3010(1).jpg")
+
+    assert fs_testing.text(ran, "/work/files/.nomi-storage/types/a%3Ab%2A%3F.txt")
+        == Some("text/plain")
+}
+
+test "a key's URL routes back to its object" {
+    store = Memory.new(public_base: Url`http://app.test/files/`)
+    router = Router.new([#(Route`GET /files/{key...}`, storage.handler(store))])!
+    keys = ["a(1) b.jpg", "50%25/#x?y.txt", "café/日本.png"]
+
+    served =
+        keys
+        |> Iter.map(fn key -> {
+            _ = Store.put(store, key, String.to_bytes(key), "text/plain")
+            u = Store.url(store, key)!
+            response = Router.serve(router, Request{method: Method.Get, url: u})
+            #(u.path, Response.text(response))
+        })
+        |> Iter.to_list()
+
+    assert served == keys |> Iter.map(fn key -> #("/files/${key}", Ok(key))) |> Iter.to_list()
 }

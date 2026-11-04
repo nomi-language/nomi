@@ -195,8 +195,8 @@ func TestGenericOperatorImpl_NoMapSubtract(t *testing.T) {
 // `Instant - Duration` is an Instant, `Instant - Instant` a Duration. The
 // checker picks the impl by the right operand, so each result type is the one
 // that impl names.
-const instantSubtractImports = `import std/duration.Duration
-import std/instant.Instant
+const instantSubtractImports = `import std::duration.Duration
+import std::instant.Instant
 `
 
 func TestInstantSubtract_SelectsByRightOperand(t *testing.T) {

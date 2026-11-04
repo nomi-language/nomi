@@ -23,7 +23,7 @@ partial_locales = ["de"]
 const bookSource = `.input {$count :integer} .match $count one {{book}} * {{books}}`
 const laptopSource = `.input {$count :integer} .match $count one {{laptop}} * {{laptops}}`
 
-const nounShop = "import std/message.Noun\n\n" +
+const nounShop = "import std::message.Noun\n\n" +
 	"pub noun book `" + bookSource + "`\n\n" +
 	"pub noun laptop `" + laptopSource + "`\n\n" +
 	"pub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\n" +
@@ -53,7 +53,7 @@ func nounFiles() map[string]string {
 	return map[string]string{
 		"nomi.toml": nounManifest,
 		"shop.nomi": nounShop,
-		"main.nomi": "import {\n    std/io\n    std/locale.Locale\n    std/message.Message\n    shop\n}\n\nfn main() {\n    io.print(Message.format(shop.has_shipped(shop.book), Locale`pl`))\n}\n",
+		"main.nomi": "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    shop\n}\n\nfn main() {\n    io.print(Message.format(shop.has_shipped(shop.book), Locale`pl`))\n}\n",
 		"locales/pl/shop.toml": nounEntry("book", bookSource, "feminine", "nominative", ksiazkaNom, "genitive", ksiazkaGen) +
 			nounEntry("laptop", laptopSource, "inanimate", "nominative", laptopNom, "genitive", laptopGen) +
 			entry("has_shipped", "Your {$product :nomi:noun} has shipped.", shippedPl) +
@@ -186,7 +186,7 @@ func TestNouns_AGenderedSourceLocaleIsRefused(t *testing.T) {
 	files := map[string]string{
 		"nomi.toml": strings.Replace(nounManifest, `source_locale = "en"`, `source_locale = "pl"`, 1),
 		"shop.nomi": "pub noun book `książka`\n",
-		"main.nomi": "import {\n    std/io\n    std/locale.Locale\n    shop\n}\n\nfn main() {\n    io.print(Localize.localize(shop.book, Locale`pl`))\n}\n",
+		"main.nomi": "import {\n    std::io\n    std::locale.Locale\n    shop\n}\n\nfn main() {\n    io.print(Localize.localize(shop.book, Locale`pl`))\n}\n",
 	}
 	files["nomi.toml"] = strings.Replace(files["nomi.toml"], `locales = ["en", "pl"]`, `locales = ["pl"]`, 1)
 	ds := checkShop(t, files)

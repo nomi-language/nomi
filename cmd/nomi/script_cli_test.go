@@ -10,7 +10,7 @@ import (
 )
 
 const shebangScript = `#!/usr/bin/env nomi
-import std/io
+import std::io
 
 struct App {
     context: Context
@@ -90,7 +90,7 @@ func TestScriptMode_ExtensionlessScript(t *testing.T) {
 	}
 	bin := t.TempDir()
 	script := filepath.Join(bin, "hi")
-	mustWrite(t, script, strings.Replace(shebangScript, "import std/io\n", "import std/io\nimport greet\n", 1)+
+	mustWrite(t, script, strings.Replace(shebangScript, "import std::io\n", "import std::io\nimport greet\n", 1)+
 		"\ntest \"greets\" {\n    assert greet.hello() == \"hello\"\n}\n")
 	mustWrite(t, filepath.Join(bin, "greet.nomi"), "pub fn hello() -> String {\n    \"hello\"\n}\n")
 	if err := os.Chmod(script, 0o755); err != nil {
@@ -159,7 +159,7 @@ pub fn loud(s: String) -> String {
 `)
 	script := filepath.Join(bin, "up")
 	mustWrite(t, script, `#!/usr/bin/env nomi
-import std/io
+import std::io
 import loud
 
 gopkg "upscript/shout" as shout
@@ -205,7 +205,7 @@ func TestScriptMode_GoBindingFromAFileSharingItsModuleName(t *testing.T) {
 		t.Skip("integration; builds FFI wrappers; -short")
 	}
 	src := `#!/usr/bin/env nomi
-import std/io
+import std::io
 
 gopkg "hiproj/shout" as shout
 
@@ -268,7 +268,7 @@ func TestScriptMode_ExtensionlessScriptIsRootedAtItsDirectory(t *testing.T) {
 	mod := t.TempDir()
 	mustWrite(t, filepath.Join(mod, "nomi.toml"), "[module]\nname = \"m\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(mod, "main.nomi"), "fn main() {}\n")
-	body := "#!/usr/bin/env nomi\nimport std/io\n\nfn main() {\n    io.print(\"deploy\")\n}\n"
+	body := "#!/usr/bin/env nomi\nimport std::io\n\nfn main() {\n    io.print(\"deploy\")\n}\n"
 	mustWrite(t, filepath.Join(mod, "scripts", "deploy"), body)
 	mustWrite(t, filepath.Join(mod, "scripts", "deploy2.nomi"), body)
 
@@ -298,7 +298,7 @@ func TestScriptMode_Precedence(t *testing.T) {
 	}
 
 	bad := filepath.Join(dir, "bad.nomi")
-	mustWrite(t, bad, "#!/usr/bin/env nomi\nimport std/io\n\nfn main() {\n    io.print(1 + \"x\")\n}\n")
+	mustWrite(t, bad, "#!/usr/bin/env nomi\nimport std::io\n\nfn main() {\n    io.print(1 + \"x\")\n}\n")
 	out, err = exec.Command(nomiBin, bad).CombinedOutput()
 	if err == nil || !strings.Contains(string(out), bad+":5:") {
 		t.Errorf("nomi bad.nomi: want a diagnostic at line 5, got %v:\n%s", err, out)

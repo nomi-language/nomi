@@ -40,7 +40,7 @@ pub fn wrap_of(t: Tag<Int>) -> Wrap<Int> {
 }
 `,
 		"main.nomi": `import {
-    std/io
+    std::io
     a.{Wrap, tag_of}
     b.{Tag, wrap_of}
 }

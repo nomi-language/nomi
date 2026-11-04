@@ -408,6 +408,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"strings.String.trim":                 unary(strs...),
 		"strings.String.hash":                 unary(strs...),
 		"strings.String.to_int":               unary(strs...),
+		"strings.String.to_float":             unary(append(strs, hStr("19.99"), hStr("-2.5e3"), hStr(".5"), hStr("5."), hStr("1e400"), hStr("1e-400"), hStr("1_0.5"), hStr("NaN"), hStr("Inf"), hStr("1,5"))...),
 		"strings.String.length":               unary(strs...),
 		"strings.String.reverse":              unary(strs...),
 		"strings.String.to_codepoints":        unary(strs...),

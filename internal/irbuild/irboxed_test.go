@@ -15,7 +15,7 @@ import (
 // failed assertion's `values:` rows.
 func TestIRBoxedExistential_RendersAsTheValue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "boxed_test.nomi")
-	src := `import std/io
+	src := `import std::io
 
 interface Show {
   fn show(value: self) -> String
@@ -273,7 +273,7 @@ fn main() {
 // element through the enum's impl, as the interpolation of the container
 // does, and not through the impl of the struct an element embeds.
 func TestIRBoxedExistential_DisplayOfAContainerOfAnEmbedsEnum(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Circle {
   r: Int
 }
@@ -445,7 +445,7 @@ fn main() {
 // does: the box names std's impl instantiated at the container's kind, an
 // `embeds` enum's elements through the enum's own impl.
 func TestIRBoxedExistential_DisplayOfAStdContainerWithItsOwnImpl(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Circle {
   r: Int
 }
@@ -488,7 +488,7 @@ fn main() {
 // enum's impl and not the struct an element embeds: a List, a Set and a
 // lazy Iter.
 func TestIRBoxedExistential_EmbedsEnumSourceAsIterOfDisplay(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 struct Circle {
   r: Int
 }
@@ -525,7 +525,7 @@ fn main() {
 // recorded under that name first. A Circle held as itself renders through
 // Circle's impl.
 func TestIRBoxedExistential_DebugOfEmbedsEnumWithItsOwnDebug(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
+	verifyLambdaProgram(t, `import std::io
 
 interface Says {
     fn says(s: self) -> String

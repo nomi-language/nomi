@@ -90,13 +90,13 @@ func TestAssertionSubjectSetsAgreeWithTheChecker(t *testing.T) {
 	sources := map[string]string{
 		"Maybe":    "test \"t\" {\n  x: Maybe<Int> = Some(1)\n  assert x\n}\n",
 		"Result":   "test \"t\" {\n  x: Result<Int, String> = Ok(1)\n  assert x\n}\n",
-		"Fragment": "import {\n  std/literals.Fragment\n}\n\ntest \"t\" {\n  x: Fragment<Int> = Fragment.Dynamic(1)\n  assert x\n}\n",
+		"Fragment": "import {\n  std::literals.Fragment\n}\n\ntest \"t\" {\n  x: Fragment<Int> = Fragment.Dynamic(1)\n  assert x\n}\n",
 		// `Outcome` is NOT an assertion subject, and this row is what holds
 		// that against the CHECKER rather than against the spec's own flag.
 		// Reached through its own constructor spelling for Fragment's reason:
 		// the program must not depend on the enum being in the prelude, and
 		// `Outcome` is an ordinary import.
-		"Outcome": "import {\n  std/tasks.Outcome\n}\n\ntest \"t\" {\n  x: Outcome<Int> = Outcome.Completed(1)\n  assert x\n}\n",
+		"Outcome": "import {\n  std::tasks.Outcome\n}\n\ntest \"t\" {\n  x: Outcome<Int> = Outcome.Completed(1)\n  assert x\n}\n",
 	}
 	checked := 0
 	for i := range preludeSpecs {

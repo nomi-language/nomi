@@ -18,7 +18,7 @@ import (
 	"github.com/nomi-language/nomi/vmrunner"
 )
 
-const loadCounter = `import std/io
+const loadCounter = `import std::io
 
 once greeting = make_greeting()
 
@@ -36,7 +36,7 @@ export fn greet(name: String) -> String {
 }
 `
 
-const loadWords = `import std/io
+const loadWords = `import std::io
 
 fn main() {
     io.print("words main ran")

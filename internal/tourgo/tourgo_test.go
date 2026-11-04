@@ -122,7 +122,7 @@ func TestHostsAnswerAnEditedBlock(t *testing.T) {
 	}
 	// A binding without a struct moves freely: escape_query alone in the
 	// entry, beside a main that calls it.
-	escape := "import std/io\n\ngopkg \"urltools\"\n\nfn escape(value: String) -> String go urltools.EscapeQuery\n\n" +
+	escape := "import std::io\n\ngopkg \"urltools\"\n\nfn escape(value: String) -> String go urltools.EscapeQuery\n\n" +
 		"fn main() {\n    io.print(escape(\"a b\"))\n}\n"
 	if out, err := run(t, escape); err != nil || out != "a+b\n" {
 		t.Fatalf("a binding moved into the entry: %q, %v", out, err)

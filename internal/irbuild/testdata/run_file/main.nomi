@@ -45,8 +45,8 @@
 // which is neither Some nor None and matches no `case` arm, so THAT default is
 // load-bearing against a wrong answer and its fixture can see it.
 import {
-    std/compiler.{self, RunFile}
-    std/io
+    std::compiler.{self, RunFile}
+    std::io
 }
 
 fn out(r: RunFile) -> String {

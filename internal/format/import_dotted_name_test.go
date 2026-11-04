@@ -10,7 +10,7 @@ func TestFormat_ImportSingleDottedNameKeepsBraces(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{"import A.{A.A}\n", "import A.{A.A}\n"},
 		{"import shapes.{Probe.Reading}\n", "import shapes.{Probe.Reading}\n"},
-		{"import std/maybe.Maybe.{Some, None}\n", "import std/maybe.Maybe.{None, Some}\n"},
+		{"import std::maybe.Maybe.{Some, None}\n", "import std::maybe.Maybe.{None, Some}\n"},
 		{"import shapes.{Circle}\n", "import shapes.Circle\n"},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

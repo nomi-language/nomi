@@ -42,7 +42,7 @@ func BoxLabel(box *Box) string {
 	"bin/helper.nomi": "pub fn answer() -> Int {\n  42\n}\n",
 	"bin/hi": `#!/usr/bin/env nomi
 import {
-  std/io
+  std::io
   helper
 }
 

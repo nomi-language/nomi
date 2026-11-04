@@ -39,8 +39,8 @@ func TestStdModuleQualified_TypesResolveByDeclaration(t *testing.T) {
 // to an enum's variant (`%json.Json.Obj{...}`, `json.Json.Arr[...]`).
 func TestStdModuleQualified_LiteralPrefixes(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/io
-  std/json
+  std::io
+  std::json
 }
 fn main() {
   e = json.Json.ShapeError{path: ["a"], expected: "Int", got: "missing"}
@@ -56,8 +56,8 @@ fn main() {
 // value is instantiated at the type its position expects.
 func TestStdModuleQualified_InterfaceCalls(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/display
-  std/io
+  std::display
+  std::io
 }
 struct Point {
   x: Int
@@ -90,11 +90,11 @@ fn main() {
 // the function as a value is instantiated at the type its position expects.
 func TestStdModuleQualified_InterfaceBesideALocalTypeOfItsName(t *testing.T) {
 	verifyLambdaProgram(t, `import {
-  std/calendar
-  std/calendar.Date
-  std/io
-  std/json
-  std/json.Json
+  std::calendar
+  std::calendar.Date
+  std::io
+  std::json
+  std::json.Json
   stamp
 }
 struct DateParts {
@@ -144,8 +144,8 @@ fn main() {
   io.print(Int.to_string(ToJson{x: 6}.x + FromJson{x: 4}.x))
 }`, "2024\n7\n1999\n2024\n8\n5\n2024\n{\"y\":3}\n4\n9\n10\n", map[string]string{
 		"stamp.nomi": `import {
-  std/calendar
-  std/json.ToJson
+  std::calendar
+  std::json.ToJson
 }
 pub struct Stamp {
   y: Int

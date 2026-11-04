@@ -16,7 +16,7 @@
 // has its own `impl Display`, so a route that resolved by NAME rather than by
 // declaration would print one of these two lines twice.
 import {
-    std/io
+    std::io
     things.{self, Loud, Soft, Tagger}
 }
 

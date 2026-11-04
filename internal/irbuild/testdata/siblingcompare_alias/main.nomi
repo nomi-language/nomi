@@ -5,7 +5,7 @@
 // TestSiblingCompare_AnAliasedTypeImportOrdersARange runs it. The range rows
 // are the ones siblingCompareAt answers.
 import {
-    std/io
+    std::io
     widget.{Gadget as Doodad, Meters as Span, Rank as Tier}
 }
 

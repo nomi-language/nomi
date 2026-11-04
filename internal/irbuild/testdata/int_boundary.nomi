@@ -1,4 +1,4 @@
-import std/io
+import std::io
 
 /// An Int crosses the 64-bit boundary without noticing it: the VM holds a
 /// value that fits int64 in a word and a larger one beside it, and every

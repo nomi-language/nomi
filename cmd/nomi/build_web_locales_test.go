@@ -30,9 +30,9 @@ var localesProject = map[string]string{
 	"locales/pt/text.toml": "[items]\nsource = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\n* {{{$count} items}}\n'''\n" +
 		"text = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\nmany {{{$count} de itens}}\n* {{{$count} itens}}\n'''\n",
 	"main.nomi": `import {
-    std/io
-    std/locale.Locale
-    std/message.Message
+    std::io
+    std::locale.Locale
+    std::message.Message
     text
 }
 

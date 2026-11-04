@@ -24,7 +24,7 @@
 //   - AN EMPTY PATCH is the original, not a zero value.
 //   - A DEEPER-THAN-ONE nest, so the recursion is exercised past the base case
 //     that a single level would also satisfy.
-import std/io
+import std::io
 
 struct Address {
     city: String

@@ -7,7 +7,6 @@ scope: source.nomi
 variables:
   ident: '[a-z_][a-zA-Z0-9_]*'
   type_ident: '[A-Z][a-zA-Z0-9_]*'
-  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with'
 
 contexts:
   main:
@@ -103,11 +102,21 @@ contexts:
       captures:
         2: comment.line.prompt.nomi
         3: comment.line.prompt.nomi
-    # Keyword-shaped import path segments are filenames, not language syntax:
-    # `std/structs.Struct` should color `structs` like a path segment while the
-    # `as` after the path still colors as a keyword.
-    - match: '\b({{import_path_keyword}})\b(?=/)|(?<=/)\b({{import_path_keyword}})\b'
-      scope: variable.other.nomi
+    # `internal` as a module path segment — the packaging convention for
+    # sub-tree access barriers (`app::internal::db`). Scope chosen for
+    # visual distinctness in common bat themes; semantically it's
+    # access-scope metadata, not a namespace name.
+    - match: '\binternal(?=::)|(?<=::)internal\b'
+      scope: entity.other.attribute-name.nomi
+    # A module path's segments: an import's (`std::io`, `..::helpers`) and a
+    # file named by its full path (`db::posts.find(1)`,
+    # `views::admin::users.UserDetail`). A keyword-shaped segment
+    # (`std::defer`) is a file name too, while the `as` after the path still
+    # colors as a keyword.
+    - match: '(?:\b{{ident}}|\.\.)(?=::)|(?<=::){{ident}}'
+      scope: entity.name.namespace.nomi
+    - match: '::'
+      scope: punctuation.separator.namespace.nomi
     - match: '\bhost\b(?=\s+(fn|type)\b)'
       scope: keyword.declaration.nomi
     # A keyword declaration Nomi builds in (`message cart_items(...)`,
@@ -152,14 +161,6 @@ contexts:
     - match: '^(group)\b(?=[ \t]*["{])'
       captures:
         1: keyword.declaration.nomi
-    # `internal` path segment in imports — the packaging convention
-    # for sub-tree access barriers. Matches `internal` only when
-    # followed by `/`, so bare `internal` identifiers (rare; not a
-    # reserved word in Nomi) aren't affected. Scope chosen for
-    # visual distinctness in common bat themes; semantically it's
-    # access-scope metadata, not a namespace name.
-    - match: '\binternal(?=/)'
-      scope: entity.other.attribute-name.nomi
     - match: '\b(if|else|case|when|break|continue|return|concurrent|then|tap|assert|refute|dbg|todo|unreachable)\b'
       scope: keyword.control.nomi
     # A postfix `!`, written right after an operand (`Map.get(m, k)!`), can
@@ -177,9 +178,9 @@ contexts:
 
   operators:
     # A map or set literal starts with `%` written right before its bracket
-    # or its type name: `%{`, `%[`, `%Kvs{`, `%.Obj{`, `%geo.Tags[`. A `%`
-    # with a space after it is the remainder operator.
-    - match: '%(?=[\{\[.A-Z]|{{ident}}\.[A-Z])'
+    # or its type name: `%{`, `%[`, `%Kvs{`, `%.Obj{`, `%geo.Tags[`,
+    # `%db::geo.Tags[`. A `%` with a space after it is the remainder operator.
+    - match: '%(?=[\{\[.A-Z]|{{ident}}(?:::{{ident}})*\.[A-Z])'
       scope: punctuation.section.nomi
     # The bitwise operators, three characters each: `&&&`, `|||`, `^^^`,
     # `~~~`, `<<<`, `>>>`.
@@ -221,7 +222,7 @@ contexts:
     # `#(`, `#[`, or a named vector with its type right after it,
     # `#Path[`, `#.Items[`. A named struct or tuple has no `#`:
     # `Point{x: 1}`, `Pair(1, "x")`.
-    - match: '#(?=[\{(\[.A-Z]|{{ident}}\.[A-Z])'
+    - match: '#(?=[\{(\[.A-Z]|{{ident}}(?:::{{ident}})*\.[A-Z])'
       scope: punctuation.section.nomi
     - match: '[,.:;]'
       scope: punctuation.separator.nomi

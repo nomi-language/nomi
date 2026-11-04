@@ -5,8 +5,8 @@
 // a comma and a value. With `--check` it writes nothing and fails when a
 // file is not what it would write.
 import {
-    std/fs
-    std/io
+    std::fs
+    std::io
     csvdata
 }
 

@@ -18,42 +18,42 @@ func TestFileQualifiedTypeOwnedMemberIsRejected(t *testing.T) {
 	}{
 		{
 			name: "inherent function",
-			src:  "import std/duration\n\nfn main() {\n  d = duration.seconds(1)\n}\n",
+			src:  "import std::duration\n\nfn main() {\n  d = duration.seconds(1)\n}\n",
 			want: "file 'duration' has no member 'seconds'\nhelp: it belongs to Duration, so call it as Duration.seconds(...)",
 		},
 		{
 			name: "inherent function on a prelude type",
-			src:  "import std/strings\n\nfn main() {\n  s = strings.trim(\" a \")\n}\n",
+			src:  "import std::strings\n\nfn main() {\n  s = strings.trim(\" a \")\n}\n",
 			want: "file 'strings' has no member 'trim'\nhelp: it belongs to String, so call it as String.trim(...)",
 		},
 		{
 			name: "piped inherent function",
-			src:  "import std/strings\n\nfn main() {\n  s = \" a \" |> strings.trim()\n}\n",
+			src:  "import std::strings\n\nfn main() {\n  s = \" a \" |> strings.trim()\n}\n",
 			want: "file 'strings' has no member 'trim'\nhelp: it belongs to String, so call it as String.trim(...)",
 		},
 		{
 			name: "inherent function as a value",
-			src:  "import std/duration\n\nfn main() {\n  f = duration.seconds\n}\n",
+			src:  "import std::duration\n\nfn main() {\n  f = duration.seconds\n}\n",
 			want: "file 'duration' has no member 'seconds'\nhelp: it belongs to Duration, so call it as Duration.seconds(...)",
 		},
 		{
 			name: "interface implementation function",
-			src:  "import std/int\n\nfn main() {\n  s = int.to_string(42)\n}\n",
+			src:  "import std::int\n\nfn main() {\n  s = int.to_string(42)\n}\n",
 			want: "file 'int' has no member 'to_string'\nhelp: it implements Display for Int, so call it as Int.to_string(...) or Display.to_string(...)",
 		},
 		{
 			name: "type once",
-			src:  "import std/float\n\nfn main() {\n  n = float.pi\n}\n",
+			src:  "import std::float\n\nfn main() {\n  n = float.pi\n}\n",
 			want: "file 'float' has no member 'pi'\nhelp: it belongs to Float, so read it as Float.pi",
 		},
 		{
 			name: "owner function on an interface",
-			src:  "import std/iter\n\nfn main() {\n  n = iter.count([1, 2])\n}\n",
+			src:  "import std::iter\n\nfn main() {\n  n = iter.count([1, 2])\n}\n",
 			want: "file 'iter' has no member 'count'\nhelp: it belongs to Iter, so call it as Iter.count(...)",
 		},
 		{
 			name: "name nothing declares",
-			src:  "import std/io\n\nfn main() {\n  io.bogus(1)\n}\n",
+			src:  "import std::io\n\nfn main() {\n  io.bogus(1)\n}\n",
 			want: "file 'io' has no member 'bogus'",
 		},
 	}
@@ -81,8 +81,8 @@ func TestFileQualifiedTypeOwnedMemberIsRejected(t *testing.T) {
 // The owner spellings the diagnostic recommends check clean, and so does an
 // ordinary root-level file function.
 func TestOwnerQualifiedTypeOwnedMemberIsAccepted(t *testing.T) {
-	src := `import std/io
-import std/duration.Duration
+	src := `import std::io
+import std::duration.Duration
 
 fn main() {
   d = Duration.seconds(1)
