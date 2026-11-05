@@ -1141,6 +1141,9 @@ func (cp *compiler) term(b *ir.Block) {
 // entry module, compiled as a call would compile it, for a test or a
 // diagnostic that reads what the compiler produced.
 func (m *Machine) Disassemble(name string) (string, error) {
+	if m.mod == nil {
+		return "", fmt.Errorf("vm: %s is not a function this module retained: the machine has no entry module", name)
+	}
 	var found *ir.Func
 	for _, f := range m.mod.Funcs() {
 		if f.Name() == name {

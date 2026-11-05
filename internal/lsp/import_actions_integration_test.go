@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -69,7 +68,7 @@ func TestImportActionsFixture_CleanAsCommitted(t *testing.T) {
 
 	tokens := lexer.Lex(content)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	errs := append([]analysis.TypeError(nil), fa.TypeErrors...)

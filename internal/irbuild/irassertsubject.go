@@ -40,7 +40,7 @@ func (bl *irScalarBuilder) fnAssertion(line, col int) bool {
 		return true
 	}
 	if !ok || bl.inTest || !(strings.HasPrefix(boundary, "fn ") || inBlock) {
-		irDeclineNote("an assertion whose boundary is not an ordinary fn, a concurrent block or a test case")
+		bl.g.dc.note("an assertion whose boundary is not an ordinary fn, a concurrent block or a test case")
 		return false
 	}
 	return true

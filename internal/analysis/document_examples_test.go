@@ -7,7 +7,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/std"
 )
 
 // TestDocumentManager_LambdaPassedAsCommandBuilderIsTyped opens a file whose
@@ -25,7 +24,7 @@ func TestDocumentManager_LambdaPassedAsCommandBuilderIsTyped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	dm.SetWorkspaceRoot(root)

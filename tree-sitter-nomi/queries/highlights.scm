@@ -9,9 +9,14 @@
 (shebang) @comment
 
 ; Keyword declarations: `message cart_items(count: Int) `...``, whose
-; keyword the grammar does not know and whose name is a function's.
+; keyword the grammar does not know and whose name is a function's, except
+; an `embed`'s, which names a value, as a `once` does.
 (keyword_declaration
   keyword: (identifier) @keyword)
+(keyword_declaration
+  keyword: (identifier) @_keyword
+  name: (identifier) @constant
+  (#eq? @_keyword "embed"))
 (keyword_declaration
   name: (identifier) @function.definition)
 

@@ -1,0 +1,18 @@
+// A typealias declared in one file types a struct field and an enum payload
+// in a second, and this file builds and matches them with bare variants.
+import domain::fundraising.{self, Event, Form}
+
+test "a struct field typed with an imported typealias takes a bare variant" {
+    form = Form{kind: Some(.Heart)}
+
+    assert fundraising.kind_of(form) == Some(.Heart)
+    assert form.kind is Some(.Heart)
+}
+
+test "an enum payload typed with an imported typealias matches a bare variant" {
+    event = fundraising.event_of(Form{kind: Some(.Pray)})
+
+    assert event is .Reacted(.Pray)
+    assert fundraising.event_of(Form{kind: None}) is .Cleared
+    assert Event.Reacted(.Heart) is .Reacted(.Heart)
+}

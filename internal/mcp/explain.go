@@ -6,6 +6,9 @@ package mcp
 var explanations = map[string]string{
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
+	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +
+		"as a file (`import db::posts`), which binds only its short name. Write the short name (`posts.find(1)`), " +
+		"or import the directory (`import db`) and keep `db::posts`.",
 	"redundant-prelude-import": "An import names something the prelude already gives every file " +
 		"(`Maybe`, `Result`, `List`, `Iter`, ...). Remove it.",
 	"unused-binding": "A binding or parameter is never read. Remove it, or name it with a leading `_` " +

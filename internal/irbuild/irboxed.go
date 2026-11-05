@@ -134,10 +134,7 @@ func (g *gen) irBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 			}
 			g.erasedInstances[have] = true
 			if g.reg != nil {
-				if g.reg.erasedInsts == nil {
-					g.reg.erasedInsts = map[*typeDef]bool{}
-				}
-				g.reg.erasedInsts[instIdentity(have.def)] = true
+				g.reg.markErased(have.def)
 			}
 		}
 		g.markBoxedEnum(have.def)
@@ -244,10 +241,7 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 			}
 			g.erasedInstances[have] = true
 			if g.reg != nil {
-				if g.reg.erasedInsts == nil {
-					g.reg.erasedInsts = map[*typeDef]bool{}
-				}
-				g.reg.erasedInsts[instIdentity(have.def)] = true
+				g.reg.markErased(have.def)
 			}
 		}
 		return &irBoxPlan{typ: g.irImplTypeSym(have)}
@@ -412,9 +406,9 @@ func (g *gen) markBoxedEnum(d *typeDef) {
 	}
 	if g.reg != nil {
 		if g.reg.boxedEnums == nil {
-			g.reg.boxedEnums = map[ast.Node]bool{}
+			g.reg.boxedEnums = map[string]bool{}
 		}
-		g.reg.boxedEnums[decl] = true
+		g.reg.boxedEnums[declKey(decl)] = true
 		return
 	}
 	if g.boxes.enums == nil {
@@ -434,7 +428,7 @@ func (g *gen) boxedEnumDecl(d *typeDef) bool {
 		return false
 	}
 	if g.reg != nil {
-		return g.reg.boxedEnums[decl]
+		return g.reg.boxedEnums[declKey(decl)]
 	}
 	return g.boxes.enums[decl]
 }
@@ -470,7 +464,7 @@ func (g *gen) noteBoxedImpls(p *irBoxPlan) {
 // its owner retained.
 func (g *gen) irRecordBoxedImpls() {
 	for _, e := range g.boxes.impls {
-		if e.owner == nil || e.owner.irMod == nil || e.owner.irMod.FuncFor(e.fn) == nil {
+		if !e.owner.retains(e.fn) {
 			if e.method != nil {
 				g.irMod.ImplementUnretained(e.method)
 			}

@@ -32,5 +32,5 @@ func (c *checker) unexpandedKeywordError(n *ast.KeywordDecl) TypeError {
 		return e
 	}
 	e.Message = fmt.Sprintf("unknown declaration keyword `%s`", n.Keyword)
-	return e.WithHint("a declaration that starts with a keyword and a name is written with a keyword Nomi knows, `message` or `noun`")
+	return e.WithHint("a declaration that starts with a keyword and a name is written with a keyword Nomi knows: `message`, `noun` or `embed`")
 }

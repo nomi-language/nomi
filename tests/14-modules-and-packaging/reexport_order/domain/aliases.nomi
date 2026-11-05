@@ -1,0 +1,2 @@
+// Re-exports zkinds.nomi's re-export under another name.
+pub import domain::zkinds.ReactionType as Kind

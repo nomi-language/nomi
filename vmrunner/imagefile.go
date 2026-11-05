@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -25,10 +26,13 @@ import (
 //	16      2     n, the length of the writer's version, little-endian u16
 //	18      n     the Nomi version that wrote it, UTF-8 (`nomi --version`'s token)
 //	18+n    8     L, the image's length, little-endian u64
-//	26+n    L     the image, which opens with "NOMIIR\x00"
+//	26+n    L     the image, which opens with "NOMIIR\x00": its code, then
+//	              its files region (ir.ImageCodeLen)
 //
 // Nothing follows the image in a file. On stdin, what follows is the
-// program's own input.
+// program's own input. A runner handed the file by path reads the code and
+// leaves the files region in the file (OpenImageFile); one handed it on
+// stdin reads the whole image, since stdin cannot be read again.
 
 // ImageFileMagic opens an image file and a framed image on stdin.
 const ImageFileMagic = "NOMIC\x00\x00\x00"
@@ -56,17 +60,24 @@ type ImageFile struct {
 // EncodeImageFile writes image, which ir.EncodeImage produced in this
 // build's format, as an image file written by version.
 func EncodeImageFile(image []byte, flags uint32, version string) []byte {
+	return append(ImageFileHead(int64(len(image)), flags, version), image...)
+}
+
+// ImageFileHead is the header of an image file whose image is n bytes:
+// written before the image, its code and then its files region, it makes
+// the file EncodeImageFile makes, so a build can write the region from its
+// sources without holding it.
+func ImageFileHead(n int64, flags uint32, version string) []byte {
 	if len(version) > 0xffff {
 		version = version[:0xffff]
 	}
-	out := make([]byte, 0, 26+len(version)+len(image))
+	out := make([]byte, 0, 26+len(version))
 	out = append(out, ImageFileMagic...)
 	out = binary.LittleEndian.AppendUint32(out, ir.FormatVersion)
 	out = binary.LittleEndian.AppendUint32(out, flags)
 	out = binary.LittleEndian.AppendUint16(out, uint16(len(version)))
 	out = append(out, version...)
-	out = binary.LittleEndian.AppendUint64(out, uint64(len(image)))
-	return append(out, image...)
+	return binary.LittleEndian.AppendUint64(out, uint64(n))
 }
 
 // IsImageFile reports whether head, a file's first bytes, opens an image
@@ -82,30 +93,9 @@ var errNotImageFile = errors.New("not a compiled Nomi program (.nomic)")
 // past the image's last byte: what follows on stdin is the program's input.
 // name says where it came from in errors.
 func ReadImageFile(r io.Reader, name string) (ImageFile, error) {
-	var f ImageFile
-	head := make([]byte, 18)
-	if n, err := io.ReadFull(r, head); err != nil {
-		if n == 0 {
-			return f, fmt.Errorf("%s is empty: %w", name, errNotImageFile)
-		}
-		if !IsImageFile(head[:n]) {
-			return f, fmt.Errorf("%s: %w", name, errNotImageFile)
-		}
-		return f, fmt.Errorf("%s ends inside its header", name)
-	}
-	if !IsImageFile(head) {
-		return f, fmt.Errorf("%s does not start with %q: %w (`nomi build --no-vm` writes one)", name, ImageFileMagic, errNotImageFile)
-	}
-	f.Format = binary.LittleEndian.Uint32(head[8:12])
-	f.Flags = binary.LittleEndian.Uint32(head[12:16])
-	rest := make([]byte, int(binary.LittleEndian.Uint16(head[16:18]))+8)
-	if _, err := io.ReadFull(r, rest); err != nil {
-		return f, fmt.Errorf("%s ends inside its header", name)
-	}
-	f.Version = string(rest[:len(rest)-8])
-	n := binary.LittleEndian.Uint64(rest[len(rest)-8:])
-	if n > maxImageLen {
-		return f, fmt.Errorf("%s claims a program of %d bytes; its header is damaged", name, n)
+	f, n, err := readImageFileHead(r, name)
+	if err != nil {
+		return f, err
 	}
 	// Read through a limit rather than allocating n up front, so a damaged
 	// length fails at the input's end, not in the allocator.
@@ -118,6 +108,74 @@ func ReadImageFile(r io.Reader, name string) (ImageFile, error) {
 	}
 	f.Image = image
 	return f, nil
+}
+
+// readImageFileHead reads an image file's header from r, and answers it
+// and the length of the image that follows.
+func readImageFileHead(r io.Reader, name string) (ImageFile, uint64, error) {
+	var f ImageFile
+	head := make([]byte, 18)
+	if n, err := io.ReadFull(r, head); err != nil {
+		if n == 0 {
+			return f, 0, fmt.Errorf("%s is empty: %w", name, errNotImageFile)
+		}
+		if !IsImageFile(head[:n]) {
+			return f, 0, fmt.Errorf("%s: %w", name, errNotImageFile)
+		}
+		return f, 0, fmt.Errorf("%s ends inside its header", name)
+	}
+	if !IsImageFile(head) {
+		return f, 0, fmt.Errorf("%s does not start with %q: %w (`nomi build --no-vm` writes one)", name, ImageFileMagic, errNotImageFile)
+	}
+	f.Format = binary.LittleEndian.Uint32(head[8:12])
+	f.Flags = binary.LittleEndian.Uint32(head[12:16])
+	rest := make([]byte, int(binary.LittleEndian.Uint16(head[16:18]))+8)
+	if _, err := io.ReadFull(r, rest); err != nil {
+		return f, 0, fmt.Errorf("%s ends inside its header", name)
+	}
+	f.Version = string(rest[:len(rest)-8])
+	n := binary.LittleEndian.Uint64(rest[len(rest)-8:])
+	if n > maxImageLen {
+		return f, 0, fmt.Errorf("%s claims a program of %d bytes; its header is damaged", name, n)
+	}
+	return f, n, nil
+}
+
+// headLen is the length of the header readImageFileHead read for f.
+func (f ImageFile) headLen() int64 { return 26 + int64(len(f.Version)) }
+
+// OpenImageFile opens the image file at path as a runner holds its own
+// image (OpenImage): it reads the header and the code, and keeps the file
+// open for the files region. It answers why a runner with opts cannot run
+// it (ImageFile's check). Close releases it.
+func OpenImageFile(path string, opts ...Option) (*Image, error) {
+	var cfg config
+	for _, o := range opts {
+		o(&cfg)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	f, n, err := readImageFileHead(file, path)
+	if err == nil {
+		err = f.check(path, cfg.compiler != nil)
+	}
+	var info os.FileInfo
+	if err == nil {
+		if info, err = file.Stat(); err == nil && info.Size() != f.headLen()+int64(n) {
+			err = fmt.Errorf("%s is truncated: its header says %d program bytes and %d follow", path, n, info.Size()-f.headLen())
+		}
+	}
+	var im *Image
+	if err == nil {
+		im, err = openImageFile(file, f.headLen(), int64(n))
+	}
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+	return im, nil
 }
 
 // check reports why this runner cannot run f: an image format other than the

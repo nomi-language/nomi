@@ -20,6 +20,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `if err != nil { return err }` | A postfix `?` on a `Result` or `Maybe` |
 | `func (s Shape) Area() int`, `s.Area()` | `impl Shape { fn area(shape: Shape) -> Int }`, `Shape.area(s)` |
 | An interface is satisfied implicitly | `impl Interface for Type { .. }` |
+| A `[]Dog` is no `[]Speaker`; copy it in a loop | A `List<Dog>` passes where a `List<Speaker>` is expected, with nothing copied |
 | `nil` | `None`, from `Maybe<T>` |
 | `[]int{1, 2}`, `map[string]int{"a": 1}` | `[1, 2]`, `%{"a" => 1}` |
 | `Point{X: 1}` | `Point{x: 1}` |
@@ -31,7 +32,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `fmt.Sprintf("%d items", n)` | `"${n} items"` |
 | `func Map[T any](..)` | `fn map<T>(..)` |
 | `_test.go` files | `test "name" { assert .. }` blocks beside the code |
-| `import "app/db/posts"`, then `posts.Find(1)` | `import db::posts`, then `posts.find(1)`; the full path `db::posts.find(1)` works where `posts` is taken, instead of an import alias |
+| `import "app/db/posts"`, then `posts.Find(1)` | `import db::posts`, then `posts.find(1)`; where `posts` is taken, `import db` imports the directory and `db::posts.find(1)` reaches the file, instead of an import alias |
 
 ## The same program
 

@@ -3,6 +3,7 @@ package irbuild
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/ir"
 )
 
 // Cross-package type identity: a user type declared in one Nomi FILE named
@@ -115,6 +116,13 @@ type typeOwner struct {
 // that declared it.
 type typeRegistry struct {
 	byDecl map[ast.Node]*typeOwner
+	// linkNames is the linkage path of each declaration of the program's
+	// own files (link.go).
+	linkNames map[ast.Node]declName
+	// imports is the symbol of each linkage name the linked std modules
+	// define (programstdlink.go), or nil; linked is their kept lowering.
+	imports map[string]*ir.Symbol
+	linked  *linkedStd
 	// gens is one generator per module, filled by Generate before any type
 	// table is built. Indexed by unit.
 	gens []*gen
@@ -132,13 +140,19 @@ type typeRegistry struct {
 	// declaresEquatable.
 	equatable map[ast.Node]bool
 	// erasedInsts is every generic instance some file holds erased, by the
-	// owner's def: an impl another file writes for it is recorded for
-	// dispatch there (irInstanceImpls).
-	erasedInsts map[*typeDef]bool
+	// owner's def's portable spelling (erasedKey): an impl another file
+	// writes for it is recorded for dispatch there (irInstanceImpls).
+	erasedInsts map[string]bool
 	// boxedEnums is every enum declaration with an `embeds` variant some
 	// file boxes into an existential (irboxed.go), whose impls its declaring
-	// file records under the enum's own name for the box's dispatch.
-	boxedEnums map[ast.Node]bool
+	// file records under the enum's own name for the box's dispatch, by
+	// the declaration's spelling (declKey). Both are spelled rather than
+	// keyed by pointer so that a lowering of one file (perfile.go) can be
+	// given what the program's other files hold erased and box.
+	boxedEnums map[string]bool
+	// perFile is what a lowering of one file is given of its program, or
+	// nil (perfile.go).
+	perFile *perFileState
 	// aliasOwner is the Go-spelled PACKAGE plus mirror name of every foreign
 	// alias some gen has already claimed, so exactly one gen declares it.
 	//

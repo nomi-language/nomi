@@ -22,6 +22,7 @@ import {
         Client,
         ClientOptions,
         Error,
+        Handler,
         Listener,
         Method,
         Protocols,
@@ -176,7 +177,7 @@ impl TestServer {
 //! assert said == "hi"
 //
 pub fn with_server<T>(
-    handler: (Request) -> Response,
+    handler: Handler,
     tls: Bool = False,
     http2: Bool = False,
     server: Server = Server{},

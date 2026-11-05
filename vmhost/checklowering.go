@@ -86,9 +86,18 @@ func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlow
 	if prog == nil {
 		return nil, false, nil
 	}
+	abs := prog.Entry().Path
+	if p, ok := relowerAnalyzed(cfg, abs, src, a, prog); ok {
+		problems, err = loweringProblems(p, src)
+		return problems, true, err
+	}
 	p, err := lower(cfg, func() (*irbuild.Program, error) { return prog, nil })
 	if err != nil {
+		analyzedKept.Delete(abs)
 		return nil, true, err
+	}
+	if cfg.loweringStopped() == nil {
+		keepAnalyzed(abs, src, a, prog, p)
 	}
 	problems, err = loweringProblems(p, src)
 	return problems, true, err

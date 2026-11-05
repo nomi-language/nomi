@@ -557,6 +557,9 @@ func RtFuncs() []Binding {
 		{Name: "io.writer_from_fn", Fn: rt.WriterFromFn},
 		{Name: "io.memory_writer", Fn: rt.WriterToMemory},
 		{Name: "io.collected", Fn: rt.WriterCollected},
+		// An embedded file is read from the program itself, which every
+		// target has: no class.
+		{Name: "embed_host.read", Fn: rt.EmbeddedRead},
 		{Name: "fs_host.read", Fn: stdio.Read, Class: ClassFiles},
 		{Name: "fs_host.read_text", Fn: stdio.ReadText, Class: ClassFiles},
 		{Name: "fs_host.write", Fn: stdio.Write, Class: ClassFiles},

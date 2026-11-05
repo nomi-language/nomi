@@ -14,7 +14,7 @@ import (
 // that type's inner value, so the value's kind is the one to unwrap.
 func (bl *irScalarBuilder) distinctBinding(t *ast.DistinctDestructure) bool {
 	if t.Binding == nil || ast.IsDiscardName(t.Binding.Name) {
-		irDeclineNote("a distinct destructure without a retained named binding")
+		bl.g.dc.note("a distinct destructure without a retained named binding")
 		return false
 	}
 	src, k, _, ok := bl.lower(t.Value)
@@ -23,7 +23,7 @@ func (bl *irScalarBuilder) distinctBinding(t *ast.DistinctDestructure) bool {
 	}
 	if !ok || k.tag != tagNamed || !irDistinctOverValue(k.def) {
 		if ok {
-			irDeclineNote("a distinct destructure outside the retained wrapping domain")
+			bl.g.dc.note("a distinct destructure outside the retained wrapping domain")
 		}
 		return false
 	}

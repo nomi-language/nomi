@@ -28,6 +28,9 @@ const (
 	// irCopyNever retypes a value of Infallible to its contextual type. It
 	// never runs: nothing produces the value it reads (irnever.go).
 	irCopyNever
+	// irCopyRelabel retypes a collection or function value to wider type
+	// arguments its value already has (irrelabel.go).
+	irCopyRelabel
 )
 
 // irHeldValue reports whether t is already held in a temporary of its own —

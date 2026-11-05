@@ -46,6 +46,7 @@ import (
 // for them, and their host functions cross into Go over rt types. A new
 // module written in Nomi needs no rt type and no row: list it here.
 var programStdModules = map[string]bool{
+	"embed":            true,
 	"fs":               true,
 	"fs_testing":       true,
 	"html":             true,
@@ -125,6 +126,7 @@ func withProgramStd(p *Program) *Program {
 			}
 			seen[name] = true
 			added = append(added, name)
+			stdBodies(name)
 			reach(programStdModuleNodes()[name], true)
 		}
 	}
@@ -197,12 +199,17 @@ func importedStdModules(nodes []ast.Node, inStd bool) []string {
 // test std/uuid.nomi`, a reference editor) as a test file's cases are built:
 // the module is the entry, and every other listed module it reaches is lowered
 // beside it. nodes and fa are the module as checked from edited source, or nil
-// for the shared analysis's.
-func generateProgramStdTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis) (*Program, *Result, error) {
+// for the shared analysis's. hooks observe the lowering's declines.
+func generateProgramStdTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
 	lib := std.Shared()
+	stdBodies(module)
 	var twins map[ast.Node]ast.Node
 	if nodes == nil {
-		nodes, fa = programStdModuleNodes()[module], lib.Files[module]
+		tests, err := lib.TestDecls(module)
+		if err != nil {
+			return nil, nil, err
+		}
+		nodes, fa = append(slices.Clip(programStdModuleNodes()[module]), tests...), lib.Files[module]
 	} else {
 		analysis.MarkTailCalls(nodes)
 		twins = implFuncTwins(programStdModuleNodes()[module], nodes)
@@ -210,6 +217,7 @@ func generateProgramStdTestIR(module string, nodes []ast.Node, fa *analysis.File
 	p := &Program{
 		Modules:  []Module{{Path: lib.SourcePath(module), Name: "std/" + module, Nodes: nodes, FA: fa, twins: twins}},
 		HasTests: true,
+		Declines: hooks,
 	}
 	res, _, err := GenerateIR(p)
 	if err != nil {
@@ -265,4 +273,35 @@ func implFuncTwins(shared, edited []ast.Node) map[ast.Node]ast.Node {
 // source: a block import of the module's own names in its edited copy.
 func (g *gen) twinOf(a, b *analysis.Symbol) bool {
 	return a != nil && b != nil && a.Node != nil && g.twins[a.Node] == b.Node
+}
+
+// generateProgramStdReferenceIR is GenerateStdlibReferenceIR for a listed
+// module: the module and every listed module it reaches link the kept
+// lowering (Program.linkAllStd), and the module's gen lowers test alone,
+// checked into fa, the shared analysis's copy (CheckAddedTest). hooks observe
+// the lowering's declines.
+func generateProgramStdReferenceIR(module string, test *ast.TestDecl, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
+	lib := std.Shared()
+	stdBodies(module)
+	shared := programStdModuleNodes()[module]
+	cases := []ast.Node{test}
+	p := &Program{
+		Modules:    []Module{{Path: lib.SourcePath(module), Name: "std/" + module, Nodes: shared, FA: fa}},
+		HasTests:   true,
+		linkAllStd: true,
+		Declines:   hooks,
+	}
+	p.stdCases = func(b *programBuild) *gen {
+		b.reg.gens[0].lowerStdCases(cases)
+		return nil
+	}
+	res, _, err := GenerateIR(p)
+	if err != nil {
+		return nil, nil, err
+	}
+	prog := &Program{
+		Modules:  []Module{{Path: lib.SourcePath(module), Name: "std/" + module, Nodes: append(slices.Clip(shared), test), FA: fa, DeclaresTests: true}},
+		HasTests: true,
+	}
+	return prog, res, nil
 }

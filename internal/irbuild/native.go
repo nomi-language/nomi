@@ -377,6 +377,9 @@ type local struct {
 }
 
 type gen struct {
+	// dc is the decline census of the lowering this gen builds in, which
+	// every gen of that lowering shares and no other lowering does.
+	dc       *declineCensus
 	nomiPath string
 	pkg      string
 	// stdUnlowered names, for a stdlib gen, each function whose body the IR
@@ -393,6 +396,19 @@ type gen struct {
 	// so a recursive or forward sibling call links before its callee's graph
 	// is in the module (irStdSiblingSym). Keyed by declaration key.
 	irStdPending map[string]bool
+	// linked is set on the gen of a listed std module whose bodies the
+	// program links from a kept lowering rather than lowering them
+	// (programstdlink.go): the gen declares the module and lowers only
+	// what the program asks of it that the kept lowering lacks.
+	linked bool
+	// fromObjects marks a project file's gen in a lowering of one other
+	// file (perfile.go): the file is declared, its bodies are the kept
+	// objects', and nothing of it is lowered here, not even what the
+	// lowered file asks of it, since its nodes are its interface's.
+	fromObjects bool
+	// progLinks is, on a std instance's gen, the declaration names of the
+	// program that asked for the instance (link.go).
+	progLinks map[ast.Node]declName
 	// stdModule is the stdlib module's short name ("iter", "list", …) when this
 	// gen is lowering a stdlib module, and "" for every user gen. Set by
 	// newStdGen and by nothing else, so it is the CALLER's statement of which
@@ -1100,7 +1116,7 @@ type gen struct {
 // forward-declaration rule in either direction, so no per-file order can
 // satisfy both. See Generate and foreign.go.
 func newGen(m *Module, pkg string, std *stdlibIndex, files *fileIndex, unit int, reg *typeRegistry) *gen {
-	g := &gen{nomiPath: m.Path, pkg: pkg, fa: m.FA, funcs: map[string]*fnSig{}, onces: map[string]*onceDef{}, oncesByDecl: map[ast.Node]*onceDef{}, types: map[string]*typeDef{}, blockTypes: map[*ast.Block]*blockTypeDecls{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}, std: std, files: files, fileUnit: unit, reg: reg, foreignDefs: map[ast.Node]*typeDef{}, foreignIfaces: map[ast.Node]*ifaceDef{}, nodes: m.Nodes}
+	g := &gen{dc: newDeclineCensus(DeclineHooks{}), nomiPath: m.Path, pkg: pkg, fa: m.FA, funcs: map[string]*fnSig{}, onces: map[string]*onceDef{}, oncesByDecl: map[ast.Node]*onceDef{}, types: map[string]*typeDef{}, blockTypes: map[*ast.Block]*blockTypeDecls{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}, std: std, files: files, fileUnit: unit, reg: reg, foreignDefs: map[ast.Node]*typeDef{}, foreignIfaces: map[ast.Node]*ifaceDef{}, nodes: m.Nodes}
 	g.declaresTests = m.DeclaresTests
 	g.twins = m.twins
 	if name, inStd := strings.CutPrefix(m.Name, "std/"); inStd && isProgramStd(name) {
@@ -1201,7 +1217,13 @@ func (g *gen) declareFuncs() {
 // `Equatable.equal`. Lowered before that index exists, the call found no
 // candidate and the whole derived block was refused.
 func (g *gen) settleImpls() {
-	g.emitSynthImpls(g.implOrder)
+	if g.linked || g.fromObjects {
+		// The kept lowering speculated these blocks; its refusals stand
+		// for them here (programstdlink.go).
+		g.settleLinkedSynthImpls()
+	} else {
+		g.emitSynthImpls(g.implOrder)
+	}
 
 	decls := map[string]*ast.FuncDef{}
 	for _, n := range g.nodes {
@@ -1226,6 +1248,20 @@ func (g *gen) settleImpls() {
 }
 
 func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {
+	if g.fromObjects {
+		// Its bodies are the kept objects' (perfile.go).
+		return nil, nil
+	}
+	if g.linked {
+		// Its bodies are the kept lowering's; only the instances the
+		// program's files asked of it are lowered here, and its refusals
+		// are the kept lowering's (programstdlink.go).
+		g.flushMonoInstances()
+		g.flushGenericImpls()
+		g.flushMethodInsts()
+		g.flushFieldDefaults()
+		return nil, nil
+	}
 	// Collected before any body is emitted, because the duplicate-name
 	// question has to be answered before a table exists and answering it needs
 	// every case. Emitted from the walk below, so the table's order is the

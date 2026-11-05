@@ -34,6 +34,13 @@ type Config struct {
 	// VirtualManifest is a pre-parsed nomi.toml for a program with no project
 	// on disk, so manifest-driven checks still fire.
 	VirtualManifest *analysis.Manifest
+	// VirtualData are an in-memory program's other files, by their
+	// slash-separated paths from its root, which its `embed` declarations
+	// read instead of the disk. Nil reads the disk under the root.
+	VirtualData map[string]string
+	// EmbedRoot is where the `embed` declarations of an in-memory program
+	// with no root read their files: the REPL's working directory.
+	EmbedRoot string
 	// ProjectRoot is the directory an in-memory entry resolves project imports
 	// against. A file entry discovers its own root and replaces it.
 	ProjectRoot string
@@ -107,9 +114,24 @@ type Checker struct {
 	// siblingSyntax holds the syntax errors of every project file the
 	// loader read, by path.
 	siblingSyntax map[string][]parser.ParseError
+	// entryMode is the mode Prepare prepared the entry in, and prepared
+	// whether Prepare made the nodes Analyze is given.
+	entryMode Mode
+	prepared  bool
 	// rootManifest is the root's nomi.toml once read (manifestRead).
 	rootManifest *analysis.Manifest
 	manifestRead bool
+	// last is the program Analyze last built, for Interfaces.
+	last *analyzedProgram
+}
+
+// analyzedProgram is a program Analyze built: the entry's analysis and
+// nodes and the files it reached.
+type analyzedProgram struct {
+	fa           *analysis.FileAnalysis
+	nodes        []ast.Node
+	siblingFAs   map[string]*analysis.FileAnalysis
+	siblingNodes map[string][]ast.Node
 }
 
 // New returns a Checker over the embedded standard library.
@@ -159,7 +181,23 @@ func (c *Checker) site(modulePath string) *analysis.ExpansionSite {
 		s.Root = "."
 		s.Read = c.virtualInput
 	}
+	s.Embed = c.embedFS()
 	return s
+}
+
+// embedFS is what the program's `embed` declarations read: an in-memory
+// program's data files, else the disk under the root, nil when there is
+// neither.
+func (c *Checker) embedFS() analysis.EmbedFS {
+	switch {
+	case c.cfg.VirtualData != nil:
+		return analysis.MapEmbedFS(c.cfg.VirtualData)
+	case c.root != "":
+		return analysis.DiskEmbedFS{Root: c.root}
+	case c.cfg.EmbedRoot != "":
+		return analysis.DiskEmbedFS{Root: c.cfg.EmbedRoot}
+	}
+	return nil
 }
 
 // virtualInput reads an input of an in-memory program from its virtual
@@ -187,7 +225,7 @@ func (c *Checker) Loader() analysis.FileLoader {
 		if filepath.Clean(projectRoot) != filepath.Clean(c.root) {
 			// A file of another module: its own root and manifest.
 			m, _ := analysis.LoadManifest(projectRoot)
-			site = &analysis.ExpansionSite{ModulePath: strings.Join(modulePath, "/"), Manifest: m}
+			site = &analysis.ExpansionSite{ModulePath: strings.Join(modulePath, "/"), Manifest: m, Embed: analysis.DiskEmbedFS{Root: projectRoot}}
 			if m != nil {
 				site.Root = projectRoot
 			}
@@ -216,9 +254,20 @@ func (c *Checker) innerLoader() analysis.FileLoader {
 		}
 		// An empty virtual file parses to no nodes and is still that file.
 		if !virtual {
+			// A directory the virtual files are under is a directory
+			// import's, whatever else the path could name: with no root,
+			// the base loader reads any path as the standard library's.
+			if len(modulePath) > 0 && modulePath[0] != "std" {
+				if dir := c.virtualDirectory(modulePath); dir != nil {
+					return nil, dir
+				}
+			}
 			var err error
 			nodes, err = base(projectRoot, modulePath)
 			if err != nil {
+				if dir := c.virtualDirectory(modulePath); dir != nil {
+					return nil, dir
+				}
 				return nil, err
 			}
 		}
@@ -226,8 +275,24 @@ func (c *Checker) innerLoader() analysis.FileLoader {
 	}
 }
 
+// virtualDirectory is the directory modulePath names among the virtual
+// files' module paths, or nil.
+func (c *Checker) virtualDirectory(modulePath []string) *analysis.DirectoryError {
+	if len(c.cfg.VirtualFiles) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(c.cfg.VirtualFiles))
+	for key := range c.cfg.VirtualFiles {
+		if !strings.HasSuffix(key, ".toml") {
+			keys = append(keys, key)
+		}
+	}
+	return analysis.VirtualDirectory(modulePath, keys, nil)
+}
+
 // filesParsed counts the project files every Checker in the process has
-// parsed: each entry Prepare reads and each project file its loader reads.
+// parsed: each entry Prepare reads, each project file its loader reads and
+// each stdlib module source CheckStdlibSource checks.
 var filesParsed atomic.Int64
 
 // FilesParsed is how many project files the front end has parsed in this
@@ -259,7 +324,7 @@ type Mode struct {
 // injection, derive lowering, attached-test stripping, derive and universal
 // Debug synthesis.
 func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
-	c.entrySrc = src
+	c.entrySrc, c.entryMode, c.prepared = src, mode, true
 	filesParsed.Add(1)
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
@@ -315,12 +380,17 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		c.placeEntry,
 	)
 	c.projectFiles = collectProjectFiles(siblingFAs, siblingNodes)
+	c.last = &analyzedProgram{fa: fa, nodes: nodes, siblingFAs: siblingFAs, siblingNodes: siblingNodes}
+	// Each file's own diagnostics, for the check against interfaces
+	// (NOMI_CHECK_FROM_INTERFACES) to be compared with.
+	local := map[string]*analysis.FileCheck{c.entryModRel: {Build: slices.Clone(fa.TypeErrors)}}
 	errs := c.buildErrors(fa)
 	// The program's own errors (duplicate and orphan impls) are reported with
 	// the entry's, after its build-phase errors, each in the file it names
 	// (entryDiagnostics).
 	errs = append(errs, c.kept(fa.Program().Errors)...)
-	errs = append(errs, c.kept(analysis.CheckTypes(fa, nodes))...)
+	local[c.entryModRel].Check = analysis.CheckTypes(fa, nodes)
+	errs = append(errs, c.kept(local[c.entryModRel].Check)...)
 	// A sibling's CheckTypes records the conformance its bodies demand in its
 	// own ImplManifest, which the missing-impl check folds, and reports the
 	// sibling's own diagnostics at the sibling's position, after its
@@ -345,10 +415,12 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 			continue
 		}
 		own := c.buildErrors(sibFA)
-		sibErrs[key] = append(own, c.kept(analysis.CheckTypes(sibFA, siblingNodes[key]))...)
+		l := &analysis.FileCheck{Build: slices.Clone(sibFA.TypeErrors), Check: analysis.CheckTypes(sibFA, siblingNodes[key])}
 		// Its break and continue placement, which only its own call sites
 		// decide (analysis.AnalyzeIterSensitivity).
-		sibErrs[key] = append(sibErrs[key], c.kept(analysis.AnalyzeIterSensitivity(sibFA, siblingNodes[key]))...)
+		l.Check = append(l.Check, analysis.AnalyzeIterSensitivity(sibFA, siblingNodes[key])...)
+		local[key] = l
+		sibErrs[key] = append(own, c.kept(l.Check)...)
 		program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: siblingNodes[key]})
 	}
 	// The application-field roots of every file, now that every file is
@@ -427,11 +499,20 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		}
 		errs = append(errs, analysis.CheckCatalogTree(c.root, c.manifest(), files)...)
 	}
-	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
-	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)
+	iter := analysis.AnalyzeIterSensitivity(fa, nodes)
+	concurrent := analysis.CheckConcurrentScope(fa, nodes)
+	tasks := analysis.CheckTaskLifetime(fa, nodes)
+	local[c.entryModRel].EntryChecks = append(append(slices.Clone(iter), concurrent...), tasks...)
+	errs = append(errs, iter...)
+	errs = append(errs, concurrent...)
 	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
-	errs = append(errs, analysis.CheckTaskLifetime(fa, nodes)...)
+	errs = append(errs, tasks...)
 	analysis.MarkTailCalls(nodes)
+	if checkFromInterfaces && c.prepared {
+		if err := c.compareFromInterfaces(fa, nodes, siblingFAs, siblingNodes, local); err != nil {
+			return fa, map[string][]ast.Node{"": nodes}, err
+		}
+	}
 	modules := make(map[string][]ast.Node, len(siblingNodes)+1)
 	modules[""] = nodes
 	for key, sibNodes := range siblingNodes {
@@ -799,6 +880,67 @@ func (c *Checker) CheckStdlibSource(moduleKey, src string, mode Mode) ([]ast.Nod
 	return nodes, fa, nil
 }
 
+// CheckStdlibTest checks the `test` declaration that src, the source of
+// the stdlib module moduleKey with one test appended, holds from line on,
+// in the module's scope, as CheckStdlibSource checks it, but against the
+// shared stdlib's analysis of the module rather than src's: the module's own
+// declarations and bodies are the embedded ones, already checked, so only
+// the test is (analysis.FileAnalysis.CheckAddedTest). It answers the test,
+// the copy of the module's analysis holding it, and the restore the copy
+// asks for once the caller is done with it.
+//
+// ok is false when the appended text is not one test declaration alone (an
+// edit that closes the test and declares more), or the stdlib was analyzed
+// from source; the caller checks src whole with CheckStdlibSource.
+func (c *Checker) CheckStdlibTest(moduleKey, src string, line int) (test *ast.TestDecl, fa *analysis.FileAnalysis, restore func(), ok bool, err error) {
+	module := strings.TrimSuffix(strings.TrimPrefix(moduleKey, "std/"), ".nomi")
+	moduleKey = "std/" + module
+	if c.diagPath == "" {
+		c.diagPath = moduleKey + ".nomi"
+	}
+	if c.lib == nil || !c.lib.FromInterfaces() || stdDefectDiagnostics(c.lib) != nil || line < 1 {
+		return nil, nil, nil, false, nil
+	}
+	shared := c.lib.Files[module]
+	if shared == nil {
+		return nil, nil, nil, false, nil
+	}
+	// The test alone, at its lines: the module's lines above it are blank.
+	lines := strings.SplitAfterN(src, "\n", line)
+	if len(lines) < line {
+		return nil, nil, nil, false, nil
+	}
+	text := strings.Repeat("\n", line-1) + lines[line-1]
+	nodes, perr := parser.Parse(lexer.Lex(text))
+	if perr != nil {
+		return nil, nil, nil, true, located(c.diagPath, src, perr)
+	}
+	if nodes, err = lowerDerives(c.diagPath, src, nodes); err != nil {
+		return nil, nil, nil, true, err
+	}
+	nodes, _ = analysis.SynthesizeDerives(nodes)
+	nodes = analysis.SynthesizeUniversalDebug(nodes)
+	if len(nodes) != 1 {
+		return nil, nil, nil, false, nil
+	}
+	test, isTest := nodes[0].(*ast.TestDecl)
+	if !isTest {
+		return nil, nil, nil, false, nil
+	}
+	if err := c.lib.Bodies(module); err != nil {
+		return nil, nil, nil, false, nil
+	}
+	fa, errs, restore, kept := shared.CheckAddedTest(test)
+	if !kept {
+		return nil, nil, nil, false, nil
+	}
+	if len(errs) > 0 {
+		restore()
+		return nil, nil, nil, true, typeDiagnostics(c.diagPath, src, errs)
+	}
+	return test, fa, restore, true, nil
+}
+
 // StdlibModuleErrors answers the diagnostics the process's one analysis of
 // the stdlib (std.Shared) recorded for module ("regex" or "std/regex"), or nil
 // when it recorded none. That analysis keeps every `//!` prompt and checks it
@@ -825,7 +967,8 @@ func StdlibModuleErrors(module string) error {
 }
 
 func (c *Checker) prepareStdlib(src string, mode Mode) ([]ast.Node, error) {
-	c.entrySrc = src
+	c.entrySrc, c.prepared = src, false
+	filesParsed.Add(1)
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
 		return nil, located(c.diagPath, src, err)

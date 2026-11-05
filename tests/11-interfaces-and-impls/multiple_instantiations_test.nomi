@@ -85,6 +85,7 @@ test "a value held as an instantiation dispatches at its own arguments" {
     assert text(b) == "two" and number(b) == 2
     texts: List<Gets<String>> = [b, Box{n: 3, s: "three"}]
     assert Iter.map(texts, &Gets.got(&1)) |> String.join(",") == "two,three"
+    assert String.join(Iter.map(texts, &Gets.got(&1)), ",") == "two,three"
 }
 
 test "String contains a String, a Regex and a Codepoint" {

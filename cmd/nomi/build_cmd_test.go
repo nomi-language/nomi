@@ -310,6 +310,7 @@ func TestBuildCommand_CrossCompiles(t *testing.T) {
 // record shows it ran) is refused as listing one. There is no exclusion: a
 // record the recorder did not run fails here.
 func TestBuildCommand_EveryProgramMatchesItsGoldenRecord(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("integration; builds every corpus program; -short")
 	}

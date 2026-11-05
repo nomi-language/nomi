@@ -14,7 +14,7 @@ import (
 // while the call lowers, its argument reads the held value (holeSubst).
 func (bl *irScalarBuilder) membership(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	no := func(why string) (ir.Temp, kind, bool, bool) {
-		irDeclineNote(why)
+		bl.g.dc.note(why)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if bl.g.fa == nil {

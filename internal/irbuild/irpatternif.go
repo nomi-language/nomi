@@ -18,10 +18,10 @@ func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool
 	unitElse := t.Else == nil && !sig.testArms && (sig.inferResult || sig.result == kindUnit)
 	switch {
 	case t.Else == nil && !sig.testArms && !unitElse && sig.elseless == nil:
-		irDeclineNote("a pattern `if` without `else` whose value is not Unit")
+		bl.g.dc.note("a pattern `if` without `else` whose value is not Unit")
 		return kindInvalid, false
 	case isNilNode(t.Cond):
-		irDeclineNote("a pattern `if` without a subject")
+		bl.g.dc.note("a pattern `if` without a subject")
 		return kindInvalid, false
 	}
 	subj, sk, _, ok := bl.lower(t.Cond)
@@ -54,7 +54,7 @@ func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool
 	if next == nil {
 		// The checker rejects a pattern `if` whose pattern matches every
 		// value (`if x = v`), so the else-arm always has a way in.
-		irDeclineNote("a pattern `if` whose pattern always matches " + sk.nomi())
+		bl.g.dc.note("a pattern `if` whose pattern always matches " + sk.nomi())
 		return kindInvalid, false
 	}
 	tk, ok := bl.armInto(then, exit, t.Then, sig)
@@ -68,7 +68,7 @@ func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool
 	}
 	k, agree := irJoinArms(tk, ek, sig)
 	if !agree {
-		irDeclineNote("a pattern `if` whose arms disagree: " + tk.nomi() + " vs " + ek.nomi())
+		bl.g.dc.note("a pattern `if` whose arms disagree: " + tk.nomi() + " vs " + ek.nomi())
 		return kindInvalid, false
 	}
 	bl.b = exit

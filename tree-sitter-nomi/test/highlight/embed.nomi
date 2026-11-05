@@ -1,0 +1,7 @@
+// An `embed` declaration's keyword is a keyword and its name a constant's,
+// as a `once`'s is. The caret lines below each line name the highlight of
+// the token they point at.
+/// The site.
+embed site `embed.nomi`
+//  ^ keyword
+//      ^ constant

@@ -1,0 +1,87 @@
+// A pipe's head is checked as the stage's first argument, so `x |> f(a)`
+// accepts what `f(x, a)` accepts.
+import shows.{self, show}
+
+fn number(i: Int) -> Int {
+    i
+}
+
+fn word(i: Int) -> String {
+    "w${i}"
+}
+
+fn apply(f: (Int) -> Int, x: Int) -> Int {
+    f(x)
+}
+
+fn total(xs: List<Int>) -> Int {
+    Iter.reduce(xs, 0, fn a, b -> a + b)
+}
+
+fn low(b: Byte) -> Int {
+    Byte.to_int(b)
+}
+
+fn divide(a: Int, b: Int) -> Int {
+    a / b
+}
+
+fn scaled(n: Int, by: Int = 10) -> Int {
+    n * by
+}
+
+test "a list of functions widens to the stage's parameter" {
+    assert show([number, word]) == "1,w1"
+    assert [number, word] |> show() == "1,w1"
+}
+
+test "a module-qualified stage with more arguments" {
+    assert [number, word] |> shows.show(";") == "1;w1"
+    assert [number, word] |> shows.show(separator: "/") == "1/w1"
+}
+
+test "a lambda or capture head takes the parameter's types" {
+    assert (fn x -> x + 1) |> apply(2) == 3
+    assert &(&1 * 3) |> apply(2) == 6
+}
+
+test "a literal head takes the parameter's type" {
+    assert [] |> total() == 0
+    assert 7 |> low() == 7
+    assert [] |> String.join(",") == ""
+}
+
+test "a then stage's capture checks the head as its argument" {
+    assert [number, word] |> then &show(&1) == "1,w1"
+    assert 4 |> then &divide(100, &1) == 25
+}
+
+test "a function value fills its defaults as the call's argument does" {
+    assert apply(scaled, 2) == 20
+    assert scaled |> apply(3) == 30
+}
+
+fn run<T>(f: (String) -> T, s: String) -> T {
+    f(s)
+}
+
+fn run_all<T>(fs: List<(String) -> T>, s: String) -> List<T> {
+    fs |> Iter.map(fn f -> f(s)) |> Iter.to_list()
+}
+
+fn length_by(s: String, by: Int = 10) -> Int {
+    String.length(s) * by
+}
+
+fn length_of(s: String) -> Int {
+    String.length(s)
+}
+
+test "a head at a generic parameter is checked as the call's argument" {
+    assert run(length_by, "ab") == 20
+    assert length_by |> run("ab") == 20
+    assert length_of |> run("abc") == 3
+    assert (fn s -> s + "!") |> run("x") == "x!"
+    assert run_all([length_by, length_of], "a") == [10, 1]
+    assert [length_by, length_of] |> run_all("a") == [10, 1]
+}

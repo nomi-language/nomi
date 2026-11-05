@@ -8,7 +8,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/std"
 )
 
 // TestDocumentManager_BuildLeavesOtherDocumentsNodesAlone: building one
@@ -36,7 +35,7 @@ func TestDocumentManager_BuildLeavesOtherDocumentsNodesAlone(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	dm.SetWorkspaceRoot(dir)

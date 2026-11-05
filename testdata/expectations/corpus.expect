@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 664
-declared-cases 3804
+records 683
+declared-cases 3854
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1767,6 +1767,27 @@ H 3bd451d9e13f957dbfbb5006ccc6bc8ffc57a4e60c58c93b0648ec31e71b1c78
 T ok <root>/tests/10-generics-and-type-wrappers/turbofish_test.nomi :: explicit type arguments pin otherwise undetermined type parameters
 T test result: ok. 1 passed, 0 failed
 T
+C 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi
+E 1
+N 0
+H fd65ef1c695f87b0db6ccc7eecb6d73c062ad149d51a01eeb3f694767fecd9dd
+T --- stderr ---
+T nomi run: <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/routes.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi
+E 0
+N 8
+H cdbbc10a72de87d282badc6c651668e28072cd6aea1855190fbd22218b12599a
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: the route list of an app
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: List
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: branches and generic calls
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: nested collections
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: Maybe and Result
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: functions
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: tuples, records and fields
+T ok <root>/tests/10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi :: Map and Set
+T test result: ok. 8 passed, 0 failed
+T
 C 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi
 E 1
 N 0
@@ -2025,6 +2046,17 @@ T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: th
 T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: a nested patch preserves the sibling field it does not name
 T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: dispatch through the patched field selects the new impl
 T test result: ok. 8 passed, 0 failed
+T
+C 11-interfaces-and-impls/interface_results_in_tuples_test.nomi
+E 0
+N 5
+H fa7226a5bdaeb5918b9335a20ed1b512065237da00e4b831f3b7e2f0be2fc254
+T ok <root>/tests/11-interfaces-and-impls/interface_results_in_tuples_test.nomi :: a list of tuples mixes plain, Result and lambda handlers
+T ok <root>/tests/11-interfaces-and-impls/interface_results_in_tuples_test.nomi :: a tuple held in a variable enters as a literal does
+T ok <root>/tests/11-interfaces-and-impls/interface_results_in_tuples_test.nomi :: an annotated binding, a record and a declared result
+T ok <root>/tests/11-interfaces-and-impls/interface_results_in_tuples_test.nomi :: a struct field
+T ok <root>/tests/11-interfaces-and-impls/interface_results_in_tuples_test.nomi :: a distinct type's result is dispatched by its impl
+T test result: ok. 5 passed, 0 failed
 T
 C 11-interfaces-and-impls/missing_impls/missing_impls_test.nomi
 E 0
@@ -2558,6 +2590,26 @@ T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: Iter.min_by and It
 T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: an empty list literal needs no element type
 T test result: ok. 9 passed, 0 failed
 T
+C 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi
+E 0
+N 7
+H 0c11aecb8a06bc192392f352f2249bfb263401d2f0b820963aa045036d2ca1df
+T ok <root>/tests/13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi :: a list of functions widens to the stage's parameter
+T ok <root>/tests/13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi :: a module-qualified stage with more arguments
+T ok <root>/tests/13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi :: a lambda or capture head takes the parameter's types
+T ok <root>/tests/13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi :: a literal head takes the parameter's type
+T ok <root>/tests/13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi :: a then stage's capture checks the head as its argument
+T ok <root>/tests/13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi :: a function value fills its defaults as the call's argument does
+T ok <root>/tests/13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi :: a head at a generic parameter is checked as the call's argument
+T test result: ok. 7 passed, 0 failed
+T
+C 13-iterators-and-pipes/pipe_head_expected/shows.nomi
+E 1
+N 0
+H 0673f8e7e97a0a0f0bc71d6ffc1c8946fc8cffee86084aed696d356dfdbb7a55
+T --- stderr ---
+T nomi run: <root>/tests/13-iterators-and-pipes/pipe_head_expected/shows.nomi declares no `fn main`, so there is no program to run
+T
 C 13-iterators-and-pipes/pipe_lambda_test.nomi
 E 0
 N 5
@@ -2670,6 +2722,59 @@ H 2ef8bcf68d32e33827f81e4f19893abe68936b761259546a96a9fa3609fc3d78
 T --- stderr ---
 T nomi run: <root>/tests/14-modules-and-packaging/cross_file_modules/models.nomi declares no `fn main`, so there is no program to run
 T
+C 14-modules-and-packaging/directory_imports/db/notifications.nomi
+E 1
+N 0
+H 5b11889320fb241d29bcc36fee4030ef10c8a27882212bfbebc59da714423da3
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/directory_imports/db/notifications.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/directory_imports/db/schema.nomi
+E 1
+N 0
+H dbb4e9d81d6ca7818afa786a075630d239dff670928cd5666e23068c55d7ca09
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/directory_imports/db/schema.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/directory_imports/directory_imports_test.nomi
+E 0
+N 5
+H 2bbd3ead3973f1bc28feee663fdce82897e60551b485f5b2507e2ce115cc470b
+T ok <root>/tests/14-modules-and-packaging/directory_imports/directory_imports_test.nomi :: a path below a directory import reaches a file in every position
+T ok <root>/tests/14-modules-and-packaging/directory_imports/directory_imports_test.nomi :: two files of one short name are told apart by their directories
+T ok <root>/tests/14-modules-and-packaging/directory_imports/directory_imports_test.nomi :: a declaration keeps its name, and the file is reached through its directory
+T ok <root>/tests/14-modules-and-packaging/directory_imports/directory_imports_test.nomi :: a deeper path reaches a file below a subdirectory
+T ok <root>/tests/14-modules-and-packaging/directory_imports/directory_imports_test.nomi :: a file beside a directory of its name is what its import names
+T test result: ok. 5 passed, 0 failed
+T
+C 14-modules-and-packaging/directory_imports/jobs/notifications.nomi
+E 1
+N 0
+H 4e5a521605fa962979dfb1a44c86018d098d8d98ad3874d7e953f260dab3279d
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/directory_imports/jobs/notifications.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/directory_imports/views/admin.nomi
+E 1
+N 0
+H ede5275b3e1bcf065ee4e59ad6ee8dbd0ea168c03ee5c4aa47d1812b962e0fad
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/directory_imports/views/admin.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/directory_imports/views/admin/reports/daily.nomi
+E 1
+N 0
+H 59bb77161e1c57e1363ac1fc4bc12a39ec8f165d7f5db75144fdde5e282a14e7
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/directory_imports/views/admin/reports/daily.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/directory_imports/views/admin/users.nomi
+E 1
+N 0
+H 00716eb475864104c00220e4439afee53ed4493bee1b838c14d9b4a7ac7aaf07
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/directory_imports/views/admin/users.nomi declares no `fn main`, so there is no program to run
+T
 C 14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi
 E 0
 N 9
@@ -2698,6 +2803,26 @@ N 0
 H cae55eb00981fc17c4e53a283c255f2f91f02398f043dbaa134398f01d871a37
 T --- stderr ---
 T nomi run: <root>/tests/14-modules-and-packaging/dotted_type_names/telemetry.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/embedded_files/embedded_files_test.nomi
+E 0
+N 11
+H 20bb1f4b8c0aa87dfb1d5922c4f2f2a72caf4fc3b6dd6dd82eac6f4b6f76188e
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: each declaration holds the files its patterns match, from the module root
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file reads as bytes or text
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a directory lists and walks
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: metadata gives the size and a fixed time
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file server answers from the embedded files
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file server redirects a directory and an index
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file server answers 404 for what it does not serve (5 cases)
+T test result: ok. 11 passed, 0 failed
+T
+C 14-modules-and-packaging/embedded_files/web/site.nomi
+E 1
+N 0
+H 41ca70c3b16037e7a786fb79af65de7979907ec84f0bd78f7e1b300abc1983f9
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/embedded_files/web/site.nomi declares no `fn main`, so there is no program to run
 T
 C 14-modules-and-packaging/explicit_item_imports/explicit_item_imports_test.nomi
 E 0
@@ -2740,43 +2865,34 @@ H 22a3b69deeaec626631e49f1a558c9c61fdea78129f50a3152b3c2a051524e74
 T --- stderr ---
 T nomi run: <root>/tests/14-modules-and-packaging/file_import_display/shapes.nomi declares no `fn main`, so there is no program to run
 T
-C 14-modules-and-packaging/full_paths/db/notifications.nomi
+C 14-modules-and-packaging/imported_typealias/db/schema.nomi
 E 1
 N 0
-H 4daec09bee59c8d8e885b75e711946b77423020f4902b77668d4c822b1acd051
+H 0de30208175c4c398ea28a68034df093876fa8e0008de0b1a66ef2614dea5de1
 T --- stderr ---
-T nomi run: <root>/tests/14-modules-and-packaging/full_paths/db/notifications.nomi declares no `fn main`, so there is no program to run
+T nomi run: <root>/tests/14-modules-and-packaging/imported_typealias/db/schema.nomi declares no `fn main`, so there is no program to run
 T
-C 14-modules-and-packaging/full_paths/db/schema.nomi
+C 14-modules-and-packaging/imported_typealias/domain/fundraising.nomi
 E 1
 N 0
-H d6547521706c8740926d7ed29ad344124e4a416b5f090af5bd3ab06399f4e50d
+H 3fa9e052284b84cfbe0083c94180ad8aea28b42f1440bbbc2905e5a81e0f4810
 T --- stderr ---
-T nomi run: <root>/tests/14-modules-and-packaging/full_paths/db/schema.nomi declares no `fn main`, so there is no program to run
+T nomi run: <root>/tests/14-modules-and-packaging/imported_typealias/domain/fundraising.nomi declares no `fn main`, so there is no program to run
 T
-C 14-modules-and-packaging/full_paths/full_paths_test.nomi
+C 14-modules-and-packaging/imported_typealias/domain/models.nomi
+E 1
+N 0
+H 7ac378017643c50202175db1770240174000ba3dc56ad203d0cce8fef5aead20
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/imported_typealias/domain/models.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/imported_typealias/imported_typealias_test.nomi
 E 0
-N 4
-H 185595db50c55cef2c9828d7fb5eb0b9b5c74c029419dc8da3ce48a54069336f
-T ok <root>/tests/14-modules-and-packaging/full_paths/full_paths_test.nomi :: a short name and a full path name the same file
-T ok <root>/tests/14-modules-and-packaging/full_paths/full_paths_test.nomi :: a full path names a variant
-T ok <root>/tests/14-modules-and-packaging/full_paths/full_paths_test.nomi :: two files of one short name are each reached by full path
-T ok <root>/tests/14-modules-and-packaging/full_paths/full_paths_test.nomi :: a declaration keeps its name, and the file is reached by full path
-T test result: ok. 4 passed, 0 failed
-T
-C 14-modules-and-packaging/full_paths/jobs/notifications.nomi
-E 1
-N 0
-H 69f0a58cd962784c59b7f57ea00d0c166941260124273ddafa75bcb538dbedba
-T --- stderr ---
-T nomi run: <root>/tests/14-modules-and-packaging/full_paths/jobs/notifications.nomi declares no `fn main`, so there is no program to run
-T
-C 14-modules-and-packaging/full_paths/views/admin/users.nomi
-E 1
-N 0
-H 6eed78ce58efceb3accfe99537fc3bdc650ce04e40324108a57712cc4a6b8587
-T --- stderr ---
-T nomi run: <root>/tests/14-modules-and-packaging/full_paths/views/admin/users.nomi declares no `fn main`, so there is no program to run
+N 2
+H 5b9fd0e2151ef09166b99d03543c202e6ace8026a1a3a9a7b1bfd2c239ec43ec
+T ok <root>/tests/14-modules-and-packaging/imported_typealias/imported_typealias_test.nomi :: a struct field typed with an imported typealias takes a bare variant
+T ok <root>/tests/14-modules-and-packaging/imported_typealias/imported_typealias_test.nomi :: an enum payload typed with an imported typealias matches a bare variant
+T test result: ok. 2 passed, 0 failed
 T
 C 14-modules-and-packaging/imports_and_modules_test.nomi
 E 0
@@ -2851,6 +2967,42 @@ N 1
 H 257db8f0aafade2bc6e1e54fec312538407e02c2a378e6be741c7d88fd30ca24
 T ok <root>/tests/14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi :: re-export facade exposes leaf and parser items
 T test result: ok. 1 passed, 0 failed
+T
+C 14-modules-and-packaging/reexport_order/db/schema.nomi
+E 1
+N 0
+H e2d6a7c3bc7146dd141b00dfdf52d57611fb481d09dd8377ba3b6e87c19d4788
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/reexport_order/db/schema.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/reexport_order/domain/aliases.nomi
+E 1
+N 0
+H 9a0b7077927fac9244483695dc0f1bb1614832ec6af9ace91bbb667a709f7ea3
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/reexport_order/domain/aliases.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/reexport_order/domain/fundraising.nomi
+E 1
+N 0
+H 07152e081fa87a06d36f30bca43f70e6f00e57d67e4cbabd939ebbd00cb62d40
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/reexport_order/domain/fundraising.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/reexport_order/domain/zkinds.nomi
+E 1
+N 0
+H 400bd1515862e87f29de5f3eb2333195f4aa31db7700b4d34fee0f5fbbe5a270
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/reexport_order/domain/zkinds.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/reexport_order/reexport_order_test.nomi
+E 0
+N 2
+H cd765db30bf74333bff3fba29114eda5bd7ce177457e3f51b39aa611f40d6a0d
+T ok <root>/tests/14-modules-and-packaging/reexport_order/reexport_order_test.nomi :: a struct field typed with a re-exported enum
+T ok <root>/tests/14-modules-and-packaging/reexport_order/reexport_order_test.nomi :: a re-export of a re-export is the same enum
+T test result: ok. 2 passed, 0 failed
 T
 C 14-modules-and-packaging/same_named_types/same_named_types_test.nomi
 E 0
@@ -3359,6 +3511,26 @@ T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memo
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a job past its timeout is cancelled and retried
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker with a start rate / it starts no more jobs a second than its rate
 T test result: ok. 8 passed, 0 failed
+T
+C 16-concurrency/jobs/schedules_test.nomi
+E 0
+N 14
+H e63e03b7f0bb4911fd3c52d7c6140d2db4c71fcf289e1f32e039d44e80c726d2
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: a scheduler down across several ticks enqueues one job, for the latest
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: with missed: .Skip it enqueues nothing for missed ticks, then the next on time
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: a schedule the queue has no record of enqueues nothing until its next tick
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: two schedulers stepping one schedule at once store each tick once
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: a daily cron in New York runs a skipped 02:30 at 03:00, once
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: every quarter hour across the spring change skips the missing hour
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: a daily cron in New York runs a repeated 01:30 once
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: an hourly cron runs the repeated hour once across the fall change
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: names, ranges, steps and lists pick the times a cron expression names
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: a unique enqueue with a period stores one job per period
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: run_queued runs the highest priority first, then the oldest
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: a kept key outlives its job, and a live one does not
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: schedules on two workers over one queue / two workers running one schedule enqueue each tick once
+T ok <root>/tests/16-concurrency/jobs/schedules_test.nomi :: schedules on two workers over one queue / a worker that starts after missed ticks enqueues one job, for the latest
+T test result: ok. 14 passed, 0 failed
 T
 C 16-concurrency/message_loop/counter_app.nomi
 E 0

@@ -26,7 +26,7 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 	}
 	pk := bl.g.project(ty)
 	if !irCallableValueKind(pk) {
-		irDeclineNote("a field accessor over a type outside the domain: " + pk.nomi())
+		bl.g.dc.note("a field accessor over a type outside the domain: " + pk.nomi())
 		return no()
 	}
 	at := bl.g.irNodePos(t)
@@ -54,12 +54,12 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 		}
 	}
 	if !irCallableValueKind(k) && k != kindUnit {
-		irDeclineNote("a field accessor result outside the domain: " + k.nomi())
+		bl.g.dc.note("a field accessor result outside the domain: " + k.nomi())
 		return no()
 	}
 	child.b.SetTerm(ir.NewReturn(bl.g.irNodePos(t), cur))
 	if err := bl.g.irLint(f); err != nil {
-		irDeclineNote("a field accessor graph that does not lint: " + err.Error())
+		bl.g.dc.note("a field accessor graph that does not lint: " + err.Error())
 		return no()
 	}
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f)

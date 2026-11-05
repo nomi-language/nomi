@@ -64,7 +64,7 @@ func (bl *irScalarBuilder) enterElseless(t *ast.If, sig irFuncSig) (irFuncSig, i
 	maybe := sig.result
 	if sig.inferResult {
 		if analysis.ResolveTypeVar(ty) == nil || irUnsolvedType(ty) {
-			irDeclineNote("an `if` without `else` whose Maybe the checker left open")
+			bl.g.dc.note("an `if` without `else` whose Maybe the checker left open")
 			return sig, elselessDeclined
 		}
 		maybe = bl.g.project(ty)
@@ -72,12 +72,12 @@ func (bl *irScalarBuilder) enterElseless(t *ast.If, sig irFuncSig) (irFuncSig, i
 		return sig, elselessValue
 	}
 	if !irMaybeKind(maybe) || len(maybe.def.preludeArgs) != 1 {
-		irDeclineNote("an `if` without `else` whose value is not a Maybe here: " + maybe.nomi())
+		bl.g.dc.note("an `if` without `else` whose value is not a Maybe here: " + maybe.nomi())
 		return sig, elselessDeclined
 	}
 	some, none := maybe.def.variant("Some"), maybe.def.variant("None")
 	if some == nil || none == nil || len(some.payloads) != 1 {
-		irDeclineNote("an `if` without `else` whose Maybe has no Some and None: " + maybe.nomi())
+		bl.g.dc.note("an `if` without `else` whose Maybe has no Some and None: " + maybe.nomi())
 		return sig, elselessDeclined
 	}
 	es := &irElseless{head: t, maybe: maybe, inner: maybe.def.preludeArgs[0], some: some, none: none, links: map[*ast.If]bool{}}
@@ -103,7 +103,7 @@ func (bl *irScalarBuilder) elselessAsValue(t *ast.If, sig irFuncSig) (kind, bool
 	}
 	have := k
 	if val, k, ok = bl.coerceEmpty(t, val, k, sig.result); !ok || k != sig.result {
-		irDeclineNote("an `if` without `else` whose " + have.nomi() + " does not enter " + sig.result.nomi())
+		bl.g.dc.note("an `if` without `else` whose " + have.nomi() + " does not enter " + sig.result.nomi())
 		return kindInvalid, false
 	}
 	bl.resultCopy(t, val)
@@ -139,7 +139,7 @@ func (bl *irScalarBuilder) elselessSome(body ast.Node, es *irElseless) (ir.Temp,
 	}
 	if val, k, ok = bl.coerceEmpty(body, val, k, es.inner); !ok || k != es.inner {
 		if ok {
-			irDeclineNote("an arm of an `if` without `else` whose kind is not the Maybe's payload: " +
+			bl.g.dc.note("an arm of an `if` without `else` whose kind is not the Maybe's payload: " +
 				k.nomi() + " vs " + es.inner.nomi())
 		}
 		return ir.NoTemp, kindInvalid, false

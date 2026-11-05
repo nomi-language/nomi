@@ -5,7 +5,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"strings"
 	"testing"
 
@@ -56,7 +55,7 @@ impl Literal for Joiner {
 // loader pattern. Returns the entry-file FileAnalysis.
 func buildTaggedProject(t *testing.T, p typedLiteralProject) *analysis.FileAnalysis {
 	t.Helper()
-	lib := std.Load()
+	lib := loadStd()
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
 		var src string
@@ -264,7 +263,7 @@ impl Literal for Joiner {
 }
 
 `
-	lib := std.Load()
+	lib := loadStd()
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		if strings.Join(modulePath, "/") == "joiner" {
 			toks := lexer.Lex(joinerSrc)
@@ -322,7 +321,7 @@ impl Literal for Joiner {
 }
 
 `
-	lib := std.Load()
+	lib := loadStd()
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		if strings.Join(modulePath, "/") == "joiner" {
 			toks := lexer.Lex(joinerSrc)

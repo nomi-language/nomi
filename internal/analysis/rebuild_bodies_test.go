@@ -128,6 +128,7 @@ func graftBodies(nodes, fresh []ast.Node) {
 // multi-file corpus project, every single-file corpus program and
 // orderProject.
 func TestRebuildBodiesMatchesFull(t *testing.T) {
+	t.Parallel()
 	projects := []incrementalProject{orderIncremental()}
 	corpus, err := corpusProjects()
 	if err != nil {
@@ -182,6 +183,7 @@ func markedProject(tb testing.TB, name, code string) incrementalProject {
 // TestRebuildBodiesMatchesFull_TourAndSpec rebuilds the bodies of every file
 // of every runnable tour block and every complete program in the spec.
 func TestRebuildBodiesMatchesFull_TourAndSpec(t *testing.T) {
+	t.Parallel()
 	var projects []incrementalProject
 	root := filepath.Join("..", "..", "tour", "src", "content", "docs")
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {

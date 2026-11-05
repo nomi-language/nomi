@@ -12,6 +12,9 @@ type TypeRegistry struct {
 	// lazy holds a builder per name whose type is not built yet; Lookup
 	// runs it on the first miss (RegisterLazy).
 	lazy map[string]func()
+	// suggest are names a "did you mean" hint offers beside the types the
+	// registry holds (FileDecls.ScopeNames).
+	suggest []string
 }
 
 func NewTypeRegistry() *TypeRegistry {
@@ -59,13 +62,15 @@ func (r *TypeRegistry) Lookup(name string) Type {
 	return nil
 }
 
-// Names are every type name the registry and its parents hold.
+// Names are every type name the registry and its parents hold, and the
+// names their hints offer beside them (suggest).
 func (r *TypeRegistry) Names() []string {
 	var names []string
 	for reg := r; reg != nil; reg = reg.parent {
 		for name := range reg.types {
 			names = append(names, name)
 		}
+		names = append(names, reg.suggest...)
 	}
 	return names
 }

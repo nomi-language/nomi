@@ -160,10 +160,11 @@ func isImageFilePath(path string) bool {
 // the VM, as nomi-vm runs it (vmrunner), with std/compiler's hosts linked.
 func runImageFile(path string, args []string) int {
 	opts := []vmrunner.Option{vmrunner.WithCompiler(compiler.Table)}
-	image, err := vmrunner.LoadImageFile(path, opts...)
+	image, err := vmrunner.OpenImageFile(path, opts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "nomi run: %v\n", err)
 		return 1
 	}
-	return vmrunner.RunCompiled(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...)
+	defer image.Close()
+	return vmrunner.RunCompiledImage(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...)
 }

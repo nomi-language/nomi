@@ -8,7 +8,7 @@ package irbuild
 // `lower` recurses, so the innermost failing node answers first and the first
 // observation is the reason the body STOPPED rather than the outermost frame
 // that noticed it. `irDeclineOpen` is called at exactly two sites —
-// `irScalarBuild` and `irTestBodyBuild` — and `irDeclineSeen` is the guard.
+// `irScalarBuild` and `irTestBodyBuild` — and the census's `seen` is the guard.
 // A hook that fired twice for one attempt, read by an observer that keeps the
 // last observation, would report the wrong reason.
 //
@@ -26,27 +26,35 @@ package irbuild
 // each would miss the arms nobody remembered. So the funnel is wrapped once
 // and the reason is RE-DERIVED from the node by `declineReason`, which re-asks
 // the same cheap tests the arms make. The statement-level sites, which `lower`
-// cannot see, set `irDeclineBodyWhy` and `irScalarBuild` reports it.
+// cannot see, set the census's `bodyWhy` and `irScalarBuild` reports it.
 //
-// PRODUCTION READS ONLY `irDeclineWhy`, the reason a refused `nomi build`
-// names. `IRDeclineObserved` is nil unless a test installs it, and
-// `irDeclineOpen`/`irDeclineNote` are two assignments and a branch.
+// PRODUCTION READS ONLY the census's `why`, the reason a refused `nomi build`
+// names, and the Declines a host's DeclineHooks are handed. The census is the
+// lowering's own (declineCensus, gen.dc), never package state, so lowerings on
+// two goroutines keep two.
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// IRDeclineObserved is called with the attempt's name and the FIRST decline
-// reason of that attempt. Nil in production.
-//
-// EXPORTED, unlike the package's three other observation hooks, and the reason
-// is the tour. A tour block's id is `chapter:L<line>` and only the markdown
-// holds the code, so the staging lives in `internal/vm`'s test package —
-// `vmPathResolver` — so the tour's decline reasons are taken there and the
-// hook has to cross the package boundary. `irbuild` is an internal package
-// and `Analyze`/`Generate` are exported for that same consumer.
-var IRDeclineObserved func(fn, reason string)
+// DeclineHooks observe one lowering's declines: Program.Declines for
+// GenerateIR, and an argument for the stdlib case lowerings. Each lowering
+// carries its own (a declineCensus), so two lowerings on two goroutines never
+// share one. Both are nil unless a host or a test installs them.
+type DeclineHooks struct {
+	// Observed is called with the attempt's name and the FIRST decline
+	// reason of that attempt.
+	Observed func(fn, reason string)
+	// At is called with each attempt's first decline, as Observed is, for a
+	// host that reports declines at their source (`nomi check`). The
+	// Decline's Line and Col are filled in after the call, when the failing
+	// expression's frame unwinds, so the host keeps the pointer and reads
+	// them once lowering is done.
+	At func(*Decline)
+}
 
 // Decline is one body the builder declined: the attempt's name, the file it
 // was lowering, the builder's first reason, and the position of the innermost
@@ -66,105 +74,198 @@ type Decline struct {
 	Pattern bool
 }
 
-// IRDeclineAt is called with each attempt's first decline, as
-// IRDeclineObserved is, for a host that reports declines at their source
-// (`nomi check`). The Decline's Line and Col are filled in after the call,
-// when the failing expression's frame unwinds, so the host keeps the
-// pointer and reads them once lowering is done. Nil unless a host installs it.
-var IRDeclineAt func(*Decline)
+// declineCensus is one lowering's decline bookkeeping: the open attempt's
+// first decline, the expressions being lowered, and the hooks that observe
+// it. Every gen a lowering builds through holds the same one (gen.dc), and
+// nothing in it is package state, so concurrent lowerings stay apart.
+type declineCensus struct {
+	hooks DeclineHooks
+	// watch records every attempt's decline in watched, by the file the
+	// attempt lowered: GenerateIR's census does, which a kept lowering
+	// records and a lowering of one file is compared with (perfile.go).
+	watch   bool
+	watched []*Decline
+	// muted counts the nested builds (an instance closure, an isolated
+	// program-std body) whose declines no hook and no watch sees.
+	muted int
 
-var (
-	irDeclineFn   string
-	irDeclineSeen bool
-	// irDeclinePath is the file the open attempt is lowering, and irDeclineCur
-	// the Decline handed to IRDeclineAt for it, whose position `lower` fills.
-	irDeclinePath string
-	irDeclineCur  *Decline
-	// irDeclineBodyWhy is `irScalarBody`'s reason, which it cannot report
-	// itself because it answers nil rather than declining.
-	irDeclineBodyWhy string
-	// irDeclineWhy is the first decline of the open attempt, recorded whether
-	// or not a hook is installed: it is the reason a refused `nomi build`
-	// names for a body the IR did not lower. See irnative.go.
-	irDeclineWhy string
-	// irDeclineLine and irDeclineCol are the source position of the node the
-	// first expression decline was taken at, or 0.
-	irDeclineLine, irDeclineCol int
-)
+	fn   string
+	seen bool
+	// path is the file the open attempt is lowering, and cur the Decline
+	// handed to the hooks for it, whose position `lower` fills.
+	path string
+	cur  *Decline
+	// bodyWhy is `irScalarBody`'s reason, which it cannot report itself
+	// because it answers nil rather than declining.
+	bodyWhy string
+	// why is the first decline of the open attempt, recorded whether or not
+	// a hook is installed: it is the reason a refused `nomi build` names for
+	// a body the IR did not lower. See irnative.go.
+	why string
+	// line and col are the source position of the node the first
+	// expression decline was taken at, or 0.
+	line, col int
+	// failures counts the expressions that declined, and frames holds its
+	// value as each expression being lowered began (`lowerExact`,
+	// `lowerTypedOperand`). An expression one of whose operands declined
+	// declines without lowering anything more (abandoned): the operand may
+	// have left a partial region behind, a terminated block among it, and a
+	// second route to the expression would build on it.
+	failures int
+	frames   []int
+}
+
+// newDeclineCensus is a lowering's census, observed by hooks.
+func newDeclineCensus(hooks DeclineHooks) *declineCensus {
+	return &declineCensus{hooks: hooks}
+}
+
+// observed is the hook told each attempt's first reason, or nil.
+func (dc *declineCensus) observed() func(fn, reason string) {
+	if dc.muted > 0 {
+		return nil
+	}
+	return dc.hooks.Observed
+}
+
+// placing reports whether an attempt's first decline is kept as a Decline
+// whose position `lower` fills: a host's At hook or the watch wants it.
+func (dc *declineCensus) placing() bool {
+	return dc.muted == 0 && (dc.hooks.At != nil || dc.watch)
+}
+
+// report hands d to the watch and the At hook.
+func (dc *declineCensus) report(d *Decline) {
+	if dc.watch {
+		dc.watched = append(dc.watched, d)
+	}
+	if dc.hooks.At != nil {
+		dc.hooks.At(d)
+	}
+}
 
 // irDeclineOpen starts one build attempt in g's file.
 func (g *gen) irDeclineOpen(name string) {
-	irDeclineFn, irDeclineSeen, irDeclineWhy = name, false, ""
-	irDeclineLine, irDeclineCol = 0, 0
-	irDeclinePath, irDeclineCur = "", nil
+	path := ""
 	if g.fa != nil {
-		irDeclinePath = g.fa.FilePath
+		path = g.fa.FilePath
 	}
+	g.dc.begin(name, path)
 }
 
-// irDeclineNote records the first decline of the open attempt.
-func irDeclineNote(reason string) {
-	if irDeclineWhy == "" {
-		irDeclineWhy = reason
+// begin starts one build attempt named name in the file at path.
+func (dc *declineCensus) begin(name, path string) {
+	dc.fn, dc.seen, dc.why = name, false, ""
+	dc.line, dc.col = 0, 0
+	dc.path, dc.cur = path, nil
+}
+
+// note records the first decline of the open attempt.
+func (dc *declineCensus) note(reason string) {
+	if dc.why == "" {
+		dc.why = reason
 	}
-	if irDeclineSeen || (IRDeclineObserved == nil && IRDeclineAt == nil) {
+	observed, placing := dc.observed(), dc.placing()
+	if dc.seen || (observed == nil && !placing) {
 		return
 	}
-	irDeclineSeen = true
-	if IRDeclineObserved != nil {
-		IRDeclineObserved(irDeclineFn, reason)
+	dc.seen = true
+	if observed != nil {
+		observed(dc.fn, reason)
 	}
-	if IRDeclineAt != nil {
-		irDeclineCur = &Decline{Fn: irDeclineFn, Path: irDeclinePath, Reason: reason}
-		IRDeclineAt(irDeclineCur)
-	}
-}
-
-// irDeclineNoteOnce records the first decline of the open attempt as a read
-// of the `once` named once ("once n"), whose own failure is the cause.
-func irDeclineNoteOnce(reason, once string) {
-	irDeclineNote(reason)
-	if irDeclineCur != nil && irDeclineCur.Reason == reason {
-		irDeclineCur.Once = once
+	if placing {
+		dc.cur = &Decline{Fn: dc.fn, Path: dc.path, Reason: reason}
+		dc.report(dc.cur)
 	}
 }
 
-// irDeclineAside runs build, a lowering nested in the open attempt that is no
-// part of it, with the attempt's census set aside: what build notes reaches
-// no hook, and the attempt's own record is as it was afterwards.
-func irDeclineAside(build func()) {
-	fn, seen, path, cur, bodyWhy, why, line, col := irDeclineFn, irDeclineSeen, irDeclinePath, irDeclineCur, irDeclineBodyWhy, irDeclineWhy, irDeclineLine, irDeclineCol
-	observed, at := IRDeclineObserved, IRDeclineAt
-	IRDeclineObserved, IRDeclineAt = nil, nil
+// noteOnce records the first decline of the open attempt as a read of the
+// `once` named once ("once n"), whose own failure is the cause.
+func (dc *declineCensus) noteOnce(reason, once string) {
+	dc.note(reason)
+	if dc.cur != nil && dc.cur.Reason == reason {
+		dc.cur.Once = once
+	}
+}
+
+// mute keeps the hooks and the watch from seeing what is noted until the
+// function it answers is called.
+func (dc *declineCensus) mute() (unmute func()) {
+	dc.muted++
+	return func() { dc.muted-- }
+}
+
+// declineAttempt is the open attempt's record, which a nested build sets
+// aside and puts back.
+type declineAttempt struct {
+	fn, path, bodyWhy, why string
+	seen                   bool
+	cur                    *Decline
+	line, col              int
+}
+
+// suspend sets the open attempt's record aside and mutes the hooks and the
+// watch for a build nested in it that is no part of it (an instance
+// closure, an isolated program-std body); the function it answers puts both
+// back.
+func (dc *declineCensus) suspend() (resume func()) {
+	a := declineAttempt{dc.fn, dc.path, dc.bodyWhy, dc.why, dc.seen, dc.cur, dc.line, dc.col}
+	dc.muted++
+	return func() {
+		dc.muted--
+		dc.fn, dc.path, dc.bodyWhy, dc.why, dc.seen, dc.cur, dc.line, dc.col = a.fn, a.path, a.bodyWhy, a.why, a.seen, a.cur, a.line, a.col
+	}
+}
+
+// aside runs build, a lowering nested in the open attempt that is no part
+// of it, with the attempt's census set aside: what build notes reaches no
+// hook, and the attempt's own record is as it was afterwards.
+func (dc *declineCensus) aside(build func()) {
+	resume := dc.suspend()
 	// What build declines abandons none of the attempt's expressions.
-	failures, open := irLowerFailures, irLowerOpen
-	irLowerOpen = nil
+	failures, frames := dc.failures, dc.frames
+	dc.frames = nil
 	defer func() {
-		irDeclineFn, irDeclineSeen, irDeclinePath, irDeclineCur, irDeclineBodyWhy, irDeclineWhy, irDeclineLine, irDeclineCol = fn, seen, path, cur, bodyWhy, why, line, col
-		IRDeclineObserved, IRDeclineAt = observed, at
-		irLowerFailures, irLowerOpen = failures, open
+		resume()
+		dc.failures, dc.frames = failures, frames
 	}()
 	build()
 }
 
-// irDeclineWithdrawn records that fn, a body the builder retained, was
-// withdrawn because it reads a `once` whose cell no module retained
+// withdrawn records that fn, a body the builder retained, was withdrawn
+// because it reads a `once` whose cell no module retained
 // (irWithdrawUnforceableReads). It is outside any attempt: fn's own attempt
 // lowered, so this is its only decline.
-func irDeclineWithdrawn(fn string, read *ir.Ref) {
+func (dc *declineCensus) withdrawn(fn string, read *ir.Ref) {
 	once := "once " + read.Sym().Name()
 	reason := "reads `" + once + "`, whose initializer did not lower"
-	if IRDeclineObserved != nil {
-		IRDeclineObserved(fn, reason)
+	if observed := dc.observed(); observed != nil {
+		observed(fn, reason)
 	}
-	if IRDeclineAt != nil {
+	if dc.placing() {
 		pos := read.Pos()
 		d := &Decline{Fn: fn, Path: pos.File(), Reason: reason, Once: once}
 		if emittableLine(pos.Line()) {
 			d.Line, d.Col = pos.Line(), pos.Col()
 		}
-		IRDeclineAt(d)
+		dc.report(d)
 	}
+}
+
+// byFile is each watched decline's function and reason by its file, each
+// file's sorted.
+func (dc *declineCensus) byFile() map[string][]string {
+	if len(dc.watched) == 0 {
+		return nil
+	}
+	out := map[string][]string{}
+	for _, d := range dc.watched {
+		out[d.Path] = append(out[d.Path], d.Fn+": "+d.Reason)
+	}
+	for _, list := range out {
+		slices.Sort(list)
+	}
+	return out
 }
 
 // irDeclineUnnamedReason is the reason an attempt records when it declined
@@ -173,22 +274,23 @@ func irDeclineWithdrawn(fn string, read *ir.Ref) {
 const irDeclineUnnamedReason = "the builder declined without naming a reason (a compiler bug; please report it)"
 
 // irDeclineUnnamed is a test-only hook, nil in production, called with the
-// attempt's name whenever irDeclineClose finds a decline no site named.
-// TestMain fails the irbuild package on any call.
+// attempt's name whenever close finds a decline no site named. TestMain
+// fails the irbuild package on any call. Only TestMain and tests that run
+// one lowering at a time write it.
 var irDeclineUnnamed func(fn string)
 
-// irDeclineClose ends an attempt that declined. Every decline should have
-// called irDeclineNote; one that did not would surface as a BLOCKED line
-// reading "no decline reason recorded", so it is recorded here with a reason
-// that says the builder is at fault, and the test hook is told.
-func irDeclineClose() {
-	if irDeclineWhy != "" {
+// close ends an attempt that declined. Every decline should have called
+// note; one that did not would surface as a BLOCKED line reading "no decline
+// reason recorded", so it is recorded here with a reason that says the
+// builder is at fault, and the test hook is told.
+func (dc *declineCensus) close() {
+	if dc.why != "" {
 		return
 	}
 	if irDeclineUnnamed != nil {
-		irDeclineUnnamed(irDeclineFn)
+		irDeclineUnnamed(dc.fn)
 	}
-	irDeclineNote(irDeclineUnnamedReason)
+	dc.note(irDeclineUnnamedReason)
 }
 
 // irDeclineSynthMask marks a reason `irScalarBody` reported for a body whose
@@ -233,14 +335,14 @@ func (bl *irScalarBuilder) lower(n ast.Node) (ir.Temp, kind, bool, bool) {
 // a construct that never runs because of it (irnever.go's neverOperand).
 func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 	n = bl.g.holeRead(n)
-	if irLowerAbandoned() {
+	if bl.g.dc.abandoned() {
 		// An operand of an enclosing expression already declined, so that
 		// expression declines too; another route to it (a constructor
 		// retried as a call of its function value) would append to the
 		// blocks the abandoned operand left, which it may have terminated.
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	defer irLowerFrame()()
+	defer bl.g.dc.frame()()
 	planted := plantedDeclineAt(n)
 	t, k := ir.NoTemp, kindInvalid
 	var m, ok, handled bool
@@ -250,96 +352,85 @@ func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 			t, k, m, ok = bl.lowerNode(n)
 		}
 	}
-	if ok && irLowerFailures != irLowerOpen[len(irLowerOpen)-1] {
+	if ok && bl.g.dc.failures != bl.g.dc.frames[len(bl.g.dc.frames)-1] {
 		// Something inside n declined, and n answered anyway by another
 		// route: the declined operand's IR is still in n's blocks.
 		ok = false
 	}
 	if !ok {
-		irLowerFailures++
+		bl.g.dc.failures++
 	}
 	if ok {
 		bl.g.irTypeTemp(bl.f, t, k)
 		bl.pipeValue(n, t)
 		bl.stageReached(n)
 	}
-	if !ok && irDeclineWhy == "" {
+	if !ok && bl.g.dc.why == "" {
 		if line, col := nodePos(n); emittableLine(line) {
-			irDeclineLine, irDeclineCol = line, col
+			bl.g.dc.line, bl.g.dc.col = line, col
 		}
 		reason := planted
 		if reason == "" {
 			reason = bl.declineReason(n)
 		}
-		irDeclineNote(reason)
+		bl.g.dc.note(reason)
 	}
-	if !ok && irDeclineCur != nil && irDeclineCur.Line == 0 {
+	if cur := bl.g.dc.cur; !ok && cur != nil && cur.Line == 0 {
 		// The innermost failing expression: where the decline was noted, or
 		// the nearest enclosing expression of a decline noted at a node
 		// `lower` does not see.
 		if line, col := nodePos(n); emittableLine(line) {
-			irDeclineCur.Line, irDeclineCur.Col = line, col
+			cur.Line, cur.Col = line, col
 		}
 	}
 	return t, k, m, ok
 }
 
-// irLowerFailures counts the expressions that declined, and irLowerOpen
-// holds its value as each expression being lowered began (`lowerExact`,
-// `lowerTypedOperand`). An expression one of whose operands declined
-// declines without lowering anything more (irLowerAbandoned): the operand
-// may have left a partial region behind, a terminated block among it, and
-// a second route to the expression would build on it.
-var (
-	irLowerFailures int
-	irLowerOpen     []int
-)
-
-// irLowerFrame opens an expression whose routes irLowerAbandoned answers
-// for; the caller defers the function it returns.
-func irLowerFrame() (end func()) {
-	irLowerOpen = append(irLowerOpen, irLowerFailures)
-	return func() { irLowerOpen = irLowerOpen[:len(irLowerOpen)-1] }
+// frame opens an expression whose routes abandoned answers for; the caller
+// defers the function it returns.
+func (dc *declineCensus) frame() (end func()) {
+	dc.frames = append(dc.frames, dc.failures)
+	return func() { dc.frames = dc.frames[:len(dc.frames)-1] }
 }
 
-// irLowerAbandoned reports whether the innermost expression being lowered
-// has had an operand decline.
-func irLowerAbandoned() bool {
-	return len(irLowerOpen) > 0 && irLowerFailures != irLowerOpen[len(irLowerOpen)-1]
+// abandoned reports whether the innermost expression being lowered has had
+// an operand decline.
+func (dc *declineCensus) abandoned() bool {
+	return len(dc.frames) > 0 && dc.failures != dc.frames[len(dc.frames)-1]
 }
 
-// irDeclineAtNode places the open attempt's decline at n when nothing
-// inside it gave the decline a position: a statement-level construct
-// (a block or branch bound to a name) that declined where `lower` did not
-// see it is reported at the construct, not at the enclosing function.
-func irDeclineAtNode(n ast.Node) {
-	if irDeclineCur == nil || irDeclineCur.Line != 0 {
+// atNode places the open attempt's decline at n when nothing inside it gave
+// the decline a position: a statement-level construct (a block or branch
+// bound to a name) that declined where `lower` did not see it is reported at
+// the construct, not at the enclosing function.
+func (dc *declineCensus) atNode(n ast.Node) {
+	if dc.cur == nil || dc.cur.Line != 0 {
 		return
 	}
 	if line, col := nodePos(n); emittableLine(line) {
-		irDeclineCur.Line, irDeclineCur.Col = line, col
+		dc.cur.Line, dc.cur.Col = line, col
 	}
 }
 
-// irDeclineAtPattern records reason as the open attempt's decline, unless one
-// is already recorded, and places it at the pattern p unless something inside
+// atPattern records reason as the open attempt's decline, unless one is
+// already recorded, and places it at the pattern p unless something inside
 // p already placed it. Every site that gives up on a pattern calls it, so the
 // innermost pattern that failed is where the decline is reported: a pattern is
 // tested outside `lower`, which places only expressions.
-func irDeclineAtPattern(p ast.Node, reason string) {
-	first := irDeclineWhy == ""
-	irDeclineNote(reason)
+func (dc *declineCensus) atPattern(p ast.Node, reason string) {
+	first := dc.why == ""
+	dc.note(reason)
 	line, col := nodePos(p)
 	if !emittableLine(line) {
 		return
 	}
 	if first {
-		irDeclineLine, irDeclineCol = line, col
+		dc.line, dc.col = line, col
 	}
-	if irDeclineCur == nil || irDeclineCur.Line != 0 {
+	if dc.cur == nil || dc.cur.Line != 0 {
 		return
 	}
-	irDeclineCur.Line, irDeclineCur.Col, irDeclineCur.Pattern = line, col, true
+	dc.cur.Line, dc.cur.Col, dc.cur.Pattern = line, col, true
 }
 
 // declineReason names why n did not lower, re-deriving the cheap tests the

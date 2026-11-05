@@ -158,16 +158,17 @@ that directory's parent. `a/internal/x.nomi` is open to `a/` and below; an
 `internal/` at the module root is open to the whole module and closed to other
 modules.
 
-## Short names and full paths
+## Short names and directory imports
 
 A file is used by its short name, the last part of its path: after
-`import db::posts`, you call `posts.post_by_id(1)`. Its full path works too,
-anywhere the short name does: `db::posts.post_by_id(1)`, a type
-`db::posts.Post`, a pattern, a struct literal.
+`import db::posts`, you call `posts.post_by_id(1)`.
 
-Write the full path only where the short name is taken. Two imports may share
-one, and a local or a declaration of the file may have it. Here two files are
-both `notifications`, and a function is called `users`:
+Import a directory to reach the files under it. `import views` binds
+`views`, and a path below it reaches a file: `views::users.heading()`, or
+`views::admin::audit.last()` a level deeper. Only the files a path names
+become part of the program. A directory import also tells apart two files
+of one short name, and reaches a file whose short name a declaration has.
+Here two files are both `notifications`, and a function is called `users`:
 
 ```nomi-run
 // FILE: db/notifications.nomi
@@ -188,9 +189,9 @@ pub fn heading() -> String {
 // FILE: main.nomi
 import {
     std::io
-    db::notifications
-    jobs::notifications
-    views::users
+    db
+    jobs
+    views
 }
 
 fn users() -> List<String> {
@@ -215,14 +216,15 @@ Users: [ada, grace]
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- Using a short name two imports share is an error at the use:
-  `` `notifications` could be db::notifications or jobs::notifications; write the full path ``.
-- A full path names a file the file imports. `db::other.f()` with no
-  `import db::other` is the error `` `db::other` is not imported ``.
-- A file at the module root has a one-part path. Import it with the module's
-  name in front, `import app::users`, to get a full path for it.
+- A file import binds its short name only. `db::posts.find(1)` after
+  `import db::posts` is an error whose fix writes `posts.find(1)`.
+- Two imports of one short name are an error at the second, and so is an
+  import whose short name a declaration has.
+- Where `views/admin.nomi` sits beside `views/admin/`, `import views::admin`
+  names the file. `import app`, the module's own name, imports its root.
 
-Spec: [Short names and full paths](/spec/files-modules-and-imports/#short-names-and-full-paths).
+Spec: [Short names](/spec/files-modules-and-imports/#short-names),
+[Directory imports](/spec/files-modules-and-imports/#directory-imports).
 
 </div>
 

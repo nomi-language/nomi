@@ -388,7 +388,7 @@ test "a result that names no row type is a problem at the annotation" {
 
     not_a_row = fn t: String -> {
         [
-            "`${t}` is not a row type: a row type names a struct, or for a query of one column one of std's value types",
+            "`${t}` is not a row type: a row type names a struct, or for a query of one column one of std's value types or one of the schema's enums",
         ]
     }
 
@@ -435,6 +435,138 @@ test "a one-column query reads a scalar row type as the column" {
         source,
         "    runtime.one(conn, \"q\", statement, fn row -> runtime.int(\"q\", row, 0))\n",
     )
+}
+
+fn status_column() -> Column {
+    Column{name: "status", type_name: "TEXT", table: "users", column: "status", nullable: False}
+}
+
+test "a one-column query reads one of the schema's enums as the column, in every shape" {
+    read = fn result: String -> {
+        source_of("-- query: q() -> ${result}\nSELECT status FROM users;\n", [status_column()])
+    }
+
+    assert "    runtime.one(conn, \"q\", statement, fn row -> runtime.text(\"q\", row, 0))\n" in read(
+        "UserStatus"
+    )
+
+    assert "pub fn q(conn: sql.Conn) -> Result<Maybe<UserStatus>, sql.Error> {" in read(
+        "Maybe<UserStatus>"
+    )
+
+    assert "    runtime.optional(conn, \"q\", statement, fn row -> runtime.text(\"q\", row, 0))\n" in read(
+        "Maybe<UserStatus>"
+    )
+
+    assert "    runtime.list(conn, \"q\", statement, fn row -> runtime.text(\"q\", row, 0))\n" in read(
+        "List<UserStatus>"
+    )
+
+    assert "    runtime.rows(conn, \"q\", statement, fn row -> runtime.text(\"q\", row, 0))\n" in read(
+        "Rows<UserStatus>"
+    )
+
+    // A nullable column reads as a `Maybe` of the enum.
+    maybe_status = #{..status_column(), nullable: True}
+
+    assert "fn row -> runtime.text_null(\"q\", row, 0))\n" in source_of(
+        "-- query: q() -> List<Maybe<UserStatus>>\nSELECT status FROM users;\n",
+        [maybe_status],
+    )
+
+    qualified = read("Maybe<schema.UserStatus>")
+    assert "-> Result<Maybe<schema.UserStatus>, sql.Error> {" in qualified
+    assert "fn row -> runtime.text(\"q\", row, 0))\n" in qualified
+    refute "UserStatus{" in qualified
+
+    // A row struct's enum field reads through the same reader.
+    assert "            status: runtime.text(\"q\", row, 2)?,\n" in source_of(
+        "-- query: q() -> User\nSELECT id, name, status FROM users;\n",
+        [id_column(), name_column(), status_column()],
+    )
+
+    assert messages(
+        problems_of(
+            "-- query: q() -> List<UserStatus>\nSELECT id, status FROM users;\n",
+            [Ok([id_column(), status_column()])],
+        )
+    ) == [
+        "`q` returns 2 columns, so its row type cannot be `UserStatus`",
+    ]
+
+    // An imported type of the enum's name is the import's, read as a struct.
+    imported = source_of(
+        "-- import: models.UserStatus\n-- query: q() -> UserStatus\nSELECT status FROM users;\n",
+        [status_column()],
+    )
+
+    assert "fn row -> Ok(UserStatus{\n" in imported
+}
+
+test "a one-column query's row type is a `Maybe` exactly when the column may be NULL" {
+    maybe_status = #{..status_column(), nullable: True}
+    token = Column{name: "token", type_name: "UUID", table: "", column: "", nullable: True}
+
+    refused = fn result: String, column: Column -> {
+        problems = problems_of(
+            "-- query: q() -> ${result}\nSELECT ${column.name} FROM users;\n",
+            [Ok([column])],
+        )
+
+        messages(problems)
+    }
+
+    nullable = fn column: String, t: String -> {
+        ["the column `${column}` of `q` may be NULL, so its row type cannot be `${t}`"]
+    }
+
+    assert refused("UserStatus", maybe_status) == nullable("status", "UserStatus")
+    assert refused("Maybe<UserStatus>", maybe_status) == nullable("status", "UserStatus")
+    assert refused("List<UserStatus>", maybe_status) == nullable("status", "UserStatus")
+    assert refused("Rows<UserStatus>", maybe_status) == nullable("status", "UserStatus")
+    assert refused("Maybe<String>", name_column()) == nullable("name", "String")
+    assert refused("Maybe<Uuid>", token) == nullable("token", "Uuid")
+    assert refused("List<Int>", #{..id_column(), nullable: True}) == nullable("id", "Int")
+
+    assert refused("Maybe<Maybe<UserStatus>>", status_column()) == [
+        "the column `status` of `q` is never NULL, so its row type cannot be `Maybe<UserStatus>`",
+    ]
+
+    hints = fn result: String -> {
+        problems_of("-- query: q() -> ${result}\nSELECT status FROM users;\n", [Ok([maybe_status])])
+        |> Iter.flat_map(fn p -> p.hints)
+        |> Iter.to_list()
+    }
+
+    assert hints("Maybe<UserStatus>") == [
+        "write `-> Maybe<Maybe<UserStatus>>` to read the NULL as `None`",
+        "or assert it is never NULL with `AS \"status!\"`, or make the column `NOT NULL`",
+    ]
+
+    assert hints("Rows<UserStatus>") |> Iter.first() == Some(
+        "write `-> Rows<Maybe<UserStatus>>` to read the NULL as `None`"
+    )
+
+    accepted = fn result: String, column: Column -> {
+        source_of("-- query: q() -> ${result}\nSELECT ${column.name} FROM users;\n", [column])
+    }
+
+    assert "-> Result<Maybe<Maybe<UserStatus>>, sql.Error> {" in accepted(
+        "Maybe<Maybe<UserStatus>>",
+        maybe_status,
+    )
+
+    assert "fn row -> runtime.text_null(\"q\", row, 0))\n" in accepted(
+        "Maybe<Maybe<UserStatus>>",
+        maybe_status,
+    )
+
+    assert "fn row -> runtime.text_null(\"q\", row, 0))\n" in accepted(
+        "List<Maybe<String>>",
+        name_column(),
+    )
+
+    assert "-> Result<Maybe<Maybe<Uuid>>, sql.Error> {" in accepted("Maybe<Maybe<Uuid>>", token)
 }
 
 test "an expression's column needs a type in an anonymous row" {

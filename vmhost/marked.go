@@ -76,7 +76,7 @@ func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err
 func loadMarkedProject(project virtualproject.Project, dir, root string, opts []Option) (*Program, string, error) {
 	opts = append([]Option{WithFileSystem(blockFiles(project))}, opts...)
 	if project.Files == nil {
-		opts = append([]Option{WithVirtualFiles(project.VirtualFiles), WithVirtualManifest(project.Manifest)}, opts...)
+		opts = append([]Option{WithVirtualFiles(project.VirtualFiles), WithVirtualManifest(project.Manifest), WithVirtualData(project.DataFiles)}, opts...)
 		p, err := LoadSource(project.EntryName, project.EntrySource, opts...)
 		return p, "", err
 	}

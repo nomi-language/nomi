@@ -9,15 +9,18 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// A reference editor checks its stdlib module's source afresh
-// (LoadStdlibSource). A typed literal there must be the module's own type:
-// Regex`\d+` passed to a Regex function was refused with "argument 1: expected
-// Regex, got Regex" while the impl index held the shared stdlib's analysis of
-// std/regex in place of the fresh one, so `from_fragments` returned the shared
-// Regex and the function took the fresh one. `Regex` is a non-generic `host type`,
-// which was then compared by object rather than by (file, name), so it split
-// where calendar's opaque structs did not. Either fix alone passes this: the
-// fresh analysis in the index, or host-type identity by (file, name).
+// A typed literal in a stdlib module's test is the module's own type, both in a
+// reference editor (StdlibReference, the test checked in the shared analysis
+// of the module) and in the module's source checked afresh with the test
+// appended (LoadStdlibSource, which an editor falls back to when its edit is
+// more than one test). Afresh, Regex`\d+` passed to a Regex function was
+// refused with "argument 1: expected Regex, got Regex" while the impl index
+// held the shared stdlib's analysis of std/regex in place of the fresh one, so
+// `from_fragments` returned the shared Regex and the function took the fresh
+// one. `Regex` is a non-generic `host type`, which was then compared by object
+// rather than by (file, name), so it split where calendar's opaque structs did
+// not. Either fix alone passes this: the fresh analysis in the index, or
+// host-type identity by (file, name).
 func TestStdlibReference_TypedLiteralIsTheModulesOwnType(t *testing.T) {
 	for _, c := range []struct{ module, body string }{
 		{"regex", "assert String.find(\"order 66\", Regex`\\d+`) == Maybe.Some(\"66\")"},
@@ -32,6 +35,17 @@ func TestStdlibReference_TypedLiteralIsTheModulesOwnType(t *testing.T) {
 		}
 		if len(cases) != 1 || cases[0].Err != nil || cases[0].Blocked != nil {
 			t.Errorf("%s: %s: want one passing case, got %+v", c.module, c.body, cases)
+		}
+		src, _ := std.ReadFile(c.module)
+		wrapped, line := vmhost.ReferenceTestSource(string(src), c.body, "")
+		p, err := vmhost.LoadStdlibSource(c.module, wrapped)
+		if err != nil {
+			t.Errorf("%s: %s: the module's source does not check afresh: %v", c.module, c.body, err)
+			continue
+		}
+		cases = p.Cases(io.Discard, vmhost.TestOptions{Line: line, LineSet: true})
+		if len(cases) != 1 || cases[0].Err != nil || cases[0].Blocked != nil {
+			t.Errorf("%s: %s: afresh, want one passing case, got %+v", c.module, c.body, cases)
 		}
 	}
 }
@@ -75,10 +89,10 @@ func TestStdlibSource_RecheckedDurationIsTheSharedDuration(t *testing.T) {
 
 // A reference editor of std/io reads the module's own file-level `once`
 // bindings bare, as code in the module does: `stdout` in a capture and
-// `stderr` bound first. The editor's source is checked afresh, so the checker
-// records the fresh copy's declaration at the name, and the read must still
-// reach the cached module's cell; it was "an ident bound nowhere this builder
-// can see" and the case was blocked.
+// `stderr` bound first. The read must reach the cached module's cell; when
+// the editor's whole source was checked afresh, the checker recorded the
+// fresh copy's declaration at the name, the read was "an ident bound nowhere
+// this builder can see", and the case was blocked.
 func TestStdlibReference_ReadsTheModulesOwnOnceBare(t *testing.T) {
 	body := "w = stderr\n" +
 		"run = capture(\"\", fn -> {\n" +

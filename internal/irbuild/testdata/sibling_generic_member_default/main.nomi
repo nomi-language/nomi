@@ -1,0 +1,11 @@
+import {
+    std::io
+    plans.Plan
+}
+
+fn main() {
+    a = Plan.of("a", 1)
+    io.print("${a.name} ${Plan.seconds(a)}")
+    b = Plan.of("b", "x")
+    io.print("${b.name} ${Plan.seconds(b)}")
+}

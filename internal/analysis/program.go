@@ -58,6 +58,14 @@ type Program struct {
 	// revision counts the rechecks that rewrote the program in place
 	// (FileAnalysis.Revision).
 	revision int
+	// sources, set on a program built against other files' interfaces
+	// (stored_program.go), answers those files' declarations as their
+	// sources have them (DeclarationSource).
+	sources *declarationSources
+	// bootGraph is the boot-only check's graph of the program's functions
+	// and the summaries it was built from, kept until one changes
+	// (programBootGraph). The check fills it on first use, under bootMu.
+	bootGraph *bootGraphCache
 
 	// ContextType is the canonical std/context.Context identity.
 	ContextType Type

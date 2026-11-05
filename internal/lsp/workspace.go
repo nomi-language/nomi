@@ -17,7 +17,8 @@ import (
 // file is indexed (analysis.IndexedFile): its imports and top-level
 // declarations, from a parse. Cross-file features read the index, and
 // analyze a closed file on demand when they need its analysis
-// (DocumentManager.Analyzed, which caches a bounded number).
+// (DocumentManager.Analyzed, which answers a file of a program kept for an
+// open document from that program and caches a bounded number of others).
 //
 // Closed files still get diagnostics, as an editor's workspace view
 // expects: the background pass below analyzes each one, publishes, and

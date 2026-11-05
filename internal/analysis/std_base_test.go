@@ -147,6 +147,7 @@ func dumpSeed(t *testing.T, seed stdBaseSeed) (string, bool) {
 // analysis, the program's impl index and every diagnostic dump alike both
 // ways. No build writes the base.
 func TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile(t *testing.T) {
+	t.Parallel()
 	base := std.Shared().Base
 	if base == nil {
 		t.Fatal("the stdlib forms no base, so every build folds every stdlib file and this test compares nothing")

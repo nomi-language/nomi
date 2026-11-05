@@ -40,7 +40,7 @@ import (
 // taken and ignored.
 func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) {
-		irDeclineNote("a partial application over a callee whose parameters the builder cannot see, or with a non-literal default")
+		bl.g.dc.note("a partial application over a callee whose parameters the builder cannot see, or with a non-literal default")
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	params, kinds, sig, ok := bl.partialCallee(t)
@@ -317,7 +317,7 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 		}
 	}
 	if (sig == nil && !value && sibling == nil) || (sig != nil && len(sig.decl.Params) != len(kinds)) {
-		irDeclineNote("a partial's open slot whose default is not a literal, over a callee outside this file's functions")
+		bl.g.dc.note("a partial's open slot whose default is not a literal, over a callee outside this file's functions")
 		return nil, false
 	}
 	// The slots the callee fills before this one. A placeholder among them
@@ -327,7 +327,7 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 	before := slotsBefore(calleeOrder, slot)
 	for _, s := range before {
 		if p := params[s]; !filled[s] && p.Default != nil && !irClosedLiteral(p.Default) {
-			irDeclineNote("a partial's open slot whose default is not a literal, after an unmentioned slot whose default is not either")
+			bl.g.dc.note("a partial's open slot whose default is not a literal, after an unmentioned slot whose default is not either")
 			return nil, false
 		}
 	}

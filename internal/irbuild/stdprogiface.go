@@ -566,12 +566,11 @@ func (g *gen) stdProgImplOf(d *ifaceDef, m *ifaceMethod, kinds []kind) *stdFunc 
 
 // stdProgIsolated runs build, a function built while another body is being
 // lowered, and discards what a failed build left: the gen's refusals
-// (snapshot), and in every case the process's decline bookkeeping, which
+// (snapshot), and in every case the census's record of the attempt, which
 // belongs to the body around it (as attemptClosure sets it aside). It
 // reports build's answer.
 func (g *gen) stdProgIsolated(build func() bool) bool {
-	fn, seen, why, bodyWhy, line, col := irDeclineFn, irDeclineSeen, irDeclineWhy, irDeclineBodyWhy, irDeclineLine, irDeclineCol
-	path, cur := irDeclinePath, irDeclineCur
+	resume := g.dc.suspend()
 	unmute := irMuteObservers()
 	restore := g.snapshot()
 	errs := len(g.errs)
@@ -581,8 +580,7 @@ func (g *gen) stdProgIsolated(build func() bool) bool {
 		ok = false
 	}
 	unmute()
-	irDeclineFn, irDeclineSeen, irDeclineWhy, irDeclineBodyWhy, irDeclineLine, irDeclineCol = fn, seen, why, bodyWhy, line, col
-	irDeclinePath, irDeclineCur = path, cur
+	resume()
 	return ok
 }
 

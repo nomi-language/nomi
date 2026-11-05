@@ -48,7 +48,12 @@ func LoadProgram(data []byte, stdout, stderr io.Writer, stdin io.Reader, args []
 	if err != nil {
 		return nil, err
 	}
-	return boot(image, stdout, stderr, stdin, args, opts)
+	// data stays the host's, so a file is read as a copy of its range.
+	im, err := imageFromBytes(image, false)
+	if err != nil {
+		return nil, fmt.Errorf("the compiled program cannot be read: %v", err)
+	}
+	return boot(im, stdout, stderr, stdin, args, opts)
 }
 
 // ExportsResult is the `{"ok": [<signature>, ...]}` answer listing the

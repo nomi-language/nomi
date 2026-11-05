@@ -11,7 +11,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // TestOrphanRule_RejectsForeignIfaceForForeignType_E2E runs the whole
@@ -48,7 +47,7 @@ func TestOrphanRule_RejectsForeignIfaceForForeignType_E2E(t *testing.T) {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, fixtureRoot, loader,
 	)
@@ -107,7 +106,7 @@ func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T)
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, fixtureRoot, loader,
 	)
@@ -206,7 +205,7 @@ fn main() {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader,
 	)

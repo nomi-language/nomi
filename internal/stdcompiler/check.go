@@ -95,7 +95,7 @@ func PrepareNodes(nodes []ast.Node) ([]ast.Node, []analysis.TypeError) {
 // with no manifest and sibling diagnostics suppressed; `compiler.check_project`
 // reaches it with both.
 func ProjectDiagnostics(entryNodes []ast.Node, root string, loader analysis.FileLoader, manifest *analysis.Manifest, entryPoint string, includeSiblingDiagnostics bool) []rt.Diagnostic {
-	lib := std.Load()
+	lib := std.Shared()
 	entryNodes, prepErrs := PrepareNodes(entryNodes)
 	fa, siblingFAs, siblingNodes := analysis.BuildProjectFromEntryWithManifest(
 		"",
@@ -172,6 +172,16 @@ func Loader(virtualFiles map[string]string) analysis.FileLoader {
 			nodes, _ := ParseSource(src)
 			return nodes, nil
 		}
-		return base(root, modulePath)
+		nodes, err := base(root, modulePath)
+		if err != nil {
+			keys := make([]string, 0, len(virtualFiles))
+			for k := range virtualFiles {
+				keys = append(keys, k)
+			}
+			if dir := analysis.VirtualDirectory(modulePath, keys, nil); dir != nil {
+				return nil, dir
+			}
+		}
+		return nodes, err
 	}
 }

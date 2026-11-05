@@ -7,7 +7,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // A `fn` declared inside a body is CHECKED, and its signature is RESOLVED.
@@ -174,7 +173,7 @@ test "second" {
 }`
 	tokens := lexer.Lex(withStdlibTestImports(src))
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	analysis.BuildTypes(fa, nodes)

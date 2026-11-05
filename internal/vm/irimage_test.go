@@ -208,7 +208,7 @@ func TestIRImage_StdlibTestIRRoundTrips(t *testing.T) {
 		if module == "" {
 			continue
 		}
-		prog, res, err := irbuild.GenerateStdlibTestIR(module, nil, nil)
+		prog, res, err := irbuild.GenerateStdlibTestIR(module, nil, nil, irbuild.DeclineHooks{})
 		if err != nil {
 			continue
 		}

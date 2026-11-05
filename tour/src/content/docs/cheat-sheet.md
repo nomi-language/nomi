@@ -25,8 +25,13 @@ compiler checks. The full rules are in the
   parameters: `fn n: Int -> n * 2`. In a collection literal, one element's
   annotation types the same parameter in the others:
   `[#("a", fn n: Int -> n), #("b", fn n -> n * 2)]`.
-- `once name = expr` is the only file-level value. It is computed on first
-  use, once, even when several tasks read it at the same time.
+- `once name = expr` is the only file-level value computed by code. It is
+  computed on first use, once, even when several tasks read it at the same
+  time.
+- ``embed site `static` `` is a file-level `embed.Files` holding the files
+  under `static/`, found when the program is compiled, so a built executable
+  carries them. Read one with `Files.read_text(site, "static/index.html")`;
+  its bytes are read then, not at startup.
 
 ```nomi-run
 fn area(width: Int, height: Int = 1) -> Int {
@@ -119,6 +124,11 @@ test result: ok. 1 passed, 0 failed
   { ... }` and `derive Interface for Type` declarations.
 - `type UserId Int` is a distinct type: `UserId(5)` builds one, and the pattern
   `UserId(n)` opens it.
+- A std collection converts where each element already is a value of the
+  wider type: a `List<Int>` passes where a `List<Display>` is expected, and a
+  `List<(Int) -> Int>` where a `List<(Int) -> Display>` is. A declared
+  generic type's type arguments compare exactly: a `Box<Int>` is no
+  `Box<Display>`.
 - There are no method calls. `x.name` only reads a field. A function is called
   through its owner:
   - a type: `String.trim(s)`, `Map.get(m, k)`, `Shape.area(shape)`;
@@ -295,10 +305,12 @@ test result: ok. 1 passed, 0 failed
   `import std::io`, then `io.print(x)`. Braces bring in names:
   `import std::io.{self, Writer}`. Several imports group under one
   `import { ... }`. Unused imports are errors.
-- A file is used by its short name, the path's last segment (`io`,
-  `posts`). The full path works anywhere the short name does
-  (`db::posts.find(1)`, `x: db::schema.Post`): write it when two imports
-  share a short name or a local or declaration takes it, not an alias.
+- A file import binds the file's short name, the path's last segment (`io`,
+  `posts`), and nothing else: `db::posts.find(1)` after `import db::posts`
+  is an error. Importing a directory (`import db`) binds its name, and a
+  path below it reaches a file: `db::posts.find(1)`, `x: db::schema.Post`.
+  Two imports of one short name are an error; import their directories
+  instead, or alias one.
 - Names are snake_case, types PascalCase. A predicate is `is_<state>`,
   `has_<thing>` or a bare verb (`contains`, `starts_with`).
 
@@ -320,14 +332,14 @@ pub fn area(radius: Int) -> Int {
 // FILE: main.nomi
 import {
     std::io
-    demo::shapes.{self, Box}
-    geo::shapes
+    demo
+    geo
 }
 
 fn main() {
-    // `shapes` could be either file, so each is written by its full path.
-    // A file at the module root takes the module's name in front.
-    io.print(demo::shapes.area(Box{side: 3}))
+    // Two files are `shapes`, so each is reached through its directory.
+    // The module's own name is its root directory.
+    io.print(demo::shapes.area(demo::shapes.Box{side: 3}))
     io.print(geo::shapes.area(2))
 }
 

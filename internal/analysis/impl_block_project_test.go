@@ -4,7 +4,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"strings"
 	"testing"
 )
@@ -16,7 +15,7 @@ import (
 func buildImplBlockProject(src string) []analysis.TypeError {
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(nodes, lib.Primitives, lib.Modules, lib.Files, "", nil)
 	checkErrs := analysis.CheckTypes(fa, nodes)
 	all := append([]analysis.TypeError{}, fa.TypeErrors...)

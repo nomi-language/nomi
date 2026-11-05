@@ -3,7 +3,6 @@ package analysis_test
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/std"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,7 +30,7 @@ func TestPreludeLifecycleProject(t *testing.T) {
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	dm.SetWorkspaceRoot(root)

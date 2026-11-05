@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // checkUniversalDebugProject builds a single-file project through the
@@ -29,7 +28,7 @@ func checkUniversalDebugProject(t *testing.T, src string) []analysis.TypeError {
 	}
 	tokens := lexer.Lex(src)
 	entryNodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		fp := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"
 		data, err := os.ReadFile(fp)

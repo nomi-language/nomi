@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/std"
 )
 
 // A file under tools/ is a tool, and so an entry point, unless it is a test
@@ -109,7 +108,7 @@ fn main() {
     "hello"
 }
 `)
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	for _, path := range []string{helper, tool} {

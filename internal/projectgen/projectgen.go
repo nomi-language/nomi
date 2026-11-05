@@ -368,6 +368,13 @@ const (
 	BodyLeaf EditKind = "body edit, leaf"
 	// BodyHub changes a function body in Hub().
 	BodyHub EditKind = "body edit, hub"
+	// BodyCallLeaf changes a function body in Leaf() to call a function of
+	// core/ids it did not call, or to call it with another argument.
+	BodyCallLeaf EditKind = "body edit adding a call, leaf"
+	// InstanceLeaf changes a function body in Leaf() to call core/util's
+	// generic keep at Leaf()'s own enum, an instance no file asked for,
+	// importing core/util if Leaf() did not.
+	InstanceLeaf EditKind = "body edit asking for a new instance, leaf"
 	// SignatureLeaf adds a defaulted parameter to a function in Leaf(), or
 	// takes it away again.
 	SignatureLeaf EditKind = "signature edit, leaf"
@@ -380,7 +387,7 @@ const (
 )
 
 // EditKinds lists every kind Edit makes, in the order reports list them.
-var EditKinds = []EditKind{BodyLeaf, BodyHub, SignatureLeaf, SignatureHub, ImplLeaf, BodyEntry}
+var EditKinds = []EditKind{BodyLeaf, BodyHub, BodyCallLeaf, InstanceLeaf, SignatureLeaf, SignatureHub, ImplLeaf, BodyEntry}
 
 // Edit answers the file kind's n-th edit rewrites and the file's text after
 // it. It rewrites the generated text, so edit n differs from edit n-1 and
@@ -388,7 +395,7 @@ var EditKinds = []EditKind{BodyLeaf, BodyHub, SignatureLeaf, SignatureHub, ImplL
 // the one before left, changes the file every time.
 func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 	switch kind {
-	case BodyLeaf, SignatureLeaf, ImplLeaf:
+	case BodyLeaf, BodyCallLeaf, InstanceLeaf, SignatureLeaf, ImplLeaf:
 		key = p.Leaf()
 	case BodyHub, SignatureHub:
 		key = p.Hub()
@@ -399,6 +406,15 @@ func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 	switch kind {
 	case BodyLeaf, BodyHub:
 		return key, strings.Replace(orig, "    n + 1\n", fmt.Sprintf("    n + %d\n", 2+n%2), 1)
+	case BodyCallLeaf:
+		return key, strings.Replace(orig, "    n + 1\n", fmt.Sprintf("    n + Money.of(%d).cents\n", 1+n%2), 1)
+	case InstanceLeaf:
+		u := p.units[key]
+		text := orig
+		if !u.usesUtil {
+			text = strings.Replace(text, "import {\n", "import {\n    core::util\n", 1)
+		}
+		return key, strings.Replace(text, "    n + 1\n", fmt.Sprintf("    n + %d * (util.keep([Kind%d.Plain], fn _ -> True) |> Iter.count())\n", 1+n%2, u.i), 1)
 	case SignatureLeaf, SignatureHub:
 		if n%2 == 1 {
 			return key, orig
@@ -414,6 +430,20 @@ func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 		return key, strings.Replace(orig, "total = 0\n", fmt.Sprintf("total = %d\n", 1+n%2), 1)
 	}
 	panic("projectgen: unknown edit kind " + string(kind))
+}
+
+// FileAdded answers the texts, by key, of an edit that adds a file: a new
+// file core/extra<n> with one function, which Leaf() imports and calls.
+// Leaf()'s original text and no core/extra<n> undo it.
+func (p *Project) FileAdded(n int) map[string]string {
+	key := p.Leaf()
+	extra := fmt.Sprintf("core/extra%d", n)
+	leaf := strings.Replace(p.Files[key], "import {\n", fmt.Sprintf("import {\n    core::extra%d\n", n), 1)
+	leaf = strings.Replace(leaf, "    n + 1\n", fmt.Sprintf("    n + extra%d.bonus(n)\n", n), 1)
+	return map[string]string{
+		key:   leaf,
+		extra: fmt.Sprintf("/// What an added file adds.\npub fn bonus(n: Int) -> Int {\n    n * %d\n}\n", n+2),
+	}
 }
 
 const idsHub = `//# Identifiers, money and levels every module shares.

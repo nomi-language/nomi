@@ -1058,6 +1058,18 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 		t.Fatalf("a tour block's data files: %v", err)
 	}
 	tourDataFiles.Store(entry, tourData{files: data})
+	// The front end reads the data files a block embeds from beside its
+	// entry, as the tour's runner hands them to it (vmhost.WithVirtualData);
+	// the run still reads the in-memory copies.
+	for name, text := range data {
+		p := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatalf("staging %s: %v", name, err)
+		}
+		if err := os.WriteFile(p, []byte(text), 0o644); err != nil {
+			t.Fatalf("staging %s: %v", name, err)
+		}
+	}
 	// A block's `go` bindings run on the Go the tour links
 	// (internal/tourgo), answered by the table tourgo gives the tour's
 	// runner. The front end checks a file on disk against the go.mod above

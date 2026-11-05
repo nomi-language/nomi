@@ -14,6 +14,7 @@
 //# runs.
 
 import {
+    std::embed.Files
     std::fs.{self, Kind}
     std::matcher.Matcher
     std::regex.Regex
@@ -129,10 +130,45 @@ pub fn read(dir: String) -> Result<List<Migration>, Error> {
     |> Result.collect()
 }
 
+/// The migrations in the directory `dir` of `files`, files the program
+/// embeds (std::embed), by the rule `read` reads a directory on disk with:
+/// so a built program carries its migrations and needs no directory beside
+/// it.
+///
+/// ```nomi
+/// embed migrations `db/migrations`
+///
+/// fn migrated(conn: Conn) -> Result<List<String>, migrate.Error> {
+///     migrate.up_from(conn, migrations, "db/migrations")
+/// }
+/// ```
+pub fn read_from(files: Files, dir: String) -> Result<List<Migration>, Error> {
+    entries =
+        Files.list(files, dir) |> Result.map_err(fn e -> Error.Read{path: dir, message: "${e}"})?
+
+    entries
+    |> Iter.filter(fn e -> e.kind == Kind.File and is_migration_file(e.name))
+    |> Iter.map(fn e -> e.path)
+    |> Iter.sort()
+    |> Iter.map(fn path -> {
+        Files.read_text(files, path)
+        |> Result.map(fn text -> Migration{path, sql: text})
+        |> Result.map_err(fn e -> Error.Read{path, message: "${e}"})
+    })
+    |> Result.collect()
+}
+
 /// Read the migrations in `dir` and apply the ones `conn`'s database has
 /// not run (`read`, then `apply`). Answers the versions it ran, in order.
 pub fn up(conn: Conn, dir: String) -> Result<List<String>, Error> {
     migrations = read(dir)?
+    apply(conn, migrations)
+}
+
+/// `up` over the directory `dir` of embedded `files` (`read_from`, then
+/// `apply`).
+pub fn up_from(conn: Conn, files: Files, dir: String) -> Result<List<String>, Error> {
+    migrations = read_from(files, dir)?
     apply(conn, migrations)
 }
 

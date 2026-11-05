@@ -76,7 +76,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 	case *ast.TuplePattern:
 		if !tupleBinds {
 			if !bl.tupleCaseTest(p, subj, sk, matched, failed) {
-				irDeclineAtPattern(p, "an `assert pattern = value` tuple pattern outside the retained case tests")
+				bl.g.dc.atPattern(p, "an `assert pattern = value` tuple pattern outside the retained case tests")
 				return false
 			}
 			break
@@ -86,13 +86,13 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		bl.patternBinding(p, p.Name, subj, sk)
 	case *ast.OrPattern:
 		if !bl.orPatternTest(p, subj, sk, matched, failed) {
-			irDeclineAtPattern(p, "an `assert pattern = value` `or` pattern outside the retained case tests")
+			bl.g.dc.atPattern(p, "an `assert pattern = value` `or` pattern outside the retained case tests")
 			return false
 		}
 	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit, *ast.FloatLit, *ast.DecimalLit:
 		lit, lk, _, lok := bl.litFor(p, sk)
 		if !lok || lk != sk {
-			irDeclineAtPattern(p, "an `assert pattern = value` literal pattern over "+sk.nomi())
+			bl.g.dc.atPattern(p, "an `assert pattern = value` literal pattern over "+sk.nomi())
 			return false
 		}
 		m := ir.NewMatchLitInto(bl.g.irNodePos(p), bl.f.NewTemp(), subj, lit)
@@ -129,7 +129,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 			tested = bl.patternValueTest(p, subj, sk, matched, failed)
 		}
 		if !tested {
-			irDeclineAtPattern(p, "an `assert pattern = value` pattern outside the retained case tests: "+sk.nomi())
+			bl.g.dc.atPattern(p, "an `assert pattern = value` pattern outside the retained case tests: "+sk.nomi())
 			return false
 		}
 	}
@@ -173,7 +173,7 @@ func (bl *irScalarBuilder) assertDefinedAs(at ast.Node, val ir.Temp) (*ir.Assert
 	if pipe, isBinary := b.Value.(*ast.Binary); isBinary && pipe.Op == "|>" {
 		stages, recorded := bl.testStages[held]
 		if !recorded {
-			irDeclineNote("a defined-as block over a pipe binding")
+			bl.g.dc.note("a defined-as block over a pipe binding")
 			return nil, false
 		}
 		def.Stages = stages

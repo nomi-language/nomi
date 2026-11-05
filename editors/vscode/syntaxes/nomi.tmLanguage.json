@@ -305,6 +305,21 @@
           }
         },
         {
+          "comment": "An `embed` declaration (`embed site `static``): its keyword, and its name, a value.",
+          "match": "^(?:(pub)\\s+)?(embed)\\s+([a-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.nomi"
+            },
+            "2": {
+              "name": "keyword.declaration.nomi"
+            },
+            "3": {
+              "name": "variable.other.constant.nomi"
+            }
+          }
+        },
+        {
           "comment": "`variant`, `open` and `derive` are contextual keywords; like the bat syntax, match them everywhere.",
           "name": "keyword.declaration.nomi",
           "match": "\\b(?:pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|variant|open)\\b"

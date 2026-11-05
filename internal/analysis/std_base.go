@@ -562,7 +562,7 @@ func (s *programShare) layOver(idx *ProjectImplIndex) {
 	maps.Copy(idx.ImplFuncTypes, u.ImplFuncTypes)
 	maps.Copy(idx.QualifiedReceiver, u.QualifiedReceiver)
 	maps.Copy(idx.ImplIfaceOrigin, u.ImplIfaceOrigin)
-	unionInner(idx.IfaceOriginByPair, base.IfaceOriginByPair, u.IfaceOriginByPair)
+	unionOrigins(idx.IfaceOriginByPair, base.IfaceOriginByPair, u.IfaceOriginByPair)
 	maps.Copy(idx.ImplsByIdentity, u.ImplsByIdentity)
 	s.layOverCoverage(idx)
 }
@@ -826,4 +826,25 @@ func StdImplBlockErrors(byName map[string]*FileAnalysis, nodes map[string][]ast.
 		}
 	}
 	return out
+}
+
+// unionOrigins sets dst[k], for each k over holds, to a new map holding
+// base[k]'s origin lists with over[k]'s origins each list lacks appended.
+func unionOrigins(dst, base, over map[string]map[string][]string) {
+	for k, inner := range over {
+		m := maps.Clone(base[k])
+		if m == nil {
+			m = make(map[string][]string, len(inner))
+		}
+		for k2, origins := range inner {
+			merged := slices.Clip(base[k][k2])
+			for _, o := range origins {
+				if !slices.Contains(merged, o) {
+					merged = append(merged, o)
+				}
+			}
+			m[k2] = merged
+		}
+		dst[k] = m
+	}
 }

@@ -59,7 +59,7 @@ func (g *gen) irHostFnRetain(ef *ast.ExternFunc, sig *fnSig) {
 	// Each refusal below is recorded as the declaration's decline.
 	decline := func(reason string) {
 		g.irDeclineOpen(ef.Name)
-		irDeclineNote(reason)
+		g.dc.note(reason)
 	}
 	// A host-table declaration's adapter answers the VM's own values, so it
 	// can return a function value it was handed earlier: a REPL session

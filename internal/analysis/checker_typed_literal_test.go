@@ -5,7 +5,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"strings"
 	"testing"
 )
@@ -25,7 +24,7 @@ import (
 func checkTypedLiteralSource(src string) []analysis.TypeError {
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	// AttachStdlibProjectImpls — see checker_stdlib_test.go's
 	// checkSourceWithStdlib for the rationale (single-file path needs
@@ -49,7 +48,7 @@ func checkTypedLiteralSource(src string) []analysis.TypeError {
 // failure mode under test.
 func checkTypedLiteralProject(t *testing.T, entrySrc string, siblings map[string]string) []analysis.TypeError {
 	t.Helper()
-	lib := std.Load()
+	lib := loadStd()
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
 		src, ok := siblings[key]

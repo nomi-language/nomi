@@ -14,7 +14,7 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 	why := ""
 	no := func() (ir.Temp, kind, bool, bool) {
 		if why != "" {
-			irDeclineNote("a typed literal: " + why)
+			bl.g.dc.note("a typed literal: " + why)
 		}
 		return ir.NoTemp, kindInvalid, false, false
 	}

@@ -1,0 +1,22 @@
+// A router in a module of its own, as an app's is: its route list's
+// handlers answer anything that implements Reply.
+pub struct Request {
+    path: String
+}
+
+pub struct Route {
+    path: String
+}
+
+pub interface Reply {
+    fn text(r: self) -> String
+}
+
+pub fn serve(routes: List<#(Route, (Request) -> Reply)>, path: String) -> String {
+    found = Iter.find(routes, fn #(route, _) -> route.path == path)
+
+    case found {
+        Some(#(_, handler)) -> Reply.text(handler(Request{path}))
+        None -> "not found"
+    }
+}

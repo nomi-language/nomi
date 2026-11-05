@@ -28,6 +28,12 @@ func IsPartnerTestPath(test, src string) bool {
 	return filepath.Base(test) == stem+"_test.nomi"
 }
 
+// PartnerTestOf reports whether this file is src's partner test, by the
+// rule IsPartnerTestPath states, over each file's partnerPath.
+func (fa *FileAnalysis) PartnerTestOf(src *FileAnalysis) bool {
+	return fa != nil && src != nil && IsPartnerTestPath(fa.partnerPath(), src.partnerPath())
+}
+
 // readsPrivateOf reports whether this file may read sym although sym is
 // not `pub`: sym is declared in the file this file is the partner test of.
 func (fa *FileAnalysis) readsPrivateOf(sym *Symbol) bool {

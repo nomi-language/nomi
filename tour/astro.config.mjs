@@ -50,6 +50,7 @@ const referenceItems = [
 		'divide',
 		'duration',
 		'dynamic',
+		'embed',
 		'equatable',
 		'float',
 		'fs',

@@ -1025,7 +1025,9 @@ func vmCorpusPopulation(t *testing.T) (entries []vmProbeEntry, modules, copies i
 		if err != nil {
 			t.Fatalf("%s: %v", f.Rel, err)
 		}
-		for _, m := range res.IR {
+		// A listed std module the program links is retained as if the
+		// program had lowered it (programstdlink.go).
+		for _, m := range append(append([]*ir.Module(nil), res.IR...), res.linkedMods...) {
 			modules++
 			for _, fn := range m.Funcs() {
 				key := vmProbeKey(fn)

@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // Two declarations of one short name print the same, so a mismatch between
@@ -74,7 +73,7 @@ func buildEntryExpectingErrors(t *testing.T, src string, siblings map[string]str
 		n, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 		return n, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectFromEntry(mainPath, nodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")

@@ -41,10 +41,21 @@ import (
 // document with unsaved edits sends its importers' runs to the text:
 // `nomi check` reads that file from disk. A run waits for the analysis
 // when the text's analysis is still running. Such a run costs what
-// lowering costs, 1 to 7 ms on the corpus's largest such programs. Any
+// lowering costs, 1 to 7 ms on the corpus's largest such programs, and
+// after an edit that changes only bodies, the edited files' lowering
+// linked with the last run's (vmhost's checklowering_perfile.go). Any
 // other run checks the program as `nomi check` does, its own front end
 // included: 10 to 38 ms. The first run in a process lowers the whole
 // stdlib, about 120 ms. Hence a longer quiet period than analysisDelay.
+//
+// A document whose program was opened from its record
+// (analysis/stored_program.go) offers no program to lower from. When the
+// record lists the document as one whose lowering found nothing with every
+// file as it is now, the run takes that answer without lowering
+// (DocumentManager.StoredLoweredClean); otherwise it lowers from the text.
+// A run that lowers and finds nothing tells the manager
+// (NoteLoweredClean), which writes the program's record when the program
+// is kept with nothing to report and every text on disk.
 //
 // A run that lowers from the analysis keeps what it found
 // (analyzedlowering.Memo), keyed by every text the lowering read. The next
@@ -103,6 +114,9 @@ type loweringChecks struct {
 	// lowered counts the runs that lowered, reused those the memo
 	// answered, and stopped those a newer text or a close stopped.
 	lowered, reused, stopped atomic.Int64
+	// recorded counts the runs a program's record answered
+	// (analysis.DocumentManager.StoredLoweredClean).
+	recorded atomic.Int64
 	// delay replaces loweringDelay when set (tests).
 	delay time.Duration
 }
@@ -320,19 +334,32 @@ func (s *Server) runLoweringChecks(ctx context.Context, uri string, run *lowerin
 		start := time.Now()
 		content := run.content
 		var diags []protocol.Diagnostic
+		lowered := false
 		if _, latest := s.waitLoweringAnalysis(ctx, uri, content); latest && ctx.Err() == nil {
-			// The analysis is taken again under the view lock, which keeps
-			// a recheck from rewriting it while it is lowered.
-			release := s.docs.View()
-			if a, latest := s.installedLoweringAnalysis(uri, content); latest {
-				diags = s.safeLoweringDiagnostics(ctx, uri, content, a)
+			if s.docs.StoredLoweredClean(uri, content) {
+				// The program was opened from its record, which says this
+				// text's lowering finds nothing.
+				c.recorded.Add(1)
+			} else {
+				// The analysis is taken again under the view lock, which
+				// keeps a recheck from rewriting it while it is lowered.
+				release := s.docs.View()
+				if a, latest := s.installedLoweringAnalysis(uri, content); latest {
+					diags = s.safeLoweringDiagnostics(ctx, uri, content, a)
+					lowered = true
+				}
+				release()
 			}
-			release()
 		}
 		if ctx.Err() != nil {
 			c.stopped.Add(1)
 		} else {
 			s.finishLowering(uri, content, gen, diags, time.Since(start))
+			if lowered && len(diags) == 0 {
+				// A record of the program, which a later server opens
+				// from, is written now if it can be.
+				s.docs.NoteLoweredClean(uri, content)
+			}
 		}
 		run.cancel()
 		c.mu.Lock()

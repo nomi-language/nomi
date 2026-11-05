@@ -108,7 +108,7 @@ func (bl *irScalarBuilder) patternParams(params []irPatternParam) bool {
 		ok = false
 	}
 	if !ok {
-		irDeclineNote("a lambda destructuring parameter the prologue did not build")
+		bl.g.dc.note("a lambda destructuring parameter the prologue did not build")
 		return false
 	}
 	for _, in := range sh.entry.Instrs()[start:] {
@@ -120,7 +120,7 @@ func (bl *irScalarBuilder) patternParams(params []irPatternParam) bool {
 		if !irCallOperandKind(k) {
 			// Unit included, as for a function's destructured name
 			// (`fn Done(u) -> ...` for `type Done Unit`).
-			irDeclineNote("a destructured lambda name's kind outside the domain: " + k.nomi())
+			bl.g.dc.note("a destructured lambda name's kind outside the domain: " + k.nomi())
 			return false
 		}
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k

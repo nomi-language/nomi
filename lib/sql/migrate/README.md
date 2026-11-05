@@ -39,7 +39,8 @@ fn main() -> Result<Unit, migrate.Error> {
   (`20261019120000_users.sql`, `000001_users.up.sql`). A directory that
   does not exist is an error, not an empty list.
 - `migrate.apply(conn, migrations)` brings the database up to date, and
-  `migrate.up(conn, dir)` is `read` then `apply`. Both answer the versions
+  `migrate.up(conn, dir)` is `read` then `apply`; `read_from` and
+  `up_from` take a directory of files the program embeds. They answer the versions
   they ran. A version is the file's name.
 - `migrate.status(conn, migrations)` says where each migration stands
   (applied, pending, changed since it ran, or recorded with no file),
@@ -89,11 +90,27 @@ failure when a migration changed after it ran.
 ## A built program
 
 `migrate.up` reads the directory when the program runs, so a program built
-with `nomi build` needs its migrations directory where it runs: Nomi has
-no way to put data files inside a built executable. A program that uses
-sqlkit has its migrations in the generated schema file
-(`schema.migrations`), and `sqlkit.migrate` applies them with this module,
-so it needs no directory.
+with `nomi build` needs its migrations directory where it runs. To carry
+the migrations inside the program instead, embed the directory and apply
+it with `migrate.up_from`, which reads the embedded files by the same
+rule (`migrate.read_from` reads them without applying):
+
+```nomi
+import {
+    std::sql.Conn
+    migrate
+}
+
+embed migrations `db/migrations`
+
+fn migrated(db: Conn) -> Result<List<String>, migrate.Error> {
+    migrate.up_from(db, migrations, "db/migrations")
+}
+```
+
+A program that uses sqlkit has its migrations in the generated schema
+file (`schema.migrations`), and `sqlkit.migrate` applies them with this
+module, so it needs neither.
 
 ## Moving from golang-migrate
 

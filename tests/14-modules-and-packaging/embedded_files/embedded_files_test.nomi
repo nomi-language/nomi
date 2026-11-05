@@ -1,0 +1,112 @@
+// An `embed` declaration holds the files its patterns name, read when the
+// program is compiled, from the module root whatever directory declares
+// it: `web/site.nomi` names `web/public` and `web/templates/*.html`, and
+// this file names `data`. A directory's name embeds every file under it
+// but hidden ones.
+import {
+    std::embed.Files
+    std::fs.{Entry, Kind}
+    std::http.{Headers, Method, Response, Status}
+    std::http_testing
+    std::instant.Instant
+    std::io.Error
+    web::site
+}
+
+embed data `data`
+
+test "each declaration holds the files its patterns match, from the module root" {
+    assert Files.paths(data) == ["data/greeting.txt"]
+
+    assert Files.paths(site.assets) == [
+        "web/public/css/site.css",
+        "web/public/docs/guide.txt",
+        "web/public/docs/index.html",
+        "web/public/index.html",
+        "web/templates/page.html",
+    ]
+}
+
+test "a file reads as bytes or text" {
+    assert Files.read_text(data, "data/greeting.txt") == Ok("hello\n")
+    assert Files.read(data, "data/greeting.txt") == Ok(String.to_bytes("hello\n"))
+
+    // A literal path is checked against the embedded files when the
+    // program compiles; one held in a variable reaches the run-time error.
+    hidden = "data/.secret"
+    folder = "web/public"
+    assert Files.read_text(data, hidden) == Err(Error.NotFound{path: "data/.secret"})
+    assert Files.read(site.assets, folder) == Err(Error.IsADirectory{path: "web/public"})
+}
+
+test "a directory lists and walks" {
+    assert Files.list(site.assets, "web/public/docs") == Ok([
+            Entry{path: "web/public/docs/guide.txt", name: "guide.txt", kind: Kind.File},
+            Entry{path: "web/public/docs/index.html", name: "index.html", kind: Kind.File},
+        ])
+
+    walked =
+        Files.walk(site.assets, ".")
+        |> Iter.map(fn e -> Result.map(e, fn e -> e.path))
+        |> Iter.to_list()
+
+    assert walked == [
+        Ok("./web"),
+        Ok("./web/public"),
+        Ok("./web/public/css"),
+        Ok("./web/public/css/site.css"),
+        Ok("./web/public/docs"),
+        Ok("./web/public/docs/guide.txt"),
+        Ok("./web/public/docs/index.html"),
+        Ok("./web/public/index.html"),
+        Ok("./web/templates"),
+        Ok("./web/templates/page.html"),
+    ]
+}
+
+test "metadata gives the size and a fixed time" {
+    meta = Files.metadata(data, "data/greeting.txt")!
+    assert meta.kind == Kind.File
+    assert meta.size == 6
+    assert Instant.as_nanos(meta.modified) == 0
+}
+
+fn get(path: String) -> Response {
+    site.static_files()(http_testing.request(Method.Get, path))
+}
+
+test "a file server answers from the embedded files" {
+    home = get("/")
+    assert home.status == Status.ok
+    assert Response.text(home) == Ok("<h1>Home</h1>\n")
+    assert Headers.get(home.headers, "Content-Type") == Some("text/html; charset=utf-8")
+
+    css = get("/css/site.css")
+    assert Response.text(css) == Ok("body { margin: 0 }\n")
+    assert Headers.get(css.headers, "Content-Type") == Some("text/css; charset=utf-8")
+
+    assert Response.text(get("/docs/")) == Ok("<h1>Docs</h1>\n")
+}
+
+test "a file server redirects a directory and an index" {
+    docs = get("/docs")
+    assert docs.status == Status.moved_permanently
+    assert Headers.get(docs.headers, "Location") == Some("/docs/")
+
+    index = get("/docs/index.html")
+    assert index.status == Status.moved_permanently
+    assert Headers.get(index.headers, "Location") == Some("/docs/")
+}
+
+test "a file server answers 404 for what it does not serve" {
+    [
+        #("a directory with no index.html", "/css/"),
+        #("a hidden file", "/.draft"),
+        #("a missing file", "/nope.html"),
+        #("a path that climbs out", "/../site.nomi"),
+        #("a template outside the served folder", "/templates/page.html"),
+    ]
+    |> subtests #(description, path), description {
+        assert get(path).status == Status.not_found
+    }
+}

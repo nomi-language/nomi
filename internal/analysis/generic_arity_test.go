@@ -13,7 +13,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/std"
 )
 
 // arityDiagnostic matches the generic-arity rule's own diagnostics and nothing
@@ -61,7 +60,7 @@ func TestGenericArity_TreeIsClean(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	newManager := func(workspace string) *analysis.DocumentManager {
 		dm := analysis.NewDocumentManager()
 		dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
@@ -463,7 +462,7 @@ fn render<T, U>(_x: T) -> String where T: Shown<U> {
 // diagnosticsFor analyzes one source through the production DocumentManager.
 func diagnosticsFor(t *testing.T, src string) []analysis.TypeError {
 	t.Helper()
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	dir := t.TempDir()

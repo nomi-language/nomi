@@ -39,7 +39,7 @@ The repository root is the compiler's Go module,
 | `vmhost/` | The public embedding API. |
 | `vmrunner/` | What `nomi-vm` and a built executable run. Generated FFI runners import it. |
 | `hostadapt/` | Support package that generated FFI wrappers import. |
-| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `std*` (Go-backed stdlib adapters), `mf2` (MessageFormat 2) and `catalog` (message catalogs), and the tooling behind them. |
+| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `mf2` (MessageFormat 2) and `catalog` (message catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
 | `lib/` | First-party Nomi modules outside std, each its own nested Go module with its own `go.mod` and `nomi.toml`: `lib/sql/sqlite` (the SQLite driver), `lib/sql/postgres` (the Postgres driver), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, over goldmark), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP, over golang.org/x/image), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). The compiler's module neither contains nor requires them. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
@@ -80,22 +80,34 @@ the same in the background. Details:
   [keyword declarations](docs/implementation-notes.md#keyword-declarations-and-their-inputs).
 - **Language server analysis.** `analysis.DocumentManager` keeps a checked
   program per project root and entry and rechecks edits incrementally, to
-  the answer a full check gives. Details:
+  the answer a full check gives. A program whose files are as an earlier
+  server left them opens from a record of its interfaces in the artifact
+  cache, each open document checked against them. Details:
   [language server analysis](docs/implementation-notes.md#language-server-analysis).
 - **IR builder.** `internal/irbuild` lowers every body a program runs into an
   `ir.Func`; a program that reaches a body it declines fails before its first
-  effect. No Go text or Go names in the builder. Details:
-  [IR builder](docs/implementation-notes.md#ir-builder).
+  effect. A symbol another module names carries a linkage name built from
+  its declaration, so modules encoded apart (`ir.EncodeObject`) link by
+  name (`ir.Linker`). No Go text or Go names in the builder. Details:
+  [IR builder](docs/implementation-notes.md#ir-builder),
+  [linkage names](docs/implementation-notes.md#linkage-names).
 - **VM and rt.** `internal/vm` compiles each `ir.Func` to register bytecode
   over `rt` values; `rt` holds collections, exact Int arithmetic, hashing,
   rendering and tasks. Neither links the front end. Details:
   [VM](docs/implementation-notes.md#vm), [rt](docs/implementation-notes.md#rt),
   [debugging and `nomi dap`](docs/implementation-notes.md#debugging-and-nomi-dap).
-- **Stdlib.** `std/` is one embedded module, analyzed and lowered once per
-  process except `programStdModules`. A `host fn` is a VM intrinsic or an
+- **Stdlib.** `std/` is one embedded module. Each process builds it from
+  its modules' interfaces and checks a module's bodies only when something
+  lowers one (`std.Shared`, `StdLib.Bodies`);
+  `programStdModules` are declared with each program and linked by name
+  from one lowering of all of them. Its interfaces and its lowering are
+  decoded from artifacts the binary embeds or caches. A
+  `host fn` is a VM intrinsic or an
   adapter generated from `internal/stdlibbindings`. `lib/` holds first-party
   modules that need third-party Go code. Details:
   [stdlib](docs/implementation-notes.md#stdlib),
+  [the std bundle](docs/implementation-notes.md#the-std-bundle),
+  [the stdlib from its interfaces](docs/implementation-notes.md#the-stdlib-from-its-interfaces),
   [std and lib](docs/implementation-notes.md#std-and-lib),
   [host functions](docs/implementation-notes.md#host-functions),
   [files](docs/implementation-notes.md#files),
@@ -148,6 +160,17 @@ server that starts navigating. Tests never write there: `NOMI_STD_CACHE_ROOT`
 replaces `~/.cache/nomi`, and under `go test` without it the files go under
 the system temp directory.
 
+A binary built from source analyzes and lowers the stdlib on its first run
+and caches the stdlib's interfaces and facts and its lowering, a std
+bundle, under its build ID in `os.UserCacheDir()/nomi/artifacts/std/`
+(`NOMI_ARTIFACT_CACHE` replaces the directory; `off` keeps none), so each
+new build of `nomi` pays one slower first run (about 0.8 s for hello
+world). `scripts/build-tour-wasm.sh` and `scripts/release.sh` embed both
+instead (the `nomi_stdbundle` tag with the `go build -overlay`
+`internal/irbuild/stdbundlegen` writes). Under `go test` the cache is under
+the system temp directory, for the test and every process it starts.
+Details: [the std bundle](docs/implementation-notes.md#the-std-bundle).
+
 ## Test
 
 ```
@@ -171,8 +194,11 @@ them.
 program the front end accepts lowers (`FuzzFrontEndAcceptsSoItLowers`), one
 that lowers runs (`FuzzLoweredProgramsRun`), `nomi fmt` keeps meaning
 (`FuzzFormatKeepsMeaning`), an incremental check matches a full one
-(`FuzzIncrementalMatchesFull`), the language server survives typing
-(`FuzzLSPSurvivesEdits`), and others for the feature × context matrix,
+(`FuzzIncrementalMatchesFull`), a file checked against its imports'
+interfaces matches a full check (`FuzzCheckFromInterfacesMatchesFull`), the
+language server survives typing
+(`FuzzLSPSurvivesEdits`), modules encoded apart link by name to the same
+program (`TestObjectsLinkToTheSameProgram`), and others for the feature × context matrix,
 debug machines, load order, typed expressions, decline sites and scale.
 Each, with its commands and environment variables, is in
 [implementation-notes.md, "Test harnesses"](docs/implementation-notes.md#test-harnesses).
@@ -214,7 +240,9 @@ five minutes, so neither is a per-change check:
 - **Before squashing a batch to `main`:** `make check-full`, once
   (`scripts/check-full.sh`: gofmt, the tour wasm, build and vet, every package with
   vmhost, rt and the whole irbuild package each on its own, `TestLibModules`,
-  the tree-sitter tests, the race detector, and each fuzz target for
+  the tree-sitter tests, every recorded program linked through objects, the
+  expectation suites with every file checked again against interfaces, the
+  race detector, and each fuzz target for
   `FUZZTIME`, 5m by default; `STEPS="pkgs fuzz-FuzzFormatKeepsMeaning"` runs
   only the steps named). It prints each step's exit status and fails when any
   failed. A failure there is attributed to the batch's changes by rerunning
@@ -325,7 +353,9 @@ until you do).
   node types (`internal/ast/children_gen.go`, by `internal/ast/walkgen`)
   that follows the reflective `ast.ReflectChildren`'s rules. After adding,
   removing or reordering a node type or field, run
-  `go generate ./internal/ast`; `TestGeneratedChildrenAreCurrent` fails
+  `go generate ./internal/ast` and `go generate ./internal/ast/astcodec` (the
+  interface codec, `docs/implementation-notes.md`, "File interfaces");
+  `TestGeneratedChildrenAreCurrent` and `TestGeneratedCodecIsCurrent` fail
   until you do.
 - No fake symbols: a new concept gets its own representation at every layer.
 - No workarounds for type information the checker should provide; fix the
@@ -597,6 +627,13 @@ Rules enforced by something in the repository:
   or a heading its chapter lacks.
 - `TestScriptsNameGoPackagesThatExist` and `TestScriptsAreExecutable` hold
   `scripts/` to the tree.
+- `nomi run`, `check`, `test` and `build` keep each program in the artifact
+  cache, with a record of its files from which an edit that changes only
+  bodies relinks it ([kept programs](docs/implementation-notes.md#kept-programs)). Under
+  `go test` a process keeps none unless the test sets `NOMI_ARTIFACT_CACHE`
+  to a directory of its own; a `nomi` a test starts keeps them under the
+  directory the test binary chose. `NOMI_DEBUG_ARTIFACT_CACHE=1` says why a
+  command read or kept nothing.
 - `internal/ffirun`'s cache refuses the real user cache under `go test`; set
   `NOMI_FFIRUN_CACHE_ROOT`. The managed toolchain's cache refuses it too
   (`NOMI_TOOLCHAIN_ROOT`), and a module download refuses a `GOMODCACHE`

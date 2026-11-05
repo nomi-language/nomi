@@ -32,6 +32,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -71,6 +72,11 @@ type Module struct {
 	// module's own, when this module is a std module checked from edited
 	// source (programstd.go's implFuncTwins). Nil otherwise.
 	twins map[ast.Node]ast.Node
+	// bodies marks, in a lowering of one session file, an earlier file
+	// its check read with its bodies: its gen lowers the instances of its
+	// generic declarations the file asks for and the earlier lowerings did
+	// not make (session.go).
+	bodies bool
 }
 
 // Program is a checked Nomi program. Modules[0] is the entry.
@@ -95,6 +101,10 @@ type Program struct {
 	// it. GenerateIR asks before each phase, and in each per-file phase
 	// before each file, and answers ErrStopped once it reports true.
 	Stop func() bool
+	// Declines observe the lowering's declines. GenerateIR hands them to
+	// this lowering's census alone, so a host lowering two programs at once
+	// sees each program's declines in its own hooks.
+	Declines DeclineHooks
 	// halted records that Stop reported true: a phase that stopped part
 	// way leaves its work unfinished, and every later question answers
 	// true.
@@ -105,6 +115,29 @@ type Program struct {
 	// it once every module's bodies are lowered, and links the gen it
 	// answers first.
 	stdCases func(b *programBuild) *gen
+	// noLinkStd lowers every listed std module the program reaches with
+	// it rather than linking a kept lowering (programstdlink.go): set on
+	// the program that makes the kept lowering.
+	noLinkStd bool
+	// linkAllStd links every module of the program, the entry included,
+	// to the kept lowering of the listed std modules: each is a listed
+	// module as the shared analysis holds it, and only what stdCases
+	// lowers is the program's own (a reference editor's case,
+	// GenerateStdlibReferenceIR).
+	linkAllStd bool
+	// objects, when set, holds the lowering of every module of the
+	// program but the first: their gens are linked to it as a listed std
+	// module's are to the kept lowering, and only the first module's bodies
+	// are lowered (perfile.go).
+	objects *linkedStd
+	// perFile, set with objects, is what the lowering of one file is given
+	// of the program it belongs to (perfile.go).
+	perFile *perFileState
+	// interfaces answers the program's files as interfaces, against which
+	// each can be checked on its own, for the per-file object harness
+	// (perfileharness.go); nil for a program the front end did not check
+	// from files.
+	interfaces func() *analysis.ProgramInterfaces
 }
 
 // programBuild is what a GenerateIR call shares among its gens, for a gen
@@ -172,7 +205,9 @@ func AnalyzeFile(entryPath string, cfg frontend.Config) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fileProgram(abs, proj, hasTests), nil
+	p := fileProgram(abs, proj, hasTests)
+	p.interfaces = fe.Interfaces
+	return p, nil
 }
 
 // AnalyzeFileSource is AnalyzeFile for the file at entryPath whose text is
@@ -184,11 +219,14 @@ func AnalyzeFileSource(entryPath, src string, cfg frontend.Config) (*Program, er
 	}
 	hasTests, _ := frontend.SourceDeclaresTests(src)
 	cfg.SourceBoundProvided = true
-	proj, err := frontend.New(cfg).CheckFileSource(abs, src, frontend.Mode{Tests: hasTests})
+	fe := frontend.New(cfg)
+	proj, err := fe.CheckFileSource(abs, src, frontend.Mode{Tests: hasTests})
 	if err != nil {
 		return nil, err
 	}
-	return fileProgram(abs, proj, hasTests), nil
+	p := fileProgram(abs, proj, hasTests)
+	p.interfaces = fe.Interfaces
+	return p, nil
 }
 
 // fileProgram is the Program of a checked file entry at abs.
@@ -252,7 +290,7 @@ func AnalyzeVirtual(name, src string, cfg frontend.Config) (*Program, error) {
 		analysis.MarkTailCalls(f.Nodes)
 		mods = append(mods, Module{Path: path, Name: f.Key, Nodes: f.Nodes, FA: f.FA})
 	}
-	return &Program{Modules: mods, HasTests: hasTests, Root: proj.Root, VirtualFiles: fe.VirtualFiles()}, nil
+	return &Program{Modules: mods, HasTests: hasTests, Root: proj.Root, VirtualFiles: fe.VirtualFiles(), interfaces: fe.Interfaces}, nil
 }
 
 // Result is a program lowered to IR.
@@ -285,6 +323,27 @@ type Result struct {
 	// Exports are the program's `export fn` declarations, in unit order
 	// and then declaration order (exports.go).
 	Exports []Export
+	// instMods are the program's std instances, the last of irLibraries.
+	instMods []*ir.Module
+	// linkedMods are the kept lowering's modules of the listed std modules
+	// the program links (programstdlink.go), which irLibraries holds: the
+	// listed modules a program that lowers them itself holds in IR.
+	linkedMods []*ir.Module
+	// synthRefused is each synthesized impl block whose speculative
+	// lowering failed, for a kept lowering (Program.noLinkStd) only.
+	synthRefused map[*ast.ImplBlock]bool
+	// instNeeds is, for a kept lowering only, the listed std modules each
+	// of instMods' type arguments are declared in (stdInstances.needs).
+	instNeeds [][]string
+	// kept is what Keep writes of the lowering (perfile.go).
+	kept *keptState
+	// perFileTables are, for a lowering of one file, the registry's
+	// program-wide sets once it is done, and file what it lowered.
+	perFileTables struct{ erased, boxed, synthRefused []string }
+	file          *relowered
+	// declines and refusals are each attempt's decline and each refused
+	// construct, by the file it is in (perfile.go).
+	declines, refusals map[string][]string
 }
 
 // IRModules returns the graphs needed to link this compilation, including the
@@ -321,6 +380,11 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		return nil, nil, fmt.Errorf("irbuild: no modules to generate")
 	}
 	var unsupported []Unsupported
+	// This lowering's decline census, which watches every attempt's
+	// decline, by the file it lowered: a kept lowering records them and a
+	// lowering of one file is compared with them (perfile.go).
+	declines := newDeclineCensus(p.Declines)
+	declines.watch = true
 	// masked rides beside unsupported for the whole program, because the
 	// blocker set the report reads is the whole program's and so is its error
 	// bar: a refusal in a SIBLING file is what masks the entry's type-shaped
@@ -329,7 +393,20 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	hasMain := false
 	// The lowered standard library, built once for the process.
 	std := stdlibLowering()
+	own := len(p.Modules)
 	p = withProgramStd(p)
+	// The listed std modules p reaches, lowered once for the process and
+	// linked by name rather than lowered here (programstdlink.go).
+	var linked *linkedStd
+	linkFrom := own
+	if p.linkAllStd {
+		linkFrom = 0
+	}
+	if names := linkedStdNames(p, linkFrom); len(names) > 0 {
+		if ls := linkedStdFor(names); ls != nil && ls.err == nil {
+			linked = ls
+		}
+	}
 	// Every type declaration in the program, keyed by the node that declared
 	// it and named program-uniquely, so one module can name both its own
 	// `Point` and a sibling file's. See foreign.go.
@@ -337,6 +414,18 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		return nil, nil, ErrStopped
 	}
 	reg := buildTypeRegistry(p)
+	reg.linkNames = programLinkNames(p)
+	defer holdDeclKeys(reg.linkNames)()
+	if p.perFile != nil {
+		reg.perFile = p.perFile
+		reg.erasedInsts, reg.boxedEnums = setOf(p.perFile.erased), setOf(p.perFile.boxed)
+	}
+	if linked != nil {
+		reg.imports, reg.linked = linked.defined, linked
+	}
+	if p.objects != nil {
+		reg.imports, reg.linked = mergeLinked(linked, p.objects)
+	}
 	// The program's own files as each other's call sites see them, indexed
 	// before any of them is lowered: whether a cross-file reference closes an
 	// import cycle is a whole-program property. See siblings.go.
@@ -352,13 +441,19 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// signatures. See foreign.go.
 	gens := make([]*gen, len(p.Modules))
 	for i := range p.Modules {
-		p.Modules[i].DeclaresTests = i == 0 && p.HasTests
+		p.Modules[i].DeclaresTests = i == 0 && p.HasTests && p.entryFirst()
 		gens[i] = newGen(&p.Modules[i], reg.pkgOf[i], std, files, i, reg)
+		gens[i].dc = declines
+		gens[i].linked = linked != nil && i >= linkFrom
+		gens[i].fromObjects = p.objects != nil && i > 0 && i < own
+		if gens[i].fromObjects && p.Modules[i].bodies {
+			gens[i].fromObjects, gens[i].linked = false, true
+		}
 	}
 	reg.gens = gens
 	// One table of generic stdlib instances for the whole program, so a
 	// sibling file's instances are the entry's too. See stdinst.go.
-	insts := newStdInstances(std)
+	insts := newStdInstances(std, declines)
 	insts.program = gens
 	for _, g := range gens {
 		g.stdInsts = insts
@@ -409,9 +504,13 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		errs, hidden := gens[i].emitModule(&p.Modules[i])
 		unsupported = append(unsupported, errs...)
 		masked = append(masked, hidden...)
-		if i == 0 {
+		if i == 0 && p.entryFirst() {
 			hasMain = definesMain(&p.Modules[i])
 		}
+	}
+	if linked != nil {
+		unsupported = append(unsupported, linked.unsupported...)
+		masked = append(masked, linked.masked...)
 	}
 	if len(unsupported) > 0 {
 		refusal = newUnsupportedError(unsupported, masked)
@@ -434,6 +533,9 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	for _, pkg := range stdPkgs {
 		irLibraries = append(irLibraries, std.irModules[pkg])
 	}
+	if linked != nil {
+		irLibraries = append(irLibraries, linked.mods...)
+	}
 	// The IR each unit retained, in unit order. The entry unit's module
 	// records the program boot and its `group` boots, retained or not.
 	// A unit that retained nothing has no module, and nothing to start. The
@@ -451,11 +553,11 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	var irMods []*ir.Module
 	var literals []LiteralSite
 	hostKeys := map[string]bool{}
-	linked := gens
+	units := gens
 	if cases != nil {
-		linked = append([]*gen{cases}, gens...)
+		units = append([]*gen{cases}, gens...)
 	}
-	for _, g := range linked {
+	for _, g := range units {
 		literals = append(literals, g.literalSites...)
 		for _, key := range g.irHostKeys {
 			hostKeys[key] = true
@@ -463,6 +565,9 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		if g.irMod != nil {
 			irMods = append(irMods, g.irMod)
 		}
+	}
+	if linked != nil {
+		literals = append(literals, linked.literals...)
 	}
 	// The program's stdlib instances link beside the cached modules and are
 	// never written into the cache.
@@ -472,10 +577,14 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	}
 	irLibraries = append(irLibraries, instMods...)
 	// Before the impl entries, which name only bodies that survive it.
-	irWithdrawUnforceableReads(irMods, irLibraries)
+	if p.objects != nil {
+		irWithdrawUnforceableReads(declines, irMods, append(slices.Clip(irLibraries), p.objects.mods...))
+	} else {
+		irWithdrawUnforceableReads(declines, irMods, irLibraries)
+	}
 	for i, g := range gens {
 		if g.irMod != nil {
-			if fd := g.bootDecl(); i == 0 && fd != nil {
+			if fd := g.bootDecl(); i == 0 && fd != nil && p.entryFirst() {
 				g.irMod.SetBoot(g.irCalleeSym(fd, fd.Name))
 			}
 			for _, sym := range g.irTestBoots {
@@ -490,9 +599,47 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		}
 		irLintFinished(m)
 	}
-	return &Result{HasMain: hasMain,
+	if reg.linked != nil {
+		dropLinkedDuplicates(append(append([]*ir.Module(nil), irMods...), instMods...), reg.linked)
+	}
+
+	res = &Result{HasMain: hasMain,
 		IR: irMods, irLibraries: irLibraries, irHostKeys: hostKeys, Literals: literals,
-		Exports: exports}, refusal, nil
+		Exports: exports, instMods: instMods}
+	if linked != nil {
+		res.linkedMods = linked.units
+	}
+	if p.noLinkStd {
+		res.synthRefused = synthRefused(gens)
+		res.instNeeds = insts.needs()
+	}
+	res.kept = keptStateOf(p, own, gens, reg, linked, cases != nil)
+	res.declines, res.refusals = declines.byFile(), refusalsByFile(unsupported)
+	if p.perFile != nil {
+		res.perFileTables.erased, res.perFileTables.boxed = sortedSet(reg.erasedInsts), sortedSet(reg.boxedEnums)
+		for decl := range synthRefused(gens[:1]) {
+			if name, ok := reg.linkNames[decl]; ok {
+				res.perFileTables.synthRefused = append(res.perFileTables.synthRefused, name.String())
+			}
+		}
+	}
+	if perFileHarness() {
+		if err := res.relowerEachFile(p); err != nil {
+			return nil, nil, err
+		}
+	}
+	// A kept lowering is linked through objects with each program that
+	// links it, never on its own: its modules are kept as they lowered.
+	// One file lowered on its own (LowerFile) already names the other
+	// files' symbols as its linker decoded them from their objects;
+	// relinking its lowering alone would give each of those names a
+	// symbol of its own, which no module defines.
+	if linksThroughObjects() && !p.noLinkStd && p.perFile == nil {
+		if err := relinkThroughObjects(res); err != nil {
+			return nil, nil, err
+		}
+	}
+	return res, refusal, nil
 }
 
 // definesMain reports whether the module declares a zero-parameter `fn main`.

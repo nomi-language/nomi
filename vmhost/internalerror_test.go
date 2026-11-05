@@ -31,9 +31,6 @@ func TestLower_PanicIsAnInternalError(t *testing.T) {
 	if len(ice.Stack) == 0 {
 		t.Error("the InternalError carries no stack")
 	}
-	if irbuild.IRDeclineObserved != nil || irbuild.IRDeclineAt != nil {
-		t.Error("the decline hooks are left installed after a panic")
-	}
 	if _, err := LoadSource("main.nomi", "fn main() {}\n"); err != nil {
 		t.Fatalf("a load after the panic: %v", err)
 	}

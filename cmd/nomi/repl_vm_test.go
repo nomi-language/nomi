@@ -147,21 +147,43 @@ func TestReplVM_AOnceIsForcedOnFirstUse(t *testing.T) {
 		"1\ncomputed\n8\n7\n100\n8\n9\n")
 }
 
-// Redeclaring a type drops the functions that name it, and the definitions
-// that use those; an identical redeclaration drops nothing.
-func TestReplVM_RedeclaringATypeDropsItsFunctions(t *testing.T) {
-	replExpect(t, "struct P {\n  x: Int\n}\nfn px(p: P) -> Int {\n  p.x\n}\nfn one() -> Int {\n  px(P{x: 1})\n}\n"+
-		"fn other() -> Int {\n  2\n}\n"+
-		"struct P {\n  x: Int\n}\none()\nstruct P {\n  y: Int\n}\nother()\none()\n",
-		"1\n2\n",
-		"note: one is no longer in scope", "note: px is no longer in scope", "undefined")
+// A type redeclared with a different declaration is a new type: an earlier
+// value, function, once and type that name the old one keep it and still
+// work together, and a later input that says the name gets the new one.
+func TestReplVM_ARedeclaredTypeIsANewVersion(t *testing.T) {
+	replExpect(t, "struct P {\n  x: Int\n}\nfn px(p: P) -> Int {\n  p.x\n}\nstruct Line {\n  a: P\n}\n"+
+		"once origin: P = P{x: 0}\np = P{x: 1}\nps = [P{x: 2}]\n"+
+		"struct P {\n  y: Int\n}\npx(p)\np\nps\nLine{a: origin}\nq = P{y: 5}\nq.y\nr = p\npx(r)\n",
+		"1\nP{x: 1}\n[P{x: 2}]\nLine{a: P{x: 0}}\n5\n1\n")
 }
 
-// Redeclaring a type drops the values of its old layout.
-func TestReplVM_RedeclaringATypeDropsItsValues(t *testing.T) {
-	replExpect(t, "struct P {\n  x: Int\n}\np = P{x: 1}\nn = 3\nstruct P {\n  y: Int\n}\nn\np\n",
-		"3\n",
-		"note: p is no longer in scope", "undefined variable 'p'")
+// Mixing the old and the new version of a type is a type error that names
+// each by the input that declared it.
+func TestReplVM_MixingTypeVersionsNamesEachInput(t *testing.T) {
+	replExpect(t, "struct P {\n  x: Int\n}\nfn px(p: P) -> Int {\n  p.x\n}\nstruct P {\n  x: Int\n  y: Int\n}\n"+
+		"px(P{x: 1, y: 2})\n",
+		"",
+		"argument 1: expected P (input 1), got P (input 3)")
+}
+
+// An impl written for the old version stays with it, and the new version
+// starts with none; a redefined impl for the new one replaces only its own.
+func TestReplVM_AnImplStaysWithItsTypeVersion(t *testing.T) {
+	replExpect(t, "struct P {\n  x: Int\n}\n"+
+		"impl Display for P {\n  fn to_string(p: P) -> String {\n    \"old ${p.x}\"\n  }\n}\np = P{x: 1}\n"+
+		"struct P {\n  y: Int\n}\n\"${p}\"\n\"${P{y: 2}}\"\n"+
+		"impl Display for P {\n  fn to_string(p: P) -> String {\n    \"new ${p.y}\"\n  }\n}\n\"${P{y: 3}}\"\n\"${p}\"\n"+
+		"impl Display for P {\n  fn to_string(p: P) -> String {\n    \"newer ${p.y}\"\n  }\n}\n\"${P{y: 4}}\"\n\"${p}\"\n",
+		"\"old 1\"\n\"new 3\"\n\"old 1\"\n\"newer 4\"\n\"old 1\"\n",
+		"no impl of `Display` for `P`")
+}
+
+// An identical redeclaration keeps the type, so earlier values, functions
+// and impls go on working with values a later input makes.
+func TestReplVM_AnIdenticalRedeclarationKeepsTheType(t *testing.T) {
+	replExpect(t, "struct P {\n  x: Int\n}\nfn px(p: P) -> Int {\n  p.x\n}\np = P{x: 1}\n"+
+		"struct P {\n  x: Int\n}\npx(P{x: 2})\n[p, P{x: 3}]\n",
+		"2\n[P{x: 1}, P{x: 3}]\n")
 }
 
 // replBlockedDecls declares `count`, which the builder declines under

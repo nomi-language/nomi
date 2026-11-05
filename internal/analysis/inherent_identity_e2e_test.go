@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // duplicateTypeOwnedFn is the substring of the diagnostic these tests are about.
@@ -45,7 +44,7 @@ func buildInherentFixture(t *testing.T, files map[string]string) *analysis.FileA
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(fileData)))
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader,
 	)

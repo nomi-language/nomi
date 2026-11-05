@@ -1,0 +1,27 @@
+// A type that is not generic with a member that is, for main.nomi.
+import {
+    std::duration.Duration
+    std::io
+}
+
+pub struct Plan {
+    name: String
+    wait: Duration
+}
+
+fn pause() -> Duration {
+    io.print("default pause")
+    Duration.seconds(5)
+}
+
+impl Plan {
+    /// A generic member of a type that is not generic: `wait` defaults to
+    /// a call of this file's private `pause`.
+    pub fn of<A>(name: String, value: A, wait: Duration = pause()) -> Plan where A: Display {
+        Plan{name: "${name} ${value}", wait}
+    }
+
+    pub fn seconds(plan: Plan) -> Int {
+        Duration.as_seconds(plan.wait)
+    }
+}

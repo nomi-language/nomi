@@ -7,7 +7,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -19,7 +18,7 @@ func codeActionFixture(t *testing.T, src string) (string, []ast.Node, *analysis.
 	t.Helper()
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	diags := typeErrorsToDiagnostics(fa.TypeErrors)
 	return src, nodes, fa, diags
@@ -263,7 +262,7 @@ func addImportFixture(t *testing.T, src string) (string, []ast.Node, *analysis.F
 	t.Helper()
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	all := append([]analysis.TypeError(nil), fa.TypeErrors...)
@@ -410,7 +409,7 @@ func TestCodeAction_IgnoresNonUnusedDiagnostics(t *testing.T) {
 	content := "fn bad() -> Int { \"x\" }\n"
 	tokens := lexer.Lex(content)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	diags := typeErrorsToDiagnostics(fa.TypeErrors)
 	actions := buildRemoveUnusedActions(content, nodes, fa, "file:///t.nomi", diags)

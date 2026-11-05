@@ -85,6 +85,11 @@ type CheckedProgram struct {
 	// consumed is set once a Recheck has taken the program's analyses for
 	// its answer.
 	consumed bool
+	// factsFrom, set on a program whose files were checked against
+	// interfaces (CheckFromInterfacesForTest), is the program checked from
+	// source whose program-wide facts it shows: its errors, its `once`
+	// table, and whether each whole-file import is needed.
+	factsFrom *CheckedProgram
 }
 
 // Consumed reports whether a Recheck has consumed the program.
@@ -371,6 +376,17 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 		return pf.nodes
 	}
 
+	// textKeys are the module keys of the program's texts.
+	textKeys := func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		keys := make([]string, 0, len(p.Texts))
+		for key := range p.Texts {
+			keys = append(keys, key)
+		}
+		return keys
+	}
+
 	manifest, _ := LoadManifest(root)
 	inputs := dm.recordingInputs(p, &mu)
 	expand := func(key string, nodes []ast.Node) []ast.Node {
@@ -422,7 +438,14 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 		}
 		src, ok := text(key)
 		if !ok {
-			return elsewhere(projectRoot, modulePath)
+			nodes, err := elsewhere(projectRoot, modulePath)
+			if err != nil && DiskDirectory(projectRoot, modulePath) == nil {
+				// A directory the program's texts hold files under.
+				if dir := VirtualDirectory(modulePath, textKeys(), nil); dir != nil {
+					return nil, dir
+				}
+			}
+			return nodes, err
 		}
 		// A file of root: its bindings are the entry's, looked up once.
 		nodes, err := syntheticextern.Inject(parse(key, src), externs, false)
@@ -431,7 +454,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 		}
 		return expand(key, nodes), nil
 	}
-	entryFA, siblings, siblingNodes := buildProjectWithCache(prog, primitives, modules, stdlibFAs, root, entryPath, entry, true, loader, nil, reused)
+	entryFA, siblings, siblingNodes := buildProjectWithCache(prog, primitives, modules, stdlibFAs, root, entryPath, entry, true, loader, nil, &buildInputs{reused: reused})
 	if reused != nil {
 		// The kept files' `once` bindings keep the types the earlier check
 		// inferred, and so do the cycles their values read themselves
@@ -499,6 +522,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 	}
 	c.siblings, c.siblingNodes = siblings, siblingNodes
 	p.checks = c
+	dm.programCounts.built.Add(int64(len(p.Files) - len(keep)))
 	c.reduce(p)
 	c.checkEntry(p)
 	MarkTailCalls(prog)
@@ -544,6 +568,8 @@ type programChecks struct {
 	// frontEnd holds the derive-lowering and duplicate test name errors the
 	// front end reports before analysis.
 	frontEnd []TypeError
+	// bootScope holds each file's boot-only call errors, by key.
+	bootScope map[string][]TypeError
 }
 
 // appRootsFrom is the analysis and body part a file's application-field
@@ -617,33 +643,50 @@ func (c *programChecks) checkEntry(p *CheckedProgram) {
 // assemble sets p.Errors from the checks, in the order the front end reports
 // them.
 func (c *programChecks) assemble(p *CheckedProgram) {
-	p.Errors = map[string][]TypeError{}
-	errs := slices.Clone(c.build[p.Entry])
+	// The boot-only check reads every file's calls (boot_scope.go), so it
+	// runs here, against the program as it is now, for every file.
+	c.bootScope = map[string][]TypeError{p.Entry: CheckBootScope(c.entry, p.Nodes[p.Entry])}
+	for _, key := range c.checked {
+		if fa, nodes := c.fileOf(p, key); fa != nil && !IsStdlibKey(key) {
+			c.bootScope[key] = CheckBootScope(fa, nodes)
+		}
+	}
+	p.Errors = c.errorsWith(p, func(key string) (build, check, entryChecks, frontEnd []TypeError) {
+		return c.build[key], c.check[key], c.entryChecks, c.frontEnd
+	})
+}
+
+// errorsWith answers each file's diagnostics in the order the front end
+// reports them, with the program's from c and each file's own (its build's
+// and check's errors, and for the entry its own checks and the front end's
+// errors) from local.
+func (c *programChecks) errorsWith(p *CheckedProgram, local func(key string) (build, check, entryChecks, frontEnd []TypeError)) map[string][]TypeError {
+	out := map[string][]TypeError{}
+	build, check, entryChecks, frontEnd := local(p.Entry)
+	errs := slices.Clone(build)
 	errs = append(errs, c.entry.Program().Errors...)
-	errs = append(errs, c.check[p.Entry]...)
+	errs = append(errs, check...)
 	errs = append(errs, c.appRoots[p.Entry]...)
 	errs = append(errs, c.implImports[p.Entry]...)
 	errs = append(errs, c.entryDeclChecks(p)...)
 	errs = append(errs, c.coherence...)
 	errs = append(errs, c.catalogTree...)
-	errs = append(errs, c.entryChecks...)
-	// The boot-only check reads every file's calls (boot_scope.go), so it
-	// runs here, against the program as it is now, for every file.
-	errs = append(errs, CheckBootScope(c.entry, p.Nodes[p.Entry])...)
-	p.Errors[p.Entry] = append(errs, c.frontEnd...)
+	errs = append(errs, entryChecks...)
+	errs = append(errs, c.bootScope[p.Entry]...)
+	out[p.Entry] = append(errs, frontEnd...)
 	for _, key := range c.checked {
 		if IsStdlibKey(key) {
 			continue
 		}
-		errs := slices.Clone(c.build[key])
-		errs = append(errs, c.check[key]...)
+		build, check, _, _ := local(key)
+		errs := slices.Clone(build)
+		errs = append(errs, check...)
 		errs = append(errs, c.appRoots[key]...)
 		errs = append(errs, c.declChecks[key]...)
-		if fa, nodes := c.fileOf(p, key); fa != nil {
-			errs = append(errs, CheckBootScope(fa, nodes)...)
-		}
-		p.Errors[key] = append(errs, c.implImports[key]...)
+		errs = append(errs, c.bootScope[key]...)
+		out[key] = append(errs, c.implImports[key]...)
 	}
+	return out
 }
 
 // entryDeclChecks are the program declaration checks' diagnostics the

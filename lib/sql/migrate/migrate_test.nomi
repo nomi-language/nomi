@@ -118,6 +118,33 @@ test "read refuses a directory that does not exist" {
     assert refused == "no/such/migrations"
 }
 
+// Migrations the test carries inside itself, as a built program does.
+embed fixtures `testdata/migrations`
+
+test "read_from lists an embedded directory's migrations in name order, without down files or subdirectories" {
+    got =
+        migrate.read_from(fixtures, "testdata/migrations")
+        |> Result.map(fn ms -> ms |> Iter.map(fn mig -> mig.path) |> Iter.to_list())
+
+    assert got == Ok(
+        ["testdata/migrations/000001_users.up.sql", "testdata/migrations/000002_orders.up.sql"]
+    )
+}
+
+test "read_from refuses a directory the embedded files do not hold" {
+    assert migrate.read_from(fixtures, "db/migrations") is Err(Error.Read{path: "db/migrations"})
+}
+
+test "up_from applies the embedded migrations" {
+    answers = on_each(fn db -> {
+        ran = migrate.up_from(db, fixtures, "testdata/migrations")?
+        again = migrate.up_from(db, fixtures, "testdata/migrations")?
+        Ok(#(ran, again))
+    })
+
+    assert answers == both(Ok(#(["000001_users.up.sql", "000002_orders.up.sql"], [])))
+}
+
 test "apply runs each migration once, in order, and records it with its checksum" {
     answers = on_each(fn db -> {
         first = migrate.apply(db, [users, orders, seed])?

@@ -140,6 +140,17 @@ buildinfo() {
 	"$tools_dir/gobuildinfo" "$1"
 }
 
+# `nomi` and `nomi-lsp` embed the stdlib's lowering (internal/irbuild's std
+# bundle) and its interfaces and facts (std/shared.go), so they never
+# analyze or lower std at startup. stdbundlegen makes both once, natively,
+# from this tree, and writes a `go build -overlay` file that supplies them
+# under the nomi_stdbundle tag. Neither depends on the target platform; each
+# records the stdlib's digest, and the bundle the host-function digest, a
+# binary checks it against.
+bundle_dir="$tools_dir/stdbundle"
+mkdir -p "$bundle_dir"
+go run -C "$module_dir" ./internal/irbuild/stdbundlegen "$bundle_dir"
+
 # Every binary of the release carries one VCS stamp.
 revisions=""
 
@@ -175,10 +186,17 @@ for target in "${all_targets[@]}"; do
 		# A -nonet runner is built without the network (nomi_nonet): nomi
 		# build appends a program that reaches no network crossing to it.
 		tags=""
-		case "$name" in *-nonet) tags="nomi_nonet" ;; esac
+		overlay=()
+		case "$name" in
+		*-nonet) tags="nomi_nonet" ;;
+		nomi | nomi-lsp)
+			tags="nomi_stdbundle"
+			overlay=(-overlay "$bundle_dir/overlay.json")
+			;;
+		esac
 		echo "building $name for $goos/$goarch"
 		CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-			go build -C "$module_dir" -trimpath -buildmode="$buildmode" -tags "$tags" -ldflags "$ldflags" \
+			go build -C "$module_dir" -trimpath -buildmode="$buildmode" -tags "$tags" ${overlay[@]+"${overlay[@]}"} -ldflags "$ldflags" \
 			-o "$stage/$name$ext" "$pkg"
 
 		out="$stage/$name$ext"

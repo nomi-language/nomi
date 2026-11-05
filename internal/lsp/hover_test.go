@@ -5,7 +5,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"strings"
 	"testing"
 
@@ -815,7 +814,7 @@ group "config" {
   }
 }
 `
-	lib := std.Load()
+	lib := loadStd()
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
@@ -912,7 +911,7 @@ fn demo() -> Day {
 }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	file := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	file.TypeErrors = append(file.TypeErrors, analysis.BuildTypes(file, nodes)...)
 	file.TypeErrors = append(file.TypeErrors, analysis.CheckTypes(file, nodes)...)
@@ -2017,7 +2016,7 @@ fn main() {
 `
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	file := analysis.BuildProject(nodes, lib.Primitives, lib.Modules, lib.Files, "", nil)
 	_ = analysis.CheckTypes(file, nodes)
 

@@ -7,11 +7,13 @@ import (
 	"os"
 )
 
-// ownImage reads the image appended to this executable.
-func ownImage() ([]byte, error) {
+// ownImage opens the image appended to this executable: its code read, its
+// files region mapped (OpenImage). The executable stays open for the
+// process's life.
+func ownImage() (*Image, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("locating this executable: %w", err)
 	}
-	return ReadImage(exe)
+	return OpenImage(exe)
 }

@@ -167,6 +167,7 @@ const releaseHello = "import std::io\n\nfn main() {\n  io.print(\"hi\")\n}\n"
 // matches its golden record. A program with Go FFI or importing std/compiler
 // is refused with the reason, and nothing is built from source or downloaded.
 func TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram(t *testing.T) {
+	t.Parallel()
 	b := releaseBuild(t)
 	cache := t.TempDir()
 	env := releaseEnv(t, cache)

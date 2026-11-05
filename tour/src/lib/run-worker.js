@@ -96,6 +96,15 @@ async function fetchNomiWasm() {
 }
 
 const go = new Go();
+// Every collection stops the world. Under js/wasm the Go runtime has one
+// thread and no preemption, so its background mark worker runs only when a
+// run yields, and a run never does: a collection's mark progresses only
+// through the allocations' assists. When the runtime's GC CPU limiter
+// switches those off, which a busy or throttled machine makes it do, the
+// heap grows without bound until the run hits the 1 GiB cap. A
+// stop-the-world collection marks at its trigger, so the heap stays near
+// twice what is live. vmhost's node driver sets the same.
+go.env = { GODEBUG: "gcstoptheworld=1" };
 fetchNomiWasm()
   .then((buf) => WebAssembly.instantiate(buf, go.importObject))
   .then(({ instance }) => {

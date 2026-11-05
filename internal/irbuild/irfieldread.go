@@ -152,7 +152,7 @@ func (bl *irScalarBuilder) enumFieldRead(at ast.Node, name string, subj ir.Temp,
 		if !found {
 			fk, found = vk, true
 		} else if vk != fk {
-			irDeclineNote("an enum field read whose variants disagree on its type: ." + name)
+			bl.g.dc.note("an enum field read whose variants disagree on its type: ." + name)
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}

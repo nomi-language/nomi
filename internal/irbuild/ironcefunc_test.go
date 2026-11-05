@@ -43,10 +43,8 @@ fn main() {
 		t.Fatalf("the front end now rejects this, so the lowering below is untested: %v", err)
 	}
 	declined := map[string]string{}
-	prevD := IRDeclineObserved
-	IRDeclineObserved = func(fn, reason string) { declined[fn] = reason }
+	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
 	res, _, err := GenerateIR(p)
-	IRDeclineObserved = prevD
 	if err != nil {
 		t.Fatal(err)
 	}

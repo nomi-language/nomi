@@ -6,7 +6,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // A user file may declare a type named after a stdlib type it does not
@@ -18,7 +17,7 @@ import (
 
 func analyzeBootScope(src string) []analysis.TypeError {
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	var errs []analysis.TypeError

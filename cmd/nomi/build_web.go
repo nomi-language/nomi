@@ -290,7 +290,11 @@ var webIndexTemplate = template.Must(template.New("index.html").Parse(webIndexHT
 // writeWebFolder writes the folder b.out for the js/wasm runner at runner,
 // image, the TypeScript declarations decls and the locale files, and copies
 // the static files in.
-func writeWebFolder(b buildArgs, runner string, image []byte, decls string, locales map[string][]byte, static webStatic, stderr io.Writer) error {
+func writeWebFolder(b buildArgs, runner string, image []byte, sources []vmhost.EmbedSource, decls string, locales map[string][]byte, static webStatic, stderr io.Writer) error {
+	imageSize, err := imageLen(image)
+	if err != nil {
+		return fmt.Errorf("nomi build: %w", err)
+	}
 	wasmExecPath, err := ffirun.WasmExec(runner)
 	if err != nil {
 		return fmt.Errorf("nomi build: %w", err)
@@ -309,7 +313,10 @@ func writeWebFolder(b buildArgs, runner string, image []byte, decls string, loca
 	if module, err = wasmmem.SetMax(module, wasmmem.MaxBytes); err != nil {
 		return fmt.Errorf("nomi build: capping the module's memory: %w", err)
 	}
-	module = append(module, vmrunner.WasmImageSection(image)...)
+	// The section's head and the image's code; app.wasm's files region is
+	// written after them from its sources (writeWebModule).
+	module = append(module, vmrunner.WasmImageSectionHead(imageSize)...)
+	module = append(module, image...)
 	var index bytes.Buffer
 	title := strings.TrimSuffix(filepath.Base(b.entry), ".nomi")
 	if err := webIndexTemplate.Execute(&index, struct{ Title string }{title}); err != nil {
@@ -347,7 +354,19 @@ func writeWebFolder(b buildArgs, runner string, image []byte, decls string, loca
 		if name == "index.html" && slices.Contains(static.files, name) {
 			continue
 		}
-		if err := writeFileReplacing(filepath.Join(b.out, name), contents[name]); err != nil {
+		write := func(w io.Writer) error {
+			_, err := w.Write(contents[name])
+			return err
+		}
+		if name == "app.wasm" {
+			write = func(w io.Writer) error {
+				if _, err := w.Write(module); err != nil {
+					return err
+				}
+				return vmhost.WriteFilesRegion(w, image, sources)
+			}
+		}
+		if err := writeFileReplacingWith(filepath.Join(b.out, name), write); err != nil {
 			return fmt.Errorf("nomi build: %w", err)
 		}
 	}
@@ -364,9 +383,9 @@ func writeWebFolder(b buildArgs, runner string, image []byte, decls string, loca
 			return fmt.Errorf("nomi build: %w", err)
 		}
 	}
-	if len(module) > webLargeModule {
+	if size := int64(len(module)) - int64(len(image)) + imageSize; size > webLargeModule {
 		fmt.Fprintf(stderr, "nomi build: app.wasm is %.1f MB; serve it compressed (brotli or gzip) with "+
-			"Content-Type: application/wasm\n", float64(len(module))/(1<<20))
+			"Content-Type: application/wasm\n", float64(size)/(1<<20))
 	}
 	return nil
 }
@@ -374,12 +393,20 @@ func writeWebFolder(b buildArgs, runner string, image []byte, decls string, loca
 // writeFileReplacing writes data to path through a temporary file beside it,
 // so a reader never sees half a file.
 func writeFileReplacing(path string, data []byte) error {
+	return writeFileReplacingWith(path, func(w io.Writer) error {
+		_, err := w.Write(data)
+		return err
+	})
+}
+
+// writeFileReplacingWith is writeFileReplacing for what write writes.
+func writeFileReplacingWith(path string, write func(io.Writer) error) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
 	if err != nil {
 		return err
 	}
 	tmpPath := tmp.Name()
-	if _, err := tmp.Write(data); err == nil {
+	if err = write(tmp); err == nil {
 		err = tmp.Chmod(0o644)
 	}
 	if cerr := tmp.Close(); err == nil {

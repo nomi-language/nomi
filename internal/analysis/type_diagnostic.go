@@ -99,7 +99,7 @@ func sprintTypes(entry, format string, args []any) string {
 	}
 	for i := range collide {
 		var sb strings.Builder
-		writeQualifiedType(&sb, args[i].(Type), amb, entry)
+		writeQualifiedType(&sb, args[i].(Type), func(name, _ string) bool { return amb[name] }, entry)
 		out[i] = sb.String()
 	}
 	return fmt.Sprintf(format, out...)
@@ -207,11 +207,22 @@ func walkNominals(t Type, visit func(name, origin string), depth int) {
 	}
 }
 
+// TypeTextQualifying is t as a diagnostic renders it, with each nominal
+// type whose declaring file qualify accepts prefixed with that file's module
+// key, as source spells a type another file declares (`repl_in1.Point`). A
+// REPL spells a value's type this way, so the spelling keeps naming the
+// same declaration when a later input declares another type of its name.
+func TypeTextQualifying(t Type, qualify func(origin string) bool) string {
+	var sb strings.Builder
+	writeQualifiedType(&sb, t, func(_, origin string) bool { return qualify(origin) }, "")
+	return sb.String()
+}
+
 // writeQualifiedType renders t exactly as t.String() does, except that a
-// nominal type whose name is in amb is prefixed with its declaring file.
+// nominal type qualify accepts is prefixed with its declaring file.
 // Every kind String renders by recursion is handled here; any other kind
 // has no nested types and renders through its own String.
-func writeQualifiedType(sb *strings.Builder, t Type, amb map[string]bool, entry string) {
+func writeQualifiedType(sb *strings.Builder, t Type, qualify func(name, origin string) bool, entry string) {
 	if t == nil || isNilType(t) {
 		sb.WriteString("?")
 		return
@@ -225,11 +236,11 @@ func writeQualifiedType(sb *strings.Builder, t Type, amb map[string]bool, entry 
 				sb.WriteString("?")
 				continue
 			}
-			writeQualifiedType(sb, x, amb, entry)
+			writeQualifiedType(sb, x, qualify, entry)
 		}
 	}
 	nominal := func(name, origin string, args []Type) {
-		if amb[name] && origin != OriginUnresolved {
+		if qualify != nil && qualify(name, origin) && origin != OriginUnresolved {
 			sb.WriteString(originQualifier(origin, entry))
 			sb.WriteString(".")
 		}
@@ -258,7 +269,7 @@ func writeQualifiedType(sb *strings.Builder, t Type, amb map[string]bool, entry 
 		if v.Return == nil {
 			sb.WriteString("Unit")
 		} else {
-			writeQualifiedType(sb, v.Return, amb, entry)
+			writeQualifiedType(sb, v.Return, qualify, entry)
 		}
 	case *TupleType:
 		sb.WriteString("#(")
@@ -266,13 +277,13 @@ func writeQualifiedType(sb *strings.Builder, t Type, amb map[string]bool, entry 
 		sb.WriteString(")")
 	case *ListType:
 		sb.WriteString("List<")
-		writeQualifiedType(sb, v.Elem, amb, entry)
+		writeQualifiedType(sb, v.Elem, qualify, entry)
 		sb.WriteString(">")
 	case *MapType:
 		sb.WriteString("Map<")
-		writeQualifiedType(sb, v.Key, amb, entry)
+		writeQualifiedType(sb, v.Key, qualify, entry)
 		sb.WriteString(", ")
-		writeQualifiedType(sb, v.Val, amb, entry)
+		writeQualifiedType(sb, v.Val, qualify, entry)
 		sb.WriteString(">")
 	case *AnonStructType:
 		sb.WriteString("#{")
@@ -282,7 +293,7 @@ func writeQualifiedType(sb *strings.Builder, t Type, amb map[string]bool, entry 
 			}
 			sb.WriteString(f.Name)
 			sb.WriteString(": ")
-			writeQualifiedType(sb, f.Type, amb, entry)
+			writeQualifiedType(sb, f.Type, qualify, entry)
 		}
 		sb.WriteString("}")
 	case *PartialType:
@@ -291,11 +302,11 @@ func writeQualifiedType(sb *strings.Builder, t Type, amb map[string]bool, entry 
 			return
 		}
 		sb.WriteString("Partial<")
-		writeQualifiedType(sb, v.Inner, amb, entry)
+		writeQualifiedType(sb, v.Inner, qualify, entry)
 		sb.WriteString(">")
 	case *TypeVar:
 		if v.Resolved != nil {
-			writeQualifiedType(sb, v.Resolved, amb, entry)
+			writeQualifiedType(sb, v.Resolved, qualify, entry)
 			return
 		}
 		sb.WriteString("_")

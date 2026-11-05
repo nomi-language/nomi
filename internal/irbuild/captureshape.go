@@ -37,7 +37,7 @@ func (bl *irScalarBuilder) captureShapeCall(t *ast.Call) (v ir.Temp, k kind, mob
 	result := bl.g.checkedKind(t)
 	shape, shaped := captureShape(bl.g.irValType(result))
 	if !shaped {
-		irDeclineNote("capture_shape at a type that is not a regex capture type")
+		bl.g.dc.note("capture_shape at a type that is not a regex capture type")
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
 	re, _, _, lowered := bl.lower(argExpr(t.Args[0]))

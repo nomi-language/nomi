@@ -8,7 +8,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // TestStdlibHasNoImplCollisions freezes the stdlib audit: the standard
@@ -29,7 +28,7 @@ import (
 // A future stdlib edit that reintroduces a duplicate impl for one
 // (interface, type) pair fails here instead of silently last-winning.
 func TestStdlibHasNoImplCollisions(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 
 	// Minimal valid program. Its own impl index is empty, so any
 	// `duplicate impl` error that surfaces comes purely from stdlib's
@@ -71,7 +70,7 @@ func TestStdlibHasNoImplCollisions(t *testing.T) {
 // reaches every one of those pairs via the stdlibFAs eager fold in
 // BuildProjectWithCache, so the test asserts the fold is wired.
 func TestProjectImplIndex_PopulatedAfterBuild(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 
 	src := "fn main() {}"
 	tokens := lexer.Lex(src)

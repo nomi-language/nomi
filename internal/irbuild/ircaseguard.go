@@ -57,9 +57,9 @@ func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc boo
 		// pattern or expression inside it already placed it. An ad-hoc arm's
 		// condition is an expression.
 		if adHoc {
-			irDeclineAtNode(br.Pattern)
+			bl.g.dc.atNode(br.Pattern)
 		} else {
-			irDeclineAtPattern(br.Pattern, "a `case` pattern outside the retained tests")
+			bl.g.dc.atPattern(br.Pattern, "a `case` pattern outside the retained tests")
 		}
 		return nil, nil, false
 	}
@@ -69,7 +69,7 @@ func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc boo
 		cond, ck, _, ok := bl.lower(br.Guard)
 		if !ok || ck != kindBool {
 			if ok {
-				irDeclineNote("a case guard that is not Bool: " + ck.nomi())
+				bl.g.dc.note("a case guard that is not Bool: " + ck.nomi())
 			}
 			return nil, nil, false
 		}
@@ -88,7 +88,7 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 	if adHoc {
 		cond, ck, _, ok := bl.lower(br.Pattern)
 		if !ok || ck != kindBool {
-			irDeclineNote("an ad-hoc case condition outside a straight Bool expression")
+			bl.g.dc.note("an ad-hoc case condition outside a straight Bool expression")
 			return false
 		}
 		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(br.Pattern), cond, target.ID(), next.ID()))
@@ -99,14 +99,14 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 	}
 	if cp, isCodepoint := br.Pattern.(*ast.CodepointLit); isCodepoint {
 		if !bl.codepointCaseTest(cp, subj, sk, target, next) {
-			irDeclineNote("a codepoint literal pattern over a subject that is not a Codepoint")
+			bl.g.dc.note("a codepoint literal pattern over a subject that is not a Codepoint")
 			return false
 		}
 		return true
 	}
 	if _, _, prefix := strPrefixPattern(br.Pattern); prefix {
 		if !bl.strPrefixTest(br.Pattern, subj, sk, target, next) {
-			irDeclineNote("a string prefix pattern over a subject that is not a String: " + sk.nomi())
+			bl.g.dc.note("a string prefix pattern over a subject that is not a String: " + sk.nomi())
 			return false
 		}
 		return true
@@ -114,37 +114,37 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 	switch {
 	case irVectorCaseKind(sk):
 		if !bl.vectorCaseTest(br.Pattern, subj, sk, target, next) {
-			irDeclineNote("a vector case pattern outside the retained element tests")
+			bl.g.dc.note("a vector case pattern outside the retained element tests")
 			return false
 		}
 		return true
 	case irSetCaseKind(sk):
 		if !bl.setCaseTest(br.Pattern, subj, sk, target, next) {
-			irDeclineNote("a set case pattern outside the retained membership tests")
+			bl.g.dc.note("a set case pattern outside the retained membership tests")
 			return false
 		}
 		return true
 	case irCaseListKind(sk):
 		if !bl.listCaseTest(br.Pattern, subj, sk, target, next) {
-			irDeclineNote("a list case pattern outside flat bindings and wildcards")
+			bl.g.dc.note("a list case pattern outside flat bindings and wildcards")
 			return false
 		}
 		return true
 	case irNominalCaseKind(sk):
 		if !bl.nominalCaseTest(br.Pattern, subj, sk, target, next) {
-			irDeclineNote("a struct or distinct case pattern outside retained field and payload patterns")
+			bl.g.dc.note("a struct or distinct case pattern outside retained field and payload patterns")
 			return false
 		}
 		return true
 	case sk.tag == tagMap && irRetainedMapKind(sk):
 		if !bl.mapCaseTest(br.Pattern, subj, sk, target, next) {
-			irDeclineNote("a map case pattern outside retained keys and value patterns")
+			bl.g.dc.note("a map case pattern outside retained keys and value patterns")
 			return false
 		}
 		return true
 	case sk == kindBool || (sk.tag == tagNamed && irRetainedEnumKind(sk.def)):
 		if !bl.enumCaseTest(br.Pattern, subj, sk, target, next) {
-			irDeclineNote("a `case` enum pattern outside retained bare/positional payload tests")
+			bl.g.dc.note("a `case` enum pattern outside retained bare/positional payload tests")
 			return false
 		}
 		return true
@@ -154,9 +154,9 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 	lit, lk, _, lok := bl.litFor(br.Pattern, sk)
 	if !lok || lk != sk {
 		if lok {
-			irDeclineNote("a `case` literal pattern's kind: " + lk.nomi())
+			bl.g.dc.note("a `case` literal pattern's kind: " + lk.nomi())
 		} else {
-			irDeclineNote("a `case` pattern outside the retained tests")
+			bl.g.dc.note("a `case` pattern outside the retained tests")
 		}
 		return false
 	}

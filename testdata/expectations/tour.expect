@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 362
+records 364
 declared-cases 181
 failing 0
 C app-fields.md:L105
@@ -92,7 +92,7 @@ H 10d6b786d27bbc303bc4d0615d5d71c534fc08ed3b71cfbb4fee9f35ac88e5c9
 T ok a receipt job runs once it is enqueued
 T test result: ok. 1 passed, 0 failed
 T
-C background-work.md:L584
+C background-work.md:L591
 E 0
 N 1
 H 10e6aafdfa1dd5e1fecbb29908ea72d07f631b2e5642f8f83fc0c359ab079271
@@ -204,6 +204,14 @@ N 0
 H 6b69232c9c850170547e4ee927872cb7eb2f719ab756f5dc6e7b08bd25667885
 T dbg line 10: area(6, 7) = 42
 T
+C building-and-shipping.md:L42
+E 0
+N 0
+H a6b1bb95ee0c31463cd87c269dfbaa3a8d9997a41fb39e28526ec04826cd298e
+T [static/index.html, static/style.css]
+T <h1>Hello</h1>
+T
+T
 C calling-go.md:L186
 E 0
 N 0
@@ -219,42 +227,42 @@ T example.com/search tags=[go, nomi]
 T a+b%2Bc
 T Err(invalid URL escape "%zz")
 T
-C cheat-sheet.md:L133
+C cheat-sheet.md:L143
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L213
+C cheat-sheet.md:L223
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L266
+C cheat-sheet.md:L276
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L305
+C cheat-sheet.md:L317
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
 T 9
 T 12
 T
-C cheat-sheet.md:L31
+C cheat-sheet.md:L36
 E 0
 N 1
 H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L367
+C cheat-sheet.md:L379
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -263,14 +271,14 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L431
+C cheat-sheet.md:L443
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
 T ok dates
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L88
+C cheat-sheet.md:L93
 E 0
 N 1
 H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
@@ -1821,7 +1829,7 @@ H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C from-go.md:L59
+C from-go.md:L60
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
@@ -1849,7 +1857,7 @@ H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C from-rust.md:L65
+C from-rust.md:L66
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
@@ -1978,7 +1986,15 @@ N 0
 H b2d081ab19838216aa3178588b98237b4643bd979c1b80c5b81b74734a70f366
 T dbg line 20: ran.value = Ok("hello from /greet/ann b")
 T
-C http.md:L209
+C http.md:L162
+E 0
+N 0
+H 4b0f0888e2c296776a3de89001cc2b607695d40f5b55364d51772222adf2ab11
+T dbg line 55: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
+T dbg line 56: answer("/users/8").status = Status(404)
+T dbg line 57: Response.text(answer("/users/x")) = Ok("not a number: x\n")
+T
+C http.md:L290
 E 0
 N 0
 H 7a85e46390ce5ea6c5dc0967f13c2693d828a917d1b6e03ae486a121de9ea31d
@@ -2028,7 +2044,7 @@ N 0
 H aab5c9d0af7dacba01e83c352170d8a7b4ff14a83ba39f77e22029b3d29456d0
 T dbg line 14: run.value = Ok(3)
 T
-C interfaces-and-dispatch.md:L165
+C interfaces-and-dispatch.md:L172
 E 0
 N 0
 H fbe745be4a94067d17d210df0a08151b1ee502231cb53e3eea3faf94bbb88d57
@@ -2043,14 +2059,14 @@ H 7cbfa67d63c7401821e4ee56a63a56eadada1f9328fee95092f09413df9f51cc
 T Rex says woof
 T Whiskers says meow
 T
-C interfaces-and-dispatch.md:L248
+C interfaces-and-dispatch.md:L255
 E 0
 N 0
 H 0c00120598cdf765c7396f6d6ee279f7bb215f486dd212275ba09632629d1c7f
 T 250 g
 T hidden
 T
-C interfaces-and-dispatch.md:L306
+C interfaces-and-dispatch.md:L313
 E 0
 N 0
 H c55a9a0f58ad08e6e6f115951dd8920fbd89e5cd3af659c42a17daceaed75064
@@ -2058,19 +2074,19 @@ T dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
 T dbg line 15: Status.Pending(7) = Pending(7)
 T dbg line 16: Email("a@b.com") = Email("a@b.com")
 T
-C interfaces-and-dispatch.md:L361
+C interfaces-and-dispatch.md:L368
 E 0
 N 0
 H b7c07a37968384ab9150b8d18ca406fd3d66c61f67e7cbe9947b8e5c238d551c
 T Alice (30)
 T
-C interfaces-and-dispatch.md:L394
+C interfaces-and-dispatch.md:L401
 E 0
 N 0
 H ea8ef614947e9a99dcd42f98516b23bc2b1a41e1b7279e70be24143c0f9d1d78
 T dbg line 19: advance(Counter(10), 5) = Counter(15)
 T
-C interfaces-and-dispatch.md:L464
+C interfaces-and-dispatch.md:L471
 E 0
 N 0
 H 9afe3396c64f85408f29af4b133f1dc3b8d762a7d343ddc249b9059a2f5b6633
@@ -2078,7 +2094,7 @@ T dbg line 42: score_number(score) = 5
 T dbg line 43: day_number(day) = 14
 T dbg line 44: plus(Day(10), Days(4)) = Day(14)
 T
-C interfaces-and-dispatch.md:L568
+C interfaces-and-dispatch.md:L575
 E 0
 N 0
 H 34c5c9d41923611f88ff0f6b4007e863d1fbfa1310b14c310e20dcbb46817ff7
@@ -2086,26 +2102,26 @@ T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 T dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L608
+C interfaces-and-dispatch.md:L615
 E 0
 N 0
 H e2c4356c9d61e9f31214a25d5f3ddf6f7fa087a9f98475d9ba01de15d0e70714
 T dbg line 9: Version{major: 1, minor: 9} < Version{major: 1, minor: 10} = True
 T dbg line 10: Version{major: 2, minor: 0} < Version{major: 1, minor: 10} = False
 T
-C interfaces-and-dispatch.md:L636
+C interfaces-and-dispatch.md:L643
 E 0
 N 0
 H f1feaa82465a86d0de7d8507de0eae8cb9fe185341895b9cf5254b4a277df66a
 T dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
 T
-C interfaces-and-dispatch.md:L667
+C interfaces-and-dispatch.md:L674
 E 0
 N 0
 H ccace190313d0ce68b2112eacea99b972c41f5ce58501190cd6b036728688438
 T dbg line 11: Coin.variants() = [Penny, Nickel, Dime, Quarter]
 T
-C interfaces-and-dispatch.md:L720
+C interfaces-and-dispatch.md:L727
 E 0
 N 0
 H 1b4530e286b86a6eb4fbaf9469bc7a0ce7f6c0572572e0a250f21f92c730d11b
@@ -2327,7 +2343,7 @@ N 0
 H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
 T 14
 T
-C modules-and-imports.md:L172
+C modules-and-imports.md:L173
 E 0
 N 0
 H 81c4e20d4d7c1dc2dc681b8875e2e945be0d0f6f90a274bfe130fea2d98ebd46
@@ -2343,26 +2359,26 @@ T 3
 T abcd
 T Ok(2026-05-27)
 T
-C modules-and-imports.md:L235
+C modules-and-imports.md:L237
 E 0
 N 0
 H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
 T 14
 T
-C modules-and-imports.md:L313
+C modules-and-imports.md:L315
 E 0
 N 0
 H 8edb29ad3fa5a82585349eec1056eeb77f2a018f84a67fd640ed9def17226968
 T 42
 T error: user IDs must be positive
 T
-C modules-and-imports.md:L463
+C modules-and-imports.md:L465
 E 0
 N 0
 H 902f4d30a6318ad21ab741f67b38666b0049d410161f1b813e69f49ba1e3897a
 T Hello, Ada!
 T
-C modules-and-imports.md:L543
+C modules-and-imports.md:L545
 E 0
 N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da

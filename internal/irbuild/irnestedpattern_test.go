@@ -307,14 +307,12 @@ fn main() { _ = pick(Channel.buffered<Request>(1)) }
 				t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
 			}
 			var why []string
-			prev := IRDeclineObserved
-			IRDeclineObserved = func(fn, reason string) {
+			p.Declines.Observed = func(fn, reason string) {
 				if fn == tc.fn {
 					why = append(why, reason)
 				}
 			}
 			got, _, err := GenerateIR(p)
-			IRDeclineObserved = prev
 			if err != nil {
 				t.Fatal(err)
 			}

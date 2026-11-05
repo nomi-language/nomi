@@ -169,7 +169,7 @@ func (bl *irScalarBuilder) wrapperRef(ref ast.Node, name string, params []kind, 
 	}
 	child.b.SetTerm(ir.NewReturn(at, dst))
 	if err := bl.g.irLint(f); err != nil {
-		irDeclineNote("a function value over " + name + " that does not lint: " + err.Error())
+		bl.g.dc.note("a function value over " + name + " that does not lint: " + err.Error())
 		return no()
 	}
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f)
@@ -246,7 +246,7 @@ func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, hos
 	}
 	ctl := g.namedCtlForm(f.decl)
 	if ctl != irCtlNone && bl.ctlRefs[ref] != ctl {
-		irDeclineNote("an iter-sensitive function passed where its break or continue cannot be caught: " + f.name)
+		bl.g.dc.note("an iter-sensitive function passed where its break or continue cannot be caught: " + f.name)
 		return no()
 	}
 	n := ir.NewRefFunc(g.irNodePos(ref), bl.f.NewTemp(), sym)

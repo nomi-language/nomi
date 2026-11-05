@@ -8,7 +8,7 @@ import (
 )
 
 // Every decline names its reason. A BLOCKED line that read "no decline reason
-// recorded" told the user nothing; irDeclineClose now records a reason that
+// recorded" told the user nothing; the census's close now records a reason that
 // blames the builder, and TestMain fails the package for every attempt that
 // reached it in any test (unnamedDeclineViolation).
 
@@ -36,25 +36,24 @@ func unnamedDeclineViolation() string {
 		names = append(names, fn)
 	}
 	sort.Strings(names)
-	return "declined without naming a reason (call irDeclineNote at the decline): " + strings.Join(names, ", ")
+	return "declined without naming a reason (note a reason at the decline): " + strings.Join(names, ", ")
 }
 
 // An attempt that declines with no note gets the builder-bug reason, and the
 // hook hears of it; one that noted a reason keeps it.
 func TestIRDecline_AnUnnamedDeclineIsRecordedAndReported(t *testing.T) {
 	var heard []string
-	prevHook, prevObserved := irDeclineUnnamed, IRDeclineObserved
+	prevHook := irDeclineUnnamed
 	reasons := map[string]string{}
-	IRDeclineObserved = func(fn, reason string) { reasons[fn] = reason }
 	irDeclineUnnamed = func(fn string) { heard = append(heard, fn) }
-	defer func() { irDeclineUnnamed, IRDeclineObserved = prevHook, prevObserved }()
+	defer func() { irDeclineUnnamed = prevHook }()
 
-	g := &gen{}
+	g := &gen{dc: newDeclineCensus(DeclineHooks{Observed: func(fn, reason string) { reasons[fn] = reason }})}
 	g.irDeclineOpen("silent")
-	irDeclineClose()
+	g.dc.close()
 	g.irDeclineOpen("named")
-	irDeclineNote("a named reason")
-	irDeclineClose()
+	g.dc.note("a named reason")
+	g.dc.close()
 
 	if len(heard) != 1 || heard[0] != "silent" {
 		t.Errorf("the hook heard %v; want only the silent attempt", heard)

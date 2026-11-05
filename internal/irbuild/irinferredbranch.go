@@ -39,9 +39,9 @@ func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (
 	case k == kindDiverged:
 		// A region whose every arm returned has no value to bind, and the
 		// statements after it cannot run; the checker rejects them.
-		irDeclineNote("an `if` or `case` whose every arm leaves the body, used for its value")
+		bl.g.dc.note("an `if` or `case` whose every arm leaves the body, used for its value")
 	case !irCallableValueKind(k) && k != kindUnit:
-		irDeclineNote("an `if` or `case` whose value's kind is outside the domain: " + k.nomi())
+		bl.g.dc.note("an `if` or `case` whose value's kind is outside the domain: " + k.nomi())
 	}
 	if !ok || k == kindDiverged || (!irCallableValueKind(k) && k != kindUnit) {
 		bl.abandonRegion(value)
@@ -49,7 +49,7 @@ func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (
 	}
 	ty := bl.g.irTypeOf(k)
 	if ty == nil {
-		irDeclineNote("an `if` or `case` whose value has no IR type: " + k.nomi())
+		bl.g.dc.note("an `if` or `case` whose value has no IR type: " + k.nomi())
 		bl.abandonRegion(value)
 		return no()
 	}

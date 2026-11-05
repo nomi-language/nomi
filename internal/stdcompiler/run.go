@@ -33,7 +33,7 @@ func RunFrontEnd(source, root string, virtualFiles map[string]string) ([]ast.Nod
 	nodes, _ = analysis.SynthesizeDerives(nodes)
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
 
-	lib := std.Load()
+	lib := std.Shared()
 	fa, siblingFAs, siblingNodes := analysis.BuildProjectFromEntryWithManifest(
 		"",
 		nodes,

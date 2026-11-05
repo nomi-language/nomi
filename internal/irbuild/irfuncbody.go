@@ -346,7 +346,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		// kindInvalid: sentinel — no expected type; the tail's own kind.
 		return bl.blockValue(t, kindInvalid)
 	case *ast.With:
-		irDeclineNote("a `with` statement in an operand position")
+		bl.g.dc.note("a `with` statement in an operand position")
 		return ir.NoTemp, kindInvalid, false, false
 	case *ast.DotVariant:
 		if t.ResolvedEnum != "" {
@@ -401,6 +401,9 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		c := ir.NewString(bl.g.irPos(line, col), bl.f.NewTemp(), text)
 		bl.b.Append(c)
 		return c.Dst(), kindString, true, true
+
+	case *ast.EmbeddedFiles:
+		return bl.embeddedFiles(t)
 
 	case *ast.SelfExpr:
 		// `self` as a value in an interface default: the implementor's
@@ -874,7 +877,7 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 				// the operand and its kind, rather than rendering it
 				// structurally, which would print a wrong string for a
 				// part with its own impl.
-				irDeclineNote("an interpolation of `" + renderNode(part.Expr) + "`, a " + k.nomi() +
+				bl.g.dc.note("an interpolation of `" + renderNode(part.Expr) + "`, a " + k.nomi() +
 					", which no Display rendering reaches")
 				return ir.NoTemp, kindInvalid, false, false
 			}
@@ -883,7 +886,7 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 			bl.side(r.Dst(), irScalarSide{k: kindString})
 			parts = append(parts, r.Dst())
 		default:
-			irDeclineNote("an interpolation part of an unknown form")
+			bl.g.dc.note("an interpolation part of an unknown form")
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
@@ -1176,6 +1179,15 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			// tried above, so this is the file's `once`.
 			if d := bl.g.onces[id.Name]; d != nil && d.k.tag == tagFunc {
 				return bl.indirectCall(t)
+			}
+			// The same over a `once` another file declares and this one
+			// imports by name: the call reads that file's cell.
+			if g := bl.g; g.onces[id.Name] == nil && g.files != nil && g.reg != nil {
+				if site, ok := g.files.lookupBare(g.srcFA(), id); ok && site.once != nil && site.unit < len(g.reg.gens) && g.reg.gens[site.unit] != nil {
+					if od := g.reg.gens[site.unit].oncesByDecl[site.once]; od != nil && od.k.tag == tagFunc {
+						return bl.indirectCall(t)
+					}
+				}
 			}
 		}
 	} else {
@@ -1966,9 +1978,9 @@ func hasEffect(n ast.Node) bool {
 }
 
 func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast.Node) {
-	irDeclineBodyWhy = "the statement list"
+	g.dc.bodyWhy = "the statement list"
 	if block == nil {
-		irDeclineBodyWhy = "no body"
+		g.dc.bodyWhy = "no body"
 		return nil, nil
 	}
 	if len(block.Stmts) == 0 {
@@ -2021,7 +2033,7 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			lead = append(lead, st)
 		case *ast.ExprStmt:
 			if isNilNode(st.Expr) {
-				irDeclineBodyWhy = "a nil leading expression statement"
+				g.dc.bodyWhy = "a nil leading expression statement"
 				return nil, nil
 			}
 			if prefix, region, ok := g.exitingOperand(st.Expr); ok && region != st.Expr {
@@ -2031,7 +2043,7 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			}
 			lead = append(lead, st.Expr)
 		default:
-			irDeclineBodyWhy = fmt.Sprintf("a leading statement form outside the shape: %T", s) + synthMask
+			g.dc.bodyWhy = fmt.Sprintf("a leading statement form outside the shape: %T", s) + synthMask
 			return nil, nil
 		}
 	}
@@ -2040,7 +2052,7 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		n = es.Expr
 	}
 	if isNilNode(n) {
-		irDeclineBodyWhy = "a nil final statement"
+		g.dc.bodyWhy = "a nil final statement"
 		return nil, nil
 	}
 	if b, isBinding := n.(*ast.Binding); isBinding {
@@ -2103,18 +2115,18 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	g.irDeclineOpen(fd.Name)
 	switch {
 	case sh == nil:
-		irDeclineNote("no function shell")
+		g.dc.note("no function shell")
 		return nil, false
 	// A discarded lowering (`g.probing`, `g.stdSettling`) is handled by
 	// `irScalarLower` ahead of the observation hook rather than here.
 	case plan != nil:
 		// A body with a tail plan is `tail`'s shape, not this one.
-		irDeclineNote("a tail plan")
+		g.dc.note("a tail plan")
 		return nil, false
 	case sig.dicts != 0:
 		// A bounded generic takes dictionaries, and a type parameter has no
 		// representation in this IR at all.
-		irDeclineNote("a bounded generic's dictionaries")
+		g.dc.note("a bounded generic's dictionaries")
 		return nil, false
 	case !sh.patternOK:
 		// A destructuring parameter that did not lower leaves the prologue
@@ -2122,7 +2134,7 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		// never built — so the graph would have a hole in the prologue.
 		// `funcDecl` reports the pattern and sets the
 		// function's produced kind invalid; this declines the retention.
-		irDeclineNote("a destructuring parameter that did not lower")
+		g.dc.note("a destructuring parameter that did not lower")
 		return nil, false
 	}
 	// Types the body declares resolve by name for the extent of the body,
@@ -2130,7 +2142,7 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	defer g.enterBlockTypes(fd.Body)()
 	lead, body := g.irScalarBody(fd)
 	if body == nil {
-		irDeclineNote(irDeclineBodyWhy)
+		g.dc.note(g.dc.bodyWhy)
 		return nil, false
 	}
 	if block, isBlock := body.(*ast.Block); isBlock && sig.result == kindUnit && !g.blockLeaves(block) {
@@ -2184,7 +2196,7 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 			// outside the shape, exactly as a parameter of that kind is:
 			// `fn f(Callback(g))` binds a function and `fn f(Done(u))` a
 			// Unit, as a plain parameter of either kind does.
-			irDeclineNote("a destructured name's kind outside the domain: " + k.nomi())
+			g.dc.note("a destructured name's kind outside the domain: " + k.nomi())
 			return nil, false
 		}
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k
@@ -2203,7 +2215,7 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		// A synthesized body would be `ir.AtSynthesized` throughout, which
 		// is representable, but `gen.at` ignores such a line so the cursor
 		// claim the whole shape rests on would not hold. Declined by name.
-		irDeclineNote("the final expression is on a synthesized line")
+		g.dc.note("the final expression is on a synthesized line")
 		return nil, false
 	}
 	if ret, isReturn := body.(*ast.Return); isReturn && scope != nil && len(scope.ids) != 0 {
@@ -2220,7 +2232,7 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	if !ok {
 		// A tail `if` or `case` is lowered outside `lower`, so a decline
 		// nothing inside it placed is reported at the tail, not at the `fn`.
-		irDeclineAtNode(body)
+		g.dc.atNode(body)
 		return nil, false
 	}
 	// A branching or returning tail leaves through Returns the tail's
@@ -2314,7 +2326,7 @@ func (bl *irScalarBuilder) tail(body ast.Node, sig irFuncSig) (ir.Temp, kind, bo
 		// otherwise emits `_ = <expr>` and the caller reports a return-type
 		// mismatch, which is a refusal path and not this shape.
 		if ok {
-			irDeclineNote("the tail's kind is not the declared result: " +
+			bl.g.dc.note("the tail's kind is not the declared result: " +
 				k.nomi() + " vs " + sig.result.nomi())
 		}
 		return ir.NoTemp, kindInvalid, false
@@ -2371,13 +2383,13 @@ func (bl *irScalarBuilder) ifRegion(t *ast.If, sig irFuncSig) (kind, bool) {
 	// Unit-valued region may omit it: the else edge writes Unit.
 	unitElse := t.Else == nil && !sig.testArms && (sig.inferResult || sig.result == kindUnit)
 	if isNilNode(t.Cond) || (t.Else == nil && !sig.testArms && !unitElse && sig.elseless == nil) {
-		irDeclineNote("a tail `if` without a condition or `else`")
+		bl.g.dc.note("a tail `if` without a condition or `else`")
 		return kindInvalid, false
 	}
 	cond, ck, _, ok := bl.lower(t.Cond)
 	if !ok || ck != kindBool {
 		if ok {
-			irDeclineNote("a tail `if` condition that is not Bool: " + ck.nomi())
+			bl.g.dc.note("a tail `if` condition that is not Bool: " + ck.nomi())
 		}
 		return kindInvalid, false
 	}
@@ -2404,7 +2416,7 @@ func (bl *irScalarBuilder) ifRegion(t *ast.If, sig irFuncSig) (kind, bool) {
 	}
 	k, agree := irJoinArms(tk, ek, sig)
 	if !agree {
-		irDeclineNote("a tail `if` whose arms disagree: " + tk.nomi() + " vs " + ek.nomi())
+		bl.g.dc.note("a tail `if` whose arms disagree: " + tk.nomi() + " vs " + ek.nomi())
 		return kindInvalid, false
 	}
 	bl.b = exit
@@ -2488,12 +2500,12 @@ func (bl *irScalarBuilder) testElse(els, exit *ir.Block, t *ast.If, then kind, s
 func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFuncSig) (kind, bool) {
 	defer bl.keepOpenDefers()()
 	if isNilNode(body) {
-		irDeclineNote("an arm body that is not one expression")
+		bl.g.dc.note("an arm body that is not one expression")
 		return kindInvalid, false
 	}
 	line, _ := nodePos(body)
 	if !bl.positionOK(line) {
-		irDeclineNote("an arm body on a synthesized line")
+		bl.g.dc.note("an arm body on a synthesized line")
 		return kindInvalid, false
 	}
 	prevB := bl.b
@@ -2529,7 +2541,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		defer bl.g.enterBlockTypes(block)()
 		lead, tail := bl.g.irScalarBlock(block, "")
 		if tail == nil {
-			irDeclineNote(irDeclineBodyWhy)
+			bl.g.dc.note(bl.g.dc.bodyWhy)
 			return kindInvalid, false
 		}
 		scope = bl.openDeferScope(block)
@@ -2576,7 +2588,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 			return kindDiverged, true
 		case *ast.Return:
 			if !bl.loopValue(t.Value, lp.state, lp.k) {
-				irDeclineNote("an Iter.loop arm's `return` without a value of the state type")
+				bl.g.dc.note("an Iter.loop arm's `return` without a value of the state type")
 				return kindInvalid, false
 			}
 			bl.loopJump(bl.b, t, lp, lp.head)
@@ -2614,7 +2626,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		// the arm reaches no exit, so its kind is the other arms'.
 		// explicitReturn checks Unit against the lambda's other returns.
 		if _, ok := bl.explicitReturn(ret); !ok {
-			irDeclineNote("a bare `return` in a lambda whose other returns answer a value")
+			bl.g.dc.note("a bare `return` in a lambda whose other returns answer a value")
 			return kindInvalid, false
 		}
 		if sig.inferResult || sig.result == kindUnit {
@@ -2696,7 +2708,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	}
 	if !ok || (!sig.inferResult && k != sig.result) {
 		if ok {
-			irDeclineNote("an arm's kind is not the declared result: " +
+			bl.g.dc.note("an arm's kind is not the declared result: " +
 				k.nomi() + " vs " + sig.result.nomi())
 		}
 		return kindInvalid, false
@@ -2735,7 +2747,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		// admits it only where no value reaches it, so it diverges as a
 		// failed match does and no arm writes the region.
 		if adHoc {
-			irDeclineNote("an ad hoc `case` with no branches")
+			bl.g.dc.note("an ad hoc `case` with no branches")
 			return kindInvalid, false
 		}
 		if _, _, _, ok := bl.lower(t.Value); !ok {
@@ -2759,7 +2771,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		if !ok || (sk != kindInt && sk != kindString && sk != kindBool && sk != kindUnit && !irLiteralCaseKind(sk, bl) &&
 			(!irRetainedTupleKind(sk) && !irCaseListKind(sk) && !irVectorCaseKind(sk) && !irSetCaseKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
 			if ok {
-				irDeclineNote("a tail `case` scrutinee outside retained literal-pattern kinds: " + sk.nomi())
+				bl.g.dc.note("a tail `case` scrutinee outside retained literal-pattern kinds: " + sk.nomi())
 			}
 			return kindInvalid, false
 		}
@@ -2822,7 +2834,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 			if have {
 				joined, agree := irJoinArms(result, k, sig)
 				if !agree {
-					irDeclineNote("two `case` arms disagree: " + k.nomi() + " vs " + result.nomi())
+					bl.g.dc.note("two `case` arms disagree: " + k.nomi() + " vs " + result.nomi())
 					return kindInvalid, false
 				}
 				k = joined
@@ -2878,7 +2890,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 	var cur ast.Node
 	defer func() {
 		if !lowered && cur != nil {
-			irDeclineAtNode(cur)
+			bl.g.dc.atNode(cur)
 			if bl.stalledStmt == nil {
 				bl.stalledStmt = cur
 			}
@@ -2894,7 +2906,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		cur = s
 		line, _ := nodePos(s)
 		if !bl.positionOK(line) {
-			irDeclineNote("a lead statement on a synthesized line")
+			bl.g.dc.note("a lead statement on a synthesized line")
 			return false
 		}
 		bl.markStmt(s, ir.StmtStatement)
@@ -2902,14 +2914,14 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			if bl.loop != nil && loopGuardShape(bl.g, conditional) {
 				// `if c { continue }` anywhere in a loop's callback.
 				if !bl.loopGuard(conditional, bl.loop) {
-					irDeclineNote("an Iter.loop guard outside `if c { break v | return v | continue }`")
+					bl.g.dc.note("an Iter.loop guard outside `if c { break v | return v | continue }`")
 					return false
 				}
 				continue
 			}
 			if bl.guardShape(conditional) {
 				if !bl.guardReturn(conditional) {
-					irDeclineNote("a leading conditional outside a straight return guard")
+					bl.g.dc.note("a leading conditional outside a straight return guard")
 					return false
 				}
 				continue
@@ -3043,7 +3055,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		// value, which it keeps (spec §7 *Closures*), so nothing here depends on
 		// whether one did.
 		if shadows && !bound && bl.inTest {
-			irDeclineNote("a test-body binding that shadows a module-level name: " + b.Name)
+			bl.g.dc.note("a test-body binding that shadows a module-level name: " + b.Name)
 			return false
 		}
 		src, k, ok := bl.bindingValue(b)
@@ -3083,7 +3095,7 @@ func (bl *irScalarBuilder) bindingValue(b *ast.Binding) (ir.Temp, kind, bool) {
 		sym = bl.g.srcFA().Definitions[analysis.Pos{Line: b.Line, Col: b.Col}]
 	}
 	if sym == nil {
-		irDeclineNote("a branch or block binding with no checked definition")
+		bl.g.dc.note("a branch or block binding with no checked definition")
 		return ir.NoTemp, kindInvalid, false
 	}
 	k := bl.g.project(sym.Type)
@@ -3100,8 +3112,8 @@ func (bl *irScalarBuilder) typedRegionValue(value ast.Node, k kind) (ir.Temp, ki
 	if ty == nil || (!irCallableValueKind(k) && k != kindUnit) {
 		// The checked kind has no retained IR type, so the region has no
 		// slot to deliver into.
-		irDeclineNote("a branch or block value kind with no IR type: " + k.nomi())
-		irDeclineAtNode(value)
+		bl.g.dc.note("a branch or block value kind with no IR type: " + k.nomi())
+		bl.g.dc.atNode(value)
 		return ir.NoTemp, kindInvalid, false
 	}
 	result := bl.f.NewTemp()
@@ -3127,11 +3139,11 @@ func (bl *irScalarBuilder) typedRegionValue(value ast.Node, k kind) (ir.Temp, ki
 		// })`. A binding of one ends its block instead (irScalarBlock); an
 		// operand would leave the code that reads it in a block no path
 		// reaches, which is not lowered.
-		irDeclineNote("an `if` or `case` whose every arm leaves the body, used as an operand")
+		bl.g.dc.note("an `if` or `case` whose every arm leaves the body, used as an operand")
 		ok = false
 	}
 	if !ok {
-		irDeclineAtNode(value)
+		bl.g.dc.atNode(value)
 		bl.abandonRegion(value)
 	}
 	return result, actual, ok
@@ -3154,7 +3166,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 	// holds the concrete value, as an interface-typed field does.
 	existential := irExistentialKind(want)
 	if !irCallableValueKind(want) && want != kindUnit && !existential {
-		irDeclineNote("a binding annotation outside the retained value domain: " + want.nomi())
+		bl.g.dc.note("a binding annotation outside the retained value domain: " + want.nomi())
 		return ir.NoTemp, kindInvalid, false
 	}
 	if list, isList := b.Value.(*ast.ListLit); isList && irAnnotatedNominalList(list, want) {
@@ -3173,7 +3185,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 			return bl.eraseBoxed(b.Value, v, want, k), want, true
 		}
 		if ok && k != want && !bl.g.irErases(want, k) {
-			irDeclineNote("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
+			bl.g.dc.note("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
 		}
 		if !ok || (k != want && !bl.g.irErases(want, k)) {
 			return ir.NoTemp, kindInvalid, false

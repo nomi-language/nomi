@@ -54,13 +54,13 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 	}
 	if !ok || (kk != keyK && !irMapKeyKind(kk)) {
 		if ok {
-			irDeclineNote("a map pattern key of kind " + kk.nomi() + " over " + mk.nomi())
+			bl.g.dc.note("a map pattern key of kind " + kk.nomi() + " over " + mk.nomi())
 		}
 		return ir.NoTemp, kindInvalid, nil, false
 	}
 	maybe, ok = bl.g.mapResultKind("maybe", keyK, valK, at)
 	if !ok || maybe.tag != tagNamed || !irRetainedEnumKind(maybe.def) {
-		irDeclineNote("a map pattern over values outside the retained Maybe payloads: " + mk.nomi())
+		bl.g.dc.note("a map pattern over values outside the retained Maybe payloads: " + mk.nomi())
 		return ir.NoTemp, kindInvalid, nil, false
 	}
 	some = maybe.def.variant("Some")
@@ -136,7 +136,7 @@ func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind,
 	if bl.patternValueTestNode(pat, value, k, arm, next) {
 		return true
 	}
-	irDeclineAtPattern(pat, "a nested pattern outside the retained tests: "+irNodeWord(pat)+" over "+k.nomi())
+	bl.g.dc.atPattern(pat, "a nested pattern outside the retained tests: "+irNodeWord(pat)+" over "+k.nomi())
 	return false
 }
 

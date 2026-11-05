@@ -33,8 +33,10 @@ import (
 // It also counts the visits the program-wide passes make to project files
 // (CountProgramWorkForTest). After a body-only edit they visit the edited
 // file alone, and the recordings a dependents recheck scans grow at most
-// linearly. It pins where the work still grows with the project: an impl
-// added to a leaf takes a full check.
+// linearly. The boot-only check reads only the bodies of the files the edit
+// checks, each once, and builds one program graph (BootWorkForTest). An
+// impl added to a leaf, which only the leaf's importers can see, checks the
+// leaf and its dependents, as a signature edit does.
 //
 // The program before and after every edit must check with no diagnostic.
 // The 50k-line project is in the benchmarks only (internal/scalebench).
@@ -58,22 +60,51 @@ func TestEditWorkStaysFlatAsAProjectGrows(t *testing.T) {
 				var outcome analysis.RecheckOutcome
 				var walked []*analysis.FileAnalysis
 				var importWalks int64
+				var bootWalked []*analysis.FileAnalysis
+				var bootRereads int
+				var bootGraphs int64
 				visits, scans := analysis.CountProgramWorkForTest(func() {
-					walked = analysis.BodyChecksForTest(func() {
-						importWalks = analysis.ImportsWalksForTest(func() {
-							next, outcome = dm.RecheckEdits(prog, []analysis.ProgramEdit{{Key: key, Text: text}})
+					bootWalked, bootRereads, bootGraphs = analysis.BootWorkForTest(func() {
+						walked = analysis.BodyChecksForTest(func() {
+							importWalks = analysis.ImportsWalksForTest(func() {
+								next, outcome = dm.RecheckEdits(prog, []analysis.ProgramEdit{{Key: key, Text: text}})
+							})
 						})
 					})
 				})
 				requireClean(t, next, fmt.Sprintf("the program after the %s", kind))
 				got := checkedKeys(next, walked)
+
+				// The boot-only check reads a file's bodies once, when they
+				// are checked, into a summary the file keeps, and builds the
+				// program's graph once from the summaries
+				// (CheckBootScope): it reads no body of a file the edit
+				// did not check, and none twice.
+				checkedNow := map[*analysis.FileAnalysis]bool{}
+				for _, fa := range walked {
+					checkedNow[fa] = true
+				}
+				var stale []string
+				staleFiles := map[*analysis.FileAnalysis]bool{}
+				for _, fa := range bootWalked {
+					if !checkedNow[fa] {
+						if !staleFiles[fa] {
+							stale = append(stale, filepath.Base(fa.FilePath))
+						}
+						staleFiles[fa] = true
+					}
+				}
+				if len(stale) > 0 || bootRereads > 0 || bootGraphs != 1 {
+					t.Errorf("%s in %s: the boot-only check read %d bodies, in %d files the edit did not check (%s), read %d bodies again, and built %d program graphs; want only the checked files' bodies, each once, and one graph",
+						kind, key, len(bootWalked), len(stale), describeKeys(stale), bootRereads, bootGraphs)
+				}
 				dependents := p.Dependents(key)
 				t.Logf("%-22s %-10s %-20s rechecked %3d of %3d files (%d import it); program-wide visits %d, recordings scanned %d, imports walked in %d files",
 					kind, outcome.Path, key, len(got), all, len(dependents), visits, scans, importWalks)
 				work[kind] = append(work[kind], counts{files: all, lines: p.Lines(), visits: visits, scans: scans})
 
 				switch kind {
-				case projectgen.BodyLeaf, projectgen.BodyHub, projectgen.BodyEntry:
+				case projectgen.BodyLeaf, projectgen.BodyHub, projectgen.BodyCallLeaf, projectgen.BodyEntry:
 					if outcome.Path != analysis.RecheckBodies || !sameKeys(got, []string{key}) {
 						t.Errorf("%s in %s: want the bodies path re-checking %s alone, got %s re-checking %d files: %s",
 							kind, key, key, outcome.Path, len(got), describeKeys(got))
@@ -81,7 +112,10 @@ func TestEditWorkStaysFlatAsAProjectGrows(t *testing.T) {
 					if importWalks != 0 {
 						t.Errorf("%s in %s: the bodies path walked the imports of %d files", kind, key, importWalks)
 					}
-				case projectgen.SignatureLeaf, projectgen.SignatureHub:
+				case projectgen.SignatureLeaf, projectgen.SignatureHub, projectgen.ImplLeaf:
+					// An impl added to a leaf names the leaf's own enum, so
+					// only the files that import the leaf can see it (the
+					// relevant impl set), and they are its dependents.
 					// The hub, core/util, is imported directly or through
 					// others by most files, so its set is most of the
 					// program; still not core/ids, which it imports.
@@ -100,18 +134,6 @@ func TestEditWorkStaysFlatAsAProjectGrows(t *testing.T) {
 					if importWalks != int64(len(want)) {
 						t.Errorf("%s in %s: want the imports of the %d files checked afresh walked, got %d walks",
 							kind, key, len(want), importWalks)
-					}
-				case projectgen.ImplLeaf:
-					// FINDING, pinned: a new impl in a leaf that only the entry
-					// imports changes the leaf's impls fingerprint, and
-					// recheckDependents then takes a full check
-					// (implsFingerprint), so the work grows with the project:
-					// every file is re-checked where the leaf and the entry
-					// would do. When a fix narrows it, expect the leaf and
-					// its dependents here.
-					if outcome.Path != analysis.RecheckFull || len(got) != all {
-						t.Errorf("%s in %s: pinned as a full check of %d files, got %s re-checking %d; if an impl edit now re-checks less, update this case",
-							kind, key, all, outcome.Path, len(got))
 					}
 				}
 				prog = next

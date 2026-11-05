@@ -7,7 +7,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // Passing a value whose type still has unsolved type params (a fresh
@@ -153,7 +152,7 @@ fn main() -> Unit {
   io_check = 1
 }`)
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	errs := append([]analysis.TypeError{}, fa.TypeErrors...)

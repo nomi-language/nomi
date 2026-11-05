@@ -16,10 +16,11 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// Session is a REPL session: a sequence of programs, one per input, run on
-// one live machine that each program extends (vm.Machine.Extend). Nothing an
-// earlier program computed is computed again, and a function value an
-// earlier program built keeps running its own code on the same machine.
+// Session is a REPL session: a program that grows by one file per input
+// (LoadFile, session_files.go), each lowered on its own and run on one live
+// machine that each extends (vm.Machine.Extend). Nothing an earlier input
+// computed is computed again, and a function value an earlier input built
+// keeps running its own code on the same machine.
 //
 // A value crosses from one input to the next through the session's store,
 // keyed by an id the caller allocates. The program that computes a value
@@ -28,8 +29,8 @@ import (
 // as `once name: T = <get>()`. A REPL `once` is forced through
 // SessionOnceName instead, which stores the value on the first force in the
 // session. The session answers all three names for every id,
-// so the declarations need no host table, and a program loaded for the
-// session may leave earlier inputs' imports unused.
+// so the declarations need no host table, and a file loaded for the
+// session may leave its imports unused.
 type Session struct {
 	out    io.Writer
 	errOut io.Writer
@@ -39,6 +40,10 @@ type Session struct {
 	mu     sync.Mutex
 	values map[int]Value
 	nextID int
+
+	// sf is the session's program of files, for inputs loaded as files
+	// (session_files.go).
+	sf *sessionFiles
 }
 
 const (
@@ -155,46 +160,6 @@ func (s *Session) lookup(name string) hostadapt.Func {
 	return nil
 }
 
-// Check runs the front end over src as the session's next input, lowering
-// and running nothing.
-func (s *Session) Check(src string) (*Checked, error) {
-	cfg := newConfig(nil)
-	cfg.session = s
-	fc, err := cfg.frontendConfig()
-	if err != nil {
-		return nil, err
-	}
-	lowering.Lock()
-	defer lowering.Unlock()
-	prog, err := irbuild.AnalyzeVirtual(replModule, src, fc)
-	if err != nil {
-		return nil, err
-	}
-	return &Checked{prog: prog}, nil
-}
-
-// Load checks and lowers src as the session's next input.
-func (s *Session) Load(src string) (*Program, error) {
-	cfg := newConfig(nil)
-	cfg.session = s
-	cfg.out = s.out
-	cfg.errOut = s.errOut
-	fc, err := cfg.frontendConfig()
-	if err != nil {
-		return nil, err
-	}
-	p, err := lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeVirtual(replModule, src, fc) })
-	if err != nil {
-		return nil, err
-	}
-	p.sources = map[string]string{p.prog.Entry().Path: src}
-	return checked(p, nil)
-}
-
-// replModule is the module name every session program is loaded under, so
-// a type an input declares has one runtime name across inputs.
-const replModule = "repl"
-
 // Run links p into the session's machine and calls its `main`. A program
 // with no `fn main` runs nothing. The error is what Program.Run answers.
 //
@@ -216,6 +181,9 @@ func (s *Session) Run(ctx context.Context, p *Program) error {
 			WithLocaleData(p.localeData()).WithMessages(p.messages())
 		if s.errOut != nil {
 			s.m = s.m.WithErrorOutput(s.errOut)
+		}
+		if src := p.embeddedSource(); src != nil {
+			s.m = s.m.WithEmbeddedSource(src)
 		}
 	} else {
 		s.m.Extend(p.entry, p.res.IRModules())
@@ -252,17 +220,18 @@ type Checked struct {
 
 // LocalType is the source spelling of the checked type of the entry's local
 // binding named name, and whether it has one. The spelling is the checker's
-// rendering; a type with an unsolved variable has none.
-func (c *Checked) LocalType(name string) (string, bool) {
+// rendering, with each nominal type whose declaring file's module key
+// qualify accepts written through that file (`repl_in1.Point`); a type with
+// an unsolved variable has none.
+func (c *Checked) LocalType(name string, qualify func(module string) bool) (string, bool) {
 	t := localType(c.prog, name)
 	if t == nil {
 		return "", false
 	}
-	text := t.String()
-	if strings.Contains(text, "?") {
+	if strings.Contains(t.String(), "?") {
 		return "", false
 	}
-	return text, true
+	return analysis.TypeTextQualifying(t, qualify), true
 }
 
 // IsUnit reports whether the entry's local binding named name is Unit.
@@ -271,33 +240,32 @@ func (c *Checked) IsUnit(name string) bool {
 	return t != nil && analysis.TypesEqual(t, analysis.TypeUnit)
 }
 
-// TopLevelRef is an identifier in the entry that names one of the entry's own
-// top-level functions or `once` bindings: the identifier's position and the
-// declaration's.
-type TopLevelRef struct {
-	Line, Col       int
-	Name            string
-	DefLine, DefCol int
+// Ref is an identifier in the entry that names a top-level function or
+// `once`: the identifier's position and name, and the path of the file
+// that declares what it names, the entry's own included.
+type Ref struct {
+	Line, Col  int
+	Name, Path string
 }
 
-// TopLevelRefs is every identifier in the entry that resolves to one of the
-// entry's top-level functions or onces, as the checker resolved it: a
-// parameter or local of the same name is not one.
-func (c *Checked) TopLevelRefs() []TopLevelRef {
+// Refs is every identifier in the entry that resolves to a top-level
+// function or once of a project file, the entry's own or one it imports, as
+// the checker resolved it: a parameter or local of the same name is not
+// one.
+func (c *Checked) Refs() []Ref {
 	fa := c.prog.Entry().FA
 	if fa == nil {
 		return nil
 	}
-	var refs []TopLevelRef
+	var refs []Ref
 	for pos, sym := range fa.References {
-		if sym == nil || (sym.SourceFile != "" && sym.SourceFile != fa.FilePath) || (sym.Kind != analysis.SymbolFunction && sym.Kind != analysis.SymbolOnce) {
+		for sym != nil && sym.Resolved != nil {
+			sym = sym.Resolved
+		}
+		if sym == nil || sym.SourceFile == "" || (sym.Kind != analysis.SymbolFunction && sym.Kind != analysis.SymbolOnce) {
 			continue
 		}
-		def, ok := fa.Definitions[sym.Pos]
-		if !ok || def == nil || def.Name != sym.Name || def.Kind != sym.Kind || (def.SourceFile != "" && def.SourceFile != fa.FilePath) {
-			continue
-		}
-		refs = append(refs, TopLevelRef{Line: pos.Line, Col: pos.Col, Name: sym.Name, DefLine: sym.Pos.Line, DefCol: sym.Pos.Col})
+		refs = append(refs, Ref{Line: pos.Line, Col: pos.Col, Name: sym.Name, Path: sym.SourceFile})
 	}
 	return refs
 }

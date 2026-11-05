@@ -386,6 +386,11 @@ type implItem struct {
 	line    int
 	// inherited is set for a monomorphized interface default.
 	inherited bool
+	// impl is the block this function belongs to, and instKey, for an
+	// instance of a generic member, its type arguments: what its linkage
+	// name is built from (link.go).
+	impl    *implDef
+	instKey string
 	// public is `pub` on the declaration, which decides whether a call in
 	// ANOTHER FILE may name this function type-qualified.
 	//
@@ -1038,6 +1043,8 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 		return nil, implGap{why: "impl function without a body", detail: fd.Name, whole: true}
 	}
 	it := &implItem{
+		impl:      d,
+		instKey:   g.substLinkKey(),
 		decl:      fd,
 		name:      fd.Name,
 		params0:   fd.Params,
@@ -1177,6 +1184,8 @@ func (g *gen) inheritDefaults(d *implDef) {
 			}
 		}
 		it := &implItem{
+			impl:      d,
+			instKey:   g.substLinkKey(),
 			name:      m.name,
 			params0:   m.decl.Params,
 			body:      body,
@@ -1526,10 +1535,10 @@ func (g *gen) implFunc(d *implDef, it *implItem) {
 	prev := g.result
 	g.result = it.result
 	g.irBodyObserve(irBodyImplFn, irImplSource(it) != nil)
-	irTakeDecline()
+	g.dc.take()
 	produced, retained := g.irImplLower(d, it, nil, it.params)
 	if !retained {
-		declined := irTakeDecline()
+		declined := g.dc.take()
 		if irImplSource(it) == nil {
 			declined = irBecause("an impl function with no source body")
 		}

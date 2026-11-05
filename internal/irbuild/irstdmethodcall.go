@@ -1,11 +1,12 @@
 package irbuild
 
 import (
-	"github.com/nomi-language/nomi/internal/compilerhosts"
+	"slices"
 	"strings"
 	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/compilerhosts"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 )
@@ -18,7 +19,11 @@ func (bl *irScalarBuilder) stdMethodCallPlan(t *ast.Call, args irQualArgs, owner
 		if !args.ok {
 			return nil
 		}
-		return bl.stdFuncPlan(t, args, stdPick(bl.g.std.byType[owner+"."+method], args.kinds))
+		f := stdPick(bl.g.std.byType[owner+"."+method], args.kinds)
+		if f != nil && len(args.temps) < len(f.params) {
+			return bl.stdSiblingShortPlan(t, args, f)
+		}
+		return bl.stdFuncPlan(t, args, f)
 	}
 	f, why, _, handled := bl.g.stdMethodRefTarget(owner, method)
 	if handled && why == "function reference with a defaulted parameter" {
@@ -40,6 +45,37 @@ func (bl *irScalarBuilder) stdMethodCallPlan(t *ast.Call, args irQualArgs, owner
 		return nil
 	}
 	return bl.stdFuncPlan(t, args, f)
+}
+
+// stdSiblingShortPlan plans `Type.method(args)` written inside the std
+// module that declares it, omitting trailing defaulted parameters
+// (`NaiveDateTime.from_instant(i)` in std/calendar). This gen is the
+// declaring module's, so each omitted default is lowered at the call as a
+// module `fn` call's is (callDefaults): the written operands first, then
+// the defaults, in the scope the default was written in. A caller in
+// another module goes through the arity wrapper instead (stdShortCall),
+// which this module builds from the same defaults.
+func (bl *irScalarBuilder) stdSiblingShortPlan(t *ast.Call, args irQualArgs, f *stdFunc) *irQualPlan {
+	if f.why != "" || f.decl == nil || len(f.decl.Params) != len(f.params) || namedArgNode(t.Args) != nil {
+		return nil
+	}
+	temps, _, _, ok := slottedOperands(t, args, f.params, f.decl.Params)
+	if !ok || !bl.callDefaults(&fnSig{decl: f.decl, params: f.params}, temps) {
+		return nil
+	}
+	full := irQualArgs{temps: temps, kinds: slices.Clone(f.params), mobile: make([]bool, len(temps)), ok: true}
+	// The plan checks a call as wide as the declaration: the written
+	// operands, then the omitted parameters' default expressions.
+	wide := &ast.Call{Func: t.Func, Args: slices.Clone(t.Args), Line: t.Line, Col: t.Col}
+	for _, p := range f.decl.Params[len(t.Args):] {
+		wide.Args = append(wide.Args, p.Default)
+	}
+	p := bl.stdFuncPlan(wide, full, f)
+	if p == nil {
+		return nil
+	}
+	p.args = &full
+	return p
 }
 
 // stdFuncPlan plans a call to one selected stdlib function.
@@ -76,11 +112,29 @@ func (bl *irScalarBuilder) stdFuncPlan(t *ast.Call, args irQualArgs, f *stdFunc)
 		// call spells.
 		sym := bl.g.irStdSiblingSym(view)
 		if sym == nil {
-			return bl.stdUnretainedPlan(view)
+			p := bl.stdUnretainedPlan(view)
+			if p == nil {
+				bl.g.noteStdBodyDeclined(f)
+			}
+			return p
 		}
 		return &irQualPlan{token: view, name: view.key, result: view.result, sym: sym}
 	}
 	return &irQualPlan{token: f, name: f.key, result: f.result, sym: f.irBody.Sym()}
+}
+
+// noteStdBodyDeclined notes, as the reason a program's call to f declines,
+// why f's own body did not lower in its std module, when that module
+// recorded one. Without it the program's error names only the call's
+// shape, and the cause is in std's source.
+func (g *gen) noteStdBodyDeclined(f *stdFunc) {
+	if g.stdModule != "" || g.std == nil {
+		return
+	}
+	// emitStdFunc records a declined body under its key.
+	if _, why, found := strings.Cut(g.std.unlowered[f.pkg][f.key], "|"); found {
+		g.dc.note("the std body of " + f.key + " did not lower: " + why)
+	}
 }
 
 // stdUnretainedPlan plans a call to a monomorphic stdlib body the cache did
@@ -97,7 +151,7 @@ func (bl *irScalarBuilder) stdUnretainedPlan(f *stdFunc) *irQualPlan {
 	}
 	inst, why := s.instantiate(f, nil, nil, nil, bl.g)
 	if inst == nil {
-		irDeclineNote(why)
+		bl.g.dc.note(why)
 		return nil
 	}
 	if len(inst.view.params) != len(f.params) {

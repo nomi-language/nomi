@@ -110,10 +110,8 @@ group "app steps" {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
 	}
 	declined := map[string]string{}
-	prev := IRDeclineObserved
-	IRDeclineObserved = func(fn, reason string) { declined[fn] = reason }
+	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
 	res, _, err := GenerateIR(p)
-	IRDeclineObserved = prev
 	if err != nil {
 		t.Fatal(err)
 	}

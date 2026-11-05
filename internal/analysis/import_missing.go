@@ -23,6 +23,9 @@ type importMiss struct {
 	dep string
 	// std is set for a `std/...` import.
 	std bool
+	// dir is the loader's answer when the path names a directory and no
+	// file: a directory import (spec §14 *Directory imports*).
+	dir *DirectoryError
 }
 
 // reportMissingModule records the error for an import whose file part (the
@@ -42,6 +45,13 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 	if len(miss.path) == 0 {
 		msg, hint = b.moduleRootImport(n, name, miss)
 		b.file.TypeErrors = append(b.file.TypeErrors, importPathError(n, segs, msg).WithHint(hint))
+		return
+	}
+	if miss.dir != nil && miss.dir.Module {
+		dir := "./" + strings.Join(miss.path, "/")
+		b.file.TypeErrors = append(b.file.TypeErrors, importPathError(n, segs,
+			fmt.Sprintf("`%s` is another module's directory: it holds a nomi.toml", name)).
+			WithHint(fmt.Sprintf("a module is reached by its own name: run `nomi add %s` and import it by that name", dir)))
 		return
 	}
 	leaf := miss.path[len(miss.path)-1]

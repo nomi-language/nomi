@@ -12,7 +12,6 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 const inlineValueSrc = `import std::io
@@ -34,7 +33,7 @@ fn main() {
 // while paused on line stop, as "line:col name", 1-based.
 func inlineValuesFor(t *testing.T, src string, stop int) []string {
 	t.Helper()
-	lib := std.Load()
+	lib := loadStd()
 	nodes, errs := parser.ParseWithRecovery(lexer.Lex(src))
 	if len(errs) > 0 {
 		t.Fatalf("parse errors: %v", errs)

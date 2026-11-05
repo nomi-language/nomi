@@ -61,13 +61,13 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 	call, isCall := t.Call.(*ast.Call)
 	switch {
 	case scope == nil:
-		irDeclineNote("a defer outside the own statements of a body, a block or a loop callback")
+		bl.g.dc.note("a defer outside the own statements of a body, a block or a loop callback")
 		return false
 	case !isCall:
-		irDeclineNote("a defer of something other than a call")
+		bl.g.dc.note("a defer of something other than a call")
 		return false
 	case bl.g.ctrl != nil:
-		irDeclineNote("a defer inside a loop")
+		bl.g.dc.note("a defer inside a loop")
 		return false
 	}
 	entry := bl.b
@@ -78,12 +78,12 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 	}
 	instrs := bl.b.Instrs()
 	if (bl.b == entry && len(instrs) == start) || len(instrs) == 0 || instrs[len(instrs)-1].Dst() != val {
-		irDeclineNote("a deferred call that does not lower to one call")
+		bl.g.dc.note("a deferred call that does not lower to one call")
 		return false
 	}
 	c, isIRCall := instrs[len(instrs)-1].(*ir.Call)
 	if !isIRCall || int(c.Dst()) >= len(bl.sides) || !bl.sides[c.Dst()].deferrable {
-		irDeclineNote("a deferred call to a function that answers no value")
+		bl.g.dc.note("a deferred call to a function that answers no value")
 		return false
 	}
 	bl.defers++
@@ -110,7 +110,7 @@ func (bl *irScalarBuilder) scopedBlock(block *ast.Block) bool {
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {
-		irDeclineNote(irDeclineBodyWhy)
+		bl.g.dc.note(bl.g.dc.bodyWhy)
 		return false
 	}
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
@@ -170,10 +170,10 @@ func (bl *irScalarBuilder) closeWithScope(ws *irWithScope, at ast.Node) {
 func (bl *irScalarBuilder) withStmt(w *ast.With, ws *irWithScope) bool {
 	switch {
 	case ws == nil:
-		irDeclineNote("a `with` in a block whose exit the builder does not restore")
+		bl.g.dc.note("a `with` in a block whose exit the builder does not restore")
 		return false
 	case bl.inTest && !bl.testApp:
-		irDeclineNote("an app-field write in a test case with no boot")
+		bl.g.dc.note("an app-field write in a test case with no boot")
 		return false
 	}
 	if !ws.root && !ws.opened {

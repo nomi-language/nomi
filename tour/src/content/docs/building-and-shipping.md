@@ -32,6 +32,41 @@ $ nomi build --no-vm app.nomi                # writes app.nomic
 code your program uses. To run it, you need the VM: `nomi-vm app.nomic`, or
 `nomi run app.nomic`. `nomi build-vm` writes `nomi-vm` for you.
 
+A program that reads files it ships with, such as pages, templates or
+migrations, can carry them inside itself. An `embed` declaration names
+them by pattern, from the module root as imports are, and the build carries
+them, so the executable needs no other file. It reads a file's bytes from
+itself when the program reads that file, so a large embed costs nothing at
+startup:
+
+```nomi-run
+// FILE: main.nomi
+import {
+    std::embed.Files
+    std::io
+}
+
+embed site `static`
+
+fn main() {
+    io.print(Files.paths(site))
+    io.print(Files.read_text(site, "static/index.html")!)
+}
+
+// FILE: static/index.html
+<h1>Hello</h1>
+
+// FILE: static/style.css
+h1 { color: teal }
+```
+<!-- expect
+[static/index.html, static/style.css]
+<h1>Hello</h1>
+-->
+
+[Embedded files](/spec/typed-literals-and-keyword-declarations/#embedded-files)
+has the pattern rules, and [std::embed](/reference/embed/) the `Files` API.
+
 A `.nomi` file can also run as a script. Make its first line
 `#!/usr/bin/env nomi` and make the file executable. Then `./hi.nomi a b`
 runs it, the same as `nomi run hi.nomi a b`. [Scripts](/tooling/commands/#scripts-nomi-file)

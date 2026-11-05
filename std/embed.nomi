@@ -1,0 +1,445 @@
+//# Files a program carries inside itself. An `embed` declaration names
+//# files by pattern, and the compiler finds them when it compiles the
+//# program, so a built executable holds them and needs no other file. A
+//# file's bytes are read when the program reads that file, not when it
+//# starts ([spec](/spec/typed-literals-and-keyword-declarations/#embedded-files)):
+//#
+//# ```nomi
+//# import std::embed.Files
+//#
+//# embed site `static`
+//#
+//# fn page() -> String {
+//#     Files.read_text(site, "static/index.html")!
+//# }
+//# ```
+//#
+//# The value is a `Files`: a read-only tree whose paths are slash-separated
+//# and run from the module root, as the patterns do, whatever directory
+//# the declaring file is in (`static/index.html`).
+//# `.` and the empty path name its root. A path is cleaned first, so
+//# `./static//a.css` is `static/a.css`; one that starts with `/` or leaves
+//# the tree with `..` is `InvalidPath`. Errors are std::io's, as std::fs
+//# answers them, so code written for the disk reads an embedded tree with
+//# the same `case`. Every file reports the Unix epoch,
+//# `1970-01-01T00:00:00Z`, as its modification time, and mode `0o444`; a
+//# directory reports `0o555`.
+//#
+//# A path written as a string literal is checked when the program
+//# compiles: `Files.read_text(site, "static/indx.html")` is an error,
+//# since `site` holds no such file, and so is a `list`, `walk` or `sub`
+//# of a directory it does not hold, through `Files.sub` of a literal
+//# directory too. A path built at run time is checked when it is read,
+//# and its error is a `Result` as above.
+
+import {
+    bool.Bool.{self, False, True}
+    bytes.{Byte, Bytes}
+    embed_host
+    fs.{Entry, Kind, Metadata}
+    instant.Instant
+    int.Int
+    io.Error
+    iter.Iter
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    path
+    results.Result.{self, Err, Ok}
+    strings.String
+}
+
+/// A read-only tree of files, the value of an `embed` declaration.
+pub opaque struct Files {
+    /// Each file's contents, by its path in the tree.
+    files: Map<String, Contents>
+    /// Each directory's entries, by its path (`.` for the root): each
+    /// name, and whether it is a directory, in name order.
+    dirs: Map<String, List<#(String, Bool)>>
+}
+
+/// A file's contents. An embedded file's are `Stored`: the value holds the
+/// handle the program reads them through, and their size, and the
+/// program reads them when it reads the file (std::embed_host). A tree
+/// made from bytes in hand (`from_held`) holds them.
+enum Contents {
+    Held Bytes
+    Stored {handle: Int, size: Int}
+}
+
+/// The bytes `c` holds or names, of the file at `p`.
+fn contents(c: Contents, p: String) -> Bytes {
+    case c {
+        Contents.Held(data) -> data
+        Contents.Stored{handle} -> embed_host.read(handle, p)
+    }
+}
+
+/// The size of the file whose contents are `c`, read from neither.
+fn size(c: Contents) -> Int {
+    case c {
+        Contents.Held(data) -> Bytes.length(data)
+        Contents.Stored{size} -> size
+    }
+}
+
+/// The modification time every embedded file reports: the Unix epoch,
+/// `1970-01-01T00:00:00Z`. (Go reports its zero time, the year 1, which
+/// is before the earliest `Instant`.)
+once zero_time = Instant.from_seconds(0)
+
+/// The tree of `entries`, each a file's path, handle and size: what an
+/// `embed` declaration's value is made from.
+fn from_entries(entries: List<#(String, Int, Int)>) -> Files {
+    entries
+    |> Iter.reduce(%{}, fn acc, #(p, handle, size) -> {
+        Map.put(acc, p, Contents.Stored{handle, size})
+    })
+    |> tree()
+}
+
+/// The tree of `entries`, each a file's path and contents, held in the
+/// value: the trees the examples here read.
+//! files = from_held([
+//!     #("static/b.css", String.to_bytes("b")),
+//!     #("static/img/a.png", String.to_bytes("a")),
+//!     #("index.html", String.to_bytes("i")),
+//! ])
+//!
+//! assert Files.paths(files) == ["index.html", "static/b.css", "static/img/a.png"]
+//!
+//! assert Files.list(files, ".") == Ok([
+//!         Entry{path: "./index.html", name: "index.html", kind: Kind.File},
+//!         Entry{path: "./static", name: "static", kind: Kind.Directory},
+//!     ])
+//
+fn from_held(entries: List<#(String, Bytes)>) -> Files {
+    entries
+    |> Iter.reduce(%{}, fn acc, #(p, data) -> Map.put(acc, p, Contents.Held(data)))
+    |> tree()
+}
+
+/// The tree of `files`, by their paths. A file's directories are made from
+/// its path.
+fn tree(files: Map<String, Contents>) -> Files {
+    dirs =
+        files
+        |> Iter.reduce(%{}, fn acc, #(p, _) -> add_parents(acc, p, False))
+        |> Map.map_values(fn names -> {
+            names
+            |> Map.keys()
+            |> Iter.sort()
+            |> Iter.map(fn name -> {
+                #(name, Map.get(names, name) |> Maybe.with_default(False))
+            })
+            |> Iter.to_list()
+        })
+
+    Files{
+        files,
+        dirs: Map.put(
+            dirs,
+            ".",
+            Map.get(dirs, ".")
+            |> Maybe.with_default([]),
+        ),
+    }
+}
+
+/// dirs with `p`, a directory when `is_dir`, recorded in its parent, and
+/// its parent in the parent above it, up to the root.
+fn add_parents(
+    dirs: Map<String, Map<String, Bool>>,
+    p: String,
+    is_dir: Bool,
+) -> Map<String, Map<String, Bool>> {
+    parent = path.parent(p) |> Maybe.with_default(".")
+    names = Map.get(dirs, parent) |> Maybe.with_default(%{})
+    known = Map.get(names, path.base(p)) |> Maybe.is_some()
+    added = Map.put(dirs, parent, Map.put(names, path.base(p), is_dir))
+
+    if known or parent == "." {
+        added
+    } else {
+        add_parents(added, parent, True)
+    }
+}
+
+/// `p` as a key of the tree: cleaned, with `.` for the root, or why it
+/// names nothing in it.
+fn key(p: String) -> Result<String, Error> {
+    cleaned = path.clean(p)
+
+    if String.starts_with(cleaned, "/") {
+        Err(
+            Error.InvalidPath{
+                path: p,
+                reason: "an embedded path is relative to the root of the embedded tree",
+            }
+        )
+    } else if cleaned == ".." or String.starts_with(cleaned, "../") {
+        Err(Error.InvalidPath{path: p, reason: "the path leaves the embedded tree"})
+    } else {
+        Ok(cleaned)
+    }
+}
+
+impl Files {
+    /// The contents of the file at `p`.
+    ///
+    /// ```nomi
+    /// logo = Files.read(site, "static/logo.png")?
+    /// ```
+    //! files = from_held([#("a/b.txt", String.to_bytes("hi"))])
+    //!
+    //! assert Files.read(files, "a/b.txt") == Ok(String.to_bytes("hi"))
+    //! assert Files.read(files, "./a//b.txt") == Ok(String.to_bytes("hi"))
+    //! assert Files.read(files, "a") == Err(Error.IsADirectory{path: "a"})
+    //! assert Files.read(files, "c.txt") == Err(Error.NotFound{path: "c.txt"})
+    //! assert Files.read(files, "../x") is Err(Error.InvalidPath{})
+    //
+    pub fn read(files: Files, p: String) -> Result<Bytes, Error> {
+        k = key(p)?
+
+        case Map.get(files.files, k) {
+            Some(c) -> Ok(contents(c, p))
+            None when Map.get(files.dirs, k) is Some(_) -> Err(Error.IsADirectory{path: p})
+            None -> Err(Error.NotFound{path: p})
+        }
+    }
+
+    /// The contents of the file at `p`, as text. Contents that are not
+    /// UTF-8 are `InvalidText`, with the offset of the first byte that is
+    /// not.
+    //! files = from_held([
+    //!     #("a.txt", String.to_bytes("hé")),
+    //!     #("b.bin", Bytes.from_list([104, 255])),
+    //! ])
+    //!
+    //! assert Files.read_text(files, "a.txt") == Ok("hé")
+    //! assert Files.read_text(files, "b.bin") == Err(Error.InvalidText{path: "b.bin", offset: 1})
+    //
+    pub fn read_text(files: Files, p: String) -> Result<String, Error> {
+        data = Files.read(files, p)?
+
+        Bytes.to_string(data)
+        |> Result.map_err(fn _ -> Error.InvalidText{path: p, offset: invalid_at(data, 0)})
+    }
+
+    /// The entries of the directory `dir`, in name order. Each entry's path
+    /// is `dir` and its name joined with `/`, as std::fs's `list` writes it.
+    //! files = from_held([#("d/b.txt", String.to_bytes("")), #("d/a/x.txt", String.to_bytes(""))])
+    //!
+    //! assert Files.list(files, "d") == Ok([
+    //!         Entry{path: "d/a", name: "a", kind: Kind.Directory},
+    //!         Entry{path: "d/b.txt", name: "b.txt", kind: Kind.File},
+    //!     ])
+    //!
+    //! assert Files.list(files, "d/b.txt") == Err(Error.NotADirectory{path: "d/b.txt"})
+    //! assert Files.list(files, "e") == Err(Error.NotFound{path: "e"})
+    //
+    pub fn list(files: Files, dir: String) -> Result<List<Entry>, Error> {
+        k = key(dir)?
+
+        case Map.get(files.dirs, k) {
+            Some(names) ->
+                Ok(
+                    names
+                    |> Iter.map(fn #(name, is_dir) -> {
+                        joined = if String.ends_with(dir, "/") {
+                            "${dir}${name}"
+                        } else {
+                            "${dir}/${name}"
+                        }
+
+                        kind = if is_dir { Kind.Directory } else { Kind.File }
+                        Entry{path: joined, name, kind}
+                    })
+                    |> Iter.to_list()
+                )
+
+            None when Map.get(files.files, k) is Some(_) ->
+                Err(Error.NotADirectory{path: dir})
+
+            None ->
+                Err(Error.NotFound{path: dir})
+        }
+    }
+
+    /// Every entry under `root`, depth first: each directory's entries in
+    /// name order, and a directory's own entries right after it, as
+    /// std::fs's `walk` orders them. A `root` that is not a directory is
+    /// one `Err` item.
+    //! files = from_held([#("d/b.txt", String.to_bytes("")), #("d/a/x.txt", String.to_bytes(""))])
+    //!
+    //! walked = Files.walk(files, "d") |> Iter.map(fn e -> Result.map(e, fn e -> e.path)) |> Iter.to_list()
+    //! assert walked == [Ok("d/a"), Ok("d/a/x.txt"), Ok("d/b.txt")]
+    //! assert Files.walk(files, "none") |> Iter.to_list() == [Err(Error.NotFound{path: "none"})]
+    //
+    pub fn walk(files: Files, root: String) -> Iter<Result<Entry, Error>> {
+        Walk{files, root}
+    }
+
+    /// What is at `p`: its kind, its size in bytes (0 for a directory),
+    /// the Unix epoch as its modification time, and its mode.
+    //! files = from_held([#("a/b.txt", String.to_bytes("hi"))])
+    //!
+    //! assert Files.metadata(files, "a/b.txt") is Ok(Metadata{kind: Kind.File, size: 2, mode: 0o444})
+    //! assert Files.metadata(files, "a") is Ok(Metadata{kind: Kind.Directory, size: 0, mode: 0o555})
+    //! assert Files.metadata(files, ".") is Ok(Metadata{kind: Kind.Directory})
+    //! assert Files.metadata(files, "x") == Err(Error.NotFound{path: "x"})
+    //
+    pub fn metadata(files: Files, p: String) -> Result<Metadata, Error> {
+        k = key(p)?
+
+        case Map.get(files.files, k) {
+            Some(c) ->
+                Ok(
+                    Metadata{
+                        kind: Kind.File,
+                        size: size(c),
+                        modified: zero_time,
+                        mode: 0o444,
+                    }
+                )
+
+            None when Map.get(files.dirs, k) is Some(_) ->
+                Ok(Metadata{kind: Kind.Directory, size: 0, modified: zero_time, mode: 0o555})
+
+            None ->
+                Err(Error.NotFound{path: p})
+        }
+    }
+
+    /// Whether a file or directory is at `p`.
+    //! files = from_held([#("a/b.txt", String.to_bytes("hi"))])
+    //!
+    //! assert Files.exists(files, "a/b.txt")
+    //! assert Files.exists(files, "a")
+    //! refute Files.exists(files, "b")
+    //
+    pub fn exists(files: Files, p: String) -> Bool {
+        case key(p) {
+            Ok(k) -> Maybe.is_some(Map.get(files.files, k)) or Maybe.is_some(Map.get(files.dirs, k))
+            Err(_) -> False
+        }
+    }
+
+    /// The path of every file in the tree, sorted.
+    //! files = from_held([#("b.txt", String.to_bytes("")), #("a/c.txt", String.to_bytes(""))])
+    //!
+    //! assert Files.paths(files) == ["a/c.txt", "b.txt"]
+    //
+    pub fn paths(files: Files) -> List<String> {
+        Map.keys(files.files) |> Iter.sort() |> Iter.to_list()
+    }
+
+    /// The tree under the directory `dir`, with paths from it: what
+    /// `http.file_server_embedded` serves a `static` folder from, so
+    /// `static/index.html` is `/index.html`.
+    //! files = from_held(
+    //!     [#("static/index.html", String.to_bytes("hi")), #("main.css", String.to_bytes(""))]
+    //! )
+    //!
+    //! site = Files.sub(files, "static")!
+    //! assert Files.paths(site) == ["index.html"]
+    //! assert Files.read_text(site, "index.html") == Ok("hi")
+    //!
+    //! assert Files.sub(files, "main.css") |> Result.map(Files.paths) == Err(
+    //!     Error.NotADirectory{path: "main.css"}
+    //! )
+    //
+    pub fn sub(files: Files, dir: String) -> Result<Files, Error> {
+        k = key(dir)?
+
+        if k == "." { return Ok(files) }
+
+        if Map.get(files.dirs, k) is None {
+            return if Map.get(files.files, k) is Some(_) {
+                Err(Error.NotADirectory{path: dir})
+            } else {
+                Err(Error.NotFound{path: dir})
+            }
+        }
+
+        prefix = "${k}/"
+
+        Ok(
+            files.files
+            |> Iter.filter(fn #(p, _) -> String.starts_with(p, prefix))
+            |> Iter.reduce(%{}, fn acc, #(p, c) -> {
+                Map.put(acc, String.drop(p, String.length(prefix)), c)
+            })
+            |> tree()
+        )
+    }
+}
+
+/// A walk of an embedded tree from `root`.
+struct Walk {
+    files: Files
+    root: String
+}
+
+impl Iter<Result<Entry, Error>> for Walk {
+    fn each_while(w: Walk, yield: (Result<Entry, Error>) -> Bool) -> Bool {
+        walk_dir(w.files, w.root, yield)
+    }
+}
+
+/// Hands each entry under dir to yield, in walk order, until it stops.
+fn walk_dir(files: Files, dir: String, yield: (Result<Entry, Error>) -> Bool) -> Bool {
+    case Files.list(files, dir) {
+        Err(e) -> yield(Err(e))
+        Ok(entries) -> walk_entries(files, entries, yield)
+    }
+}
+
+fn walk_entries(files: Files, entries: List<Entry>, yield: (Result<Entry, Error>) -> Bool) -> Bool {
+    case entries {
+        [] ->
+            True
+
+        [entry, ..rest] ->
+            if not yield(Ok(entry)) {
+                False
+            } else if entry.kind == Kind.Directory and not walk_dir(files, entry.path, yield) {
+                False
+            } else {
+                walk_entries(files, rest, yield)
+            }
+    }
+}
+
+/// The offset of the first byte at or after `at` that does not start a
+/// UTF-8 sequence, in data that is not all UTF-8.
+fn invalid_at(data: Bytes, at: Int) -> Int {
+    case Bytes.get(data, at) {
+        None ->
+            at
+
+        Some(lead) -> {
+            b = Byte.to_int(lead)
+
+            width = if b < 0x80 {
+                1
+            } else if b >= 0xc2 and b < 0xe0 {
+                2
+            } else if b >= 0xe0 and b < 0xf0 {
+                3
+            } else if b >= 0xf0 and b < 0xf5 {
+                4
+            } else {
+                0
+            }
+
+            if width > 0
+                and at + width <= Bytes.length(data)
+                and Bytes.slice(data, at, at + width) |> Bytes.to_string() is Ok(_) {
+                invalid_at(data, at + width)
+            } else {
+                at
+            }
+        }
+    }
+}

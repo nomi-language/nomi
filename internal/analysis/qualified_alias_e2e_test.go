@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // A typealias in another module, named through its file's qualifier
@@ -40,7 +39,7 @@ func TestQualifiedAlias_AcrossModulesIsAType_E2E(t *testing.T) {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, files, _ := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, fixtureRoot, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")

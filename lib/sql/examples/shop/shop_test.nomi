@@ -6,7 +6,7 @@ import {
     schema.{self, Order, OrderStatus, User}
     shop
     sqlite
-    sqlkit
+    sqlkit.{self, Rows}
 }
 
 group "the shop" {
@@ -57,6 +57,17 @@ group "the shop" {
 
         assert queries.order(db, id + 1)
             == Err(sql.Error.RowCount{query: "order", expected: "exactly one", found: 0})
+    }
+
+    test "a query of one enum column reads it as the enum, in every shape", db {
+        user = queries.insert_user(db, "ada@example.com", None)?
+        pending = queries.insert_order(db, user, 1d)?
+        paid = shop.place_paid_order(db, user, 2d)?
+        assert queries.order_status(db, paid)? == OrderStatus.Paid
+        assert queries.status_if_placed(db, pending)? == Some(OrderStatus.Pending)
+        assert queries.status_if_placed(db, paid + 1)? == None
+        assert queries.statuses_for_user(db, user)? == [OrderStatus.Pending, OrderStatus.Paid]
+        assert Rows.to_list(queries.all_statuses(db)) == Ok([OrderStatus.Pending, OrderStatus.Paid])
     }
 
     test "a failed sign-up leaves nothing behind", db {

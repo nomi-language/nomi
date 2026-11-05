@@ -20,13 +20,17 @@ func ExtractImportsFromNodes(nodes []ast.Node, dir string) []string {
 			modulePath = append(modulePath, ast.ImportNodeName(seg))
 		}
 		// Skip stdlib imports — they're embedded, not on disk
-		if len(modulePath) >= 2 && modulePath[0] == "std" {
+		if len(modulePath) >= 1 && modulePath[0] == "std" {
 			return
 		}
-		filePath := ResolveModulePath(dir, modulePath)
-		if !seen[filePath] {
-			seen[filePath] = true
-			imports = append(imports, filePath)
+		// The file a path-only import names, and the files a directory
+		// import reaches.
+		for _, path := range importStmtPaths(nil, imp) {
+			filePath := ResolveModulePath(dir, path)
+			if !seen[filePath] {
+				seen[filePath] = true
+				imports = append(imports, filePath)
+			}
 		}
 	}
 	var walk func([]ast.Node)

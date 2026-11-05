@@ -155,16 +155,27 @@ func newOccurrenceIndex(fa *analysis.FileAnalysis) *occurrenceIndex {
 
 // symbolAt is FileAnalysis.SymbolAt over the cursor's line only.
 func (idx *occurrenceIndex) symbolAt(pos analysis.Pos) *analysis.Symbol {
-	for _, o := range idx.byLine[pos.Line] {
+	// As FileAnalysis.TokenAt: a reference before a definition, and of
+	// those covering pos the one starting last, the innermost, whatever
+	// order the maps the index was built from gave the line.
+	var best *occurrence
+	for i, o := range idx.byLine[pos.Line] {
 		width := o.sym.Span
 		if width <= 0 {
 			width = len(o.sym.Name)
 		}
-		if pos.Col >= o.at.Col && pos.Col < o.at.Col+width {
-			return o.sym
+		if pos.Col < o.at.Col || pos.Col >= o.at.Col+width {
+			continue
+		}
+		ref, bestRef := o.kind == occurrenceReference, best != nil && best.kind == occurrenceReference
+		if best == nil || ref && !bestRef || ref == bestRef && o.at.Col > best.at.Col {
+			best = &idx.byLine[pos.Line][i]
 		}
 	}
-	return nil
+	if best == nil {
+		return nil
+	}
+	return best.sym
 }
 
 // candidates returns the occurrences that can match targets, definitions

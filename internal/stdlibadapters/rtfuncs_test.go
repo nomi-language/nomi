@@ -700,6 +700,11 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 		"part_reader", "part_form_name", "part_file_name", "multipart_write", "close_connections"} {
 		elsewhere["http_host."+k] = true
 	}
+	// std/embed_host's read answers from the machine's table of embedded
+	// files, which a program's `embed` fills; vmrunner's
+	// TestOpenImageAt_StartingReadsTheCodeAndAFileOnlyWhenRead and
+	// cmd/nomi's embed tests run it through Nomi programs.
+	elsewhere["embed_host.read"] = true
 	var missing []string
 	for _, b := range stdlibbindings.RtFuncs() {
 		if p.covered[b.Name] == 0 && !elsewhere[b.Name] {

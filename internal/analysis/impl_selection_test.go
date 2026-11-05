@@ -9,7 +9,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // A generic interface implemented for one receiver at several type
@@ -403,7 +402,7 @@ fn main() {
 			nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 			return nodes, nil
 		}
-		lib := std.Load()
+		lib := loadStd()
 		fa, _, _ := analysis.BuildProjectWithCache(entry, lib.Primitives, lib.Modules, lib.Files, root, loader)
 		if fa == nil {
 			t.Fatal("no analysis")

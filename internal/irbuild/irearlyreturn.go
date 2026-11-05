@@ -66,7 +66,7 @@ func (bl *irScalarBuilder) guardReturn(t *ast.If) bool {
 // It preserves the returned operand and the cursor after evaluating it.
 func (bl *irScalarBuilder) explicitReturn(ret *ast.Return) (kind, bool) {
 	if bl.loop != nil {
-		irDeclineNote("a `return` in an Iter.loop callback that is not a guard or an arm")
+		bl.g.dc.note("a `return` in an Iter.loop callback that is not a guard or an arm")
 		return kindInvalid, false
 	}
 	val, k, ok := ir.NoTemp, kindUnit, true
@@ -111,7 +111,7 @@ const (
 func (bl *irScalarBuilder) ctlReturn(n ast.Node) bool {
 	if bl.loop != nil {
 		// Inside an inline Iter.loop the signal is the loop's.
-		irDeclineNote("a `break` or `continue` in an Iter.loop callback that is not a guard or an arm")
+		bl.g.dc.note("a `break` or `continue` in an Iter.loop callback that is not a guard or an arm")
 		return false
 	}
 	pos := bl.g.irNodePos(n)

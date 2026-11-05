@@ -74,6 +74,9 @@ var bodyFields = map[reflect.Type]map[string]bool{
 	// (a `message`'s source text); its name and parameters are its
 	// interface.
 	reflect.TypeFor[ast.KeywordDecl](): {"Body": true},
+	// An `embed`'s patterns are what its value is made of; its name is its
+	// interface, and its type is always std::embed's `Files`.
+	reflect.TypeFor[ast.EmbedDecl](): {"Body": true, "Patterns": true},
 }
 
 // triviaTypes are the types that hold comments and the layout around them.

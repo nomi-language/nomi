@@ -105,7 +105,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 		return no()
 	}
 	if err := bl.g.irLint(f); err != nil {
-		irDeclineNote("a `concurrent` body graph that does not lint: " + err.Error())
+		bl.g.dc.note("a `concurrent` body graph that does not lint: " + err.Error())
 		return no()
 	}
 	fv := ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...)

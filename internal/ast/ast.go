@@ -204,7 +204,7 @@ func (n *SimpleType) TypeString() string { return n.Name }
 // QualifiedType is a module-qualified type like io.Reader or io.List<Int>.
 // Module holds the qualifier ("io") with position; Member is the resolved type part.
 //
-// A qualifier written as a file's full path (`db::schema.Post`) keeps its
+// A qualifier written as a path (`db::schema.Post`) keeps its
 // spelling in Module (`db::schema`, or `db::schema.Shape` with an owner) and
 // its segments, each at its own position, in Path. Path is nil when the
 // qualifier starts with a plain name.
@@ -1237,11 +1237,12 @@ func (n *FieldAccessor) Spelling() string {
 	return b.String()
 }
 
-// FilePath is a file named by its full import path, `db::posts`, as the
-// qualifier of a member access: `db::posts.post_by_id(1)` is a Call whose
-// Func is a FieldAccess whose Object is the FilePath. Segments holds each
-// path segment at its own position. A file is not a value, so a FilePath
-// stands only as a FieldAccess's Object.
+// FilePath is a file named by a path at a use, `db::posts` (spec §14
+// *Directory imports*), as the qualifier of a member access:
+// `db::posts.post_by_id(1)` is a Call whose Func is a FieldAccess whose
+// Object is the FilePath. Segments holds each path segment at its own
+// position. A file is not a value, so a FilePath stands only as a
+// FieldAccess's Object.
 type FilePath struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1250,7 +1251,7 @@ type FilePath struct {
 	Col      int
 }
 
-// PathSegment is one segment of a file's full path, at its position. It is
+// PathSegment is one segment of a path at a use, at its position. It is
 // not a node: a segment names a directory or a file, never a binding, so a
 // walk over expressions never meets one as a name.
 type PathSegment struct {
@@ -1272,15 +1273,11 @@ func (*FilePath) NodeType() string { return "FilePath" }
 func (n *FilePath) LineNum() int   { return n.Line }
 
 // Spelling is the path as written: `db::posts`. It is also the name the
-// analyzer binds an imported file under besides its short name.
+// analyzer binds the file a directory import reaches under.
 func (n *FilePath) Spelling() string { return PathSpelling(n.Segments) }
 
 // PathSeparator joins the segments of a file's import path in source.
 const PathSeparator = "::"
-
-// IsFullPath reports whether name is a file's full path, `db::posts`,
-// rather than a single name.
-func IsFullPath(name string) bool { return strings.Contains(name, PathSeparator) }
 
 type FieldAccess struct {
 	TriviaCarrier
@@ -2150,6 +2147,16 @@ type ImportStmt struct {
 	// Both are zero when IncludeParent is false.
 	SelfLine int
 	SelfCol  int
+	// PathUses are the paths the import's scope writes below the name a
+	// path-only import binds, each without that name and with `::` between
+	// its segments, sorted and once each: `users` and `reports::daily` for
+	// `import views::admin` in a file that writes `admin::users.index(rows)`
+	// and `admin::reports::daily.show()`. The parser sets it from the file's
+	// text (NotePathUses); it does not know whether the import names a file
+	// or a directory. When it names a directory, these are the files the
+	// import reaches, and the only ones a build loads through it (spec §14
+	// *Directory imports*). Nil for a selective import.
+	PathUses []string
 	Line     int
 	Col      int
 }
@@ -2325,6 +2332,85 @@ func (n *KeywordDecl) BodyPosition(offset int) (line, col int) {
 		}
 	}
 	return n.Body.Line + 1 + nl, n.BodyCol + (offset - last - 1)
+}
+
+// ---------------------------------------------------------------------------
+// Embedded files
+// ---------------------------------------------------------------------------
+
+// EmbedDecl is `[pub] embed name `patterns“: a value holding the files
+// its patterns name, read when the program is compiled (spec §18
+// *Embedded files*). It is written by the keyword-declaration rule, and
+// the parser reads it into this node: Patterns are the body's patterns,
+// split at white space, each with its position. The front end resolves
+// them from the module root and expands the declaration
+// into the `once` it names, whose value is an EmbeddedFiles
+// (analysis.ExpandDeclarations).
+//
+// Line and Col are the keyword's position, NameLine and NameCol the
+// name's. Body is the backtick string as written, positioned at its
+// opening backtick; BodyCol is as KeywordDecl's.
+type EmbedDecl struct {
+	TriviaCarrier
+	SpanCarrier
+	Name     string
+	Public   bool
+	Body     *StringLit
+	BodyCol  int
+	Patterns []EmbedPattern
+	Doc      string
+	Line     int
+	Col      int
+	NameLine int
+	NameCol  int
+}
+
+func (*EmbedDecl) NodeType() string { return "EmbedDecl" }
+func (n *EmbedDecl) LineNum() int   { return n.Line }
+
+// KeywordEndCol is the column after `embed`.
+func (n *EmbedDecl) KeywordEndCol() int { return n.Col + len("embed") }
+
+// EmbedPattern is one pattern of an `embed` body: its text, unquoted, and
+// where it is written. Line and Col are its first character's (the
+// opening quote of a quoted pattern), and Width is how many bytes of the
+// source line it takes, quotes included.
+type EmbedPattern struct {
+	Text  string
+	Line  int
+	Col   int
+	Width int
+}
+
+// EmbeddedFiles is the value of the `once` an `embed` declaration expands
+// into: every file its patterns matched, by its path from the module
+// root, in path order, with where its contents are. Its type is
+// `List<#(String, Int, Int)>`, each file's path, handle and size, which
+// std::embed's private constructor makes a `Files` of. It is never written
+// in source. Line and Col are the declaration's name's position in the
+// synthesized band.
+type EmbeddedFiles struct {
+	SpanCarrier
+	Files []EmbeddedFile
+	Line  int
+	Col   int
+}
+
+func (*EmbeddedFiles) NodeType() string { return "EmbeddedFiles" }
+func (n *EmbeddedFiles) LineNum() int   { return n.Line }
+
+// EmbeddedFile is one embedded file: its slash-separated path from the
+// module root, where its contents are read from (Source: a path on disk,
+// or a path in an in-memory program's data files), its size and the
+// SHA-256 of its contents in lowercase hex. The front end hashes the file
+// and keeps none of it: the program reads the contents when it reads the
+// file. Sum is empty when the front end ran without reading contents (the
+// language server).
+type EmbeddedFile struct {
+	Path   string
+	Source string
+	Size   int64
+	Sum    string
 }
 
 // Expansion marks a declaration a keyword declaration expanded into: the

@@ -243,6 +243,9 @@ func (p *Program) machineOver(entry *ir.Module, out io.Writer) *vm.Machine {
 	if p.cfg.files != nil {
 		m = m.WithFiles(p.cfg.files)
 	}
+	if src := p.embeddedSource(); src != nil {
+		m = m.WithEmbeddedSource(src)
+	}
 	if p.debugger != nil {
 		m = m.WithDebugger(p.debugger)
 	}

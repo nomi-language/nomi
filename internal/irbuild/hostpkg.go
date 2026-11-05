@@ -545,7 +545,7 @@ func (g *gen) hostFnReject(construct, detail string, n ast.Node) {
 		reason += ": " + detail
 	}
 	g.irDeclineOpen(ef.Name)
-	irDeclineNote(reason)
+	g.dc.note(reason)
 }
 
 // hostSignature is a Go-bound `host fn` as its call sites see it.

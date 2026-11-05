@@ -308,7 +308,7 @@ func checkSourceWithStdlib(src string) (*analysis.FileAnalysis, []analysis.TypeE
 	// passes below see the impls. BuildFileWithStdlib lowers on its own internal
 	// copy; the passes receive this same slice, so it must be lowered too.
 	nodes, _ = analysis.LowerDerives(nodes)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	// AttachStdlibProjectImpls builds a stdlib-only ProjectImplIndex
 	// from lib.Files and gives fa a Program holding it. The checker's
@@ -897,7 +897,7 @@ fn f() -> Int {
 // runs CheckTypes on every opened file, so broken stdlib shows as red
 // squiggles in the editor.
 func TestStdlibFilesTypeCheck(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	modules := []string{"maybe", "result", "iterator", "iter", "list", "vector", "string", "map", "range", "io", "struct"}
 	for _, name := range modules {
 		content, ok := std.ReadFile(name)

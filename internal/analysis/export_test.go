@@ -168,13 +168,15 @@ func KeptImplImportsForTest(p *CheckedProgram) (kept, fresh map[*FileAnalysis][]
 // coherence checks answer (FinalizeCoherence and the entry document's
 // entryCoherence) and the same checks worked out from scratch by
 // MissingImpls: over every file's demands, and over the entry's with only
-// the declarations' demands of the other files a project build kept.
+// the declarations' demands of the other files a project build kept. The
+// stdlib built from its interfaces keeps its declarations too, for its
+// deferred body check, but its demands are every body's (std.Shared).
 func KeptCoherenceForTest(p *CheckedProgram) (kept, fresh, keptEntry, freshEntry []TypeError) {
 	entry := p.Files[p.Entry]
 	prog := entry.Program()
 	var demanders []*FileAnalysis
 	for _, f := range prog.Files() {
-		if f != entry && f.kept != nil {
+		if _, isStd := stdlibModuleForPath(f.FilePath); f != entry && f.kept != nil && !isStd {
 			decls := *f
 			decls.ImplManifest = f.kept.manifest
 			f = &decls

@@ -486,7 +486,14 @@ func ownLines(err error) bool {
 // checkFile checks one file as `nomi run` or `nomi test` loads it, and runs
 // nothing. A test file's cases are lowered as `nomi test` lowers them, so a
 // case `nomi test` would report BLOCKED is an error here.
+//
+// A program the artifact cache keeps checked cleanly, and its files are as
+// they were then, so it is not checked again (vmhost.Cache).
 func checkFile(absPath string) error {
+	cache := vmhost.OpenCache(absPath)
+	if cache.Checked() {
+		return nil
+	}
 	res, err := ffirun.Prepare(absPath)
 	if err != nil {
 		return err
@@ -494,7 +501,7 @@ func checkFile(absPath string) error {
 	if !res.FastPath {
 		return ffirun.Check(res, absPath)
 	}
-	return vmhost.Check(absPath)
+	return vmhost.Check(absPath, vmhost.WithCache(cache))
 }
 
 // discoverCheckFiles answers the files `nomi check root` checks as programs,

@@ -4,6 +4,7 @@ import (
 	"maps"
 	"slices"
 	"sync/atomic"
+	"unicode"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -34,16 +35,43 @@ type FileAnalysis struct {
 	// imports is importsOf of the file's nodes for one body part, once a
 	// build or a discovery walk found it (importPaths).
 	imports *fileImports
+	// boot is what the file's bodies tell the boot-only check, for one
+	// body part (bootSummaryOf).
+	boot *bootSummary
+}
+
+// scopeNames are the file's ScopeNames that name types, capitalized, or
+// those that name values.
+func (d *FileDecls) scopeNames(types bool) []string {
+	var out []string
+	for _, name := range d.ScopeNames {
+		if name != "" && unicode.IsUpper([]rune(name)[0]) == types {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // FileDecls is the declaration part of a file's analysis. See FileAnalysis.
 type FileDecls struct {
 	ModuleScope *Scope
-	// ImportedFiles maps the short name of each file the file imports at
-	// its top as a file to the full paths imported under it, for the hint
-	// that names the full path where a local or a declaration shadows the
-	// short name. A single-segment path has no entry.
-	ImportedFiles map[string][]string
+	// ImportedPaths are the file's path-only imports at its top, in order,
+	// for the hints of a path at a use that reaches nothing and of a short
+	// name a local shadows.
+	ImportedPaths []ImportedPath
+	// pathErrors are the positions of the paths at a use the builder
+	// reported (walkPath), where the checker reports no unknown type too.
+	pathErrors map[Pos]bool
+	// unboundImports are the path-only imports that bind nothing, since
+	// another import or a declaration holds the name (markUnbound).
+	unboundImports map[*ast.ImportStmt]bool
+	// ScopeNames are names the file could reach without declaring or
+	// importing them, which a "did you mean" hint offers beside the ones
+	// in its scope, a capitalized one for a type and any other for a
+	// value: a REPL session's names, which the session imports into an
+	// input's file only when the input names them
+	// (SourceProgram.ScopeNames).
+	ScopeNames []string
 	// FilePath is the absolute path of the file this analysis describes.
 	// Set by BuildProject for every project-loaded file. A user file's
 	// symbols carry it as their SourceFile (builder.define). Empty for an
@@ -441,7 +469,10 @@ func cloneManifest(m map[string]map[string][]Recording) map[string]map[string][]
 // reads References.
 func (fa *FileAnalysis) typingDecls(typeDecls func()) {
 	k := fa.kept
-	if k == nil {
+	if k == nil || k.typing {
+		// A step already under way records what this one does: an alias
+		// another file builds at its first lookup (projectAliases) may reach
+		// back into a file that is mid-step.
 		typeDecls()
 		return
 	}
@@ -485,10 +516,32 @@ func (fa *FileAnalysis) rebuildBodies(nodes []ast.Node) ([]TypeError, bool) {
 	return CheckTypes(fa, nodes), true
 }
 
+// CheckDeferredBodies walks and checks the bodies of fa, a stdlib module
+// built from its interface (BuildStdDeclarations), once its nodes hold the
+// module's bodies again: what Sweep B-bodies, the unused checks and
+// CheckTypes did for the module in a build from source. It answers the
+// module's own diagnostics, as std.Load gathers them before the checks
+// over every module, and false when fa was not built that way.
+func (fa *FileAnalysis) CheckDeferredBodies(nodes []ast.Node) ([]TypeError, bool) {
+	if !fa.walkBodies(nodes, false) {
+		return nil, false
+	}
+	errs := slices.Clone(fa.TypeErrors)
+	return append(errs, CheckTypes(fa, nodes)...), true
+}
+
 // walkBodiesAgain is rebuildBodies up to CheckTypes: it throws the body part
 // away, walks the bodies, runs the unused checks and types what the bodies
 // declare. It answers false when fa was not kept.
 func (fa *FileAnalysis) walkBodiesAgain(nodes []ast.Node) bool {
+	return fa.walkBodies(nodes, true)
+}
+
+// walkBodies is walkBodiesAgain, which starts the module scope's symbols
+// again from the declarations' when resetSymbols is set. A stdlib module's
+// bodies bind no name in its module scope, which every build in the process
+// reads, so its deferred walk leaves the symbols as they are.
+func (fa *FileAnalysis) walkBodies(nodes []ast.Node, resetSymbols bool) bool {
 	k := fa.kept
 	if k == nil {
 		return false
@@ -503,7 +556,9 @@ func (fa *FileAnalysis) walkBodiesAgain(nodes []ast.Node) bool {
 		BlockImportScopes: maps.Clone(k.blockImports),
 		generation:        bodyGenerations.Add(1),
 	}
-	fa.ModuleScope.Symbols = maps.Clone(k.symbols)
+	if resetSymbols {
+		fa.ModuleScope.Symbols = maps.Clone(k.symbols)
+	}
 	fa.ModuleScope.Children = fa.ModuleScope.Children[:k.scopes]
 	b := k.builder
 	b.blockImports = maps.Clone(k.builderBlockImports)

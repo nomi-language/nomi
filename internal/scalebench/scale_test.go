@@ -157,6 +157,7 @@ func ops() []op {
 				}
 			}
 		}},
+		op{"lsp lowering after an entry body edit, file by file", entryEditLowering},
 		op{"lsp lowering, from the text", func(tb testing.TB, p *project) func(testing.TB, int) {
 			src := p.gen.Files[p.gen.Entry]
 			return func(tb testing.TB, _ int) {
@@ -170,6 +171,7 @@ func ops() []op {
 		op{"lsp lowering of a leaf, from the text", memberLowering(projectgen.BodyLeaf, false)},
 		op{"lsp lowering of a hub, from the kept program", memberLowering(projectgen.BodyHub, true)},
 		op{"lsp lowering of a hub, from the text", memberLowering(projectgen.BodyHub, false)},
+		op{"nomi run, after a leaf body edit (file records)", cachedAfterEdit(string(projectgen.BodyLeaf), true)},
 		op{"nomi run (load + run)", func(tb testing.TB, p *project) func(testing.TB, int) {
 			return func(tb testing.TB, _ int) {
 				prog, err := vmhost.Load(p.entry)
@@ -182,7 +184,113 @@ func ops() []op {
 			}
 		}},
 	)
+	for _, kind := range append(append([]string(nil), editKindNames()...), fileAddedEdit) {
+		list = append(list, op{"nomi check, after a " + kind + " (file records)", cachedAfterEdit(kind, false)})
+	}
 	return list
+}
+
+// fileAddedEdit names projectgen's FileAdded among the edits cachedAfterEdit
+// makes.
+const fileAddedEdit = "file added, leaf"
+
+func editKindNames() []string {
+	var out []string
+	for _, k := range projectgen.EditKinds {
+		out = append(out, string(k))
+	}
+	return out
+}
+
+// cachedEdit answers the texts by key the nth step of cachedAfterEdit's
+// edit of kind writes, from 0, "" for a file it removes. An edit that is
+// made and undone in turn (a signature, an impl, a file added) is made at
+// even steps.
+func cachedEdit(p *project, kind string, n int) map[string]string {
+	if kind == fileAddedEdit {
+		added := p.gen.FileAdded(0)
+		if n%2 == 0 {
+			return added
+		}
+		out := map[string]string{}
+		for key := range added {
+			out[key] = p.gen.Files[key]
+		}
+		return out
+	}
+	key, text := p.gen.Edit(projectgen.EditKind(kind), n)
+	return map[string]string{key: text}
+}
+
+// relinksAfter reports whether a command after an edit of kind relinks the
+// program from its file records at 10k lines and more: every edit but the
+// hub's signature, which reaches most files.
+func relinksAfter(kind string) bool { return kind != string(projectgen.SignatureHub) }
+
+// cachedAfterEdit is `nomi check`, or `nomi run` when run is set, with
+// the artifact cache, after each step makes projectgen's edit of kind on
+// disk, or adds or removes a file (fileAddedEdit): the program is relinked
+// from its file records (vmhost's filerecord.go), checking and lowering
+// the files the edit reaches. The cache starts with the program kept, and
+// the files are put back afterwards.
+func cachedAfterEdit(kind string, run bool) func(tb testing.TB, p *project) func(testing.TB, int) {
+	return func(tb testing.TB, p *project) func(testing.TB, int) {
+		tb.Setenv("NOMI_ARTIFACT_CACHE", tb.TempDir())
+		write := func(texts map[string]string) {
+			for key, text := range texts {
+				path := p.path(key)
+				if text == "" {
+					_ = os.Remove(path)
+					continue
+				}
+				if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+					tb.Fatal(err)
+				}
+			}
+		}
+		restore := func() {
+			back := map[string]string{}
+			for _, n := range []int{0, 1} {
+				for key := range cachedEdit(p, kind, n) {
+					back[key] = p.gen.Files[key]
+				}
+			}
+			write(back)
+		}
+		tb.Cleanup(restore)
+		restore()
+		if _, err := vmhost.Load(p.entry, vmhost.WithCache(vmhost.OpenCache(p.entry))); err != nil {
+			tb.Fatal(err)
+		}
+		// Each step's texts differ from the last one's (projectgen.Edit),
+		// whatever step numbers the measurement passes.
+		n := 0
+		return func(tb testing.TB, i int) {
+			n++
+			write(cachedEdit(p, kind, n-1))
+			before := vmhost.Relinks()
+			c := vmhost.OpenCache(p.entry)
+			if run {
+				prog, ok := c.Program()
+				if !ok {
+					var err error
+					if prog, err = vmhost.Load(p.entry, vmhost.WithCache(c)); err != nil {
+						tb.Fatal(err)
+					}
+				}
+				if err := prog.Run(context.Background(), io.Discard, nil, false); err != nil {
+					tb.Fatal(err)
+				}
+			} else if !c.Checked() {
+				if err := vmhost.Check(p.entry, vmhost.WithCache(c)); err != nil {
+					tb.Fatal(err)
+				}
+			}
+			if vmhost.Relinks() == before && relinksAfter(kind) && p.gen.Lines() > 5000 {
+				tb.Fatalf("step %d after a %s checked the program afresh rather than relinking it", i, kind)
+			}
+		}
+	}
 }
 
 // memberLowering is the language server's lowering run of the file kind
@@ -217,7 +325,37 @@ func memberLowering(kind projectgen.EditKind, kept bool) func(tb testing.TB, p *
 	}
 }
 
-// analyzedOf is the language server's analyzedOf (internal/lsp/lowering.go).
+// entryEditLowering is the language server's lowering of the entry
+// document's program from its analysis after a body edit of the entry,
+// which lowers the entry alone and links it with the kept objects of the
+// others (vmhost's checklowering_perfile.go). Two analyses of two texts
+// are made outside the clock, and each step lowers the other one's.
+func entryEditLowering(tb testing.TB, p *project) func(testing.TB, int) {
+	path := p.entry
+	var texts [2]string
+	var as [2]*analyzedlowering.Analyzed
+	for i := range texts {
+		_, texts[i] = p.gen.Edit(projectgen.BodyEntry, i)
+		dm := newManager(p.dir)
+		uri := p.uri(p.gen.Entry)
+		dm.Open(uri, texts[i])
+		dm.AnalyzeLatest(context.Background(), uri)
+		if as[i] = analyzedOf(dm.Snapshot(uri)); as[i] == nil {
+			tb.Fatal("the entry's analysis is not the program nomi check builds")
+		}
+	}
+	before := vmhost.AnalyzedRelowersForTest()
+	return func(tb testing.TB, i int) {
+		if _, ok, err := analyzedlowering.Check(context.Background(), path, texts[i%2], as[i%2]); !ok || err != nil {
+			tb.Fatalf("lowering from the analysis: ok %v, err %v", ok, err)
+		}
+		if i > 0 && vmhost.AnalyzedRelowersForTest() == before {
+			tb.Fatal("the lowering after an entry body edit lowered the whole program")
+		}
+	}
+}
+
+// analyzedOfis the language server's analyzedOf (internal/lsp/lowering.go).
 func analyzedOf(snap *analysis.DocSnapshot) *analyzedlowering.Analyzed {
 	if snap == nil || snap.Program == nil || len(snap.Errors) > 0 || len(snap.Damaged) > 0 {
 		return nil

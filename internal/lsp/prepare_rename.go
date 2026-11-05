@@ -103,14 +103,34 @@ func nameAt(fa *analysis.FileAnalysis, pos analysis.Pos) (analysis.Pos, *analysi
 	}
 	var best analysis.Pos
 	var bestSym *analysis.Symbol
+	inside := func(at analysis.Pos, sym *analysis.Symbol) bool { return pos.Col < at.Col+len(sym.Name) }
 	consider := func(at analysis.Pos, sym *analysis.Symbol) {
-		// The cursor may sit just past a name; prefer a name it is inside.
+		// The cursor may sit just past a name; prefer a name it is inside,
+		// and then the name that starts nearest the cursor. A definition is
+		// considered before the references, and of two names at one place
+		// the first by name and then by kind, so the answer does not hang
+		// on the maps' order.
 		if sym == nil || !covers(at, sym.Name) {
 			return
 		}
-		if bestSym == nil || (pos.Col < at.Col+len(sym.Name) && best.Col+len(bestSym.Name) == pos.Col) {
-			best, bestSym = at, sym
+		switch {
+		case bestSym == nil:
+		case inside(at, sym) != inside(best, bestSym):
+			if !inside(at, sym) {
+				return
+			}
+		case at.Col != best.Col:
+			if at.Col < best.Col {
+				return
+			}
+		case sym.Name != bestSym.Name:
+			if sym.Name > bestSym.Name {
+				return
+			}
+		case sym.Kind >= bestSym.Kind:
+			return
 		}
+		best, bestSym = at, sym
 	}
 	for at, sym := range fa.Definitions {
 		consider(at, sym)

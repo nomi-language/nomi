@@ -60,6 +60,14 @@ type ExportParam struct {
 // fails is the error, with the text `nomi run` would print, and nothing is
 // started.
 func Start(image []byte, stdout, stderr io.Writer, args []string, opts ...Option) (*Instance, error) {
+	im, err := imageFromBytes(image, false)
+	if err != nil {
+		return nil, fmt.Errorf("the compiled program cannot be read: %v", err)
+	}
+	return start(im, stdout, stderr, args, opts)
+}
+
+func start(image *Image, stdout, stderr io.Writer, args []string, opts []Option) (*Instance, error) {
 	in, err := boot(image, stdout, stderr, nil, args, opts)
 	if err != nil {
 		return nil, err
@@ -78,15 +86,24 @@ func Start(image []byte, stdout, stderr io.Writer, args []string, opts ...Option
 // when the host asks. A boot that fails is the error, with the text `nomi
 // run` would print.
 func Boot(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string, opts ...Option) (*Instance, error) {
+	im, err := imageFromBytes(image, false)
+	if err != nil {
+		return nil, fmt.Errorf("the compiled program cannot be read: %v", err)
+	}
+	return boot(im, stdout, stderr, stdin, args, opts)
+}
+
+// BootImage is Boot for an image a runner holds (OwnImage).
+func BootImage(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string, opts ...Option) (*Instance, error) {
 	return boot(image, stdout, stderr, stdin, args, opts)
 }
 
-func boot(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string, opts []Option) (*Instance, error) {
+func boot(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string, opts []Option) (*Instance, error) {
 	var cfg config
 	for _, o := range opts {
 		o(&cfg)
 	}
-	im, err := ir.DecodeImage(image)
+	im, err := ir.DecodeImage(image.code)
 	if err != nil {
 		return nil, fmt.Errorf("the compiled program cannot be read: %v", err)
 	}
@@ -116,7 +133,8 @@ func boot(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string
 	if err != nil {
 		return nil, err
 	}
-	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr).WithLocaleData(locales).WithMessages(messages(im))
+	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr).WithLocaleData(locales).WithMessages(messages(im)).
+		WithEmbeddedSource(newImageEmbedded(im.Files, image.files))
 	if stdin != nil {
 		m = m.WithInput(rt.NewInput(stdin))
 	}

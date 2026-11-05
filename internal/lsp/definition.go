@@ -33,6 +33,13 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 		Col:  utf16ToByteCol(doc.Content, params.Position.Line, params.Position.Character),
 	}
 
+	// An `embed` pattern opens the files and folders it matched (embed.go).
+	if info, i, ok := embedPatternAt(doc.Nodes, pos); ok {
+		if locs := embedPatternLocations(info, i); len(locs) > 0 {
+			return locs, nil
+		}
+		return nil, nil
+	}
 	sym := doc.Analysis.SymbolAt(pos)
 	if sym == nil {
 		// An operator: the function of the impl the checker chose for it
@@ -479,6 +486,14 @@ func (s *Server) resolveImportDefinition(currentURI string, imp *ast.ImportStmt,
 	for i, node := range imp.ModulePath {
 		modPath[i] = ast.ImportNodeName(node)
 	}
+	// A file reached through a directory import (`admin::users` for
+	// `import views::admin`) is the directory's path with the use's
+	// segments after it.
+	if sym.Kind == analysis.SymbolModule && strings.Contains(sym.Name, ast.PathSeparator) {
+		rest := strings.Split(sym.Name, ast.PathSeparator)[1:]
+		modPath = append(modPath, rest...)
+		imp = &ast.ImportStmt{ModulePath: append(append([]ast.Node(nil), imp.ModulePath...), pathNodes(rest)...)}
+	}
 
 	var targetURI protocol.DocumentUri
 
@@ -647,4 +662,13 @@ func uriToPath(uri string) string {
 // pathToURI converts a filesystem path to a file:// URI.
 func pathToURI(path string) string {
 	return fileuri.FromPath(path)
+}
+
+// pathNodes are names as an import path's segments.
+func pathNodes(names []string) []ast.Node {
+	out := make([]ast.Node, len(names))
+	for i, name := range names {
+		out[i] = &ast.Ident{Name: name}
+	}
+	return out
 }

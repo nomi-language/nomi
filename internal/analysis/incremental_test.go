@@ -175,10 +175,12 @@ func bodyOnly(kind string) bool {
 }
 
 // needsFull reports whether a step of kind must check the whole program: it
-// leaves a file that does not parse, edits one that did not, or changes the
-// impls a file brings into the program, which every file may read.
+// leaves a file that does not parse, or edits one that did not. A step that
+// changes the impls a file brings checks the files that can see them, which
+// are its dependents unless a file that does not import it can name the
+// impl's interface and receiver (dependentsMayBeFull).
 func needsFull(kind string) bool {
-	for _, k := range []string{"unparseable", "parses again", "impl", "derive"} {
+	for _, k := range []string{"unparseable", "parses again"} {
 		if strings.Contains(kind, k) {
 			return true
 		}
@@ -195,6 +197,7 @@ var dependentsMayBeFull = map[string]bool{
 	"a file that does not import the edited files holds something of them": true,
 	"the program exports functions":                                        true,
 	"the program reads files of other modules":                             true,
+	"an impl the edit changed is seen by a file it did not check":          true,
 }
 
 // checkPaths fails tb for each step whose recheck went the wrong way. A
@@ -641,6 +644,18 @@ var rateEdits = []editStep{
 var dispatchEdits = []editStep{
 	appendText("declaration added, a file the entry imports calls its impl", "main", "\npub fn extra() -> Int {\n    1\n}\n"),
 	restore("declaration removed, a file the entry imports calls its impl", "main"),
+	// The impl names only shade's declarations, so shade, which does not
+	// import the entry, sees it go and come back: a recheck of the entry
+	// and its importers alone would keep shade's call dispatched.
+	{"impl removed, a file the entry imports calls it", "main", func(cur, _ string) (string, bool) {
+		i := strings.Index(cur, "impl Shade for Tint {")
+		j := strings.Index(cur, "fn main()")
+		if i < 0 || j < i {
+			return cur, false
+		}
+		return cur[:i] + cur[j:], true
+	}},
+	restore("impl back", "main"),
 }
 
 // appTypeBoot is the entry boot of the corpus project app_field_permission,
@@ -712,6 +727,7 @@ var signalEdits = []editStep{
 }
 
 func TestIncrementalMatchesFull(t *testing.T) {
+	t.Parallel()
 	dm := newManager()
 	recheck := dm.RecheckWithOutcome
 	t.Run("layered", func(t *testing.T) {
@@ -734,8 +750,14 @@ func TestIncrementalMatchesFull(t *testing.T) {
 			t.Fatal(diff)
 		}
 		for i, o := range outcomes {
-			if o.Path != analysis.RecheckFull || o.Reason != "a file that does not import the edited files holds something of them" {
-				t.Errorf("step %d (%s) went %s (%s), want a full check because shade holds main's impl", i+1, dispatchEdits[i].kind, o.Path, o.Reason)
+			// With the impl gone shade holds nothing of main, and putting it
+			// back is checked in full because shade can see it.
+			want, why := "a file that does not import the edited files holds something of them", "shade holds main's impl"
+			if dispatchEdits[i].kind == "impl back" {
+				want, why = "an impl the edit changed is seen by a file it did not check", "shade sees main's impl"
+			}
+			if o.Path != analysis.RecheckFull || o.Reason != want {
+				t.Errorf("step %d (%s) went %s (%s), want a full check because %s", i+1, dispatchEdits[i].kind, o.Path, o.Reason, why)
 			}
 		}
 		if errs := fullCheck(p, p.texts).Errors; len(errs["main"])+len(errs["shade"]) > 0 {

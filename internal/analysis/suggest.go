@@ -120,7 +120,8 @@ func editDistance(a, b string) int {
 
 // valueNamesAt are the value names in scope at (line, col): functions,
 // parameters and bindings declared before it, `once`s, file objects and
-// variants. extra is a scope to search first (an attached test's).
+// variants, and the file's ScopeNames for values. extra is a scope to search first
+// (an attached test's).
 func (c *checker) valueNamesAt(line, col int, extra *Scope) []string {
 	pos := Pos{Line: line, Col: col}
 	var names []string
@@ -144,12 +145,13 @@ func (c *checker) valueNamesAt(line, col int, extra *Scope) []string {
 	add(extra)
 	if c.fa != nil {
 		add(c.fa.ScopeAt(pos))
+		names = append(names, c.fa.scopeNames(false)...)
 	}
 	return names
 }
 
 // typeNamesAt are the type and variant names in scope at (line, col), and
-// every type the registry knows.
+// every type the registry knows, with the file's ScopeNames for types.
 func (c *checker) typeNamesAt(line, col int) []string {
 	var names []string
 	if c.fa != nil {

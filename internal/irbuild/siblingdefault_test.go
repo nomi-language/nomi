@@ -173,3 +173,19 @@ func TestSiblingDefaults_ADefaultBeforeATrailingCallbackFills(t *testing.T) {
 			got.exit, got.stdout, got.stderr, want)
 	}
 }
+
+// A generic member of a type that is not generic, called from another file
+// that leaves out its default (testdata/sibling_generic_member_default):
+// each instance's accessor is built once, when the call asks for it, and
+// the default calls the declaring file's private `pause`.
+func TestSiblingDefaults_AGenericMemberOfAPlainTypeFillsItsDefault(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	want := "default pause\na 1 5\ndefault pause\nb x 5\n"
+	got := vmReference(fixture("sibling_generic_member_default/main.nomi"))
+	if got.stdout != want || got.stderr != "" || got.exit != 0 {
+		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",
+			got.exit, got.stdout, got.stderr, want)
+	}
+}

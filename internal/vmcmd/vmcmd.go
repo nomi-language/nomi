@@ -33,6 +33,14 @@ import (
 // through vmhost.Program.Run, and an FFI project's wrapper is interrupted,
 // then killed if it has not exited a second later.
 func Run(ctx context.Context, absPath string, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool) int {
+	opts := []vmhost.Option{vmhost.WithErrorOutput(stderr), vmhost.WithInput(stdin)}
+	// A program kept in the artifact cache runs without its files being
+	// checked or lowered again. It was kept only when it had no Go
+	// bindings, so the wrapper is not asked about it.
+	cache := vmhost.OpenCache(absPath)
+	if p, ok := cache.Program(opts...); ok {
+		return runLoaded(ctx, p, absPath, stdout, stderr, args, handleSignals)
+	}
 	res, err := ffirun.Prepare(absPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "nomi run: %v\n", err)
@@ -49,11 +57,16 @@ func Run(ctx context.Context, absPath string, stdout, stderr io.Writer, stdin io
 		}
 		return code
 	}
-	p, err := vmhost.Load(absPath, vmhost.WithErrorOutput(stderr), vmhost.WithInput(stdin))
+	p, err := vmhost.Load(absPath, append(opts, vmhost.WithCache(cache))...)
 	if err != nil {
 		vmhost.WriteFailure(stderr, err)
 		return 1
 	}
+	return runLoaded(ctx, p, absPath, stdout, stderr, args, handleSignals)
+}
+
+// runLoaded runs a loaded program's main as `nomi run` does.
+func runLoaded(ctx context.Context, p *vmhost.Program, absPath string, stdout, stderr io.Writer, args []string, handleSignals bool) int {
 	if err := p.RequireMain("run"); err != nil {
 		fmt.Fprintf(stderr, "nomi run: %v\n", err)
 		return 1
@@ -148,6 +161,15 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 		}
 		return t.test(p, file, opts, label)
 	}
+	// A relative path a test's std/fs call takes is under its module root
+	// (vmhost.TestDir), wherever `nomi test` runs.
+	loadOpts := append(t.loadOptions(), vmhost.WithFileSystem(vmhost.DiskFilesAt(vmhost.TestDir(file))))
+	// A file kept in the artifact cache is tested without its files being
+	// checked or lowered again (Run's reason).
+	cache := vmhost.OpenCache(file)
+	if p, ok := cache.Program(loadOpts...); ok {
+		return t.test(p, file, opts, label)
+	}
 	goRoot, hasGoRoot := ffirun.GoModRoot(file)
 	fileDir, _ := filepath.Abs(filepath.Dir(file))
 	cacheKey := fileDir
@@ -183,9 +205,7 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 		}
 		return passed + failed + blocked
 	}
-	// A relative path a test's std/fs call takes is under its module root
-	// (vmhost.TestDir), wherever `nomi test` runs.
-	p, err := vmhost.Load(file, append(t.loadOptions(), vmhost.WithFileSystem(vmhost.DiskFilesAt(vmhost.TestDir(file))))...)
+	p, err := vmhost.Load(file, append(loadOpts, vmhost.WithCache(cache))...)
 	if err != nil {
 		t.Rep.FailFile(file, err)
 		return 0

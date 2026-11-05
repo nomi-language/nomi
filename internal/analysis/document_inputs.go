@@ -63,7 +63,19 @@ func (dm *DocumentManager) expansionSite(root, key string, m *Manifest, read Inp
 	if m != nil {
 		s.Root = root
 	}
+	dm.embedOn(s, root)
 	return s
+}
+
+// embedOn makes s's `embed` declarations find their files under root
+// without reading them: the server needs their names and sizes, and
+// reading an asset folder on every keystroke would cost what the
+// analysis does not use.
+func (dm *DocumentManager) embedOn(s *ExpansionSite, root string) {
+	if root != "" {
+		s.Embed = DiskEmbedFS{Root: root}
+		s.SkipEmbedContents = true
+	}
 }
 
 // expandLoaded expands the keyword declarations of a project file the
@@ -77,7 +89,9 @@ func (dm *DocumentManager) expandLoaded(projectRoot string, modulePath []string,
 // docPath under root.
 func (dm *DocumentManager) expandDocument(root, docPath string, nodes []ast.Node) []ast.Node {
 	m, _ := LoadManifest(root)
-	return ExpandDeclarations(nodes, SiteFor(root, docPath, m, dm.readInput))
+	s := SiteFor(root, docPath, m, dm.readInput)
+	dm.embedOn(s, root)
+	return ExpandDeclarations(nodes, s)
 }
 
 // IsInput reports whether a program the manager keeps read the file at

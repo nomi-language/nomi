@@ -9,6 +9,7 @@ import (
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/stdcache"
+	"hash/crc64"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -58,12 +59,13 @@ var stdlibFS embed.FS
 // Shared, which the front end and internal/irbuild read.
 var loadMu sync.Mutex
 
-// loadCount is how many times Load has run in this process.
+// loadCount is how many times the stdlib was built in this process.
 var loadCount atomic.Int64
 
-// LoadCount reports how many times Load has run in this process.
+// LoadCount reports how many times the stdlib was built in this process:
+// each Load, and Shared once.
 //
-// Load is a full stdlib parse and analysis, and a caller that asks it a fixed
+// Each is a full stdlib build, and a caller that asks it a fixed
 // question per module or per signature multiplies that cost by the number of
 // modules or signatures. Tests read this to hold the count to a small constant
 // (internal/irbuild/stdloadcount_test.go).
@@ -106,6 +108,9 @@ type StdLib struct {
 	// folding the stdlib's files itself. Nil when the stdlib does not fit
 	// one, and every build then folds them.
 	Base *analysis.StdBase
+	// deferred is set when the stdlib was built from its modules'
+	// interfaces (Shared): a module's bodies are checked when Bodies asks.
+	deferred *deferredBodies
 }
 
 // SyntaxError answers every parse error in the embedded stdlib, one
@@ -319,6 +324,27 @@ func isEmbeddedStdlibSource(path string) bool {
 	return !fixture || (FixturesLoaded() && !strings.Contains(rest, "/"))
 }
 
+// Digest is a checksum of the stdlib this process analyzes: every embedded
+// module's path and source, the test-only fixtures included when they are
+// loaded. Something built from one stdlib checks it against another's before
+// it is used (internal/irbuild's std bundle).
+var Digest = sync.OnceValue(func() string {
+	h := crc64.New(crc64.MakeTable(crc64.ECMA))
+	_ = fs.WalkDir(stdlibFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !isEmbeddedStdlibSource(path) {
+			return err
+		}
+		data, err := stdlibFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(h, "%s\x00%d\x00", path, len(data))
+		h.Write(data)
+		return nil
+	})
+	return fmt.Sprintf("%016x", h.Sum64())
+})
+
 // FixturesLoaded reports whether this process's stdlib holds the test-only
 // modules directly under `_fixtures/` (`std/_fixtures/conn`): only in a
 // test binary run with NOMI_STD_FIXTURES=1, which a test sets for a child
@@ -481,7 +507,10 @@ func stdlibDependencyImport(name string, line int) *ast.ImportStmt {
 // Callers only read it. A project build writes nothing into a shared
 // FileAnalysis it does not own (analysis.buildProjectWithCache gives its
 // Program only to the files it built).
-var Shared = sync.OnceValue(Load)
+//
+// It is built from the modules' interfaces, so a module's bodies are
+// checked only when something asks for them (Bodies, shared.go).
+var Shared = sync.OnceValue(loadShared)
 
 // Load parses all embedded stdlib .nomi files and returns the analyzed
 // result. Internally delegates to BuildProjectWithCache so every stdlib
@@ -499,6 +528,12 @@ func Load() *StdLib {
 	loadMu.Lock()
 	defer loadMu.Unlock()
 	loadCount.Add(1)
+	return load()
+}
+
+// load is Load under loadMu, uncounted: Shared counts itself once, whether
+// or not it analyzes the stdlib from source to make its facts.
+func load() *StdLib {
 
 	lib := &StdLib{
 		Modules: make(map[string]*analysis.Scope),
@@ -513,13 +548,7 @@ func Load() *StdLib {
 	// making DiscoverProject walk them all. Bare module imports are not
 	// surface syntax, but the bootstrapper still needs a dependency-only
 	// edge that doesn't bind an API name in user code.
-	var entryNodes []ast.Node
-	line := 1
-	for _, name := range embeddedStdlibNames() {
-		entryNodes = append(entryNodes, stdlibDependencyImport(name, line))
-		line++
-	}
-	entryNodes = append(entryNodes, stdlibDependencyImport("prelude", line))
+	entryNodes := stdEntryNodes()
 
 	loader := makeLoader(nil, func(name string, errs []parser.ParseError) {
 		if len(errs) == 0 {

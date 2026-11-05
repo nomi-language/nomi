@@ -8,7 +8,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // `break value` is `return value` then stop (spec §13), so a `break []`
@@ -26,7 +25,7 @@ func TestBreakValue_EmptyListTakesTheCallbacksResult(t *testing.T) {
     |> Iter.to_list()
 }`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	var errs []analysis.TypeError

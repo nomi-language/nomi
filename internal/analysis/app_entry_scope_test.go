@@ -9,7 +9,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // appScopeProject writes `files` under a fresh temp dir and returns the root.
@@ -76,7 +75,7 @@ func appScopeAnalyze(t *testing.T, root, entry string, counts *appScopeCounts) (
 	if len(parseErrs) > 0 {
 		t.Fatalf("parse %s: %+v", entry, parseErrs)
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectFromEntry(entryPath, nodes, lib.Primitives, lib.Modules, lib.Files, root, appScopeLoader(counts))
 	if fa == nil {
 		t.Fatalf("BuildProjectFromEntry returned nil for %s", entry)

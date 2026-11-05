@@ -41,7 +41,7 @@ var imageSlot = wasmImageSlot{
 }
 
 // ownImage answers the image `nomi build` wrote into imageArea.
-func ownImage() ([]byte, error) {
+func ownImage() (*Image, error) {
 	area := imageSlot.area[:]
 	n := binary.LittleEndian.Uint64(area[:8])
 	if n == 0 {
@@ -50,5 +50,7 @@ func ownImage() ([]byte, error) {
 	if n > uint64(len(area)-8) {
 		return nil, fmt.Errorf("the program in this module is damaged: it claims %d bytes, more than the %d its area holds", n, len(area)-8)
 	}
-	return area[8 : 8+n : 8+n], nil
+	// The area is never written after the engine fills it, so a file is
+	// read as a view of it, not a copy.
+	return imageFromBytes(area[8:8+n:8+n], true)
 }

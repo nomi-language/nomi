@@ -33,15 +33,27 @@ func TestStdlibLowersTheSameWithoutLint(t *testing.T) {
 	lintEmbeddedStdlib = false
 	defer func() { lintEmbeddedStdlib = true }()
 	off := buildStdlibIndex()
+	// And as a built binary reads it: a std bundle of the lowering without
+	// lint, decoded without lint (stdbundle.go).
+	_, shared, err := lowerStdBundle()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := decodeStdShared(shared)
+	if err != nil {
+		t.Fatal(err)
+	}
 	lintEmbeddedStdlib = true
 
-	for pkg, m := range off.irModules {
-		if err := ir.LintModule(m); err != nil {
-			t.Errorf("%s, lowered without lint, fails it:\n%v", pkg, err)
+	for name, idx := range map[string]*stdlibIndex{"lowered": off, "decoded from a bundle": decoded} {
+		for pkg, m := range idx.irModules {
+			if err := ir.LintModule(m); err != nil {
+				t.Errorf("%s, %s without lint, fails it:\n%v", pkg, name, err)
+			}
 		}
-	}
-	if got, want := stdLoweringPrint(off), stdLoweringPrint(on); got != want {
-		t.Errorf("the stdlib lowered without lint differs from the lowering with it:\n%s", firstDifference(got, want))
+		if got, want := stdLoweringPrint(idx), stdLoweringPrint(on); got != want {
+			t.Errorf("the stdlib %s without lint differs from the lowering with it:\n%s", name, firstDifference(got, want))
+		}
 	}
 }
 

@@ -64,7 +64,26 @@ const (
 	// ConstByte is an Int literal written where a Byte is expected: a value
 	// from 0 to 255, which the checker has range-checked.
 	ConstByte
+	// ConstEmbedded is one embedded file (spec §18 *Embedded files*): its
+	// value is an Int, the machine's handle for the file, through which
+	// std/embed reads the contents when the program reads the file. The
+	// constant carries where the contents are (EmbeddedRef), not the
+	// contents, so no lowering or image code holds an embedded file's
+	// bytes. Owner: embeddedFiles.
+	ConstEmbedded
 )
+
+// EmbeddedRef is an embedded file as a ConstEmbedded names it: where its
+// contents are read from, and the size and SHA-256 they had when the
+// program was compiled. Source is a path on disk, or a path in an
+// in-memory program's data files; an image writes it as WithFileNames
+// renames it. Sum is the SHA-256 in lowercase hex. A built image holds the
+// contents in its files region, found by Sum (Image.Files).
+type EmbeddedRef struct {
+	Source string
+	Size   int64
+	Sum    string
+}
 
 func (k ConstKind) String() string {
 	switch k {
@@ -90,6 +109,8 @@ func (k ConstKind) String() string {
 		return "vector"
 	case ConstByte:
 		return "byte"
+	case ConstEmbedded:
+		return "embedded"
 	}
 	return "const?"
 }
@@ -105,6 +126,9 @@ type Const struct {
 	typ  *Symbol
 	// big is a ConstInt's value when it does not fit int64; nil otherwise.
 	big *big.Int
+	// sum is a ConstEmbedded's SHA-256. Its Source is text and its Size
+	// num.
+	sum string
 }
 
 // NewUnit is `rt.Unit{}`.
@@ -164,6 +188,13 @@ func NewDecimal(pos Pos, dst Temp, text string) *Const {
 func NewString(pos Pos, dst Temp, text string) *Const {
 	c := newConst(pos, dst, ConstString, "NewString")
 	c.text = text
+	return c
+}
+
+// NewEmbedded is the handle of the embedded file ref names.
+func NewEmbedded(pos Pos, dst Temp, ref EmbeddedRef) *Const {
+	c := newConst(pos, dst, ConstEmbedded, "NewEmbedded")
+	c.text, c.num, c.sum = ref.Source, ref.Size, ref.Sum
 	return c
 }
 
@@ -230,8 +261,14 @@ func (c *Const) Big() *big.Int { return c.big }
 // Float is the value of a ConstFloat.
 func (c *Const) Float() float64 { return c.flt }
 
-// Text is the exact text of a ConstDecimal or the contents of a ConstString.
+// Text is the exact text of a ConstDecimal, or the contents of a
+// ConstString.
 func (c *Const) Text() string { return c.text }
+
+// Embedded is the file a ConstEmbedded names.
+func (c *Const) Embedded() EmbeddedRef {
+	return EmbeddedRef{Source: c.text, Size: c.num, Sum: c.sum}
+}
 
 // Type is the element type of an empty container or the marker's type. Nil for a scalar, and nil for an UNDISCHARGED
 // container.
@@ -283,6 +320,8 @@ func (c *Const) String() string {
 		s += " " + strconv.FormatFloat(c.flt, 'g', -1, 64)
 	case ConstDecimal, ConstString:
 		s += " " + strconv.Quote(c.text)
+	case ConstEmbedded:
+		s += " " + strconv.Quote(c.text) + " " + strconv.FormatInt(c.num, 10) + " bytes"
 	case ConstMarker, ConstEmptyList, ConstEmptySet, ConstEmptyVector:
 		if c.typ == nil {
 			s += " <undischarged>"

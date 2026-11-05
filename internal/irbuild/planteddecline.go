@@ -44,6 +44,10 @@ func PlantDeclineForTest(callee, reason string) (restore func()) {
 	return func() { plantedDecline.Store(prev) }
 }
 
+// DeclinesPlanted reports whether a test has planted a decline
+// (PlantDeclineForTest), which no kept program holds.
+func DeclinesPlanted() bool { return plantedDecline.Load() != nil }
+
 // plantedDeclineAt is the planted reason when n is a call to the planted
 // callee, else "".
 func plantedDeclineAt(n ast.Node) string {

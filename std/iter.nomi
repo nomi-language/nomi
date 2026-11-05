@@ -1034,7 +1034,7 @@ impl Iter<T> {
     //!     ["c", "d"],
     //! ]
     //!
-    //! assert 1..=20 |> Iter.combinations(10) |> Iter.count() == 184_756
+    //! assert 1..=10 |> Iter.combinations(5) |> Iter.count() == 252
     //! assert [1, 2] |> Iter.combinations(3) |> Iter.to_list() == []
     //
     pub fn combinations<T>(items: Iter<T>, k: Int) -> Iter<List<T>> {

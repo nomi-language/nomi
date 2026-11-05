@@ -296,7 +296,7 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 	if snap.Open {
 		tokens = func() []token.Token { return s.pipeTokens.get(snap.URI, snap.Content).toks }
 	}
-	typeErrs := snap.Analysis.TypeErrors
+	typeErrs := snap.TypeErrors()
 	refused := programRefusesReservedName(snap)
 	if refused {
 		// A type declared under a reserved name is refused, and every use
@@ -331,13 +331,13 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 		URI:         protocol.DocumentUri(snap.URI),
 		Diagnostics: diags,
 	})
-	s.publishInputs(notify, snap.URI, snap.Analysis.TypeErrors)
+	s.publishInputs(notify, snap.URI, snap.TypeErrors())
 }
 
 // programRefusesReservedName reports whether a file of snap's program, the
 // document's own or another, declares a type under a reserved name.
 func programRefusesReservedName(snap *analysis.DocSnapshot) bool {
-	if len(analysis.ReservedNameRefusals(snap.Analysis.TypeErrors)) > 0 {
+	if len(analysis.ReservedNameRefusals(snap.TypeErrors())) > 0 {
 		return true
 	}
 	for _, fa := range snap.Analysis.Program().Files() {

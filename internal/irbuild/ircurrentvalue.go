@@ -65,7 +65,7 @@ func (bl *irScalarBuilder) currentMissing(spread ast.Node) (irCurrent, bool) {
 func (bl *irScalarBuilder) currentValue(t *ast.CurrentValue) (ir.Temp, kind, bool, bool) {
 	c, ok := bl.current[t]
 	if !ok {
-		irDeclineNote("a bare `..` with no current value recorded")
+		bl.g.dc.note("a bare `..` with no current value recorded")
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if !c.missing {
@@ -105,7 +105,7 @@ func (bl *irScalarBuilder) emptyOf(at ast.Node, k kind) (ir.Temp, kind, bool, bo
 			v, have = c.Dst(), kindEmptySet
 			break
 		}
-		irDeclineNote("a bare `..` at a missing key of kind " + k.nomi())
+		bl.g.dc.note("a bare `..` at a missing key of kind " + k.nomi())
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	v, got, ok := bl.coerceEmpty(at, v, have, k)
@@ -158,7 +158,7 @@ func (bl *irScalarBuilder) holdTemp(at ast.Node, v ir.Temp, k kind) ir.Temp {
 // slot, which is the entry's value.
 func (bl *irScalarBuilder) updateEntry(value ast.Node, key, base ir.Temp, bk kind) (ir.Temp, kind, bool) {
 	if bk.tag != tagMap || bk == kindEmptyMap || bk.comp == nil || len(bk.comp.parts) != 2 {
-		irDeclineNote("a bare `..` at a key of a map whose kind is open")
+		bl.g.dc.note("a bare `..` at a key of a map whose kind is open")
 		return ir.NoTemp, kindInvalid, false
 	}
 	vk := bk.comp.parts[1]

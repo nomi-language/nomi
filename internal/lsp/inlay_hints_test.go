@@ -4,14 +4,13 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"strings"
 	"testing"
 )
 
 func getInlayHints(t *testing.T, src string) []InlayHint {
 	t.Helper()
-	lib := std.Load()
+	lib := loadStd()
 	tokens := lexer.Lex(src)
 	nodes, errs := parser.ParseWithRecovery(tokens)
 	if len(errs) > 0 {
@@ -120,7 +119,7 @@ func TestCheckTypesStdlibCallArgMismatch(t *testing.T) {
 	// String.length takes (s: String): Int — passing an Int should error
 	src := `import std::strings.String
 fn main() { String.length(42) }`
-	lib := std.Load()
+	lib := loadStd()
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := analysis.BuildProject(nodes, lib.Primitives, lib.Modules, lib.Files, "/tmp", nil)

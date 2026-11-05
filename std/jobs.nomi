@@ -45,7 +45,7 @@
 //#
 //# ```nomi
 //# fn boot() -> Result<App, String> {
-//#     queue = pgjobs.queue(db, url)
+//#     queue = pgjobs.queue(db, url) |> Result.map_err(fn e -> "${e}")?
 //#     Ok(App{..., queue, worker: Worker.new(queue, max_running: 4)})
 //# }
 //#
@@ -64,6 +64,62 @@
 //# hands back the ones still running, so another process takes them at
 //# once.
 //#
+//# ## Unique jobs and priorities
+//#
+//# An enqueue with `unique` stores nothing when a job holding the same key
+//# is stored, and answers that job's id with `duplicate: True`. A key is
+//# the job's kind and the `Unique`'s `key`; by default a job holds it while
+//# it is available or running, and with `across: .Kept` for as long as the
+//# queue keeps it. A `period` makes the key one per period, counted from
+//# the Unix epoch:
+//#
+//# ```nomi
+//# unique = Unique{key: "post:${post_id}", period: Some(Duration.minutes(10))}
+//#
+//# enqueued = jobs.enqueue(App.queue, tx, email_job, EmailArgs{post_id}, unique: Some(unique))?
+//# ```
+//#
+//# A worker claims the due job of the highest `priority` first, then the
+//# oldest. A `Job` gives its kind a priority, 0 unless given, and an
+//# enqueue may give another.
+//#
+//# ## Schedules
+//#
+//# A `Schedule` enqueues a job on a fixed interval or at the times a `Cron`
+//# expression names, and a worker started with schedules enqueues each
+//# one's jobs as their times come:
+//#
+//# ```nomi
+//# once nightly = Schedule.cron(
+//#     "nightly report",
+//#     Cron`0 3 * * *`,
+//#     report_job,
+//#     ReportArgs{},
+//#     zone: "America/New_York",
+//# )
+//#
+//# fn main() {
+//#     Worker.start(App.worker, [report_job], schedules: [nightly])
+//#     ...
+//# }
+//# ```
+//#
+//# Each tick's job carries a unique key of the schedule's name and the
+//# tick's time, held while the queue keeps the job, so any number of
+//# processes can run the same schedules and each tick is enqueued once,
+//# with no process leading. The queue also records each schedule's latest
+//# tick. A scheduler that comes back after missing several ticks enqueues
+//# one job, for the latest of them, or none with `missed: .Skip`; one that
+//# starts a schedule the queue has no record of enqueues nothing until its
+//# next tick.
+//#
+//# A cron expression is read on a wall clock in `zone`, UTC unless given.
+//# A wall time that a fall-back change makes happen twice runs once, at
+//# its first occurrence. A wall time that a spring-forward change skips
+//# runs at the instant the clocks jump, so a 02:30 job in New York runs at
+//# 03:00 that day, once. An interval counts elapsed time from the Unix
+//# epoch and ignores the zone.
+//#
 //# ## Arguments over time
 //#
 //# A stored job's arguments are `A`'s JSON. Derived `FromJson` fills a
@@ -79,11 +135,13 @@
 //# the `Queue` interface and the values it takes and answers (`NewJob`,
 //# `Claimed`, `Settle`), `Handler`, which a worker runs, and the pieces a
 //# worker is built from (`run_one`, `settle_for`, `backoff`,
-//# `handlers_by_kind`, `wake`).
+//# `handlers_by_kind`, `wake`, `enqueue_due`).
 
 import {
     bool.Bool.{self, False, True}
+    calendar.{self, Anchored, DateParts, DateTime, Disambiguation, NaiveDateTime, TimeParts}
     channels.{Arm, Channel, Receiver, Sender}
+    code_points.Codepoint
     debug.Debug
     display.Display
     duration.Duration
@@ -93,10 +151,12 @@ import {
     iter.Iter
     json.{FromJson, Json, ToJson}
     lists.List
+    literals.{CheckedLiteral, Fragment, LiteralError}
     log.{self, Logger}
     maps.Map
     maybe.Maybe.{self, None, Some}
     results.Result.{self, Err, Ok}
+    sets.Set
     sql.{self, Conn}
     strings.String
     supervisors.{Supervisor, Wait}
@@ -106,13 +166,14 @@ import {
 }
 
 /// One kind of job: the name it is stored under, the queue it goes to,
-/// how often it may run and for how long, and its handler, typed by its
-/// arguments `A`.
+/// how often it may run and for how long, its priority, and its handler,
+/// typed by its arguments `A`.
 pub struct Job<A> {
     kind: String
     queue: String
     max_attempts: Int
     timeout: Duration
+    priority: Int
     handler: (A) -> Result<Unit, Failure>
 }
 
@@ -123,21 +184,24 @@ impl Job<A> {
     /// call names: `Job.new("email", send_email, max_attempts: 25)`.
     ///
     /// `max_attempts` counts runs, including the first, and `timeout`
-    /// bounds each run.
+    /// bounds each run. Of the due jobs, a worker claims those of the
+    /// highest `priority` first; an enqueue may give another.
     //! job = Job.new("greet", max_attempts: 3, fn _: Int -> Ok(Unit))
     //! assert job.kind == "greet"
     //! assert job.queue == "default"
     //! assert job.max_attempts == 3
     //! assert job.timeout == Duration.minutes(5)
+    //! assert job.priority == 0
     //
     pub fn new(
         kind: String,
         queue: String = "default",
         max_attempts: Int = 20,
         timeout: Duration = Duration.minutes(5),
+        priority: Int = 0,
         handler: (A) -> Result<Unit, Failure>,
     ) -> Job<A> {
-        Job{kind, queue, max_attempts, timeout, handler}
+        Job{kind, queue, max_attempts, timeout, priority, handler}
     }
 
     /// The same job under a kind it was stored under before a rename. Start
@@ -153,6 +217,7 @@ impl Job<A> {
             queue: job.queue,
             max_attempts: job.max_attempts,
             timeout: job.timeout,
+            priority: job.priority,
             handler: job.handler,
         }
     }
@@ -199,25 +264,782 @@ impl Display for JobId {
 }
 
 /// Enqueues a job of `job`'s kind for `args` on `conn`, due at once or at
-/// `run_at`, and answers its id. `conn` may be a transaction, and the job
-/// is stored only if the transaction commits. A failed write is the
-/// queue's `sql.Error`.
+/// `run_at`, at `job`'s priority or `priority`, and answers its id. `conn`
+/// may be a transaction, and the job is stored only if the transaction
+/// commits. With `unique`, an enqueue that finds a stored job holding the
+/// same key stores nothing and answers that job's id, with `duplicate`
+/// set. A failed write is the queue's `sql.Error`.
+//! import std::sql_testing.Fake
+//! import std::jobs_testing.Inline
+//!
+//! queue = Inline.new()
+//! job = Job.new("greet", fn _: Int -> Ok(Unit))
+//! first = enqueue(queue, Fake.new(), job, 1, unique: Some(Unique{key: "ada"}))?
+//! again = enqueue(queue, Fake.new(), job, 2, unique: Some(Unique{key: "ada"}))?
+//! assert not first.duplicate
+//! assert again == Enqueued{id: first.id, duplicate: True}
+//
 pub fn enqueue<A>(
     queue: Queue,
     conn: Conn,
     job: Job<A>,
     args: A,
     run_at: Maybe<Instant> = None,
-) -> Result<JobId, sql.Error> where A: ToJson {
+    priority: Maybe<Int> = None,
+    unique: Maybe<Unique> = None,
+) -> Result<Enqueued, sql.Error> where A: ToJson {
     new_job = NewJob{
         queue: job.queue,
         kind: job.kind,
         args: ToJson.to_json(args),
         run_at,
         max_attempts: job.max_attempts,
+        priority: Maybe.with_default(priority, job.priority),
+        unique_key: Maybe.map(unique, fn u -> Unique.key_for(u, job.kind, Instant.now())),
+        unique_across: Maybe.map(unique, &(&1.across)) |> Maybe.with_default(UniqueStates.Live),
     }
 
     Queue.insert(queue, conn, new_job)
+}
+
+/// What an enqueue stored, or found: the job's id, and whether a stored
+/// job already held the enqueue's unique key, so nothing new was stored.
+pub struct Enqueued {
+    id: JobId
+    duplicate: Bool
+}
+
+derive Equatable for Enqueued
+derive Debug for Enqueued
+
+/// What makes an enqueue unique: a `key`, which names the job among those
+/// of its kind, the states in which a stored job holds it, and an optional
+/// `period`, which makes the key one per period.
+pub struct Unique {
+    key: String
+    across: UniqueStates = UniqueStates.Live
+    period: Maybe<Duration> = None
+}
+
+derive Equatable for Unique
+derive Debug for Unique
+
+impl Unique {
+    /// The key a job of `kind` stores for `unique` when enqueued at `now`:
+    /// the kind, the key, and with a period the start of the period `now`
+    /// falls in, counted from the Unix epoch.
+    //! u = Unique{key: "post:7", period: Some(Duration.hours(1))}
+    //! at = Instant.from_seconds(3_600 * 24 + 1_800)
+    //! assert Unique.key_for(u, "email", at) == "[\"email\",\"post:7\",\"1970-01-02T00:00:00Z\"]"
+    //! assert Unique.key_for(Unique{key: "post:7"}, "email", at) == "[\"email\",\"post:7\"]"
+    //
+    pub fn key_for(unique: Unique, kind: String, now: Instant) -> String {
+        bucket = case unique.period {
+            Some(period) -> {
+                n = Duration.as_nanos(period)
+                [rfc3339(Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n))]
+            }
+
+            None ->
+                []
+        }
+
+        key_of([kind, unique.key] + bucket)
+    }
+}
+
+/// The states in which a stored job holds its unique key.
+pub enum UniqueStates {
+    /// While the job is available or running: once it completes or is
+    /// discarded, the key is free.
+    Live
+
+    /// In every state, for as long as the queue keeps the job.
+    Kept
+}
+
+derive Equatable for UniqueStates
+derive Debug for UniqueStates
+
+/// A job a worker enqueues on a fixed interval or at the times a cron
+/// expression names. Its `name` keys its ticks in the queue, so every
+/// process that runs a schedule gives it the same name, and two schedules
+/// never share one.
+pub opaque struct Schedule {
+    name: String
+    timing: Timing
+    job: NewJob
+    missed: Missed
+}
+
+// When a schedule ticks.
+enum Timing {
+    Every Duration
+    Cron {cron: Cron, zone: String}
+}
+
+/// What a scheduler does when it finds that it missed several of a
+/// schedule's ticks, as after a restart.
+pub enum Missed {
+    /// Enqueue one job, for the latest tick missed.
+    RunLatest
+
+    /// Enqueue nothing for the ticks missed, and wait for the next one.
+    Skip
+}
+
+derive Equatable for Missed
+derive Debug for Missed
+
+impl Schedule {
+    /// A schedule that enqueues `job` for `args` every `interval`, at the
+    /// whole multiples of it since the Unix epoch, so every process
+    /// agrees on the ticks. An interval of zero or less traps.
+    //! job = Job.new("sweep", fn _: Int -> Ok(Unit))
+    //! sweep = Schedule.every("sweep", Duration.minutes(15), job, 0)
+    //! assert Schedule.name(sweep) == "sweep"
+    //! at = Instant.from_seconds(60 * 20)
+    //! assert Schedule.next_after(sweep, at) == Instant.from_seconds(60 * 30)
+    //
+    pub fn every<A>(
+        name: String,
+        interval: Duration,
+        job: Job<A>,
+        args: A,
+        missed: Missed = Missed.RunLatest,
+    ) -> Schedule where A: ToJson {
+        every = positive(interval)!
+        Schedule{name, timing: Timing.Every(every), job: template(job, args), missed}
+    }
+
+    /// A schedule that enqueues `job` for `args` at the times `cron`
+    /// names on a wall clock in `zone`, an IANA zone name. A zone the
+    /// time zone database does not know traps, naming it.
+    //! job = Job.new("report", fn _: Int -> Ok(Unit))
+    //! nightly = Schedule.cron("nightly", Cron`30 2 * * *`, job, 0, zone: "America/New_York")
+    //!
+    //! // On 8 March 2026 New York's clocks jump from 02:00 to 03:00, so
+    //! // that day's 02:30 runs at 03:00.
+    //! at = DateTime`2026-03-08T00:00:00-05:00[America/New_York]`
+    //!
+    //! assert Schedule.next_after(nightly, Anchored.to_instant(at))
+    //!     == Anchored.to_instant(DateTime`2026-03-08T03:00:00-04:00[America/New_York]`)
+    //
+    pub fn cron<A>(
+        name: String,
+        cron: Cron,
+        job: Job<A>,
+        args: A,
+        zone: String = "UTC",
+        missed: Missed = Missed.RunLatest,
+    ) -> Schedule where A: ToJson {
+        _ = DateTime.from_instant_in(Instant.from_seconds(0), zone)!
+        Schedule{name, timing: Timing.Cron{cron, zone}, job: template(job, args), missed}
+    }
+
+    /// The name the schedule's ticks are recorded under.
+    pub fn name(schedule: Schedule) -> String {
+        schedule.name
+    }
+
+    /// The schedule's first tick after `at`.
+    pub fn next_after(schedule: Schedule, at: Instant) -> Instant {
+        case schedule.timing {
+            .Every(interval) -> {
+                n = Duration.as_nanos(interval)
+                Instant.from_nanos((Int.floor_div(Instant.as_nanos(at), n) + 1) * n)
+            }
+
+            .Cron{cron, zone} ->
+                cron_next(cron, zone, at)
+        }
+    }
+}
+
+fn positive(interval: Duration) -> Result<Duration, String> {
+    if Duration.as_nanos(interval) > 0 {
+        Ok(interval)
+    } else {
+        Err("a schedule's interval must be above zero, not ${interval}")
+    }
+}
+
+// The job a schedule enqueues, before its tick gives it a time and a key.
+fn template<A>(job: Job<A>, args: A) -> NewJob where A: ToJson {
+    NewJob{
+        queue: job.queue,
+        kind: job.kind,
+        args: ToJson.to_json(args),
+        run_at: None,
+        max_attempts: job.max_attempts,
+        priority: job.priority,
+    }
+}
+
+/// A cron expression: five fields, separated by spaces, for the minute
+/// (0 to 59), the hour (0 to 23), the day of the month (1 to 31), the
+/// month (1 to 12, or `JAN` to `DEC`) and the day of the week (0 to 7,
+/// where 0 and 7 are Sunday, or `SUN` to `SAT`). A field is `*`, a value,
+/// a range `a-b`, any of those with a step (`*/15`, `1-5/2`, `10/20` from
+/// 10 to the end), or a list of them separated by commas. Names may be
+/// written in any case. `@yearly`, `@monthly`, `@weekly`, `@daily` and
+/// `@hourly` stand for their usual expressions.
+///
+/// When both day fields are given, a day matches either one, as in
+/// Vixie cron: `0 0 1 * MON` runs on the first of the month and on each
+/// Monday. A field written `*/2` counts as given.
+///
+/// ``Cron`0 3 * * *` `` is checked when the program is checked, and a
+/// bad expression is a compile error; `Cron.parse` reads one at run time.
+//! assert "${Cron`*/15 9-17 * * MON-FRI`}" == "*/15 9-17 * * MON-FRI"
+//! assert Cron.parse("0 3 * * *") == Ok(Cron`0 3 * * *`)
+//
+pub opaque struct Cron {
+    text: String
+    minutes: Set<Int>
+    hours: Set<Int>
+    days: Set<Int>
+    months: Set<Int>
+    weekdays: Set<Int>
+    any_day: Bool
+    any_weekday: Bool
+}
+
+derive Equatable for Cron
+
+impl Display for Cron {
+    fn to_string(cron: Cron) -> String {
+        cron.text
+    }
+}
+
+impl Debug for Cron {
+    fn inspect(cron: Cron) -> String {
+        "Cron`${cron.text}`"
+    }
+}
+
+/// Why `Cron.parse` refused an expression: `message`, about the text
+/// `offset` code points in.
+pub struct CronError {
+    offset: Int
+    message: String
+}
+
+derive Equatable for CronError
+derive Debug for CronError
+
+impl Display for CronError {
+    fn to_string(error: CronError) -> String {
+        error.message
+    }
+}
+
+impl Cron {
+    /// Reads a cron expression, or answers what is wrong with it and
+    /// where.
+    //! assert Result.is_ok(Cron.parse("@hourly"))
+    //!
+    //! assert Cron.parse("0 3 * *") == Err(CronError{
+    //!         offset: 0,
+    //!         message: "a cron expression has five fields (minute, hour, day of month, month, day of week), not 4",
+    //!     })
+    //!
+    //! assert Cron.parse("0 24 * * *")
+    //!     == Err(CronError{offset: 2, message: "hour 24 is out of range 0-23"})
+    //!
+    //! assert Cron.parse("0 0 30 FEB *") == Err(CronError{
+    //!         offset: 4,
+    //!         message: "no month chosen has the days of the month chosen",
+    //!     })
+    //
+    pub fn parse(text: String) -> Result<Cron, CronError> {
+        expanded = case String.trim(text) {
+            "@yearly" -> "0 0 1 1 *"
+            "@annually" -> "0 0 1 1 *"
+            "@monthly" -> "0 0 1 * *"
+            "@weekly" -> "0 0 * * 0"
+            "@daily" -> "0 0 * * *"
+            "@midnight" -> "0 0 * * *"
+            "@hourly" -> "0 * * * *"
+            _ -> text
+        }
+
+        if String.starts_with(expanded, "@") {
+            return Err(
+                CronError{offset: 0, message: "${String.trim(text)} is not a cron shorthand"}
+            )
+        }
+
+        fields = pieces(expanded, " ", 0)
+
+        case fields {
+            [minute, hour, day, month, weekday] -> {
+                minutes = field(minute, minute_field())?
+                hours = field(hour, hour_field())?
+                days = field(day, day_field())?
+                months = field(month, month_field())?
+
+                weekdays =
+                    field(weekday, weekday_field())?
+                    |> Iter.map(fn n -> n % 7)
+                    |> Iter.to_set()
+
+                any_day = day.text == "*"
+                any_weekday = weekday.text == "*"
+
+                if any_weekday and not any_day and not falls_in(days, months) {
+                    return Err(CronError{
+                        offset: day.offset,
+                        message: "no month chosen has the days of the month chosen",
+                    })
+                }
+
+                Ok(Cron{
+                    text,
+                    minutes,
+                    hours,
+                    days,
+                    months,
+                    weekdays,
+                    any_day,
+                    any_weekday,
+                })
+            }
+
+            _ -> {
+                count = Iter.count(fields)
+
+                Err(CronError{
+                    offset: 0,
+                    message: "a cron expression has five fields (minute, hour, day of month, month, day of week), not ${count}",
+                })
+            }
+        }
+    }
+
+    /// The first time after `at` that `cron` names on a wall clock in
+    /// `zone`, or the zone's error when the time zone database does not
+    /// know it. See `Schedule.cron` for the days the clocks change.
+    //! zone = "America/New_York"
+    //! at = Anchored.to_instant(DateTime`2026-11-01T00:30:00-04:00[America/New_York]`)
+    //! first = Anchored.to_instant(DateTime`2026-11-01T01:30:00-04:00[America/New_York]`)
+    //! assert Cron.next_after(Cron`30 1 * * *`, at, zone: zone) == Ok(first)
+    //! assert Result.is_err(Cron.next_after(Cron`30 1 * * *`, at, zone: "Mars/Base"))
+    //
+    pub fn next_after(
+        cron: Cron,
+        at: Instant,
+        zone: String = "UTC",
+    ) -> Result<Instant, calendar.Error> {
+        _ = DateTime.from_instant_in(at, zone)?
+        Ok(cron_next(cron, zone, at))
+    }
+}
+
+impl CheckedLiteral<String, Cron> for Cron {
+    /// A `Cron` literal is a `Cron`, checked when the program is checked:
+    /// an expression `Cron.parse` refuses is a compile error, and so is a
+    /// slot.
+    fn check(statics: List<String>) -> Result<Unit, LiteralError> {
+        case statics {
+            [text] ->
+                case Cron.parse(text) {
+                    Ok(_) ->
+                        Ok(Unit)
+
+                    Err(error) ->
+                        Err(LiteralError{fragment: 0, offset: error.offset, message: error.message})
+                }
+
+            [first, ..] ->
+                Err(LiteralError{
+                    fragment: 0,
+                    offset: String.length(first),
+                    message: "a cron expression takes no slots",
+                })
+
+            [] ->
+                Err(LiteralError{fragment: 0, offset: 0, message: "a cron expression is empty"})
+        }
+    }
+
+    fn build(fragments: List<Fragment<String>>) -> Cron {
+        text =
+            fragments
+            |> Iter.map(fn fragment -> {
+                case fragment {
+                    .Static(s) -> s
+                    .Dynamic(s) -> s
+                }
+            })
+            |> String.join()
+
+        Cron.parse(text)!
+    }
+}
+
+// One piece of a cron expression's text and where it starts.
+struct Piece {
+    text: String
+    offset: Int
+}
+
+// The non-empty pieces of `text` between `separator`s, each with its
+// offset, `base` code points into the expression.
+fn pieces(text: String, separator: String, base: Int) -> List<Piece> {
+    #(found, _) = Iter.reduce(String.split(text, separator), #([], base), fn #(acc, at), part -> {
+        next = at + String.length(part) + String.length(separator)
+
+        if part == "" {
+            #(acc, next)
+        } else {
+            #(acc + [Piece{text: part, offset: at}], next)
+        }
+    })
+
+    found
+}
+
+// What one field of a cron expression may hold.
+struct Field {
+    name: String
+    low: Int
+    high: Int
+    star_high: Int
+    names: List<String>
+    first_name: Int
+}
+
+fn minute_field() -> Field {
+    Field{name: "minute", low: 0, high: 59, star_high: 59, names: [], first_name: 0}
+}
+
+fn hour_field() -> Field {
+    Field{name: "hour", low: 0, high: 23, star_high: 23, names: [], first_name: 0}
+}
+
+fn day_field() -> Field {
+    Field{name: "day of month", low: 1, high: 31, star_high: 31, names: [], first_name: 0}
+}
+
+fn month_field() -> Field {
+    Field{
+        name: "month",
+        low: 1,
+        high: 12,
+        star_high: 12,
+        names: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"],
+        first_name: 1,
+    }
+}
+
+fn weekday_field() -> Field {
+    Field{
+        name: "day of week",
+        low: 0,
+        high: 7,
+        star_high: 6,
+        names: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"],
+        first_name: 0,
+    }
+}
+
+// The values a field's text names.
+fn field(piece: Piece, f: Field) -> Result<Set<Int>, CronError> {
+    Iter.reduce(pieces(piece.text, ",", piece.offset), Ok(%[]), fn acc, item -> {
+        found = acc?
+        Ok(Set.union(found, item_values(item, f)?))
+    })
+}
+
+// The values one item of a field's list names: `*`, `a`, `a-b`, each with
+// an optional `/step`.
+fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
+    #(range, step) = case String.split(item.text, "/") {
+        [range] ->
+            #(range, None)
+
+        [range, step_text] -> {
+            at = item.offset + String.length(range) + 1
+
+            case digits(step_text) {
+                Some(n) when n >= 1 ->
+                    #(range, Some(n))
+
+                _ ->
+                    return Err(
+                        CronError{
+                            offset: at,
+                            message: "a step is a whole number from 1, not ${step_text}",
+                        }
+                    )
+            }
+        }
+
+        _ ->
+            return Err(CronError{offset: item.offset, message: "${item.text} has more than one /"})
+    }
+
+    #(low, high) = if range == "*" {
+        #(f.low, f.star_high)
+    } else {
+        case String.split(range, "-") {
+            [one] -> {
+                n = value(one, item.offset, f)?
+
+                if Maybe.is_some(step) {
+                    #(n, f.star_high)
+                } else {
+                    #(n, n)
+                }
+            }
+
+            [from, to] -> {
+                a = value(from, item.offset, f)?
+                b = value(to, item.offset + String.length(from) + 1, f)?
+
+                if a > b {
+                    return Err(
+                        CronError{offset: item.offset, message: "the range ${range} runs backwards"}
+                    )
+                }
+
+                #(a, b)
+            }
+
+            _ ->
+                return Err(CronError{offset: item.offset, message: "${range} is not a range"})
+        }
+    }
+
+    by = Maybe.with_default(step, 1)
+
+    Ok(
+        low..=high
+        |> Iter.filter(fn n -> (n - low) % by == 0)
+        |> Iter.to_set()
+    )
+}
+
+// A field's value: digits in its range, or one of its names.
+fn value(text: String, offset: Int, f: Field) -> Result<Int, CronError> {
+    case digits(text) {
+        Some(n) -> {
+            if n < f.low or n > f.high {
+                Err(CronError{offset, message: "${f.name} ${n} is out of range ${f.low}-${f.high}"})
+            } else {
+                Ok(n)
+            }
+        }
+
+        None -> {
+            upper = String.uppercase(text)
+
+            case Iter.find_index(f.names, fn name -> name == upper) {
+                Some(i) -> Ok(f.first_name + i)
+                None -> Err(CronError{offset, message: "${text} is not a ${f.name}"})
+            }
+        }
+    }
+}
+
+// The number `text` writes in decimal digits alone, or None.
+fn digits(text: String) -> Maybe<Int> {
+    points = String.to_codepoints(text)
+
+    if points != [] and Iter.all(points, &Codepoint.is_digit(&1)) {
+        String.to_int(text)
+    } else {
+        None
+    }
+}
+
+// Whether some day of `days` falls in some month of `months`, in a leap
+// year.
+fn falls_in(days: Set<Int>, months: Set<Int>) -> Bool {
+    Iter.any(months, fn month -> Iter.any(days, fn day -> day <= days_in(2000, month)))
+}
+
+// A wall-clock reading to the minute, as plain numbers, for the cron
+// search.
+struct Wall {
+    year: Int
+    month: Int
+    day: Int
+    hour: Int
+    minute: Int
+}
+
+// The first instant after `at` that `cron` names in `zone`, which is
+// known. A wall time in a fall-back fold resolves to its first
+// occurrence, and the search goes on past one that is not after `at`, so
+// the second occurrence never runs. A wall time in a spring-forward gap
+// resolves to the instant the clocks jump.
+fn cron_next(cron: Cron, zone: String, at: Instant) -> Instant {
+    from = next_minute(wall_of(at, zone))
+    cron_search(cron, zone, at, from, from.year + 10)
+}
+
+fn cron_search(cron: Cron, zone: String, at: Instant, from: Wall, limit: Int) -> Instant {
+    wall = next_wall(cron, from, limit)
+    tick = resolve(wall, zone)
+
+    if Instant.is_before(at, tick) {
+        tick
+    } else {
+        cron_search(cron, zone, at, next_minute(wall), limit)
+    }
+}
+
+// The first wall time at or after `w` that `cron` names. Each step moves
+// to the start of the next month, day, hour or minute that could match.
+fn next_wall(cron: Cron, w: Wall, limit: Int) -> Wall {
+    case {
+        w.year > limit -> unreachable "Cron.parse refuses an expression no time matches"
+        not Set.contains(cron.months, w.month) -> next_wall(cron, next_month(w), limit)
+        not day_matches(cron, w) -> next_wall(cron, next_day(w), limit)
+        not Set.contains(cron.hours, w.hour) -> next_wall(cron, next_hour(w), limit)
+        not Set.contains(cron.minutes, w.minute) -> next_wall(cron, next_minute(w), limit)
+        _ -> w
+    }
+}
+
+fn day_matches(cron: Cron, w: Wall) -> Bool {
+    by_day = Set.contains(cron.days, w.day)
+    by_weekday = Set.contains(cron.weekdays, weekday_of(w.year, w.month, w.day))
+
+    if cron.any_day or cron.any_weekday {
+        by_day and by_weekday
+    } else {
+        by_day or by_weekday
+    }
+}
+
+fn next_month(w: Wall) -> Wall {
+    if w.month == 12 {
+        Wall{year: w.year + 1, month: 1, day: 1, hour: 0, minute: 0}
+    } else {
+        Wall{year: w.year, month: w.month + 1, day: 1, hour: 0, minute: 0}
+    }
+}
+
+fn next_day(w: Wall) -> Wall {
+    if w.day >= days_in(w.year, w.month) {
+        next_month(w)
+    } else {
+        #{..w, day: w.day + 1, hour: 0, minute: 0}
+    }
+}
+
+fn next_hour(w: Wall) -> Wall {
+    if w.hour == 23 {
+        next_day(w)
+    } else {
+        #{..w, hour: w.hour + 1, minute: 0}
+    }
+}
+
+fn next_minute(w: Wall) -> Wall {
+    if w.minute == 59 {
+        next_hour(w)
+    } else {
+        #{..w, minute: w.minute + 1}
+    }
+}
+
+fn days_in(year: Int, month: Int) -> Int {
+    case month {
+        2 ->
+            if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+
+        4 ->
+            30
+
+        6 ->
+            30
+
+        9 ->
+            30
+
+        11 ->
+            30
+
+        _ ->
+            31
+    }
+}
+
+// The day of the week, 0 for Sunday, from the days since 1970-01-01, a
+// Thursday.
+fn weekday_of(year: Int, month: Int, day: Int) -> Int {
+    y = if month <= 2 { year - 1 } else { year }
+    era = Int.floor_div(y, 400)
+    of_era = y - era * 400
+    shifted = (month + 9) % 12
+    of_year = (153 * shifted + 2) / 5 + day - 1
+    of_cycle = of_era * 365 + of_era / 4 - of_era / 100 + of_year
+    days = era * 146_097 + of_cycle - 719_468
+    ((days + 4) % 7 + 7) % 7
+}
+
+fn wall_of(at: Instant, zone: String) -> Wall {
+    reading = DateTime.from_instant_in(at, zone)!
+
+    Wall{
+        year: DateParts.year(reading),
+        month: DateParts.month(reading),
+        day: DateParts.day(reading),
+        hour: TimeParts.hour(reading),
+        minute: TimeParts.minute(reading),
+    }
+}
+
+// The instant a wall time names in `zone`: in a fold its first
+// occurrence, and in a gap the instant the clocks jump.
+fn resolve(w: Wall, zone: String) -> Instant {
+    naive = NaiveDateTime.new(w.year, w.month, w.day, w.hour, w.minute)!
+
+    case DateTime.in_zone(naive, zone, Disambiguation.Reject) {
+        Ok(reading) ->
+            Anchored.to_instant(reading)
+
+        Err(.Ambiguous(_)) ->
+            Anchored.to_instant(DateTime.in_zone(naive, zone, Disambiguation.Earlier)!)
+
+        Err(_) -> {
+            before = Anchored.to_instant(DateTime.in_zone(naive, zone, Disambiguation.Earlier)!)
+            after = Anchored.to_instant(DateTime.in_zone(naive, zone, Disambiguation.Later)!)
+
+            jump(
+                zone,
+                offset_at(before, zone),
+                Instant.to_seconds(before),
+                Instant.to_seconds(after),
+            )
+        }
+    }
+}
+
+// The first second in (low, high] whose offset in `zone` is not `from`,
+// where `high`'s is not.
+fn jump(zone: String, from: Duration, low: Int, high: Int) -> Instant {
+    if high - low <= 1 { return Instant.from_seconds(high) }
+    middle = low + (high - low) / 2
+
+    if offset_at(Instant.from_seconds(middle), zone) == from {
+        jump(zone, from, middle, high)
+    } else {
+        jump(zone, from, low, middle)
+    }
+}
+
+fn offset_at(at: Instant, zone: String) -> Duration {
+    Anchored.offset(DateTime.from_instant_in(at, zone)!)
 }
 
 /// A start rate: at most `count` jobs start per `per`, with up to `burst`
@@ -319,11 +1141,14 @@ impl Worker {
         worker.id
     }
 
-    /// Starts claiming jobs of the kinds `handlers` handle, and returns at
-    /// once; the worker runs until the program drains. Two handlers of one
-    /// kind trap, naming the kind.
-    pub fn start(worker: Worker, handlers: List<Handler>) {
+    /// Starts claiming jobs of the kinds `handlers` handle, and enqueuing
+    /// the jobs of `schedules` as their ticks come, and returns at once;
+    /// the worker runs until the program drains. A schedule's job need not
+    /// be one of `handlers`: another worker may run it. Two handlers of one
+    /// kind trap, naming the kind, and so do two schedules of one name.
+    pub fn start(worker: Worker, handlers: List<Handler>, schedules: List<Schedule> = []) {
         by_kind = handlers_by_kind(handlers)!
+        _ = schedules_by_name(schedules)!
         kinds = Map.keys(by_kind) |> Iter.to_list()
         Sender.close_on_drain(worker.wake.sender)
         Queue.watch(worker.queue, worker.loops, worker.wake.sender)
@@ -331,6 +1156,15 @@ impl Worker {
         _ = Supervisor.spawn(worker.loops, fn -> {
             claim_loop(worker, by_kind, kinds, Instant.from_seconds(0))
         })
+
+        if not Iter.is_empty(schedules) {
+            stop: Channel<Unit> = Channel.buffered(1)
+            Sender.close_on_drain(stop.sender)
+
+            _ = Supervisor.spawn(worker.loops, fn -> {
+                schedule_loop(worker, schedules, stop.receiver)
+            })
+        }
     }
 }
 
@@ -338,17 +1172,25 @@ impl Worker {
 /// implement it, and std::jobs_testing's `conformance` suite checks each
 /// backend.
 ///
-/// Each function but `insert` and `watch` acts for the worker named
+/// `claim`, `renew`, `settle` and `release` act for the worker named
 /// `worker`, and `renew` and `settle` change a job only while that worker
 /// still holds it at that attempt, so a worker that lost a job to a rescue
 /// cannot overwrite the run that took it over.
+///
+/// A stored job with a `unique_key` holds it while it is available or
+/// running, or, when its `unique_across` is `Kept`, while the queue keeps
+/// it. No two stored jobs hold one key.
 pub interface Queue {
     /// Stores `job` on `conn`, which may be a transaction: the job exists
-    /// only if `conn`'s writes commit.
-    fn insert(queue: self, conn: Conn, job: NewJob) -> Result<JobId, sql.Error>
+    /// only if `conn`'s writes commit. When a stored job holds `job`'s
+    /// unique key, stores nothing and answers that job's id with
+    /// `duplicate: True`. A unique enqueue in a transaction still open
+    /// holds its key against the others until the transaction ends.
+    fn insert(queue: self, conn: Conn, job: NewJob) -> Result<Enqueued, sql.Error>
     /// Marks up to `limit` due jobs of these queues and kinds as running
     /// for `worker`, held for `lease`, each with its attempt counted, and
-    /// answers them oldest first. Two claims never answer the same job.
+    /// answers them highest priority first, then oldest. Two claims never
+    /// answer the same job.
     fn claim(
         queue: self,
         worker: String,
@@ -374,15 +1216,32 @@ pub interface Queue {
     /// under `supervisor`. A queue with no way to know does nothing; the
     /// worker also claims on a timer.
     fn watch(queue: self, supervisor: Supervisor, wake: Sender<Unit>) -> Unit
+    /// The latest instant `record_tick` recorded for the schedule named
+    /// `schedule`, or `None` when it recorded none.
+    fn last_tick(queue: self, schedule: String) -> Result<Maybe<Instant>, sql.Error>
+    /// Records `tick` for the schedule named `schedule`, unless a later
+    /// one is recorded, and stores `job` as `insert` does, on the queue's
+    /// own connection and in the same transaction. Answers the insert, or
+    /// `None` without a job.
+    fn record_tick(
+        queue: self,
+        schedule: String,
+        tick: Instant,
+        job: Maybe<NewJob>,
+    ) -> Result<Maybe<Enqueued>, sql.Error>
 }
 
-/// A job as `enqueue` hands it to a queue to store.
+/// A job as `enqueue` hands it to a queue to store. `unique_key` is the
+/// whole key, as `Unique.key_for` writes it.
 pub struct NewJob {
     queue: String
     kind: String
     args: Json
     run_at: Maybe<Instant>
     max_attempts: Int
+    priority: Int = 0
+    unique_key: Maybe<String> = None
+    unique_across: UniqueStates = UniqueStates.Live
 }
 
 derive Equatable for NewJob
@@ -567,6 +1426,185 @@ pub fn handlers_by_kind(handlers: List<Handler>) -> Result<Map<String, Handler>,
             Ok(Map.put(by_kind, kind, handler))
         }
     })
+}
+
+/// Enqueues `schedule`'s job for its latest tick at or before `now`, when
+/// that tick is after the latest one the queue recorded for it, and
+/// records the tick: what a worker does for each of its schedules at each
+/// tick, and what a test calls to step a schedule through time.
+///
+/// - When the queue recorded no tick, it records `now` and enqueues
+///   nothing, so a new schedule starts with its next tick.
+/// - When ticks were missed between the one recorded and the latest, the
+///   latest is enqueued, or nothing with `missed: .Skip`.
+/// - The job is due at its tick and unique by the schedule's name and the
+///   tick, held for as long as the queue keeps it, so a second process
+///   that reaches the same tick stores nothing.
+//! import std::sql_testing.Fake
+//! import std::jobs_testing.Inline
+//!
+//! queue = Inline.new()
+//! sweep = Schedule.every("sweep", Duration.hours(1), Job.new("sweep", fn _: Int -> Ok(Unit)), 0)
+//! nine = Instant.from_seconds(9 * 3_600)
+//! assert enqueue_due(queue, sweep, nine) == Ok(None)
+//!
+//! // Down from 09:00 to 12:30: one job, for 12:00.
+//! assert enqueue_due(queue, sweep, nine + Duration.minutes(210)) is Ok(Some(_))
+//! assert Iter.map(Inline.jobs(queue), &(&1.run_at)) |> Iter.to_list() == [nine + Duration.hours(3)]
+//
+pub fn enqueue_due(
+    queue: Queue,
+    schedule: Schedule,
+    now: Instant,
+) -> Result<Maybe<Enqueued>, sql.Error> {
+    case Queue.last_tick(queue, schedule.name)? {
+        None ->
+            Queue.record_tick(queue, schedule.name, now, None)
+
+        Some(last) -> {
+            case latest_tick(schedule, last, now) {
+                None ->
+                    Ok(None)
+
+                Some(tick) -> {
+                    on_time = Schedule.next_after(schedule, last) == tick
+
+                    job = if on_time or schedule.missed == Missed.RunLatest {
+                        Some(tick_job(schedule, tick))
+                    } else {
+                        None
+                    }
+
+                    Queue.record_tick(queue, schedule.name, tick, job)
+                }
+            }
+        }
+    }
+}
+
+// The job for `schedule`'s tick at `tick`.
+fn tick_job(schedule: Schedule, tick: Instant) -> NewJob {
+    #{
+        ..schedule.job,
+        run_at: Some(tick),
+        unique_key: Some(key_of([schedule.job.kind, "schedule:${schedule.name}", rfc3339(tick)])),
+        unique_across: UniqueStates.Kept,
+    }
+}
+
+// A unique key from its parts, as a JSON array, so no two lists of parts
+// write one key.
+fn key_of(parts: List<String>) -> String {
+    Json.encode(
+        Json.Arr(
+            parts
+            |> Iter.map(&Json.String(&1))
+            |> Iter.to_list()
+        )
+    )
+}
+
+// The latest tick of `schedule` in (after, now].
+fn latest_tick(schedule: Schedule, after: Instant, now: Instant) -> Maybe<Instant> {
+    case schedule.timing {
+        .Every(interval) -> {
+            n = Duration.as_nanos(interval)
+            tick = Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n)
+            if Instant.is_before(after, tick) { tick }
+        }
+
+        .Cron{} ->
+            latest_within(schedule, after, now, Duration.minutes(1))
+    }
+}
+
+// Look for a tick in a window before `now` that doubles until it holds
+// one or reaches back to `after`, then walk forward to the latest.
+fn latest_within(
+    schedule: Schedule,
+    after: Instant,
+    now: Instant,
+    window: Duration,
+) -> Maybe<Instant> {
+    from = now - window
+
+    start = if Instant.is_before(from, after) {
+        after
+    } else {
+        from
+    }
+
+    first = Schedule.next_after(schedule, start)
+
+    case {
+        not Instant.is_before(now, first) -> Some(walk_to(schedule, first, now))
+        start == after -> None
+        _ -> latest_within(schedule, after, now, window * 2)
+    }
+}
+
+fn walk_to(schedule: Schedule, tick: Instant, now: Instant) -> Instant {
+    next = Schedule.next_after(schedule, tick)
+
+    if Instant.is_before(now, next) {
+        tick
+    } else {
+        walk_to(schedule, next, now)
+    }
+}
+
+// An `Err` naming a schedule name two schedules share.
+fn schedules_by_name(schedules: List<Schedule>) -> Result<Set<String>, String> {
+    Iter.reduce(schedules, Ok(%[]), fn acc, schedule -> {
+        names = acc?
+
+        if Set.contains(names, schedule.name) {
+            Err("two schedules named ${schedule.name}")
+        } else {
+            Ok(Set.insert(names, schedule.name))
+        }
+    })
+}
+
+// Enqueue each schedule's due tick, then wait for the next tick of any of
+// them, until the drain closes `stop`.
+fn schedule_loop(worker: Worker, schedules: List<Schedule>, stop: Receiver<Unit>) {
+    now = Instant.now()
+    Iter.each(schedules, fn schedule -> schedule_one(worker, schedule, now))
+
+    next =
+        schedules
+        |> Iter.map(&Schedule.next_after(&1, now))
+        |> Iter.min_by(&Instant.as_nanos(&1))
+        |> Maybe.with_default(now + Duration.minutes(1))
+
+    go_on = Channel.select([
+        Arm.receive(stop, fn _ -> False),
+        Arm.after(Instant.between(Instant.now(), next), fn -> True),
+    ])
+
+    if go_on { schedule_loop(worker, schedules, stop) }
+}
+
+fn schedule_one(worker: Worker, schedule: Schedule, now: Instant) {
+    case enqueue_due(worker.queue, schedule, now) {
+        Ok(Some(enqueued)) when not enqueued.duplicate ->
+            log.info(
+                worker.logger,
+                "jobs: scheduled",
+                [log.string("schedule", schedule.name), log.any("id", enqueued.id)],
+            )
+
+        Ok(_) ->
+            Unit
+
+        Err(error) ->
+            log.warn(
+                worker.logger,
+                "jobs: schedule failed",
+                [log.string("schedule", schedule.name), log.string("error", "${error}")],
+            )
+    }
 }
 
 // Claim and start one job at a time while slots are free, and wait for a

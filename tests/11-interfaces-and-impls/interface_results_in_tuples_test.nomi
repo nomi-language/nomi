@@ -1,0 +1,118 @@
+// A function whose result implements an interface enters a function type
+// that returns the interface, inside a tuple, a list of tuples, a record and
+// a struct field as well as on its own, whether its result is the type
+// itself, a `Result` of two implementors, or a distinct type whose runtime
+// value does not name its impl.
+struct Answer {
+    code: Int
+}
+
+interface ToAnswer {
+    fn to_answer(value: self) -> Answer
+}
+
+impl ToAnswer for Answer {
+    fn to_answer(value: Answer) -> Answer {
+        value
+    }
+}
+
+impl ToAnswer for Result<T, E> where T: ToAnswer, E: ToAnswer {
+    fn to_answer(value: Result<T, E>) -> Answer {
+        case value {
+            Ok(v) -> ToAnswer.to_answer(v)
+            Err(e) -> ToAnswer.to_answer(e)
+        }
+    }
+}
+
+enum Failure {
+    Missing
+}
+
+impl ToAnswer for Failure {
+    fn to_answer(_value: Failure) -> Answer {
+        Answer{code: 404}
+    }
+}
+
+type Code Int
+
+impl ToAnswer for Code {
+    fn to_answer(value: Code) -> Answer {
+        Code(n) = value
+        Answer{code: n + 1000}
+    }
+}
+
+struct Route {
+    name: String
+    handler: (Int) -> ToAnswer
+}
+
+fn plain(n: Int) -> Answer {
+    Answer{code: n}
+}
+
+fn failing(n: Int) -> Result<Answer, Failure> {
+    if n > 5 {
+        Ok(Answer{code: n})
+    } else {
+        Err(Failure.Missing)
+    }
+}
+
+fn coded(n: Int) -> Code {
+    Code(n)
+}
+
+fn codes(routes: List<#(String, (Int) -> ToAnswer)>, n: Int) -> List<Int> {
+    routes |> Iter.map(fn #(_, h) -> ToAnswer.to_answer(h(n)).code) |> Iter.to_list()
+}
+
+fn first(route: #(String, (Int) -> ToAnswer), n: Int) -> Int {
+    ToAnswer.to_answer(route.1(n)).code
+}
+
+fn bypassed(name: String) -> #(String, (Int) -> ToAnswer) {
+    #(name, failing)
+}
+
+test "a list of tuples mixes plain, Result and lambda handlers" {
+    assert codes([#("a", plain), #("b", failing), #("c", fn _ -> Failure.Missing)], 3) == [
+        3, 404, 404,
+    ]
+
+    assert codes([#("a", plain), #("b", failing)], 7) == [7, 7]
+}
+
+test "a tuple held in a variable enters as a literal does" {
+    route = #("b", failing)
+    assert codes([#("a", plain), route], 3) == [3, 404]
+    assert first(route, 9) == 9
+}
+
+test "an annotated binding, a record and a declared result" {
+    pair: #(String, (Int) -> ToAnswer) = #("a", failing)
+    assert first(pair, 1) == 404
+    record: #{name: String, handler: (Int) -> ToAnswer} = #{name: "r", handler: failing}
+    assert ToAnswer.to_answer(record.handler(8)).code == 8
+    assert first(bypassed("x"), 2) == 404
+}
+
+test "a struct field" {
+    route = Route{name: "a", handler: failing}
+    assert ToAnswer.to_answer(route.handler(1)).code == 404
+}
+
+test "a distinct type's result is dispatched by its impl" {
+    route = #("a", coded)
+    assert codes([route], 1) == [1001]
+    pair: #(String, (Int) -> ToAnswer) = route
+    assert first(pair, 2) == 1002
+    handlers: List<(Int) -> ToAnswer> = [coded, plain]
+
+    assert handlers |> Iter.map(fn h -> ToAnswer.to_answer(h(3)).code) |> Iter.to_list() == [
+        1003, 3,
+    ]
+}

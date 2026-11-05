@@ -76,9 +76,9 @@ var irFuncObserved func(origin irFuncOrigin, name string, f *ir.Func, readBack b
 // build attempt the builder DECLINED — with everything a FULL per-body
 // blocker walk needs.
 //
-// WHY THE FIRST-DECLINE CENSUS CANNOT ANSWER THIS. `IRDeclineObserved`
+// WHY THE FIRST-DECLINE CENSUS CANNOT ANSWER THIS. `DeclineHooks.Observed`
 // reports the FIRST reason an attempt declined for and nothing else —
-// `irDeclineSeen` is the guard and irdecline.go's header says so. So a body
+// the census's `seen` is the guard and irdecline.go's header says so. So a body
 // recorded against `*ast.Call` may also hold a `Case` and a `StringInterp`
 // the builder never reached, and a cumulative retention curve built on the
 // census would read far steeper than reality. The walk that answers "which
@@ -95,7 +95,7 @@ var irFuncObserved func(origin irFuncOrigin, name string, f *ir.Func, readBack b
 //
 // FIRED AFTER `irFuncObserved`, so the two hooks are independent: a caller
 // can read the first decline reason inside `irFuncObserved` before the walk
-// drives `bl.lower`, which calls `irDeclineNote` many more times.
+// drives `bl.lower`, which notes declines many more times.
 var irRetentionDeclined func(g *gen, fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *irFuncShell)
 
 // irScalarLower is `funcDecl`'s body lowering for this shape: build, lint,
@@ -136,7 +136,7 @@ func (g *gen) irScalarLower(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	// imports its build recorded are dropped with it.
 	p, ok := g.irScalarBuild(fd, sig, plan, sh)
 	if !ok {
-		irDeclineClose()
+		g.dc.close()
 		if irFuncObserved != nil {
 			irFuncObserved(sig.origin, sig.name, nil, false)
 		}

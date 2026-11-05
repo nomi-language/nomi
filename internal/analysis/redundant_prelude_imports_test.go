@@ -9,7 +9,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // findRedundantWithStdlib builds a lone document the way the LSP does — the
@@ -17,7 +16,7 @@ import (
 func findRedundantWithStdlib(t *testing.T, src string) ([]analysis.UnusedImport, *analysis.FileAnalysis, []ast.Node) {
 	t.Helper()
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	return analysis.FindRedundantPreludeImports(fa, nodes), fa, nodes
 }
@@ -156,7 +155,7 @@ func TestRedundantPreludeImport_LoadBearingImportsExempt(t *testing.T) {
 func TestRedundantPreludeImport_SameNameDifferentModuleExempt(t *testing.T) {
 	src := "import mine.Result\n\nfn f(_r: Result) -> Int {\n  0\n}\n"
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
-	lib := std.Load()
+	lib := loadStd()
 	loader := func(_ string, modulePath []string) ([]ast.Node, error) {
 		if len(modulePath) == 1 && modulePath[0] == "mine" {
 			mine, _ := parser.ParseWithRecovery(lexer.Lex("pub struct Result {\n  code: Int\n}\n"))
@@ -177,7 +176,7 @@ func TestRedundantPreludeImport_SameNameDifferentModuleExempt(t *testing.T) {
 func TestRedundantPreludeImport_StdlibExempt(t *testing.T) {
 	src := "import std::iter.Iter\n\nfn f(xs: List<Int>) -> Int {\n  Iter.count(xs)\n}\n"
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, nil, lib.Modules, "", nil)
 	if got := analysis.FindRedundantPreludeImports(fa, nodes); len(got) != 0 {
 		t.Fatalf("prelude-less file must be exempt, got %v", redundantNames(got))
@@ -189,7 +188,7 @@ func TestRedundantPreludeImport_StdlibExempt(t *testing.T) {
 func TestRedundantPreludeImport_DiagnosticCarriesCode(t *testing.T) {
 	src := "import std::strings.String\n\nfn f(s: String) -> Int {\n  String.length(s)\n}\n"
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	found := false
 	for _, e := range fa.TypeErrors {

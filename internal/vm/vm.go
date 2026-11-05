@@ -131,6 +131,10 @@ type Machine struct {
 	// messages is what the program knows of its messages beyond a call's
 	// table, or nil. See WithMessages.
 	messages *stdmessageformat.Runtime
+	// embedded is the table of the embedded files the program named, and
+	// where it reads their contents. See WithEmbeddedSource and
+	// embedded.go.
+	embedded *rt.EmbeddedFiles
 	// hosts is the Go function each marked crossing lands on, keyed on the
 	// callee's printed name.
 	//
@@ -319,6 +323,7 @@ func (m *Machine) withDiagnostics(ctx context.Context) context.Context {
 	if m.locales != nil {
 		ctx = cldrdata.WithStore(ctx, m.locales)
 	}
+	ctx = rt.WithEmbeddedFiles(ctx, m.embedded)
 	if m.messages != nil {
 		ctx = stdmessageformat.WithRuntime(ctx, m.messages)
 	}
@@ -380,7 +385,7 @@ func New(mod *ir.Module, out io.Writer) *Machine {
 // refuses one layer up.
 func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 	m := &Machine{mod: entry, out: &syncWriter{w: out}, boot: entry.Boot(), tasks: &taskLimit{},
-		codes: &codeTable{}}
+		codes: &codeTable{}, embedded: rt.NewEmbeddedFiles(DiskEmbedded{})}
 	m.adapters = newHostTables(m)
 	// The program's messages are, unless WithMessages says otherwise, the
 	// tables every function of its modules carries, worked out when a
@@ -717,6 +722,11 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 		fr.write(n.Dst(), fv)
 		return nil
 	case *ir.Const:
+		if n.Kind() == ir.ConstEmbedded {
+			ref := n.Embedded()
+			fr.write(n.Dst(), m.embedded.Handle(rt.EmbeddedFile{Source: ref.Source, Size: ref.Size, Sum: ref.Sum}))
+			return nil
+		}
 		v, err := constValue(n)
 		if err != nil {
 			return err

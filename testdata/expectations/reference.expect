@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
-records 73
-declared-cases 825
+records 74
+declared-cases 843
 failing 0
 C actors
 E 0
@@ -75,8 +75,8 @@ T ok Bytes.compare (impl Comparable for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
-N 64
-H b6830343f92d8abaf44cea4f85380fb8d53edb9c00968d98d542686e324aec47
+N 65
+H c15fa0de9ea52cbfb31ea9ef4447e2a388cde11d2ee5cd35a92008d300462779
 T ok type Months
 T ok type Hours
 T ok struct Date
@@ -114,6 +114,7 @@ T ok NaiveDateTime.new
 T ok NaiveDateTime.parse
 T ok NaiveDateTime.between
 T ok NaiveDateTime.from_instant
+T ok NaiveDateTime.utc_now
 T ok NaiveDateTime.to_instant
 T ok OffsetDateTime.with_offset
 T ok OffsetDateTime.from_instant
@@ -277,6 +278,18 @@ T ok Duration.multiply (impl Multiply<Int, Duration> for Duration)
 T ok Duration.divide (impl Divide<Int, Duration> for Duration)
 T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
+C embed
+E 0
+N 8
+H d9822a64ac42d63e7e76bc5153a12401e3abb71bff6aeeb7d2cdb81439dd2fee
+T ok Files.read
+T ok Files.read_text
+T ok Files.list
+T ok Files.walk
+T ok Files.metadata
+T ok Files.exists
+T ok Files.paths
+T ok Files.sub
 C float
 E 0
 N 37
@@ -398,8 +411,8 @@ T ok Html.concat
 T ok Html.each
 C http
 E 0
-N 46
-H bb441b380eded47fc187c839d302b6a4315ed2138455de452f93038e0d207014
+N 47
+H f38074ad05f0582113b93f062ae2ab75d29f3e5c1aab78701673f0d731cdf051
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -429,6 +442,7 @@ T ok Response.html
 T ok Response.error
 T ok Response.redirect
 T ok Response.content
+T ok interface ToResponse
 T ok Protocols.to_string (impl Display for Protocols)
 T ok type Route
 T ok Route.parse
@@ -610,15 +624,23 @@ T ok Iter.product
 T ok Iter.product_by
 C jobs
 E 0
-N 7
-H 0950d2f8660c483801a045e9460c174c005558f4d8c1a986b517edf93b101c23
+N 15
+H 1a68ccecaaa0c19b3ba267a150f0be30f95967ab8e4db60fdc4f20fb6e47bf39
 T ok Job.new
 T ok Job.renamed_from
 T ok enum Failure
+T ok jobs.enqueue
+T ok Unique.key_for
+T ok Schedule.every
+T ok Schedule.cron
+T ok struct Cron
+T ok Cron.parse
+T ok Cron.next_after
 T ok jobs.run_one
 T ok jobs.backoff
 T ok jobs.settle_for
 T ok jobs.handlers_by_kind
+T ok jobs.enqueue_due
 C jobs_testing
 E 0
 N 5

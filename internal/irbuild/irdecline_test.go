@@ -92,12 +92,11 @@ fn main() {
 		t.Fatalf("the front end rejects this, so it measures nothing: %v", err)
 	}
 	var reason string
-	IRDeclineObserved = func(fn, r string) {
+	p.Declines.Observed = func(fn, r string) {
 		if fn == "pick" {
 			reason = r
 		}
 	}
-	defer func() { IRDeclineObserved = nil }()
 	if _, _, err := GenerateIR(p); err != nil {
 		t.Fatal(err)
 	}

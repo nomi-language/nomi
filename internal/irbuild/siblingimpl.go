@@ -112,6 +112,9 @@ type implMemberSite struct {
 	unit  int
 	fn    *fileFunc
 	synth bool
+	// auto is a synthesized block that is the universal Debug
+	// (autoSynthImpl), which a derived one outranks.
+	auto  bool
 	iface string
 	block *ast.ImplBlock
 	// item and symName are the declaring unit's identity for the function's
@@ -159,7 +162,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 				k := implMemberKey{recv: d.recv.def.decl, method: it.name}
 				x.implMembers[k] = append(x.implMembers[k],
 					implMemberSite{unit: unit, fn: implMemberFunc(d, it),
-						synth: d.synth, iface: d.ifaceName, block: d.decl,
+						synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceName, block: d.decl,
 						item: it, symName: d.recv.nomi() + "." + it.name})
 			}
 			// A member the block withheld for a call to instantiate has no
@@ -181,7 +184,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 				}
 				k := implMemberKey{recv: d.recv.def.decl, method: method}
 				x.implMembers[k] = append(x.implMembers[k],
-					implMemberSite{unit: unit, fn: f, synth: d.synth, iface: d.ifaceName,
+					implMemberSite{unit: unit, fn: f, synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceName,
 						block: d.decl, withheld: d})
 			}
 		}
@@ -240,6 +243,11 @@ func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
 
 // writtenImplMembers is the sites somebody WROTE, or every site when nobody
 // did: a synthesized impl is a fallback, not a candidate beside a written one.
+// Among synthesized ones, the universal Debug the front end writes for every
+// type (ast.FuncDef.AutoSynth) yields to a derived one, the precedence the
+// analyzer's coherence check holds (debugEffectiveCollisionGroup): a REPL
+// input may derive Debug for a type an earlier input declared, whose file
+// holds the universal one.
 //
 // One function so the two readers cannot drift. They ask different questions of
 // the same rule — "is my local answer rivalled?" and "which sibling do I
@@ -251,10 +259,35 @@ func writtenImplMembers(sites []implMemberSite) []implMemberSite {
 			written = append(written, s)
 		}
 	}
-	if len(written) == 0 {
+	if len(written) > 0 {
+		return written
+	}
+	derived := make([]implMemberSite, 0, len(sites))
+	for _, s := range sites {
+		if !s.auto {
+			derived = append(derived, s)
+		}
+	}
+	if len(derived) == 0 {
 		return sites
 	}
-	return written
+	return derived
+}
+
+// autoSynthImpl reports whether ib is the universal Debug impl the front end
+// synthesized (analysis.SynthesizeUniversalDebug): every function it holds
+// is marked AutoSynth.
+func autoSynthImpl(ib *ast.ImplBlock) bool {
+	if ib == nil || len(ib.Items) == 0 {
+		return false
+	}
+	for _, item := range ib.Items {
+		fd, ok := item.(*ast.FuncDef)
+		if !ok || !fd.AutoSynth {
+			return false
+		}
+	}
+	return true
 }
 
 // implMemberFunc projects one impl function onto what a call in ANOTHER FILE

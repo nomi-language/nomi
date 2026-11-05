@@ -191,7 +191,7 @@ These words are reserved and cannot name anything:
 
 These words have a meaning only where their construct stands, and are
 ordinary names elsewhere: `host` (§19), `open` (§12), `embeds` (§4),
-`message` and `noun` (§18), and `group`, `clock`, `boot` and `setup` (§17).
+`message`, `noun` and `embed` (§18), and `group`, `clock`, `boot` and `setup` (§17).
 
 `derive`, `gopkg` and `go` may name a parameter or a binding, but a
 statement that begins with one of them always starts that declaration. So
@@ -1829,32 +1829,28 @@ A value of type `S` may stand where type `T` is expected when:
   interface value (§12);
 - `T` is an enum that embeds `S`, at any depth of type arguments, tuple
   items and record fields (§4 *Embedded Types*);
-- both are function types and `S` fits `T` by the rule below.
+- both are function types and `S` fits `T` by the rule below;
+- both are one std collection, and `S`'s type arguments convert to `T`'s
+  as they are (*Type argument conversion*).
 
 There is no other implicit conversion (*No Implicit Conversion*).
 
-An interface conversion does not reach a generic type's or a collection's
-type argument: a `Maybe<Int>` is not a `Maybe<Display>`, nor a `List<Int>`
-a `List<Display>`, so `y: Maybe<Display> = x` with `x: Maybe<Int>` is
-`type mismatch: expected Maybe<Display>, got Maybe<Int>`. A value built
-where the container is expected converts each element as it is built:
-`y: Maybe<Display> = Some(1)` and `ys: List<Display> = [1, 2]`. `Iter` is
-the exception, since an `Iter` only hands its elements out: a `List<Int>`
-passes where an `Iter<Display>` is expected, and a `List<List<Int>>` where
-a `List<Iter<Int>>` is. A tuple's elements and a record's fields convert
-as the value does: `#(1, p)` is a `#(Int, Named)` when `p`'s type
-implements `Named`.
+A tuple's elements and a record's fields convert as the value does:
+`#(1, p)` is a `#(Int, Named)` when `p`'s type implements `Named`. `Iter`
+takes its element by the same rule as the top, since an `Iter` only hands
+its elements out: a `List<Int>` passes where an `Iter<Display>` is
+expected, and a `List<List<Int>>` where a `List<Iter<Int>>` is.
 
 A function of type `(P1) -> R1` fits where `(P2) -> R2` is expected when
 each `P2` fits its `P1` and `R1` fits `R2`: parameters are contravariant and
 results covariant. Inside a function type, one type fits another when they
 are the same, when a concrete type meets an interface it implements, when a
 type meets an enum that embeds it, or when both are function types that fit.
-Type arguments are otherwise compared exactly, except an `Iter`'s element,
-which fits by this rule since an `Iter` only hands its elements out. The
-rule holds at every position a function value flows into. So
-`gs: List<(Float) -> String> = fs` with `fs: List<(Display) -> String>` is
-`type mismatch: expected List<(Float) -> String>, got List<(Display) -> String>`.
+A type argument inside a function type is compared exactly, except an
+`Iter`'s element, which fits by this rule since an `Iter` only hands its
+elements out. The rule holds at every position a function value flows into,
+a tuple's element and a record's field among them: `#("a", f)` is a
+`#(String, (Int) -> Display)` when `f` is an `(Int) -> Int`.
 
 ```nomi
 fn shown(x: Display) -> String {
@@ -1882,6 +1878,104 @@ function types must be the same. With
 `fn pick<T>(c: Bool, a: T, b: T) -> T`, `pick(c, shown, float_str)` is
 `argument 3: expected (Display) -> String, got (Float) -> String`; pass a
 lambda of the one type instead: `pick(c, float_str, fn x -> shown(x))`.
+
+### Type argument conversion
+
+Values are immutable, so a list of `Int`s may stand where a list of
+`Display`s is expected: nothing can put a `String` into it through the
+wider type. A value of a std collection converts to the same collection at
+other type arguments when each type argument converts *as it is*:
+
+| Collection | Its type arguments that convert |
+|---|---|
+| `List<T>`, `Vector<T>`, `Set<T>`, `Maybe<T>` | `T` |
+| `Map<K, V>` | `K` and `V` |
+| `Result<T, E>` | `T` and `E` |
+
+A type `S` converts as it is to `T` when:
+
+- `S` and `T` are the same type;
+- `T` is an interface that `S` implements, and a value of `S` carries its
+  own type: an `Int`, `Float`, `Bool` or `String`, a declared struct, a
+  declared enum with no `embeds` variant, or a declared distinct type. An
+  interface value of such a type is the value itself;
+- both are function types, each parameter of `T` converts as it is to
+  `S`'s, and `S`'s result to `T`'s;
+- both are one collection, tuple or record shape, and each part converts
+  as it is.
+
+So a `List<Int>` is a `List<Display>`, a `Map<String, Pt>` a
+`Map<String, Named>` when `Pt` implements `Named`, a
+`List<(Display) -> String>` a `List<(Int) -> String>`, and an app's
+`List<#(Route, (Request) -> Response)>` a
+`List<#(Route, (Request) -> ToResponse)>`. The conversion does nothing at
+run time: the value is the one it was, whatever its length.
+
+```nomi
+fn number(n: Int) -> Int {
+    n + 1
+}
+
+fn joined(xs: List<Display>) -> String {
+    String.join(Iter.map(xs, Display.to_string), ", ")
+}
+
+fn applied(fs: List<(Int) -> Display>) -> List<String> {
+    Iter.map(fs, fn f -> Display.to_string(f(1))) |> Iter.to_list()
+}
+
+fn main() {
+    ints = [1, 2]
+    fs = [number]
+    dbg joined(ints) // "1, 2"
+    dbg applied(fs) // ["2"]
+}
+```
+
+Any other change of type argument would take work for each element, and
+is an error whose help names the conversion to write:
+
+- An element that enters the interface boxed: a std collection, a `Maybe`
+  or `Result`, a tuple or record, a std enum or host type, an enum with an
+  `embeds` variant, or a type parameter. `ys: List<Display> = xs` with
+  `xs: List<Maybe<Int>>` is `type mismatch: expected List<Display>, got
+  List<Maybe<Int>>`, with help `` List<Maybe<Int>> does not convert to
+  List<Display>: Maybe<Int> becomes Display boxed, so the conversion would
+  build a new List element by element; write it where that is meant:
+  `Iter.map(xs, fn x -> x) |> Iter.to_list()` ``. `Maybe.map(m, fn x -> x)`,
+  `Result.map(r, fn x -> x)` and `Map.map_values(m, fn v -> v)` are the
+  forms for the others.
+- A function that would need a wrapper: a parameter or result that
+  converts only by boxing, by `embeds` or by viewing a collection as an
+  `Iter`.
+
+A parameter that would narrow is unsound, not costly:
+`gs: List<(Display) -> String> = fs` with `fs: List<(Float) -> String>` is
+`type mismatch: expected List<(Display) -> String>, got List<(Float) ->
+String>`, with help `List<(Float) -> String> does not convert to
+List<(Display) -> String>: each function takes only Float, and one of type
+(Display) -> String may be passed any Display`.
+
+A declared generic type's type arguments compare exactly: a struct's, an
+enum's, a distinct type's, and an interface's other than `Iter`'s. A
+`Box<Int>` is not a `Box<Display>`, since its values carry their type
+arguments (an instance names them at run time, and a call through an
+interface dispatches by that name), so converting one would mean building
+it again. `c: Box<Display> = b` with `b: Box<Int>` is `type mismatch:
+expected Box<Display>, got Box<Int>`, with help `Box<Int> does not convert
+to Box<Display>: a declared generic type's type arguments compare exactly,
+since its values carry them; build a new Box<Display> from the value's
+parts`.
+
+`embeds` is the one conversion that reaches every type argument and does
+work: a `List<Circle>` passed where a `List<Shape>` is expected is built
+again with each `Circle` in its `Shape` (§4 *Embedded Types*).
+
+A value built where the collection is expected converts each element as it
+is built, whatever its type: `ys: List<Display> = [1, Some(2)]`. The
+branches of an `if` or `case` whose type is written as a collection join
+as it when each converts to it: `c: List<Display> = if f { ints } else {
+words }`.
 
 ### Annotations and local inference
 
@@ -2150,7 +2244,7 @@ one end. So `a == b` does not imply `a <= b` when both are NaN.
 
 A file's top level holds declarations only: imports, functions, types,
 interfaces, impls, derives, `once` values, tests, host declarations and
-keyword declarations. A binding, an expression or another statement at top
+keyword declarations (`message`, `noun`, `embed`). A binding, an expression or another statement at top
 level is an error; code runs inside a function. `x = 3` at top level is
 `` a binding cannot be written at file level: a file binds a value only with `once` ``.
 
@@ -2220,7 +2314,9 @@ Taught in [Bindings & Expressions](/bindings-and-expressions/#file-level-values-
 `once name = expression` declares a value computed the first time it is
 read and kept for every later read. It stands at file scope or in an
 inherent `impl` block, and is read like any value (`config.value`,
-`Money.zero_usd`), with no call. It is the only file-level value.
+`Money.zero_usd`), with no call. It is the only file-level value computed
+by code; an `embed` declaration (§18 *Embedded files*) names a value of
+files read when the program is compiled.
 
 ```nomi
 once max_retries = 3
@@ -2375,12 +2471,14 @@ name that copies it (below). A function used as a value has its full
 parameter list, with one exception: where its position
 expects a function type with fewer parameters, and each parameter past those
 has a default, the value is the function of its first parameters, and a call
-of it fills the rest from their defaults. That holds at an argument, an
-annotated binding, a field, a list element, a return and a `case` or `if`
-arm. A pipe's head is checked before the stage, so nothing is expected of
-it: `parse |> apply("1")`, where `apply` takes a `(String) -> Maybe<Int>`,
-is `` `apply` takes (String) -> Maybe<Int> as its first argument, but the pipe passes (String, Bool) -> Maybe<Int> ``,
-whose help suggests the capture `&parse(&1)`.
+of it fills the rest from their defaults. That holds at an argument, a
+pipe's head (§8 *Pipes*), an annotated binding, a field, a list element, a
+return and a `case` or `if` arm: where `apply` takes a `(String) ->
+Maybe<Int>`, `parse |> apply("1")` passes `parse` as `apply(parse, "1")`
+does. A local copy is not the function's name, so after `g = parse`,
+`apply(g, "1")` is
+`` argument 1: expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int> ``,
+whose help suggests the capture `&g(&1)`.
 
 ```nomi
 fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
@@ -3541,7 +3639,10 @@ Taught in [Pipes](/pipes/#the-pipe-operator).
 stage's.
 
 - **A call stage.** `x |> f()` is `f(x)` and `x |> f(a)` is `f(x, a)`: the
-  value fills the first argument. A `.Variant` stage is written through its
+  value fills the first argument, and is checked as that argument is, so a
+  pipe accepts what the call accepts: with `fn show(fs: List<(Int) ->
+  Display>)`, `[number, word] |> show()` builds that list as
+  `show([number, word])` does. A `.Variant` stage is written through its
   enum (`x |> Shape.Dot()`), since a bare `.Variant` cannot see its enum.
 - **A name is not a stage.** A name without parentheses is a function
   reference, so `x |> f`, `x |> io.print`, `x |> Ok` and `x |> Shape.area` are
@@ -3583,7 +3684,7 @@ Taught in [Pipes](/pipes/#the-then-stage).
 
 `x |> then fn v -> body` applies the lambda to the piped value, as `(fn v ->
 body)(x)` would. `x |> then &f(a, &1)` applies the capture, as `(&f(a,
-&1))(x)` would.
+&1))(x)` would, and `x` is checked as `f`'s argument at the `&1`.
 
 ```nomi
 fn divide(a: Int, b: Int) -> Int {
@@ -6268,11 +6369,11 @@ A file's import path is its path from the module root, without `.nomi`, with `::
 | `users/helpers.nomi` | `users::helpers` |
 | `http/request.nomi` | `http::request` |
 
-File names are snake_case. A file cannot be reopened or split across files. Importing `http` does not import `http::request`; each file is imported on its own.
+File names are snake_case. A file cannot be reopened or split across files. Importing `http` does not import `http::request`: a file is imported on its own, or reached through an import of a directory above it (*Directory imports* below).
 
 A **file API object** is the qualifier a path-only import binds: `import http::request` binds `request`, and `request.get(...)` calls its `pub fn get`. Inside a file, the last segment of its own path is also that file's qualifier when no top-level declaration of the file has that name: `users.nomi` may call its own `pub fn new` as `users.new(...)`. In `main.nomi`, `fn main` owns the name, so there is no `main` qualifier.
 
-**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another module starts with that module's short name: `import sqlite::driver` names `driver.nomi` at the root of module `sqlite`. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root. From another module, a dependency's short name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file has no file named by its short name alone. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a::internal::x` from `main.nomi` at the root is the error `cannot import "a::internal::x" from "main": outside the parent subtree of a/internal/`.
+**Import paths across modules.** Within a module, a path names a file of that module. A file may also start the path with its own module's short name, the `name` in its `nomi.toml` (`import my_app::models::user` inside `my_app`). A path into another module starts with that module's short name: `import sqlite::driver` names `driver.nomi` at the root of module `sqlite`. An import that is a short name alone is an ordinary path inside its own module: inside `sqlite`, `import sqlite` names `sqlite.nomi` at the root, and with no such file and no directory `sqlite/`, the module's root directory (*Directory imports* below). From another module, a dependency's short name alone names the file of that name at the dependency's root, so `import sqlite` is `import sqlite::sqlite` when the module holds `sqlite.nomi`, and binds `sqlite` either way. A dependency's name wins over a file of the same name in the importing module. A module with no such file is its root directory under its short name alone: `import sqlite`, then `sqlite::driver.open(path)`. A file inside an `internal/` directory can be imported only by files under that directory's parent: `import a::internal::x` from `main.nomi` at the root is the error `cannot import "a::internal::x" from "main": outside the parent subtree of a/internal/`.
 
 ### Import forms
 
@@ -6284,6 +6385,7 @@ Import paths separate segments with `::`, written with no space around it. An im
 |---|---|
 | `import http::request` | the file API object `request` |
 | `import http::request as req` | the file API object, renamed `req` |
+| `import views::admin` | the directory `admin`, when `views/admin/` holds no file of that name (*Directory imports*) |
 | `import task_parser.parse` | the exported item `parse`, bare |
 | `import std::maybe.Maybe.Some as Just` | an item, renamed |
 | `import users.{User, Role}` | each listed item |
@@ -6310,30 +6412,48 @@ The rules:
 - A selector list cannot hold another: `import shapes.{self, Shape.{Circle, Square}}` is the error `a selector list cannot hold another list`. Write `shapes` and `shapes.Shape.{Circle, Square}` as two entries of a block.
 - A variant is imported through its enum. `import shape.Circle` is the error `` cannot import variant 'Circle' directly — use 'import shape.Shape.{Circle}' to lift specific variants, or 'import shape.{Shape}' and qualify as 'Shape.Circle' ``.
 - There is no glob import (`import path.*`).
-- Standard library files start with `std::`: `import std::io`. `std` alone names a module, not a file. `import std` is the error `` `std` is a module, not a file; an import names a file in it ``, whose hint suggests `std::io`, and `import std.io` is the same error with the hint ``did you mean `import std::io`?``.
+- Standard library files start with `std::`: `import std::io`. `std` alone names the standard library's root directory: `import std` binds it, and `std::io.print(x)` reaches `io.nomi` (*Directory imports*). A directory has no members to select, so `import std.io` is the error `` `std` is a module, not a file; an import names a file in it ``, with the hint ``did you mean `import std::io`?``.
 
 Two imports that bind one name to two declarations are an error at the second: `import a.{Thing}` then `import b.{Thing}` is `'Thing' is already imported on line 1 from another file; two imports cannot bind one name`, with the hint to import one under another name (`Thing as OtherThing`). Importing the same declaration twice is an unused import.
 
-A top-level declaration may not share a name with an imported item: `import other.helper` beside `fn helper` is `'helper' is already defined in this scope as a function`. A file import's short name is different; see *Short names and full paths* below.
+A top-level declaration may not share a name with an imported item: `import other.helper` beside `fn helper` is `'helper' is already defined in this scope as a function`. A file or directory import's name follows the same rule, with its own message; see *Short names* below.
 
-### Short names and full paths
+### Short names
 
-Taught in [Modules & Imports](/modules-and-imports/#short-names-and-full-paths).
+Taught in [Modules & Imports](/modules-and-imports/#short-names-and-directory-imports).
 
-An import that binds a file binds it under two names: its **short name**, the last segment of its path or its `as` alias, and its **full path**. After `import db::posts`, `posts.post_by_id(1)` and `db::posts.post_by_id(1)` call the same function. A file is used by its short name; the full path is how a file is reached when its short name is taken.
+A path-only import binds one name, its **short name**: the last segment of its path or its `as` alias. `import db::posts` binds `posts`, and `posts.post_by_id(1)` calls the file's `pub fn post_by_id`. The import's path is not a name at a use: after `import db::posts`, `db::posts.post_by_id(1)` is the error `` `db::posts` is not a name in this file: `import db::posts` binds the file as `posts` ``, with the hint `` write `posts.post_by_id`, or import its directory (`import db`) and keep `db::posts.post_by_id` ``. The editor's quick fix, and its `source.fixAll`, write the short name. A path at a use starts with the name a directory import binds (*Directory imports* below); any other path is the error `` `views::admin::reports` is not imported ``, whose hint names the file import and the directory import that would reach the file.
 
-The full path may be written wherever the short name may: a call (`db::posts.post_by_id(1)`), a type (`views::admin::users.UserDetail`, `std::http.Response<Int>`), a pattern (`db::schema.Kind.Draft`, `db::schema.Post{id, title}`), a struct literal (`db::schema.Post{id: 1, title: "x"}`), an owner function (`db::schema.Post.blank()`) and a variant (`db::schema.Kind.Published(4)`). Like a short name, a full path alone is not a value: `` `db::posts` is a file, not a value; name one of its members, as in `db::posts.name` ``.
+- **Two imports may not bind one name.** `import db::notifications` beside `import jobs::notifications` is the error at the second, `'notifications' is already imported on line 1 from db::notifications; two imports cannot bind one name`, with the hint `` import the directories (`import db` and `import jobs`) and write `db::notifications` and `jobs::notifications`, or import one under another name with `as` ``. A file and a directory of one name are the same error. The same file imported twice is an unused import.
+- **A declaration keeps its name.** A top-level declaration of the file named like an import's short name is what the name means, and the import is the error ``'users' is already defined in this scope as a function on line 3, so `import views::admin::users` cannot bind it``, with the hint `` import its directory (`import views::admin`) and write `admin::users`, or import it under another name with `as` ``. A file at the module root is reached through the module's root: `import my_app`, then `my_app::users`.
+- **A local keeps its name.** A local, a parameter or a pattern binding named like an import's short name wins in its scope, and `name.member` there reads the local. When a member access on it fails and the file imports a file of that short name, the error's hint says how to reach the file: `schema.post(1)` where `schema` is a local and `db::schema` is imported is `` Int has no field 'post' ``, with the hint `` `schema` here is the binding on line 4, not the file db::schema; import its directory (`import db`) and write `db::schema.post`, or import the file under another name with `as` ``.
+- An import that binds nothing, since another import or a declaration holds its name, is that error alone and not also an unused import.
+- An alias is a short name. `import jobs::mail as notifications` binds the file as `notifications` only.
 
-- **A full path names an imported file.** It names a file this file imports path-only, with an alias or with `self` in its brace list. Any other full path is the error `` `views::admin::reports` is not imported `` at the path, whose hint is `` a full path names a file this file imports: add `import views::admin::reports` ``. A full path never imports a file on its own.
-- **Two imports may share a short name.** `import db::notifications` beside `import jobs::notifications` is not an error. Neither file is reachable by `notifications`: a use of it is the error `` `notifications` could be db::notifications or jobs::notifications; write the full path ``, at the use, and each file is reached by its full path.
-- **A declaration keeps its name.** A top-level declaration of the file named like an import's short name is what the name means, as a local would be, and the file is reached by its full path: beside `fn users`, `import views::admin::users` is used as `views::admin::users.render(u)`.
-- **A local keeps its name.** A local, a parameter or a pattern binding named like an import's short name wins in its scope, and `name.member` there reads the local. The file stays reachable by its full path.
-- When a member access on a local or a declaration fails and the file imports a file of that short name, the error's hint names the full path: `views.record(...)` where `views` is a function and `db::views` is imported is `` () -> Int has no field 'record' ``, with the hint `` `views` here is the function on line 3, not the file db::views; write `db::views.record` ``.
-- An import used only by its full path is used. An import whose file nothing uses, by either name, is an unused import.
-- An alias is a short name. `import jobs::mail as notifications` binds the file as `notifications` and as `jobs::mail`.
-- A file at the module root has a one-segment path, so its full path is its short name. Where that name is taken, import the file with its module's name in front (`import my_app::users`, *Files and modules* above), and `my_app::users` is its full path.
+Prefer the short name. Where it is ambiguous or taken, import the directory and write `dir::file`; alias a file where a directory import does not help (Writing Nomi: *Imports*).
 
-Prefer the short name, and write the full path only where the short name is ambiguous or taken (Writing Nomi: *Imports*).
+### Directory imports
+
+Taught in [Modules & Imports](/modules-and-imports/#short-names-and-directory-imports).
+
+A path-only import whose path names a directory and no file binds the directory under its short name: `import views::admin` binds `admin` when `views/admin/` exists and `views/admin.nomi` does not. A path written below the name at a use reaches a file under the directory: `admin::users.index(rows)` calls `pub fn index` of `views/admin/users.nomi`, and `admin::reports::daily.show()` a function of `views/admin/reports/daily.nomi`. A directory import is how a file reaches several files under one directory with one import line.
+
+```nomi
+import views::admin
+
+fn page(rows: List<admin::users.Row>) -> String {
+    "${admin::users.index(rows)}${admin::reports::daily.show()}"
+}
+```
+
+- **Every position.** A path at a use stands wherever a file's short name does: a call (`admin::users.index(rows)`), a type (`admin::users.Row`, `std::http.Response<Int>`), a pattern (`db::schema.Kind.Draft`, `db::schema.Post{id, title}`), a struct literal (`db::schema.Post{id: 1, title: "x"}`), an owner function (`db::schema.Post.blank()`) and a variant (`db::schema.Kind.Published(4)`). Its last segment names a file and the segments between name directories. Like a short name, a path alone is not a value: `` `admin::users` is a file, not a value; name one of its members, as in `admin::users.name` ``.
+- **The directory's name is not a file.** `admin.users` is the error `` `admin` is a directory, not a file ``, with the hint `` reach a file in it with `::`, as in `admin::users.name` ``, and `admin` alone is `` `admin` is a directory, not a value ``.
+- **A path that names no file** is an error at the use that says what is there: `admin::user.render(u)` is `` `admin::user` names no file: views::admin has no user.nomi ``, with the hint `` did you mean `admin::users`? ``, or a list of the directory's files and directories when no name is close. A path that names a directory, `admin::reports.total()`, is `` `admin::reports` is a directory, not a file ``, whose hint names a file in it.
+- **Only the files a path reaches are part of the program.** Importing a directory loads no file under it. Each path the import's scope writes below the name loads the file it names, as an import of that file would, and the file's impls come with it. A directory import through which no path reaches a file is unused: `imported directory 'admin' is unused — remove the import`.
+- **A file wins over a directory of its name.** Where `views/admin.nomi` sits beside `views/admin/`, `import views::admin` names the file, since a parent file beside the directory of its children is the usual layout (*Cyclic imports* below). The directory is reached from its parent: `import views`, then `views::admin::users.index(rows)`.
+- **Module roots.** A module's own name alone names its root directory when the root holds no file and no directory of that name: inside module `my_app`, `import my_app` binds the root, and `my_app::users.count()` reaches `users.nomi` there. A dependency's name alone is its root in the same way when the dependency has no file of its name (*Files and modules* above), and `import std` binds the standard library's root: `std::io.print(x)`. A path through `std` reaches an internal std module no more than an import does: `` `std::message_format` is internal to std::message ``.
+- **Another module's directory.** A directory that holds its own `nomi.toml` is another module's root, which no path of this module reaches. `import plugins::billing` is the error `` `plugins::billing` is another module's directory: it holds a nomi.toml ``, whose hint says to add the module with `nomi add` and import it by its name, and a path through it at a use is `` `plugins::billing::pay` is in another module's directory: plugins/billing/ holds a nomi.toml ``. A path into an `internal/` directory from outside its parent's subtree is the error an import of that file is (*Files and modules* above).
+- **Scope.** The directory's name is a short name like a file's (*Short names* above): an alias renames it (`import views::admin as pages`, then `pages::users.index(rows)`), an import at the top of a block binds it in that block only, and a local, a parameter or a pattern binding of the name wins in its scope, where a path through the name is the error `` `admin` here is the parameter on line 3, not the directory views::admin ``.
 
 **Placement.** Imports come first: at the top of a file, before any declaration, and at the top of a block, before any other statement. An import after a declaration is the error `imports must appear at the top of the file — 'std::io' came after another statement`, and one after a statement in a block is `imports must appear at the top of this block — 'std::io' came after another statement`.
 
@@ -6400,13 +6520,13 @@ An import path that names no file is an error at the path, in every import form,
 | A `replace` with no `require` | `` go.mod replaces `csvdata` with ../csvdata but does not require it; run `nomi add ../csvdata` `` |
 | A required module with no `nomi.toml` | ``no module `csvdata`: go.mod replaces `csvdata` with ./generators/csvdata, which has no nomi.toml`` |
 
-A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or a file inside a directory the path names (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When `go.mod` requires a module the Go module cache does not hold, the hint says to run `nomi fetch`. When the first name is neither a file nor a directory and `go.mod` does not require it, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or directory otherwise.
+A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or, for an import that selects names from a path that is a directory, a file inside it (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When `go.mod` requires a module the Go module cache does not hold, the hint says to run `nomi fetch`. When the first name is neither a file nor a directory and `go.mod` does not require it, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or directory otherwise.
 
 A selected name the file does not export is an error at the name: `file 'std::io' has no exported name 'nosuchname'`.
 
 #### Unused imports are errors
 
-An imported item that nothing in the file uses is an error. There are no warnings in Nomi. The unit is the item: in `import std::calendar.{Days, Months}` with `Months` unused, the error is at `Months`, `imported name 'Months' is unused — remove it from the import`. An unused file import is `imported module 'io' is unused — remove the import`.
+An imported item that nothing in the file uses is an error. There are no warnings in Nomi. The unit is the item: in `import std::calendar.{Days, Months}` with `Months` unused, the error is at `Months`, `imported name 'Months' is unused — remove it from the import`. An unused file import is `imported module 'io' is unused — remove the import`, and an unused directory import `imported directory 'admin' is unused — remove the import`.
 
 - An aliased item is used through its alias.
 - `self` in a brace list is its own item, used when the name it binds is used.
@@ -6541,7 +6661,7 @@ How `X.Y` resolves:
 
 1. When `X` is a value (a local, a parameter, a `once`, a local function), `X.Y` is field access on that value. A file of the same name is never consulted, since files are not values.
 2. When `X` is an imported file API object, type or interface, `X.Y` is a qualified name, and `Y` must be a public member of `X`.
-3. When `X` is a full path (`db::posts`), `X.Y` is always a qualified name: nothing shadows a full path.
+3. When `X` is a path at a use (`admin::users`), `X.Y` is a qualified name when the path's first segment is a directory import's name in that scope (§14 *Directory imports*), and an error otherwise.
 
 ## 15. Program execution
 
@@ -7573,7 +7693,7 @@ A top-level declaration that starts with a keyword and a name is a **keyword dec
 [pub] keyword name [(params)] [-> type] [raw body]
 ```
 
-Each part after the name may be left out, and the body is a backtick string. Two identifiers in a row at the top level of a file always start a keyword declaration (`foo bar` is ``unknown declaration keyword `foo` ``), and a line break between them ends a statement. The keyword decides what the declaration means: `message` and `noun` are the keywords Nomi knows (*Messages* below).
+Each part after the name may be left out, and the body is a backtick string. Two identifiers in a row at the top level of a file always start a keyword declaration (`foo bar` is ``unknown declaration keyword `foo` ``), and a line break between them ends a statement. The keyword decides what the declaration means: `message` and `noun` (*Messages* below) and `embed` (*Embedded files* below) are the keywords Nomi knows.
 
 | Violation | Error |
 |---|---|
@@ -7680,6 +7800,67 @@ Each check is an error at the declaration, in its text, or in the catalog entry 
    In `partial_locales` a stale entry counts as missing, so the message shows in the source locale, never in a translation of an old meaning.
 8. **MF2 validity**, including MF2's required variant whose keys are all `*`, kept even where the other arms cover every value, so catalogs stay valid for other MF2 tools.
 9. **Agreement.** Every noun has a translation in every listed locale, as a message does, with its `source` and no `text`. Its entry has a `gender` exactly when the language's nouns have one, and it is one CLDR lists (``pl: `masculine` is not a gender in Polish``). Every other key is a case of the language (``pl: `genetive` is not a case in Polish, nor a key of a noun's entry``), the `nominative` is present, and each form has the plural arms the locale needs. A `case=` option names a case of the language (``en: `genitive` is not a case in English``). Over the whole program, every noun has each form some message in the locale asks for (``pl: `laptop` has no `genitive` form, which `sold_out` asks for``, at the noun's entry), and each gender selector has an arm for every gender some noun has there, naming the noun (``pl: `has_shipped` has no `personal` arm; the noun `staff.courier` is personal in Polish``). A gender selector in a language with no genders is ``en: English nouns have no grammatical gender, so `has_shipped` cannot select on `$product`'s``.
+
+### Embedded files
+
+Taught in [Building & Shipping](/building-and-shipping/#executables).
+
+An `embed` declaration names files a program carries inside itself:
+
+```
+[pub] embed name `pattern ...`
+```
+
+The compiler finds the files the patterns match when it compiles the program, and records each one's size and SHA-256, and `name` is a value of std::embed's `Files`, a read-only tree of them ([std::embed](/reference/embed/)). It is read like a `once` value (`site`, `web.site` from another file). A program reaches an embedded file only through the declaration that names it, and a built image holds the files of the declarations the program reaches.
+
+**When a file is read.** The tree, each file's path and size, is in the program from the start: `paths`, `list`, `walk`, `metadata`, `exists` and `sub` read no file. A file's contents are read when the program reads that file (`read`, `read_text`), each time it does, and are kept only as long as the program keeps the `Bytes`. A built program holds the contents in its image, after the code it starts from, so `nomi build`'s executable, its WebAssembly modules and a `.nomic` read no file but their own, and starting one costs the same however much it embeds. `nomi run`, `nomi test` and the REPL read a file's contents from the file, and a file whose size or SHA-256 is not what the program was compiled with stops the program with an error naming the file (`static/a.css changed after the program was compiled`); the next run compiles the new contents. A build checks each file the same way when it writes it into the image.
+
+```nomi
+import std::embed.Files
+
+/// The site's pages and styles.
+pub embed site `
+    static
+    templates/*.html
+    `
+
+fn home() -> String {
+    Files.read_text(site, "static/index.html")!
+}
+```
+
+The body is one or more patterns, separated by white space; a pattern that holds a space is written in double quotes (`"my notes.txt"`). A pattern is Go's `path.Match` pattern (`*`, `?`, `[a-z]`), slash-separated, and names files from the module root, as an import path names a file (§14 *Files and modules*), whatever directory the declaring file is in, so moving the file never changes what its patterns name. It never reaches outside the module. The other rules are Go's `//go:embed`'s:
+
+- A pattern that matches a file embeds it, whatever its name. One that matches a directory embeds every file under it, except names that start with `.` or `_`; a pattern that starts with `all:` embeds those too (`all:static`).
+- A directory holding a `nomi.toml` of its own is another module: a directory walk leaves it out, and a pattern that names it, or a file under it, is an error.
+- A path in the tree is the file's path from the module root (`static/index.html`), whatever pattern matched it, and two patterns that match one file embed it once.
+
+| Violation | Error, at the pattern |
+|---|---|
+| A pattern that matches nothing | ``the `embed` pattern `nope` matches no file`` |
+| A leading or trailing `/` | ``the `embed` pattern `/static` starts with `/` `` |
+| A `.` or `..` name, or an empty one | ``the `embed` pattern `../x` names `..` `` |
+| `**` | ``the `embed` pattern `static/**` holds `**` ``: a directory's name already embeds everything under it |
+| A `\` | ``the `embed` pattern `static\a` holds `\` `` |
+| A malformed pattern | ``the `embed` pattern `static/[a` is not a valid pattern: a `[` is not closed, or a `\` ends it`` |
+| A directory with nothing to embed | ``cannot embed `empty`: it holds no file to embed`` |
+| A symbolic link or other irregular file | ``cannot embed `link.html`: it is a symbolic link`` |
+| Another module's directory | ``cannot embed `tools`: it is another module, with its own nomi.toml`` |
+| No body, parameters or a result type | ``an `embed` names the files it holds`` |
+
+**Literal paths are checked.** A call to `Files.read`, `read_text`, `metadata`, `list`, `walk` or `sub` whose path is a string literal, and whose tree is an `embed` declaration (`site`, `web.site`) or a `Files.sub` of one with a literal directory, unwrapped with `!` or `?` (`Files.sub(site, "static")!`, nested or piped), is checked against the files the declaration holds. `read` and `read_text` name a file, `list`, `walk` and `sub` a directory, and `metadata` either. The path is cleaned as the run time cleans it, so `./static//a.css` is `static/a.css`. A path built at run time (an interpolation, a variable, a parameter) is not checked and stays a run-time `Result`, and neither `exists` nor `paths` is checked.
+
+| Violation | Error, at the literal |
+|---|---|
+| No such file | `` `static/indx.html` is not embedded in `site` ``, with ``did you mean `static/index.html`?`` when one path is close |
+| A directory where a file is read | `` `static` is a directory in `site`, not a file `` |
+| No such directory | `` `public` is not an embedded directory of `site` `` |
+| A file where a directory is read | `` `page.html` is a file in `site`, not a directory `` |
+| A path under a `Files.sub` | `` `index.htm` is not embedded in `static` of `site` `` |
+| A leading `/` | `` `/a.css` is not an embedded path: an embedded path is relative to the root of the embedded tree `` |
+| `..` out of the tree | `` `../a.css` is not an embedded path: the path leaves the embedded tree `` |
+
+Nomi differs from Go in five things: a pattern names files from the module root, where Go's names them from the declaring file's directory; `**` is an error rather than a pattern matching like `*`, since naming a directory embeds its whole tree; `\` is an error rather than an escape, so a pattern reads the same on every system; a quoted pattern takes no escapes; and a file's modification time is the Unix epoch, since an `Instant` cannot hold Go's zero time.
 
 ## 19. Host declarations and Go bindings
 

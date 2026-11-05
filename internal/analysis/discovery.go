@@ -64,7 +64,7 @@ type Project struct {
 // embedders. When mfst is nil and projectRoot is set, the manifest is loaded
 // from disk.
 func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest) (*Project, error) {
-	return discoverProject(entryNodes, projectRoot, loader, mfst, nil, nil)
+	return discoverProject(entryNodes, projectRoot, loader, mfst, nil, nil, nil)
 }
 
 // discoverProject is DiscoverProjectWithManifest that neither loads nor walks
@@ -77,7 +77,10 @@ func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, load
 // reused are the project files whose analysis the caller holds from an
 // earlier build (reusedFile): a reached one is noted in Project.reused, not
 // loaded, and its imports are walked from the nodes it was built from.
-func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest, analyzed func(key string) bool, reused map[string]reusedFile) (*Project, error) {
+//
+// roots are module keys of projectRoot the walk starts from besides the
+// entry's imports (buildInputs.roots).
+func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest, analyzed func(key string) bool, reused map[string]reusedFile, roots []string) (*Project, error) {
 	p := &Project{
 		Entry:       entryNodes,
 		Files:       make(map[string][]ast.Node),
@@ -181,6 +184,9 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 	}
 
 	queue := make([]walkItem, 0)
+	for _, key := range roots {
+		queue = append(queue, walkItem{root: projectRoot, modPath: strings.Split(key, "/"), key: key})
+	}
 	for _, mp := range importsOf(entryNodes) {
 		if wi, ok := classify(mp); ok {
 			queue = append(queue, wi)
@@ -300,15 +306,29 @@ func walkImports(nodes []ast.Node) [][]string {
 func importPathsOf(node ast.Node) [][]string {
 	switch s := node.(type) {
 	case *ast.ImportStmt:
-		return [][]string{importStmtPath(s)}
+		return importStmtPaths(nil, s)
 	case *ast.ImportBlock:
 		out := make([][]string, 0, len(s.Entries))
 		for _, entry := range s.Entries {
-			out = append(out, importStmtPath(entry))
+			out = importStmtPaths(out, entry)
 		}
 		return out
 	}
 	return nil
+}
+
+// importStmtPaths appends to out the path stmt imports and, after it, the
+// path of each file its PathUses reach when it names a directory: the
+// import's path with the use's segments after it. Whether it names a
+// directory is resolution's to say; a path that names no file loads
+// nothing.
+func importStmtPaths(out [][]string, stmt *ast.ImportStmt) [][]string {
+	path := importStmtPath(stmt)
+	out = append(out, path)
+	for _, use := range stmt.PathUses {
+		out = append(out, append(slices.Clone(path), strings.Split(use, ast.PathSeparator)...))
+	}
+	return out
 }
 
 // importStmtPath extracts the module path segments from an ImportStmt.

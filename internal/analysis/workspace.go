@@ -328,6 +328,12 @@ func (dm *DocumentManager) Analyzed(uri string) *DocSnapshot {
 	if snap == nil {
 		return nil
 	}
+	if snap.fromProgram {
+		// A program kept for the open documents answered it, with no
+		// build. It is not cached: the next request reads the program
+		// again, as it is then.
+		return snap
+	}
 	dm.mu.Lock()
 	if _, open := dm.docs[uri]; !open {
 		dm.closed.put(&closedEntry{uri: uri, modTime: info.ModTime(), size: info.Size(), snap: snap})
@@ -348,7 +354,8 @@ func (dm *DocumentManager) AnalyzeClosed(uri string) *DocSnapshot {
 }
 
 // buildClosed analyzes the disk text of uri as an open document's text
-// would be analyzed.
+// would be analyzed, or answers it from a program kept for the open
+// documents that holds the file as a build would make it (keptClosed).
 func (dm *DocumentManager) buildClosed(uri string, foreground bool) *DocSnapshot {
 	data, err := os.ReadFile(fileuri.ToPath(uri))
 	if err != nil {
@@ -359,6 +366,12 @@ func (dm *DocumentManager) buildClosed(uri string, foreground bool) *DocSnapshot
 	// Deferred: a panic in build, which the language server recovers,
 	// must not leave every later build waiting on analyzeMu.
 	defer dm.analyzeMu.Unlock()
+	if snap := dm.keptClosed(uri); snap != nil {
+		return snap
+	}
+	if snap := dm.storedClosed(uri); snap != nil {
+		return snap
+	}
 	b := dm.build(uri, content)
 	return &DocSnapshot{
 		URI:             uri,

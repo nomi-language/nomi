@@ -125,7 +125,7 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 			params[i] = bl.g.lambdaParamKind(p)
 		}
 		if !irCallableValueKind(params[i]) && params[i] != kindUnit {
-			irDeclineNote("a lambda parameter outside the domain: " + params[i].nomi())
+			bl.g.dc.note("a lambda parameter outside the domain: " + params[i].nomi())
 			return no()
 		}
 	}
@@ -140,7 +140,7 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 		}
 		supplier, fk, _, ok := bl.lambdaFunction(t, group.kindsAt(group.before(i)), p.Default, group, i)
 		if !ok || funcResult(fk) != params[i] {
-			irDeclineNote("a lambda parameter default outside the parameter's kind: " + params[i].nomi())
+			bl.g.dc.note("a lambda parameter default outside the parameter's kind: " + params[i].nomi())
 			return no()
 		}
 		group.suppliers[i] = supplier
@@ -154,16 +154,16 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	var child *irScalarBuilder
 	why := "a lambda body that is not a block ending in an expression"
 	no := func() (ir.Temp, kind, bool, bool) {
-		if irDeclineWhy == "" {
+		if bl.g.dc.why == "" {
 			if child != nil && child.stalledStmt != nil {
 				why = "a lambda statement that declined: " + constructName(child.stalledStmt)
 			}
 			// Reported at the lambda, as the enclosing `lower` would have
 			// placed it; the reason names the stage.
 			if line, col := nodePos(t); emittableLine(line) {
-				irDeclineLine, irDeclineCol = line, col
+				bl.g.dc.line, bl.g.dc.col = line, col
 			}
-			irDeclineNote(why)
+			bl.g.dc.note(why)
 		}
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -260,7 +260,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			k := bl.g.lambdaParamKind(p)
 			v, vk, _, ok := child.lowerWant(p.Default, k)
 			if !ok || vk != k {
-				irDeclineNote("a lambda parameter default outside the parameter's kind: " + k.nomi())
+				bl.g.dc.note("a lambda parameter default outside the parameter's kind: " + k.nomi())
 				return no()
 			}
 			if !ast.IsDiscardName(p.Name) {
@@ -439,23 +439,23 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	}
 	if !ok || (!irCallableValueKind(k) && k != kindUnit) {
 		if ok {
-			irDeclineNote("a lambda result outside the domain: " + k.nomi())
+			bl.g.dc.note("a lambda result outside the domain: " + k.nomi())
 		}
 		return no()
 	}
 	if child.inferReturn != nil {
 		if _, agree := child.inferReturn.settle(k); !agree {
-			irDeclineNote("a lambda whose returns disagree")
+			bl.g.dc.note("a lambda whose returns disagree")
 			return no()
 		}
 		if !child.settleConcurrentTries(tries, k) {
-			irDeclineNote("a try whose operand does not exit to the lambda's result: " + k.nomi())
+			bl.g.dc.note("a try whose operand does not exit to the lambda's result: " + k.nomi())
 			return no()
 		}
 	}
 	plan := &irScalarPlan{fn: f, result: k}
 	if err := bl.g.irLint(f); err != nil {
-		irDeclineNote("a lambda graph that does not lint: " + err.Error())
+		bl.g.dc.note("a lambda graph that does not lint: " + err.Error())
 		return no()
 	}
 	var n *ir.FuncValue
@@ -768,7 +768,7 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	}
 	ctl := bl.g.namedCtlForm(sig.decl)
 	if ctl != irCtlNone && bl.ctlRefs[t] != ctl {
-		irDeclineNote("an iter-sensitive function passed where its break or continue cannot be caught: " + t.Name)
+		bl.g.dc.note("an iter-sensitive function passed where its break or continue cannot be caught: " + t.Name)
 		return no()
 	}
 	ref := ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irFunctionCallee(sig))

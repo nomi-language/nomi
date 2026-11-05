@@ -108,7 +108,11 @@ func (r *completionRequest) filePublicNames(segs []string) []candidate {
 		}
 		return nil
 	}
-	path := filepath.Join(append([]string{r.projectRoot()}, segs...)...) + ".nomi"
+	return r.filePublicNamesAt(filepath.Join(append([]string{r.projectRoot()}, segs...)...) + ".nomi")
+}
+
+// filePublicNamesAt is filePublicNames of the project file at path.
+func (r *completionRequest) filePublicNamesAt(path string) []candidate {
 	if snap := r.s.docs.Snapshot(fileuri.FromPath(path)); snap != nil && snap.Analysis != nil {
 		return scopeMemberCandidates(snap.Analysis.ModuleScope, func(*analysis.Symbol) bool { return true })
 	}
@@ -163,4 +167,65 @@ func publicDecls(nodes []ast.Node, private bool) []publicDecl {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].name < out[j].name })
 	return out
+}
+
+// pathSegmentCandidates offers the next segment of a path at a use: the
+// files and the directories under the directory the path's first segment,
+// a directory import's name, binds, below the segments written after it
+// (`admin::` offers views/admin's files, `admin::reports::` those of
+// views/admin/reports).
+func (r *completionRequest) pathSegmentCandidates() []candidate {
+	segs := r.ctx.pathSegs
+	head := r.scope.Lookup(segs[0])
+	if head == nil || head.Kind != analysis.SymbolDirectory || head.Directory == nil {
+		return nil
+	}
+	listing := head.Directory.Listing
+	if len(segs) > 1 {
+		listing = nil
+		if dir := head.Directory.Listing; dir != nil && dir.Dir != "" {
+			listing = analysis.DiskDirectory(dir.Dir, segs[1:])
+		}
+	}
+	if listing == nil {
+		return nil
+	}
+	spelled := strings.Join(segs, ast.PathSeparator) + ast.PathSeparator
+	self := uriToPath(r.doc.URI)
+	var out []candidate
+	for _, f := range listing.Files {
+		if listing.Dir != "" && filepath.Join(listing.Dir, f+".nomi") == self {
+			continue
+		}
+		out = append(out, candidate{label: f, kind: protocol.CompletionItemKindFile, detail: spelled + f, locality: 1})
+	}
+	for _, d := range listing.Dirs {
+		out = append(out, candidate{label: d, kind: protocol.CompletionItemKindFolder, detail: spelled + d + ast.PathSeparator, locality: 1})
+	}
+	return out
+}
+
+// reachedFileMembers lists the public names of the file a path at a use
+// names below a directory import's name, when the analysis has not reached
+// it yet: the path was typed after the document was last analyzed.
+func (r *completionRequest) reachedFileMembers(fp *ast.FilePath) []candidate {
+	if len(fp.Segments) < 2 {
+		return nil
+	}
+	head := r.scope.Lookup(fp.Segments[0].Name)
+	if head == nil || head.Kind != analysis.SymbolDirectory || head.Directory == nil {
+		return nil
+	}
+	var rest []string
+	for _, seg := range fp.Segments[1:] {
+		rest = append(rest, seg.Name)
+	}
+	d := head.Directory
+	if len(d.Path) == 1 && d.Path[0] == "std" {
+		return r.filePublicNames(append([]string{"std"}, rest...))
+	}
+	if d.Listing == nil || d.Listing.Dir == "" {
+		return nil
+	}
+	return r.filePublicNamesAt(filepath.Join(append([]string{d.Listing.Dir}, rest...)...) + ".nomi")
 }

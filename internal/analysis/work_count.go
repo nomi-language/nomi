@@ -3,6 +3,8 @@ package analysis
 import (
 	"sync"
 	"sync/atomic"
+
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // countingBodyChecks turns on bodyChecks, which records each file whose
@@ -86,5 +88,41 @@ var (
 func noteImportsWalk() {
 	if countingImportsWalks.Load() {
 		importsWalks.Add(1)
+	}
+}
+
+// countingBootWork turns on bootWalks and bootGraphs, which count the work
+// the boot-only check does (CheckBootScope): each function or test body it
+// reads for its calls, with the file it is in, and each program graph it
+// builds. Only a test counts (TestEditWorkStaysFlatAsAProjectGrows).
+var (
+	countingBootWork atomic.Bool
+	bootWorkMu       sync.Mutex
+	bootWalks        []bootWalk
+	bootGraphs       atomic.Int64
+)
+
+// bootWalk is one body the boot-only check read, and the file it is in.
+type bootWalk struct {
+	fa   *FileAnalysis
+	body ast.Node
+}
+
+// noteBootWalk records that the boot-only check read body, in fa, when
+// counting is on.
+func noteBootWalk(fa *FileAnalysis, body ast.Node) {
+	if !countingBootWork.Load() {
+		return
+	}
+	bootWorkMu.Lock()
+	bootWalks = append(bootWalks, bootWalk{fa: fa, body: body})
+	bootWorkMu.Unlock()
+}
+
+// noteBootGraph counts a program graph the boot-only check built, when
+// counting is on.
+func noteBootGraph() {
+	if countingBootWork.Load() {
+		bootGraphs.Add(1)
 	}
 }

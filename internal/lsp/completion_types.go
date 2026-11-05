@@ -205,7 +205,8 @@ func (r *completionRequest) symbolOf(n ast.Node) *analysis.Symbol {
 	case *ast.TypeIdent:
 		return realSymbol(r.scope.Lookup(v.Name))
 	case *ast.FilePath:
-		// A file's full path is the name its import binds it under.
+		// A path at a use is the name its directory import binds the file
+		// it reaches under.
 		return realSymbol(r.scope.Lookup(v.Spelling()))
 	case *ast.FieldAccess:
 		if v.Field == nil {

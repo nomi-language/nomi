@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"errors"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"path/filepath"
@@ -960,6 +961,15 @@ type builder struct {
 	// site for the name is another definition site of the same symbol
 	// (bindPatternName), so the name is one binding with several sites.
 	orBound map[string]*Symbol
+
+	// reexportsDefined are the file's `pub import` statements a project
+	// build defined before any file's annotations (defineReexports), which
+	// Sweep B-ann then skips.
+	reexportsDefined map[*ast.ImportStmt]bool
+	// pathsWalked are the paths at a use walkPath has resolved, by the
+	// position of their first segment, so a path two passes walk is
+	// reported once.
+	pathsWalked map[Pos]bool
 }
 
 // typeMethodSlot is one (receiver, method) key of FileAnalysis.TypeMethods.
@@ -1119,7 +1129,14 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	// "file 'empty' has no member 'x'" like any other missing member.
 	nodes, err := b.loader(loadRoot, loadPath)
 	if err != nil {
-		return nil, "", &importMiss{root: loadRoot, path: loadPath, dep: dep, std: modulePath[0] == "std"}
+		miss := &importMiss{root: loadRoot, path: loadPath, dep: dep, std: modulePath[0] == "std"}
+		// A path that names a directory and no file is a directory
+		// import: the loader says so for the files it holds in memory,
+		// and the disk answers for the rest.
+		if !errors.As(err, &miss.dir) {
+			miss.dir = DiskDirectory(loadRoot, loadPath)
+		}
+		return nil, "", miss
 	}
 
 	// Create a sub-builder sharing cache and loading sets. The sub-
@@ -1430,7 +1447,6 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 func checkUnused(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	var errs []TypeError
 	errs = append(errs, CheckUnusedImports(fa, nodes)...)
-	errs = append(errs, CheckAmbiguousShortNames(fa)...)
 	errs = append(errs, CheckRedundantPreludeImports(fa, nodes)...)
 	errs = append(errs, CheckUnusedBindings(fa)...)
 	errs = append(errs, CheckUselessReturns(nodes)...)
@@ -1579,6 +1595,25 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 	}
 }
 
+// qualifiedTypeMember is the name t names after its qualifier: the owner
+// written after a path (`Kind` in `db::schema.Kind.Draft`), else the member.
+func qualifiedTypeMember(t *ast.QualifiedType) string {
+	if i := strings.IndexByte(t.Module, '.'); i >= 0 {
+		owner := t.Module[i+1:]
+		if j := strings.IndexByte(owner, '.'); j >= 0 {
+			owner = owner[:j]
+		}
+		return owner
+	}
+	switch m := t.Member.(type) {
+	case *ast.SimpleType:
+		return m.Name
+	case *ast.GenericType:
+		return m.Name
+	}
+	return ""
+}
+
 func (b *builder) walkTypeExpr(te ast.TypeExpr, scope *Scope) {
 	if te == nil {
 		return
@@ -1600,6 +1635,24 @@ func (b *builder) walkTypeExpr(te ast.TypeExpr, scope *Scope) {
 			b.file.References[Pos{Line: t.Line, Col: t.Col}] = sym
 		}
 	case *ast.QualifiedType:
+		// A qualifier written as a path (`admin::users.UserDetail`) reaches
+		// its file through a directory import, or is an error there.
+		if len(t.Path) > 0 {
+			head := Pos{Line: t.Path[0].Line, Col: t.Path[0].Col}
+			if b.walkPath(t.Path, scope, qualifiedTypeMember(t)) == nil {
+				if g, ok := t.Member.(*ast.GenericType); ok {
+					for _, param := range g.Params {
+						b.walkTypeExpr(param, scope)
+					}
+				}
+				return
+			}
+			// The path's first segment is the directory, whatever the
+			// lookups below record at the qualifier's position.
+			if headRef := b.file.References[head]; headRef != nil {
+				defer func() { b.file.References[head] = headRef }()
+			}
+		}
 		// A dotted type name is one declaration, not a traversal into its
 		// prefix: `Probe.Reading` is its own symbol sitting beside `Probe`,
 		// and `Probe` may have no members to reach through. Resolving
@@ -2100,6 +2153,13 @@ func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 		b.define(pos, sym)
 	}
 	inner := b.defineTypeParams(n.TypeParams, scope)
+	if inner == scope {
+		// An interface with no type parameters still gets a scope of its
+		// own, so its `self` is not defined in the enclosing one: a module
+		// scope that bound `self` made a `//!` prompt's `import
+		// std::http.{self, ...}` look like it rebound a module name.
+		inner = NewScope(scope)
+	}
 	// Define `self` in the method-signature scope so `self` in type position
 	// (`fn hello(value: self) -> String`) records a hover / go-to-def reference
 	// via walkTypeExpr's SelfType case. It resolves to the interface itself —
@@ -2328,7 +2388,7 @@ func (b *builder) defineOnce(n *ast.OnceBinding, scope *Scope) {
 		Doc:    n.Doc,
 		Node:   n,
 	}
-	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
+	b.collidesWithImportedModule(scope, n.Name, "once binding", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
@@ -2551,14 +2611,18 @@ func (b *builder) defineSymbolAnnotations(node ast.Node, scope *Scope) {
 		repointSynthErrors(n, b.file.TypeErrors[from:])
 
 	case *ast.ImportStmt:
-		b.defineImport(n, scope, false /* nested */)
+		if !b.reexportsDefined[n] {
+			b.defineImport(n, scope, false /* nested */)
+		}
 
 	case *ast.ImportBlock:
 		// Block-form import: each entry is a regular ImportStmt. Process
 		// each like a standalone import — they're semantically identical;
 		// the block is just syntactic sugar for grouping.
 		for _, entry := range n.Entries {
-			b.defineImport(entry, scope, false)
+			if !b.reexportsDefined[entry] {
+				b.defineImport(entry, scope, false)
+			}
 		}
 
 	case *ast.Binding:
@@ -2587,7 +2651,7 @@ func (b *builder) defineFuncStub(n *ast.FuncDef, scope *Scope) {
 		Doc:    n.Doc,
 		Node:   n,
 	}
-	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
+	b.collidesWithImportedModule(scope, n.Name, "function", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
@@ -2670,7 +2734,7 @@ func (b *builder) defineStructStub(n *ast.StructDef, scope *Scope) {
 		sym.Members[f.Name] = fieldSym
 		b.define(fieldSym.Pos, fieldSym)
 	}
-	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
+	b.collidesWithImportedModule(scope, n.Name, "type", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
@@ -2784,7 +2848,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 			SourceFile: sourceFile,
 			Members:    make(map[string]*Symbol),
 		}
-		b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
+		b.collidesWithImportedModule(scope, n.Name, "type", n.Line)
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(enumSym)
 		}
@@ -2901,7 +2965,7 @@ func (b *builder) defineTypeDefStub(n *ast.TypeDef, scope *Scope) {
 		SourceFile: sourceFile,
 		Members:    make(map[string]*Symbol),
 	}
-	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
+	b.collidesWithImportedModule(scope, n.Name, "type", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
@@ -2925,7 +2989,7 @@ func (b *builder) defineTypeAliasStub(n *ast.TypeAlias, scope *Scope) {
 		Doc:    n.Doc,
 		Node:   n,
 	}
-	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
+	b.collidesWithImportedModule(scope, n.Name, "type alias", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
@@ -2961,7 +3025,7 @@ func (b *builder) defineInterfaceStub(n *ast.InterfaceDef, scope *Scope) {
 		Members: make(map[string]*Symbol),
 	}
 	b.defineInterfaceMethodSymbols(n, sym)
-	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
+	b.collidesWithImportedModule(scope, n.Name, "interface", n.Line)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
@@ -3795,6 +3859,24 @@ func (b *builder) stampsSourceFile() bool {
 // nested=true (inside a function body): b.modules is NEVER mutated.
 // Aliases are only registered as Symbols in the local scope. b.modules
 // is process-global and would otherwise wipe out module-level entries.
+// internalAccessError is the error for importing checkPath, a file's
+// path (not std's), from this file, when it is inside an `internal/`
+// directory this file is outside of; nil when it may.
+func (b *builder) internalAccessError(checkPath []string) error {
+	head := checkPath[0]
+	sameModule := true
+	importeeModRel := strings.Join(checkPath, "/")
+	if rest, self := SelfNameImport(checkPath, b.currentModuleName); self {
+		// Self-name spelling: strip the head for the check's
+		// importeeModRel so it compares like a bare intra-module
+		// import. sameModule stays true.
+		importeeModRel = strings.Join(rest, "/")
+	} else if _, ok := b.moduleIndex[head]; ok {
+		sameModule = false
+	}
+	return checkInternalAccess(b.importerModRel(), importeeModRel, sameModule)
+}
+
 func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 	modPathStrings := make([]string, len(n.ModulePath))
 	for i, seg := range n.ModulePath {
@@ -3833,18 +3915,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				checkPath = checkPath[:len(checkPath)-1]
 			}
 		}
-		head := checkPath[0]
-		sameModule := true
-		importeeModRel := strings.Join(checkPath, "/")
-		if rest, self := SelfNameImport(checkPath, b.currentModuleName); self {
-			// Self-name spelling: strip the head for the check's
-			// importeeModRel so it compares like a bare intra-module
-			// import. sameModule stays true.
-			importeeModRel = strings.Join(rest, "/")
-		} else if _, ok := b.moduleIndex[head]; ok {
-			sameModule = false
-		}
-		if err := checkInternalAccess(b.importerModRel(), importeeModRel, sameModule); err != nil {
+		if err := b.internalAccessError(checkPath); err != nil {
 			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 				Line:    n.Line,
 				Col:     n.Col,
@@ -3888,17 +3959,29 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		// field-access can find members regardless of b.modules state
 		// (notably for nested aliases that don't touch b.modules).
 		var modScope *Scope
+		if len(modPathStrings) == 1 && modPathStrings[0] == "std" {
+			// The standard library's root is a directory.
+			b.defineDirectoryImport(n, scope, nested, modPathStrings, b.stdDirectory(), bindName, sym.Pos)
+			return
+		}
 		if stdScope := b.resolveStdlibImport(modPathStrings); stdScope != nil {
 			modScope = stdScope
 		} else {
 			var miss *importMiss
 			modScope, _, miss = b.resolveImportOrMiss(modPathStrings)
+			if modScope == nil {
+				// A path that names a directory and no file binds the
+				// directory (spec §14 *Directory imports*).
+				if dir := b.directoryOf(modPathStrings, miss); dir != nil {
+					b.defineDirectoryImport(n, scope, nested, modPathStrings, dir, bindName, sym.Pos)
+					return
+				}
+			}
 			b.reportMissingModule(n, n.ModulePath, miss)
 		}
 		sym.ModuleScope = modScope
-		shortBound := b.bindFileShortName(scope, sym, n)
+		shortBound := b.bindShortName(scope, sym, n)
 		b.define(sym.Pos, sym)
-		b.bindFileFullPath(scope, sym, n, nested)
 
 		// Top-level imports also update b.modules so qualified-type
 		// resolution and FieldAccess (which currently consult it) use the
@@ -4288,9 +4371,8 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					Node:        n,
 					ModuleScope: modScope,
 				}
-				shortBound := b.bindFileShortName(scope, sym, n)
+				shortBound := b.bindShortName(scope, sym, n)
 				b.define(sym.Pos, sym)
-				b.bindFileFullPath(scope, sym, n, nested)
 				// As a plain `import std::io` does, the binding replaces
 				// the module table's placeholder for the name, which
 				// carries no scope: a `file.member` reference resolved to
@@ -4616,7 +4698,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.FilePath:
-		b.walkFilePath(n, scope)
+		b.walkFilePath(n, scope, "")
 
 	case *ast.TypeIdent:
 		sym := scope.Lookup(n.Name)
@@ -4661,6 +4743,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 				}
 				return
 			}
+		}
+		if fp, ok := n.Object.(*ast.FilePath); ok && n.Field != nil {
+			b.walkFilePath(fp, scope, n.Field.Name)
 		}
 		b.walkNode(n.Object, scope)
 		b.recordImportedTypeQualifiedAccess(n, scope)
@@ -4713,7 +4798,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 							case *ast.TypeIdent:
 								b.file.References[Pos{Line: obj.Line, Col: obj.Col}] = refSym
 							case *ast.FilePath:
-								b.recordFilePathRefs(obj, refSym)
+								b.recordPathRefs(obj.Segments, refSym)
 							}
 						}
 						// A module name in that scope (its self binding, a
@@ -5100,10 +5185,9 @@ func (b *builder) isBlockImportBinding(sym *Symbol, scope *Scope) bool {
 
 // lookupModuleScope returns the *Scope of the file bound to `name` in the
 // given scope, or nil if the closest binding of the name is not a file. It
-// is the resolution FieldAccess uses for `<file>.<member>`. A local or a
-// declaration of the name wins over a file import of it (spec §14 *Short
-// names and full paths*): the file stays reachable by its full path, which
-// nothing shadows.
+// is the resolution FieldAccess uses for `<file>.<member>`. A local of the
+// name wins over a file import of it (spec §14 *Short names*), and the file
+// is reached through a directory import instead.
 func (b *builder) lookupModuleScope(name string, scope *Scope) *Scope {
 	return moduleScopeOfSym(scope.Lookup(name))
 }

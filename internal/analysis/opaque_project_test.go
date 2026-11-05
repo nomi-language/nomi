@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // Cross-module tests for opaque distinct types (spec §4, *Opaque distinct types*).
@@ -50,7 +49,7 @@ func opaqueProject(t *testing.T, files map[string]string) (*analysis.FileAnalysi
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, cache, siblingNodes := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis from BuildProject")

@@ -62,6 +62,14 @@ type ExpansionSite struct {
 	Manifest *Manifest
 	// Read reads an input; nil reads the disk.
 	Read InputReader
+	// Embed is the files an `embed` reads, by their paths from the module
+	// root (the directory ModulePath is under), or from the program's
+	// directory for a file with no project. Nil for a file with no
+	// directory, whose `embed` is an error.
+	Embed EmbedFS
+	// SkipEmbedContents makes an `embed` find its files without reading
+	// them, as the language server does: it needs their names and sizes.
+	SkipEmbedContents bool
 }
 
 func (s *ExpansionSite) read(path string) (string, bool) {
@@ -196,13 +204,14 @@ func (c *checker) checkExpansionBody(fn *ast.FuncDef) {
 }
 
 // ExpandDeclarations answers nodes with each keyword declaration expanded
-// at site: a `message` becomes the function it declares and a `noun` the
-// `once` it names, in its place, and the file gains the hidden imports its
-// expansions name std/message by, and the one a `derive ToJson` or
-// `derive FromJson` names std/json by (withJsonImport). A declaration of any other keyword
-// stays, for the checker to refuse. Expanding again is a no-op: an
-// expanded file holds no `message` declaration. A nil site expands
-// messages with no inputs, as a file with no project.
+// at site: a `message` becomes the function it declares, and a `noun` and an
+// `embed` (embed.go) the `once` each names, in its place, and the file gains
+// the hidden imports its expansions name std/message and std/embed by, and
+// the one a `derive ToJson` or `derive FromJson` names std/json by
+// (withJsonImport). A declaration of any other keyword stays, for the
+// checker to refuse. Expanding again is a no-op: an expanded file holds no
+// `message` or `embed` declaration. A nil site expands messages with no
+// inputs, as a file with no project, and an `embed` into an error.
 //
 // Each expansion is positioned at the band slot of its declaration's
 // index among the expanded file's source nodes (sourceIndices), the index
@@ -215,13 +224,16 @@ func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
 	// A file that imports std/html reaches its slot functions through a
 	// hidden import too (html_template.go).
 	nodes = withHtmlImport(nodes)
-	hasMessage := false
+	hasMessage, hasEmbed := false, false
 	for _, n := range nodes {
 		if kd, ok := n.(*ast.KeywordDecl); ok && isBuiltinKeyword(kd) {
 			hasMessage = true
 		}
+		if _, ok := n.(*ast.EmbedDecl); ok {
+			hasEmbed = true
+		}
 	}
-	if !hasMessage {
+	if !hasMessage && !hasEmbed {
 		return nodes
 	}
 	if site == nil {
@@ -229,8 +241,11 @@ func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
 	}
 	cats := &catalogSet{site: site, files: map[string]*messageCatalog{}}
 	out := make([]ast.Node, 0, len(nodes)+1)
-	if !hasMessageImport(nodes) {
+	if hasMessage && !hasMessageImport(nodes) {
 		out = append(out, messageImports()...)
+	}
+	if hasEmbed && !hasEmbedImport(nodes) {
+		out = append(out, embedImport())
 	}
 	index := 0
 	add := func(ns ...ast.Node) {
@@ -242,6 +257,10 @@ func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
 		}
 	}
 	for _, n := range nodes {
+		if d, ok := n.(*ast.EmbedDecl); ok {
+			add(expandEmbed(d, site, synthSlot(synthOriginDecl, index, synthKindEquatable)))
+			continue
+		}
 		kd, ok := n.(*ast.KeywordDecl)
 		switch {
 		case !ok:

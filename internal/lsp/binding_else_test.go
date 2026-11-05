@@ -7,7 +7,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 const bindingElseSrc = `enum LoadError {
@@ -62,7 +61,7 @@ func posOf(t *testing.T, src, marker, word string, nth int) analysis.Pos {
 // A name a binding's pattern binds, and one an else arm binds, resolve from
 // their reads to their definitions and hover with their types.
 func TestBindingElse_HoverAndDefinition(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(bindingElseSrc))
 	file := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	typeErrs := analysis.BuildTypes(file, nodes)

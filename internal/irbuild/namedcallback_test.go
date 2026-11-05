@@ -376,9 +376,7 @@ func irDeclinesOf(t *testing.T, src string) map[string]string {
 		t.Fatalf("the front end rejects this, so the decline is not what is tested: %v", err)
 	}
 	declined := map[string]string{}
-	prev := IRDeclineObserved
-	IRDeclineObserved = func(fn, reason string) { declined[fn] = reason }
-	defer func() { IRDeclineObserved = prev }()
+	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
 	if _, _, err := GenerateIR(p); err != nil {
 		t.Fatal(err)
 	}

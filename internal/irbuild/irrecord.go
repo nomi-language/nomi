@@ -325,7 +325,7 @@ func (bl *irScalarBuilder) structUpdateValue(t *ast.Call, ops structUpdateArgs) 
 	base, k := temps[ops.base], kinds[ops.base]
 	rec, rk := temps[ops.patch], kinds[ops.patch]
 	if !irRetainedUpdateKind(k) || rk.tag != tagAnonStruct || rk.comp == nil {
-		irDeclineNote("a Struct.update patch value that is not an anonymous struct: " + rk.nomi())
+		bl.g.dc.note("a Struct.update patch value that is not an anonymous struct: " + rk.nomi())
 		return no()
 	}
 	patch := argExpr(t.Args[ops.patch])

@@ -211,6 +211,8 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here [
 		it = item
 	} else {
 		it = &implItem{
+			impl:      d,
+			instKey:   g.substLinkKey(),
 			name:      method,
 			params0:   w.params,
 			body:      w.body,

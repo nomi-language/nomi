@@ -278,7 +278,7 @@ func (g *gen) emitStdOnce(o *stdOnce) {
 	sym := g.irTypes().Symbol(o, o.nomiName())
 	produced, retained := g.irOnceCellLower(o.decl, o.k, sym, o.nomiName())
 	if !retained {
-		g.stdUnloweredFunc("once "+o.key, o.key, irTakeDeclineWhy())
+		g.stdUnloweredFunc("once "+o.key, o.key, g.dc.take().why)
 		produced = o.k
 	}
 	if g.irMod != nil && g.irMod.Cell(sym) != nil {

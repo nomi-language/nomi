@@ -35,6 +35,7 @@ import {
     context.Context
     display.Display
     duration.Duration
+    embed.Files
     equatable.Equatable
     fs
     hashable.Hashable
@@ -1372,6 +1373,73 @@ impl Response {
     }
 }
 
+/// A value a handler may answer with: every place std::http takes a
+/// handler takes a `Handler`, a `(Request) -> ToResponse`, and calls
+/// `to_response` once on what it returns. A handler with several steps
+/// that can fail returns `Result<Response, AppError>` and uses `?`, and
+/// the program's error type implements `ToResponse` to render itself, as
+/// axum's `IntoResponse` does.
+///
+/// `Response` answers as itself, `Html` as `Response.html` does (a 200
+/// page), and a `Result` as its `Ok` or its `Err`. `String` has no
+/// implementation: a handler that answers text says which kind with
+/// `Body.Text`, `Response.error` or a content type of its own.
+//! import std::html.Html
+//! import std::http.{self, Body, Method, Request, Response, Route, Router, Status}
+//! import std::http_testing
+//!
+//! router = Router.new([
+//!     #(Route`GET /plain`, fn _ -> Response{body: Body.Text("plain")}),
+//!     #(Route`GET /page`, fn _ -> Html"<p>page</p>"),
+//!     #(
+//!         Route`GET /items/{id}`,
+//!         fn r: Request -> {
+//!             id = Request.path_value(r, "id") |> Maybe.flat_map(String.to_int)
+//!
+//!             case id {
+//!                 Some(n) -> Ok(Response{body: Body.Text("item ${n}")})
+//!                 None -> Err(Response.error(Status.bad_request, "not a number"))
+//!             }
+//!         },
+//!     ),
+//! ])!
+//!
+//! answer = fn target: String -> Router.serve(router, http_testing.request(Method.Get, target))
+//! assert Response.text(answer("/plain")) == Ok("plain")
+//! assert Response.text(answer("/page")) == Ok("<p>page</p>")
+//! assert Response.text(answer("/items/7")) == Ok("item 7")
+//! assert answer("/items/x").status == Status.bad_request
+//
+pub interface ToResponse {
+    fn to_response(value: self) -> Response
+}
+
+/// A request handler: a function from a `Request` to any value that
+/// answers as a response (`ToResponse`). `Router.new`, `serve` and the
+/// middleware take one. A named function or a lambda is one as it stands.
+pub typealias Handler (Request) -> ToResponse
+
+impl ToResponse for Response {
+    fn to_response(value: Response) -> Response {
+        value
+    }
+}
+
+impl ToResponse for Html {
+    fn to_response(value: Html) -> Response {
+        Response.html(value)
+    }
+}
+
+impl ToResponse for Result<T, E> where T: ToResponse, E: ToResponse {
+    fn to_response(value: Result<T, E>) -> Response {
+        case value {
+            Ok(answer) -> ToResponse.to_response(answer)
+            Err(failure) -> ToResponse.to_response(failure)
+        }
+    }
+}
+
 /// Why a request got no response.
 pub enum Error {
     InvalidUrl {url: String, reason: String}
@@ -2229,12 +2297,12 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error> {
 /// server stops accepting at once, as Go's `Server.Shutdown` does. The
 /// requests it took run to their end, for up to the server's
 /// `shutdown_timeout` and the supervisor's, and then `serve` returns.
-pub fn serve(listener: Listener, handler: (Request) -> Response, supervisor: Supervisor) -> Unit {
+pub fn serve(listener: Listener, handler: Handler, supervisor: Supervisor) -> Unit {
     defer Listener.shutdown(listener)
     accept(listener, handler, supervisor)
 }
 
-fn accept(listener: Listener, handler: (Request) -> Response, supervisor: Supervisor) -> Unit {
+fn accept(listener: Listener, handler: Handler, supervisor: Supervisor) -> Unit {
     case http_host.next(listener.handle) {
         Some(incoming) -> {
             _ = Supervisor.spawn(supervisor, fn -> answer(listener, incoming, handler))
@@ -2246,11 +2314,7 @@ fn accept(listener: Listener, handler: (Request) -> Response, supervisor: Superv
     }
 }
 
-fn answer(
-    listener: Listener,
-    incoming: http_host.Incoming,
-    handler: (Request) -> Response,
-) -> Unit {
+fn answer(listener: Listener, incoming: http_host.Incoming, handler: Handler) -> Unit {
     if http_host.answered_already(incoming) { return Unit }
     defer http_host.finish(incoming, [])
 
@@ -2265,7 +2329,7 @@ fn answer(
             None -> request
         }
 
-        respond(incoming, handler(limited))
+        respond(incoming, ToResponse.to_response(handler(limited)))
     })
 }
 
@@ -2466,7 +2530,7 @@ impl Display for Route {
 //
 pub struct Router {
     mux: http_host.Mux
-    handlers: List<(Request) -> Response>
+    handlers: List<Handler>
 }
 
 impl Router {
@@ -2480,7 +2544,7 @@ impl Router {
     //! conflict = Router.new([#(Route`/a/{x}`, fn _ -> Response{}), #(Route`/a/{y}`, fn _ -> Response{})])
     //! assert Result.is_err(conflict)
     //
-    pub fn new(routes: List<#(Route, (Request) -> Response)>) -> Result<Router, Error> {
+    pub fn new(routes: List<#(Route, Handler)>) -> Result<Router, Error> {
         patterns = routes |> Iter.map(fn #(p, _) -> "${p}") |> Iter.to_list()
         mux = http_host.new_mux(patterns) |> Result.map_err(Error.from_parts)?
         Ok(Router{mux, handlers: routes |> Iter.map(fn #(_, h) -> h) |> Iter.to_list()})
@@ -2488,7 +2552,7 @@ impl Router {
 
     /// The handler for `request` and the pattern that matched it, or
     /// `None` when no pattern matches, as Go's `ServeMux.Handler`.
-    pub fn find(router: Router, request: Request) -> Maybe<#((Request) -> Response, String)> {
+    pub fn find(router: Router, request: Request) -> Maybe<#(Handler, String)> {
         case Router.route(router, request) {
             ["match", index, pattern, ..] ->
                 String.to_int(index)
@@ -2516,7 +2580,7 @@ impl Router {
                 }
 
                 case handler {
-                    Some(h) -> h(found)
+                    Some(h) -> ToResponse.to_response(h(found))
                     None -> Response{status: Status.not_found}
                 }
             }
@@ -2586,12 +2650,14 @@ pub fn redirect_to(to: String, status: Status) -> (Request) -> Response {
 //! show = http.strip_prefix("/static")(fn r -> Response{body: Body.Text(r.url.path)})
 //! assert Response.text(show(http_testing.request(Method.Get, "/static/a.css"))) == Ok("/a.css")
 //
-pub fn strip_prefix(prefix: String) -> ((Request) -> Response) -> (Request) -> Response {
+pub fn strip_prefix(prefix: String) -> (Handler) -> (Request) -> Response {
     fn handler -> {
         fn request -> {
             case String.strip_prefix(request.url.path, prefix) {
                 Some(rest) ->
-                    handler(#{..request, url: #{..request.url, path: rest, raw_path: None}})
+                    ToResponse.to_response(
+                        handler(#{..request, url: #{..request.url, path: rest, raw_path: None}})
+                    )
 
                 None ->
                     Response.not_found()
@@ -2613,17 +2679,17 @@ pub fn strip_prefix(prefix: String) -> ((Request) -> Response) -> (Request) -> R
 //! response = seen(http_testing.request(Method.Get, "/?a=1;b=2"))
 //! assert Response.text(response) == Ok("a=1&b=2")
 //
-pub fn allow_query_semicolons(handler: (Request) -> Response) -> (Request) -> Response {
+pub fn allow_query_semicolons(handler: Handler) -> (Request) -> Response {
     fn request -> {
-        case request.url.query {
+        rewritten = case request.url.query {
             Some(q) when String.contains(q, ";") ->
-                handler(
-                    #{..request, url: #{..request.url, query: Some(String.replace(q, ";", "&"))}}
-                )
+                #{..request, url: #{..request.url, query: Some(String.replace(q, ";", "&"))}}
 
             _ ->
-                handler(request)
+                request
         }
+
+        ToResponse.to_response(handler(rewritten))
     }
 }
 
@@ -2646,14 +2712,15 @@ pub fn allow_query_semicolons(handler: (Request) -> Response) -> (Request) -> Re
 //! fast = within(fn _ -> Response{body: Body.Text("ok")})
 //! assert Response.text(fast(http_testing.request(Method.Get, "/"))) == Ok("ok")
 //
-pub fn timeout(after: Duration, message: String) -> ((Request) -> Response) -> (
-    Request
-) -> Response {
+pub fn timeout(after: Duration, message: String) -> (Handler) -> (Request) -> Response {
     fn handler -> {
         fn request -> {
             concurrent {
                 answers: Channel<Response> = Channel.buffered(1)
-                task = Task.spawn(fn -> { _ = Sender.send(answers.sender, handler(request)) })
+
+                task = Task.spawn(fn -> {
+                    _ = Sender.send(answers.sender, ToResponse.to_response(handler(request)))
+                })
 
                 case Receiver.receive_within(answers.receiver, after) {
                     Ok(Some(response)) -> {
@@ -2681,7 +2748,7 @@ pub struct CrossOrigin {
     bypass_patterns: List<Route> = []
     /// The handler a refused request goes to; `None` answers `403
     /// Forbidden`.
-    deny: Maybe<(Request) -> Response> = None
+    deny: Maybe<Handler> = None
 }
 
 impl CrossOrigin {
@@ -2760,7 +2827,7 @@ impl CrossOrigin {
 /// `CrossOrigin.check` refuses to `options.deny`, or answers `403`. An
 /// `Err` when a trusted origin is not `scheme://host[:port]` or a bypass
 /// pattern does not parse.
-pub fn cross_origin_protection(options: CrossOrigin) -> Result<((Request) -> Response) -> (
+pub fn cross_origin_protection(options: CrossOrigin) -> Result<(Handler) -> (
     Request
 ) -> Response, Error> {
     bad =
@@ -2783,21 +2850,23 @@ pub fn cross_origin_protection(options: CrossOrigin) -> Result<((Request) -> Res
 
     bypass = Router.new(
         options.bypass_patterns
-        |> Iter.map(fn p -> #(p, not_found))
+        |> Iter.map(bypassed)
         |> Iter.to_list()
     )?
 
     Ok(fn handler -> {
         fn request -> {
-            if Router.find(bypass, request) |> Maybe.is_some() { return handler(request) }
+            if Router.find(bypass, request) |> Maybe.is_some() {
+                return ToResponse.to_response(handler(request))
+            }
 
             case CrossOrigin.check(options, request) {
                 Ok(_) ->
-                    handler(request)
+                    ToResponse.to_response(handler(request))
 
                 Err(Error.CrossOrigin{reason}) ->
                     case options.deny {
-                        Some(deny) -> deny(request)
+                        Some(deny) -> ToResponse.to_response(deny(request))
                         None -> Response.error(Status.forbidden, reason)
                     }
 
@@ -2808,11 +2877,15 @@ pub fn cross_origin_protection(options: CrossOrigin) -> Result<((Request) -> Res
     })
 }
 
+fn bypassed(route: Route) -> #(Route, Handler) {
+    #(route, not_found)
+}
+
 /// Go's `MaxBytesHandler`: middleware that limits each request's body to
 /// `max` bytes (`Request.limit_body`), which lowers the server's
 /// `max_body` or replaces the form readers' defaults.
-pub fn limit_body(max: Int) -> ((Request) -> Response) -> (Request) -> Response {
-    fn handler -> fn request -> handler(Request.limit_body(request, max))
+pub fn limit_body(max: Int) -> (Handler) -> (Request) -> Response {
+    fn handler -> fn request -> ToResponse.to_response(handler(Request.limit_body(request, max)))
 }
 
 /// Go's `ServeFile`: the file at `path` as the response to `request`,
@@ -2865,6 +2938,70 @@ pub fn file_server(root: String) -> (Request) -> Response {
         }
 
         serve_file(request, path.join(root, path.clean(asked)))
+    }
+}
+
+/// `serve_file` from files a program embeds (std::embed): the file at
+/// `file` in `files` as the response to `request`, with its `Content-Type`
+/// from its name, ranges and conditional requests. A directory is
+/// redirected to its path with a trailing slash, then answered with its
+/// `index.html`; one with no `index.html` is a 404, since an embedded
+/// tree is not listed. A request for `.../index.html` is redirected to
+/// `./`. A missing file is a 404.
+pub fn serve_embedded(request: Request, files: Files, file: String) -> Response {
+    asked = request.url.path
+
+    if String.ends_with(asked, "/index.html") {
+        return Response.redirect(request, "./", Status.moved_permanently)
+    }
+
+    case Files.metadata(files, file) {
+        Ok(meta) ->
+            case meta.kind {
+                fs.Kind.Directory ->
+                    if not String.ends_with(asked, "/") {
+                        Response.redirect(request, "${path.base(asked)}/", Status.moved_permanently)
+                    } else {
+                        case Files.read(files, path.join(file, "index.html")) {
+                            Ok(data) -> Response.content(request, "index.html", None, data)
+                            Err(_) -> Response.not_found()
+                        }
+                    }
+
+                _ ->
+                    case Files.read(files, file) {
+                        Ok(data) -> Response.content(request, path.base(file), None, data)
+                        Err(e) -> failed(e)
+                    }
+            }
+
+        Err(e) ->
+            failed(e)
+    }
+}
+
+/// `file_server` over files a program embeds (std::embed): a handler that
+/// answers each request with the file its cleaned path names in `files`
+/// (`serve_embedded`). A path is cleaned before it is looked up, so no
+/// request reaches outside the tree. Serve a folder's files at the root
+/// with `Files.sub`:
+///
+/// ```nomi
+/// embed site `static`
+///
+/// fn static_files() -> (Request) -> Response {
+///     http.file_server_embedded(Files.sub(site, "static")!)
+/// }
+/// ```
+pub fn file_server_embedded(files: Files) -> (Request) -> Response {
+    fn request -> {
+        asked = if String.starts_with(request.url.path, "/") {
+            request.url.path
+        } else {
+            "/${request.url.path}"
+        }
+
+        serve_embedded(request, files, String.drop(path.clean(asked), 1))
     }
 }
 
@@ -3179,7 +3316,7 @@ impl Display for ConnState {
 /// down and every request it took is answered. For a server with no
 /// supervisor, as in a test; a program's server uses `serve` and a
 /// supervisor, whose `max_running` bounds the requests in flight.
-pub fn serve_here(listener: Listener, handler: (Request) -> Response) -> Unit {
+pub fn serve_here(listener: Listener, handler: Handler) -> Unit {
     concurrent {
         _ = Task.await_all(take_requests(listener, handler, []))
     }
@@ -3187,7 +3324,7 @@ pub fn serve_here(listener: Listener, handler: (Request) -> Response) -> Unit {
 
 fn take_requests(
     listener: Listener,
-    handler: (Request) -> Response,
+    handler: Handler,
     taken: List<Task<Unit>>,
 ) -> List<Task<Unit>> {
     case http_host.next(listener.handle) {

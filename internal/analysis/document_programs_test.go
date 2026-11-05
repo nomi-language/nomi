@@ -87,6 +87,7 @@ func TestOpenDocumentProgramsMatchTheirOwnBuilds(t *testing.T) {
 // project is open and its text on disk too, so the two read the same texts.
 // A body-only step rebuilds bodies alone, and no other step does.
 func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
+	t.Parallel()
 	type run struct {
 		p     incrementalProject
 		steps []editStep

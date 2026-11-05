@@ -60,7 +60,7 @@ func projectErrors(t *testing.T, root, entry string) []string {
 		t.Fatal(err)
 	}
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(nodes, lib.Primitives, lib.Modules, lib.Files, root, std.MakeLoader())
 	var got []string
 	for _, e := range fa.TypeErrors {
@@ -95,16 +95,21 @@ func TestShortNameImport_NamesTheModulesRootFile(t *testing.T) {
 	}
 }
 
-// A module without a root file of its name is imported by path, as before:
-// its short name alone is still a module, not a file.
-func TestShortNameImport_AModuleWithoutARootFileIsNotAFile(t *testing.T) {
+// A module without a root file of its name is a directory under its short
+// name alone: `import greet` binds its root, and `greet::words` reaches
+// words.nomi there.
+func TestShortNameImport_AModuleWithoutARootFileIsItsRootDirectory(t *testing.T) {
 	dep := filepath.Join(t.TempDir(), "greet")
 	greetModule(t, dep, false)
-	root, entry := shortNameProject(t, "import greet\n\nfn main() {\n    _ = greet.word()\n}\n", dep)
+	root, entry := shortNameProject(t, "import greet\n\nfn main() {\n    _ = greet::words.word()\n}\n", dep)
+	if errs := projectErrors(t, root, entry); len(errs) != 0 {
+		t.Errorf("the front end rejects `import greet` of a module with no greet.nomi:\n  %s", strings.Join(errs, "\n  "))
+	}
+	root, entry = shortNameProject(t, "import greet\n\nfn main() {\n    _ = greet::nosuch.word()\n}\n", dep)
 	errs := projectErrors(t, root, entry)
-	want := "1:8: `greet` is a module, not a file; an import names a file in it; import a file in it, such as `greet::words`"
+	want := "4:9: `greet::nosuch` names no file: greet has no nosuch.nomi; greet holds `greet::words`"
 	if len(errs) == 0 {
-		t.Fatal("the front end admits `import greet` of a module with no greet.nomi")
+		t.Fatal("the front end admits a path to a file module greet does not hold")
 	}
 	if errs[0] != want {
 		t.Errorf("got\n  %s\nwant\n  %s", strings.Join(errs, "\n  "), want)

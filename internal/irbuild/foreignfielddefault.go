@@ -138,19 +138,19 @@ func (g *gen) flushFieldDefaults() {
 func (g *gen) irFieldDefaultRetain(r *irFieldDefaultReq) {
 	g.irDeclineOpen(r.name)
 	if !irCallOperandKind(r.k) {
-		irDeclineNote("a field kind outside the call domain: " + r.k.nomi())
+		g.dc.note("a field kind outside the call domain: " + r.k.nomi())
 		return
 	}
 	sh := g.irFuncShellAt(r.deflt, nil, irFuncSig{result: r.k, name: r.name, origin: irFromModule}, nil, r.sym)
 	if sh == nil {
-		irDeclineNote("no function shell")
+		g.dc.note("no function shell")
 		return
 	}
 	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: r.k, sides: sh.sides,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
 	v, ok := bl.declDefault(r.deflt, r.k)
 	if !ok {
-		irDeclineNote("a default that does not lower")
+		g.dc.note("a default that does not lower")
 		return
 	}
 	at := g.irNodePos(r.deflt)
@@ -159,7 +159,7 @@ func (g *gen) irFieldDefaultRetain(r *irFieldDefaultReq) {
 	bl.side(sh.result, irScalarSide{k: r.k})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
 	if err := g.irLint(sh.fn); err != nil {
-		irDeclineNote("a field default accessor that does not lint: " + err.Error())
+		g.dc.note("a field default accessor that does not lint: " + err.Error())
 		return
 	}
 	g.irModule().AddFunc(sh.fn)

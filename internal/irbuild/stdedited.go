@@ -27,10 +27,11 @@ import (
 // GenerateEditedStdlibTestIR is GenerateStdlibTestIR for a stdlib module whose
 // source differs from the embedded one: nodes and fa are the edited source,
 // checked, and the module's own bodies are lowered from them rather than taken
-// from the cached lowering.
-func GenerateEditedStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis) (*Program, *Result, error) {
+// from the cached lowering. hooks observe the declines of the module's
+// bodies and of its cases.
+func GenerateEditedStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
 	if isProgramStd(module) {
-		return generateProgramStdTestIR(module, nodes, fa)
+		return generateProgramStdTestIR(module, nodes, fa, hooks)
 	}
 	std := stdlibLowering()
 	v := std.views[module]
@@ -40,7 +41,8 @@ func GenerateEditedStdlibTestIR(module string, nodes []ast.Node, fa *analysis.Fi
 	earlierMods := std.earlierMods[module]
 	earlier := std.filtered(func(m string) bool { return earlierMods[m] })
 	nv := stdModuleContext(module, v.path, v.pkg, nodes, fa, earlier)
-	funcs, onces, irMod := lowerStdlibModule(nv, earlier)
+	dc := newDeclineCensus(hooks)
+	funcs, onces, irMod := lowerStdlibModuleIn(nv, earlier, dc)
 	if irMod != nil {
 		irLintFinished(irMod)
 	}
@@ -62,7 +64,7 @@ func GenerateEditedStdlibTestIR(module string, nodes []ast.Node, fa *analysis.Fi
 	if irMod != nil && (len(irMod.Funcs()) > 0 || len(irMod.Cells()) > 0) {
 		extra = append(extra, irMod)
 	}
-	return generateStdlibTestIR(edited, nv, nv.nodes, nv.fa, std.irModules, extra)
+	return generateStdlibTestIR(edited, nv, nv.nodes, nv.nodes, nv.fa, std.irModules, extra, false, dc)
 }
 
 // filtered is a copy of the index holding only the entries of the modules keep

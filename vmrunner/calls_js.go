@@ -24,12 +24,12 @@ import (
 // text, or rejects with an Error whose message is the Nomi diagnostic. On
 // an error the runner exits with status 1; otherwise it serves calls until
 // the page terminates the worker.
-func serveCalls(image []byte, opts []Option) bool {
+func serveCalls(image *Image, opts []Option) bool {
 	serve := js.Global().Get("nomiServe")
 	if serve.Type() != js.TypeFunction {
 		return false
 	}
-	in, err := Start(image, os.Stdout, os.Stderr, ProgramArgs(), opts...)
+	in, err := start(image, os.Stdout, os.Stderr, ProgramArgs(), opts)
 	if err != nil {
 		serve.Invoke(map[string]any{"error": err.Error()})
 		os.Exit(1)

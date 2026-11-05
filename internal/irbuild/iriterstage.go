@@ -271,7 +271,7 @@ func (bl *irScalarBuilder) sourceViewFunc(at ast.Node, sk, elem kind) (ir.Temp, 
 	}
 	child.b.SetTerm(ir.NewReturn(pos, v))
 	if err := bl.g.irLint(f); err != nil {
-		irDeclineNote("a source view function that does not lint: " + err.Error())
+		bl.g.dc.note("a source view function that does not lint: " + err.Error())
 		return ir.NoTemp, false
 	}
 	n := ir.NewFuncValue(pos, bl.f.NewTemp(), f)

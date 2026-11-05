@@ -29,11 +29,6 @@ func irNotLoweredConstruct(reason string) string {
 	return irNotLowered + ": " + reason
 }
 
-// irTakeDeclineWhy answers the open attempt's first decline and clears it.
-func irTakeDeclineWhy() string {
-	return irTakeDecline().why
-}
-
 // irDeclined is one decline: the builder's reason and, when the decline was
 // taken at an expression, that expression's position.
 type irDeclined struct {
@@ -41,10 +36,10 @@ type irDeclined struct {
 	line, col int
 }
 
-// irTakeDecline answers the open attempt's first decline and clears it.
-func irTakeDecline() irDeclined {
-	d := irDeclined{why: irDeclineWhy, line: irDeclineLine, col: irDeclineCol}
-	irDeclineWhy, irDeclineLine, irDeclineCol = "", 0, 0
+// take answers the open attempt's first decline and clears it.
+func (dc *declineCensus) take() irDeclined {
+	d := irDeclined{why: dc.why, line: dc.line, col: dc.col}
+	dc.why, dc.line, dc.col = "", 0, 0
 	return d
 }
 
@@ -60,7 +55,7 @@ func (g *gen) unloweredBody(d irDeclined) {
 		return
 	}
 	if d.why == "" {
-		irTakeDecline()
+		g.dc.take()
 	}
 }
 
@@ -105,7 +100,7 @@ func (g *gen) stdUnloweredWrappers(cands []*stdCandidate) {
 func (g *gen) refuseTestBody(name string, d irDeclined, at ast.Node) {
 	if g.stdModule != "" {
 		if d.why == "" {
-			d = irTakeDecline()
+			d = g.dc.take()
 		}
 		g.reject(irNotLoweredConstruct(d.why), "test "+strconv.Quote(name), at)
 		return

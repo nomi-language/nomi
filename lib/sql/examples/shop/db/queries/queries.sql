@@ -62,3 +62,19 @@ ORDER BY revenue DESC;
 -- query: all_orders() -> Rows<Order>
 -- Every order, streamed.
 SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id;
+
+-- query: order_status(id: Int) -> OrderStatus
+-- One order's status: a query of one column reads it as the enum.
+SELECT status FROM orders WHERE id = @id;
+
+-- query: status_if_placed(id: Int) -> Maybe<OrderStatus>
+-- An order's status, if there is such an order.
+SELECT status FROM orders WHERE id = @id;
+
+-- query: statuses_for_user(user_id: Int) -> List<OrderStatus>
+-- The status of each of a user's orders, oldest first.
+SELECT status FROM orders WHERE user_id = @user_id ORDER BY id;
+
+-- query: all_statuses() -> Rows<OrderStatus>
+-- Every order's status, streamed.
+SELECT status FROM orders ORDER BY id;

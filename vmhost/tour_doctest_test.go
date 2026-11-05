@@ -214,7 +214,7 @@ func TestTourDoctests(t *testing.T) {
 					}
 					t.Fatalf("tour block output mismatch:\n%s\n\n%s", b.Code, err)
 				}
-				checkTourReads(t, b, files, data)
+				checkTourReads(t, b, files, data, p.EmbeddedFiles())
 			})
 		}
 	}
@@ -403,7 +403,8 @@ func tourRunFailure(t *testing.T, b doctest.Block) string {
 	t.Helper()
 	code := b.Code
 	files, data := tourFileSystem(t, b)
-	defer checkTourReads(t, b, files, data)
+	var embedded []string
+	defer func() { checkTourReads(t, b, files, data, embedded) }()
 	var out bytes.Buffer
 	src := tourgo.Source(code)
 	hosts, err := tourgo.MarkedHosts(src)
@@ -414,6 +415,7 @@ func tourRunFailure(t *testing.T, b doctest.Block) string {
 	if err != nil {
 		t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", code, err)
 	}
+	embedded = p.EmbeddedFiles()
 	err = p.Run(context.Background(), &out, nil, false)
 	if err == nil {
 		return ""
@@ -498,11 +500,16 @@ func tourDataFile(name string) bool {
 // prints. So a data file marked `read-only:` must not be read, and one not
 // marked must be. A read is an open of the file's contents that succeeded
 // (vmhost.MemoryFiles.Read): listing a directory, a file's metadata, a
-// missing file and a path `fs.within` refuses are not reads.
-func checkTourReads(t *testing.T, b doctest.Block, files *vmhost.MemoryFiles, data []string) {
+// missing file and a path `fs.within` refuses are not reads. A file the
+// program embeds (Program.EmbeddedFiles) is read when it is compiled, so
+// it counts as read too.
+func checkTourReads(t *testing.T, b doctest.Block, files *vmhost.MemoryFiles, data, embedded []string) {
 	t.Helper()
 	read := map[string]bool{}
 	for _, p := range files.Read() {
+		read[p] = true
+	}
+	for _, p := range embedded {
 		read[p] = true
 	}
 	for _, name := range data {

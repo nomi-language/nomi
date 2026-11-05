@@ -58,7 +58,7 @@ func (bl *irScalarBuilder) patternBindingStmt(t *ast.PatternBinding, lp *irLoopB
 		nomatch.Append(ir.NewNoMatch(pos))
 		nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
 		if !bl.patternValueTest(t.Pattern, subj, sk, cont, nomatch) {
-			irDeclineAtPattern(t.Pattern, "a pattern binding outside the retained case tests: "+sk.nomi())
+			bl.g.dc.atPattern(t.Pattern, "a pattern binding outside the retained case tests: "+sk.nomi())
 			return false
 		}
 		bl.b = cont
@@ -71,7 +71,7 @@ func (bl *irScalarBuilder) patternBindingStmt(t *ast.PatternBinding, lp *irLoopB
 	outer := bl.saveScope()
 	bl.cloneScope()
 	if !bl.patternValueTest(t.Pattern, subj, sk, cont, failed) {
-		irDeclineAtPattern(t.Pattern, "a pattern binding outside the retained case tests: "+sk.nomi())
+		bl.g.dc.atPattern(t.Pattern, "a pattern binding outside the retained case tests: "+sk.nomi())
 		return false
 	}
 	matched := bl.saveScope()
@@ -283,7 +283,7 @@ func (bl *irScalarBuilder) fallbackBinding(t *ast.PatternBinding, subj ir.Temp, 
 	}
 	ty := bl.g.irTypeOf(pk)
 	if ty == nil {
-		irDeclineNote("a binding else whose payload kind has no IR type: " + pk.nomi())
+		bl.g.dc.note("a binding else whose payload kind has no IR type: " + pk.nomi())
 		return false
 	}
 	slot := bl.f.NewTemp()
@@ -314,7 +314,7 @@ func (bl *irScalarBuilder) fallbackBinding(t *ast.PatternBinding, subj ir.Temp, 
 		nomatch.Append(ir.NewNoMatch(pos))
 		nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
 		if !bl.patternValueTest(fb.inner, slot, pk, cont, nomatch) {
-			irDeclineAtPattern(fb.inner, "a binding else payload pattern outside the retained case tests: "+pk.nomi())
+			bl.g.dc.atPattern(fb.inner, "a binding else payload pattern outside the retained case tests: "+pk.nomi())
 			return false
 		}
 	}
@@ -442,7 +442,7 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		// A region tail: each of its arms leaves as a loop arm does
 		// (armInto) or writes the fallback into the payload slot.
 		if sig.testArms {
-			irDeclineNote("an Iter.loop binding else in a test body whose tail is a region")
+			bl.g.dc.note("an Iter.loop binding else in a test body whose tail is a region")
 			return false
 		}
 		var k kind
@@ -462,19 +462,19 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 			return true
 		}
 		if sig.result == kindUnit {
-			irDeclineNote("an Iter.loop binding else path that neither leaves nor falls back")
+			bl.g.dc.note("an Iter.loop binding else path that neither leaves nor falls back")
 			return false
 		}
 		bl.closeWithScope(ws, tail)
 		target = exit
 	default:
 		if sig.result == kindUnit || sig.testArms {
-			irDeclineNote("an Iter.loop binding else path that neither leaves nor falls back")
+			bl.g.dc.note("an Iter.loop binding else path that neither leaves nor falls back")
 			return false
 		}
 		val, k, _, ok := bl.lowerWant(tail, sig.result)
 		if !ok || k != sig.result {
-			irDeclineNote("an Iter.loop binding else fallback outside a straight value of the payload kind")
+			bl.g.dc.note("an Iter.loop binding else fallback outside a straight value of the payload kind")
 			return false
 		}
 		bl.resultCopy(tail, val)

@@ -52,6 +52,8 @@ func intrinsicType(in Instr) *ValType {
 			return IntType
 		case ConstByte:
 			return ByteType
+		case ConstEmbedded:
+			return IntType
 		case ConstFloat:
 			return FloatType
 		case ConstDecimal:

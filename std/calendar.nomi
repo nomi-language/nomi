@@ -81,8 +81,9 @@
 //# wall reading projected through a zone, below),
 //# `OffsetDateTime.with_offset`, `OffsetDateTime.from_instant` (total),
 //# `DateTime.from_instant_in` (total once the zone is known: it fails only
-//# on `UnknownZone`) and `DateTime.now_in` (the system clock projected into
-//# a zone).
+//# on `UnknownZone`), `DateTime.now_in` (the system clock projected into
+//# a zone) and `NaiveDateTime.utc_now` (the system clock as a UTC wall
+//# reading).
 //#
 //# ## Arithmetic: `Duration` and civil periods
 //#
@@ -1172,6 +1173,18 @@ impl NaiveDateTime {
     //
     pub fn from_instant(i: Instant, offset: Duration = Duration.seconds(0)) -> NaiveDateTime {
         OffsetDateTime.to_naive(OffsetDateTime.from_instant(i, offset))
+    }
+
+    /// Read the current wall clock in UTC: the form a database `TIMESTAMP`
+    /// column (one without a time zone) holds when the program writes UTC
+    /// into it. Sugar for `NaiveDateTime.from_instant(Instant.now())`. A
+    /// naive reading names no moment by itself; for an absolute time read
+    /// `Instant.now()`, and for a reading in a zone `DateTime.now_in`.
+    //! before = NaiveDateTime.from_instant(Instant.now())
+    //! assert NaiveDateTime.between(before, NaiveDateTime.utc_now()) >= Duration.seconds(0)
+    //
+    pub fn utc_now() -> NaiveDateTime {
+        NaiveDateTime.from_instant(Instant.now())
     }
 
     /// The `Instant` a clock at a fixed UTC `offset` showed this reading

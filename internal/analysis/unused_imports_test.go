@@ -8,7 +8,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // findOnlyUnused asserts FindUnusedImports returned exactly one item and
@@ -95,7 +94,7 @@ func buildErrsWithStdlib(t *testing.T, src string) []analysis.TypeError {
 	t.Helper()
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	return fa.TypeErrors
 }
@@ -107,7 +106,7 @@ func findUnusedWithStdlib(t *testing.T, src string) ([]analysis.UnusedImport, []
 	t.Helper()
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	return analysis.FindUnusedImports(fa, nodes), nodes, fa
 }
@@ -298,7 +297,7 @@ fn f() -> Maybe<Int> { Some(1) }
 // discards diagnostics — this guard surfaces any unused import that sneaks
 // into the stdlib.
 func TestUnusedImport_StdlibIsClean(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	for name, fa := range lib.Files {
 		for _, e := range unusedErrors(fa.TypeErrors) {
 			t.Errorf("std/%s.nomi: %s", name, e.Error())

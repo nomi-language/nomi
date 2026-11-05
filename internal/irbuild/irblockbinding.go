@@ -21,7 +21,7 @@ func (bl *irScalarBuilder) blockValue(block *ast.Block, want kind) (ir.Temp, kin
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {
-		irDeclineNote(irDeclineBodyWhy)
+		bl.g.dc.note(bl.g.dc.bodyWhy)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
@@ -65,7 +65,7 @@ func (bl *irScalarBuilder) blockBinding(block *ast.Block, want kind) (kind, bool
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {
-		irDeclineNote(irDeclineBodyWhy)
+		bl.g.dc.note(bl.g.dc.bodyWhy)
 		return kindInvalid, false
 	}
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
@@ -90,7 +90,7 @@ func (bl *irScalarBuilder) blockBinding(block *ast.Block, want kind) (kind, bool
 		var val ir.Temp
 		val, k, _, ok = bl.lowerWant(tail, want)
 		if ok && k != want {
-			irDeclineNote("a block's value is not the binding's kind: " + k.nomi() + " vs " + want.nomi())
+			bl.g.dc.note("a block's value is not the binding's kind: " + k.nomi() + " vs " + want.nomi())
 			ok = false
 		}
 		if ok {
@@ -98,7 +98,7 @@ func (bl *irScalarBuilder) blockBinding(block *ast.Block, want kind) (kind, bool
 		}
 	}
 	if !ok {
-		irDeclineAtNode(tail)
+		bl.g.dc.atNode(tail)
 		return kindInvalid, false
 	}
 	bl.closeDefers(scope, tail)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/std"
 )
 
 // Opening a stdlib-classified file (immediate-parent dir "std") in the editor
@@ -21,7 +20,7 @@ import (
 // via BuildProjectFromEntry. Without it the checker can't see the distinct
 // type's Inner, so `Dur(n) = x` left `n` untyped and hover showed just `n`.
 func TestDocumentManager_StdlibFileTypesDistinctDestructure(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, nil)
 
@@ -52,7 +51,7 @@ func TestDocumentManager_StdlibFileTypesDistinctDestructure(t *testing.T) {
 }
 
 func TestDocumentManager_StdlibFileAllowsTopLevelImplForLocalType(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 
@@ -87,7 +86,7 @@ impl Show for Thing {
 // (`Int.to_string`). Opening it directly in the editor must not report false
 // unused-import or bare-variant diagnostics for String/Int/Float.
 func TestDocumentManager_StdlibFileJsonDiagnostics(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 
@@ -119,7 +118,7 @@ func TestDocumentManager_StdlibFileJsonDiagnostics(t *testing.T) {
 }
 
 func TestDocumentManager_StdlibFileCalendarCivilUnitDiagnostics(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 
@@ -151,7 +150,7 @@ func TestDocumentManager_StdlibFileCalendarCivilUnitDiagnostics(t *testing.T) {
 }
 
 func TestDocumentManager_StdlibFileCalendarCivilUnitQualifiedTypeReferences(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 

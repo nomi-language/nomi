@@ -37,6 +37,9 @@ func (r *completionRequest) memberCandidates() []candidate {
 			return scopeMemberCandidates(scope, valueSymbol)
 		}
 	}
+	if fp, ok := obj.(*ast.FilePath); ok {
+		return r.reachedFileMembers(fp)
+	}
 	t := r.exprType(obj)
 	return fieldCandidates(fieldsOf(t), r.declOf(t))
 }

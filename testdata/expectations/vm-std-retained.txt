@@ -219,6 +219,7 @@ calendar.nomi:NaiveDateTime.parse_with	ran
 calendar.nomi:NaiveDateTime.second	ran
 calendar.nomi:NaiveDateTime.to_instant	ran
 calendar.nomi:NaiveDateTime.to_string_with	ran
+calendar.nomi:NaiveDateTime.utc_now	ran
 calendar.nomi:NaiveDateTime.year	ran
 calendar.nomi:Nanoseconds.compare	ran
 calendar.nomi:Nanoseconds.equal	ran

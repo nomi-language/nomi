@@ -15,7 +15,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"os"
 	"regexp"
 	"sort"
@@ -48,7 +47,7 @@ func checkSignatureFile(t *testing.T, path string) {
 	tokens := lexer.Lex(string(src))
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	nodes, _ = analysis.LowerDerives(nodes)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	// AttachStdlibProjectImpls — post-stdlib-globals-retirement, the
 	// single-file path needs an explicit stdlib ProjectImpls so the

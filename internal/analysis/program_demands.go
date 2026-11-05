@@ -222,9 +222,10 @@ func (d *programDemands) read(fa *FileAnalysis) fileDemands {
 
 // manifest is the demands fa contributes: all of its own, or under an
 // entry's view, those of its declarations when it is another file a
-// project build kept.
+// project build kept. A stdlib module built from its interface keeps its
+// declarations too, but its demands are every body's (std.Shared).
 func (d *programDemands) manifest(fa *FileAnalysis) map[string]map[string][]Recording {
-	if d.entry != nil && fa != d.entry && fa.kept != nil {
+	if _, isStd := stdlibModuleForPath(fa.FilePath); d.entry != nil && fa != d.entry && fa.kept != nil && !isStd {
 		return fa.kept.manifest
 	}
 	return fa.ImplManifest

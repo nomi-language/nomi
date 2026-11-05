@@ -200,7 +200,10 @@ each `@name` is written as `?1`, `?2`, ... in order, the form std/sql's
 
 `T` is a struct whose fields are the columns, by name, or for a query of
 one column one of std's value types (`-> Int` for `INSERT ... RETURNING
-id`).
+id`) or one of the schema's enums (`-> Maybe<OrderStatus>` for `SELECT
+status`), read as the column itself. Such a `T` is a `Maybe` exactly when
+the column may be NULL: a nullable `status` read as at most one row is
+`-> Maybe<Maybe<OrderStatus>>`, and as every row `-> List<Maybe<OrderStatus>>`.
 
 SQL that returns no rows (an `UPDATE` or `DELETE` without `RETURNING`)
 writes `-> Changed` for the number of rows it changed, or `-> Unit` to

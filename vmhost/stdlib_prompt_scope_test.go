@@ -13,9 +13,10 @@ import (
 // A stdlib module's `//!` prompt is checked in the module's own scope: its
 // declarations and its imports, with no prelude, as the module's bodies are.
 // Every path agrees on that. `nomi test std/regex.nomi` builds the embedded
-// module's cases from the shared stdlib analysis (LoadStdlib), and a reference
-// editor checks the module's source afresh (StdlibReference, through
-// LoadStdlibSource). The shared analysis rejected a prompt's bare `False` when
+// module's cases from the shared stdlib analysis (LoadStdlib), the module's
+// source checked afresh builds them from its own (LoadStdlibSource), and a
+// reference editor checks its test in the shared analysis of the module
+// (StdlibReference). The shared analysis rejected a prompt's bare `False` when
 // std/regex.nomi did not import it, but LoadStdlib did not report the
 // shared analysis's errors and the builder lowered the prompt anyway, so the
 // prompt passed `nomi test` and failed in the reference editor.

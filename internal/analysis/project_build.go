@@ -74,6 +74,22 @@ func BuildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil, nil)
 }
 
+// BuildStdDeclarations builds the stdlib from its files' interfaces, which
+// loader answers (std.Shared): entryNodes import every module, and the
+// answer is each module's analysis and nodes by key, as BuildProjectWithCache
+// answers them. Each module's bodies are stubs until CheckDeferredBodies
+// walks and checks the bodies grafted into them.
+func BuildStdDeclarations(entryNodes []ast.Node, loader FileLoader) (map[string]*FileAnalysis, map[string][]ast.Node) {
+	_, cache, nodes := buildProjectWithCache(entryNodes, nil, nil, nil, "", "", "", false, loader, nil, &buildInputs{deferStdBodies: true})
+	// An unannotated `once` takes its type from its value, which the
+	// interface holds; a build from source infers it before its first
+	// CheckTypes, which no stdlib body has run here.
+	for _, fa := range cache {
+		fa.Program().Onces.infer()
+	}
+	return cache, nodes
+}
+
 // BuildProjectFromEntry is BuildProjectWithCache plus the entry
 // file's absolute path. The entry's path lets the analyzer set
 // FileAnalysis.FilePath for the entry, which downstream checks
@@ -119,14 +135,53 @@ type reusedFile struct {
 	funcs []*ast.FuncDef
 }
 
-func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest, reused map[string]reusedFile) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
+// buildInputs is what a build is handed beyond its entry and loader: the
+// files it takes as they are (reusedFile), the files it reaches besides
+// what the entry imports, and the program facts it is given rather than
+// working out (a check of one file against interfaces, interface.go).
+type buildInputs struct {
+	reused map[string]reusedFile
+	// roots are module keys of the project the build reaches as if the
+	// entry imported each: a file checked against interfaces that the
+	// entry of its build does not import, and the files declaring impls
+	// it may see.
+	roots []string
+	// appTypes, when set, answers the program's application types from
+	// the build's files by key, in place of the entry's boot: the program
+	// fact a file checked against interfaces is given.
+	appTypes func(files map[string]*FileAnalysis) []*StructType
+	// programDiags, when set, answers the diagnostics the checks that read
+	// every file's declarations (CheckEntryPlacement, CheckExportNames)
+	// give the file with module key, which the build reports in place of
+	// running those checks over its own files, not all the program's.
+	programDiags func(key string) []TypeError
+	// deferStdBodies builds the stdlib's files from their interfaces,
+	// whose bodies are stubs (BuildStdDeclarations): each keeps its
+	// declarations, as a project file does, so its bodies can be walked
+	// and checked later (CheckDeferredBodies), and the unused checks,
+	// which read bodies, wait for that walk.
+	deferStdBodies bool
+	// session builds a REPL session's file (SourceProgram.Session): an
+	// inherent impl may extend a type another file declares, and the
+	// entry's own boot adds to appTypes' application types.
+	session bool
+	// scopeNames are the entry's FileDecls.ScopeNames.
+	scopeNames []string
+}
+
+func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest, in *buildInputs) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
 	var analyzed func(key string) bool
 	if len(stdlibFAs) > 0 {
 		analyzed = func(key string) bool {
 			return IsStdlibKey(key) && stdlibFAs[strings.TrimPrefix(key, "std/")] != nil
 		}
 	}
-	proj, discoverErr := discoverProject(entryNodes, projectRoot, loader, mfst, analyzed, reused)
+	var reused map[string]reusedFile
+	var roots []string
+	if in != nil {
+		reused, roots = in.reused, in.roots
+	}
+	proj, discoverErr := discoverProject(entryNodes, projectRoot, loader, mfst, analyzed, reused, roots)
 	if entryAbsPath != "" {
 		proj.EntryPath = entryAbsPath
 		if proj.FilePaths == nil {
@@ -181,6 +236,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			Origin:      originForKey(key),
 			References:  make(map[Pos]*Symbol),
 			Definitions: make(map[Pos]*Symbol),
+		}
+		if key == "" && in != nil {
+			fa.ScopeNames = in.scopeNames
 		}
 		// Per-file modules map: every discovered project + stdlib file
 		// goes in first (so its ModuleScope wins for cross-file
@@ -314,7 +372,15 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// defineSymbolStub) then see exactly like hand-written impls.
 		// Errors are internal parser-regression guards; surface them
 		// alongside the derive errors.
-		lowered, lowerErrs := LowerDerives(nodes)
+		var imported func(string) ast.Node
+		if in != nil && in.session {
+			// A session's file may derive for a type another declares.
+			imported = ImportedTypeDecl(nodes, func(k string) ([]ast.Node, bool) {
+				other, ok := proj.Files[k]
+				return other, ok
+			})
+		}
+		lowered, lowerErrs := LowerDerivesWith(nodes, imported)
 		loweredLen[key] = len(lowered)
 		extended, errs := SynthesizeDerives(lowered)
 		errs = append(lowerErrs, errs...)
@@ -491,17 +557,28 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			placementFiles[key] = reused[key].nodes
 		}
 	}
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors,
-		CheckEntryPlacement(proj.Manifest, entryNodes, placedEntry, placementFiles)...,
-	)
-	exportFiles := make([]ExportFile, 0, len(all))
-	for _, fb := range all {
-		if !IsStdlibKey(fb.key) {
-			exportFiles = append(exportFiles, ExportFile{Path: fb.fa.FilePath, Nodes: fb.nodes, FA: fb.fa})
+	if in != nil && in.programDiags != nil {
+		for _, fb := range all {
+			switch {
+			case fb == entryFB && entryModRel != "":
+				fb.fa.TypeErrors = append(fb.fa.TypeErrors, in.programDiags(entryModRel)...)
+			case fb != entryFB && !fb.reused && !IsStdlibKey(fb.key):
+				fb.fa.TypeErrors = append(fb.fa.TypeErrors, in.programDiags(fb.key)...)
+			}
 		}
+	} else {
+		entryFB.fa.TypeErrors = append(
+			entryFB.fa.TypeErrors,
+			CheckEntryPlacement(proj.Manifest, entryNodes, placedEntry, placementFiles)...,
+		)
+		exportFiles := make([]ExportFile, 0, len(all))
+		for _, fb := range all {
+			if !IsStdlibKey(fb.key) {
+				exportFiles = append(exportFiles, ExportFile{Path: fb.fa.FilePath, Nodes: fb.nodes, FA: fb.fa})
+			}
+		}
+		CheckExportNames(exportFiles)
 	}
-	CheckExportNames(exportFiles)
 	// derive Attach validation errors to each file's FileAnalysis now
 	// that the per-file FA exists.
 	entryFB.fa.TypeErrors = append(entryFB.fa.TypeErrors, entryDeriveErrs...)
@@ -564,6 +641,13 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		fb.builder.defineImplicitSelfModule(fb.fa.ModuleScope)
 		fb.builder.validateInlineOpaqueDecls(fb.nodes)
 	}
+
+	// Every file's re-exports, before any file's annotations read them.
+	reexporters := make([]reexportFile, 0, len(built))
+	for _, fb := range built {
+		reexporters = append(reexporters, reexportFile{b: fb.builder, scope: fb.fa.ModuleScope, nodes: fb.nodes})
+	}
+	defineReexports(reexporters)
 
 	// Sweep B-ann: walk type annotations across every file. This
 	// populates each file's own Impls table via
@@ -755,9 +839,11 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// The declarations are done. Each of the build's own files keeps what
 	// they left in the fields its bodies add to, so its bodies can be thrown
 	// away and walked and checked again (rebuildBodies). The stdlib's files
-	// are checked once and never rebuilt.
+	// are checked once and never rebuilt, and when they are built from their
+	// interfaces they are kept the same way, for that one check.
+	deferStd := in != nil && in.deferStdBodies
 	for _, fb := range built {
-		if !IsStdlibKey(fb.key) {
+		if !IsStdlibKey(fb.key) || deferStd {
 			fb.fa.keepDecls(fb.builder)
 		}
 	}
@@ -778,6 +864,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// on-demand resolveImport loads go through buildModule too, so files
 	// in `cache` but not `all` are already covered.
 	for _, fb := range built {
+		if deferStd && IsStdlibKey(fb.key) {
+			continue
+		}
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, checkUnused(fb.fa, fb.nodes)...)
 	}
 
@@ -816,10 +905,18 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		from               int
 		declErrs, bodyErrs []TypeError
 	}
+	//
+	// Every file takes pass 1 before any file builds its declarations, so
+	// that a struct field, enum payload or alias typed with another file's
+	// typealias builds that alias in its own file at the first lookup
+	// (projectAliases), whichever file is typed first.
 	typed := make([]fileTyped, len(built))
+	aliases := newProjectAliases()
 	for i, fb := range built {
 		typed[i].from = len(fb.fa.TypeErrors)
-		typed[i].fileTyping = startFileTyping(fb.fa, fb.nodes)
+		typed[i].fileTyping = startFileTyping(fb.fa, fb.nodes, aliases)
+	}
+	for i := range typed {
 		typed[i].typeDeclarations()
 	}
 	for _, ft := range typed {
@@ -953,6 +1050,17 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		if st := validateScopedBootSignature(eb.fb.fa, eb.fn, contextType); st != nil {
 			appTypes = append(appTypes, st)
 		}
+	}
+	if in != nil && in.appTypes != nil {
+		given := in.appTypes(filesByKey)
+		if in.session {
+			for _, st := range appTypes {
+				if !slices.Contains(given, st) {
+					given = append(given, st)
+				}
+			}
+		}
+		appTypes = given
 	}
 	onces := NewOnceTable()
 	for _, fb := range all {
@@ -1093,6 +1201,13 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// same file as the inherent impl. Type-qualified functions are the type's
 		// own API, not extension methods.
 		inherentDeclaredLocally := func(module, name string) bool {
+			if in != nil && in.session {
+				for _, types := range declaredTypesByFile {
+					if types[name] {
+						return true
+					}
+				}
+			}
 			return declaredTypesByFile[module][name]
 		}
 		programErrs = append(

@@ -61,6 +61,7 @@ import "github.com/nomi-language/nomi/internal/ir"
 func (g *gen) irTypes() *ir.Table {
 	if g.irTable == nil {
 		g.irTable = ir.NewTable()
+		g.irTable.SetLinkage(g.linkName, g.linkImport)
 	}
 	return g.irTable
 }

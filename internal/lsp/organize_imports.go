@@ -59,12 +59,43 @@ func buildOrganizeImportsAction(content string, nodes []ast.Node, fa *analysis.F
 // name) and must not be resolved silently on save.
 //
 // The same region-safety bails as organize apply (comment / interleaved code).
+//
+// It also rewrites every path at a use that an import binds under another
+// name (analysis.PathAtUseCode): `db::posts.find` after `import db::posts`
+// becomes `posts.find`. Those edits are in bodies, below the import region.
 func buildFixAllImportsAction(content string, nodes []ast.Node, fa *analysis.FileAnalysis, uri string) *protocol.CodeAction {
+	paths := pathAtUseEdits(content, fa)
 	edit, ok := importFixEdit(content, nodes, fa, true)
-	if !ok {
+	if !ok && len(paths) == 0 {
 		return nil
 	}
-	return importRewriteAction("Fix all imports (remove unused, add missing)", codeActionKindSourceFixAll, uri, edit)
+	a := importRewriteAction("Fix all imports (remove unused, add missing)", codeActionKindSourceFixAll, uri, edit)
+	edits := paths
+	if ok {
+		edits = append([]protocol.TextEdit{edit}, paths...)
+	}
+	a.Edit.Changes[protocol.DocumentUri(uri)] = edits
+	return a
+}
+
+// pathAtUseEdits are the fixes of fa's errors for paths at a use an import
+// binds under another name.
+func pathAtUseEdits(content string, fa *analysis.FileAnalysis) []protocol.TextEdit {
+	if fa == nil {
+		return nil
+	}
+	var lines *lineIndex
+	var out []protocol.TextEdit
+	for _, e := range fa.TypeErrors {
+		if e.Code != analysis.PathAtUseCode || e.Fix == nil || e.File != "" {
+			continue
+		}
+		if lines == nil {
+			lines = newLineIndex(content)
+		}
+		out = append(out, fixTextEdits(lines, e.Fix.Edits)...)
+	}
+	return out
 }
 
 func importRewriteAction(title string, kind protocol.CodeActionKind, uri string, edit protocol.TextEdit) *protocol.CodeAction {

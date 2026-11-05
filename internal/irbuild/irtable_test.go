@@ -12,8 +12,8 @@ package irbuild
 //     or fit rule, and the check is over the SOURCE because that is where the
 //     claim lives.
 //  2. NO DECL-TO-implItem MAP EXISTS. The realization travels beside the node;
-//     a field of that shape anywhere in the package is an AST-keyed side table
-//     under a new key.
+//     a field or package-level map of that shape is an AST-keyed side table
+//     under a new key. A map local to a function body keeps nothing.
 //  3. IR TYPE IDENTITY IS KIND EQUALITY, for every kind and not only for the
 //     well-formed ones, because candidate selection compares `kind` values
 //     with `==` semantics.
@@ -152,6 +152,13 @@ func irRuleNamesIn(f *ast.File) []string {
 // Checked over the source rather than over behaviour, because the defect is a
 // FIELD nobody has to read for it to be wrong: the moment one exists, the
 // pairing stops being local and the representation stops carrying the answer.
+//
+// Only a map that can outlive a call counts: one in a struct field, a
+// package-level declaration or a function signature. A map built and dropped
+// inside a function body keeps nothing past the call. The std bundle's
+// encoder numbers each cell by its symbol while it writes a section, and the
+// per-file link harness collects the symbols a set of modules defines; there
+// is no AST node in either, and neither map leaves its function.
 func TestIRTable_NoDeclToRealizationMapExists(t *testing.T) {
 	fset := token.NewFileSet()
 	for _, name := range emitterGoFiles(t) {
@@ -159,23 +166,77 @@ func TestIRTable_NoDeclToRealizationMapExists(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse %s: %v", name, err)
 		}
-		ast.Inspect(f, func(n ast.Node) bool {
-			m, isMap := n.(*ast.MapType)
-			if !isMap {
-				return true
-			}
-			if !irTableTypeMentions(m.Key, "Decl") && !irTableTypeMentions(m.Key, "Symbol") {
-				return true
-			}
-			t.Errorf("%s declares a map keyed on an IR %s. The realization of a declaration "+
+		for _, key := range irPersistentIRKeyedMaps(f) {
+			t.Errorf("%s declares a map keyed on an IR %s that outlives a call. The realization of a declaration "+
 				"— the lowered function, its defaults, its declared parameters — "+
 				"travels BESIDE the node, because every producer of a named-domain node is "+
 				"the function that performed the selection. A map here is a side table "+
 				"keyed on an IR entity instead of on an AST node.",
-				filepath.Base(name), irTableTypeText(m.Key))
+				filepath.Base(name), key)
+		}
+	}
+
+	// The detector catches a field and a package variable, and passes over
+	// maps inside a body, so the loop above neither holds vacuously nor
+	// flags what the rule allows.
+	const planted = `package irbuild
+
+type gen struct{ realized map[*ir.Decl]*implItem }
+
+var bySym = map[*ir.Symbol]int{}
+
+func local() {
+	seen := map[*ir.Symbol]bool{}
+	_ = seen
+	_ = func() { _ = map[*ir.Decl]int{} }
+}
+`
+	pf, err := parser.ParseFile(token.NewFileSet(), "planted.go", planted, 0)
+	if err != nil {
+		t.Fatalf("parse the planted source: %v", err)
+	}
+	if got := irPersistentIRKeyedMaps(pf); strings.Join(got, ",") != "Decl,Symbol" {
+		t.Errorf("the detector found %v in the planted source, want the field's Decl and the "+
+			"package variable's Symbol and nothing from the function body", got)
+	}
+}
+
+// irPersistentIRKeyedMaps names the IR entity keying each map type in f that
+// lies outside a function body.
+func irPersistentIRKeyedMaps(f *ast.File) []string {
+	var out []string
+	inType := func(n ast.Node) {
+		ast.Inspect(n, func(m ast.Node) bool {
+			out = append(out, irKeyedMap(m)...)
 			return true
 		})
 	}
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.FuncDecl:
+			if n.Recv != nil {
+				inType(n.Recv)
+			}
+			inType(n.Type)
+			return false
+		case *ast.FuncLit:
+			inType(n.Type)
+			return false
+		}
+		out = append(out, irKeyedMap(n)...)
+		return true
+	})
+	return out
+}
+
+// irKeyedMap names the IR entity keying n when n is a map type keyed on an
+// `ir.Decl` or `ir.Symbol`.
+func irKeyedMap(n ast.Node) []string {
+	m, isMap := n.(*ast.MapType)
+	if !isMap || (!irTableTypeMentions(m.Key, "Decl") && !irTableTypeMentions(m.Key, "Symbol")) {
+		return nil
+	}
+	return []string{irTableTypeText(m.Key)}
 }
 
 // emitterGoFiles are the builder package's non-test Go sources.

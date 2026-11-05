@@ -186,9 +186,19 @@ func analyzeProject(project virtualproject.Project) (p *frontend.Project) {
 	c := frontend.New(frontend.Config{
 		VirtualFiles:    project.VirtualFiles,
 		VirtualManifest: project.Manifest,
+		VirtualData:     dataOf(project),
 	})
 	p, _ = c.AnalyzeSource(project.EntryName, project.EntrySource, frontend.Mode{Tests: true})
 	return p
+}
+
+// dataOf is the files a block's `embed` declarations read: its data files,
+// never the disk.
+func dataOf(project virtualproject.Project) map[string]string {
+	if project.DataFiles == nil {
+		return map[string]string{}
+	}
+	return project.DataFiles
 }
 
 // analyzeFiles fills prog from a project that names modules, written

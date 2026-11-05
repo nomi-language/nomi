@@ -203,7 +203,36 @@ needs no `go.mod`.
 
 ### The REPL
 
-The REPL compiles each input as a new program that sees the declarations and top-level bindings of the inputs before it, and runs it on one live VM. An earlier input never runs again: a later input reads the value an earlier binding computed, and a closure keeps the value it captured. Redefining a function or type affects later inputs only. An input that fails to check, faults or is blocked prints its error and changes nothing.
+The REPL compiles each input as one more file of the session's program, which sees the declarations and top-level bindings of the inputs before it, and runs it on one live VM. An earlier input is never checked, compiled or run again, so an input takes as long in a long session as in a new one: a later input reads the value an earlier binding computed, and a closure keeps the value it captured. Redefining a function affects later inputs only, and so does redeclaring a type with a different declaration: earlier values, functions and impls keep the old type, and a later input that names the type gets the new one, which starts with no impls. When the two meet in an error, each is named by the input that declared it (`expected Point (input 1), got Point (input 5)`). Redeclaring a type exactly as it is keeps it, and redefining an impl replaces the old one everywhere. An input that fails to check, faults or is blocked prints its error and changes nothing.
+
+### The artifact cache
+
+`nomi run`, `nomi check`, `nomi test` and `nomi build` keep each program
+they check and compile in the artifact cache, `<user cache>/nomi/artifacts`
+(`~/Library/Caches` on macOS, `~/.cache` on Linux, `%LocalAppData%` on
+Windows), or `NOMI_ARTIFACT_CACHE`. The next command over the same files
+reads it and checks and compiles nothing: an unchanged program of 50,000
+lines runs in about 0.06 s instead of 2 s. A program is kept only when it
+checks with no error and every part of it a run or its tests reach can
+run, so a command that reads one prints exactly what it would print
+otherwise. A program with Go bindings is not kept.
+
+A program is read again only while the files its build can read are as
+they were: its `.nomi` files and every other in its project and its
+dependencies, `nomi.toml` and the other `.toml` files (message catalogs),
+`go.mod` and `go.sum`, the files under a folder an `embed` pattern names, and
+any `nomi.toml`, `main.nomi` or `go.mod` above the project. Any change to
+them, or a new `nomi`, builds the program again; other files the project
+holds, such as what a run writes, change nothing. A file saved with the
+same text is not a change. The settings in `NOMI_` variables are part of
+what is kept, so a command with other settings builds again.
+
+`std` holds the standard library's artifacts and `programs` the programs'.
+A program nothing has read for five days is removed by the next command
+that keeps one, which looks at most once an hour. The cache is safe to
+delete. `NOMI_ARTIFACT_CACHE=off` keeps and reads nothing, and
+`NOMI_DEBUG_ARTIFACT_CACHE=1` says on stderr, for each command, whether it
+read a kept program and why not.
 
 ## Projects
 
@@ -895,6 +924,14 @@ For example, `modernc.org/libc` has no files for either WebAssembly target, so a
 
 The `js/wasm` build keeps the browser build's limits: its file system is in memory, empty under Node, and a call nests at most 1,000 deep. A command-line program that reads real files belongs on `wasip1/wasm`. Every release ships a runner-only archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's. The `js/wasm` archive also carries the `wasm_exec.js` of the Go that built its `nomi-vm`, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
 
+### Embedded files
+
+A program's `embed` declarations (spec §18 *Embedded files*) are resolved when the program is compiled, so every build carries their files: an executable, a WebAssembly module, a `--web` folder's `app.wasm` and a `.nomic` hold the bytes in the compiled program, and read no file but their own when they run. Delete the source tree and the build still serves its pages and applies its migrations. Patterns name files from the module root, as import paths do, whatever directory the declaring file is in.
+
+A file's contents are read when the program reads that file, never all at once. A built executable or `.nomic` keeps the files after its code and maps them, so starting it costs the same however much it embeds, and a file it serves is paged in by the operating system rather than held in the program's memory; `nomi build` writes them from the files on disk without loading them whole. `nomi run` and `nomi test` read an embedded file from disk when the program reads it, and stop the program with an error naming the file if it changed after the program was compiled; run it again to embed the new contents. The REPL reads them from its working directory; a tour example reads its `// FILE:` data files.
+
+Only the declarations a program reaches go into its build, so an `embed` nothing reads costs nothing, and a program with none is unchanged. The files count toward the compiled program's size, so a `wasip1/wasm` module's 4 MiB limit (above) includes them. `nomi run --watch` does not watch embedded files: a change to one is picked up at the next run.
+
 ### Capability classes
 
 A std host function that acts outside the program in a way some target cannot has a capability class: `files` for std::fs's, `processes` for std::process's, `network` for std::http's requests, `connect` for std::net's and std::tls's dials and std::net's lookups, and `listen` for a server or listener. Every target has `files`, a `js/wasm` module's in memory. A `js/wasm` module sends HTTP requests through the browser's `fetch` but cannot open other connections, start programs or serve; a `wasip1/wasm` module has none of the four.
@@ -1302,6 +1339,9 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 | `NOMI_FFIRUN_CACHE_ROOT` | The directory that holds Go-binding builds, in place of `<user cache>/nomi/builds`. The cache is safe to delete. |
 | `NOMI_FFIRUN_CACHE_MAX_ENTRIES` | How many build directories that cache keeps before it removes the oldest (256 unless set); zero or less keeps every one. |
 | `NOMI_STD_CACHE_ROOT` | The directory, in place of `<user cache>/nomi`, under which the language server writes the standard library's source for go-to-definition into std. |
+| `NOMI_ARTIFACT_CACHE` | The directory, in place of `<user cache>/nomi/artifacts`, where `nomi` keeps what it compiles once and reads back in later runs: each program `nomi run`, `check`, `test` and `build` compiled ([The artifact cache](#the-artifact-cache)), and for a `nomi` built from source the standard library's interfaces and its lowering, which a release embeds instead. `off` keeps nothing. The cache is safe to delete. |
+| `NOMI_DEBUG_ARTIFACT_CACHE` | `1` reports on stderr whether each command read a kept program, and why not, and whether it kept one. |
+| `NOMI_DEBUG_STD_BUNDLE` | For work on the compiler. `1` reports on stderr why a cached standard library lowering or its cached interfaces were not used. |
 
 ## Editors and debugger
 
@@ -1413,6 +1453,10 @@ test `--line` would select, as `nomi run` and `nomi test` run them.
 A launch configuration takes `mode` (`"run"` or `"test"`), `program`,
 `line`, `args`, `cwd`, `env`, `console`, `justMyCode` and `stopOnEntry`;
 the [VS Code README](../editors/vscode/README.md) has the table.
+
+### Embedded files in the editor
+
+Hover on an `embed` declaration's name, or on a use of it, shows its patterns, how many files and bytes it holds, and the first files with their sizes; hover on one pattern shows what that pattern matched. Go to definition on a pattern opens the file or folder it names, every match for a glob. A pattern that matches nothing, or that a rule refuses, is a diagnostic at the pattern. The server finds the files without reading them, and it rechecks the declaration when the declaring file changes, not when a file it embeds is added or removed.
 
 ### Message catalogs in the editor
 

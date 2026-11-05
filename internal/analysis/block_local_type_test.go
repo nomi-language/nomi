@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // Two blocks each declaring a struct `Point` with different fields: a field
@@ -31,7 +30,7 @@ func TestBlockLocalType_SameNamedStructsResolveFieldsToTheDeclarationInScope(t *
 		{Line: 28, Col: 11}: {Line: 25, Col: 9}, // `name` of `Point{name: "second"}` in second
 		{Line: 28, Col: 27}: {Line: 25, Col: 9}, // `.name`
 	}
-	lib := std.Load()
+	lib := loadStd()
 	for run := 1; run <= 40; run++ {
 		nodes, perrs := parser.ParseWithRecovery(lexer.Lex(string(src)))
 		if len(perrs) > 0 {

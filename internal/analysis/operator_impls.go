@@ -60,23 +60,27 @@ func (c *checker) recordComparisonImpl(n *ast.Binary, operand Type, iface, metho
 	if name == "" {
 		return
 	}
-	if m := ImplMethodOf(c.fa.Program().ImplIndex, iface, method, name); m != nil {
+	if m := implMethodOf(c.fa.Program().ImplIndex, iface, method, concrete, name); m != nil {
 		c.fa.recordOperatorImpl(n, &OperatorImpl{Interface: iface, Receiver: concrete, Method: m})
 	}
 }
 
-// ImplMethodOf is the function method of the one impl of the interface
-// iface for the type named receiver: a hand-written one, a derived one or a
-// `host fn`. It is nil when there is none or when two files each have one.
-func ImplMethodOf(idx *ProjectImplIndex, iface, method, receiver string) ast.ImplMethodDecl {
+// implMethodOf is the function method of the one impl of the interface
+// iface for concrete, a type named receiver: a hand-written one, a derived
+// one or a `host fn`. It is nil when there is none or when two files each
+// have one for concrete's type.
+func implMethodOf(idx *ProjectImplIndex, iface, method string, concrete Type, receiver string) ast.ImplMethodDecl {
 	if idx == nil {
 		return nil
 	}
-	var fd *ast.FuncDef
+	var candidates []*ast.FuncDef
 	for _, fn := range idx.IfaceMethodImpls[iface][method] {
-		if fn == nil || idx.ReceiverOf(fn) != receiver {
-			continue
+		if fn != nil && idx.ReceiverOf(fn) == receiver {
+			candidates = append(candidates, fn)
 		}
+	}
+	var fd *ast.FuncDef
+	for _, fn := range ownReceiverImpls(idx, candidates, concrete) {
 		if fd != nil {
 			// The same impl recorded twice, by pointer or by a copy of
 			// its file, is one impl.

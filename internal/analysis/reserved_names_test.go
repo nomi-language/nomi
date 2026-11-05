@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // TestCheckReservedTypeName_BroadenedSetFromPrelude pins the
@@ -339,7 +338,7 @@ func reservedNamesFA(t *testing.T, src string) (*analysis.FileAnalysis, []ast.No
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
@@ -384,7 +383,7 @@ func buildAndCollectErrs(t *testing.T, src string) []string {
 	// non-stdlib file's parent — checkReservedTypeName's parent-
 	// scope lookup is what the test exercises, so this must be
 	// populated (passing nil short-circuits the check).
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")

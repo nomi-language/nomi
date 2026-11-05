@@ -204,7 +204,7 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 		var ok bool
 		values[i], _, ok = bl.coerceEmpty(items[i], values[i], kinds[i], elem)
 		if !ok {
-			irDeclineNote("a list element of kind " + kinds[i].nomi() + " where " + elem.nomi() + " is expected")
+			bl.g.dc.note("a list element of kind " + kinds[i].nomi() + " where " + elem.nomi() + " is expected")
 			return no()
 		}
 	}
@@ -521,6 +521,11 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 		// represent, so the record is passed unchanged.
 		return v, want, true
 	}
+	if !irExistentialKind(want) && bl.relabels(have, want) {
+		// A collection or function at wider type arguments its value
+		// already has (irrelabel.go).
+		return bl.relabel(at, v, want), want, true
+	}
 	if want.tag == tagFunc && have.tag == tagFunc {
 		// A function whose parameters are wider than the expected
 		// function type's (irfuncwiden.go).
@@ -615,7 +620,7 @@ func (bl *irScalarBuilder) lowerWant(at ast.Node, want kind) (ir.Temp, kind, boo
 	have := k
 	v, k, ok = bl.coerceEmpty(at, v, k, want)
 	if !ok {
-		irDeclineNote("a value of kind " + have.nomi() + " where " + want.nomi() + " is expected")
+		bl.g.dc.note("a value of kind " + have.nomi() + " where " + want.nomi() + " is expected")
 	}
 	return v, k, true, ok
 }
@@ -626,7 +631,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 	at = bl.g.holeRead(at)
 	// The routes below that try a shape and fall through: one that declined
 	// an operand abandons at, as lowerExact abandons a node.
-	defer irLowerFrame()()
+	defer bl.g.dc.frame()()
 	if x, witness := typeWitnessArg(want); witness {
 		// A type name where a `Type<T>` is expected is the witness, not the
 		// value a marker's name would otherwise be (ircontextvalue.go).
@@ -661,7 +666,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 			return v, k, mobile, true
 		}
 	}
-	if irLowerAbandoned() {
+	if bl.g.dc.abandoned() {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if c, isCall := at.(*ast.Call); isCall {

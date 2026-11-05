@@ -4,7 +4,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"strings"
 	"testing"
 )
@@ -22,7 +21,7 @@ func buildProjectForDefaultConfig(src string) []analysis.TypeError {
 		}
 		return out
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(nodes, lib.Primitives, lib.Modules, lib.Files, "", nil)
 	checkErrs := analysis.CheckTypes(fa, nodes)
 	checkErrs = append(checkErrs, analysis.CheckAppRoots(fa, nodes)...)

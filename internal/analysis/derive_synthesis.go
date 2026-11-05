@@ -1584,6 +1584,8 @@ func (s *uniquifyState) node(n ast.Node) {
 		return
 	}
 	switch e := n.(type) {
+	case *ast.EmbeddedFiles:
+		e.Line, e.Col = s.bump()
 	case *ast.ExprStmt:
 		e.Line, e.Col = s.bump()
 		s.node(e.Expr)

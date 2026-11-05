@@ -75,8 +75,8 @@ func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
 			want:     "1:8-13: no module `utlis`: no file utlis.nomi in this file's directory; did you mean 'utils'?",
 		},
 		{
-			name:     "directory",
-			entry:    "import sub\n\nfn main() {\n    sub.greet()\n}\n",
+			name:     "names selected from a directory",
+			entry:    "import sub.greet\n\nfn main() {\n    greet()\n}\n",
 			siblings: map[string]string{"sub/helper": utils},
 			want:     "1:8-11: no module `sub`: no file sub.nomi in this file's directory; `sub` is a directory; import a file in it, such as `sub::helper`",
 		},
@@ -127,7 +127,7 @@ func TestMissingImport_CrossModule(t *testing.T) {
 	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String) -> String {\n  s\n}\n", nil)
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader())
 	want := "1:8-22: no module `stringkit::pda`: module `stringkit` has no file pda.nomi; did you mean 'stringkit::pad'?"
 	var got []string
@@ -233,11 +233,6 @@ func TestMissingImport_ModuleRootIsNotAFile(t *testing.T) {
 			entry: "import std.nosuchfile\n\nfn main() {\n    nosuchfile.x()\n}\n",
 			want:  "1:8-11: " + msg + "; import a file in it, such as `std::io`",
 		},
-		{
-			name:  "file API import",
-			entry: "import std\n\nfn main() {\n    std.print(\"hi\")\n}\n",
-			want:  "1:8-11: " + msg + "; import a file in it, such as `std::io`",
-		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -266,7 +261,7 @@ func TestMissingImport_CrossModuleRootIsNotAFile(t *testing.T) {
 	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String) -> String {\n  s\n}\n", nil)
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader())
 	want := "1:8-17: `stringkit` is a module, not a file; an import names a file in it; did you mean `import stringkit::pad`?"
 	var got []string

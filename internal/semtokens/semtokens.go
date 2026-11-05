@@ -213,7 +213,7 @@ func sameReferenceSymbol(a, b *analysis.Symbol) bool {
 }
 
 func isImportPathModuleSymbol(pos analysis.Pos, sym *analysis.Symbol) bool {
-	if sym.Kind != analysis.SymbolModule {
+	if sym.Kind != analysis.SymbolModule && sym.Kind != analysis.SymbolDirectory {
 		return false
 	}
 	stmt, ok := sym.Node.(*ast.ImportStmt)
@@ -308,7 +308,7 @@ func kindToType(k analysis.SymbolKind) (string, bool) {
 		return "variable", true
 	case analysis.SymbolField:
 		return "property", true
-	case analysis.SymbolModule:
+	case analysis.SymbolModule, analysis.SymbolDirectory:
 		return "module", true
 	default:
 		return "", false

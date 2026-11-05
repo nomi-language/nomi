@@ -10,12 +10,14 @@ import (
 	"strconv"
 )
 
-// DecodeImage reads an image EncodeImage wrote. A malformed or truncated
+// DecodeImage reads an image EncodeImage wrote: data is its code
+// (ImageCodeLen), or its code and its files region, which it does not
+// read but whose length it checks against Files. A malformed or truncated
 // input, a wrong magic, a version other than FormatVersion and a checksum
 // mismatch are errors, never panics. A decoded image is a fresh graph that
 // shares nothing with any other decoded image except the package's shared
 // scalar types.
-func DecodeImage(data []byte) (im Image, err error) {
+func DecodeImage(data []byte, opts ...DecodeOption) (im Image, err error) {
 	defer func() {
 		// The decoder bounds-checks every index it reads; a panic here is a
 		// decoder bug, reported as an error rather than taking down a runner.
@@ -32,13 +34,20 @@ func DecodeImage(data []byte) (im Image, err error) {
 	}
 	sum := r.u32()
 	n := r.uv()
-	if r.err != nil || uint64(len(r.b)) != n {
+	if r.err != nil || uint64(len(r.b)) < n {
 		return Image{}, errors.New("ir: decode: truncated image")
 	}
+	// What follows the code is the files region, when data holds the whole
+	// image; DecodeImage reads only the code.
+	region := int64(len(r.b)) - int64(n)
+	r.b = r.b[:n]
 	if crc32.ChecksumIEEE(r.b) != sum {
 		return Image{}, errors.New("ir: decode: checksum mismatch")
 	}
 	d := &decoder{}
+	for _, o := range opts {
+		o(d)
+	}
 	im = d.image(r)
 	if d.err == nil && r.err != nil {
 		d.err = r.err
@@ -46,7 +55,43 @@ func DecodeImage(data []byte) (im Image, err error) {
 	if d.err != nil {
 		return Image{}, d.err
 	}
+	if region != 0 && region != FilesRegionSize(im.Files) {
+		return Image{}, fmt.Errorf("ir: decode: %d bytes follow the code, and its files region is %d", region, FilesRegionSize(im.Files))
+	}
 	return im, nil
+}
+
+// DecodeOption changes how DecodeImage reads an image.
+type DecodeOption func(*decoder)
+
+// WithLinkedSymbols makes each symbol the image writes with a linkage name
+// the one resolve answers for it, instead of a fresh symbol: what links an
+// object into the program its other objects make (Linker).
+func WithLinkedSymbols(resolve func(name, link string) *Symbol) DecodeOption {
+	return func(d *decoder) { d.resolve = resolve }
+}
+
+// WithDecodedFileNames reads each module's name and each position's file as
+// rename answers for the name the image wrote: WithFileNames' inverse, for a
+// reader that names its source files by its own directories.
+func WithDecodedFileNames(rename func(string) string) DecodeOption {
+	return func(d *decoder) { d.files = rename }
+}
+
+// file is the name this decoder gives a file the image names.
+func (d *decoder) file(name string) string {
+	if d.files == nil || name == "" {
+		return name
+	}
+	if got, ok := d.named[name]; ok {
+		return got
+	}
+	if d.named == nil {
+		d.named = map[string]string{}
+	}
+	got := d.files(name)
+	d.named[name] = got
+	return got
 }
 
 // DecodeModules is DecodeImage for a module set.
@@ -177,13 +222,19 @@ func (r *rbuf) count() int {
 // --- decoder --------------------------------------------------------------------
 
 type decoder struct {
-	strs []string
-	syms []*Symbol
-	tabs []*Table
-	vts  []*ValType
-	tys  []*Type
-	fns  []*Func
-	err  error
+	// resolve answers the symbol of a linkage name (WithLinkedSymbols).
+	resolve func(name, link string) *Symbol
+	// files renames each file a module name or a position names
+	// (WithDecodedFileNames), memoized in named; nil keeps every name.
+	files func(string) string
+	named map[string]string
+	strs  []string
+	syms  []*Symbol
+	tabs  []*Table
+	vts   []*ValType
+	tys   []*Type
+	fns   []*Func
+	err   error
 }
 
 func (d *decoder) fail(format string, args ...any) {
@@ -199,7 +250,12 @@ func (d *decoder) image(r *rbuf) Image {
 	}
 	d.syms = make([]*Symbol, r.count())
 	for i := range d.syms {
-		d.syms[i] = &Symbol{name: d.str(r.uv())}
+		name, link := d.str(r.uv()), d.str(r.uv())
+		if link != "" && d.resolve != nil {
+			d.syms[i] = d.resolve(name, link)
+			continue
+		}
+		d.syms[i] = &Symbol{name: name, link: link}
 	}
 	d.tabs = make([]*Table, r.count())
 	for i := range d.tabs {
@@ -264,6 +320,16 @@ func (d *decoder) image(r *rbuf) Image {
 	}
 	if locales := d.str(modSec.uv()); locales != "" {
 		im.Locales = []byte(locales)
+	}
+	var at int64
+	for k := modSec.count(); k > 0 && modSec.err == nil; k-- {
+		f := FileEntry{Sum: d.str(modSec.uv()), Size: int64(modSec.uv()), Offset: at}
+		if f.Size < 0 || at+f.Size < at {
+			d.fail("embedded file of %d bytes", f.Size)
+			break
+		}
+		at += f.Size
+		im.Files = append(im.Files, f)
 	}
 	for _, s := range []*rbuf{vtSec, tySec, fnSec, modSec} {
 		if s.err != nil {
@@ -341,7 +407,7 @@ func (d *decoder) fn(i uint64) *Func {
 func (d *decoder) pos(r *rbuf) Pos {
 	flags := r.byte1()
 	if flags&1 == 0 {
-		r.file = d.str(r.uv())
+		r.file = d.file(d.str(r.uv()))
 	}
 	var p Pos
 	p.file = r.file
@@ -392,7 +458,7 @@ func (d *decoder) symList(r *rbuf) []*Symbol {
 }
 
 func (d *decoder) module(r *rbuf) *Module {
-	m := &Module{name: d.str(r.uv())}
+	m := &Module{name: d.file(d.str(r.uv()))}
 	if n, isNil := r.slen(); !isNil {
 		m.funcs = make([]*Func, n)
 		for i := range m.funcs {
@@ -678,6 +744,10 @@ func (d *decoder) instr(r *rbuf) Instr {
 				r.fail("Int constant " + strconv.Quote(text))
 			}
 			c.big = z
+		}
+		if c.kind == ConstEmbedded {
+			c.text = d.file(c.text)
+			c.sum = d.str(r.uv())
 		}
 		return c
 	case tagBind:

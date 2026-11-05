@@ -26,7 +26,7 @@ import (
 // here, and a lambda whose result is not the declared return type.
 func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 	no := func(why string) bool {
-		irDeclineNote("a nested fn: " + why)
+		bl.g.dc.note("a nested fn: " + why)
 		return false
 	}
 	switch {
@@ -56,7 +56,7 @@ func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 // or an instance's name under its substitution frame.
 func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 	no := func(why string) bool {
-		irDeclineNote("a nested fn: " + why)
+		bl.g.dc.note("a nested fn: " + why)
 		return false
 	}
 	lam := &ast.Lambda{Params: fd.Params, Body: fd.Body, Line: fd.Line, Col: fd.Col}
@@ -389,12 +389,12 @@ func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, isN
 		}
 	}
 	if !ok {
-		irDeclineNote("a generic nested fn whose type arguments are unsolved here: " + id.Name)
+		bl.g.dc.note("a generic nested fn whose type arguments are unsolved here: " + id.Name)
 		return nil, true
 	}
 	name, built := gn.names[kindsKey(args)]
 	if !built || !bl.reaches(name) {
-		irDeclineNote("a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNomi(args) + ">")
+		bl.g.dc.note("a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNomi(args) + ">")
 		return nil, true
 	}
 	return &ast.Ident{Name: name, Line: id.Line, Col: id.Col}, true
@@ -436,7 +436,7 @@ func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda,
 	}
 	fk := funcKindIn(bl.g, params, result)
 	if !irCallableValueKind(fk) {
-		irDeclineNote("a recursive nested fn whose signature is outside the domain: " + fd.Name)
+		bl.g.dc.note("a recursive nested fn whose signature is outside the domain: " + fd.Name)
 		return false
 	}
 	saved := bl.recursive
@@ -444,7 +444,7 @@ func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda,
 	val, got, _, ok := bl.lambda(lam)
 	bl.recursive = saved
 	if !ok || got != fk {
-		irDeclineNote("a recursive nested fn: its body is outside the lambda shape: " + fd.Name)
+		bl.g.dc.note("a recursive nested fn: its body is outside the lambda shape: " + fd.Name)
 		return false
 	}
 	bind := ir.NewBind(bl.g.irPos(fd.Line, fd.Col), bl.f.NewTemp(), val, bl.sh.localSym(name))

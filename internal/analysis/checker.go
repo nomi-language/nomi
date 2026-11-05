@@ -1402,6 +1402,7 @@ func (c *checker) unifyInto(want, have Type, subs map[*TypeParam_]Type) error {
 // file declares or sees, and its impl-block index.
 func newChecker(fa *FileAnalysis, nodes []ast.Node) *checker {
 	reg := NewTypeRegistry()
+	reg.suggest = fa.scopeNames(true)
 
 	// Register user-defined types so the checker can look them up.
 	for _, node := range nodes {
@@ -1449,7 +1450,7 @@ func newChecker(fa *FileAnalysis, nodes []ast.Node) *checker {
 	// registry, so both must register the qualified-name keys for type
 	// resolution to succeed in both passes. See the helper's doc-comment
 	// for the symmetry rationale with destructured-import lookups.
-	registerModuleQualifiedTypes(reg, fa.ModuleScope)
+	registerModuleQualifiedTypes(reg, fa.ModuleScope, nil)
 
 	c := &checker{fa: fa, reg: reg, fileNodes: nodes}
 	c.indexFileImplBlocks(nodes)
@@ -1500,6 +1501,12 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 				}
 				continue
 			}
+			if e := embedExpansionOf(n); e != nil {
+				if !c.checkEmbed(n, e) {
+					c.checkOnce(n)
+				}
+				continue
+			}
 			c.checkOnce(n)
 		case *ast.ImportStmt:
 			c.checkImportVisibility(n)
@@ -1542,6 +1549,10 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			c.checkInterfaceDefaults(n)
 		case *ast.KeywordDecl:
 			c.errors = append(c.errors, c.unexpandedKeywordError(n))
+		case *ast.EmbedDecl:
+			// ExpandDeclarations expands every `embed`; one that reaches the
+			// checker is a defect of the path that prepared its file.
+			c.addError(n.Line, n.Col, "this `embed` declaration was not expanded, a defect in Nomi")
 		}
 	}
 
@@ -1559,7 +1570,7 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	// The application-field roots and the file's boot errors are reported
 	// by CheckAppRoots, once the program's files are checked.
 
-	return slices.DeleteFunc(c.errors, c.atAmbiguousShortName)
+	return slices.DeleteFunc(c.errors, c.atPathError)
 }
 
 // fileLevelStatement reports a statement written at file level. A file holds
@@ -2352,15 +2363,13 @@ func (c *checker) report(e TypeError) {
 	c.errors = append(c.errors, e)
 }
 
-// atAmbiguousShortName reports whether e is an unknown name or type at a use
-// of a short name two file imports bind, which CheckAmbiguousShortNames
-// already reports in its own words.
-func (c *checker) atAmbiguousShortName(e TypeError) bool {
+// atPathError reports whether e is an unknown type at a path at a use the
+// builder already reported in its own words (walkPath).
+func (c *checker) atPathError(e TypeError) bool {
 	if c.fa == nil || !strings.HasPrefix(e.Message, "unknown type ") {
 		return false
 	}
-	ref := c.fa.References[Pos{Line: e.Line, Col: e.Col}]
-	return ref != nil && ref.Ambiguous != nil
+	return c.fa.pathErrors[Pos{Line: e.Line, Col: e.Col}]
 }
 
 // checkNestedFunc checks a `fn` declared inside a body.
@@ -2744,6 +2753,23 @@ func (c *checker) rejectBareNameDispatch(ident *ast.Ident) bool {
 		"bare-name dispatch is not supported: %q is an interface function (of %s); qualify the call as %s.%s(...) or Type.%s(...)",
 		ident.Name, ifaceName, ifaceName, ident.Name, ident.Name))
 	return true
+}
+
+// reportDirectoryIdent reports n, a directory import's name written as a
+// value or as a member access's qualifier: a file in the directory is
+// reached with `::` (spec §14 *Directory imports*).
+func (c *checker) reportDirectoryIdent(n *ast.Ident, dir *Symbol, qualifier bool) {
+	example := n.Name + "::file"
+	if dir.Directory != nil && dir.Directory.Listing != nil && len(dir.Directory.Listing.Files) > 0 {
+		example = n.Name + "::" + dir.Directory.Listing.Files[0]
+	}
+	if qualifier {
+		c.report(errAt(n, fmt.Sprintf("`%s` is a directory, not a file", n.Name)).
+			WithHint(fmt.Sprintf("reach a file in it with `::`, as in `%s.name`", example)))
+		return
+	}
+	c.report(errAt(n, fmt.Sprintf("`%s` is a directory, not a value", n.Name)).
+		WithHint(fmt.Sprintf("name a member of a file in it, as in `%s.name`", example)))
 }
 
 // isModuleObject reports whether the object of a field access resolves to
@@ -3317,7 +3343,7 @@ func blockImportTypes(fa *FileAnalysis, parent *TypeRegistry, block *ast.Block) 
 					registerQualifiedTypeMembers(reg, name, real)
 				}
 			case SymbolModule:
-				registerQualifiedTypesFromScope(reg, name, moduleScopeOfSym(sym))
+				registerQualifiedTypesFromScope(reg, name, moduleScopeOfSym(sym), nil)
 			}
 		}
 	}
@@ -4921,6 +4947,11 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 	case *ast.StringLit:
 		return TypeString
 
+	case *ast.EmbeddedFiles:
+		// An `embed`'s files, each its path, handle and size, as std/embed's
+		// constructor takes them.
+		return &ListType{Elem: &TupleType{Elems: []Type{TypeString, TypeInt, TypeInt}}}
+
 	case *ast.DotVariant:
 		// Reached when a `.Variant` lands in a position that didn't push an
 		// expected type through checkNodeExpecting (statement position,
@@ -4962,8 +4993,8 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 		return c.checkTaggedString(n)
 
 	case *ast.FilePath:
-		// A file's full path qualifies a member; the builder resolved it
-		// (walkFilePath) and reported a path the file does not import.
+		// A path at a use qualifies a member; the builder resolved it
+		// (walkPath) and reported a path that reaches no file.
 		if node != c.qualifierNode && c.isModuleObject(n) {
 			c.report(errAt(n, fmt.Sprintf("`%s` is a file, not a value", n.Spelling())).
 				WithHint(fmt.Sprintf("name one of its members, as in `%s.function(x)`", n.Spelling())))
@@ -4975,6 +5006,10 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 			return c.checkDiscardRead(n)
 		}
 		ty := c.checkIdent(n)
+		if dir := c.fa.References[Pos{Line: n.Line, Col: n.Col}]; dir != nil && dir.Kind == SymbolDirectory {
+			c.reportDirectoryIdent(n, dir, node == c.qualifierNode)
+			return nil
+		}
 		if node != c.qualifierNode && c.isModuleObject(n) {
 			// A file qualifier names the functions and types a file
 			// declares; on its own (`io`, `x = io`) it has no value.
@@ -6704,6 +6739,32 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			}
 		}
 	}
+	// Any other head is checked against the stage's first parameter, as the
+	// call's first argument is (spec §8 *Pipes*): `[number, word] |>
+	// show()` with `show(fs: List<(Int) -> Display>)` builds that list, as
+	// `show([number, word])` does. A parameter that names the callee's type
+	// parameters is the expected type as written, as checkGenericCall checks
+	// a first argument against it: `parse |> run("1")` with `f: (String) ->
+	// T` fills parse's defaults, as `run(parse, "1")` does. checkPipe then
+	// solves T from the head's type.
+	if n.Op == "|>" && !leftChecked {
+		if call, ok := n.Right.(*ast.Call); ok {
+			if !earlyCall {
+				earlyCallee = c.pipeCalleeType(call)
+				earlyCall = true
+			}
+			if param := c.pipeHeadParam(call, earlyCallee); param != nil {
+				left = c.checkNodeExpecting(n.Left, param)
+				leftChecked = true
+			}
+		} else if then, ok := n.Right.(*ast.Then); ok && then.Capture != nil {
+			// `xs |> then &show(&1)` is `show(xs)` too.
+			if param := c.thenCaptureHeadParam(then.Capture); param != nil {
+				left = c.checkNodeExpecting(n.Left, param)
+				leftChecked = true
+			}
+		}
+	}
 	var right Type
 	comparison := isComparisonOp(n.Op)
 	byteOperands := false
@@ -7066,7 +7127,11 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 				defer c.recordSelectedImpl(pipeCall, sel)
 			}
 		}
-		return c.checkPipe(n, left, right, pipeCall, expected)
+		ty := c.checkPipe(n, left, right, pipeCall, expected)
+		if pipeCall != nil {
+			c.checkEmbeddedPathCall(pipeCall.Func, append([]ast.Node{n.Left}, pipeCall.Args...))
+		}
+		return ty
 
 	default:
 		return nil
@@ -7546,6 +7611,80 @@ func isConditionalExpr(n ast.Node) bool {
 		return true
 	}
 	return false
+}
+
+// pipeHeadParam is the first parameter of the function a pipe stage calls,
+// when the head can be checked against it as the call's first argument is:
+// the callee is a function, not a variant's constructor or a type's name,
+// and the parameter holds no inference variable. A parameter that names the
+// callee's type parameters is returned as written, the type checkGenericCall
+// checks a first argument against. nil otherwise.
+func (c *checker) pipeHeadParam(call *ast.Call, calleeTy Type) Type {
+	ft, ok := resolveTypeVar(calleeTy).(*FuncType)
+	if !ok || len(ft.Params) == 0 || ft.Params[0] == nil {
+		return nil
+	}
+	param := ft.Params[0]
+	if containsTypeVar(param) {
+		return nil
+	}
+	if _, ok := c.variantCtorCallee(call.Func, calleeTy); ok || calleeIsVariantConstructor(c, call.Func) {
+		return nil
+	}
+	if _, _, ok := c.calleeNamedType(call.Func, calleeTy); ok {
+		return nil
+	}
+	return param
+}
+
+// thenCaptureHeadParam is the parameter a `then` stage's partial capture
+// passes the piped value to, `fs` in `|> then &show(&1, ",")`, when the
+// capture's one hole is `&1`, its callee is a declared function, and the
+// parameter names no type parameter. nil otherwise. The callee's type is read
+// from its declaration, since the capture is checked after the head.
+func (c *checker) thenCaptureHeadParam(capture *ast.Capture) Type {
+	call := capture.PartialCall()
+	if call == nil || len(capture.Holes()) != 1 {
+		return nil
+	}
+	sym, ok := c.callFuncSym(call.Func)
+	if !ok || sym.Kind != SymbolFunction {
+		return nil
+	}
+	switch sym.Node.(type) {
+	case *ast.FuncDef, *ast.ExternFunc:
+	default:
+		return nil
+	}
+	ft, ok := sym.Type.(*FuncType)
+	if !ok {
+		return nil
+	}
+	slot, positional := -1, 0
+	for _, a := range call.Args {
+		value, name := a, ""
+		if na, named := a.(*ast.NamedArg); named {
+			value, name = na.Value, na.Name
+		}
+		if ph, open := value.(*ast.Placeholder); open && ph.N == 1 {
+			slot = positional
+			if name != "" {
+				slot = namedArgSlot(name, c.callDefParams(call.Func))
+			}
+			break
+		}
+		if name == "" {
+			positional++
+		}
+	}
+	if slot < 0 || slot >= len(ft.Params) || ft.Params[slot] == nil {
+		return nil
+	}
+	param := ft.Params[slot]
+	if ContainsTypeParam(param) || containsTypeVar(param) {
+		return nil
+	}
+	return param
 }
 
 func (c *checker) pipeHeadExpected(calleeTy, expected Type) Type {
@@ -8402,6 +8541,13 @@ func arityError(call *ast.Call, args []ast.Node, params, shift int, msg string) 
 }
 
 func (c *checker) checkCall(n *ast.Call, expected Type) Type {
+	ty := c.checkCallExpr(n, expected)
+	c.checkEmbeddedPathCall(n.Func, n.Args)
+	return ty
+}
+
+// checkCallExpr types the call n.
+func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 	if _, ok := n.Func.(*ast.SelfExpr); ok {
 		return c.checkSelfCall(n)
 	}
@@ -9595,6 +9741,21 @@ func (c *checker) argMatchesParam(argTy, paramTy Type, recPos Pos, recKind Recor
 		}
 		return true
 	}
+	// A tuple admits each element as a parameter of the element's type
+	// would: `#("/", home)` enters `#(Route, (Request) -> ToResponse)`
+	// when `home` returns a type that implements ToResponse.
+	if expected, ok := resolveTypeVar(paramTy).(*TupleType); ok {
+		actual, ok := resolveTypeVar(argTy).(*TupleType)
+		if !ok || len(actual.Elems) != len(expected.Elems) {
+			return false
+		}
+		for i, elem := range expected.Elems {
+			if !c.argMatchesParam(actual.Elems[i], elem, recPos, recKind) {
+				return false
+			}
+		}
+		return true
+	}
 	// A `Partial<T>` parameter (Struct.update, or a user function taking a
 	// patch) accepts a deep partial of T. Struct.update is generic so it flows
 	// through checkGenericCall; this branch handles a non-generic function with a
@@ -9618,6 +9779,12 @@ func (c *checker) argMatchesParam(argTy, paramTy Type, recPos Pos, recKind Recor
 	// function (`f = Iter.map(xs, _)`, `((Int) -> ?1) -> Iter<?1>`) leaves
 	// the hole its argument fills.
 	if containsTypeVar(argTy) || containsTypeVar(paramTy) {
+		return c.unifyInto(paramTy, argTy, nil) == nil
+	}
+	// A std collection converts where its type arguments do, as they are
+	// (spec §5 *Type argument conversion*): a List<Int> enters a
+	// List<Display> parameter.
+	if convertibleArgs(resolveTypeVar(paramTy)) {
 		return c.unifyInto(paramTy, argTy, nil) == nil
 	}
 	return false
@@ -10562,8 +10729,11 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// argument slot) when there is one. The enclosing function's return type
 	// below is the ambient fallback and says nothing about a call that is not
 	// in tail position: `notes: List<Note> = FromJson.from_json(json)?`
-	// inside a function returning `Result<Int, E>` solved self as Int.
-	if returnOnlySelf != nil && expected != nil && !ContainsTypeParam(expected) {
+	// inside a function returning `Result<Int, E>` solved self as Int. A
+	// partial application's result is a function of its open slots, not the
+	// callee's result: `&Gets.got(&1)` where a `(Gets<String>) -> String` is
+	// expected solved T as that whole function type.
+	if returnOnlySelf != nil && len(openSlots) == 0 && expected != nil && !ContainsTypeParam(expected) {
 		trial := make(map[*TypeParam_]Type, len(subs))
 		for k, v := range subs {
 			trial[k] = v
@@ -11175,7 +11345,7 @@ func typeImplementsInterface(c *checker, concrete Type, iface *InterfaceType, re
 		// The recorded impl must name the SAME interface declaration the
 		// bound does; a same-named interface from another file is another
 		// interface. See interface_identity.go.
-		if !sameNominalIdentity(iface.Origin, iface.Name, table.IfaceOrigins[concreteName][iface.Name], iface.Name) {
+		if !table.namesInterface(concreteName, iface.Name, iface.Origin) {
 			continue
 		}
 		if c != nil && !c.implReceiverMatches(concrete, iface.Name) {
@@ -13321,7 +13491,10 @@ func (c *checker) interfaceBranchJoin(expected, have, next Type) Type {
 	if expected == nil {
 		return nil
 	}
-	if _, ok := resolveTypeVar(expected).(*InterfaceType); !ok {
+	// A std collection joins the same way where each branch converts to it
+	// (spec §5 *Type argument conversion*): `List<Display>` over a
+	// List<Int> and a List<String>.
+	if _, ok := resolveTypeVar(expected).(*InterfaceType); !ok && !convertibleArgs(resolveTypeVar(expected)) {
 		return nil
 	}
 	subs := map[*TypeParam_]Type{}
@@ -13567,6 +13740,15 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	// module declares. The tables below are keyed by the base name, which a
 	// type this file declares (`struct DateParts`) would answer, so the
 	// function is resolved below, from the declaration the qualifier names.
+	// A bare owner this file binds to no type (`Box.inspect` where no `Box`
+	// is declared or imported) names nothing, so no other file's same-named
+	// type or its impls answer it: that would read a type the file cannot
+	// see. The access stays untyped, as with no such type in the program.
+	// A type parameter is no such name: checking it reports nothing, so
+	// the owner counts as unbound only when checking it reported so.
+	if ident, bare := n.Object.(*ast.TypeIdent); bare && tqTypeName != "" && c.reportedUndefinedOwner(ident) {
+		tqTypeName = ""
+	}
 	if tqTypeName != "" && !c.dottedInterfaceFunction(n) {
 		// Selective import aliases name the same nominal receiver. Restrict
 		// this fallback to an imported type symbol: generated module qualifiers
@@ -13843,8 +14025,8 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 		return nil
 	}
 	if tqTypeName == "" {
-		// `views.record(...)` where a local or a declaration named `views`
-		// shadows the file `db::views`: the file is reached by full path.
+		// `views.record(...)` where a local named `views` shadows the file
+		// `db::views`: the hint says how to reach the file.
 		if obj, isIdent := n.Object.(*ast.Ident); isIdent && objTy != nil {
 			if hint := c.fa.shadowedFileHint(obj.Name, n.Field.Name, c.fa.References[Pos{Line: obj.Line, Col: obj.Col}]); hint != "" {
 				c.report(TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
@@ -14772,7 +14954,13 @@ func (c *checker) checkListLitExpecting(n *ast.ListLit, elemTy Type) Type {
 	// A type-prefixed literal (`Arr[1, 2]`, `.Arr[1, 2]`) constructs the
 	// variant or list-distinct type it names, whatever list is expected.
 	// Typing it as a plain list here left an unknown prefix unreported.
-	if n.TypeName != nil || elemTy == nil || c.openElemType(elemTy) {
+	if n.TypeName != nil || elemTy == nil {
+		return c.checkListLit(n)
+	}
+	if c.openElemType(elemTy) {
+		if !containsTypeVar(elemTy) && funcShapedElem(elemTy) {
+			return c.checkListLitAgainstOpenFunc(n, elemTy)
+		}
 		return c.checkListLit(n)
 	}
 	itemTys := make([]Type, 0, len(n.Items))
@@ -14788,6 +14976,57 @@ func (c *checker) checkListLitExpecting(n *ast.ListLit, elemTy Type) Type {
 	}
 	markEmbedsWidening(n, elemTy, itemTys)
 	return &ListType{Elem: elemTy}
+}
+
+// funcShapedElem reports an element type that is a function type, or a
+// tuple with one among its elements: the shapes whose items a call's open
+// element type still tells something, the number of parameters a function
+// value takes.
+func funcShapedElem(ty Type) bool {
+	switch t := ty.(type) {
+	case *FuncType:
+		return true
+	case *TupleType:
+		for _, e := range t.Elems {
+			if funcShapedElem(e) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// checkListLitAgainstOpenFunc checks each item of a list literal against
+// elemTy, an element type that names a generic callee's unsolved type
+// parameters and holds a function type, as the call checks an argument
+// against such a parameter: `run_all([parse, parse_hex], "1")` with `fs:
+// List<(String) -> T>` checks `parse` against `(String) -> T`, so its
+// defaults fill (defaultFilledFuncValue) and it joins `parse_hex`'s
+// `(String) -> Maybe<Int>`. The list's element type is the items' join, as
+// with no expected type, and the call solves its parameters from it.
+func (c *checker) checkListLitAgainstOpenFunc(n *ast.ListLit, elemTy Type) Type {
+	if len(n.Items) == 0 {
+		return c.checkListLit(n)
+	}
+	var joined Type
+	itemTys := make([]Type, 0, len(n.Items))
+	for _, item := range n.Items {
+		ty := c.checkNodeExpecting(item, elemTy)
+		if ty == nil {
+			continue
+		}
+		itemTys = append(itemTys, ty)
+		next, ok := c.joinLitElem(joined, ty)
+		if !ok {
+			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", joined, ty)).WithHint(c.mismatchHint(joined, ty)))
+		}
+		joined = next
+	}
+	if joined == nil {
+		return nil
+	}
+	markEmbedsWidening(n, joined, itemTys)
+	return &ListType{Elem: joined}
 }
 
 // iterElemType is T when ty is std's `Iter<T>`.
@@ -19193,6 +19432,33 @@ func (c *checker) lookupTypeMethodSymbol(typeName, method, origin string) *Symbo
 	return sym
 }
 
+// reportedUndefinedOwner reports whether checking ident, the owner of a
+// type-qualified access, reported it as a name the file does not bind.
+func (c *checker) reportedUndefinedOwner(ident *ast.TypeIdent) bool {
+	msg := "undefined type or variant '" + ident.Name + "'"
+	for i := len(c.errors) - 1; i >= 0; i-- {
+		if e := c.errors[i]; e.Line == ident.Line && e.Col == ident.Col && e.Message == msg {
+			return true
+		}
+	}
+	return false
+}
+
+// fileDeclaresOtherType reports whether the checked file declares its own
+// type named typeName while origin, the receiver's declaring module, is
+// another: the file's impls on that name are then its own type's.
+func (c *checker) fileDeclaresOtherType(typeName, origin string) bool {
+	if origin == OriginUnresolved || c.fa.ModuleScope == nil {
+		return false
+	}
+	sym := c.fa.ModuleScope.Lookup(typeNameHead(typeName))
+	if sym == nil || sym.Resolved != nil {
+		return false
+	}
+	declared := declaringOriginOfType(c.fa, typeNameHead(typeName), nil)
+	return declared != "" && declared != origin
+}
+
 // typeMethodSource names which table answered a type-method resolution. Only
 // lookupTypeMethodSymbol acts on it; it exists so the recording lives in one
 // place instead of being duplicated into every caller that needs the answer.
@@ -19221,7 +19487,16 @@ func (c *checker) resolveTypeMethodSymbol(typeName, method, origin string) (*Sym
 	idx := c.fa.Program().ImplIndex
 	byIdentity := idx.LookupTypeMethodByIdentity(origin, typeName, method)
 	local := c.fa.LookupVisibleTypeMethod(typeName, method)
-	if byIdentity != nil && byIdentity != local {
+	// The file's own impl of the method wins: the identity index keeps one
+	// function per receiver and name, so with two files each implementing
+	// their own same-named interface for `List<Int>`, it answers one file's
+	// `List.size` with the other's.
+	// It answers only for the receiver its impl header names: under a block
+	// import of std's `Duration`, the file's own `struct Duration` and its
+	// `Duration.seconds` are not the receiver.
+	ownImpl := local != nil && local.SourceFile != "" && local.SourceFile == c.fa.FilePath &&
+		!c.fileDeclaresOtherType(typeName, origin)
+	if byIdentity != nil && byIdentity != local && !ownImpl {
 		return byIdentity, typeMethodByIdentity
 	}
 	// A receiver whose declaring module is known is never answered by
@@ -19718,7 +19993,7 @@ func resolveConcreteImplMatching(idx *ProjectImplIndex, ifaceName, ifaceKey, met
 	if name == "" {
 		return nil
 	}
-	var match *ast.FuncDef
+	var candidates []*ast.FuncDef
 	for _, fn := range idx.IfaceMethodImpls[ifaceName][methodName] {
 		if fn == nil || len(fn.Params) == 0 || fn.Params[0].TypeAnnotation == nil {
 			continue
@@ -19739,6 +20014,10 @@ func resolveConcreteImplMatching(idx *ProjectImplIndex, ifaceName, ifaceKey, met
 			// hand-written source position to jump to. Decline.
 			continue
 		}
+		candidates = append(candidates, fn)
+	}
+	var match *ast.FuncDef
+	for _, fn := range ownReceiverImpls(idx, candidates, concrete) {
 		if match != nil {
 			// Two impls of two files are two impls even at one position:
 			// a file copied from another holds its impls where the other

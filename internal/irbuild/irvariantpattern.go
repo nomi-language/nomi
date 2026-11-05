@@ -284,7 +284,7 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	pattern = irAttachedVariantPattern(pattern)
 	pat, v, ok := bl.g.retainedEnumPattern(pattern, k)
 	if !ok {
-		irDeclineNote("a `case` enum pattern outside retained bare/positional payload tests")
+		bl.g.dc.note("a `case` enum pattern outside retained bare/positional payload tests")
 		return false
 	}
 	match := bl.variantTest(pat, subj, k.def, v)
@@ -494,7 +494,7 @@ func (bl *irScalarBuilder) variantRecord(at ast.Node, subj ir.Temp, d *typeDef, 
 	}
 	k := bl.g.anonStructKind(names, parts)
 	if !irRetainedRecordKind(k) {
-		irDeclineNote("a struct-shaped variant's payload outside the retained records: " + k.nomi())
+		bl.g.dc.note("a struct-shaped variant's payload outside the retained records: " + k.nomi())
 		return ir.NoTemp, kindInvalid, false
 	}
 	ops := make([]ir.Temp, len(k.comp.names))

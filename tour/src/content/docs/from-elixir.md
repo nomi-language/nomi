@@ -29,7 +29,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `cond do`, `if .. do` | `if .. { } else if .. { }`. Without `else` it is `Some(x)` or `None`, where Elixir's is `x` or `nil`. |
 | `when` guards | `when` guards, the same |
 | `defp` | A declaration without `pub` |
-| `alias MyApp.Db.Posts`, then `Posts.find(1)` | `import db::posts`, then `posts.find(1)`: a file is used by its path's last part. The full path, `db::posts.find(1)`, works too. |
+| `alias MyApp.Db.Posts`, then `Posts.find(1)` | `import db::posts`, then `posts.find(1)`: a file is used by its path's last part. `import db` imports the directory, and `db::posts.find(1)` reaches the file through it. |
 | `spawn`, `send`, `receive` | `Task.spawn` in `concurrent { .. }`, and channels |
 | `Supervisor` | `Supervisor.new` in `boot` |
 | `ExUnit` | `test "name" { assert .. }` |

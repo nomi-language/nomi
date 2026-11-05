@@ -40,7 +40,7 @@ func (bl *irScalarBuilder) isTest(t *ast.Is) (ir.Temp, kind, bool, bool) {
 	if next == nil {
 		// The checker rejects a pattern that matches every value of the
 		// value's type, so the no-match block always has a way in.
-		irDeclineNote("an `is` test whose pattern always matches " + sk.nomi())
+		bl.g.dc.note("an `is` test whose pattern always matches " + sk.nomi())
 		return no()
 	}
 	for _, arm := range []struct {

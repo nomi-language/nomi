@@ -99,7 +99,7 @@ func (bl *irScalarBuilder) neverCaseRegion(t *ast.Case, sig irFuncSig) (kind, bo
 	}
 	// kindInvalid: reports — the decline note names the missing kind.
 	if want == kindInvalid {
-		irDeclineNote("a `case` on Infallible whose result has no kind")
+		bl.g.dc.note("a `case` on Infallible whose result has no kind")
 		return kindInvalid, false
 	}
 	v, k, _, ok := bl.lowerNever(t.Value)

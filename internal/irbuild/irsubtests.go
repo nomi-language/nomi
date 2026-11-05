@@ -36,22 +36,22 @@ func isSubtestsRowBoundary(boundary string) bool {
 // subtests lowers the statement in the current block.
 func (bl *irScalarBuilder) subtests(t *ast.Subtests) bool {
 	if bl.recording > 0 || (bl.inTest && !bl.testWalked) {
-		irDeclineNote("a `subtests` statement in a body the builder reads back")
+		bl.g.dc.note("a `subtests` statement in a body the builder reads back")
 		return false
 	}
 	if bl.subtestsRow {
-		irDeclineNote("a `subtests` statement inside a `subtests` row")
+		bl.g.dc.note("a `subtests` statement inside a `subtests` row")
 		return false
 	}
 	ty, found := bl.g.srcFA().SubtestsRowTypes[t]
 	if !found {
-		irDeclineNote("a `subtests` statement whose row type the checker did not record")
+		bl.g.dc.note("a `subtests` statement whose row type the checker did not record")
 		return false
 	}
 	rowK := bl.g.project(ty)
 	// kindInvalid: lookup — asks whether the checker's row type has a representation; the decline below names the statement.
 	if rowK == kindInvalid || (!irCallableValueKind(rowK) && rowK != kindUnit) {
-		irDeclineNote("a `subtests` row type outside the domain")
+		bl.g.dc.note("a `subtests` row type outside the domain")
 		return false
 	}
 	rows, rk, _, ok := bl.lower(t.Rows)
@@ -60,8 +60,8 @@ func (bl *irScalarBuilder) subtests(t *ast.Subtests) bool {
 	}
 	seq, ok := bl.seqView(t.Rows, rows, rk, rowK)
 	if !ok {
-		irDeclineNote("`subtests` rows the builder cannot view as a sequence: " + rk.nomi())
-		irDeclineAtNode(t.Rows)
+		bl.g.dc.note("`subtests` rows the builder cannot view as a sequence: " + rk.nomi())
+		bl.g.dc.atNode(t.Rows)
 		return false
 	}
 	name := ir.NoTemp
@@ -109,13 +109,13 @@ func (bl *irScalarBuilder) subtestsNameFunc(t *ast.Subtests, rowK kind) (ir.Temp
 		return ir.NoTemp, false
 	}
 	if k != kindString {
-		irDeclineNote("a `subtests` name that does not lower to a String: " + k.nomi())
-		irDeclineAtNode(t.Name)
+		bl.g.dc.note("a `subtests` name that does not lower to a String: " + k.nomi())
+		bl.g.dc.atNode(t.Name)
 		return ir.NoTemp, false
 	}
 	child.b.SetTerm(ir.NewReturn(at, name))
 	if err := bl.g.irLint(f); err != nil {
-		irDeclineNote("a `subtests` name graph that does not lint: " + err.Error())
+		bl.g.dc.note("a `subtests` name graph that does not lint: " + err.Error())
 		return ir.NoTemp, false
 	}
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...)
@@ -129,7 +129,7 @@ func (bl *irScalarBuilder) subtestsNameFunc(t *ast.Subtests, rowK kind) (ir.Temp
 func (bl *irScalarBuilder) subtestsRowFunc(t *ast.Subtests, rowK kind) (ir.Temp, bool) {
 	body := t.Body
 	if body == nil || len(body.Stmts) == 0 {
-		irDeclineNote("a `subtests` statement with an empty body")
+		bl.g.dc.note("a `subtests` statement with an empty body")
 		return ir.NoTemp, false
 	}
 	at := bl.g.irNodePos(body)
@@ -165,7 +165,7 @@ func (bl *irScalarBuilder) subtestsRowFunc(t *ast.Subtests, rowK kind) (ir.Temp,
 	}
 	child.b.SetTerm(ir.NewReturnUnit(end))
 	if err := bl.g.irLint(f); err != nil {
-		irDeclineNote("a `subtests` row graph that does not lint: " + err.Error())
+		bl.g.dc.note("a `subtests` row graph that does not lint: " + err.Error())
 		return ir.NoTemp, false
 	}
 	n := ir.NewFuncValue(at, bl.f.NewTemp(), f, child.captures...)

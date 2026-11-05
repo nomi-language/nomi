@@ -5,7 +5,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,7 +47,7 @@ func implIdentityFA(t *testing.T, src string) (*analysis.FileAnalysis, []ast.Nod
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
@@ -257,7 +256,7 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 //
 // They are the impls whose headers write type arguments: the 48 OPERATOR
 // pairs (the arithmetic ones and the bitwise ones on Int and Byte), String's Contains, Url's
-// `CheckedLiteral<String, Url>` and Toml's `CheckedLiteral<ToToml, Toml>`, and std/fs's `Lines`, `Chunks` and `Walk` as
+// `CheckedLiteral<String, Url>`, Toml's `CheckedLiteral<ToToml, Toml>` and std/jobs's Cron literal, and std/fs's `Lines`, `Chunks` and `Walk` as
 // `Iter<Result<...>>`. One mechanism explains the whole set:
 // `ImplBlockInterfaceKey` spells such an impl with its type arguments
 // (`Add<Days, Date>`, `Contains<Regex>`), while `Impls` and `ImplManifest`
@@ -273,7 +272,7 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // too-wide rule there costs 13 corpus files and 3 std tests. It is a named
 // follow-on with a known mechanism, not an oversight.
 const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/BitwiseOr Byte/BitwiseXor " +
-	"Bytes/Add Chunks/Iter Date/Add Date/Subtract DateTime/Add " +
+	"Bytes/Add Chunks/Iter Cron/CheckedLiteral Date/Add Date/Subtract DateTime/Add " +
 	"DateTime/Subtract Decimal/Add Decimal/Multiply " +
 	"Decimal/Subtract Duration/Add Duration/Divide " +
 	"Duration/Multiply Duration/Subtract Float/Add Float/Divide " +
@@ -333,7 +332,7 @@ func implIdentityProjectErrs(t *testing.T, src string, files map[string]string) 
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")

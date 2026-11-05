@@ -248,6 +248,19 @@ func checkAppRootsOf(fa *FileAnalysis, nodes []ast.Node) ([]TypeError, bool) {
 }
 
 func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) (errors []TypeError, rooted bool) {
+	return checkAppRootsUnder(fa, nodes, nil, nil)
+}
+
+// CheckAppRootsUnder is CheckAppRoots for a file whose `main` runs under
+// boot, declared in another file bootFA analyzes, when the file declares
+// no boot of its own: a REPL input runs under the boot an earlier input
+// declared.
+func CheckAppRootsUnder(fa *FileAnalysis, nodes []ast.Node, boot *ast.FuncDef, bootFA *FileAnalysis) []TypeError {
+	errs, _ := checkAppRootsUnder(fa, nodes, boot, bootFA)
+	return append(errs, fa.BootErrors...)
+}
+
+func checkAppRootsUnder(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, underFA *FileAnalysis) (errors []TypeError, rooted bool) {
 	// The one place an entry boot may be called: a group's `boot` line.
 	bootLines := map[Pos]bool{}
 	for _, n := range nodes {
@@ -380,6 +393,9 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) (errors []TypeError, root
 					frame := bootFrame{}
 					if boot := findBootFunc(nodes); boot != nil && fa.Program().BootFunctions[boot] {
 						frame = frameOf(boot, boot.Line, boot.Col)
+					} else if boot == nil && under != nil && underFA != nil {
+						st, _ := inferAppStruct(under, []*FileAnalysis{underFA, fa})
+						frame = bootFrame{fn: under, app: st, line: v.Line, col: v.Col}
 					}
 					check(w.reachable(fa, v.Body), frame, "this program", v.Line, v.Col)
 				}

@@ -80,7 +80,7 @@ func (bl *irScalarBuilder) bindParamPattern(pat ast.Node, arg ir.Temp, k kind) b
 	nomatch.Append(ir.NewNoMatch(pos))
 	nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
 	if !bl.patternValueTest(pat, arg, k, cont, nomatch) {
-		irDeclineAtPattern(pat, "a destructuring parameter before a defaulted one, outside the retained case tests: "+k.nomi())
+		bl.g.dc.atPattern(pat, "a destructuring parameter before a defaulted one, outside the retained case tests: "+k.nomi())
 		return false
 	}
 	bl.b = cont

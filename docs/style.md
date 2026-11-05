@@ -124,13 +124,13 @@ sake: `import shape.Shape` and `import shape.Shape.Circle` stay as they are.
 A dot-shorthand pattern (`.Some(v)`) names no imported variant, so don't
 import a variant you only match with the dot form.
 
-Use a file by its short name, the last part of its path: `posts.find(1)`, not
-`db::posts.find(1)`. Write the full path only where the short name is
-ambiguous (two imports share it) or taken (a local or a declaration has it),
-and write it there instead of an alias (spec §14 *Short names and full paths*;
-tour: [Modules & Imports](/modules-and-imports/#short-names-and-full-paths)).
-The full path says which file at the use itself; an alias is one more name to
-look up.
+Use a file by its short name, the last part of its path: `import db::posts`,
+then `posts.find(1)`. Where the short name is ambiguous (two files share it)
+or taken (a declaration has it), import the directory and write `dir::file`
+at the use; alias the file only where a directory import does not help (spec
+§14 *Short names*, *Directory imports*; tour: [Modules &
+Imports](/modules-and-imports/#short-names-and-directory-imports)). The path
+says which file at the use itself; an alias is one more name to look up.
 
 ```nomi
 // no
@@ -141,14 +141,20 @@ import {
 
 // yes
 import {
-    db::notifications
-    jobs::notifications
+    db
+    jobs
 }
 
 fn pending() -> Int {
     db::notifications.pending() + jobs::notifications.pending()
 }
 ```
+
+Import a directory to reach several files under it with one line:
+`import views::admin`, then `admin::users.index(rows)` and
+`admin::reports::daily.show()`. Don't import a directory to reach one file
+whose short name is free; `import views::admin::users` and `users.index(rows)`
+say the same thing more briefly.
 
 ## Names and bindings
 
@@ -1882,6 +1888,10 @@ not `Result<String, String>`, whose callers can only compare text. Keep a
 `String` error for a failure only a person reads: a script's, or a `boot`
 that only reports why it stopped (§38). A variant carries the data its
 message needs (`InvalidDigit Int`), not the message.
+
+An HTTP app's error enum implements std::http's `ToResponse` as well, so a
+handler returns `Result<Response, AppError>` and passes failures up with
+`?` rather than turning each one into a page where it happens.
 
 ### 49. Doc comments and examples
 

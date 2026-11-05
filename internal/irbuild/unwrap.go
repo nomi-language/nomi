@@ -52,7 +52,7 @@ func (bl *irScalarBuilder) unwrapStage(t *ast.Binary, stage *ast.Unwrap) (ir.Tem
 // and answers its payload, trapping at t's line on Err or None.
 func (bl *irScalarBuilder) unwrapValue(t *ast.Unwrap, source string, src ir.Temp, k kind, pure bool) (ir.Temp, kind, bool, bool) {
 	no := func(why string) (ir.Temp, kind, bool, bool) {
-		irDeclineNote(why)
+		bl.g.dc.note(why)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	d := k.def
@@ -126,7 +126,7 @@ func (g *gen) bangRender(at ast.Node, errK kind) *ir.Symbol {
 	}
 	var sym *ir.Symbol
 	if irCallOperandKind(errK) {
-		irDeclineAside(func() {
+		g.dc.aside(func() {
 			name := "`!` failure " + errK.nomi()
 			s := g.irCalleeSym(irBangRenderKey{errK}, name)
 			f, ok := g.irErrorRenderFunc(at, name, s, errK, at, false)

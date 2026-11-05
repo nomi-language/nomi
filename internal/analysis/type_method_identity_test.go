@@ -11,7 +11,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // The defect these guard, stated once.
@@ -313,7 +312,7 @@ fn main() -> Unit { Unit }
 		nodes, _ := parser.ParseWithRecovery(fileTokens)
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil || fa.Program().ImplIndex == nil {
 		t.Fatal("no project impl index")

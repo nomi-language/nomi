@@ -1,11 +1,12 @@
 // A module path's segments read as modules, in an import and where a file
-// is named by its full path, and the `::` between them as a delimiter. The
-// caret lines below each line name the highlight of the token they point at.
+// is named through a directory import, and the `::` between them as a
+// delimiter. The caret lines below each line name the highlight of the
+// token they point at.
 import {
-    std::io
+    std
+    std::uuid
     // ^ punctuation.delimiter
     //   ^ module
-    std::json
 }
 
 fn show(j: std::json.Json) -> std::json.Json {
@@ -23,8 +24,8 @@ fn show(j: std::json.Json) -> std::json.Json {
     }
 }
 
-fn say() {
-    std::io.print("x")
+fn say(u: uuid.Uuid) {
+    std::io.print(u)
     // ^ punctuation.delimiter
     //   ^ module
     //      ^ function.call

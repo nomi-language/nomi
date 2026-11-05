@@ -353,28 +353,54 @@ func (g *gen) irTypeSym(d *typeDef) *ir.Symbol {
 // rule and adding the arm is what keeps a TypeID's spelling and a Symbol's
 // spelling the same string for the same type.
 func (g *gen) irTypeSymName(d *typeDef) string {
+	if name, ok := stdSpecTypeName(d); ok {
+		return name
+	}
+	if d.foreign != "" {
+		if mod := irModuleQualifier(d.foreign); mod != "" {
+			return mod + "." + d.nomi
+		}
+		return d.nomi
+	}
+	// A def its declaring file built, named from a gen that is not that
+	// file's: a std instance's gen holds its caller's kinds (stdinst.go), so
+	// fs's Entry reaches std/results' instance of `Result.map` as fs's own
+	// def, and is still `fs.Entry`.
+	if dn, ok := g.declNameOf(d.decl); ok && dn.file != "" {
+		if mod := irModuleQualifier(dn.file); mod != "" {
+			return mod + "." + d.nomi
+		}
+	}
+	return g.qualifiedNomiName(d.nomi)
+}
+
+// stdSpecTypeName is the module-qualified spelling of a std type with one
+// process-wide def and no declaration a gen owns (a row of stdEnumSpecs,
+// stdStructSpecs, opaqueSpecs or stdHostSpecs, a prelude anchor, a std
+// generic struct instance), and false for any other def.
+func stdSpecTypeName(d *typeDef) (string, bool) {
 	if i, ok := stdEnumDef(d); ok {
 		spec := stdEnumSpecs[i]
-		return irModuleQualifier(spec.origin) + "." + spec.nomi
+		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
 	}
 	if i, ok := stdStructIndex(d); ok {
 		spec := stdStructSpecs[i]
-		return irModuleQualifier(spec.origin) + "." + spec.nomi
+		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
 	}
 	if d.preludeOf != nil {
 		spec := d.preludeOf.spec
-		return irModuleQualifier(spec.origin) + "." + spec.nomi
+		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
 	}
 	if spec, ok := namedPayloadSpecOf(d); ok {
 		// `std/tasks.Failure`: one process-wide typeDef, as a stdEnumSpecs
 		// row is, named by its declaring module.
-		return irModuleQualifier(spec.origin) + "." + spec.nomi
+		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
 	}
 	if spec := d.genStructOf; spec != nil {
 		// A std generic struct instance (`Generator<Int>`) is its
 		// declaration: it renders as `Generator{...}`, and d.nomi
 		// spells the arguments only to key the instance.
-		return irModuleQualifier(spec.origin) + "." + spec.nomi
+		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
 	}
 	// A std opaque or distinct with an rt Go type (`Codepoint`, `Duration`)
 	// is one process-wide typeDef that every gen shares and none declares,
@@ -383,7 +409,7 @@ func (g *gen) irTypeSymName(d *typeDef) string {
 	for i, od := range opaqueDefs() {
 		if od == d {
 			spec := opaqueSpecs[i]
-			return irModuleQualifier(spec.origin) + "." + spec.nomi
+			return irModuleQualifier(spec.origin) + "." + spec.nomi, true
 		}
 	}
 	// An origin-identified std `host type` (`Regex`, `Context`) is likewise
@@ -392,16 +418,10 @@ func (g *gen) irTypeSymName(d *typeDef) string {
 	for i, hd := range stdHostDefs() {
 		if hd == d && stdHostSpecs[i].origin != "" {
 			spec := stdHostSpecs[i]
-			return irModuleQualifier(spec.origin) + "." + spec.nomi
+			return irModuleQualifier(spec.origin) + "." + spec.nomi, true
 		}
 	}
-	if d.foreign != "" {
-		if mod := irModuleQualifier(d.foreign); mod != "" {
-			return mod + "." + d.nomi
-		}
-		return d.nomi
-	}
-	return g.qualifiedNomiName(d.nomi)
+	return "", false
 }
 
 // irModuleQualifier is the module name a Nomi file key qualifies with.

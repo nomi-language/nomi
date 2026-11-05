@@ -45,10 +45,8 @@ func irTestBodyVM(t *testing.T, src string, wantCases int) string {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
 	}
 	declined := map[string]string{}
-	prevD := IRDeclineObserved
-	IRDeclineObserved = func(fn, reason string) { declined[fn] = reason }
+	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
 	res, _, err := GenerateIR(p)
-	IRDeclineObserved = prevD
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -414,10 +412,8 @@ test "two lists of a distinct compared with ==" {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
 	}
 	declined := map[string]string{}
-	prev := IRDeclineObserved
-	IRDeclineObserved = func(fn, reason string) { declined[fn] = reason }
+	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
 	_, _, err = GenerateIR(p)
-	IRDeclineObserved = prev
 	if err != nil {
 		t.Fatal(err)
 	}

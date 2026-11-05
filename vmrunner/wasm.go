@@ -55,13 +55,19 @@ func IsWasm(head []byte) bool {
 // WasmImageSection encodes image as a custom section named WasmSectionName,
 // to be appended to a WebAssembly module.
 func WasmImageSection(image []byte) []byte {
-	var body []byte
-	body = binary.AppendUvarint(body, uint64(len(WasmSectionName)))
-	body = append(body, WasmSectionName...)
-	body = append(body, image...)
+	return append(WasmImageSectionHead(int64(len(image))), image...)
+}
+
+// WasmImageSectionHead is what opens the custom section of an image of n
+// bytes: written before the image, its code and then its files region, it
+// makes the section WasmImageSection makes, so a build can write the
+// region from its sources without holding it.
+func WasmImageSectionHead(n int64) []byte {
+	name := binary.AppendUvarint(nil, uint64(len(WasmSectionName)))
+	name = append(name, WasmSectionName...)
 	out := []byte{0}
-	out = binary.AppendUvarint(out, uint64(len(body)))
-	return append(out, body...)
+	out = binary.AppendUvarint(out, uint64(int64(len(name))+n))
+	return append(out, name...)
 }
 
 // ErrNoImageArea is EmbedWasmImage's answer for a module that is not a
@@ -165,9 +171,25 @@ func EmbedWasmImage(module, image []byte) ([]byte, error) {
 // js/wasm module), or what its data segment writes into the image area (a
 // wasip1 module). A module with neither answers ErrNoImage.
 func ReadWasmImage(r io.ReaderAt, size int64) ([]byte, error) {
+	off, n, inline, err := wasmImageRange(r, size)
+	if err != nil || inline != nil {
+		return inline, err
+	}
+	payload := make([]byte, n)
+	if _, err := r.ReadAt(payload, off); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
+
+// wasmImageRange finds the image `nomi build` added to the WebAssembly
+// module r holds: the offset and length of its custom section's payload (a
+// js/wasm module), or the image its data segment writes, read whole (a
+// wasip1 module, whose image area bounds it).
+func wasmImageRange(r io.ReaderAt, size int64) (int64, int64, []byte, error) {
 	head := make([]byte, len(wasmHeader))
 	if _, err := r.ReadAt(head, 0); err != nil || !IsWasm(head) {
-		return nil, errors.New("not a WebAssembly module")
+		return 0, 0, nil, errors.New("not a WebAssembly module")
 	}
 	var memMin uint64
 	var data []byte
@@ -176,42 +198,38 @@ func ReadWasmImage(r io.ReaderAt, size int64) ([]byte, error) {
 	for off < size {
 		id, n, err := readByte(r, off)
 		if err != nil {
-			return nil, damagedWasm(off, err)
+			return 0, 0, nil, damagedWasm(off, err)
 		}
 		off += n
 		length, n, err := readUvarint(r, off)
 		if err != nil {
-			return nil, damagedWasm(off, err)
+			return 0, 0, nil, damagedWasm(off, err)
 		}
 		off += n
 		end := off + int64(length)
 		if length > uint64(size) || end > size {
-			return nil, damagedWasm(off, fmt.Errorf("section of %d bytes overruns the file", length))
+			return 0, 0, nil, damagedWasm(off, fmt.Errorf("section of %d bytes overruns the file", length))
 		}
 		switch id {
 		case wasmCustomSection:
 			nameLen, n, err := readUvarint(r, off)
 			if err != nil {
-				return nil, damagedWasm(off, err)
+				return 0, 0, nil, damagedWasm(off, err)
 			}
 			nameAt := off + n
 			if nameLen == uint64(len(WasmSectionName)) && nameAt+int64(nameLen) <= end {
 				name := make([]byte, nameLen)
 				if _, err := r.ReadAt(name, nameAt); err != nil {
-					return nil, err
+					return 0, 0, nil, err
 				}
 				if string(name) == WasmSectionName {
-					payload := make([]byte, end-nameAt-int64(nameLen))
-					if _, err := r.ReadAt(payload, nameAt+int64(nameLen)); err != nil {
-						return nil, err
-					}
-					return payload, nil
+					return nameAt + int64(nameLen), end - nameAt - int64(nameLen), nil, nil
 				}
 			}
 		case wasmMemorySection, wasmDataSection:
 			body := make([]byte, length)
 			if _, err := r.ReadAt(body, off); err != nil {
-				return nil, err
+				return 0, 0, nil, err
 			}
 			if id == wasmDataSection {
 				data, dataAt = body, int(off)
@@ -222,33 +240,33 @@ func ReadWasmImage(r io.ReaderAt, size int64) ([]byte, error) {
 		off = end
 	}
 	if data == nil {
-		return nil, ErrNoImage
+		return 0, 0, nil, ErrNoImage
 	}
 	segs, err := readDataSegments(data)
 	if err != nil {
-		return nil, damagedWasm(int64(dataAt), err)
+		return 0, 0, nil, damagedWasm(int64(dataAt), err)
 	}
 	area, size2, err := findImageSlot(segs, memMin)
 	if errors.Is(err, ErrNoImageArea) {
-		return nil, ErrNoImage
+		return 0, 0, nil, ErrNoImage
 	}
 	if err != nil {
-		return nil, err
+		return 0, 0, nil, err
 	}
 	for _, s := range segs {
 		if s.offset != area {
 			continue
 		}
 		if len(s.data) < 8 {
-			return nil, errors.New("the Nomi program in this WebAssembly module is damaged: its segment is shorter than its length")
+			return 0, 0, nil, errors.New("the Nomi program in this WebAssembly module is damaged: its segment is shorter than its length")
 		}
 		n := binary.LittleEndian.Uint64(s.data[:8])
 		if n+8 > size2 || n+8 > uint64(len(s.data)) {
-			return nil, fmt.Errorf("the Nomi program in this WebAssembly module is damaged: it claims %d bytes, and its segment holds %d", n, len(s.data)-8)
+			return 0, 0, nil, fmt.Errorf("the Nomi program in this WebAssembly module is damaged: it claims %d bytes, and its segment holds %d", n, len(s.data)-8)
 		}
-		return s.data[8 : 8+n], nil
+		return 0, 0, s.data[8 : 8+n], nil
 	}
-	return nil, ErrNoImage
+	return 0, 0, nil, ErrNoImage
 }
 
 // wasmSection is one section of a module: its id, where its header starts,

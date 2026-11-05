@@ -65,6 +65,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -88,17 +89,41 @@ import (
 // expanded here with none, as a file with no project: every path that
 // prepares a file for analysis lowers it, and none may leave one.
 func LowerDerives(nodes []ast.Node) ([]ast.Node, []TypeError) {
+	return LowerDerivesWith(nodes, nil)
+}
+
+// LowerDerivesWith is LowerDerives for a file that may derive for a type
+// another file declares: imported answers the declaration of a type the
+// file does not declare, nil for none. A REPL input's file derives for a
+// type an earlier input's file declares, as the inputs could when they
+// were one file; the derived impl is the input's.
+func LowerDerivesWith(nodes []ast.Node, imported func(name string) ast.Node) ([]ast.Node, []TypeError) {
 	nodes = ExpandDeclarations(nodes, nil)
 	var errs []TypeError
-	out, changed := lowerNodeListDerives(nodes, &errs)
+	out, changed := lowerNodeListDerives(nodes, imported, &errs)
 	if !changed {
 		return nodes, errs
 	}
 	return out, errs
 }
 
-func lowerNodeListDerives(nodes []ast.Node, errs *[]TypeError) ([]ast.Node, bool) {
+func lowerNodeListDerives(nodes []ast.Node, imported func(name string) ast.Node, errs *[]TypeError) ([]ast.Node, bool) {
 	decls := typeDeclsInNodeList(nodes)
+	if imported != nil {
+		for _, n := range nodes {
+			if conf, ok := n.(*ast.ImplConformance); ok && conf.Derive && conf.Receiver != nil {
+				name := TypeExprBaseName(conf.Receiver)
+				if decls[name] == nil {
+					if decl := imported(name); decl != nil {
+						// A copy: the lowering marks the declaration it
+						// derives for, and the other file's is not this
+						// file's to mark.
+						decls[name] = copyTypeDecl(decl)
+					}
+				}
+			}
+		}
+	}
 	manualImpls := manualImplsInNodeList(nodes)
 	seenDerives := map[string]map[string]bool{}
 	var out []ast.Node
@@ -278,6 +303,12 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 		// source the programmer navigates to.
 		site := synthSite{origin: synthOriginConformance, index: index, wrapping: wrappingDistincts(decls)}
 		site.line, site.col = declPos(decl)
+		if local := typeDeclsInNodeList(nodes)[recvName]; local != decl {
+			// A type another file declares: the derived impl's origin is
+			// the derive itself, the one declaration of this file it
+			// comes from.
+			site.line, site.col = conf.Line, conf.Col
+		}
 		blocks := synthesizeDeriveFor(ifaceName, decl, one.Options, site)
 		for _, n := range blocks {
 			if block, ok := n.(*ast.ImplBlock); ok {
@@ -367,4 +398,73 @@ func inheritedTypeParams(tps []ast.TypeParam) []ast.TypeParam {
 		return nil
 	}
 	return append([]ast.TypeParam(nil), tps...)
+}
+
+// ImportedTypeDecl answers, for a file's nodes, the declaration of a type
+// one of its imports names by name from another file of the program, or
+// nil: fileNodes answers that file's top-level nodes by module key. It is
+// what LowerDerivesWith reads for a type a REPL input derives for and an
+// earlier input declares.
+func ImportedTypeDecl(nodes []ast.Node, fileNodes func(key string) ([]ast.Node, bool)) func(name string) ast.Node {
+	return func(name string) ast.Node {
+		for _, n := range nodes {
+			imp, ok := n.(*ast.ImportStmt)
+			if !ok {
+				continue
+			}
+			named := false
+			for i, id := range imp.Names {
+				if i < len(imp.Aliases) && imp.Aliases[i] != nil {
+					continue
+				}
+				if ti, ok := id.(*ast.TypeIdent); ok && ti.Name == name {
+					named = true
+				}
+			}
+			if !named {
+				continue
+			}
+			var path []string
+			for _, seg := range imp.ModulePath {
+				switch id := seg.(type) {
+				case *ast.Ident:
+					path = append(path, id.Name)
+				case *ast.TypeIdent:
+					path = append(path, id.Name)
+				}
+			}
+			decls, ok := fileNodes(strings.Join(path, "/"))
+			if !ok {
+				continue
+			}
+			if decl := typeDeclsInNodeList(decls)[name]; decl != nil {
+				return decl
+			}
+		}
+		return nil
+	}
+}
+
+// copyTypeDecl is a shallow copy of a type declaration whose decorators a
+// derive lowering may add to without touching decl's.
+func copyTypeDecl(decl ast.Node) ast.Node {
+	switch d := decl.(type) {
+	case *ast.StructDef:
+		c := *d
+		c.Decorators = slices.Clip(c.Decorators)
+		return &c
+	case *ast.EnumDef:
+		c := *d
+		c.Decorators = slices.Clip(c.Decorators)
+		return &c
+	case *ast.TypeDef:
+		c := *d
+		c.Decorators = slices.Clip(c.Decorators)
+		return &c
+	case *ast.ExternType:
+		c := *d
+		c.Decorators = slices.Clip(c.Decorators)
+		return &c
+	}
+	return decl
 }

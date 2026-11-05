@@ -1,0 +1,3 @@
+// Re-exports schema's enum. fundraising.nomi and aliases.nomi, which import
+// it from here, come before this file in the order of their paths.
+pub import db::schema.ReactionType

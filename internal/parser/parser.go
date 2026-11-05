@@ -96,6 +96,7 @@ func Parse(tokens []token.Token) ([]ast.Node, error) {
 	if err = withStrayPrompt(tokens, p.firstError(err)); err != nil {
 		return nil, err
 	}
+	NotePathUses(stmts)
 	return stmts, nil
 }
 
@@ -112,6 +113,7 @@ func ParseFile(tokens []token.Token) ([]ast.Node, []ast.Trivia, error) {
 		return nil, nil, err
 	}
 	attachDangling(stmts, p.fileEndTrivia, tokens)
+	NotePathUses(stmts)
 	return stmts, p.fileEndTrivia, nil
 }
 
@@ -290,6 +292,7 @@ func (p *Parser) parseWithRecovery() ([]ast.Node, []ParseError) {
 			return a.Line < b.Line || a.Line == b.Line && a.Col < b.Col
 		})
 	}
+	NotePathUses(stmts)
 	return stmts, withStrayPrompts(p.tokens, p.errors)
 }
 
@@ -10236,6 +10239,8 @@ func attachDoc(node ast.Node, doc string) bool {
 		n.Doc = doc
 	case *ast.KeywordDecl:
 		n.Doc = doc
+	case *ast.EmbedDecl:
+		n.Doc = doc
 	default:
 		return false
 	}
@@ -10314,8 +10319,9 @@ func (p *Parser) parseOnceBinding(public bool) (ast.Node, error) {
 // startsKeywordDecl reports whether the cursor is at a keyword
 // declaration's keyword: two names in a row (`message hi`). A name before
 // a type name is not one, so a misspelled declaration keyword
-// (`strct Point`) keeps its own error, except after `message` and `noun`,
-// whose declaration's error it is: they name a function and a value.
+// (`strct Point`) keeps its own error, except after `message`, `noun` and
+// `embed`, whose declaration's error it is: they name a function or a
+// value.
 func (p *Parser) startsKeywordDecl() bool {
 	if p.peek().Type != token.IDENT {
 		return false
@@ -10324,7 +10330,10 @@ func (p *Parser) startsKeywordDecl() bool {
 	case token.IDENT:
 		return true
 	case token.TYPE_IDENT:
-		return p.peek().Lexeme == "message" || p.peek().Lexeme == "noun"
+		switch p.peek().Lexeme {
+		case "message", "noun", "embed":
+			return true
+		}
 	}
 	return false
 }
@@ -10342,6 +10351,9 @@ func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
 	p.advance() // consume the name
 	if nameTok.Type == token.TYPE_IDENT {
 		return nil, errorAt(nameTok.Line, nameTok.Col, "the name of a `%s` is snake_case, not the type name `%s`", kwTok.Lexeme, nameTok.Lexeme)
+	}
+	if kwTok.Lexeme == "embed" {
+		return p.parseEmbedDecl(kwTok, nameTok, public)
 	}
 	decl := &ast.KeywordDecl{
 		Keyword:  kwTok.Lexeme,

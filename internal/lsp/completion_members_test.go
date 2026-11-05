@@ -167,8 +167,8 @@ func TestCompletion_UserFileMembersAndImports(t *testing.T) {
 	items = completeIn(t, s, uri, "import lib::"+cursorMark+"\n\nfn main() {\n}\n").Items
 	labelsInclude(t, items, "text")
 
-	// After a full path, the file's public names.
-	items = completeIn(t, s, uri, "import lib::text\n\nfn main() {\n    lib::text."+cursorMark+"\n}\n").Items
+	// After a path below a directory import, the file's public names.
+	items = completeIn(t, s, uri, "import lib\n\nfn main() {\n    lib::text."+cursorMark+"\n}\n").Items
 	labelsInclude(t, items, "shout")
 
 	items = completeIn(t, s, uri, "import server.{start, "+cursorMark+"}\n\nfn main() {\n}\n").Items

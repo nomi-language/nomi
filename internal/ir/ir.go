@@ -330,13 +330,26 @@ func (p Pos) String() string {
 // cell, an empty container's element type. It is NOT enough wherever a rule
 // has to choose between two declarations: that needs a signature, which is
 // `Decl` in table.go. The `Add.add` shape is where the boundary shows.
+//
+// A LINKAGE NAME is the identity a symbol keeps outside the lowering that
+// made it. A symbol another module can name (a function, an impl member, a
+// `once` cell, an interface method, a default accessor) carries one, built
+// from its declaration's name (link.go); a symbol only its own module names
+// (a local, a lambda's parameter) carries none. In memory the pointer stays
+// the identity. A module encoded as an object writes each linked symbol by
+// its linkage name, and linking resolves every name to one pointer, so
+// objects encoded apart decode into one program.
 type Symbol struct {
 	name string
+	link string
 }
 
 // NewSymbol mints a fresh declaration identity. Two calls with the same name
 // return two symbols that are not equal.
 func NewSymbol(name string) *Symbol { return &Symbol{name: name} }
+
+// NewLinkedSymbol mints a declaration identity with a linkage name.
+func NewLinkedSymbol(name, link string) *Symbol { return &Symbol{name: name, link: link} }
 
 // Name is the symbol's printed name. It is not its identity.
 func (s *Symbol) Name() string {
@@ -344,6 +357,15 @@ func (s *Symbol) Name() string {
 		return ""
 	}
 	return s.name
+}
+
+// Link is the symbol's linkage name, or "" for a symbol only its own module
+// names.
+func (s *Symbol) Link() string {
+	if s == nil {
+		return ""
+	}
+	return s.link
 }
 
 func (s *Symbol) String() string { return s.Name() }

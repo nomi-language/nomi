@@ -219,7 +219,7 @@ func buildExternTypeShell(fa *FileAnalysis, n *ast.ExternType) Type {
 //  1. Register all user-defined type names so they can reference each other.
 //  2. Resolve type details and attach to symbols.
 func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	ft := startFileTyping(fa, nodes)
+	ft := startFileTyping(fa, nodes, nil)
 	ft.typeDeclarations()
 	ft.typeSignatures()
 	declErrs, bodyErrs := ft.finish()
@@ -246,9 +246,12 @@ type fileTyping struct {
 }
 
 // startFileTyping is BuildTypes' pass 1 over fa: the registry of the
-// file's own types and the ones it sees.
-func startFileTyping(fa *FileAnalysis, nodes []ast.Node) *fileTyping {
+// file's own types and the ones it sees. A project build passes aliases,
+// which builds another file's typealias on demand and to which the file's
+// own aliases are added; BuildTypes over one file passes nil.
+func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases) *fileTyping {
 	reg := NewTypeRegistry()
+	reg.suggest = fa.scopeNames(true)
 
 	// Pre-populate registry with types from parent scopes (e.g. primitives types
 	// like Result, Maybe) so that modules can reference them. The
@@ -352,11 +355,19 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node) *fileTyping {
 
 	// Register imported types so local type annotations can reference them.
 	// A type another file re-exports (`pub import other.{Helper}`) is an
-	// import of an import, so the chain is followed to the declaration.
+	// import of an import, so the chain is followed to the declaration. An
+	// imported typealias another file has not built yet is registered for
+	// the first lookup (registerAliasLater): a struct field typed with it is
+	// built before the files' signatures, in an order this file does not
+	// control.
 	for _, sym := range fa.ModuleScope.Symbols {
 		real := sym
 		for real.Resolved != nil && real.Resolved != real {
 			real = real.Resolved
+		}
+		if real != sym && real.Type == nil && real.Kind == SymbolTypeAlias {
+			registerAliasLater(reg, sym.Name, real, aliases)
+			continue
 		}
 		if real.Type != nil && (real.Kind == SymbolStruct || real.Kind == SymbolEnum || real.Kind == SymbolType || real.Kind == SymbolTypeAlias || real.Kind == SymbolInterface) {
 			if reg.Lookup(sym.Name) == nil {
@@ -373,9 +384,11 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node) *fileTyping {
 	// file scope) would resolve, and the qualified form would fail with
 	// `unknown type "dynamic.Dynamic"`. The two import shapes are
 	// supposed to be symmetric.
-	registerModuleQualifiedTypes(reg, fa.ModuleScope)
+	registerModuleQualifiedTypes(reg, fa.ModuleScope, aliases)
 
-	return &fileTyping{fa: fa, nodes: nodes, reg: reg, decls: newDeclTyping(fa, reg, nodes, unnamed)}
+	decls := newDeclTyping(fa, reg, nodes, unnamed)
+	aliases.add(decls.aliases)
+	return &fileTyping{fa: fa, nodes: nodes, reg: reg, decls: decls}
 }
 
 // typeDeclarations is pass 2's first half (declTyping.typeDeclarations).
@@ -2521,11 +2534,11 @@ func applyWhereBoundsToTypeParams(fa *FileAnalysis, reg *TypeRegistry, typeParam
 // (the same gate the bare-name imported-types loop uses). The aliased
 // module symbol's Resolved pointer (if any) is followed to its
 // underlying scope so re-exported / aliased imports work too.
-func registerModuleQualifiedTypes(reg *TypeRegistry, scope *Scope) {
+func registerModuleQualifiedTypes(reg *TypeRegistry, scope *Scope, aliases *projectAliases) {
 	if scope == nil {
 		return
 	}
-	registerQualifiedTypesFromScope(reg, "", scope)
+	registerQualifiedTypesFromScope(reg, "", scope, aliases)
 	for _, modSym := range scope.Symbols {
 		real := modSym
 		if real.Resolved != nil {
@@ -2535,11 +2548,11 @@ func registerModuleQualifiedTypes(reg *TypeRegistry, scope *Scope) {
 			continue
 		}
 		alias := modSym.Name
-		registerQualifiedTypesFromScope(reg, alias, real.ModuleScope)
+		registerQualifiedTypesFromScope(reg, alias, real.ModuleScope, aliases)
 	}
 }
 
-func registerQualifiedTypesFromScope(reg *TypeRegistry, prefix string, scope *Scope) {
+func registerQualifiedTypesFromScope(reg *TypeRegistry, prefix string, scope *Scope, aliases *projectAliases) {
 	if reg == nil || scope == nil {
 		return
 	}
@@ -2557,7 +2570,7 @@ func registerQualifiedTypesFromScope(reg *TypeRegistry, prefix string, scope *Sc
 			// qualifier (`sqlkit.Migration`) may not be resolved yet: modules
 			// build their types in an order this file does not control. Its
 			// qualified name is registered for the first lookup instead.
-			registerQualifiedAliasLater(reg, name, tReal)
+			registerAliasLater(reg, name, tReal, aliases)
 			continue
 		}
 		if tReal.Type != nil {
@@ -2572,17 +2585,60 @@ func registerQualifiedTypesFromScope(reg *TypeRegistry, prefix string, scope *Sc
 	}
 }
 
-// registerQualifiedAliasLater registers name for alias's type at the first
-// lookup that finds the alias resolved. A lookup before then finds nothing and
-// leaves the registration in place for the next one.
-func registerQualifiedAliasLater(reg *TypeRegistry, name string, alias *Symbol) {
+// registerAliasLater registers name, another file's typealias alias as
+// this file names it (`ReactionType` or `models.ReactionType`), for the
+// first lookup. The lookup builds the alias in its own file, against that
+// file's registry, when the build holds it (aliases) and it is not built
+// yet. A lookup that still finds it unbuilt (one on a cycle of aliases, or
+// outside a project build) finds nothing and leaves the registration in
+// place for the next one.
+func registerAliasLater(reg *TypeRegistry, name string, alias *Symbol, aliases *projectAliases) {
 	reg.RegisterLazy(name, func() {
+		aliases.build(alias)
 		if alias.Type == nil {
-			registerQualifiedAliasLater(reg, name, alias)
+			registerAliasLater(reg, name, alias, aliases)
 			return
 		}
 		reg.Register(name, alias.Type)
 	})
+}
+
+// projectAliases holds the alias builders of every file a project build
+// types, so that a file can build a typealias another file declares at its
+// first lookup (registerAliasLater). The build takes every file through
+// pass 1 (startFileTyping) before any file builds its declarations, so the
+// builders are all here by the time a lookup asks for one.
+type projectAliases struct {
+	byDecl map[*ast.TypeAlias]*aliasBuilder
+}
+
+func newProjectAliases() *projectAliases {
+	return &projectAliases{byDecl: map[*ast.TypeAlias]*aliasBuilder{}}
+}
+
+// add records the aliases ab builds.
+func (p *projectAliases) add(ab *aliasBuilder) {
+	if p == nil {
+		return
+	}
+	for n := range ab.pending {
+		p.byDecl[n] = ab
+	}
+}
+
+// build builds the typealias alias declares, in its own file, unless it is
+// built already or no file of the build declares it.
+func (p *projectAliases) build(alias *Symbol) {
+	if p == nil || alias.Type != nil {
+		return
+	}
+	n, ok := alias.Node.(*ast.TypeAlias)
+	if !ok {
+		return
+	}
+	if ab := p.byDecl[n]; ab != nil {
+		ab.fa.typingDecls(func() { ab.build(n) })
+	}
 }
 
 func registerQualifiedTypeMembers(reg *TypeRegistry, prefix string, sym *Symbol) {

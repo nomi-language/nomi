@@ -25,12 +25,13 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `Option<T>`, `.unwrap()` | `Maybe<T>`, a postfix `!` |
 | `c.then(\|\| x)`; `if c { x }` needs `x: ()` | `if c { x }` is a `Maybe`: `Some(x)` or `None`. With a `Unit` branch it is a statement. |
 | `trait`, `fn f(&self)` | `interface`, `fn f(value: self)` |
+| `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied |
 | `Shape::new()`, `Shape::Circle { radius: 1 }` | `Shape.new()`, `Shape.Circle{radius: 1}` or `.Circle{radius: 1}` |
 | `format!("{x}")` | `"${x}"` |
 | `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |
 | `tokio::spawn` | `Task.spawn` inside a `concurrent { .. }` block |
 | `#[test] fn t()` | `test "name" { assert .. }` |
-| `mod`, `use a::b` | A file is the unit of import: `import a.{b}`. A path is `::`-joined like Rust's (`import db::posts`), and the file is then used by its last part, `posts.find(1)`, or by its full path, `db::posts.find(1)`. |
+| `mod`, `use a::b` | A file is the unit of import: `import a.{b}`. A path is `::`-joined like Rust's (`import db::posts`), and the file is then used by its last part, `posts.find(1)`. Importing a directory, `import db`, is like `use crate::db`: `db::posts.find(1)` reaches the file. |
 
 Statements end at a newline, with no semicolons.
 

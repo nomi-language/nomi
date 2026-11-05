@@ -10,7 +10,7 @@ import (
 // handle, not at the `fn` or the test's line. Each source here declines at
 // its call to `planted_decline` (plantDecline).
 //
-// A pattern test (irDeclineAtPattern) reports the same way, but that path
+// A pattern test (the census's atPattern) reports the same way, but that path
 // has no reproducer here. Add a pattern case when a real pattern decline
 // turns up.
 func TestDeclinePosition_IsTheInnermostNode(t *testing.T) {

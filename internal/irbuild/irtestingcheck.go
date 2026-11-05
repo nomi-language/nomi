@@ -88,7 +88,7 @@ func (bl *irScalarBuilder) testingCheck(t *ast.Call) (ir.Temp, kind, bool, bool)
 		// `values:` row.
 		if !pipeStagesRecordable(prefixes) {
 			bl.recording--
-			irDeclineNote("a testing.check over a pipe whose stages are not its spine")
+			bl.g.dc.note("a testing.check over a pipe whose stages are not its spine")
 			return no()
 		}
 		subj, k, stages, lowered = bl.pipeStageValues(prefixes)
@@ -106,14 +106,14 @@ func (bl *irScalarBuilder) testingCheck(t *ast.Call) (ir.Temp, kind, bool, bool)
 	var assertable *assertableImpl
 	if k != kindBool && !irAssertShapeKind(k) {
 		if assertable = bl.assertableFailure(k); assertable == nil {
-			irDeclineNote("a testing.check subject that is not a Bool, Maybe, Result or retained Assertable")
+			bl.g.dc.note("a testing.check subject that is not a Bool, Maybe, Result or retained Assertable")
 			return no()
 		}
 	}
 	result := bl.g.preludeInstanceOf(preludeSpecFor("std/results", "Result"), []kind{k, failure})
 	// kindInvalid: propagates — preludeInstanceOf answers it for an argument it rejected.
 	if result == kindInvalid {
-		irDeclineNote("a testing.check whose Result<T, AssertionFailure> is outside the retained payloads")
+		bl.g.dc.note("a testing.check whose Result<T, AssertionFailure> is outside the retained payloads")
 		return no()
 	}
 	if !mobile {

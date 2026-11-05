@@ -218,6 +218,21 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			sig, doc = "noun "+sym.Name+": Noun", n.Doc
 			break
 		}
+		if n, ok := sym.Node.(*ast.OnceBinding); ok && n.Expansion != nil && n.Expansion.Keyword == "embed" {
+			// The files an `embed` declaration holds: shown as declared,
+			// with what its patterns matched.
+			sig, doc = "embed "+sym.Name+": Files", n.Doc
+			if info := analysis.EmbedOf(n); info != nil {
+				sig = "embed " + sym.Name + " `" + embedPatternsText(info.Decl) + "`: Files"
+				summary := EmbedSummary(info)
+				if doc != "" {
+					doc += "\n\n" + summary
+				} else {
+					doc = summary
+				}
+			}
+			break
+		}
 		switch {
 		case sym.Type != nil:
 			sig = "once " + sym.Name + ": " + displayBindingType(sym)
@@ -227,6 +242,13 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			}
 		}
 		if n, ok := sym.Node.(*ast.OnceBinding); ok {
+			if fa != nil {
+				// A typed `once` read as its file's interface has `todo`
+				// for its value.
+				if src, ok := fa.DeclarationSource(n, sym.SourceFile).(*ast.OnceBinding); ok {
+					n = src
+				}
+			}
 			if valStr := renderConstValue(n.Value); valStr != "" {
 				sig += " = " + valStr
 			}
@@ -290,11 +312,22 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		if imp, ok := sym.Node.(*ast.ImportStmt); ok {
 			path = renderImportPath(imp)
 			sig = "import " + path
+			// A file a directory import reaches (`admin::users`): the
+			// directory's path with the use's segments after it.
+			if i := strings.Index(sym.Name, ast.PathSeparator); i >= 0 {
+				path += sym.Name[i:]
+				sig = "file " + path
+			}
 		} else {
 			sig = "module " + sym.Name
 		}
 		if name, ok := stdModuleName(sym, path); ok {
 			doc = stdModuleDoc(name)
+		}
+	case analysis.SymbolDirectory:
+		sig = "directory " + sym.Name
+		if imp, ok := sym.Node.(*ast.ImportStmt); ok {
+			sig = "directory " + renderImportPath(imp)
 		}
 	default:
 		// Type parameters (Kind=SymbolType, no AST node) — render as

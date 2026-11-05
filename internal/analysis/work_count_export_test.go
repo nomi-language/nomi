@@ -57,6 +57,33 @@ func ImportsWalksForTest(f func()) int64 {
 	return importsWalks.Load() - n0
 }
 
+// BootWorkForTest runs f with the boot-only check's counters on and
+// answers the file of each body it read for its calls, once per read, how
+// many of those reads were of a body it had read before, and how many
+// program graphs it built (noteBootWalk, noteBootGraph).
+func BootWorkForTest(f func()) (walked []*FileAnalysis, rereads int, graphs int64) {
+	bootWorkMu.Lock()
+	bootWalks = nil
+	bootWorkMu.Unlock()
+	countingBootWork.Store(true)
+	defer countingBootWork.Store(false)
+	g0 := bootGraphs.Load()
+	f()
+	graphs = bootGraphs.Load() - g0
+	bootWorkMu.Lock()
+	defer bootWorkMu.Unlock()
+	seen := map[bootWalk]bool{}
+	for _, w := range bootWalks {
+		walked = append(walked, w.fa)
+		if seen[w] {
+			rereads++
+		}
+		seen[w] = true
+	}
+	bootWalks = nil
+	return walked, rereads, graphs
+}
+
 func init() {
 	checkKeptImports = true
 }

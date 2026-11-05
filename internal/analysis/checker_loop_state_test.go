@@ -4,7 +4,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"strings"
 	"testing"
 )
@@ -15,7 +14,7 @@ func checkWithStdlib(src string) []analysis.TypeError {
 	src = withStdlibTestImports(src)
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	var errs []analysis.TypeError
@@ -47,7 +46,7 @@ func checkLoopSource(t *testing.T, src string) []analysis.TypeError {
 	if len(perrs) > 0 {
 		t.Fatalf("the source does not parse: %v", perrs)
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	var errs []analysis.TypeError
@@ -196,7 +195,7 @@ fn main() -> Unit {
 }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	var errs []analysis.TypeError
@@ -218,7 +217,7 @@ fn main() -> Unit {
 }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	var errs []analysis.TypeError
@@ -245,7 +244,7 @@ func TestLoopState_StatedLoopBreakMismatchStillErrors(t *testing.T) {
 func TestIterCallback_MapOwnerCallback(t *testing.T) {
 	check := func(src string) []analysis.TypeError {
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
-		lib := std.Load()
+		lib := loadStd()
 		fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 		analysis.AttachStdlibProjectImpls(fa, lib.Files)
 		var errs []analysis.TypeError

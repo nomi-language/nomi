@@ -790,7 +790,7 @@ fn function(
     markers = sqltext.markers(tokens)
     marker_problems = check_markers(q, markers, sqltext.interpolations(tokens))
 
-    #(shape, row) = case shape_of(q) {
+    #(shape, row) = case shape_of(r, q) {
         Ok(found) -> found
         Err(p) -> return Err([p, ..marker_problems])
     }
@@ -838,7 +838,15 @@ fn function(
         }
     }
 
-    final_shape = case described_shape(q, shape, row, columns) {
+    // A value type or one of the schema's enums reads the query's one
+    // column as itself; any other row type is a struct with a field per
+    // column.
+    scalar = case row {
+        Some(t) -> is_scalar(t) or is_schema_enum(r, t)
+        None -> False
+    }
+
+    final_shape = case described_shape(q, shape, row, scalar, columns) {
         Ok(found) -> found
         Err(p) -> return Err([p])
     }
@@ -846,6 +854,19 @@ fn function(
     #(fields, field_imports, problems) = fields_of(s, r, q, tokens, columns, row == None)
 
     if not Iter.is_empty(problems) { return Err(problems) }
+
+    case #(row, fields) {
+        #(Some(t), [only]) when scalar -> {
+            case nullability_problem(q, final_shape, t, only) {
+                Some(p) ->
+                    return Err([p])
+
+                None -> {}
+            }
+        }
+
+        _ -> {}
+    }
 
     shape_imports = if final_shape is (.Stream or .Changed) {
         [#("sqlkit", "self")]
@@ -871,6 +892,7 @@ fn function(
         sqltext.parts(tokens),
         markers,
         fields,
+        scalar,
     )
 
     Ok(Made{text, imports: found_imports + field_imports + shape_imports})
@@ -976,7 +998,7 @@ fn interpolated_name(text: String) -> String {
 }
 
 /// The shape the declared result type names, and its row type.
-fn shape_of(q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
+fn shape_of(r: Resolver, q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
     case q.result {
         None ->
             Ok(#(Shape.Many, None))
@@ -1012,6 +1034,7 @@ fn shape_of(q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
             }
 
             if not is_scalar(inner)
+                and not is_schema_enum(r, inner)
                 and not is_row_name(inner)
                 and not is_qualified_row_name(inner) {
                 result_hint = if String.starts_with(text, "Result") {
@@ -1026,7 +1049,7 @@ fn shape_of(q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
                     at_annotation(
                         q,
                         q.result_col,
-                        "`${inner}` is not a row type: a row type names a struct, or for a query of one column one of std's value types",
+                        "`${inner}` is not a row type: a row type names a struct, or for a query of one column one of std's value types or one of the schema's enums",
                         result_hint + [result_forms],
                     )
                 )
@@ -1034,6 +1057,54 @@ fn shape_of(q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
 
             Ok(#(shape, Some(inner)))
         }
+    }
+}
+
+/// A scalar row type that disagrees with whether its one column may be
+/// NULL: the column is read as a `Maybe` exactly when it may be NULL, so
+/// the row type must be a `Maybe` exactly then.
+fn nullability_problem(q: Query, shape: Shape, row: String, field: Field) -> Maybe<Problem> {
+    maybe = String.starts_with(row, "Maybe<") and String.ends_with(row, ">")
+
+    wrapped = fn inner: String -> {
+        case shape {
+            .Many -> "List<${inner}>"
+            .Stream -> "Rows<${inner}>"
+            _ -> "Maybe<${inner}>"
+        }
+    }
+
+    if field.nullable and not maybe {
+        Some(
+            at_annotation(
+                q,
+                q.result_col,
+                "the column `${field.name}` of `${q.name}` may be NULL, so its row type cannot be `${row}`",
+                [
+                    "write `-> ${wrapped("Maybe<${row}>")}` to read the NULL as `None`",
+                    "or assert it is never NULL with `AS \"${field.name}!\"`, or make the column `NOT NULL`",
+                ],
+            )
+        )
+    } else if not field.nullable and maybe {
+        Some(
+            at_annotation(
+                q,
+                q.result_col,
+                "the column `${field.name}` of `${q.name}` is never NULL, so its row type cannot be `${row}`",
+                [
+                    "write `-> ${wrapped(
+                        row
+                        |> sqltext.cut_prefix("Maybe<")
+                        |> sqltext.cut_suffix(">")
+                        |> String.trim()
+                    )}`",
+                    "or say it may be NULL with `AS \"${field.name}?\"`",
+                ],
+            )
+        )
+    } else {
+        None
     }
 }
 
@@ -1089,6 +1160,7 @@ fn described_shape(
     q: Query,
     shape: Shape,
     row: Maybe<String>,
+    scalar: Bool,
     columns: List<Column>,
 ) -> Result<Shape, Problem> {
     count_hint = "write `-> Changed` for the count, or `-> Unit` to ignore it"
@@ -1146,7 +1218,7 @@ fn described_shape(
                 )
             )
 
-        #(_, Some(t), False) when is_scalar(t) and Iter.count(columns) != 1 ->
+        #(_, Some(t), False) when scalar and Iter.count(columns) != 1 ->
             Err(
                 at_annotation(
                     q,
@@ -1367,6 +1439,7 @@ fn function_source(
     parts: List<String>,
     markers: List<Token>,
     fields: List<Field>,
+    scalar: Bool,
 ) -> String {
     doc =
         q.doc
@@ -1400,12 +1473,12 @@ fn function_source(
                 _ -> "list"
             }
 
-            scalar = case #(row, fields) {
-                #(Some(t), [only]) when is_scalar(t) -> Some(only)
+            read_as_column = case fields {
+                [only] when scalar -> Some(only)
                 _ -> None
             }
 
-            case scalar {
+            case read_as_column {
                 Some(field) -> {
                     suffix = if field.nullable { "_null" } else { "" }
 
@@ -1591,6 +1664,24 @@ pub fn is_scalar(text: String) -> Bool {
         ],
         String.trim(inner),
     )
+}
+
+/// Whether a row type names one of the schema's enums (or a `Maybe` of
+/// one), by its name or qualified by the schema module, and no import
+/// gives that name another type.
+fn is_schema_enum(r: Resolver, text: String) -> Bool {
+    inner = if String.starts_with(text, "Maybe<") and String.ends_with(text, ">") {
+        text |> sqltext.cut_prefix("Maybe<") |> sqltext.cut_suffix(">") |> String.trim()
+    } else {
+        text
+    }
+
+    qualified = String.strip_prefix(inner, "${r.qualifier}.")
+
+    name = qualified |> Maybe.with_default(inner)
+    shadowed = qualified == None and Map.get(r.imported, name) != None
+
+    not shadowed and name in r.schema and not (name in Map.values(r.rows))
 }
 
 /// s as a Nomi string literal.

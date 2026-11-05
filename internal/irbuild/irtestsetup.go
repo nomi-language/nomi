@@ -126,7 +126,7 @@ func (bl *irScalarBuilder) testSetupUnit(at ast.Node) (ir.Temp, kind, bool) {
 // the cursor's block standing in for the prologue's.
 func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bool {
 	if ctx == ir.NoTemp {
-		irDeclineNote("a test pattern over a setup with no value")
+		bl.g.dc.note("a test pattern over a setup with no value")
 		return false
 	}
 	g, sh := bl.g, bl.sh
@@ -150,7 +150,7 @@ func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bo
 		ok = false
 	}
 	if !ok {
-		irDeclineAtPattern(pat, "a test pattern the builder did not destructure")
+		bl.g.dc.atPattern(pat, "a test pattern the builder did not destructure")
 		return false
 	}
 	for _, in := range bl.b.Instrs()[start:] {
@@ -161,7 +161,7 @@ func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bo
 		bk := sh.frame.kindOf(b.Dst())
 		// A Unit setup binds as any Unit value does (`u = io.print("a")`).
 		if bk != kindUnit && !irCallableValueKind(bk) && !irRetainedValueKind(bk) {
-			irDeclineNote("a test pattern name's kind outside the domain: " + bk.nomi())
+			bl.g.dc.note("a test pattern name's kind outside the domain: " + bk.nomi())
 			return false
 		}
 		bl.side(b.Dst(), irScalarSide{k: bk})
@@ -213,7 +213,7 @@ func (bl *irScalarBuilder) testSetupReturning(s testSetup) (ir.Temp, kind, bool)
 		k = bl.g.project(ty)
 	}
 	if k != kindUnit && !irCallableValueKind(k) && !irRetainedValueKind(k) {
-		irDeclineNote("a setup whose value's kind is outside the domain: " + k.nomi())
+		bl.g.dc.note("a setup whose value's kind is outside the domain: " + k.nomi())
 		return ir.NoTemp, kindInvalid, false
 	}
 	pos := bl.g.irNodePos(s.body)
@@ -221,7 +221,7 @@ func (bl *irScalarBuilder) testSetupReturning(s testSetup) (ir.Temp, kind, bool)
 	if k != kindUnit {
 		ty := bl.g.irTypeOf(k)
 		if ty == nil {
-			irDeclineNote("a setup whose value has no IR type: " + k.nomi())
+			bl.g.dc.note("a setup whose value has no IR type: " + k.nomi())
 			return ir.NoTemp, kindInvalid, false
 		}
 		se.slot = bl.f.NewTemp()
@@ -260,7 +260,7 @@ func (bl *irScalarBuilder) testSetupReturning(s testSetup) (ir.Temp, kind, bool)
 func (bl *irScalarBuilder) setupValue(at, value ast.Node) bool {
 	se := bl.setupExit
 	if bl.recording > 0 {
-		irDeclineNote("a setup's value inside an assertion subject")
+		bl.g.dc.note("a setup's value inside an assertion subject")
 		return false
 	}
 	if !isNilNode(value) {
@@ -281,13 +281,13 @@ func (bl *irScalarBuilder) setupValue(at, value ast.Node) bool {
 		case se.slot == ir.NoTemp:
 			bl.irStatementDrop(value, val, k)
 		case k != se.k:
-			irDeclineNote("a setup value whose kind is not the setup's: " + k.nomi() + " vs " + se.k.nomi())
+			bl.g.dc.note("a setup value whose kind is not the setup's: " + k.nomi() + " vs " + se.k.nomi())
 			return false
 		default:
 			bl.b.Append(ir.NewCopy(bl.g.irNodePos(value), se.slot, val))
 		}
 	} else if se.slot != ir.NoTemp {
-		irDeclineNote("a bare return in a setup whose value is not Unit")
+		bl.g.dc.note("a bare return in a setup whose value is not Unit")
 		return false
 	}
 	for i := len(se.frames) - 1; i >= 0; i-- {

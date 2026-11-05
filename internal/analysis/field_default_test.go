@@ -17,7 +17,6 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // fieldDefaultDiagnostic matches the field-value rule's own diagnostics. It is
@@ -78,7 +77,7 @@ func TestFieldDefault_TreeIsClean(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	newManager := func(workspace string) *analysis.DocumentManager {
 		dm := analysis.NewDocumentManager()
 		dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
@@ -560,7 +559,7 @@ fn main() {
   _ = Clock.at(Cfg{}.clock)
 }
 `
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	dir := t.TempDir()
@@ -655,7 +654,7 @@ fn main() {
 // three, on the top-level struct `Config` (deployment, database_url,
 // max_connections), its development defaults.
 var fieldDefaultDenominator = map[string]int{
-	"std":             221,
+	"std":             226,
 	"tests":           63,
 	"tour (nomi-run)": 26,
 	"tour (nomi)":     0,
@@ -868,7 +867,7 @@ fn main() {
 `
 	run := func(t *testing.T, module string) []analysis.TypeError {
 		t.Helper()
-		lib := std.Load()
+		lib := loadStd()
 		dm := analysis.NewDocumentManager()
 		dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 		dir := t.TempDir()

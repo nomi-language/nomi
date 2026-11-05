@@ -9,7 +9,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // startupFn is a helper test sources call to build a boot's Startup.
@@ -445,7 +444,7 @@ func appScopeCheckSibling(t *testing.T, root, entry, key string) []analysis.Type
 		t.Fatal(err)
 	}
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(src)))
-	lib := std.Load()
+	lib := loadStd()
 	_, siblings, siblingNodes := analysis.BuildProjectFromEntry(entryPath, nodes, lib.Primitives, lib.Modules, lib.Files, root, appScopeLoader(nil))
 	fa := siblings[key]
 	if fa == nil {

@@ -59,9 +59,9 @@ func (c *checker) defaultFilledFuncValue(node ast.Node, ty, expected Type) Type 
 // expected function type and a function value that has the expected
 // parameters plus defaulted ones, or "" for any other mismatch. A value
 // checked where the shorter type is expected takes it
-// (defaultFilledFuncValue), so the mismatch arises where nothing was
-// expected when the value was checked: a pipe's head, checked before the
-// stage it feeds. arg is the
+// (defaultFilledFuncValue), so the mismatch arises where the value is no
+// function's name (a local copy, `g = parse`) or where nothing was expected
+// when it was checked. arg is the
 // value's expression, used to name it in the suggested capture and, for a
 // named function, to count its defaults, which its value's type does not
 // carry (funcValueType).

@@ -74,29 +74,29 @@ func (g *gen) checkedLiteralSite(t *ast.TaggedString) bool {
 func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 	fd := g.checkedLiteralCheck(t)
 	if fd == nil {
-		irDeclineNote("a checked literal with no check")
+		g.dc.note("a checked literal with no check")
 		return false
 	}
 	h, found := g.literalImplFor(t, fd)
 	if !found || h.rivalled {
-		irDeclineNote("a checked literal whose check does not resolve")
+		g.dc.note("a checked literal whose check does not resolve")
 		return false
 	}
 	callee, why := g.literalCallee(h, fd)
 	if callee == nil {
 		if why != "" {
-			irDeclineNote("a checked literal's check: " + why)
+			g.dc.note("a checked literal's check: " + why)
 		}
 		return false
 	}
 	k := h.result
 	if !irCheckedLiteralKind(k) || len(h.params) != 1 || !irListTransportKind(h.params[0]) {
-		irDeclineNote("a checked literal's check outside the retained domain: " + k.nomi())
+		g.dc.note("a checked literal's check outside the retained domain: " + k.nomi())
 		return false
 	}
 	ty := g.irTypeOf(k)
 	if ty == nil {
-		irDeclineNote("a checked literal's check Result with no IR type: " + k.nomi())
+		g.dc.note("a checked literal's check Result with no IR type: " + k.nomi())
 		return false
 	}
 	var statics []string
@@ -143,7 +143,7 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 	cb.side(sh.result, irScalarSide{k: k})
 	cb.b.SetTerm(ir.NewReturn(at, sh.result))
 	if err := g.irLint(f); err != nil {
-		irDeclineNote("a checked literal's check site that does not lint: " + err.Error())
+		g.dc.note("a checked literal's check site that does not lint: " + err.Error())
 		return false
 	}
 	sym := g.irTypes().Symbol(checkedLiteralKey{t}, name)

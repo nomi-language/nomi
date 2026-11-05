@@ -19,10 +19,13 @@ import (
 // (checkProgramFrom), and its reductions over every file's bodies run again.
 //
 // What another file may read of a file without importing it is the impls
-// it brings into the program: they are global. So an edit that changes the
-// impls an edited file brings (implsFingerprint) is checked in full, and so
-// is one where a kept file's analysis already holds something of a file
-// checked afresh (a call dispatched to one of its impls).
+// it brings into the program: they are global. An impl applies in a file
+// that can name its interface, receiver and type arguments, so an edit
+// that changes the impls an edited file brings (implsFingerprint) is
+// checked in full only when a file outside those checked afresh can see an
+// impl it added, removed or changed (changedImplsSeenOnlyBy). One where a
+// kept file's analysis already holds something of a file checked afresh (a
+// call dispatched to one of its impls) is checked in full too.
 
 // implsFingerprint renders what of a file's syntax decides the impls it
 // brings into the program: every interface impl block's header and its
@@ -93,6 +96,7 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 		return nil, "the program checks files it does not report"
 	}
 	edited := make(map[string]bool, len(edits))
+	implsChanged := map[string]bool{}
 	for _, e := range edits {
 		edited[e.Key] = true
 		if prev.Files[e.Key] == nil {
@@ -113,8 +117,11 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 			return nil, "the new text has a syntax error"
 		}
 		was, ok := prev.implFingerprints[e.Key]
-		if !ok || pf.implFingerprint != was {
-			return nil, "the impls the file brings changed"
+		if !ok {
+			return nil, "the impls the file brings were not recorded"
+		}
+		if pf.implFingerprint != was {
+			implsChanged[e.Key] = true
 		}
 		if exportsFunctions(pf.nodes) {
 			return nil, "the program exports functions"
@@ -189,6 +196,17 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 		keep[key] = true
 	}
 
+	// The impls an edited file brought before the edit, to tell after it
+	// which of them changed.
+	var wasImpls map[string][]seenImpl
+	if len(implsChanged) > 0 {
+		wasImpls = map[string][]seenImpl{}
+		keyOf := programKeyOfPath(prev)
+		for key := range implsChanged {
+			wasImpls[key] = seenImpls(prev.Files[key], prev.Nodes[key], keyOf)
+		}
+	}
+
 	// Decided: the kept analyses join the answer.
 	freshOrigins := map[string]bool{}
 	for key := range fresh {
@@ -208,7 +226,113 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 		// which the caller makes from the texts alone.
 		return nil, "the application types a kept file may name changed"
 	}
+	if len(implsChanged) > 0 && !changedImplsSeenOnlyBy(next, fresh, implsChanged, wasImpls, prev.Nodes) {
+		// An impl applies in every file that can name its interface,
+		// receiver and type arguments (the relevant impl set), whether or
+		// not it imports the impl's file.
+		return nil, "an impl the edit changed is seen by a file it did not check"
+	}
 	return next, ""
+}
+
+// seenImpl is an interface impl a file brings: its header and items as
+// fingerprintValue renders them, and the project files its header names
+// (implHeaderFiles).
+type seenImpl struct {
+	fingerprint string
+	files       []string
+}
+
+// seenImpls answers the interface impls of a file, fa and nodes its
+// analysis and nodes as a build left them.
+func seenImpls(fa *FileAnalysis, nodes []ast.Node, keyOf func(string) string) []seenImpl {
+	var out []seenImpl
+	if fa == nil {
+		fa = &FileAnalysis{}
+	}
+	for _, n := range nodes {
+		block, ok := n.(*ast.ImplBlock)
+		if !ok || block.Interface == nil {
+			continue
+		}
+		var b strings.Builder
+		fingerprintValue(&b, reflect.ValueOf(block))
+		out = append(out, seenImpl{fingerprint: b.String(), files: implHeaderFiles(fa, block, keyOf)})
+	}
+	return out
+}
+
+// programKeyOfPath answers p's module key of the file at a path, "" for a
+// path no file of p has.
+func programKeyOfPath(p *CheckedProgram) func(string) string {
+	keys := map[string]string{}
+	for key, fa := range p.Files {
+		if fa != nil && fa.FilePath != "" {
+			keys[fa.FilePath] = key
+		}
+	}
+	return func(path string) string { return keys[path] }
+}
+
+// changedImplsSeenOnlyBy reports whether every file of next that can see
+// an impl the edit added, removed or changed in the files of changed is in
+// fresh: a file sees an impl when each project file its header names is
+// the file or one it imports, directly or through others. was holds the
+// impls each such file brought before the edit, and wasNodes its nodes
+// then; a file whose imports changed has all its impls counted as changed.
+func changedImplsSeenOnlyBy(next *CheckedProgram, fresh, changed map[string]bool, was map[string][]seenImpl, wasNodes map[string][]ast.Node) bool {
+	keyOf := programKeyOfPath(next)
+	var moved []seenImpl
+	for key := range changed {
+		now := seenImpls(next.Files[key], next.Nodes[key], keyOf)
+		if !reflect.DeepEqual(walkImports(wasNodes[key]), walkImports(next.Nodes[key])) {
+			moved = append(moved, was[key]...)
+			moved = append(moved, now...)
+			continue
+		}
+		count := map[string]int{}
+		for _, im := range was[key] {
+			count[im.fingerprint]++
+		}
+		for _, im := range now {
+			count[im.fingerprint]--
+		}
+		for _, im := range append(slices.Clone(was[key]), now...) {
+			if count[im.fingerprint] != 0 {
+				moved = append(moved, im)
+			}
+		}
+	}
+	if len(moved) == 0 {
+		return true
+	}
+	imports := map[string][]string{}
+	for key, fa := range next.Files {
+		if fa != nil {
+			imports[key] = fa.ImportedModules
+		}
+	}
+	for key := range next.Files {
+		if fresh[key] {
+			continue
+		}
+		visible := map[string]bool{key: true}
+		queue := slices.Clone(imports[key])
+		for len(queue) > 0 {
+			k := queue[0]
+			queue = queue[1:]
+			if !visible[k] {
+				visible[k] = true
+				queue = append(queue, imports[k]...)
+			}
+		}
+		for _, im := range moved {
+			if (ImplHeader{Files: im.files}).relevantTo(visible) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // keptAppTypes answers the application types of program declared outside

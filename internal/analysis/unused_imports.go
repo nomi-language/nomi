@@ -212,15 +212,16 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 			// access requires explicit visibility), so name-matching is
 			// sound within one file.
 			byModuleName[it.sym.Name] = i
-			// A use by full path, `db::posts.find(1)`, uses the import
-			// as its short name does.
-			if full := importFullPath(it.stmt); full != "" {
-				byModuleName[full] = i
-				byQualifiedObjectName[full] = i
-			}
 		}
 		if it.sym.Kind == SymbolEnumVariant {
 			byVariantName[it.sym.Name] = i
+		}
+		// A file reached through a directory import uses the import.
+		if it.directory && it.sym.Directory != nil {
+			for _, file := range it.sym.Directory.Reached {
+				bySym[file] = i
+				byModuleName[file.Name] = i
+			}
 		}
 		// Typed-literal tags (`Date"..."`) record a fresh proxy Symbol whose
 		// Node is the resolved type's declaration node (resolveTaggedStringTag)
@@ -281,7 +282,7 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 				}
 			}
 		}
-		if ref.Kind == SymbolModule && ref.Ambiguous == nil {
+		if ref.Kind == SymbolModule {
 			if i, ok := byModuleName[ref.Name]; ok {
 				used[i] = true
 			}
@@ -431,14 +432,18 @@ type importItem struct {
 	name     string          // the bound name (alias when aliased)
 	origName string          // pre-alias item name; "" when not aliased
 	module   bool            // internal/recovered module binding
-	selfItem bool            // the `self` marker in a brace list
-	kind     UnusedItemKind  // surgical-removal shape
-	nameIdx  int             // index into stmt.Names for brace items; -1 otherwise
-	pos      Pos             // diagnostic position (the item's own source position)
+	// directory marks a directory import's binding.
+	directory bool
+	selfItem  bool           // the `self` marker in a brace list
+	kind      UnusedItemKind // surgical-removal shape
+	nameIdx   int            // index into stmt.Names for brace items; -1 otherwise
+	pos       Pos            // diagnostic position (the item's own source position)
 }
 
 func (it importItem) message() string {
 	switch {
+	case it.directory:
+		return fmt.Sprintf("imported directory '%s' is unused — remove the import", it.name)
 	case it.module:
 		return fmt.Sprintf("imported module '%s' is unused — remove the import", it.name)
 	case it.selfItem:
@@ -494,7 +499,7 @@ func topLevelImportStmts(nodes []ast.Node) []*ast.ImportStmt {
 func collectImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem {
 	var items []importItem
 	for _, n := range stmts {
-		if len(n.ModulePath) == 0 {
+		if len(n.ModulePath) == 0 || fa.unboundImports[n] {
 			continue
 		}
 		if len(n.Names) == 0 {
@@ -510,6 +515,21 @@ func collectImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem 
 				continue
 			}
 			sym := fa.Definitions[pos]
+			if sym != nil && sym.Kind == SymbolDirectory {
+				// A directory import is used when a path at a use reaches
+				// a file through it (walkPath records the directory at the
+				// path's first segment).
+				items = append(items, importItem{
+					sym:       sym,
+					stmt:      n,
+					name:      ast.ImportNodeName(bindNode),
+					directory: true,
+					kind:      UnusedWholeModule,
+					nameIdx:   -1,
+					pos:       pos,
+				})
+				continue
+			}
 			if sym == nil || sym.ModuleScope == nil {
 				// Unresolvable module (no loader / degenerate single-file
 				// build): usedness can't be decided meaningfully, and piling

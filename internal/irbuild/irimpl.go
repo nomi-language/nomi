@@ -133,7 +133,7 @@ func implItemIsHost(fd *ast.FuncDef) bool {
 func (g *gen) irImplHostLower(d *implDef, ef *ast.ExternFunc, sh *irFuncShell, result kind) (kind, bool) {
 	decline := func(reason string) (kind, bool) {
 		g.irDeclineOpen(ef.Name)
-		irDeclineNote(reason)
+		g.dc.note(reason)
 		return kindInvalid, false
 	}
 	switch {

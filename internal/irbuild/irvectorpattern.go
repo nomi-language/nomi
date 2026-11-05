@@ -158,7 +158,7 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 		}
 		if vk != elem {
 			if v, vk, ok = bl.coerceEmpty(e, v, vk, elem); !ok || vk != elem {
-				irDeclineNote("a set pattern element of kind " + vk.nomi() + " over " + k.nomi())
+				bl.g.dc.note("a set pattern element of kind " + vk.nomi() + " over " + k.nomi())
 				return false
 			}
 		}

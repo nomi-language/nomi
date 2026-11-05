@@ -47,7 +47,18 @@ echo "==> nomi wasm"
 # driver's browser build from lib/sql/sqlite, a module the compiler's go.mod
 # does not require, through the workspace internal/tourgo/tour.work
 # (internal/tourgo/modules.go).
-GOWORK="$ROOT/internal/tourgo/tour.work" GOOS=js GOARCH=wasm go build -C "$ROOT" -trimpath -buildvcs=false -o "$OUT/nomi.wasm" ./cmd/nomi-wasm
+#
+# The std bundle too, also matched by the rebuild: the wasm embeds the
+# stdlib's lowering (internal/irbuild/stdbundle.go) and its interfaces and
+# facts (std/shared.go), so a page never analyzes or lowers std.
+# stdbundlegen makes both natively from this tree in a temporary directory
+# with a `go build -overlay` file that supplies them under the
+# nomi_stdbundle tag; nothing is written into the source tree.
+BUNDLE_DIR="$(mktemp -d)"
+trap 'rm -rf "$BUNDLE_DIR"' EXIT
+go run -C "$ROOT" ./internal/irbuild/stdbundlegen "$BUNDLE_DIR"
+GOWORK="$ROOT/internal/tourgo/tour.work" GOOS=js GOARCH=wasm go build -C "$ROOT" -trimpath -buildvcs=false \
+  -tags nomi_stdbundle -overlay "$BUNDLE_DIR/overlay.json" -o "$OUT/nomi.wasm" ./cmd/nomi-wasm
 # Declare a 1 GiB maximum on the module's memory (Go's linker declares none),
 # so a visitor's program that allocates without bound fails with Go's "out of
 # memory" instead of taking the tab to 4 GiB. See internal/wasmmem;

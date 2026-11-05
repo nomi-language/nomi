@@ -100,6 +100,14 @@ func NewServer() *Server {
 	stdRoot, _ := analysis.StdlibPath()
 	s.docs.SetStdlibSource(stdRoot, std.ReadFile)
 	s.std = lib
+	// Checking a std module's bodies writes into the shared stdlib every
+	// analysis reads, and the background lowering and hover's examples
+	// would otherwise check them while analyses run on other goroutines.
+	if err := lib.AllBodies(); err != nil && lib.SyntaxError() == nil && lib.CheckError() == nil {
+		panicLogMu.Lock()
+		fmt.Fprintf(panicLog, "%s: %v\n", serverName, err)
+		panicLogMu.Unlock()
+	}
 	if err := lib.SyntaxError(); err != nil {
 		panicLogMu.Lock()
 		fmt.Fprintf(panicLog, "%s: %v\n", serverName, err)

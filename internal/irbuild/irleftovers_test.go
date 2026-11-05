@@ -224,15 +224,15 @@ func irLeftoversRetained(t *testing.T, src string, names ...string) {
 	}
 	declined := map[string]string{}
 	readBack := map[string]bool{}
-	prev, prevF := IRDeclineObserved, irFuncObserved
-	IRDeclineObserved = func(fn, reason string) { declined[fn] = reason }
+	prevF := irFuncObserved
+	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
 	irFuncObserved = func(origin irFuncOrigin, name string, f *ir.Func, read bool) {
 		if origin != irFromStd && f != nil && read {
 			readBack[name] = true
 		}
 	}
 	res, _, err := GenerateIR(p)
-	IRDeclineObserved, irFuncObserved = prev, prevF
+	irFuncObserved = prevF
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,10 +306,8 @@ func TestIRLeftovers_TestBodies(t *testing.T) {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
 	}
 	declined := map[string]string{}
-	prevD := IRDeclineObserved
-	IRDeclineObserved = func(fn, reason string) { declined[fn] = reason }
+	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
 	res, _, err := GenerateIR(p)
-	IRDeclineObserved = prevD
 	if err != nil {
 		t.Fatal(err)
 	}

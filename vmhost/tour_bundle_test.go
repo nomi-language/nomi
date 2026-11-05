@@ -298,10 +298,18 @@ func buildTourWasm(t *testing.T, out string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("go", "build", "-C", "..", "-trimpath", "-buildvcs=false", "-o", abs, "./cmd/nomi-wasm")
+	// The std bundle the script embeds, made the script's way
+	// (internal/irbuild/stdbundlegen), each build its own.
+	bundle := t.TempDir()
+	gen := exec.Command("go", "run", "-C", "..", "./internal/irbuild/stdbundlegen", bundle)
+	if output, err := gen.CombinedOutput(); err != nil {
+		t.Fatalf("go run ./internal/irbuild/stdbundlegen: %v\n%s", err, output)
+	}
+	cmd := exec.Command("go", "build", "-C", "..", "-trimpath", "-buildvcs=false",
+		"-tags", "nomi_stdbundle", "-overlay", filepath.Join(bundle, "overlay.json"), "-o", abs, "./cmd/nomi-wasm")
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm", "GOWORK="+work)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("GOWORK=%s GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false ./cmd/nomi-wasm: %v\n%s", tourgo.GoWork, err, output)
+		t.Fatalf("GOWORK=%s GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -tags nomi_stdbundle ./cmd/nomi-wasm: %v\n%s", tourgo.GoWork, err, output)
 	}
 	// The script caps the module's memory after building it (internal/wasmmem),
 	// so the rebuild must too or it can never equal the staged file.
@@ -902,6 +910,10 @@ const dir = process.argv[2];
 require(path.join(dir, "wasm_exec.js")); // sets globalThis.Go
 require(path.join(dir, "go-memfs.js")); // the worker's file system for Go, as run-worker.js loads it
 const go = new Go();
+// Stop-the-world collections, as run-worker.js runs the wasm: with
+// concurrent marking a run under a busy machine grows its heap past the
+// 1 GiB cap (run-worker.js says why).
+go.env = { GODEBUG: "gcstoptheworld=1" };
 (async () => {
   const wasm = zlib.gunzipSync(fs.readFileSync(path.join(dir, "nomi.wasm.gz")));
   const { instance } = await WebAssembly.instantiate(wasm, go.importObject);

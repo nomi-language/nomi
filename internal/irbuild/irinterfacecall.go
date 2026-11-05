@@ -198,6 +198,13 @@ func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, iface, m
 			og, d = s.caller.instanceImpl(recv.def, iface, method)
 		}
 	}
+	if d == nil && recv.def.instOrigin == nil {
+		// The impl is in a third file, neither the type's nor the
+		// caller's, registered against that file's mirror of the type: a
+		// REPL input that derives for an earlier input's type, instantiated
+		// at by a later input (callerKindIface found it the same way).
+		og, d = implForDecl(gens, iface, recv.def.decl)
+	}
 	if d == nil || !d.lowerable {
 		return nil
 	}
@@ -227,6 +234,29 @@ func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, iface, m
 		return nil
 	}
 	return &irQualPlan{token: it, name: iface + "." + method, result: result, sym: og.irCalleeSym(it, d.recv.nomi()+"."+it.name)}
+}
+
+// implForDecl is the one impl of iface any of gens registers for a
+// non-generic type declaration decl, under whichever def of it, or nil when
+// none or more than one does.
+func implForDecl(gens []*gen, iface string, decl ast.Node) (*gen, *implDef) {
+	var og *gen
+	var found *implDef
+	for _, g := range gens {
+		if g == nil {
+			continue
+		}
+		for recv, impl := range g.implsByIface[iface] {
+			if recv.def == nil || recv.def.decl != decl || recv.def.instOrigin != nil || impl == found {
+				continue
+			}
+			if found != nil {
+				return nil, nil
+			}
+			og, found = g, impl
+		}
+	}
+	return og, found
 }
 
 // mirroredImpl finds the impl of iface registered for the declaration a

@@ -1,0 +1,174 @@
+// A std collection converts to wider type arguments where each element
+// already is a value of the wider type: an Int is a Display, a function
+// returning a Page is a function returning a Reply. The conversion leaves
+// the value as it is (spec §5 *Type argument conversion*).
+import routes.{self, Reply, Request, Route}
+
+struct Page {
+    body: String
+}
+
+impl Reply for Page {
+    fn text(p: Page) -> String {
+        p.body
+    }
+}
+
+struct Pt {
+    x: Int
+}
+
+interface Named {
+    fn name(v: self) -> String
+}
+
+impl Named for Pt {
+    fn name(p: Pt) -> String {
+        "pt${p.x}"
+    }
+}
+
+derive Equatable for Pt
+derive Hashable for Pt
+
+struct Gallery {
+    items: List<Named>
+}
+
+fn home(r: Request) -> Page {
+    Page{body: "home ${r.path}"}
+}
+
+fn about(r: Request) -> Page {
+    Page{body: "about ${r.path}"}
+}
+
+fn shown(xs: List<Display>) -> String {
+    String.join(Iter.map(xs, Display.to_string), ",")
+}
+
+fn names(xs: List<Named>) -> String {
+    String.join(Iter.map(xs, Named.name), ",")
+}
+
+fn first_shown(m: Maybe<Display>) -> String {
+    Maybe.map(m, Display.to_string) |> Maybe.with_default("none")
+}
+
+fn ok_shown(r: Result<Display, String>) -> String {
+    case r {
+        Ok(d) -> Display.to_string(d)
+        Err(e) -> e
+    }
+}
+
+fn apply_all(fs: List<(Int) -> Display>, n: Int) -> List<String> {
+    Iter.map(fs, fn f -> Display.to_string(f(n))) |> Iter.to_list()
+}
+
+fn on_ints(fs: List<(Int) -> String>) -> List<String> {
+    Iter.map(fs, fn f -> f(7)) |> Iter.to_list()
+}
+
+fn describe(d: Display) -> String {
+    "<${Display.to_string(d)}>"
+}
+
+fn double(n: Int) -> Int {
+    n * 2
+}
+
+fn widened(xs: List<Int>) -> List<Display> {
+    xs
+}
+
+fn total<T>(rows: List<List<T>>) -> Int {
+    Iter.map(rows, Iter.count) |> Iter.sum()
+}
+
+test "the route list of an app" {
+    table = [#(Route{path: "/"}, home), #(Route{path: "/about"}, about)]
+
+    assert routes.serve(table, "/") == "home /"
+    assert routes.serve(table, "/about") == "about /about"
+    assert routes.serve(table, "/x") == "not found"
+}
+
+test "List" {
+    ints = [1, 2, 3]
+    pts = [Pt{x: 1}, Pt{x: 2}]
+    piped = ints |> shown()
+
+    assert shown(ints) == "1,2,3"
+    assert names(pts) == "pt1,pt2"
+    assert piped == "1,2,3"
+    assert shown(xs: [True, False]) == "True,False"
+    assert shown(widened(ints)) == "1,2,3"
+}
+
+test "branches and generic calls" {
+    ints = [1, 2]
+    words = ["a"]
+    either: List<Display> = if Iter.count(ints) > 1 { ints } else { words }
+    rows: List<List<Display>> = [ints, words]
+
+    assert shown(either) == "1,2"
+    assert total(rows) == 3
+}
+
+test "nested collections" {
+    rows = [[1, 2], [3]]
+    wide: List<List<Display>> = rows
+
+    assert Iter.map(wide, shown) |> Iter.to_list() == ["1,2", "3"]
+}
+
+test "Maybe and Result" {
+    m: Maybe<Int> = Some(4)
+    none: Maybe<Int> = None
+    r: Result<Int, String> = Ok(5)
+    e: Result<Int, String> = Err("bad")
+
+    assert first_shown(m) == "4"
+    assert first_shown(none) == "none"
+    assert ok_shown(r) == "5"
+    assert ok_shown(e) == "bad"
+}
+
+test "functions" {
+    fs = [double]
+    gs = [describe]
+    piped = fs |> apply_all(4)
+
+    assert apply_all(fs, 3) == ["6"]
+    assert on_ints(gs) == ["<7>"]
+    assert piped == ["8"]
+}
+
+test "tuples, records and fields" {
+    pairs = [#("a", Pt{x: 5})]
+    named: List<#(String, Named)> = pairs
+    records = [#{n: 1}]
+    shown_records: List<#{n: Display}> = records
+    pts = [Pt{x: 8}]
+    gallery = Gallery{items: pts}
+
+    assert Iter.map(named, fn #(k, v) -> k + Named.name(v)) |> Iter.to_list() == ["apt5"]
+    assert Iter.map(shown_records, fn r -> Display.to_string(r.n)) |> Iter.to_list() == ["1"]
+    assert names(gallery.items) == "pt8"
+}
+
+test "Map and Set" {
+    by_name = %{"a" => Pt{x: 1}}
+    wide: Map<String, Named> = by_name
+    keyed = %{Pt{x: 2} => 1}
+    wide_keys: Map<Hashable, Int> = keyed
+    set = %[1, 2]
+    wide_set: Set<Hashable> = set
+
+    assert Iter.map(Map.values(wide), Named.name) |> Iter.to_list() == ["pt1"]
+    assert Map.get(wide_keys, Pt{x: 2}) == Some(1)
+    assert Map.size(wide_keys) == 1
+    assert Set.contains(wide_set, 2)
+    assert not Set.contains(wide_set, 3)
+}

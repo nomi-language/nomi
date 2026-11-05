@@ -67,6 +67,11 @@ func stdUnresolved() []string {
 	sort.Strings(mods)
 	var out []string
 	for _, m := range mods {
+		// The shared stdlib checks a module's bodies when something reads
+		// them, which this does.
+		if err := lib.Bodies(m); err != nil {
+			panic(err)
+		}
 		us := analysis.UnresolvedExprs(lib.Files[m], lib.Nodes[m])
 		out = append(out, describeUnresolved(m+".nomi", filepath.Join("..", "std", filepath.FromSlash(m)+".nomi"), us)...)
 	}

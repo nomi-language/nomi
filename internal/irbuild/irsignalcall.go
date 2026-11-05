@@ -32,7 +32,7 @@ func (bl *irScalarBuilder) iterSensitiveCall(t *ast.Call, decl *ast.FuncDef, nam
 		return false, true
 	}
 	if t == nil || t != bl.signalCall || bl.loop == nil {
-		irDeclineNote("a call to a function that uses break or continue, which the checker admits only as an iteration callback itself: " + name)
+		bl.g.dc.note("a call to a function that uses break or continue, which the checker admits only as an iteration callback itself: " + name)
 		return true, false
 	}
 	return true, true

@@ -53,15 +53,21 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	defer os.RemoveAll(tmp)
+	// The package's directory, from this file's path: a fuzzing worker
+	// starts in the directory its coordinator had moved to, the repository
+	// root.
+	_, file, _, _ := runtime.Caller(0)
+	pkgDir := filepath.Dir(file)
 	binPath := exe(filepath.Join(tmp, "nomi"))
 	build := exec.Command("go", "build", "-o", binPath, ".")
+	build.Dir = pkgDir
 	if out, err := build.CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: build nomi: %v\n%s", err, out)
 		os.Exit(1)
 	}
 	// The CLI tests name corpus files, fixtures and scripts relative to the
 	// repository root, which is also the module root.
-	if err := os.Chdir(filepath.Join("..", "..")); err != nil {
+	if err := os.Chdir(filepath.Join(pkgDir, "..", "..")); err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: chdir to the repository root: %v\n", err)
 		os.Exit(1)
 	}
@@ -89,11 +95,15 @@ func exe(path string) string {
 
 // noManagedGoEnv is the environment that leaves `nomi` no managed Go
 // toolchain: an empty toolchain cache under dir, and a download URL nothing
-// answers, so a missing `go` stays missing.
+// answers, so a missing `go` stays missing. It also puts the artifact cache
+// under dir, so a child never writes the user's.
 func noManagedGoEnv(dir string) []string {
 	return []string{
 		"NOMI_TOOLCHAIN_ROOT=" + filepath.Join(dir, "no-toolchains"),
 		"NOMI_GO_DOWNLOAD_URL=http://127.0.0.1:1/no-go-download-in-tests",
+		// The std bundle the built nomi caches (internal/artifactcache):
+		// the first child lowers std and writes it, the rest decode it.
+		"NOMI_ARTIFACT_CACHE=" + filepath.Join(dir, "artifacts"),
 	}
 }
 
@@ -2545,6 +2555,7 @@ test "inline add test" {
 // also cover every case corpus.expect declares, so a case the VM's plan drops
 // cannot pass unnoticed. TestExpectation_Corpus checks each case's output.
 func TestTestCommand_VMCorpus(t *testing.T) {
+	t.Parallel()
 	checkVMTestRun(t, "tests", "corpus")
 }
 
@@ -2554,6 +2565,7 @@ func TestTestCommand_VMCorpus(t *testing.T) {
 // TestTestCommand_VMCorpus's rule. TestExpectation_Stdlib checks each case's
 // output.
 func TestTestCommand_VMStdlib(t *testing.T) {
+	t.Parallel()
 	checkVMTestRun(t, "std", "stdlib")
 }
 

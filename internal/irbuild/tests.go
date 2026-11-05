@@ -539,7 +539,7 @@ func (g *gen) testCase(c testCaseDecl) {
 	// builder declined the body and the case is refused below. See
 	// irtestbody.go.
 	plan := g.irTestBody(c, name)
-	testDecline := irTakeDecline()
+	testDecline := g.dc.take()
 	// rt.TestFailure, not *rt.AssertionFailure: a test body has two
 	// value-shaped exits, because a `?` that propagates inside one ends the
 	// case as an rt.EarlyReturnFailure (try.go). A failing assertion still

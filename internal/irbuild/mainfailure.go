@@ -39,6 +39,9 @@ func (g *gen) irBuildMainFailure() {
 	if g.reg != nil && len(g.reg.gens) > 0 && g.reg.gens[0] != g {
 		return
 	}
+	if g.reg != nil && g.reg.perFile != nil && !g.reg.perFile.isEntry {
+		return
+	}
 	var main *ast.FuncDef
 	for _, n := range g.nodes {
 		if fd, isFunc := n.(*ast.FuncDef); isFunc && fd.Name == "main" && !fd.ImplFunction && len(fd.Params) == 0 {
@@ -122,7 +125,7 @@ func (g *gen) irBuildBootFailure(fd *ast.FuncDef, errK kind) {
 func (g *gen) irBuildFailureRender(decl *ast.FuncDef, key any, name string, errK kind) *ir.Symbol {
 	g.irDeclineOpen(name)
 	if !irCallOperandKind(errK) {
-		irDeclineNote("an error type outside the call domain: " + errK.nomi())
+		g.dc.note("an error type outside the call domain: " + errK.nomi())
 		return nil
 	}
 	sym := g.irCalleeSym(key, name)
@@ -132,7 +135,7 @@ func (g *gen) irBuildFailureRender(decl *ast.FuncDef, key any, name string, errK
 		fn, ok = g.irErrorRenderFunc(decl, name, sym, errK, at, true)
 	}
 	if !ok {
-		irDeclineNote("an error type with no rendering: " + errK.nomi())
+		g.dc.note("an error type with no rendering: " + errK.nomi())
 		return nil
 	}
 	g.irModule().AddFunc(fn)

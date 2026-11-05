@@ -4,4 +4,4 @@ package vmrunner
 
 // serveCalls is calls_js.go's page call mode, which only a js/wasm runner
 // has.
-func serveCalls([]byte, []Option) bool { return false }
+func serveCalls(*Image, []Option) bool { return false }

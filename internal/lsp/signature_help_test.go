@@ -6,7 +6,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/std"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -153,7 +152,7 @@ func TestFindCallContext(t *testing.T) {
 // an empty population: "no documented interface method in std" is both what a
 // regression looks like and what would make every assertion below vacuous.
 func TestSignatureHelpCarriesAnInterfaceMethodDoc(t *testing.T) {
-	lib := std.Load()
+	lib := loadStd()
 	checked := 0
 	for module, scope := range lib.Modules {
 		if scope == nil {

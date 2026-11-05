@@ -6,7 +6,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // buildMissing analyzes src with the stdlib wired in and returns the
@@ -15,7 +14,7 @@ func buildMissing(t *testing.T, src string) []analysis.MissingImport {
 	t.Helper()
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	_ = analysis.BuildTypes(fa, nodes)

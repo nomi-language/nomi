@@ -7,14 +7,16 @@
 //# fn boot() -> Result<App, String> {
 //#     url = "postgres://localhost/app"
 //#     db = postgres.pool(url)
-//#     queue = pgjobs.queue(db, url)
+//#     queue = pgjobs.queue(db, url) |> Result.map_err(fn e -> "${e}")?
 //#     Ok(App{..., db, queue, worker: Worker.new(queue, max_running: 4)})
 //# }
 //# ```
 //#
 //# `schema.sql` beside this file is the table, for a project's migrations to
-//# copy; `pgjobs.install(conn)` creates it when it is missing, for tests and
-//# small apps.
+//# copy, and `schema_upgrade.sql` brings a table made from an earlier
+//# `schema.sql` up to it; `pgjobs.install(conn)` does both where needed, for
+//# tests and small apps. `queue` checks the table first and answers an
+//# error naming what an older table lacks.
 //#
 //# A worker claims due jobs with `FOR UPDATE SKIP LOCKED`, so workers in any
 //# number of processes never take the same job. A claimed job holds a lease
@@ -24,12 +26,18 @@
 //# listens on it, so a job starts at once rather than at the next poll.
 //# Finished jobs are kept for `retention`, 7 days unless given, then
 //# deleted by any worker.
+//#
+//# A unique key is a partial unique index over the jobs that hold one, and
+//# a unique enqueue is an `INSERT ... ON CONFLICT DO NOTHING` on the
+//# caller's `Conn`, so a key taken in a transaction that rolls back is free
+//# again. Each schedule's latest tick is a row of `nomi_jobs_schedules`,
+//# written in the same transaction as the tick's job.
 
 import {
     std::channels.{Arm, Channel, Receiver, Sender}
     std::duration.Duration
     std::instant.Instant
-    std::jobs.{self, Claimed, JobId, NewJob, Queue, Settle}
+    std::jobs.{self, Claimed, Enqueued, JobId, NewJob, Queue, Settle}
     std::json.Json
     std::matcher.Matcher
     std::regex.Regex
@@ -41,20 +49,141 @@ import {
 
 /// A queue in `table` of the database `db` points at. `url` names the same
 /// database for the connection each worker listens on. Finished jobs are
-/// deleted once they are older than `retention`. A table name that is not
-/// lowercase letters, digits and `_` traps.
+/// deleted once they are older than `retention`.
+///
+/// It checks `table` on `db` first, and is an error when the table lacks a
+/// column, index or table this version needs, as one made from an earlier
+/// `schema.sql` does. The error names what is missing; `install`, or
+/// `schema_upgrade.sql` run as a new migration, adds it. A table name that
+/// is not lowercase letters, digits and `_` is an error too.
 pub fn queue(
     db: Conn,
     url: String,
     table: String = "nomi_jobs",
     retention: Duration = Duration.hours(24 * 7),
-) -> Queue {
-    checked = valid_table(table)!
-    Table{db, url, table: checked, retention}
+) -> Result<Queue, sql.Error> {
+    name =
+        valid_table(table)
+        |> Result.map_err(fn message -> sql.Error.Database{code: "42602", message})?
+
+    check_schema(db, name)?
+    Ok(Table{db, url, table: name, retention})
 }
 
-/// Create `table` and its indexes, as `schema.sql` declares them, where
-/// they are missing.
+// The columns of the jobs table the queue's statements read or write.
+once required_columns = [
+    "id",
+    "queue",
+    "kind",
+    "args",
+    "state",
+    "attempt",
+    "max_attempts",
+    "run_at",
+    "locked_until",
+    "locked_by",
+    "errors",
+    "inserted_at",
+    "finished_at",
+    "priority",
+    "unique_key",
+    "unique_states",
+]
+
+// An error naming what `table` lacks of what the queue's statements need:
+// its columns, the unique index an enqueue's ON CONFLICT names, and the
+// schedules table. Names resolve through the search path, as the queue's
+// statements do. The other indexes only make it faster, and are not checked.
+fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error> {
+    schedules = "${table}_schedules"
+    unique = "${table}_unique"
+
+    statement = Sql"""
+        SELECT 'column' AS kind, attname::text AS name FROM pg_attribute
+        WHERE attrelid = to_regclass(${table}) AND attnum > 0 AND NOT attisdropped
+        UNION ALL
+        SELECT 'relation', relname::text FROM pg_class
+        WHERE oid = to_regclass(${schedules}) OR oid = to_regclass(${unique})
+        """
+
+    rows = Conn.query(db, statement)?
+
+    seed: Result<#(List<String>, List<String>), sql.Error> = Ok(#([], []))
+
+    #(columns, relations) = Iter.reduce(rows, seed, fn acc, row -> {
+        #(cs, rs) = acc?
+        name = Row.get<String>(row, "name")?
+
+        if Row.get<String>(row, "kind")? == "column" {
+            Ok(#(cs + [name], rs))
+        } else {
+            Ok(#(cs, rs + [name]))
+        }
+    })?
+
+    if columns == [] {
+        return Err(
+            sql.Error.Database{
+                code: "42P01",
+                message: "pgjobs: the jobs table ${table} does not exist. Call pgjobs.install(conn) before pgjobs.queue, or create it in a migration from lib/jobs/postgres's schema.sql${renamed(
+                    table
+                )}.",
+            }
+        )
+    }
+
+    missing_columns =
+        required_columns
+        |> Iter.filter(fn c -> not (c in columns))
+        |> Iter.to_list()
+
+    lacks =
+        [
+            if missing_columns != [] {
+                "the columns ${String.join(missing_columns, ", ")}"
+            } else {
+                ""
+            },
+            if not (unique in relations) {
+                "the index ${unique}"
+            } else {
+                ""
+            },
+            if not (schedules in relations) {
+                "the table ${schedules}"
+            } else {
+                ""
+            },
+        ]
+        |> Iter.filter(fn s -> s != "")
+        |> Iter.to_list()
+
+    if lacks == [] { return Ok(Unit) }
+
+    Err(
+        sql.Error.Database{
+            code: "42703",
+            message: "pgjobs: the jobs table ${table} is older than this version of pgjobs and lacks ${String.join(
+                lacks,
+                "; ",
+            )}. Call pgjobs.install(conn) before pgjobs.queue, or add lib/jobs/postgres's schema_upgrade.sql to your migrations as a new migration${renamed(
+                table
+            )}.",
+        }
+    )
+}
+
+fn renamed(table: String) -> String {
+    if table == "nomi_jobs" {
+        ""
+    } else {
+        ", with nomi_jobs replaced by ${table}"
+    }
+}
+
+/// Create `table`, its indexes and its schedules table, as `schema.sql`
+/// declares them, where they are missing, and bring a table made from an
+/// earlier `schema.sql` up to it, as `schema_upgrade.sql` does.
 pub fn install(conn: Conn, table: String = "nomi_jobs") -> Result<Unit, sql.Error> {
     name =
         valid_table(table)
@@ -76,12 +205,24 @@ pub fn install(conn: Conn, table: String = "nomi_jobs") -> Result<Unit, sql.Erro
             locked_by    text,
             errors       jsonb       NOT NULL DEFAULT '[]',
             inserted_at  timestamptz NOT NULL DEFAULT now(),
-            finished_at  timestamptz
+            finished_at  timestamptz,
+            priority     integer     NOT NULL DEFAULT 0,
+            unique_key   text,
+            unique_states text       CHECK (unique_states IN ('live', 'kept'))
         )
         """,
-        Sql"CREATE INDEX IF NOT EXISTS nomi_jobs_due ON nomi_jobs (queue, run_at, id) WHERE state = 'available'",
+        Sql"ALTER TABLE nomi_jobs ADD COLUMN IF NOT EXISTS priority integer NOT NULL DEFAULT 0",
+        Sql"ALTER TABLE nomi_jobs ADD COLUMN IF NOT EXISTS unique_key text",
+        Sql"ALTER TABLE nomi_jobs ADD COLUMN IF NOT EXISTS unique_states text CHECK (unique_states IN ('live', 'kept'))",
+        Sql"DROP INDEX IF EXISTS nomi_jobs_due",
+        Sql"CREATE INDEX IF NOT EXISTS nomi_jobs_ready ON nomi_jobs (queue, priority DESC, run_at, id) WHERE state = 'available'",
         Sql"CREATE INDEX IF NOT EXISTS nomi_jobs_lease ON nomi_jobs (locked_until) WHERE state = 'running'",
         Sql"CREATE INDEX IF NOT EXISTS nomi_jobs_done ON nomi_jobs (finished_at) WHERE state IN ('completed', 'discarded')",
+        Sql"""
+        CREATE UNIQUE INDEX IF NOT EXISTS nomi_jobs_unique ON nomi_jobs (unique_key)
+        WHERE unique_key IS NOT NULL AND (unique_states = 'kept' OR state IN ('available', 'running'))
+        """,
+        Sql"CREATE TABLE IF NOT EXISTS nomi_jobs_schedules (name text PRIMARY KEY, last_tick timestamptz NOT NULL)",
     ]
 
     Iter.reduce(statements, Ok(Unit), fn done, statement -> {
@@ -146,19 +287,8 @@ struct Table {
 }
 
 impl Queue for Table {
-    fn insert(t: Table, conn: Conn, job: NewJob) -> Result<JobId, sql.Error> {
-        statement = Sql"""
-            INSERT INTO nomi_jobs (queue, kind, args, max_attempts, run_at)
-            VALUES (${job.queue}, ${job.kind}, ${Value.Json(
-                                                   job.args
-                                               )}, ${job.max_attempts}, COALESCE(${job.run_at}, now()))
-            RETURNING id
-            """
-
-        rows = Conn.query(conn, in_table(t.table, statement))?
-        id = first_id(rows)?
-        _ = Conn.query(conn, Sql"SELECT pg_notify(${t.table}, ${job.queue})")?
-        Ok(JobId(id))
+    fn insert(t: Table, conn: Conn, job: NewJob) -> Result<Enqueued, sql.Error> {
+        insert_job(t, conn, job, 3)
     }
 
     fn claim(
@@ -174,7 +304,7 @@ impl Queue for Table {
                 SELECT id FROM nomi_jobs
                 WHERE state = 'available' AND run_at <= now()
                   AND queue = ANY(${queues}) AND kind = ANY(${kinds})
-                ORDER BY run_at, id
+                ORDER BY priority DESC, run_at, id
                 LIMIT ${limit}
                 FOR UPDATE SKIP LOCKED
             )
@@ -184,20 +314,23 @@ impl Queue for Table {
                                            lease
                                        )} * interval '1 millisecond', locked_by = ${worker}
             FROM picked WHERE j.id = picked.id
-            RETURNING j.id, j.queue, j.kind, j.args, j.attempt, j.max_attempts, j.run_at
+            RETURNING j.id, j.queue, j.kind, j.args, j.attempt, j.max_attempts, j.run_at, j.priority
             """
 
         rows = Conn.query(t.db, in_table(t.table, statement))?
 
-        seed: Result<List<#(Instant, Claimed)>, sql.Error> = Ok([])
+        seed: Result<List<#(#(Int, Int, Int), Claimed)>, sql.Error> = Ok([])
 
         claimed = Iter.reduce(rows, seed, fn acc, row -> {
             found = acc?
-            Ok(found + [#(Row.get<Instant>(row, "run_at")?, claimed_of(row)?)])
+            run_at = Row.get<Instant>(row, "run_at")?
+            c = claimed_of(row)?
+            order = #(0 - Row.get<Int>(row, "priority")?, Instant.as_nanos(run_at), id_of(c.id))
+            Ok(found + [#(order, c)])
         })?
 
         claimed
-        |> Iter.sort_by(fn #(run_at, c) -> #(Instant.as_nanos(run_at), id_of(c.id)))
+        |> Iter.sort_by(fn #(order, _) -> order)
         |> Iter.map(fn #(_, c) -> c)
         |> Iter.to_list()
         |> Ok()
@@ -288,6 +421,94 @@ impl Queue for Table {
         stop: Channel<Unit> = Channel.buffered(1)
         Sender.close_on_drain(stop.sender)
         _ = Supervisor.spawn(supervisor, fn -> listen(t, wake, stop.receiver))
+    }
+
+    fn last_tick(t: Table, schedule: String) -> Result<Maybe<Instant>, sql.Error> {
+        statement = Sql"SELECT last_tick FROM nomi_jobs_schedules WHERE name = ${schedule}"
+        rows = Conn.query(t.db, in_table(t.table, statement))?
+
+        case rows {
+            [row, ..] -> Row.get<Instant>(row, "last_tick") |> Result.map(&Some(&1))
+            [] -> Ok(None)
+        }
+    }
+
+    fn record_tick(
+        t: Table,
+        schedule: String,
+        tick: Instant,
+        job: Maybe<NewJob>,
+    ) -> Result<Maybe<Enqueued>, sql.Error> {
+        statement = Sql"""
+            INSERT INTO nomi_jobs_schedules (name, last_tick) VALUES (${schedule}, ${tick})
+            ON CONFLICT (name) DO UPDATE
+            SET last_tick = GREATEST(nomi_jobs_schedules.last_tick, EXCLUDED.last_tick)
+            """
+
+        sql.transaction(t.db, fn tx -> {
+            _ = Conn.exec(tx, in_table(t.table, statement))?
+
+            case job {
+                Some(new_job) -> insert_job(t, tx, new_job, 3) |> Result.map(&Some(&1))
+                None -> Ok(None)
+            }
+        })
+    }
+}
+
+// Insert `job`, or find the job that holds its unique key. A holder that is
+// gone by the time it is looked for, finished and pruned, frees the key, so
+// the insert is tried again, up to `tries` times.
+fn insert_job(t: Table, conn: Conn, job: NewJob, tries: Int) -> Result<Enqueued, sql.Error> {
+    states = Maybe.map(job.unique_key, fn _ -> {
+        case job.unique_across {
+            .Live -> "live"
+            .Kept -> "kept"
+        }
+    })
+
+    statement = Sql"""
+        INSERT INTO nomi_jobs (queue, kind, args, max_attempts, run_at, priority, unique_key, unique_states)
+        VALUES (${job.queue}, ${job.kind}, ${Value.Json(job.args)}, ${job.max_attempts},
+            COALESCE(${job.run_at}, now()), ${job.priority}, ${job.unique_key}, ${states})
+        ON CONFLICT (unique_key)
+            WHERE unique_key IS NOT NULL AND (unique_states = 'kept' OR state IN ('available', 'running'))
+            DO NOTHING
+        RETURNING id
+        """
+
+    rows = Conn.query(conn, in_table(t.table, statement))?
+
+    case rows {
+        [row, ..] -> {
+            id = Row.get<Int>(row, "id")?
+            _ = Conn.query(conn, Sql"SELECT pg_notify(${t.table}, ${job.queue})")?
+            Ok(Enqueued{id: JobId(id), duplicate: False})
+        }
+
+        [] -> {
+            holder = Sql"""
+                SELECT id FROM nomi_jobs
+                WHERE unique_key = ${job.unique_key}
+                  AND (unique_states = 'kept' OR state IN ('available', 'running'))
+                """
+
+            case Conn.query(conn, in_table(t.table, holder))? {
+                [row, ..] ->
+                    Ok(Enqueued{id: JobId(Row.get<Int>(row, "id")?), duplicate: True})
+
+                [] when tries > 1 ->
+                    insert_job(t, conn, job, tries - 1)
+
+                [] ->
+                    Err(
+                        sql.Error.Database{
+                            code: "40001",
+                            message: "the job holding the unique key kept changing",
+                        }
+                    )
+            }
+        }
     }
 }
 
@@ -380,13 +601,6 @@ fn claimed_of(row: Row) -> Result<Claimed, sql.Error> {
         attempt: Row.get<Int>(row, "attempt")?,
         max_attempts: Row.get<Int>(row, "max_attempts")?,
     })
-}
-
-fn first_id(rows: List<Row>) -> Result<Int, sql.Error> {
-    case rows {
-        [row, ..] -> Row.get<Int>(row, "id")
-        [] -> Err(sql.Error.Database{code: "02000", message: "the insert answered no id"})
-    }
 }
 
 fn id_of(JobId(n)) -> Int {

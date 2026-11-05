@@ -8,7 +8,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
-	"github.com/nomi-language/nomi/std"
 )
 
 func TestDocumentManager_SourceGoBindingsAnalyzeCleanly(t *testing.T) {
@@ -51,7 +50,7 @@ fn main() {
 }
 `)
 
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(mainPath)
@@ -127,7 +126,7 @@ pub struct B {
 }
 `)
 
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(aPath)
@@ -183,7 +182,7 @@ pub fn pong(n: Int) -> Int {
 }
 `)
 
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(aPath)
@@ -240,7 +239,7 @@ impl I for T {
 }
 `)
 
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(aPath)
@@ -319,7 +318,7 @@ impl Logger for ProdLogger {
 }
 `)
 
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	src, _ := os.ReadFile(greeterPath)

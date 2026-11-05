@@ -149,6 +149,82 @@ What a slot in an attribute, a URL or a
 `style` takes is in the spec's
 [HTML templates](/spec/typed-literals-and-keyword-declarations/#html-templates).
 
+A handler may answer with any value whose type implements
+[`ToResponse`](/reference/http/#interface-toresponse): a `Response`, an
+`Html` page, or a `Result` of two such types. The handler's type,
+`(Request) -> ToResponse`, is named
+[`http.Handler`](/reference/http/#type-handler), which `Router.new`,
+`http.serve` and middleware such as `http.limit_body` take. So a handler
+with several steps that can fail returns a `Result` and passes each
+failure up with `?`, and the app's error enum says how each failure
+answers. One route list holds both kinds of handler:
+
+```nomi-run
+import {
+    std::html.Html
+    std::http.{Request, Response, Route, Router, Status, ToResponse}
+    std::http_testing
+    std::log.{self, Logger}
+}
+
+once logger = Logger.text()
+
+enum AppError {
+    NotFound
+    BadInput {reason: String}
+    Internal {reason: String}
+}
+
+impl ToResponse for AppError {
+    fn to_response(error: AppError) -> Response {
+        case error {
+            .NotFound ->
+                Response.not_found()
+
+            .BadInput{reason} ->
+                Response.error(Status.bad_request, reason)
+
+            .Internal{reason} -> {
+                log.error(logger, reason)
+                Response.error(Status.internal_server_error, "something went wrong")
+            }
+        }
+    }
+}
+
+fn find_user(id: Int) -> Result<String, AppError> {
+    if id == 7 {
+        Ok("Ada")
+    } else {
+        Err(AppError.NotFound)
+    }
+}
+
+fn show(request: Request) -> Result<Html, AppError> {
+    text = Request.path_value(request, "id") |> Maybe.with_default("")
+    id = String.to_int(text) |> Maybe.to_result(AppError.BadInput{reason: "not a number: ${text}"})?
+    name = find_user(id)?
+    Ok(Html"<h1>${name}</h1>")
+}
+
+fn health(_request: Request) -> Response {
+    Response{body: .Text("ok")}
+}
+
+fn main() {
+    router = Router.new([#(Route`GET /health`, health), #(Route`GET /users/{id}`, show)])!
+    answer = fn target: String -> Router.serve(router, http_testing.request(.Get, target))
+    dbg Response.text(answer("/users/7"))
+    dbg answer("/users/8").status
+    dbg Response.text(answer("/users/x"))
+}
+```
+<!-- expect
+dbg line 55: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
+dbg line 56: answer("/users/8").status = Status(404)
+dbg line 57: Response.text(answer("/users/x")) = Ok("not a number: x\n")
+-->
+
 ## Serving
 
 `http.listen` binds the server's address, and `http.serve` answers each
@@ -188,6 +264,11 @@ fn main() -> Result<Unit, http.Error> {
 
 The page cannot listen on a port, so this one does not run here.
 `nomi run` serves it on port 8080.
+
+`http.file_server(dir)` serves a folder from the disk.
+`http.file_server_embedded(files)` serves files the program
+[embeds](/building-and-shipping/#executables), so a built server needs no
+folder beside it.
 
 A handler that reads a posted form with `Request.form` reads at most
 10 MB of it, and `Request.multipart_form` at most 32 MB; a larger body is

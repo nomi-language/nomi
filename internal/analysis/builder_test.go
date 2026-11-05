@@ -57,6 +57,23 @@ func TestBuildScopes_Binding(t *testing.T) {
 	}
 }
 
+// An interface's `self` is defined in a scope of the interface's own, with
+// type parameters or without: a module scope that bound `self` made a std
+// module's `//!` prompt that imports `std::http.{self, ...}` look like it
+// rebound one of the module's names, and the IR builder declined it.
+func TestBuildScopes_InterfaceSelfStaysInTheInterface(t *testing.T) {
+	for _, input := range []string{
+		"interface Shout {\n    fn shout(value: self) -> String\n}",
+		"interface Conv<U> {\n    fn conv(value: self) -> U\n}",
+	} {
+		nodes, _ := parser.ParseWithRecovery(lexer.Lex(input))
+		file := BuildFile(nodes)
+		if sym := file.ModuleScope.Lookup("self"); sym != nil {
+			t.Errorf("%q: the module scope binds `self` to %s", input, sym.Name)
+		}
+	}
+}
+
 func TestBuildScopes_Struct(t *testing.T) {
 	input := `struct User { name: String; age: Int }`
 	tokens := lexer.Lex(input)

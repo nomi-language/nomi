@@ -38,13 +38,13 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 	// them reads an element.
 	// kindInvalid: sentinel — still no typed list representation.
 	if lk == kindInvalid || !(irRetainedListKind(lk) || irListTransportKind(lk) || bl.g.irValType(lk) != nil) {
-		irDeclineNote("a List function without a retained typed list operand")
+		bl.g.dc.note("a List function without a retained typed list operand")
 		return nil
 	}
 	for i, k := range args.kinds {
 		if method == "remove_at" && i == 1 {
 			if k != kindInt {
-				irDeclineNote("List.remove_at with an index that is not an Int")
+				bl.g.dc.note("List.remove_at with an index that is not an Int")
 				return nil
 			}
 			continue
@@ -62,7 +62,7 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 	}
 	result, ok := bl.g.listResultKind(fn.result, lk.comp.parts[0], lk, t)
 	if !ok || !(irRetainedValueKind(result) || bl.g.irValType(result) != nil) {
-		irDeclineNote("a List function result outside the retained domain: " + result.nomi())
+		bl.g.dc.note("a List function result outside the retained domain: " + result.nomi())
 		return nil
 	}
 	name := "List." + method

@@ -7,6 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	nomiformat "github.com/nomi-language/nomi/internal/format"
+	"github.com/nomi-language/nomi/std"
 )
 
 // maxHoverExamples is how many attached tests an editor hover shows before it
@@ -24,7 +25,7 @@ func RenderForEditor(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
 	if content == "" {
 		return ""
 	}
-	if examples := Examples(sym); examples != "" {
+	if examples := ExamplesIn(sym, fa); examples != "" {
 		content += "\n\n" + examples
 	}
 	if texts := NounTexts(sym); texts != "" {
@@ -42,12 +43,36 @@ func RenderForEditor(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
 // example and one code block, written as the formatter renders it, which is
 // also how the stdlib reference shows it. At most maxHoverExamples are shown.
 func Examples(sym *analysis.Symbol) string {
+	return ExamplesIn(sym, nil)
+}
+
+// ExamplesIn is Examples for a symbol of fa's program, which reads the
+// declaration as its file's source has it (FileAnalysis.DeclarationSource):
+// another file's declaration read as its interface has no attached tests.
+func ExamplesIn(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
 	node := exampleDecl(sym)
 	if node == nil {
 		return ""
 	}
+	if fa != nil {
+		if fd, ok := node.(*ast.FuncDef); ok && sym.DispatchImpl != nil {
+			node = fa.ImplDeclarationSource(fd)
+		} else {
+			real := sym
+			if real.Resolved != nil {
+				real = real.Resolved
+			}
+			node = fa.DeclarationSource(node, real.SourceFile)
+		}
+	}
+	tests := ast.AttachedTestsOf(node)
+	if len(tests) == 0 {
+		// A std declaration's, which the shared stdlib holds once it has
+		// checked its module's bodies.
+		tests = std.Shared().AttachedTests(node)
+	}
 	var bodies []string
-	for _, test := range ast.AttachedTestsOf(node) {
+	for _, test := range tests {
 		if body := nomiformat.RenderAttachedTestBody(test); body != "" {
 			bodies = append(bodies, body)
 		}

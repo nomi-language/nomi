@@ -4,7 +4,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"testing"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -189,7 +188,7 @@ io.inspect(42)`
 	tokens := lexer.Lex(source)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 
 	// io.inspect on line 2 — "inspect" starts at col 4 (1-based: i=1, o=2, .=3, i=4)
@@ -208,7 +207,7 @@ func TestCompletion_IncludesPrimitivesSymbols(t *testing.T) {
 	tokens := lexer.Lex(source)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 
 	visible := fa.ModuleScope.AllVisible()

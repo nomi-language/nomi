@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // TestStdlibExternOperatorImplsAreUncheckedButCollisionFree guards a gap in
@@ -132,7 +131,7 @@ func TestStdlibInstantiationsAreWrittenAndDistinct(t *testing.T) {
 // set is empty, so everything the index holds came from the stdlib fold.
 func stdlibProjectImplIndex(t *testing.T) *analysis.ProjectImplIndex {
 	t.Helper()
-	lib := std.Load()
+	lib := loadStd()
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex("fn main() {}"))
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		return nil, nil

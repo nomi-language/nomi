@@ -3,6 +3,7 @@ package irbuild
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -58,17 +59,38 @@ func writePortableKind(b *strings.Builder, k kind) {
 	case k.def != nil:
 		d := instIdentity(k.def)
 		if d.genericOf != nil && d.genericOf.decl != nil {
-			fmt.Fprintf(b, "@%p", d.genericOf.decl)
+			writeDeclKey(b, d.genericOf.decl)
 		} else if d.decl != nil {
-			fmt.Fprintf(b, "@%p", d.decl)
+			writeDeclKey(b, d.decl)
 		} else {
-			b.WriteString(":" + d.nomi)
+			// A std type with one process-wide def per instance: its
+			// module-qualified name and its own arguments, since two std
+			// modules may each declare an `Error`.
+			name, spec := stdSpecTypeName(d)
+			var args []kind
+			switch {
+			case !spec:
+				name = d.nomi
+			case len(d.preludeArgs) > 0:
+				args = d.preludeArgs
+			case len(d.genStructArgs) > 0:
+				args = d.genStructArgs
+			case len(d.genHostArgs) > 0:
+				args = d.genHostArgs
+			case d.nomi != name[strings.LastIndexByte(name, '.')+1:]:
+				// An instance whose arguments only its spelling holds.
+				name += "|" + d.nomi
+			}
+			b.WriteString(":" + name)
+			if len(args) > 0 {
+				b.WriteString("<" + portableArgsKey(args) + ">")
+			}
 		}
 		if len(d.genericArgs) > 0 {
 			b.WriteString("<" + portableArgsKey(d.genericArgs) + ">")
 		}
 	case k.iface != nil:
-		fmt.Fprintf(b, "@%p", k.iface.decl)
+		writeDeclKey(b, k.iface.decl)
 		if len(k.iface.instArgs) > 0 {
 			b.WriteString("<" + portableArgsKey(k.iface.instArgs) + ">")
 		}
@@ -76,6 +98,87 @@ func writePortableKind(b *strings.Builder, k kind) {
 		fmt.Fprintf(b, "@%p", k.tp)
 	case k.comp != nil:
 		b.WriteString("(" + strings.Join(k.comp.names, ",") + ":" + portableArgsKey(k.comp.parts) + ")")
+	}
+}
+
+// writeDeclKey spells a declaration in a key: by its linkage path, the
+// same in every lowering and every process, a std declaration's or one of
+// a program being lowered (programDeclKeys), and any other by its node.
+func writeDeclKey(b *strings.Builder, n ast.Node) {
+	if d, ok := stdLinkNames()[n]; ok {
+		b.WriteString("@" + d.String())
+		return
+	}
+	declKeys.mu.Lock()
+	k, ok := declKeys.of[n]
+	declKeys.mu.Unlock()
+	if ok {
+		b.WriteString("@" + k.name)
+		return
+	}
+	fmt.Fprintf(b, "@%p", n)
+}
+
+// declKey is a declaration's spelling in a key (writeDeclKey).
+func declKey(n ast.Node) string {
+	var b strings.Builder
+	writeDeclKey(&b, n)
+	return b.String()
+}
+
+// erasedKey is the spelling an instance d held erased is filed under in
+// the registry's erasedInsts: its owner's def's.
+func erasedKey(d *typeDef) string {
+	return portableArgsKey([]kind{{tag: tagNamed, def: instIdentity(d)}})
+}
+
+// markErased files d, an instance some file holds erased.
+func (r *typeRegistry) markErased(d *typeDef) {
+	if r.erasedInsts == nil {
+		r.erasedInsts = map[string]bool{}
+	}
+	r.erasedInsts[erasedKey(d)] = true
+}
+
+// declKeys holds the linkage path of each declaration of every program
+// being lowered, by node, for writeDeclKey: a key that names a program's
+// type by its node would differ between two lowerings of one file, and a
+// file's object lowered on its own (perfile.go) names the types of the
+// files it links against as their own lowering did. A lowering files its
+// declarations when it starts and takes them out when it ends
+// (holdDeclKeys); two lowerings of one analysis count their holds.
+var declKeys = struct {
+	mu sync.Mutex
+	of map[ast.Node]*heldDeclKey
+}{of: map[ast.Node]*heldDeclKey{}}
+
+type heldDeclKey struct {
+	name  string
+	holds int
+}
+
+// holdDeclKeys files names in declKeys and answers the function that
+// takes them out again.
+func holdDeclKeys(names map[ast.Node]declName) (release func()) {
+	declKeys.mu.Lock()
+	for n, d := range names {
+		if k := declKeys.of[n]; k != nil {
+			k.holds++
+			continue
+		}
+		declKeys.of[n] = &heldDeclKey{name: d.String(), holds: 1}
+	}
+	declKeys.mu.Unlock()
+	return func() {
+		declKeys.mu.Lock()
+		defer declKeys.mu.Unlock()
+		for n := range names {
+			if k := declKeys.of[n]; k != nil {
+				if k.holds--; k.holds == 0 {
+					delete(declKeys.of, n)
+				}
+			}
+		}
 	}
 }
 

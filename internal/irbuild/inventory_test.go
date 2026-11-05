@@ -43,6 +43,8 @@ var stdlibInventory = []stdModuleRow{
 	{module: "divide"},
 	{module: "duration"},
 	{module: "dynamic"},
+	{module: "embed"},
+	{module: "embed_host"},
 	{module: "equatable"},
 	{module: "float"},
 	{module: "fs"},

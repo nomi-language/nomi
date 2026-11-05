@@ -7,10 +7,11 @@ import (
 	"github.com/nomi-language/nomi/internal/token"
 )
 
-// A file's full import path, `db::posts`, is written with `::` between its
-// segments and no space around it. joinPaths reads each such run of tokens
-// as one PATH token, so every position that takes a file's short name as a
-// qualifier (`posts.post_by_id`, `posts.Post`) takes its path the same way.
+// A path, `db::posts`, is written with `::` between its segments and no
+// space around it, in an import and at a use below a directory import's
+// name. joinPaths reads each such run of tokens as one PATH token, so every
+// position that takes a file's short name as a qualifier (`posts.post_by_id`,
+// `posts.Post`) takes a path the same way.
 // A `::` that does not join two adjacent segments stays a COLONCOLON, which
 // no grammar rule accepts.
 

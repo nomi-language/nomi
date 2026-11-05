@@ -144,7 +144,7 @@ func (bl *irScalarBuilder) loopJump(b *ir.Block, at ast.Node, lp *irLoopBuild, t
 // iterLoop lowers `Iter.loop(seed, fn p -> body)` and answers its answer slot.
 func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func(why string) (ir.Temp, kind, bool, bool) {
-		irDeclineNote(why)
+		bl.g.dc.note(why)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	// The loop's blocks go into the builder's own function, whatever body
@@ -371,7 +371,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	defer bl.g.enterBlockTypes(lam.Body)()
 	lead, final := bl.g.irScalarBlock(lam.Body, "")
 	if final == nil {
-		return no("an Iter.loop body outside the statement shape: " + irDeclineBodyWhy)
+		return no("an Iter.loop body outside the statement shape: " + bl.g.dc.bodyWhy)
 	}
 	outerLoop, outerDefers, outerSignal := bl.loop, bl.openDefers, bl.signalCall
 	bl.loop = lp
@@ -404,7 +404,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		bl.markStmt(s, ir.StmtStatement)
 		if guard, isIf := s.(*ast.If); isIf && loopGuardShape(bl.g, guard) {
 			if !bl.loopGuard(guard, lp) {
-				irDeclineNote("an Iter.loop guard outside `if c { break v | return v | continue }`")
+				bl.g.dc.note("an Iter.loop guard outside `if c { break v | return v | continue }`")
 				return false
 			}
 			continue
@@ -444,7 +444,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 	case *ast.Break:
 		// `break v` ending the body: the loop's answer, on this iteration.
 		if !bl.loopBreakValue(f, lp) {
-			irDeclineNote("an Iter.loop final `break` without a value of the state type")
+			bl.g.dc.note("an Iter.loop final `break` without a value of the state type")
 			return false
 		}
 		bl.loopJump(bl.b, f, lp, lp.exit)
@@ -457,7 +457,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		return true
 	case *ast.Case:
 		if !bl.loopCase(f, lp, tail) {
-			irDeclineNote("an Iter.loop case tail outside value and `break v` arms")
+			bl.g.dc.note("an Iter.loop case tail outside value and `break v` arms")
 			return false
 		}
 		return true
@@ -489,7 +489,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		guard := *f
 		guard.Else = nil
 		if !bl.loopGuard(&guard, lp) {
-			irDeclineNote("an Iter.loop guard outside `if c { break v | return v | continue }`")
+			bl.g.dc.note("an Iter.loop guard outside `if c { break v | return v | continue }`")
 			return false
 		}
 		switch e := f.Else.(type) {
@@ -513,7 +513,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 func (bl *irScalarBuilder) loopTail(final ast.Node, lp *irLoopBuild, tail ir.Temp) bool {
 	switch final.(type) {
 	case *ast.Return, *ast.Break, *ast.Continue, *ast.If:
-		irDeclineNote("an Iter.loop body without a straight tail expression")
+		bl.g.dc.note("an Iter.loop body without a straight tail expression")
 		return false
 	}
 	// A region in the tail (`f(case c { 0 -> continue  _ -> 1 })`) joins
@@ -523,7 +523,7 @@ func (bl *irScalarBuilder) loopTail(final ast.Node, lp *irLoopBuild, tail ir.Tem
 		return false
 	}
 	if k != lp.k {
-		irDeclineNote("an Iter.loop tail that is not the state type")
+		bl.g.dc.note("an Iter.loop tail that is not the state type")
 		return false
 	}
 	bl.loopCopy(final, tail, val)
@@ -555,7 +555,7 @@ func (bl *irScalarBuilder) loopIf(t *ast.If, lp *irLoopBuild, tail ir.Temp) bool
 	k, ok := bl.ifRegion(t, irFuncSig{result: lp.k})
 	bl.sh.result = outer
 	if !ok || k != lp.k {
-		irDeclineNote("an Iter.loop `if` tail outside value arms of the state type")
+		bl.g.dc.note("an Iter.loop `if` tail outside value arms of the state type")
 		return false
 	}
 	bl.loopAdvance(t, lp, tail)

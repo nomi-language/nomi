@@ -4,7 +4,7 @@ import "testing"
 
 // lowerIROnly runs the front end and the IR builder over an in-memory module
 // for a test that reads what the builder did through its observation hooks
-// (irFuncObserved, IRDeclineObserved) rather than through the Result. A body
+// (irFuncObserved, Program.Declines) rather than through the Result. A body
 // the builder declines is part of what such a test reads, so the refusal is
 // not an error here.
 func lowerIROnly(t *testing.T, src string) *Result {

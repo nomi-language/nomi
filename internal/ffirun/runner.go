@@ -467,6 +467,10 @@ type ImageBuild struct {
 // about it.
 type BuiltImage struct {
 	Image []byte
+	// Sources are where the image's embedded files are read from, as
+	// vmhost.Program.EncodedEmbeddedSources wrote them
+	// (vmhost.DecodeEmbedSources reads them).
+	Sources []byte
 	// UsesCompiler is set when the program reaches std/compiler's hosts.
 	UsesCompiler bool
 	// HasExports is set when the program declares an `export fn`.
@@ -518,6 +522,9 @@ func BuildImageVM(r *Result, entryAbsPath string, spec ImageBuild) (built BuiltI
 	built.NoNetwork = strings.Contains(out.String(), "__NOMI_IMAGE_NO_NETWORK")
 	if built.Image, err = os.ReadFile(filepath.Join(dir, "image")); err != nil {
 		return built, "", false, fmt.Errorf("ffirun: reading the wrapper's image: %w", err)
+	}
+	if built.Sources, err = os.ReadFile(filepath.Join(dir, "sources")); err != nil {
+		return built, "", false, fmt.Errorf("ffirun: reading the wrapper's embedded file sources: %w", err)
 	}
 	if !spec.Web {
 		return built, "", true, nil

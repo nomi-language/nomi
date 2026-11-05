@@ -1,8 +1,10 @@
 import {
+    std::calendar.{Anchored, DateTime}
     std::channels.{Channel, Receiver, TimedOut}
     std::duration.Duration
+    std::fs
     std::instant.Instant
-    std::jobs.{self, Failure, Job, Queue, Settle}
+    std::jobs.{self, Cron, Failure, Job, Queue, Schedule, Settle}
     std::jobs_testing.{self, Opened}
     std::sql.{self, Conn, Row, Sql}
     std::tasks.Task
@@ -17,7 +19,7 @@ fn fresh(table: String = "nomi_jobs") -> Result<#(Conn, Queue, String), sql.Erro
     url = postgres.scratch()?
     db = postgres.pool(url)
     pgjobs.install(db, table: table)?
-    Ok(#(db, pgjobs.queue(db, url, table: table), url))
+    Ok(#(db, pgjobs.queue(db, url, table: table)?, url))
 }
 
 fn count(db: Conn, statement: sql.Statement) -> Result<Int, sql.Error> {
@@ -79,7 +81,7 @@ test "stuck lists jobs no worker has claimed" {
     id = jobs.enqueue(queue, db, noop, 1)?
     _ = Conn.exec(db, Sql"UPDATE nomi_jobs SET run_at = now() - interval '1 hour'")?
     stuck = pgjobs.stuck(db, Duration.minutes(10))?
-    assert Iter.map(stuck, &(&1.id)) |> Iter.to_list() == [id]
+    assert Iter.map(stuck, &(&1.id)) |> Iter.to_list() == [id.id]
     assert pgjobs.stuck(db, Duration.hours(2)) == Ok([])
 }
 
@@ -87,7 +89,7 @@ test "prune deletes finished jobs older than the retention" {
     url = postgres.scratch()?
     db = postgres.pool(url)
     pgjobs.install(db)?
-    queue = pgjobs.queue(db, url, retention: Duration.seconds(0))
+    queue = pgjobs.queue(db, url, retention: Duration.seconds(0))?
     _ = jobs.enqueue(queue, db, noop, 1)?
     _ = jobs.enqueue(queue, db, noop, 2)?
     claimed = Iter.first(Queue.claim(queue, "w1", ["default"], ["noop"], 1, Duration.minutes(1))?)!
@@ -117,6 +119,200 @@ test "a failure is kept on the row with its attempt" {
     row = Iter.first(rows)!
     assert Row.get<String>(row, "error") == Ok("boom")
     assert Row.get<Int>(row, "attempt") == Ok(1)
+}
+
+// A table as an earlier schema.sql made it, with no priorities, unique
+// keys or schedules, named `table`, holding one job.
+fn old_table(db: Conn, table: String = "nomi_jobs") -> Result<Unit, sql.Error> {
+    create = """
+        CREATE TABLE nomi_jobs (
+            id           bigserial   PRIMARY KEY,
+            queue        text        NOT NULL DEFAULT 'default',
+            kind         text        NOT NULL,
+            args         jsonb       NOT NULL,
+            state        text        NOT NULL DEFAULT 'available'
+                         CHECK (state IN ('available', 'running', 'completed', 'discarded')),
+            attempt      integer     NOT NULL DEFAULT 0,
+            max_attempts integer     NOT NULL,
+            run_at       timestamptz NOT NULL DEFAULT now(),
+            locked_until timestamptz,
+            locked_by    text,
+            errors       jsonb       NOT NULL DEFAULT '[]',
+            inserted_at  timestamptz NOT NULL DEFAULT now(),
+            finished_at  timestamptz
+        );
+        CREATE INDEX nomi_jobs_due ON nomi_jobs (queue, run_at, id) WHERE state = 'available';
+        INSERT INTO nomi_jobs (kind, args, max_attempts) VALUES ('noop', '1', 20);
+        """
+
+    _ = Conn.exec(db, script(create, table))?
+    Ok(Unit)
+}
+
+// `text`, which may hold several statements and no parameters, with
+// nomi_jobs renamed to `table`, as a migration copied from a file runs it.
+fn script(text: String, table: String) -> sql.Statement {
+    sql.Statement{parts: [String.replace(text, "nomi_jobs", table)], params: []}
+}
+
+fn file_script(path: String, table: String = "nomi_jobs") -> sql.Statement {
+    script(fs.read_text(path)!, table)
+}
+
+fn queue_error(result: Result<Queue, sql.Error>) -> String {
+    case result {
+        Ok(_) -> "no error"
+        Err(e) -> "${e}"
+    }
+}
+
+test "a queue over a table made from an earlier schema.sql names what it lacks" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    old_table(db)?
+
+    assert queue_error(
+        pgjobs.queue(db, url)
+    ) == "database error 42703: pgjobs: the jobs table nomi_jobs is older than this version of pgjobs and lacks the columns priority, unique_key, unique_states; the index nomi_jobs_unique; the table nomi_jobs_schedules. Call pgjobs.install(conn) before pgjobs.queue, or add lib/jobs/postgres's schema_upgrade.sql to your migrations as a new migration."
+}
+
+test "a queue names the table it names when that table is behind" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    old_table(db, table: "app_jobs")?
+    _ = Conn.exec(db, Sql"ALTER TABLE app_jobs ADD COLUMN priority integer NOT NULL DEFAULT 0")?
+
+    assert queue_error(
+        pgjobs.queue(db, url, table: "app_jobs")
+    ) == "database error 42703: pgjobs: the jobs table app_jobs is older than this version of pgjobs and lacks the columns unique_key, unique_states; the index app_jobs_unique; the table app_jobs_schedules. Call pgjobs.install(conn) before pgjobs.queue, or add lib/jobs/postgres's schema_upgrade.sql to your migrations as a new migration, with nomi_jobs replaced by app_jobs."
+}
+
+test "a queue over a missing table says how to create it" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+
+    assert queue_error(
+        pgjobs.queue(db, url)
+    ) == "database error 42P01: pgjobs: the jobs table nomi_jobs does not exist. Call pgjobs.install(conn) before pgjobs.queue, or create it in a migration from lib/jobs/postgres's schema.sql."
+}
+
+test "a queue over a bad table name is an error" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    assert Result.is_err(pgjobs.queue(db, url, table: "Jobs; DROP"))
+}
+
+test "install brings a table made from an earlier schema.sql up to date" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    old_table(db)?
+    pgjobs.install(db)?
+    queue = pgjobs.queue(db, url)?
+    _ = jobs.enqueue(queue, db, noop, 2, priority: Some(1))?
+    claimed = Queue.claim(queue, "w1", ["default"], ["noop"], 2, Duration.minutes(1))?
+    assert Iter.map(claimed, &(&1.args)) |> Iter.to_list() == [.Int(2), .Int(1)]
+
+    assert count(db, Sql"SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'nomi_jobs_due'")
+        == Ok(0)
+}
+
+test "schema_upgrade.sql as a migration brings an earlier table up to date" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    old_table(db, table: "app_jobs")?
+    _ = Conn.exec(db, file_script("schema_upgrade.sql", table: "app_jobs"))?
+    queue = pgjobs.queue(db, url, table: "app_jobs")?
+    _ = jobs.enqueue(queue, db, noop, 2, priority: Some(1))?
+    claimed = Queue.claim(queue, "w1", ["default"], ["noop"], 2, Duration.minutes(1))?
+    assert Iter.map(claimed, &(&1.args)) |> Iter.to_list() == [.Int(2), .Int(1)]
+}
+
+test "a table made from schema.sql, then schema_upgrade.sql, makes a queue" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    _ = Conn.exec(db, file_script("schema.sql"))?
+    _ = Conn.exec(db, file_script("schema_upgrade.sql"))?
+    queue = pgjobs.queue(db, url)?
+    _ = jobs.enqueue(queue, db, noop, 1)?
+    assert count(db, Sql"SELECT count(*) AS n FROM nomi_jobs") == Ok(1)
+}
+
+test "a table made from schema.sql under another name makes a queue of that name" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    _ = Conn.exec(db, file_script("schema.sql", table: "app_jobs"))?
+    queue = pgjobs.queue(db, url, table: "app_jobs")?
+    _ = jobs.enqueue(queue, db, noop, 1)?
+    assert count(db, Sql"SELECT count(*) AS n FROM app_jobs") == Ok(1)
+}
+
+fn hourly() -> Schedule {
+    Schedule.every("hourly", Duration.hours(1), noop, 0)
+}
+
+fn nine() -> Instant {
+    Anchored.to_instant(DateTime`2026-06-01T09:00:00Z[UTC]`)
+}
+
+test "two schedulers on their own connections enqueue each tick once" {
+    #(db, queue, _) = fresh()?
+    _ = jobs.enqueue_due(queue, hourly(), nine())?
+
+    answers = concurrent {
+        first = Task.spawn(fn -> step_hours(queue, 5))
+        second = Task.spawn(fn -> step_hours(queue, 5))
+        Task.await(first) + Task.await(second)
+    }
+
+    assert Iter.all(answers, &Result.is_ok(&1))
+    assert count(db, Sql"SELECT count(*) AS n FROM nomi_jobs") == Ok(5)
+    assert count(db, Sql"SELECT count(DISTINCT run_at) AS n FROM nomi_jobs") == Ok(5)
+}
+
+// Step the hourly schedule through `hours` ticks after nine, as one
+// scheduler would.
+fn step_hours(queue: Queue, hours: Int) -> List<Result<Maybe<jobs.Enqueued>, sql.Error>> {
+    1..=hours
+    |> Iter.map(fn hour -> jobs.enqueue_due(queue, hourly(), nine() + Duration.hours(hour)))
+    |> Iter.to_list()
+}
+
+test "a scheduler down across several ticks enqueues one job, for the latest" {
+    #(db, queue, _) = fresh()?
+    _ = jobs.enqueue_due(queue, hourly(), nine())?
+    _ = jobs.enqueue_due(queue, hourly(), nine() + Duration.minutes(210))?
+    _ = jobs.enqueue_due(queue, hourly(), nine() + Duration.minutes(220))?
+    rows = Conn.query(db, Sql"SELECT run_at FROM nomi_jobs")?
+
+    assert Iter.map(rows, &Row.get<Instant>(&1, "run_at")) |> Iter.to_list() == [
+        Ok(nine() + Duration.hours(3)),
+    ]
+
+    assert Queue.last_tick(queue, "hourly") == Ok(Some(nine() + Duration.hours(3)))
+}
+
+test "a repeated 01:30 in New York is enqueued once across the fall change" {
+    #(db, queue, _) = fresh()?
+    nightly = Schedule.cron("nightly", Cron`30 1 * * *`, noop, 0, zone: "America/New_York")
+    from = Anchored.to_instant(DateTime`2026-11-01T00:00:00-04:00[America/New_York]`)
+
+    Iter.each(0..=30, fn step -> {
+        _ = jobs.enqueue_due(queue, nightly, from + Duration.minutes(10) * step)
+    })
+
+    rows = Conn.query(db, Sql"SELECT run_at FROM nomi_jobs")?
+
+    assert Iter.map(rows, &Row.get<Instant>(&1, "run_at")) |> Iter.to_list() == [
+        Ok(Anchored.to_instant(DateTime`2026-11-01T01:30:00-04:00[America/New_York]`)),
+    ]
+}
+
+test "a schedule keeps its ticks in the table the queue names" {
+    #(db, queue, _) = fresh(table: "other_jobs")?
+    _ = jobs.enqueue_due(queue, hourly(), nine())?
+    _ = jobs.enqueue_due(queue, hourly(), nine() + Duration.hours(1))?
+    assert count(db, Sql"SELECT count(*) AS n FROM other_jobs_schedules") == Ok(1)
+    assert count(db, Sql"SELECT count(*) AS n FROM other_jobs") == Ok(1)
 }
 
 fn postgres_now(db: Conn) -> Result<Instant, sql.Error> {

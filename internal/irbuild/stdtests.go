@@ -89,10 +89,11 @@ func StdlibTestModule(file string) string {
 // nodes and fa are the module's checked declarations. Nil takes the cached
 // lowering's own; the tour passes a re-analyzed copy of the module's source
 // with one `test` appended (vmhost.StdlibReference), whose other
-// declarations are the same Nomi as the cache's.
-func GenerateStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis) (*Program, *Result, error) {
+// declarations are the same Nomi as the cache's. hooks observe the cases'
+// declines.
+func GenerateStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
 	if isProgramStd(module) {
-		return generateProgramStdTestIR(module, nodes, fa)
+		return generateProgramStdTestIR(module, nodes, fa, hooks)
 	}
 	std := stdlibLowering()
 	v := std.views[module]
@@ -100,17 +101,47 @@ func GenerateStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnal
 		return nil, nil, fmt.Errorf("irbuild: std/%s is not a lowered stdlib module", module)
 	}
 	if nodes == nil {
-		nodes, fa = v.nodes, v.fa
+		tests, err := sharedStdTestDecls(module)
+		if err != nil {
+			return nil, nil, err
+		}
+		nodes, fa = append(slices.Clip(v.nodes), tests...), v.fa
 	} else {
 		analysis.MarkTailCalls(nodes)
 	}
-	return generateStdlibTestIR(std, v, nodes, fa, std.irModules, nil)
+	return generateStdlibTestIR(std, v, nodes, nodes, fa, std.irModules, nil, false, newDeclineCensus(hooks))
 }
 
-// generateStdlibTestIR builds the cases of nodes, the module v lowered, against
-// the index std, and links them beside libMods (the cached stdlib's modules,
-// by package) and extra, which is linked after them.
-func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes []ast.Node, fa *analysis.FileAnalysis, libMods map[string]*ir.Module, extra []*ir.Module) (*Program, *Result, error) {
+// GenerateStdlibReferenceIR lowers test, one case appended to the embedded
+// stdlib module `module` and checked in its scope (fa, from
+// analysis.FileAnalysis.CheckAddedTest over the shared analysis of the
+// module), as GenerateStdlibTestIR lowers the module's own cases: the
+// module's declarations are the shared ones, already lowered, so only test
+// is built. A reference editor runs one this way (vmhost.StdlibReference).
+// hooks observe the case's declines.
+func GenerateStdlibReferenceIR(module string, test *ast.TestDecl, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
+	cases := []ast.Node{test}
+	analysis.MarkTailCalls(cases)
+	if isProgramStd(module) {
+		return generateProgramStdReferenceIR(module, test, fa, hooks)
+	}
+	std := stdlibLowering()
+	v := std.views[module]
+	if v == nil {
+		return nil, nil, fmt.Errorf("irbuild: std/%s is not a lowered stdlib module", module)
+	}
+	stdBodies(module)
+	nodes := append(slices.Clip(v.nodes), test)
+	return generateStdlibTestIR(std, v, nodes, cases, fa, std.irModules, nil, true, newDeclineCensus(hooks))
+}
+
+// generateStdlibTestIR builds the cases of cases, nodes of the module v
+// lowered (nodes, as fa checked them), against the index std, and links them
+// beside libMods (the cached stdlib's modules, by package) and extra, which
+// is linked after them. With link, the listed std modules the cases import
+// link the kept lowering rather than being lowered with them. dc is the
+// lowering's census.
+func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes, cases []ast.Node, fa *analysis.FileAnalysis, libMods map[string]*ir.Module, extra []*ir.Module, link bool, dc *declineCensus) (*Program, *Result, error) {
 	module := v.module
 	offer := make(map[*stdCandidate]bool, len(v.settled)+len(v.withCycles))
 	for c := range v.settled {
@@ -122,13 +153,14 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes []ast.Node, 
 	newCasesGen := func(in *programBuild) *gen {
 		return newStdGenIn(v.module, v.path, v.pkg, nodes, fa, v.cands, offer, v.onces, std, in)
 	}
-	if listed := listedStdModulesOfCases(nodes); len(listed) > 0 {
-		return generateStdlibTestIRWithProgramStd(v, nodes, fa, listed, newCasesGen, extra)
+	if listed := listedStdModulesOfCases(cases); len(listed) > 0 {
+		return generateStdlibTestIRWithProgramStd(v, nodes, cases, fa, listed, newCasesGen, extra, link, dc.hooks)
 	}
 	g := newCasesGen(nil)
-	insts := newStdInstances(std)
+	g.dc = dc
+	insts := newStdInstances(std, dc)
 	g.stdInsts = insts
-	g.lowerStdCases(nodes)
+	g.lowerStdCases(cases)
 	var irMods []*ir.Module
 	if g.irMod != nil {
 		irMods = append(irMods, g.irMod)
@@ -148,7 +180,7 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes []ast.Node, 
 		irLintFinished(m)
 	}
 	libs = append(libs, instMods...)
-	irWithdrawUnforceableReads(irMods, libs)
+	irWithdrawUnforceableReads(dc, irMods, libs)
 	for _, m := range irMods {
 		irLintFinished(m)
 	}
@@ -204,10 +236,11 @@ func listedStdModulesOfCases(nodes []ast.Node) []string {
 // cases are built on the module's own gen inside that program
 // (Program.stdCases): a call or a type of a listed module resolves as a
 // sibling file's, and everything else as the module's cases always do.
-func generateStdlibTestIRWithProgramStd(v *stdModuleView, nodes []ast.Node, fa *analysis.FileAnalysis, listed []string, newCasesGen func(*programBuild) *gen, extra []*ir.Module) (*Program, *Result, error) {
+func generateStdlibTestIRWithProgramStd(v *stdModuleView, nodes, cases []ast.Node, fa *analysis.FileAnalysis, listed []string, newCasesGen func(*programBuild) *gen, extra []*ir.Module, link bool, hooks DeclineHooks) (*Program, *Result, error) {
 	lib := std.Shared()
-	p := &Program{}
+	p := &Program{linkAllStd: link, Declines: hooks}
 	for _, name := range listed {
+		stdBodies(name)
 		p.Modules = append(p.Modules, Module{
 			Path:  lib.SourcePath(name),
 			Name:  "std/" + name,
@@ -217,7 +250,7 @@ func generateStdlibTestIRWithProgramStd(v *stdModuleView, nodes []ast.Node, fa *
 	}
 	p.stdCases = func(b *programBuild) *gen {
 		g := newCasesGen(b)
-		g.lowerStdCases(nodes)
+		g.lowerStdCases(cases)
 		return g
 	}
 	// The refusal is the listed modules' own cases, which no module here is
@@ -286,7 +319,7 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 	g := bl.g
 	no := func() bool {
-		irDeclineNote("an `import` in a block that rebinds a name the module scope binds differently")
+		bl.g.dc.note("an `import` in a block that rebinds a name the module scope binds differently")
 		return false
 	}
 	if g.fa == nil || g.fa.ModuleScope == nil {

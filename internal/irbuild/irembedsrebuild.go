@@ -316,7 +316,7 @@ func (bl *irScalarBuilder) rebuildSelfRef(key [2]kind) (ir.Temp, bool) {
 		}
 	}
 	if !bl.rebuildBody {
-		irDeclineNote("a value of " + key[0].nomi() + " where " + key[1].nomi() + " is expected, whose type holds itself")
+		bl.g.dc.note("a value of " + key[0].nomi() + " where " + key[1].nomi() + " is expected, whose type holds itself")
 		return ir.NoTemp, false
 	}
 	p := bl.g.irAddParam(bl.f, ir.NewSymbol("_"), funcKindIn(bl.g, []kind{key[0]}, key[1]))

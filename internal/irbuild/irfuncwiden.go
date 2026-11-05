@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -35,6 +37,14 @@ func (bl *irScalarBuilder) funcWiden(at ast.Node, fn ir.Temp, have, want kind) (
 	}
 	if int(fn) < len(bl.sides) && bl.sides[fn].ctl != irCtlNone {
 		return ir.NoTemp, false
+	}
+	if slices.Equal(hp, wp) && bl.erasesUnboxed(funcResult(want), funcResult(have)) {
+		// Only the result widens, into an existential that holds the
+		// value itself (`Response` where std::http's `ToResponse` is
+		// expected): every call through the function already answers
+		// the wider value, so the function is that value, with no
+		// adapter to call on each request.
+		return fn, true
 	}
 	pos := bl.g.irNodePos(at)
 	f := ir.NewFunc(pos, "widen")

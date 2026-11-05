@@ -22,7 +22,8 @@ import (
 //
 // Dispatch and Display bodies are keyed by type name, and a later module's
 // entry replaces an earlier one's: a type an input redeclares dispatches to
-// the newest impl.
+// the newest impl. The machine's boot is the entry's, or the one it had
+// when the entry declares none.
 //
 // Call it only while nothing runs on the machine, on the machine the caller
 // opened rather than a view.
@@ -34,7 +35,12 @@ func (m *Machine) Extend(entry *ir.Module, rest []*ir.Module) {
 		m.linkFuncs(prev)
 	}
 	m.mod = entry
-	m.boot = entry.Boot()
+	if boot := entry.Boot(); boot != nil {
+		// An entry with no boot of its own runs the boot the machine ran
+		// before: a REPL input runs under the boot an earlier input
+		// declared, as one program of every input did.
+		m.boot = boot
+	}
 	if m.dbg != nil {
 		m.dbg.AddModules(append([]*ir.Module{entry}, rest...)...)
 	}
@@ -92,4 +98,25 @@ func (m *Machine) addOnceCells(mod *ir.Module) {
 		}
 		m.onces[cell.Sym()] = &onceCell{body: body, value: rt.NewOnceCell[any](cell.Sym().Name())}
 	}
+}
+
+// Redirect makes every call to old, another lowering's function this
+// machine links, run replacement instead: a call compiled before it, one
+// compiled after it, and old as a value. The REPL redirects an earlier
+// input's impl function to the function of the impl a later input
+// redefined it with, so code an earlier input compiled calls the newest
+// impl, as code a later input compiles does.
+//
+// Call it only while nothing runs on the machine.
+func (m *Machine) Redirect(old, replacement *ir.Func) {
+	if old == nil || replacement == nil || old == replacement {
+		return
+	}
+	if sym := old.Sym(); sym != nil && m.link != nil {
+		m.link[sym] = replacement
+	}
+	s := m.slotFor(old)
+	s.f = replacement
+	s.code.Store(m.codeOf(m.slotFor(replacement)))
+	s.value.Store(nil)
 }

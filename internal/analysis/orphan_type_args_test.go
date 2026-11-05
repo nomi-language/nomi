@@ -9,7 +9,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // The orphan rule admits an impl of a foreign interface for a foreign
@@ -42,7 +41,7 @@ func buildModules(t *testing.T, files map[string]string) []analysis.TypeError {
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entry, lib.Primitives, lib.Modules, lib.Files, filepath.Join(root, "app"), loader)
 	if fa == nil {
 		t.Fatal("no analysis")

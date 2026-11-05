@@ -17,7 +17,7 @@ import (
 // be one a program builds, and must build.
 func TestStdBodiesTheCacheDeclinesAreBuiltPerProgram(t *testing.T) {
 	idx := stdlibLowering()
-	s := newStdInstances(idx)
+	s := newStdInstances(idx, newDeclineCensus(DeclineHooks{}))
 	var names []string
 	whys := map[string]string{}
 	for _, m := range idx.unlowered {

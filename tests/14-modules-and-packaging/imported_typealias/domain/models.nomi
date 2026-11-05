@@ -1,0 +1,6 @@
+// Publishes schema's enum under another name. fundraising.nomi, which names
+// it, is typed before this file, since files are typed in the order of their
+// paths.
+import db::schema
+
+pub typealias Reaction schema.ReactionType

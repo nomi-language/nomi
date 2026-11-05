@@ -100,7 +100,7 @@ func (g *gen) dottedTypeQualifier(n ast.Node) (string, bool) {
 			}
 			root = o.Name
 		case *ast.FilePath:
-			// A file's full path: its import binds the file under it.
+			// A path at a use: its directory import binds the file under it.
 			root = o.Spelling()
 		case *ast.FieldAccess:
 			if o.Field == nil {

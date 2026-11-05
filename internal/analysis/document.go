@@ -55,6 +55,11 @@ type Document struct {
 	// entry, when the analysis holds exactly that program; see
 	// EntryProgram.
 	Program *EntryProgram
+	// FromRecord reports that the analysis was made in a program opened
+	// from its record (stored_program.go): the document checked against
+	// the other files' interfaces, whose analyses hold their declarations
+	// alone and the impls the document can see.
+	FromRecord bool
 }
 
 // EntryProgram is an analyzed document seen as the entry of the program the
@@ -178,6 +183,12 @@ type DocumentManager struct {
 	// project root, which the next analysis of an open document it reaches
 	// rechecks (document_programs.go). Guarded by analyzeMu.
 	programs map[programKey]*rootProgram
+	// stored holds the programs opened from their records, for each entry
+	// under each project root, while no program is kept for it, and
+	// storedMissed the entries with no record that answers
+	// (stored_program.go). Guarded by analyzeMu.
+	stored       map[programKey]*storedProgram
+	storedMissed map[programKey]bool
 	// viewMu keeps readers of installed analyses away from a recheck that
 	// rewrites them (View).
 	viewMu sync.RWMutex
@@ -217,11 +228,32 @@ type DocSnapshot struct {
 	StdDiffers bool
 	// Program is Document.Program for Content.
 	Program *EntryProgram
+	// FromRecord is Document.FromRecord for Content.
+	FromRecord bool
 	// Text and Version are the latest text and its version.
 	// AnalyzedVersion is the version Content and Analysis belong to.
 	Text            string
 	Version         int
 	AnalyzedVersion int
+	// diagnostics, when not nil, are the file's diagnostics, which
+	// Analysis.TypeErrors does not hold: a closed file answered from a
+	// program checked for its open documents (keptClosed), whose analysis
+	// is that program's and is not written to. See TypeErrors.
+	diagnostics []TypeError
+	// fromProgram reports that diagnostics were set.
+	fromProgram bool
+}
+
+// TypeErrors is the file's diagnostics: its analysis's, unless the
+// snapshot carries them apart from it.
+func (s *DocSnapshot) TypeErrors() []TypeError {
+	if s.fromProgram {
+		return s.diagnostics
+	}
+	if s.Analysis == nil {
+		return nil
+	}
+	return s.Analysis.TypeErrors
 }
 
 // Current reports whether the snapshot's analysis was built from its
@@ -384,6 +416,7 @@ func (dm *DocumentManager) Close(uri string) bool {
 	if !ok {
 		return false
 	}
+	go dm.forgetClosed(uri)
 	if dm.Covers(uri) && dm.IndexFile(uri) {
 		return true
 	}
@@ -420,6 +453,7 @@ func (dm *DocumentManager) Snapshot(uri string) *DocSnapshot {
 		Damaged:         doc.Damaged,
 		StdDiffers:      doc.StdDiffers,
 		Program:         doc.Program,
+		FromRecord:      doc.FromRecord,
 		Analysis:        doc.Analysis,
 		Text:            doc.Content,
 		Version:         doc.Version,
@@ -804,6 +838,8 @@ type builtAnalysis struct {
 	stdDiffers bool
 	fa         *FileAnalysis
 	program    *EntryProgram
+	// fromRecord reports a build from a program opened from its record.
+	fromRecord bool
 }
 
 // analyze builds the document's latest text and installs the result.
@@ -852,6 +888,7 @@ func (dm *DocumentManager) analyzeLocked(doc *Document) int {
 		doc.Damaged = b.damaged
 		doc.StdDiffers = b.stdDiffers
 		doc.Program = b.program
+		doc.FromRecord = b.fromRecord
 		doc.Analysis = b.fa
 		doc.AnalyzedContent = content
 		doc.AnalyzedVersion = version
@@ -992,6 +1029,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 			// it is its own entry, so each file's analysis is the same
 			// whichever file the build starts from.
 			entryFA, cache, siblingNodes := BuildProjectFromEntryWithManifest(mainPath, mainNodes, dm.primitives, dm.modules, dm.stdlibFAs, root, loader, nil, relModuleKey(root, mainPath), false)
+			dm.countBuilt(cache)
 			docKey := relModuleKey(root, docPath)
 			if cached, ok := cache[docKey]; ok && cached != nil {
 				fa = cached
@@ -1056,6 +1094,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	prog = SynthesizeUniversalDebug(prog)
 	rec := &loadRecord{}
 	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, nodes, rec), nil, entryModRel, true)
+	dm.countBuilt(docSiblings)
 	fa = docEntryFA
 	// The program's own errors (duplicate and orphan impls) are carried by
 	// the document that is its entry, after its build-phase errors, as the

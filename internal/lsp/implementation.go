@@ -55,6 +55,14 @@ func (s *Server) textDocumentImplementation(ctx *glsp.Context, params *protocol.
 	}
 
 	switch real.Kind {
+	case analysis.SymbolInterface, analysis.SymbolInterfaceMethod:
+		if doc.FromRecord && s.docs.CheckWhole(uri) {
+			// The impls of an interface are the whole program's, which a
+			// document checked against interfaces sees only in part.
+			return s.textDocumentImplementation(ctx, params)
+		}
+	}
+	switch real.Kind {
 	case analysis.SymbolInterface:
 		return s.toUTF16Locations(s.implLocationsForInterface(doc.Analysis, real.Name, uri)), nil
 	case analysis.SymbolInterfaceMethod:

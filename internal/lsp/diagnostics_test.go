@@ -7,8 +7,8 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -237,30 +237,27 @@ func TestWorkspaceFixtureDiagnosticsAreQuietWhenExpectationsMatch(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetWorkspaceRoot(root)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 
-	// Every .nomi file of the repository outside std/ and dot directories,
-	// testdata fixtures included: the workspace scan leaves those out, but
-	// an editor that opens one analyzes it the same way.
+	// Every tracked .nomi file of the repository outside std/, testdata
+	// fixtures included: the workspace scan leaves those out, but an editor
+	// that opens one analyzes it the same way. Untracked copies (an editor
+	// extension's checkout of a published grammar, say) are not the
+	// repository's to answer for.
+	out, err := exec.Command("git", "-C", root, "ls-files", "-z", "--", "*.nomi").Output()
+	if err != nil {
+		t.Skipf("git ls-files: %v", err)
+	}
 	var paths []string
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
+	for _, rel := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+		if rel == "" || strings.HasPrefix(rel, "std/") {
+			continue
 		}
-		if d.IsDir() {
-			if path != root && (strings.HasPrefix(d.Name(), ".") || path == filepath.Join(root, "std")) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if filepath.Ext(path) == ".nomi" {
-			paths = append(paths, path)
-		}
-		return nil
-	})
+		paths = append(paths, filepath.Join(root, filepath.FromSlash(rel)))
+	}
 	var noisy []string
 	for _, path := range paths {
 		doc := dm.AnalyzeClosed(fileuri.FromPath(path))
@@ -291,7 +288,7 @@ func TestStdlibSameOwnerPipeCallPublishesCleanly(t *testing.T) {
 		t.Fatalf("read std/strings.nomi: %v", err)
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetWorkspaceRoot(root)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
@@ -441,7 +438,7 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 		"main.nomi":   "import std::io\nimport helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
 		"helper.nomi": "import std::regex\n\nstruct A {\n  x: Int\n}\n\nenum A {\n  One\n}\n\npub fn greet() -> String {\n  \"hi\"\n}\n",
 	})
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
@@ -482,7 +479,7 @@ func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 		"helper.nomi": "import utlis\n\npub fn greet() -> String {\n  utlis.name()\n}\n",
 		"utils.nomi":  "pub fn name() -> String {\n  \"hi\"\n}\n",
 	})
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
@@ -624,7 +621,7 @@ func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 	files["main.nomi"] = strings.Replace(files["main.nomi"], "fn main() {\n",
 		"derive Equatable for Box\n\nstruct Box {\n    n: Int\n}\n\nfn main() {\n    _ = extra.one()\n    _ = Box{n: 1} == Box{n: 2}\n", 1)
 	dir := writeProject(t, files)
-	lib := std.Load()
+	lib := loadStd()
 	dm := analysis.NewDocumentManager()
 	dm.SetWorkspaceRoot(dir)
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)

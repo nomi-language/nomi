@@ -86,6 +86,11 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		}
 	case *DotVariant:
 	case *DotVariantType:
+	case *EmbedDecl:
+		if n != nil {
+			childrenOfEmbedDecl(n, fn)
+		}
+	case *EmbeddedFiles:
 	case *EnumDef:
 		if n != nil {
 			childrenOfEnumDef(n, fn)
@@ -395,6 +400,10 @@ func absent(n Node) bool {
 		return n == nil
 	case *DotVariantType:
 		return n == nil
+	case *EmbedDecl:
+		return n == nil
+	case *EmbeddedFiles:
+		return n == nil
 	case *EnumDef:
 		return n == nil
 	case *EnumPattern:
@@ -562,6 +571,10 @@ func childrenOfDynamic(v any, fn func(Node)) {
 		if v != nil {
 			childrenOfCaseBranch(v, fn)
 		}
+	case EmbedPattern:
+	case *EmbedPattern:
+	case EmbeddedFile:
+	case *EmbeddedFile:
 	case EnumVariant:
 		childrenOfEnumVariantValue(v, fn)
 	case *EnumVariant:
@@ -819,6 +832,12 @@ func childrenOfDistinctDestructure(x *DistinctDestructure, fn func(Node)) {
 	}
 	if !absent(x.Value) {
 		fn(x.Value)
+	}
+}
+
+func childrenOfEmbedDecl(x *EmbedDecl, fn func(Node)) {
+	if x.Body != nil {
+		fn(x.Body)
 	}
 }
 
@@ -1747,6 +1766,8 @@ var generatedTypes = []any{
 	(*DistinctDestructure)(nil),
 	(*DotVariant)(nil),
 	(*DotVariantType)(nil),
+	(*EmbedDecl)(nil),
+	(*EmbeddedFiles)(nil),
 	(*EnumDef)(nil),
 	(*EnumPattern)(nil),
 	(*ErrorNode)(nil),
@@ -1823,6 +1844,8 @@ var generatedTypes = []any{
 	(*With)(nil),
 	*new(AttachedTestAfter), (*AttachedTestAfter)(nil),
 	*new(CaseBranch), (*CaseBranch)(nil),
+	*new(EmbedPattern), (*EmbedPattern)(nil),
+	*new(EmbeddedFile), (*EmbeddedFile)(nil),
 	*new(EnumVariant), (*EnumVariant)(nil),
 	*new(Expansion), (*Expansion)(nil),
 	*new(ItemComments), (*ItemComments)(nil),

@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 46
+const FormatVersion = 49
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -77,6 +77,74 @@ type Image struct {
 	// text format): the locales its nomi.toml lists, cut to the parts it
 	// reaches. Empty for a program that reaches no locale data.
 	Locales []byte
+	// Files is the table of the image's files region: each embedded file
+	// its code names (ConstEmbedded), once per SHA-256, in the order the
+	// region holds their contents. EncodeImage makes it from the constants
+	// it writes, and DecodeImage reads it.
+	Files []FileEntry
+}
+
+// FileEntry is one embedded file's contents in an image's files region:
+// its SHA-256 (EmbeddedRef.Sum), its size, and where it starts, from the
+// region's start.
+type FileEntry struct {
+	Sum    string
+	Size   int64
+	Offset int64
+}
+
+// THE FILES REGION. An image is its code, which DecodeImage reads, then
+// its files region: the contents of each file Files lists, back to back,
+// with nothing between them. The code says how long it is (ImageCodeLen),
+// so a runner reads the code alone and leaves the region where it is: in
+// the executable or .nomic file, read when the program reads a file, or in
+// the memory that already holds the image. EncodeImage writes the code
+// only; whoever writes the image appends the region (FilesRegionSize says
+// how long), from each file's source, after checking its size and sum.
+
+// FilesRegionSize is how long the files region of an image whose table is
+// files is.
+func FilesRegionSize(files []FileEntry) int64 {
+	var n int64
+	for _, f := range files {
+		n += f.Size
+	}
+	return n
+}
+
+// ImageCodeLen is how long the code of the image that head opens is, read
+// from its header: the length of the bytes DecodeImage reads, after which
+// the files region starts. head needs to hold the header, at most
+// ImageHeaderMax bytes; ok is false when it does not, or is no image.
+func ImageCodeLen(head []byte) (n int64, ok bool) {
+	if len(head) < len(formatMagic) || string(head[:len(formatMagic)]) != formatMagic {
+		return 0, false
+	}
+	r := &rbuf{b: head[len(formatMagic):]}
+	r.uv()
+	r.u32()
+	body := r.uv()
+	if r.err != nil || body > 1<<40 {
+		return 0, false
+	}
+	return int64(len(head)-len(r.b)) + int64(body), true
+}
+
+// ImageHeaderMax is the most bytes an image's header takes: what
+// ImageCodeLen needs to read.
+const ImageHeaderMax = 7 + binary.MaxVarintLen64 + 4 + binary.MaxVarintLen64
+
+// SplitImage answers an image held whole in memory as its code and its
+// files region, which share image's bytes.
+func SplitImage(image []byte) (code, files []byte, err error) {
+	n, ok := ImageCodeLen(image[:min(len(image), ImageHeaderMax)])
+	if !ok {
+		return nil, nil, errors.New("ir: decode: not a Nomi IR image")
+	}
+	if n > int64(len(image)) {
+		return nil, nil, errors.New("ir: decode: truncated image")
+	}
+	return image[:n], image[n:], nil
 }
 
 // Export is one exported function as a host calls it: each argument's JSON
@@ -234,6 +302,10 @@ type encoder struct {
 	named map[string]string
 	// texts replaces the text of the constants it holds (WithConstTexts).
 	texts map[*Const]string
+	// embedded is each embedded file the written code names, once per
+	// sum, in the order first written: the files region's table.
+	embedded     []FileEntry
+	embeddedSeen map[string]bool
 	// doneX is how many entries of each list drain has written.
 	doneFn, doneVT, doneTy int
 	err                    error
@@ -261,23 +333,9 @@ func WithConstTexts(texts map[*Const]string) EncodeOption {
 // EncodeImage writes im in the current format. The same image gives the same
 // bytes.
 func EncodeImage(im Image, opts ...EncodeOption) ([]byte, error) {
-	e := &encoder{
-		strs: map[string]uint64{}, syms: map[*Symbol]uint64{},
-		vts: map[*ValType]uint64{}, tys: map[*Type]uint64{},
-		tabs: map[*Table]uint64{}, fns: map[*Func]uint64{},
-	}
+	e := newEncoder()
 	for _, o := range opts {
 		o(e)
-	}
-	for i, v := range sharedValTypes {
-		e.vts[v] = uint64(i + 1)
-		e.vtL = append(e.vtL, v)
-	}
-	e.doneVT = len(sharedValTypes)
-	// No position has been written in any buffer yet, so the first one
-	// names its file whatever the file's string number is.
-	for _, b := range []*wbuf{&e.fnBuf, &e.vtBuf, &e.tyBuf, &e.modBuf} {
-		b.file = noFile
 	}
 	w := &e.modBuf
 	w.uv(uint64(len(im.Modules)))
@@ -323,6 +381,13 @@ func EncodeImage(im Image, opts ...EncodeOption) ([]byte, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
+	// The files region's table, last: every function is written, so every
+	// embedded file the code names is known.
+	w.uv(uint64(len(e.embedded)))
+	for _, f := range e.embedded {
+		w.uv(e.str(f.Sum))
+		w.uv(uint64(f.Size))
+	}
 
 	var body wbuf
 	body.uv(uint64(len(e.strL)))
@@ -333,6 +398,7 @@ func EncodeImage(im Image, opts ...EncodeOption) ([]byte, error) {
 	body.uv(uint64(len(e.symL)))
 	for _, s := range e.symL {
 		body.uv(e.strs[s.name])
+		body.uv(e.strs[s.link])
 	}
 	body.uv(uint64(len(e.tabL)))
 	body.uv(uint64(len(e.vtL) - len(sharedValTypes)))
@@ -354,6 +420,26 @@ func EncodeImage(im Image, opts ...EncodeOption) ([]byte, error) {
 // EncodeModules is EncodeImage for a module set with no entry.
 func EncodeModules(mods []*Module) ([]byte, error) {
 	return EncodeImage(Image{Modules: mods, Entry: -1})
+}
+
+// newEncoder is an encoder that has numbered only the shared scalar types.
+func newEncoder() *encoder {
+	e := &encoder{
+		strs: map[string]uint64{}, syms: map[*Symbol]uint64{},
+		vts: map[*ValType]uint64{}, tys: map[*Type]uint64{},
+		tabs: map[*Table]uint64{}, fns: map[*Func]uint64{},
+	}
+	for i, v := range sharedValTypes {
+		e.vts[v] = uint64(i + 1)
+		e.vtL = append(e.vtL, v)
+	}
+	e.doneVT = len(sharedValTypes)
+	// No position has been written in any buffer yet, so the first one
+	// names its file whatever the file's string number is.
+	for _, b := range []*wbuf{&e.fnBuf, &e.vtBuf, &e.tyBuf, &e.modBuf} {
+		b.file = noFile
+	}
+	return e
 }
 
 func (e *encoder) fail(format string, args ...any) {
@@ -417,6 +503,7 @@ func (e *encoder) sym(s *Symbol) uint64 {
 		return i
 	}
 	e.str(s.name)
+	e.str(s.link)
 	i := uint64(len(e.symL) + 1)
 	e.syms[s] = i
 	e.symL = append(e.symL, s)
@@ -864,6 +951,23 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		if t, ok := e.texts[n]; ok {
 			text = t
 		}
+		if n.kind == ConstEmbedded {
+			// Its source is a file the image names as it names source
+			// files: a built image does not carry the build machine's
+			// directories.
+			text = e.file(text)
+			if !e.embeddedSeen[n.sum] {
+				if e.embeddedSeen == nil {
+					e.embeddedSeen = map[string]bool{}
+				}
+				e.embeddedSeen[n.sum] = true
+				var at int64
+				if k := len(e.embedded); k > 0 {
+					at = e.embedded[k-1].Offset + e.embedded[k-1].Size
+				}
+				e.embedded = append(e.embedded, FileEntry{Sum: n.sum, Size: n.num, Offset: at})
+			}
+		}
 		w.uv(e.str(text))
 		w.uv(e.sym(n.typ))
 		// A big Int literal's value, in base 10; empty for every other
@@ -873,6 +977,9 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 			bigText = n.big.String()
 		}
 		w.uv(e.str(bigText))
+		if n.kind == ConstEmbedded {
+			w.uv(e.str(n.sum))
+		}
 	case *Bind:
 		w.byte1(tagBind)
 		e.pos(w, n.pos)

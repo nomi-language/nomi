@@ -91,6 +91,7 @@
 10-generics-and-type-wrappers/generics_test.nomi
 10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi
 10-generics-and-type-wrappers/turbofish_test.nomi
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi
 10-generics-and-type-wrappers/type_wrappers_test.nomi
 11-interfaces-and-impls/boxed_existentials/boxed_existentials_test.nomi
 11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi
@@ -99,6 +100,7 @@
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi
 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi
 11-interfaces-and-impls/interface_field_update_test.nomi
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi
 11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi
 11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi
@@ -125,6 +127,7 @@
 13-iterators-and-pipes/loop_control_test.nomi
 13-iterators-and-pipes/maybe_iter_test.nomi
 13-iterators-and-pipes/min_max_test.nomi
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi
 13-iterators-and-pipes/pipe_lambda_test.nomi
 13-iterators-and-pipes/reader_iter_test.nomi
 13-iterators-and-pipes/scan_map_reduce_test.nomi
@@ -132,13 +135,16 @@
 13-iterators-and-pipes/string_iterators_test.nomi
 13-iterators-and-pipes/take_drop_test.nomi
 14-modules-and-packaging/cross_file_modules/cross_file_modules_test.nomi
+14-modules-and-packaging/directory_imports/directory_imports_test.nomi
 14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi
+14-modules-and-packaging/embedded_files/embedded_files_test.nomi
 14-modules-and-packaging/explicit_item_imports/explicit_item_imports_test.nomi
-14-modules-and-packaging/full_paths/full_paths_test.nomi
+14-modules-and-packaging/imported_typealias/imported_typealias_test.nomi
 14-modules-and-packaging/imports_and_modules_test.nomi
 14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi
 14-modules-and-packaging/partner_test_file/shapes_test.nomi
 14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi
+14-modules-and-packaging/reexport_order/reexport_order_test.nomi
 14-modules-and-packaging/same_named_types/same_named_types_test.nomi
 15-app-and-defer/config_pattern/config_pattern_test.nomi
 15-app-and-defer/context_module_values/context_module_values_test.nomi
@@ -150,6 +156,7 @@
 15-app-and-defer/with_overrides/with_overrides_test.nomi
 16-concurrency/actor/actor_test.nomi
 16-concurrency/jobs/jobs_test.nomi
+16-concurrency/jobs/schedules_test.nomi
 16-concurrency/message_loop/message_loop_test.nomi
 16-concurrency/supervisors/supervisors_test.nomi
 17-typed-literals/fragments_test.nomi

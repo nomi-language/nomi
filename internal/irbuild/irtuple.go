@@ -109,7 +109,7 @@ func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, line, col in
 	_, bound := bl.bound[name]
 	if shadows || bound {
 		if bl.inTest && (shadows || !bound) {
-			irDeclineNote("a rebind: " + name)
+			bl.g.dc.note("a rebind: " + name)
 			return false
 		}
 		sym = ir.NewSymbol(name)
@@ -133,7 +133,7 @@ func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {
 	}
 	record := irRetainedRecordKind(k)
 	if !record && (k.tag != tagNamed || !irRetainedStructKind(k.def)) {
-		irDeclineNote("a struct destructure outside retained records and structs")
+		bl.g.dc.note("a struct destructure outside retained records and structs")
 		return false
 	}
 	type read struct {
@@ -145,7 +145,7 @@ func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {
 	reads := make([]read, 0, len(t.Fields))
 	for _, fd := range t.Fields {
 		if fd.Pattern != nil {
-			irDeclineAtPattern(fd.Pattern, "a struct destructure with a field sub-pattern")
+			bl.g.dc.atPattern(fd.Pattern, "a struct destructure with a field sub-pattern")
 			return false
 		}
 		name := fd.Binding
@@ -207,7 +207,7 @@ func (bl *irScalarBuilder) tupleBinding(t *ast.TupleDestructure) bool {
 	subj, k, _, ok := bl.lower(t.Value)
 	if !ok || !irRetainedTupleKind(k) || len(k.comp.parts) != len(t.Bindings) {
 		if ok {
-			irDeclineNote("a tuple destructure outside the retained tuple domain")
+			bl.g.dc.note("a tuple destructure outside the retained tuple domain")
 		}
 		return false
 	}

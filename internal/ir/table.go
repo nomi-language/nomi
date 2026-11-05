@@ -199,6 +199,20 @@ type Table struct {
 	types map[any]*Type
 	decls map[any]*Decl
 	syms  map[any]*Symbol
+	// linker names a token's linkage name, or "" for a symbol only its own
+	// module names; imports answers the symbol another lowering already
+	// made under a linkage name, or nil. Both nil unless SetLinkage ran.
+	linker  func(token any, name string) string
+	imports func(link string) *Symbol
+}
+
+// SetLinkage makes the symbols t interns carry the linkage name linker
+// answers for their token, and makes a token whose linkage name imports
+// answers resolve to that symbol rather than to one t mints: a declaration
+// lowered once for the process (an object linked into this lowering) keeps
+// its one symbol. Either may be nil.
+func (t *Table) SetLinkage(linker func(token any, name string) string, imports func(link string) *Symbol) {
+	t.linker, t.imports = linker, imports
 }
 
 // NewTable is an empty table.
@@ -237,7 +251,17 @@ func (t *Table) Symbol(token any, name string) *Symbol {
 	if s := t.syms[token]; s != nil {
 		return s
 	}
-	s := &Symbol{name: name}
+	var link string
+	if t.linker != nil {
+		link = t.linker(token, name)
+	}
+	if link != "" && t.imports != nil {
+		if s := t.imports(link); s != nil {
+			t.syms[token] = s
+			return s
+		}
+	}
+	s := &Symbol{name: name, link: link}
 	t.syms[token] = s
 	return s
 }

@@ -190,7 +190,7 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 	case "with_value":
 		v, vk, vmobile, ok := bl.lower(t.Args[1])
 		if !ok || !irWitnessableKind(vk) {
-			irDeclineNote("a Context.with_value whose value's type has no single-name identity")
+			bl.g.dc.note("a Context.with_value whose value's type has no single-name identity")
 			return no()
 		}
 		want, ok := bl.g.genHostOfType("std/type", "Type", []kind{vk})
@@ -218,12 +218,12 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 		} else {
 			var typeName bool
 			if x, typeName = bl.witnessTypeKind(arg); !typeName {
-				irDeclineNote("a Context.value witness that is not a type name")
+				bl.g.dc.note("a Context.value witness that is not a type name")
 				return no()
 			}
 			// kindInvalid: lookup — a name that is not a type declines.
 			if x == kindInvalid || !irWitnessableKind(x) {
-				irDeclineNote("a Context.value witness whose type has no single-name identity")
+				bl.g.dc.note("a Context.value witness whose type has no single-name identity")
 				return no()
 			}
 			if wk, ok = bl.g.genHostOfType("std/type", "Type", []kind{x}); !ok {

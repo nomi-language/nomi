@@ -10,7 +10,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // A file that declares a prelude name (`enum Ordering`) is rejected at the
@@ -335,7 +334,7 @@ func checkProjectWithFiles(t *testing.T, src string, files map[string]string) (*
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")

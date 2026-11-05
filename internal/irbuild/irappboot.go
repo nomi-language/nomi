@@ -145,10 +145,7 @@ func (g *gen) irErases(want, have kind) bool {
 		}
 		g.erasedInstances[have] = true
 		if g.reg != nil {
-			if g.reg.erasedInsts == nil {
-				g.reg.erasedInsts = map[*typeDef]bool{}
-			}
-			g.reg.erasedInsts[instIdentity(have.def)] = true
+			g.reg.markErased(have.def)
 		}
 	}
 	return erases
@@ -289,14 +286,14 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 	// read "no decline reason recorded".
 	if fd.Body == nil || fd.ReturnTypeExpr == nil {
 		g.irDeclineOpen(fd.Name)
-		irDeclineNote("a boot without a body or a declared result")
+		g.dc.note("a boot without a body or a declared result")
 		return
 	}
 	result := g.typeOf(fd.ReturnTypeExpr)
 	app, errK, isResult := g.irBootResultParts(result)
 	if !isResult {
 		g.irDeclineOpen(fd.Name)
-		irDeclineNote("a boot result that is not a Result: " + result.nomi())
+		g.dc.note("a boot result that is not a Result: " + result.nomi())
 		return
 	}
 	// A named application struct, or an anonymous record
@@ -304,7 +301,7 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 	// publishes by name alike.
 	if !(app.tag == tagNamed && irBootStructKind(app.def)) && !irBootRecordKind(app) {
 		g.irDeclineOpen(fd.Name)
-		irDeclineNote("a boot result whose fields are not all retained values: " + app.nomi())
+		g.dc.note("a boot result whose fields are not all retained values: " + app.nomi())
 		return
 	}
 	g.pushScope()
@@ -321,7 +318,7 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 	sh := g.irFuncShellWithCallee(fd, sig, params, g.irCalleeSym(fd, fd.Name))
 	if sh == nil {
 		g.irDeclineOpen(fd.Name)
-		irDeclineNote("no function shell")
+		g.dc.note("no function shell")
 		return
 	}
 	previous, previousResult := g.irBoot, g.result
@@ -347,6 +344,15 @@ func (g *gen) irBootResultParts(result kind) (app, errK kind, ok bool) {
 // or a boot in one of the entry's test groups. An app-field read in a
 // program that starts none has nothing to find.
 func (g *gen) irDeclaresBoot() bool {
+	if g.reg != nil && g.reg.perFile != nil {
+		if !g.reg.perFile.isEntry {
+			return g.reg.perFile.entryBoots
+		}
+		if g.reg.perFile.entryBoots {
+			// A session file that runs under an earlier file's boot.
+			return true
+		}
+	}
 	if g.bootDecl() != nil {
 		return true
 	}
@@ -417,6 +423,10 @@ func (g *gen) irRecordImpls() {
 				continue
 			}
 			fn := g.irCalleeSym(it, m.name)
+			if g.linked && g.irMod.FuncFor(fn) == nil {
+				// The kept lowering records it (programstdlink.go).
+				continue
+			}
 			if typ == nil || g.irMod.FuncFor(fn) == nil {
 				// A value of the type may reach a dispatch that finds no
 				// body, which must block the program before it runs
@@ -476,7 +486,7 @@ func (g *gen) irInstanceImpls() []*implDef {
 			if d == nil || recv.def == nil || recv.def.preludeOf != nil {
 				continue
 			}
-			if !g.erasedInstances[recv] && (g.reg == nil || !g.reg.erasedInsts[instIdentity(recv.def)]) {
+			if !g.erasedInstances[recv] && (g.reg == nil || !g.reg.erasedInsts[erasedKey(recv.def)]) {
 				// Held erased nowhere. Another file may hold erased the
 				// instance an impl written here is for.
 				continue
@@ -646,17 +656,17 @@ func (g *gen) irIfaceMethodSym(d *ifaceDef, m *ifaceMethod) *ir.Symbol {
 func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 	read, ok := bl.g.appRead(w.Target)
 	if !ok {
-		irDeclineNote("an app-field write the checker did not resolve")
+		bl.g.dc.note("an app-field write the checker did not resolve")
 		return false
 	}
 	k := bl.g.appFieldKind(read)
 	switch {
 	case !bl.g.irDeclaresBoot() && !irContextKind(k) && !bl.testApp:
-		irDeclineNote("an app-field write in a program with no boot")
+		bl.g.dc.note("an app-field write in a program with no boot")
 		return false
 	// kindInvalid: sentinel — a write with no declared field contract declines.
 	case k == kindInvalid || !irAppFieldKind(k):
-		irDeclineNote("an app-field write of an unretained field")
+		bl.g.dc.note("an app-field write of an unretained field")
 		return false
 	}
 	val, vk, _, ok := bl.lowerTypedOperand(w.Value, k)
@@ -669,7 +679,7 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		// enters its interface, as an argument enters its parameter.
 		have := vk
 		if val, vk, ok = bl.coerceEmpty(w.Value, val, vk, k); !ok || vk != k {
-			irDeclineNote("an app-field write of kind " + have.nomi() + " where " + k.nomi() + " is the field's")
+			bl.g.dc.note("an app-field write of kind " + have.nomi() + " where " + k.nomi() + " is the field's")
 			return false
 		}
 	}

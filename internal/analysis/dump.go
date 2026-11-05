@@ -65,6 +65,12 @@ func dumpErrors(b *strings.Builder, prefix string, errs []TypeError, path func(s
 // the same facts. root is stripped from the paths the dump names, so dumps of
 // one project in two directories compare.
 func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
+	return dumpFile(fa, errs, root, fa.Program().ImplImportUnused)
+}
+
+// dumpFile is DumpFileForTest with whether each whole-file import is
+// needed answered by unused, a program-wide fact.
+func dumpFile(fa *FileAnalysis, errs []TypeError, root string, unused func(*ImplImport) bool) string {
 	path := func(p string) string { return filepath.ToSlash(strings.TrimPrefix(p, root)) }
 	typ := dumpType
 	var b strings.Builder
@@ -202,7 +208,7 @@ func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
 	section(lines)
 	fmt.Fprintf(&b, "imports %s\n", strings.Join(fa.ImportedModules, " "))
 	for _, ii := range fa.ImplImports {
-		fmt.Fprintf(&b, "impl import %d:%d unused %v\n", ii.Pos.Line, ii.Pos.Col, fa.Program().ImplImportUnused(ii))
+		fmt.Fprintf(&b, "impl import %d:%d unused %v\n", ii.Pos.Line, ii.Pos.Col, unused(ii))
 	}
 	if fa.ModuleScope != nil {
 		b.WriteString("scopes\n")
@@ -265,14 +271,33 @@ func DumpProgramForTest(p *CheckedProgram) string {
 			continue
 		}
 		dumpErrors(&b, "syntax ", syntaxErrors(p.Syntax[key]), path)
-		b.WriteString(DumpFileForTest(fa, p.Errors[key], root))
+		unused := fa.Program().ImplImportUnused
+		if f := p.factsFrom; f != nil {
+			// The program-wide answer, of the program checked from source,
+			// for the import at the same position.
+			unused = func(ii *ImplImport) bool {
+				if src := f.Files[key]; src != nil {
+					for _, was := range src.ImplImports {
+						if was.Pos == ii.Pos {
+							return src.Program().ImplImportUnused(was)
+						}
+					}
+				}
+				return false
+			}
+		}
+		b.WriteString(dumpFile(fa, p.Errors[key], root, unused))
 		b.WriteString("syntax tree\n")
 		for _, n := range p.Nodes[key] {
 			dumpSyntax(&b, n, 1)
 		}
 	}
 	var prog *Program
-	if fa := p.Files[p.Entry]; fa != nil {
+	facts := p
+	if p.factsFrom != nil {
+		facts = p.factsFrom
+	}
+	if fa := facts.Files[p.Entry]; fa != nil {
 		prog = fa.Program()
 	}
 	b.WriteString("\n== program\n")
@@ -445,4 +470,43 @@ func dumpScalars(b *strings.Builder, prefix string, v reflect.Value) {
 			}
 		}
 	}
+}
+
+// DumpDeclarationsForTest renders what fa declares, which another file's
+// check reads: its module scope's symbols with their kinds, positions and
+// types, its impls, its type-qualified methods and its demands. Two
+// analyses of one file that dump alike declare the same, whatever they know
+// of its bodies.
+func DumpDeclarationsForTest(fa *FileAnalysis) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "file %s origin %s\n", fa.FilePath, fa.Origin)
+	if s := fa.ModuleScope; s != nil {
+		dumpScope(&b, &Scope{Symbols: s.Symbols, Start: s.Start, End: s.End, ReceiverDisplay: s.ReceiverDisplay}, 0)
+	}
+	var lines []string
+	for typeName, ifaces := range fa.Impls {
+		for iface := range ifaces {
+			lines = append(lines, fmt.Sprintf("impl %s for %s", iface, typeName))
+		}
+	}
+	for iface, byType := range fa.ImplManifest {
+		for typeName, recs := range byType {
+			for _, rec := range recs {
+				lines = append(lines, fmt.Sprintf("demand %s for %s at %s:%d:%d kind %d", iface, typeName, rec.Pos.File, rec.Pos.Line, rec.Pos.Col, rec.Kind))
+			}
+		}
+	}
+	for typeName, byName := range fa.TypeMethods {
+		for name, sym := range byName {
+			if sym != nil {
+				lines = append(lines, fmt.Sprintf("method %s.%s = %s", typeName, name, dumpType(sym.Type)))
+			}
+		}
+	}
+	sort.Strings(lines)
+	for _, l := range lines {
+		b.WriteString(l)
+		b.WriteByte('\n')
+	}
+	return b.String()
 }

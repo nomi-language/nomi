@@ -8,9 +8,10 @@
 // exception, and its runner links nomi/vmrunner/compiler, which brings the
 // front end with it.
 //
-// A native executable is the runner's bytes, then the image, then a fixed
-// 24-byte trailer: the image's offset and length as little-endian uint64s
-// and the magic "NOMIEXE\x01". A WebAssembly runner carries the image in a
+// A native executable is the runner's bytes, then the image (its code, then
+// its embedded files' region; files.go), then a fixed 24-byte trailer: the
+// image's offset and length as little-endian uint64s and the magic
+// "NOMIEXE\x01". The runner reads the code and maps the region. A WebAssembly runner carries the image in a
 // custom section instead (wasm.go). A built binary runs at `nomi run` speed: it
 // skips the front end and the lowering at startup and runs the same VM over
 // the same IR. It is not native code.
@@ -61,45 +62,83 @@ func Trailer(offset, n int64) []byte {
 var ErrNoImage = errors.New("no Nomi program is appended to this executable; " +
 	"it is the nomi-vm `nomi build` appends one to")
 
-// ReadImage reads the image `nomi build` added to the executable at path:
-// after its end for a native executable, or for a WebAssembly module as
-// ReadWasmImage reads it.
+// ReadImage reads the whole image `nomi build` added to the executable at
+// path, its files region included: after its end for a native executable,
+// or for a WebAssembly module as ReadWasmImage reads it. A runner opens its
+// own with OpenImage, which reads only the code.
 func ReadImage(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	size := info.Size()
-	head := make([]byte, len(wasmHeader))
-	if n, _ := f.ReadAt(head, 0); IsWasm(head[:n]) {
-		return ReadWasmImage(f, size)
-	}
-	if size < int64(TrailerSize) {
-		return nil, ErrNoImage
-	}
-	tail := make([]byte, TrailerSize)
-	if _, err := f.ReadAt(tail, size-int64(TrailerSize)); err != nil {
-		return nil, err
-	}
-	if string(tail[16:]) != trailerMagic {
-		return nil, ErrNoImage
-	}
-	offset := int64(binary.LittleEndian.Uint64(tail[0:8]))
-	n := int64(binary.LittleEndian.Uint64(tail[8:16]))
-	if offset < 0 || n < 0 || offset+n != size-int64(TrailerSize) {
-		return nil, fmt.Errorf("the appended Nomi program's trailer is damaged (offset %d, length %d, file %d bytes)",
-			offset, n, size)
+	off, n, inline, err := imageRange(f)
+	if err != nil || inline != nil {
+		return inline, err
 	}
 	image := make([]byte, n)
-	if _, err := f.ReadAt(image, offset); err != nil {
+	if _, err := f.ReadAt(image, off); err != nil {
 		return nil, err
 	}
 	return image, nil
+}
+
+// OpenImage opens the image `nomi build` added to the executable at path,
+// as a runner holds its own: it reads the code, and keeps the file open
+// for the files region, mapped where the platform can (files.go). Close
+// releases it.
+func OpenImage(path string) (*Image, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	off, n, inline, err := imageRange(f)
+	if err != nil || inline != nil {
+		f.Close()
+		if err != nil {
+			return nil, err
+		}
+		// A wasip1 module's image is a data segment, read whole with the
+		// module's sections.
+		return imageFromBytes(inline, true)
+	}
+	im, err := openImageFile(f, off, n)
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	return im, nil
+}
+
+// imageRange finds the image in f: its offset and length, or for a wasip1
+// module the image itself, read from its data segment.
+func imageRange(f *os.File) (off, n int64, inline []byte, err error) {
+	info, err := f.Stat()
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	size := info.Size()
+	head := make([]byte, len(wasmHeader))
+	if k, _ := f.ReadAt(head, 0); IsWasm(head[:k]) {
+		return wasmImageRange(f, size)
+	}
+	if size < int64(TrailerSize) {
+		return 0, 0, nil, ErrNoImage
+	}
+	tail := make([]byte, TrailerSize)
+	if _, err := f.ReadAt(tail, size-int64(TrailerSize)); err != nil {
+		return 0, 0, nil, err
+	}
+	if string(tail[16:]) != trailerMagic {
+		return 0, 0, nil, ErrNoImage
+	}
+	off = int64(binary.LittleEndian.Uint64(tail[0:8]))
+	n = int64(binary.LittleEndian.Uint64(tail[8:16]))
+	if off < 0 || n < 0 || off+n != size-int64(TrailerSize) {
+		return 0, 0, nil, fmt.Errorf("the appended Nomi program's trailer is damaged (offset %d, length %d, file %d bytes)",
+			off, n, size)
+	}
+	return off, n, nil, nil
 }
 
 // Option configures a runner.
@@ -150,7 +189,7 @@ func Main(opts ...Option) {
 	if serveCalls(image, opts) {
 		return
 	}
-	code := Run(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...)
+	code := RunImage(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...)
 	returnPageFiles()
 	os.Exit(code)
 }
@@ -165,18 +204,30 @@ func ProgramArgs() []string {
 	return os.Args[1:]
 }
 
-// OwnImage answers the image `nomi build` added to this runner, read as Main
-// reads it: from the executable's tail, from a wasip1 module's own memory,
-// or from a js/wasm module's nomi.image custom section. The wasip1 reactor (cmd/nomi-vm-reactor),
-// which has no Main, reads its program with it. A runner with no program
-// answers an error that is ErrNoImage.
-func OwnImage() ([]byte, error) { return ownImage() }
+// OwnImage answers the image `nomi build` added to this runner, held as Main
+// holds it: its code read from the executable, whose files region stays in
+// the file, or from a wasip1 module's own memory, or from a js/wasm
+// module's nomi.image custom section. The wasip1 reactor
+// (cmd/nomi-vm-reactor), which has no Main, reads its program with it. A
+// runner with no program answers an error that is ErrNoImage.
+func OwnImage() (*Image, error) { return ownImage() }
 
-// Run decodes image and runs its `main` as `nomi run` does, and answers the
-// exit status `nomi run` would exit with. handleSignals installs the
-// process-wide signal handler, which only a caller that owns the process may
-// do.
+// Run decodes image, a whole image in memory (code and files region), and
+// runs its `main` as `nomi run` does, and answers the exit status `nomi
+// run` would exit with. handleSignals installs the process-wide signal
+// handler, which only a caller that owns the process may do. The program
+// reads its embedded files as copies, so image stays the caller's.
 func Run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool, opts ...Option) int {
+	im, err := imageFromBytes(image, false)
+	if err != nil {
+		fmt.Fprintf(stderr, "nomi: the compiled program cannot be read: %v\n", err)
+		return 1
+	}
+	return run(im, stdout, stderr, stdin, args, handleSignals, false, opts)
+}
+
+// RunImage is Run for an image a runner holds (OpenImage, OpenImageAt).
+func RunImage(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool, opts ...Option) int {
 	return run(image, stdout, stderr, stdin, args, handleSignals, false, opts)
 }
 
@@ -186,15 +237,26 @@ func Run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 // quietly. A page's js/wasm module runs such a program through Run, which
 // runs nothing and exits 0.
 func RunCompiled(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool, opts ...Option) int {
+	im, err := imageFromBytes(image, false)
+	if err != nil {
+		fmt.Fprintf(stderr, "nomi: the compiled program cannot be read: %v\n", err)
+		return 1
+	}
+	return run(im, stdout, stderr, stdin, args, handleSignals, true, opts)
+}
+
+// RunCompiledImage is RunCompiled for an image a runner holds
+// (OpenImageFile).
+func RunCompiledImage(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool, opts ...Option) int {
 	return run(image, stdout, stderr, stdin, args, handleSignals, true, opts)
 }
 
-func run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals, compiled bool, opts []Option) int {
+func run(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals, compiled bool, opts []Option) int {
 	var cfg config
 	for _, o := range opts {
 		o(&cfg)
 	}
-	im, err := ir.DecodeImage(image)
+	im, err := ir.DecodeImage(image.code)
 	if err != nil {
 		fmt.Fprintf(stderr, "nomi: the compiled program cannot be read: %v\n", err)
 		return 1
@@ -244,7 +306,8 @@ func run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		fmt.Fprintf(stderr, "nomi: %v\n", err)
 		return 1
 	}
-	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr).WithLocaleData(locales).WithMessages(messages(im))
+	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr).WithLocaleData(locales).WithMessages(messages(im)).
+		WithEmbeddedSource(newImageEmbedded(im.Files, image.files))
 	if in != nil {
 		m = m.WithInput(in)
 	}

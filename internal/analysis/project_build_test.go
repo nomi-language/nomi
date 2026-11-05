@@ -54,7 +54,7 @@ pub struct B {
 	}
 
 	// Use stdlib for primitives + modules
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
@@ -146,7 +146,7 @@ pub fn make() -> Holder {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
@@ -214,7 +214,7 @@ func buildProjectExpectingErrors(t *testing.T, entry string, siblings map[string
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
@@ -345,7 +345,7 @@ func TestBuildProject_MalformedManifestSurfacesAsTypeError(t *testing.T) {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis even with malformed nomi.toml")
@@ -450,7 +450,7 @@ fn main() {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, siblingFAs, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, loader,
 	)
@@ -525,7 +525,7 @@ fn main() {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
@@ -587,7 +587,7 @@ fn main() {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, siblingFAs, siblingNodes := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, loader,
 	)
@@ -657,7 +657,7 @@ fn main() {
 	// `Display` unresolved and silently skip the orphan diagnostic.
 	loader := std.MakeLoader()
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, loader,
 	)
@@ -710,7 +710,7 @@ fn main() {
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader(),
 	)
@@ -749,7 +749,7 @@ fn main() {
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader(),
 	)
@@ -781,7 +781,7 @@ fn main() {
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader(),
 	)
@@ -817,7 +817,7 @@ fn main() {
 	data, _ := os.ReadFile(entryPath)
 	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 
-	lib := std.Load()
+	lib := loadStd()
 	fa, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader(),
 	)
@@ -864,7 +864,7 @@ func TestBuildProject_UnknownCrossModuleErrorsCleanly(t *testing.T) {
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(fileData)))
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
@@ -962,7 +962,7 @@ fn boot() -> Result<EffectsApp, String> {
 		return nodes, nil
 	}
 
-	lib := std.Load()
+	lib := loadStd()
 
 	entryFA, siblingFAs, _ := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	appFA, ok := siblingFAs["app"]

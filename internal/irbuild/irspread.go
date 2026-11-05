@@ -154,7 +154,7 @@ func (bl *irScalarBuilder) collectSpread(p spreadPart, join spreadJoin) (spreadP
 	args := irQualArgs{temps: []ir.Temp{p.v}, kinds: []kind{p.k}, mobile: []bool{true}, ok: true}
 	v, k, _, ok := bl.iterCall(call, args, join.collect)
 	if !ok || !join.typed(k) {
-		irDeclineNote("a spread of kind " + p.k.nomi() + " that Iter." + join.collect + " does not make a collection")
+		bl.g.dc.note("a spread of kind " + p.k.nomi() + " that Iter." + join.collect + " does not make a collection")
 		return spreadPart{}, false
 	}
 	return spreadPart{at: p.at, v: v, k: k}, true
@@ -174,12 +174,12 @@ func (bl *irScalarBuilder) spreadKind(at ast.Node, heads []spreadPart, join spre
 	}
 	parts := bl.literalPartsOf(ty, join.of)
 	if parts == nil {
-		irDeclineNote("a collection literal with spreads whose kind is open")
+		bl.g.dc.note("a collection literal with spreads whose kind is open")
 		return kindInvalid, false
 	}
 	for _, p := range parts {
 		if !irFullyTyped(p) {
-			irDeclineNote("a collection literal with spreads whose kind is open")
+			bl.g.dc.note("a collection literal with spreads whose kind is open")
 			return kindInvalid, false
 		}
 	}

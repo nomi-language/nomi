@@ -72,7 +72,7 @@ func program() (*vmrunner.Instance, error) {
 	if err != nil {
 		bootErr = fmt.Errorf("this module's Nomi program cannot be read: %v", err)
 	} else {
-		instance, bootErr = vmrunner.Boot(image, os.Stdout, os.Stderr, os.Stdin, vmrunner.ProgramArgs(), options...)
+		instance, bootErr = vmrunner.BootImage(image, os.Stdout, os.Stderr, os.Stdin, vmrunner.ProgramArgs(), options...)
 	}
 	return instance, bootErr
 }

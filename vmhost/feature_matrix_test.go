@@ -578,13 +578,9 @@ const (
 	// it is, solved or not, to be bound or fixed further out.
 	mxFlows mxTyping = iota
 	// mxGives: the type it declares, as the expected type: an annotation,
-	// a parameter, a result, a field, a payload.
+	// a parameter, a pipe stage's parameter (its head is the call's first
+	// argument), a result, a field, a payload.
 	mxGives
-	// mxUnifies: the type it declares, by unification after the
-	// expression is checked (a pipe's head against its stage's
-	// parameter), which solves a tagUntyped part but gives a tagExpects
-	// expression nothing.
-	mxUnifies
 	// mxPasses: the type its own position expects (a `case` or `if` arm,
 	// a block's tail).
 	mxPasses
@@ -625,7 +621,7 @@ var mxWraps = []*mxContext{
 		b.decls = append(b.decls, fmt.Sprintf("fn dflt%d(a: %s = %s) -> %s {\n    a\n}", n, b.typ, b.expr, b.typ))
 		b.expr = fmt.Sprintf("dflt%d()", n)
 	}),
-	wrapCtx("pipe stage", false, mxUnifies, func(b *mxBuild, n int) {
+	wrapCtx("pipe stage", false, mxGives, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("fn pass%d(a: %s) -> %s {\n    a\n}", n, b.typ, b.typ))
 		b.expr = fmt.Sprintf("(%s |> pass%d())", mxParen(b.expr), n)
 	}),
@@ -1031,7 +1027,7 @@ func mxExpectedRejection(c mxCell) (want, why, skip string) {
 	expects := c.f.tags.has(tagExpects)
 	for i, w := range c.wraps {
 		switch {
-		case w.typing == mxGives, w.typing == mxUnifies && !expects:
+		case w.typing == mxGives:
 			return "", "", ""
 		case w.typing == mxPasses, w.typing == mxFlows && !expects:
 			continue
@@ -1071,7 +1067,7 @@ func mxExpectedRejection(c mxCell) (want, why, skip string) {
 // a type: a wrap, the placement or the shell.
 func mxLaterGives(c mxCell, i int) bool {
 	for _, w := range c.wraps[i:] {
-		if w.typing == mxGives || w.typing == mxUnifies {
+		if w.typing == mxGives {
 			return true
 		}
 	}
@@ -1106,7 +1102,7 @@ func (r mxCheckerRule) applies(c mxCell) bool {
 		if w.name == r.context {
 			return true
 		}
-		if r.before && (w.typing == mxGives || w.typing == mxUnifies) {
+		if r.before && (w.typing == mxGives) {
 			return false
 		}
 	}
@@ -1129,11 +1125,11 @@ var mxCheckerRules = []mxCheckerRule{
 
 // mxByteLiteralFixedAsInt matches the byte literal inside a context that
 // types it as an Int before any context expects a Byte of it (a binding, a
-// case subject, a lambda, a pipe's head), when a context further out
-// requires a Byte. Walking out from the literal: a context that gives Byte
-// makes it one; a block tail, an arm, and a generic call whose result is
-// expected pass the expected type in; a pipe stage's parameter is unified
-// with its head after the head is typed; anything else fixes Int. The
+// case subject, a lambda), when a context further out requires a Byte.
+// Walking out from the literal: a context that gives Byte makes it one, a
+// pipe stage's parameter included; a block tail, an arm, and a generic
+// call whose result is expected pass the expected type in; anything else
+// fixes Int. The
 // `defer` shell binds the value and then passes it to a Byte parameter.
 func mxByteLiteralFixedAsInt(c mxCell) bool {
 	if c.f.name != "byte literal" {
@@ -1146,8 +1142,6 @@ func mxByteLiteralFixedAsInt(c mxCell) bool {
 			return false
 		case w.typing == mxPasses, w.name == "generic type argument", w.name == "generic function of another file":
 			continue
-		case w.typing == mxUnifies:
-			return true
 		}
 		return mxLaterGives(c, i+1) || deferShell
 	}
@@ -1172,7 +1166,7 @@ func mxBindsWhollyOpen(c mxCell) bool {
 		case "Iter.map callback", "concurrent task", "generic struct field":
 			return true
 		}
-		if w.typing == mxGives || w.typing == mxUnifies {
+		if w.typing == mxGives {
 			return false
 		}
 	}

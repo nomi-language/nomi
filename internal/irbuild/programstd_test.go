@@ -60,10 +60,7 @@ func TestProgramStdModulesQualify(t *testing.T) {
 			t.Errorf("std/%s is lowered once for the process as well", name)
 		}
 		declined := map[string]string{}
-		prev := IRDeclineObserved
-		IRDeclineObserved = func(fn, reason string) { declined[fn] = reason }
-		_, res, err := generateProgramStdTestIR(name, nil, nil)
-		IRDeclineObserved = prev
+		_, res, err := generateProgramStdTestIR(name, nil, nil, DeclineHooks{Observed: func(fn, reason string) { declined[fn] = reason }})
 		if err != nil {
 			t.Errorf("std/%s: %v", name, err)
 			continue

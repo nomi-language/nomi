@@ -18,11 +18,11 @@ import (
 // Module.lint is the one field deliberately not encoded: it is
 // LintModuleAdded's progress, and a decoded module starts it over.
 var encodedFields = map[reflect.Type]string{
-	reflect.TypeFor[ir.Image]():         "Modules Entry HostKeys HasMain Root Exports Locales",
+	reflect.TypeFor[ir.Image]():         "Modules Entry HostKeys HasMain Root Exports Locales Files",
 	reflect.TypeFor[ir.Export]():        "Name Func Params Result Encode",
 	reflect.TypeFor[ir.ExportParam]():   "Name Type Decode",
 	reflect.TypeFor[ir.Pos]():           "file line col endLine endCol synth stdlib",
-	reflect.TypeFor[ir.Symbol]():        "name",
+	reflect.TypeFor[ir.Symbol]():        "name link",
 	reflect.TypeFor[ir.Block]():         "pos id label instrs term owner fault faultPos hasFault stmts",
 	reflect.TypeFor[ir.Region]():        "pos label blocks owner",
 	reflect.TypeFor[ir.Func]():          "Region name sym next defs params types vars pipes",
@@ -37,7 +37,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.DisplayImpl]():   "Type Func",
 	reflect.TypeFor[ir.BootFailure]():   "Boot Render Exit",
 	reflect.TypeFor[ir.Type]():          "owner name form embeds conforms val",
-	reflect.TypeFor[ir.Table]():         "types decls syms",
+	reflect.TypeFor[ir.Table]():         "types decls syms linker imports",
 	reflect.TypeFor[ir.ValType]():       "kind sym elems names result layout",
 	reflect.TypeFor[ir.Layout]():        "Fields Variants",
 	reflect.TypeFor[ir.Variant]():       "Name Form Fields",
@@ -57,7 +57,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Record]():        "pos val kind text suppress before after",
 	reflect.TypeFor[ir.Iter]():          "pos dst op over sig args",
 	reflect.TypeFor[ir.Compare]():       "pos dst op shape lhs rhs rank",
-	reflect.TypeFor[ir.Const]():         "pos dst kind num flt text typ big",
+	reflect.TypeFor[ir.Const]():         "pos dst kind num flt text typ big sum",
 	reflect.TypeFor[ir.Bind]():          "pos dst src sym",
 	reflect.TypeFor[ir.Match]():         "pos dst subj arg kind sym text idx embeds",
 	reflect.TypeFor[ir.NoMatch]():       "pos",

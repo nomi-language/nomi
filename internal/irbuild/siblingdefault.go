@@ -106,6 +106,13 @@ func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 		fd == nil || !fd.Public || len(it.params) != len(fd.Params) || !it.lowerable {
 		return
 	}
+	// A member with type parameters of its own is lowered per instance, and
+	// an instance's accessors are built when a call asks for them, under the
+	// instance's frame and the name the call gives (methodInstSlotDefaults).
+	// Building them here too would define each accessor twice.
+	if len(fd.TypeParams) > 0 {
+		return
+	}
 	if def := d.recv.def; d.recv.tag != tagNamed || def == nil || def.instOrigin != nil || def.genericOf != nil {
 		return
 	}
@@ -196,10 +203,10 @@ func (bl *irScalarBuilder) namedSiblingImplFill(t *ast.Call, fa *ast.FieldAccess
 func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, fn string, slot int) {
 	name := fileSlotName(fn, slot)
 	g.irDeclineOpen(name)
-	defer irDeclineAtNode(fd.Params[slot].Default)
+	defer g.dc.atNode(fd.Params[slot].Default)
 	for _, k := range sig.params[:slot+1] {
 		if !irCallOperandKind(k) {
-			irDeclineNote("a parameter kind outside the call domain: " + k.nomi())
+			g.dc.note("a parameter kind outside the call domain: " + k.nomi())
 			return
 		}
 	}
@@ -216,7 +223,7 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, f
 	isig := irFuncSig{result: sig.params[slot], decl: fd, name: name, origin: irFromModule}
 	sh := g.irFuncShellWithCallee(&short, isig, params, g.irFileSlotSym(callee, fn, slot))
 	if sh == nil {
-		irDeclineNote("no function shell")
+		g.dc.note("no function shell")
 		return
 	}
 	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: sig.params[slot], sides: sh.sides,
@@ -229,7 +236,7 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, f
 	filled := *fd
 	filled.Params = fd.Params[:slot+1]
 	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1]}, args) {
-		irDeclineNote("a default that does not lower")
+		g.dc.note("a default that does not lower")
 		return
 	}
 	at := g.irNodePos(fd)
@@ -238,7 +245,7 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, f
 	bl.side(sh.result, irScalarSide{k: sig.params[slot]})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
 	if err := g.irLint(sh.fn); err != nil {
-		irDeclineNote("a default accessor that does not lint: " + err.Error())
+		g.dc.note("a default accessor that does not lint: " + err.Error())
 		return
 	}
 	g.irModule().AddFunc(sh.fn)

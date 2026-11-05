@@ -6,15 +6,15 @@
 //
 // The builder declines by returning failure up the call chain to an attempt
 // (`irScalarBuild`, `irOnceCellLower`, `irTestBodyAttempt`), and names the
-// reason afterwards (`irDeclineNote`, or `declineReason` in `lowerExact`). A
-// site is one of:
+// reason afterwards in the lowering's census (`dc.note`, or `declineReason`
+// in `lowerExact`). A site is one of:
 //
-//   - note: a call that names a decline reason: `irDeclineNote`,
-//     `irDeclineNoteOnce`, `irDeclineAtPattern`, or a function or closure that
-//     forwards its own parameter to one of them, given a reason that is not
-//     itself a forwarded parameter or `irDeclineBodyWhy`; or an assignment
-//     to `irDeclineBodyWhy` followed by a return. Notes in irdecline.go are
-//     the census itself, not sites.
+//   - note: a call that names a decline reason: the census's `note`,
+//     `noteOnce` or `atPattern` (a call through `dc` or `x.dc`), or a function
+//     or closure that forwards its own parameter to one of them, given a
+//     reason that is not itself a forwarded parameter or the census's
+//     `bodyWhy`; or an assignment to `bodyWhy` followed by a return. Notes in
+//     irdecline.go are the census itself, not sites.
 //   - false: a `return` whose value in a decline position is the literal
 //     `false`, unless every disjunct of the condition that guards it is the
 //     failure of a lowering function's own decline result (`if !ok` with `ok`
@@ -31,7 +31,7 @@
 // (`return bl.lowerX(n)`, or `return t, k, m, ok` with `ok` from the call),
 // or when a guarded return or a note passes its failure on (`if !ok {
 // return ..., false }`). The callee must be a lowering function: one that
-// reaches `lowerExact`, a note or `irDeclineClose` through the package's
+// reaches `lowerExact`, a note or the census's `close` through the package's
 // own calls. A guard on anything else (a lookup, a kind predicate, a map
 // read) is itself the site, with the guard as its description.
 //
@@ -87,16 +87,51 @@ func (s Site) Pos() string { return fmt.Sprintf("%s:%d", s.File, s.Line) }
 // baseNoteFuncs are the functions that name a decline, with the index of the
 // reason argument.
 var baseNoteFuncs = map[string]int{
-	"irDeclineNote":      0,
-	"irDeclineNoteOnce":  0,
-	"irDeclineAtPattern": 1,
+	censusRecv + ".note":      0,
+	censusRecv + ".noteOnce":  0,
+	censusRecv + ".atPattern": 1,
+}
+
+// censusRecv is the type of the lowering's decline census, whose methods
+// the notes are, and censusField the gen field that holds it.
+const (
+	censusRecv  = "declineCensus"
+	censusField = "dc"
+)
+
+// isCensus reports whether x is the census: `dc`, or a selector of the
+// field `dc` (`g.dc`, `bl.g.dc`).
+func isCensus(x ast.Expr) bool {
+	switch x := unparen(x).(type) {
+	case *ast.Ident:
+		return x.Name == censusField
+	case *ast.SelectorExpr:
+		return x.Sel.Name == censusField
+	}
+	return false
+}
+
+// censusMethod is the key of the census method a call names (`g.dc.note`),
+// or "".
+func censusMethod(fun ast.Expr) string {
+	if sel, ok := fun.(*ast.SelectorExpr); ok && isCensus(sel.X) {
+		return censusRecv + "." + sel.Sel.Name
+	}
+	return ""
+}
+
+// isBodyWhy reports whether x is the census's bodyWhy, irScalarBody's
+// reason (`g.dc.bodyWhy`).
+func isBodyWhy(x ast.Expr) bool {
+	sel, ok := unparen(x).(*ast.SelectorExpr)
+	return ok && sel.Sel.Name == "bodyWhy" && isCensus(sel.X)
 }
 
 // markers are the calls that make a function a lowering function, besides
 // the notes.
 var markers = map[string]bool{
 	"irScalarBuilder.lowerExact": true,
-	"irDeclineClose":             true,
+	censusRecv + ".close":        true,
 }
 
 // seeds are the decline positions every other one is reached from.
@@ -125,7 +160,7 @@ type fnInfo struct {
 	assigns []assign
 	returns []*retInfo
 	notes   []noteCall
-	whys    []token.Pos // irDeclineBodyWhy assignments followed by a return
+	whys    []token.Pos // the census's bodyWhy assignments followed by a return
 }
 
 type assign struct {
@@ -317,7 +352,7 @@ func (a *analyzer) walkStmts(st *scanState, list []ast.Stmt, guard ast.Expr) {
 		case *ast.AssignStmt:
 			a.recordAssign(st, s.Lhs, s.Rhs, s.Pos())
 			for _, l := range s.Lhs {
-				if id, ok := l.(*ast.Ident); ok && id.Name == "irDeclineBodyWhy" && i+1 < len(list) {
+				if isBodyWhy(l) && i+1 < len(list) {
 					if _, ret := list[i+1].(*ast.ReturnStmt); ret {
 						st.fi.whys = append(st.fi.whys, s.Pos())
 					}
@@ -524,7 +559,18 @@ func (a *analyzer) resolve(st *scanState, c *ast.CallExpr) []string {
 		if x, ok := f.X.(*ast.Ident); ok && a.imports[x.Name] {
 			return nil
 		}
-		return a.methods[f.Sel.Name]
+		if k := censusMethod(f); k != "" {
+			return []string{k}
+		}
+		// A method of another receiver that shares a census method's name
+		// (typeDef.note) is not the census's.
+		var keys []string
+		for _, k := range a.methods[f.Sel.Name] {
+			if !strings.HasPrefix(k, censusRecv+".") {
+				keys = append(keys, k)
+			}
+		}
+		return keys
 	}
 	return nil
 }
@@ -603,12 +649,12 @@ func (a *analyzer) findNoteForwarders() {
 				if !ok {
 					return true
 				}
-				id, ok := c.Fun.(*ast.Ident)
-				if !ok {
-					return true
+				name := censusMethod(c.Fun)
+				if id, ok := c.Fun.(*ast.Ident); ok {
+					name = id.Name
 				}
-				idx, isNote := a.notes[id.Name]
-				if !isNote || idx >= len(c.Args) {
+				idx, isNote := a.notes[name]
+				if name == "" || !isNote || idx >= len(c.Args) {
 					return true
 				}
 				if r, ok := unparen(c.Args[idx]).(*ast.Ident); ok {
@@ -659,25 +705,24 @@ func (a *analyzer) collectNotes(fi *fnInfo) {
 		if !ok {
 			return true
 		}
-		id, ok := c.Fun.(*ast.Ident)
-		if !ok {
-			return true
-		}
-		key := id.Name
-		if k, closure := closureOf[id.Name]; closure {
-			key = k
+		key := censusMethod(c.Fun)
+		if id, ok := c.Fun.(*ast.Ident); ok {
+			key = id.Name
+			if k, closure := closureOf[id.Name]; closure {
+				key = k
+			}
 		}
 		idx, isNote := a.notes[key]
-		if !isNote || idx >= len(c.Args) {
+		if key == "" || !isNote || idx >= len(c.Args) {
 			return true
 		}
 		reason := unparen(c.Args[idx])
+		if isBodyWhy(reason) {
+			// Passes on irScalarBlock's decline, whose assignment of the
+			// census's bodyWhy is the site.
+			return true
+		}
 		if r, ok := reason.(*ast.Ident); ok {
-			if r.Name == "irDeclineBodyWhy" {
-				// Passes on irScalarBlock's decline, whose assignment
-				// of irDeclineBodyWhy is the site.
-				return true
-			}
 			for _, p := range fi.params {
 				if p == r.Name {
 					return true
@@ -690,7 +735,7 @@ func (a *analyzer) collectNotes(fi *fnInfo) {
 }
 
 // loweringFuncs answers the functions that reach lowerExact, a note or
-// irDeclineClose through the package's own calls.
+// the census's close through the package's own calls.
 func (a *analyzer) loweringFuncs() map[string]bool {
 	low := map[string]bool{}
 	for k := range markers {
@@ -852,7 +897,7 @@ func (a *analyzer) sites(lowering map[string]bool) []Site {
 			out = append(out, found{fi.key, "note", text(a.fset, n.reason), n.call.Pos()})
 		}
 		for _, w := range fi.whys {
-			out = append(out, found{fi.key, "note", "irDeclineBodyWhy", w})
+			out = append(out, found{fi.key, "note", "dc.bodyWhy", w})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {

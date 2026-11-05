@@ -384,6 +384,8 @@ func (r *completionRequest) candidates() []candidate {
 		return r.implStubCandidates()
 	case ctxShapeHead:
 		return r.shapeHeadCandidates()
+	case ctxPathSegment:
+		return r.pathSegmentCandidates()
 	}
 	return nil
 }

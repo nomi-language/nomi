@@ -488,13 +488,18 @@ func (want *ValType) Accepts(have *ValType) bool {
 	if want.kind == KindIface && have.kind != KindIface {
 		return true
 	}
-	if want.kind != have.kind || want.sym != have.sym ||
+	if want.kind != have.kind || (want.sym != have.sym && !sameCovariantEnum(want, have)) ||
 		len(want.elems) != len(have.elems) || len(want.names) != len(have.names) {
 		return false
 	}
 	for i := range want.elems {
 		if !want.elems[i].Accepts(have.elems[i]) {
-			return false
+			// A function value relabelled to wider type arguments takes
+			// narrower parameters (spec §5 *Type argument conversion*): a
+			// call through want passes values have's parameters hold.
+			if want.kind != KindFunc || !have.elems[i].Accepts(want.elems[i]) {
+				return false
+			}
 		}
 	}
 	for i := range want.names {
@@ -506,6 +511,19 @@ func (want *ValType) Accepts(have *ValType) bool {
 		return false
 	}
 	return want.result == nil || want.result.Accepts(have.result)
+}
+
+// sameCovariantEnum reports whether want and have are instances of the
+// prelude's Maybe or Result, the generic enums whose values the builder
+// relabels to wider type arguments: each instance has a symbol of its own,
+// and the values are records whose fields the VM reads through their own
+// descriptor.
+func sameCovariantEnum(want, have *ValType) bool {
+	if want.kind != KindEnum || want.sym == nil || have.sym == nil || want.sym.Name() != have.sym.Name() {
+		return false
+	}
+	n := want.sym.Name()
+	return n == "maybe.Maybe" || n == "results.Result"
 }
 
 // InstanceKey tells apart the instances of one generic struct or enum: t's

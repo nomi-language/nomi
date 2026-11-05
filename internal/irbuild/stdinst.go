@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -100,11 +101,16 @@ type stdInstances struct {
 	// `Vector<Point>` over the caller's Point is one kind on both sides of the
 	// call.
 	caller *gen
+	// dc is the census of the lowering the table belongs to.
+	dc *declineCensus
 }
 
-func newStdInstances(std *stdlibIndex) *stdInstances {
+// newStdInstances is a lowering's instance table, whose instance gens note
+// their declines in dc, the lowering's census.
+func newStdInstances(std *stdlibIndex, dc *declineCensus) *stdInstances {
 	return &stdInstances{
 		std:     std,
+		dc:      dc,
 		byKey:   map[string]*stdInst{},
 		pending: map[string]*stdInst{},
 		failed:  map[string]string{},
@@ -122,6 +128,39 @@ func (s *stdInstances) modules() []*ir.Module {
 			out = append(out, m)
 		}
 	}
+	return out
+}
+
+// needs is, for each of modules' instances in its order, the listed std
+// modules (programStdModules) that declare a type in its arguments: what a
+// program must reach for the instance to name only what it links
+// (programstdlink.go's restrict).
+func (s *stdInstances) needs() [][]string {
+	if s == nil {
+		return nil
+	}
+	var out [][]string
+	for _, key := range s.order {
+		inst := s.byKey[key]
+		if inst.gen.irMod == nil {
+			continue
+		}
+		out = append(out, listedModulesNamed(portableArgsKey(inst.args)))
+	}
+	return out
+}
+
+// listedModulesNamed is each listed std module a portable spelling
+// (writePortableKind) names a declaration of, sorted: a std declaration is
+// spelled by its linkage path, `@std/<module>.<path>`.
+func listedModulesNamed(spelling string) []string {
+	var out []string
+	for name := range programStdModules {
+		if strings.Contains(spelling, "@std/"+name+".") {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 
@@ -164,15 +203,13 @@ func (s *stdInstances) instantiate(f *stdFunc, tps []string, args []kind, holes 
 func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, holes map[string]bool, key string) (*stdInst, string) {
 	s.attempting = true
 	// The closure is built in the middle of the caller's own attempt, whose
-	// decline bookkeeping is process state: it is set aside and restored, and
-	// the test observers do not see instance bodies.
-	fn, seen, why0, bodyWhy, line, col := irDeclineFn, irDeclineSeen, irDeclineWhy, irDeclineBodyWhy, irDeclineLine, irDeclineCol
-	path, cur := irDeclinePath, irDeclineCur
+	// decline record is set aside and restored, and neither the decline
+	// hooks nor the test observers see instance bodies.
+	resume := s.dc.suspend()
 	unmute := irMuteObservers()
 	defer func() {
 		unmute()
-		irDeclineFn, irDeclineSeen, irDeclineWhy, irDeclineBodyWhy, irDeclineLine, irDeclineCol = fn, seen, why0, bodyWhy, line, col
-		irDeclinePath, irDeclineCur = path, cur
+		resume()
 		s.attempting = false
 		s.pending = map[string]*stdInst{}
 		s.pendingOrder = nil
@@ -213,6 +250,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 	if v == nil {
 		return nil, "a generic stdlib function with no retained module view: " + f.key
 	}
+	stdBodies(f.module)
 	offer := make(map[*stdCandidate]bool, len(v.settled)+len(v.withCycles))
 	for c := range v.settled {
 		offer[c] = true
@@ -221,8 +259,9 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 		offer[c] = true
 	}
 	g := newStdGen(v.module, v.path, v.pkg, v.nodes, v.fa, v.cands, offer, v.onces, s.std)
-	g.stdInsts = s
+	g.stdInsts, g.dc = s, s.dc
 	if c := s.caller; c != nil {
+		g.progLinks = c.programLinks()
 		if c.preludeInsts == nil {
 			c.preludeInsts = map[string][]*typeDef{}
 		}
@@ -403,6 +442,7 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc, visiting map[*stdFunc]boo
 	if v == nil {
 		return false
 	}
+	stdBodies(f.module)
 	found := false
 	var walk func(n ast.Node)
 	walk = func(n ast.Node) {
@@ -632,7 +672,7 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 	}
 	no := func(why string) (ir.Temp, kind, bool, bool, bool) {
 		if why != "" {
-			irDeclineNote(why)
+			bl.g.dc.note(why)
 		}
 		return ir.NoTemp, kindInvalid, false, false, true
 	}

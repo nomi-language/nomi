@@ -77,7 +77,7 @@ func (bl *irScalarBuilder) orPatternTest(p *ast.OrPattern, value ir.Temp, k kind
 	bl.restoreScope(scope)
 	bl.b = arm
 	if join.mismatch != "" {
-		irDeclineNote("an `or` pattern whose alternatives bind " + join.mismatch + " at two kinds")
+		bl.g.dc.note("an `or` pattern whose alternatives bind " + join.mismatch + " at two kinds")
 		return false
 	}
 	for _, name := range patternBinders(p.Alternatives[0]) {

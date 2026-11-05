@@ -26,6 +26,7 @@ import (
 // internalStdModules maps each internal std module to the std module it
 // serves, which is what a program uses instead.
 var internalStdModules = map[string]string{
+	"embed_host":     "embed",
 	"fs_host":        "fs",
 	"html_host":      "html",
 	"message_format": "message",

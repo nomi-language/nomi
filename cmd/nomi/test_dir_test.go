@@ -37,3 +37,33 @@ test "a relative path is under the module root" {
 		}
 	}
 }
+
+// A partner test in a subdirectory calls its file's private functions
+// through the module name, one with a default left out included, whether
+// `nomi test` runs on the directory or on the test file alone, which is
+// then the entry and keyed by its name rather than its path.
+func TestTestCommand_ANestedPartnerTestCallsPrivateFunctions(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"app\"\n")
+	mustWrite(t, filepath.Join(root, "views", "post.nomi"), `fn classes(n: Int, prefix: String = "c") -> String {
+    "${prefix}${n}"
+}
+`)
+	mustWrite(t, filepath.Join(root, "views", "post_test.nomi"), `import views::post
+
+test "a partner test calls a private function" {
+    assert post.classes(1) == "c1"
+    assert post.classes(2, prefix: "x") == "x2"
+}
+`)
+	for _, args := range [][]string{
+		{"test", "."},
+		{"test", "views/post_test.nomi"},
+		{"check", "views/post_test.nomi"},
+	} {
+		out, err := runNomiInDir(t, t.TempDir(), root, "", args...)
+		if err != nil || strings.Contains(out, "BLOCKED") || strings.Contains(out, "not supported") {
+			t.Errorf("nomi %v: %v\n%s", args, err, out)
+		}
+	}
+}

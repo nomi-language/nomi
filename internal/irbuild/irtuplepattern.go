@@ -46,7 +46,7 @@ func tupleCaseIrrefutable(pattern ast.Node, k kind) bool {
 func (bl *irScalarBuilder) tupleCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
 	tested, ok := tupleCaseComponents(pattern, k)
 	if !ok || len(tested) == 0 {
-		irDeclineNote("a `case` tuple pattern outside flat Int/String tests with bindings and wildcards")
+		bl.g.dc.note("a `case` tuple pattern outside flat Int/String tests with bindings and wildcards")
 		return false
 	}
 	pat := pattern.(*ast.TuplePattern)

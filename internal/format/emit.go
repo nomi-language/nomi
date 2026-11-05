@@ -912,6 +912,8 @@ func emitNode(n ast.Node) Doc {
 		return emitExternFunc(v)
 	case *ast.KeywordDecl:
 		return emitKeywordDecl(v)
+	case *ast.EmbedDecl:
+		return emitEmbedDecl(v)
 	case *ast.ExternType:
 		return emitExternType(v)
 	case *ast.ExternPackage:
@@ -5710,6 +5712,16 @@ func emitKeywordDecl(v *ast.KeywordDecl) Doc {
 	if v.Body != nil {
 		parts = append(parts, Text(" "+v.BodyTag), emit(v.Body))
 	}
+	return Concat(parts...)
+}
+
+// emitEmbedDecl renders `[pub] embed name `patterns“, its body as written.
+func emitEmbedDecl(v *ast.EmbedDecl) Doc {
+	parts := emitDocBeforeAttachedTests(v.Doc, nil)
+	if v.Public {
+		parts = append(parts, Text("pub "))
+	}
+	parts = append(parts, Text("embed "+v.Name+" "), emit(v.Body))
 	return Concat(parts...)
 }
 

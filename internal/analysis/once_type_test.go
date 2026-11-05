@@ -11,7 +11,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // An unannotated `once` takes the type of its value, which only checking the
@@ -45,7 +44,7 @@ func checkOnceProject(t *testing.T, files map[string]string, order []string) map
 		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 		return nodes, nil
 	}
-	lib := std.Load()
+	lib := loadStd()
 	fa, siblings, siblingNodes := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -210,67 +211,43 @@ func build(b buildArgs, stderr io.Writer) error {
 			}
 		}
 	}
-	res, err := ffirun.Prepare(absPath)
-	if b.noVM && hasGoBindings(res, err) {
-		return errNoVMGoBindings
-	}
-	if err != nil {
-		return fmt.Errorf("nomi build: %w", ffirun.ForBuild(err))
+	// A build of the same files for the same target is kept in the artifact
+	// cache, as a run's lowering is: a hit needs no check, no lowering and
+	// no image, only the runner. It is kept only for a program with no Go
+	// bindings, so the wrapper is not asked about it.
+	cache := vmhost.OpenCacheFor(absPath, buildKind(b))
+	kept, hit := decodeKeptBuild(cache.Kept())
+	var res *ffirun.Result
+	if !hit {
+		res, err = ffirun.Prepare(absPath)
+		if b.noVM && hasGoBindings(res, err) {
+			return errNoVMGoBindings
+		}
+		if err != nil {
+			return fmt.Errorf("nomi build: %w", ffirun.ForBuild(err))
+		}
 	}
 	var image []byte
+	var sources []vmhost.EmbedSource
 	var runner, decls string
 	var reactor bool
 	var localeFiles map[string][]byte
-	if res.FastPath {
-		p, err := vmhost.Load(absPath)
-		if err != nil {
-			vmhost.WriteFailure(stderr, err)
-			return errBuildRefused
-		}
-		reactor = b.target == wasip1 && p.HasExports()
-		if !b.noVM {
-			if refused := p.CheckTarget(buildCommand(b), b.target.GOOS, b.target.GOARCH, b.web || reactor, b.allowUnsupported); refused != nil {
-				refused.Write(stderr)
-				return errBuildRefused
+	if hit || res.FastPath {
+		if !hit {
+			var err error
+			if kept, err = buildInProcess(b, absPath, stderr, cache); err != nil {
+				return err
 			}
-			if b.web && p.Uses(vmhost.ClassFiles, true) {
-				fmt.Fprintln(stderr, vmhost.WebFilesNote)
-			}
+		} else {
+			io.WriteString(stderr, kept.Notes)
 		}
-		buildImage := p.BuildImage
-		// A .nomic carries the exported functions too, for a reactor
-		// to load (`nomi build-vm --reactor`).
-		if b.web || reactor || b.noVM {
-			buildImage = p.BuildExportsImage
-		}
-		if b.web {
-			buildImage = func() ([]byte, bool, error) {
-				web, err := p.BuildWebImage()
-				if err != nil {
-					return nil, false, err
-				}
-				localeFiles = web.Files
-				return web.Image, web.UsesCompiler, nil
-			}
-		}
-		img, usesCompiler, err := buildImage()
-		if err != nil {
-			if blocked, ok := vmhost.IsBlocked(err); ok {
-				blocked.Write(stderr, vmhost.DisplayPath(absPath))
-				return errBuildRefused
-			}
-			return fmt.Errorf("nomi build: %w", err)
-		}
-		image = img
-		if b.web {
-			decls = p.WebDeclarations()
-		}
+		image, sources, reactor, decls, localeFiles = kept.Image, kept.Sources, kept.Reactor, kept.Decls, kept.LocaleFiles
 		if b.noVM {
-			return writeImageFile(b.out, image, usesCompiler)
+			return writeImageFile(b.out, image, sources, kept.UsesCompiler)
 		}
 		// A program that reaches no network crossing is appended to the
 		// runner without the network, a third smaller (ffirun.Variant).
-		variant := ffirun.Variant{Compiler: usesCompiler, Reactor: reactor, NoNetwork: !p.UsesNetwork(b.web || reactor)}
+		variant := ffirun.Variant{Compiler: kept.UsesCompiler, Reactor: reactor, NoNetwork: kept.NoNetwork}
 		if runner, err = ffirun.Runner(b.target, variant, stderr); err != nil {
 			return fmt.Errorf("nomi build: %w", err)
 		}
@@ -298,6 +275,9 @@ func build(b buildArgs, stderr io.Writer) error {
 		// and the project's runner is then its reactor variant.
 		reactor = b.target == wasip1 && built.HasExports
 		image = built.Image
+		if sources, err = vmhost.DecodeEmbedSources(built.Sources); err != nil {
+			return fmt.Errorf("nomi build: %w", err)
+		}
 		if b.web {
 			if built.UsesFiles {
 				fmt.Fprintln(stderr, vmhost.WebFilesNote)
@@ -309,9 +289,9 @@ func build(b buildArgs, stderr io.Writer) error {
 		}
 	}
 	if b.web {
-		return writeWebFolder(b, runner, image, decls, localeFiles, static, stderr)
+		return writeWebFolder(b, runner, image, sources, decls, localeFiles, static, stderr)
 	}
-	if err := writeExecutable(b.out, runner, image, b.target); err != nil {
+	if err := writeExecutable(b.out, runner, image, sources, b.target); err != nil {
 		return fmt.Errorf("nomi build: %w", err)
 	}
 	if reactor {
@@ -358,18 +338,29 @@ func hasGoBindings(res *ffirun.Result, err error) bool {
 	return err == nil && !res.FastPath || ffirun.NeedsCompilerSource(err)
 }
 
-// writeExecutable writes runner's bytes, then image, then the trailer to
-// out (writeAtomic). A WebAssembly runner keeps its sections whole
+// writeExecutable writes runner's bytes, then image (its code, then its
+// files region streamed from sources), then the trailer to out
+// (writeAtomic). A WebAssembly runner keeps its sections whole
 // (vmrunner/wasm.go): a wasip1 runner gets the image as a data segment
-// written into its own memory, so it runs with no file access, and a js/wasm
-// runner gets it as a custom section its loader hands it.
-func writeExecutable(out, runner string, image []byte, target ffirun.Target) error {
+// written into its own memory, so it runs with no file access, and a
+// js/wasm runner gets it as a custom section its loader hands it.
+func writeExecutable(out, runner string, image []byte, sources []vmhost.EmbedSource, target ffirun.Target) error {
+	n, err := imageLen(image)
+	if err != nil {
+		return err
+	}
 	if target == wasip1 {
 		module, err := os.ReadFile(runner)
 		if err != nil {
 			return err
 		}
-		module, err = vmrunner.EmbedWasmImage(module, image)
+		// The image goes into the module's own memory, bounded by its
+		// image area, so it is put together whole.
+		var whole bytes.Buffer
+		if err := writeImage(&whole, image, sources); err != nil {
+			return err
+		}
+		module, err = vmrunner.EmbedWasmImage(module, whole.Bytes())
 		if err != nil {
 			return err
 		}
@@ -384,21 +375,23 @@ func writeExecutable(out, runner string, image []byte, target ffirun.Target) err
 	}
 	defer src.Close()
 	head := make([]byte, 8)
-	n, _ := src.ReadAt(head, 0)
-	wasm := vmrunner.IsWasm(head[:n])
+	k, _ := src.ReadAt(head, 0)
+	wasm := vmrunner.IsWasm(head[:k])
 	return writeAtomic(out, 0o755, func(w io.Writer) error {
 		size, err := io.Copy(w, src)
 		if err != nil {
 			return err
 		}
 		if wasm {
-			_, err = w.Write(vmrunner.WasmImageSection(image))
+			if _, err := w.Write(vmrunner.WasmImageSectionHead(n)); err != nil {
+				return err
+			}
+			return writeImage(w, image, sources)
+		}
+		if err := writeImage(w, image, sources); err != nil {
 			return err
 		}
-		if _, err := w.Write(image); err != nil {
-			return err
-		}
-		_, err = w.Write(vmrunner.Trailer(size, int64(len(image))))
+		_, err = w.Write(vmrunner.Trailer(size, n))
 		return err
 	})
 }
@@ -447,20 +440,41 @@ var wasip1 = ffirun.Target{GOOS: "wasip1", GOARCH: "wasm"}
 var errNoVMGoBindings = errors.New("nomi build --no-vm: this project has Go bindings, which only a VM " +
 	"built with them can answer, so it has no portable compiled program. Use `nomi build` for an executable that links them")
 
-// writeImageFile writes the .nomic file `nomi build --no-vm` makes: image
-// behind a header naming its format and this nomi's version
-// (vmrunner/imagefile.go).
-func writeImageFile(out string, image []byte, usesCompiler bool) error {
+// writeImageFile writes the .nomic file `nomi build --no-vm` makes: image,
+// its code and then its files region streamed from sources, behind a
+// header naming its format and this nomi's version (vmrunner/imagefile.go).
+func writeImageFile(out string, image []byte, sources []vmhost.EmbedSource, usesCompiler bool) error {
 	var flags uint32
 	if usesCompiler {
 		flags |= vmrunner.FlagUsesCompiler
 	}
-	data := vmrunner.EncodeImageFile(image, flags, imageWriterVersion())
-	if err := writeAtomic(out, 0o644, func(w io.Writer) error {
-		_, err := w.Write(data)
-		return err
-	}); err != nil {
+	n, err := imageLen(image)
+	if err == nil {
+		err = writeAtomic(out, 0o644, func(w io.Writer) error {
+			if _, err := w.Write(vmrunner.ImageFileHead(n, flags, imageWriterVersion())); err != nil {
+				return err
+			}
+			return writeImage(w, image, sources)
+		})
+	}
+	if err != nil {
 		return fmt.Errorf("nomi build: %w", err)
 	}
 	return nil
+}
+
+// imageLen is how long image is once written: its code and its files
+// region.
+func imageLen(image []byte) (int64, error) {
+	region, err := vmhost.FilesRegionSize(image)
+	return int64(len(image)) + region, err
+}
+
+// writeImage writes image's code, then its files region, each file read
+// from its source a buffer at a time (vmhost.WriteFilesRegion).
+func writeImage(w io.Writer, image []byte, sources []vmhost.EmbedSource) error {
+	if _, err := w.Write(image); err != nil {
+		return err
+	}
+	return vmhost.WriteFilesRegion(w, image, sources)
 }

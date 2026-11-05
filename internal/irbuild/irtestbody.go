@@ -96,7 +96,7 @@ func (g *gen) irTestBody(c testCaseDecl, name string) *irScalarPlan {
 		return nil
 	}
 	g.irTestBodyDeclare(len(g.irModule().Tests()), name, fn, group)
-	irDeclineWhy = "a grouped test case, built for the VM only"
+	g.dc.why = "a grouped test case, built for the VM only"
 	return nil
 }
 
@@ -141,25 +141,25 @@ func (g *gen) irTestBodyBuild(c testCaseDecl, name string) (*irScalarPlan, ir.Te
 	g.irDeclineOpen("test body: " + name)
 	switch {
 	case c.refusedBy != "":
-		irDeclineNote("a case the builder refused: " + c.refusedBy)
+		g.dc.note("a case the builder refused: " + c.refusedBy)
 		return nil, ir.TestGroup{}, irTestBodyDeclined
 	case c.body == nil || len(c.body.Stmts) == 0:
-		irDeclineNote("an empty test body")
+		g.dc.note("an empty test body")
 		return nil, ir.TestGroup{}, irTestBodyDeclined
 	case !emittableLine(c.line):
-		irDeclineNote("a test on a synthesized line")
+		g.dc.note("a test on a synthesized line")
 		return nil, ir.TestGroup{}, irTestBodyDeclined
 	}
 	group, ok := g.irTestGroup(c)
 	if !ok {
-		irDeclineNote("a `group` setup outside the retained shape")
+		g.dc.note("a `group` setup outside the retained shape")
 		return nil, ir.TestGroup{}, irTestBodyDeclined
 	}
 	if irTestGrouped(c) {
 		if p, ok := g.irTestBodyAttempt(c, name, group, irTestGrouped(c)); ok {
 			return p, group, irTestBodyBuilt
 		}
-		irDeclineClose()
+		g.dc.close()
 		return nil, ir.TestGroup{}, irTestBodyDeclined
 	}
 	// AN UNGROUPED CASE IS BUILT AFTER THE MODULE WALK IS COMPLETE. It resolves
@@ -187,6 +187,9 @@ func (g *gen) irTestBodyBuild(c testCaseDecl, name string) (*irScalarPlan, ir.Te
 // keep is IR: the module, its symbols, the `ir.Table` of type identities and
 // the host keys, which the retained graph names and the VM links.
 func (g *gen) irRetryWalkOnlyTestBodies() {
+	if g.fromObjects {
+		return
+	}
 	g.irRetryWalkOnlyTestBodiesWith(nil)
 }
 
@@ -214,7 +217,7 @@ func (g *gen) irRetryWalkOnlyTestBodiesWith(setup func(testCaseDecl) func()) {
 		if ok {
 			fn = p.fn
 		} else {
-			irDeclineClose()
+			g.dc.close()
 		}
 		if irTestBodyObserved != nil {
 			irTestBodyObserved(r.name, fn)
@@ -259,6 +262,11 @@ func (g *gen) flushInstanceQueues() {
 // instancesPending reports whether a queue holds work no flush has built:
 // an instance another file's call asked this gen for after its own walk.
 func (g *gen) instancesPending() bool {
+	if g.fromObjects {
+		// What a lowered file asks of it is the kept objects' or missing
+		// (perfile.go), never lowered from its interface.
+		return false
+	}
 	if g.genericImplsDone < len(g.genericImplQueue) {
 		return true
 	}
@@ -369,8 +377,8 @@ func (bl *irScalarBuilder) testStmts(stmts []ast.Node) bool {
 		bl.markStmt(s, ir.StmtStatement)
 		if leaves, ok := bl.testLeaving(s); leaves {
 			if !ok {
-				irDeclineNote("a test-body region that leaves, outside the shape")
-				irDeclineAtNode(s)
+				bl.g.dc.note("a test-body region that leaves, outside the shape")
+				bl.g.dc.atNode(s)
 				return false
 			}
 			// The region never finishes or leaves the case, so the rest of
@@ -378,7 +386,7 @@ func (bl *irScalarBuilder) testStmts(stmts []ast.Node) bool {
 			return true
 		}
 		if !bl.testStmt(s) {
-			irDeclineNote(fmt.Sprintf("a test-body statement outside the shape: %T", s))
+			bl.g.dc.note(fmt.Sprintf("a test-body statement outside the shape: %T", s))
 			// A statement lowered outside `lower` (a `case`, an
 			// assertion) is where a decline nothing inside it placed is
 			// reported, not the test's line.
@@ -386,7 +394,7 @@ func (bl *irScalarBuilder) testStmts(stmts []ast.Node) bool {
 			if es, isExpr := s.(*ast.ExprStmt); isExpr && !isNilNode(es.Expr) {
 				at = es.Expr
 			}
-			irDeclineAtNode(at)
+			bl.g.dc.atNode(at)
 			return false
 		}
 		if _, returned := s.(*ast.Return); returned {
@@ -546,7 +554,7 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 		bl.irStatementDrop(st.Expr, val, k)
 		return true
 	}
-	irDeclineNote(fmt.Sprintf("a test-body statement form: %T", s))
+	bl.g.dc.note(fmt.Sprintf("a test-body statement form: %T", s))
 	return false
 }
 
@@ -625,7 +633,7 @@ func (bl *irScalarBuilder) testVerdict(at ast.Node, val ir.Temp, k kind) bool {
 // lowering.
 func (bl *irScalarBuilder) testRegion(n ast.Node) bool {
 	if bl.recording > 0 {
-		irDeclineNote("an `if` or `case` statement in a test body the builder reads back")
+		bl.g.dc.note("an `if` or `case` statement in a test body the builder reads back")
 		return false
 	}
 	sig := irFuncSig{testArms: true}
@@ -644,7 +652,7 @@ func (bl *irScalarBuilder) testRegion(n ast.Node) bool {
 // and a `with` in it holds for the block alone.
 func (bl *irScalarBuilder) testBlock(block *ast.Block) bool {
 	if bl.recording > 0 {
-		irDeclineNote("a test-body block in a body the builder reads back")
+		bl.g.dc.note("a test-body block in a body the builder reads back")
 		return false
 	}
 	defer bl.g.enterBlockTypes(block)()
@@ -751,7 +759,7 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 		return bl.testAssertionBinding(b, a)
 	}
 	if (b.TypeAnnotation != nil && !bl.inTest) || ast.IsDiscardName(b.Name) {
-		irDeclineNote("an annotated or discarded test-body binding")
+		bl.g.dc.note("an annotated or discarded test-body binding")
 		return false
 	}
 	// A VM-only body may rebind a name it bound itself, as a named function's
@@ -762,7 +770,7 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 	_, shadows := bl.g.lookup(b.Name)
 	rebind := bl.bound[b.Name] != ir.NoTemp
 	if shadows || (rebind && !bl.inTest) {
-		irDeclineNote("a test-body binding that shadows or rebinds: " + b.Name)
+		bl.g.dc.note("a test-body binding that shadows or rebinds: " + b.Name)
 		return false
 	}
 	// A VM-only body's annotation is a coercion target exactly as in a named
@@ -781,7 +789,7 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 			// The whole pipe's value is the binding's; an annotation that
 			// would convert it is not a stage the list can show.
 			if want := bl.g.typeOf(b.TypeAnnotation); k != want {
-				irDeclineNote("an annotated pipe binding whose value is not the annotation's type: " + k.nomi() + " vs " + want.nomi())
+				bl.g.dc.note("an annotated pipe binding whose value is not the annotation's type: " + k.nomi() + " vs " + want.nomi())
 				ok = false
 			}
 		}
@@ -826,7 +834,7 @@ func (bl *irScalarBuilder) testAssertionBinding(b *ast.Binding, a *ast.Assertion
 	_, shadows := bl.g.lookup(b.Name)
 	rebind := bl.bound[b.Name] != ir.NoTemp
 	if shadows {
-		irDeclineNote("a test-body binding that shadows or rebinds: " + b.Name)
+		bl.g.dc.note("a test-body binding that shadows or rebinds: " + b.Name)
 		return false
 	}
 	subj, k, ok := bl.assertionValue(a)
@@ -870,7 +878,7 @@ func (bl *irScalarBuilder) testStagesRead(name string) bool {
 // list is not a function of its spine declines.
 func (bl *irScalarBuilder) testPipeStages(prefixes []ast.Node) (ir.Temp, kind, []ir.AssertStage, bool) {
 	if !pipeStagesRecordable(prefixes) {
-		irDeclineNote("a defined-as block over a pipe whose stages are not its spine")
+		bl.g.dc.note("a defined-as block over a pipe whose stages are not its spine")
 		return ir.NoTemp, kindInvalid, nil, false
 	}
 	return bl.pipeStageValues(prefixes)
@@ -962,7 +970,7 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	var assertable *assertableImpl
 	if k != kindBool && !shape {
 		if assertable = bl.assertableFailure(k); assertable == nil {
-			irDeclineNote("an assertion subject that is not a Bool, Maybe, Result or retained Assertable")
+			bl.g.dc.note("an assertion subject that is not a Bool, Maybe, Result or retained Assertable")
 			return ir.NoTemp, kindInvalid, false
 		}
 	}

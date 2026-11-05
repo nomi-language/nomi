@@ -1637,7 +1637,7 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 		// irHostFnRetain builds no VM body for a Go-bound declaration that
 		// takes or returns a function, so the call would name a declaration
 		// no module holds.
-		irDeclineNote("a `go`-bound sibling declaration with no VM body")
+		bl.g.dc.note("a `go`-bound sibling declaration with no VM body")
 		return no()
 	}
 	names := make([]string, len(f.decl.Params))
@@ -1732,7 +1732,9 @@ func (bl *irScalarBuilder) qualSignature(t *ast.Call, args irQualArgs, params []
 		if !irCallOperandKind(k) {
 			return false
 		}
-		if k != params[i] && (!bl.g.irErases(params[i], k)) {
+		// A value at wider type arguments it already has passes as it is
+		// (irrelabel.go), as an erased one does.
+		if k != params[i] && !bl.g.irErases(params[i], k) && (irExistentialKind(params[i]) || !bl.relabels(k, params[i])) {
 			return false
 		}
 	}
@@ -1759,7 +1761,7 @@ func (bl *irScalarBuilder) qualEmit(t *ast.Call, args irQualArgs, p *irQualPlan)
 		}
 		if signalling {
 			if p.host || p.dispatch {
-				irDeclineNote("a host or dispatched call to a function that uses break or continue: " + p.name)
+				bl.g.dc.note("a host or dispatched call to a function that uses break or continue: " + p.name)
 				return ir.NoTemp, kindInvalid, false, false
 			}
 			if p.args != nil {

@@ -41,7 +41,7 @@ func (g *gen) irTestGroup(c testCaseDecl) (ir.TestGroup, bool) {
 		fd := analysis.TestGroupBoot(g.fa, t)
 		owner := g.irEntryBootOwner(fd)
 		if fd == nil || owner == nil {
-			irDeclineNote("a test boot that names no entry boot this program lowers")
+			g.dc.note("a test boot that names no entry boot this program lowers")
 			return ir.TestGroup{}, false
 		}
 		startup, ok := g.irTestStartup(t, fd)
@@ -103,7 +103,7 @@ type irTestStartupToken struct{ group *ast.TestDecl }
 func (g *gen) irTestStartup(t *ast.TestDecl, fd *ast.FuncDef) (*ir.Symbol, bool) {
 	call, isCall := t.Boot.(*ast.Call)
 	if !isCall || len(call.Args) > 1 || len(fd.Params) > 1 {
-		irDeclineNote("a test boot line that does not pass at most one Startup")
+		g.dc.note("a test boot line that does not pass at most one Startup")
 		return nil, false
 	}
 	if len(fd.Params) == 0 {
@@ -118,7 +118,7 @@ func (g *gen) irTestStartup(t *ast.TestDecl, fd *ast.FuncDef) (*ir.Symbol, bool)
 	}
 	owner := g.irEntryBootOwner(fd)
 	if owner == nil || fd.Params[0].Default == nil {
-		irDeclineNote("a test boot line that passes no Startup to a boot whose parameter has no default")
+		g.dc.note("a test boot line that passes no Startup to a boot whose parameter has no default")
 		return nil, false
 	}
 	return owner.irStartupFunc(irBootDefaultToken{fd}, fd, fd.Params[0].Default)
@@ -139,7 +139,7 @@ func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node) (*ir.Symbo
 	k := g.irEntryBootStartupKind(fd)
 	// kindInvalid: lookup — the checker typed no Startup parameter for the boot.
 	if k == kindInvalid || !irRetainedValueKind(k) {
-		irDeclineNote("a test boot whose Startup parameter has no retained kind")
+		g.dc.note("a test boot whose Startup parameter has no retained kind")
 		return nil, false
 	}
 	at := g.irNodePos(arg)
@@ -154,14 +154,14 @@ func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node) (*ir.Symbo
 	bl := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
 	val, got, _, ok := bl.lowerWant(arg, k)
 	if !ok || got != k {
-		irDeclineNote("a test boot's Startup argument outside the retained shape")
+		g.dc.note("a test boot's Startup argument outside the retained shape")
 		return nil, false
 	}
 	bl.resultCopy(arg, val)
 	bl.side(sh.result, irScalarSide{k: k})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
 	if err := g.irLint(f); err != nil {
-		irDeclineNote("a test boot startup graph that does not lint: " + err.Error())
+		g.dc.note("a test boot startup graph that does not lint: " + err.Error())
 		return nil, false
 	}
 	g.irModule().AddFunc(f)
@@ -216,7 +216,7 @@ func (bl *irScalarBuilder) recordedQualCall(t *ast.Call, lower func() (ir.Temp, 
 		return v, k, mobile, true
 	}
 	if !seen || !args.ok || len(args.temps) != len(t.Args) {
-		irDeclineNote("a qualified call in an assertion subject whose operands no row can name")
+		bl.g.dc.note("a qualified call in an assertion subject whose operands no row can name")
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if bl.isMembershipCall(t) {

@@ -812,6 +812,29 @@
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspend	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_reason	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_until	ran
+10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:Request.inspect	ran
+10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:Route.inspect	ran
+10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:serve	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Gallery.inspect	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Int.hash	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Page.inspect	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Page.text	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Pt.equal	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Pt.hash	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Pt.inspect	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:Pt.name	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:about	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:apply_all	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:describe	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:double	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:first_shown	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:home	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:names	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:ok_shown	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:on_ints	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:shown	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:total	ran
+10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi:widened	ran
 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:has_diagnostic	ran
 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:hover_signature	ran
 10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi:Tag.inspect	ran
@@ -1069,6 +1092,20 @@
 11-interfaces-and-impls/interface_field_update_test.nomi:RealClock.at	ran
 11-interfaces-and-impls/interface_field_update_test.nomi:RealClock.inspect	ran
 11-interfaces-and-impls/interface_field_update_test.nomi:base_cfg	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:Answer.inspect	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:Answer.to_answer	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:Code.inspect	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:Code.to_answer	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:Failure.inspect	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:Failure.to_answer	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:Result<Answer, Failure>.to_answer	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:Route.inspect	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:bypassed	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:coded	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:codes	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:failing	ran
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:first	LINKING: a declaration this module did not retain
+11-interfaces-and-impls/interface_results_in_tuples_test.nomi:plain	ran
 11-interfaces-and-impls/missing_impls/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/missing_impls/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:Admin.inspect	ran
@@ -1392,6 +1429,20 @@
 13-iterators-and-pipes/min_max_test.nomi:Card.inspect	ran
 13-iterators-and-pipes/min_max_test.nomi:Level.compare	ran
 13-iterators-and-pipes/min_max_test.nomi:Level.inspect	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:apply	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:divide	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:length_by	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:length_of	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:low	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:number	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:run	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:run	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:run_all	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:scaled	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:total	ran
+13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi:word	ran
+13-iterators-and-pipes/pipe_head_expected/shows.nomi:show	ran
+13-iterators-and-pipes/pipe_head_expected/shows.nomi:show default 2	ran
 13-iterators-and-pipes/pipes_test.nomi:add	ran
 13-iterators-and-pipes/pipes_test.nomi:divide	ran
 13-iterators-and-pipes/pipes_test.nomi:double	ran
@@ -1412,6 +1463,20 @@
 14-modules-and-packaging/cross_file_modules/math.nomi:internal_helper	ran
 14-modules-and-packaging/cross_file_modules/models.nomi:Point.inspect	ran
 14-modules-and-packaging/cross_file_modules/models.nomi:User.inspect	ran
+14-modules-and-packaging/directory_imports/db/notifications.nomi:pending	ran
+14-modules-and-packaging/directory_imports/db/schema.nomi:Kind.inspect	ran
+14-modules-and-packaging/directory_imports/db/schema.nomi:Post.blank	ran
+14-modules-and-packaging/directory_imports/db/schema.nomi:Post.inspect	ran
+14-modules-and-packaging/directory_imports/db/schema.nomi:post	ran
+14-modules-and-packaging/directory_imports/directory_imports_test.nomi:describe	ran
+14-modules-and-packaging/directory_imports/directory_imports_test.nomi:title	ran
+14-modules-and-packaging/directory_imports/directory_imports_test.nomi:users	ran
+14-modules-and-packaging/directory_imports/jobs/notifications.nomi:EmailArgs.inspect	ran
+14-modules-and-packaging/directory_imports/jobs/notifications.nomi:pending	ran
+14-modules-and-packaging/directory_imports/views/admin.nomi:title	ran
+14-modules-and-packaging/directory_imports/views/admin/reports/daily.nomi:show	ran
+14-modules-and-packaging/directory_imports/views/admin/users.nomi:UserDetail.inspect	ran
+14-modules-and-packaging/directory_imports/views/admin/users.nomi:render	ran
 14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi:Probe.Local.inspect	ran
 14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi:is_local_on	ran
 14-modules-and-packaging/dotted_type_names/signal.nomi:Signal.Level.inspect	ran
@@ -1419,6 +1484,10 @@
 14-modules-and-packaging/dotted_type_names/telemetry.nomi:Probe.Reading.inspect	ran
 14-modules-and-packaging/dotted_type_names/telemetry.nomi:Probe.inspect	ran
 14-modules-and-packaging/dotted_type_names/telemetry.nomi:severity	ran
+14-modules-and-packaging/embedded_files/embedded_files_test.nomi:`!` failure Error	ran
+14-modules-and-packaging/embedded_files/embedded_files_test.nomi:get	ran
+14-modules-and-packaging/embedded_files/web/site.nomi:`!` failure Error	ran
+14-modules-and-packaging/embedded_files/web/site.nomi:static_files	ran
 14-modules-and-packaging/explicit_item_imports/helper.nomi:call	ran
 14-modules-and-packaging/explicit_item_imports/helper.nomi:ok	ran
 14-modules-and-packaging/file_import_display/main.nomi:main	ran
@@ -1432,18 +1501,11 @@
 14-modules-and-packaging/file_import_display/shapes.nomi:origin	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:price	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:red	ran
-14-modules-and-packaging/full_paths/db/notifications.nomi:pending	ran
-14-modules-and-packaging/full_paths/db/schema.nomi:Kind.inspect	ran
-14-modules-and-packaging/full_paths/db/schema.nomi:Post.blank	ran
-14-modules-and-packaging/full_paths/db/schema.nomi:Post.inspect	ran
-14-modules-and-packaging/full_paths/db/schema.nomi:post	ran
-14-modules-and-packaging/full_paths/full_paths_test.nomi:describe	ran
-14-modules-and-packaging/full_paths/full_paths_test.nomi:title	ran
-14-modules-and-packaging/full_paths/full_paths_test.nomi:users	ran
-14-modules-and-packaging/full_paths/jobs/notifications.nomi:EmailArgs.inspect	ran
-14-modules-and-packaging/full_paths/jobs/notifications.nomi:pending	ran
-14-modules-and-packaging/full_paths/views/admin/users.nomi:UserDetail.inspect	ran
-14-modules-and-packaging/full_paths/views/admin/users.nomi:render	ran
+14-modules-and-packaging/imported_typealias/db/schema.nomi:ReactionType.inspect	ran
+14-modules-and-packaging/imported_typealias/domain/fundraising.nomi:Event.inspect	ran
+14-modules-and-packaging/imported_typealias/domain/fundraising.nomi:Form.inspect	ran
+14-modules-and-packaging/imported_typealias/domain/fundraising.nomi:event_of	ran
+14-modules-and-packaging/imported_typealias/domain/fundraising.nomi:kind_of	ran
 14-modules-and-packaging/imports_and_modules_test.nomi:Account.inspect	ran
 14-modules-and-packaging/imports_and_modules_test.nomi:Axis.inspect	ran
 14-modules-and-packaging/imports_and_modules_test.nomi:GeometryPoint.inspect	ran
@@ -1474,6 +1536,9 @@
 14-modules-and-packaging/re_export_facade/leaf.nomi:open_box	ran
 14-modules-and-packaging/re_export_facade/parser_lib.nomi:greet	ran
 14-modules-and-packaging/re_export_facade/parser_lib.nomi:shout	ran
+14-modules-and-packaging/reexport_order/db/schema.nomi:ReactionType.inspect	ran
+14-modules-and-packaging/reexport_order/domain/fundraising.nomi:Form.inspect	ran
+14-modules-and-packaging/reexport_order/domain/fundraising.nomi:kind_of	ran
 14-modules-and-packaging/same_named_types/same_named_types_test.nomi:Point.inspect	ran
 14-modules-and-packaging/same_named_types/same_named_types_test.nomi:Point.to_string	ran
 14-modules-and-packaging/same_named_types/shapes.nomi:Point.inspect	ran
@@ -1648,6 +1713,52 @@
 16-concurrency/jobs/jobs_test.nomi:eventually	ran
 16-concurrency/jobs/jobs_test.nomi:handlers	ran
 16-concurrency/jobs/jobs_test.nomi:states	ran
+16-concurrency/jobs/schedules_test.nomi:again	ran
+16-concurrency/jobs/schedules_test.nomi:at	ran
+16-concurrency/jobs/schedules_test.nomi:check Cron literal at 129:24 failure	ran
+16-concurrency/jobs/schedules_test.nomi:check Cron literal at 145:25 failure	ran
+16-concurrency/jobs/schedules_test.nomi:check Cron literal at 155:24 failure	ran
+16-concurrency/jobs/schedules_test.nomi:check Cron literal at 171:22 failure	ran
+16-concurrency/jobs/schedules_test.nomi:check Cron literal at 182:42 failure	ran
+16-concurrency/jobs/schedules_test.nomi:check Cron literal at 192:38 failure	ran
+16-concurrency/jobs/schedules_test.nomi:check Cron literal at 200:34 failure	ran
+16-concurrency/jobs/schedules_test.nomi:hourly	ran
+16-concurrency/jobs/schedules_test.nomi:kinds	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-02-27T00:00:00Z[UTC]` at 194:29 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-01T00:00:00Z[UTC]` at 195:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-07T00:00:00-05:00[America/New_York]` at 131:30 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-07T02:30:00-05:00[America/New_York]` at 132:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-08T00:00:00-05:00[America/New_York]` at 137:15 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-08T00:00:00Z[UTC]` at 196:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-08T01:40:00-05:00[America/New_York]` at 147:31 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-08T01:45:00-05:00[America/New_York]` at 148:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-08T03:00:00-04:00[America/New_York]` at 133:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-08T03:00:00-04:00[America/New_York]` at 140:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-08T03:00:00-04:00[America/New_York]` at 149:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-08T03:15:00-04:00[America/New_York]` at 150:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-09T02:30:00-04:00[America/New_York]` at 134:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-03-15T00:00:00Z[UTC]` at 197:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-06-01T09:00:00Z[UTC]` at 53:8 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-06-05T16:00:00Z[UTC]` at 184:31 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-06-05T17:00:00Z[UTC]` at 185:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-06-08T09:00:00Z[UTC]` at 186:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-06-08T13:00:00Z[UTC]` at 187:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-06-08T17:00:00Z[UTC]` at 188:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-10-31T00:00:00-04:00[America/New_York]` at 157:30 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-10-31T01:30:00-04:00[America/New_York]` at 158:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-11-01T00:00:00-04:00[America/New_York]` at 163:15 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-11-01T00:00:00-04:00[America/New_York]` at 172:15 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-11-01T01:00:00-04:00[America/New_York]` at 175:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-11-01T01:30:00-04:00[America/New_York]` at 159:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-11-01T01:30:00-04:00[America/New_York]` at 166:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-11-01T02:00:00-05:00[America/New_York]` at 176:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-11-01T03:00:00-05:00[America/New_York]` at 177:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2026-11-02T01:30:00-05:00[America/New_York]` at 160:12 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal DateTime`2028-02-29T00:00:00Z[UTC]` at 201:42 failure	ran
+16-concurrency/jobs/schedules_test.nomi:new_york	ran
+16-concurrency/jobs/schedules_test.nomi:nine	ran
+16-concurrency/jobs/schedules_test.nomi:stepped	ran
+16-concurrency/jobs/schedules_test.nomi:ticks	ran
 16-concurrency/message_loop/counter_app.nomi:Config.inspect	ran
 16-concurrency/message_loop/counter_app.nomi:Counter.inspect	ran
 16-concurrency/message_loop/counter_app.nomi:Request.inspect	ran
@@ -3527,6 +3638,28 @@ std/bits.nomi:Error.inspect	ran
 std/bits.nomi:Error.to_string	ran
 std/bits.nomi:Scan.inspect	ran
 std/bits.nomi:read_bit	ran
+std/embed.nomi:Contents.inspect	ran
+std/embed.nomi:Files.exists	ran
+std/embed.nomi:Files.inspect	ran
+std/embed.nomi:Files.list	ran
+std/embed.nomi:Files.metadata	ran
+std/embed.nomi:Files.paths	ran
+std/embed.nomi:Files.read	ran
+std/embed.nomi:Files.read_text	ran
+std/embed.nomi:Files.sub	ran
+std/embed.nomi:Files.walk	ran
+std/embed.nomi:Walk.each_while	ran
+std/embed.nomi:Walk.inspect	ran
+std/embed.nomi:add_parents	ran
+std/embed.nomi:contents	ran
+std/embed.nomi:from_entries	ran
+std/embed.nomi:from_held	ran
+std/embed.nomi:invalid_at	ran
+std/embed.nomi:key	ran
+std/embed.nomi:size	ran
+std/embed.nomi:tree	ran
+std/embed.nomi:walk_dir	ran
+std/embed.nomi:walk_entries	ran
 std/fs.nomi:Access.equal	ran
 std/fs.nomi:Access.inspect	ran
 std/fs.nomi:Chunks.each_while	ran
@@ -3828,6 +3961,7 @@ std/http.nomi:Headers.set	NETWORK: declared in std/http, std/net or std/tls, so 
 std/http.nomi:Headers.values	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Headers.write_to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Headers.write_to default 3	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Html.to_response	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Http2Options.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Listener.address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Listener.close_connections	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3919,6 +4053,7 @@ std/http.nomi:Response.read	NETWORK: declared in std/http, std/net or std/tls, s
 std/http.nomi:Response.redirect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.set_cookie	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.to_response	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.upgrade	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.upgrade default 1	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.write_to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3963,6 +4098,7 @@ std/http.nomi:`!` failure UrlError	NETWORK: declared in std/http, std/net or std
 std/http.nomi:accept	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:allow_query_semicolons	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:answer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:bypassed	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:chunked_reader	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:chunked_writer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:conn_state	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -3974,6 +4110,7 @@ std/http.nomi:directory	NETWORK: declared in std/http, std/net or std/tls, so it
 std/http.nomi:failed	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:fetch	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:file_server	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:file_server_embedded	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:flat	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:format_time	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:forward	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4013,6 +4150,7 @@ std/http.nomi:reverse_proxy	NETWORK: declared in std/http, std/net or std/tls, s
 std/http.nomi:send	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:send_following	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:serve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:serve_embedded	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:serve_file	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:serve_here	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:strip_prefix	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4029,15 +4167,30 @@ std/http.nomi:write_multipart	NETWORK: declared in std/http, std/net or std/tls,
 std/http_testing.nomi:TestServer.close_client_connections	ran
 std/http_testing.nomi:TestServer.inspect	ran
 std/http_testing.nomi:`!` failure UrlError	ran
-std/http_testing.nomi:check Url literal at 85:28 failure	ran
+std/http_testing.nomi:check Url literal at 86:28 failure	ran
 std/http_testing.nomi:chunks	ran
 std/http_testing.nomi:gather	ran
 std/http_testing.nomi:request	ran
 std/jobs.nomi:Claimed.equal	ran
 std/jobs.nomi:Claimed.inspect	ran
+std/jobs.nomi:Cron.build	ran
+std/jobs.nomi:Cron.check	ran
+std/jobs.nomi:Cron.equal	ran
+std/jobs.nomi:Cron.inspect	ran
+std/jobs.nomi:Cron.next_after	ran
+std/jobs.nomi:Cron.next_after default 3	ran
+std/jobs.nomi:Cron.parse	ran
+std/jobs.nomi:Cron.to_string	ran
+std/jobs.nomi:CronError.equal	ran
+std/jobs.nomi:CronError.inspect	ran
+std/jobs.nomi:CronError.to_string	ran
+std/jobs.nomi:Enqueued.equal	ran
+std/jobs.nomi:Enqueued.inspect	ran
+std/jobs.nomi:Equatable.equal	ran
 std/jobs.nomi:Failure.equal	ran
 std/jobs.nomi:Failure.inspect	ran
 std/jobs.nomi:Failure.to_string	ran
+std/jobs.nomi:Field.inspect	ran
 std/jobs.nomi:Job.inspect	ran
 std/jobs.nomi:Job.inspect	ran
 std/jobs.nomi:Job.kind	ran
@@ -4053,14 +4206,31 @@ std/jobs.nomi:Job.timeout	ran
 std/jobs.nomi:JobId.equal	ran
 std/jobs.nomi:JobId.inspect	ran
 std/jobs.nomi:JobId.to_string	ran
+std/jobs.nomi:Missed.equal	ran
+std/jobs.nomi:Missed.inspect	ran
 std/jobs.nomi:NewJob.equal	ran
 std/jobs.nomi:NewJob.inspect	ran
+std/jobs.nomi:NewJob.priority default	ran
 std/jobs.nomi:Next.inspect	ran
+std/jobs.nomi:Piece.inspect	ran
 std/jobs.nomi:Rate.burst default	ran
 std/jobs.nomi:Rate.equal	ran
 std/jobs.nomi:Rate.inspect	ran
+std/jobs.nomi:Schedule.cron	ran
+std/jobs.nomi:Schedule.every	ran
+std/jobs.nomi:Schedule.inspect	ran
+std/jobs.nomi:Schedule.name	ran
+std/jobs.nomi:Schedule.next_after	ran
 std/jobs.nomi:Settle.equal	ran
 std/jobs.nomi:Settle.inspect	ran
+std/jobs.nomi:Timing.inspect	ran
+std/jobs.nomi:Unique.across default	ran
+std/jobs.nomi:Unique.equal	ran
+std/jobs.nomi:Unique.inspect	ran
+std/jobs.nomi:Unique.key_for	ran
+std/jobs.nomi:Unique.period default	ran
+std/jobs.nomi:UniqueStates.inspect	ran
+std/jobs.nomi:Wall.inspect	ran
 std/jobs.nomi:Worker.id	ran
 std/jobs.nomi:Worker.inspect	ran
 std/jobs.nomi:Worker.new	ran
@@ -4071,29 +4241,73 @@ std/jobs.nomi:Worker.new default 6	ran
 std/jobs.nomi:Worker.new default 7	ran
 std/jobs.nomi:Worker.new default 8	ran
 std/jobs.nomi:Worker.start	ran
+std/jobs.nomi:Worker.start default 3	ran
+std/jobs.nomi:`!` failure CronError	ran
+std/jobs.nomi:`!` failure Error	ran
+std/jobs.nomi:`!` failure Error	ran
 std/jobs.nomi:backoff	ran
 std/jobs.nomi:charge	ran
 std/jobs.nomi:claim_loop	ran
+std/jobs.nomi:cron_next	ran
+std/jobs.nomi:cron_search	ran
+std/jobs.nomi:day_field	ran
+std/jobs.nomi:day_matches	ran
+std/jobs.nomi:days_in	ran
+std/jobs.nomi:digits	ran
 std/jobs.nomi:enqueue	ran
 std/jobs.nomi:enqueue	ran
 std/jobs.nomi:enqueue default 5	ran
 std/jobs.nomi:enqueue default 5	ran
+std/jobs.nomi:enqueue default 6	ran
+std/jobs.nomi:enqueue default 6	ran
+std/jobs.nomi:enqueue default 7	ran
+std/jobs.nomi:enqueue default 7	ran
+std/jobs.nomi:enqueue_due	ran
+std/jobs.nomi:falls_in	ran
+std/jobs.nomi:field	ran
 std/jobs.nomi:fields	ran
 std/jobs.nomi:free_slot	ran
 std/jobs.nomi:handlers_by_kind	ran
 std/jobs.nomi:hold_for_rate	ran
+std/jobs.nomi:hour_field	ran
 std/jobs.nomi:idle	ran
 std/jobs.nomi:interval	ran
+std/jobs.nomi:item_values	ran
+std/jobs.nomi:jump	ran
+std/jobs.nomi:key_of	ran
+std/jobs.nomi:latest_tick	ran
+std/jobs.nomi:latest_within	ran
+std/jobs.nomi:minute_field	ran
+std/jobs.nomi:month_field	ran
+std/jobs.nomi:next_day	ran
+std/jobs.nomi:next_hour	ran
+std/jobs.nomi:next_minute	ran
+std/jobs.nomi:next_month	ran
+std/jobs.nomi:next_wall	ran
+std/jobs.nomi:offset_at	ran
+std/jobs.nomi:pieces	ran
+std/jobs.nomi:positive	ran
 std/jobs.nomi:renew_until	ran
 std/jobs.nomi:renewing	ran
 std/jobs.nomi:report	ran
+std/jobs.nomi:resolve	ran
 std/jobs.nomi:rfc3339	ran
 std/jobs.nomi:run_claimed	ran
 std/jobs.nomi:run_one	ran
+std/jobs.nomi:schedule_loop	ran
+std/jobs.nomi:schedule_one	ran
+std/jobs.nomi:schedules_by_name	ran
 std/jobs.nomi:settle_for	ran
 std/jobs.nomi:shut_down	ran
+std/jobs.nomi:template	ran
+std/jobs.nomi:tick_job	ran
 std/jobs.nomi:tidy	ran
+std/jobs.nomi:value	ran
 std/jobs.nomi:wake	ran
+std/jobs.nomi:walk_to	ran
+std/jobs.nomi:wall_of	ran
+std/jobs.nomi:weekday_field	ran
+std/jobs.nomi:weekday_of	ran
 std/jobs_testing.nomi:Broken.equal	ran
 std/jobs_testing.nomi:Broken.inspect	ran
 std/jobs_testing.nomi:Broken.to_string	ran
@@ -4101,9 +4315,11 @@ std/jobs_testing.nomi:Inline.claim	ran
 std/jobs_testing.nomi:Inline.insert	ran
 std/jobs_testing.nomi:Inline.inspect	ran
 std/jobs_testing.nomi:Inline.jobs	ran
+std/jobs_testing.nomi:Inline.last_tick	ran
 std/jobs_testing.nomi:Inline.new	ran
 std/jobs_testing.nomi:Inline.new default 1	ran
 std/jobs_testing.nomi:Inline.prune	ran
+std/jobs_testing.nomi:Inline.record_tick	ran
 std/jobs_testing.nomi:Inline.release	ran
 std/jobs_testing.nomi:Inline.renew	ran
 std/jobs_testing.nomi:Inline.rescue	ran
@@ -4119,31 +4335,41 @@ std/jobs_testing.nomi:Ran.inspect	ran
 std/jobs_testing.nomi:State.inspect	ran
 std/jobs_testing.nomi:StoredJob.equal	ran
 std/jobs_testing.nomi:StoredJob.inspect	ran
+std/jobs_testing.nomi:a_tick	ran
 std/jobs_testing.nomi:all_queues	ran
 std/jobs_testing.nomi:change_where	ran
 std/jobs_testing.nomi:checks	ran
 std/jobs_testing.nomi:claim	ran
 std/jobs_testing.nomi:claim_one	ran
+std/jobs_testing.nomi:claim_order	ran
 std/jobs_testing.nomi:claims_none	ran
 std/jobs_testing.nomi:conformance	ran
 std/jobs_testing.nomi:conformance default 1	ran
 std/jobs_testing.nomi:expect	ran
 std/jobs_testing.nomi:expire	ran
 std/jobs_testing.nomi:held	ran
+std/jobs_testing.nomi:holds	ran
 std/jobs_testing.nomi:id_of	ran
 std/jobs_testing.nomi:job	ran
 std/jobs_testing.nomi:kinds	ran
+std/jobs_testing.nomi:last_tick	ran
 std/jobs_testing.nomi:other	ran
 std/jobs_testing.nomi:past	ran
 std/jobs_testing.nomi:peek	ran
 std/jobs_testing.nomi:put	ran
 std/jobs_testing.nomi:put_job	ran
+std/jobs_testing.nomi:put_unique	ran
+std/jobs_testing.nomi:record	ran
 std/jobs_testing.nomi:rolled_back_rule	ran
+std/jobs_testing.nomi:rolled_back_rules	ran
+std/jobs_testing.nomi:rolled_back_unique_rule	ran
 std/jobs_testing.nomi:rules	ran
 std/jobs_testing.nomi:run_due	ran
 std/jobs_testing.nomi:run_queued	ran
 std/jobs_testing.nomi:settle	ran
+std/jobs_testing.nomi:store	ran
 std/jobs_testing.nomi:take	ran
+std/jobs_testing.nomi:tick_job	ran
 std/log.nomi:Field.equal	ran
 std/log.nomi:Field.inspect	ran
 std/log.nomi:Level.at_least	ran
@@ -4798,7 +5024,6 @@ std/url.nomi:slot_text	ran
 std/url.nomi:to_parts	ran
 std/url.nomi:unescape_path_segment	ran
 std/url.nomi:unescape_query	ran
-std/uuid.nomi:Display.to_string	ran
 std/uuid.nomi:Error.equal	ran
 std/uuid.nomi:Error.inspect	ran
 std/uuid.nomi:Error.to_string	ran

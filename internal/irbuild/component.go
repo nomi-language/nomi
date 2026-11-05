@@ -184,6 +184,18 @@ func importTargets(n ast.Node) []string {
 		for i := range segs {
 			out = append(out, strings.Join(segs[:i+1], "/"))
 		}
+		// A directory import reaches the files its PathUses name: the
+		// directory's path with each use after it, and, for a module's
+		// root imported by the module's name (`import app`, then
+		// `app::users`), the use alone. An edge too many is the safe
+		// direction.
+		for _, use := range t.PathUses {
+			rest := strings.ReplaceAll(use, ast.PathSeparator, "/")
+			out = append(out, strings.Join(segs, "/")+"/"+rest)
+			if len(segs) == 1 {
+				out = append(out, rest)
+			}
+		}
 		return out
 	}
 	return nil

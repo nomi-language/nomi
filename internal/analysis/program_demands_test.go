@@ -78,6 +78,7 @@ func requireKeptCoherence(t *testing.T, p *analysis.CheckedProgram, when string)
 // a full check and after every edit of the incremental harness's
 // sequences, diagnostics included.
 func TestKeptCoherenceMatchesMissingImpls(t *testing.T) {
+	t.Parallel()
 	dm := newManager()
 	recheck := coherenceChecked(t, dm.RecheckWithOutcome)
 	fault := faultProject()

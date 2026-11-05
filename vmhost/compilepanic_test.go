@@ -161,7 +161,7 @@ func TestCompilePanic_IsAnInternalErrorOnEveryPath(t *testing.T) {
 
 	t.Run("REPL", func(t *testing.T) {
 		s := NewSession(io.Discard, io.Discard)
-		p, err := s.Load("fn planted_compile_panic_target() -> Int {\n    1\n}\n\nfn main() {\n    _ = planted_compile_panic_target()\n}\n")
+		p, err := s.LoadFile("repl_in1", "fn planted_compile_panic_target() -> Int {\n    1\n}\n\nfn main() {\n    _ = planted_compile_panic_target()\n}\n")
 		if err != nil {
 			t.Fatalf("the input does not load: %v", err)
 		}

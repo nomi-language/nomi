@@ -66,3 +66,23 @@ pub once limit = 3
 		"decoy.nomi": `pub once limit = 99`,
 	})
 }
+
+// A call to a function-valued `once` another file declares, imported by
+// name, calls the function the cell holds, as a call to the file's own
+// does. It was declined as a direct callee outside the module's fn table.
+func TestIROnceSibling_ACallThroughAnImportedFunctionValuedOnce(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+import ops.{double, plus}
+fn main() {
+  io.print(double(4))
+  io.print(plus(1, 2))
+}
+`, "8\n3\n", map[string]string{
+		"ops.nomi": `fn twice(n: Int) -> Int {
+  n * 2
+}
+pub once double: (Int) -> Int = twice
+pub once plus: (Int, Int) -> Int = fn a, b -> a + b
+`,
+	})
+}

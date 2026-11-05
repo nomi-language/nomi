@@ -41,7 +41,7 @@ func buildSiblingProject(t *testing.T, entry string, siblings map[string]string)
 	}
 	tokens := lexer.Lex(entry)
 	nodes, _ := parser.ParseWithRecovery(tokens)
-	lib := std.Load()
+	lib := loadStd()
 	fa, sibFAs, sibNodes := analysis.BuildProjectFromEntry(
 		mainPath, nodes, lib.Primitives, lib.Modules, lib.Files, tmp, std.MakeLoader())
 	errs := append([]analysis.TypeError{}, entryErrors(fa)...)

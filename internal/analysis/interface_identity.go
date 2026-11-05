@@ -1,6 +1,11 @@
 package analysis
 
-import "github.com/nomi-language/nomi/internal/ast"
+import (
+	"slices"
+	"strings"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // Interface nominal identity, on the IMPL side.
 //
@@ -49,10 +54,12 @@ import "github.com/nomi-language/nomi/internal/ast"
 type ImplTables struct {
 	// Impls is T → Iface base name → implemented.
 	Impls map[string]map[string]bool
-	// IfaceOrigins is T → Iface base name → the declaring file's build key
-	// for the interface that impl named. Nil, or a missing entry, means the
-	// identity was not established — see the file comment.
-	IfaceOrigins map[string]map[string]string
+	// IfaceOrigins is T → Iface base name → the declaring files' build keys
+	// of the interfaces the impls of that spelling named: two files may each
+	// declare a `Box` and an `Announcer` and an impl of one for the other.
+	// Nil, or a missing entry, means the identity was not established — see
+	// the file comment.
+	IfaceOrigins map[string]map[string][]string
 }
 
 // implTablesFor pairs an impl table with the project-wide interface-origin
@@ -91,7 +98,7 @@ func PopulateImplIfaceOrigins(idx *ProjectImplIndex, filesByKey map[string]*File
 		idx.ImplIfaceOrigin = make(map[*ast.FuncDef]string)
 	}
 	if idx.IfaceOriginByPair == nil {
-		idx.IfaceOriginByPair = make(map[string]map[string]string)
+		idx.IfaceOriginByPair = make(map[string]map[string][]string)
 	}
 	for ifaceName, byMethod := range idx.IfaceMethodImpls {
 		for _, fns := range byMethod {
@@ -110,9 +117,11 @@ func PopulateImplIfaceOrigins(idx *ProjectImplIndex, filesByKey map[string]*File
 					continue
 				}
 				if idx.IfaceOriginByPair[recv] == nil {
-					idx.IfaceOriginByPair[recv] = make(map[string]string)
+					idx.IfaceOriginByPair[recv] = make(map[string][]string)
 				}
-				idx.IfaceOriginByPair[recv][ifaceName] = origin
+				if !slices.Contains(idx.IfaceOriginByPair[recv][ifaceName], origin) {
+					idx.IfaceOriginByPair[recv][ifaceName] = append(idx.IfaceOriginByPair[recv][ifaceName], origin)
+				}
 			}
 		}
 	}
@@ -142,4 +151,52 @@ func declaringOriginOfInterface(fa *FileAnalysis, name string) string {
 		return it.Origin
 	}
 	return OriginUnresolved
+}
+
+// namesInterface reports whether an impl of the interface spelled
+// ifaceName for the receiver spelled concreteName names the interface
+// declared at ifaceOrigin: one of the pair's recorded origins is that
+// declaration's, or none is recorded.
+func (t ImplTables) namesInterface(concreteName, ifaceName, ifaceOrigin string) bool {
+	origins := t.IfaceOrigins[concreteName][ifaceName]
+	if len(origins) == 0 {
+		return sameNominalIdentity(ifaceOrigin, ifaceName, OriginUnresolved, ifaceName)
+	}
+	for _, o := range origins {
+		if sameNominalIdentity(ifaceOrigin, ifaceName, o, ifaceName) {
+			return true
+		}
+	}
+	return false
+}
+
+// ownReceiverImpls narrows candidates, impl functions whose receiver is
+// spelled as concrete's type is, to those whose receiver is concrete's own
+// declaration: two files may each declare a type of one name with an impl
+// of one interface, and only its own file's impl is concrete's.
+// QualifiedReceiver names a receiver by its declaring file, and one the
+// entry declares bare. With one candidate, or a concrete type of no known
+// declaration, it answers candidates.
+func ownReceiverImpls(idx *ProjectImplIndex, candidates []*ast.FuncDef, concrete Type) []*ast.FuncDef {
+	origin, ok := nominalOrigin(resolveTypeVar(concrete))
+	if !ok || origin == OriginUnresolved || len(candidates) < 2 {
+		return candidates
+	}
+	var own, bare []*ast.FuncDef
+	for _, fn := range candidates {
+		o, _, qualified := strings.Cut(idx.QualifiedReceiver[fn], receiverOriginSep)
+		switch {
+		case qualified && o == origin:
+			own = append(own, fn)
+		case !qualified:
+			bare = append(bare, fn)
+		}
+	}
+	if len(own) > 0 {
+		return own
+	}
+	if len(bare) > 0 {
+		return bare
+	}
+	return candidates
 }

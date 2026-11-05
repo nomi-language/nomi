@@ -768,19 +768,35 @@ var (
 // sync.OnceValue, so concurrent gens may read it freely.
 var stdAnchorLib = std.Shared
 
+// stdBodies makes sure the shared stdlib has checked module's bodies before
+// anything here reads them: std.Shared builds the stdlib from its modules'
+// interfaces, whose bodies are stubs, and checks a module's bodies when
+// asked (std.StdLib.Bodies). Every path that lowers a std body asks first:
+// the module's own lowering, an instance of one of its generic functions,
+// a listed module a program lowers, and a module's cases.
+func stdBodies(module string) {
+	if err := std.Shared().Bodies(module); err != nil {
+		panic("irbuild: " + err.Error())
+	}
+}
+
+// sharedStdTestDecls is the shared stdlib's std.StdLib.TestDecls.
+func sharedStdTestDecls(module string) ([]ast.Node, error) {
+	return std.Shared().TestDecls(module)
+}
+
 func stdlibLowering() *stdlibIndex {
 	// The cache holds no test body: a module's `//!` prompt cases are built
 	// per call, in their own module, by GenerateStdlibTestIR (stdtests.go).
 	stdlibOnce.Do(func() {
-		// The host's decline hooks belong to the program being loaded. The
-		// cache is built inside whichever load comes first, and its declines
-		// reaching that one program's table and no later one's would make a
-		// program's diagnostics depend on what the process loaded before it
+		// The cache is built inside whichever load comes first, in gens
+		// of its own whose census has no hooks: its declines reaching that
+		// one program's hooks and no later one's would make a program's
+		// diagnostics depend on what the process loaded before it
 		// (TestLoadOrderDoesNotChangeAProgram).
-		observed, at := IRDeclineObserved, IRDeclineAt
-		IRDeclineObserved, IRDeclineAt = nil, nil
-		defer func() { IRDeclineObserved, IRDeclineAt = observed, at }()
-		stdlibCache = buildStdlibIndex()
+		// Decoded from the std bundle when this binary has one, else lowered
+		// and kept as one for the next process (stdbundle.go).
+		stdlibCache = loadStdlibIndex()
 	})
 	return stdlibCache
 }
@@ -793,6 +809,17 @@ func stdPackage(i int) string { return fmt.Sprintf("nomistd%d", i) }
 
 // buildStdlibIndex lowers every stdlib module, in dependency order.
 func buildStdlibIndex() *stdlibIndex {
+	return buildStdlibIndexBy(lowerSharedStdModule, nil)
+}
+
+// stdModuleLowering lowers one stdlib module through its view: what
+// lowerStdlibModule does, or what restoreStdModule does from a std bundle.
+type stdModuleLowering func(v *stdModuleView, earlier *stdlibIndex) (funcs []*stdFunc, onces []*stdOnce, irModule *ir.Module)
+
+// buildStdlibIndexBy is buildStdlibIndex with each module lowered by lower.
+// lowered, when not nil, is told of each module as soon as lower returns it,
+// before the index files its functions (stdbundle.go records it then).
+func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *stdModuleView, irModule *ir.Module)) *stdlibIndex {
 	lib := std.Shared()
 	names := make([]string, 0, len(lib.Nodes))
 	for name := range lib.Nodes {
@@ -878,9 +905,15 @@ func buildStdlibIndex() *stdlibIndex {
 		v := stdModuleContext(name, path, pkg, nodes, lib.Files[name], idx)
 		v.embedded = true
 		idx.views[name] = v
-		funcs, onces, irModule := lowerStdlibModule(v, idx)
+		funcs, onces, irModule := lower(v, idx)
 		// A module none of whose bodies lowered holds nothing to link.
-		if irModule != nil && (len(irModule.Funcs()) > 0 || len(irModule.Cells()) > 0) {
+		if irModule != nil && len(irModule.Funcs()) == 0 && len(irModule.Cells()) == 0 {
+			irModule = nil
+		}
+		if lowered != nil {
+			lowered(name, v, irModule)
+		}
+		if irModule != nil {
 			if lintEmbeddedStdlib {
 				irLintFinished(irModule)
 			}
@@ -1464,6 +1497,15 @@ type stdCandidate struct {
 	sib string
 }
 
+// lowerSharedStdModule lowers one of the shared stdlib's modules, asking std
+// to check its bodies first (stdBodies). lowerStdlibModule itself does not
+// ask: a test's fixture module and an edited module bring a view checked
+// from their own source, which std does not carry.
+func lowerSharedStdModule(v *stdModuleView, earlier *stdlibIndex) ([]*stdFunc, []*stdOnce, *ir.Module) {
+	stdBodies(v.module)
+	return lowerStdlibModule(v, earlier)
+}
+
 // lowerStdlibModule emits one stdlib module's lowerable scalar functions as one
 // Go package, and returns every function it saw — lowered or refused — so call
 // sites can resolve or refuse by name.
@@ -1563,10 +1605,19 @@ type stdCandidate struct {
 // TestStdSettling_TailMarksAreNotAssumed
 // hands the pipeline an unmarked tree on purpose.
 func lowerStdlibModule(v *stdModuleView, earlier *stdlibIndex) (funcs []*stdFunc, onces []*stdOnce, irModule *ir.Module) {
+	return lowerStdlibModuleIn(v, earlier, nil)
+}
+
+// lowerStdlibModuleIn is lowerStdlibModule noting its declines in dc, a
+// lowering's census, or in the module gen's own when dc is nil.
+func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCensus) (funcs []*stdFunc, onces []*stdOnce, irModule *ir.Module) {
 	module, pkg := v.module, v.pkg
 	cands, onces, settled, withCycles := v.cands, v.onces, v.settled, v.withCycles
 
 	g := v.gen(earlier)
+	if dc != nil {
+		g.dc = dc
+	}
 	g.skipLint = v.embedded && !lintEmbeddedStdlib
 	// The bindings before the bodies, because a body may read one and the text
 	// then reads in the order the declarations are written. An emitted binding
@@ -2156,7 +2207,7 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		return k
 	}
 	if ft, isFunc := te.(*ast.FuncType); isFunc && ft.Return != nil {
-		// A FUNCTION type — `Server.serve`'s `handler: (Request) -> Response`.
+		// A FUNCTION type — `http.serve`'s `handler: (Request) -> ToResponse`.
 		// Its parts resolve through this same function, and the kind interns
 		// process-wide when every part is package-neutral (funcKindIn with no
 		// gen); a part that is not declines rather than interning nowhere.
@@ -2539,7 +2590,7 @@ func newStdGen(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnal
 // (stdtests.go). It joins the program before its types are built, since a
 // case's block import of a listed module's type is bound then.
 func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnalysis, cands []*stdCandidate, settled map[*stdCandidate]bool, onces []*stdOnce, earlier *stdlibIndex, in *programBuild) *gen {
-	g := &gen{nomiPath: path, pkg: pkg, // stdModule, so this gen can answer "which stdlib module am I". The
+	g := &gen{dc: newDeclineCensus(DeclineHooks{}), nomiPath: path, pkg: pkg, // stdModule, so this gen can answer "which stdlib module am I". The
 		// module name is the caller's — buildStdlibIndex takes it from
 		// std.Load()'s keys — and a user gen never reaches this constructor, so
 		// a non-empty stdModule IS "this is the embedded stdlib module of that
@@ -2557,6 +2608,7 @@ func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAn
 		nodes: nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}}
 	if in != nil {
 		g.reg, g.files, g.impls, g.stdInsts = in.reg, in.files, in.impls, in.insts
+		g.dc = in.insts.dc
 		// Past the program's units: every file of the program is another
 		// file to this gen, and none is its own.
 		g.fileUnit = in.units
@@ -2732,7 +2784,7 @@ func (g *gen) emitStdFunc(f *stdFunc, fd *ast.FuncDef) {
 	g.irBodyObserve(irBodyStdFn, true)
 	produced, retained := g.irScalarLower(fd, stdSig, nil, shell, f.result)
 	if !retained {
-		g.stdUnloweredFunc(name, f.key, irTakeDeclineWhy())
+		g.stdUnloweredFunc(name, f.key, g.dc.take().why)
 		produced = f.result
 	}
 	if !destructured {
@@ -2970,6 +3022,7 @@ func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emi
 		return
 	}
 	defer irMuteObservers()()
+	defer g.dc.mute()()
 	g.irPrebuilding = true
 	defer func() { g.irPrebuilding = false }()
 	mod := g.irModule()
@@ -3111,19 +3164,25 @@ func (g *gen) irStdTailCycles(cands []*stdCandidate, emittable map[*stdCandidate
 	}
 }
 
-// irMuteObservers silences every test hook and answers the restore.
+// irMuteObservers silences every test observer and answers the restore. The
+// observers are package state that only tests set, and a test that sets one
+// runs one lowering at a time; with none set, as in production, it writes
+// nothing, so lowerings on two goroutines never race on them. A lowering's
+// decline hooks are its census's (declineCensus.suspend), not these.
 func irMuteObservers() func() {
-	decline, fn, declined, body := IRDeclineObserved, irFuncObserved, irRetentionDeclined, irBodyObserved
+	fn, declined, body := irFuncObserved, irRetentionDeclined, irBodyObserved
 	effect, iter, proj, tail := irEffectObserved, irIterObserved, irProjKindObserved, irTailObserved
-	testBody, at := irTestBodyObserved, IRDeclineAt
-	IRDeclineAt = nil
-	IRDeclineObserved, irFuncObserved, irRetentionDeclined, irBodyObserved = nil, nil, nil, nil
+	testBody := irTestBodyObserved
+	if fn == nil && declined == nil && body == nil && effect == nil && iter == nil && proj == nil && tail == nil && testBody == nil {
+		return func() {}
+	}
+	irFuncObserved, irRetentionDeclined, irBodyObserved = nil, nil, nil
 	irEffectObserved, irIterObserved, irProjKindObserved, irTailObserved = nil, nil, nil, nil
 	irTestBodyObserved = nil
 	return func() {
-		IRDeclineObserved, irFuncObserved, irRetentionDeclined, irBodyObserved = decline, fn, declined, body
+		irFuncObserved, irRetentionDeclined, irBodyObserved = fn, declined, body
 		irEffectObserved, irIterObserved, irProjKindObserved, irTailObserved = effect, iter, proj, tail
-		irTestBodyObserved, IRDeclineAt = testBody, at
+		irTestBodyObserved = testBody
 	}
 }
 

@@ -29,6 +29,7 @@ type Option func(*config)
 type config struct {
 	hosts        []HostTable
 	virtualFiles map[string]string
+	virtualData  map[string]string
 	manifest     *analysis.Manifest
 	projectRoot  string
 	out          io.Writer
@@ -46,6 +47,10 @@ type config struct {
 	// session is the REPL session a program is loaded for: it provides the
 	// session's host functions and keeps earlier inputs' imports legal.
 	session *Session
+	// generate lowers the checked program, irbuild.GenerateIR when nil.
+	generate func(*irbuild.Program) (*irbuild.Result, error)
+	// cache, when set, keeps the program once it loads cleanly (WithCache).
+	cache *Cache
 }
 
 func newConfig(opts []Option) config {
@@ -78,6 +83,19 @@ func WithHosts(tables ...HostTable) Option {
 // SplitMultiFile).
 func WithVirtualFiles(files map[string]string) Option {
 	return func(c *config) { c.virtualFiles = files }
+}
+
+// WithVirtualData gives an in-memory program its other files, by their
+// slash-separated paths from its root, which its `embed` declarations read
+// instead of the disk. The tour passes a block's data files, the ones its
+// in-memory file system starts with.
+func WithVirtualData(files map[string]string) Option {
+	return func(c *config) {
+		if files == nil {
+			files = map[string]string{}
+		}
+		c.virtualData = files
+	}
 }
 
 // Manifest is a parsed nomi.toml, as SplitMultiFile returns it.
@@ -138,8 +156,15 @@ func (c *config) frontendConfig() (frontend.Config, error) {
 	if err != nil {
 		return frontend.Config{}, err
 	}
+	// A REPL session's `embed` reads files from its working directory.
+	embedRoot := ""
+	if c.session != nil {
+		embedRoot, _ = os.Getwd()
+	}
 	return frontend.Config{
 		VirtualFiles:    c.virtualFiles,
+		VirtualData:     c.virtualData,
+		EmbedRoot:       embedRoot,
 		VirtualManifest: c.manifest,
 		ProjectRoot:     c.projectRoot,
 		Provided: func(key string) bool {
@@ -168,8 +193,10 @@ func hostKeys(tables []HostTable) (map[string]bool, error) {
 	return keys, nil
 }
 
-// lowering serializes the producer's decline census, which is package state in
-// internal/irbuild.
+// lowering serializes lower, loadStdlib and a Session's CheckFile, whose
+// session files a lowering reads. A lowering's decline hooks are its own
+// (irbuild.Program.Declines), so the lowerings that do not take it, a
+// relink and a relowering of an analyzed file, run beside these safely.
 var lowering sync.Mutex
 
 // loweringStopped is the error of c's lowering context once it is done, or
@@ -189,7 +216,12 @@ func Load(path string, opts ...Option) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return checked(lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(path, fc) }))
+	p, err := checked(lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(path, fc) }))
+	if err != nil {
+		return nil, err
+	}
+	p.keep(false)
+	return p, nil
 }
 
 // LoadFileSource is Load for the file at path whose text is src rather than
@@ -283,9 +315,6 @@ func lowerLocked(cfg config, analyze func() (*irbuild.Program, error)) (*Program
 				err = &InternalError{Panic: r, Stack: debug.Stack()}
 			}
 		}()
-		irbuild.IRDeclineObserved = func(fn, reason string) { declines[fn] = reason }
-		irbuild.IRDeclineAt = func(d *irbuild.Decline) { details = append(details, d) }
-		defer func() { irbuild.IRDeclineObserved, irbuild.IRDeclineAt = nil, nil }()
 		if err := cfg.loweringStopped(); err != nil {
 			return err
 		}
@@ -293,13 +322,21 @@ func lowerLocked(cfg config, analyze func() (*irbuild.Program, error)) (*Program
 		if err != nil {
 			return err
 		}
+		prog.Declines = irbuild.DeclineHooks{
+			Observed: func(fn, reason string) { declines[fn] = reason },
+			At:       func(d *irbuild.Decline) { details = append(details, d) },
+		}
 		if err := cfg.loweringStopped(); err != nil {
 			return err
 		}
 		if cfg.lowering != nil {
 			prog.Stop = func() bool { return cfg.lowering.Err() != nil }
 		}
-		res, _, err = irbuild.GenerateIR(prog)
+		if cfg.generate != nil {
+			res, err = cfg.generate(prog)
+		} else {
+			res, _, err = irbuild.GenerateIR(prog)
+		}
 		if errors.Is(err, irbuild.ErrStopped) {
 			err = cfg.lowering.Err()
 		}
@@ -369,7 +406,11 @@ func Check(path string, opts ...Option) error {
 	if err != nil {
 		return err
 	}
-	return p.Unsupported()
+	if err := p.Unsupported(); err != nil {
+		return err
+	}
+	p.keep(true)
+	return nil
 }
 
 // LoadStdlib lowers the test cases of the stdlib module at path, `nomi test
@@ -439,6 +480,13 @@ func LoadEmbeddedStdlib(module string) (*Program, error) {
 // stdlib module's own source, the only case selected. The case's own output
 // goes to out. The tour's worker (cmd/nomi-wasm nomiRunStdlibTest) and
 // cmd/nomi-docgen's reference tests both run an editor through here.
+//
+// The module's declarations are the embedded ones, which the process has
+// checked and lowered already, so only the test is checked, in the module's
+// scope of the shared analysis (frontend.Checker.CheckStdlibTest), and
+// lowered against the module's lowering (irbuild.GenerateStdlibReferenceIR).
+// An edit that is not one test alone is checked and lowered with the whole
+// module, as `nomi test` checks an edited stdlib file.
 func StdlibReference(module, body, context string, out io.Writer) ([]CaseResult, error) {
 	module = strings.TrimSuffix(strings.TrimPrefix(module, "std/"), ".nomi")
 	src, ok := std.ReadFile(module)
@@ -446,7 +494,23 @@ func StdlibReference(module, body, context string, out io.Writer) ([]CaseResult,
 		return nil, fmt.Errorf("unknown stdlib module %q", module)
 	}
 	wrapped, line := ReferenceTestSource(string(src), body, context)
-	p, err := LoadStdlibSource(module, wrapped)
+	// The check adds the test's scope to the shared analysis of the module
+	// until restore, so one editor runs at a time.
+	referenceMu.Lock()
+	defer referenceMu.Unlock()
+	test, fa, restore, ok, err := frontend.New(frontend.Config{}).CheckStdlibTest(module, wrapped, line)
+	if err != nil {
+		return nil, err
+	}
+	var p *Program
+	if ok {
+		defer restore()
+		p, err = loadStdlib(module, nil, nil, func(_ string, _ []ast.Node, _ *analysis.FileAnalysis, hooks irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error) {
+			return irbuild.GenerateStdlibReferenceIR(module, test, fa, hooks)
+		})
+	} else {
+		p, err = LoadStdlibSource(module, wrapped)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -456,6 +520,9 @@ func StdlibReference(module, body, context string, out io.Writer) ([]CaseResult,
 	}
 	return cases, nil
 }
+
+// referenceMu holds one StdlibReference at a time.
+var referenceMu sync.Mutex
 
 // ReferenceTestSource appends body, after context's lines, to src as
 // `test "reference"`, and answers the result and the test's line.
@@ -492,18 +559,19 @@ func indentLines(s, prefix string) string {
 }
 
 func loadStdlib(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
-	generate func(string, []ast.Node, *analysis.FileAnalysis) (*irbuild.Program, *irbuild.Result, error)) (*Program, error) {
+	generate func(string, []ast.Node, *analysis.FileAnalysis, irbuild.DeclineHooks) (*irbuild.Program, *irbuild.Result, error)) (*Program, error) {
 	lowering.Lock()
 	declines := map[string]string{}
 	var details []*irbuild.Decline
-	irbuild.IRDeclineObserved = func(fn, reason string) { declines[fn] = reason }
-	irbuild.IRDeclineAt = func(d *irbuild.Decline) { details = append(details, d) }
+	hooks := irbuild.DeclineHooks{
+		Observed: func(fn, reason string) { declines[fn] = reason },
+		At:       func(d *irbuild.Decline) { details = append(details, d) },
+	}
 	prog, res, err := func() (*irbuild.Program, *irbuild.Result, error) {
 		// Deferred, as lower's are, so a producer panic does not leave every
 		// later load waiting on the lock.
 		defer lowering.Unlock()
-		defer func() { irbuild.IRDeclineObserved, irbuild.IRDeclineAt = nil, nil }()
-		return generate(module, nodes, fa)
+		return generate(module, nodes, fa, hooks)
 	}()
 	if err != nil {
 		return nil, err

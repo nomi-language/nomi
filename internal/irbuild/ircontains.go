@@ -36,7 +36,7 @@ func (bl *irScalarBuilder) seqContainsPlan(t *ast.Call, args irQualArgs, owner s
 		return nil
 	}
 	if !(irRetainedValueKind(seq) || g.irValType(seq) != nil) {
-		irDeclineNote("a " + owner + ".contains sequence outside the retained domain: " + seq.nomi())
+		bl.g.dc.note("a " + owner + ".contains sequence outside the retained domain: " + seq.nomi())
 		return nil
 	}
 	if !g.valueEquates(have) {

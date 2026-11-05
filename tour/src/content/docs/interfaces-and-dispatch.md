@@ -123,6 +123,13 @@ branches of an `if` or `case` may be different types that implement it:
 then `Speech.speak(pet)`. Without the `: Speech`, the branches must have one
 type.
 
+A collection of them converts the same way: a `List<Dog>` passes where a
+`List<Speech>` is expected, and a `Maybe<Dog>` where a `Maybe<Speech>` is,
+with nothing copied, since each `Dog` already is a `Speech`. A value that
+would have to be wrapped first, such as a `List<Maybe<Dog>>` as a
+`List<Display>`, is an error that names the `Iter.map` to write
+([Type argument conversion](/spec/type-relations/#type-argument-conversion)).
+
 To sum up the rule for every call:
 
 - A function declared in an `impl Type` or `impl Interface` block is called

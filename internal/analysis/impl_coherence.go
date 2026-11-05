@@ -109,7 +109,7 @@ type ProjectImplIndex struct {
 	// Populated by PopulateImplIfaceOrigins, after BuildTypes. See
 	// interface_identity.go for why an absent entry accepts.
 	ImplIfaceOrigin   map[*ast.FuncDef]string
-	IfaceOriginByPair map[string]map[string]string
+	IfaceOriginByPair map[string]map[string][]string
 
 	// ImplsByIdentity is `Impls` re-keyed by the receiver's nominal identity —
 	// (Origin, Type, Iface) instead of (Type, Iface) — so the three stdlib
@@ -265,7 +265,7 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 		QualifiedReceiver:     make(map[*ast.FuncDef]string),
 		ImplBlockInterfaceKey: make(map[*ast.FuncDef]string),
 		ImplIfaceOrigin:       make(map[*ast.FuncDef]string),
-		IfaceOriginByPair:     make(map[string]map[string]string),
+		IfaceOriginByPair:     make(map[string]map[string][]string),
 		TypeMethodByIdentity:  make(map[TypeMethodKey]*Symbol),
 
 		IfaceMethodImplExterns:      make(map[string]map[string][]*ast.ExternFunc),

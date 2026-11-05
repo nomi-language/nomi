@@ -57,6 +57,7 @@ const (
 	ctxParamName                  // a typed parameter name in a `fn` signature
 	ctxImplItem                   // a declaration in an `impl Iface for T` body
 	ctxShapeHead                  // the type name right after a literal's `#` or `%`
+	ctxPathSegment                // a segment of a path at a use, after `admin::`
 )
 
 // completionContext is what the cursor position is, read from the reparsed
@@ -115,6 +116,10 @@ type completionContext struct {
 	// implStub is the interface impl block whose body the cursor starts a
 	// declaration in (ctxImplItem, completion_impl_stubs.go).
 	implStub *implStubSite
+	// pathSegs are the segments written before the one being typed in a
+	// path at a use (ctxPathSegment): `admin` and `reports` in
+	// `admin::reports::da‸`.
+	pathSegs []string
 	// shapeSigil is the `#` or `%` a literal's type name follows
 	// (ctxShapeHead); typeQualifier then holds its module, if any
 	// (`#geo.Po`).
@@ -343,10 +348,44 @@ func classifyCompletionWalking(content string, off int, atCursor bool) completio
 			}
 		}
 	}
+	if segs, ok := pathBeforeWord(content, start); ok {
+		ctx.kind = ctxPathSegment
+		ctx.pathSegs = segs
+		return ctx
+	}
 	classifyTokens(&ctx, lastTokens)
 	classifyParamSlot(&ctx, lastTokens)
 	classifyShapeHead(&ctx, content)
 	return ctx
+}
+
+// pathBeforeWord answers the segments of a path at a use that end right
+// before the word at start, `admin::reports::` before `da`, and whether
+// there is one: words joined by `::`, not after a `.` or a word. A path
+// never parses without a member after it, so the reparse cannot answer.
+func pathBeforeWord(content string, start int) ([]string, bool) {
+	var segs []string
+	i := start
+	for i >= 2 && content[i-2:i] == "::" {
+		j := i - 2
+		k := j
+		for k > 0 && isWordByte(content[k-1]) {
+			k--
+		}
+		if k == j {
+			return nil, false
+		}
+		segs = append([]string{content[k:j]}, segs...)
+		i = k
+	}
+	if len(segs) == 0 || i > 0 && (content[i-1] == '.' || isWordByte(content[i-1])) {
+		return nil, false
+	}
+	line := content[strings.LastIndexByte(content[:i], '\n')+1 : i]
+	if strings.HasPrefix(strings.TrimSpace(line), "import") {
+		return nil, false
+	}
+	return segs, true
 }
 
 // classifyShapeHead makes a name written right after the `#` or `%` that

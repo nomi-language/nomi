@@ -7,7 +7,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 )
 
 // TestResolveStdlibImport_WriteThroughCache asserts that resolving a
@@ -26,7 +25,7 @@ func TestResolveStdlibImport_WriteThroughCache(t *testing.T) {
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 
-	lib := std.Load()
+	lib := loadStd()
 	_, cache, _ := analysis.BuildProjectWithCache(
 		nodes, lib.Primitives, lib.Modules, lib.Files, "", nil,
 	)

@@ -91,6 +91,11 @@ func (s *Server) textDocumentReferences(ctx *glsp.Context, params *protocol.Refe
 		target = target.Resolved
 	}
 	var ifaceMethodImplLocations []protocol.Location
+	if target.Kind == analysis.SymbolInterfaceMethod && doc.FromRecord && s.docs.CheckWhole(uri) {
+		// The impls of an interface are the whole program's, which a
+		// document checked against interfaces sees only in part.
+		return s.textDocumentReferences(ctx, params)
+	}
 	if target.Kind == analysis.SymbolInterfaceMethod {
 		ifaceName := s.findInterfaceForMethod(doc.Analysis, target)
 		if ifaceName != "" {
@@ -171,10 +176,12 @@ type projectFile struct {
 
 // loadProjectFiles returns the analyses of the project's files under root
 // that can mention name: every open document, and each closed file whose
-// text contains name. A reference or a definition of a symbol sits on a
-// token spelled as its name, so a closed file without that text has none,
-// and is never analyzed. Closed files' analyses come from the manager's
-// bounded cache. It stops, returning nil, when ctx ends.
+// text holds name as a whole word (analysis.MayName). A reference or a
+// definition of a symbol sits on a token spelled as its name, so a closed
+// file without that word has none, and is never analyzed. Closed files'
+// analyses come from the program kept for an open document, a check
+// against a record's interfaces, or the manager's bounded cache
+// (DocumentManager.Analyzed). It stops, returning nil, when ctx ends.
 func loadProjectFiles(ctx context.Context, dm *analysis.DocumentManager, root, name string) []projectFile {
 	var files []projectFile
 	for _, filePath := range findNomiFiles(root) {
@@ -184,7 +191,7 @@ func loadProjectFiles(ctx context.Context, dm *analysis.DocumentManager, root, n
 		uri := pathToURI(filePath)
 		if !dm.IsOpen(uri) {
 			data, err := os.ReadFile(filePath)
-			if err != nil || !strings.Contains(string(data), name) {
+			if err != nil || !analysis.MayName(string(data), name) {
 				continue
 			}
 		}

@@ -90,6 +90,16 @@ func (dm *DocumentManager) lockView() bool {
 // documents' analyses asked for.
 type programCounts struct {
 	bodies, dependents, full, reused atomic.Int64
+	// opened and stored count the programs opened from their records and
+	// the records written (stored_program.go).
+	opened, stored atomic.Int64
+	// whole counts the documents analyzed again in their programs checked
+	// whole because a request needed it (CheckWhole).
+	whole atomic.Int64
+	// built counts the project files built from source, by any analysis:
+	// a program's check, a closed file's, or a check against interfaces,
+	// which builds one file from source and its closure from interfaces.
+	built atomic.Int64
 	// reasons counts why whole programs were checked.
 	mu      sync.Mutex
 	reasons map[string]int
@@ -113,6 +123,25 @@ func (dm *DocumentManager) ProgramChecks() (bodies, dependents, full, reused int
 	return c.bodies.Load(), c.dependents.Load(), c.full.Load(), c.reused.Load()
 }
 
+// FilesBuilt counts the project files the manager's analyses have built
+// from source: what opening a document or answering a request cost, in
+// files.
+func (dm *DocumentManager) FilesBuilt() int64 {
+	return dm.programCounts.built.Load()
+}
+
+// countBuilt counts the project files of a build's analyses, the stdlib
+// left out.
+func (dm *DocumentManager) countBuilt(files map[string]*FileAnalysis) {
+	n := 0
+	for key := range files {
+		if key != "" && !IsStdlibKey(key) {
+			n++
+		}
+	}
+	dm.programCounts.built.Add(int64(n))
+}
+
 // FullCheckReasons counts why the open documents' analyses checked whole
 // programs.
 func (dm *DocumentManager) FullCheckReasons() map[string]int {
@@ -122,6 +151,40 @@ func (dm *DocumentManager) FullCheckReasons() map[string]int {
 	return maps.Clone(c.reasons)
 }
 
+// forgetClosed drops the programs kept for the document at uri, which has
+// closed: the program it is the entry of, when it is no entry candidate
+// another document's analysis reads, and every program under its root
+// once no document under the root is open. A server that opens and closes
+// many files would otherwise keep a program for each. It runs at
+// background priority.
+func (dm *DocumentManager) forgetClosed(uri string) {
+	root := dm.projectRootFromURI(uri)
+	path := fileuri.ToPath(uri)
+	key := relModuleKey(root, path)
+	dm.lockBuild(false)
+	defer dm.analyzeMu.Unlock()
+	if dm.IsOpen(uri) {
+		return
+	}
+	openUnder := false
+	for _, u := range dm.OpenURIs() {
+		if dm.projectRootFromURI(u) == root {
+			openUnder = true
+			break
+		}
+	}
+	for pk := range dm.programs {
+		if pk.root == root && (!openUnder || pk.entry == key && !slices.Contains(dm.entryCandidates(root), path)) {
+			delete(dm.programs, pk)
+		}
+	}
+	for pk := range dm.stored {
+		if pk.root == root && (!openUnder || pk.entry == key) {
+			delete(dm.stored, pk)
+		}
+	}
+}
+
 // forgetPrograms drops every kept program, so the next analysis of each
 // checks its program afresh: a file appeared that an import may now
 // resolve to, or the Go bindings changed.
@@ -129,6 +192,7 @@ func (dm *DocumentManager) forgetPrograms() {
 	dm.lockBuild(true)
 	defer dm.analyzeMu.Unlock()
 	dm.programs = nil
+	dm.stored, dm.storedMissed = nil, nil
 }
 
 // buildOpen is build for an open document's text, through the program it
@@ -156,14 +220,51 @@ func (dm *DocumentManager) buildOpen(uri, content string) (builtAnalysis, func()
 		if _, err := os.Stat(entryPath); err != nil {
 			continue
 		}
-		p, release := dm.programFor(root, relModuleKey(root, entryPath), docKey, uri, content, manifest)
+		entry := relModuleKey(root, entryPath)
+		if b, reaches, ok := dm.fromStored(root, entry, docKey, uri, content); ok {
+			if reaches {
+				return b, none
+			}
+			continue
+		}
+		p, release := dm.programFor(root, entry, docKey, uri, content, manifest)
 		if p.Files[docKey] != nil {
 			return dm.documentBuild(p, docKey, content, manifest), release
 		}
 		release()
 	}
+	if b, reaches, ok := dm.fromStored(root, docKey, docKey, uri, content); ok && reaches {
+		return b, none
+	}
 	p, release := dm.programFor(root, docKey, docKey, uri, content, manifest)
 	return dm.documentBuild(p, docKey, content, manifest), release
+}
+
+// fromStored is the build of the document with module key docKey from the
+// program whose entry is entry, opened from its record
+// (stored_program.go), when no program is kept for that entry and a
+// record holds the files as they are: ok, and whether the program reaches
+// the document. ok is false when the program must be checked: there is no
+// such record, a file's text is not the record's, or the document's check
+// reports something. The caller holds analyzeMu.
+func (dm *DocumentManager) fromStored(root, entry, docKey, uri, content string) (b builtAnalysis, reaches, ok bool) {
+	key := programKey{root, entry}
+	if dm.programs[key] != nil {
+		return builtAnalysis{}, false, false
+	}
+	sp := dm.storedFor(root, entry, dm.openTexts(root, uri, content))
+	if sp == nil {
+		return builtAnalysis{}, false, false
+	}
+	if _, in := sp.rec.Files[docKey]; !in {
+		return builtAnalysis{}, false, true
+	}
+	b, ok = dm.storedBuild(sp, docKey, content)
+	if !ok {
+		dm.dropStored(key)
+		return builtAnalysis{}, false, false
+	}
+	return b, true, true
 }
 
 // openTexts are the texts of the open documents under root, by module key:
@@ -328,9 +429,15 @@ func (dm *DocumentManager) programFor(root, entry, docKey, uri, content, manifes
 // synthesis appends after them. They are the file's declarations, derives
 // lowered, as a document's analysis has always held them.
 func ownNodes(p *CheckedProgram, key string) []ast.Node {
-	nodes := p.Nodes[key]
-	if key == p.Entry {
-		return nodes[:min(p.entryOwn, len(nodes))]
+	return ownNodesOf(p.Files[key], p.Nodes[key], key == p.Entry, p.entryOwn)
+}
+
+// ownNodesOf is ownNodes for a file built with analysis fa and nodes:
+// the program's entry, whose first entryOwn nodes are its own, or another
+// file.
+func ownNodesOf(fa *FileAnalysis, nodes []ast.Node, entry bool, entryOwn int) []ast.Node {
+	if entry {
+		return nodes[:min(entryOwn, len(nodes))]
 	}
 	start := 0
 	// The hidden imports of a message expansion or a derive are the file's
@@ -338,7 +445,7 @@ func ownNodes(p *CheckedProgram, key string) []ast.Node {
 	for start < len(nodes) && isPreludeInjectLine(nodes[start].LineNum()) && nodes[start].LineNum() != hiddenImportLine {
 		start++
 	}
-	end := min(start+p.Files[key].ownNodes, len(nodes))
+	end := min(start+fa.ownNodes, len(nodes))
 	return nodes[start:end]
 }
 
@@ -363,6 +470,28 @@ func ownNodes(p *CheckedProgram, key string) []ast.Node {
 // Diagnostics inside a declaration the parse repaired are dropped
 // (suppressInDamagedSpans).
 func (dm *DocumentManager) documentBuild(p *CheckedProgram, key, content, manifest string) builtAnalysis {
+	fa := p.Files[key]
+	damaged := p.damaged[key]
+	fa.TypeErrors = documentErrors(p, key)
+	b := builtAnalysis{
+		nodes:      ownNodes(p, key),
+		errs:       p.Syntax[key],
+		damaged:    damaged,
+		fa:         fa,
+		stdDiffers: dm.stdDiffers(fa.FilePath, content),
+	}
+	if key == p.Entry {
+		b.program = entryProgramOf(p, manifest)
+	} else {
+		b.program = memberProgramOf(p, key, manifest)
+	}
+	return b
+}
+
+// documentErrors is the diagnostics the document with module key key of p
+// carries (see documentBuild), without setting them on its analysis: a
+// closed file answered from p reads them so.
+func documentErrors(p *CheckedProgram, key string) []TypeError {
 	fa := p.Files[key]
 	c := p.checks
 	own := ownNodes(p, key)
@@ -389,21 +518,7 @@ func (dm *DocumentManager) documentBuild(p *CheckedProgram, key, content, manife
 		errs = append(errs, c.declChecks[key]...)
 		errs = append(errs, CheckDuplicateTestNames(own)...)
 	}
-	damaged := p.damaged[key]
-	fa.TypeErrors = suppressInDamagedSpans(errs, damaged)
-	b := builtAnalysis{
-		nodes:      own,
-		errs:       p.Syntax[key],
-		damaged:    damaged,
-		fa:         fa,
-		stdDiffers: dm.stdDiffers(fa.FilePath, content),
-	}
-	if key == p.Entry {
-		b.program = entryProgramOf(p, manifest)
-	} else {
-		b.program = memberProgramOf(p, key, manifest)
-	}
-	return b
+	return suppressInDamagedSpans(errs, p.damaged[key])
 }
 
 // entryCoherence is the missing impls the entry document reports: those

@@ -139,18 +139,20 @@ func (g *gen) siblingPrivate(to int, f *fileFunc) bool {
 	if f == nil || !f.private || g.partnerTestOf(to) {
 		return false
 	}
-	irDeclineNote("private sibling file function")
+	g.dc.note("private sibling file function")
 	return true
 }
 
-// partnerTestOf reports whether g's file is unit to's partner test: its
-// module key is to's with `_test` after it, so the two share a directory.
+// partnerTestOf reports whether g's file is unit to's partner test, by the
+// analyzer's rule (analysis.FileAnalysis.PartnerTestOf): the same directory,
+// and to's file name with `_test` before `.nomi`. A module key cannot answer
+// it, since a test file checked as the entry is keyed by its name alone.
 func (g *gen) partnerTestOf(to int) bool {
 	x := g.files
 	if x == nil || g.fileUnit < 0 || g.fileUnit >= len(x.units) || to < 0 || to >= len(x.units) {
 		return false
 	}
-	return x.units[g.fileUnit].key == x.units[to].key+"_test"
+	return x.units[g.fileUnit].fa.PartnerTestOf(x.units[to].fa)
 }
 
 // hasPartnerTest reports whether g's file has its partner test in the
@@ -160,9 +162,9 @@ func (g *gen) hasPartnerTest() bool {
 	if x == nil || g.fileUnit < 0 || g.fileUnit >= len(x.units) {
 		return false
 	}
-	want := x.units[g.fileUnit].key + "_test"
+	src := x.units[g.fileUnit].fa
 	for _, u := range x.units {
-		if u != nil && u.key == want {
+		if u != nil && u.fa.PartnerTestOf(src) {
 			return true
 		}
 	}
@@ -178,6 +180,9 @@ type fileUnit struct {
 	// Nil when the file was checked without an analysis library, in which case
 	// nothing can resolve to it and every call into it refuses.
 	scope *analysis.Scope
+	// fa is the file's analysis, which the partner-test rule reads its path
+	// from. Nil when scope is.
+	fa    *analysis.FileAnalysis
 	funcs map[string]*fileFunc
 }
 
@@ -255,6 +260,7 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 		u := &fileUnit{key: m.Name, pkg: reg.pkgOf[i], funcs: map[string]*fileFunc{}}
 		if m.FA != nil {
 			u.scope = m.FA.ModuleScope
+			u.fa = m.FA
 		}
 		for _, n := range m.Nodes {
 			if isSynthesized(n) {

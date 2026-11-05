@@ -40,6 +40,7 @@ func TestFuncValueDefaults_FillWhereFewerParametersAreExpected(t *testing.T) {
 		`f: (String) -> Maybe<Int> = parse` + "\n  _ = f(\"1\")",
 		`_ = apply(parse, "1")`,
 		`_ = apply(f: parse, s: "1")`,
+		`_ = parse |> apply("1")`,
 		`f: (String, Int) -> Int = three` + "\n  _ = f(\"a\", 1)",
 		`f: () -> Int = seed` + "\n  _ = f()",
 		`_ = [["a"], ["b", "c"]] |> Iter.map(String.join)`,
@@ -52,23 +53,27 @@ func TestFuncValueDefaults_FillWhereFewerParametersAreExpected(t *testing.T) {
 	}
 }
 
-// The parameters a shorter type leaves out must all have defaults, and a
-// pipe's head is checked before the stage it feeds, so nothing is expected of
-// it: both are mismatches. The head's hint names the capture to write.
+// The parameters a shorter type leaves out must all have defaults, and only
+// the function's name fills them, not a local copy of it: both are
+// mismatches, at an argument and at a pipe's head alike. The hint names the
+// capture to write.
 func TestFuncValueDefaults_RejectedWhereADefaultCannotFill(t *testing.T) {
+	const copied = "g = parse\n  _ = g |> apply(\"1\")"
 	for _, tc := range []struct{ stmt, want string }{
 		{`_ = Iter.map(["1"], two)`, "argument 2: expected (String) -> U, got (String, Int) -> Int"},
-		{`_ = parse |> apply("1")`, "`apply` takes (String) -> Maybe<Int> as its first argument, but the pipe passes (String, Bool) -> Maybe<Int>"},
+		{"g = parse\n  _ = apply(g, \"1\")", "argument 1: expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int>"},
+		{copied, "`apply` takes (String) -> Maybe<Int> as its first argument, but the pipe passes (String, Bool) -> Maybe<Int>"},
+		{"_ = two |> apply(\"1\")", "`apply` takes (String) -> Maybe<Int> as its first argument, but the pipe passes (String, Int) -> Int"},
 	} {
 		t.Run(tc.stmt, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  " + tc.stmt + "\n}\n")
 			expectStdlibError(t, errs, tc.want)
 		})
 	}
-	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  _ = parse |> apply(\"1\")\n}\n")
+	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  " + copied + "\n}\n")
 	found := false
 	for _, e := range errs {
-		if strings.Contains(diagText(e), "help: a function value takes its defaults only where its shorter type is expected, so pass a capture that calls it: &parse(&1)") {
+		if strings.Contains(diagText(e), "help: a function value takes its defaults only where its shorter type is expected, so pass a capture that calls it: &g(&1)") {
 			found = true
 		}
 	}

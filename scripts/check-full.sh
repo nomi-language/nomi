@@ -2,29 +2,45 @@
 # check-full.sh: the full check a batch passes before `make publish-main`
 # squashes next to main (AGENTS.md, "Verification cadence").
 #
-# Steps, in three phases. First, in order: gofmt over the tracked Go files,
+# Steps, in four phases. First, in order: gofmt over the tracked Go files,
 # build and vet, the tour wasm bundle (vmhost's TestTourWasm* read it).
-# Then, at the same time: every package but internal/irbuild, vmhost and rt
-# (TestLibModules apart), vmhost alone, rt, internal/irbuild alone,
-# TestLibModules and the tree-sitter tests (when npx is on PATH); the
-# package step is the longest, so the others finish inside it. Then the race
-# detector, its parts at the same time: rt and the language server's
-# concurrent tests whole or filtered, internal/vm's and vmhost's task,
-# channel, cancellation and synctest tests, and a race-built `nomi test`
-# over the corpus directories whose programs run tasks. Last, every fuzz
-# target at the same time for FUZZTIME, two workers each. Every step runs
-# even when an earlier one fails; each prints its output, its exit status
-# and its time, and the script exits 1 when any step failed.
+# Then, at the same time:
+#   - pkgs: every other package, without the expectation suites and the
+#     object harnesses, which have steps of their own;
+#   - cmd/nomi in two parts (cmdnomi-1, cmdnomi-2), vmhost, rt and
+#     internal/irbuild, each alone; lib (TestLibModules); the tree-sitter
+#     tests (when npx is on PATH);
+#   - the object harness over the expectation populations in full: every
+#     recorded program linked through objects (objects-link), and with each
+#     of its files lowered again on its own against the others' kept objects
+#     (objects-perfile); and every program irbuild.expect records, run
+#     linked through objects (objects-irbuild);
+#   - the expectation suites, corpus, stdlib, tour and failure, each a step
+#     (interfaces-<suite>), with every project file checked again against
+#     interfaces; each compares its golden file as the plain run does.
+# Then the race detector, its parts at the same time: rt and the language
+# server's concurrent tests whole or filtered, internal/vm's and vmhost's
+# task, channel, cancellation and synctest tests, and a race-built `nomi
+# test` over the corpus directories whose programs run tasks. Last, every
+# fuzz target at the same time for FUZZTIME, two workers each.
+# Every step runs even when an earlier one fails; each prints its output,
+# its exit status and its time, and the script exits 1 when any step
+# failed.
 #
 # Usage:
 #   scripts/check-full.sh
 #
 #   FUZZTIME=5m       how long each fuzz target runs (default 5m)
 #   STEPS="a b ..."   run only the named steps: gofmt tourwasm buildvet pkgs
-#                     vmhost rt irbuild lib treesitter, race-<part> (race-rt
+#                     vmhost rt irbuild lib treesitter, cmdnomi-<part>
+#                     (cmdnomi-1 cmdnomi-2), interfaces-<suite>
+#                     (interfaces-corpus interfaces-stdlib interfaces-tour
+#                     interfaces-failure), objects-<part> (objects-link
+#                     objects-perfile objects-irbuild), race-<part> (race-rt
 #                     race-lsp race-vm race-vmhost race-corpus) and
-#                     fuzz-<Target> (fuzz-FuzzFormatKeepsMeaning); `race`
-#                     and `fuzz` name every part. Empty runs every step.
+#                     fuzz-<Target> (fuzz-FuzzFormatKeepsMeaning);
+#                     `cmdnomi`, `interfaces`, `objects`, `race` and `fuzz`
+#                     name every part. Empty runs every step.
 
 set -uo pipefail
 
@@ -35,8 +51,8 @@ T0=$SECONDS
 failed=()
 
 FUZZ_VMHOST="FuzzFrontEndAcceptsSoItLowers FuzzFormatKeepsMeaning FuzzLoweredProgramsRun"
-KNOWN="gofmt tourwasm buildvet pkgs vmhost rt irbuild lib treesitter race race-rt race-lsp race-vm race-vmhost race-corpus fuzz"
-for t in $FUZZ_VMHOST FuzzIncrementalMatchesFull FuzzLSPSurvivesEdits; do
+KNOWN="gofmt tourwasm buildvet pkgs cmdnomi cmdnomi-1 cmdnomi-2 vmhost rt irbuild lib treesitter interfaces interfaces-corpus interfaces-stdlib interfaces-tour interfaces-failure objects objects-link objects-perfile objects-irbuild race race-rt race-lsp race-vm race-vmhost race-corpus fuzz"
+for t in $FUZZ_VMHOST FuzzIncrementalMatchesFull FuzzCheckFromInterfacesMatchesFull FuzzLSPSurvivesEdits; do
   KNOWN="$KNOWN fuzz-$t"
 done
 for name in $STEPS; do
@@ -92,11 +108,36 @@ buildvet() {
   go -C "$ROOT" build ./... && go -C "$ROOT" vet ./...
 }
 
+# pkgs: every package but internal/irbuild, vmhost, rt and cmd/nomi, which
+# run as steps of their own. It skips the tests other steps run in full:
+# the four expectation suites are the interfaces-* steps, which compare
+# every record as the plain run does and check each program against
+# interfaces too, and the object harnesses, which here would run a sample,
+# are objects-link and objects-perfile.
 pkgs() {
   local list
-  list="$(go -C "$ROOT" list ./... | grep -v -e '/internal/irbuild$' -e '/vmhost$' -e '/rt$' -e '/rt/')" || return
+  list="$(go -C "$ROOT" list ./... | grep -v -e '/internal/irbuild$' -e '/vmhost$' -e '/rt$' -e '/rt/' -e '/cmd/nomi$')" || return
   # shellcheck disable=SC2086 # one package per word
-  go -C "$ROOT" test $list -skip '^TestLibModules$' -count=1 -timeout 0
+  go -C "$ROOT" test $list -skip '^(TestExpectation_(Corpus|Stdlib|Tour|Failure)|TestObjectsLinkToTheSameProgram|TestFilesLowerOnTheirOwnAsInTheProgram)$' -count=1 -timeout 0
+}
+
+# cmdnomi PART: cmd/nomi's tests but TestLibModules (the lib step), in two
+# processes, since most of them set the environment and so run one at a
+# time: part 1 the tests named Test[A-C]... and the fuzz targets' seeds,
+# part 2 the rest, each about half the package's time.
+cmdnomi() {
+  local part='^(Test[A-C]|Fuzz)'
+  if [[ $1 == 1 ]]; then
+    go -C "$ROOT" test ./cmd/nomi -run "$part" -count=1 -timeout 0
+  else
+    go -C "$ROOT" test ./cmd/nomi -skip "$part|^TestLibModules\$" -count=1 -timeout 0
+  fi
+}
+
+# interfaces SUITE: one expectation suite with every project file checked
+# again against interfaces (NOMI_CHECK_FROM_INTERFACES).
+interfaces() {
+  NOMI_CHECK_FROM_INTERFACES=1 go -C "$ROOT" test ./internal/expectation -run "^TestExpectation_$1\$" -count=1 -timeout 0
 }
 
 treesitter() {
@@ -105,6 +146,15 @@ treesitter() {
     return 0
   fi
   "$ROOT/scripts/tree-sitter.sh" test
+}
+
+# cpuseconds FILE: the user and system CPU seconds of a shell's finished
+# children, from the second line of the `times` output in FILE. `times`
+# must run in that shell itself, since in a pipe or a command substitution
+# it reports a fresh subshell's.
+cpuseconds() {
+  awk 'function sec(t,  m) { m = t; sub(/m.*/, "", m); sub(/^[0-9]+m/, "", t); sub(/s$/, "", t); return m * 60 + t }
+    NR == 2 { printf "%d", sec($1) + sec($2) }' "$1"
 }
 
 # pstep NAME CMD...: start CMD in the background when NAME is selected,
@@ -122,7 +172,11 @@ pstep() {
     s=$SECONDS
     "$@"
     rc=$?
-    echo ">> took $(( SECONDS - s ))s"
+    # The CPU the step's processes used, user and system, which matters
+    # because with every step at once the machine's cores are the limit.
+    times >"$log.times"
+    echo ">> took $(( SECONDS - s ))s, cpu $(cpuseconds "$log.times")s"
+    rm -f "$log.times"
     exit $rc
   ) >"$log" 2>&1 &
   pids+=("$!")
@@ -171,17 +225,28 @@ step buildvet buildvet
 step tourwasm tourwasm
 
 pstep pkgs pkgs
+pstep cmdnomi-1 cmdnomi 1
+pstep cmdnomi-2 cmdnomi 2
 pstep vmhost env NOMI_TOUR_RUN_BUDGET=1 go -C "$ROOT" test ./vmhost -count=1 -timeout 0
 pstep rt go -C "$ROOT" test ./rt/... -count=1 -timeout 0
 pstep irbuild go -C "$ROOT" test ./internal/irbuild -count=1 -timeout 0
 pstep lib go -C "$ROOT" test ./cmd/nomi -run '^TestLibModules$' -count=1 -timeout 0
 pstep treesitter treesitter
+pstep objects-link env NOMI_OBJECTS_LINK=full go -C "$ROOT" test ./internal/expectation -run '^TestObjectsLinkToTheSameProgram$' -count=1 -timeout 0
+pstep objects-perfile env NOMI_OBJECTS_LINK=full go -C "$ROOT" test ./internal/expectation -run '^TestFilesLowerOnTheirOwnAsInTheProgram$' -count=1 -timeout 0
+pstep objects-irbuild env NOMI_LINK_OBJECTS=1 go -C "$ROOT" test ./internal/irbuild -run '^TestIRGolden_RecordsMatchTheVM$' -count=1 -timeout 0
+for s in Corpus Stdlib Tour Failure; do
+  pstep "interfaces-$(tr '[:upper:]' '[:lower:]' <<<"$s")" interfaces "$s"
+done
 pwait
 
 # The race detector finds a race only where goroutines run, so it runs the
 # tests that start them: rt whole, the language server's background work,
 # and internal/vm's and vmhost's task, channel, cancellation and synctest
-# tests, beside the corpus programs that run tasks (racecorpus).
+# tests, beside the corpus programs that run tasks (racecorpus). They run
+# in a phase of their own: several carry wall-clock limits (a `nomi test`
+# case's 10 s, the debugger's pause), which a race-built binary misses on a
+# machine the steps above saturate.
 pstep race-rt go -C "$ROOT" test -race ./rt/... -count=1 -timeout 0
 pstep race-lsp go -C "$ROOT" test -race ./internal/lsp -run '^(TestIncremental_BodyEditsConcurrentWithRequests|TestLoweringFromAnalysis_ConcurrentWithRequests|TestLoweringFromAnalysis_LeavesTheAnalysisUnchanged|TestRPC_ImplImportCheckWhileSiblingIsRead|TestPropagateAsync_.*)$' -count=1 -timeout 0
 pstep race-vm go -C "$ROOT" test -race ./internal/vm -run 'Task|Concurrent|Once|Writer|Debug|Travel|Cancel|Supervisor|Channel' -count=1 -timeout 0
@@ -193,6 +258,7 @@ for t in $FUZZ_VMHOST; do
   pstep "fuzz-$t" fuzz ./vmhost "$t"
 done
 pstep fuzz-FuzzIncrementalMatchesFull fuzz ./internal/analysis FuzzIncrementalMatchesFull
+pstep fuzz-FuzzCheckFromInterfacesMatchesFull fuzz ./internal/analysis FuzzCheckFromInterfacesMatchesFull
 pstep fuzz-FuzzLSPSurvivesEdits fuzz ./internal/lsp FuzzLSPSurvivesEdits
 pwait
 

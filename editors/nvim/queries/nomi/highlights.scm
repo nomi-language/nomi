@@ -412,6 +412,11 @@
   keyword: (identifier) @keyword)
 (keyword_declaration
   name: (identifier) @function)
+; An `embed` names a value, as a `once` does; later patterns win in Zed.
+(keyword_declaration
+  keyword: (identifier) @_keyword
+  name: (identifier) @constant
+  (#eq? @_keyword "embed"))
 (function_definition
   name: (type_identifier) @function)
 

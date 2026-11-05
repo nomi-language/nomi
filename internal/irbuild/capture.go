@@ -23,7 +23,7 @@ import (
 // local.
 func (bl *irScalarBuilder) captureFunc(t *ast.Capture) (ir.Temp, kind, bool, bool) {
 	no := func(why string) (ir.Temp, kind, bool, bool) {
-		irDeclineNote(why)
+		bl.g.dc.note(why)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if bl.g.fa == nil {

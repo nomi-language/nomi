@@ -42,7 +42,7 @@ func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if !d.lowerable() || !irOnceKind(d.k) {
-		declineOnceRead(d)
+		bl.g.dc.declineOnceRead(d)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	n := ir.NewRefOnce(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypes().Symbol(d, d.nomi))
@@ -112,7 +112,7 @@ func (bl *irScalarBuilder) siblingOnceValue(at ast.Node, to int, d *onceDef) (ir
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if !d.lowerable() || !irOnceKind(d.k) {
-		declineOnceRead(d)
+		bl.g.dc.declineOnceRead(d)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	k, ok := bl.g.refSiblingOnce(at, to, d)
@@ -129,12 +129,12 @@ func (bl *irScalarBuilder) siblingOnceValue(at ast.Node, to int, d *onceDef) (ir
 // declineOnceRead records the open attempt's decline as a read of d, a `once`
 // declared without a type the builder can represent, so a host blames the
 // `once` rather than the name that reads it.
-func declineOnceRead(d *onceDef) {
+func (dc *declineCensus) declineOnceRead(d *onceDef) {
 	why := d.why
 	if why == "" {
 		why = "a once of a kind outside the domain: " + d.k.nomi()
 	}
-	irDeclineNoteOnce("a read of `once "+d.nomi+"`, which cannot lower: "+why, "once "+d.nomi)
+	dc.noteOnce("a read of `once "+d.nomi+"`, which cannot lower: "+why, "once "+d.nomi)
 }
 
 func (g *gen) irOnceLower(d *onceDef) (kind, bool) {
@@ -148,11 +148,11 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 	g.irDeclineOpen("once " + name)
 	defer func() {
 		if !ok {
-			irDeclineClose()
+			g.dc.close()
 		}
 	}()
 	if !irOnceKind(k) {
-		irDeclineNote("a once of a kind outside the domain: " + k.nomi())
+		g.dc.note("a once of a kind outside the domain: " + k.nomi())
 		return kindInvalid, false
 	}
 	body := decl.Value
@@ -162,7 +162,7 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 		lead, body = g.irScalarBlock(block, "")
 	}
 	if body == nil {
-		irDeclineNote(irDeclineBodyWhy)
+		g.dc.note(g.dc.bodyWhy)
 		return kindInvalid, false
 	}
 	at := g.irNodePos(decl)
@@ -206,7 +206,7 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 	}
 	p := &irScalarPlan{fn: f, result: got}
 	if err := g.irLint(f); err != nil {
-		irDeclineNote("a `once` initializer graph that does not lint: " + err.Error())
+		g.dc.note("a `once` initializer graph that does not lint: " + err.Error())
 		return kindInvalid, false
 	}
 	g.irModule().DeclareLazyCell(sym, g.irTypeOf(k), f)
@@ -224,10 +224,10 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 // modules are only consulted: their reads already require a retained cell
 // (stdOnceValue's irCell).
 //
-// Each withdrawal is a decline of the withdrawn body (irDeclineWithdrawn), so
+// Each withdrawal is a decline of the withdrawn body (declineCensus.withdrawn), so
 // a host reports it at the `once` whose initializer did not lower rather than
 // as a body that declined for no reason.
-func irWithdrawUnforceableReads(user, libs []*ir.Module) {
+func irWithdrawUnforceableReads(dc *declineCensus, user, libs []*ir.Module) {
 	mods := append(append([]*ir.Module(nil), user...), libs...)
 	for changed := true; changed; {
 		changed = false
@@ -239,7 +239,7 @@ func irWithdrawUnforceableReads(user, libs []*ir.Module) {
 				}
 				if read := irUnforceableRead(body, mods); read != nil {
 					mod.RemoveCell(c)
-					irDeclineWithdrawn("once "+c.Sym().Name(), read)
+					dc.withdrawn("once "+c.Sym().Name(), read)
 					changed = true
 				}
 			}
@@ -249,7 +249,7 @@ func irWithdrawUnforceableReads(user, libs []*ir.Module) {
 		for _, f := range append([]*ir.Func(nil), mod.Funcs()...) {
 			if read := irUnforceableRead(f, mods); read != nil {
 				mod.RemoveFunc(f)
-				irDeclineWithdrawn(f.Name(), read)
+				dc.withdrawn(f.Name(), read)
 			}
 		}
 	}
@@ -324,7 +324,7 @@ func (bl *irScalarBuilder) ownerOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bo
 		return bl.siblingOnceValue(t, site.unit, g.reg.gens[site.unit].oncesByDecl[ob])
 	}
 	if !d.lowerable() || !irOnceKind(d.k) {
-		declineOnceRead(d)
+		bl.g.dc.declineOnceRead(d)
 		return no()
 	}
 	n := ir.NewRefOnce(g.irNodePos(t), bl.f.NewTemp(), g.irTypes().Symbol(d, d.nomi))

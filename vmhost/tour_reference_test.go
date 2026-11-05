@@ -16,6 +16,10 @@ import (
 // write the stdlib reference pages, beside the staged bundle.
 const referenceDir = "../tour/src/content/docs/reference"
 
+// referenceShards is how many node processes
+// TestTourWasmAnswersTheReferenceEditors runs at once.
+const referenceShards = 4
+
 // referencePrompt matches one `//!` prompt as a reference page carries it:
 // a live editor (`language-nomi-test`), or code the page does not run
 // (`language-nomi` with data-nomi-browser-lacks).
@@ -81,7 +85,35 @@ func TestTourWasmAnswersTheReferenceEditors(t *testing.T) {
 	if len(probes) == 0 {
 		t.Fatalf("no `//!` prompts found on the reference pages under %s", referenceDir)
 	}
-	answers := runUnderNode(t, node, probes)
+	// One node process answers the prompts one at a time, about four
+	// minutes for all of them, so referenceShards processes answer them at
+	// the same time, shard i every prompt whose index is i modulo the count,
+	// and the answers are put back in the prompts' order.
+	parts := make([][]nodeAnswer, referenceShards)
+	t.Run("shards", func(t *testing.T) {
+		for i := range parts {
+			var shard []probe
+			for j := i; j < len(probes); j += referenceShards {
+				shard = append(shard, probes[j])
+			}
+			t.Run(strconv.Itoa(i), func(t *testing.T) {
+				t.Parallel()
+				if len(shard) > 0 {
+					parts[i] = runUnderNode(t, node, shard)
+				}
+			})
+		}
+	})
+	if t.Failed() {
+		return
+	}
+	var answers []nodeAnswer
+	for j := range probes {
+		part := parts[j%referenceShards]
+		if k := j / referenceShards; k < len(part) {
+			answers = append(answers, part[k])
+		}
+	}
 	if len(answers) != len(probes) {
 		t.Fatalf("staged wasm answered %d of %d reference prompts", len(answers), len(probes))
 	}

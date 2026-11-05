@@ -95,16 +95,19 @@ func RunBare(args []string, stdout, stderr io.Writer, stdin io.Reader, handleSig
 	} else if isTerminal(stdin) {
 		return noProgram("no program to run")
 	}
-	var image []byte
+	var image *Image
 	var err error
 	if fromStdin {
 		var f ImageFile
 		if f, err = ReadImageFile(stdin, "stdin"); err == nil {
-			err = f.check("stdin", cfg.compiler != nil)
-			image = f.Image
+			if err = f.check("stdin", cfg.compiler != nil); err == nil {
+				// What was read from stdin is the runner's alone, so a file
+				// is read as a view of it.
+				image, err = imageFromBytes(f.Image, true)
+			}
 		}
 	} else {
-		image, err = LoadImageFile(path, opts...)
+		image, err = OpenImageFile(path, opts...)
 	}
 	if err != nil {
 		if fromStdin && errors.Is(err, errNotImageFile) {
@@ -112,29 +115,8 @@ func RunBare(args []string, stdout, stderr io.Writer, stdin io.Reader, handleSig
 		}
 		return fail("%v", err)
 	}
-	return RunCompiled(image, stdout, stderr, stdin, args, handleSignals, opts...)
-}
-
-// LoadImageFile reads the image file at path and answers its image, or why a
-// runner with opts cannot run it (ImageFile's check).
-func LoadImageFile(path string, opts ...Option) ([]byte, error) {
-	var cfg config
-	for _, o := range opts {
-		o(&cfg)
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	f, err := ReadImageFile(file, path)
-	if err != nil {
-		return nil, err
-	}
-	if err := f.check(path, cfg.compiler != nil); err != nil {
-		return nil, err
-	}
-	return f.Image, nil
+	defer image.Close()
+	return RunCompiledImage(image, stdout, stderr, stdin, args, handleSignals, opts...)
 }
 
 // isTerminal reports whether r is a terminal, where waiting for a framed

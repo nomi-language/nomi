@@ -1,0 +1,277 @@
+//# Schedules, unique jobs and priorities over an in-memory queue. The
+//# tests that step a schedule call `jobs.enqueue_due` with the instants
+//# they name, so they read no clock; the ones that run workers do so under
+//# virtual time. Each counts the jobs stored.
+
+import {
+    std::calendar.{Anchored, DateTime}
+    std::duration.Duration
+    std::instant.Instant
+    std::jobs.{self, Cron, Enqueued, Job, Missed, NewJob, Queue, Schedule, Unique, UniqueStates, Worker}
+    std::jobs_testing.{self, Inline, StoredJob}
+    std::sql_testing.Fake
+    std::testing.Clock
+    std::timer
+    app.{self, App}
+}
+
+once tick_job = Job.new("tick", fn _: Int -> Ok(Unit))
+
+fn at(reading: DateTime) -> Instant {
+    Anchored.to_instant(reading)
+}
+
+// `count` successive ticks of `schedule` after `from`.
+fn ticks(schedule: Schedule, from: Instant, count: Int) -> List<Instant> {
+    if count == 0 { return [] }
+    next = Schedule.next_after(schedule, from)
+    [next] + ticks(schedule, next, count - 1)
+}
+
+// Step `schedule` over a fresh queue from `from`, `steps` times `every`
+// apart, as a scheduler waking at each would, and answer the jobs' due
+// times.
+fn stepped(schedule: Schedule, from: Instant, every: Duration, steps: Int) -> List<Instant> {
+    queue = Inline.new()
+
+    Iter.each(0..=steps, fn i -> {
+        _ = jobs.enqueue_due(queue, schedule, from + every * i)
+    })
+
+    Inline.jobs(queue) |> Iter.map(&(&1.run_at)) |> Iter.to_list()
+}
+
+fn hourly(missed: Missed = Missed.RunLatest) -> Schedule {
+    Schedule.every("hourly", Duration.hours(1), tick_job, 0, missed: missed)
+}
+
+fn new_york(cron: Cron) -> Schedule {
+    Schedule.cron("ny", cron, tick_job, 0, zone: "America/New_York")
+}
+
+fn nine() -> Instant {
+    at(DateTime`2026-06-01T09:00:00Z[UTC]`)
+}
+
+test "a scheduler down across several ticks enqueues one job, for the latest" {
+    queue = Inline.new()
+    assert jobs.enqueue_due(queue, hourly(), nine()) == Ok(None)
+    // Down from 09:00 to 12:30: the ticks at 10:00, 11:00 and 12:00 were missed.
+    assert jobs.enqueue_due(queue, hourly(), nine() + Duration.minutes(210)) is Ok(Some(_))
+    assert jobs.enqueue_due(queue, hourly(), nine() + Duration.minutes(220)) == Ok(None)
+
+    assert Iter.map(Inline.jobs(queue), &(&1.run_at)) |> Iter.to_list() == [
+        nine() + Duration.hours(3),
+    ]
+}
+
+test "with missed: .Skip it enqueues nothing for missed ticks, then the next on time" {
+    queue = Inline.new()
+    _ = jobs.enqueue_due(queue, hourly(missed: .Skip), nine())?
+
+    assert jobs.enqueue_due(queue, hourly(missed: .Skip), nine() + Duration.minutes(210))
+        == Ok(None)
+
+    assert jobs.enqueue_due(
+        queue,
+        hourly(missed: .Skip),
+        nine() + Duration.minutes(240),
+    ) is Ok(Some(_))
+
+    assert Iter.map(Inline.jobs(queue), &(&1.run_at)) |> Iter.to_list() == [
+        nine() + Duration.hours(4),
+    ]
+}
+
+test "a schedule the queue has no record of enqueues nothing until its next tick" {
+    assert stepped(hourly(), nine(), Duration.minutes(59), 1) == []
+    assert stepped(hourly(), nine(), Duration.minutes(30), 3) == [nine() + Duration.hours(1)]
+}
+
+test "two schedulers stepping one schedule at once store each tick once" {
+    queue = Inline.new()
+    _ = jobs.enqueue_due(queue, hourly(), nine())?
+
+    // At each tick a second process, which read the queue before the first
+    // recorded the tick, stores the same job for it.
+    answers =
+        1..=5
+        |> Iter.map(fn hour -> {
+            now = nine() + Duration.hours(hour)
+            first = jobs.enqueue_due(queue, hourly(), now)
+            stored = Iter.last(Inline.jobs(queue))!
+            second = Queue.record_tick(queue, "hourly", now, Some(again(stored)))
+            #(first, second)
+        })
+        |> Iter.to_list()
+
+    assert Iter.all(answers, fn #(first, second) -> {
+        first is Ok(Some(Enqueued{duplicate: False}))
+            and second is Ok(Some(Enqueued{duplicate: True}))
+    })
+
+    assert Iter.count(Inline.jobs(queue)) == 5
+}
+
+fn again(stored: StoredJob) -> NewJob {
+    NewJob{
+        queue: stored.queue,
+        kind: stored.kind,
+        args: stored.args,
+        run_at: Some(stored.run_at),
+        max_attempts: stored.max_attempts,
+        unique_key: stored.unique_key,
+        unique_across: stored.unique_across,
+    }
+}
+
+test "a daily cron in New York runs a skipped 02:30 at 03:00, once" {
+    nightly = new_york(Cron`30 2 * * *`)
+
+    assert ticks(nightly, at(DateTime`2026-03-07T00:00:00-05:00[America/New_York]`), 3) == [
+        at(DateTime`2026-03-07T02:30:00-05:00[America/New_York]`),
+        at(DateTime`2026-03-08T03:00:00-04:00[America/New_York]`),
+        at(DateTime`2026-03-09T02:30:00-04:00[America/New_York]`),
+    ]
+
+    from = at(DateTime`2026-03-08T00:00:00-05:00[America/New_York]`)
+
+    assert stepped(nightly, from, Duration.minutes(10), 30) == [
+        at(DateTime`2026-03-08T03:00:00-04:00[America/New_York]`),
+    ]
+}
+
+test "every quarter hour across the spring change skips the missing hour" {
+    quarters = new_york(Cron`*/15 * * * *`)
+
+    assert ticks(quarters, at(DateTime`2026-03-08T01:40:00-05:00[America/New_York]`), 3) == [
+        at(DateTime`2026-03-08T01:45:00-05:00[America/New_York]`),
+        at(DateTime`2026-03-08T03:00:00-04:00[America/New_York]`),
+        at(DateTime`2026-03-08T03:15:00-04:00[America/New_York]`),
+    ]
+}
+
+test "a daily cron in New York runs a repeated 01:30 once" {
+    nightly = new_york(Cron`30 1 * * *`)
+
+    assert ticks(nightly, at(DateTime`2026-10-31T00:00:00-04:00[America/New_York]`), 3) == [
+        at(DateTime`2026-10-31T01:30:00-04:00[America/New_York]`),
+        at(DateTime`2026-11-01T01:30:00-04:00[America/New_York]`),
+        at(DateTime`2026-11-02T01:30:00-05:00[America/New_York]`),
+    ]
+
+    from = at(DateTime`2026-11-01T00:00:00-04:00[America/New_York]`)
+
+    assert stepped(nightly, from, Duration.minutes(10), 30) == [
+        at(DateTime`2026-11-01T01:30:00-04:00[America/New_York]`),
+    ]
+}
+
+test "an hourly cron runs the repeated hour once across the fall change" {
+    hours = new_york(Cron`0 * * * *`)
+    from = at(DateTime`2026-11-01T00:00:00-04:00[America/New_York]`)
+
+    assert stepped(hours, from, Duration.minutes(20), 12) == [
+        at(DateTime`2026-11-01T01:00:00-04:00[America/New_York]`),
+        at(DateTime`2026-11-01T02:00:00-05:00[America/New_York]`),
+        at(DateTime`2026-11-01T03:00:00-05:00[America/New_York]`),
+    ]
+}
+
+test "names, ranges, steps and lists pick the times a cron expression names" {
+    weekdays = Schedule.cron("weekdays", Cron`0 9-17/4 * JAN,jun mon-FRI`, tick_job, 0)
+
+    assert ticks(weekdays, at(DateTime`2026-06-05T16:00:00Z[UTC]`), 4) == [
+        at(DateTime`2026-06-05T17:00:00Z[UTC]`),
+        at(DateTime`2026-06-08T09:00:00Z[UTC]`),
+        at(DateTime`2026-06-08T13:00:00Z[UTC]`),
+        at(DateTime`2026-06-08T17:00:00Z[UTC]`),
+    ]
+
+    // Both day fields given: the 1st, or a Sunday.
+    either = Schedule.cron("either", Cron`0 0 1 * 0`, tick_job, 0)
+
+    assert ticks(either, at(DateTime`2026-02-27T00:00:00Z[UTC]`), 3) == [
+        at(DateTime`2026-03-01T00:00:00Z[UTC]`),
+        at(DateTime`2026-03-08T00:00:00Z[UTC]`),
+        at(DateTime`2026-03-15T00:00:00Z[UTC]`),
+    ]
+
+    leap = Schedule.cron("leap", Cron`0 0 29 2 *`, tick_job, 0)
+    assert ticks(leap, nine(), 1) == [at(DateTime`2028-02-29T00:00:00Z[UTC]`)]
+}
+
+test "a unique enqueue with a period stores one job per period" {
+    queue = Inline.new()
+    unique = Unique{key: "digest", period: Some(Duration.hours(1))}
+    first = jobs.enqueue(queue, Fake.new(), tick_job, 1, unique: Some(unique))?
+    again = jobs.enqueue(queue, Fake.new(), tick_job, 2, unique: Some(unique))?
+    assert again == Enqueued{id: first.id, duplicate: True}
+    assert Iter.count(Inline.jobs(queue)) == 1
+}
+
+test "run_queued runs the highest priority first, then the oldest" {
+    queue = Inline.new()
+    _ = jobs.enqueue(queue, Fake.new(), tick_job, 1)?
+    _ = jobs.enqueue(queue, Fake.new(), tick_job, 2, priority: Some(3))?
+    _ = jobs.enqueue(queue, Fake.new(), tick_job, 3, priority: Some(-1))?
+    _ = jobs.enqueue(queue, Fake.new(), tick_job, 4, priority: Some(3))?
+    ran = jobs_testing.run_queued(queue, [tick_job])
+    assert Iter.map(ran, &(&1.args)) |> Iter.to_list() == [.Int(2), .Int(4), .Int(1), .Int(3)]
+}
+
+test "a kept key outlives its job, and a live one does not" {
+    queue = Inline.new()
+    kept = Unique{key: "k", across: UniqueStates.Kept}
+    _ = jobs.enqueue(queue, Fake.new(), tick_job, 1, unique: Some(kept))?
+    _ = jobs.enqueue(queue, Fake.new(), tick_job, 2, unique: Some(Unique{key: "l"}))?
+    assert Iter.count(jobs_testing.run_queued(queue, [tick_job])) == 2
+
+    assert jobs.enqueue(queue, Fake.new(), tick_job, 3, unique: Some(kept)) is Ok(Enqueued{
+        duplicate: True,
+    })
+
+    assert jobs.enqueue(
+        queue,
+        Fake.new(),
+        tick_job,
+        4,
+        unique: Some(Unique{key: "l"}),
+    ) is Ok(Enqueued{duplicate: False})
+}
+
+fn kinds(kind: String) -> Int {
+    Inline.jobs(App.shared) |> Iter.filter(fn job -> job.kind == kind) |> Iter.count()
+}
+
+group "schedules on two workers over one queue" {
+    clock Clock.Virtual
+
+    boot app.boot()
+
+    test "two workers running one schedule enqueue each tick once" {
+        every_minute = Schedule.every("minutely", Duration.minutes(1), tick_job, 0)
+        Worker.start(App.first, [tick_job], schedules: [every_minute])
+        Worker.start(App.second, [tick_job], schedules: [every_minute])
+        timer.sleep(Duration.minutes(10) + Duration.seconds(30))
+        assert kinds("tick") == 10
+
+        due =
+            Inline.jobs(App.shared)
+            |> Iter.map(&Instant.as_nanos(&1.run_at))
+            |> Iter.to_set()
+
+        assert Set.size(due) == 10
+    }
+
+    test "a worker that starts after missed ticks enqueues one job, for the latest" {
+        hourly_schedule = hourly()
+        // The queue last recorded a tick three and a half hours ago.
+        _ = jobs.enqueue_due(App.shared, hourly_schedule, Instant.now() - Duration.minutes(210))?
+        Worker.start(App.first, [tick_job], schedules: [hourly_schedule])
+        timer.sleep(Duration.minutes(30))
+        assert kinds("tick") == 1
+        timer.sleep(Duration.minutes(31))
+        assert kinds("tick") == 2
+    }
+}

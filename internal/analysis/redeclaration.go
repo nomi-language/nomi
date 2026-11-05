@@ -57,6 +57,8 @@ func kindLabel(s *Symbol) string {
 		return "binding"
 	case SymbolModule:
 		return "module"
+	case SymbolDirectory:
+		return "directory"
 	case SymbolInterfaceMethod:
 		return "interface function"
 	default:
@@ -143,20 +145,22 @@ func (b *builder) checkRedeclareInScopeKind(scope *Scope, name string, line, col
 	return true
 }
 
-// collidesWithImportedModule hands the slot of a file import's short name to
-// a declaration of the file with that name (spec §14 *Short names and full
-// paths*): the declaration wins, as a local would, and the file stays
-// reachable by its full path. It runs when the import was defined first (a
-// file built on its own); bindFileShortName covers the other order (a
-// project build stubs every declaration before any import). It reports
-// nothing and returns false, and the declaration's own Define then takes
-// the slot.
-func (b *builder) collidesWithImportedModule(scope *Scope, name string, line, col int) bool {
+// collidesWithImportedModule reports a path-only import whose name a
+// declaration of the file takes (spec §14 *Short names*), when the import
+// was defined first (a file built on its own); bindShortName covers the
+// other order (a project build stubs every declaration before any import).
+// The import loses the name, and the declaration's own Define then takes
+// the slot; it returns false.
+func (b *builder) collidesWithImportedModule(scope *Scope, name, what string, line int) bool {
 	existing := scope.LookupLocal(name)
-	if existing == nil || existing.Kind != SymbolModule || !symbolCameFromImport(existing) {
+	if existing == nil || (existing.Kind != SymbolModule && existing.Kind != SymbolDirectory) || !symbolCameFromImport(existing) || IsSynthesizedLine(existing.Pos.Line) {
 		return false
 	}
-	b.forgetFileShortName(name)
+	imp := existing.Node.(*ast.ImportStmt)
+	b.file.TypeErrors = append(b.file.TypeErrors, b.importNameTaken(imp, existing, what, line))
+	b.file.markUnbound(imp)
+	delete(b.modules, name)
+	delete(b.moduleSyms, name)
 	return false
 }
 

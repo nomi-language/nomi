@@ -575,6 +575,13 @@ ok a receipt job runs once it is enqueued
 test result: ok. 1 passed, 0 failed
 -->
 
+An enqueue can carry a `Unique` key, so a second enqueue while the first
+job is waiting stores nothing, and a `priority`. Work that recurs is a
+`Schedule`, such as ``Schedule.cron("nightly", Cron`0 3 * * *`, report_job,
+args, zone: "America/New_York")``, passed to `Worker.start` with
+`schedules:`.
+Every process can run the same schedules, and each tick is enqueued once.
+
 This handler only checks the order. A real one sends the email with
 [`std::mail`](/reference/mail/), which sends a `Message` through a `Mailer`.
 In production the mailer is `mail.smtp(...)`, which reaches any SMTP relay

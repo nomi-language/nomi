@@ -77,6 +77,11 @@ const (
 	// whose type its spelling does not name: a codepoint literal `'a'` is a
 	// `Codepoint`. Name is the literal as written.
 	SymbolLiteral
+	// SymbolDirectory is what a directory import binds (`admin` for
+	// `import views::admin`, spec §14 *Directory imports*): a name a path
+	// at a use starts with (`admin::users.index`), never a value or a file.
+	// Directory holds what it reaches.
+	SymbolDirectory
 )
 
 // TryOpInfo holds the per-site data a SymbolTryOp needs to render hover
@@ -231,12 +236,10 @@ type Symbol struct {
 	// is keyed by (OwningType, Name); this field lets a symbol reached by any
 	// other path report which type it belongs to.
 	OwningType string
-	// Ambiguous holds, for a file's short name that two imports bind
-	// (`import db::notifications` and `import jobs::notifications`), the
-	// full path of each file it could mean. The symbol is the short name's
-	// scope entry; a use of it is an error that says to write the full path.
-	// Nil for every other symbol.
-	Ambiguous []string
+	// Directory is what a SymbolDirectory binds: the directory, and the
+	// files the import's scope reaches through it. Nil for every other
+	// symbol.
+	Directory *DirectoryBinding
 	// IsImplMethod marks the symbol as an interface method registered by
 	// the block form (`impl Iface for Type { fn name ... }`). Spec §12 allows multiple
 	// types in the same module to implement the same interface — the

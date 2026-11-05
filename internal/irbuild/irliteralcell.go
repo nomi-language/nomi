@@ -107,7 +107,7 @@ func irCheckedLiteralKind(k kind) bool {
 // the Ok payload of the site's cell.
 func (bl *irScalarBuilder) checkedLiteral(t *ast.TaggedString, k kind) (ir.Temp, kind, bool, bool) {
 	no := func(why string) (ir.Temp, kind, bool, bool) {
-		irDeclineNote("a backtick typed literal: " + why)
+		bl.g.dc.note("a backtick typed literal: " + why)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	g := bl.g
@@ -158,7 +158,7 @@ func (g *gen) literalCell(t *ast.TaggedString, k kind) (*ir.Symbol, bool) {
 	}
 	ty := g.irTypeOf(k)
 	if ty == nil {
-		irDeclineNote("a backtick typed literal whose Result has no IR type: " + k.nomi())
+		g.dc.note("a backtick typed literal whose Result has no IR type: " + k.nomi())
 		return nil, false
 	}
 	text := renderNode(t)
@@ -181,14 +181,14 @@ func (g *gen) literalCell(t *ast.TaggedString, k kind) (*ir.Symbol, bool) {
 		return nil, false
 	}
 	if got != k {
-		irDeclineNote("a backtick typed literal whose handler call is not its Result: " + got.nomi())
+		g.dc.note("a backtick typed literal whose handler call is not its Result: " + got.nomi())
 		return nil, false
 	}
 	cb.resultCopy(t, val)
 	cb.side(sh.result, irScalarSide{k: got})
 	cb.b.SetTerm(ir.NewReturn(at, sh.result))
 	if err := g.irLint(f); err != nil {
-		irDeclineNote("a backtick typed literal cell that does not lint: " + err.Error())
+		g.dc.note("a backtick typed literal cell that does not lint: " + err.Error())
 		return nil, false
 	}
 	sym := g.irTypes().Symbol(literalCellKey{t}, name)
@@ -228,7 +228,7 @@ func (g *gen) literalRender(t *ast.TaggedString, name string, errK kind) *ir.Fun
 		return nil
 	}
 	var fn *ir.Func
-	irDeclineAside(func() {
+	g.dc.aside(func() {
 		rname := name + " failure"
 		sym := g.irCalleeSym(literalRenderKey{t}, rname)
 		f, ok := g.irErrorRenderFunc(t, rname, sym, errK, t, false)

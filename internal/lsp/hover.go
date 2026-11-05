@@ -32,6 +32,10 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	if doc.Analysis == nil {
 		return nil, nil
 	}
+	// An `embed` pattern: what it matched (embed.go).
+	if info, i, ok := embedPatternAt(doc.Nodes, pos); ok {
+		return embedPatternHover(doc.Content, info, i), nil
+	}
 	// A static typed literal shows its value (literal_eval.go); on its tag,
 	// below the handler's own hover.
 	literal, literalRange, onTag, isLiteral := s.literalHover(doc, posToOffset(lineOffsets(doc.Content), pos.Line, pos.Col))

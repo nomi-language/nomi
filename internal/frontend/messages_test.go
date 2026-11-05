@@ -90,6 +90,13 @@ func checkShop(t *testing.T, files map[string]string) []string {
 			t.Fatal(err)
 		}
 	}
+	return checkDir(t, dir)
+}
+
+// checkDir checks the project in dir entered at main.nomi, and answers its
+// diagnostics as checkShop does.
+func checkDir(t *testing.T, dir string) []string {
+	t.Helper()
 	_, err := frontend.New(frontend.Config{}).CheckFile(filepath.Join(dir, "main.nomi"), frontend.Mode{})
 	if err == nil {
 		return nil

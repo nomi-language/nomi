@@ -1,6 +1,8 @@
 // The app a worker test boots: in-memory queues, a worker over each, and a
 // channel each job reports on, so a test waits for jobs instead of
-// sleeping. `rated` starts at most two jobs a second.
+// sleeping. `rated` starts at most two jobs a second. `first` and
+// `second` are two workers over one queue, as two processes would be, for
+// the schedule tests.
 import {
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
@@ -25,12 +27,16 @@ pub struct App {
     worker: Worker
     rated_queue: Inline
     rated: Worker
+    shared: Inline
+    first: Worker
+    second: Worker
     done: Channel<String>
 }
 
 pub fn boot() -> Result<App, String> {
     queue = Inline.new()
     rated_queue = Inline.new()
+    shared = Inline.new()
 
     Ok(App{
         context: Context.root(),
@@ -43,6 +49,9 @@ pub fn boot() -> Result<App, String> {
             poll: Duration.milliseconds(50),
             rate: Some(Rate{count: 2, per: Duration.seconds(1)}),
         ),
+        shared,
+        first: Worker.new(shared, max_running: 2, poll: Duration.seconds(1)),
+        second: Worker.new(shared, max_running: 2, poll: Duration.seconds(1)),
         done: Channel.buffered(16),
     })
 }

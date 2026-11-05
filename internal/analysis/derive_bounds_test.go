@@ -19,18 +19,15 @@ import (
 // Lives in package analysis_test (separate from derive_synthesis_test.go,
 // which is white-box and can't import stdlib without a circular dep).
 
-// stdlibLoaded ensures std.Load() runs once across all tests in this
-// file — every call re-parses and re-analyzes every stdlib module,
-// and the rebuild is wasted work when the produced lib is identical.
-var stdlibLoaded sync.Once
-var stdlibLib *std.StdLib
+// loadStd is this test binary's one std.Load: the stdlib analyzed from
+// source, which the tests only read. Every std.Load re-parses and
+// re-analyzes every stdlib module (about a third of a second), so a helper
+// that loaded per case made a check of a few lines cost that much. A test
+// about Load itself (TestHostTypeIdentity_StdHostTypeAcrossTwoLoads) calls
+// std.Load.
+var loadStd = sync.OnceValue(std.Load)
 
-func loadStdlibOnce() *std.StdLib {
-	stdlibLoaded.Do(func() {
-		stdlibLib = std.Load()
-	})
-	return stdlibLib
-}
+func loadStdlibOnce() *std.StdLib { return loadStd() }
 
 // buildWithStdlibForDerive parses and analyses src with stdlib loaded,
 // returning the FileAnalysis. CheckDeriveBounds needs an impl index to

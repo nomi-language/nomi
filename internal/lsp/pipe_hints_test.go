@@ -12,7 +12,6 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
-	"github.com/nomi-language/nomi/std"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -21,7 +20,7 @@ import (
 // settings answers.
 func hintsFor(t *testing.T, src string, settings inlayHintSettings) []InlayHint {
 	t.Helper()
-	lib := std.Load()
+	lib := loadStd()
 	nodes, errs := parser.ParseWithRecovery(lexer.Lex(src))
 	if len(errs) > 0 {
 		t.Fatalf("parse errors: %v", errs)

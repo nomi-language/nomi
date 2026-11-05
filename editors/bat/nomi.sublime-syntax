@@ -126,6 +126,13 @@ contexts:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi
         3: entity.name.function.nomi
+    # An `embed` declaration (`embed site `static``): its keyword, and its
+    # name, a value.
+    - match: '^(?:(pub)\s+)?(embed)\s+([a-z_][A-Za-z0-9_]*)'
+      captures:
+        1: keyword.declaration.nomi
+        2: keyword.declaration.nomi
+        3: variable.other.constant.nomi
     # `variant`, `open`, and `derive` are CONTEXTUAL keywords in Nomi
     # — `variant` and `open` only carry meaning inside interface bodies, and
     # `derive` in `derive Iface for T`.
