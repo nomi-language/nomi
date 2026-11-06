@@ -298,6 +298,13 @@ func (m *Machine) WithLocaleData(d *cldrdata.Data) *Machine {
 	return m
 }
 
+// WithLocaleLoader is WithLocaleData for the data load answers, which the
+// machine asks for when a frame first reads it (cldrdata.NewLazyStore).
+func (m *Machine) WithLocaleLoader(load func() *cldrdata.Data) *Machine {
+	m.locales = cldrdata.NewLazyStore(load)
+	return m
+}
+
 // WithMessages sets the program's messages: the message and noun tables it
 // carries, which a catalog loaded at run time is checked against, and the
 // translations of the locales it loads (stdmessageformat.Runtime), which

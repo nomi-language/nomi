@@ -60,7 +60,7 @@ func (k memoKey) equal(o memoKey) bool {
 // offered (Offered): its files hold those texts on disk. ok is false
 // otherwise, and for a nil a.
 func (m *Memo) Lookup(path, src string, a *Analyzed) (problems, err error, ok bool) {
-	if m == nil || a == nil {
+	if m == nil || a == nil || a.Stored != nil {
 		return nil, nil, false
 	}
 	m.mu.Lock()
@@ -75,7 +75,7 @@ func (m *Memo) Lookup(path, src string, a *Analyzed) (problems, err error, ok bo
 // Store keeps problems and err, what Check answered with ok true for path,
 // src and a, as path's last lowering. A nil Memo keeps nothing.
 func (m *Memo) Store(path, src string, a *Analyzed, problems, err error) {
-	if m == nil {
+	if m == nil || a.Stored != nil {
 		return
 	}
 	m.mu.Lock()

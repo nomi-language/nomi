@@ -1293,7 +1293,7 @@ func stdEnumSynthAnchors(fa *analysis.FileAnalysis) map[string]int {
 // spec table, both fixed per binary, and only a bool leaves: no declaration
 // pointer from this analysis reaches the caller. A std.Load per call would
 // make stdEnumSynthAnchors nearly every load that lowering hello world runs.
-var stdEnumDeclaredInStd = sync.OnceValue(func() []bool {
+var stdEnumDeclaredInStd = perStd(func() []bool {
 	lib := stdAnchorLib()
 	ok := make([]bool, len(stdEnumSpecs))
 	for i := range stdEnumSpecs {

@@ -9,6 +9,9 @@ var explanations = map[string]string{
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +
 		"as a file (`import db::posts`), which binds only its short name. Write the short name (`posts.find(1)`), " +
 		"or import the directory (`import db`) and keep `db::posts`.",
+	"embed-missing": "An `embed` pattern names a folder or path that does not exist yet, such as a frontend's " +
+		"`web/dist` before its first build. `nomi run`, `check` and `test` embed it as an empty folder and warn; " +
+		"`nomi build` refuses. Create it (run the frontend's build), or fix the pattern if the path is wrong.",
 	"redundant-prelude-import": "An import names something the prelude already gives every file " +
 		"(`Maybe`, `Result`, `List`, `Iter`, ...). Remove it.",
 	"unused-binding": "A binding or parameter is never read. Remove it, or name it with a leading `_` " +

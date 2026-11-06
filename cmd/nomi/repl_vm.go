@@ -808,6 +808,8 @@ func (s *replSource) explain(err error) string {
 		switch {
 		case d.Path != "" && d.Path != replFilePath(s.key):
 			lines[i] = d.String()
+		case d.Warning:
+			lines[i] = fmt.Sprintf("line %d, col %d: warning: %s", d.Line, d.Col, d.Message)
 		default:
 			lines[i] = fmt.Sprintf("line %d, col %d: %s", d.Line, d.Col, d.Message)
 			if !strings.Contains(d.Message, replProbePrefix) {
@@ -1414,6 +1416,11 @@ func (s *replSession) eval(input string, out, errOut io.Writer) {
 	if err != nil {
 		fmt.Fprintln(errOut, src.explain(err))
 		return
+	}
+	// An `embed` pattern whose base does not exist yet: the input runs with
+	// an empty directory in its place.
+	if ws := p.Warnings(); len(ws) > 0 {
+		fmt.Fprintln(errOut, src.explain(ws))
 	}
 	if err := s.vm.Run(context.Background(), p); err != nil {
 		var report bytes.Buffer

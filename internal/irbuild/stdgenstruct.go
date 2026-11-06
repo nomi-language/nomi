@@ -331,7 +331,7 @@ type stdGenStructAnchor struct {
 // the importer chose to import. Here the check is purely SYNTACTIC — the field's
 // spelling against the spec's — so it needs no scope at all, which is a stronger
 // version of the same property rather than a weaker one.
-var stdGenStructValidated = sync.OnceValue(func() []bool {
+var stdGenStructValidated = perStd(func() []bool {
 	ok := make([]bool, len(stdGenStructSpecs))
 	lib := stdAnchorLib()
 	for i := range stdGenStructSpecs {

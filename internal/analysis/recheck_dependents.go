@@ -390,3 +390,21 @@ func holdsFrom(fa *FileAnalysis, keys, paths map[string]bool, impls map[ast.Node
 	}
 	return false
 }
+
+// ImplsFingerprint is implsFingerprint for a file's nodes as parsed: two
+// texts with the same one bring the same impls into the program.
+func ImplsFingerprint(nodes []ast.Node) string { return implsFingerprint(nodes) }
+
+// ImplHeaderFiles answers, for each interface impl of a file, the module
+// keys of the project files its header names (its interface, receiver and
+// type arguments), sorted, one list per impl in the order of nodes, fa and
+// nodes the file's analysis and nodes and keyOf the module key of a path. A
+// lowering of a program file by file reads it to find the files that see
+// an impl an edit changed (vmhost's checklowering_perfile.go).
+func ImplHeaderFiles(fa *FileAnalysis, nodes []ast.Node, keyOf func(path string) string) [][]string {
+	var out [][]string
+	for _, im := range seenImpls(fa, nodes, keyOf) {
+		out = append(out, im.files)
+	}
+	return out
+}

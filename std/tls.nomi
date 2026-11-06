@@ -285,7 +285,8 @@ impl CipherSuite {
         http_host.cipher_suites(True) |> Iter.map(CipherSuite.of_parts) |> Iter.to_list()
     }
 
-    /// A suite's standard name, or its ID in hex when Go does not know it.
+    /// A suite's standard name, or its ID in hex for a suite with no known
+    /// name.
     //! assert CipherSuite.name_of(0x1301) == "TLS_AES_128_GCM_SHA256"
     //
     pub fn name_of(id: Int) -> String {

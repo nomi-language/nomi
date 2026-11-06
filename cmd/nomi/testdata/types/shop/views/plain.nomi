@@ -1,0 +1,7 @@
+pub struct Banner {
+    text: String
+}
+
+pub fn shout(b: Banner) -> String {
+    b.text
+}

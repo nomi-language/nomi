@@ -40,6 +40,15 @@ func TestScaleOpen(t *testing.T) {
 	if err := gen.Write(dir); err != nil {
 		t.Fatal(err)
 	}
+	if os.Getenv("NOMI_SCALE_TYPO") != "" {
+		// A project that reports something: its record keeps what each file
+		// reports.
+		key, text := gen.Edit(projectgen.TypoLeaf, 0)
+		if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(key)+".nomi"), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		gen.Files[key] = text
+	}
 	uriOf := func(key string) string {
 		return fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi"))
 	}
@@ -137,7 +146,7 @@ func TestScaleOpen(t *testing.T) {
 		})
 		if n == 0 {
 			run(s, "write the record (after a clean lowering)", func() string {
-				s.docs.NoteLoweredClean(entry, gen.Files[gen.Entry])
+				s.docs.NoteLoweredClean(entry, gen.Files[gen.Entry], nil)
 				_, stored := s.docs.StoredPrograms()
 				return fmt.Sprintf("%d written", stored)
 			})

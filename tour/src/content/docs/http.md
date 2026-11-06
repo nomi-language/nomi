@@ -207,7 +207,7 @@ fn show(request: Request) -> Result<Html, AppError> {
     Ok(Html"<h1>${name}</h1>")
 }
 
-fn health(_request: Request) -> Response {
+fn health(Request) -> Response {
     Response{body: .Text("ok")}
 }
 
@@ -270,11 +270,112 @@ The page cannot listen on a port, so this one does not run here.
 [embeds](/building-and-shipping/#executables), so a built server needs no
 folder beside it.
 
+[Frontends](/frontends/) shows a React or Vue app built with Vite and served
+this way, with a Nomi JSON API behind it.
+
 A handler that reads a posted form with `Request.form` reads at most
 10 MB of it, and `Request.multipart_form` at most 32 MB; a larger body is
 `Error.BodyTooLarge`. `Server{max_body: Some(n)}` sets one limit for every
-request, and `http.limit_body(n)` one for a route, such as an upload route
-that needs more.
+request, and `upload |> http.limit_body(n)` one for a route, such as an
+upload route that needs more.
+
+## Middleware
+
+A middleware takes a handler first and answers a new handler that does
+something before or after it. Since a pipe passes its head as the first
+argument, a stack of middleware reads top to bottom, each stage wrapping
+the ones above it. `http.wrap_routes` wraps one group of routes, such as
+every `/admin` route, before they join the others. std::http has `cors`,
+`log_requests`, `security_headers`, `request_id`, `limit_body`, `timeout`
+and `cross_origin_protection`; see the
+[reference](/reference/http/#httpcors) for their options.
+
+A middleware that finds a value for the handler, such as the signed-in
+user, takes a handler that accepts it, as `require_user` does below.
+There is no map of values on the request. The handler's type says what it
+needs, so the compiler rejects a route that needs a user and is not
+wrapped by the middleware that finds one:
+
+```nomi-run
+import {
+    std::http.{self, Cors, Handler, Headers, Origin, Request, Response, Route, Router, Status, ToResponse}
+    std::http_testing
+}
+
+struct User {
+    name: String
+    admin: Bool
+}
+
+fn signed_in(request: Request) -> Maybe<User> {
+    case Headers.get(request.headers, "Authorization") {
+        Some("Bearer ada") -> Some(User{name: "Ada", admin: True})
+        Some("Bearer bob") -> Some(User{name: "Bob", admin: False})
+        _ -> None
+    }
+}
+
+fn require_user(handler: (Request, User) -> ToResponse) -> (Request) -> Response {
+    fn request -> {
+        case signed_in(request) {
+            Some(user) -> ToResponse.to_response(handler(request, user))
+            None -> Response.error(Status.unauthorized, "sign in first")
+        }
+    }
+}
+
+fn require_admin(handler: Handler) -> (Request) -> Response {
+    require_user(fn request, user -> {
+        if user.admin {
+            ToResponse.to_response(handler(request))
+        } else {
+            Response.error(Status.forbidden, "admins only")
+        }
+    })
+}
+
+fn dashboard(Request, user: User) -> Response {
+    Response{body: .Text("hello, ${user.name}")}
+}
+
+fn stats(Request) -> Response {
+    Response{body: .Text("42 users")}
+}
+
+fn main() {
+    admin = [#(Route`GET /admin/stats`, stats)] |> http.wrap_routes(require_admin)
+    routes = [#(Route`GET /dashboard`, require_user(dashboard))] + admin
+    router = Router.new(routes)!
+
+    app =
+        Router.handler(router)
+        |> http.cors(Cors{origins: [Origin`https://app.example.com`]})
+        |> http.security_headers()
+        |> http.request_id()
+
+    get = fn token: String, path: String -> {
+        request = http_testing.request(.Get, path)
+        app(#{..request, headers: Headers[#("Authorization", "Bearer ${token}")]})
+    }
+
+    dbg Response.text(get("bob", "/dashboard"))
+    dbg get("bob", "/admin/stats").status
+    dbg Response.text(get("ada", "/admin/stats"))
+    dbg app(http_testing.request(.Get, "/dashboard")).status
+    dbg Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options")
+}
+```
+<!-- expect
+dbg line 62: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
+dbg line 63: get("bob", "/admin/stats").status = Status(403)
+dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
+dbg line 65: app(http_testing.request(.Get, "/dashboard")).status = Status(401)
+dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
+-->
+
+`log_requests(logger)` writes one record per request with its method,
+path, status and time. Put it before `request_id` in the pipe, so it runs
+inside it and logs the id `request_id` gives the request.
 
 ## Storing files
 
@@ -333,7 +434,7 @@ import {
     std::http_testing
 }
 
-fn hello(_request: Request) -> Response {
+fn hello(Request) -> Response {
     Response{body: .Text("hi")}
 }
 
@@ -353,5 +454,5 @@ serves HTTPS, with a [`tls.Certificate`](/reference/tls/) loaded from PEM
 files. `with_server(handler, tls: True, ...)` makes a certificate for the
 test, and `server.client` trusts it.
 
-[Background Work](/background-work/) is next. It keeps work running after
-the call that started it.
+[Frontends](/frontends/) is next. It shows the ways to build the pages of a
+Nomi web app.

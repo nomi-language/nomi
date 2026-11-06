@@ -1,0 +1,149 @@
+// std::http's middleware, each rule of CORS in its own test, and a stack
+// of middleware written as a pipe.
+import {
+    std::duration.Duration
+    std::http.{self, Body, Cors, Headers, Method, Origin, Request, Response, Status}
+    std::http_testing
+}
+
+fn answer(Request) -> Response {
+    Response{status: Status.accepted, body: Body.Text("handled")}
+}
+
+fn from(method: Method, origin: String) -> Request {
+    #{..http_testing.request(method, "/api"), headers: Headers[#("Origin", origin)]}
+}
+
+fn preflight(origin: String) -> Request {
+    asking = from(Method.Options, origin)
+
+    #{
+        ..asking,
+        headers: asking.headers
+        |> Headers.set("Access-Control-Request-Method", "PUT")
+        |> Headers.set("Access-Control-Request-Headers", "content-type"),
+    }
+}
+
+once app_origin = Origin`https://app.example.com`
+
+test "a preflight from an allowed origin is answered without the handler" {
+    app =
+        answer
+        |> http.cors(Cors{
+            origins: [app_origin],
+            methods: [Method.Get, Method.Put],
+            allowed_headers: ["Content-Type"],
+            max_age: Some(Duration.minutes(10)),
+        })
+
+    r = app(preflight("https://app.example.com"))
+    assert r.status == Status.no_content
+    assert Response.text(r) == Ok("")
+    assert Headers.get(r.headers, "Access-Control-Allow-Origin") == Some("https://app.example.com")
+    assert Headers.get(r.headers, "Access-Control-Allow-Methods") == Some("GET, PUT")
+    assert Headers.get(r.headers, "Access-Control-Allow-Headers") == Some("Content-Type")
+    assert Headers.get(r.headers, "Access-Control-Max-Age") == Some("600")
+
+    assert Headers.get(r.headers, "Vary")
+        == Some("Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
+}
+
+test "a preflight from another origin gets no CORS headers and no handler" {
+    app = answer |> http.cors(Cors{origins: [app_origin]})
+    r = app(preflight("https://evil.example"))
+    assert r.status == Status.no_content
+    assert Headers.get(r.headers, "Access-Control-Allow-Origin") == None
+    assert Headers.get(r.headers, "Access-Control-Allow-Methods") == None
+    assert String.contains(Headers.get(r.headers, "Vary")!, "Access-Control-Request-Method")
+}
+
+test "an OPTIONS request that is no preflight reaches the handler" {
+    app = answer |> http.cors(Cors{origins: [app_origin]})
+    r = app(from(Method.Options, "https://app.example.com"))
+    assert r.status == Status.accepted
+}
+
+test "an allowed origin is reflected, never a wildcard" {
+    app = answer |> http.cors(Cors{origins: [app_origin], exposed_headers: ["X-Total"]})
+    r = app(from(Method.Get, "https://app.example.com"))
+    assert r.status == Status.accepted
+    assert Headers.get(r.headers, "Access-Control-Allow-Origin") == Some("https://app.example.com")
+    assert Headers.get(r.headers, "Access-Control-Expose-Headers") == Some("X-Total")
+    assert Headers.get(r.headers, "Access-Control-Allow-Credentials") == None
+    assert Headers.get(r.headers, "Vary") == Some("Origin")
+}
+
+test "a disallowed origin gets no CORS headers, and the handler still runs" {
+    app = answer |> http.cors(Cors{origins: [app_origin]})
+    r = app(from(Method.Post, "https://evil.example"))
+    assert Response.text(r) == Ok("handled")
+    assert Headers.get(r.headers, "Access-Control-Allow-Origin") == None
+    assert Headers.get(r.headers, "Access-Control-Expose-Headers") == None
+    assert Headers.get(r.headers, "Vary") == Some("Origin")
+}
+
+test "a request with no Origin gets only Vary" {
+    app = answer |> http.cors(Cors{origins: [app_origin]})
+    r = app(http_testing.request(Method.Get, "/api"))
+    assert r.status == Status.accepted
+    assert Headers.get(r.headers, "Access-Control-Allow-Origin") == None
+    assert Headers.get(r.headers, "Vary") == Some("Origin")
+}
+
+test "credentials go with a reflected origin" {
+    app = answer |> http.cors(Cors{origins: [app_origin], credentials: True})
+    r = app(from(Method.Get, "https://app.example.com"))
+    assert Headers.get(r.headers, "Access-Control-Allow-Origin") == Some("https://app.example.com")
+    assert Headers.get(r.headers, "Access-Control-Allow-Credentials") == Some("true")
+    p = app(preflight("https://app.example.com"))
+    assert Headers.get(p.headers, "Access-Control-Allow-Credentials") == Some("true")
+}
+
+test "any origin is a wildcard, and never with credentials" {
+    app = answer |> http.cors(Cors{any_origin: True, credentials: True})
+    r = app(from(Method.Get, "https://anyone.example"))
+    assert Headers.get(r.headers, "Access-Control-Allow-Origin") == Some("*")
+    assert Headers.get(r.headers, "Access-Control-Allow-Credentials") == None
+    assert Headers.get(r.headers, "Vary") == Some("Origin")
+    p = app(preflight("https://anyone.example"))
+    assert Headers.get(p.headers, "Access-Control-Allow-Origin") == Some("*")
+    assert Headers.get(p.headers, "Access-Control-Allow-Credentials") == None
+}
+
+test "an origin matches exactly" {
+    app = answer |> http.cors(Cors{origins: [app_origin]})
+
+    near = [
+        "https://app.example.com:8443",
+        "http://app.example.com",
+        "https://evil.app.example.com",
+        "https://app.example.com.evil.example",
+    ]
+
+    assert Iter.all(near, fn o -> {
+        Headers.get(app(from(Method.Get, o)).headers, "Access-Control-Allow-Origin") == None
+    })
+}
+
+test "the handler's own Vary is kept" {
+    varying = fn _: Request -> Response{headers: Headers[#("Vary", "Accept-Encoding")]}
+    app = varying |> http.cors(Cors{origins: [app_origin]})
+    r = app(from(Method.Get, "https://app.example.com"))
+    assert Headers.values(r.headers, "Vary") == ["Accept-Encoding", "Origin"]
+}
+
+test "a stack reads as a pipe, the last stage outermost" {
+    app =
+        answer
+        |> http.cors(Cors{origins: [app_origin]})
+        |> http.security_headers()
+        |> http.request_id()
+        |> http.limit_body(1_000)
+
+    r = app(from(Method.Get, "https://app.example.com"))
+    assert r.status == Status.accepted
+    assert Headers.has(r.headers, "Access-Control-Allow-Origin")
+    assert Headers.get(r.headers, "X-Frame-Options") == Some("DENY")
+    assert Headers.has(r.headers, "X-Request-Id")
+}

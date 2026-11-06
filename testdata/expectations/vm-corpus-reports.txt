@@ -183,6 +183,7 @@
 19-locales/shop/loaded_catalog_test.nomi
 19-locales/shop/locale_load_test.nomi
 19-locales/shop/order_test.nomi
+20-data-access/http_middleware_test.nomi
 20-data-access/sql_test.nomi
 20-data-access/storage_test.nomi
 20-data-access/transactions_test.nomi

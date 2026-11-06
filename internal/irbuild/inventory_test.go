@@ -115,6 +115,8 @@ var stdlibInventory = []stdModuleRow{
 	{module: "unit"},
 	{module: "url"},
 	{module: "url_host"},
+	{module: "path_host"},
+	{module: "mail_host"},
 	{module: "uuid"},
 	{module: "actors"},
 	{module: "log"},

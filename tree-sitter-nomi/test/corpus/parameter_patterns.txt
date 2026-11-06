@@ -118,3 +118,31 @@ once sub = fn Dur(x), Dur(y) -> x
           (type_identifier)
           (identifier)))
       body: (identifier))))
+
+================================================================================
+Parameter written as its type alone
+================================================================================
+
+fn stats(Request, n: Int) -> Int {
+  f = fn Request -> 1
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (type_identifier))
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    return_type: (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (lambda
+          (lambda_parameter
+            name: (type_identifier))
+          body: (integer))))))

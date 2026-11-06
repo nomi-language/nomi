@@ -154,6 +154,10 @@ type FileDecls struct {
 	// rebuildBodies; nil for a file built any other way and for a stdlib
 	// file.
 	kept *keptDecls
+	// bootFromFacts is set on a stdlib module built from its interface
+	// whose facts are installed (StdFacts.InstallModules): the boot-only
+	// check reads its functions' calls from the facts, not its bodies.
+	bootFromFacts bool
 	// ownNodes is how many of a project build's nodes for the file are the
 	// file's own: its declarations as lowered, after the prelude imports the
 	// build put before them and before the impls synthesis put after them.

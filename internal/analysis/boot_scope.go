@@ -393,6 +393,9 @@ func newBootGraph(files []*FileAnalysis, sums []*bootSummary, std []*FileAnalysi
 		var fn *bootFn
 		if cached, ok := stdBootFns.Load(fd); ok {
 			fn = cached.(*bootFn)
+		} else if facts, ok := stdFactsBootFn(f, fd); ok {
+			fn = facts
+			stdBootFns.Store(fd, fn)
 		} else {
 			fn = &bootFn{fd: fd, fa: f, sym: f.Definitions[Pos{Line: fd.Line, Col: fd.Col}]}
 			fn.calls = bootCallsOf(readBootRefs(f, fd.Body, func(*Symbol) {}))

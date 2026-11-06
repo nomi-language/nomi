@@ -59,6 +59,10 @@ type Variant struct {
 	// smaller. `nomi build` picks it for a program that reaches none of
 	// them.
 	NoNetwork bool
+	// Lib is the prebuilt runner that links every lib/ module's Go
+	// bindings (libprebuilt.go), nomi-vm-lib, which a release ships in its
+	// lib archive. It is never NoNetwork, Compiler or Reactor.
+	Lib bool
 }
 
 // name is what a runner directory's vm.json records for the variant.
@@ -81,6 +85,9 @@ func (v Variant) binaryName() string {
 	}
 	if v.NoNetwork {
 		name += noNetworkSuffix
+	}
+	if v.Lib {
+		name += libSuffix
 	}
 	return name
 }
@@ -113,6 +120,9 @@ func (v Variant) pkg() string {
 // mainPath is the main package a prebuilt runner of the variant must name
 // in its build info.
 func (v Variant) mainPath() string {
+	if v.Lib {
+		return libMainPath(v.binaryName())
+	}
 	if v.Reactor {
 		return reactorMainPath
 	}
@@ -163,6 +173,10 @@ var errNoSourceForProjectRunner = errors.New("this project has Go bindings, and 
 // missing compiler source is reported as what an FFI project's runner needs
 // it for, not as what `run` needs it for.
 func ForBuild(err error) error {
+	var explained *needsGoError
+	if errors.As(err, &explained) && errors.Is(err, errNoCompilerSource) {
+		return &needsGoError{miss: explained.miss, err: errNoSourceForProjectRunner}
+	}
 	if errors.Is(err, errNoCompilerSource) {
 		return errNoSourceForProjectRunner
 	}
@@ -179,14 +193,17 @@ func NeedsCompilerSource(err error) bool {
 // can build an FFI project's runner: it needs a Go toolchain and the
 // compiler's module (a local tree, or a version Go can download), and the
 // error says why.
-func CheckProjectBuild() error {
+func CheckProjectBuild(r *Result, target Target) error {
+	if r != nil && r.prebuilt != "" && libRunnerTarget(target) {
+		return nil
+	}
 	if !currentPlan().versioned() {
 		if _, err := resolveCompilerSource(); err != nil {
 			return ForBuild(err)
 		}
 	}
 	if _, err := gotoolchain.FindForProjectRunner(); err != nil {
-		return err
+		return r.forTarget(target).explainNeedsGo(err)
 	}
 	if _, err := resolveCompilerSource(); err != nil {
 		return ForBuild(err)
@@ -392,6 +409,20 @@ func ProjectRunner(r *Result, target Target, v Variant) (string, error) {
 	if v.Reactor && (target.GOOS != "wasip1" || target.GOARCH != "wasm") {
 		return "", fmt.Errorf("ffirun: only wasip1/wasm has a reactor nomi-vm, not %s", target)
 	}
+	if r.prebuilt != "" {
+		if libRunnerTarget(target) && !v.Compiler && !v.Reactor {
+			return libRunner(target)
+		}
+		r = r.forTarget(target)
+		if v.Compiler {
+			r.libMiss = &libMiss{noWrapper: "it imports std/compiler, and a release ships no lib runner that links the front end"}
+		}
+	}
+	bin, err := projectRunner(r, target, v)
+	return bin, r.explainNeedsGo(err)
+}
+
+func projectRunner(r *Result, target Target, v Variant) (string, error) {
 	want, err := computeHashes(r.projectRoot, r.discovered, r.allRequires)
 	if err != nil {
 		return "", err

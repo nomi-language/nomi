@@ -53,6 +53,7 @@ import {
     io.{Reader, Writer}
     iter.Iter
     lists.List
+    mail_host
     maybe.Maybe.{self, None, Some}
     net.{self, Connection}
     random
@@ -1035,63 +1036,15 @@ fn base64_lines(data: Bytes) -> String {
 }
 
 /// `text` as quoted-printable: printable ASCII as it is, every other byte
-/// of its UTF-8 as `=XX`, each line break as CRLF, and no line longer
-/// than 76 characters.
+/// of its UTF-8 as `=XX`, each line break as CRLF, whitespace that ends a
+/// line encoded, and no line longer than 76 characters. It is Go's
+/// `quotedprintable.Writer`.
 //! assert quoted_printable("a=b ö") == "a=3Db =C3=B6"
 //! assert quoted_printable("end \nnext") == "end=20\r\nnext"
 //! assert quoted_printable(String.repeat("x", 80)) == "${String.repeat("x", 75)}=\r\nxxxxx"
 //
 pub fn quoted_printable(text: String) -> String {
-    String.replace(text, "\r\n", "\n")
-    |> String.split("\n")
-    |> Iter.map(qp_line)
-    |> String.join("\r\n")
-}
-
-fn qp_line(line: String) -> String {
-    tokens = line |> Iter.flat_map(qp_tokens) |> Iter.to_list()
-    count = Iter.count(tokens)
-
-    // Whitespace at the end of a line is dropped by some relays, so it is
-    // written encoded.
-    tokens = case Iter.last(tokens) {
-        Some(" ") ->
-            List.concat(
-                Iter.take(tokens, count - 1)
-                |> Iter.to_list(),
-                ["=20"],
-            )
-
-        Some("\t") ->
-            List.concat(
-                Iter.take(tokens, count - 1)
-                |> Iter.to_list(),
-                ["=09"],
-            )
-
-        _ ->
-            tokens
-    }
-
-    #(done, last) = Iter.reduce(tokens, #([], ""), fn #(done, current), token -> {
-        if String.length(current) + String.length(token) > 75 {
-            #(List.concat(done, [current]), token)
-        } else {
-            #(done, "${current}${token}")
-        }
-    })
-
-    List.concat(done, [last]) |> String.join("=\r\n")
-}
-
-fn qp_tokens(g: String) -> List<String> {
-    c = code_of(g)
-
-    if (c >= 33 and c <= 126 and c != 61) or c == 32 or c == 9 {
-        [g]
-    } else {
-        byte_tokens(g, "=")
-    }
+    mail_host.quoted_printable(text)
 }
 
 // Printable ASCII with no `=?` (which a reader would take for an encoded
@@ -1195,53 +1148,7 @@ fn fold(line: String) -> String {
 //! assert rfc5322_date(Instant.from_seconds(951782400)) == "Tue, 29 Feb 2000 00:00:00 +0000"
 //
 pub fn rfc5322_date(at: Instant) -> String {
-    seconds = Int.floor_div(Instant.as_nanos(at), 1000000000)
-    days = Int.floor_div(seconds, 86400)
-    rest = Int.modulo(seconds, 86400)
-
-    // Howard Hinnant's civil_from_days.
-    z = days + 719468
-    era = Int.floor_div(z, 146097)
-    doe = z - era * 146097
-    yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
-    doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
-    mp = (5 * doy + 2) / 153
-    day = doy - (153 * mp + 2) / 5 + 1
-    month = if mp < 10 { mp + 3 } else { mp - 9 }
-    year = yoe + era * 400 + if month <= 2 { 1 } else { 0 }
-
-    weekday = case Int.modulo(days, 7) {
-        0 -> "Thu"
-        1 -> "Fri"
-        2 -> "Sat"
-        3 -> "Sun"
-        4 -> "Mon"
-        5 -> "Tue"
-        _ -> "Wed"
-    }
-
-    month_name = case month {
-        1 -> "Jan"
-        2 -> "Feb"
-        3 -> "Mar"
-        4 -> "Apr"
-        5 -> "May"
-        6 -> "Jun"
-        7 -> "Jul"
-        8 -> "Aug"
-        9 -> "Sep"
-        10 -> "Oct"
-        11 -> "Nov"
-        _ -> "Dec"
-    }
-
-    "${weekday}, ${two(day)} ${month_name} ${year} ${two(rest / 3600)}:${two(
-        rest % 3600 / 60
-    )}:${two(rest % 60)} +0000"
-}
-
-fn two(n: Int) -> String {
-    String.pad_start("${n}", 2, fill: "0")
+    mail_host.date(Instant.as_nanos(at))
 }
 
 /// The envelope's recipients: every address in to, cc and bcc, each once,

@@ -102,6 +102,20 @@ type checker struct {
 	// has to be that identity, and by rejectKeyWithoutEquality, which reports
 	// a collection type once per body.
 	currentFnDecl *ast.FuncDef
+	// unannotatedBinding is the binding with no annotation whose value is
+	// being checked, or nil: what an annotation help names
+	// (annotation_help.go).
+	unannotatedBinding *ast.Binding
+	// annotationTrial is set while annotation_help.go checks a value
+	// against a type it would suggest, so the trial suggests nothing.
+	annotationTrial bool
+	// aliases are the type aliases the file can name, and aliasesDone
+	// says they were gathered (visibleAliases).
+	// modules are the names of the modules it imports whole, in name
+	// order, gathered with them.
+	aliases     []aliasCandidate
+	modules     []string
+	aliasesDone bool
 	// keyWithoutEqualityReported holds the Set and Map types
 	// rejectKeyWithoutEquality has reported, per body (equality_domain.go).
 	keyWithoutEqualityReported map[keyWithoutEqualityReport]bool
@@ -6000,12 +6014,14 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 			// Parameter-name conformance (Swift-style, matching the decorator
 			// path): a non-self-position parameter's name must match the
 			// interface declaration. The self/receiver param name is free, and a
-			// destructured parameter has no user-facing slot name to compare.
+			// destructured parameter, or one written as its type alone, has no
+			// user-facing name to compare; an interface parameter written as
+			// its type alone names none for the impl to match.
 			// The discard form `_style` matches `style`: a call names its
 			// arguments by the interface's names, so the prefix only says the
 			// body does not read it.
 			if i < len(params) && i < len(sig.ParamNames) && sig.ParamNames[i] != "" &&
-				!isSelfPositionParam(sig.Params[i], iface) && params[i].Destructure == nil &&
+				!isSelfPositionParam(sig.Params[i], iface) && params[i].Destructure == nil && !params[i].TypeOnly &&
 				params[i].Name != sig.ParamNames[i] && params[i].Name != "_"+sig.ParamNames[i] {
 				p := params[i]
 				pp := implDiagPos(n, Pos{Line: p.Line, Col: p.Col})
@@ -6767,7 +6783,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	}
 	var right Type
 	comparison := isComparisonOp(n.Op)
-	byteOperands := false
+	operandsChecked := false
 	if comparison {
 		left, right = c.checkComparisonOperands(n)
 		// The two operands have one type, so a `todo` on one side has the
@@ -6776,9 +6792,14 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		c.settleTodo(n.Right, left)
 	} else if n.Op != "|>" && !leftChecked {
 		// A literal operand of `&&&` and the rest is a Byte when the other
-		// operand is (byte_literal.go).
-		left, right, byteOperands = c.checkByteOperands(n)
-		if !byteOperands {
+		// operand is (byte_literal.go), and a collection literal operand of
+		// `+` or `-` is built as the other operand's collection
+		// (collection_operands.go).
+		left, right, operandsChecked = c.checkByteOperands(n)
+		if !operandsChecked {
+			left, right, operandsChecked = c.checkCollectionOperands(n)
+		}
+		if !operandsChecked {
 			left = c.checkNode(n.Left)
 		}
 	} else if !leftChecked {
@@ -6924,7 +6945,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			c.calleeNode = prevCallee
 			return nil
 		}
-	} else if !comparison && !byteOperands {
+	} else if !comparison && !operandsChecked {
 		right = c.checkNode(n.Right)
 	}
 
@@ -7422,8 +7443,14 @@ func (c *checker) checkBuiltinOperator(n *ast.Binary, left, right Type) (Type, b
 		}
 	}
 	if mismatch {
-		c.addError(n.Line, n.Col, c.typef(
-			"binary %s type mismatch: %s vs %s", n.Op, left, right))
+		e := TypeError{Line: n.Line, Col: n.Col, Message: c.typef(
+			"binary %s type mismatch: %s vs %s", n.Op, left, right)}
+		if (n.Op == "+" || n.Op == "-") && collectionKind(left) != "" && collectionKind(left) == collectionKind(right) {
+			// Two collections of one kind whose types both convert to a
+			// third join once an annotation says which (annotation_help.go).
+			e = c.operandAnnotationHelp(e, []ast.Node{n.Left, n.Right}, []Type{left, right}, left, right, sameSpelling)
+		}
+		c.report(e)
 		return left, true
 	}
 	// A built-in operator takes its left operand's type on the right.
@@ -12687,7 +12714,10 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 			}
 		}
 	} else {
+		prevBinding := c.unannotatedBinding
+		c.unannotatedBinding = n
 		valTy = c.checkNode(n.Value)
+		c.unannotatedBinding = prevBinding
 		if kw := bottomValueKeyword(n.Value); kw != "" && !ast.IsDiscardName(n.Name) {
 			// `todo` and `unreachable` take the type their position expects,
 			// and an unannotated binding expects none, so nothing says what
@@ -13462,8 +13492,12 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 			if joined := c.interfaceBranchJoin(expected, thenTy, elseTy); joined != nil {
 				thenTy = joined
 			} else if !TypesEqual(thenTy, elseTy) {
-				c.report(errAt(valueExpr(n.Else), c.typef(
-					"if/else branch type mismatch: then is %s, else is %s", thenTy, elseTy)).WithHint(c.branchJoinHint(thenTy, elseTy)))
+				e := errAt(valueExpr(n.Else), c.typef(
+					"if/else branch type mismatch: then is %s, else is %s", thenTy, elseTy)).WithHint(c.branchJoinHint(thenTy, elseTy))
+				if expected == nil && len(e.Hints) == 0 {
+					e = c.valueAnnotationHelp(e, n, thenTy, elseTy, sameSpelling)
+				}
+				c.report(e)
 			}
 		} else {
 			thenTy = branchJoin(thenTy, elseTy)
@@ -14905,7 +14939,11 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 		itemTys = append(itemTys, ty)
 		joined, ok := c.joinLitElem(elemTy, ty)
 		if !ok {
-			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.mismatchHint(elemTy, ty)))
+			e := errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.mismatchHint(elemTy, ty))
+			if len(e.Hints) == 0 {
+				e = c.valueAnnotationHelp(e, n, elemTy, ty, listOf)
+			}
+			c.report(e)
 		}
 		elemTy = joined
 		seeds.learn("", elemTy)
@@ -15465,8 +15503,13 @@ func (c *checker) checkListSpreadLitExpecting(n *ast.ListSpreadLit, elemTy Type)
 			return nil
 		}
 		if err := UnifyWithImpls(elemTy, spreadElem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
-			c.addErrorAt(sp.Head, c.typef(
+			e := errAt(sp.Head, c.typef(
 				"list spread element type mismatch: %s vs %s", elemTy, resolveTypeVar(spreadElem)))
+			// The list's type is fixed, so the spread's binding takes it.
+			c.report(c.operandAnnotationHelpWith(e, []ast.Node{sp.Head}, []Type{tailTy}, elemTy, spreadElem, listOf, func(t Type) bool {
+				lt, ok := t.(*ListType)
+				return ok && TypesIdentical(lt.Elem, elemTy)
+			}))
 		}
 	}
 	return want
@@ -15521,13 +15564,20 @@ func spreadNotIterMessage(kind string, got Type) string {
 // what we want: an empty-list spread's `List<TypeVar>` gets resolved against
 // the elements' type rather than an element's TypeParam_ being captured
 // into a discarded local subs map.
+//
+// A spread of a value with a type of its own (not a literal, nor a form that
+// takes its type from its position) is checked first, and the elements are
+// built as its elements, as a literal operand of `+` is built as the other
+// operand (checkTypedListSpreads): `[#(r, home), ..routes]` is `[#(r,
+// home)] + routes`.
 func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
+	pre, built := c.checkTypedListSpreads(n)
 	var elemTy Type
 	var pos litPosition
 	spreads := n.Spreads
 	for i := 0; i <= len(n.Items); i++ {
 		for len(spreads) > 0 && spreads[0].At == i {
-			ty, ok := c.checkListSpread(n, spreads[0], elemTy)
+			ty, ok := c.checkListSpread(n, spreads[0], elemTy, pre)
 			if !ok {
 				return ty
 			}
@@ -15538,7 +15588,7 @@ func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 			break
 		}
 		h := n.Items[i]
-		ht := c.checkLitElem(&pos, h, elemTy)
+		ht := c.checkSpreadLitElem(&pos, h, elemTy, built)
 		if ht == nil {
 			continue
 		}
@@ -15562,8 +15612,14 @@ func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 // and spreads before it have the element type elemTy (nil for none yet). It
 // answers the element type after it, or false and the literal's type after
 // an error that ends the literal's check.
-func (c *checker) checkListSpread(n *ast.ListSpreadLit, sp ast.Spread, elemTy Type) (Type, bool) {
-	tailTy := c.checkNode(sp.Head)
+//
+// pre holds the types of the spreads checkTypedListSpreads checked
+// already, by head.
+func (c *checker) checkListSpread(n *ast.ListSpreadLit, sp ast.Spread, elemTy Type, pre map[ast.Node]Type) (Type, bool) {
+	tailTy, checked := pre[sp.Head]
+	if !checked {
+		tailTy = c.checkNode(sp.Head)
+	}
 	if _, bare := sp.Head.(*ast.CurrentValue); bare && tailTy != nil {
 		if _, ok := resolveTypeVar(tailTy).(*ListType); !ok {
 			c.report(errAt(sp.Head, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tailTy))))
@@ -15593,8 +15649,8 @@ func (c *checker) checkListSpread(n *ast.ListSpreadLit, sp ast.Spread, elemTy Ty
 		return spreadElem, true
 	}
 	if err := UnifyWithImpls(elemTy, spreadElem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
-		c.addErrorAt(sp.Head, c.typef(
-			"list spread element type mismatch: %s vs %s", elemTy, resolveTypeVar(spreadElem)))
+		c.report(c.spreadAnnotationHelp(errAt(sp.Head, c.typef(
+			"list spread element type mismatch: %s vs %s", elemTy, resolveTypeVar(spreadElem))), n, elemTy, spreadElem))
 	}
 	return elemTy, true
 }
@@ -17169,8 +17225,12 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 				if expected != nil && containsTypeVar(resultTy) {
 					_ = c.unify(expected, resultTy, nil)
 				}
-				c.report(errAt(valueExpr(branch.Body), c.typef(
-					"case branch type mismatch: expected %s, got %s", resultTy, bodyTy)).WithHint(c.wholeResultHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.mismatchHint(resultTy, bodyTy)).WithHint(c.branchJoinHint(resultTy, bodyTy)))
+				e := errAt(valueExpr(branch.Body), c.typef(
+					"case branch type mismatch: expected %s, got %s", resultTy, bodyTy)).WithHint(c.wholeResultHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.mismatchHint(resultTy, bodyTy)).WithHint(c.branchJoinHint(resultTy, bodyTy))
+				if expected == nil && len(e.Hints) == 0 {
+					e = c.valueAnnotationHelp(e, n, resultTy, bodyTy, sameSpelling)
+				}
+				c.report(e)
 			}
 			continue
 		}
@@ -17737,7 +17797,7 @@ func (c *checker) checkLambda(n *ast.Lambda, undeterminedErr bool) Type {
 			continue
 		}
 		if p.TypeAnnotation != nil {
-			resolved, err := ResolveTypeExpr(p.TypeAnnotation, c.reg, c.fnTypeParams, c.fa.References)
+			resolved, err := resolveParamType(p, c.fa, c.reg, c.fnTypeParams, false)
 			if err == nil {
 				params[i] = resolved
 				// Attach type to param symbol.
@@ -17982,7 +18042,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 			// (e.g. `fn state: #(Int, List<T>) = #(0, []), … ->` inside
 			// `fn drop<T>(...)`)  resolve to the same TypeParam_ used in the
 			// outer signature.
-			resolved, err := ResolveTypeExpr(p.TypeAnnotation, c.reg, c.fnTypeParams, c.fa.References)
+			resolved, err := resolveParamType(p, c.fa, c.reg, c.fnTypeParams, false)
 			if err == nil {
 				params[i] = resolved
 				if i < len(expected.Params) && expected.Params[i] != nil && containsTypeVar(expected.Params[i]) {
@@ -18029,15 +18089,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 				paramTy = c.openUnsolvedCalleeParams(paramTy, open)
 			}
 			params[i] = paramTy
-			if te := unnamedParam(p, c.fa, c.reg); te != nil {
-				// `fn String -> 1` is a parameter written as its type, as
-				// checkLambda and a declared function report it. Checked
-				// as a pattern against the expected type it was "enum
-				// pattern requires an enum type, got String", which names
-				// a pattern the author did not mean to write.
-				c.errors = append(c.errors, *te)
-				c.checkPattern(p.Destructure, nil)
-			} else if p.Destructure != nil {
+			if p.Destructure != nil {
 				// Destructuring param: push the expected type into the pattern
 				// so each bound identifier gets the right element type. Without
 				// this, bindings like `k` in `{ (k, _) -> ... }` end up with a

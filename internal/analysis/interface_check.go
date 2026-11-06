@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"errors"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -652,6 +653,16 @@ type FileCheck struct {
 	// Bodies are the keys of the files of Files read with their bodies
 	// (ProgramInterfaces.SetBodies).
 	Bodies []string
+	// namer names the declarations of the files the check read, made once
+	// for the check's facts (stored_edit.go).
+	namer *FactsNamer
+	// closure and relevant are the files the check read whole and those it
+	// read the impls of, at the ordinals given (CheckAfter).
+	closure  map[string]bool
+	relevant map[string]map[int]bool
+	// reused counts the files the check took from an earlier check of its
+	// file (CheckAfter).
+	reused int
 }
 
 // Check checks the file with key, which has an interface, against the
@@ -662,9 +673,129 @@ func (pi *ProgramInterfaces) Check(key string) *FileCheck {
 	for k := range closure {
 		visible[k] = true
 	}
+	return pi.check(key, closure, pi.relevantImpls(visible), nil)
+}
+
+// CheckAfter is Check of the file with key after an edit of the files
+// edited, given prev, the file's check before the edit: it takes from prev
+// the analyses of the files the edit cannot reach, as a kept program's
+// recheck keeps the files that do not import an edited one
+// (recheckDependents), and builds the others from their interfaces again.
+// A file the edit can reach is an edited one, one that imports a file
+// built again, directly or through others, one whose analysis holds
+// something of a file built again, one the check now reads otherwise (whole
+// where it read its impls alone, or other impls of it), and one that can
+// see an impl of headers, the impls the edit added, removed or changed. The
+// entry of the program checks every file through its closure, so after a
+// leaf's signature edit it builds the leaf and its importers again rather
+// than every file. It answers Check when prev has nothing to give. A
+// caller with readers of prev's analyses holds the view lock: the build
+// hands the kept analyses its own program.
+func (pi *ProgramInterfaces) CheckAfter(key string, prev *FileCheck, edited []string, headers []ImplHeader) *FileCheck {
+	closure := pi.closure(key)
+	visible := map[string]bool{key: true}
+	for k := range closure {
+		visible[k] = true
+	}
 	relevant := pi.relevantImpls(visible)
-	fa, nodes, frontEnd, files, fileNodes := pi.buildAll(key, closure, relevant)
-	out := &FileCheck{FA: fa, Nodes: nodes, Build: slices.Clone(fa.TypeErrors), Files: files, FileNodes: fileNodes}
+	if prev == nil || prev.closure == nil || len(prev.Bodies) > 0 || len(pi.bodies) > 0 || prev.FA == nil || prev.FA.Program() == nil {
+		return pi.check(key, closure, relevant, nil)
+	}
+	fresh := map[string]bool{}
+	for _, k := range edited {
+		fresh[k] = true
+	}
+	for k := range prev.Files {
+		switch {
+		case closure[k] != prev.closure[k]:
+			fresh[k] = true
+		case !closure[k] && relevant[k] == nil:
+			fresh[k] = true
+		case !closure[k] && !maps.Equal(relevant[k], prev.relevant[k]):
+			fresh[k] = true
+		}
+		if fresh[k] || len(headers) == 0 {
+			continue
+		}
+		seen := pi.ImportClosure(k)
+		for _, h := range headers {
+			if h.relevantTo(seen) {
+				fresh[k] = true
+				break
+			}
+		}
+	}
+	for grew := true; grew; {
+		grew = false
+		paths := map[string]bool{}
+		impls := map[ast.Node]bool{}
+		for k := range fresh {
+			if fa := prev.Files[k]; fa != nil && fa.FilePath != "" {
+				paths[fa.FilePath] = true
+			}
+			if path := pi.paths[k]; path != "" {
+				paths[path] = true
+			}
+			for _, n := range prev.FileNodes[k] {
+				if blk, ok := n.(*ast.ImplBlock); ok {
+					for _, fn := range implBlockFuncDefs(blk) {
+						impls[fn] = true
+					}
+					for _, ext := range implBlockExternFuncs(blk) {
+						impls[ext] = true
+					}
+				}
+			}
+		}
+		for k, fa := range prev.Files {
+			if fresh[k] {
+				continue
+			}
+			reaches := fa == nil || holdsFrom(fa, fresh, paths, impls)
+			for _, imported := range fa.ImportedModules {
+				reaches = reaches || fresh[imported]
+			}
+			if reaches {
+				fresh[k] = true
+				grew = true
+			}
+		}
+	}
+	old := prev.FA.Program()
+	funcs := map[*FileAnalysis][]*ast.FuncDef{}
+	for fn, fa := range old.ScopedFunctionFiles {
+		funcs[fa] = append(funcs[fa], fn)
+	}
+	reused := map[string]reusedFile{}
+	for k, fa := range prev.Files {
+		if !fresh[k] && (closure[k] || relevant[k] != nil) {
+			reused[k] = reusedFile{fa: fa, nodes: prev.FileNodes[k], funcs: funcs[fa]}
+		}
+	}
+	if len(reused) == 0 {
+		return pi.check(key, closure, relevant, nil)
+	}
+	return pi.check(key, closure, relevant, &reusedFrom{files: reused, onces: old.Onces, revision: old.revision})
+}
+
+// reusedFrom is what a check takes from an earlier check of its file
+// (CheckAfter): the analyses of the files the edit cannot reach, and the
+// earlier program's `once` table and revision.
+type reusedFrom struct {
+	files    map[string]reusedFile
+	onces    *OnceTable
+	revision int
+}
+
+// check is Check over closure and relevant, worked out, taking the
+// analyses reuse holds when it is not nil.
+func (pi *ProgramInterfaces) check(key string, closure map[string]bool, relevant map[string]map[int]bool, reuse *reusedFrom) *FileCheck {
+	fa, nodes, frontEnd, files, fileNodes := pi.buildAll(key, closure, relevant, reuse)
+	out := &FileCheck{FA: fa, Nodes: nodes, Build: slices.Clone(fa.TypeErrors), Files: files, FileNodes: fileNodes,
+		closure: closure, relevant: relevant}
+	if reuse != nil {
+		out.reused = len(reuse.files)
+	}
 	if key == pi.sp.Entry {
 		out.Check = CheckTypes(fa, nodes)
 		out.EntryChecks = AnalyzeIterSensitivity(fa, nodes)
@@ -700,13 +831,13 @@ func (pi *ProgramInterfaces) Check(key string) *FileCheck {
 // nodes, and for the program's entry the errors reported before analysis.
 // Its bodies are not checked.
 func (pi *ProgramInterfaces) build(key string, closure map[string]bool, relevant map[string]map[int]bool) (*FileAnalysis, []ast.Node, []TypeError) {
-	fa, nodes, frontEnd, _, _ := pi.buildAll(key, closure, relevant)
+	fa, nodes, frontEnd, _, _ := pi.buildAll(key, closure, relevant, nil)
 	return fa, nodes, frontEnd
 }
 
 // buildAll is build, answering besides the build's other project files
 // with their nodes, by key.
-func (pi *ProgramInterfaces) buildAll(key string, closure map[string]bool, relevant map[string]map[int]bool) (*FileAnalysis, []ast.Node, []TypeError, map[string]*FileAnalysis, map[string][]ast.Node) {
+func (pi *ProgramInterfaces) buildAll(key string, closure map[string]bool, relevant map[string]map[int]bool, reuse *reusedFrom) (*FileAnalysis, []ast.Node, []TypeError, map[string]*FileAnalysis, map[string][]ast.Node) {
 	sp := pi.sp
 	visible := map[string]bool{key: true}
 	for k := range closure {
@@ -785,16 +916,54 @@ func (pi *ProgramInterfaces) buildAll(key string, closure map[string]bool, relev
 		session:      sp.Session,
 		scopeNames:   sp.ScopeNames,
 	}
+	if reuse != nil {
+		in.reused = reuse.files
+	}
 
 	if key == sp.Entry {
 		prog, frontEnd := sp.PrepareEntry(pi.source(key))
 		fa, siblings, siblingNodes := buildProjectWithCache(prog, sp.Primitives, sp.Modules, sp.StdlibFAs, sp.Root, sp.EntryPath, key, sp.PlaceEntry, loader, sp.VirtualManifest, in)
+		reuse.carryOnces(fa)
 		files, fileNodes := projectFilesOf(siblings, siblingNodes, key)
 		return fa, prog, frontEnd, files, fileNodes
 	}
 	_, siblings, siblingNodes := buildProjectWithCache(entryNodes, sp.Primitives, sp.Modules, sp.StdlibFAs, sp.Root, "", "", false, loader, sp.VirtualManifest, in)
+	reuse.carryOnces(siblings[key])
 	files, fileNodes := projectFilesOf(siblings, siblingNodes, key)
 	return siblings[key], siblingNodes[key], nil, files, fileNodes
+}
+
+// carryOnces gives the program fa's build made what the earlier program
+// knew of the reused files' `once` bindings, as checkProgramFrom does: the
+// types it inferred and the cycles their values read themselves through,
+// since none of them reads a file built again.
+func (r *reusedFrom) carryOnces(fa *FileAnalysis) {
+	if r == nil || fa == nil || fa.Program() == nil {
+		return
+	}
+	kept := map[*FileAnalysis]bool{}
+	for _, f := range r.files {
+		kept[f.fa] = true
+	}
+	now := fa.Program()
+	for n, site := range r.onces.sites {
+		if site.fa == nil || !kept[site.fa] {
+			continue
+		}
+		if r.onces.checked[n] {
+			now.Onces.checked[n] = true
+		}
+		if cycle := r.onces.cycles[n]; cycle != nil {
+			now.Onces.cycles[n] = cycle
+		}
+		if reads := r.onces.reads[n]; reads != nil {
+			if now.Onces.reads == nil {
+				now.Onces.reads = map[*ast.OnceBinding][]*ast.OnceBinding{}
+			}
+			now.Onces.reads[n] = reads
+		}
+	}
+	now.revision = r.revision + 1
 }
 
 // projectFilesOf keeps of a build's files those of the project other than

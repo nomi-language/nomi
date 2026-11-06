@@ -5231,43 +5231,85 @@ func TestCheckDeclaredParamNeedsType(t *testing.T) {
 	expectNoErrors(t, errs)
 }
 
-// Every declared function's parameter needs a name. A bare type in parameter
-// position, `fn f(String)`, parses as a variant pattern that binds nothing;
-// it is an error at the parameter for a `go`-bound fn (which has no body to
-// check the pattern against), and for every other declared function. (A
-// `host fn`'s parameters are parsed as names, so the parser rejects it.) A
-// lambda's gets the same error whether or not a function type is expected
-// for it; checked against an expected `(String) -> Int` it was "enum pattern
-// requires an enum type, got String".
-func TestCheckDeclaredParamNeedsName(t *testing.T) {
-	for _, tc := range []struct {
-		name, src, typ string
-		line, col      int
-	}{
-		{"go fn", "gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(   String) -> String go ffi.EchoUpper\n", "String", 3, 22},
-		{"fn", "fn plain(Int) -> Int {\n  1\n}\n", "Int", 1, 10},
-		{"nested fn", "fn outer() -> Int {\n  fn inner(Int) -> Int {\n    1\n  }\n  inner(1)\n}\n", "Int", 2, 12},
-		{"inherent fn", "struct User {\n  name: String\n}\n\nimpl User {\n  fn hi(User) -> String {\n    \"hi\"\n  }\n}\n", "User", 6, 9},
-		{"interface fn", "interface Tagged {\n  fn tag(String) -> String\n}\n", "String", 2, 10},
-		{"lambda", "fn main() {\n  f = fn String -> 1\n  _ = f\n}\n", "String", 2, 10},
-		{"lambda with an expected type", "fn apply(f: (String) -> Int) -> Int {\n  f(\"a\")\n}\n\nfn main() {\n  _ = apply(fn String -> 1)\n}\n", "String", 6, 16},
-		{"lambda whose expected type differs", "fn apply(f: (Int) -> Int) -> Int {\n  f(1)\n}\n\nfn main() {\n  _ = apply(fn String -> 1)\n}\n", "String", 6, 16},
+// A parameter written as its type alone, `fn stats(Request)`, takes a value
+// of that type and binds nothing (spec §7 *Parameter Destructuring*), in
+// every declared function, a `go`-bound or interface one included, and in a
+// lambda with or without an expected type. The type may be a struct, an
+// enum of any number of variants, a distinct type, an alias, a builtin or a
+// type parameter.
+func TestCheckTypeOnlyParam(t *testing.T) {
+	const types = "struct Request {\n  path: String\n}\n\nenum Method {\n  Get\n  Post\n}\n\ntype Cents Int\n\ntypealias Id Int\n\n"
+	for _, tc := range []struct{ name, src string }{
+		{"go fn", "gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(String) -> String go ffi.EchoUpper\n"},
+		{"fn", "fn plain(Int) -> Int {\n  1\n}\n"},
+		{"struct", types + "fn stats(Request) -> Int {\n  1\n}\n\nfn main() {\n  _ = stats(Request{path: \"/\"})\n}\n"},
+		{"multi-variant enum", types + "fn verb(Method) -> Int {\n  1\n}\n\nfn main() {\n  _ = verb(.Post)\n}\n"},
+		{"distinct", types + "fn cents(Cents) -> Int {\n  1\n}\n\nfn main() {\n  _ = cents(Cents(5))\n}\n"},
+		{"alias", types + "fn id(Id) -> Int {\n  1\n}\n\nfn main() {\n  _ = id(7)\n}\n"},
+		{"type parameter", "fn second<T>(T, b: T) -> T {\n  b\n}\n\nfn main() {\n  _ = second(1, 2)\n}\n"},
+		{"nested fn", "fn outer() -> Int {\n  fn inner(Int) -> Int {\n    1\n  }\n  inner(1)\n}\n"},
+		{"inherent fn", "struct User {\n  name: String\n}\n\nimpl User {\n  fn hi(User) -> String {\n    \"hi\"\n  }\n}\n"},
+		{"interface fn", "interface Tagged {\n  fn tag(String) -> String\n}\n"},
+		// An interface's parameter written as its type names nothing for an
+		// impl to match, and an impl's written so has no name to compare.
+		{"impl names the interface's type-only parameter",
+			"interface Show {\n  fn show(v: self, String) -> String\n}\n\nstruct A {}\n\nimpl Show for A {\n  fn show(_v: A, prefix: String) -> String {\n    prefix\n  }\n}\n"},
+		{"impl writes the interface's named parameter as its type",
+			"interface Show {\n  fn show(v: self, prefix: String) -> String\n}\n\nstruct A {}\n\nimpl Show for A {\n  fn show(_v: A, String) -> String {\n    \"a\"\n  }\n}\n"},
+		{"lambda", "fn main() {\n  f = fn String -> 1\n  _ = f(\"a\")\n}\n"},
+		{"lambda with an expected type", "fn apply(f: (String) -> Int) -> Int {\n  f(\"a\")\n}\n\nfn main() {\n  _ = apply(fn String -> 1)\n}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSource(tc.src)
-			want := "parameter '" + tc.typ + "' needs a name"
-			for _, e := range errs {
-				if e.Message == want {
-					if e.Line != tc.line || e.Col != tc.col {
-						t.Fatalf("%q at %d:%d, want %d:%d", want, e.Line, e.Col, tc.line, tc.col)
-					}
-					return
-				}
-			}
-			t.Fatalf("no %q error; got %v", want, errs)
+			expectNoErrors(t, errs)
 		})
 	}
-	// A named parameter is fine, and so is a lambda's named or destructuring
+	// The argument must have the parameter's type.
+	_, errs := checkSource("struct Request {\n  path: String\n}\n\nfn stats(Request) -> Int {\n  1\n}\n\nfn main() {\n  _ = stats(1)\n}\n")
+	expectError(t, errs, "Request")
+	_, errs = checkSource("fn apply(f: (Int) -> Int) -> Int {\n  f(1)\n}\n\nfn main() {\n  _ = apply(fn String -> 1)\n}\n")
+	if len(errs) == 0 {
+		t.Fatal("a lambda written `fn String -> 1` is accepted where an `(Int) -> Int` is expected")
+	}
+}
+
+// An interface function's parameter written as a pattern with a type head,
+// `fn tag(t: self, Req{path})`, takes that type, as a top-level fn's does:
+// a call through the interface checks its argument against it.
+func TestCheckInterfacePatternParam(t *testing.T) {
+	const decls = "struct Req {\n  path: String\n}\n\ninterface Tagger {\n  fn tag(t: self, Req{path}) -> String\n}\n\nstruct Upper {}\n\nimpl Tagger for Upper {\n  fn tag(_t: Upper, Req{path}) -> String {\n    path\n  }\n}\n\n"
+	_, errs := checkSource(decls + "fn label<T>(x: T) -> String where T: Tagger {\n  T.tag(x, Req{path: \"/a\"})\n}\n\nfn main() {\n  _ = label(Upper{})\n}\n")
+	expectNoErrors(t, errs)
+	_, errs = checkSource(decls + "fn label<T>(x: T) -> String where T: Tagger {\n  T.tag(x, 1)\n}\n")
+	expectError(t, errs, "Req")
+	// An impl whose parameter has another type is told the signature the
+	// interface requires, with the pattern's parameter shown by its type.
+	_, errs = checkSource("struct Req {\n  path: String\n}\n\ninterface Tagger {\n  fn tag(t: self, Req{path}) -> String\n}\n\nstruct Upper {}\n\nimpl Tagger for Upper {\n  fn tag(_t: Upper, n: Int) -> String {\n    \"\"\n  }\n}\n")
+	expectError(t, errs, "interface 'Tagger' requires `fn tag(t: Upper, Req) -> String`")
+}
+
+// A parameter written as its type alone must name a type: an unknown name is
+// an unknown type, and a generic type needs the type arguments a pattern
+// head cannot write.
+func TestCheckTypeOnlyParamNamesAType(t *testing.T) {
+	for _, tc := range []struct{ name, src, msg string }{
+		{"fn", "fn d(Nope) -> Int {\n  1\n}\n", `unknown type "Nope"`},
+		{"lambda", "fn main() {\n  f = fn Nope -> 1\n  _ = f\n}\n", `unknown type "Nope"`},
+		{"generic", "struct Box<T> {\n  v: T\n}\n\nfn e(Box) -> Int {\n  1\n}\n", "`Box` expects 1 type argument, got 0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSource(tc.src)
+			if len(errs) == 0 {
+				t.Fatalf("accepted; want %q", tc.msg)
+			}
+			expectError(t, errs, tc.msg)
+		})
+	}
+}
+
+// A named parameter is fine, and so is a lambda's named or destructuring
+// one against an expected type.
+func TestCheckDeclaredParamNamed(t *testing.T) {
 	// one against an expected type.
 	_, errs := checkSource("gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(s: String) -> String go ffi.EchoUpper\n")
 	expectNoErrors(t, errs)
@@ -5277,9 +5319,9 @@ func TestCheckDeclaredParamNeedsName(t *testing.T) {
 
 // A bare parameter that names a variant of an enum in scope, `fn One -> 1`, reads
 // as an attempt to match the variant, so it gets the pattern check's "bare
-// variant" error rather than "needs a name" with a hint that calls `One` a
-// type. When a type of that name exists too, the parameter is still read as
-// that type, and the "needs a name" error adds how to match the variant.
+// variant" error rather than an unknown type. When a type of that name exists
+// too, the parameter is ambiguous: "needs a name" says how to write each
+// reading. A variant that may be written bare, `None`, is no type either.
 func TestCheckBareVariantParam(t *testing.T) {
 	const single = "enum Single {\n  One\n}\n\n"
 	const pair = "enum Pair {\n  One\n  Two\n}\n\n"
@@ -5291,27 +5333,31 @@ func TestCheckBareVariantParam(t *testing.T) {
 		{"lambda, single-variant enum expected",
 			single + "fn apply(f: (Single) -> Int) -> Int {\n  f(.One)\n}\n\nfn main() {\n  _ = apply(fn One -> 1)\n}\n",
 			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
-			[]string{"to bind the value, write `name: Single`"}, 10, 16},
+			[]string{"to take the value, write `_: Single`, or `name: Single` to use it"}, 10, 16},
 		{"lambda, no expected type",
 			single + "fn main() {\n  f = fn One -> 1\n  _ = f\n}\n",
 			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
-			[]string{"to bind the value, write `name: Single`"}, 6, 10},
+			[]string{"to take the value, write `_: Single`, or `name: Single` to use it"}, 6, 10},
 		{"lambda, multi-variant enum expected",
 			pair + "fn apply(f: (Pair) -> Int) -> Int {\n  f(.One)\n}\n\nfn main() {\n  _ = apply(fn One -> 1)\n}\n",
 			"bare variant 'One' in pattern position; use '.One' (or 'Pair.One')",
-			[]string{"to bind the value, write `name: Pair`"}, 11, 16},
+			[]string{"to take the value, write `_: Pair`, or `name: Pair` to use it"}, 11, 16},
 		{"fn",
 			single + "fn f(One) -> Int {\n  1\n}\n",
 			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
-			[]string{"to bind the value, write `name: Single`"}, 5, 6},
+			[]string{"to take the value, write `_: Single`, or `name: Single` to use it"}, 5, 6},
 		{"fn, a type of the same name exists",
 			"struct One {\n  x: Int\n}\n\n" + single + "fn f(One) -> Int {\n  1\n}\n",
 			"parameter 'One' needs a name",
-			[]string{"`One` is read as the parameter's type; write `name: One`", "write `.One` (or `Single.One`) to match the variant"}, 9, 6},
-		{"lambda, a type",
-			"fn main() {\n  f = fn String -> 1\n  _ = f\n}\n",
-			"parameter 'String' needs a name",
-			[]string{"`String` is read as the parameter's type; write `name: String`"}, 2, 10},
+			[]string{"`One` names both a type and a variant of `Single`; to take a `One`, write `_: One`, or `name: One` to use it", "write `.One` (or `Single.One`) to match the variant"}, 9, 6},
+		{"lambda, a type of the same name exists",
+			"struct One {\n  x: Int\n}\n\n" + single + "fn main() {\n  f = fn One -> 1\n  _ = f\n}\n",
+			"parameter 'One' needs a name",
+			[]string{"`One` names both a type and a variant of `Single`; to take a `One`, write `_: One`, or `name: One` to use it", "write `.One` (or `Single.One`) to match the variant"}, 10, 10},
+		{"fn, a variant that may be written bare",
+			"fn f(None) -> Int {\n  1\n}\n",
+			"parameter 'None' needs a name",
+			[]string{"`None` is a variant, not a type; take the value as `name: T`, with the type it belongs to, and match it in the body"}, 1, 6},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSource(tc.src)

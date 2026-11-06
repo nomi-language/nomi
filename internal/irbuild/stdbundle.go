@@ -57,6 +57,7 @@ import (
 	"hash/crc32"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -72,7 +73,7 @@ const (
 	stdBundleMagic = "NOMISTDB"
 	// stdBundleVersion versions this file's own layout; ir.FormatVersion
 	// versions the images inside it.
-	stdBundleVersion = 1
+	stdBundleVersion = 2
 	// stdBundleUnused is how long a cached bundle no process has used is
 	// kept: each build of the compiler writes its own.
 	stdBundleUnused = 24 * time.Hour
@@ -200,11 +201,25 @@ func StdBundle() ([]byte, error) {
 
 // lowerStdBundle lowers the stdlib (buildStdlibIndex) and encodes it as a
 // shared section.
+//
+// Each module is recorded once every module is filed, so a declaration's
+// outcome is the one the whole stdlib gives it: filing another module's
+// declaration of one spelling may refuse it (addOverload), and a process
+// that restores only the modules its programs reach files only those.
 func lowerStdBundle() (*stdlibIndex, []byte, error) {
-	var recs []*stdModuleRecord
+	type lowered struct {
+		name     string
+		v        *stdModuleView
+		irModule *ir.Module
+	}
+	var mods []lowered
 	idx := buildStdlibIndexBy(lowerSharedStdModule, func(name string, v *stdModuleView, irModule *ir.Module) {
-		recs = append(recs, recordStdModule(name, v, irModule))
+		mods = append(mods, lowered{name, v, irModule})
 	})
+	recs := make([]*stdModuleRecord, len(mods))
+	for i, m := range mods {
+		recs[i] = recordStdModule(m.name, m.v, m.irModule)
+	}
 	data, err := encodeSharedSection(recs)
 	return idx, data, err
 }
@@ -220,8 +235,8 @@ type stdModuleRecord struct {
 }
 
 // stdCandRecord is the fields of one stdFunc that lowering its module sets,
-// taken as lowerStdlibModule returns. The rest are the view's, which a
-// process builds from std's analysis.
+// taken once every module is filed (lowerStdBundle). The rest are the
+// view's, which a process builds from std's analysis.
 type stdCandRecord struct {
 	key     string
 	hasDecl bool
@@ -695,9 +710,33 @@ func encodeSharedSection(recs []*stdModuleRecord) ([]byte, error) {
 
 // decodeStdBundle checks data and builds the stdlib index from its shared
 // section.
+//
+// It restores every module, which it builds first (std.All), and checks the
+// bundle lowers them in this process's order, which a process restoring
+// only the modules its programs reach cannot (decodeStdShared).
 func decodeStdBundle(data []byte) (*stdlibIndex, error) {
-	idx, _, _, err := decodeStdBundleSections(data)
-	return idx, err
+	shared, _, err := splitStdBundle(data)
+	if err != nil {
+		return nil, err
+	}
+	lib := std.All()
+	idx, err := decodeStdShared(shared)
+	if err != nil {
+		return nil, err
+	}
+	if idx, err = idx.restoring(lib, false); err != nil {
+		return nil, err
+	}
+	var want []string
+	for _, name := range stdLoweringOrder(lib.ModuleNames(), lib) {
+		if len(lib.Nodes[name]) > 0 && !isProgramStd(name) {
+			want = append(want, name)
+		}
+	}
+	if !slices.Equal(idx.order, want) {
+		return nil, fmt.Errorf("the bundle lowers the stdlib's modules in another order")
+	}
+	return idx, nil
 }
 
 // decodeStdBundleSections is decodeStdBundle answering the sections too.
@@ -713,7 +752,10 @@ func decodeStdBundleSections(data []byte) (idx *stdlibIndex, shared, listed []by
 	return idx, shared, listed, nil
 }
 
-// decodeStdShared builds the stdlib index from a shared section.
+// decodeStdShared builds the stdlib index from a shared section, with the
+// modules the shared stdlib has built restored and the others pending,
+// restored when a program reaches them (stdlibIndex.withModules). Every
+// module's IR is the image's, which a program links whole.
 func decodeStdShared(data []byte) (idx *stdlibIndex, err error) {
 	defer func() {
 		// The reader bounds-checks what it reads; a panic is a bug in this
@@ -726,31 +768,41 @@ func decodeStdShared(data []byte) (idx *stdlibIndex, err error) {
 	if err != nil {
 		return nil, err
 	}
-	next := 0
-	var restoreErr error
-	idx = buildStdlibIndexBy(func(v *stdModuleView, _ *stdlibIndex) ([]*stdFunc, []*stdOnce, *ir.Module) {
-		if restoreErr != nil {
-			return nil, nil, nil
+	lib := std.Shared()
+	names := lib.ModuleNames()
+	lowered := map[string]bool{}
+	for _, name := range names {
+		if !isProgramStd(name) {
+			lowered[name] = true
 		}
-		if next >= len(recs) {
-			restoreErr = fmt.Errorf("the bundle has %d modules, this stdlib more", len(recs))
-			return nil, nil, nil
-		}
-		funcs, onces, mod, err := restoreStdModule(v, recs[next])
-		next++
-		if err != nil {
-			restoreErr = err
-			return nil, nil, nil
-		}
-		return funcs, onces, mod
-	}, nil)
-	if restoreErr == nil && next != len(recs) {
-		restoreErr = fmt.Errorf("the bundle has %d modules, this stdlib %d", len(recs), next)
 	}
-	if restoreErr != nil {
-		return nil, restoreErr
+	if len(recs) != len(lowered) {
+		return nil, fmt.Errorf("the bundle has %d modules, this stdlib %d", len(recs), len(lowered))
 	}
-	return idx, nil
+	idx = newStdlibIndex(names)
+	idx.pending = make(map[string]*stdModuleRecord, len(recs))
+	done := map[string]bool{}
+	for _, rec := range recs {
+		if !lowered[rec.name] || done[rec.name] {
+			return nil, fmt.Errorf("the bundle has module %s, which this stdlib does not lower", rec.name)
+		}
+		earlier := make(map[string]bool, len(done))
+		for m := range done {
+			earlier[m] = true
+		}
+		idx.earlierMods[rec.name] = earlier
+		done[rec.name] = true
+		idx.order = append(idx.order, rec.name)
+		idx.pending[rec.name] = rec
+		pkg := idx.modulePkg[rec.name]
+		if rec.mod != nil {
+			idx.irModules[pkg] = rec.mod
+		}
+		if len(rec.unlowered) > 0 {
+			idx.unlowered[pkg] = rec.unlowered
+		}
+	}
+	return idx.restoring(lib, false)
 }
 
 // readSharedSection reads a shared section's records, with their IR

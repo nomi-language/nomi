@@ -87,3 +87,15 @@ func BootWorkForTest(f func()) (walked []*FileAnalysis, rereads int, graphs int6
 func init() {
 	checkKeptImports = true
 }
+
+// CheckSuppliesForTest runs f with the supply cross-check on (supplyChecks)
+// and answers how many edits took the missing-impl supply from the entry's
+// check and how many of those differ from the supply worked out from every
+// file's interface.
+func CheckSuppliesForTest(f func()) (made, apart int64) {
+	supplyChecks.on.Store(true)
+	defer supplyChecks.on.Store(false)
+	m0, a0 := supplyChecks.made.Load(), supplyChecks.apart.Load()
+	f()
+	return supplyChecks.made.Load() - m0, supplyChecks.apart.Load() - a0
+}

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 
 	"github.com/nomi-language/nomi/rt"
 
@@ -737,6 +738,19 @@ type stdlibIndex struct {
 	// exactly as buildStdlibIndex states it: every generated edge points
 	// backwards. See restrictedTo.
 	earlierMods map[string]map[string]bool
+	// order is every module the index lowered or restores, in lowering
+	// order, and modFuncs and modOnces what each one's lowering filed, by
+	// module: what the index files again, in this order, when it restores
+	// more modules (withModules).
+	order    []string
+	modFuncs map[string][]*stdFunc
+	modOnces map[string][]*stdOnce
+	// pending holds the std bundle's record of each module the index has not
+	// restored yet, which the stdlib has not built: a process restores a
+	// module once a program reaches it (stdlibIndex.withModules).
+	pending map[string]*stdModuleRecord
+	// lib is the stdlib whose modules the index holds.
+	lib *std.StdLib
 }
 
 // stdlibOnce caches the index for the process.
@@ -780,12 +794,51 @@ func stdBodies(module string) {
 	}
 }
 
+// ensureStdModule has the shared stdlib build module, and what it imports,
+// when it has not yet: a module's cases and its reference editors lower it
+// from the stdlib's analysis and lowering, which hold only the modules
+// built (std.Shared).
+func ensureStdModule(module string) {
+	std.Shared().Ensure(module)
+}
+
 // sharedStdTestDecls is the shared stdlib's std.StdLib.TestDecls.
 func sharedStdTestDecls(module string) ([]ast.Node, error) {
 	return std.Shared().TestDecls(module)
 }
 
+// stdlibCurrent is the index for the largest stdlib the process has built
+// (std.Shared): stdlibCache with every module restored since.
+var (
+	stdlibCurrent   atomic.Pointer[stdlibIndex]
+	stdlibCurrentMu sync.Mutex
+)
+
+// stdlibLowering is the process's stdlib lowering, holding every module the
+// shared stdlib has built: decoded from the std bundle a module at a time as
+// programs reach modules (withModules), or lowered whole.
 func stdlibLowering() *stdlibIndex {
+	first := stdlibFirstLowering()
+	lib := std.Shared()
+	if cur := stdlibCurrent.Load(); cur != nil && cur.lib == lib {
+		return cur
+	}
+	stdlibCurrentMu.Lock()
+	defer stdlibCurrentMu.Unlock()
+	cur := stdlibCurrent.Load()
+	if cur == nil {
+		cur = first
+	}
+	lib = std.Shared()
+	if cur.lib != lib {
+		cur = cur.withModules(lib)
+	}
+	stdlibCurrent.Store(cur)
+	return cur
+}
+
+// stdlibFirstLowering is the index the process first made.
+func stdlibFirstLowering() *stdlibIndex {
 	// The cache holds no test body: a module's `//!` prompt cases are built
 	// per call, in their own module, by GenerateStdlibTestIR (stdtests.go).
 	stdlibOnce.Do(func() {
@@ -816,19 +869,9 @@ func buildStdlibIndex() *stdlibIndex {
 // lowerStdlibModule does, or what restoreStdModule does from a std bundle.
 type stdModuleLowering func(v *stdModuleView, earlier *stdlibIndex) (funcs []*stdFunc, onces []*stdOnce, irModule *ir.Module)
 
-// buildStdlibIndexBy is buildStdlibIndex with each module lowered by lower.
-// lowered, when not nil, is told of each module as soon as lower returns it,
-// before the index files its functions (stdbundle.go records it then).
-func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *stdModuleView, irModule *ir.Module)) *stdlibIndex {
-	lib := std.Shared()
-	names := make([]string, 0, len(lib.Nodes))
-	for name := range lib.Nodes {
-		names = append(names, name)
-	}
-	// Sorted so a program's generated package numbering — and therefore its
-	// content-addressed output directory — never depends on map iteration order.
-	sort.Strings(names)
-
+// newStdlibIndex is an index holding no module, whose packages are named
+// after names, every module of the stdlib, sorted.
+func newStdlibIndex(names []string) *stdlibIndex {
 	idx := &stdlibIndex{
 		byType:      map[string][]*stdFunc{},
 		byFile:      map[string]*stdFunc{},
@@ -840,7 +883,31 @@ func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *st
 		byOnce:      map[string]*stdOnce{},
 		views:       map[string]*stdModuleView{},
 		earlierMods: map[string]map[string]bool{},
+		modFuncs:    map[string][]*stdFunc{},
+		modOnces:    map[string][]*stdOnce{},
 	}
+	for _, name := range names {
+		idx.modulePkg[name] = stdPackage(sort.SearchStrings(names, name))
+	}
+	return idx
+}
+
+// buildStdlibIndexBy is buildStdlibIndex with each module lowered by lower.
+// lowered, when not nil, is told of each module as soon as lower returns it,
+// before the index files its functions. It lowers every module of the
+// stdlib, which it builds whole first (std.All).
+func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *stdModuleView, irModule *ir.Module)) *stdlibIndex {
+	lib := std.All()
+	names := make([]string, 0, len(lib.Nodes))
+	for name := range lib.Nodes {
+		names = append(names, name)
+	}
+	// Sorted so a program's generated package numbering — and therefore its
+	// content-addressed output directory — never depends on map iteration order.
+	sort.Strings(names)
+
+	idx := newStdlibIndex(names)
+	idx.lib = lib
 	// A stdlib module's Nomi body may call another module's lowered function —
 	// `std/instant`'s `impl Add<Duration, Instant>` is
 	// `Instant(nanos + Duration.as_nanos(rhs))`, and there is no way to write
@@ -873,9 +940,6 @@ func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *st
 	// their alphabetical relative order, which is exactly what the sorted order
 	// gave them, so `std/strings` may still call `std/iter` and not the
 	// reverse. Nothing is lost and nothing new is representable inside a cycle.
-	for _, name := range names {
-		idx.modulePkg[name] = stdPackage(sort.SearchStrings(names, name))
-	}
 	// done is the modules lowered so far, which is exactly the resolution scope
 	// each next module gets. Recorded per module BEFORE that module is lowered,
 	// so `earlierMods[name]` is "strictly before" and never "including itself".
@@ -928,9 +992,109 @@ func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *st
 		for _, o := range onces {
 			idx.addOnce(o)
 		}
+		idx.order = append(idx.order, name)
+		idx.modFuncs[name], idx.modOnces[name] = funcs, onces
 		done[name] = true
 	}
 	return idx
+}
+
+// withModules answers x with every module lib has built and x has not
+// restored restored from the std bundle's records (pending), in a new
+// index, so a gen holding x keeps reading it unchanged. The new index files
+// every restored module's functions again in lowering order, so it is the
+// index a lowering of those modules would file: a bundle records each
+// declaration's outcome over the whole stdlib (lowerStdBundle), and filing
+// a part of it marks no declaration the whole would not.
+func (x *stdlibIndex) withModules(lib *std.StdLib) *stdlibIndex {
+	y, err := x.restoring(lib, true)
+	if err != nil {
+		panic("irbuild: " + err.Error())
+	}
+	return y
+}
+
+// restoring is withModules. A module the bundle does not restore is an
+// error when lower is false; otherwise it is lowered, as a process without
+// the bundle lowers it, and in a test it panics: the bundle was made from
+// this stdlib (its digest), so a module it does not match is a defect.
+func (x *stdlibIndex) restoring(lib *std.StdLib, lower bool) (*stdlibIndex, error) {
+	var restore []string
+	for _, name := range x.order {
+		if x.pending[name] != nil && lib.Files[name] != nil && len(lib.Nodes[name]) > 0 {
+			restore = append(restore, name)
+		}
+	}
+	if len(restore) == 0 {
+		y := *x
+		y.lib = lib
+		return &y, nil
+	}
+	y := newStdlibIndex(nil)
+	y.modulePkg, y.earlierMods, y.order = x.modulePkg, x.earlierMods, x.order
+	y.lib = lib
+	for pkg, m := range x.irModules {
+		y.irModules[pkg] = m
+	}
+	for pkg, u := range x.unlowered {
+		y.unlowered[pkg] = u
+	}
+	for name, v := range x.views {
+		y.views[name] = v
+	}
+	for name, fs := range x.modFuncs {
+		y.modFuncs[name] = fs
+	}
+	for name, os := range x.modOnces {
+		y.modOnces[name] = os
+	}
+	y.pending = make(map[string]*stdModuleRecord, len(x.pending))
+	for name, rec := range x.pending {
+		y.pending[name] = rec
+	}
+	for _, name := range restore {
+		rec := y.pending[name]
+		delete(y.pending, name)
+		v := stdModuleContext(name, lib.SourcePath(name), y.modulePkg[name], lib.Nodes[name], lib.Files[name], y)
+		v.embedded = true
+		funcs, onces, irModule, err := restoreStdModule(v, rec)
+		if err != nil {
+			if !lower {
+				return nil, err
+			}
+			if testing.Testing() {
+				panic("irbuild: the std bundle does not restore " + name + ": " + err.Error())
+			}
+			stdBundleDebug("restoring %s: %v", name, err)
+			v = stdModuleContext(name, lib.SourcePath(name), y.modulePkg[name], lib.Nodes[name], lib.Files[name], y)
+			v.embedded = true
+			funcs, onces, irModule = lowerSharedStdModule(v, y)
+			if irModule != nil && len(irModule.Funcs()) == 0 && len(irModule.Cells()) == 0 {
+				irModule = nil
+			}
+		}
+		y.views[name] = v
+		pkg := y.modulePkg[name]
+		if irModule != nil {
+			y.irModules[pkg] = irModule
+		}
+		if len(v.unlowered) > 0 {
+			y.unlowered[pkg] = v.unlowered
+		}
+		y.modFuncs[name], y.modOnces[name] = funcs, onces
+	}
+	if len(y.pending) == 0 {
+		y.pending = nil
+	}
+	for _, name := range y.order {
+		for _, f := range y.modFuncs[name] {
+			y.add(f)
+		}
+		for _, o := range y.modOnces[name] {
+			y.addOnce(o)
+		}
+	}
+	return y, nil
 }
 
 // stdLoweringOrder lowers imports before their users, starting with Context's

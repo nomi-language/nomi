@@ -241,6 +241,7 @@ export default defineConfig({
 						{ label: 'Files', link: '/files/' },
 						{ label: 'JSON & Dynamic', link: '/json-and-dynamic/' },
 						{ label: 'HTTP', link: '/http/' },
+						{ label: 'Frontends', link: '/frontends/' },
 						{ label: 'Background Work', link: '/background-work/' },
 						{ label: 'Databases', link: '/databases/' },
 					],

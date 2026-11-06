@@ -326,6 +326,10 @@ When the pattern names a type, as `Dur(a)` and `Point{x, y}` do, you don't
 write the type again. A tuple or an anonymous struct pattern names no type,
 so it needs one, as in `#(a, b): #(Int, Int)`.
 
+A type name with nothing after it is a pattern too. It names the type and
+binds nothing, so `fn health(Request) -> Response` takes a `Request` it
+never reads.
+
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
@@ -333,8 +337,8 @@ so it needs one, as in `#(a, b): #(Int, Int)`.
   ``refutable pattern in parameter; bind the parameter and use a `case` in the body``.
   That covers literals, a variant of an enum with more than one, and any
   list, map, vector or set pattern.
-- A type name alone is not a pattern: `fn f(Label)` is
-  `parameter 'Label' needs a name`.
+- A type name alone must name a type, not a variant: `fn f(None)` is
+  `parameter 'None' needs a name`.
 - Lambdas take the same patterns: `fn #(_, n) -> n`.
 
 Spec: [Parameter Destructuring](/spec/functions-and-closures/#parameter-destructuring).

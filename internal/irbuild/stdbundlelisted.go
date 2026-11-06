@@ -47,6 +47,9 @@ func keptListedStdMade() bool { return keptListed.made.Load() }
 // into the cached bundle for the next process.
 func keptListedStd() *listedStd {
 	keptListed.once.Do(func() {
+		// The kept lowering is of every listed module, which the stdlib
+		// builds, with what they import, when a program first reaches one.
+		std.Shared().Ensure(listedStdNames()...)
 		stdlibLowering()
 		st := &stdBundleState
 		if st.listed != nil {
@@ -370,7 +373,7 @@ func decodeListedSection(framed []byte) (k *listedStd, err error) {
 
 // stdDeclsByName is every std declaration by its name: stdLinkNames
 // inverted.
-var stdDeclsByName = sync.OnceValue(func() map[string]ast.Node {
+var stdDeclsByName = perStd(func() map[string]ast.Node {
 	out := map[string]ast.Node{}
 	for n, d := range stdLinkNames() {
 		out[d.String()] = n

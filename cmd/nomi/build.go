@@ -252,7 +252,7 @@ func build(b buildArgs, stderr io.Writer) error {
 			return fmt.Errorf("nomi build: %w", err)
 		}
 	} else {
-		if err := ffirun.CheckProjectBuild(); err != nil {
+		if err := ffirun.CheckProjectBuild(res, b.target); err != nil {
 			return fmt.Errorf("nomi build: %w", err)
 		}
 		// The wrapper lowers the program with the project's bindings, and

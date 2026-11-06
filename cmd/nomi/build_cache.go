@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -104,6 +105,12 @@ func buildInProcess(b buildArgs, absPath string, stderr io.Writer, cache *vmhost
 	if err != nil {
 		if blocked, ok := vmhost.IsBlocked(err); ok {
 			blocked.Write(stderr, vmhost.DisplayPath(absPath))
+			return k, errBuildRefused
+		}
+		// An `embed` pattern whose base does not exist, at the pattern.
+		var ds vmhost.Diagnostics
+		if errors.As(err, &ds) {
+			vmhost.WriteFailure(stderr, err)
 			return k, errBuildRefused
 		}
 		return k, fmt.Errorf("nomi build: %w", err)

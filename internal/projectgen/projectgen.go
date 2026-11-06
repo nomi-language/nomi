@@ -384,6 +384,12 @@ const (
 	ImplLeaf EditKind = "impl added, leaf"
 	// BodyEntry changes a value in main's body.
 	BodyEntry EditKind = "body edit, entry"
+	// TypoLeaf misspells a name in a function body in Leaf(), which the
+	// file then reports. EditKinds leaves it out: every kind there leaves
+	// the program with nothing to report.
+	TypoLeaf EditKind = "typo, leaf"
+	// TypoEntry does the same in main's body.
+	TypoEntry EditKind = "typo, entry"
 )
 
 // EditKinds lists every kind Edit makes, in the order reports list them.
@@ -395,11 +401,11 @@ var EditKinds = []EditKind{BodyLeaf, BodyHub, BodyCallLeaf, InstanceLeaf, Signat
 // the one before left, changes the file every time.
 func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 	switch kind {
-	case BodyLeaf, BodyCallLeaf, InstanceLeaf, SignatureLeaf, ImplLeaf:
+	case BodyLeaf, BodyCallLeaf, InstanceLeaf, SignatureLeaf, ImplLeaf, TypoLeaf:
 		key = p.Leaf()
 	case BodyHub, SignatureHub:
 		key = p.Hub()
-	case BodyEntry:
+	case BodyEntry, TypoEntry:
 		key = p.Entry
 	}
 	orig := p.Files[key]
@@ -428,6 +434,10 @@ func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 		return key, orig + fmt.Sprintf("\nimpl Display for Kind%d {\n    fn to_string(kind: Kind%d) -> String {\n        case kind {\n            .Plain -> \"plain\"\n            .Sized(n) -> \"sized ${n}\"\n            .Tagged(t) -> t\n        }\n    }\n}\n", u.i, u.i)
 	case BodyEntry:
 		return key, strings.Replace(orig, "total = 0\n", fmt.Sprintf("total = %d\n", 1+n%2), 1)
+	case TypoLeaf:
+		return key, strings.Replace(orig, "    n + 1\n", fmt.Sprintf("    n + nn%d\n", n%2), 1)
+	case TypoEntry:
+		return key, strings.Replace(orig, "total = 0\n", fmt.Sprintf("total = totl%d\n", n%2), 1)
 	}
 	panic("projectgen: unknown edit kind " + string(kind))
 }

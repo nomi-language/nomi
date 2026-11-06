@@ -90,17 +90,30 @@ func isProgramStd(name string) bool {
 // analysis, with their tail calls marked once for the process: std.Load does
 // not mark them (stdModuleContext's reason), and the nodes are shared by
 // every program that lowers them, possibly at once.
-var programStdModuleNodes = sync.OnceValue(func() map[string][]ast.Node {
+var programStdModuleNodes = perStd(func() map[string][]ast.Node {
 	lib := std.Shared()
 	out := map[string][]ast.Node{}
+	tailMarked.Lock()
+	defer tailMarked.Unlock()
 	for name, nodes := range lib.Nodes {
 		if isProgramStd(name) {
-			analysis.MarkTailCalls(nodes)
+			if !tailMarked.modules[name] {
+				analysis.MarkTailCalls(nodes)
+				tailMarked.modules[name] = true
+			}
 			out[name] = nodes
 		}
 	}
 	return out
 })
+
+// tailMarked is the listed modules whose nodes programStdModuleNodes has
+// marked, once each: the stdlib it answers from grows, and a module marked
+// is being read by the programs lowering it.
+var tailMarked = struct {
+	sync.Mutex
+	modules map[string]bool
+}{modules: map[string]bool{}}
 
 // withProgramStd answers p with every listed std module its files reach
 // appended as a Module, or p itself when they reach none. p's own Modules are

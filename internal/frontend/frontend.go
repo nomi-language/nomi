@@ -379,6 +379,9 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		c.entryModRel,
 		c.placeEntry,
 	)
+	// The stdlib modules the build reached, which it built if they were not
+	// yet (std.StdLib.Latest).
+	c.lib = c.lib.Latest()
 	c.projectFiles = collectProjectFiles(siblingFAs, siblingNodes)
 	c.last = &analyzedProgram{fa: fa, nodes: nodes, siblingFAs: siblingFAs, siblingNodes: siblingNodes}
 	// Each file's own diagnostics, for the check against interfaces
@@ -657,6 +660,7 @@ func (c *Checker) sharedStdlib(key string, fa *analysis.FileAnalysis) (string, b
 		return "", false
 	}
 	name := strings.TrimPrefix(key, "std/")
+	c.lib = c.lib.Latest()
 	return name, c.lib.Files[name] == fa
 }
 
@@ -689,6 +693,9 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	if ds := stdDefectDiagnostics(c.lib); ds != nil {
 		return nil, ds
 	}
+	// A module's own source is checked against every other module: its
+	// impl index holds the stdlib's impls.
+	c.lib = c.lib.Complete()
 	fa := analysis.BuildFileWithStdlibAtPath(nodes, nil, c.lib.Modules, c.root, c.Loader(), moduleKey+".nomi")
 	// The impl index holds THIS analysis for the module, not the shared
 	// stdlib's analysis of the same file, so an impl the module declares is
@@ -901,8 +908,7 @@ func (c *Checker) CheckStdlibTest(moduleKey, src string, line int) (test *ast.Te
 	if c.lib == nil || !c.lib.FromInterfaces() || stdDefectDiagnostics(c.lib) != nil || line < 1 {
 		return nil, nil, nil, false, nil
 	}
-	shared := c.lib.Files[module]
-	if shared == nil {
+	if c.lib.Ensure(module).Files[module] == nil {
 		return nil, nil, nil, false, nil
 	}
 	// The test alone, at its lines: the module's lines above it are blank.
@@ -926,6 +932,19 @@ func (c *Checker) CheckStdlibTest(moduleKey, src string, line int) (test *ast.Te
 	test, isTest := nodes[0].(*ast.TestDecl)
 	if !isTest {
 		return nil, nil, nil, false, nil
+	}
+	// The module and every module the test imports, which the test's check
+	// in the module's scope resolves. A stdlib built a module at a time
+	// (std.Shared) may have built one of them after the module, so the
+	// module's impl index lacks its impls: the test is then checked with the
+	// whole module, as an edit that is not one test alone is.
+	imports := analysis.StdModuleImports(module, nodes)
+	c.lib = c.lib.Ensure(append([]string{module}, imports...)...)
+	shared := c.lib.Files[module]
+	for _, name := range imports {
+		if !shared.ProgramHolds(c.lib.Files[name]) {
+			return nil, nil, nil, false, nil
+		}
 	}
 	if err := c.lib.Bodies(module); err != nil {
 		return nil, nil, nil, false, nil

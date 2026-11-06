@@ -18,12 +18,13 @@ import (
 // See Highlight.
 
 const (
-	ansiReset = "\x1b[0m"
-	ansiBold  = "\x1b[1m"
-	ansiDim   = "\x1b[2m"
-	ansiRed   = "\x1b[31m"
-	ansiGreen = "\x1b[32m"
-	ansiCyan  = "\x1b[36m"
+	ansiReset  = "\x1b[0m"
+	ansiBold   = "\x1b[1m"
+	ansiDim    = "\x1b[2m"
+	ansiRed    = "\x1b[31m"
+	ansiGreen  = "\x1b[32m"
+	ansiCyan   = "\x1b[36m"
+	ansiYellow = "\x1b[33m"
 )
 
 // ColorEnabledFor reports whether colour should be written to w.
@@ -80,10 +81,11 @@ func Dim(s string) string   { return Color(ansiDim, s) }
 // of removed lines does not outweigh the added ones.
 func diffRed(s string) string { return Color(ansiRed, s) }
 
-func DimFor(w io.Writer, s string) string  { return ColorFor(w, ansiDim, s) }
-func CyanFor(w io.Writer, s string) string { return ColorFor(w, ansiCyan, s) }
-func RedFor(w io.Writer, s string) string  { return ColorFor(w, ansiBold+ansiRed, s) }
-func BoldFor(w io.Writer, s string) string { return ColorFor(w, ansiBold, s) }
+func DimFor(w io.Writer, s string) string    { return ColorFor(w, ansiDim, s) }
+func CyanFor(w io.Writer, s string) string   { return ColorFor(w, ansiCyan, s) }
+func RedFor(w io.Writer, s string) string    { return ColorFor(w, ansiBold+ansiRed, s) }
+func YellowFor(w io.Writer, s string) string { return ColorFor(w, ansiBold+ansiYellow, s) }
+func BoldFor(w io.Writer, s string) string   { return ColorFor(w, ansiBold, s) }
 
 // Highlight renders a fragment of Nomi source with syntax colouring, or returns
 // it unchanged. It is a hook rather than an implementation, and the asymmetry

@@ -3,6 +3,7 @@ package analysis
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/nomi-language/nomi/internal/modcache"
@@ -41,8 +42,15 @@ func BuildModuleIndex(projectRoot string) (ModuleIndex, error) {
 	if g == nil {
 		return index, nil
 	}
+	root, rootErr := os.Stat(projectRoot)
 	for _, dep := range g.Deps {
 		if !dep.Nomi {
+			continue
+		}
+		// A dependency's tool reads the main module's graph
+		// (modcache.MainModule), which holds the tool's own module: that
+		// one is the project here, named through its own manifest.
+		if info, err := os.Stat(dep.Dir); rootErr == nil && err == nil && os.SameFile(root, info) {
 			continue
 		}
 		m, err := LoadManifest(dep.Dir)

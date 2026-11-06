@@ -18,7 +18,7 @@ import (
 // a child process whose stdlib holds the test-only `_fixtures/` modules
 // (std.FixturesLoaded), which the rule covers too.
 func TestProgramStdModulesQualify(t *testing.T) {
-	lib := std.Shared()
+	lib := std.All()
 	if !std.FixturesLoaded() {
 		cmd := exec.Command(os.Args[0], "-test.run=^TestProgramStdModulesQualify$", "-test.count=1", "-test.v")
 		cmd.Env = append(os.Environ(), "NOMI_STD_FIXTURES=1")

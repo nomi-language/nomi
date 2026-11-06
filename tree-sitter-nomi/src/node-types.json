@@ -9567,6 +9567,10 @@
             "named": true
           },
           {
+            "type": "type_identifier",
+            "named": true
+          },
+          {
             "type": "vector_pattern",
             "named": true
           }
@@ -11316,6 +11320,10 @@
           },
           {
             "type": "tuple_pattern",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
             "named": true
           },
           {
@@ -15720,6 +15728,10 @@
             "named": true
           },
           {
+            "type": "type_identifier",
+            "named": true
+          },
+          {
             "type": "vector_pattern",
             "named": true
           }
@@ -16075,6 +16087,10 @@
           },
           {
             "type": "tuple_pattern",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
             "named": true
           },
           {

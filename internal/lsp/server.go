@@ -93,7 +93,9 @@ func NewServer() *Server {
 	// The process's one stdlib analysis, the one the front end and the IR
 	// builder read: the lowering check lowers a document's analysis
 	// (lowering.go), and the builder knows a std declaration by its node.
-	lib := std.Shared()
+	// Every module of it, since an editor reaches any (completion, the
+	// workspace's symbols), and analyses run on several goroutines.
+	lib := std.All()
 	s.docs.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
 	// Std modules a document imports are read from this server's own
 	// embedded std, never from an open buffer or the disk.

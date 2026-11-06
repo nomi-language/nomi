@@ -82,10 +82,44 @@ func (g *Graph) Find(path string) (Dep, bool) {
 // a fetcher's downloads first.
 type Materialize func(m module.Version) (string, error)
 
-// Walk reads root/go.mod and answers the graph, with each non-local module's
-// directory from materialize. A go.mod that is missing answers a nil graph
-// and no error.
+// MainModuleEnv names the environment variable `nomi tool` sets to the
+// project's directory, the main module a tool runs in. A Go module's
+// requires and replaces apply only when it is the main module, and a
+// dependency's tool runs in the project's build, so the go.mod at the
+// tool's own root, whose replaces name sibling directories of its checkout
+// that a module cache copy does not hold, is not read: the tool's graph is
+// the project's (MainModule). It is an environment variable so that the FFI
+// wrapper the run may start reads the same graph.
+const MainModuleEnv = "NOMI_MAIN_MODULE"
+
+// MainModule is the directory whose go.mod lists the modules of a program
+// rooted at root: MainModuleEnv's directory when root is the directory of a
+// module that directory's go.mod needs, else root. It reads only the disk.
+func MainModule(root string) string {
+	main := os.Getenv(MainModuleEnv)
+	if main == "" || sameDir(main, root) {
+		return root
+	}
+	g, err := walk(main, cacheOnly)
+	if err != nil || g == nil {
+		return root
+	}
+	for _, d := range g.Deps {
+		if d.Dir != "" && sameDir(d.Dir, root) {
+			return main
+		}
+	}
+	return root
+}
+
+// Walk reads the go.mod of root's main module (MainModule) and answers the
+// graph, with each non-local module's directory from materialize. A go.mod
+// that is missing answers a nil graph and no error.
 func Walk(root string, materialize Materialize) (*Graph, error) {
+	return walk(MainModule(root), materialize)
+}
+
+func walk(root string, materialize Materialize) (*Graph, error) {
 	path := filepath.Join(root, "go.mod")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -358,7 +392,7 @@ func fetchOnce(root string) error {
 	if fetcher == nil {
 		return nil
 	}
-	abs, err := filepath.Abs(root)
+	abs, err := filepath.Abs(MainModule(root))
 	if err != nil {
 		abs = root
 	}

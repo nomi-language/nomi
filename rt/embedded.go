@@ -2,6 +2,8 @@ package rt
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strconv"
 	"sync"
 )
@@ -86,6 +88,30 @@ func WithEmbeddedFiles(ctx context.Context, t *EmbeddedFiles) context.Context {
 // run`) is a fault naming it: the program stops rather than read other
 // contents than it was compiled with.
 func EmbeddedRead(fr *Frame, handle int64, path string) Bytes {
+	t, f := embeddedFile(fr, handle, path)
+	data, err := t.src.ReadEmbedded(f)
+	if err != nil {
+		Trap("embedded file " + strconv.Quote(path) + ": " + err.Error())
+	}
+	return data
+}
+
+// EmbeddedSum is std/embed_host's `sum`: the SHA-256 of the embedded file
+// handle names, in lowercase hex, as the compiler took it when it read the
+// file. A file compiled without one (by a front end that read no
+// contents) is read and hashed now.
+func EmbeddedSum(fr *Frame, handle int64, path string) string {
+	_, f := embeddedFile(fr, handle, path)
+	if f.Sum != "" {
+		return f.Sum
+	}
+	h := sha256.Sum256([]byte(EmbeddedRead(fr, handle, path)))
+	return hex.EncodeToString(h[:])
+}
+
+// embeddedFile is the machine's table and the file handle names in it, or
+// a fault naming path.
+func embeddedFile(fr *Frame, handle int64, path string) (*EmbeddedFiles, EmbeddedFile) {
 	var t *EmbeddedFiles
 	if fr != nil && fr.ctx != nil {
 		t, _ = fr.ctx.Value(embeddedKey{}).(*EmbeddedFiles)
@@ -97,9 +123,5 @@ func EmbeddedRead(fr *Frame, handle int64, path string) Bytes {
 	if !ok {
 		Trap("embedded file " + strconv.Quote(path) + ": no such handle " + strconv.FormatInt(handle, 10))
 	}
-	data, err := t.src.ReadEmbedded(f)
-	if err != nil {
-		Trap("embedded file " + strconv.Quote(path) + ": " + err.Error())
-	}
-	return data
+	return t, f
 }

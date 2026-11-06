@@ -63,6 +63,9 @@ func enableDownloads(offline bool, log io.Writer) {
 	if isTerminal(os.Stderr) {
 		moduleLog = log
 	}
+	// A release downloads its prebuilt lib/ runners (ffirun.AllowLibDownload)
+	// the first time a project of lib/ modules runs.
+	ffirun.AllowLibDownload(moduleLog, offline)
 	modcache.SetFetcher(func(root string) error {
 		_, err := modfetch.Fetch(root, modfetch.Options{Offline: offline, Log: moduleLog})
 		return err
@@ -164,7 +167,7 @@ func runAdd(args []string, offline bool) error {
 	if err != nil {
 		return err
 	}
-	opts := modfetch.Options{Offline: offline, Log: os.Stderr}
+	opts := modfetch.Options{Offline: offline, Log: os.Stderr, LibVersion: ffirun.LibVersion}
 	var added modfetch.Added
 	if isLocalPath(mods[0]) {
 		added, err = modfetch.AddLocal(root, mods[0], opts)
@@ -382,7 +385,7 @@ func runUpdate(args []string) error {
 			return fmt.Errorf("nomi update: %w", err)
 		}
 	}
-	changes, err := modfetch.Update(root, only, modfetch.Options{Log: os.Stderr})
+	changes, err := modfetch.Update(root, only, modfetch.Options{Log: os.Stderr, LibVersion: ffirun.LibVersion})
 	if err != nil {
 		return fmt.Errorf("nomi update: %w", err)
 	}

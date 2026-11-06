@@ -969,7 +969,7 @@ func stdStructKindOfGoType(t reflect.Type) kind {
 // another std module is not something this table has, and admitting one would
 // make the check depend on a name resolving in a module that does not declare
 // it.
-var stdStructValidated = sync.OnceValue(func() []bool {
+var stdStructValidated = perStd(func() []bool {
 	ok := make([]bool, len(stdStructSpecs))
 	lib := stdAnchorLib()
 	decls := make([]*ast.StructDef, len(stdStructSpecs))

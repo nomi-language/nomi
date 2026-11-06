@@ -1,11 +1,18 @@
 package analysis
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 )
+
+// ErrNoSuchModule is what a FileLoader answers, wrapped, for a path it knows
+// names neither a file nor a directory, so resolution asks the disk
+// nothing: the embedded stdlib's loaders, for a path such as `maybe/Maybe`
+// that an import of a type below its module tries first.
+var ErrNoSuchModule = errors.New("no such module")
 
 // DirectoryError is what a FileLoader answers for a path that names a
 // directory and no file: `views/admin` when views/admin.nomi does not exist

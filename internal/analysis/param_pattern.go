@@ -119,9 +119,6 @@ func genericWithoutArgs(t Type) bool {
 // Plain (non-destructure) params are not this function's concern — the caller
 // only invokes it for params with p.Destructure != nil.
 func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis) (Type, error) {
-	if te := unnamedParam(p, fa, reg); te != nil {
-		return nil, *te
-	}
 	refs := fa.References
 	if p.TypeAnnotation != nil {
 		return ResolveTypeExpr(p.TypeAnnotation, reg, typeParams, refs)
@@ -148,43 +145,85 @@ func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*Typ
 	return headTy, nil
 }
 
-// unnamedParam reports a parameter written as a type with no name,
-// `fn echo(String) -> String`. The parser reads a bare `String` in parameter
-// position as a variant pattern with no payload, which binds nothing, so the
-// parameter would have a type and no name. A `go`-bound fn has no body whose
-// pattern check would reject it, so this runs for every declared function.
+// resolveParamType resolves a parameter's written type, declared as
+// ResolveDeclaredType reads it or not as ResolveTypeExpr does. A parameter
+// written as its type alone whose name is also a variant in scope is
+// reported instead (typeOnlyParamError).
+func resolveParamType(p ast.Param, fa *FileAnalysis, reg *TypeRegistry, typeParams map[string]*TypeParam_, declared bool) (Type, error) {
+	if te := typeOnlyParamError(p, fa, reg); te != nil {
+		return nil, *te
+	}
+	var refs map[Pos]*Symbol
+	if fa != nil {
+		refs = fa.References
+	}
+	if declared {
+		return ResolveDeclaredType(p.TypeAnnotation, reg, typeParams, refs)
+	}
+	return ResolveTypeExpr(p.TypeAnnotation, reg, typeParams, refs)
+}
+
+// typeOnlyParamError reports a parameter written as its type alone,
+// `fn stats(Request)` (ast.Param.TypeOnly), whose name is also a variant in
+// scope, so it may be read as a pattern for that variant:
 //
-// When the bare name is a variant of an enum in scope that may not be written
-// bare in a pattern (allowsBareVariantPattern's rule), `|One|` reads as an
-// attempt to match it: if no type has that name the error is the pattern
-// check's own "bare variant" one, and if a type does, the "needs a name"
-// error also says how to match the variant.
-func unnamedParam(p ast.Param, fa *FileAnalysis, reg *TypeRegistry) *TypeError {
-	ep, ok := p.Destructure.(*ast.EnumPattern)
-	if !ok || ep.Payload != nil || ep.Binding != "" || p.TypeAnnotation != nil {
+//   - A variant of an enum in scope that may not be written bare in a
+//     pattern (allowsBareVariantPattern's rule), `fn f(One)`, reads as an
+//     attempt to match it. With no type of that name the error is the
+//     pattern check's own "bare variant" one. When a type has the name too,
+//     the parameter is ambiguous, and the error says how to write each
+//     reading.
+//   - A variant that may be written bare, `fn f(None)`, is a pattern for
+//     that variant, which no parameter may be; with a type of that name too
+//     it is ambiguous as well.
+//
+// Otherwise it is nil, and the name resolves as the parameter's type, or as
+// an unknown type.
+func typeOnlyParamError(p ast.Param, fa *FileAnalysis, reg *TypeRegistry) *TypeError {
+	if !p.TypeOnly {
 		return nil
 	}
-	head, ok := ep.Variant.(*ast.SimpleType)
+	head, ok := p.TypeAnnotation.(*ast.SimpleType)
 	if !ok {
 		return nil
 	}
 	name := head.Name
-	te := &TypeError{
-		Line:    ep.Line,
-		Col:     ep.Col,
-		Message: fmt.Sprintf("parameter '%s' needs a name", name),
-		Hints:   []string{fmt.Sprintf("`%s` is read as the parameter's type; write `name: %s`", name, name)},
-	}
-	enum := bareParamVariantEnum(fa, name, Pos{Line: head.Line, Col: head.Col})
-	switch {
-	case enum == "":
-	case reg != nil && reg.Lookup(name) != nil:
-		te.Hints = append(te.Hints, fmt.Sprintf("write `.%s` (or `%s.%s`) to match the variant", name, enum, name))
-	default:
+	isType := reg != nil && reg.Lookup(name) != nil
+	takeType := fmt.Sprintf("to take a `%s`, write `_: %s`, or `name: %s` to use it", name, name, name)
+	te := &TypeError{Line: head.Line, Col: head.Col, Message: fmt.Sprintf("parameter '%s' needs a name", name)}
+	if enum := bareParamVariantEnum(fa, name, Pos{Line: head.Line, Col: head.Col}); enum != "" {
+		if isType {
+			te.Hints = []string{
+				fmt.Sprintf("`%s` names both a type and a variant of `%s`; %s", name, enum, takeType),
+				fmt.Sprintf("write `.%s` (or `%s.%s`) to match the variant", name, enum, name),
+			}
+			return te
+		}
 		te.Message = bareVariantPatternMessage(name, enum)
-		te.Hints = []string{fmt.Sprintf("to bind the value, write `name: %s`", enum)}
+		te.Hints = []string{fmt.Sprintf("to take the value, write `_: %s`, or `name: %s` to use it", enum, enum)}
+		return te
 	}
+	if !bareVariantInScope(fa, name) {
+		return nil
+	}
+	if isType {
+		te.Hints = []string{fmt.Sprintf("`%s` names both a type and a variant; %s", name, takeType)}
+		return te
+	}
+	te.Hints = []string{fmt.Sprintf("`%s` is a variant, not a type; take the value as `name: T`, with the type it belongs to, and match it in the body", name)}
 	return te
+}
+
+// bareVariantInScope reports whether name is a variant a pattern may write
+// bare: a prelude variant (`None`, `Ok`) or one an import binds by name.
+func bareVariantInScope(fa *FileAnalysis, name string) bool {
+	if isPreludeBareVariant(name) {
+		return true
+	}
+	if fa == nil || fa.ModuleScope == nil {
+		return false
+	}
+	return isImportedVariantSymbol(fa.ModuleScope.Lookup(name))
 }
 
 // bareParamVariantEnum returns the name of the enum in scope that declares

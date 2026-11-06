@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ast/astcodec"
@@ -136,6 +137,18 @@ func ComputeStdFacts(full, decls map[string]*FileAnalysis, errs map[string][]Typ
 // answers an error, and changes nothing, when f names a module or a
 // function files lack.
 func (f *StdFacts) Install(files map[string]*FileAnalysis) error {
+	return f.InstallModules(files, sortedFileNames(files))
+}
+
+// InstallModules is Install for modules alone, files' analyses by name of
+// a stdlib built a module at a time: files holds modules and every module
+// they import, and each of modules takes its facts. A boot-only function's
+// call names a function of its own module or of one it imports.
+func (f *StdFacts) InstallModules(files map[string]*FileAnalysis, modules []string) error {
+	installing := make(map[string]bool, len(modules))
+	for _, name := range modules {
+		installing[name] = true
+	}
 	defOf := func(module string, pos Pos) (*FileAnalysis, *ast.FuncDef, *Symbol) {
 		fa := files[module]
 		if fa == nil {
@@ -150,6 +163,9 @@ func (f *StdFacts) Install(files map[string]*FileAnalysis) error {
 	}
 	whys := map[*ast.FuncDef]bootCall{}
 	for _, w := range f.boot {
+		if !installing[w.module] {
+			continue
+		}
 		_, fd, _ := defOf(w.module, w.fn)
 		if fd == nil {
 			return fmt.Errorf("std/%s has no function at %d:%d", w.module, w.fn.Line, w.fn.Col)
@@ -165,12 +181,15 @@ func (f *StdFacts) Install(files map[string]*FileAnalysis) error {
 		whys[fd] = why
 	}
 	for name := range f.manifests {
-		if files[name] == nil || files[name].kept == nil {
+		if installing[name] && (files[name] == nil || files[name].kept == nil) {
 			return fmt.Errorf("std/%s was not built from its interface", name)
 		}
 	}
-	for _, name := range sortedFileNames(files) {
+	for _, name := range modules {
 		fa := files[name]
+		if fa == nil {
+			return fmt.Errorf("std/%s was not built", name)
+		}
 		if fa.kept == nil {
 			return fmt.Errorf("std/%s was not built from its interface", name)
 		}
@@ -185,19 +204,33 @@ func (f *StdFacts) Install(files map[string]*FileAnalysis) error {
 			m[r.iface][r.typeName] = append(m[r.iface][r.typeName], r.rec)
 		}
 		fa.ImplManifest = m
-		for _, sym := range fa.Definitions {
-			fd := funcDefOf(sym)
-			if fd == nil || fd.Body == nil {
-				continue
-			}
-			fn := &bootFn{fd: fd, fa: fa, sym: sym}
-			if why, ok := whys[fd]; ok {
-				fn.calls = []bootCall{why}
-			}
-			stdBootFns.Store(fd, fn)
-		}
+		// Each of the module's functions is read from the facts, not from
+		// its body, a stub until Bodies grafts the source's back
+		// (stdFactsBootFn).
+		fa.bootFromFacts = true
+	}
+	for fd, why := range whys {
+		stdBootWhys.Store(fd, why)
 	}
 	return nil
+}
+
+// stdBootWhys holds each boot-only std function's first boot-only call, by
+// its declaration, from the facts of the modules installed.
+var stdBootWhys sync.Map // *ast.FuncDef -> bootCall
+
+// stdFactsBootFn is fd's node in the boot graph when f, its file, takes its
+// boot facts from the stdlib's facts (InstallModules): its first boot-only
+// call, or none.
+func stdFactsBootFn(f *FileAnalysis, fd *ast.FuncDef) (*bootFn, bool) {
+	if !f.bootFromFacts {
+		return nil, false
+	}
+	fn := &bootFn{fd: fd, fa: f, sym: f.Definitions[Pos{Line: fd.Line, Col: fd.Col}]}
+	if why, ok := stdBootWhys.Load(fd); ok {
+		fn.calls = []bootCall{why.(bootCall)}
+	}
+	return fn, true
 }
 
 // sameRecordings reports whether a and b hold the same recordings, a

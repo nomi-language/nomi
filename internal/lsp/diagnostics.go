@@ -206,6 +206,7 @@ func buildPublishedDiagnosticsFor(uri string, content string, contentOf func(pro
 	todos, dbgs := analysis.TodosAndDbgs(nodes)
 	diags = append(diags, dbgWarningDiagnostics(dbgs)...)
 	diags = append(diags, todoWarningDiagnostics(todos)...)
+	diags = append(diags, embedWarningDiagnostics(uri, nodes)...)
 	// Diagnostic columns are byte-based (analyzer positions); convert to the
 	// UTF-16 columns the protocol expects so a squiggle after a non-ASCII
 	// character on its line lands on the right span. A related location is
@@ -417,6 +418,21 @@ func dbgWarningDiagnostics(dbgs []*ast.Dbg) []protocol.Diagnostic {
 			Code:     &protocol.IntegerOrString{Value: code},
 			Message:  "`dbg` is debug-only code; remove it before production",
 		})
+	}
+	return diags
+}
+
+// embedWarningDiagnostics reports each `embed` pattern whose base does not
+// exist as a warning (analysis.EmbedInfo.Warnings): the program checks,
+// runs and tests with an empty directory there, and `nomi build` refuses
+// it. The range is the pattern.
+func embedWarningDiagnostics(uri string, nodes []ast.Node) []protocol.Diagnostic {
+	diags := typeErrorsToDiagnosticsIn(uri, analysis.EmbedWarnings(nodes))
+	severity := protocol.DiagnosticSeverityWarning
+	source := "nomi-embed"
+	for i := range diags {
+		diags[i].Severity = &severity
+		diags[i].Source = &source
 	}
 	return diags
 }

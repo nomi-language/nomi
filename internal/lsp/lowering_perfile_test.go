@@ -59,13 +59,37 @@ func TestLoweringPerFileMatchesTheSource(t *testing.T) {
 		orig := gen.Files[kinds.key]
 		check(kinds.key, orig, "opened")
 		for _, kind := range kinds.kinds {
+			was := vmhost.AnalyzedRelowersForTest()
 			for n := 0; n < 3; n++ {
 				_, text := gen.Edit(kind, n)
 				check(kinds.key, text, fmt.Sprintf("%s %d", kind, n))
 			}
+			// A signature edit lowers the file and the files that import
+			// it file by file too.
+			if vmhost.AnalyzedRelowersForTest() == was {
+				t.Errorf("%s of %s was lowered whole every time", kind, kinds.key)
+			}
 			check(kinds.key, orig, string(kind)+", undone")
 		}
 	}
+	// An impl added to a leaf, and taken away, lowers the leaf and the files
+	// that see the impl with the entry's program file by file: the leaf's
+	// text is on disk, where the source's lowering reads it.
+	leaf := filepath.Join(dir, filepath.FromSlash(gen.Leaf())+".nomi")
+	was := vmhost.AnalyzedRelowersForTest()
+	for n := 0; n < 3; n++ {
+		_, text := gen.Edit(projectgen.ImplLeaf, n)
+		s.docs.Open(pathToURI(leaf), text)
+		writeFile(t, leaf, text)
+		check(gen.Entry, gen.Files[gen.Entry], fmt.Sprintf("the entry after %s %d", projectgen.ImplLeaf, n))
+	}
+	if vmhost.AnalyzedRelowersForTest()-was < 2 {
+		t.Errorf("the entry was lowered whole after an impl added to a leaf (%d of 3 file by file)", vmhost.AnalyzedRelowersForTest()-was)
+	}
+	s.docs.Open(pathToURI(leaf), gen.Files[gen.Leaf()])
+	writeFile(t, leaf, gen.Files[gen.Leaf()])
+	check(gen.Entry, gen.Files[gen.Entry], "the entry after the leaf back")
+
 	// A planted decline in the entry, which the kept lowering does not
 	// record, is lowered whole and reported; so is its removal.
 	entry := gen.Files[gen.Entry]

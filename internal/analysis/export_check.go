@@ -46,7 +46,7 @@ func (c *checker) checkExport(fn *ast.FuncDef) {
 			at = p.TypeAnnotation
 		}
 		what := fmt.Sprintf("parameter `%s` of exported function `%s`", p.Name, fn.Name)
-		if p.Destructure != nil || p.Name == "" {
+		if p.Destructure != nil || p.Name == "" || p.TypeOnly {
 			what = fmt.Sprintf("parameter %d of exported function `%s`", i+1, fn.Name)
 		}
 		c.checkCrossesAsJSON(ft.Params[i], fromJSONIface, what, at, Pos{Line: p.Line, Col: p.Col})

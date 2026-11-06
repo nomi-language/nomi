@@ -23,11 +23,13 @@ import (
 // are as they were, the manager reads a record of it from the artifact
 // cache instead (progcache, kind storedKind, keyed by the entry's path):
 // each project file's interface (StoredInterface), the SHA-256 of its text,
-// and the documents whose lowering found nothing. A record is written only
-// for a program with nothing to report: no file has a syntax error or a
-// diagnostic, and no file is read from another module, takes Go bindings
-// or expands a keyword declaration from an input, so a program as the
-// record holds it reports nothing, and a file as its text is answers what
+// and the documents whose lowering found nothing. A record is written for
+// a program that reads no file of another module and takes no Go
+// bindings, every input an expansion read (a message catalog) holding on
+// disk what it read and named in the record, and every `embed`'s files as
+// the snapshot found them. It keeps what each file reports
+// (storedReportsOf), and is not written for a program that reports what
+// only the program checked whole words. A file as its text is answers what
 // its check against the others' interfaces answers
 // (FuzzCheckFromInterfacesMatchesFull).
 //
@@ -58,7 +60,7 @@ import (
 const storedKind = "lsp-program"
 
 // storedMagic heads a record. It changes with storedRecord's layout.
-const storedMagic = "NOMILSP1"
+const storedMagic = "NOMILSP4"
 
 // storedRecord is what a program's record holds.
 type storedRecord struct {
@@ -68,17 +70,54 @@ type storedRecord struct {
 	Files map[string]storedFile
 	// AppTypes are the program's application types.
 	AppTypes []AppTypeName
+	// Inputs are the inputs the files' expansions read (message catalogs), by
+	// path, each with the SHA-256 of its text and whether it was found. The
+	// record is stored with them as files it was built from, and a program
+	// opened from it is forgotten once one holds another text.
+	Inputs map[string]storedInput
 	// Lowered holds the module keys of the documents whose lowering, as
 	// the server lowers a document, found nothing to report with every
 	// file as the record holds it.
 	Lowered map[string]bool
+	// Supply is the supply side of the program's missing-impl check, which
+	// an edit's reductions over facts read (stored_edit.go).
+	Supply *ProgramSupply
+	// Kept is the entry's lowering kept per file (vmhost, irbuild.KeptLowering),
+	// encoded, as the server lowered it with every file as the record holds
+	// it, and KeptTests whether it lowered the entry's tests; nil when the
+	// server has none (stored_lowering.go).
+	Kept      []byte
+	KeptTests bool
 }
+
+// storedInput is one input of a record: the SHA-256 of its text, and
+// whether it was found.
+type storedInput struct {
+	Sum   [32]byte
+	Found bool
+}
+
+// inputPaths are the paths of r's inputs, sorted.
+func (r *storedRecord) inputPaths() []string { return mapKeys(r.Inputs) }
 
 // storedFile is one project file of a record.
 type storedFile struct {
 	Iface StoredInterface
 	// Sum is the SHA-256 of the file's text.
 	Sum [32]byte
+	// Facts is the file's facts for the program's reductions over bodies,
+	// encoded, and Body the walk the application-field roots take of its
+	// bodies (AppWalkSummary), kept only for a program with an application
+	// type (stored_edit.go).
+	Facts []byte
+	Body  [32]byte
+	// Refs is what references and rename read of the file's analysis
+	// (StoredRefs, stored_refs.go), encoded: a record is decoded when a
+	// program is opened, and a file's references when a request asks.
+	Refs []byte
+	// Report is what the file reports in the record's program, nil when it
+	// reports nothing (storedReport).
+	Report *storedReport
 }
 
 func (r *storedRecord) encode() []byte { return gobEncode(storedMagic, r) }
@@ -106,13 +145,57 @@ type storedProgram struct {
 	// cache is the record's place in the artifact cache, from the lookup
 	// that found it: NoteLoweredClean writes the record again through it.
 	cache *progcache.Entry
+	// fresh holds the checks the last edit made (advanceStored), by module
+	// key, which the next analysis of each file takes instead of checking
+	// it again.
+	fresh map[string]*FileCheck
+	// base is the record as it was opened, whose kept lowering is of its
+	// texts.
+	base *storedRecord
+	// edits counts the edits the program has taken since it was opened.
+	edits int
+	// gen numbers the program's states, one more for each edit taken;
+	// textAt and changedAt hold, by module key, the state at which a file's
+	// text, and how its interface is written, last changed.
+	gen               int
+	textAt, changedAt map[string]int
+	// installed holds the open documents' installed analyses, by module
+	// key (stored_inplace.go).
+	installed map[string]*storedInstall
+	// fingerprints holds the interface fingerprint of a file's text in the
+	// program's state, by module key, once worked out.
+	fingerprints map[string]string
+	// facts holds the files' facts in the program's state, decoded, by module
+	// key (factsOf).
+	facts map[string]*FileFacts
+	// reports holds what each file that reports something reports in the
+	// program's state, by module key (stored_edit.go). The record's program
+	// reports nothing.
+	reports map[string]*storedReport
+	// held releases the view lock, which an edit that rebuilt an installed
+	// analysis in place took; the build that asked takes it, and releases
+	// it once its answer is installed.
+	held func()
+}
+
+// takeHeld answers the release of the view lock sp's last edit took, or a
+// release that does nothing.
+func (sp *storedProgram) takeHeld() func() {
+	if sp == nil || sp.held == nil {
+		return func() {}
+	}
+	h := sp.held
+	sp.held = nil
+	return h
 }
 
 // storedFor answers the program whose entry has module key entry under
 // root, opened from its record, or nil when there is none or a file no
-// longer holds the text it was written for. texts are the open documents'
-// texts by module key (openTexts). The caller holds analyzeMu.
-func (dm *DocumentManager) storedFor(root, entry string, texts map[string]string) *storedProgram {
+// longer holds the text the program's state was made for and an edit of
+// it cannot be taken (advanceStored). texts are the open documents' texts
+// by module key (openTexts), and building the module key of the open
+// document whose analysis asks, "" for none. The caller holds analyzeMu.
+func (dm *DocumentManager) storedFor(root, entry, building string, texts map[string]string) *storedProgram {
 	key := programKey{root, entry}
 	sp := dm.stored[key]
 	if sp == nil {
@@ -132,7 +215,20 @@ func (dm *DocumentManager) storedFor(root, entry string, texts map[string]string
 		}
 		dm.stored[key] = sp
 	}
-	if !dm.storedCurrent(sp, texts) {
+	changed, ok := dm.storedChanges(sp, texts)
+	why := ""
+	switch {
+	case !ok:
+		why = "a file does not read, or an input of an expansion changed"
+	case len(changed) > 0:
+		why = dm.advanceStored(sp, changed, building)
+	}
+	if why != "" {
+		dm.programCounts.note("from the record: " + why)
+		// An installed analysis rebuilt in place stays away from readers
+		// until the whole program's answer is installed.
+		dm.storedHeld = sp.held
+		sp.held = nil
 		dm.dropStored(key)
 		return nil
 	}
@@ -156,7 +252,15 @@ func (dm *DocumentManager) openStored(root, entry string) *storedProgram {
 	if err != nil || rec.Root != root || rec.Entry != entry || rec.Files[entry].Sum == ([32]byte{}) {
 		return nil
 	}
-	sp := &storedProgram{rec: rec, texts: map[string]string{}, cache: e}
+	sp := &storedProgram{rec: rec, base: rec, texts: map[string]string{}, cache: e}
+	for key, f := range rec.Files {
+		if f.Report != nil {
+			if sp.reports == nil {
+				sp.reports = map[string]*storedReport{}
+			}
+			sp.reports[key] = f.Report
+		}
+	}
 	ifaces := make(map[string]StoredInterface, len(rec.Files))
 	for key, f := range rec.Files {
 		ifaces[key] = f.Iface
@@ -214,10 +318,18 @@ func (dm *DocumentManager) dropStored(key programKey) {
 // interfaces. A closed file's is kept by the closed files' cache, an open
 // document's by its installed analysis.
 func (sp *storedProgram) check(dm *DocumentManager, key string) *FileCheck {
+	if c := sp.fresh[key]; c != nil {
+		delete(sp.fresh, key)
+		return c
+	}
 	dm.programCounts.built.Add(1)
 	c := sp.pi.Check(key)
 	if p := c.FA.Program(); p != nil {
-		p.sources = &declarationSources{root: sp.rec.Root, texts: maps.Clone(sp.texts)}
+		root, manifest := sp.rec.Root, sp.pi.sp.Manifest
+		p.sources = &declarationSources{root: root, texts: maps.Clone(sp.texts),
+			expand: func(key string, nodes []ast.Node) []ast.Node {
+				return ExpandDeclarations(nodes, dm.expansionSite(root, key, manifest, dm.readInput))
+			}}
 		delete(p.sources.texts, key)
 	}
 	return c
@@ -233,17 +345,31 @@ func (c *FileCheck) clean() bool {
 // sp, or false when its check reports something the record's program did
 // not, which a check of the whole program then words.
 func (dm *DocumentManager) storedBuild(sp *storedProgram, key, content string) (builtAnalysis, bool) {
+	if inst := sp.installed[key]; inst != nil && sp.fresh[key] == nil && sp.texts[key] == content && sp.current(inst, key) {
+		// Nothing the installed analysis read changed.
+		return inst.b, true
+	}
 	c := sp.check(dm, key)
-	if !c.clean() {
+	rep := sp.reports[key]
+	if rep == nil && !c.clean() {
 		return builtAnalysis{}, false
 	}
-	c.FA.TypeErrors = nil
-	return builtAnalysis{
+	b := builtAnalysis{
 		nodes:      ownNodesOf(c.FA, c.Nodes, key == sp.rec.Entry, sp.entryOwn),
 		fa:         c.FA,
 		stdDiffers: dm.stdDiffers(c.FA.FilePath, content),
 		fromRecord: true,
-	}, true
+	}
+	c.FA.TypeErrors = nil
+	if rep != nil {
+		c.FA.TypeErrors = slices.Clone(rep.Errs)
+		b.errs, b.damaged = rep.Syntax, rep.Damaged
+	}
+	if sp.installed == nil {
+		sp.installed = map[string]*storedInstall{}
+	}
+	sp.installed[key] = &storedInstall{c: c, b: b, gen: sp.gen}
+	return b, true
 }
 
 // CheckWhole analyzes the open document at uri again in its program
@@ -300,7 +426,7 @@ func (dm *DocumentManager) storedClosed(uri string) *DocSnapshot {
 		if _, err := os.Stat(entryPath); err != nil {
 			continue
 		}
-		sp := dm.storedFor(root, pk.entry, dm.openTexts(root, "", ""))
+		sp := dm.storedFor(root, pk.entry, "", dm.openTexts(root, "", ""))
 		if sp == nil {
 			return nil
 		}
@@ -308,11 +434,11 @@ func (dm *DocumentManager) storedClosed(uri string) *DocSnapshot {
 			continue
 		}
 		c := sp.check(dm, key)
-		if !c.clean() {
+		rep := sp.reports[key]
+		if rep == nil && !c.clean() {
 			return nil
 		}
-		c.FA.TypeErrors = nil
-		return &DocSnapshot{
+		snap := &DocSnapshot{
 			URI:             uri,
 			Content:         sp.texts[key],
 			Text:            sp.texts[key],
@@ -322,6 +448,12 @@ func (dm *DocumentManager) storedClosed(uri string) *DocSnapshot {
 			AnalyzedVersion: 1,
 			StdDiffers:      dm.stdDiffers(path, sp.texts[key]),
 		}
+		c.FA.TypeErrors = nil
+		if rep != nil {
+			c.FA.TypeErrors = slices.Clone(rep.Errs)
+			snap.Errors, snap.Damaged = rep.Syntax, rep.Damaged
+		}
+		return snap
 	}
 	return nil
 }
@@ -375,7 +507,7 @@ func (dm *DocumentManager) programEntries(root, path string) []string {
 // of the same texts listed); when the document belongs to a program opened
 // from its record, the record is written again with the document listed.
 // It runs at background priority.
-func (dm *DocumentManager) NoteLoweredClean(uri, content string) {
+func (dm *DocumentManager) NoteLoweredClean(uri, content string, kept KeptLoweringFunc) {
 	dm.lockBuild(false)
 	defer dm.analyzeMu.Unlock()
 	if sp, key := dm.storedOf(uri); sp != nil {
@@ -383,24 +515,49 @@ func (dm *DocumentManager) NoteLoweredClean(uri, content string) {
 			return
 		}
 		rec := *sp.rec
+		rec.Files = maps.Clone(sp.rec.Files)
+		for k, f := range rec.Files {
+			f.Report = sp.reports[k]
+			rec.Files[k] = f
+		}
 		rec.Lowered = map[string]bool{key: true}
 		for k := range sp.rec.Lowered {
 			rec.Lowered[k] = true
 		}
+		if key == rec.Entry && rec.Kept == nil && sp.clean() {
+			rec.Kept, rec.KeptTests = keptOfState(kept, &rec)
+		}
 		sp.rec = &rec
-		sp.cache.Store([]progcache.Tree{{Dir: rec.Root}}, nil, rec.encode())
+		e := sp.cache
+		if sp.edits > 0 {
+			// The state is an edit's: the record is written only when every
+			// file holds it on disk, against a snapshot taken before the
+			// texts are read.
+			entryPath := filepath.Join(rec.Root, filepath.FromSlash(rec.Entry)+".nomi")
+			if e = progcache.Open(storedKind, entryPath, []progcache.Tree{{Dir: rec.Root}}); e == nil {
+				return
+			}
+			for k, f := range rec.Files {
+				data, err := dm.readProjectFile(filepath.Join(rec.Root, filepath.FromSlash(k)+".nomi"))
+				if err != nil || sha256.Sum256([]byte(data)) != f.Sum {
+					return
+				}
+			}
+		}
+		e.Store([]progcache.Tree{{Dir: rec.Root}}, rec.inputPaths(), rec.encode())
+		dm.programCounts.stored.Add(1)
 		return
 	}
 	path := fileuri.ToPath(uri)
 	root := dm.projectRootFromURI(uri)
 	docKey := relModuleKey(root, path)
 	for _, entry := range dm.programEntries(root, path) {
-		kept := dm.programs[programKey{root, entry}]
-		if kept == nil || kept.prog.consumed || kept.prog.Files[docKey] == nil {
+		prog := dm.programs[programKey{root, entry}]
+		if prog == nil || prog.prog.consumed || prog.prog.Files[docKey] == nil {
 			continue
 		}
-		if kept.prog.Texts[docKey] == content {
-			dm.keepStored(kept, docKey)
+		if prog.prog.Texts[docKey] == content {
+			dm.keepStored(prog, docKey, kept)
 		}
 		return
 	}
@@ -410,7 +567,7 @@ func (dm *DocumentManager) NoteLoweredClean(uri, content string) {
 // with module key lowered among those lowered, when the program has
 // nothing to report and every file holds on disk the text it read. The
 // caller holds analyzeMu.
-func (dm *DocumentManager) keepStored(kept *rootProgram, lowered string) {
+func (dm *DocumentManager) keepStored(kept *rootProgram, lowered string, keptOf KeptLoweringFunc) {
 	p := kept.prog
 	if p.factsFrom != nil || !storable(p) || kept.manifest != manifestText(p.Root) {
 		return
@@ -418,9 +575,18 @@ func (dm *DocumentManager) keepStored(kept *rootProgram, lowered string) {
 	entryPath := filepath.Join(p.Root, filepath.FromSlash(p.Entry)+".nomi")
 	// The snapshot is taken before the texts are compared with the disk,
 	// so a file written after the comparison is one the store sees moved.
-	e := progcache.Open(storedKind, entryPath, []progcache.Tree{{Dir: p.Root}})
+	// An `embed`'s trees are snapshotted with the root's and its files read
+	// again after (sameOnDisk).
+	embedTrees, embedFiles, embeds := embedInputs(p)
+	e := progcache.Open(storedKind, entryPath, append([]progcache.Tree{{Dir: p.Root}}, embedTrees...))
 	if e == nil {
 		return
+	}
+	manifest, _ := LoadManifest(p.Root)
+	for _, info := range embeds {
+		if !info.sameOnDisk(manifest) {
+			return
+		}
 	}
 	open := dm.openTexts(p.Root, "", "")
 	for key, text := range p.Texts {
@@ -441,38 +607,154 @@ func (dm *DocumentManager) keepStored(kept *rootProgram, lowered string) {
 	if !ok || len(stored) != len(p.Files) {
 		return
 	}
+	entryFA := p.Files[p.Entry]
+	appTypes := len(rec.AppTypes) > 0
+	namer := NewFactsNamer(p.Nodes, p.Entry)
 	for key, si := range stored {
-		rec.Files[key] = storedFile{Iface: si, Sum: sha256.Sum256([]byte(p.Texts[key]))}
+		f := storedFile{Iface: si, Sum: sha256.Sum256([]byte(p.Texts[key])),
+			Facts: FileFactsOf(key, p.Files[key], p.Nodes[key], namer, appTypes).Encode(), Refs: storedRefsOf(p.Files[key], p.Root).encode()}
+		if appTypes {
+			f.Body, _ = AppWalkSummary(p.Files[key], p.Nodes[key])
+		}
+		rec.Files[key] = f
+	}
+	rec.Supply = SupplyOf(entryFA)
+	reports, ok := storedReportsOf(p, rec, appTypes)
+	if !ok {
+		return
+	}
+	for key, r := range reports {
+		f := rec.Files[key]
+		f.Report = r
+		rec.Files[key] = f
+	}
+	for path, in := range p.Inputs {
+		// An input open with unsaved text is not what the record's next
+		// reader finds on disk.
+		if data, err := os.ReadFile(path); in.Found != (err == nil) || err == nil && string(data) != in.Text {
+			return
+		}
+		if rec.Inputs == nil {
+			rec.Inputs = map[string]storedInput{}
+		}
+		rec.Inputs[path] = storedInput{Sum: sha256.Sum256([]byte(in.Text)), Found: in.Found}
 	}
 	if was, err := decodeStoredRecord(e.Previous()); err == nil && sameSums(was, rec) {
 		for k := range was.Lowered {
 			rec.Lowered[k] = true
 		}
+		rec.Kept, rec.KeptTests = was.Kept, was.KeptTests
+	}
+	if lowered == p.Entry {
+		if data, tests := keptOfState(keptOf, rec); data != nil {
+			rec.Kept, rec.KeptTests = data, tests
+		}
 	}
 	if payload := rec.encode(); payload != nil {
-		e.Store([]progcache.Tree{{Dir: p.Root}}, nil, payload)
+		e.Store(append([]progcache.Tree{{Dir: p.Root}}, embedTrees...), append(rec.inputPaths(), embedFiles...), payload)
 		dm.programCounts.stored.Add(1)
 	}
 }
 
+// embedInputs are the trees and files p's `embed` declarations read, which
+// a record of p is kept with, as a kept program's are (vmhost's
+// Program.inputs): each pattern's base walked for every file, and each
+// embedded file stamped on its own, since a walk skips hidden names. The
+// record is not opened once one changed. The server finds the files and
+// their sizes without reading them and tracks none of them while a
+// program is open, from its record or not (SkipEmbedContents).
+func embedInputs(p *CheckedProgram) ([]progcache.Tree, []string, []*EmbedInfo) {
+	var trees []progcache.Tree
+	var files []string
+	var infos []*EmbedInfo
+	for _, key := range mapKeys(p.Nodes) {
+		for _, n := range p.Nodes[key] {
+			o, ok := n.(*ast.OnceBinding)
+			if !ok {
+				continue
+			}
+			info := EmbedOf(o)
+			if info == nil || !filepath.IsAbs(info.Root) {
+				continue
+			}
+			infos = append(infos, info)
+			for _, base := range info.Bases() {
+				trees = append(trees, progcache.Tree{Dir: filepath.Join(info.Root, filepath.FromSlash(base)), All: true})
+			}
+			for _, f := range info.Files {
+				files = append(files, filepath.Join(info.Root, filepath.FromSlash(f.Path)))
+			}
+		}
+	}
+	return trees, files, infos
+}
+
+// storedReportsOf answers what each file of p reports, for a record of p
+// (storedReport), by module key, and false when p reports something a
+// program opened from its record cannot answer as the program checked
+// whole does: the program's own errors about impls, a missing impl, a
+// noun's or message's disagreement, a catalog nothing reads, a diagnostic
+// in a program with an application type, or one in a program the
+// reductions over facts cannot reduce.
+func storedReportsOf(p *CheckedProgram, rec *storedRecord, appTypes bool) (map[string]*storedReport, bool) {
+	out := map[string]*storedReport{}
+	for key := range rec.Files {
+		r := &storedReport{Syntax: p.Syntax[key], Damaged: p.damaged[key], Errs: documentErrors(p, key)}
+		if !r.empty() {
+			out[key] = r
+		}
+	}
+	if len(out) == 0 {
+		return nil, true
+	}
+	c := p.checks
+	entry := p.Files[p.Entry]
+	if appTypes || len(entry.Program().Errors) > 0 || len(c.coherence) > 0 || len(c.catalogTree) > 0 {
+		return nil, false
+	}
+	for _, errs := range c.declChecks {
+		if len(errs) > 0 {
+			return nil, false
+		}
+	}
+	std, ok := StdContextOf(entry)
+	if !ok {
+		return nil, false
+	}
+	facts := map[string]*FileFacts{}
+	for key, f := range rec.Files {
+		ff, err := DecodeFileFacts(f.Facts)
+		if err != nil {
+			return nil, false
+		}
+		facts[key] = ff
+	}
+	red := ReduceFacts(facts, rec.Supply, std)
+	if len(red.Coherence) > 0 || !red.AppExact {
+		return nil, false
+	}
+	for key := range rec.Files {
+		d := red.of(key)
+		if len(d.Boot)+len(d.App)+len(d.Imports) == 0 {
+			continue
+		}
+		if out[key] == nil {
+			// The reductions report what the file's document does not.
+			return nil, false
+		}
+		out[key].Reduced = d
+	}
+	return out, true
+}
+
 // storable reports whether p is a program a record is kept for: nothing
 // to report in any file, and nothing read that the record's walk of the
-// root does not see.
+// root and its inputs do not see.
 func storable(p *CheckedProgram) bool {
-	if p.unread || p.externs || len(p.Inputs) > 0 || len(p.checks.frontEnd) > 0 || p.Root == "" {
+	if p.unread || p.externs || p.Root == "" {
 		return false
 	}
 	for key := range p.Files {
-		if len(p.Syntax[key]) > 0 || len(p.damaged[key]) > 0 || len(documentErrors(p, key)) > 0 {
-			return false
-		}
-		for _, n := range p.Nodes[key] {
-			// An `embed` reads files the record's walk of the root does
-			// not track.
-			if o, ok := n.(*ast.OnceBinding); ok && o.Expansion != nil && o.Expansion.Keyword == "embed" {
-				return false
-			}
-		}
 		if _, ok := p.Texts[key]; !ok {
 			return false
 		}

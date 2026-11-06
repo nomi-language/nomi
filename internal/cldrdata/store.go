@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -90,6 +91,10 @@ func (d *Data) clone() *Data {
 // it (From).
 type Store struct {
 	p atomic.Pointer[Data]
+	// load answers the data s holds first, when NewLazyStore made s: read
+	// once, by the first Data.
+	load     func() *Data
+	loadOnce sync.Once
 }
 
 // NewStore is a Store holding d.
@@ -99,12 +104,26 @@ func NewStore(d *Data) *Store {
 	return s
 }
 
+// NewLazyStore is a Store holding load's data, which it asks for when a
+// frame first reads it: a program that formats nothing never decodes it.
+func NewLazyStore(load func() *Data) *Store {
+	return &Store{load: load}
+}
+
 // Data is the data s holds now.
-func (s *Store) Data() *Data { return s.p.Load() }
+func (s *Store) Data() *Data {
+	if s.load != nil {
+		s.loadOnce.Do(func() { s.p.CompareAndSwap(nil, s.load()) })
+	}
+	return s.p.Load()
+}
 
 // Replace makes next the data s holds, when it still holds prev, and
 // reports whether it did.
-func (s *Store) Replace(prev, next *Data) bool { return s.p.CompareAndSwap(prev, next) }
+func (s *Store) Replace(prev, next *Data) bool {
+	s.Data()
+	return s.p.CompareAndSwap(prev, next)
+}
 
 type storeKey struct{}
 

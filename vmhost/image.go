@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/compilerhosts"
@@ -41,7 +40,9 @@ import (
 // So is a program with a `todo` or a `dbg` in any of its files, reached or
 // not, with a *LeftoversRemain listing each one: a built binary is a release,
 // a `todo` is code nobody has written yet, and a `dbg` is development-only
-// instrumentation. The stdlib has neither.
+// instrumentation. The stdlib has neither. So is a program with an `embed`
+// pattern whose base does not exist (Program.Warnings), with Diagnostics
+// at each one: a build holds the files its patterns name.
 func (p *Program) BuildImage() (image []byte, usesCompiler bool, err error) {
 	return p.buildImage(false)
 }
@@ -59,11 +60,7 @@ func (p *Program) BuildExportsImage() (image []byte, usesCompiler bool, err erro
 // nomi.js: the loader's API, with a typed `call` for each exported function
 // (internal/webtypes).
 func (p *Program) WebDeclarations() string {
-	nodes := make([][]ast.Node, len(p.prog.Modules))
-	for i, m := range p.prog.Modules {
-		nodes[i] = m.Nodes
-	}
-	return webtypes.Declarations(filepath.Base(p.prog.Entry().Path), p.res.Exports, nodes)
+	return webtypes.Declarations(filepath.Base(p.prog.Entry().Path), p.res.Exports, webtypes.ModulesOf(p.prog))
 }
 
 func (p *Program) buildImage(withExports bool) (image []byte, usesCompiler bool, err error) {
@@ -86,6 +83,9 @@ func (p *Program) image(withExports bool) (im ir.Image, usesCompiler bool, need 
 	}
 	if sites := p.leftovers(); len(sites) > 0 {
 		return ir.Image{}, false, localeNeed{}, &LeftoversRemain{Sites: sites}
+	}
+	if ds := p.missingEmbeds(); len(ds) > 0 {
+		return ir.Image{}, false, localeNeed{}, ds
 	}
 	var roots []*ir.Func
 	if p.HasMain() {

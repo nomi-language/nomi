@@ -53,6 +53,9 @@ const usage = `usage:
                                         files and their cases included; short prints
                                         path:line:col: lines, not source snippets
                                         (NOMI_DIAGNOSTICS=short does so for every command)
+  nomi types <paths> [-o <file>]        write TypeScript declarations of the JSON that
+                                        the pub types of the named files and directories
+                                        cross as, for a frontend; stdout by default
   nomi fmt [-w|-l] <paths>              format source
   nomi new <module path> [dir]          start a project: nomi.toml, go.mod and a
                                         main.nomi, in dir (default: the path's last element)
@@ -113,7 +116,7 @@ func main() {
 	}
 	offline := false
 	switch command {
-	case "run", "test", "check", "build", "fetch", "add":
+	case "run", "test", "check", "build", "fetch", "add", "types":
 		var rest []string
 		rest, offline = takeOffline(command, os.Args[2:])
 		os.Args = append([]string{os.Args[0], command}, rest...)
@@ -233,6 +236,13 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	} else if command == "types" {
+		if err := runTypes(os.Args[2:]); err != nil {
+			if !errors.Is(err, errTypesFailed) {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			os.Exit(1)
+		}
 	} else if command == "messages" {
 		if err := runMessages(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -346,7 +356,7 @@ func runCheck(path string) error {
 		return fmt.Errorf("nomi check: %w", pathError(path, err))
 	}
 	if singleFile {
-		if err := checkFile(files[0]); err != nil {
+		if err := checkFile(files[0], vmhost.WithWarnings(os.Stderr)); err != nil {
 			if ownLines(err) {
 				// Diagnostics name their own file.
 				vmhost.WriteFailure(os.Stderr, err)
@@ -365,7 +375,7 @@ func runCheck(path string) error {
 	failed := map[string]bool{}
 	reported := map[string]bool{}
 	for _, file := range files {
-		if err := checkFile(file); err != nil {
+		if err := checkFile(file, vmhost.WithWarnings(os.Stderr)); err != nil {
 			failed[file] = true
 			writeCheckFailure(os.Stderr, file, err, reported)
 			continue
@@ -489,7 +499,9 @@ func ownLines(err error) bool {
 //
 // A program the artifact cache keeps checked cleanly, and its files are as
 // they were then, so it is not checked again (vmhost.Cache).
-func checkFile(absPath string) error {
+//
+// warn takes the program's warnings (vmhost.WithWarnings).
+func checkFile(absPath string, warn vmhost.Option) error {
 	cache := vmhost.OpenCache(absPath)
 	if cache.Checked() {
 		return nil
@@ -501,7 +513,7 @@ func checkFile(absPath string) error {
 	if !res.FastPath {
 		return ffirun.Check(res, absPath)
 	}
-	return vmhost.Check(absPath, vmhost.WithCache(cache))
+	return vmhost.Check(absPath, vmhost.WithCache(cache), warn)
 }
 
 // discoverCheckFiles answers the files `nomi check root` checks as programs,

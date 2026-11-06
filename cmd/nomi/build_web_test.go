@@ -251,7 +251,7 @@ func TestBuildWeb(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, want := range []string{
-			"export interface Game { word: string; guesses: string[] }",
+			"export interface Game {\n  word: string;\n  guesses: string[];\n}",
 			`export type Outcome = "Won" | { Playing: { left: number | bigint } };`,
 			`  call(name: "new_game", word: string): Promise<Game>;`,
 			`  call(name: "guess", game: Game, letter: string): Promise<Game>;`,

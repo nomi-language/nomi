@@ -9,10 +9,16 @@ import (
 )
 
 // nounOnce is the `once` a `noun` declaration expanded into that sym
-// names, or nil.
-func nounOnce(sym *analysis.Symbol) *ast.OnceBinding {
+// names, or nil, as its file's source has it when fa's program read the
+// file as its interface (messageFunc).
+func nounOnce(sym *analysis.Symbol, fa *analysis.FileAnalysis) *ast.OnceBinding {
 	for s := sym; s != nil; s = s.Resolved {
 		if o, ok := s.Node.(*ast.OnceBinding); ok && o.Expansion != nil {
+			if fa != nil {
+				if src, ok := fa.DeclarationSource(o, s.SourceFile).(*ast.OnceBinding); ok && src.Expansion != nil {
+					return src
+				}
+			}
 			return o
 		}
 		if s.Resolved == s {
@@ -26,8 +32,8 @@ func nounOnce(sym *analysis.Symbol) *ast.OnceBinding {
 // source locale, and in each locale `[i18n]` lists its gender and its
 // forms by case. A locale with no current entry of its own says which
 // locale's forms it shows, and why. "" when sym names no noun.
-func NounTexts(sym *analysis.Symbol) string {
-	info := analysis.NounOf(nounOnce(sym))
+func NounTexts(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
+	info := analysis.NounOf(nounOnce(sym, fa))
 	if info == nil {
 		return ""
 	}

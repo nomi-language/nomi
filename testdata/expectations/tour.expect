@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 364
+records 367
 declared-cases 181
 failing 0
 C app-fields.md:L105
@@ -227,42 +227,42 @@ T example.com/search tags=[go, nomi]
 T a+b%2Bc
 T Err(invalid URL escape "%zz")
 T
-C cheat-sheet.md:L143
+C cheat-sheet.md:L147
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L223
+C cheat-sheet.md:L227
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L276
+C cheat-sheet.md:L280
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L317
+C cheat-sheet.md:L321
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
 T 9
 T 12
 T
-C cheat-sheet.md:L36
+C cheat-sheet.md:L38
 E 0
 N 1
 H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L379
+C cheat-sheet.md:L383
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -271,14 +271,14 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L443
+C cheat-sheet.md:L447
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
 T ok dates
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L93
+C cheat-sheet.md:L95
 E 0
 N 1
 H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
@@ -1871,12 +1871,26 @@ H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C from-typescript.md:L57
+C from-typescript.md:L61
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
+T
+C frontends.md:L143
+E 0
+N 0
+H 7e21ffb6dbdd29df9ee96fd53625ef0f0b85dcbd32486165ede2d7b322e5fb7b
+T dbg line 25: Response.text(list_todos(http_testing.request(.Get, "/api/todos"))) = Ok("[{\"id\":1,\"title\":\"Write the API\",\"done\":true},{\"id\":2,\"title\":\"Write the page\",\"done\":false}]")
+T
+C frontends.md:L37
+E 0
+N 0
+H c04b046eceffd2ab631721093ad3cb0dcfc961d4bc94d69ed51d7f15f461a858
+T dbg line 58: post("ada@example.com").status = Status(303)
+T dbg line 60: bad.status = Status(422)
+T dbg line 61: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
 T
 C functions-and-lambdas.md:L12
 E 0
@@ -1910,7 +1924,7 @@ T dbg line 22: diff = 7
 T dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
 T dbg line 24: add_pair(#(20, 22)) = 42
 T
-C functions-and-lambdas.md:L346
+C functions-and-lambdas.md:L350
 E 0
 N 0
 H 1b3f2615e5310cafc065aef3b352e88fdd3769495725b2a187d165775ed4973f
@@ -1918,7 +1932,7 @@ T dbg line 10: transform(5, fn x -> x + 1) = 6
 T dbg line 11: transform(5, factor: 3, fn x -> x + 1) = 16
 T dbg line 12: transform(5, factor: 3, double) = 30
 T
-C functions-and-lambdas.md:L409
+C functions-and-lambdas.md:L413
 E 0
 N 0
 H 603dda6a246f0e461002dfc04a26b5a6a18bb3eb8c627c4a7fc9746d699b4ac0
@@ -1994,7 +2008,17 @@ T dbg line 55: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
 T dbg line 56: answer("/users/8").status = Status(404)
 T dbg line 57: Response.text(answer("/users/x")) = Ok("not a number: x\n")
 T
-C http.md:L290
+C http.md:L299
+E 0
+N 0
+H 2076b0c9d76ac5518fc596ebddaeedaa15c9fa322d11199e216900e2f13403b4
+T dbg line 62: Response.text(get("bob", "/dashboard")) = Ok("hello, Bob")
+T dbg line 63: get("bob", "/admin/stats").status = Status(403)
+T dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
+T dbg line 65: app(http_testing.request(.Get, "/dashboard")).status = Status(401)
+T dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
+T
+C http.md:L391
 E 0
 N 0
 H 7a85e46390ce5ea6c5dc0967f13c2693d828a917d1b6e03ae486a121de9ea31d
@@ -2184,7 +2208,7 @@ H 0bf4e9766d9ff4489c1114a5cc72fa4a89ac80121dc5bbc1485dab23d485d37c
 T dbg line 14: digits(2026) = 4
 T dbg line 15: sum_to(200_000, 0) = 20000100000
 T
-C json-and-dynamic.md:L109
+C json-and-dynamic.md:L126
 E 0
 N 0
 H 2c21e19edb192e58adc0591f7f0f39f5afbc13ce53d62b78b9f9c20f215a74f2
@@ -2198,7 +2222,7 @@ H 71fd30974ec2dbe550574e36c69e22bb55a2c7c6638fedb45b2217ecdb77eda7
 T dbg line 13: text = "{\"firstName\":\"Ada\",\"age\":36}"
 T dbg line 16: user = User{first_name: "Ada", age: 36}
 T
-C json-and-dynamic.md:L55
+C json-and-dynamic.md:L72
 E 0
 N 0
 H 7ff51088a19028769917e4aa913fe1ff48d497a4a69242bbe66152d1fc2a0011

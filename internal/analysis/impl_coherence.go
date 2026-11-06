@@ -599,6 +599,14 @@ func primitiveOriginIndex(filesByKey map[string]*FileAnalysis) map[string]string
 			if sym == nil || sym.Resolved != nil {
 				continue
 			}
+			switch sym.Kind {
+			case SymbolOnce, SymbolBinding, SymbolFunction:
+				// A value whose type is a primitive declares no primitive.
+				// A `once` is typed once its value is inferred, which a build
+				// that reuses a file's earlier analysis has, and a fresh build
+				// asks here before inference.
+				continue
+			}
 			if pt, ok := sym.Type.(*PrimitiveType); !ok || pt.Origin != "" {
 				continue
 			}

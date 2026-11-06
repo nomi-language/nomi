@@ -116,6 +116,21 @@ func (cj *checkJSON) file(path string, err error) {
 	cj.write(checkJSONRecord{Type: "file", File: path, Status: "failed"})
 }
 
+// warnings reports a program's warnings, each once across the run, as
+// diagnostics of severity "warning", which fail no file.
+func (cj *checkJSON) warnings(ds vmhost.Diagnostics) {
+	for _, d := range ds {
+		key := d.String()
+		if cj.reported[key] {
+			continue
+		}
+		cj.reported[key] = true
+		r := cj.diagnostic(d.Path, d)
+		r.Severity = "warning"
+		cj.write(r)
+	}
+}
+
 // through reports a file checked through the importer that loads it.
 func (cj *checkJSON) through(path, importer string) {
 	cj.files++
@@ -225,7 +240,7 @@ func runCheckJSON(w io.Writer, path string) error {
 	}
 	failed := map[string]bool{}
 	for _, file := range files {
-		err := checkFile(file)
+		err := checkFile(file, vmhost.WithWarningsTo(cj.warnings))
 		failed[file] = err != nil
 		cj.file(file, err)
 	}

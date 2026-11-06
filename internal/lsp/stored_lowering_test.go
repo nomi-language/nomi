@@ -36,7 +36,8 @@ func waitStored(t *testing.T, s *Server, n int64) {
 // A server whose lowering of the open entry finds nothing writes the
 // program's record; the next server opens the entry from it, takes its
 // lowering's answer from the record without lowering, and publishes no
-// diagnostic. Its first edit checks the program whole.
+// diagnostic. Its first edit is taken in the program opened from the
+// record, with no check of the whole program.
 func TestServerOpensAProgramFromItsRecord(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
@@ -83,13 +84,13 @@ func TestServerOpensAProgramFromItsRecord(t *testing.T) {
 
 	c2.change(uri, 2, text+"\nfn unused_helper() -> Int {\n    1\n}\n")
 	deadline = time.Now().Add(30 * time.Second)
-	for {
-		if _, _, full, _ := second.docs.ProgramChecks(); full == 1 {
-			break
-		}
+	for second.docs.StoredEdits() == 0 {
 		if time.Now().After(deadline) {
-			t.Fatal("the first edit did not check the program whole")
+			t.Fatalf("the first edit was not taken in the program opened from its record: %v", second.docs.FullCheckReasons())
 		}
 		time.Sleep(5 * time.Millisecond)
+	}
+	if _, _, full, _ := second.docs.ProgramChecks(); full != 0 {
+		t.Fatalf("the first edit checked the program whole: %v", second.docs.FullCheckReasons())
 	}
 }

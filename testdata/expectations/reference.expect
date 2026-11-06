@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
 records 74
-declared-cases 843
+declared-cases 860
 failing 0
 C actors
 E 0
@@ -280,13 +280,15 @@ T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C embed
 E 0
-N 8
-H d9822a64ac42d63e7e76bc5153a12401e3abb71bff6aeeb7d2cdb81439dd2fee
+N 10
+H 0ca0e596d262a6ac50b239422cead0dcef4325bb4926cfbdee41e22bb2c3bed2
 T ok Files.read
 T ok Files.read_text
 T ok Files.list
 T ok Files.walk
 T ok Files.metadata
+T ok Files.sum
+T ok Files.from_bytes
 T ok Files.exists
 T ok Files.paths
 T ok Files.sub
@@ -411,8 +413,8 @@ T ok Html.concat
 T ok Html.each
 C http
 E 0
-N 47
-H f38074ad05f0582113b93f062ae2ab75d29f3e5c1aab78701673f0d731cdf051
+N 62
+H d5709425eb7646e40fe9aea3e2e8733c1a9999c141bc12fbd84055b9139fbd5f
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -442,6 +444,8 @@ T ok Response.html
 T ok Response.error
 T ok Response.redirect
 T ok Response.content
+T ok Response.with_headers
+T ok Response.with_default_headers
 T ok interface ToResponse
 T ok Protocols.to_string (impl Display for Protocols)
 T ok type Route
@@ -451,7 +455,20 @@ T ok Router.new
 T ok http.strip_prefix
 T ok http.allow_query_semicolons
 T ok http.timeout
+T ok type Origin
+T ok Origin.parse
 T ok CrossOrigin.check
+T ok http.cross_origin_protection
+T ok http.limit_body
+T ok http.wrap_routes
+T ok http.cors
+T ok http.log_requests
+T ok http.security_headers
+T ok http.request_id
+T ok http.file_server
+T ok http.serve_embedded
+T ok http.file_server_embedded
+T ok http.is_page_route
 T ok http.detect_content_type
 T ok http.format_time
 T ok Cookie.parse_header

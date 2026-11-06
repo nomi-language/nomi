@@ -12,16 +12,19 @@ import (
 
 // A reference editor checks and lowers its test alone: the module's source
 // is not parsed or checked again, for a shared module (calendar), a listed
-// one (http) and a shared module's test that imports a listed one. The
-// shared analysis of the module is as it was afterwards: the test's scope is
-// taken out of the module scope again.
+// one (http) and a shared module's test that imports a listed one, when the
+// stdlib built the listed module with the shared one or before it. A stdlib
+// built a module at a time builds std/uuid after std/strings, whose impl
+// index then lacks uuid's impls, so that editor is checked with the whole
+// module, once. The shared analysis of the module is as it was afterwards:
+// the test's scope is taken out of the module scope again.
 func TestStdlibReference_ChecksTheTestAlone(t *testing.T) {
-	for _, c := range []struct{ module, body string }{
-		{"calendar", "dt = DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]`\nassert DateTime.to_string_with(dt, DateTimePattern`yyyyMMdd'T'HHmmss`) == \"20261020T093000\""},
-		{"http", "assert Method.to_string(Method.Get) == \"GET\""},
-		{"strings", "import std::uuid.Uuid\nassert Uuid.version(Uuid`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`) == 7"},
+	for _, c := range []struct{ module, body, imports string }{
+		{"calendar", "dt = DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]`\nassert DateTime.to_string_with(dt, DateTimePattern`yyyyMMdd'T'HHmmss`) == \"20261020T093000\"", ""},
+		{"http", "assert Method.to_string(Method.Get) == \"GET\"", ""},
+		{"strings", "import std::uuid.Uuid\nassert Uuid.version(Uuid`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`) == 7", "uuid"},
 	} {
-		lib := std.Shared()
+		lib := std.Shared().Ensure(c.module)
 		if err := lib.Bodies(c.module); err != nil {
 			t.Fatal(err)
 		}
@@ -35,8 +38,14 @@ func TestStdlibReference_ChecksTheTestAlone(t *testing.T) {
 		if len(cases) != 1 || cases[0].Err != nil || cases[0].Blocked != nil {
 			t.Fatalf("%s: want one passing case, got %+v", c.module, cases)
 		}
-		if n := frontend.FilesParsed() - parsed; n != 0 {
-			t.Errorf("%s: the editor parsed %d files; the module's source should not be read again", c.module, n)
+		want := int64(0)
+		if c.imports != "" {
+			if now := std.Shared(); !now.Files[c.module].ProgramHolds(now.Files[c.imports]) {
+				want = 1
+			}
+		}
+		if n := frontend.FilesParsed() - parsed; n != want {
+			t.Errorf("%s: the editor parsed %d files, want %d; the module's source should be read again only to check the test with the whole module", c.module, n, want)
 		}
 		if len(scope.Children) != children || len(lib.Files[c.module].References) != refs {
 			t.Errorf("%s: the shared analysis changed: %d scopes and %d references, was %d and %d",

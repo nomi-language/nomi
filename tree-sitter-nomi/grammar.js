@@ -534,10 +534,13 @@ module.exports = grammar({
     ),
 
     // The destructuring shapes admitted in parameter position (fn + lambda).
-    // A bare `_` wildcard and bare `identifier` are the plain-name forms.
+    // A bare `_` wildcard and bare `identifier` are the plain-name forms. A
+    // bare `type_identifier` is a parameter written as its type alone,
+    // `fn stats(Request)`, which binds nothing.
     _param_pattern: $ => choice(
       $.identifier,
       '_',
+      $.type_identifier,
       $.tuple_pattern,
       $.struct_pattern,
       $.map_pattern,

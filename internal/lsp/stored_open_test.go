@@ -148,7 +148,7 @@ func writeRecord(p storedProject) bool {
 	s := openServer(p, p.keys[:1])
 	text, _ := os.ReadFile(fileuri.ToPath(p.uri(p.keys[0])))
 	_, before := s.docs.StoredPrograms()
-	s.docs.NoteLoweredClean(p.uri(p.keys[0]), string(text))
+	s.docs.NoteLoweredClean(p.uri(p.keys[0]), string(text), nil)
 	_, after := s.docs.StoredPrograms()
 	return after > before
 }
@@ -212,6 +212,10 @@ func answers(t *testing.T, s *Server, p storedProject, key string) []string {
 		add("type definition "+where, td, err)
 		hl, err := s.textDocumentDocumentHighlight(nil, &protocol.DocumentHighlightParams{TextDocumentPositionParams: at})
 		add("highlight "+where, hl, err)
+		if answersInRecord && interfaceMethodAt(s, uri, tok.Line, tok.Col) {
+			// References to an interface method check the document whole.
+			continue
+		}
 		refs, err := s.textDocumentReferences(nil, &protocol.ReferenceParams{TextDocumentPositionParams: at, Context: protocol.ReferenceContext{IncludeDeclaration: true}})
 		sortLocations(refs)
 		add("references "+where, refs, err)
@@ -244,6 +248,9 @@ func answers(t *testing.T, s *Server, p storedProject, key string) []string {
 			outc, err := s.callHierarchyOutgoingCalls(nil, &protocol.CallHierarchyOutgoingCallsParams{Item: item})
 			add("outgoing "+where, outc, err)
 		}
+	}
+	if answersInRecord {
+		return out
 	}
 	// Last, since an implementation request checks a document opened from
 	// its record whole (CheckWhole), and the requests above should read
@@ -302,11 +309,11 @@ func tokenUTF16Col(text string, line, col int) int {
 // compareStored opens p's documents, in order, from its record in one
 // server and with no record in another, and fails at the first answer
 // that differs. It reports whether the record was used.
-func compareStored(t *testing.T, p storedProject) bool {
+func compareStored(t *testing.T, p storedProject) (opened, refs bool) {
 	t.Helper()
 	full := openServerWithout(t, p, p.keys)
 	stored := openServer(p, p.keys)
-	opened, _ := stored.docs.StoredPrograms()
+	n, _ := stored.docs.StoredPrograms()
 	for _, key := range p.keys {
 		want, got := answers(t, full, p, key), answers(t, stored, p, key)
 		for i := range max(len(want), len(got)) {
@@ -322,7 +329,7 @@ func compareStored(t *testing.T, p storedProject) bool {
 			}
 		}
 	}
-	return opened > 0
+	return n > 0, stored.docs.RefsFromRecord() > 0
 }
 
 // openServerWithout is openServer with the artifact cache off, so nothing
@@ -357,18 +364,27 @@ func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 	g := copyProject(t, dir, "generated")
 	g.keys = []string{gen.Entry, gen.Hub(), gen.Leaf()}
 	projects = append(projects, g)
-	used := 0
+	used, refs := 0, 0
 	for _, p := range projects {
 		t.Run(p.name, func(t *testing.T) {
 			if !writeRecord(p) {
 				t.Skip("no record: the program has something to report or reads what its record does not track")
 			}
-			if compareStored(t, p) {
+			opened, fromRefs := compareStored(t, p)
+			if opened {
 				used++
+			}
+			if fromRefs {
+				refs++
 			}
 		})
 	}
 	if used == 0 {
 		t.Error("no project was opened from its record")
+	}
+	// The generated project leaves files closed, whose references the
+	// record answers.
+	if refs == 0 {
+		t.Error("no closed file's references were answered from a record")
 	}
 }

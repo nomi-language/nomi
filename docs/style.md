@@ -255,6 +255,12 @@ same holds inside a pattern: write
 `fn #(_word, count) -> count`, `Some(_) -> True` or `[first, ..]`, and leave a struct
 pattern's unneeded fields out (`.Suspended{reason}`) rather than binding them.
 
+A parameter the body ignores is written as its type alone when the type
+says all a reader needs: `fn health(Request) -> Response`, not
+`fn health(_request: Request) -> Response` (spec §7 *Parameter
+Destructuring*). Keep a discard name, `_retries: Int`, when the name says
+what the type does not.
+
 ## Calls and functions
 
 ### 7. Pipe nested calls
@@ -1801,6 +1807,15 @@ looks for it.
 A function takes the value it works on as its first parameter, so a caller
 can pipe into it (§7): `Map.get(m, k)`, `String.trim(s)`, `Iter.map(xs, f)`.
 Options and callbacks come after it.
+
+HTTP middleware follows the rule: the handler is the value it works on, so
+it comes first, and the middleware answers a handler,
+`fn require_admin(handler: Handler) -> (Request) -> Response`. A stack of
+middleware is then a pipe. A middleware that hands the handler a value,
+such as the signed-in user, says so in the handler's type,
+`(Request, User) -> ToResponse`, rather than storing it on the request, so
+a route that needs a user cannot be registered without the middleware that
+finds one.
 
 ### 46. Name conversions and locale functions by their shape
 

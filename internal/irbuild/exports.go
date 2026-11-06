@@ -80,6 +80,12 @@ func collectExports(p *Program, gens []*gen) []Export {
 			}
 			for j, prm := range fd.Params {
 				ep := ExportParam{Name: prm.Name}
+				if prm.Destructure != nil {
+					// `Req{path}` names no parameter, as `Req` written
+					// alone does (its name is `_`): the parser's
+					// `__destr_` slot is not a name a host should see.
+					ep.Name = "_"
+				}
 				if ft != nil && j < len(ft.Params) {
 					ep.Type = ft.Params[j]
 					ep.Decode = g.jsonCrossing("export_argument", ep.Type)

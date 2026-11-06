@@ -61,6 +61,25 @@ func TestLibModules(t *testing.T) {
 			t.Fatalf("`nomi %v` in %s: %s; every case must pass.\n\n%s", args, dir, summary[0], vmCorpusNonPassing(out))
 		}
 	}
+	// A release's prebuilt lib binaries are built from librunners/, whose
+	// main packages are generated from the lib/ modules' bindings.
+	t.Run("librunners is current", func(t *testing.T) {
+		download := exec.Command("go", "mod", "download")
+		download.Dir = filepath.Join(root, "librunners")
+		if out, err := download.CombinedOutput(); err != nil {
+			t.Fatalf("go mod download in librunners: %v\n%s", err, out)
+		}
+		check := exec.Command("go", "run", "./internal/ffirun/libgen", "-check")
+		check.Dir = root
+		if out, err := check.CombinedOutput(); err != nil {
+			t.Fatalf("librunners/ is stale; run `go run ./internal/ffirun/libgen`: %v\n%s", err, out)
+		}
+		vet := exec.Command("go", "vet", "./...")
+		vet.Dir = filepath.Join(root, "librunners")
+		if out, err := vet.CombinedOutput(); err != nil {
+			t.Fatalf("go vet ./... in librunners: %v\n%s", err, out)
+		}
+	})
 	t.Run("sqlite", func(t *testing.T) {
 		passes(t, root, "test", filepath.Join("lib", "sql", "sqlite"))
 	})

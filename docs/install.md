@@ -65,8 +65,17 @@ the Go module proxy itself (`nomi add`, `nomi fetch`). `nomi new` starts a
 project (`nomi init` makes an existing directory one), and `nomi` writes its
 `go.mod` and `go.sum` from then on.
 
-A project with Go bindings, its own or a dependency's, is built with Go. With
-a `go` on `PATH`, `nomi` uses it. With none, `nomi` downloads the Go release
+A release `nomi` also runs, tests and builds a project whose Go bindings are
+all the first-party `lib/` modules' (the SQLite and Postgres drivers,
+sqlkit, markdown, image) with no Go: their Go side is prebuilt in a lib
+archive per platform, `nomi_<version>_<os>_<arch>_lib.tar.gz` (`.zip` on
+Windows), which `nomi` downloads from its release the first time a project
+needs it (about 24 MB), unless you unpack it beside `nomi`. That needs the
+project's `lib/` modules at the release's commit, which `nomi add` picks
+and `nomi update` restores.
+
+Any other project with Go bindings, its own or a dependency's, is built with
+Go. With a `go` on `PATH`, `nomi` uses it. With none, `nomi` downloads the Go release
 it was built with from go.dev the first time it needs one (about 70 MB),
 checks it against a checksum compiled into `nomi`, and keeps it in
 `~/Library/Caches/nomi/go` on macOS or `~/.cache/nomi/go` on Linux. Set

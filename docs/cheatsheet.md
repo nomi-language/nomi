@@ -17,6 +17,8 @@ compiler checks. The full rules are in the
   `Unit`. Its body's last expression is its result. `return` is there for an
   early exit.
 - A parameter may have a default, and an argument may name its parameter.
+- A parameter the body never reads may be written as its type alone:
+  `fn health(Request) -> Response` takes a `Request` and binds nothing.
 - A lambda is `fn x -> ...` or `fn x, y -> { ... }`. Its parameters are
   inferred from where it is passed. A lambda bound to a name needs annotated
   parameters: `fn n: Int -> n * 2`. In a collection literal, one element's
@@ -125,7 +127,9 @@ test result: ok. 1 passed, 0 failed
   wider type: a `List<Int>` passes where a `List<Display>` is expected, and a
   `List<(Int) -> Int>` where a `List<(Int) -> Display>` is. A declared
   generic type's type arguments compare exactly: a `Box<Int>` is no
-  `Box<Display>`.
+  `Box<Display>`. Where nothing says which way values flow (`a + b`, two
+  branches, two list elements), their types must be one; the error names the
+  annotation that makes them one.
 - There are no method calls. `x.name` only reads a field. A function is called
   through its owner:
   - a type: `String.trim(s)`, `Map.get(m, k)`, `Shape.area(shape)`;

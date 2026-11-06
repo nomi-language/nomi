@@ -18,10 +18,14 @@ import (
 
 // declarationSources answers, by module key, the nodes of a file under
 // root the program read as its interface, as its source gives them, each
-// file parsed once. Requests read it concurrently.
+// file parsed once, its keyword declarations expanded by expand as the
+// file's check expands them: a `message` or `noun` read as its interface
+// has the keyword but not what it expanded from (its texts by locale).
+// Requests read it concurrently.
 type declarationSources struct {
 	root   string
 	texts  map[string]string
+	expand func(key string, nodes []ast.Node) []ast.Node
 	mu     sync.Mutex
 	parsed map[string][]ast.Node
 }
@@ -35,6 +39,9 @@ func (d *declarationSources) nodes(key string) []ast.Node {
 	var nodes []ast.Node
 	if text, ok := d.texts[key]; ok {
 		nodes = parseFile(text).nodes
+		if d.expand != nil {
+			nodes = d.expand(key, nodes)
+		}
 	}
 	if d.parsed == nil {
 		d.parsed = map[string][]ast.Node{}

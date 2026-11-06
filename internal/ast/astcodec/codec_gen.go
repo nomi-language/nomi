@@ -6078,6 +6078,7 @@ func (e *Encoder) structParam(x *ast.Param) {
 	e.value(x.Destructure)
 	e.value(x.TypeAnnotation)
 	e.value(x.Default)
+	e.bool(x.TypeOnly)
 	e.structItemComments(&x.Comments)
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -6094,6 +6095,7 @@ func (d *Decoder) structParam(x *ast.Param) {
 	if v3 := d.value(); v3 != nil {
 		x.Default = v3.(ast.Node)
 	}
+	x.TypeOnly = bool(d.bool())
 	d.structItemComments(&x.Comments)
 	x.Line = int(d.int())
 	x.Col = int(d.int())

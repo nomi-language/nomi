@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"sync"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/std"
@@ -71,7 +69,7 @@ func (g *gen) irBuildMainFailure() {
 // stdlib analysis, which every program's lowering of std/process reads
 // (programStdModuleNodes), so a kind names it exactly when its def's
 // declaration is this node.
-var stdExitDecl = sync.OnceValue(func() *ast.StructDef {
+var stdExitDecl = perStd(func() *ast.StructDef {
 	for _, n := range std.Shared().Nodes["process"] {
 		if sd, isStruct := n.(*ast.StructDef); isStruct && sd.Name == "Exit" {
 			return sd

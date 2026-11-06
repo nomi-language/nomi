@@ -96,6 +96,21 @@ type programCounts struct {
 	// whole counts the documents analyzed again in their programs checked
 	// whole because a request needed it (CheckWhole).
 	whole atomic.Int64
+	// storedEdits counts the edits taken in programs opened from their
+	// records (stored_edit.go).
+	storedEdits atomic.Int64
+	// storedInPlace counts those of them that rebuilt an installed
+	// analysis's bodies in place (stored_inplace.go).
+	storedInPlace atomic.Int64
+	// checksAfter counts the checks those edits made from an open
+	// document's installed check (ProgramInterfaces.CheckAfter).
+	checksAfter atomic.Int64
+	// refsFromRecord counts the closed files whose references a record
+	// answered (stored_refs.go).
+	refsFromRecord atomic.Int64
+	// closedUnsaved counts the closed files a kept program answered past an
+	// unsaved edit of its entry (closed_kept.go).
+	closedUnsaved atomic.Int64
 	// built counts the project files built from source, by any analysis:
 	// a program's check, a closed file's, or a check against interfaces,
 	// which builds one file from source and its closure from interfaces.
@@ -221,10 +236,11 @@ func (dm *DocumentManager) buildOpen(uri, content string) (builtAnalysis, func()
 			continue
 		}
 		entry := relModuleKey(root, entryPath)
-		if b, reaches, ok := dm.fromStored(root, entry, docKey, uri, content); ok {
+		if b, reaches, ok, release := dm.fromStored(root, entry, docKey, uri, content); ok {
 			if reaches {
-				return b, none
+				return b, release
 			}
+			release()
 			continue
 		}
 		p, release := dm.programFor(root, entry, docKey, uri, content, manifest)
@@ -233,9 +249,11 @@ func (dm *DocumentManager) buildOpen(uri, content string) (builtAnalysis, func()
 		}
 		release()
 	}
-	if b, reaches, ok := dm.fromStored(root, docKey, docKey, uri, content); ok && reaches {
-		return b, none
+	b, reaches, ok, release := dm.fromStored(root, docKey, docKey, uri, content)
+	if ok && reaches {
+		return b, release
 	}
+	release()
 	p, release := dm.programFor(root, docKey, docKey, uri, content, manifest)
 	return dm.documentBuild(p, docKey, content, manifest), release
 }
@@ -247,24 +265,51 @@ func (dm *DocumentManager) buildOpen(uri, content string) (builtAnalysis, func()
 // the document. ok is false when the program must be checked: there is no
 // such record, a file's text is not the record's, or the document's check
 // reports something. The caller holds analyzeMu.
-func (dm *DocumentManager) fromStored(root, entry, docKey, uri, content string) (b builtAnalysis, reaches, ok bool) {
+//
+// It answers the release of the view lock when an edit rebuilt the
+// document's installed analysis in place (stored_inplace.go), which the
+// caller calls once it has installed the build. When the edit then could
+// not be taken, the program is checked whole here, before the lock is let
+// go, and its build of the document answered.
+func (dm *DocumentManager) fromStored(root, entry, docKey, uri, content string) (b builtAnalysis, reaches, ok bool, release func()) {
+	none := func() {}
 	key := programKey{root, entry}
 	if dm.programs[key] != nil {
-		return builtAnalysis{}, false, false
+		return builtAnalysis{}, false, false, none
 	}
-	sp := dm.storedFor(root, entry, dm.openTexts(root, uri, content))
+	sp := dm.storedFor(root, entry, docKey, dm.openTexts(root, uri, content))
 	if sp == nil {
-		return builtAnalysis{}, false, false
+		held := dm.storedHeld
+		dm.storedHeld = nil
+		if held == nil {
+			return builtAnalysis{}, false, false, none
+		}
+		manifest := manifestText(root)
+		dm.programCounts.full.Add(1)
+		dm.programCounts.note("an edit rebuilt an installed analysis and could not be taken")
+		p := dm.checkProgramFrom(root, entry, dm.openTexts(root, uri, content), nil, nil, nil)
+		if dm.programs == nil {
+			dm.programs = map[programKey]*rootProgram{}
+		}
+		dm.programs[key] = &rootProgram{prog: p, manifest: manifest}
+		if p.Files[docKey] != nil {
+			return dm.documentBuild(p, docKey, content, manifest), true, true, held
+		}
+		held()
+		return builtAnalysis{}, false, true, none
 	}
+	release = sp.takeHeld()
 	if _, in := sp.rec.Files[docKey]; !in {
-		return builtAnalysis{}, false, true
+		release()
+		return builtAnalysis{}, false, true, none
 	}
 	b, ok = dm.storedBuild(sp, docKey, content)
 	if !ok {
+		release()
 		dm.dropStored(key)
-		return builtAnalysis{}, false, false
+		return builtAnalysis{}, false, false, none
 	}
-	return b, true, true
+	return b, true, true, release
 }
 
 // openTexts are the texts of the open documents under root, by module key:

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 683
-declared-cases 3854
+records 684
+declared-cases 3868
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2806,8 +2806,8 @@ T nomi run: <root>/tests/14-modules-and-packaging/dotted_type_names/telemetry.no
 T
 C 14-modules-and-packaging/embedded_files/embedded_files_test.nomi
 E 0
-N 11
-H 20bb1f4b8c0aa87dfb1d5922c4f2f2a72caf4fc3b6dd6dd82eac6f4b6f76188e
+N 14
+H 723ae810d78ac4a23b6868574efc290ad8db5d6c8948b51d2e0fd16895b87910
 T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: each declaration holds the files its patterns match, from the module root
 T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file reads as bytes or text
 T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a directory lists and walks
@@ -2815,7 +2815,10 @@ T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.no
 T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file server answers from the embedded files
 T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file server redirects a directory and an index
 T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file server answers 404 for what it does not serve (5 cases)
-T test result: ok. 11 passed, 0 failed
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file server sends each file's SHA-256 as its ETag, taken when the program compiled
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a single-page file server answers a page route with the root index.html
+T ok <root>/tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi :: a file whose path matches an immutable pattern is cached for a year
+T test result: ok. 14 passed, 0 failed
 T
 C 14-modules-and-packaging/embedded_files/web/site.nomi
 E 1
@@ -4115,6 +4118,23 @@ T ok <root>/tests/19-locales/shop/order_test.nomi :: a shipping date names the w
 T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun formats itself as its nominative for one thing
 T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun is a value: equal when it is the same declaration
 T test result: ok. 9 passed, 0 failed
+T
+C 20-data-access/http_middleware_test.nomi
+E 0
+N 11
+H a08c1c103450bf3ecfae8afc88244846cd44b2c74588010ab98f52e093b8ef22
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a preflight from an allowed origin is answered without the handler
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a preflight from another origin gets no CORS headers and no handler
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: an OPTIONS request that is no preflight reaches the handler
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: an allowed origin is reflected, never a wildcard
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a disallowed origin gets no CORS headers, and the handler still runs
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a request with no Origin gets only Vary
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: credentials go with a reflected origin
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: any origin is a wildcard, and never with credentials
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: an origin matches exactly
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: the handler's own Vary is kept
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a stack reads as a pipe, the last stage outermost
+T test result: ok. 11 passed, 0 failed
 T
 C 20-data-access/sql_test.nomi
 E 0

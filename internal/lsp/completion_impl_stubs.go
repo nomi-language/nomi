@@ -455,6 +455,11 @@ func (g *stubGen) signature(m *ast.InterfaceMethod, snippet bool) string {
 		if i > 0 {
 			b.WriteString(", ")
 		}
+		if p.TypeOnly {
+			// `fn handle(h: self, Request)`: the type alone, as written.
+			b.WriteString(typ(p.TypeAnnotation))
+			continue
+		}
 		name := hoverdoc.ParamDisplayName(p)
 		if selfName != "" && p.Destructure == nil && isSelfTypeExpr(p.TypeAnnotation) {
 			name = selfName

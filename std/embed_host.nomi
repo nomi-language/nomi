@@ -13,3 +13,7 @@ import {
 /// reads them from the file, and stops with an error naming it when the
 /// file changed after the program was compiled.
 pub host fn read(handle: Int, path: String) -> Bytes
+
+/// The SHA-256 of the contents of the embedded file `handle` names, in
+/// lowercase hex, as the compiler took it when it read the file.
+pub host fn sum(handle: Int, path: String) -> String

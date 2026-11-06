@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -45,7 +44,7 @@ func (d declName) String() string { return d.module + "." + d.path }
 
 // stdLinkNames is the name of every declaration in the shared std analysis,
 // by its node.
-var stdLinkNames = sync.OnceValue(func() map[ast.Node]declName {
+var stdLinkNames = perStd(func() map[ast.Node]declName {
 	lib := std.Shared()
 	out := map[ast.Node]declName{}
 	for name, nodes := range lib.Nodes {

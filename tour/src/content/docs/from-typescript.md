@@ -33,6 +33,10 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 `number` splits in two: `Int` is exact at any size and `Float` is a 64-bit
 float, and neither converts to the other on its own.
 
+A TypeScript frontend can share a Nomi backend's JSON shapes: `nomi types`
+writes a TypeScript declaration for each, and [Frontends](/frontends/#a-javascript-frontend)
+shows the whole setup with Vite.
+
 ## The same program
 
 ```typescript

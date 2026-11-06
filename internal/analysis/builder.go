@@ -1133,7 +1133,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 		// A path that names a directory and no file is a directory
 		// import: the loader says so for the files it holds in memory,
 		// and the disk answers for the rest.
-		if !errors.As(err, &miss.dir) {
+		if !errors.As(err, &miss.dir) && !errors.Is(err, ErrNoSuchModule) {
 			miss.dir = DiskDirectory(loadRoot, loadPath)
 		}
 		return nil, "", miss

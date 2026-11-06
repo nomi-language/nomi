@@ -122,6 +122,12 @@ func discoverForEntry(projectRoot, sourceRoot, entry string) ([]DiscoveredPackag
 			return nil, err
 		}
 	}
+	return finishDiscovery(byImportPath), nil
+}
+
+// finishDiscovery is the discovered packages of byImportPath, each binding
+// once, in a stable order, with aliases assigned.
+func finishDiscovery(byImportPath map[string]*DiscoveredPackage) []DiscoveredPackage {
 	out := make([]DiscoveredPackage, 0, len(byImportPath))
 	for _, pkg := range byImportPath {
 		pkg.Types = uniqueDiscoveredTypes(pkg.Types)
@@ -134,7 +140,7 @@ func discoverForEntry(projectRoot, sourceRoot, entry string) ([]DiscoveredPackag
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ImportPath < out[j].ImportPath })
 	assignAliases(out)
-	return out, nil
+	return out
 }
 
 func uniqueDiscoveredTypes(types []DiscoveredType) []DiscoveredType {

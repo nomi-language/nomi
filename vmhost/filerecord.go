@@ -30,9 +30,9 @@ package vmhost
 //     (analysis.ReduceFacts) and find nothing, the supply worked out again
 //     from every file's interface when impls changed. For a program with
 //     an application type, whose application-field roots no file's facts
-//     answer, each checked file's body summary (analysis.BodySummary) must
-//     also be the kept one, so the roots find nothing as the kept
-//     program's did;
+//     answer, the walk those roots take of each checked file's bodies
+//     (analysis.AppWalkSummary) must also be the kept one and find nothing
+//     in them, so the roots find nothing as the kept program's did;
 //   - each is lowered on its own and linked with the kept objects of the
 //     others (irbuild.LowerFileAmong), after the files it imports among
 //     them, which declines whatever it cannot answer as a whole lowering
@@ -65,8 +65,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/irbuild"
-	"github.com/nomi-language/nomi/internal/lexer"
-	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // filesKind names the record of a program's files beside its load record.
@@ -96,7 +94,7 @@ type keptFile struct {
 	Keyword bool
 }
 
-const fileRecordMagic = "NOMIFILES2"
+const fileRecordMagic = "NOMIFILES3"
 
 func (r *fileRecord) encode() []byte {
 	var b bytes.Buffer
@@ -176,7 +174,7 @@ func (p *Program) keepFiles(c *Cache) {
 		if err != nil {
 			return
 		}
-		rec.Files[key] = keptFile{Iface: si, Sum: sha256.Sum256(data), Body: analysis.BodySummary(m.FA, m.Nodes),
+		rec.Files[key] = keptFile{Iface: si, Sum: sha256.Sum256(data), Body: appWalkOf(m.FA, m.Nodes),
 			Keyword: declaresKeywords(m.Nodes), Facts: analysis.FileFactsOf(key, m.FA, m.Nodes, namer, len(rec.AppTypes) > 0)}
 	}
 	if fa := p.prog.Entry().FA; fa != nil {
@@ -350,6 +348,11 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 		default:
 			pi.SetImplHeaders(key, was.Iface.Headers)
 			moved[key] = !bytes.Equal(si.Encoded, was.Iface.Encoded)
+			// An unannotated `once`'s type is its value's, which the hash
+			// leaves out: the files that import it are checked again.
+			if analysis.InferredOncesChanged(was.Iface.Encoded, si.Encoded) {
+				ifaceChanged[key] = true
+			}
 		}
 	}
 	for _, key := range removedKeys {
@@ -480,9 +483,12 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 			return nil, false
 		}
 		was, isKept := rec.Files[key]
-		if appTypes && (!isKept || analysis.BodySummary(check.FA, check.Nodes) != was.Body) {
-			why = key + "'s bodies call, read or demand something new, and the program has an application type"
-			return nil, false
+		if appTypes {
+			sum, errs := analysis.AppWalkSummary(check.FA, check.Nodes)
+			if !isKept || len(errs) > 0 || sum != was.Body {
+				why = key + "'s application-field walk changed, and the program has an application type"
+				return nil, false
+			}
 		}
 		nodes := map[string][]ast.Node{key: check.Nodes}
 		for k, n := range check.FileNodes {
@@ -519,33 +525,14 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 		kept.AddUnit(key, addedPaths[key])
 	}
 	for _, key := range keys {
-		check := checks[key]
 		path := pathOf(key)
-		// An instance of another file's generic declaration that no kept
-		// object holds is made from that file read with its bodies.
-		bodies := map[string]bool{}
-		for {
-			res, err = irbuild.LowerFileAmong(irbuild.FileProgram(check, key, path, rec.Root, rec.HasTests), kept, moved[key], relowering)
-			var fm *irbuild.FileMiss
-			if errors.As(err, &fm) {
-				if t := templateFile(fm.Undefined, reach); t != "" && t != key && !bodies[t] && len(bodies) < 4 {
-					bodies[t] = true
-					c.files.Logf("lowering %s again with %s's bodies, for %s", key, t, fm.Undefined)
-					pi.SetBodies(bodies)
-					check = pi.Check(key)
-					pi.SetBodies(nil)
-					continue
-				}
-				why = fm.Why
-				return nil, false
-			}
-			break
+		recheck := func(bodies map[string]bool) *analysis.FileCheck {
+			pi.SetBodies(bodies)
+			defer pi.SetBodies(nil)
+			return pi.Check(key)
 		}
-		if err != nil {
-			why = err.Error()
-			return nil, false
-		}
-		if kept, err = res.Rekeep(kept); err != nil {
+		var check *analysis.FileCheck
+		if res, kept, check, why = relowerOne(checks[key], key, path, rec.Root, rec.HasTests, kept, moved[key], relowering, reach, recheck, c.files.Logf); why != "" {
 			return nil, false
 		}
 		relowering[path] = false
@@ -562,27 +549,21 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 			f.Keyword = keyword[key]
 		}
 		if appTypes {
-			f.Body = analysis.BodySummary(check.FA, check.Nodes)
+			f.Body = appWalkOf(check.FA, check.Nodes)
 		}
 		newRec.Files[key] = f
 	}
-	prog := &irbuild.Program{
-		Modules:  []irbuild.Module{{Path: c.path, Name: strings.TrimSuffix(filepath.Base(c.path), ".nomi")}},
-		HasTests: rec.HasTests,
-		Root:     rec.Root,
-	}
+	src := ""
 	if rec.HasTests {
-		src, err := os.ReadFile(c.path)
+		data, err := os.ReadFile(c.path)
 		if err != nil {
 			return nil, false
 		}
-		nodes, err := parser.Parse(lexer.Lex(string(src)))
-		if err != nil {
-			return nil, false
-		}
-		prog.Modules[0].Nodes = nodes
+		src = string(data)
 	}
-	p = newProgram(prog, res, map[string]string{}, cfg)
+	if p, ok = relinkedProgram(res, c.path, src, rec.Root, rec.HasTests, cfg); !ok {
+		return nil, false
+	}
 	if p.entry == nil && (p.HasMain() || rec.HasTests) || !p.runsClean() || p.Unsupported() != nil {
 		why = "the program reaches something a machine cannot run"
 		return nil, false
@@ -687,4 +668,15 @@ func importOrder(keys []string, pi *analysis.ProgramInterfaces) []string {
 		visit(k)
 	}
 	return out
+}
+
+// appWalkOf is the walk the application-field roots take of a file's
+// bodies (analysis.AppWalkSummary), zero for a program with no application
+// type.
+func appWalkOf(fa *analysis.FileAnalysis, nodes []ast.Node) [32]byte {
+	if fa == nil {
+		return [32]byte{}
+	}
+	sum, _ := analysis.AppWalkSummary(fa, nodes)
+	return sum
 }

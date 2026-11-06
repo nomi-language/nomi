@@ -589,6 +589,13 @@ it hands them out. A spread that is no `Iter` is
 `vector`, `set`), and one of other elements is
 `list spread element type mismatch: Int vs String`.
 
+A list literal with no expected type takes its element type from its first
+spread whose value has a type of its own (not a literal, and not a form that
+takes its type from its position), and its elements are built as that type,
+as they are under an annotation (§5 *Type argument conversion*): with
+`routes: List<#(Route, Handler)>`, ``[#(Route`GET /`, home), ..routes]`` is a
+`List<#(Route, Handler)>` though `home` is a `(Request) -> Response`.
+
 A map spread is a map. Each spread must be a `Map<K, V>`
 (``map spread `..` requires a map, got Point``), all of one type
 (`map spread type mismatch: expected Map<String, Int>, got Map<Int, Int>`),
@@ -1874,7 +1881,10 @@ not accept: `fn float_str(f: Float) -> String` as a `(Display) -> String` is
 `type mismatch: expected (Display) -> String, got (Float) -> String`. Where
 nothing says which way a value flows (the branches of an `if` or `case`, the
 elements of an unannotated list, two arguments of one type parameter), two
-function types must be the same. With
+function types must be the same. A collection literal beside a value of
+that collection, as an operand of `+` or `-` or beside a spread in a list
+literal, is built as the value's type, which says the way (§8 *Arithmetic
+operators*, §3 *Spreads*). With
 `fn pick<T>(c: Bool, a: T, b: T) -> T`, `pick(c, shown, float_str)` is
 `argument 3: expected (Display) -> String, got (Float) -> String`; pass a
 lambda of the one type instead: `pick(c, float_str, fn x -> shown(x))`.
@@ -1972,7 +1982,10 @@ work: a `List<Circle>` passed where a `List<Shape>` is expected is built
 again with each `Circle` in its `Shape` (§4 *Embedded Types*).
 
 A value built where the collection is expected converts each element as it
-is built, whatever its type: `ys: List<Display> = [1, Some(2)]`. The
+is built, whatever its type: `ys: List<Display> = [1, Some(2)]`. So does
+a literal operand of `+` or `-` beside a value of the same collection, and
+the elements of a list literal beside a spread: `[1, Some(2)] + ds` and
+`[1, ..ds]` are `List<Display>`s for `ds: List<Display>`. The
 branches of an `if` or `case` whose type is written as a collection join
 as it when each converts to it: `c: List<Display> = if f { ints } else {
 words }`.
@@ -2409,12 +2422,13 @@ fn main() {
 }
 ```
 
-- Every parameter has a name and a type. A missing type is
+- Every parameter has a type. A missing type is
   `parameter 'x' needs a type annotation`, in a `fn`, an impl's or an
   interface's function and a `host fn`; an impl's parameters are written
-  out, not taken from its interface. A type alone, `fn echo(String)`, is
-  `parameter 'String' needs a name`, and so is a lambda's `fn String -> 1`.
-  Only a lambda's parameter types may be inferred.
+  out, not taken from its interface. A parameter has a name too, unless it
+  is written as its type alone, `fn stats(Request)`, which takes a
+  `Request` and binds nothing (*Parameter Destructuring*). Only a lambda's
+  parameter types may be inferred.
 - The result type is written unless it is `Unit`; a function with no `->`
   returns `Unit`.
 - The body's last expression is the result (*Returning*).
@@ -2541,8 +2555,37 @@ no annotation, though one is allowed: a distinct `Duration(x)`, a named tuple
 `E.V(x)`. A pattern with no
 type head needs one: a tuple, an anonymous struct pattern (`#{x, y}: Point`),
 a dot-leading variant (`.V(x): E`), and a generic distinct without type
-arguments. A head with nothing after it is a type, not a pattern:
-`fn f(Label)` is `parameter 'Label' needs a name`.
+arguments.
+
+A head with nothing after it names the parameter's type and binds nothing:
+`fn stats(Request) -> Response` takes a `Request`, as `_: Request` does,
+and so does a lambda's `fn Request -> ...`. The head may name any type
+written as one name: a struct, an enum of any number of variants (the
+parameter matches every value, whatever its variant), a distinct type, an
+alias, a builtin such as `String`, or a type parameter. A generic type
+needs its arguments, which a head cannot write, so `fn f(Box)` is the
+error that `Box` expects 1 type argument, got 0; write `_: Box<Int>`. A
+name that is no type is `unknown type "Label"`. A name that is also a
+variant in scope is not read as a type: `fn f(None)` is
+`parameter 'None' needs a name`, and a variant that a pattern may not write
+bare, `fn f(One)`, is the bare-variant error; where a type has the name too,
+`_: One` takes the type and `.One` matches the variant. A call cannot name
+such an argument, and an impl's parameter matches an interface's written so
+whatever its name.
+
+```nomi
+struct Request {
+    path: String
+}
+
+fn stats(Request) -> String {
+    "ok"
+}
+
+fn main() {
+    dbg stats(Request{path: "/"}) // "ok"
+}
+```
 
 The pattern must match every value of the parameter's type. A refutable one
 is ``refutable pattern in parameter; bind the parameter and use a `case` in the body``:
@@ -3206,6 +3249,13 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
   `Map.merge`: on a shared key the right-hand value wins. `Map` has no `-`.
   There is no collection-plus-element form: write `s + %[x]`, `list + [x]` or
   `m + %{k => v}`.
+- A collection literal operand beside an operand of the same collection is
+  built as that operand's type, on either side, as a literal is under an
+  annotation (§5 *Type argument conversion*): with `routes: List<#(Route,
+  Handler)>`, ``[#(Route`GET /`, home)] + routes`` is a `List<#(Route,
+  Handler)>` though `home` is a `(Request) -> Response`. Two operands that
+  each have a type of their own must have one type: with ``mine =
+  [#(Route`GET /`, home)]``, `mine + routes` is `binary + type mismatch`.
 
 #### Integer arithmetic is exact
 
@@ -7813,7 +7863,7 @@ An `embed` declaration names files a program carries inside itself:
 
 The compiler finds the files the patterns match when it compiles the program, and records each one's size and SHA-256, and `name` is a value of std::embed's `Files`, a read-only tree of them ([std::embed](/reference/embed/)). It is read like a `once` value (`site`, `web.site` from another file). A program reaches an embedded file only through the declaration that names it, and a built image holds the files of the declarations the program reaches.
 
-**When a file is read.** The tree, each file's path and size, is in the program from the start: `paths`, `list`, `walk`, `metadata`, `exists` and `sub` read no file. A file's contents are read when the program reads that file (`read`, `read_text`), each time it does, and are kept only as long as the program keeps the `Bytes`. A built program holds the contents in its image, after the code it starts from, so `nomi build`'s executable, its WebAssembly modules and a `.nomic` read no file but their own, and starting one costs the same however much it embeds. `nomi run`, `nomi test` and the REPL read a file's contents from the file, and a file whose size or SHA-256 is not what the program was compiled with stops the program with an error naming the file (`static/a.css changed after the program was compiled`); the next run compiles the new contents. A build checks each file the same way when it writes it into the image.
+**When a file is read.** The tree, each file's path, size and SHA-256, is in the program from the start: `paths`, `list`, `walk`, `metadata`, `exists`, `sum` and `sub` read no file. A file's contents are read when the program reads that file (`read`, `read_text`), each time it does, and are kept only as long as the program keeps the `Bytes`. A built program holds the contents in its image, after the code it starts from, so `nomi build`'s executable, its WebAssembly modules and a `.nomic` read no file but their own, and starting one costs the same however much it embeds. `nomi run`, `nomi test` and the REPL read a file's contents from the file, and a file whose size or SHA-256 is not what the program was compiled with stops the program with an error naming the file (`static/a.css changed after the program was compiled`); the next run compiles the new contents. A build checks each file the same way when it writes it into the image.
 
 ```nomi
 import std::embed.Files
@@ -7834,10 +7884,11 @@ The body is one or more patterns, separated by white space; a pattern that holds
 - A pattern that matches a file embeds it, whatever its name. One that matches a directory embeds every file under it, except names that start with `.` or `_`; a pattern that starts with `all:` embeds those too (`all:static`).
 - A directory holding a `nomi.toml` of its own is another module: a directory walk leaves it out, and a pattern that names it, or a file under it, is an error.
 - A path in the tree is the file's path from the module root (`static/index.html`), whatever pattern matched it, and two patterns that match one file embed it once.
+- A pattern whose base does not exist, from the module root or from the declaring file's directory, is a warning rather than an error, except in a build. The base is the path its names spell before the first one holding a wildcard, the whole pattern when none does: `web/dist` for `web/dist` and for `web/dist/*.js`. The tree holds the base as an empty directory, so `Files.sub(site, "web/dist")` is an empty tree, and a read under it answers `NotFound`. This is the state of a frontend's build folder before its first build: `nomi run`, `nomi check`, `nomi test`, the REPL and the language server report ``the `embed` pattern `web/dist` matches no file: `web/dist` does not exist, so `site` is empty until it does`` at the pattern and go on, and `nomi build` refuses it, for every target, so a built program holds the files its patterns name. A pattern that matches nothing in a base that exists (`static/*.png` in a `static` with no `.png`) is an error everywhere.
 
 | Violation | Error, at the pattern |
 |---|---|
-| A pattern that matches nothing | ``the `embed` pattern `nope` matches no file`` |
+| A pattern that matches nothing, in a base that exists, or in any base in a build | ``the `embed` pattern `static/*.png` matches no file`` |
 | A leading or trailing `/` | ``the `embed` pattern `/static` starts with `/` `` |
 | A `.` or `..` name, or an empty one | ``the `embed` pattern `../x` names `..` `` |
 | `**` | ``the `embed` pattern `static/**` holds `**` ``: a directory's name already embeds everything under it |
@@ -7848,7 +7899,7 @@ The body is one or more patterns, separated by white space; a pattern that holds
 | Another module's directory | ``cannot embed `tools`: it is another module, with its own nomi.toml`` |
 | No body, parameters or a result type | ``an `embed` names the files it holds`` |
 
-**Literal paths are checked.** A call to `Files.read`, `read_text`, `metadata`, `list`, `walk` or `sub` whose path is a string literal, and whose tree is an `embed` declaration (`site`, `web.site`) or a `Files.sub` of one with a literal directory, unwrapped with `!` or `?` (`Files.sub(site, "static")!`, nested or piped), is checked against the files the declaration holds. `read` and `read_text` name a file, `list`, `walk` and `sub` a directory, and `metadata` either. The path is cleaned as the run time cleans it, so `./static//a.css` is `static/a.css`. A path built at run time (an interpolation, a variable, a parameter) is not checked and stays a run-time `Result`, and neither `exists` nor `paths` is checked.
+**Literal paths are checked.** A call to `Files.read`, `read_text`, `metadata`, `list`, `walk` or `sub` whose path is a string literal, and whose tree is an `embed` declaration (`site`, `web.site`) or a `Files.sub` of one with a literal directory, unwrapped with `!` or `?` (`Files.sub(site, "static")!`, nested or piped), is checked against the files the declaration holds. `read` and `read_text` name a file, `list`, `walk` and `sub` a directory, and `metadata` either. The path is cleaned as the run time cleans it, so `./static//a.css` is `static/a.css`. A path built at run time (an interpolation, a variable, a parameter) is not checked and stays a run-time `Result`, and neither `exists` nor `paths` is checked. A literal at or under the base of a pattern whose base does not exist is not checked either, since its files are not there to check it against; the build refuses the pattern itself.
 
 | Violation | Error, at the literal |
 |---|---|

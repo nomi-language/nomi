@@ -28,7 +28,7 @@ type stdEntry struct {
 // stdIndex lists the stdlib's public functions once per process, from the
 // analyzed declarations the compiler uses, never a second parse.
 var stdIndex = sync.OnceValue(func() []stdEntry {
-	lib := std.Shared()
+	lib := std.All()
 	modules := make([]string, 0, len(lib.Nodes))
 	for name := range lib.Nodes {
 		if _, internal := analysis.InternalStdModule(name); internal || strings.HasPrefix(name, "_") {
@@ -518,7 +518,7 @@ func implementsName(typeName, iface string) bool {
 // leave out (`impl Iter for List<T>`), come from its declaration, read off
 // the impl's functions against the interface's.
 var stdImpls = sync.OnceValue(func() map[string][]implRel {
-	lib := std.Shared()
+	lib := std.All()
 	implemented := map[string]map[string]bool{}
 	for _, fa := range lib.Files {
 		for ty, ifaces := range fa.Impls {

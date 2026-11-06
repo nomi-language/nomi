@@ -5987,7 +5987,8 @@ func (p *Parser) parseFuncParamList(tok token.Token) ([]ast.Param, []ast.Trivia,
 // handles every pattern form (wildcard, tuple, distinct/enum, typed/anon
 // struct, map, list, literals). Trivial patterns collapse to the plain
 // `Param{Name}` representation so plain params (`x`, `_`) keep today's AST
-// shape; everything else is carried in Destructure. The parser deliberately
+// shape, and a type name alone (`Request`) is a TypeOnly parameter of that
+// type; everything else is carried in Destructure. The parser deliberately
 // accepts refutable shapes too (map/list/literal/multi-variant) — the checker
 // is the refutability gatekeeper, not the parser.
 func (p *Parser) parseParamPattern() (ast.Param, error) {
@@ -6008,18 +6009,21 @@ func (p *Parser) parseParamPattern() (ast.Param, error) {
 		param = ast.Param{Name: "_", Line: pp.Line, Col: pp.Col}
 		param.Comments.Before = pp.DanglingBefore
 		param.Comments.After = pp.DanglingAfter
-	default:
-		// Destructuring pattern. The synthetic Name is the slot the argument
-		// value lands in before the pattern's inner names are bound
-		// (Param.Destructure is read keyed by this Name); it must
-		// be unique within the param list and never collide with a real name,
-		// hence the `__destr_` prefix the previous tryParse* helpers used.
-		param = ast.Param{
-			Name:        fmt.Sprintf("__destr_%d_%d", pat.LineNum(), patternCol(pat)),
-			Destructure: pat,
-			Line:        pat.LineNum(),
-			Col:         patternCol(pat),
+	case *ast.EnumPattern:
+		if head, ok := pp.Variant.(*ast.SimpleType); ok && pp.Payload == nil && pp.Binding == "" &&
+			(p.atEnd() || p.peek().Type != token.COLON) {
+			// `fn stats(Request)`: a head with nothing after it names the
+			// parameter's type and binds nothing. The checker reports a head
+			// that names a variant rather than a type
+			// (analysis.typeOnlyParamError).
+			param = ast.Param{Name: "_", TypeAnnotation: head, TypeOnly: true, Line: pp.Line, Col: pp.Col}
+			param.Comments.Before = pp.DanglingBefore
+			param.Comments.After = pp.DanglingAfter
+			break
 		}
+		param = destructuringParam(pat)
+	default:
+		param = destructuringParam(pat)
 	}
 
 	// Optional type annotation: : Type
@@ -6056,6 +6060,20 @@ func (p *Parser) parseParamPattern() (ast.Param, error) {
 	}
 
 	return param, nil
+}
+
+// destructuringParam is a parameter written as a destructuring pattern. The
+// synthetic Name is the slot the argument value lands in before the
+// pattern's inner names are bound (Param.Destructure is read keyed by this
+// Name); it must be unique within the param list and never collide with a
+// real name, hence the `__destr_` prefix.
+func destructuringParam(pat ast.Node) ast.Param {
+	return ast.Param{
+		Name:        fmt.Sprintf("__destr_%d_%d", pat.LineNum(), patternCol(pat)),
+		Destructure: pat,
+		Line:        pat.LineNum(),
+		Col:         patternCol(pat),
+	}
 }
 
 // paramAnnotationBaseName returns the base type name of a param annotation when

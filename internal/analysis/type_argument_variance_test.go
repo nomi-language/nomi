@@ -139,3 +139,77 @@ fn main() {
   dbg Iter.count(ys)
 }`))
 }
+
+// The declarations the collection-literal operand cases share: an
+// interface, a struct that implements it, an alias of a function type that
+// returns the interface, as std/http's `Handler` returns `ToResponse`, and
+// functions that answer routes of that alias.
+const literalOperandDecls = `interface Reply {
+  fn body(r: self) -> String
+}
+
+struct Page {
+  text: String
+}
+
+impl Reply for Page {
+  fn body(p: Page) -> String { p.text }
+}
+
+typealias Handler (Int) -> Reply
+
+fn page(_n: Int) -> Page { Page{text: "p"} }
+
+fn other(_s: String) -> Page { Page{text: "o"} }
+
+fn routes() -> List<#(String, Handler)> { [#("a", page)] }
+
+fn vroutes() -> Vector<#(String, Handler)> { #[#("a", page)] }
+
+fn mroutes() -> Map<String, Handler> { %{"a" => page} }
+`
+
+// A collection literal beside a value of a collection type is built as that
+// type, as a literal is where an annotation expects it (spec §8 *Arithmetic
+// operators*, §3 *Spreads*): the operand of `+` on either side, and the
+// elements of a list literal beside a spread. So a route whose handler
+// answers a `Page` joins routes of `Handler`s with no annotation, and the
+// result is a list of the alias.
+func TestTypeArgumentVariance_LiteralBuiltAsTheOtherOperand(t *testing.T) {
+	for name, tc := range map[string]struct{ body, want string }{
+		"literal + list":    {`r = [#("b", page)] + routes()`, "List<#(String, (Int) -> Reply)>"},
+		"list + literal":    {`r = routes() + [#("b", page)]`, "List<#(String, (Int) -> Reply)>"},
+		"element, spread":   {`r = [#("b", page), ..routes()]`, "List<#(String, (Int) -> Reply)>"},
+		"spread, element":   {`r = [..routes(), #("b", page)]`, "List<#(String, (Int) -> Reply)>"},
+		"vector + literal":  {`r = #[#("b", page)] + vroutes()`, "Vector<#(String, (Int) -> Reply)>"},
+		"map + literal":     {`r = %{"b" => page} + mroutes()`, "Map<String, (Int) -> Reply>"},
+		"interface element": {`ds: List<Display> = ["a"]; r = [1, 2] + ds`, "List<Display>"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			expectBindingType(t, literalOperandDecls+"\nfn main() {\n  "+tc.body+"\n  dbg r\n}\n", "r", tc.want)
+		})
+	}
+}
+
+// A literal that cannot be built as the other operand's type keeps its own,
+// and the operator reports the two types. Two values that each have a type
+// of their own must have one type, since nothing says which way either
+// flows (spec §5 *Assignability*).
+func TestTypeArgumentVariance_LiteralOperandMismatchIsRefused(t *testing.T) {
+	for name, tc := range map[string]struct{ body, want string }{
+		"a narrowing parameter": {`r = [#("b", other)] + routes()`,
+			"binary + type mismatch: List<#(String, (String) -> Page)> vs List<#(String, (Int) -> Reply)>"},
+		"an element of another type": {`r = [1] + ["a"]`, "binary + type mismatch: List<Int> vs List<String>"},
+		"two typed operands": {`mine = [#("b", page)]; r = mine + routes()`,
+			"binary + type mismatch: List<#(String, (Int) -> Page)> vs List<#(String, (Int) -> Reply)>"},
+		"a spread beside a narrowing element": {`r = [#("b", other), ..routes()]`,
+			"list spread element type mismatch: #(String, (String) -> Page) vs #(String, (Int) -> Reply)"},
+		"two typed spreads": {`mine = [#("b", page)]; r = [..mine, ..routes()]`,
+			"list spread element type mismatch: #(String, (Int) -> Page) vs #(String, (Int) -> Reply)"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := literalOperandDecls + "\nfn main() {\n  " + tc.body + "\n  dbg r\n}\n"
+			expectErrorContaining(t, checkWithStdlib(src), tc.want)
+		})
+	}
+}

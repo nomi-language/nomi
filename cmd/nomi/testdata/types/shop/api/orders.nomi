@@ -1,0 +1,36 @@
+import {
+    std::calendar.NaiveDateTime
+    std::json.{FromJson, ToJson}
+    std::uuid.Uuid
+    models
+}
+
+pub struct Order {
+    id: Uuid
+    buyer: models.User
+    lines: Vector<Line>
+    total: models.Money
+    placed: NaiveDateTime
+    page: models.Page<Line>
+    seller: User
+}
+
+derive ToJson for Order
+
+pub struct Line {
+    sku: String
+    qty: Int
+    price: Float
+    ratings: List<Maybe<Float>>
+}
+
+derive ToJson for Line
+derive FromJson for Line
+
+/// The seller, a User of its own.
+pub struct User {
+    name: String
+}
+
+derive ToJson for User
+derive FromJson for User

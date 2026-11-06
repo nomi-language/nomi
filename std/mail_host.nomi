@@ -1,0 +1,15 @@
+//# The Go-backed half of std::mail: the encodings its renderer takes from
+//# Go's `mime/quotedprintable` and `time` (rt/mail.go). It is internal; a
+//# program imports std::mail.
+
+import {
+    int.Int
+    strings.String
+}
+
+/// `text` as Go's `quotedprintable.Writer` writes text.
+pub host fn quoted_printable(text: String) -> String
+
+/// The instant `nanos` nanoseconds after the Unix epoch in Go's `RFC1123Z`
+/// layout, in UTC.
+pub host fn date(nanos: Int) -> String

@@ -186,7 +186,7 @@ type stdGenHostAnchor struct {
 // Asked in the DECLARING module for stdGenStructValidated's reason, and here the
 // check is purely SYNTACTIC (a declaration's clause, publicness and type
 // parameters against the spec's), so it needs no scope at all.
-var stdGenHostValidated = sync.OnceValue(func() []bool {
+var stdGenHostValidated = perStd(func() []bool {
 	ok := make([]bool, len(stdGenHostSpecs))
 	lib := stdAnchorLib()
 	for i := range stdGenHostSpecs {
@@ -645,7 +645,7 @@ func stdMarkerKind(i int) kind { return named(stdMarkerDefs()[i]) }
 // Needed because stdMarkerOfType resolves without a module anchor, so the shape
 // check has to exist on its own rather than as a step inside stdMarkerAnchors.
 // Asked in the DECLARING module for stdStructValidated's reason.
-var stdMarkerValidated = sync.OnceValue(func() []bool {
+var stdMarkerValidated = perStd(func() []bool {
 	ok := make([]bool, len(stdMarkerSpecs))
 	lib := stdAnchorLib()
 	for i := range stdMarkerSpecs {

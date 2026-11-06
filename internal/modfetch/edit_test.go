@@ -277,3 +277,64 @@ func TestAddAndUpdate_KeepTheLibModulesOnOneCommit(t *testing.T) {
 		}
 	}
 }
+
+// A release `nomi` carries the lib/ modules' Go prebuilt at one commit
+// (Options.LibVersion): adding a lib/ module with no version takes that
+// commit rather than the latest, and updating moves every lib/ module to it,
+// while an explicit @latest still takes the latest.
+func TestAddAndUpdate_KeepTheLibModulesAtTheReleasesCommit(t *testing.T) {
+	const (
+		sqlite  = "github.com/nomi-language/nomi/lib/sql/sqlite"
+		sqlkit  = "github.com/nomi-language/nomi/lib/sql/sqlkit"
+		older   = "v0.0.0-20261001000000-aaaaaaaaaaaa"
+		release = "v0.0.0-20261020000000-bbbbbbbbbbbb"
+		newest  = "v0.0.0-20261026000000-cccccccccccc"
+	)
+	p := newTestProxy(t)
+	for _, v := range []string{older, release, newest} {
+		p.publish(t, sqlite, v, map[string]string{
+			"go.mod":      "module " + sqlite + "\n\ngo 1.22\n",
+			"nomi.toml":   "[module]\nname = \"sqlite\"\n",
+			"sqlite.nomi": "pub fn version() -> String {\n    \"" + v + "\"\n}\n",
+		})
+		p.publish(t, sqlkit, v, map[string]string{
+			"go.mod":      "module " + sqlkit + "\n\ngo 1.22\n\nrequire " + sqlite + " " + older + "\n",
+			"nomi.toml":   "[module]\nname = \"sqlkit\"\n",
+			"sqlkit.nomi": "pub fn version() -> String {\n    \"" + v + "\"\n}\n",
+		})
+	}
+	for _, path := range []string{sqlite, sqlkit} {
+		enc, _ := module.EscapePath(path)
+		writeFile(t, filepath.Join(p.dir, filepath.FromSlash(enc), "@latest"), `{"Version":"`+newest+`"}`)
+	}
+	app, _ := setup(t, p)
+	opts := Options{LibVersion: release}
+
+	if _, err := Add(app, sqlkit, opts); err != nil {
+		t.Fatalf("Add sqlkit: %v", err)
+	}
+	goMod := readFile(t, filepath.Join(app, "go.mod"))
+	for _, want := range []string{"require " + sqlkit + " " + release + "\n", "require " + sqlite + " " + release + " // indirect\n"} {
+		if !strings.Contains(goMod, want) {
+			t.Errorf("after adding sqlkit, go.mod lacks %q:\n%s", want, goMod)
+		}
+	}
+
+	if _, err := Add(app, sqlkit+"@latest", opts); err != nil {
+		t.Fatalf("Add sqlkit@latest: %v", err)
+	}
+	if goMod := readFile(t, filepath.Join(app, "go.mod")); !strings.Contains(goMod, "require "+sqlkit+" "+newest+"\n") {
+		t.Errorf("after adding sqlkit@latest, go.mod lacks it at %s:\n%s", newest, goMod)
+	}
+
+	changes, err := Update(app, "", opts)
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	goMod = readFile(t, filepath.Join(app, "go.mod"))
+	for _, want := range []string{"require " + sqlkit + " " + release + "\n", "require " + sqlite + " " + release + " // indirect\n"} {
+		if !strings.Contains(goMod, want) {
+			t.Errorf("after updating, go.mod lacks %q:\n%s\nchanges: %v", want, goMod, changes)
+		}
+	}
+}

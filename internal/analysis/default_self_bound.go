@@ -153,7 +153,11 @@ func defaultSignatureWithSelfBound(iface *InterfaceType, method, add string) str
 		if i < len(sig.ParamNames) {
 			name = sig.ParamNames[i]
 		}
-		params[i] = name + ": " + typeString(p)
+		params[i] = typeString(p)
+		if name != "" {
+			// "" is a parameter written as its type alone.
+			params[i] = name + ": " + params[i]
+		}
 	}
 	ret := ""
 	if sig.Return != nil && !isUnitLike(sig.Return) {

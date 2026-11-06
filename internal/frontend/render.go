@@ -51,7 +51,11 @@ func (ds Diagnostics) Render(w io.Writer) {
 }
 
 func (d Diagnostic) render(w io.Writer) {
-	fmt.Fprintf(w, "%s %s\n", rt.RedFor(w, "error:"), rt.BoldFor(w, d.Message))
+	label := rt.RedFor(w, "error:")
+	if d.Warning {
+		label = rt.YellowFor(w, "warning:")
+	}
+	fmt.Fprintf(w, "%s %s\n", label, rt.BoldFor(w, d.Message))
 	gutter := ""
 	if d.Line > 0 && d.SourceLine != "" {
 		gutter = strings.Repeat(" ", len(strconv.Itoa(d.Line)))
@@ -114,6 +118,9 @@ func (d Diagnostic) underline(w io.Writer) string {
 		width = 1
 	}
 	marks := rt.RedFor(w, strings.Repeat("^", width))
+	if d.Warning {
+		marks = rt.YellowFor(w, strings.Repeat("^", width))
+	}
 	if multiline {
 		marks += " " + rt.DimFor(w, fmt.Sprintf("(through line %d)", d.EndLine))
 	}

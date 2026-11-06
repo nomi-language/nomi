@@ -989,18 +989,10 @@ func buildTestDeclFuncTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.TestDecl
 // missingParamType is the error for a declared function's parameter written
 // without a type, `fn tag(_v) -> String`: a parameter of a `fn`, an impl's or
 // an interface's function, or a `host fn` needs one (only a lambda's may be
-// inferred). A synthesized declaration's parameters are the compiler's. An
-// interface's or a `host fn`'s parameter written as a bare type,
-// `host fn f(String) -> Int`, is a destructuring pattern to the parser and gets
-// unnamedParam's error; a `fn`'s goes through paramPatternType instead.
-func missingParamType(p ast.Param, fa *FileAnalysis, reg *TypeRegistry) []TypeError {
-	if IsSynthesizedLine(p.Line) {
-		return nil
-	}
-	if p.Destructure != nil {
-		if te := unnamedParam(p, fa, reg); te != nil {
-			return []TypeError{*te}
-		}
+// inferred). A synthesized declaration's parameters are the compiler's, and a
+// destructuring parameter's pattern is reported where it is checked.
+func missingParamType(p ast.Param) []TypeError {
+	if IsSynthesizedLine(p.Line) || p.Destructure != nil {
 		return nil
 	}
 	return []TypeError{{
@@ -1593,18 +1585,38 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		params := make([]Type, 0, len(m.Params))
 		paramNames := make([]string, 0, len(m.Params))
 		for _, p := range m.Params {
-			paramNames = append(paramNames, p.Name)
+			if p.TypeOnly || p.Destructure != nil {
+				// `fn handle(h: self, Request)` and `fn tag(Req{path})`
+				// name no parameter for a call to name or an impl to match.
+				paramNames = append(paramNames, "")
+			} else {
+				paramNames = append(paramNames, p.Name)
+			}
 			if p.TypeAnnotation == nil && selfPatternParam(p) {
 				// `self(n)` is a `self` taken apart, so its type is `self`.
 				params = append(params, mtp["self"])
 				continue
 			}
+			if p.TypeAnnotation == nil && p.Destructure != nil {
+				// `fn tag(Req{path})` takes the type its pattern's head
+				// names, as a declared fn's does (paramPatternType).
+				resolved, err := paramPatternType(p, reg, mtp, fa)
+				if err != nil {
+					if te, ok := err.(TypeError); ok {
+						errs = append(errs, te)
+					}
+					params = append(params, nil)
+					continue
+				}
+				params = append(params, resolved)
+				continue
+			}
 			if p.TypeAnnotation == nil {
-				errs = append(errs, missingParamType(p, fa, reg)...)
+				errs = append(errs, missingParamType(p)...)
 				params = append(params, nil)
 				continue
 			}
-			resolved, err := ResolveDeclaredType(p.TypeAnnotation, reg, mtp, fa.References)
+			resolved, err := resolveParamType(p, fa, reg, mtp, true)
 			if err != nil {
 				if te, ok := err.(TypeError); ok {
 					errs = append(errs, te)
@@ -1837,11 +1849,11 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 			continue
 		}
 		if p.TypeAnnotation == nil {
-			errs = append(errs, missingParamType(p, fa, reg)...)
+			errs = append(errs, missingParamType(p)...)
 			params = append(params, nil)
 			continue
 		}
-		resolved, err := ResolveDeclaredType(p.TypeAnnotation, reg, tp, fa.References)
+		resolved, err := resolveParamType(p, fa, reg, tp, true)
 		if err != nil {
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)
@@ -2200,12 +2212,12 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 				continue
 			}
 			if p.TypeAnnotation == nil {
-				errs = append(errs, missingParamType(p, fa, reg)...)
+				errs = append(errs, missingParamType(p)...)
 				params = append(params, nil)
 				continue
 			}
 			te := p.TypeAnnotation
-			resolved, err := ResolveDeclaredType(te, reg, tp, fa.References)
+			resolved, err := resolveParamType(p, fa, reg, tp, true)
 			if err != nil {
 				if synthBlock {
 					if known := compilerKnownSynthType(te, reg, tp, fa.References); known != nil {
@@ -2271,11 +2283,11 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		params := make([]Type, 0, len(ef.Params))
 		for _, p := range ef.Params {
 			if p.TypeAnnotation == nil {
-				errs = append(errs, missingParamType(p, fa, reg)...)
+				errs = append(errs, missingParamType(p)...)
 				params = append(params, nil)
 				continue
 			}
-			resolved, err := ResolveDeclaredType(p.TypeAnnotation, reg, tp, fa.References)
+			resolved, err := resolveParamType(p, fa, reg, tp, true)
 			if err != nil {
 				if terr, ok := err.(TypeError); ok {
 					errs = append(errs, terr)
@@ -2373,11 +2385,11 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	params := make([]Type, 0, len(n.Params))
 	for _, p := range n.Params {
 		if p.TypeAnnotation == nil {
-			errs = append(errs, missingParamType(p, fa, reg)...)
+			errs = append(errs, missingParamType(p)...)
 			params = append(params, nil)
 			continue
 		}
-		resolved, err := ResolveDeclaredType(p.TypeAnnotation, reg, tp, fa.References)
+		resolved, err := resolveParamType(p, fa, reg, tp, true)
 		if err != nil {
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)

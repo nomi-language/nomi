@@ -3,9 +3,11 @@ package analysis_test
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 	"unicode/utf8"
 
@@ -45,6 +47,33 @@ type recordEdit struct {
 // record was written.
 func recordDiff(tb testing.TB, p incrementalProject, dir string, edit *recordEdit) (string, bool) {
 	tb.Helper()
+	diff, ok, _ := recordDiffTaken(tb, p, dir, edit)
+	return diff, ok
+}
+
+// recordTaken is how a manager that opened from a record took an edit in
+// an open document: whether it took it in the program opened from the
+// record (stored_edit.go), and whether the program checked whole has
+// nothing to report after it.
+type recordTaken struct {
+	fast, clean bool
+	// inPlace says the edit rebuilt the edited document's installed
+	// analysis in place.
+	inPlace bool
+	// checksAfter counts the open documents' checks the edit made from
+	// their installed checks (CheckAfter).
+	checksAfter int64
+	// inRecord says the edited document was analyzed in the program opened
+	// from the record, and clean refers to those documents alone.
+	inRecord bool
+	// reasons are why the manager checked whole programs.
+	reasons map[string]int
+}
+
+// recordDiffTaken is recordDiff, answering besides how the edit was taken.
+func recordDiffTaken(tb testing.TB, p incrementalProject, dir string, edit *recordEdit) (string, bool, recordTaken) {
+	tb.Helper()
+	var taken recordTaken
 	uri := func(key string) string { return fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi")) }
 	keys := []string{p.entry}
 	texts := map[string]string{}
@@ -59,9 +88,9 @@ func recordDiff(tb testing.TB, p incrementalProject, dir string, edit *recordEdi
 	writer.SetWorkspaceRoot(dir)
 	writer.Open(uri(p.entry), p.texts[p.entry])
 	writer.AnalyzeLatest(context.Background(), uri(p.entry))
-	writer.NoteLoweredClean(uri(p.entry), p.texts[p.entry])
+	writer.NoteLoweredClean(uri(p.entry), p.texts[p.entry], nil)
 	if _, stored := writer.StoredPrograms(); stored == 0 {
-		return "", false
+		return "", false, taken
 	}
 	if edit != nil && edit.onDisk {
 		texts[edit.key] = edit.text
@@ -82,9 +111,9 @@ func recordDiff(tb testing.TB, p incrementalProject, dir string, edit *recordEdi
 	opened, _ := stored.StoredPrograms()
 	switch {
 	case edit != nil && edit.onDisk && edit.text != p.texts[edit.key] && opened > 0:
-		return fmt.Sprintf("a record of the texts before %s changed on disk was opened", edit.key), true
+		return fmt.Sprintf("a record of the texts before %s changed on disk was opened", edit.key), true, taken
 	case (edit == nil || !edit.onDisk) && opened == 0:
-		return "the record written was not opened", true
+		return "the record written was not opened", true, taken
 	}
 	was := os.Getenv(artifactcache.RootEnv)
 	os.Setenv(artifactcache.RootEnv, "off")
@@ -92,26 +121,229 @@ func recordDiff(tb testing.TB, p incrementalProject, dir string, edit *recordEdi
 	open(full)
 	os.Setenv(artifactcache.RootEnv, was)
 	if edit != nil && !edit.onDisk {
+		before := stored.StoredEdits()
+		beforeInPlace := stored.StoredInPlace()
+		beforeAfter := stored.ChecksAfterEdits()
+		// The documents analyzed in the program opened from the record.
+		inRecord := map[string]bool{}
+		for _, key := range keys {
+			if snap := stored.Snapshot(uri(key)); snap != nil && snap.FromRecord {
+				inRecord[key] = true
+			}
+		}
+		taken.inRecord = inRecord[edit.key]
 		for _, dm := range []*analysis.DocumentManager{stored, full} {
 			dm.Update(uri(edit.key), edit.text)
 			dm.UpdateImportEdges(uri(edit.key))
 			dm.PropagateChange(uri(edit.key))
 		}
+		taken.fast = stored.StoredEdits() > before
+		taken.inPlace = stored.StoredInPlace() > beforeInPlace
+		taken.checksAfter = stored.ChecksAfterEdits() - beforeAfter
+		taken.reasons = stored.FullCheckReasons()
+		if taken.reasons == nil {
+			taken.reasons = map[string]int{}
+		}
+		taken.clean = true
+		for key := range inRecord {
+			if snap := full.Snapshot(uri(key)); snap == nil || len(snap.Errors) > 0 || len(snap.Damaged) > 0 || snap.Analysis == nil || len(snap.Analysis.TypeErrors) > 0 {
+				taken.clean = false
+				if snap != nil && snap.Analysis != nil && len(snap.Analysis.TypeErrors) > 0 {
+					taken.reasons[key+": "+snap.Analysis.TypeErrors[0].Message]++
+				}
+			}
+		}
 	}
 	for _, key := range keys {
 		want, got := renderOpen(full, uri(key), dir), renderOpen(stored, uri(key), dir)
 		if want != got {
-			return fmt.Sprintf("%s opened from its record:\n%s", key, dumpDiff(want, got)), true
+			return fmt.Sprintf("%s opened from its record:\n%s", key, dumpDiff(want, got)), true, taken
 		}
 	}
-	return "", true
+	return "", true, taken
+}
+
+// TestOpenFromRecordEditsMatchAFullCheck: an edit made in an open document
+// of a program opened from its record answers, in every open document,
+// what the program checked whole answers (recordDiff), for each step of
+// the incremental harness's edit sequences of orderProject, layeredProject
+// and rateProject, of genericEdits over orderProject's files, and of a
+// body edit of every file of every multi-file corpus project. Each step
+// starts from a record of the texts before it. A step after which the
+// program has nothing to report must be taken in the program opened from
+// the record, with no check of the whole program, unless it changes an
+// impl, which a document that does not import the edited file may see.
+func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
+	t.Setenv(artifactcache.RootEnv, t.TempDir())
+	type sequence struct {
+		p     incrementalProject
+		steps []editStep
+	}
+	order := orderIncremental()
+	seqs := []sequence{{order, orderEdits}, {layeredProject(), layeredEdits}, {rateProject(), rateEdits}}
+	for _, key := range sortedTextKeys(order) {
+		seqs = append(seqs, sequence{order, genericEdits(key, order.texts[key])})
+	}
+	corpus, err := corpusProjects()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range corpus {
+		var steps []editStep
+		for _, key := range sortedTextKeys(p) {
+			if line := firstBodyLine(p.texts[key]); line != "" {
+				steps = append(steps, replace("body only, positions shift", key, line, line+"    // A comment.\n\n"))
+				// Edits that leave something to report: a name nothing
+				// declares, and a body that does not parse.
+				steps = append(steps, replace("typo in a body", key, line, line+"    zz_misspelled\n"))
+				steps = append(steps, replace("syntax error in a body", key, line, line+"    let = (\n"))
+			}
+		}
+		if p.name == "15-app-and-defer/app_field_permission" {
+			// A program with an application type: a read moved by lines,
+			// which keeps the roots' walk (AppWalkSummary), a read added where
+			// the entry's main reaches it, a function that reads the
+			// application type called from a test with no boot, and a
+			// factory whose lambda reads it.
+			steps = append(steps,
+				replace("body only, read moved", "imports_app", "pub fn read() -> String {\n", "pub fn read() -> String {\n\n    // The tag.\n"),
+				replace("read added", "imports_app", "pub fn payload_of(value: Int) -> Int {\n    value\n", "pub fn payload_of(value: Int) -> Int {\n    _ = Settings.tag\n    value\n"),
+				appendText("factory reads", "imports_app", "\npub fn reader() -> () -> String {\n    fn -> Settings.tag\n}\n"),
+				appendText("test reads without a boot", "no_app_name", "\ntest \"reads\" {\n    assert read() == \"\"\n}\n"),
+			)
+		}
+		seqs = append(seqs, sequence{p, steps})
+	}
+	fast, inPlace, total := 0, 0, 0
+	reporting, reportingFast := 0, 0
+	var checksAfter int64
+	supplies, apart := analysis.CheckSuppliesForTest(func() {
+		for _, seq := range seqs {
+			texts := maps.Clone(seq.p.texts)
+			for i, s := range seq.steps {
+				text, ok := s.change(texts[s.key], seq.p.texts[s.key])
+				if !ok {
+					t.Fatalf("%s: step %d (%s) does not apply to %s", seq.p.name, i+1, s.kind, s.key)
+				}
+				p := seq.p
+				p.texts = texts
+				dir := writeProject(t, p)
+				diff, recorded, taken := recordDiffTaken(t, p, dir, &recordEdit{key: s.key, text: text})
+				at := fmt.Sprintf("%s: step %d (%s, editing %s)", p.name, i+1, s.kind, s.key)
+				if diff != "" {
+					t.Fatalf("%s: %s", at, diff)
+				}
+				if !strings.Contains(s.kind, "typo") && !strings.Contains(s.kind, "syntax error") {
+					// The steps after an edit that leaves something to report start
+					// from the texts before it, which have a record.
+					texts = maps.Clone(texts)
+					texts[s.key] = text
+				}
+				if !recorded {
+					continue
+				}
+				total++
+				if taken.fast {
+					fast++
+				}
+				if taken.inPlace {
+					inPlace++
+				}
+				checksAfter += taken.checksAfter
+				// An unannotated `once` whose value changed checks the files that
+				// import it again, so its file is checked anew too.
+				once := strings.Contains(s.kind, "once")
+				if bodyOnly(s.kind) && !once && taken.inRecord && taken.fast && !taken.inPlace {
+					t.Errorf("%s changes only a body, but the installed analysis was not rebuilt in place: %v", at, taken.reasons)
+				}
+				impl := strings.Contains(s.kind, "impl") || strings.Contains(s.kind, "derive")
+				// A program with an application type compares the walk its
+				// application-field roots take of each checked file's bodies
+				// (AppWalkSummary), which an edit that calls or reads something
+				// new changes. A body edit that only moves positions keeps it,
+				// and must be taken.
+				appType := false
+				for why := range taken.reasons {
+					appType = appType || strings.Contains(why, "application type") && !bodyOnly(s.kind)
+				}
+				if taken.inRecord && !impl && !appType && !taken.fast && !reportsWhatNoFileWords(taken.reasons) {
+					t.Errorf("%s was not taken in the program opened from its record: %v", at, taken.reasons)
+				}
+				if !taken.clean {
+					reporting++
+					if taken.fast {
+						reportingFast++
+					}
+				}
+			}
+		}
+	})
+	t.Logf("%d of %d edits taken in the program opened from its record, %d of them in place; %d of the %d that leave something to report; %d open documents checked from their installed checks; %d supplies from the entry's check", fast, total, inPlace, reportingFast, reporting, checksAfter, supplies)
+	if checksAfter == 0 {
+		t.Error("no open document was checked again from its installed check")
+	}
+	if supplies == 0 {
+		t.Error("no edit took the missing-impl supply from the entry's check")
+	}
+	if apart > 0 {
+		t.Errorf("%d of %d supplies taken from the entry's check differ from the supply worked out from every file's interface", apart, supplies)
+	}
+	if fast == 0 {
+		t.Error("no edit was taken in a program opened from its record")
+	}
+	if reportingFast == 0 {
+		t.Error("no edit that leaves something to report was taken in a program opened from its record")
+	}
+}
+
+// reportsWhatNoFileWords reports whether reasons, why a manager checked
+// whole programs, name only what an edit in a program opened from its
+// record leaves to the program checked whole: diagnostics the program
+// words and no one file's check (its impls' errors and missing impls), a
+// reduction's diagnostic in a file the edit does not check again, an
+// application type, or an impl changed beside a diagnostic.
+func reportsWhatNoFileWords(reasons map[string]int) bool {
+	named := false
+	for why := range reasons {
+		why, ok := strings.CutPrefix(why, "from the record: ")
+		if !ok {
+			// Another check, or a document's first diagnostic, which
+			// recordDiffTaken notes.
+			continue
+		}
+		named = true
+		switch {
+		case strings.Contains(why, "about the program's impls"),
+			strings.Contains(why, "find a missing impl"),
+			strings.Contains(why, "which the edit does not check again"),
+			strings.Contains(why, "application type"),
+			strings.Contains(why, "the edit changed an impl"),
+			strings.Contains(why, "declares keyword declarations"):
+		default:
+			return false
+		}
+	}
+	return named
+}
+
+// sortedTextKeys answers p's module keys in order.
+func sortedTextKeys(p incrementalProject) []string {
+	keys := make([]string, 0, len(p.texts))
+	for key := range p.texts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // TestOpenFromRecordMatchesAFullCheckDumps: every document of every
 // multi-file corpus project and of orderProject, layeredProject and
 // rateProject opened from its program's record has the analysis it has
 // when its program is checked whole, dump for dump (DumpFileForTest), with
-// the same diagnostics, nodes and offered program.
+// the same diagnostics, nodes and offered program. Each corpus project is
+// opened again with a typo and then a syntax error in its entry's first
+// body, whose record keeps what each file reports: most of those must be
+// recorded, and so must the project that embeds files.
 func TestOpenFromRecordMatchesAFullCheckDumps(t *testing.T) {
 	t.Setenv(artifactcache.RootEnv, t.TempDir())
 	projects := []incrementalProject{orderIncremental(), layeredProject(), rateProject()}
@@ -120,22 +352,53 @@ func TestOpenFromRecordMatchesAFullCheckDumps(t *testing.T) {
 		t.Fatal(err)
 	}
 	projects = append(projects, corpus...)
-	used := 0
+	for _, p := range corpus {
+		line := firstBodyLine(p.texts[p.entry])
+		if line == "" {
+			continue
+		}
+		for _, v := range []struct{ name, text string }{{"typo", "    zz_misspelled\n"}, {"syntax error", "    let = (\n"}} {
+			q := p
+			q.name = p.name + "/" + v.name
+			q.texts = maps.Clone(p.texts)
+			q.texts[p.entry] = strings.Replace(p.texts[p.entry], line, line+v.text, 1)
+			projects = append(projects, q)
+		}
+	}
+	used, reporting, reportingUsed := 0, 0, 0
+	embedded := false
 	for _, p := range projects {
 		t.Run(p.name, func(t *testing.T) {
+			reports := strings.HasSuffix(p.name, "/typo") || strings.HasSuffix(p.name, "/syntax error")
+			if reports {
+				reporting++
+			}
 			dir := writeProject(t, p)
 			diff, ok := recordDiff(t, p, dir, nil)
 			if !ok {
 				t.Skip("no record")
 			}
 			used++
+			if reports {
+				reportingUsed++
+			}
+			if p.name == "14-modules-and-packaging/embedded_files" {
+				embedded = true
+			}
 			if diff != "" {
 				t.Fatal(diff)
 			}
 		})
 	}
+	t.Logf("%d programs opened from their records, %d of the %d that report something", used, reportingUsed, reporting)
 	if used == 0 {
 		t.Error("no program was opened from its record")
+	}
+	if reportingUsed*2 < reporting {
+		t.Errorf("%d of %d programs that report something were opened from their records", reportingUsed, reporting)
+	}
+	if !embedded {
+		t.Error("the program that embeds files was not opened from its record")
 	}
 }
 

@@ -46,6 +46,23 @@ back. The annotation `user: User` tells `decode_as` which type to read, since
 no argument says so. [`std::json`](/reference/json/) has the other options,
 and how enums and `Maybe` fields map to JSON.
 
+A frontend written in TypeScript can share these shapes. `nomi types` writes
+a TypeScript declaration for each `pub` type of the named files and
+directories that crosses as JSON, and for each type those reach. Were `User`
+above `pub`, in users.nomi, `nomi types users.nomi -o web/src/api.ts` would
+write:
+
+```ts
+export interface User {
+  firstName: string;
+  age: number;
+}
+```
+
+An `Int` is a `number` there, exact up to 2^53. The
+[tooling reference](/tooling/commands/#typescript-types-nomi-types) has the
+whole mapping.
+
 ## The Json value
 
 `Json.decode` reads JSON text into a [`Json`](/reference/json/#enum-json), an

@@ -336,7 +336,6 @@ d	irScalarBuilder.loopElsePath | note | "an Iter.loop binding else fallback outs
 ?	irScalarBuilder.enterElseless | note | "an `if` without `else` whose Maybe has no Some and None: " + maybe.nomi()#1	irelseless.go:80	?	
 ?	irScalarBuilder.elselessAsValue | note | "an `if` without `else` whose " + have.nomi() + " does not enter " + sig.result.nomi()#1	irelseless.go:106	?	
 ?	irScalarBuilder.elselessSome | note | "an arm of an `if` without `else` whose kind is not the Maybe's payload: " + k.nomi() + " …#1	irelseless.go:142	?	
-b	irScalarBuilder.embeddedFiles | note | "an `embed` with no files"#1	irembed.go:20	-	checker: an `embed` whose patterns match no file is an error at the pattern, so a checked one holds a file at least
 b	irScalarBuilder.rebuildSelfRef | note | "a value of " + key[0].nomi() + " where " + key[1].nomi() + " is expected, whose type hold…#1	irembedsrebuild.go:319	-	only adapters (rebuildBody) or the self function reach rebuildSelfRef while a key is being built; the top-level caller's caps are always empty
 a	irScalarBuilder.enumEquality | false | k.tag != tagNamed ¦¦ k.def == nil ¦¦ !k.def.isEnum ¦¦ !irRetainedEnumKind(k.def) ¦¦ irPara…#1	irequality.go:33	expect,irbuild,projectgen,vmhost	
 d	irScalarBuilder.enumEquality | false | !known#1	irequality.go:36	-	handWrittenEquatableImpl known=false needs a foreign (Go FFI) enum or an incomplete impl table; not tried
@@ -1060,10 +1059,10 @@ b	gen.elemOrders | computed | return (k == kindInt ¦¦ k == kindFloat) && g.com
 ?	gen.stdLiteralImpl | false | g.std == nil#1	literal.go:444	?	
 ?	gen.stdLiteralImpl | false | f == nil ¦¦ !f.lowerable() ¦¦ (!anchored && f.decl != fd)#1	literal.go:455	?	
 ?	gen.stdLiteralImpl | false | len(f.params) != 1 ¦¦ f.result.def == nil#1	literal.go:461	?	
-d	gen.irBuildFailureRender | note | "an error type outside the call domain: " + errK.nomi()#1	mainfailure.go:128	-	a main or boot failure renderer's decline never fails nomi check (the VM falls back to structural text), so it cannot be observed; tried Infallible, fn and Iter error types
-d	gen.irBuildFailureRender | note | "an error type with no rendering: " + errK.nomi()#1	mainfailure.go:138	-	same as above: non-blocking and unobservable from nomi check; fn and Iter error types run and print <function>/<iter>
-b	gen.irErrorRenderFunc | false | sh == nil#1	mainfailure.go:159	-	irFuncShellAt returns nil only for a result with no IR type, and the result is String
-b	gen.irErrorRenderFunc | false | err != nil#1	mainfailure.go:196	-	lint fence: builder invariant check
+d	gen.irBuildFailureRender | note | "an error type outside the call domain: " + errK.nomi()#1	mainfailure.go:126	-	a main or boot failure renderer's decline never fails nomi check (the VM falls back to structural text), so it cannot be observed; tried Infallible, fn and Iter error types
+d	gen.irBuildFailureRender | note | "an error type with no rendering: " + errK.nomi()#1	mainfailure.go:136	-	same as above: non-blocking and unobservable from nomi check; fn and Iter error types run and print <function>/<iter>
+b	gen.irErrorRenderFunc | false | sh == nil#1	mainfailure.go:157	-	irFuncShellAt returns nil only for a result with no IR type, and the result is String
+b	gen.irErrorRenderFunc | false | err != nil#1	mainfailure.go:194	-	lint fence: builder invariant check
 a	gen.moduleQualifiedType | false | o == nil#1	modulequaltype.go:89	expect,irbuild,projectgen,vmhost	
 a	gen.moduleQualifiedDotted | false | dot <= 0 ¦¦ dot == len(name)-1#1	modulequaltype.go:248	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.not | false | k != kindBool#1	not.go:11	-	checker requires a Bool operand for `not` ("`not` takes a Bool")
@@ -1134,11 +1133,11 @@ d	irScalarBuilder.kindImplCall | false | plan == nil#1	stdinst.go:1255	-	gapGene
 a	irScalarBuilder.stdRecvKindCall | false | bl.g.stdModule != ""#1	stdrecvimpl.go:537	expect,irbuild,vmhost	probe: a std body names no program impl, and stdKindQualCall goes on to std's routes
 a	irScalarBuilder.stdRecvKindCall | false | len(bl.g.stdRecvCandidates(k, method, iface, item)) == 0#1	stdrecvimpl.go:541	expect,irbuild	probe: no program impl supplies the method at the kind, and stdKindQualCall goes on to std's routes
 -	irScalarBuilder.stdRecvKindCall | false | plan == nil#1	stdrecvimpl.go:549	-	a program impl supplies the method and none, or several, take the operands and result; the checker selected one impl for the call, so not found
-a	irScalarBuilder.stdTestOwnType | false | bl.g.stdModule == ""#1	stdtests.go:259	expect,irbuild,projectgen,vmhost	
-a	irScalarBuilder.stdTestOwnType | false | unguarded#1	stdtests.go:266	expect,irbuild,projectgen,vmhost	
--	irScalarBuilder.testImport/no | note | "an `import` in a block that rebinds a name the module scope binds differently"#1	stdtests.go:296	-	pinned as gapTestImportRebind (reason: an `import` in a block that rebinds a name the module scope binds differently)
-a	irScalarBuilder.stdOwnFileQualifier | false | !bl.stdTestOwnType() ¦¦ g.fa == nil ¦¦ owner != path.Base(g.stdModule)#1	stdtests.go:383	irbuild	
-b	irScalarBuilder.stdOwnFileQualifier | false | !(scope != nil && scope == g.fa.ModuleScope)#1	stdtests.go:388	-	std-only fence: only a stdlib module's own test bodies reach it (stdTestOwnType)
+a	irScalarBuilder.stdTestOwnType | false | bl.g.stdModule == ""#1	stdtests.go:287	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdTestOwnType | false | unguarded#1	stdtests.go:294	expect,irbuild,projectgen,vmhost	
+-	irScalarBuilder.testImport/no | note | "an `import` in a block that rebinds a name the module scope binds differently"#1	stdtests.go:324	-	pinned as gapTestImportRebind (reason: an `import` in a block that rebinds a name the module scope binds differently)
+a	irScalarBuilder.stdOwnFileQualifier | false | !bl.stdTestOwnType() ¦¦ g.fa == nil ¦¦ owner != path.Base(g.stdModule)#1	stdtests.go:411	irbuild	
+b	irScalarBuilder.stdOwnFileQualifier | false | !(scope != nil && scope == g.fa.ModuleScope)#1	stdtests.go:416	-	std-only fence: only a stdlib module's own test bodies reach it (stdTestOwnType)
 b	irScalarBuilder.unwrapValue | note | "a `!` over a value that is not a retained Result or Maybe: " + k.nomi()#1	unwrap.go:60	-	the checker accepts a postfix `!` only on a Result or a Maybe (analysis.unwrapBang), and an operand whose type the builder cannot represent declines where it is lowered first
 d	irScalarBuilder.unwrapValue | note | "a `!` whose error has no rendering: " + errK.nomi()#1	unwrap.go:92	-	the error renders through Display or Debug, and Debug is universal; an error kind outside the call domain (irCallOperandKind) would reach it, and none was found
 b	irScalarBuilder.unwrapValue | note | "a `!` whose failure carries several values"#1	unwrap.go:105	-	the checker accepts only Result and Maybe, whose failure variants carry one value or none

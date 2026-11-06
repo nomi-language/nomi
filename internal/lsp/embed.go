@@ -3,6 +3,7 @@ package lsp
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -46,9 +47,12 @@ func embedPatternHover(content string, info *analysis.EmbedInfo, i int) *protoco
 	p := info.Decl.Patterns[i]
 	var b strings.Builder
 	matches := info.Matches[i]
-	if len(matches) == 0 {
+	switch {
+	case slices.Contains(info.Missing, i):
+		fmt.Fprintf(&b, "`%s` matches no file: `%s` does not exist yet", p.Text, info.MissingBase(i))
+	case len(matches) == 0:
 		fmt.Fprintf(&b, "`%s` matches no file", p.Text)
-	} else {
+	default:
 		var files []analysis.EmbedFileInfo
 		for _, f := range info.Files {
 			for _, m := range matches {

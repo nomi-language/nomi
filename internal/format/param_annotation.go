@@ -10,10 +10,11 @@ import "github.com/nomi-language/nomi/internal/ast"
 // is syntactic: `nomi fmt` runs without analysis. It covers the parameters
 // of every `fn`, lambda, interface function and host or Go-bound function.
 //
-// A head with nothing after it, `Label: Label`, keeps its annotation.
-// Without one, `fn f(Label)` is a parameter with a type and no name, which
-// the checker rejects (analysis.unnamedParam). An annotation that carries a
-// comment also stays, so the comment keeps its place.
+// A head with nothing after it, `Label: Label`, keeps its annotation: it is
+// a variant pattern with an annotation, and without the annotation
+// `fn f(Label)` is a different parameter, one written as its type alone
+// (ast.Param.TypeOnly). An annotation that carries a comment also stays, so
+// the comment keeps its place.
 func stripSelfTypingAnnotations(nodes []ast.Node) {
 	for _, n := range nodes {
 		ast.Inspect(n, func(n ast.Node) bool {

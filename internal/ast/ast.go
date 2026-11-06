@@ -2447,6 +2447,12 @@ type Param struct {
 	Destructure    Node     // non-nil for destructuring params: pattern node (TuplePattern, StructPattern, etc.)
 	TypeAnnotation TypeExpr // structured type annotation, nil if absent
 	Default        Node     // default value expression, nil if absent
+	// TypeOnly marks a parameter written as its type alone,
+	// `fn stats(Request)`: a pattern whose head names the parameter's type,
+	// with nothing after it, which binds nothing. It takes a value of that
+	// type as `_: Request` does, so Name is "_" and TypeAnnotation is the
+	// type; the formatter writes the type alone back.
+	TypeOnly bool
 	// Comments holds the comments around the parameter in its list.
 	Comments ItemComments
 	Line     int

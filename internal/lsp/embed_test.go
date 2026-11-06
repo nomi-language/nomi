@@ -71,7 +71,7 @@ func TestEmbed_DefinitionOnAPatternOpensWhatItMatched(t *testing.T) {
 
 func TestEmbed_APatternThatMatchesNothingIsADiagnosticAtIt(t *testing.T) {
 	files := embedProject()
-	files["main.nomi"] = strings.Replace(embedMain, "page.html", "nope.html", 1)
+	files["main.nomi"] = strings.Replace(embedMain, "page.html", "static/*.png", 1)
 	root := writeProject(t, files)
 	s, published := recordingServer()
 	s.docs.SetWorkspaceRoot(root)
@@ -84,9 +84,42 @@ func TestEmbed_APatternThatMatchesNothingIsADiagnosticAtIt(t *testing.T) {
 			got = ds
 		}
 	}
-	if len(got) != 1 || !strings.HasPrefix(got[0].Message, "the `embed` pattern `nope.html` matches no file") ||
-		got[0].Range.Start != (protocol.Position{Line: 3, Character: 19}) || got[0].Range.End != (protocol.Position{Line: 3, Character: 28}) {
+	if len(got) != 1 || !strings.HasPrefix(got[0].Message, "the `embed` pattern `static/*.png` matches no file") ||
+		got[0].Severity == nil || *got[0].Severity != protocol.DiagnosticSeverityError ||
+		got[0].Range.Start != (protocol.Position{Line: 3, Character: 19}) || got[0].Range.End != (protocol.Position{Line: 3, Character: 31}) {
 		t.Fatalf("diagnostics %+v", got)
+	}
+}
+
+// A pattern whose base does not exist yet (a frontend's build folder) is a
+// warning at it, and its hover says so; a literal path under it is not
+// checked.
+func TestEmbed_APatternWhoseBaseDoesNotExistIsAWarningAtIt(t *testing.T) {
+	files := embedProject()
+	main := strings.Replace(embedMain, "page.html", "web/dist", 1)
+	main = strings.Replace(main, "_ = Files.paths(site)", "_ = Files.read_text(site, \"web/dist/index.html\")", 1)
+	files["main.nomi"] = main
+	root := writeProject(t, files)
+	s, published := recordingServer()
+	s.docs.SetWorkspaceRoot(root)
+	uri := pathToURI(filepath.Join(root, "main.nomi"))
+	s.docs.Open(uri, main)
+	s.publish(s.notify, uri)
+	var got []protocol.Diagnostic
+	for u, ds := range published() {
+		if u == uri {
+			got = ds
+		}
+	}
+	want := "the `embed` pattern `web/dist` matches no file: `web/dist` does not exist, so `site` holds nothing under it until it does"
+	if len(got) != 1 || !strings.HasPrefix(got[0].Message, want) ||
+		got[0].Severity == nil || *got[0].Severity != protocol.DiagnosticSeverityWarning ||
+		got[0].Range.Start != (protocol.Position{Line: 3, Character: 19}) || got[0].Range.End != (protocol.Position{Line: 3, Character: 27}) {
+		t.Fatalf("diagnostics %+v", got)
+	}
+	hover := messageHoverText(t, s, uri, offsetPosition(main, strings.Index(main, "web/dist")+1))
+	if hover != "`web/dist` matches no file: `web/dist` does not exist yet" {
+		t.Fatalf("hover: %q", hover)
 	}
 }
 

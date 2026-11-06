@@ -52,6 +52,9 @@ type CheckedProgram struct {
 	// include its synthesized derive and universal Debug impls.
 	Files map[string]*FileAnalysis
 	Nodes map[string][]ast.Node
+	// entryEdit is what keptClosed worked out of the program's entry text
+	// beside the entry's text on disk (closed_kept.go).
+	entryEdit *entryEdit
 	// Syntax holds each file's syntax errors, by module key.
 	Syntax map[string][]parser.ParseError
 	// Inputs holds every input the files' expansions read, by path, with

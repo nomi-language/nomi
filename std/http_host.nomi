@@ -109,6 +109,31 @@ pub host fn canonical_key(name: String) -> String
 /// Go's `StatusText`: "" for a code it does not name.
 pub host fn status_text(code: Int) -> String
 
+/// Go's `Header.WriteSubset` of `headers`, name and value alternating,
+/// leaving out the names in `except`.
+pub host fn headers_wire(headers: List<String>, except: List<String>) -> String
+
+/// Go's `ParseHTTPVersion`: `[major, minor]`, or `[]` for text it does not
+/// read.
+pub host fn parse_http_version(text: String) -> List<Int>
+
+/// Go's `Request.BasicAuth` of an `Authorization` value: `[user,
+/// password]`, or `[]`.
+pub host fn basic_auth(authorization: String) -> List<String>
+
+/// The `Cookie` header Go's `Request.AddCookie` leaves after adding
+/// `cookie` (as `cookie_text` takes it) to `existing`.
+pub host fn add_cookie(existing: String, cookie: List<String>) -> String
+
+/// Go's `CrossOriginProtection.Check` of a request, trusting `trusted` and
+/// with no bypass pattern: "" when it passes, else Go's reason.
+pub host fn cross_origin_check(
+    method: String,
+    host: String,
+    headers: List<String>,
+    trusted: List<String>,
+) -> String
+
 /// A server listening for requests.
 pub host type Listener
 
@@ -236,14 +261,16 @@ pub host fn new_mux(patterns: List<String>) -> Result<Mux, List<String>>
 pub host fn route(mux: Mux, method: String, host: String, target: String) -> List<String>
 
 /// Go's `ServeContent` for `data` named `name`, modified at `modified`
-/// nanoseconds (negative for unknown): `["answer", status, body, name,
-/// value, ...]`.
+/// nanoseconds (negative for unknown), with the response headers `set`
+/// (name and value alternating) in place first: `["answer", status, body,
+/// name, value, ...]`.
 pub host fn answer_content(
     method: String,
     target: String,
     headers: List<String>,
     name: String,
     modified: Int,
+    set: List<String>,
     data: Bytes,
 ) -> List<String>
 

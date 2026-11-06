@@ -303,6 +303,8 @@ var pureCrossings = map[string]bool{
 	"url_host.hostname_parts": true, "url_host.port_parts": true, "url_host.resolve_parts": true,
 	"url_host.join_path_parts": true, "url_host.escape_fragment": true, "url_host.query_pairs": true,
 	"url_host.query_error": true, "url_host.query_encode": true,
+	"path_host.clean": true, "path_host.join": true, "path_host.base": true, "path_host.dir": true,
+	"mail_host.quoted_printable": true, "mail_host.date": true,
 	"int.Int.to_string": true, "int.Int.to_float": true, "int.Int.wrapping_add": true,
 	"int.Int.wrapping_sub": true, "int.Int.wrapping_mul": true, "int.Int.bit_count": true,
 	"int.Int.bit_length": true,

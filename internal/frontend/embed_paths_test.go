@@ -97,3 +97,42 @@ func TestEmbedPaths_ALiteralNamingWhatIsNotEmbeddedIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// A literal path at or under a pattern's base that does not exist yet is
+// not checked, since the files are not there to check it against; the
+// rest of the tree still is. Each refused case fails if the source starts
+// being admitted.
+func TestEmbedPaths_APathUnderABaseThatDoesNotExistIsNotChecked(t *testing.T) {
+	files := func(body string) map[string]string {
+		f := embedPathFiles(body)
+		f["main.nomi"] = strings.Replace(f["main.nomi"], "embed site `static page.html`", "embed site `static web/dist`", 1)
+		return f
+	}
+	for _, body := range []string{
+		`_ = Files.read_text(site, "web/dist/index.html")`,
+		`_ = Files.read_text(Files.sub(site, "web/dist")!, "index.html")`,
+		`_ = Files.walk(Files.sub(site, "web")!, "dist/assets")`,
+		`_ = Files.list(site, "web/dist/assets")`,
+		`_ = Files.list(site, "web")`,
+		`_ = Files.read_text(site, "static/index.html")`,
+	} {
+		if ds := checkShop(t, files(body)); len(ds) > 0 {
+			t.Errorf("%s is refused:\n%s", body, strings.Join(ds, "\n"))
+		}
+	}
+	for _, c := range []struct{ body, want string }{
+		{`_ = Files.read_text(site, "static/indx.html")`,
+			"main.nomi:10:31: `static/indx.html` is not embedded in `site`\n  help: did you mean `static/index.html`?"},
+		{`_ = Files.read(site, "web")`, "main.nomi:10:26: `web` is a directory in `site`, not a file"},
+		{`_ = Files.list(site, "public")`, "main.nomi:10:26: `public` is not an embedded directory of `site`"},
+	} {
+		ds := checkShop(t, files(c.body))
+		if len(ds) == 0 {
+			t.Errorf("%s is accepted; want %q", c.body, c.want)
+			continue
+		}
+		if ds[0] != c.want {
+			t.Errorf("%s:\n%s\nwant:\n%s", c.body, strings.Join(ds, "\n"), c.want)
+		}
+	}
+}

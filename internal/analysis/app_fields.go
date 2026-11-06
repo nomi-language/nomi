@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -261,6 +262,12 @@ func CheckAppRootsUnder(fa *FileAnalysis, nodes []ast.Node, boot *ast.FuncDef, b
 }
 
 func checkAppRootsUnder(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, underFA *FileAnalysis) (errors []TypeError, rooted bool) {
+	return checkAppRootsWith(fa, nodes, under, underFA, nil)
+}
+
+// checkAppRootsWith is checkAppRootsUnder over the walker w, or a new one
+// when w is nil.
+func checkAppRootsWith(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, underFA *FileAnalysis, w *appReadWalker) (errors []TypeError, rooted bool) {
 	// The one place an entry boot may be called: a group's `boot` line.
 	bootLines := map[Pos]bool{}
 	for _, n := range nodes {
@@ -285,7 +292,9 @@ func checkAppRootsUnder(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, 
 	if len(fa.Program().AppTypes) == 0 || fa.Program().ContextType == nil {
 		return errors, false
 	}
-	w := newAppReadWalker(fa)
+	if w == nil {
+		w = newAppReadWalker(fa)
+	}
 	reported := map[string]bool{}
 	report := func(line, col int, message string) {
 		key := fmt.Sprintf("%d:%d:%s", line, col, message)
@@ -321,6 +330,9 @@ func checkAppRootsUnder(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, 
 	// boot to blame.
 	check := func(sites []appReadSite, frame bootFrame, subject string, anchorLine, anchorCol int) {
 		rooted = true
+		if w.trace != nil {
+			w.trace("root", frame.fn, subject+" boots "+typeLabel(frame.app))
+		}
 		if len(sites) == 0 {
 			return
 		}
@@ -348,6 +360,9 @@ func checkAppRootsUnder(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, 
 	// published: a boot body, or a group `boot` line's argument.
 	beforeBoot := func(body ast.Node, line, col int) {
 		rooted = true
+		if w.trace != nil {
+			w.trace("before boot", nil, "")
+		}
 		sites := w.reachable(fa, body)
 		if len(sites) == 0 {
 			return
@@ -439,7 +454,13 @@ func typeLabel(t Type) string {
 // then those of every function reachable through the calls, breadth first,
 // each function once.
 type appReadWalker struct {
-	fa      *FileAnalysis
+	fa *FileAnalysis
+	// local and trace, when set, make the walker walk local's bodies alone
+	// (AppWalkSummary): a body of another file is named to trace where the
+	// walk would read it, a root's reads are its own body's, and the calls,
+	// reads and named bodies are given to trace in walk order.
+	local   *FileAnalysis
+	trace   func(kind string, n ast.Node, extra string)
 	summary map[*ast.FuncDef]*appWalk
 	impls   map[string][]appCallee
 	// declaring caches declaringFile's answers.
@@ -484,6 +505,8 @@ type appWalk struct {
 	seen  map[ast.Node]bool
 	// called de-duplicates calls.
 	called map[*ast.FuncDef]bool
+	// trace, when set, is given each new read and call (appReadWalker.trace).
+	trace func(kind string, n ast.Node, extra string)
 	// inspected holds every body this walk has inspected. Inspecting one
 	// again adds no read and no call, and a lambda whose body calls the
 	// function that holds it (`fn f(x) { fn n -> f(x)(n) }`) reaches its own
@@ -501,6 +524,13 @@ func (aw *appWalk) read(site appReadSite) {
 	}
 	aw.seen[site.node] = true
 	aw.sites = append(aw.sites, site)
+	if aw.trace != nil {
+		app := "-"
+		if st := site.read.App; st != nil {
+			app = st.Origin + " " + st.Name
+		}
+		aw.trace("read", nil, app+"."+site.read.Field.Name)
+	}
 }
 
 func (aw *appWalk) call(owner *FileAnalysis, fn *ast.FuncDef) {
@@ -509,6 +539,9 @@ func (aw *appWalk) call(owner *FileAnalysis, fn *ast.FuncDef) {
 	}
 	aw.called[fn] = true
 	aw.calls = append(aw.calls, appCallee{owner: owner, fn: fn})
+	if aw.trace != nil {
+		aw.trace("call", fn, "")
+	}
 }
 
 func newAppReadWalker(fa *FileAnalysis) *appReadWalker {
@@ -521,8 +554,13 @@ func (w *appReadWalker) reachable(owner *FileAnalysis, body ast.Node) []appReadS
 		return nil
 	}
 	root := newAppWalk()
+	root.trace = w.trace
 	w.inspect(root, owner, body)
 	sites := append([]appReadSite(nil), root.sites...)
+	if w.local != nil {
+		// The calls were traced; what they read is their files' walks'.
+		return sites
+	}
 	seen := map[ast.Node]bool{}
 	for _, s := range sites {
 		seen[s.node] = true
@@ -636,7 +674,13 @@ func (w *appReadWalker) invoke(aw *appWalk, owner *FileAnalysis, expr ast.Node, 
 			if fn, ok := factory.Node.(*ast.FuncDef); ok && factory.Kind == SymbolFunction && !aliases[factory] && !w.fa.Program().BootFunctions[fn] {
 				aliases[factory] = true
 				if source := w.declaringFile(fn, factory.Pos); source != nil {
-					w.contained(aw, source, fn.Body, aliases)
+					if w.local != nil && source != w.local {
+						if aw.trace != nil {
+							aw.trace("contained", fn, "")
+						}
+					} else {
+						w.contained(aw, source, fn.Body, aliases)
+					}
 				}
 			}
 		}
@@ -678,10 +722,24 @@ func (w *appReadWalker) invoke(aw *appWalk, owner *FileAnalysis, expr ast.Node, 
 	if sym.Kind == SymbolInterfaceMethod {
 		if method, ok := sym.Node.(*ast.InterfaceMethod); ok && method.Body != nil {
 			if declaring := w.declaringFile(method, sym.Pos); declaring != nil {
-				w.inspect(aw, declaring, method.Body)
+				if w.local != nil && declaring != w.local {
+					if aw.trace != nil {
+						aw.trace("method", method, sym.OwningInterface)
+					}
+				} else {
+					w.inspect(aw, declaring, method.Body)
+				}
 			}
 		}
 		// Dynamic dispatch may choose any implementation of this method.
+		if w.local != nil {
+			// Which impls there are is every file's; the file's own are
+			// traced apart (AppWalkSummary).
+			if aw.trace != nil {
+				aw.trace("dispatch", nil, sym.OwningInterface+"."+sym.Name)
+			}
+			return
+		}
 		for _, impl := range w.implementations(sym.Name, sym.OwningInterface) {
 			aw.call(impl.owner, impl.fn)
 		}
@@ -764,4 +822,104 @@ func SameScopedType(a, b Type) bool {
 		return ok && x != nil && y != nil && x.Origin == y.Origin && x.Name == y.Name && x.String() == y.String()
 	}
 	return false
+}
+
+// AppWalkSummary fingerprints what the application-field root check reads
+// of one file's bodies, and answers the errors that check finds from the
+// file's own bodies. The check walks from each root into the bodies of
+// other files (appReadWalker); this walks the file's bodies alone, as each
+// root's and each function's walk would, and names each step that would
+// leave the file: a call, a factory's body read for what it hands back
+// (contained), an interface method's default body, a dispatch to every
+// impl of a method. It also names the file's roots and the boots they run
+// under, and the impls the file brings, which other files' dispatches
+// reach. Two texts of a file with the same summary take every root of the
+// program through the same reads in the same order, wherever their
+// positions moved, so a program whose check found nothing finds nothing
+// again: an edit of a program with an application type that keeps each
+// checked file's summary needs no walk of other files' bodies
+// (stored_edit.go). A program with no application type has a zero summary.
+//
+// Nodes of the file are named by their declaration names, or else by
+// their order among the file's functions, never by position; nodes of
+// other files, which an edit of this one does not move, by their file and
+// position.
+func AppWalkSummary(fa *FileAnalysis, nodes []ast.Node) ([32]byte, []TypeError) {
+	h := sha256.New()
+	p := fa.Program()
+	if p == nil || len(p.AppTypes) == 0 || p.ContextType == nil {
+		return [32]byte{}, nil
+	}
+	names := DeclarationNames(nodes)
+	ordinal := map[ast.Node]int{}
+	var fns []ast.Node
+	for _, n := range nodes {
+		WalkNodes(n, func(m ast.Node) {
+			switch m.(type) {
+			case *ast.FuncDef, *ast.InterfaceMethod:
+				if _, seen := ordinal[m]; !seen {
+					ordinal[m] = len(fns)
+					fns = append(fns, m)
+				}
+			}
+		})
+	}
+	name := func(n ast.Node) string {
+		if n == nil {
+			return "-"
+		}
+		if i, own := ordinal[n]; own {
+			if s := names[n]; s != "" {
+				return s
+			}
+			return fmt.Sprintf("#%d", i)
+		}
+		file := ""
+		if fd, ok := n.(*ast.FuncDef); ok {
+			if owner := p.ScopedFunctionFiles[fd]; owner != nil {
+				file = owner.FilePath
+			}
+		}
+		pos := topLevelPos(n)
+		return fmt.Sprintf("%s:%d:%d", file, pos.Line, pos.Col)
+	}
+	w := newAppReadWalker(fa)
+	w.local = fa
+	w.trace = func(kind string, n ast.Node, extra string) {
+		fmt.Fprintf(h, "%s %s %s\n", kind, name(n), extra)
+	}
+	errs, _ := checkAppRootsWith(fa, nodes, nil, nil, w)
+	errs = append(errs, fa.BootErrors...)
+	for _, n := range fns {
+		var body ast.Node
+		switch d := n.(type) {
+		case *ast.FuncDef:
+			body = d.Body
+			if p.BootFunctions[d] {
+				fmt.Fprintf(h, "boot fn %s\n", name(n))
+			}
+		case *ast.InterfaceMethod:
+			body = d.Body
+		}
+		if body == nil {
+			continue
+		}
+		fmt.Fprintf(h, "fn %s\n", name(n))
+		aw := newAppWalk()
+		aw.trace = w.trace
+		w.inspect(aw, fa, body)
+	}
+	var impls []string
+	for fd, owner := range p.ScopedFunctionFiles {
+		if owner == fa {
+			if key := p.ImplBlockInterfaceKey[fd]; key != "" {
+				impls = append(impls, key+"."+fd.Name)
+			}
+		}
+	}
+	sort.Strings(impls)
+	for _, im := range impls {
+		fmt.Fprintf(h, "impl %s\n", im)
+	}
+	return [32]byte(h.Sum(nil)), errs
 }

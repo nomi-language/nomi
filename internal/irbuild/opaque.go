@@ -408,7 +408,7 @@ func (g *gen) projectStdOpaque(ty *analysis.DistinctType) (kind, bool) {
 // opaqueDeclaredInStd is, per spec, whether the spec's declaring std module
 // declares it in the spec's shape: opaqueDeclIn asked of std's own analysis,
 // once per process, as stdEnumDeclaredInStd asks it for enums.
-var opaqueDeclaredInStd = sync.OnceValue(func() []bool {
+var opaqueDeclaredInStd = perStd(func() []bool {
 	lib := stdAnchorLib()
 	ok := make([]bool, len(opaqueSpecs))
 	for i := range opaqueSpecs {

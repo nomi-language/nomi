@@ -1,0 +1,21 @@
+//# The Go-backed half of std::path: Go's `path` package over a path's text
+//# (rt/path.go). It is internal; a program imports std::path, which builds
+//# its functions from these and gives them their documentation.
+
+import {
+    lists.List
+    strings.String
+}
+
+/// Go's `path.Clean`.
+pub host fn clean(p: String) -> String
+
+/// Go's `path.Join`: the parts that are not empty joined with `/`, then
+/// cleaned, or "" when every part is empty.
+pub host fn join(parts: List<String>) -> String
+
+/// Go's `path.Base` of the cleaned path.
+pub host fn base(p: String) -> String
+
+/// Go's `path.Dir`.
+pub host fn dir(p: String) -> String

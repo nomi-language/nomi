@@ -660,8 +660,11 @@ func badTarget() *rt.List[string] { return listOf([]string{"answer", "400", "inv
 
 // AnswerContent is `http_host.answer_content`: Go's ServeContent for data
 // named name, modified at modified nanoseconds (negative for unknown),
-// answering the ranges and conditional headers of the request.
-func AnswerContent(method, target string, headers *rt.List[string], name string, modified int64, data rt.Bytes) *rt.List[string] {
+// answering the ranges and conditional headers of the request. set is
+// the response's headers before ServeContent runs, name and value
+// alternating: an ETag there is what If-None-Match and If-Range are
+// checked against, and a Content-Type there is kept.
+func AnswerContent(method, target string, headers *rt.List[string], name string, modified int64, set *rt.List[string], data rt.Bytes) *rt.List[string] {
 	req, ok := synthetic(method, target, headers)
 	if !ok {
 		return badTarget()
@@ -671,6 +674,9 @@ func AnswerContent(method, target string, headers *rt.List[string], name string,
 		mod = time.Unix(0, modified)
 	}
 	rec := &matchRecorder{header: http.Header{}, status: http.StatusOK}
+	for l := set; l != nil && l.Tail != nil; l = l.Tail.Tail {
+		rec.header.Add(l.Head, l.Tail.Head)
+	}
 	http.ServeContent(rec, req, name, mod, bytes.NewReader([]byte(data)))
 	return answered(rec)
 }

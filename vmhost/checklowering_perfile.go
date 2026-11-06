@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -119,6 +120,9 @@ type keptAnalyzed struct {
 	hasTests bool
 	// texts holds each file's text, and names its module name, by path.
 	texts, names map[string]string
+	// headers holds the project files each of a file's interface impls
+	// names in its header, by path (analysis.ImplHeaderFiles).
+	headers map[string][][]string
 }
 
 // analyzedTexts answers each file's text of the program a analyzes, the
@@ -152,7 +156,37 @@ func keepAnalyzed(abs, src string, a *analyzedlowering.Analyzed, prog *irbuild.P
 		names[m.Path] = m.Name
 	}
 	analyzedKept.Store(abs, &keptAnalyzed{res: p.res, root: a.Root, hasTests: prog.HasTests,
-		texts: analyzedTexts(abs, src, a), names: names})
+		texts: analyzedTexts(abs, src, a), names: names, headers: implHeadersOf(prog)})
+}
+
+// implHeadersOf answers the project files each interface impl of each of
+// prog's files names in its header, by path.
+func implHeadersOf(prog *irbuild.Program) map[string][][]string {
+	keyOf := map[string]string{}
+	for _, m := range prog.Modules {
+		keyOf[m.Path] = m.Name
+	}
+	out := map[string][][]string{}
+	for _, m := range prog.Modules {
+		if m.FA != nil {
+			out[m.Path] = analysis.ImplHeaderFiles(m.FA, m.Nodes, func(path string) string { return keyOf[path] })
+		}
+	}
+	return out
+}
+
+// sameHeaderLists reports whether two files' impl header lists name the
+// same files, impl by impl, whatever their order.
+func sameHeaderLists(a, b [][]string) bool {
+	key := func(hs [][]string) []string {
+		out := make([]string, len(hs))
+		for i, h := range hs {
+			out[i] = strings.Join(h, "\x00")
+		}
+		sort.Strings(out)
+		return out
+	}
+	return slices.Equal(key(a), key(b))
 }
 
 // relowerAnalyzed lowers the files of prog, the document's program from
@@ -195,21 +229,47 @@ func relowerAnalyzed(cfg config, abs, src string, a *analyzedlowering.Analyzed, 
 	}
 	moved := map[string]bool{}
 	oldDecls := map[string]map[string][32]byte{}
+	// The files whose interfaces changed, which the files that import them
+	// were lowered against, and the headers of the impls that came, went or
+	// changed, whose files see them without importing their file.
+	signature := map[string]bool{}
+	var movedImpls [][]string
+	var nowHeaders map[string][][]string
 	for path := range changed {
 		name := st.names[path]
 		was, wasHash, wasNodes, ok1 := parsedInterface(name, path, st.texts[path])
-		now, nowHash, _, ok2 := parsedInterface(name, path, texts[path])
-		if !ok1 || !ok2 || wasHash != nowHash {
+		now, nowHash, nowNodes, ok2 := parsedInterface(name, path, texts[path])
+		if !ok1 || !ok2 {
 			return nil, false
+		}
+		// An unannotated `once` whose value changed may have another type.
+		if wasHash != nowHash || analysis.InferredOncesChanged(was, now) {
+			// A changed impl is seen by files that need not import this one.
+			if analysis.ImplsFingerprint(wasNodes) != analysis.ImplsFingerprint(nowNodes) {
+				if nowHeaders == nil {
+					nowHeaders = implHeadersOf(prog)
+				}
+				was, known := st.headers[path]
+				if !known {
+					return nil, false
+				}
+				if !sameHeaderLists(was, nowHeaders[path]) {
+					movedImpls = append(append(movedImpls, was...), nowHeaders[path]...)
+				}
+			}
+			signature[path] = true
 		}
 		moved[path] = !bytes.Equal(was, now)
 		oldDecls[path] = irbuild.DeclFingerprints(wasNodes)
 	}
-	paths := make([]string, 0, len(changed))
-	for path := range changed {
-		paths = append(paths, path)
+	paths, ok := importersToo(prog, changed, signature, seersOf(prog, movedImpls))
+	if !ok {
+		return nil, false
 	}
-	sort.Strings(paths)
+	relowering := map[string]bool{}
+	for _, path := range paths {
+		relowering[path] = true
+	}
 	if st.kept == nil {
 		kept, err := st.res.Keep()
 		if err != nil || len(kept.Declines) > 0 || len(kept.Refusals) > 0 {
@@ -230,9 +290,10 @@ func relowerAnalyzed(cfg config, abs, src string, a *analyzedlowering.Analyzed, 
 			}
 		}
 		var err error
-		if res, err = irbuild.LowerFile(one, kept, moved[path]); err != nil {
+		if res, err = irbuild.LowerFileAmong(one, kept, moved[path], relowering); err != nil {
 			return nil, false
 		}
+		relowering[path] = false
 		if kept, err = res.Rekeep(kept); err != nil {
 			return nil, false
 		}
@@ -242,6 +303,11 @@ func relowerAnalyzed(cfg config, abs, src string, a *analyzedlowering.Analyzed, 
 		return nil, false
 	}
 	st.kept, st.texts = kept, texts
+	if nowHeaders != nil {
+		for path := range changed {
+			st.headers[path] = nowHeaders[path]
+		}
+	}
 	analyzedRelowers.Add(1)
 	return p, true
 }

@@ -15,11 +15,8 @@ import (
 // when the program reaches it, so a pruned image holds the files of the
 // embeds it uses alone.
 func (bl *irScalarBuilder) embeddedFiles(t *ast.EmbeddedFiles) (ir.Temp, kind, bool, bool) {
-	if len(t.Files) == 0 {
-		// The front end reports an `embed` that matched nothing.
-		bl.g.dc.note("an `embed` with no files")
-		return ir.NoTemp, kindInvalid, false, false
-	}
+	// An `embed` whose patterns' bases do not exist yet holds no file
+	// (analysis.EmbedInfo.Missing); its list is empty.
 	pos := bl.g.irNodePos(t)
 	elem := bl.g.tupleKind([]kind{kindString, kindInt, kindInt})
 	values := make([]ir.Temp, len(t.Files))

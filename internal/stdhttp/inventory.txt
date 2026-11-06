@@ -52,11 +52,11 @@ CookieJar | mapped | phase 3 | `CookieJar`, an opaque handle from `CookieJar.new
 CookieJar.Cookies | covered | phase 3 | `CookieJar.cookies(jar, url) -> List<Cookie>`
 CookieJar.SetCookies | covered | phase 3 | `CookieJar.set_cookies(jar, url, cookies)`
 CrossOriginProtection | covered | phase 4 | `CrossOrigin` options struct, made into middleware by `http.cross_origin_protection`
-CrossOriginProtection.AddTrustedOrigin | covered | phase 4 | `CrossOrigin.trusted_origins: List<String>`
+CrossOriginProtection.AddTrustedOrigin | covered | phase 4 | `CrossOrigin.trusted_origins: List<Origin>`, each checked when it is made
 CrossOriginProtection.AddInsecureBypassPattern | covered | phase 4 | `CrossOrigin.bypass_patterns: List<Route>`
-CrossOriginProtection.SetDenyHandler | covered | phase 4 | `CrossOrigin.deny: Maybe<(Request) -> Response>`
+CrossOriginProtection.SetDenyHandler | covered | phase 4 | `CrossOrigin.deny: Maybe<Handler>`
 CrossOriginProtection.Check | covered | phase 4 | `CrossOrigin.check(options, request) -> Result<Unit, Error>`
-CrossOriginProtection.Handler | covered | phase 4 | `http.cross_origin_protection(options)`, which answers a function that wraps a handler
+CrossOriginProtection.Handler | covered | phase 4 | `http.cross_origin_protection(handler, options)`, which wraps a handler
 DefaultClient | covered | phase 2 | `http.default_client()`, the ambient client, one pool for the process as Go's is, `http.fetch` uses; `http_testing.run` replaces it
 DefaultServeMux | skipped | A global, mutable router. Nomi has no mutable globals; build a `Router` value.
 DefaultTransport | covered | phase 2 | `Transport.default`, the default transport options
@@ -134,9 +134,9 @@ LocalAddrContextKey | covered | phase 6 | `Request.local_address: String`
 MaxBytesError | covered | phase 3 | `Error.BodyTooLarge{limit}`
 MaxBytesError.Limit | covered | phase 3 | `Error.BodyTooLarge`'s `limit: Int`
 MaxBytesError.Error | covered | phase 3 | `Display for Error`
-MaxBytesHandler | covered | phase 3 | `http.limit_body(max: Int) -> Middleware`
+MaxBytesHandler | covered | phase 3 | `http.limit_body(handler, max)`, which wraps a handler
 MaxBytesReader | covered | phase 3 | `Request.limit_body(request, max) -> Request`
-NewCrossOriginProtection | covered | phase 4 | `http.cross_origin_protection(#CrossOrigin{...})`
+NewCrossOriginProtection | covered | phase 4 | `http.cross_origin_protection(handler, CrossOrigin{...})`
 NewFileTransport | skipped | Serves `file://` URLs through the client. std/fs reads files directly.
 NewFileTransportFS | skipped | Same as `NewFileTransport`.
 NewRequest | mapped | phase 2 | A `#Request{...}` literal; `Url"..."` checks the URL
@@ -291,8 +291,8 @@ Server.ListenAndServeTLS | covered | phase 5 | `http.listen` with `Server.tls`, 
 ServerContextKey | skipped | Lets a handler reach its `*Server`; a handler has nothing to do with it in Nomi.
 SetCookie | covered | phase 3 | `Response.set_cookie(response, cookie) -> Response`
 StatusText | covered | phase 2 | `Status.text(status) -> String`
-StripPrefix | covered | phase 3 | `http.strip_prefix(prefix) -> Middleware`
-TimeoutHandler | covered | phase 4 | `http.timeout(after, message)`, which answers a function that wraps a handler
+StripPrefix | covered | phase 3 | `http.strip_prefix(handler, prefix)`, which wraps a handler
+TimeoutHandler | covered | phase 4 | `http.timeout(handler, after, message)`, which wraps a handler
 Transport | covered | phase 2 | `Transport` options struct, inside `ClientOptions`
 Transport.Proxy | covered | phase 2 | `Transport.proxy: Proxy` (`.FromEnvironment`, `.None`, `.Fixed(Url)`, `.Choose(fn)`)
 Transport.OnProxyConnectResponse | covered | phase 6 | `Transport.on_proxy_connect: Maybe<(Url, Response) -> Result<Unit, Error>>`

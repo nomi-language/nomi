@@ -35,6 +35,8 @@ var internalStdModules = map[string]string{
 	"http_host":      "http",
 	"toml_host":      "toml",
 	"url_host":       "url",
+	"path_host":      "path",
+	"mail_host":      "mail",
 }
 
 // InternalStdModule reports whether the std module name (`money_format`) is

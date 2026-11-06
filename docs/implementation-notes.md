@@ -35,9 +35,17 @@ reads that file from disk. A new edit stops the document's run in progress.
 A whole lowering from the analysis is held for the document (the last four
 documents lowered; `vmhost/checklowering_perfile.go`). The next run of the
 document, when its program holds the same files and at most four of them
-changed text with their interfaces' hashes as they were, lowers just those
-files from the analysis and links them with the held lowering's objects
-(`irbuild.LowerFile`), as `nomi check` relinks a kept program. The held
+changed text, lowers just those files from the analysis and links them with
+the held lowering's objects (`irbuild.LowerFileAmong`), as `nomi check`
+relinks a kept program. A changed file whose interface hash or unannotated
+`once` values changed is lowered with every file that imports it, directly
+or through others (`importersToo`, up to 16 files or a quarter of the
+program), each after the files it imports. One whose impl headers name
+other files than before is lowered with every file that sees one of its
+old or new impls, whether or not it imports it: each project file the
+header names is the file or one it imports (`seersOf`, over each file's
+headers as `analysis.ImplHeaderFiles` reads them, held with the lowering).
+The held
 result is encoded as objects (`Result.Keep`) by the first such run, so a
 whole lowering costs what it did. Whether a changed file's interface
 changed, and whether its declarations moved, is read from its old and new
@@ -175,11 +183,9 @@ program:
   every impl and checks no body (`ProgramInterfaces.Supply`). A program
   with an application type keeps one more rule: its application-field
   roots follow calls into other files' bodies by a walk no file's facts
-  reproduce, so each checked file's body summary must be the kept one (the
-  boot-only check's reading of each function, each declaration's
-  references in order, the impl each dispatched call resolved to and the
-  impls its checks demand, with positions relative to the file's own
-  declarations);
+  reproduce, so the walk those roots take of each checked file's bodies
+  must be the kept one and find nothing in them (`AppWalkSummary`, as the
+  language server's edits from a record compare it, below);
 - each is lowered on its own and linked with the kept objects of the
   others (`irbuild.LowerFileAmong`), a file after the files among them it
   imports, an added file into a new unit (`KeptLowering.AddUnit`) and a
@@ -234,7 +240,14 @@ reductions over the facts of every project file of a program, with the
 program's missing-impl supply (`ProgramSupply`: the impl index's impls of
 each type with the project files' own laid over them, and the identity
 index) and the stdlib's base (`StdContextOf`), and answers what the passes
-over the analyses answer:
+over the analyses answer. A program built over the base keeps only what its
+files change of the base's supply (`OverBase`: the impls and identity
+entries they add, the pairs they make judgeable and those they make
+unjudgeable), which the reduction lays over the base it reduces with. The
+base holds the std modules built so far, which grow as a process reaches
+modules, so a whole supply would depend on which modules the process that
+wrote a record had built
+(`TestStoredFactsSupplyIgnoresModulesBuiltLater`):
 
 - boot-only: each file's functions with their calls outside lambdas and
   every project function they call, and the report's visits in order (each
@@ -418,8 +431,28 @@ time with `path.Match`, so it sees each match's directory entry (a
 symbolic link stays one), skips hidden names and other modules'
 directories in a walk, and records an error per pattern.
 
+A pattern that matches nothing because its base (`EmbedInfo.Bases`'s
+rule, `patternBase`) does not exist, from the root or from the declaring
+file's directory, records no error: its index goes in
+`EmbedInfo.Missing`. The expansion passes the missing bases to std/embed's
+constructor as a second argument, a list of string literals, which makes
+each an empty directory of the tree, so `Files.sub` of it is an empty
+tree. Nothing in the front end reports it: `analysis.EmbedWarnings`
+answers a file's warnings (`EmbedInfo.Warnings`, code `embed-missing`),
+which vmhost hands to `WithWarnings` once a load has checked the program
+(`Program.Warnings`; `nomi run`, `check`, `test`, the FFI wrapper's modes
+and the REPL pass one; `nomi check --format json` writes them as records
+of severity `warning`), and the language server publishes them as
+warnings beside `dbg` and `todo` (`embedWarningDiagnostics`). A build
+refuses them as errors where it refuses a `todo`
+(`Program.missingEmbeds` in `image`, `EmbedInfo.MissingErrors`), which
+covers every target and the FFI wrapper's builds. A program with a
+warning is not kept (`Program.keep`), so a hit never hides one; its
+pattern's base is a tree of its record like any other, so the base
+appearing is a miss.
+
 The declaration expands into the `once` it names, as a `noun` does:
-`once site: embed$.Files = embed$.from_entries(<EmbeddedFiles>)`, with a
+`once site: embed$.Files = embed$.from_entries(<EmbeddedFiles>, [<missing bases>])`, with a
 hidden import of std/embed, whose private constructor the expansion
 reaches. `ast.EmbeddedFiles` holds each file's path, its `Source` (the
 path on disk, or the data file's key) and its size and SHA-256, which the
@@ -456,6 +489,16 @@ live as long as the program holds them. The source is the host's
 - vmrunner's `imageEmbedded` for a built program: the image's files
   region, found by sum (`ir.Image.Files`), [below](#nomi-build).
 
+`Files.sum` crosses into std/embed_host's `sum` (`rt.EmbeddedSum`), which
+answers the ref's sum from the table and reads nothing; the image already
+holds it, so the format did not change for it. std/http's
+`serve_embedded` sends it as the file's strong `ETag` through
+`Response.content`'s `headers`, which `http_host.answer_content` sets on
+the recorder before Go's `ServeContent` runs, so Go answers
+`If-None-Match` and `If-Range` against it. A precompressed sibling
+(`file.br`, `file.gz`) is a file of the tree like any other, with its own
+sum, so its `ETag` differs from the original's with no extra record.
+
 The kept program stamps each embedded file as a single file beside the
 pattern bases' trees (`vmhost/cache.go`), since a tree's walk skips hidden
 names and `node_modules`, which `all:` embeds: an edit to an embedded
@@ -470,7 +513,9 @@ function when its reference resolves to a `Files` function over std/embed's
 `web.site`), or a `Files.sub` of one with a literal directory under `!` or
 `?`. A file's interface keeps an expanded `once`'s value, so a check
 against interfaces reads the same paths
-(`TestEmbeddedPathsCheckTheSameAgainstInterfaces`).
+(`TestEmbeddedPathsCheckTheSameAgainstInterfaces`), and the missing bases
+with them (the constructor's second argument): a literal at or under one
+is not checked (`embedTree.unchecked`).
 
 The language server's sites set `SkipEmbedContents`: it finds the files
 and their sizes without reading them, and records no input, so an edit to
@@ -678,13 +723,24 @@ the first entry candidate that reaches the file is the program's entry,
 every closed file and the entry still hold on disk the texts the program
 read, each open document's analyzed text is the one it read, and no file
 has a syntax error or reads an expansion input. Its diagnostics are those
-the file would carry open (`documentErrors`). Otherwise the file is built
+the file would carry open (`documentErrors`). An open entry whose text is
+not the one on disk (an unsaved edit), which a build of the file reads,
+leaves the file to the program when the edit cannot reach it
+(`entryEditReaches`): the two texts import the same files, bring the same
+impls and declare no `export fn` or keyword declaration, the program has
+no application type and no error of its own, the file does not import
+the entry, directly or through others, and its analysis holds nothing of
+the entry (`holdsFrom`, as a dependents recheck keeps a file). References
+to a function 137 files call after an unsaved body edit of the entry took
+104 s at 50k lines, each closed file built on its own, and take 0.12 s. Otherwise the file is built
 on its own, as before, which builds the declarations of the whole program
 it belongs to: at 50k lines references to a function 137 files call took
 149 s, and take 0.18 s from the program. `TestClosedFilesFromProgramsMatchTheirOwnBuilds`
 holds each closed file of every multi-file corpus project, as a request
-reads it, to a build of the file alone, after each of a sequence of edits
-to the open entry; what a derive synthesizes is left out, since a build of
+reads it, to a build of the file alone with the same documents open,
+after each of a sequence of edits to the open entry, saved and then
+unsaved, and requires some closed file answered from the program past an
+unsaved edit (`ClosedPastUnsavedEntry`); what a derive synthesizes is left out, since a build of
 the file alone checks less of it and no request reads it.
 
 **Opening from a record.** Opening a document checks the program it
@@ -694,50 +750,240 @@ build, and its files are as they were, the manager opens it from a record
 in the artifact cache instead (`internal/analysis/stored_program.go`,
 progcache kind `lsp-program`, keyed by the entry's path, its root's tree
 walked as kept programs' are): each project file's interface
-(`StoredInterface`), the SHA-256 of its text, the program's application
-types, and the documents whose lowering found nothing. Each open document
+(`StoredInterface`), the SHA-256 of its text, its facts for the program's
+reductions over bodies (`FileFacts`, encoded), the walk the
+application-field roots take of its bodies for a program with an
+application type (`AppWalkSummary`), what references and rename read of its
+analysis (`StoredRefs`, encoded), the program's application types and
+missing-impl supply, the documents whose lowering found nothing, and the
+entry's lowering kept per file (`irbuild.KeptLowering`, encoded) as the
+server lowered it from those texts. Each open document
 is checked against the interfaces of the files it reads
 (`ProgramInterfaces.Check` over `NewStoredInterfaces`), and a closed file a
 request needs (references, rename, the closed files' diagnostics) is
 checked the same way when it is asked for, and cached as closed files'
-analyses are. A record is written only for a program with nothing to
-report (no syntax error and no diagnostic in any file, no file of another
-module, no Go bindings, no expansion input, no `embed`), so every
-document's diagnostics are none; a document whose check reports anything
-is checked in its program whole. The record is written when the server's
-lowering of an open document, with its program kept and every text on
-disk, finds nothing (`NoteLoweredClean`): after an open or a save. The
-lowering of a document opened from a record takes its answer from the
-record when the record lists the document (`StoredLoweredClean`), and
-otherwise lowers the document from its text, since a document opened from
-a record offers no `EntryProgram`.
+analyses are. A record is written for a program that reads no file of
+another module and has no Go bindings. It keeps what each file reports
+(`storedFile.Report`: its syntax errors and repaired declarations, its
+document's diagnostics as `documentErrors` assembles them, and what the
+reductions over facts report in it, `storedReportsOf`), which the open
+documents and closed files read; a program that reports what only the
+program checked whole words (its impls' errors, a missing impl, a noun's
+or message's disagreement, a catalog nothing reads, any diagnostic beside
+an application type, or a reduction's diagnostic its file's document does
+not hold) keeps none. At 50k lines a project with a typo in a leaf opens
+from its record in 0.27 s, where it was checked whole in 1.08 s. A
+document whose check against interfaces reports
+something its record's file does not is checked in its program whole.
+Go-binding projects keep no program at all: the server builds each of
+their documents on its own (`buildOpen`), so there is no program to write
+a record of.
+
+An `embed`'s files are read at its expansion for their names and sizes
+alone (`SkipEmbedContents`), and the server tracks none of them while a
+program is open, from its record or not. A record of a program that
+embeds files is written with each pattern's base walked for every file and
+each embedded file stamped on its own, as a kept program's are, and the
+snapshot that store compares against takes those trees before it reads
+the embeds again (`EmbedInfo.sameOnDisk`), so a file that changed after
+the program's check is one the store sees moved; a record is not opened
+once a file under a base came, went or changed
+(`TestOpenFromRecordReadsEmbeddedFiles`). The inputs the files' expansions read
+(message catalogs) are named in the record with their texts' SHA-256, so a
+record is not opened once one changed on disk, and a program opened from
+its record is forgotten once one holds another text, an open catalog's
+edit included (`TestOpenFromRecordReadsCatalogs`). The record is written
+when the server's lowering of an open document, with its program kept and
+every text on disk, finds nothing (`NoteLoweredClean`): after an open or a
+save. The lowering of a document opened from a record takes its answer
+from the record when the record lists the document (`StoredLoweredClean`);
+otherwise the entry is lowered from a kept lowering (below) and any other
+document from its text, since a document opened from a record offers no
+`EntryProgram`.
 
 A file checked against interfaces reads the other files' declarations
 without their attached tests and with a typed `once`'s value `todo`. A
 program built so carries the other files' texts, and hover reads a
-declaration's examples and value from its source
+declaration's examples and value, and a `message`'s or `noun`'s texts by
+locale, from its source, expanded as its check expands it
 (`FileAnalysis.DeclarationSource`). It also sees only the impls the file
 can see, so implementation, and references to an interface method, check
-the document in its program whole first (`CheckWhole`). The record answers
-while every file holds the text it was written for: the first analysis of
-another text (an edit, a file changed on disk) checks the program whole,
-and from then on the program is kept and rechecked as before. So the
-first edit after an open from a record costs the whole check the open
-saved.
+the document in its program whole first (`CheckWhole`).
 
-At 50k generated lines (221 files; Apple M2 Max, `TestScaleOpen` with
-`NOMI_SCALE_LSP=1`):
+**Edits in a program opened from its record** (`stored_edit.go`). The
+program opened from its record has a state: each file's text, interface,
+facts and body summary, and the missing-impl supply, the record's at
+first. An analysis that sees a file hold another text takes the edit in
+that state as `nomi check` relinks a kept program from its file records:
+each changed file's interface is extracted again (a file whose interface
+hash and unannotated `once` values are unchanged keeps its impl headers);
+the program's files must be the ones it had; the changed files, the files
+that import one whose interface changed and the files that see a changed
+impl are checked against the others' interfaces, each with no keyword
+declaration; and the reductions over bodies run over their new facts and
+the stored ones, with the supply worked out again when impls changed
+(`ReduceFacts`), skipped when the new facts differ from the stored ones in
+positions alone and the state's reductions found nothing. A program with an
+application type also requires the walk its application-field roots take
+of each checked file's bodies to be its old one and to find nothing
+(`AppWalkSummary`), since those roots follow calls into other files' bodies
+by a walk no file's facts hold. The summary walks the file's bodies as
+each root's and function's walk would, with the walker in a local mode:
+each step that would leave the file (a call, a factory's body read for
+what it hands back, an interface method's default body, a dispatch to
+every impl of a method) is named instead of taken, and the file's roots,
+the boots they run under, and the impls the file brings are named too.
+The file's own nodes are named by declaration name or by their order
+among its functions, never by position, so an edit that only moves code
+keeps it, where the body summary it replaced changed with every moved
+line; two texts with one summary take every root through the same reads
+in the same order, so a program whose check found nothing finds nothing
+again. An edit that leaves the edited document's interface as it was
+rebuilds the bodies of its installed check in place (`stored_inplace.go`),
+as a kept program's recheck rebuilds bodies: the declarations take the new
+bodies and positions, every position the check's declarations hold moves
+with the edit over the files the check read, the bodies are walked again,
+and the check's own diagnostics are worked out again. A rebuild rewrites an
+installed analysis, so it takes the view lock, and the build holds it until
+its answer is installed. An open document keeps its installed analysis
+while no file its check read changed how its interface is written; one an
+edit checks again must import a changed file, so that the edit's
+propagation analyzes it again.
+
+An open document an edit checks again because a file it reads changed
+how its interface is written is checked from its installed check
+(`ProgramInterfaces.CheckAfter`), as a kept program's dependents recheck
+keeps the files that do not import an edited one: the check takes the
+installed check's analyses of the files the edit cannot reach and builds
+the others from their interfaces again. A file the edit can reach is an
+edited one, one that imports a file built again, one whose analysis holds
+something of a file built again (`holdsFrom`), one the check now reads
+otherwise (whole where it read its impls alone, or other impls of it), and
+one that can see an impl the edit added, removed or changed. The build
+hands the kept analyses its own program, as a kept program's recheck
+does, so it takes the view lock first and the edit's build holds it until
+its answer is installed; the installed check is dropped. What the earlier
+program knew of the kept files' `once` bindings carries over, as in
+`checkProgramFrom`. The entry checks every other file through its closure,
+so after a leaf's signature edit it builds the leaf and the entry again,
+not 220 files. An edit that changes an impl takes the missing-impl supply
+from the entry's check when the entry's closure is every other file of
+the program, as it is when the program is the entry's closure: that check
+registers what the entry built against every interface registers
+(`ProgramInterfaces.Supply`), which cost a second build of every file's
+declarations. Reusing a file's analysis found that `primitiveOriginIndex`
+took a `once` typed as a primitive (`pub once scale = 100`) for a
+primitive the file declares: a fresh build asks before onces are inferred,
+and a build that reuses a file's analysis after, so the reusing build gave
+up the stdlib's base and the reductions over facts with it. It now passes
+over values.
+
+An edit that leaves something to report (a typo, a syntax error, a type
+error in an importer) stays in the state. Each checked file's document
+diagnostics are assembled as `documentErrors` assembles them from the
+program checked whole (`storedDocumentErrors`): its build's and check's
+errors, its concurrency, task-lifetime and duplicate test name checks over
+its own nodes (the entry's own checks and front-end errors for the entry),
+and what the reductions over facts report in it (`Reductions.of`: its
+boot-only calls, application-field roots and unused whole-file imports) in
+the places `documentErrors` puts them, then dropped inside a declaration
+the parse repaired; its syntax errors and repaired declarations are its
+text's. Whether each whole-file import is used is settled on the file's
+analysis from the reductions, as `CheckImplImports` settles it. The state
+keeps what each file reports (`storedProgram.reports`), and the open
+documents and closed files read it. Three kinds of diagnostic are left to
+the program checked whole, since no file's check words them as the program
+does: the program's own errors about impls (collisions, the orphan rule,
+which a check of one file sees only part of and the entry reports too),
+missing impls (the entry reports every one, each file those its demands
+find), and a reduction's diagnostic in a file the edit does not check
+again, whose document would keep its old diagnostics. A program with an
+application type, or an edit that changed an impl, also checks whole when
+a checked file reports anything. While anything is reported the record is
+not written again and the entry is lowered from its text. At 50k lines a
+typo in a leaf's body takes 0.04 s from the record against 1.07 s when it
+checked the program whole, and one in the entry's body 0.05 s against
+1.56 s.
+
+Anything else (a reduction that finds something the above leaves whole,
+an edit that reaches more than 16 files and a quarter of the program, a
+file that came or went) forgets the program opened from its record and
+checks the program whole, as an open with no record does, and from then
+on the program is kept and rechecked as before. The state lives in
+memory: the record is written again only when the server's lowering finds
+nothing and every file holds the state's text on disk.
+
+**Lowering the entry** (`stored_lowering.go`, vmhost's
+`checklowering_stored.go`). A document opened from a record offers no
+`EntryProgram`, and a lowering of the entry's text checks and lowers the
+whole program, about 2.1 s at 50k lines (a leaf's costs 25 ms, since it
+reaches its closure alone). So the entry is lowered from a kept lowering:
+the one this process made last for the entry's state, or else the
+record's, with each file whose text changed since then lowered on its own
+from its check (`irbuild.LowerFileAmong`, `vmhost.relowerOne`, shared with
+the relink from file records), and the files that import a file whose
+signature (interface hash and unannotated `once` values) changed lowered
+again too, each after the files it imports, and, when a file's impl
+headers name other files than before, every file that sees one of its old
+or new impls (`StoredLoweringFile.Headers`), as the relink from file
+records lowers them. A program that reaches what a machine cannot run or
+a declined body, or more than 16 files and a quarter of the program,
+lowers the text instead. At 50k lines the entry's lowering after an
+impl added to a leaf takes 0.30 s from the record, where it lowered the
+text in 1.86 s; from the analysis of a program checked whole the first
+such run takes 0.81 s, as a whole lowering does, since it first encodes
+the held whole lowering as objects. Its problems are then what `CheckLowering`
+reports. The record's kept lowering is the server's whole lowering from
+the program's analyses when it wrote the record (`analyzedlowering.Kept`).
+
+**References from a record** (`stored_refs.go`). References and rename
+read every closed file whose text names the symbol. A closed file of a
+program opened from its record is answered from its stored references
+(each reference, punned field label and definition with the symbol there,
+by name, source file, kind and position) while it holds the record's text
+and no file a stored symbol is declared in has changed how its interface
+is written; a file an edit checked again drops them. Otherwise it is
+checked against interfaces as before.
+
+Decided: the server's record and `nomi`'s file records stay two formats
+under two keys. Each is keyed by its own binary's build ID, and a
+development build of either changes it on every rebuild; and the file
+record holds one lowering of the entry `nomi check` was given, where the
+server lowers every open document as its own entry and keeps references
+the CLI never reads. A release could key both by its VCS revision and
+share the interfaces and facts.
+
+At 50k generated lines (221 files; Apple M2 Max, `TestScaleOpen` and
+`TestScaleEdits` with `NOMI_SCALE_LSP=1`; each edit the first after the
+open, with the entry open, and the edited file when it is another):
 
 | operation | checked whole | from the record |
 |---|---|---|
-| open the entry, first diagnostics | 1.13 s, 221 files built | 0.30 s, 1 file |
-| heap held, the entry open | 303 MB | 166 MB |
-| hover or definition into a closed file | 2 ms | 1 ms |
+| open the entry, first diagnostics | 1.08 s, 221 files built | 0.28 s, 1 file |
+| heap held, the entry open | 353 MB | 182 MB |
+| hover or definition into a closed file | 3 ms | 1 ms |
 | open a second file (core/util) | 8 ms | 4 ms, 1 file |
-| references to a function 137 files call | 0.22 s, from the program | 1.85 s, 137 files checked against interfaces |
+| references to a function 137 files call | 0.14 s | 0.12 s, none checked |
+| rename of it | 0.14 s | 0.11 s |
 | a closed leaf's diagnostics | 1 ms | 10 ms, 1 file |
-| the first edit of the entry's body | 13 ms | 1.05 s, 221 files |
-| writing the record | 0.25 s | |
+| the entry's body edit | 14 ms | 34 ms, in place |
+| its lowering | 0.50 s | 0.28 s, 1 file from the kept lowering |
+| a leaf's body edit | 19 ms | 8 ms, in place |
+| a leaf's signature edit | 0.09 s, 2 files | 0.10 s, the leaf, and the entry from its installed check |
+| an impl added to a leaf | 0.10 s, 2 files | 0.12 s, the two, and the supply from the entry's check |
+| the hub's body edit | 9 ms | 3 ms |
+| the hub's signature edit | 1.01 s, 210 files | 1.03 s, the program whole |
+| a typo in a leaf's body | 0.03 s | 0.04 s, 1 diagnostic |
+| a typo in the entry's body | 0.02 s | 0.05 s, 1 diagnostic |
+| writing the record | 0.43 s | |
+
+Before the record kept facts, the kept lowering and references, the first
+edit of the entry's body took 1.05 s from the record, its lowering 2.08 s,
+and references to that function 1.81 s, each file checked against
+interfaces. Before the entry was checked again from its installed check, a
+leaf's signature edit took 0.35 s and an impl added to it 0.60 s: the
+entry's check against interfaces reads every other file's interface, about
+0.27 s, and the supply built the entry against every interface once more.
 
 The entry imports every unit no other unit imports, so its check reads
 every other file's interface and holds their declarations: opening a leaf
@@ -824,11 +1070,19 @@ The bundle has two sections. The shared one is the shared modules' IR, one
 ir image, and per module what lowering decided for each declaration: the
 outcome fields of each `stdFunc` and `stdOnce` (whether a body lowered, its
 refusal, its arity and default wrappers, its IR body) and the module's
-unlowered table. A process builds each module's view as `buildStdlibIndex`
-does, which reads std's declarations (built from interfaces, no body
-checked) and takes about 2.5 ms, and restores the module's outcome in place
-of lowering it (`restoreStdModule`), in the same order, so the index it
-files is the one a lowering would file. The listed
+unlowered table, recorded once every module is filed, so each outcome is
+the one the whole stdlib gives it (filing another module's declaration of
+one spelling may refuse it, `addOverload`). A process decodes the image and
+the records once, and restores a module when the shared stdlib has built it
+(`stdlibIndex.withModules`, which `stdlibLowering` runs when `std.Shared`
+has grown): it builds the module's view as `buildStdlibIndex` does, from
+std's declarations (built from interfaces, no body checked), restores the
+module's outcome in place of lowering it (`restoreStdModule`), and files
+every restored module again in the bundle's order, the lowering's, in a new
+index, so a gen holding the old one reads it unchanged. Filing a part of
+the stdlib marks no declaration the whole would not, and the index is the
+one a lowering of those modules would file. Every module's IR is the
+image's, which a program links whole. The listed
 section is the kept lowering, its modules one image whose symbols name the
 shared modules' by linkage name, decoded against the process's shared
 lowering with an `ir.Linker` when a program first reaches a listed module.
@@ -857,9 +1111,13 @@ process), the cache is under the system temp directory.
 A bundle is checked before it is used: its own version and
 `ir.FormatVersion`, a digest of the embedded std sources (`std.Digest`), a
 digest of the host function registry the lowering reads, and the fixtures
-flag must be the process's, each section's CRC must hold, and every module,
-declaration and `once` it names must be the one the process's view holds at
-that place. A cached bundle that fails is ignored and written again, a
+flag must be the process's, each section's CRC must hold, it must name each
+module the stdlib lowers once, and every declaration and `once` it names
+must be the one the process's view holds at that place, which a module's
+restore checks. A module that does not restore later in a process is
+lowered (in a test it panics: the digest says the bundle is this stdlib's).
+`decodeStdBundle`, which the tests use, restores every module and checks
+the bundle's order too. A cached bundle that fails is ignored and written again, a
 listed section that fails costs only itself, and an embedded bundle that
 fails is reported on stderr, since the build that embedded it is broken.
 Positions name std files `std/<file>` in the bundle and the process's
@@ -1162,6 +1420,23 @@ element: an embedded type entering its enum under a type argument (a
 `List<Circle>` as a `List<Shape>`), and a collection of collections
 entering a collection of `Iter`s.
 
+Where nothing says which way values flow (two typed collections joined with
+`+` or `-`, two typed spreads, the branches of an `if` or `case` with no
+expected type, the elements of an unannotated list), their types must be
+one, and the error carries a help and a fix naming the annotation that makes
+them one (`analysis/annotation_help.go`). The type is found by walking the
+two types together: where they differ, a type alias the file can name whose
+type both parts convert to (the one the enclosing signature names wins a
+tie; an unbroken tie suggests nothing), else the walk goes into a List, Map,
+tuple or function result, else the part the other converts to; failing
+that, one side's whole type. The candidate is spelled with the names the
+file writes (`http.Handler` under `import std::http`, `spellType`),
+resolved as an annotation is, and kept only when the value checks against it
+as a binding's value would (`annotationTrialPasses`, a trial check whose
+errors and recorded types are put back). For `+` and spreads the values
+that change must read a binding with no annotation, and that binding is
+the one annotated.
+
 ## VM
 
 The VM compiles each `ir.Func` to a flat `[]uint32` bytecode with three typed
@@ -1338,7 +1613,8 @@ of the exact result as a signed int64, so a hash stays a 64-bit number.
 - JSON: an integer of any length decodes to an exact `Int` and encodes as its
   digits. nomi.js and nomi-wasi.js hand JavaScript an Int past
   `Number.MAX_SAFE_INTEGER` as a BigInt and take a BigInt argument as the Int
-  it holds; nomi.d.ts types an Int as `number | bigint`.
+  it holds; nomi.d.ts types an Int as `number | bigint`, and `nomi types`,
+  for JSON a frontend reads with `JSON.parse`, as `number`.
 - A Range's count protocol inside rt counts in int64; a range of more
   elements than that declines there, while `known_count` answers the exact
   count.
@@ -1346,17 +1622,19 @@ of the exact result as a signed int64, so a hash stays a 64-bit number.
 ## Stdlib
 
 `std/` is one Nomi module embedded into the binaries. Each process builds it
-once from its modules' interfaces and checks a module's bodies only when
-something reads them (below). Its lowering, the shared modules and one
-lowering of all the modules in `programStdModules`, which each program
-declares and links by name, is decoded from a std bundle the binary embeds
-or caches, and lowered only by a process that has neither (see
+from its modules' interfaces, a module at a time as its programs reach them,
+and checks a module's bodies only when something reads them (below). Its
+lowering, the shared modules and one lowering of all the modules in
+`programStdModules`, which each program declares and links by name, is
+decoded from a std bundle the binary embeds or caches, a module at a time
+too, and lowered only by a process that has neither (see
 [IR builder](#ir-builder) and [The std bundle](#the-std-bundle)).
 
 The analysis also works out the stdlib's share of a program's impl index and
-coherence facts once. A build folds only its own files and lays them over
-that base, which no build writes. The `TestStdBase_*` tests in
-`internal/analysis` and `vmhost` hold it to a build that folds every file.
+coherence facts once per stdlib a process has built. A build folds only its
+own files and lays them over that base, which no build writes. The
+`TestStdBase_*` tests in `internal/analysis` and `vmhost` hold it to a build
+that folds every file.
 
 Stdlib files import each other with bare paths (`import iter.Iter`); code
 outside writes `std/iter`.
@@ -1419,13 +1697,80 @@ the facts, builds from the interfaces as a later process does and writes
 the artifact. An artifact that does not decode or build is made again.
 `NOMI_DEBUG_STD_BUNDLE=1` reports why one was not used.
 
-Building the stdlib this way takes about 53 ms, against 345 ms to analyze
-it from source, and a built `nomi` runs hello world in 0.08 s against 0.38
-s, and the tour's worker starts in 0.55-0.70 s under Node against 2.2 s. The
-first run of a new binary pays about 0.8 s. What remains is the
-sweeps over every module's declarations: interfaces decoded straight into
-symbols and types, and only a program's std closure read, would cut it
-further.
+Building every module this way takes about 53 ms, against 345 ms to analyze
+it from source. The first run of a new binary pays about 0.8 s.
+
+### The stdlib a module at a time
+
+`std.Shared` builds only the modules something has reached
+(`std/shared.go`, `stdCore`): at first the prelude, std/assertions and
+std/io with every module they import (`stdBaseModules`, 47 of 101
+modules), then each module a build reaches with every module it imports,
+in one build per program that reaches any. What a module imports is the
+artifact's index, written when the interfaces are extracted
+(`analysis.StdModuleImports`): its imports at any depth, its bodies' and
+attached tests' included, since checking its bodies resolves them all.
+std/assertions is in the base because every test, `?` in a test and
+`assert` carries its `AssertionFailure`, which a file declaring tests does
+not import, and the first build that holds it installs it for the process
+(`analysis.TypeAssertionFailure`). std/io adds one module, and nearly every
+program imports it; a build of more modules costs about 3 ms over those
+already built, for the program-wide indexes it folds over them.
+
+A build against the shared stdlib extends it before it builds anything
+(`analysis.StdSource`, installed by `std.Shared`): discovery asks for each
+stdlib module a walked file imports, at the top level or in a block, and
+for std/json when a file declares an `export fn`, whose arguments and
+result cross as JSON; a build with no loader asks for the entry's imports.
+The build then runs over the largest stdlib built so far, so its base is
+the one the next build forms. A module is built against those already
+built (`analysis.BuildStdDeclarationsOver`), its imports of them resolving
+to their analyses as a program's do, with their scopes as the program's
+`StdlibModuleScopes`. Its facts are installed then (`InstallModules`), and
+the `StdBase` of the larger stdlib is formed when a build first asks for it
+(`StdSource.Base`), so a run forms one.
+
+Each extension is a new `StdLib`, a snapshot sharing the smaller one's
+analyses: a caller holding one keeps a consistent view while another
+goroutine extends the stdlib, and asks `Latest` for the larger one after a
+build (the front end does after its build, before telling a shared std
+module from its own files). `Ensure` builds named modules; `All` (and
+`AllBodies`) builds every module, which the language server, `nomi mcp`
+and std/compiler use, since they read the whole stdlib.
+`NOMI_STD_WHOLE=1` builds every module in one build at the first call, as
+before; the tests below compare a run on the lazy stdlib with a run on it.
+
+Two rules make a part of the stdlib answer as the whole does. A program can
+reach no declaration of a module it does not import, directly or through
+what it imports, and an impl lives in its interface's or its type's module,
+one either imports, or a base module, so a program's impl index holds every
+impl it could select (`TestShared_ImplsAreBuiltWithWhatTheyImplement`);
+std is one Nomi module, so the orphan rule alone would allow an impl
+anywhere. And a module built later is the module built at once
+(`TestShared_LazyModulesAreEagerModules`), except that an annotation's
+reference to another module's declaration holds a copy of that
+declaration's symbol, typed when the module it names was built earlier,
+which the eager build's order leaves untyped.
+
+On an Apple M2 Max a built `nomi` runs hello world with no program record
+in about 44 ms, against 119 ms when every module was built: the std setup
+(the artifact read, the base modules' build, their facts and the base)
+takes about 18 ms of it against 73 ms, the bundle's decode and the base
+modules' restore 5 ms, and the program record 5 ms, now that a machine
+decodes its CLDR data only when a frame first reads it
+(`cldrdata.NewLazyStore`). The HTTP chapter's first block, which reaches
+the listed modules and so builds 96 of the 101 modules in three builds,
+runs in 232 ms against 245 ms,
+and a check of a generated 50k-line project in 2.26 s against 2.38 s.
+Under Node the tour's worker starts (`go.run`) in 194 ms against 480 ms and
+warms (`nomiWarm`) in 92 ms against 128 ms; its first HTTP block takes
+1.14 s against 0.89 s, since it builds the modules the warm-up no longer
+did, and 1.46 s against 1.58 s from the worker's start.
+
+What remains of the 18 ms is mostly the base build's fresh memory (about
+11 MB, whose page faults the Go runtime takes in `madvise`) and the sweeps
+over the 47 modules' declarations; decoding interfaces straight into
+symbols and types would cut both.
 
 ## std and lib
 
@@ -1491,7 +1836,10 @@ cache lacks modernc.org/sqlite or pgx. Its postgres runs skip without
 `initdb` and `postgres` on PATH and on Windows. CI's lib job vets and tests
 their Go side. By hand: `go test -C lib/sql/sqlite ./...` and
 `go test -C lib/sql/postgres ./...`, and `go vet` the same way in each lib
-module. The tour links a lib module's
+module. A release carries the Go side of the lib modules with `go`
+bindings prebuilt ([Prebuilt lib runners](#prebuilt-lib-runners)), so
+`TestLibModules` also checks that `librunners/` is what
+`go run ./internal/ffirun/libgen` generates and vets it. The tour links a lib module's
 browser build through a workspace (see [Tour internals](#tour-internals)).
 
 ## Host functions
@@ -1582,6 +1930,14 @@ operating system's, one implementation for the whole disk and for an
 `*os.Root` with every path written with `/` on every system, and an
 in-memory one, which resolves symlinks a name at a time.
 
+std/path cleans, joins and takes a path's last name and directory with
+Go's `path` package, through the internal module `std/path_host`
+(rt/path.go, pure, so a typed literal's handler may reach it). The rest
+is Nomi over those: `extension` and `stem`, which differ from Go's `Ext`
+(no leading dot, none for `.bashrc`), `is_absolute`, which also takes a
+drive, `relative`, which Go's `path` lacks, and `matches`, whose `**` and
+hidden-name rule Go's `Match` does not have.
+
 Each `rt.Frame` carries the backend it reaches: the machine's, else the
 build's (the disk natively, one in-memory file system on js/wasm). `nomi
 test`, in process and in a Go-FFI wrapper, gives a test file the disk with
@@ -1603,7 +1959,7 @@ A server is Go's `http.Server` (internal/stdhttp/server.go). Go calls its handle
 
 `Router` builds Go's `ServeMux` over its patterns (`http_host.new_mux`), each with a handler that only records which pattern matched and its wildcards' values; `http_host.route` runs the mux on a recorder and answers the match, or what the mux wrote itself (a redirect, a 405, a 404). So pattern syntax, precedence, conflicts and path cleaning are Go's own. `Response.redirect` and `Response.content` run Go's `Redirect` and `ServeContent` on a recorder the same way; `http.serve_file` reads through std/fs and hands the bytes to `ServeContent`. Cookies cross as lists of their fields, and a `CookieJar` is Go's cookiejar as a handle (rt.HTTPJar).
 
-A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The form readers read a body through `read_capped`, in Nomi, which copies at most one byte past the limit into `Writer.collect` and leaves the rest of the stream unread; the limit is the request's `body_limit` (set by `Request.limit_body`, which also wraps the stream in Go's `MaxBytesReader` semantics, and applied to every request by `Server.max_body` in `answer`), else 10 MB for a URL-encoded form and 32 MB for a multipart one. A read that the `MaxBytesReader` cuts off exactly at `body_limit` is reported as `Error.BodyTooLarge`. The timeout, cross-origin and query-semicolon middleware are Nomi functions that wrap a handler.
+A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The form readers read a body through `read_capped`, in Nomi, which copies at most one byte past the limit into `Writer.collect` and leaves the rest of the stream unread; the limit is the request's `body_limit` (set by `Request.limit_body`, which also wraps the stream in Go's `MaxBytesReader` semantics, and applied to every request by `Server.max_body` in `answer`), else 10 MB for a URL-encoded form and 32 MB for a multipart one. A read that the `MaxBytesReader` cuts off exactly at `body_limit` is reported as `Error.BodyTooLarge`. Every middleware (`timeout`, `cross_origin_protection`, `cors`, `log_requests`, `security_headers`, `request_id` and the rest) is a Nomi function that takes the handler first and answers a handler, with no host function of its own. `cross_origin_protection` builds one `Router` per bypass pattern, since overlapping patterns are fine there and one router refuses them, and asks `CrossOrigin.check`, which runs Go's `CrossOriginProtection.Check` (`http_host.cross_origin_check`) over the trusted origins and the Nomi request's method, `Host` and headers. It does not hand Go the request the server received (`Request.incoming`): a middleware before it may have changed the headers, and the check must read what the handler holds. The other questions Go answers about a request's parts cross the same way, as plain strings: `Headers.write_to` (`Header.WriteSubset`), `Protocol.parse` (`ParseHTTPVersion`), `Request.basic_auth` and `Request.add_cookie`.
 
 `std/tls` and `std/net` are lowered with each program too, and their crossings sit in `std/http_host` beside HTTP's, implemented in internal/stdhttp (tls.go, netconn.go), so the HTTP, TLS and TCP Go sides share one adapter package. A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's `*tls.Config` from its parts (`http_host.tls_config`, then `tls_with_certificate` per certificate) and holds it as a `TlsConfig` handle for that use. A `Certificate` is a handle over Go's `tls.Certificate`, its key never read back. A `Connection` is a handle (rt.NetConn) over a `net.Conn`, TCP or `*tls.Conn`, with one rt `Reader` and one unbuffered `Writer` made when it opens; a `context.AfterFunc` on the context of the task that dialed sets a past deadline when it ends, so a cancelled task's reads and writes stop. A listener (rt.NetListener) accepts on a goroutine into a channel, as the HTTP server hands requests over, so `Listener.accept` can stop for the waiting task's cancellation or an accept deadline; it registers a drain hook that closes it. `net.Error` sorts Go's errors with `errors.Is` against the system's error numbers (not matched on Windows). `http.serve_here` answers requests as tasks of the enclosing `concurrent` block, which `http_testing.with_server` uses with a certificate `http_host.test_certificate` makes; `http.reverse_proxy` is Nomi over the client's send. `dial_with`, `tls_dial` and `lookup` carry the `connect` class, which js/wasm and wasip1 lack: a browser offers a program only `fetch`, so there each answers the no-sockets error (`noSocketsMessage`).
 
@@ -1714,9 +2070,11 @@ backend runs; `Inline` passes it without the rollback rule, and
 
 ## Mail
 
-`std/mail` and `std/mail_testing` are written in Nomi alone and lowered
-with each program. There is no host function and no Go SMTP code: the
-SMTP client speaks the protocol over std/net's `Connection`, upgrades with
+`std/mail` and `std/mail_testing` are written in Nomi and lowered with
+each program. Two encodings are Go's, through the internal module
+`std/mail_host` (rt/mail.go, pure): quoted-printable bodies are written by
+`mime/quotedprintable`, and the `Date` header is `time`'s `RFC1123Z` in
+UTC. There is no Go SMTP code: the SMTP client speaks the protocol over std/net's `Connection`, upgrades with
 `tls.client` for STARTTLS or dials with `tls.dial` for TLS from the first
 byte, and reads replies with `Reader.read_line`. So sending mail inherits
 std/net's `connect` class (`nomi build` checks the target with no row of
@@ -1733,9 +2091,9 @@ subject, display name or header value that is not printable ASCII or holds
 `=?`, quoted-printable bodies, base64 attachments, CRLF line ends, header
 lines folded before spaces at 78 characters. Boundaries are fixed strings
 starting `=_`, which neither quoted-printable nor base64 can write, so the
-output is deterministic for a given Message-ID and date. The date is
-computed from Unix time with Hinnant's civil-from-days, so std/mail does
-not import std::calendar.
+output is deterministic for a given Message-ID and date. Encoded words
+stay in Nomi because they are cut between graphemes, where Go's
+`mime.BEncoding` cuts between runes.
 
 `mail_testing.with_smtp_server` serves one connection at a time on a task
 of its `concurrent` block, with `http_host.test_certificate` for STARTTLS.
@@ -1743,8 +2101,8 @@ of its `concurrent` block, with `http_host.test_certificate` for STARTTLS.
 in std's `//!` cases. `vmhost/mail_smtp_test.go` runs a Nomi program
 against a fake server written in Go (STARTTLS with AUTH PLAIN and LOGIN,
 TLS from the first byte, no TLS) and reads what arrives with Go's
-net/mail, mime and mime/multipart, so the encoder is checked by parsers
-that share nothing with it.
+net/mail, mime and mime/multipart, so the headers, encoded words and
+multipart structure are checked by parsers that share nothing with them.
 
 ## Object storage
 
@@ -2024,6 +2382,72 @@ real one is refused under `go test`. Only the CLI may download the
 toolchain. After bumping the Go version, `go generate ./internal/gotoolchain`
 pins the new archives; `scripts/release.sh` refuses a Go it does not pin.
 
+### Prebuilt lib runners
+
+A release runs, tests and builds a project whose Go bindings are all the
+first-party `lib/` modules' with no Go (`internal/ffirun/libprebuilt.go`).
+`go run ./internal/ffirun/libgen` generates the wrapper and the runner a
+project of every lib/ module with Go bindings would build
+(`ffirun.GenerateLibMains`, over `libModules`: image, markdown,
+sql/postgres, sql/sqlite, sql/sqlkit) into `librunners/nomi-lib` and
+`librunners/nomi-vm-lib`. `librunners/` is a nested module that requires
+the compiler and those modules by directory, and its generated sources are
+committed. They name each declaring file by its module's path and its path
+in it (`github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi`), never
+the generating machine's, and the wrapper's entry-scoped keys match a
+target in the module cache by that suffix once each `@version` is dropped
+(the template's `Relocated` blocks). `TestLibModules` fails while they are
+stale, so changing a lib/ module's `go` bindings, or the wrapper template,
+means rerunning libgen.
+
+`scripts/release.sh` builds both from `librunners/`, nomi-lib with the std
+bundle, for the five native platforms (nomi-vm-lib alone for `js/wasm`)
+into a lib archive per platform, `nomi_<version>_<goos>_<goarch>_lib.tar.gz`,
+and stamps `nomi` with `ffirun.LibVersion`, the pseudo-version of the
+release's commit. Prepare serves a program from nomi-lib in place of a
+generated wrapper when every binding's declaring file is in a module of
+`libModules` whose module cache directory is at `LibVersion`
+(`libBindingsMiss`), and skips validation, which ran when the sources were
+generated. nomi-lib is looked up beside `nomi`, then in the release
+download cache, then downloaded from the release's lib archive
+(`findLibWrapper`, gated by `ffirun.AllowLibDownload`, which only the CLI
+calls); `ProjectRunner` answers nomi-vm-lib the same way for a native or
+`js/wasm` target (`Variant.Lib`). Each must carry `nomi`'s VCS stamp, as
+nomi-vm must. Anything else takes the generated-wrapper path, and a
+missing toolchain or compiler source there names the first binding that
+could not be served (`needsGoError`): a binding of the project's own, a
+lib/ module at another version (with `nomi update`), one replaced with a
+directory, or a target or variant no lib runner ships for.
+
+Decisions, with the numbers they rest on (darwin/arm64, stripped):
+
+- A separate archive. nomi-vm-lib is 21.8 MB (8.0 MB gzipped) against
+  nomi-vm's 13.4 MB (5.1 MB), and nomi-lib with the std bundle 43.9 MB
+  (15.8 MB), so shipping them in the main archive would double every
+  download for the users who need neither. A pure-Nomi program still gets
+  the plain nomi-vm.
+- No nomi_nonet lib runner. pgx links net and crypto/tls whatever the tag,
+  so it saves 2.4 MB natively (19.5 MB); it would save 9 MB on `js/wasm`
+  (28.7 to 19.6 MB), which a later change could ship.
+- No wasip1 lib runner and no reactor: modernc.org/sqlite does not build
+  for wasip1, so such a build falls back to a project runner built with Go.
+  No `std/compiler` variant either, as for the plain runner.
+- A source build keeps generating its own wrapper: `LibVersion` is empty
+  for every build release.sh does not make, so nothing changes for a
+  checkout or a `go install`ed `nomi`.
+- A release `nomi` keeps lib/ modules at `LibVersion`: `nomi add` of a lib/
+  module with no version takes it, and `nomi update` moves every lib/
+  module to it (`modfetch.Options.LibVersion`); `@latest` still takes the
+  latest commit.
+
+`TestLibRelease_*` (cmd/nomi) builds `nomi` with both stamps, nomi-lib and
+nomi-vm-lib once per test process, serves the lib/ modules from a file
+proxy at two versions, and runs, tests, checks and builds a project of
+sqlite, sqlkit, migrate, markdown and image with no `go` on PATH and an
+empty toolchain cache, downloads the lib archive from a local release, and
+checks the refusals of a project binding its own package and of one at the
+other version.
+
 ## Modules
 
 A project's dependencies are the modules its `go.mod` requires.
@@ -2033,6 +2457,23 @@ downloads missing modules through the module proxy protocol and the checksum
 database with `golang.org/x/mod`, with no `go` command, and writes or edits
 `go.mod` and `go.sum` for `nomi add`, `nomi fetch`, `nomi remove` and `nomi
 update`. `nomi new` and `nomi init` write a project's first `go.mod`.
+
+As in Go, only the project's `go.mod` is the main module's: a dependency's
+`go.mod` contributes its requires and never its replaces, which name
+directories of the dependency's own checkout (sqlkit's `../migrate`). A
+tool of a dependency (`nomi tool sqlkit generate`) is a program rooted in
+the dependency's directory, so `nomi tool` sets `NOMI_MAIN_MODULE` to the
+project's root, and while it is set a graph rooted at a module the
+project needs is the project's (`modcache.MainModule`, which `Walk`,
+`Load`'s fetch and `ffirun.Prepare` all ask). The tool then reads its
+sibling modules at the versions the project lists, which `nomi add` and
+`nomi update` keep on one commit for the lib/ modules. It is an
+environment variable so the FFI wrapper the tool runs in reads the same
+graph; such a wrapper builds in the project's Go module and is cached
+apart from the project's own (`prepareModule`).
+`TestLibRelease_ToolOfAModuleFromTheCache` runs sqlkit's generator from
+the module cache on the prebuilt lib wrapper and in a wrapper built with
+Go.
 
 A Nomi user never edits `go.mod` or runs `go`, so an error or hint about a
 missing requirement names the `nomi` command that fixes it, never a
@@ -2214,7 +2655,38 @@ build` uses the one beside `nomi` only after checking that it comes from the
 same commit. `--target` downloads, checksum-verifies and caches another
 platform's runner from the same release. A wasm runner's commit is read
 from its data section, since `debug/buildinfo` cannot read a WebAssembly
-module.
+module. A project of lib/ modules at the release's commit is appended to
+nomi-vm-lib from the target's lib archive, found and checked the same way
+([Prebuilt lib runners](#prebuilt-lib-runners)).
+
+### TypeScript declarations
+
+`internal/webtypes` maps Nomi types to the TypeScript of the JSON their
+`ToJson` writes, for both nomi.d.ts (`nomi build --web`) and `nomi types`.
+Both use one `Writer`, which differs only in `Ints`: nomi.d.ts writes an
+Int as `number | bigint`, which nomi.js hands JavaScript, and `nomi types`
+as `number`, which `JSON.parse` yields.
+
+The writer reads the checked program, not the source: `AddProgram` indexes
+each module's type declarations with the analysis type its scope holds,
+and a field's type is the checker's, so a type named through an import,
+a directory path or an alias resolves as the checker resolved it. A
+declaration is keyed by (file, name), since an origin names a file only
+within one program and every entry's origin is `<entry>`; each program
+keeps its own origin-to-file map. `nomi types` checks each program root of
+the named files as `nomi check` does (`programRoots`) and adds every
+program to one writer.
+
+Writing has two passes. The first visits the roots (the named files' public
+types, or the exported functions' signatures) and records each declaration
+they reach, in the order reached. `Seal` then names them: a Nomi name taken
+by two declarations, or a reserved one (`Record`, and nomi.d.ts's own
+types), is qualified by the fewest trailing path elements of each file that
+tell them apart. The second pass writes the references and the
+declarations under those names. A derived impl's JSON keys come from
+`analysis.DerivedJSONKeys`, the rule the derive synthesis writes them by.
+A std type maps by name through a table of what std's impls write; a type
+whose `ToJson` is hand-written is declared `unknown`.
 
 ## REPL
 
@@ -2411,7 +2883,9 @@ Some layouts do not depend on width or on how the source was written:
 - A parameter pattern whose head names its type loses a redundant
   annotation: `fn raw(Duration(x): Duration)` becomes `fn raw(Duration(x))`.
   A head with nothing after it keeps its annotation, since `fn f(Label)`
-  would be a parameter with no name.
+  is another parameter: one written as its type alone, which the parser
+  gives `ast.Param.TypeOnly` (name `_`, the head as its annotation) and the
+  formatter writes back as the type alone.
 - A `#!` line is kept as written, without trailing whitespace. A blank line
   after it stays one blank line, and no blank line stays none.
 
@@ -2750,6 +3224,28 @@ cached or fresh artifact, which is where a fact a program's check reads
 from a body that no body check had yet put in place (once types, before
 `BuildStdDeclarations` inferred them) showed.
 
+### A stdlib built a module at a time answers as the whole one
+
+`TestShared_LazyModulesAreEagerModules` (`std`) builds the stdlib from the
+artifact's base and adds every module alone, in three shuffled orders, and
+holds each module to the one built with every module at once: its
+declarations (`DumpDeclarationsForTest`) before any body is checked, its
+whole analysis once `Bodies` has checked them, and the stdlib's
+diagnostics. `TestShared_ImplsAreBuiltWithWhatTheyImplement` holds the impl
+placement the laziness relies on ([the stdlib a module at a
+time](#the-stdlib-a-module-at-a-time)).
+`TestStdLazyRunsAsWholeSample` and `TestStdLazyRunsAsWholeRotating`
+(`cmd/nomi`) run `nomi check` and `nomi run`, or `nomi test` for a file
+that declares tests, on corpus and stdlib files in fresh processes, on the
+lazy stdlib and under `NOMI_STD_WHOLE=1`, and require the same output and
+exit: the sample holds files that reach the stdlib in ways an import does
+not say (an `export fn`, a boot, a message catalog, embedded files, a std
+module's own cases), the rotating set 12 files of `tests/` and `std/` a
+day. `internal/expectation`'s suites run in one process on the lazy
+stdlib, which grows as the corpus runs, and match their records.
+`internal/irbuild`'s tests ask about the whole stdlib (its spec tables, its
+lowering's index), so its `TestMain` builds every module first (`std.All`).
+
 ### Every expression has a type after checking
 
 `analysis.UnresolvedExprs` lists each value expression of a checked file
@@ -2859,15 +3355,60 @@ document highlight, references, prepare-rename and rename, completion,
 signature help, call hierarchy and implementation, and each document's
 published diagnostics, symbols, semantic tokens, inlay hints, code lenses
 and links. `TestOpenFromRecordMatchesAFullCheckDumps` (`internal/analysis`)
-compares the installed analyses dump for dump, and
+compares the installed analyses dump for dump, over each corpus project
+also with a typo and then a syntax error in its entry's first body; most
+of those, and the project that embeds files, must be recorded. And
 `go test ./internal/analysis -run '^$' -fuzz '^FuzzOpenFromRecordMatchesFull$' -fuzztime 5m -parallel 4`
 replaces one file's text with the input after the record is written, on
 disk before the files are opened (the record must not answer) or in the
-open document after (the program is checked whole), and compares again.
+open document after, and compares again.
 `TestServerOpensAProgramFromItsRecord` drives two servers over the protocol:
 the first writes the record after its lowering, and the second opens from
 it, building one file, takes its lowering's answer from the record, and
-checks the program whole at its first edit.
+takes its first edit in the program opened from the record.
+
+`TestOpenFromRecordEditsMatchAFullCheck` (`internal/analysis`, about 28
+seconds) writes the record of the texts
+before each step of the incremental harness's edit sequences (orderProject,
+layeredProject, rateProject, `genericEdits` over orderProject's files and a
+body edit of every file of every multi-file corpus project), opens every
+file from it and in a program checked whole, makes the step in the open
+document and compares every document dump for dump. Each corpus file's
+steps include a typo and a syntax error in its first body, which leave
+something to report. The project with an application type
+(`app_field_permission`) also moves a read by lines, which must be taken,
+adds a read the entry's main reaches, adds a factory whose lambda reads
+the application type, and adds a test with no boot that reads it. A step must be taken in the program opened from the
+record unless it changes an impl, the program has an application type, or
+the manager names a diagnostic only the program checked whole words (the
+program's impl errors, a missing impl, a reduction's diagnostic in a file
+the step does not check again); a body-only step must rebuild the
+installed analysis in place; some step that leaves something to report
+must be taken; some open document must be checked from its installed
+check (`ChecksAfterEdits`); and some edit must take the missing-impl
+supply from the entry's check, each such supply equal to the one worked
+out from every file's interface (`CheckSuppliesForTest`). The fuzz target's open-document edits go through
+the same path.
+`TestOpenFromRecordEditsMatchAFullCheck` (`internal/lsp`, about 210
+seconds) makes each of projectgen's edit kinds and its undoing in a server
+that opened a generated project from its record, with its entry, hub and a
+leaf open, and in one that checked it whole, and compares every request at
+every identifier but those that check the document whole (implementation,
+and references to an interface method), references and rename over the
+closed files among them; most edits must be taken from the record, and
+projectgen's typos (`TypoLeaf`, `TypoEntry`) and their undoing each must.
+`TestOpenFromRecordMatchesAFullCheck` requires a closed file's references
+to have been answered from a record. `TestStoredLoweringMatchesTheText`
+and `...Generated` (`internal/lsp`) lower the entry after edits from the
+record's kept lowering and require the diagnostics a lowering of the text
+reports, and a lowering file by file after each body edit.
+`TestRelinkChecksTheImportersOfAOnceWhoseTypeChanged` (`cmd/nomi`) found
+that the relink from file records, the server's lowering file by file and
+the record's edits read an unannotated `once` whose value changed as an
+edit that changes no interface, since the interface hash leaves `once`
+values out: a fresh check reported the importer's type error and the
+relinked `nomi check` printed `ok`. They now check and lower the importers
+again (`analysis.InferredOncesChanged`).
 `TestClosedFilesFromProgramsMatchTheirOwnBuilds` holds a closed file read
 from a kept program to a build of the file alone.
 
@@ -3050,6 +3591,16 @@ another size):
 
 ```
 NOMI_SCALE_LSP=1 go test ./internal/lsp -run TestScaleOpen -count=1 -v -timeout 0
+```
+
+The first edit of each of projectgen's kinds, checked whole and opened
+from its record: the edit's analysis, its propagation to the open
+importers, the edited document's lowering and references to a hub
+function, with the files each built (`NOMI_SCALE_EDITS` picks kinds by
+name):
+
+```
+NOMI_SCALE_LSP=1 go test ./internal/lsp -run TestScaleEdits -count=1 -v -timeout 0
 ```
 
 ### CI

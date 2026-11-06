@@ -3391,12 +3391,16 @@ func emitLambdaHeader(lam *ast.Lambda) Doc {
 // self-typing one is already gone (stripSelfTypingAnnotations).
 func emitLambdaParam(p ast.Param) Doc {
 	var parts []Doc
-	if p.Destructure != nil {
+	switch {
+	case p.TypeOnly:
+		// `fn Request -> ...`: the type alone.
+		parts = []Doc{emitTypeExpr(p.TypeAnnotation)}
+	case p.Destructure != nil:
 		parts = []Doc{emitPattern(p.Destructure)}
-	} else {
+	default:
 		parts = []Doc{Text(p.Name)}
 	}
-	if p.TypeAnnotation != nil {
+	if p.TypeAnnotation != nil && !p.TypeOnly {
 		parts = append(parts, Text(": "), emitTypeExpr(p.TypeAnnotation))
 	}
 	if p.Default != nil {
@@ -4236,15 +4240,19 @@ func emitFuncDefHeader(v *ast.FuncDef) Doc {
 // with the lambda emitter.
 func emitFuncDefParam(p ast.Param) Doc {
 	var head Doc
-	if p.Destructure != nil {
+	switch {
+	case p.TypeOnly:
+		// `fn stats(Request)`: the type alone.
+		head = emitTypeExpr(p.TypeAnnotation)
+	case p.Destructure != nil:
 		head = emitPattern(p.Destructure)
-	} else {
+	default:
 		head = Text(p.Name)
 	}
 	parts := []Doc{head}
 	// A redundant self-typing annotation is already gone
 	// (stripSelfTypingAnnotations).
-	if p.TypeAnnotation != nil {
+	if p.TypeAnnotation != nil && !p.TypeOnly {
 		parts = append(parts, Text(": "), emitTypeExpr(p.TypeAnnotation))
 	}
 	if p.Default != nil {

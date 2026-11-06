@@ -15,8 +15,13 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// Diagnostic is one error the front end found in a file.
+// Diagnostic is one error the front end found in a file, or, with
+// Warning, one it reports and goes on past.
 type Diagnostic struct {
+	// Warning marks a diagnostic the program compiles and runs with (an
+	// `embed` pattern whose base does not exist yet), which is shown as a
+	// warning rather than an error.
+	Warning bool
 	// Path is the file's absolute path, or an in-memory file's name
 	// ("main.nomi").
 	Path string
@@ -64,7 +69,11 @@ type Related struct {
 func (d Diagnostic) String() string {
 	var b strings.Builder
 	at := location(d.Path, d.Line, d.Col)
-	b.WriteString(at + ": " + d.Message)
+	if d.Warning {
+		b.WriteString(at + ": warning: " + d.Message)
+	} else {
+		b.WriteString(at + ": " + d.Message)
+	}
 	for _, h := range d.Hints {
 		b.WriteString("\n" + at + ": help: " + OneLineHint(h))
 	}
@@ -167,6 +176,23 @@ func NewDiagnostic(path, src string, line, col int, message string) Diagnostic {
 		src = fileSource(path)
 	}
 	return typeDiagnostics(path, src, []analysis.TypeError{{Line: line, Col: col, Message: message}})[0]
+}
+
+// WarningDiagnostics are warns, found in the file at path, as warnings,
+// with their spans and source lines completed from src, or from the file
+// when src is "".
+func WarningDiagnostics(path, src string, warns []analysis.TypeError) Diagnostics {
+	if len(warns) == 0 {
+		return nil
+	}
+	if src == "" {
+		src = fileSource(path)
+	}
+	ds := typeDiagnostics(path, src, warns)
+	for i := range ds {
+		ds[i].Warning = true
+	}
+	return ds
 }
 
 // parseDiagnostics are a parse's errors in the file at path, whose text src

@@ -46,3 +46,30 @@ func TestSignatureHelp_DestructuringParamLabel(t *testing.T) {
 		t.Errorf("second parameter label = %v, want Days(n)", got)
 	}
 }
+
+// TestSignatureHelp_TypeOnlyParamLabel: a parameter written as its type
+// alone, `fn stats(Request)`, is labelled and shown by its type, not as
+// `_: Request`, and a call's placeholder for it is the type.
+func TestSignatureHelp_TypeOnlyParamLabel(t *testing.T) {
+	s := NewServer()
+	uri := "file:///sig_type_only.nomi"
+	src := "struct Request {\n    path: String\n}\n\nfn stats(Request, n: Int) -> Int {\n    n\n}\n\nfn main() {\n    stats(" + cursorMark + ")\n}\n"
+	text, pos := splitCursor(t, src)
+	s.docs.Open(uri, text)
+	help, err := s.textDocumentSignatureHelp(nil, &protocol.SignatureHelpParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+			Position:     pos,
+		},
+	})
+	if err != nil || help == nil {
+		t.Fatalf("signature help = %v, %v", help, err)
+	}
+	sig := help.Signatures[0]
+	if sig.Label != "fn stats(Request, n: Int) -> Int" {
+		t.Errorf("signature label = %q, want fn stats(Request, n: Int) -> Int", sig.Label)
+	}
+	if got := sig.Parameters[0].Label; got != "Request" {
+		t.Errorf("first parameter label = %v, want Request", got)
+	}
+}

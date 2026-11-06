@@ -52,11 +52,15 @@ func CheckLowering(ctx context.Context, path, src string, opts ...Option) (probl
 
 func init() {
 	analyzedlowering.SetCheck(checkLoweringAnalyzed, offeredAnalyzed)
+	analyzedlowering.SetKept(keptLoweringOf)
 }
 
 // offeredAnalyzed is analyzedlowering.Offered: whether
 // checkLoweringAnalyzed would lower a.
 func offeredAnalyzed(path, src string, a *analyzedlowering.Analyzed) bool {
+	if a != nil && a.Stored != nil {
+		return true
+	}
 	if _, _, ok := frontend.StdlibFile(path); ok {
 		return true
 	}
@@ -80,6 +84,9 @@ func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlow
 	fc, err := cfg.frontendConfig()
 	if err != nil {
 		return nil, true, err
+	}
+	if a != nil && a.Stored != nil {
+		return checkLoweringStored(ctx, cfg, path, src, a.Stored)
 	}
 	fc.SourceBoundProvided = true
 	prog := analyzedProgram(path, src, a, fc)

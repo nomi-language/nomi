@@ -12,6 +12,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ffirun"
 
 	"github.com/nomi-language/nomi/rt"
+	"github.com/nomi-language/nomi/std"
 )
 
 // TestMain pins what every comparison in this package reads from the process
@@ -43,6 +44,14 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	irDeclineUnnamed = recordUnnamedDecline
+	// This package's tests ask about the whole stdlib (its spec tables,
+	// its lowering's index, every module's declarations), so they run on
+	// every module built. internal/expectation runs the corpus and the
+	// stdlib's cases on a stdlib built a module at a time, and so does the
+	// child measuring the stdlib's builds (TestStdLoadCount_Child).
+	if os.Getenv(stdLoadChildEnv) != "1" {
+		std.All()
+	}
 	code := m.Run()
 	if msg := unnamedDeclineViolation(); msg != "" {
 		fmt.Fprintln(os.Stderr, "irbuild: "+msg)

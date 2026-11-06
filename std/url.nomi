@@ -147,7 +147,7 @@ pub struct Userinfo {
 derive Equatable for Userinfo
 derive Hashable for Userinfo
 
-/// Why a URL or query could not be read: the text and Go's reason.
+/// Why a URL or query could not be read: the text and the reason.
 pub struct UrlError {
     url: String
     reason: String

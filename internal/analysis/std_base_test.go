@@ -146,9 +146,14 @@ func dumpSeed(t *testing.T, seed stdBaseSeed) (string, bool) {
 // corpus file, irbuild fixture, tour block and spec program, every file's
 // analysis, the program's impl index and every diagnostic dump alike both
 // ways. No build writes the base.
+//
+// It turns the base off for the whole process for each build without it
+// (SetStdBaseEnabled), so it runs before the parallel tests: a test that
+// builds a program twice and compares the two (a program's supply with
+// the one its interfaces answer, TestStoredReductionsMatchTheProgram)
+// would otherwise build one of them over the base and one without it.
 func TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile(t *testing.T) {
-	t.Parallel()
-	base := std.Shared().Base
+	base := std.Shared().StdBase()
 	if base == nil {
 		t.Fatal("the stdlib forms no base, so every build folds every stdlib file and this test compares nothing")
 	}
@@ -201,6 +206,9 @@ func TestStdBase_AProgramDeclaringAPrimitiveUnderAStdlibNameFoldsEveryFile(t *te
 		}
 		return seed
 	}
+	// std/calendar binds Weeks; a stdlib built a module at a time binds it
+	// once it has built calendar.
+	std.Shared().Ensure("calendar")
 	seed := program("Weeks")
 	with, used := dumpSeed(t, seed)
 	if used {

@@ -48,7 +48,6 @@ func TestEmbed_AcceptedPatterns(t *testing.T) {
 // admitted.
 func TestEmbed_EachPatternErrorRefuses(t *testing.T) {
 	cases := []struct{ decl, want string }{
-		{"embed site `nope`", "main.nomi:3:13: the `embed` pattern `nope` matches no file\n  help: a pattern names files from the module root, as an import path does"},
 		{"embed site `static/*.png`", "main.nomi:3:13: the `embed` pattern `static/*.png` matches no file"},
 		{"embed site `/static`", "main.nomi:3:13: the `embed` pattern `/static` starts with `/`\n  help: a pattern names files from the module root; remove the `/`"},
 		{"embed site `static/`", "main.nomi:3:13: the `embed` pattern `static/` ends with `/`\n  help: a directory's name embeds every file under it; remove the `/`"},
@@ -62,7 +61,7 @@ func TestEmbed_EachPatternErrorRefuses(t *testing.T) {
 		{"embed site `tools`", "main.nomi:3:13: cannot embed `tools`: it is another module, with its own nomi.toml"},
 		{"embed site `tools/gen.nomi`", "main.nomi:3:13: cannot embed files under `tools`: it is another module, with its own nomi.toml"},
 		{"embed site `all:`", "main.nomi:3:13: an `embed` pattern after `all:` is empty"},
-		{"embed site `static nope`", "main.nomi:3:20: the `embed` pattern `nope` matches no file"},
+		{"embed site `static static/*.txt`", "main.nomi:3:20: the `embed` pattern `static/*.txt` matches no file"},
 	}
 	for _, c := range cases {
 		ds := checkShop(t, embedFiles(c.decl))
@@ -72,6 +71,22 @@ func TestEmbed_EachPatternErrorRefuses(t *testing.T) {
 		}
 		if !strings.HasPrefix(ds[0], c.want) {
 			t.Errorf("%s:\n%s\nwant:\n%s", c.decl, strings.Join(ds, "\n"), c.want)
+		}
+	}
+}
+
+// A pattern whose base does not exist (a frontend's build folder before its
+// first build) is accepted: its tree holds the base as an empty directory,
+// and the pattern is a warning, not an error (vmhost's Program.Warnings).
+func TestEmbed_APatternWhoseBaseDoesNotExistIsAccepted(t *testing.T) {
+	for _, decl := range []string{
+		"embed site `nope`",
+		"embed site `web/dist`",
+		"embed site `web/dist/*.js`",
+		"embed site `static web/dist`",
+	} {
+		if ds := checkShop(t, embedFiles(decl)); len(ds) > 0 {
+			t.Errorf("%s is refused:\n%s", decl, strings.Join(ds, "\n"))
 		}
 	}
 }
@@ -135,7 +150,8 @@ func TestEmbed_PatternsAreFromTheModuleRoot(t *testing.T) {
 			t.Errorf("pages.nomi in %q is refused:\n%s", dir, strings.Join(ds, "\n"))
 		}
 	}
-	// A nested file's `static` names the root's static, never web/static.
+	// A nested file's `static` names the root's static, never web/static,
+	// and naming web/static so is an error, not a folder yet to be made.
 	files := project("web")
 	delete(files, "static/a.html")
 	files["web/static/b.html"] = "b\n"

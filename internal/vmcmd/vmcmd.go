@@ -33,7 +33,7 @@ import (
 // through vmhost.Program.Run, and an FFI project's wrapper is interrupted,
 // then killed if it has not exited a second later.
 func Run(ctx context.Context, absPath string, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool) int {
-	opts := []vmhost.Option{vmhost.WithErrorOutput(stderr), vmhost.WithInput(stdin)}
+	opts := []vmhost.Option{vmhost.WithErrorOutput(stderr), vmhost.WithInput(stdin), vmhost.WithWarnings(stderr)}
 	// A program kept in the artifact cache runs without its files being
 	// checked or lowered again. It was kept only when it had no Go
 	// bindings, so the wrapper is not asked about it.
@@ -216,7 +216,7 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 func (t *Tester) loadOptions() []vmhost.Option {
 	var opts []vmhost.Option
 	if t.Stderr != nil {
-		opts = append(opts, vmhost.WithErrorOutput(t.Stderr))
+		opts = append(opts, vmhost.WithErrorOutput(t.Stderr), vmhost.WithWarnings(t.Stderr))
 	}
 	if t.Stop != nil {
 		opts = append(opts, vmhost.WithStop(t.Stop))

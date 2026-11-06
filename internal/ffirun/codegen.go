@@ -166,14 +166,14 @@ var (
 // check's, nomi run's and nomi test's. The VM calls the project's bindings
 // through the adapters generated below (nomiHostTable).
 func checkProgramVM(entryPath string) {
-	if err := nomivmhost.Check(entryPath, nomivmhost.WithHosts(nomiHostTable(entryPath))); err != nil {
+	if err := nomivmhost.Check(entryPath, nomivmhost.WithHosts(nomiHostTable(entryPath)), nomivmhost.WithWarnings(stdos.Stderr)); err != nil {
 		nomivmhost.WriteFailure(stdos.Stderr, err)
 		stdos.Exit(1)
 	}
 }
 
 func runProgramVM(entryPath string, args []string) {
-	p, err := nomivmhost.Load(entryPath, nomivmhost.WithHosts(nomiHostTable(entryPath)), nomivmhost.WithInput(stdos.Stdin))
+	p, err := nomivmhost.Load(entryPath, nomivmhost.WithHosts(nomiHostTable(entryPath)), nomivmhost.WithInput(stdos.Stdin), nomivmhost.WithWarnings(stdos.Stderr))
 	if err != nil {
 		nomivmhost.WriteFailure(stdos.Stderr, err)
 		stdos.Exit(1)
@@ -297,7 +297,7 @@ func runTestFileVM(testPath string, args []string, format nomivmhost.TestFormat)
 	}
 	// A relative path a test's std/fs call takes is under its module root,
 	// as nomi test gives it in process (vmhost.TestDir).
-	p, err := nomivmhost.Load(testPath, nomivmhost.WithHosts(nomiHostTable(testPath)), nomivmhost.WithFileSystem(nomivmhost.DiskFilesAt(nomivmhost.TestDir(testPath))))
+	p, err := nomivmhost.Load(testPath, nomivmhost.WithHosts(nomiHostTable(testPath)), nomivmhost.WithFileSystem(nomivmhost.DiskFilesAt(nomivmhost.TestDir(testPath))), nomivmhost.WithWarnings(stdos.Stderr))
 	if err != nil {
 		rep.FailFile(testPath, err)
 	} else {
@@ -381,6 +381,17 @@ func nomiExternKey(target, module, entry string, declared ...string) string {
 		if target == d {
 			return entry
 		}
+{{- if .Relocated}}
+		// A prebuilt runner names a declaring file by its module's path and
+		// its path in the module, and the target is in the module cache,
+		// where the module's directory ends in @ and its version.
+		if !stdfilepath.IsAbs(d) && stdfilepath.IsAbs(target) {
+			if s := nomiWithoutVersions(stdfilepath.ToSlash(target)); len(s) > len(d) && s[len(s)-len(d)-1:] == "/"+d {
+				return entry
+			}
+			continue
+		}
+{{- end}}
 		if !stdfilepath.IsAbs(target) {
 			if s := stdfilepath.ToSlash(d); len(s) > len(target) && s[len(s)-len(target)-1:] == "/"+target {
 				return entry
@@ -394,6 +405,26 @@ func nomiExternKey(target, module, entry string, declared ...string) string {
 	}
 	return module
 }
+{{if .Relocated}}
+// nomiWithoutVersions is path with each element's @version removed, so a file
+// in the module cache reads as its module's path and its path in the module.
+func nomiWithoutVersions(path string) string {
+	out := make([]byte, 0, len(path))
+	skip := false
+	for i := 0; i < len(path); i++ {
+		switch c := path[i]; {
+		case c == '/':
+			skip = false
+			out = append(out, c)
+		case c == '@':
+			skip = true
+		case !skip:
+			out = append(out, c)
+		}
+	}
+	return string(out)
+}
+{{end}}
 {{end}}
 `
 
@@ -445,9 +476,25 @@ type mainKind struct {
 }
 
 func renderMain(projectPath string, packages []DiscoveredPackage, kind mainKind) ([]byte, error) {
+	return renderMainRelocated(projectPath, projectPath, packages, kind, nil)
+}
+
+// renderMainRelocated is renderMain with every declaring file's path passed
+// through relocate after the adapters are generated from the files, and the
+// project named shown in the header, so a main generated on one machine names
+// no path of it (libprebuilt.go). A nil relocate keeps the paths.
+func renderMainRelocated(projectPath, shown string, packages []DiscoveredPackage, kind mainKind, relocate func(string) string) ([]byte, error) {
 	adapters, err := generateAdapters(projectPath, packages)
 	if err != nil {
 		return nil, fmt.Errorf("generating the VM's host adapters: %w", err)
+	}
+	if relocate != nil {
+		packages = relocatePackages(packages, relocate)
+		rekeyed := make([]DiscoveredExport, len(adapters.Rekeyed))
+		for i, e := range adapters.Rekeyed {
+			rekeyed[i] = relocateExport(e, relocate)
+		}
+		adapters.Rekeyed = rekeyed
 	}
 	data := struct {
 		TemplateHash       string
@@ -458,12 +505,14 @@ func renderMain(projectPath string, packages []DiscoveredPackage, kind mainKind)
 		Runner             bool
 		Compiler           bool
 		Reactor            bool
+		Relocated          bool
 	}{
 		Runner:             kind.Runner || kind.Reactor,
 		Compiler:           kind.Compiler,
 		Reactor:            kind.Reactor,
+		Relocated:          relocate != nil,
 		TemplateHash:       templateHash,
-		ProjectPath:        projectPath,
+		ProjectPath:        shown,
 		Packages:           packages,
 		HasEntryScopedKeys: wrapperHasEntryScopedKeys(packages),
 		Adapters:           adapters,
@@ -477,6 +526,37 @@ func renderMain(projectPath string, packages []DiscoveredPackage, kind mainKind)
 		return nil, fmt.Errorf("formatting wrapper source: %w", err)
 	}
 	return out, nil
+}
+
+// relocatePackages is a copy of packages with every declaring file's path
+// passed through relocate.
+func relocatePackages(packages []DiscoveredPackage, relocate func(string) string) []DiscoveredPackage {
+	out := make([]DiscoveredPackage, len(packages))
+	for i, pkg := range packages {
+		pkg.OwnerFile = relocate(pkg.OwnerFile)
+		types := make([]DiscoveredType, len(pkg.Types))
+		for j, t := range pkg.Types {
+			t.SourceFile = relocate(t.SourceFile)
+			types[j] = t
+		}
+		exports := make([]DiscoveredExport, len(pkg.Exports))
+		for j, e := range pkg.Exports {
+			exports[j] = relocateExport(e, relocate)
+		}
+		pkg.Types, pkg.Exports = types, exports
+		out[i] = pkg
+	}
+	return out
+}
+
+func relocateExport(e DiscoveredExport, relocate func(string) string) DiscoveredExport {
+	e.SourceFile = relocate(e.SourceFile)
+	also := make([]string, len(e.AlsoDeclaredIn))
+	for i, f := range e.AlsoDeclaredIn {
+		also[i] = relocate(f)
+	}
+	e.AlsoDeclaredIn = also
+	return e
 }
 
 // wrapperHasEntryScopedKeys reports whether any discovered declaration's key

@@ -222,7 +222,16 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			// The files an `embed` declaration holds: shown as declared,
 			// with what its patterns matched.
 			sig, doc = "embed "+sym.Name+": Files", n.Doc
-			if info := analysis.EmbedOf(n); info != nil {
+			info := analysis.EmbedOf(n)
+			if info == nil && fa != nil {
+				// Read as its file's interface, which keeps the expanded value
+				// and not what the patterns matched: the source's, expanded as
+				// its check expands it.
+				if src, ok := fa.DeclarationSource(n, sym.SourceFile).(*ast.OnceBinding); ok {
+					info = analysis.EmbedOf(src)
+				}
+			}
+			if info != nil {
 				sig = "embed " + sym.Name + " `" + embedPatternsText(info.Decl) + "`: Files"
 				summary := EmbedSummary(info)
 				if doc != "" {
@@ -934,11 +943,11 @@ func RenderFuncSigResolvedSelf(name string, typeParams []ast.TypeParam, params [
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		b.WriteString(ParamDisplayName(p))
+		typeText := ""
 		if p.TypeAnnotation != nil {
-			b.WriteString(": ")
-			b.WriteString(renderTypeExprSelfAware(p.TypeAnnotation, typeAt(ft, i), receiver, receiverName))
+			typeText = renderTypeExprSelfAware(p.TypeAnnotation, typeAt(ft, i), receiver, receiverName)
 		}
+		b.WriteString(ParamSignature(p, typeText))
 		b.WriteString(renderDefault(p.Default))
 	}
 	b.WriteString(")")
@@ -1074,7 +1083,25 @@ func ParamDisplayName(p ast.Param) string {
 	if p.Destructure != nil {
 		return renderParamPattern(p.Destructure)
 	}
+	if p.TypeOnly && p.TypeAnnotation != nil {
+		// `fn stats(Request)` has no name; its type stands for it.
+		return p.TypeAnnotation.TypeString()
+	}
 	return p.Name
+}
+
+// ParamSignature renders one parameter of a signature as it is written,
+// given its type's text: `name: Type`, a pattern with its annotation, or
+// the type alone for a parameter written as its type (`fn stats(Request)`).
+// typeText is "" when no type is known.
+func ParamSignature(p ast.Param, typeText string) string {
+	if p.TypeOnly && typeText != "" {
+		return typeText
+	}
+	if typeText == "" {
+		return ParamDisplayName(p)
+	}
+	return ParamDisplayName(p) + ": " + typeText
 }
 
 // renderParamPattern stringifies an irrefutable destructuring pattern back to
@@ -1292,11 +1319,11 @@ func RenderInterfaceMethodSig(m *ast.InterfaceMethod) string {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		b.WriteString(ParamDisplayName(p))
+		typeText := ""
 		if p.TypeAnnotation != nil {
-			b.WriteString(": ")
-			b.WriteString(p.TypeAnnotation.TypeString())
+			typeText = p.TypeAnnotation.TypeString()
 		}
+		b.WriteString(ParamSignature(p, typeText))
 	}
 	b.WriteString(")")
 	if m.ReturnTypeExpr != nil {

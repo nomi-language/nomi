@@ -31,6 +31,11 @@ type Analyzed struct {
 	ReachesEntry bool
 	// Manifest is Root's nomi.toml as the build read it, "" for none.
 	Manifest string
+	// Stored, when set, is the entry of a program the language server opened
+	// from its record, which is lowered from the record's kept lowering and
+	// the checks of the files that changed since (analysis.StoredLowering);
+	// the other fields are unset. Memo keeps no lowering of it.
+	Stored *analysis.StoredLowering
 }
 
 // CheckFunc is the lowering Check runs.
@@ -42,6 +47,7 @@ type OfferedFunc func(path, src string, a *Analyzed) bool
 var (
 	check   CheckFunc
 	offered OfferedFunc
+	kept    analysis.KeptLoweringFunc
 )
 
 // SetCheck installs the lowering Check runs and the test Offered runs.
@@ -71,4 +77,18 @@ func Check(ctx context.Context, path, src string, a *Analyzed) (problems error, 
 // without lowering it.
 func Offered(path, src string, a *Analyzed) bool {
 	return offered(path, src, a)
+}
+
+// SetKept installs the function Kept runs. nomi/vmhost calls it from its
+// package initializer.
+func SetKept(f analysis.KeptLoweringFunc) { kept = f }
+
+// Kept answers the kept lowering of the last lowering of the document at
+// path that found nothing to report (analysis.KeptLoweringFunc), which the
+// language server writes into a program's record.
+func Kept(path string) (data []byte, tests bool, sums map[string][32]byte, ok bool) {
+	if kept == nil {
+		return nil, false, nil, false
+	}
+	return kept(path)
 }

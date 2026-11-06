@@ -13,6 +13,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/rotation"
+	"github.com/nomi-language/nomi/std"
 )
 
 // The harness the reductions over stored facts are held to (stored
@@ -189,6 +190,34 @@ func TestStoredReductionsMatchTheProgram(t *testing.T) {
 	if c.boot == 0 || c.appRoots == 0 || c.implImports == 0 || c.coherence == 0 {
 		t.Fatalf("some pass reported nothing, so the harness compared nothing of it: %+v", c)
 	}
+}
+
+// TestStoredFactsSupplyIgnoresModulesBuiltLater checks a program, then
+// builds every stdlib module, and holds the program's supply to the one its
+// interfaces answer over the larger stdlib. A stdlib built a module at a
+// time grows as other programs reach modules, and a record's supply is read
+// in processes that built other modules than the one that wrote it.
+// container_impls impls a std type, whose impls in modules it never reaches
+// (TcpListener's Debug in std/net) the larger stdlib holds.
+func TestStoredFactsSupplyIgnoresModulesBuiltLater(t *testing.T) {
+	projects, err := corpusProjects()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const name = "11-interfaces-and-impls/container_impls"
+	for _, p := range projects {
+		if p.name != name {
+			continue
+		}
+		dm := newManager()
+		full := dm.CheckProgram(p.root(), p.entry, p.texts)
+		std.Shared().Ensure(std.Shared().ModuleNames()...)
+		if d := dm.SupplyDiffForTest(full); d != "" {
+			t.Fatalf("%s: the supply from interfaces over every stdlib module differs from the program's: %s", name, d)
+		}
+		return
+	}
+	t.Fatalf("no corpus project %s", name)
 }
 
 // TestStoredReductionsMatchTheProgramSample runs storedEdits over a fixed

@@ -30,6 +30,7 @@ import {
     iter.Iter
     lists.List
     maybe.Maybe.{self, None, Some}
+    path_host
     strings.String
 }
 
@@ -62,19 +63,14 @@ pub fn join(base: String, name: String) -> String {
 //! assert join_all([]) == ""
 //
 pub fn join_all(parts: List<String>) -> String {
-    kept = parts |> Iter.filter(fn part -> part != "") |> Iter.to_list()
-
-    case kept {
-        [] -> ""
-        _ -> String.join(kept, "/") |> clean()
-    }
+    path_host.join(parts)
 }
 
 /// The shortest path that names what `p` names, by reading the text alone:
 /// repeated `/`s become one, each `.` goes, and each `..` takes away the
 /// name before it. A `..` at the start of a relative path stays, and one
 /// right after the root goes. A trailing `/` goes, except on `/` itself. An
-/// empty path is `"."`. This is Go's `path.Clean`.
+/// empty path is `"."`. It cleans as Go's `path.Clean` does.
 ///
 /// ```nomi
 /// path.clean("a/./b/../c") // "a/c"
@@ -89,30 +85,7 @@ pub fn join_all(parts: List<String>) -> String {
 //! assert clean("./") == "."
 //
 pub fn clean(p: String) -> String {
-    rooted = String.starts_with(p, "/")
-
-    kept =
-        String.split(p, "/")
-        |> Iter.reduce([], fn stack, part -> step(stack, part, rooted))
-        |> Iter.reverse()
-
-    text = String.join(kept, "/")
-
-    case #(rooted, text) {
-        #(True, _) -> "/${text}"
-        #(False, "") -> "."
-        _ -> text
-    }
-}
-
-/// One name of a path read onto the names kept so far, the last first.
-fn step(stack: List<String>, part: String, rooted: Bool) -> List<String> {
-    case #(part, stack) {
-        #("" or ".", _) -> stack
-        #("..", [last, ..rest]) when last != ".." -> rest
-        #("..", _) when rooted -> stack
-        _ -> [part, ..stack]
-    }
+    path_host.clean(p)
 }
 
 /// The names of a clean path, the last first, with `/` and `.` naming
@@ -160,14 +133,11 @@ fn has_drive(p: String) -> Bool {
 //
 pub fn parent(p: String) -> Maybe<String> {
     cleaned = clean(p)
-    rooted = String.starts_with(cleaned, "/")
+    if cleaned == "/" { return None }
 
-    case #(names_reversed(cleaned), rooted) {
-        #([], _) -> None
-        #([_], True) -> Some("/")
-        #([_], False) -> None
-        #([_, ..above], True) -> Some("/${String.join(Iter.reverse(above), "/")}")
-        #([_, ..above], False) -> Some(String.join(Iter.reverse(above), "/"))
+    case path_host.dir(cleaned) {
+        "." -> None
+        above -> Some(above)
     }
 }
 
@@ -183,12 +153,7 @@ pub fn parent(p: String) -> Maybe<String> {
 //! assert base("") == "."
 //
 pub fn base(p: String) -> String {
-    cleaned = clean(p)
-
-    case names_reversed(cleaned) {
-        [last, ..] -> last
-        [] -> cleaned
-    }
+    path_host.base(p)
 }
 
 /// What follows the last `.` in the last name of `p`, or `None` when there

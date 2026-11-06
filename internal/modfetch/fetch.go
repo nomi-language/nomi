@@ -52,6 +52,12 @@ type Options struct {
 	Update bool
 	// Log receives one line per download. Nil is silent.
 	Log io.Writer
+	// LibVersion is the version of the lib/ modules a release `nomi`
+	// carries prebuilt (ffirun.LibVersion), or "". With it, `nomi add` of a
+	// lib/ module with no version takes it rather than the latest commit,
+	// and `nomi update` moves every lib/ module to it, so the project runs
+	// on the prebuilt runners with no Go.
+	LibVersion string
 }
 
 // offlineError is a download --offline refused.
@@ -464,6 +470,9 @@ func Add(root, arg string, opts Options) (Added, error) {
 	path, query, _ := strings.Cut(arg, "@")
 	if err := module.CheckPath(path); err != nil {
 		return Added{}, fmt.Errorf("%s: %w", arg, err)
+	}
+	if query == "" && opts.LibVersion != "" && strings.HasPrefix(path, libPrefix) {
+		query = opts.LibVersion
 	}
 	switch {
 	case query == "" || query == "latest":

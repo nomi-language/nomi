@@ -104,7 +104,11 @@ func TestSharedStd_ChecksLeaveItUnchanged(t *testing.T) {
 	if testing.Short() {
 		t.Skip("checks the whole corpus")
 	}
-	lib := std.Shared()
+	// Every module built first: a check that reaches a module adds it,
+	// which is no write to what was there.
+	lib := std.All()
+	// The base, which the first build over it forms, formed first too.
+	lib.StdBase()
 	before := sharedStdState(lib)
 
 	var corpus []string

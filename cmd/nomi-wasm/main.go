@@ -44,9 +44,6 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// stdLib backs nomiHighlight's semantic layer; loaded once at startup.
-var stdLib *std.StdLib
-
 // projectDir is where a source that names modules is written as its files
 // for the front end to read (vmhost.LoadMarked): a directory of the
 // in-memory file system the tour's worker gives Go (go-memfs.js).
@@ -255,7 +252,7 @@ func semTokensSrc(this js.Value, args []js.Value) (res any) {
 		// project nomiRun loads, so the module's names resolve.
 		toks = programOf(src).SemanticTokensIn(attachedEntry)
 	} else {
-		toks = highlight.SemanticTokens(src, stdLib)
+		toks = highlight.SemanticTokens(src, std.Shared())
 	}
 	out := make([]semToken, 0, len(toks))
 	for _, t := range toks {
@@ -289,7 +286,7 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 	if tourgo.Source(src) != src {
 		return programOf(src).HoverIn(attachedEntry, args[1].Int(), args[2].Int())
 	}
-	fa, nodes := highlight.AnalyzeNodes(src, stdLib)
+	fa, nodes := highlight.AnalyzeNodes(src, std.Shared())
 	if fa == nil {
 		return ""
 	}
@@ -312,7 +309,7 @@ var lastProgram struct {
 func programOf(src string) *highlight.Program {
 	if lastProgram.prog == nil || lastProgram.source != src {
 		lastProgram.source = src
-		lastProgram.prog = highlight.AnalyzeProgram(tourgo.Source(src), projectDir, stdLib)
+		lastProgram.prog = highlight.AnalyzeProgram(tourgo.Source(src), projectDir, std.Shared())
 	}
 	return lastProgram.prog
 }
@@ -407,7 +404,7 @@ func result(output, errStr string) any {
 func main() {
 	// The analysis vmhost's front end and lowering read too, so the page
 	// analyzes the stdlib once.
-	stdLib = std.Shared()
+	std.Shared()
 	js.Global().Set("nomiRun", js.FuncOf(run))
 	js.Global().Set("nomiRunStdlibTest", js.FuncOf(runStdlibTestBody))
 	js.Global().Set("nomiTool", js.FuncOf(tool))

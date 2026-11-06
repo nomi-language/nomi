@@ -111,6 +111,12 @@ type StdLib struct {
 	// deferred is set when the stdlib was built from its modules'
 	// interfaces (Shared): a module's bodies are checked when Bodies asks.
 	deferred *deferredBodies
+	// core is the stdlib built a module at a time this is a snapshot of,
+	// nil for one analyzed whole (Load): Ensure builds more of it.
+	core *stdCore
+	// baseOnce builds Base for a snapshot of a core, when a build first
+	// asks for it (stdBase).
+	baseOnce *sync.Once
 }
 
 // SyntaxError answers every parse error in the embedded stdlib, one
@@ -306,7 +312,7 @@ func embeddedStdlibSourcePath(moduleName string) (string, bool) {
 	if !isEmbeddedStdlibSource(direct) {
 		return "", false
 	}
-	if _, err := stdlibFS.ReadFile(direct); err != nil {
+	if info, err := fs.Stat(stdlibFS, direct); err != nil || info.IsDir() {
 		return "", false
 	}
 	return direct, true
@@ -386,7 +392,7 @@ func makeLoader(report func(path string, errs []parser.ParseError), reportStd fu
 		stdlibName := embeddedStdlibName(modulePath)
 		if stdlibLoad {
 			if _, ok := embeddedStdlibSourcePath(stdlibName); !ok {
-				return nil, fmt.Errorf("module not found: %s", filepath.Join(modulePath...))
+				return nil, missingStdModule(stdlibName, modulePath)
 			}
 		}
 		if stdlibLoad {
@@ -413,6 +419,17 @@ func makeLoader(report func(path string, errs []parser.ParseError), reportStd fu
 		}
 		return nil, fmt.Errorf("module not found: %s", filepath.Join(modulePath...))
 	}
+}
+
+// missingStdModule is a loader's error for name, a path under std/ that
+// names no module: one the disk need not be asked about (ErrNoSuchModule)
+// unless it names one of the embedded directories.
+func missingStdModule(name string, modulePath []string) error {
+	err := fmt.Errorf("module not found: %s", filepath.Join(modulePath...))
+	if info, statErr := fs.Stat(stdlibFS, name); statErr == nil && info.IsDir() {
+		return err
+	}
+	return fmt.Errorf("%w: %w", err, analysis.ErrNoSuchModule)
 }
 
 func embeddedStdlibName(modulePath []string) string {
@@ -497,20 +514,6 @@ func stdlibDependencyImport(name string, line int) *ast.ImportStmt {
 		Col:        1,
 	}
 }
-
-// Shared is the process's one analysis of the stdlib: the first call runs
-// Load and every later call answers the same *StdLib. The front end
-// (internal/frontend) resolves a program against it and internal/irbuild lowers
-// the stdlib from it, so `nomi run` analyzes the stdlib once rather than once
-// per consumer. It is what the LSP has always done with its one Load.
-//
-// Callers only read it. A project build writes nothing into a shared
-// FileAnalysis it does not own (analysis.buildProjectWithCache gives its
-// Program only to the files it built).
-//
-// It is built from the modules' interfaces, so a module's bodies are
-// checked only when something asks for them (Bodies, shared.go).
-var Shared = sync.OnceValue(loadShared)
 
 // Load parses all embedded stdlib .nomi files and returns the analyzed
 // result. Internally delegates to BuildProjectWithCache so every stdlib

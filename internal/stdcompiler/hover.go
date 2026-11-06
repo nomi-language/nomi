@@ -80,7 +80,9 @@ func HoverContent(source, root string, virtualFiles map[string]string) (rt.Hover
 // program.
 func hoverAnalysis(nodes []ast.Node, root string, loader analysis.FileLoader) (*analysis.FileAnalysis, []analysis.TypeError) {
 	nodes, lowerErrs := analysis.LowerDerives(nodes)
-	lib := std.Shared()
+	// Every stdlib module: a checked program's own build reaches the ones
+	// it imports, and std/compiler is rare enough to build them all.
+	lib := std.All()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, root, loader)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 

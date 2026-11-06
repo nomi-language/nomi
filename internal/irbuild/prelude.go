@@ -2,7 +2,6 @@ package irbuild
 
 import (
 	"strings"
-	"sync"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -373,7 +372,7 @@ func preludeDeclaringAnchor(spec *preludeSpec) *preludeAnchor {
 	return nil
 }
 
-var preludeDeclaringAnchors = sync.OnceValue(func() []*preludeAnchor {
+var preludeDeclaringAnchors = perStd(func() []*preludeAnchor {
 	lib := stdAnchorLib()
 	out := make([]*preludeAnchor, 0, len(preludeSpecs))
 	for i := range preludeSpecs {

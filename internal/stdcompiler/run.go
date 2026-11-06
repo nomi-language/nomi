@@ -33,7 +33,9 @@ func RunFrontEnd(source, root string, virtualFiles map[string]string) ([]ast.Nod
 	nodes, _ = analysis.SynthesizeDerives(nodes)
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
 
-	lib := std.Shared()
+	// Every stdlib module: a checked program's own build reaches the ones
+	// it imports, and std/compiler is rare enough to build them all.
+	lib := std.All()
 	fa, siblingFAs, siblingNodes := analysis.BuildProjectFromEntryWithManifest(
 		"",
 		nodes,

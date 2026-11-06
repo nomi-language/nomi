@@ -45,8 +45,9 @@ func renderClosed(snap *analysis.DocSnapshot, root string) string {
 // is dir (each file's text on disk is texts'), analyzes them, and then
 // answers each closed file of the project as a request does (Analyzed)
 // and compares it with a fresh build of that file in a manager that has
-// analyzed nothing. It answers the first difference, or "", and how many
-// files the closed answers built.
+// analyzed nothing, with the same documents open with texts' texts. It
+// answers the first difference, or "", and how many files the closed
+// answers built.
 func closedDiff(tb testing.TB, dm *analysis.DocumentManager, dir string, texts map[string]string, open map[string]bool) (string, int64) {
 	tb.Helper()
 	uri := func(key string) string { return fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi")) }
@@ -65,7 +66,12 @@ func closedDiff(tb testing.TB, dm *analysis.DocumentManager, dir string, texts m
 		got := renderClosed(dm.Analyzed(uri(key)), dir)
 		release()
 		built += dm.FilesBuilt() - before
-		want := renderClosed(newManager().Analyzed(uri(key)), dir)
+		fresh := newManager()
+		fresh.SetWorkspaceRoot(dir)
+		for k := range open {
+			fresh.Open(uri(k), texts[k])
+		}
+		want := renderClosed(fresh.Analyzed(uri(key)), dir)
 		if got != want {
 			return fmt.Sprintf("closed %s answered from the open documents' program:\n%s", key, dumpDiff(want, got)), built
 		}
@@ -79,7 +85,10 @@ func closedDiff(tb testing.TB, dm *analysis.DocumentManager, dir string, texts m
 // file on its own gives: every closed file of every multi-file corpus
 // project, of orderProject, layeredProject and rateProject, with the
 // entry open, and after each step of edits to the open entry, each
-// written to disk as a save does.
+// written to disk as a save does, and then each left unsaved, where a
+// build of a closed file reads the entry's text on disk. After an unsaved
+// body edit of the entry, a closed file the edit cannot reach must be
+// answered from the program.
 func TestClosedFilesFromProgramsMatchTheirOwnBuilds(t *testing.T) {
 	t.Parallel()
 	projects := []incrementalProject{orderIncremental(), layeredProject(), rateProject()}
@@ -88,49 +97,65 @@ func TestClosedFilesFromProgramsMatchTheirOwnBuilds(t *testing.T) {
 		t.Fatal(err)
 	}
 	projects = append(projects, corpus...)
-	var fromProgram int
+	var fromProgram, unsavedFromProgram int
 	for _, p := range projects {
-		t.Run(p.name, func(t *testing.T) {
-			dir := writeProject(t, p)
-			uri := func(key string) string { return fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi")) }
-			dm := newManager()
-			dm.SetWorkspaceRoot(dir)
-			dm.IndexWorkspace(context.Background())
-			texts := map[string]string{}
-			for key, text := range p.texts {
-				texts[key] = text
+		for _, saved := range []bool{true, false} {
+			name := p.name
+			if !saved {
+				name += "/unsaved"
 			}
-			open := map[string]bool{p.entry: true}
-			dm.Open(uri(p.entry), texts[p.entry])
-			steps := genericEdits(p.entry, texts[p.entry])
-			for i := 0; i <= len(steps); i++ {
-				if i > 0 {
-					s := steps[i-1]
-					text, ok := s.change(texts[s.key], p.texts[s.key])
-					if !ok {
-						continue
+			t.Run(name, func(t *testing.T) {
+				dir := writeProject(t, p)
+				uri := func(key string) string { return fileuri.FromPath(filepath.Join(dir, filepath.FromSlash(key)+".nomi")) }
+				dm := newManager()
+				dm.SetWorkspaceRoot(dir)
+				dm.IndexWorkspace(context.Background())
+				texts := map[string]string{}
+				for key, text := range p.texts {
+					texts[key] = text
+				}
+				open := map[string]bool{p.entry: true}
+				dm.Open(uri(p.entry), texts[p.entry])
+				steps := genericEdits(p.entry, texts[p.entry])
+				for i := 0; i <= len(steps); i++ {
+					if i > 0 {
+						s := steps[i-1]
+						text, ok := s.change(texts[s.key], p.texts[s.key])
+						if !ok {
+							continue
+						}
+						texts[s.key] = text
+						if saved {
+							if err := os.WriteFile(fileuri.ToPath(uri(s.key)), []byte(text), 0o644); err != nil {
+								t.Fatal(err)
+							}
+						}
+						dm.Update(uri(s.key), text)
+						// What the server does after an edit: the closed files'
+						// cached analyses that read the edited file go.
+						dm.UpdateImportEdges(uri(s.key))
+						dm.PropagateChange(uri(s.key))
 					}
-					texts[s.key] = text
-					if err := os.WriteFile(fileuri.ToPath(uri(s.key)), []byte(text), 0o644); err != nil {
-						t.Fatal(err)
+					past := dm.ClosedPastUnsavedEntry()
+					diff, built := closedDiff(t, dm, dir, texts, open)
+					if diff != "" {
+						t.Fatalf("after %d steps: %s", i, diff)
 					}
-					dm.Update(uri(s.key), text)
-					// What the server does after an edit: the closed files'
-					// cached analyses that read the edited file go.
-					dm.UpdateImportEdges(uri(s.key))
-					dm.PropagateChange(uri(s.key))
+					if built == 0 && len(texts) > 1 {
+						fromProgram++
+					}
+					if dm.ClosedPastUnsavedEntry() > past {
+						unsavedFromProgram++
+					}
 				}
-				diff, built := closedDiff(t, dm, dir, texts, open)
-				if diff != "" {
-					t.Fatalf("after %d steps: %s", i, diff)
-				}
-				if built == 0 && len(texts) > 1 {
-					fromProgram++
-				}
-			}
-		})
+			})
+		}
 	}
 	if fromProgram == 0 {
 		t.Error("no closed file was answered from a kept program")
 	}
+	if unsavedFromProgram == 0 {
+		t.Error("no closed file was answered from a kept program after an unsaved edit of the entry")
+	}
+	t.Logf("%d answers from a kept program, %d after an unsaved edit of the entry", fromProgram, unsavedFromProgram)
 }

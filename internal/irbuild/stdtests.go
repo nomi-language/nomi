@@ -92,6 +92,7 @@ func StdlibTestModule(file string) string {
 // declarations are the same Nomi as the cache's. hooks observe the cases'
 // declines.
 func GenerateStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
+	ensureStdModule(module)
 	if isProgramStd(module) {
 		return generateProgramStdTestIR(module, nodes, fa, hooks)
 	}
@@ -122,6 +123,7 @@ func GenerateStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnal
 func GenerateStdlibReferenceIR(module string, test *ast.TestDecl, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
 	cases := []ast.Node{test}
 	analysis.MarkTailCalls(cases)
+	ensureStdModule(module)
 	if isProgramStd(module) {
 		return generateProgramStdReferenceIR(module, test, fa, hooks)
 	}

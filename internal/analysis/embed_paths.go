@@ -27,6 +27,12 @@ import (
 // expansion holds, which a file's interface keeps (interface.go keeps an
 // expanded `once`'s value), so a check against interfaces sees the same
 // files as a check from source.
+//
+// A pattern whose base did not exist when the program was compiled leaves
+// its base an empty directory of the tree (its value's second argument),
+// and a literal path at or under such a base is not checked: the
+// files are not there to check it against, and the pattern's own warning
+// says so. `nomi build` refuses the pattern.
 
 // embedPathWant is what a checked call's path must name.
 type embedPathWant int
@@ -58,17 +64,37 @@ type embedTree struct {
 	name  string
 	files map[string]bool
 	dirs  map[string]bool
+	// missing are the tree's directories from patterns whose base did not
+	// exist: a path at or under one is not checked.
+	missing []string
 }
 
-func newEmbedTree(name string, paths []string) *embedTree {
-	t := &embedTree{name: name, files: map[string]bool{}, dirs: map[string]bool{".": true}}
+func newEmbedTree(name string, paths, missing []string) *embedTree {
+	t := &embedTree{name: name, files: map[string]bool{}, dirs: map[string]bool{".": true}, missing: missing}
 	for _, p := range paths {
 		t.files[p] = true
 		for d := path.Dir(p); d != "."; d = path.Dir(d) {
 			t.dirs[d] = true
 		}
 	}
+	for _, m := range missing {
+		for d := m; d != "."; d = path.Dir(d) {
+			t.dirs[d] = true
+		}
+	}
 	return t
+}
+
+// unchecked reports whether p is at or under a directory of t whose
+// pattern's base did not exist. A directory above one is in t, as it is
+// in the tree the program reads.
+func (t *embedTree) unchecked(p string) bool {
+	for _, m := range t.missing {
+		if m == "." || p == m || strings.HasPrefix(p, m+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // sub is the tree under dir, a directory of t.
@@ -76,13 +102,20 @@ func (t *embedTree) sub(dir string) *embedTree {
 	if dir == "." {
 		return t
 	}
-	var paths []string
+	var paths, missing []string
 	for p := range t.files {
 		if rest, ok := strings.CutPrefix(p, dir+"/"); ok {
 			paths = append(paths, rest)
 		}
 	}
-	return newEmbedTree(fmt.Sprintf("`%s` of %s", dir, t.name), paths)
+	for _, m := range t.missing {
+		if rest, ok := strings.CutPrefix(m, dir+"/"); ok {
+			missing = append(missing, rest)
+		} else if m == dir || strings.HasPrefix(dir, m+"/") {
+			missing = append(missing, ".")
+		}
+	}
+	return newEmbedTree(fmt.Sprintf("`%s` of %s", dir, t.name), paths, missing)
 }
 
 // embedFilesCall is the `Files` function a call's callee names, its
@@ -159,6 +192,9 @@ func embedPathError(lit *ast.StringLit, tree *embedTree, want embedPathWant) (Ty
 	p := path.Clean(lit.Value)
 	if msg := embedPathFormProblem(p); msg != "" {
 		return errAt(lit, fmt.Sprintf("`%s` is not an embedded path: %s", lit.Value, msg)), true
+	}
+	if tree.unchecked(p) {
+		return TypeError{}, false
 	}
 	isFile, isDir := tree.files[p], tree.dirs[p]
 	var candidates []string
@@ -313,10 +349,14 @@ func embedDeclTree(sym *Symbol) *embedTree {
 		return nil
 	}
 	call, ok := o.Value.(*ast.Call)
-	if !ok || len(call.Args) != 1 {
+	if !ok || len(call.Args) != 2 {
 		return nil
 	}
 	ef, ok := call.Args[0].(*ast.EmbeddedFiles)
+	if !ok {
+		return nil
+	}
+	empty, ok := call.Args[1].(*ast.ListLit)
 	if !ok {
 		return nil
 	}
@@ -324,5 +364,11 @@ func embedDeclTree(sym *Symbol) *embedTree {
 	for i, f := range ef.Files {
 		paths[i] = f.Path
 	}
-	return newEmbedTree("`"+o.Name+"`", paths)
+	var missing []string
+	for _, item := range empty.Items {
+		if lit, ok := item.(*ast.StringLit); ok {
+			missing = append(missing, lit.Value)
+		}
+	}
+	return newEmbedTree("`"+o.Name+"`", paths, missing)
 }

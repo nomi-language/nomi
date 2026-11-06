@@ -189,6 +189,11 @@ type DocumentManager struct {
 	// (stored_program.go). Guarded by analyzeMu.
 	stored       map[programKey]*storedProgram
 	storedMissed map[programKey]bool
+	// storedHeld releases the view lock a program opened from its record
+	// took to rebuild an installed analysis in place before it was
+	// forgotten; the build that asked takes it (fromStored). Guarded by
+	// analyzeMu.
+	storedHeld func()
 	// viewMu keeps readers of installed analyses away from a recheck that
 	// rewrites them (View).
 	viewMu sync.RWMutex

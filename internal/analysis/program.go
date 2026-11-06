@@ -1,8 +1,10 @@
 package analysis
 
 import (
+	"slices"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -112,9 +114,11 @@ type Program struct {
 	// CheckImplImports) take the base's files' part from it.
 	stdBase *StdBase
 
-	// formsBase is set on the stdlib's own program only: the base its files
-	// form (BuildStdBase), which a build given those files takes.
-	formsBase *StdBase
+	// formsBase is set on the stdlib's own programs only: the base its files
+	// form (BuildStdBase), which a build given those files takes. A stdlib
+	// built a module at a time sets it again for each larger stdlib, while
+	// other goroutines may be reading it.
+	formsBase atomic.Pointer[StdBase]
 }
 
 // programResults are the program-wide decisions made after every file is
@@ -207,6 +211,12 @@ func (fa *FileAnalysis) implsOf(typeName string) []map[string]bool {
 		out = append(out, p.ImplIndex.Impls[typeName])
 	}
 	return append(out, p.unindexedImpls[typeName])
+}
+
+// ProgramHolds reports whether other is one of the files of fa's program:
+// one fa's build built or was handed, whose impls its index holds.
+func (fa *FileAnalysis) ProgramHolds(other *FileAnalysis) bool {
+	return other != nil && slices.Contains(fa.Program().Files(), other)
 }
 
 // setFiles records byKey as the program's files.

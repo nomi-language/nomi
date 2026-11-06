@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/modcache"
 )
 
 const toolUsage = `usage: nomi tool <module> <name> [args...]
@@ -21,14 +22,15 @@ a code generator, such as sqlkit's
 ` + "`nomi tool sqlkit generate`" + `.`
 
 // toolPath is the file of the tool name of the module named module, as
-// seen from dir.
-func toolPath(dir, module, name string) (string, error) {
+// seen from dir, and the root of dir's module, the project the tool runs
+// for.
+func toolPath(dir, module, name string) (path, root string, err error) {
 	if name == "" || strings.ContainsAny(name, `\`) || strings.Contains(name, "..") || filepath.IsAbs(name) {
-		return "", fmt.Errorf("%q is not a tool name", name)
+		return "", "", fmt.Errorf("%q is not a tool name", name)
 	}
-	root := moduleRootOf(dir)
+	root = moduleRootOf(dir)
 	if root == "" {
-		return "", fmt.Errorf("%s is in no module: there is no nomi.toml above it", dir)
+		return "", "", fmt.Errorf("%s is in no module: there is no nomi.toml above it", dir)
 	}
 	modRoot := ""
 	if m, err := analysis.LoadManifest(root); err == nil && m.Name == module {
@@ -36,18 +38,18 @@ func toolPath(dir, module, name string) (string, error) {
 	} else {
 		index, err := analysis.BuildModuleIndex(root)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		modRoot = index[module]
 	}
 	if modRoot == "" {
-		return "", fmt.Errorf("no module %s: it is neither this module nor one its go.mod requires; add it with `nomi add <module path>`, or `nomi add <directory>` for one on disk", module)
+		return "", "", fmt.Errorf("no module %s: it is neither this module nor one its go.mod requires; add it with `nomi add <module path>`, or `nomi add <directory>` for one on disk", module)
 	}
-	path := filepath.Join(modRoot, "tools", filepath.FromSlash(name)+".nomi")
+	path = filepath.Join(modRoot, "tools", filepath.FromSlash(name)+".nomi")
 	if _, err := os.Stat(path); err != nil {
-		return "", fmt.Errorf("module %s has no tool %s: there is no tools/%s.nomi in %s", module, name, name, modRoot)
+		return "", "", fmt.Errorf("module %s has no tool %s: there is no tools/%s.nomi in %s", module, name, name, modRoot)
 	}
-	return path, nil
+	return path, root, nil
 }
 
 // runTool runs `nomi tool`.
@@ -59,8 +61,15 @@ func runTool(args []string) error {
 	if err != nil {
 		return err
 	}
-	path, err := toolPath(wd, args[0], args[1])
+	path, root, err := toolPath(wd, args[0], args[1])
 	if err != nil {
+		return err
+	}
+	// A dependency's tool runs in this project's build, as `go run` of a
+	// dependency's command does: its modules are the ones this project's
+	// go.mod lists, at the versions it lists, and the go.mod at the tool's
+	// own root, whose replaces are its checkout's, is not read.
+	if err := os.Setenv(modcache.MainModuleEnv, root); err != nil {
 		return err
 	}
 	runFileVM(path, args[2:]...)

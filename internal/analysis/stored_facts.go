@@ -165,18 +165,81 @@ type DemandFact struct {
 // impl index's impls of each type with the project files' own laid over
 // them, the pairs the identity index can judge, and the identity index
 // (programDemands.supplyFor, for every type).
+//
+// A program built over a stdlib base (StdBase) keeps only what its own
+// files change of the base's supply (OverBase): the impls and identity
+// entries they add, the pairs they make judgeable (Covered) and those
+// they make unjudgeable (Uncovered). The reduction lays them over the base
+// it reduces with (ProgramSupply.over). The base holds the stdlib modules
+// built so far in the process, which a lazily built stdlib grows, so a
+// supply holding the base's part would depend on which modules a process
+// happened to have built; what the program's files change does not, since
+// an impl a program can reach is in a module it reaches.
 type ProgramSupply struct {
-	Impls    map[string]map[string]bool
-	Covered  map[string]map[string]bool
-	Identity map[ImplIdentityKey]bool
+	Impls     map[string]map[string]bool
+	Covered   map[string]map[string]bool
+	Uncovered map[string]map[string]bool
+	Identity  map[ImplIdentityKey]bool
+	OverBase  bool
+}
+
+// over answers the supply of typeName, and the identity index, with s laid
+// over base when s holds only the program's part of it.
+func (s *ProgramSupply) over(base *StdBase, typeName string, identity *map[ImplIdentityKey]bool) (impls, covered map[string]bool) {
+	if !s.OverBase || base == nil {
+		return s.Impls[typeName], cloneSet(s.Covered[typeName])
+	}
+	x := base.index
+	impls = cloneSet(x.Impls[typeName])
+	for iface := range s.Impls[typeName] {
+		if impls == nil {
+			impls = map[string]bool{}
+		}
+		impls[iface] = true
+	}
+	covered = cloneSet(x.implNamesWithIdentity[typeName])
+	for iface := range s.Covered[typeName] {
+		if covered == nil {
+			covered = map[string]bool{}
+		}
+		covered[iface] = true
+	}
+	for iface := range s.Uncovered[typeName] {
+		delete(covered, iface)
+	}
+	if *identity == nil {
+		merged := make(map[ImplIdentityKey]bool, len(x.ImplsByIdentity)+len(s.Identity))
+		for k, v := range x.ImplsByIdentity {
+			if v {
+				merged[k] = true
+			}
+		}
+		for k := range s.Identity {
+			merged[k] = true
+		}
+		*identity = merged
+	}
+	return impls, covered
 }
 
 // FactsNamer names declarations by DeclRef: each declaration of the files
 // it was made over.
+//
+// A file's declarations are named when a fact first asks for one of them:
+// a file's facts name the few declarations of other files its bodies
+// reach, and naming every file the check of the program's entry read took
+// 20 to 60 ms at 50k lines. Which file a declaration is in is read from
+// the files' declarations and their members (fileOf), which is every node
+// another file can name; a declaration nested in a body is named with its
+// own file only.
 type FactsNamer struct {
 	byNode   map[ast.Node]DeclRef
 	implItem map[ast.Node]bool
 	entry    string
+	// pending holds the files not named yet, by module key, and fileOf the
+	// file of each of their declarations once a miss has asked for it.
+	pending map[string][]ast.Node
+	fileOf  map[ast.Node]string
 }
 
 // NewFactsNamer names the declarations of files, a program's project files'
@@ -184,6 +247,16 @@ type FactsNamer struct {
 // what its check against interfaces read (FileCheck.FileNodes). entry is
 // the program's entry's key.
 func NewFactsNamer(files map[string][]ast.Node, entry string) *FactsNamer {
+	n := &FactsNamer{byNode: map[ast.Node]DeclRef{}, implItem: map[ast.Node]bool{}, entry: entry, pending: map[string][]ast.Node{}}
+	for key, nodes := range files {
+		n.pending[key] = nodes
+	}
+	return n
+}
+
+// newEagerFactsNamer is NewFactsNamer naming every file at once, which the
+// lazy one must agree with (StoredFactsForTest).
+func newEagerFactsNamer(files map[string][]ast.Node, entry string) *FactsNamer {
 	n := &FactsNamer{byNode: map[ast.Node]DeclRef{}, implItem: map[ast.Node]bool{}, entry: entry}
 	for key, nodes := range files {
 		n.add(key, nodes)
@@ -191,7 +264,64 @@ func NewFactsNamer(files map[string][]ast.Node, entry string) *FactsNamer {
 	return n
 }
 
+// resolve names the file that declares node, if it is one not named yet.
+func (n *FactsNamer) resolve(node ast.Node) {
+	if len(n.pending) == 0 {
+		return
+	}
+	if _, ok := n.byNode[node]; ok {
+		return
+	}
+	if n.fileOf == nil {
+		n.fileOf = map[ast.Node]string{}
+		for key, nodes := range n.pending {
+			for _, top := range nodes {
+				n.fileOf[top] = key
+				switch d := top.(type) {
+				case *ast.ImplBlock:
+					for _, it := range d.Items {
+						n.fileOf[it] = key
+					}
+				case *ast.StructDef:
+					for _, it := range d.Items {
+						n.fileOf[it] = key
+					}
+				case *ast.EnumDef:
+					for _, it := range d.Items {
+						n.fileOf[it] = key
+					}
+				case *ast.TypeDef:
+					for _, it := range d.Items {
+						n.fileOf[it] = key
+					}
+				case *ast.ExternType:
+					for _, it := range d.Items {
+						n.fileOf[it] = key
+					}
+				case *ast.InterfaceDef:
+					for i := range d.Methods {
+						n.fileOf[&d.Methods[i]] = key
+					}
+				}
+			}
+		}
+	}
+	key, ok := n.fileOf[node]
+	if !ok {
+		return
+	}
+	nodes, pending := n.pending[key]
+	if !pending {
+		return
+	}
+	delete(n.pending, key)
+	n.add(key, nodes)
+}
+
 func (n *FactsNamer) add(key string, nodes []ast.Node) {
+	if n.pending != nil {
+		delete(n.pending, key)
+	}
 	for node, name := range DeclarationNames(nodes) {
 		n.byNode[node] = DeclRef{File: key, Name: name}
 	}
@@ -223,8 +353,15 @@ func (n *FactsNamer) add(key string, nodes []ast.Node) {
 }
 
 func (n *FactsNamer) ref(node ast.Node) (DeclRef, bool) {
+	n.resolve(node)
 	r, ok := n.byNode[node]
 	return r, ok
+}
+
+// isImplItem reports whether node is a function of an impl block.
+func (n *FactsNamer) isImplItem(node ast.Node) bool {
+	n.resolve(node)
+	return n.implItem[node]
 }
 
 // FileFactsOf reads the facts of the file with key, analyzed as fa with
@@ -380,7 +517,7 @@ func FileFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNam
 	}
 	uses := map[DeclRef]bool{}
 	use := func(node ast.Node) {
-		if !namer.implItem[node] {
+		if !namer.isImplItem(node) {
 			return
 		}
 		if r, ok := namer.ref(node); ok && r.File != key {
@@ -543,6 +680,9 @@ func stdBootFact(fd *ast.FuncDef, std func(*ast.FuncDef) *FileAnalysis) (int, []
 		var fn *bootFn
 		if cached, ok := stdBootFns.Load(next); ok {
 			fn = cached.(*bootFn)
+		} else if facts, ok := stdFactsBootFn(f, next); ok {
+			fn = facts
+			stdBootFns.Store(next, fn)
 		} else {
 			fn = &bootFn{fd: next, fa: f, sym: f.Definitions[Pos{Line: next.Line, Col: next.Col}]}
 			fn.calls = bootCallsOf(readBootRefs(f, next.Body, func(*Symbol) {}))
@@ -615,7 +755,51 @@ func SupplyOf(fa *FileAnalysis) *ProgramSupply {
 			s.Covered[t] = covered
 		}
 	}
+	if p.stdBase != nil {
+		return s.overBase(p.stdBase)
+	}
 	return s
+}
+
+// overBase answers the part of s, a program's whole supply, that the
+// program's own files change of base's (ProgramSupply.OverBase).
+func (s *ProgramSupply) overBase(base *StdBase) *ProgramSupply {
+	x := base.index
+	out := &ProgramSupply{Impls: map[string]map[string]bool{}, Covered: map[string]map[string]bool{},
+		Uncovered: map[string]map[string]bool{}, Identity: map[ImplIdentityKey]bool{}, OverBase: true}
+	add := func(m map[string]map[string]bool, t, iface string) {
+		if m[t] == nil {
+			m[t] = map[string]bool{}
+		}
+		m[t][iface] = true
+	}
+	for t, ifaces := range s.Impls {
+		for iface := range ifaces {
+			if !x.Impls[t][iface] {
+				add(out.Impls, t, iface)
+			}
+		}
+	}
+	for t, ifaces := range s.Covered {
+		for iface := range ifaces {
+			if !x.implNamesWithIdentity[t][iface] {
+				add(out.Covered, t, iface)
+			}
+		}
+	}
+	for t, ifaces := range x.implNamesWithIdentity {
+		for iface, v := range ifaces {
+			if v && !s.Covered[t][iface] {
+				add(out.Uncovered, t, iface)
+			}
+		}
+	}
+	for k := range s.Identity {
+		if !x.ImplsByIdentity[k] {
+			out.Identity[k] = true
+		}
+	}
+	return out
 }
 
 func cloneSet(m map[string]bool) map[string]bool {
@@ -941,6 +1125,9 @@ func reduceCoherence(files map[string]*FileFacts, keys []string, supply *Program
 		}
 	}
 	var errs []implPairErr
+	// identity is the identity index with the base's laid under the
+	// supply's, made on first use (ProgramSupply.over).
+	var identity map[ImplIdentityKey]bool
 	for p, b := range buckets {
 		if !b.wanted || !missingImplsChecked(p.iface) {
 			continue
@@ -951,10 +1138,15 @@ func reduceCoherence(files map[string]*FileFacts, keys []string, supply *Program
 		}
 		sortRecordings(recs)
 		recs = dropSortedDuplicates(recs)
+		impls, covered := supply.over(std.base, p.typeName, &identity)
+		ids := supply.Identity
+		if identity != nil {
+			ids = identity
+		}
 		idx := &ProjectImplIndex{
-			Impls:                 map[string]map[string]bool{p.typeName: supply.Impls[p.typeName]},
-			ImplsByIdentity:       supply.Identity,
-			implNamesWithIdentity: map[string]map[string]bool{p.typeName: cloneSet(supply.Covered[p.typeName])},
+			Impls:                 map[string]map[string]bool{p.typeName: impls},
+			ImplsByIdentity:       ids,
+			implNamesWithIdentity: map[string]map[string]bool{p.typeName: covered},
 		}
 		if e, ok := idx.missingImpl(p.iface, p.typeName, recs, nil); ok {
 			errs = append(errs, implPairErr{p, e})
@@ -991,7 +1183,7 @@ func DecodeFileFacts(data []byte) (*FileFacts, error) {
 	return f, gobDecode(factsMagic, data, f)
 }
 
-const supplyMagic = "NOMISUPPLY1"
+const supplyMagic = "NOMISUPPLY2"
 
 // Encode writes s.
 func (s *ProgramSupply) Encode() []byte {
@@ -1059,6 +1251,11 @@ func (dm *DocumentManager) StoredFactsForTest(full *CheckedProgram) (fromSource,
 			files[k] = n
 		}
 		fromInterfaces[key] = FileFactsOf(key, fc.FA, fc.Nodes, NewFactsNamer(files, full.Entry), appTypes).Encode()
+		if eager := FileFactsOf(key, fc.FA, fc.Nodes, newEagerFactsNamer(files, full.Entry), appTypes).Encode(); !bytes.Equal(eager, fromInterfaces[key]) {
+			// The lazy namer must name what the eager one names: the
+			// difference fails the comparison with the program's facts.
+			fromInterfaces[key] = append([]byte("the lazy namer named another declaration than the eager one: "), eager...)
+		}
 	}
 	dm.analyzeMu.Unlock()
 
@@ -1228,6 +1425,12 @@ func (dm *DocumentManager) SupplyDiffForTest(full *CheckedProgram) string {
 	}
 	if d := diff("covered", want.Covered, got.Covered); d != "" {
 		return d
+	}
+	if d := diff("uncovered", want.Uncovered, got.Uncovered); d != "" {
+		return d
+	}
+	if want.OverBase != got.OverBase {
+		return fmt.Sprintf("over a base: from the program %v, from interfaces %v", want.OverBase, got.OverBase)
 	}
 	for k := range want.Identity {
 		if !got.Identity[k] {

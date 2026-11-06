@@ -195,7 +195,7 @@ func loadProjectFiles(ctx context.Context, dm *analysis.DocumentManager, root, n
 				continue
 			}
 		}
-		snap := dm.Analyzed(uri)
+		snap := dm.AnalyzedForReferences(uri)
 		if snap != nil && snap.Analysis != nil {
 			files = append(files, projectFile{filePath, snap.Content, snap.Analysis})
 		}

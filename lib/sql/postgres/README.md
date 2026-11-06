@@ -40,9 +40,11 @@ fn main() -> Result<Unit, Error> {
 }
 ```
 
-The driver's Go code is built into the program's runner the first time a
-program that uses it runs, with the `go` on `PATH` or the Go toolchain
-`nomi` downloads.
+A release `nomi` carries the driver's Go code prebuilt, so a program that
+uses it needs no Go toolchain while the module is at the release's commit,
+which `nomi add` takes and `nomi update` restores. Otherwise the Go code is
+built into the program's runner the first time a program that uses it
+runs, with the `go` on `PATH` or the Go toolchain `nomi` downloads.
 
 ## What it does
 

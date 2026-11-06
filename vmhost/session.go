@@ -178,7 +178,7 @@ func (s *Session) Run(ctx context.Context, p *Program) error {
 	}
 	if s.m == nil {
 		s.m = vm.NewProgram(p.entry, p.res.IRModules(), s.out).WithHosts(p.hosts...).WithHostLookup(hostadapt.ProjectLookup(s.lookup)).
-			WithLocaleData(p.localeData()).WithMessages(p.messages())
+			WithLocaleLoader(p.localeData).WithMessages(p.messages())
 		if s.errOut != nil {
 			s.m = s.m.WithErrorOutput(s.errOut)
 		}

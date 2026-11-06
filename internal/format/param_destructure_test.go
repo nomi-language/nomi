@@ -63,8 +63,25 @@ func TestFmt_Distinct_KeepsMismatchedAnnotation(t *testing.T) {
 	fmtContains(t, "fn f(Dur(x): other) -> Int { x }\n", "Dur(x): other")
 }
 
+// A parameter written as its type alone, `fn stats(Request)`, stays the type
+// alone, in every kind of parameter list, with a default too.
+func TestFmt_TypeOnlyParam(t *testing.T) {
+	cases := []struct{ src, want string }{
+		{"fn stats(Request, n: Int) -> Int { n }\n", "fn stats(Request, n: Int) -> Int {\n    n\n}\n"},
+		{"f = fn Request -> 1\n", "f = fn Request -> 1\n"},
+		{"interface I {\n    fn g(v: self, Request) -> Int\n}\n", "interface I {\n    fn g(v: self, Request) -> Int\n}\n"},
+		{"fn f(Label = Label{}) -> Int { 1 }\n", "fn f(Label = Label{}) -> Int {\n    1\n}\n"},
+	}
+	for _, c := range cases {
+		fmtEq(t, c.src, c.want)
+		if err := SameMeaning(c.src, c.want); err != nil {
+			t.Errorf("SameMeaning(%q): %v", c.src, err)
+		}
+	}
+}
+
 // A head with nothing after it keeps its annotation: `fn f(Label)` is a
-// parameter with a type and no name, which the checker rejects, while
+// parameter written as its type alone, which binds nothing, while
 // `fn f(Label: Label)` is checked as a pattern against Label.
 func TestFmt_BareHead_KeepsAnnotation(t *testing.T) {
 	cases := []struct{ src, want string }{

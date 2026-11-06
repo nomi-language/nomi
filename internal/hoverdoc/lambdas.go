@@ -230,11 +230,11 @@ func (s *shapeSearch) renderLambda(l *ast.Lambda) string {
 	}
 	params := make([]string, len(l.Params))
 	for i, p := range l.Params {
-		params[i] = ParamDisplayName(p)
+		typeText := ""
 		if i < len(ft.Params) {
-			params[i] += ": " + typeOr(ft.Params[i])
+			typeText = typeOr(ft.Params[i])
 		}
-		params[i] += renderDefault(p.Default)
+		params[i] = ParamSignature(p, typeText) + renderDefault(p.Default)
 	}
 	sig := "fn "
 	if len(params) > 0 {
@@ -295,10 +295,11 @@ func (s *shapeSearch) filledParam(arg lambdaArg) string {
 	}
 	sym := s.calleeSymbol(arg.call.Func)
 	if p, ok := declaredParam(sym, arg.slot); ok {
-		text := ParamDisplayName(p)
+		typeText := ""
 		if p.TypeAnnotation != nil {
-			text += ": " + p.TypeAnnotation.TypeString()
+			typeText = p.TypeAnnotation.TypeString()
 		}
+		text := ParamSignature(p, typeText)
 		return "`" + callee + "`'s `" + text + "`"
 	}
 	return "argument " + strconv.Itoa(arg.slot+1) + " of `" + callee + "`"

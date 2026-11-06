@@ -6,7 +6,7 @@
 import {
     std::embed.Files
     std::fs.{Entry, Kind}
-    std::http.{Headers, Method, Response, Status}
+    std::http.{self, Headers, Method, Request, Response, Status}
     std::http_testing
     std::instant.Instant
     std::io.Error
@@ -109,4 +109,59 @@ test "a file server answers 404 for what it does not serve" {
     |> subtests #(description, path), description {
         assert get(path).status == Status.not_found
     }
+}
+
+fn with_header(request: Request, name: String, value: String) -> Request {
+    #{..request, headers: Headers.set(request.headers, name, value)}
+}
+
+test "a file server sends each file's SHA-256 as its ETag, taken when the program compiled" {
+    home = get("/")
+    etag = Headers.get(home.headers, "ETag")!
+    assert etag == "\"b5099f092335ab78f581425bd45b226578160c325c80f234b3fae951e2c35e44\""
+    assert Headers.get(home.headers, "Cache-Control") == Some("no-cache")
+
+    again = with_header(http_testing.request(Method.Get, "/"), "If-None-Match", etag)
+    unchanged = site.static_files()(again)
+    assert unchanged.status == Status.not_modified
+    assert Response.text(unchanged) == Ok("")
+}
+
+test "a single-page file server answers a page route with the root index.html" {
+    app = http.file_server_embedded(Files.sub(site.assets, "web/public")!, single_page: True)
+    page = with_header(http_testing.request(Method.Get, "/settings"), "Accept", "text/html")
+
+    assert app(page).status == Status.ok
+    assert Response.text(app(page)) == Ok("<h1>Home</h1>\n")
+    assert app(with_header(page, "Accept", "application/json")).status == Status.not_found
+    assert app(http_testing.request(Method.Get, "/css/gone.css")).status == Status.not_found
+
+    dotted = with_header(http_testing.request(Method.Get, "/users/jane.doe"), "Accept", "text/html")
+    assert Response.text(app(dotted)) == Ok("<h1>Home</h1>\n")
+
+    css = app(with_header(http_testing.request(Method.Get, "/css/site.css"), "Accept", "text/html"))
+    assert Headers.get(css.headers, "Content-Type") == Some("text/css; charset=utf-8")
+}
+
+test "a file whose path matches an immutable pattern is cached for a year" {
+    app = http.file_server_embedded(Files.sub(site.assets, "web/public")!, immutable: ["css/**"])
+    year = Some("public, max-age=31536000, immutable")
+
+    assert Headers.get(
+        app(http_testing.request(Method.Get, "/css/site.css")).headers,
+        "Cache-Control",
+    ) == year
+
+    assert Headers.get(app(http_testing.request(Method.Get, "/")).headers, "Cache-Control")
+        == Some("no-cache")
+
+    bare = http.file_server_embedded(Files.sub(site.assets, "web/public")!, immutable: ["css"])
+
+    assert Headers.get(
+        bare(http_testing.request(Method.Get, "/css/site.css")).headers,
+        "Cache-Control",
+    ) == year
+
+    assert Headers.get(bare(http_testing.request(Method.Get, "/")).headers, "Cache-Control")
+        == Some("no-cache")
 }

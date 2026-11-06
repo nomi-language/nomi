@@ -37,6 +37,9 @@ func buildWrapperBinary(r *Result, outputPath string) error {
 }
 
 func ensureCachedWrapperBinary(r *Result) (string, error) {
+	if r.prebuilt != "" {
+		return r.prebuilt, nil
+	}
 	path := cachedWrapperBinaryPath(r)
 	binaryInfo, binaryErr := os.Stat(path)
 	wrapperInfo, wrapperErr := os.Stat(r.WrapperPath)

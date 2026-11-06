@@ -282,7 +282,11 @@ func Update(root, only string, opts Options) ([]Change, error) {
 	var raise []module.Version
 	for _, m := range targets {
 		upgrade := f.upgrade
-		if strings.HasPrefix(m.Path, libPrefix) {
+		if strings.HasPrefix(m.Path, libPrefix) && opts.LibVersion != "" {
+			// A release `nomi` keeps lib/ modules at the version it carries
+			// prebuilt.
+			upgrade = func(module.Version) (string, error) { return opts.LibVersion, nil }
+		} else if strings.HasPrefix(m.Path, libPrefix) {
 			// A lib/ module has no tags: its latest is the latest commit.
 			upgrade = func(m module.Version) (string, error) {
 				v, err := f.latest(m.Path)
@@ -343,7 +347,7 @@ func Update(root, only string, opts Options) ([]Change, error) {
 				listed[r.Path] = r.Version
 			}
 		}
-		return alignLib(mf, "")
+		return alignLib(mf, opts.LibVersion)
 	}); err != nil {
 		return nil, err
 	}

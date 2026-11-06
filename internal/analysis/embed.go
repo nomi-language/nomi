@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -23,11 +24,11 @@ import (
 //
 // expands into the `once` it names,
 //
-//	once site: embed$.Files = embed$.from_entries(<EmbeddedFiles>)
+//	once site: embed$.Files = embed$.from_entries(<EmbeddedFiles>, [<missing bases>])
 //
 // whose value is an ast.EmbeddedFiles holding every file the patterns
-// matched, with where its contents are and their size and SHA-256, and
-// whose type and call are in the synthesized band, as a `noun`'s are. The
+// matched, with where its contents are and their size and SHA-256, beside
+// the bases of the patterns that do not exist yet, and whose type and call are in the synthesized band, as a `noun`'s are. The
 // front end hashes each file a buffer at a time and keeps none of it. The
 // IR builder lowers the EmbeddedFiles to a list of each file's path, handle
 // (ir.ConstEmbedded) and size; the program reads a file's contents when it
@@ -46,8 +47,14 @@ import (
 // another module: a walk skips it, and naming it is an error. A symbolic
 // link or other irregular file is an error. A pattern that matches
 // nothing, or only directories with nothing to embed, is an error at the
-// pattern. Nomi differs from Go in one thing: `**` is an error, since a
-// directory's name already embeds everything under it.
+// pattern, except one whose base (EmbedInfo.Bases: the names before its
+// first wildcard) does not exist, from the root or from the declaring
+// file's directory: the tree holds the base as an empty directory and
+// the pattern is a warning (EmbedInfo.Warnings), so a program whose
+// frontend has not been built yet runs, checks and tests.
+// `nomi build` refuses it (EmbedInfo.MissingErrors). Nomi differs from Go
+// in one thing: `**` is an error, since a directory's name already embeds
+// everything under it.
 
 const keywordEmbed = "embed"
 
@@ -165,6 +172,10 @@ type EmbedInfo struct {
 	// Matches holds, for each pattern in order, the paths it matched from
 	// Root, files and directories, sorted.
 	Matches [][]string
+	// Missing are the indexes of the patterns that matched nothing because
+	// their base does not exist (patternBase), in order. The tree holds
+	// each such base as an empty directory.
+	Missing []int
 }
 
 // EmbedFileInfo is one embedded file: its path from the module root, and
@@ -191,16 +202,7 @@ func (in *EmbedInfo) Bases() []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, p := range in.Decl.Patterns {
-		text, _ := strings.CutPrefix(p.Text, "all:")
-		names := strings.Split(text, "/")
-		var fixed []string
-		for _, name := range names {
-			if strings.ContainsAny(name, `*?[\`) {
-				break
-			}
-			fixed = append(fixed, name)
-		}
-		base := path.Join(append([]string{"."}, fixed...)...)
+		base := patternBase(p.Text)
 		if !seen[base] {
 			seen[base] = true
 			out = append(out, base)
@@ -208,6 +210,95 @@ func (in *EmbedInfo) Bases() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// EmbedMissingCode is the Code of the warning at an `embed` pattern whose
+// base does not exist (EmbedInfo.Warnings).
+const EmbedMissingCode = "embed-missing"
+
+// patternBase is the path the leading names of the pattern text spell
+// before the first name that holds a wildcard, or the whole path when none
+// does, without `all:`; "." is the root.
+func patternBase(text string) string {
+	text, _ = strings.CutPrefix(text, "all:")
+	var fixed []string
+	for _, name := range strings.Split(text, "/") {
+		if strings.ContainsAny(name, `*?[\`) {
+			break
+		}
+		fixed = append(fixed, name)
+	}
+	return path.Join(append([]string{"."}, fixed...)...)
+}
+
+// MissingBase is the base of pattern i, which does not exist when i is
+// one of Missing.
+func (in *EmbedInfo) MissingBase(i int) string { return patternBase(in.Decl.Patterns[i].Text) }
+
+// MissingBases are the bases of the patterns that matched nothing because
+// they do not exist, each once, sorted: the empty directories the tree
+// holds in their place.
+func (in *EmbedInfo) MissingBases() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, i := range in.Missing {
+		if base := patternBase(in.Decl.Patterns[i].Text); !seen[base] {
+			seen[base] = true
+			out = append(out, base)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// Warnings are the warnings at the patterns that matched nothing because
+// their base does not exist, which `nomi run`, `check` and `test`, the
+// REPL and the language server report and go on.
+func (in *EmbedInfo) Warnings() []TypeError {
+	var out []TypeError
+	for _, i := range in.Missing {
+		p := in.Decl.Patterns[i]
+		base := patternBase(p.Text)
+		what := fmt.Sprintf("`%s` is empty", in.Decl.Name)
+		if len(in.Files) > 0 {
+			what = fmt.Sprintf("`%s` holds nothing under it", in.Decl.Name)
+		}
+		e := embedPatternError(p, fmt.Sprintf("the `embed` pattern `%s` matches no file: `%s` does not exist, so %s until it does", p.Text, base, what))
+		e.Code = EmbedMissingCode
+		out = append(out, e.WithHint("`nomi run`, `check` and `test` go on with an empty directory there; `nomi build` refuses the pattern until it matches a file"))
+	}
+	return out
+}
+
+// MissingErrors are Warnings as `nomi build` reports them: errors, since
+// a build holds the files its patterns name when it is made.
+func (in *EmbedInfo) MissingErrors() []TypeError {
+	var out []TypeError
+	for _, i := range in.Missing {
+		p := in.Decl.Patterns[i]
+		e := embedPatternError(p, fmt.Sprintf("the `embed` pattern `%s` matches no file: `%s` does not exist", p.Text, patternBase(p.Text)))
+		out = append(out, e.WithHint("a build holds the files an `embed` names; make them before `nomi build` (`nomi run` and `nomi check` only warn)"))
+	}
+	return out
+}
+
+// EmbedWarnings are the warnings of every `embed` among nodes, a file's
+// expanded declarations, in source order.
+func EmbedWarnings(nodes []ast.Node) []TypeError {
+	var out []TypeError
+	for _, n := range nodes {
+		if o, ok := n.(*ast.OnceBinding); ok {
+			if info := EmbedOf(o); info != nil {
+				out = append(out, info.Warnings()...)
+			}
+		}
+	}
+	return out
+}
+
+// embedPatternError is msg at pattern p.
+func embedPatternError(p ast.EmbedPattern, msg string) TypeError {
+	return TypeError{Line: p.Line, Col: p.Col, EndLine: p.Line, EndCol: p.Col + p.Width, Message: msg}
 }
 
 // embedExpansion is what an `embed` keeps on the `once` it expands into.
@@ -264,9 +355,16 @@ func expandEmbed(d *ast.EmbedDecl, site *ExpansionSite, slot int) *ast.OnceBindi
 	r := embedResolver{decl: d, site: site}
 	files := r.resolve()
 	value := &ast.EmbeddedFiles{Files: files}
+	info := &EmbedInfo{Decl: d, Root: r.displayRoot(), Matches: r.matches, Missing: r.missing}
+	// The bases that do not exist are the tree's empty directories, so
+	// `Files.sub(site, "web/dist")` answers an empty tree until they do.
+	empty := &ast.ListLit{}
+	for _, base := range info.MissingBases() {
+		empty.Items = append(empty.Items, &ast.StringLit{Value: base})
+	}
 	call := &ast.Call{
 		Func: fieldAccess(identExpr(embedModuleAlias, 0, 0), "from_entries", 0, 0),
-		Args: []ast.Node{value},
+		Args: []ast.Node{value, empty},
 	}
 	typ := &ast.QualifiedType{Module: embedModuleAlias, Member: &ast.SimpleType{Name: "Files"}}
 	carrier := &ast.FuncDef{ReturnTypeExpr: typ, Body: &ast.Block{Stmts: []ast.Node{exprStmt(call, 0, 0)}}}
@@ -282,7 +380,6 @@ func expandEmbed(d *ast.EmbedDecl, site *ExpansionSite, slot int) *ast.OnceBindi
 	}
 	once.Span = d.Span
 	once.TriviaCarrier = d.TriviaCarrier
-	info := &EmbedInfo{Decl: d, Root: r.displayRoot(), Matches: r.matches}
 	for _, f := range files {
 		info.Files = append(info.Files, EmbedFileInfo{Path: f.Path, Size: f.Size})
 	}
@@ -297,6 +394,7 @@ type embedResolver struct {
 	site    *ExpansionSite
 	errs    []TypeError
 	matches [][]string
+	missing []int
 }
 
 // displayRoot is the module root on disk, or "" for an in-memory module.
@@ -312,7 +410,7 @@ func (r *embedResolver) displayRoot() string {
 
 // fail records msg as an error at pattern p.
 func (r *embedResolver) fail(p ast.EmbedPattern, msg string, hints ...string) {
-	e := TypeError{Line: p.Line, Col: p.Col, EndLine: p.Line, EndCol: p.Col + p.Width, Message: msg}
+	e := embedPatternError(p, msg)
 	for _, h := range hints {
 		e = e.WithHint(h)
 	}
@@ -406,6 +504,13 @@ func (r *embedResolver) pattern(i int, p ast.EmbedPattern) []ast.EmbeddedFile {
 			r.fail(p, fmt.Sprintf("cannot embed files under `%s`: it is another module, with its own nomi.toml", anotherModule))
 			return nil
 		}
+		// A base that does not exist is one the program has not made yet
+		// (a frontend's build folder), unless it names a path beside the
+		// declaring file, which is a pattern written from the wrong place.
+		if base := patternBase(text); !r.exists(base) && !r.existsBesideFile(base) {
+			r.missing = append(r.missing, i)
+			return nil
+		}
 		r.fail(p, fmt.Sprintf("the `embed` pattern `%s` matches no file", p.Text), "a pattern names files from the module root, as an import path does")
 		return nil
 	}
@@ -493,6 +598,26 @@ func (r *embedResolver) walk(p ast.EmbedPattern, dir string, all bool, out *[]as
 		}
 	}
 	return true
+}
+
+// exists reports whether rel, a path from the root, names a file or a
+// directory.
+func (r *embedResolver) exists(rel string) bool {
+	if rel == "." {
+		return true
+	}
+	_, ok := r.entry(rel)
+	return ok
+}
+
+// existsBesideFile reports whether rel names a path from the declaring
+// file's directory, when that is not the module root.
+func (r *embedResolver) existsBesideFile(rel string) bool {
+	dir := path.Dir(r.site.ModulePath)
+	if r.site.ModulePath == "" || dir == "." {
+		return false
+	}
+	return r.exists(path.Join(dir, rel))
 }
 
 // entry is the directory entry of rel, from its parent's listing.
@@ -585,4 +710,26 @@ func embedPatternProblem(text string) (msg, hint string) {
 func (c *checker) checkEmbed(o *ast.OnceBinding, e *embedExpansion) bool {
 	c.errors = append(c.errors, e.errs...)
 	return len(e.errs) > 0
+}
+
+// sameOnDisk reports whether in's patterns, read again from its root on
+// disk as the language server reads them (names and sizes, no contents),
+// match what in holds. A record of a program that embeds files reads them
+// again after it snapshots their trees, so a file that changed after the
+// program's check is one the snapshot sees (keepStored).
+func (in *EmbedInfo) sameOnDisk(m *Manifest) bool {
+	if in == nil || in.Decl == nil || in.Root == "" {
+		return false
+	}
+	r := embedResolver{decl: in.Decl, site: &ExpansionSite{Root: in.Root, Manifest: m, Embed: DiskEmbedFS{Root: in.Root}, SkipEmbedContents: true}}
+	files := r.resolve()
+	if len(files) != len(in.Files) {
+		return false
+	}
+	for i, f := range files {
+		if f.Path != in.Files[i].Path || f.Size != in.Files[i].Size {
+			return false
+		}
+	}
+	return reflect.DeepEqual(r.matches, in.Matches)
 }

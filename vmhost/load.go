@@ -51,6 +51,9 @@ type config struct {
 	generate func(*irbuild.Program) (*irbuild.Result, error)
 	// cache, when set, keeps the program once it loads cleanly (WithCache).
 	cache *Cache
+	// warnings takes the program's warnings once a load has checked it
+	// (WithWarnings, WithWarningsTo), or is nil to drop them.
+	warnings func(Diagnostics)
 }
 
 func newConfig(opts []Option) config {
@@ -147,6 +150,22 @@ func WithStop(ctx context.Context) Option {
 // receives (`Startup.env`), on top of the process environment.
 func WithEnv(env map[string]string) Option {
 	return func(c *config) { c.env = env }
+}
+
+// WithWarnings writes what the program compiles with and reports to w,
+// rendered as diagnostics, when Load or Check has checked it: each `embed`
+// pattern whose base does not exist yet (Program.Warnings). `nomi run`,
+// `nomi check` and `nomi test` pass the standard error. Without it they are
+// written nowhere; a build refuses them.
+func WithWarnings(w io.Writer) Option {
+	return WithWarningsTo(func(ds Diagnostics) { ds.Render(w) })
+}
+
+// WithWarningsTo is WithWarnings for a host that reports them itself, as
+// `nomi check --format json` does: f is called with them, when there are
+// any.
+func WithWarningsTo(f func(Diagnostics)) Option {
+	return func(c *config) { c.warnings = f }
 }
 
 // frontendConfig is the front end's view of c: its virtual files and root,
@@ -360,6 +379,7 @@ func checked(p *Program, err error) (*Program, error) {
 	if err := p.checkLiterals(); err != nil {
 		return nil, err
 	}
+	p.writeWarnings()
 	return p, nil
 }
 
@@ -581,6 +601,7 @@ func loadStdlib(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
 	if err := p.checkLiterals(); err != nil {
 		return nil, err
 	}
+	p.writeWarnings()
 	return p, nil
 }
 

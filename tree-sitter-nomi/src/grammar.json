@@ -2021,6 +2021,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "type_identifier"
+        },
+        {
+          "type": "SYMBOL",
           "name": "tuple_pattern"
         },
         {

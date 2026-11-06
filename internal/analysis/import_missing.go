@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -235,12 +234,9 @@ func missingModuleHint(dir, leaf string, written []string) string {
 	return ""
 }
 
-// stdlibModuleNames are the standard library's module paths below `std/`.
+// stdlibModuleNames are the standard library's module paths below `std/`:
+// every module, when the build was handed a stdlib built a module at a time
+// (stdModuleNamesOf).
 func (b *builder) stdlibModuleNames() []string {
-	names := make([]string, 0, len(b.stdlibFAs))
-	for name := range b.stdlibFAs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return stdModuleNamesOf(b.stdlibFAs)
 }

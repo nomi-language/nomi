@@ -13,6 +13,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/rt"
 )
@@ -50,6 +51,53 @@ func (p *Program) EmbeddedFiles() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// Warnings are what the program compiles with and reports: each `embed`
+// pattern whose base does not exist yet, in file and source order. The
+// program runs with an empty directory in its place; a build refuses it
+// (missingEmbeds). Load, Check and the REPL write them where WithWarnings
+// says.
+func (p *Program) Warnings() Diagnostics {
+	var out Diagnostics
+	for _, m := range p.prog.Modules {
+		out = append(out, frontend.WarningDiagnostics(m.Path, p.sources[m.Path], analysis.EmbedWarnings(m.Nodes))...)
+	}
+	return out
+}
+
+// missingEmbeds are Warnings as errors, which a build answers: an image
+// holds the files its program's patterns name when it is built, so a
+// pattern whose base does not exist is refused.
+func (p *Program) missingEmbeds() Diagnostics {
+	var out Diagnostics
+	for _, m := range p.prog.Modules {
+		var errs []analysis.TypeError
+		for _, n := range m.Nodes {
+			if o, ok := n.(*ast.OnceBinding); ok {
+				if info := analysis.EmbedOf(o); info != nil {
+					errs = append(errs, info.MissingErrors()...)
+				}
+			}
+		}
+		if len(errs) > 0 {
+			ds := frontend.WarningDiagnostics(m.Path, p.sources[m.Path], errs)
+			for i := range ds {
+				ds[i].Warning = false
+			}
+			out = append(out, ds...)
+		}
+	}
+	return out
+}
+
+// writeWarnings hands p's warnings to its load's WithWarnings.
+func (p *Program) writeWarnings() {
+	if f := p.cfg.warnings; f != nil {
+		if ds := p.Warnings(); len(ds) > 0 {
+			f(ds)
+		}
+	}
 }
 
 // embeddedSource is where the program's machines read its embedded files,

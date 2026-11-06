@@ -26,6 +26,10 @@ type stdArtifact struct {
 	ifaces map[string][]byte
 	// syntax holds the parse errors of each module's source, by module name.
 	syntax map[string][]parser.ParseError
+	// imports holds the stdlib modules each module's source imports, at any
+	// depth (analysis.StdModuleImports), by module name: what a stdlib
+	// built a module at a time builds with it.
+	imports map[string][]string
 	// facts is analysis.StdFacts, encoded; nil until worked out.
 	facts []byte
 }
@@ -38,12 +42,13 @@ type stdArtifact struct {
 //	uint32 the CRC-32 of the rest, then the rest:
 //	uvarint the module count, and per module in name order its name, its
 //	interface's bytes, its parse error count and each error's line, column
-//	and message; then the facts' bytes.
+//	and message, and its imports' count and each import's name; then the
+//	facts' bytes.
 const (
 	stdArtifactMagic = "NOMISTDI"
 	// stdArtifactVersion versions the layout above; the interfaces and the
 	// facts carry versions of their own.
-	stdArtifactVersion = 1
+	stdArtifactVersion = 2
 	// stdArtifactUnused is how long a cached artifact no process has used
 	// is kept: each build of the compiler writes its own.
 	stdArtifactUnused = 24 * time.Hour
@@ -64,7 +69,7 @@ func StdArtifact() ([]byte, error) {
 // extractStdArtifact parses every embedded module and extracts its
 // interface, answering the artifact without facts.
 func extractStdArtifact() *stdArtifact {
-	art := &stdArtifact{ifaces: map[string][]byte{}, syntax: map[string][]parser.ParseError{}}
+	art := newStdArtifact()
 	for _, name := range append(embeddedStdlibNames(), "prelude") {
 		data, ok := ReadFile(name)
 		if !ok {
@@ -75,8 +80,13 @@ func extractStdArtifact() *stdArtifact {
 			art.syntax[name] = errs
 		}
 		art.ifaces[name] = analysis.ExtractInterface("std/"+name, "", nodes).Encode()
+		art.imports[name] = analysis.StdModuleImports(name, nodes)
 	}
 	return art
+}
+
+func newStdArtifact() *stdArtifact {
+	return &stdArtifact{ifaces: map[string][]byte{}, syntax: map[string][]parser.ParseError{}, imports: map[string][]string{}}
 }
 
 // thisStdArtifactHead is the head of an artifact this process reads and
@@ -115,6 +125,10 @@ func encodeStdArtifact(art *stdArtifact) []byte {
 			body = binary.AppendUvarint(body, uint64(e.Line))
 			body = binary.AppendUvarint(body, uint64(e.Col))
 			body = appendString(body, e.Message)
+		}
+		body = binary.AppendUvarint(body, uint64(len(art.imports[name])))
+		for _, imp := range art.imports[name] {
+			body = appendString(body, imp)
 		}
 	}
 	body = appendString(body, string(art.facts))
@@ -169,7 +183,7 @@ func decodeStdArtifact(data []byte) (*stdArtifact, error) {
 		return nil, errors.New("checksum mismatch")
 	}
 	r := &artifactReader{b: data}
-	art := &stdArtifact{ifaces: map[string][]byte{}, syntax: map[string][]parser.ParseError{}}
+	art := newStdArtifact()
 	for n := r.uv(); n > 0 && r.err == nil; n-- {
 		name := string(r.bytes())
 		art.ifaces[name] = r.bytes()
@@ -177,6 +191,9 @@ func decodeStdArtifact(data []byte) (*stdArtifact, error) {
 			e := parser.ParseError{Line: int(r.uv()), Col: int(r.uv())}
 			e.Message = string(r.bytes())
 			art.syntax[name] = append(art.syntax[name], e)
+		}
+		for m := r.uv(); m > 0 && r.err == nil; m-- {
+			art.imports[name] = append(art.imports[name], string(r.bytes()))
 		}
 	}
 	art.facts = r.bytes()

@@ -26,7 +26,7 @@ import (
 // again.
 //
 // Only a program that checks and lowers cleanly is kept: no diagnostic, no
-// body the builder declined, and nothing its main, boot or test cases reach
+// warning, no body the builder declined, and nothing its main, boot or test cases reach
 // that a machine could not run. So a hit says the program checks, and a
 // program a hit runs reports nothing a fresh load would have reported
 // differently. A program with Go bindings is never kept; its wrapper builds
@@ -179,6 +179,11 @@ func (p *Program) keep(checked bool) {
 		return
 	}
 	if (!checked && p.Unsupported() != nil) || !p.runsClean() {
+		return
+	}
+	// A program with warnings is not kept, so each run reports them, and
+	// the pattern's base appearing is a change like any other.
+	if len(p.Warnings()) > 0 {
 		return
 	}
 	a := artifact{entry: p.prog.Entry().Path, root: p.prog.Root, hasTests: p.prog.HasTests}

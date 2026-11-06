@@ -28,10 +28,10 @@ func RenderForEditor(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
 	if examples := ExamplesIn(sym, fa); examples != "" {
 		content += "\n\n" + examples
 	}
-	if texts := NounTexts(sym); texts != "" {
+	if texts := NounTexts(sym, fa); texts != "" {
 		content += "\n\n" + texts
 	}
-	if texts := MessageTexts(sym); texts != "" {
+	if texts := MessageTexts(sym, fa); texts != "" {
 		content += "\n\n" + texts
 	}
 	return content

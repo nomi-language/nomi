@@ -257,9 +257,9 @@ func TestBuildFromRelease_AMismatchedRunnerIsRefused(t *testing.T) {
 	got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.mismatch, "nomi")), "build", entry, "-o", out)
 	// Hello world reaches no network crossing, so the runner it asks for
 	// is the one without the network.
-	want := "the nomi-vm at " + exe(filepath.Join(b.mismatch, "nomi-vm-nonet")) + " was built from an unrecorded commit and this nomi from commit "
+	want := "the nomi-vm-nonet at " + exe(filepath.Join(b.mismatch, "nomi-vm-nonet")) + " was built from an unrecorded commit and this nomi from commit "
 	if got.exit == 0 || !strings.Contains(got.stderr, want) ||
-		!strings.Contains(got.stderr, "Install nomi and nomi-vm from one release archive") {
+		!strings.Contains(got.stderr, "Install nomi and nomi-vm-nonet from one release") {
 		t.Fatalf("exit %d, want the refusal %q:\n%s", got.exit, want, got.transcript())
 	}
 	if _, err := os.Stat(out); !os.IsNotExist(err) {
@@ -428,7 +428,7 @@ func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 		got := runProcess(t, env, dir, "", nomi, "build", "--target", b.cross, entry, "-o", out)
 		// Hello world reaches no network crossing, so it is built on the
 		// archive's runner without the network.
-		want := "nomi build: downloading nomi-vm-nonet for " + b.cross + " from " + srv.URL + archive + "\n"
+		want := "nomi: downloading nomi-vm-nonet for " + b.cross + " from " + srv.URL + archive + "\n"
 		if got.exit != 0 || got.stderr != want {
 			t.Fatalf("exit %d, want only %q on stderr:\n%s", got.exit, want, got.transcript())
 		}

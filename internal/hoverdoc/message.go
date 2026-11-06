@@ -9,10 +9,17 @@ import (
 )
 
 // messageFunc is the function a `message` declaration expanded into that
-// sym names, or nil.
-func messageFunc(sym *analysis.Symbol) *ast.FuncDef {
+// sym names, or nil, as its file's source has it when fa's program read
+// the file as its interface (FileAnalysis.DeclarationSource), which keeps
+// only the keyword of what the function expanded from.
+func messageFunc(sym *analysis.Symbol, fa *analysis.FileAnalysis) *ast.FuncDef {
 	for s := sym; s != nil; s = s.Resolved {
 		if fn, ok := s.Node.(*ast.FuncDef); ok && fn.Expansion != nil {
+			if fa != nil {
+				if src, ok := fa.DeclarationSource(fn, s.SourceFile).(*ast.FuncDef); ok && src.Expansion != nil {
+					return src
+				}
+			}
 			return fn
 		}
 		if s.Resolved == s {
@@ -26,9 +33,10 @@ func messageFunc(sym *analysis.Symbol) *ast.FuncDef {
 // source locale and in each locale `[i18n]` lists, as `Message.format`
 // writes it there. A locale with no current translation of its own says
 // which locale's text it shows, and why: no entry, or one translated from
-// an older text. "" when sym names no message.
-func MessageTexts(sym *analysis.Symbol) string {
-	info := analysis.MessageOf(messageFunc(sym))
+// an older text. "" when sym names no message. fa, when not nil, is the
+// analysis sym was found in.
+func MessageTexts(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
+	info := analysis.MessageOf(messageFunc(sym, fa))
 	if info == nil {
 		return ""
 	}

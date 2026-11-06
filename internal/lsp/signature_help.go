@@ -123,12 +123,12 @@ func buildSignatureInfo(sym *analysis.Symbol) (string, []protocol.ParameterInfor
 		sig := hoverdoc.RenderInterfaceMethodSig(n)
 		var paramInfos []protocol.ParameterInformation
 		for _, p := range n.Params {
-			paramLabel := hoverdoc.ParamDisplayName(p)
+			typeText := ""
 			if p.TypeAnnotation != nil {
-				paramLabel += ": " + p.TypeAnnotation.TypeString()
+				typeText = p.TypeAnnotation.TypeString()
 			}
 			paramInfos = append(paramInfos, protocol.ParameterInformation{
-				Label: paramLabel,
+				Label: hoverdoc.ParamSignature(p, typeText),
 			})
 		}
 		// `n.Doc`, not "": the two arms above return theirs, and an
@@ -142,12 +142,12 @@ func buildSignatureInfo(sym *analysis.Symbol) (string, []protocol.ParameterInfor
 
 	var paramInfos []protocol.ParameterInformation
 	for _, p := range params {
-		paramLabel := hoverdoc.ParamDisplayName(p)
+		typeText := ""
 		if p.TypeAnnotation != nil {
-			paramLabel += ": " + p.TypeAnnotation.TypeString()
+			typeText = p.TypeAnnotation.TypeString()
 		}
 		paramInfos = append(paramInfos, protocol.ParameterInformation{
-			Label: paramLabel,
+			Label: hoverdoc.ParamSignature(p, typeText),
 		})
 	}
 

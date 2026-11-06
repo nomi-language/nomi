@@ -45,6 +45,8 @@ parses, and hovering shows the same information your editor does.
 - **App fields.** Configuration and dependencies live on one
   [app value](/app-fields/). A test can swap one with a line
   such as `with App.logger = ...`.
+- **Web apps.** A server renders checked HTML templates, or serves a React
+  or Vue build and its JSON API; [Frontends](/frontends/) compares the ways.
 - **Built-in tests.** [`test` blocks](/testing/), assertions and `//!`
   examples are ordinary Nomi code, and `nomi test` runs them.
 

@@ -230,7 +230,7 @@ func (p *Program) machine(out io.Writer) *vm.Machine {
 // callee in first. Only checkLiterals passes another module, for a program
 // whose entry file retained nothing.
 func (p *Program) machineOver(entry *ir.Module, out io.Writer) *vm.Machine {
-	m := vm.NewProgram(entry, p.res.IRModules(), out).WithHosts(p.hosts...).WithLocaleData(p.localeData()).WithMessages(p.messages())
+	m := vm.NewProgram(entry, p.res.IRModules(), out).WithHosts(p.hosts...).WithLocaleLoader(p.localeData).WithMessages(p.messages())
 	if p.errOut != nil {
 		m = m.WithErrorOutput(p.errOut)
 	}

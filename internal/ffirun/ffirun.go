@@ -37,6 +37,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nomi-language/nomi/internal/modcache"
 )
 
 // TestTimeoutEnv is the environment variable that hands the test wrapper
@@ -74,6 +76,14 @@ type Result struct {
 	projectRoot string
 	discovered  []DiscoveredPackage
 	allRequires []string
+
+	// prebuilt is the prebuilt lib wrapper (libprebuilt.go) that runs the
+	// program in place of a generated one, or "": then WrapperPath and
+	// WrapperDir are empty.
+	prebuilt string
+	// libMiss is why a release's prebuilt lib wrapper could not run the
+	// program, which a missing Go toolchain's failure names.
+	libMiss *libMiss
 }
 
 // GoModRoot returns the go.mod root that would control FFI discovery for
@@ -154,7 +164,10 @@ func Prepare(entryPath string) (*Result, error) {
 	if !script {
 		sourceRoot = findNomiPackageRoot(sourceRoot, projectRoot)
 	}
-	return prepareModule(projectRoot, sourceRoot, absEntry)
+	// A dependency's tool builds in the project's module, which requires
+	// the dependency (modcache.MainModule): the go.mod at the tool's own
+	// root is not the main module's, and its replaces are not read.
+	return prepareModule(modcache.MainModule(projectRoot), sourceRoot, absEntry)
 }
 
 // prepareModule is Prepare for a program whose files are under sourceRoot,
@@ -171,16 +184,34 @@ func prepareModule(projectRoot, sourceRoot, absEntry string) (*Result, error) {
 		// multi-package projects ride this branch.
 		return &Result{FastPath: true}, nil
 	}
-	if err := validateDiscoveredGoBindings(projectRoot, discovered); err != nil {
-		return nil, err
-	}
-
 	// Snapshot the project's full direct-require list, which is a cache
 	// key input. listDirectRequires errors are non-fatal: go.mod and
 	// go.sum are keyed on their own.
 	allRequires, _ := listDirectRequires(projectRoot)
+	r := &Result{
+		DiscoveredPackages: discoveredImportPaths(discovered),
+		projectRoot:        projectRoot,
+		discovered:         discovered,
+		allRequires:        allRequires,
+	}
+	// A release runs a program whose bindings are all the lib/ modules' at
+	// its own version in its prebuilt wrapper, which was validated and
+	// generated when the release was cut.
+	if r.prebuilt, r.libMiss = prebuiltLib(discovered); r.prebuilt != "" {
+		return r, nil
+	}
+	if err := validateDiscoveredGoBindings(projectRoot, discovered); err != nil {
+		return nil, err
+	}
 
-	cacheDir, err := cacheDirForProject(projectRoot)
+	key := projectRoot
+	if rel, err := filepath.Rel(projectRoot, sourceRoot); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		// A dependency's tool (modcache.MainModule) builds in the project's
+		// module with other bindings than the project's own program, so its
+		// wrapper is kept apart from the project's.
+		key = projectRoot + "\x00" + sourceRoot
+	}
+	cacheDir, err := cacheDirForKey(key, projectRoot, cacheKindRun)
 	if err != nil {
 		return nil, err
 	}
@@ -188,18 +219,11 @@ func prepareModule(projectRoot, sourceRoot, absEntry string) (*Result, error) {
 		// Wipe the cache so the next attempt starts fresh rather
 		// than serving a half-written wrapper.
 		_ = os.RemoveAll(cacheDir)
-		return nil, err
+		return nil, r.explainNeedsGo(err)
 	}
-
-	return &Result{
-		FastPath:           false,
-		WrapperPath:        filepath.Join(cacheDir, "main.go"),
-		WrapperDir:         cacheDir,
-		DiscoveredPackages: discoveredImportPaths(discovered),
-		projectRoot:        projectRoot,
-		discovered:         discovered,
-		allRequires:        allRequires,
-	}, nil
+	r.WrapperPath = filepath.Join(cacheDir, "main.go")
+	r.WrapperDir = cacheDir
+	return r, nil
 }
 
 func discoveredImportPaths(discovered []DiscoveredPackage) []string {
@@ -235,7 +259,7 @@ func commandMode(r *Result, mode, entryAbsPath string, args ...string) (*exec.Cm
 	}
 	wrapperBin, err := ensureCachedWrapperBinary(r)
 	if err != nil {
-		return nil, err
+		return nil, r.explainNeedsGo(err)
 	}
 	cmd := exec.Command(wrapperBin, append([]string{wrapperModeFlag, mode, entryAbsPath}, args...)...)
 	// Start in the wrapper dir, matching the old go-run launch shape. The
@@ -278,7 +302,7 @@ func Check(r *Result, entryAbsPath string) error {
 	}
 	wrapperBin, err := ensureCachedWrapperBinary(r)
 	if err != nil {
-		return err
+		return r.explainNeedsGo(err)
 	}
 	cmd := exec.Command(wrapperBin, wrapperModeFlag, "check", entryAbsPath)
 	cmd.Dir = r.WrapperDir
@@ -329,7 +353,7 @@ func runTestMode(r *Result, mode, testAbsPath string, line int, lineSet bool, fo
 	}
 	wrapperBin, err := ensureCachedWrapperBinary(r)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, r.explainNeedsGo(err)
 	}
 	args := []string{wrapperModeFlag, mode, testAbsPath}
 	json := format == "json"

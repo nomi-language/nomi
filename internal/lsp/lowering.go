@@ -341,10 +341,16 @@ func (s *Server) runLoweringChecks(ctx context.Context, uri string, run *lowerin
 				// text's lowering finds nothing.
 				c.recorded.Add(1)
 			} else {
+				// The entry of a program opened from its record lowers from
+				// the record's kept lowering (analysis.StoredLowering).
+				stored := s.docs.StoredLowering(uri, content)
 				// The analysis is taken again under the view lock, which
 				// keeps a recheck from rewriting it while it is lowered.
 				release := s.docs.View()
 				if a, latest := s.installedLoweringAnalysis(uri, content); latest {
+					if a == nil && stored != nil {
+						a = &analyzedlowering.Analyzed{Stored: stored}
+					}
 					diags = s.safeLoweringDiagnostics(ctx, uri, content, a)
 					lowered = true
 				}
@@ -358,7 +364,7 @@ func (s *Server) runLoweringChecks(ctx context.Context, uri string, run *lowerin
 			if lowered && len(diags) == 0 {
 				// A record of the program, which a later server opens
 				// from, is written now if it can be.
-				s.docs.NoteLoweredClean(uri, content)
+				s.docs.NoteLoweredClean(uri, content, analyzedlowering.Kept)
 			}
 		}
 		run.cancel()

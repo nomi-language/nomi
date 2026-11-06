@@ -42,6 +42,7 @@ The repository root is the compiler's Go module,
 | `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `artifactcache` (what the compiler builds once and reads back: the std bundle), `std*` (Go-backed stdlib adapters), `mf2` (MessageFormat 2) and `catalog` (message catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
 | `lib/` | First-party Nomi modules outside std, each its own nested Go module with its own `go.mod` and `nomi.toml`: `lib/sql/sqlite` (the SQLite driver), `lib/sql/postgres` (the Postgres driver), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, over goldmark), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP, over golang.org/x/image), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). The compiler's module neither contains nor requires them. |
+| `librunners/` | A nested Go module requiring the compiler and the `lib/` modules with `go` bindings by directory, holding the main packages of the prebuilt `nomi-lib` (their FFI wrapper) and `nomi-vm-lib` (their runner) a release ships in its lib archives. `go run ./internal/ffirun/libgen` generates them; rerun it after changing a lib/ module's `go` bindings or the FFI wrapper template (`TestLibModules` fails until you do). |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
 | `docs/` | The spec, style guide, implementation notes, feature status, roadmap and install guide. |
 | `tour/` | The Astro Starlight site at nomi-lang.org: the tour and the generated stdlib reference. |
@@ -97,8 +98,9 @@ the same in the background. Details:
   [VM](docs/implementation-notes.md#vm), [rt](docs/implementation-notes.md#rt),
   [debugging and `nomi dap`](docs/implementation-notes.md#debugging-and-nomi-dap).
 - **Stdlib.** `std/` is one embedded module. Each process builds it from
-  its modules' interfaces and checks a module's bodies only when something
-  lowers one (`std.Shared`, `StdLib.Bodies`);
+  its modules' interfaces, only the modules its programs reach, and checks
+  a module's bodies only when something lowers one (`std.Shared`,
+  `StdLib.Ensure`, `StdLib.Bodies`; `std.All` builds every module);
   `programStdModules` are declared with each program and linked by name
   from one lowering of all of them. Its interfaces and its lowering are
   decoded from artifacts the binary embeds or caches. A
@@ -108,6 +110,7 @@ the same in the background. Details:
   [stdlib](docs/implementation-notes.md#stdlib),
   [the std bundle](docs/implementation-notes.md#the-std-bundle),
   [the stdlib from its interfaces](docs/implementation-notes.md#the-stdlib-from-its-interfaces),
+  [the stdlib a module at a time](docs/implementation-notes.md#the-stdlib-a-module-at-a-time),
   [std and lib](docs/implementation-notes.md#std-and-lib),
   [host functions](docs/implementation-notes.md#host-functions),
   [files](docs/implementation-notes.md#files),

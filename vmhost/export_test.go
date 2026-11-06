@@ -256,6 +256,10 @@ export fn hidden() -> Opaque {
 
 export fn reset() {
 }
+
+export fn moved(Point{x_pos}, Point, by: Int) -> Int {
+    x_pos + by
+}
 `
 	p, _, err := loadFiles(t, map[string]string{"main.nomi": src})
 	if err != nil {
@@ -264,12 +268,16 @@ export fn reset() {
 	got := p.WebDeclarations()
 	for _, want := range []string{
 		"for main.nomi",
-		`export interface Point { xPos: number | bigint; label: string | null }`,
-		`export type Shape = "Dot" | { Circle: { radius: number } } | { Pair: [number | bigint, string] } | { Tagged: Point };`,
+		"export interface Point {\n  xPos: number | bigint;\n  label: string | null;\n}",
+		"export type Shape =\n  | \"Dot\"\n  | { Circle: { radius: number } }\n  | { Pair: [number | bigint, string] }\n  | { Tagged: Point };",
+		"export type Opaque = unknown;",
 		`  call(name: "shapes", points: Point[], scale: number): Promise<Shape[]>;`,
 		`  call(name: "counts", new_: Record<string, number | bigint>, seen: string[]): Promise<boolean | null>;`,
-		`  call(name: "hidden"): Promise<unknown>;`,
+		`  call(name: "hidden"): Promise<Opaque>;`,
 		`  call(name: "reset"): Promise<void>;`,
+		// A destructured parameter and one written as its type alone have
+		// no name, so each is named by its position.
+		`  call(name: "moved", arg1: Point, arg2: Point, by: number | bigint): Promise<number | bigint>;`,
 		"export function load(url: string | URL, options?: NomiLoadOptions): Promise<NomiProgram>;",
 	} {
 		if !strings.Contains(got, want) {

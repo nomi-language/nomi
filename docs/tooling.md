@@ -28,6 +28,7 @@ in the [standard library reference](/reference/). To install `nomi`, see
 | `nomi new`, `nomi init` | Start a project ([Starting a project](#starting-a-project-nomi-new-and-nomi-init)). |
 | `nomi add`, `nomi remove`, `nomi update`, `nomi fetch` | Change and download dependencies ([Add, update and remove dependencies](#add-update-and-remove-dependencies)). |
 | `nomi tool <module> <name>` | Run a module's tool ([Tools](#tools-nomi-tool)). |
+| `nomi types <paths>` | Write TypeScript declarations of the JSON a backend's types cross as ([TypeScript types](#typescript-types-nomi-types)). |
 | `nomi messages accept <locale> <message>` | Mark a translation current ([`[i18n]`](#i18n)). |
 | `nomi dap` | The debugger editors start ([Debugging](#debugging)). |
 | `nomi mcp` | The compiler as tools for a coding agent ([Coding agents](#coding-agents-nomi-mcp)). |
@@ -73,8 +74,10 @@ checked, and a summary last.
   is one past the last byte; `start_byte` and `end_byte` are the same
   points as 0-based byte offsets into the file. A span that is a point has
   no end.
-- `severity` is `error`: every diagnostic stops the program. `code` names
-  a diagnostic's class when it has one (`unused-import`).
+- `severity` is `error`, which stops the program, or `warning`, which
+  fails no file and is not counted in the summary: an `embed` pattern
+  whose folder does not exist yet (code `embed-missing`). `code` names a
+  diagnostic's class when it has one (`unused-import`).
 - `hints` are the `help:` lines, and `related` the other places the error
   names, each with its own `file`, span and `message`.
 - `fix`, when present, is the rewrite the error knows: its `edits` replace
@@ -94,10 +97,67 @@ The exit status is the same as in text mode.
 name. A tool is an entry point without being listed in `entry_points`. It
 is an ordinary program, run in the current directory with the same access to files, the network and output
 that `nomi run` gives a program, and runs only when someone runs it.
-`<module>` is the current module's name or one its `go.mod` requires. It
+`<module>` is the current module's name or one its `go.mod` requires. A
+dependency's tool runs with the current project's dependencies, at the
+versions its `go.mod` lists, as `go run` of a dependency's command does;
+the dependency's own `go.mod` only says which modules it needs. It
 is how a module ships a code generator, such as sqlkit's `nomi tool
 sqlkit generate` ([Databases](/databases/)), which writes ordinary `.nomi` files a program
 commits.
+
+### TypeScript types: `nomi types`
+
+`nomi types <paths> [-o <file>]` writes TypeScript declarations for the JSON
+a Nomi backend's types cross as, so a frontend written in TypeScript shares
+the shapes of its API. Each path is a `.nomi` file or a directory, which
+names every `.nomi` file under it but those of another module (a directory
+with its own `nomi.toml`). The output declares each `pub` struct, enum,
+distinct type and `typealias` those files declare that crosses as JSON (it
+derives `ToJson` or `FromJson`, or implements `ToJson` by hand), and every
+type it reaches in any file, std types included, each once, in the order they
+are reached. It goes to stdout, or to the file `-o` names. Each file is
+checked as `nomi check` checks it, and an error stops the command with its
+diagnostics. A path whose files declare no such type is an error. The
+command writes types only: no client, fetch wrapper or validation.
+
+```
+nomi types models.nomi api -o ../web/src/api-types.ts
+```
+
+A type maps to the JSON its `ToJson` writes:
+
+| Nomi | TypeScript |
+|---|---|
+| `Int`, `Float` | `number` |
+| `String` | `string` |
+| `Bool` | `boolean` |
+| `Decimal` | `string`, its exact digits (`"12.50"`) |
+| `Uuid` | `string`, lowercase 8-4-4-4-12 hex |
+| `Instant` | `string`, RFC 3339 in UTC |
+| `Date`, `Time`, `NaiveDateTime` | `string` (`YYYY-MM-DD`, `HH:MM:SS[.fff]`, `YYYY-MM-DDTHH:MM:SS[.fff]`) |
+| `List<T>`, `Vector<T>`, `Set<T>` | `T[]` |
+| `Map<String, V>` | `Record<string, V>` |
+| `Maybe<T>` | `T \| null`; the field is always present |
+| a struct | an `interface` of its fields under their JSON keys, `rename_all` applied |
+| an enum | a union: a bare variant's name as a string, `{ Variant: payload }` for the others, a tuple payload as `[A, B]` |
+| a distinct type | a `type` of its inner type |
+| `typealias A B` | `type A = B` |
+| a generic type | a generic `interface` or `type`: `Page<T>`, referred to as `Page<User>` |
+| a type whose `ToJson` is written by hand | `unknown`, with a comment that says so |
+
+An `Int` is a `number` because `JSON.parse` reads every JSON number as one,
+so an Int past 2^53 loses precision in JavaScript. An app that sends such
+Ints, such as 64-bit IDs, should send them as `String`s. A `Maybe` field
+that `ToJson` writes as `null` may be missing in what `FromJson` reads, and
+so may a field with a default; the declarations describe what `ToJson`
+writes.
+
+A declaration takes its Nomi name. When two files each declare a type of one
+name, each is named with its file's name before it (`ModelsUser`,
+`OrdersUser`), and with its directories' when the files share a name. A
+Nomi type named `Record` is named with its file's too, since the
+declarations use TypeScript's own `Record`. A `///` comment on a type
+becomes its JSDoc comment.
 
 ### Running a program
 
@@ -464,7 +524,10 @@ which the project commits; nobody edits `go.mod` by hand.
   release when no version is given, else a full version such as `v1.2.3`),
   with at least the versions of what it requires, download it, and write
   the checksums to `go.sum`. A Go package's path adds the module that holds
-  it, the longest prefix of the path the proxy has.
+  it, the longest prefix of the path the proxy has. A release `nomi` adds
+  a first-party `lib/` module with no version at the commit it was cut at,
+  whose Go side it carries prebuilt ([Go bindings](#go-bindings));
+  `@latest` takes the latest commit.
 - `nomi add <directory>` — for an argument that starts with `./`, `../` or
   `/`: require the Nomi module in that directory (`require <its module
   path> v0.0.0`, from its `go.mod`) and `replace` it with the directory,
@@ -481,7 +544,9 @@ which the project commits; nobody edits `go.mod` by hand.
   -u` does: never a new major version (that is another path, `/v2`), and
   never a pre-release. It raises what the new versions require, writes
   `go.sum` (dropping the old versions' zip checksums), and prints each
-  change as `<path> <old> -> <new>`.
+  change as `<path> <old> -> <new>`. A `lib/` module has no releases: its
+  latest is the latest commit, except on a release `nomi`, which moves every
+  `lib/` module to the commit it was cut at.
 - `nomi fetch [--target <goos>/<goarch>]... [dir]` — download everything the
   project needs: the modules (adding to `go.mod` what a Nomi dependency
   requires), and, for a project with Go bindings, the Go toolchain when
@@ -902,9 +967,11 @@ nomi build: 1 todo and 2 dbgs remain:
 
 A prebuilt `nomi-vm` must come from the same commit as `nomi`. Both carry it in their build information, and `nomi build` refuses a `nomi-vm` from another commit. So a release builds executables for every platform with no Go toolchain, and a built binary needs nothing at all.
 
+A project whose Go bindings are all first-party `lib/` modules' at the release's commit is appended to `nomi-vm-lib`, which links them ([Go bindings](#go-bindings)), with no Go toolchain, for each native platform and `js/wasm`.
+
 Two kinds of program still need Go, which builds their own `nomi-vm` from the compiler module at the release's version:
 
-- a project with Go FFI bindings, whose `nomi-vm` links them;
+- a project with any other Go FFI binding, or a `lib/` module at another commit, whose `nomi-vm` links them;
 - a program importing `std::compiler`, whose `nomi-vm` links the front end and is not shipped.
 
 That Go is the `go` on `PATH`, or, with none, the Go release `nomi` was built with, which `nomi` downloads ([The Go toolchain](#the-go-toolchain)), so neither needs Go installed.
@@ -929,6 +996,8 @@ The `js/wasm` build keeps the browser build's limits: its file system is in memo
 A program's `embed` declarations (spec §18 *Embedded files*) are resolved when the program is compiled, so every build carries their files: an executable, a WebAssembly module, a `--web` folder's `app.wasm` and a `.nomic` hold the bytes in the compiled program, and read no file but their own when they run. Delete the source tree and the build still serves its pages and applies its migrations. Patterns name files from the module root, as import paths do, whatever directory the declaring file is in.
 
 A file's contents are read when the program reads that file, never all at once. A built executable or `.nomic` keeps the files after its code and maps them, so starting it costs the same however much it embeds, and a file it serves is paged in by the operating system rather than held in the program's memory; `nomi build` writes them from the files on disk without loading them whole. `nomi run` and `nomi test` read an embedded file from disk when the program reads it, and stop the program with an error naming the file if it changed after the program was compiled; run it again to embed the new contents. The REPL reads them from its working directory; a tour example reads its `// FILE:` data files.
+
+A pattern whose folder or file does not exist yet, such as a frontend's `web/dist` before its first `npm run build`, is a warning in `nomi run`, `nomi check`, `nomi test`, the REPL and the editor: the program compiles with that path as an empty directory, and a read under it answers `NotFound`. `nomi build`, for every target, refuses it as an error, so a release never carries an empty frontend. A program with such a warning is not kept in the artifact cache, so each run reports it, and the next run after the folder appears embeds its files.
 
 Only the declarations a program reaches go into its build, so an `embed` nothing reads costs nothing, and a program with none is unchanged. The files count toward the compiled program's size, so a `wasip1/wasm` module's 4 MiB limit (above) includes them. `nomi run --watch` does not watch embedded files: a change to one is picked up at the next run.
 
@@ -1100,11 +1169,11 @@ lists the exported names. `exports()` resolves with each exported function's
 name, parameters, result type and signature, and `close()` stops the worker.
 
 `nomi build --web` also writes `nomi.d.ts`, TypeScript declarations for
-`nomi.js` with a typed `call` overload for each exported function. A type
-maps as the JavaScript column of the table in spec §7 *Exported Functions*
-says; a struct or enum whose `ToJson` is derived
-becomes an interface or a union of its JSON shape, and a type whose impls are
-written by hand is `unknown`.
+`nomi.js` with a typed `call` overload for each exported function, and a
+declaration for each type the functions name. A type maps as
+[`nomi types`](#typescript-types-nomi-types) maps it, except an `Int`, which
+is `number | bigint`, since nomi.js hands JavaScript an Int past
+`Number.MAX_SAFE_INTEGER` as a BigInt.
 
 **Calling from a WASI host.** `nomi build --target wasip1/wasm` writes one of
 two module shapes, chosen by the program, with no flag. Either carries its
@@ -1291,8 +1360,9 @@ once.
 
 ## Go bindings
 
-A program with `gopkg` bindings needs a Go toolchain. Pure-Nomi programs and tests need none.
+A program with `gopkg` bindings needs a Go toolchain, unless every binding is a first-party `lib/` module's (the SQLite and Postgres drivers, sqlkit, markdown, image) and the `nomi` is a release. Pure-Nomi programs and tests need none.
 
+- A release carries the `lib/` modules' Go side prebuilt, at the commit it was cut at: `nomi-lib`, which `nomi run`, `nomi test` and `nomi check` run such a program in, and `nomi-vm-lib`, which `nomi build` appends it to, for each native platform and `js/wasm`. They ship in a lib archive per platform beside the main one, which `nomi` downloads from its release the first time it needs it unless it is unpacked beside `nomi`, and they must come from the same commit as `nomi`. `nomi add` takes a `lib/` module at that commit, and `nomi update` moves every `lib/` module to it. A project that also has a binding of its own, or a `lib/` module at another commit, builds a wrapper with Go as below; with no Go, the error names the binding or the version, and for a version, that `nomi update` aligns it. `wasip1/wasm` has no prebuilt `lib/` runner, since modernc.org/sqlite does not build for it.
 - `nomi run`, `nomi check` and `nomi test` compile the bound packages, with Nomi's own Go module, into a wrapper they cache under the user cache directory (`nomi/builds/`, safe to delete). The first run of a project is slower; later runs reuse the wrapper until the project's Go code, its `go.mod` or `nomi` changes, and editing `.nomi` files never rebuilds it. A released or `go install`ed `nomi` compiles against Nomi's module at its own version, which Go fetches; one built from a clone compiles against the clone ([Installing Nomi](install.md)).
 - With no `go` on `PATH`, `nomi` downloads the Go release it was built with and uses that ([The Go toolchain](#the-go-toolchain)).
 - A bound package may be in a module from the Go module cache, a dependency's included.
@@ -1342,6 +1412,7 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 | `NOMI_ARTIFACT_CACHE` | The directory, in place of `<user cache>/nomi/artifacts`, where `nomi` keeps what it compiles once and reads back in later runs: each program `nomi run`, `check`, `test` and `build` compiled ([The artifact cache](#the-artifact-cache)), and for a `nomi` built from source the standard library's interfaces and its lowering, which a release embeds instead. `off` keeps nothing. The cache is safe to delete. |
 | `NOMI_DEBUG_ARTIFACT_CACHE` | `1` reports on stderr whether each command read a kept program, and why not, and whether it kept one. |
 | `NOMI_DEBUG_STD_BUNDLE` | For work on the compiler. `1` reports on stderr why a cached standard library lowering or its cached interfaces were not used. |
+| `NOMI_STD_WHOLE` | For work on the compiler. `1` builds every standard library module when a command starts, as the language server does, rather than only the modules the program imports. |
 
 ## Editors and debugger
 
@@ -1456,7 +1527,7 @@ the [VS Code README](../editors/vscode/README.md) has the table.
 
 ### Embedded files in the editor
 
-Hover on an `embed` declaration's name, or on a use of it, shows its patterns, how many files and bytes it holds, and the first files with their sizes; hover on one pattern shows what that pattern matched. Go to definition on a pattern opens the file or folder it names, every match for a glob. A pattern that matches nothing, or that a rule refuses, is a diagnostic at the pattern. The server finds the files without reading them, and it rechecks the declaration when the declaring file changes, not when a file it embeds is added or removed.
+Hover on an `embed` declaration's name, or on a use of it, shows its patterns, how many files and bytes it holds, and the first files with their sizes; hover on one pattern shows what that pattern matched. Go to definition on a pattern opens the file or folder it names, every match for a glob. A pattern that matches nothing, or that a rule refuses, is a diagnostic at the pattern: a warning when the path it names does not exist yet, an error otherwise. The server finds the files without reading them, and it rechecks the declaration when the declaring file changes, not when a file it embeds is added or removed.
 
 ### Message catalogs in the editor
 

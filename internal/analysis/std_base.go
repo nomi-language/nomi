@@ -4,6 +4,7 @@ import (
 	"maps"
 	"slices"
 	"sort"
+	"strings"
 	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -114,7 +115,7 @@ func BuildStdBase(byName map[string]*FileAnalysis) *StdBase {
 	b.declModules = declaringModuleIndex(b.files, "", nil, nil, nil)
 	b.demands, b.pairs, b.wanted = stdDemands(b.filesInKeyOrder())
 	for _, fa := range b.files {
-		fa.program.formsBase = b
+		fa.program.formsBase.Store(b)
 	}
 	return b
 }
@@ -232,15 +233,29 @@ func stdDemands(files []*FileAnalysis) (map[string]map[string][]Recording, map[i
 
 // stdBaseOf answers the base the analyses byName (by module name, as
 // std.StdLib.Files holds them) form, or nil when they form none: they were
-// not given to BuildStdBase together, or one of them was replaced.
+// not given to BuildStdBase together, or one of them was replaced. A
+// stdlib built a module at a time (StdSource) forms its base when a build
+// first asks for it, so a process builds one base for the stdlib its
+// program reaches rather than one per module it adds.
 func stdBaseOf(byName map[string]*FileAnalysis) *StdBase {
+	if b := formedStdBase(byName); b != nil {
+		return b
+	}
+	if src := currentStdSource(); src != nil && stdBaseEnabled.Load() && len(byName) > 0 {
+		return src.Base(byName)
+	}
+	return nil
+}
+
+// formedStdBase is stdBaseOf for a base BuildStdBase has formed.
+func formedStdBase(byName map[string]*FileAnalysis) *StdBase {
 	if !stdBaseEnabled.Load() || len(byName) == 0 {
 		return nil
 	}
 	var b *StdBase
 	for _, fa := range byName {
 		if fa != nil && fa.program != nil {
-			b = fa.program.formsBase
+			b = fa.program.formsBase.Load()
 		}
 		break
 	}
@@ -414,6 +429,13 @@ type programShare struct {
 // stdlib's files itself: no base, a stdlib file other than the base's, or an
 // entry that is a stdlib module.
 func newProgramShare(stdlibFAs, filesByKey map[string]*FileAnalysis, entryOrigin string) *programShare {
+	// A build of stdlib modules beyond stdlibFAs (std's own) shares no
+	// base, which then need not be formed.
+	for key, fa := range filesByKey {
+		if name, ok := strings.CutPrefix(key, "std/"); ok && stdlibFAs[name] != fa {
+			return nil
+		}
+	}
 	b := stdBaseOf(stdlibFAs)
 	if b == nil || IsStdlibKey(entryOrigin) {
 		return nil

@@ -30,6 +30,7 @@ import (
 // from the cached lowering. hooks observe the declines of the module's
 // bodies and of its cases.
 func GenerateEditedStdlibTestIR(module string, nodes []ast.Node, fa *analysis.FileAnalysis, hooks DeclineHooks) (*Program, *Result, error) {
+	ensureStdModule(module)
 	if isProgramStd(module) {
 		return generateProgramStdTestIR(module, nodes, fa, hooks)
 	}

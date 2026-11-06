@@ -181,7 +181,53 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	if in != nil {
 		reused, roots = in.reused, in.roots
 	}
-	proj, discoverErr := discoverProject(entryNodes, projectRoot, loader, mfst, analyzed, reused, roots)
+	// A build against a stdlib built a module at a time has the modules it
+	// reaches built before it builds anything (StdSource): each stdlib
+	// module the walk reaches that stdlibFAs lacks, and each one a file
+	// imports in a block, which the walk leaves to the stdlib's analysis.
+	var stdBlock func(key string)
+	if src := currentStdSource(); src != nil && len(stdlibFAs) > 0 && (in == nil || !in.deferStdBodies) {
+		// The largest stdlib built so far, which holds the one the caller
+		// was handed, so that the build's stdlib is the one whose base a
+		// later build forms (StdSource.Base).
+		grow := func(next map[string]*FileAnalysis) {
+			if len(next) == len(stdlibFAs) {
+				return
+			}
+			stdlibFAs = next
+			if len(modules) > 0 {
+				// The caller's module scopes are the stdlib's (lib.Modules),
+				// which the Program names its stdlib by
+				// (StdlibModuleScopes): the new modules' join them.
+				grown := make(map[string]*Scope, len(stdlibFAs))
+				for n, scope := range modules {
+					grown[n] = scope
+				}
+				for n, fa := range stdlibFAs {
+					if _, ok := grown[n]; !ok {
+						grown[n] = fa.ModuleScope
+					}
+				}
+				modules = grown
+			}
+		}
+		grow(src.Extend(stdlibFAs, nil))
+		extend := func(key string) bool {
+			name, ok := strings.CutPrefix(key, "std/")
+			if !ok {
+				return false
+			}
+			if stdlibFAs[name] == nil {
+				grow(src.Extend(stdlibFAs, []string{name}))
+			}
+			return stdlibFAs[name] != nil
+		}
+		analyzed = func(key string) bool {
+			return IsStdlibKey(key) && extend(key)
+		}
+		stdBlock = func(key string) { extend(key) }
+	}
+	proj, discoverErr := discoverProjectStd(entryNodes, projectRoot, loader, mfst, analyzed, reused, roots, stdBlock)
 	if entryAbsPath != "" {
 		proj.EntryPath = entryAbsPath
 		if proj.FilePaths == nil {

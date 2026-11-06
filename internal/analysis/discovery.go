@@ -81,6 +81,17 @@ func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, load
 // roots are module keys of projectRoot the walk starts from besides the
 // entry's imports (buildInputs.roots).
 func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest, analyzed func(key string) bool, reused map[string]reusedFile, roots []string) (*Project, error) {
+	return discoverProjectStd(entryNodes, projectRoot, loader, mfst, analyzed, reused, roots, nil)
+}
+
+// discoverProjectStd is discoverProject that hands stdBlock the key
+// (`std/<name>`) of each stdlib module a walked file imports in a block,
+// when stdBlock is not nil: a module the walk leaves to the shared stdlib
+// analysis, which a lazily built stdlib must have built (StdSource).
+// stdJSONKey is std/json's module key.
+const stdJSONKey = "std/json"
+
+func discoverProjectStd(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest, analyzed func(key string) bool, reused map[string]reusedFile, roots []string, stdBlock func(key string)) (*Project, error) {
 	p := &Project{
 		Entry:       entryNodes,
 		Files:       make(map[string][]ast.Node),
@@ -133,7 +144,7 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 		}
 		p.ModuleIndex["std"] = stdPath
 	}
-	if loader == nil {
+	if loader == nil && stdBlock == nil {
 		return p, nil
 	}
 
@@ -187,10 +198,45 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 	for _, key := range roots {
 		queue = append(queue, walkItem{root: projectRoot, modPath: strings.Split(key, "/"), key: key})
 	}
-	for _, mp := range importsOf(entryNodes) {
+	var stdBlocks *[][]string
+	if stdBlock != nil {
+		stdBlocks = new([][]string)
+	}
+	walk := func(nodes []ast.Node) [][]string {
+		if stdBlocks == nil {
+			return importsOf(nodes)
+		}
+		noteImportsWalk()
+		paths := walkImportsInto(nodes, stdBlocks)
+		for _, path := range *stdBlocks {
+			stdBlock(strings.Join(path, "/"))
+		}
+		*stdBlocks = (*stdBlocks)[:0]
+		for _, n := range nodes {
+			if fd, ok := n.(*ast.FuncDef); ok && fd.Export {
+				// An exported function's arguments and result cross as
+				// JSON, through std/json's FromJson and ToJson, which the
+				// file need not import.
+				stdBlock(stdJSONKey)
+				break
+			}
+		}
+		return paths
+	}
+	for _, mp := range walk(entryNodes) {
 		if wi, ok := classify(mp); ok {
 			queue = append(queue, wi)
 		}
+	}
+	if loader == nil {
+		// No file is loaded; the entry's stdlib imports are still built
+		// (StdSource), which a build without a loader resolves.
+		for _, wi := range queue {
+			if IsStdlibKey(wi.key) {
+				analyzed(wi.key)
+			}
+		}
+		return p, nil
 	}
 	for len(queue) > 0 {
 		wi := queue[0]
@@ -219,7 +265,7 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 			}
 			p.Files[wi.key] = nodes
 			p.FilePaths[wi.key] = ResolveModulePath(wi.root, wi.modPath)
-			imports = importsOf(nodes)
+			imports = walk(nodes)
 			if p.imports == nil {
 				p.imports = map[string][][]string{}
 			}
@@ -270,6 +316,13 @@ func importsOf(nodes []ast.Node) [][]string {
 
 // walkImports is importsOf without the count.
 func walkImports(nodes []ast.Node) [][]string {
+	return walkImportsInto(nodes, nil)
+}
+
+// walkImportsInto is walkImports that also appends to stdBlocks, when it is
+// not nil, the path of each stdlib module imported in a block, which
+// walkImports leaves out.
+func walkImportsInto(nodes []ast.Node, stdBlocks *[][]string) [][]string {
 	var paths [][]string
 	for _, n := range nodes {
 		paths = append(paths, importPathsOf(n)...)
@@ -288,6 +341,8 @@ func walkImports(nodes []ast.Node) [][]string {
 				for _, path := range importPathsOf(m) {
 					if len(path) == 0 || path[0] != "std" {
 						paths = append(paths, path)
+					} else if stdBlocks != nil {
+						*stdBlocks = append(*stdBlocks, path)
 					}
 				}
 				return false
