@@ -750,12 +750,11 @@ impl Request {
     /// The form's fields: those of the body (`post_form`) and then the
     /// URL's query. It reads the body, which a request can do once, so keep
     /// what it answers.
-    //! import std::http.{Body, Method, Request}
+    //! import std::http.{Method, Request}
     //! import std::http_testing
     //! import std::url.Query
     //!
-    //! r = #{..http_testing.request(Method.Post, "/?b=2"), body: Body.Form(Query[#("a", "1")])}
-    //! r = #{..r, headers: Headers.set(r.headers, "Content-Type", "application/x-www-form-urlencoded")}
+    //! r = http_testing.form_request(Method.Post, "/?b=2", [#("a", "1")])
     //! assert Request.form(r) == Ok(Query[#("a", "1"), #("b", "2")])
     //
     pub fn form(request: Request) -> Result<Query, Error> {

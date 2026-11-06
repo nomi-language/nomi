@@ -23,6 +23,7 @@ import {
         ClientOptions,
         Error,
         Handler,
+        Headers,
         Listener,
         Method,
         Protocols,
@@ -42,7 +43,7 @@ import {
     tasks.Task
     tls.{Certificate, CertificateInfo, ClientConfig, Roots, ServerConfig}
     unit.Unit
-    url.Url
+    url.{Query, Url}
 }
 
 /// What `run` answers: `body`'s value, and each request the fake answered,
@@ -85,6 +86,23 @@ pub fn run<T>(answer: (Request) -> Result<Response, Error>, body: () -> T) -> Ra
 pub fn request(method: Method, target: String) -> Request {
     url = Url.resolve_text(Url`http://example.com/`, target)!
     Request{method, url, remote_address: "192.0.2.1:1234"}
+}
+
+/// A `request` that posts `fields` as a form, as a browser does: a
+/// URL-encoded body holding them in order, repeated keys kept, and its
+/// `Content-Type`.
+//! import std::http.{Method, Request}
+//! import std::http_testing
+//!
+//! r = http_testing.form_request(Method.Post, "/signup", [#("email", "ada@example.com")])
+//! assert Request.form_value(r, "email") == Some("ada@example.com")
+//
+pub fn form_request(method: Method, target: String, fields: List<#(String, String)>) -> Request {
+    #{
+        ..request(method, target),
+        headers: Headers[#("Content-Type", "application/x-www-form-urlencoded")],
+        body: Body.Form(Query(fields)),
+    }
 }
 
 /// What a `Body.Produce` response sends, one element per flush: the

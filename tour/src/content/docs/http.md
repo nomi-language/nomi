@@ -83,6 +83,10 @@ dbg line 14: Response.text(found) = Ok("user 7")
 dbg line 16: missing.status = Status(404)
 -->
 
+`http_testing.form_request(.Post, "/signup", [#("email", "ada@example.com")])`
+builds a request that posts a form, as
+[Frontends](/frontends/#pages-rendered-on-the-server) does.
+
 A route is checked when the program is checked, so a pattern Go would
 refuse is a compile error at the literal:
 

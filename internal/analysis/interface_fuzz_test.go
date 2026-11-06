@@ -361,6 +361,34 @@ func TestAGenericReceiversImplIsSeenWithoutItsFile(t *testing.T) {
 	}
 }
 
+// TestAnImplLeftInABodyLeavesTheInterfaceMethodUntyped holds an impl block
+// a parse error leaves inside a function body (an unclosed `{` before it)
+// to the same check from source and against interfaces. The impl's
+// function has no symbol of its own there, and typing nested functions
+// looked its name up in module scope, wrote the impl function's signature
+// onto the interface's method of that name, and so typed a call
+// `Has.count_of(h, 2)` in another file only in the full check.
+// FuzzCheckFromInterfacesMatchesFull found it in
+// 11-interfaces-and-impls/boxed_existentials.
+func TestAnImplLeftInABodyLeavesTheInterfaceMethodUntyped(t *testing.T) {
+	p := incrementalProject{name: "impl left in a body", entry: "main", texts: map[string]string{
+		"has":  "pub interface Has<T> {\n    fn count_of(value: self, x: T) -> Int\n}\n\nfn broken(xs: List<Int>) -> Int {\n    xs |> Iter.map(&T.showe T: Show {\n}\n\nimpl Has<Int> for List<Int> {\n    fn count_of(xs: List<Int>, x: Int) -> Int {\n        xs |> Iter.filter(&(&1 == x)) |> Iter.count()\n    }\n}\n",
+		"main": "import {\n    std::io\n    has.{Has}\n}\n\nfn main() {\n    h: Has<Int> = [1, 2, 2]\n    io.inspect(Has.count_of(h, 2))\n}\n",
+	}}
+	want, got := interfaceDumps(p, p.texts)
+	if want != got {
+		t.Fatalf("checked against interfaces differs from a full check:\n%s", dumpDiff(want, got))
+	}
+	if !strings.Contains(want, "def 2:8 count_of") {
+		t.Fatalf("the reproducer no longer declares the interface method at 2:8:\n%s", want)
+	}
+	for _, line := range strings.Split(want, "\n") {
+		if strings.HasPrefix(line, "def 2:8 count_of") && !strings.Contains(line, "= <nil>") {
+			t.Errorf("the interface method took a function's type: %s", line)
+		}
+	}
+}
+
 // TestImplHeadersFromInterfacesMatchTheProgram holds the impl headers a
 // check against interfaces works out for each file, from the file built
 // against its closure's interfaces alone, to the program's check from

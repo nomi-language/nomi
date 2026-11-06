@@ -1887,10 +1887,10 @@ T
 C frontends.md:L37
 E 0
 N 0
-H c04b046eceffd2ab631721093ad3cb0dcfc961d4bc94d69ed51d7f15f461a858
-T dbg line 58: post("ada@example.com").status = Status(303)
-T dbg line 60: bad.status = Status(422)
-T dbg line 61: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
+H f0315a41a7c4068f92fa78b6648965b69508b06a2b3bb77a52647740539f70bc
+T dbg line 51: post("ada@example.com").status = Status(303)
+T dbg line 53: bad.status = Status(422)
+T dbg line 54: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
 T
 C functions-and-lambdas.md:L12
 E 0
@@ -1988,7 +1988,7 @@ H d59ad04725cb4d783d88d6f4bb9d8aa14026593801d2642735e7ac2a2b926600
 T dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 T dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
 T
-C http.md:L112
+C http.md:L116
 E 0
 N 0
 H 17a32976d88b397334d71c10ec2f11af6f247933a3da8dcf1e9ba939bdad603d
@@ -2000,7 +2000,7 @@ N 0
 H b2d081ab19838216aa3178588b98237b4643bd979c1b80c5b81b74734a70f366
 T dbg line 20: ran.value = Ok("hello from /greet/ann b")
 T
-C http.md:L162
+C http.md:L166
 E 0
 N 0
 H 4b0f0888e2c296776a3de89001cc2b607695d40f5b55364d51772222adf2ab11
@@ -2008,7 +2008,7 @@ T dbg line 55: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
 T dbg line 56: answer("/users/8").status = Status(404)
 T dbg line 57: Response.text(answer("/users/x")) = Ok("not a number: x\n")
 T
-C http.md:L299
+C http.md:L303
 E 0
 N 0
 H 2076b0c9d76ac5518fc596ebddaeedaa15c9fa322d11199e216900e2f13403b4
@@ -2018,7 +2018,7 @@ T dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
 T dbg line 65: app(http_testing.request(.Get, "/dashboard")).status = Status(401)
 T dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
 T
-C http.md:L391
+C http.md:L395
 E 0
 N 0
 H 7a85e46390ce5ea6c5dc0967f13c2693d828a917d1b6e03ae486a121de9ea31d

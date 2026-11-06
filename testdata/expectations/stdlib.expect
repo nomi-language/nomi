@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 76
-declared-cases 883
+declared-cases 884
 failing 0
 C actors
 E 0
@@ -468,7 +468,7 @@ T
 C http
 E 0
 N 62
-H 41d6ff7243d699bc4e5463fb59f466bf6ed039010d87da9a50d8707bbbbf8274
+H dbb49499f7a7763a4835b10d483f83ef8b2a089f7099628ae004524b9cb4674b
 T ok <root>/std/http.nomi :: impl / text //! test lines 94-97
 T ok <root>/std/http.nomi :: impl / parse //! test lines 115-118
 T ok <root>/std/http.nomi :: impl / from_code //! test lines 214-217
@@ -484,64 +484,65 @@ T ok <root>/std/http.nomi :: impl / encode //! test lines 494-497
 T ok <root>/std/http.nomi :: impl / file_disposition //! test lines 510-512
 T ok <root>/std/http.nomi :: impl / at_least //! test lines 679-682
 T ok <root>/std/http.nomi :: impl / parse //! test lines 690-694
-T ok <root>/std/http.nomi :: impl / form //! test lines 753-759
-T ok <root>/std/http.nomi :: impl / post_form //! test lines 772-788
-T ok <root>/std/http.nomi :: impl / multipart_form //! test lines 829-851
-T ok <root>/std/http.nomi :: impl / form_file //! test lines 867-885
-T ok <root>/std/http.nomi :: impl / cookies //! test lines 909-916
-T ok <root>/std/http.nomi :: impl / basic_auth //! test lines 973-980
-T ok <root>/std/http.nomi :: impl / read //! test lines 1017-1024
-T ok <root>/std/http.nomi :: impl / dump //! test lines 1069-1073
-T ok <root>/std/http.nomi :: impl / write_to //! test lines 1185-1189
-T ok <root>/std/http.nomi :: impl / set_cookie //! test lines 1224-1231
-T ok <root>/std/http.nomi :: impl / html //! test lines 1241-1250
-T ok <root>/std/http.nomi :: impl / error //! test lines 1259-1263
-T ok <root>/std/http.nomi :: impl / redirect //! test lines 1281-1285
-T ok <root>/std/http.nomi :: impl / content //! test lines 1306-1319
-T ok <root>/std/http.nomi :: impl / with_headers //! test lines 1346-1351
-T ok <root>/std/http.nomi :: impl / with_default_headers //! test lines 1366-1374
-T ok <root>/std/http.nomi :: ToResponse //! test lines 1442-1466
-T ok <root>/std/http.nomi :: impl / to_string //! test lines 1689-1691
-T ok <root>/std/http.nomi :: Route //! test lines 2509-2511
-T ok <root>/std/http.nomi :: impl / parse //! test lines 2521-2523
-T ok <root>/std/http.nomi :: Router //! test lines 2563-2583
-T ok <root>/std/http.nomi :: impl / new //! test lines 2596-2599
-T ok <root>/std/http.nomi :: strip_prefix //! test lines 2703-2712
-T ok <root>/std/http.nomi :: allow_query_semicolons //! test lines 2737-2746
-T ok <root>/std/http.nomi :: timeout //! test lines 2765-2784
-T ok <root>/std/http.nomi :: Origin //! test lines 2816-2820
-T ok <root>/std/http.nomi :: impl / parse //! test lines 2830-2834
-T ok <root>/std/http.nomi :: impl / check //! test lines 2903-2920
-T ok <root>/std/http.nomi :: cross_origin_protection //! test lines 2938-2950
-T ok <root>/std/http.nomi :: limit_body //! test lines 2989-2993
-T ok <root>/std/http.nomi :: wrap_routes //! test lines 3002-3025
-T ok <root>/std/http.nomi :: cors //! test lines 3076-3114
-T ok <root>/std/http.nomi :: log_requests //! test lines 3201-3220
-T ok <root>/std/http.nomi :: security_headers //! test lines 3291-3321
-T ok <root>/std/http.nomi :: request_id //! test lines 3356-3376
-T ok <root>/std/http.nomi :: file_server //! test lines 3469-3483
-T ok <root>/std/http.nomi :: serve_embedded //! test lines 3527-3555
-T ok <root>/std/http.nomi :: file_server_embedded //! test lines 3623-3645
-T ok <root>/std/http.nomi :: is_page_route //! test lines 3670-3684
-T ok <root>/std/http.nomi :: detect_content_type //! test line 3842
-T ok <root>/std/http.nomi :: format_time //! test lines 3850-3852
-T ok <root>/std/http.nomi :: impl / parse_header //! test lines 3915-3918
-T ok <root>/std/http.nomi :: impl / parse_set_cookie //! test lines 3928-3933
-T ok <root>/std/http.nomi :: impl / cookies //! test lines 4051-4060
-T ok <root>/std/http.nomi :: impl / to_string //! test lines 4090-4092
-T ok <root>/std/http.nomi :: chunked_reader //! test lines 4552-4556
-T ok <root>/std/http.nomi :: multipart_parts //! test lines 4598-4609
+T ok <root>/std/http.nomi :: impl / form //! test lines 753-758
+T ok <root>/std/http.nomi :: impl / post_form //! test lines 771-787
+T ok <root>/std/http.nomi :: impl / multipart_form //! test lines 828-850
+T ok <root>/std/http.nomi :: impl / form_file //! test lines 866-884
+T ok <root>/std/http.nomi :: impl / cookies //! test lines 908-915
+T ok <root>/std/http.nomi :: impl / basic_auth //! test lines 972-979
+T ok <root>/std/http.nomi :: impl / read //! test lines 1016-1023
+T ok <root>/std/http.nomi :: impl / dump //! test lines 1068-1072
+T ok <root>/std/http.nomi :: impl / write_to //! test lines 1184-1188
+T ok <root>/std/http.nomi :: impl / set_cookie //! test lines 1223-1230
+T ok <root>/std/http.nomi :: impl / html //! test lines 1240-1249
+T ok <root>/std/http.nomi :: impl / error //! test lines 1258-1262
+T ok <root>/std/http.nomi :: impl / redirect //! test lines 1280-1284
+T ok <root>/std/http.nomi :: impl / content //! test lines 1305-1318
+T ok <root>/std/http.nomi :: impl / with_headers //! test lines 1345-1350
+T ok <root>/std/http.nomi :: impl / with_default_headers //! test lines 1365-1373
+T ok <root>/std/http.nomi :: ToResponse //! test lines 1441-1465
+T ok <root>/std/http.nomi :: impl / to_string //! test lines 1688-1690
+T ok <root>/std/http.nomi :: Route //! test lines 2508-2510
+T ok <root>/std/http.nomi :: impl / parse //! test lines 2520-2522
+T ok <root>/std/http.nomi :: Router //! test lines 2562-2582
+T ok <root>/std/http.nomi :: impl / new //! test lines 2595-2598
+T ok <root>/std/http.nomi :: strip_prefix //! test lines 2702-2711
+T ok <root>/std/http.nomi :: allow_query_semicolons //! test lines 2736-2745
+T ok <root>/std/http.nomi :: timeout //! test lines 2764-2783
+T ok <root>/std/http.nomi :: Origin //! test lines 2815-2819
+T ok <root>/std/http.nomi :: impl / parse //! test lines 2829-2833
+T ok <root>/std/http.nomi :: impl / check //! test lines 2902-2919
+T ok <root>/std/http.nomi :: cross_origin_protection //! test lines 2937-2949
+T ok <root>/std/http.nomi :: limit_body //! test lines 2988-2992
+T ok <root>/std/http.nomi :: wrap_routes //! test lines 3001-3024
+T ok <root>/std/http.nomi :: cors //! test lines 3075-3113
+T ok <root>/std/http.nomi :: log_requests //! test lines 3200-3219
+T ok <root>/std/http.nomi :: security_headers //! test lines 3290-3320
+T ok <root>/std/http.nomi :: request_id //! test lines 3355-3375
+T ok <root>/std/http.nomi :: file_server //! test lines 3468-3482
+T ok <root>/std/http.nomi :: serve_embedded //! test lines 3526-3554
+T ok <root>/std/http.nomi :: file_server_embedded //! test lines 3622-3644
+T ok <root>/std/http.nomi :: is_page_route //! test lines 3669-3683
+T ok <root>/std/http.nomi :: detect_content_type //! test line 3841
+T ok <root>/std/http.nomi :: format_time //! test lines 3849-3851
+T ok <root>/std/http.nomi :: impl / parse_header //! test lines 3914-3917
+T ok <root>/std/http.nomi :: impl / parse_set_cookie //! test lines 3927-3932
+T ok <root>/std/http.nomi :: impl / cookies //! test lines 4050-4059
+T ok <root>/std/http.nomi :: impl / to_string //! test lines 4089-4091
+T ok <root>/std/http.nomi :: chunked_reader //! test lines 4551-4555
+T ok <root>/std/http.nomi :: multipart_parts //! test lines 4597-4608
 T test result: ok. 62 passed, 0 failed
 T
 C http_testing
 E 0
-N 4
-H 8d4106c4c02780bc3a1696a7bb6ec300118b3fc6de67298c36f34e8003e78f36
-T ok <root>/std/http_testing.nomi :: run //! test lines 56-68
-T ok <root>/std/http_testing.nomi :: request //! test lines 80-83
-T ok <root>/std/http_testing.nomi :: chunks //! test lines 94-106
-T ok <root>/std/http_testing.nomi :: with_server //! test lines 169-177
-T test result: ok. 4 passed, 0 failed
+N 5
+H 05c4d1a162dc34356f1ef201c9f79254af827b0c958cf90b7f81cee51fa99510
+T ok <root>/std/http_testing.nomi :: run //! test lines 57-69
+T ok <root>/std/http_testing.nomi :: request //! test lines 81-84
+T ok <root>/std/http_testing.nomi :: form_request //! test lines 94-98
+T ok <root>/std/http_testing.nomi :: chunks //! test lines 112-124
+T ok <root>/std/http_testing.nomi :: with_server //! test lines 187-195
+T test result: ok. 5 passed, 0 failed
 T
 C instant
 E 0

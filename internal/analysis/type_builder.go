@@ -937,7 +937,15 @@ func buildNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []
 	switch n := node.(type) {
 	case nil:
 	case *ast.FuncDef:
-		errs = append(errs, buildFuncType(fa, reg, n)...)
+		// Only a nested fn the resolver recorded at its position is typed,
+		// as checkNestedFunc checks only those. buildFuncType falls back to
+		// a module-scope lookup by name, which for an unrecorded nested fn
+		// (an impl's function in an impl block a parse error left inside a
+		// body) wrote its signature onto another declaration of the name,
+		// such as an interface's method.
+		if fa.Definitions[Pos{Line: n.Line, Col: n.Col}] != nil {
+			errs = append(errs, buildFuncType(fa, reg, n)...)
+		}
 		ast.Children(n, func(child ast.Node) {
 			errs = append(errs, buildNestedFuncTypes(fa, reg, child)...)
 		})

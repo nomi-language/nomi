@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
 records 74
-declared-cases 860
+declared-cases 861
 failing 0
 C actors
 E 0
@@ -479,10 +479,11 @@ T ok http.chunked_reader
 T ok http.multipart_parts
 C http_testing
 E 0
-N 4
-H bc6e7025c7fc38091f8640e3b752ae36236dc8f7406923bb2695097bb533ab51
+N 5
+H ae405a7478c72f799d30321ababa232591c2e8ccacd9539bf1e81152992984b9
 T ok http_testing.run
 T ok http_testing.request
+T ok http_testing.form_request
 T ok http_testing.chunks
 T ok http_testing.with_server [not run in the browser: listen]
 C instant

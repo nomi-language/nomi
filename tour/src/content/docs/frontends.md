@@ -5,16 +5,16 @@ description: "Build the frontend of a Nomi app: server-rendered HTML templates, 
 
 There are three ways to build the pages of a Nomi web app.
 
-**Pages rendered on the server.** Handlers answer with `Html` built from
+**Pages rendered on the server.** Handlers return `Html` built from
 checked templates, and the browser gets finished pages. There is no build
 step and no JavaScript toolchain. Pick this when your pages are mostly
-content and forms. A page can still include a script for progressive
-enhancement, such as htmx or Stimulus, which swaps in fragments your
-handlers render.
+content and forms. A page can still include whatever JavaScript it needs,
+from a few lines of your own to a library such as htmx or Stimulus,
+served as static files beside the pages.
 
-**A JavaScript frontend.** React, Vue, Svelte or any other framework built
-with Vite runs in the browser, and Nomi serves its JSON API and its built
-files from one executable. Pick this when the interface holds a lot of
+**A JavaScript frontend.** React, Vue, Svelte or any other framework runs
+in the browser, built by Vite, webpack or any bundler, and Nomi serves its
+JSON API and its built files from one executable. Pick this when the interface holds a lot of
 client-side state, or when your team already works in one of these
 frameworks.
 
@@ -32,14 +32,13 @@ page's content, and `signup_form` draws the form. The form posts to
 the input is wrong, the handler draws the form again with the error. When
 it is right, it redirects with a 303, so reloading the next page does not
 post the form twice. `main` sends two posts through the router without a
-network, one good and one bad, to show the answers:
+network, one good and one bad, to show the responses:
 
 ```nomi-run
 import {
     std::html.Html
-    std::http.{Body, Headers, Request, Response, Route, Router, Status}
+    std::http.{Request, Response, Route, Router, Status}
     std::http_testing
-    std::url.Query
 }
 
 fn layout(title: String, content: Html) -> Html {
@@ -83,13 +82,7 @@ fn main() {
     router = Router.new([#(Route`GET /signup`, show_signup), #(Route`POST /signup`, signup)])!
 
     post = fn email: String -> {
-        request = http_testing.request(.Post, "/signup")
-        form = #("Content-Type", "application/x-www-form-urlencoded")
-
-        Router.serve(
-            router,
-            #{..request, headers: Headers[form], body: Body.Form(Query[#("email", email)])},
-        )
+        Router.serve(router, http_testing.form_request(.Post, "/signup", [#("email", email)]))
     }
 
     dbg post("ada@example.com").status
@@ -99,16 +92,17 @@ fn main() {
 }
 ```
 <!-- expect
-dbg line 58: post("ada@example.com").status = Status(303)
-dbg line 60: bad.status = Status(422)
-dbg line 61: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
+dbg line 51: post("ada@example.com").status = Status(303)
+dbg line 53: bad.status = Status(422)
+dbg line 54: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
 -->
 
 Each `${...}` is escaped for where it stands, so the `<ada>` typed into the
 form comes back as text in the `value` attribute, not as a tag. A `${...}`
-holding a `Maybe` shows its value, or nothing when it is `None`. Static files such as the htmx script and a
-stylesheet go in a folder the program embeds and serves with
-`http.file_server_embedded`, as the next section does with a Vite build.
+holding a `Maybe` shows its value, or nothing when it is `None`. Static
+files such as the htmx script and a stylesheet go in a folder the program
+embeds and serves with `http.file_server_embedded`, as the next section
+does with a JavaScript build.
 [HTTP](/http/#handlers-and-routes) covers templates, routes and errors in
 depth.
 
@@ -119,25 +113,31 @@ static export. Next, Nuxt, SvelteKit or Remix in server-rendering mode
 need Node while they run, so they run beside the Nomi program, not inside
 it.
 
-Keep the frontend in a `web/` folder beside the Nomi code. Vite builds it
-into `web/dist`, and the Nomi program embeds that folder:
+Keep the frontend in a `web/` folder beside the Nomi code. Its bundler
+writes the built files into `web/dist`, and the Nomi program embeds that
+folder. The example is a React app built with Vite; the end of this
+section gives the settings for other tools.
 
-```
+```tree
 todo/
-  app.nomi            routes, serving, main
-  api.nomi            the JSON types and their handlers
-  web/
-    package.json
-    vite.config.ts
-    src/
-      api.ts          written by nomi types
-      main.tsx
-    dist/             written by npm run build
+├── app.nomi
+├── api.nomi
+└── web/
+    ├── package.json
+    ├── vite.config.ts
+    ├── src/
+    │   ├── api.ts
+    │   └── main.tsx
+    └── dist/
 ```
+
+`app.nomi` holds the routes, the serving and `main`, and `api.nomi` the
+JSON types and their handlers. `nomi types` writes `web/src/api.ts`, and
+`npm run build` writes `web/dist`.
 
 ### The API
 
-An API handler answers with a `Json` body. A type the frontend reads
+An API handler returns a response with a `Json` body. A type the frontend reads
 derives `ToJson`, and is `pub` so that `nomi types` declares it:
 
 ```nomi-run
@@ -175,7 +175,8 @@ dbg line 25: Response.text(list_todos(http_testing.request(.Get, "/api/todos")))
 ### Shared types
 
 `nomi types` reads the Nomi files you name and writes a TypeScript
-declaration for each `pub` type in them that is sent as JSON.
+declaration for each `pub` type in them that derives `ToJson` or
+`FromJson`, and for every type those reach.
 `nomi types api.nomi -o web/src/api.ts` writes:
 
 ```ts
@@ -186,10 +187,11 @@ export interface Todo {
 }
 ```
 
-Run it from an npm script before Vite starts or builds, so `api.ts` never
-falls behind the Nomi code. When a Nomi type changes, your editor shows
-the TypeScript code that no longer fits, and `npm run build` fails on it.
-npm runs scripts from inside `web/`, so the path goes up a level:
+Run it from the npm scripts that start and build the frontend, so
+`api.ts` is rewritten from the Nomi code each time. After a Nomi type changes, the
+next `npm run types`, `dev` or `build` rewrites `api.ts`; your editor then
+shows the TypeScript code that no longer fits, and `npm run build` fails
+on it. npm runs scripts from inside `web/`, so the path goes up a level:
 
 ```json
 {
@@ -219,12 +221,16 @@ says how each Nomi type maps to TypeScript.
 ### Developing
 
 Run the two servers side by side: `nomi run app.nomi` serves the API on
-port 8080, and `npm run dev` in `web/` serves the frontend on Vite's port
-with hot reloading. Vite's `server.proxy` forwards every `/api` request to
-Nomi, so the page calls the API on its own origin and needs no CORS
-headers. A frontend served from another origin needs them: wrap the API
-with [`http.cors`](/http/#middleware) and list that origin. The config also adds a compression plugin for the release build,
-described below; install it with `npm install -D vite-plugin-compression2`:
+port 8080, and `npm run dev` in `web/` serves the frontend on the dev
+server's own port with hot reloading. Open that port while you work; port
+8080 serves the frontend as it was at the last build. The dev server
+forwards every `/api` request to Nomi, so the page calls the API on its
+own origin and needs no CORS headers. A frontend served from another origin needs them:
+wrap the API with [`http.cors`](/http/#middleware) and list that origin.
+
+In Vite the forwarding is `server.proxy`. The config also adds a
+compression plugin for the release build, described below. Install it
+with `npm install -D vite-plugin-compression2`:
 
 ```ts
 // web/vite.config.ts
@@ -311,27 +317,30 @@ pub fn list_todos(Request) -> Response {
 <div id="root"></div>
 ```
 
-`single_page: True` answers a browser's request for a page route such as
-`/settings` or `/users/jane.doe` with `index.html`, so the client-side
+`single_page: True` serves `index.html` for a browser's request for a
+page route such as `/settings` or `/users/jane.doe`, so the client-side
 router takes it from there. A file that exists is served as itself, and a
 missing `/assets/x.js` stays a 404, since a browser asks for HTML only
 when it navigates. Every file goes out
 with its SHA-256 as its `ETag`, so a browser asking again for an
 unchanged `index.html` gets a 304 with no body.
-Vite names the files under `assets` by their contents' hash, and
-`immutable: ["assets/**"]` lets a browser keep them for a year. Each
+A bundler puts a hash of each file's contents in its name, and Vite
+writes those files under `assets`, so `immutable: ["assets/**"]` lets a
+browser keep them for a year. Each
 entry is a glob over the file's path in the tree
-([`path.matches`](/reference/path/#pathmatches)); one with no wildcard
-names a folder and covers everything in it, so `["assets"]` works too. The compression plugin writes a `.br` and a `.gz`
-copy beside each file, and the server sends the compressed copy to any
-browser that accepts it
+([`path.matches`](/reference/path/#pathmatches)). An entry with no
+wildcard names a file or a folder, and a folder covers everything in it,
+so `["assets"]` works too. Match only files with a hash in their names,
+since a browser will not ask for them again for a year. The compression
+plugin writes a `.br` and a `.gz` copy beside each file, and the server
+sends the compressed copy to any browser that accepts it
 ([reference](/reference/http/#httpserve_embedded)).
 
-Vite is the example here, and other tools work the same way, each with its
-own output folder, dev proxy and hashed files:
+Other tools work the same way, each with its own output folder, dev
+proxy and hashed files:
 
-- webpack writes `dist/` and proxies with `devServer.proxy`; match the
-  names its `[contenthash]` writes.
+- webpack writes `dist/` and proxies with `devServer.proxy`. Name its
+  output `assets/[name].[contenthash].js` and use `immutable: ["assets"]`.
 - Angular writes `dist/<project>/browser/`, proxies with
   `proxy.conf.json`, and hashes the files at its root:
   `immutable: ["*-*.js", "*-*.css"]`.
@@ -341,6 +350,14 @@ own output folder, dev proxy and hashed files:
   `_app/immutable/**`.
 - Next's static export, `output: 'export'` in `next.config.js`, writes
   `out/` and hashes `_next/static/**`.
+
+A static export with a page per route, from Next or a prerendering
+SvelteKit, writes `/about` as `about.html` by default, and the server
+does not look for that file. Set `trailingSlash: true` in
+`next.config.js`, or `export const trailingSlash = 'always'` in
+SvelteKit's root layout, so each page is written as `about/index.html`,
+which the server serves for `/about`. Leave `single_page` off for such a
+site, so a path with no page is a 404 rather than the home page.
 
 ### Releasing
 
