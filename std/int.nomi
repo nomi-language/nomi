@@ -63,7 +63,7 @@ import {
 //#
 //# `Int.parse_in`, `Float.parse_in` and `Decimal.parse_in`, and the
 //# `parse_percent_in` forms of `Float` and `Decimal`, read what the matching
-//# formatter writes, and answer a `NumberParseError`
+//# formatter writes, and return a `NumberParseError`
 //# ([std::localize](/reference/localize/)) when the text is not a number in
 //# the locale. Parsing never guesses the locale: `1.234` is one thousand two
 //# hundred thirty-four in `de` and one point two three four in `en`.
@@ -207,7 +207,7 @@ impl Int {
 
     /// Floored modulo: the result is zero or has the sign of the divisor `y`,
     /// as Python's `%`, Elixir's `Integer.mod/2` and Gleam's `int.modulo`
-    /// answer, so it wraps a value into a range: `Int.modulo(-1, 1440)` is
+    /// return, so it wraps a value into a range: `Int.modulo(-1, 1440)` is
     /// `1439`. `x % y` differs for operands of opposite signs: it is the
     /// remainder, takes the sign of the dividend `x`, and matches `/`
     /// (`-1 % 1440` is `-1`). `Int.modulo(x, y)` is `x - y * Int.floor_div(x, y)`.
@@ -231,7 +231,7 @@ impl Int {
 
     /// Floored division: `x / y` rounded toward negative infinity, as
     /// Python's `//`, Elixir's `Integer.floor_div/2` and Gleam's
-    /// `int.floor_divide` answer. It is the partner of `Int.modulo`:
+    /// `int.floor_divide` return. It is the partner of `Int.modulo`:
     /// `x == y * Int.floor_div(x, y) + Int.modulo(x, y)` for every `x` and
     /// non-zero `y`. `x / y` differs for operands of opposite signs: it
     /// truncates toward zero (`-7 / 2` is `-3`). A zero `y` traps with the
@@ -292,7 +292,7 @@ impl Int {
     }
 
     /// `n` multiplied by itself `exp` times, exact; `Int.pow(n, 0)` is `1`
-    /// for every `n`, `0` included. A negative `exp` traps: its answer is a
+    /// for every `n`, `0` included. A negative `exp` traps: its result is a
     /// fraction, which is `Float.pow`'s.
     //! assert Int.pow(2, 10) == 1024
     //! assert Int.pow(-3, 3) == -27
@@ -487,12 +487,12 @@ impl Divide<NonZeroInt, Int> for Int {
 
 // The bitwise operators read an Int as two's complement with as many bits as
 // it needs, a negative one with endless leading ones, so `&&&`, `|||`, `^^^`
-// and `~~~` answer at any size, and `<<<` and `>>>` shift without losing a
+// and `~~~` give exact results at any size, and `<<<` and `>>>` shift without losing a
 // bit to a width.
 impl BitwiseAnd<Int, Int> for Int {
     /// Bitwise and, `a &&& b`: each bit set in both. An Int reads as two's
     /// complement with as many bits as it needs, a negative one with endless
-    /// leading ones, so the answer holds at any size.
+    /// leading ones, so the result holds at any size.
     //! assert Int.bitwise_and(12, 10) == 8
     //! assert 12 &&& 10 == 8
     //! assert (Int.pow(2, 100) + 5) &&& 7 == 5

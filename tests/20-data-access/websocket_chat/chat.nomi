@@ -1,0 +1,83 @@
+//# A chat room for chat_test.nomi: an actor holds the room's WebSockets
+//# and sends each message said to every member.
+
+import {
+    std::actors.{Actor, Reply}
+    std::http.{Request, Response}
+    std::http_testing
+    std::io
+    std::supervisors.Supervisor
+    std::websocket.{self, WebSocket}
+}
+
+pub enum Room {
+    Join {ws: WebSocket, reply: Reply<Unit>}
+    Leave Int
+    Say String
+}
+
+pub struct App {
+    room: Actor<Room>
+}
+
+fn hold(members: Map<Int, WebSocket>, message: Room) -> Map<Int, WebSocket> {
+    case message {
+        .Join{ws, reply} -> {
+            Reply.send(reply, Unit)
+            Map.put(members, WebSocket.id(ws), ws)
+        }
+
+        .Leave(id) ->
+            Map.remove(members, id)
+
+        .Say(text) -> {
+            members
+            |> Map.values()
+            |> Iter.each(fn member -> {
+                _ = WebSocket.send_text(member, text)
+            })
+
+            members
+        }
+    }
+}
+
+pub fn boot() -> Result<App, String> {
+    rooms = Supervisor.new(max_running: 4)
+    Ok(App{room: Actor.start(rooms, %{}, hold)})
+}
+
+/// Joins the room, says `joined` once the room holds the connection, and
+/// says each text message to the room until the client leaves.
+pub fn join(request: Request) -> Response {
+    websocket.accept(request, fn ws -> {
+        _ = Actor.call(App.room, fn reply -> Room.Join{ws, reply})
+        _ = WebSocket.send_text(ws, "joined")
+
+        _ = WebSocket.each(ws, fn message -> {
+            case message {
+                .Text(text) -> {
+                    _ = Actor.cast(App.room, Room.Say(text))
+                }
+
+                .Binary(_) ->
+                    Unit
+            }
+        })
+
+        _ = Actor.cast(App.room, Room.Leave(WebSocket.id(ws)))
+    })
+}
+
+fn main() {
+    heard = http_testing.open_websocket(join, "/chat", fn ws -> {
+        _ = WebSocket.receive(ws)
+        _ = WebSocket.send_text(ws, "anyone here?")
+        WebSocket.receive(ws)
+    })
+
+    case heard {
+        Ok(Ok(Some(.Text(text)))) -> io.print("heard back: ${text}")
+        _ -> io.print("heard nothing")
+    }
+}

@@ -1,7 +1,7 @@
 //# Testing code that uses `std::sql`. `Fake` is a `Conn` that runs no SQL:
 //# it records every statement and transaction command sent to it, keeps
 //# track of which statements took effect (a rolled-back transaction's did
-//# not), and answers each statement with a function the test gives it.
+//# not), and responds to each statement with a function the test gives it.
 //# `conformance` is the suite every driver runs against its own
 //# connections: it checks each rule `Conn` states, transactions and
 //# savepoints above all, and names each rule a driver breaks.
@@ -25,11 +25,11 @@ import {
 }
 
 /// A recording `Conn` for tests. It runs no SQL: each statement is
-/// answered by `answer`, which gets the statement and the statements in
+/// handled by `answer`, which gets the statement and the statements in
 /// effect as the connection sees them (committed ones, then those of each
-/// open transaction and savepoint), and an `exec` answers the number of
-/// rows `answer` gives. A statement answered `Ok` takes effect; one
-/// answered `Err` does not.
+/// open transaction and savepoint), and an `exec` returns the number of
+/// rows `answer` gives. A statement `answer` gives `Ok` takes effect; one
+/// it gives `Err` does not.
 ///
 /// `begin`, `commit` and `rollback` follow `Conn`'s rules, so the fake
 /// passes the conformance suite, and record what a driver would send:
@@ -75,7 +75,7 @@ struct Level {
 
 impl Fake {
     /// A fake connection with nothing recorded. By default it calls itself
-    /// `Dialect.Other("fake")` and answers every statement with no rows.
+    /// `Dialect.Other("fake")` and responds to every statement with no rows.
     //! rows: List<Row> = [Row.new("SELECT 1 AS n", [#("n", Value.Int(1))])]
     //! fake = Fake.new(answer: fn _, _ -> Ok(rows))
     //! assert Conn.query(fake, Sql"SELECT 1 AS n") == Ok(rows)
@@ -332,7 +332,7 @@ fn savepoint(index: Int) -> String {
     "sp${index - 1}"
 }
 
-// Records statement and answers it. A statement answered Ok takes effect in
+// Records statement and handles it. A statement given Ok takes effect in
 // the innermost open level, as on a real connection, whichever Conn of the
 // fake sent it.
 fn run(fake: Fake, statement: Statement) -> Result<List<Row>, sql.Error> {
@@ -394,7 +394,7 @@ impl Display for Failure {
     }
 }
 
-/// Run every conformance rule against connections from `open`, and answer
+/// Run every conformance rule against connections from `open`, and return
 /// the rules broken, in the order `rules` lists them: none for a driver
 /// that conforms. Each rule opens a fresh connection, closes it when the
 /// rule ends (a close that fails breaks the rule), and creates a temporary
@@ -461,8 +461,8 @@ pub fn rules() -> List<String> {
 /// statements, so the suite can run against a fake: its queries read back
 /// the rows of the suite's inserts in effect (an insert with no time is at
 /// the moment it is read), an insert that breaks one of the suite's
-/// constraints answers that constraint's error, and every other statement
-/// answers no rows.
+/// constraints returns that constraint's error, and every other statement
+/// returns no rows.
 pub fn conformance_answer(
     statement: Statement,
     visible: List<Statement>,
@@ -644,7 +644,7 @@ fn check_with<C>(
 }
 
 // Closes conn when check_with leaves it early. A close after a close is a
-// no-op, and a `defer` cannot answer anything, so its result is dropped.
+// no-op, and a `defer` cannot return anything, so its result is dropped.
 fn release(conn: Conn) {
     _ = Conn.close(conn)
 }
@@ -694,7 +694,7 @@ fn expect_closed<T>(result: Result<T, sql.Error>, what: String) -> Result<Unit, 
     }
 }
 
-// Every operation of conn, which `whose` names, answers Closed.
+// Every operation of conn, which `whose` names, returns Closed.
 fn expect_all_closed(conn: Conn, whose: String) -> Result<Unit, String> {
     expect_closed(Conn.ping(conn), "${whose} ping")?
     expect_closed(Conn.query(conn, read_all()), "${whose} query")?
@@ -721,7 +721,7 @@ fn rollback(tx: Conn) -> Result<Unit, String> {
     step(Conn.rollback(tx), "rollback")
 }
 
-// A body for sql.transaction that inserts n and then answers with `outcome`.
+// A body for sql.transaction that inserts n and then returns `outcome`.
 fn insert_then<T>(n: Int, outcome: Result<T, sql.Error>) -> (Conn) -> Result<T, sql.Error> {
     fn tx -> {
         _ = Conn.exec(tx, insert(n, None))?

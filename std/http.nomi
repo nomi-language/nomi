@@ -11,7 +11,7 @@
 //# ```
 //#
 //# Every request runs under the context in force: its deadline bounds the
-//# request, and cancelling the task cancels it. `http_testing.run` answers
+//# request, and cancelling the task cancels it. `http_testing.run` serves
 //# requests with a function instead of the network, in tests and in the
 //# tour. A `Client` made with `Client.new` holds its own options and
 //# connection pool.
@@ -19,7 +19,7 @@
 //# A server never reads more of a request's body than a limit allows.
 //# `Request.form` and `post_form` read at most 10 MB of a URL-encoded body
 //# (Go's `ParseForm` limit), and `multipart_form` and `form_file` at most
-//# 32 MB of a multipart one; they stop one byte past the limit and answer
+//# 32 MB of a multipart one; they stop one byte past the limit and return
 //# `Error.BodyTooLarge`. A limit on the request replaces both defaults, up
 //# or down: `Request.limit_body` or the `http.limit_body` middleware for a
 //# route, and the `Server`'s `max_body` for every request. Limits on one
@@ -29,7 +29,7 @@
 //#
 //# ## Middleware
 //#
-//# A middleware takes a handler first and answers a handler, so a stack
+//# A middleware takes a handler first and returns a handler, so a stack
 //# of them reads as a pipe, each stage wrapping the ones before it:
 //# `Router.handler(router) |> http.limit_body(1_000_000)`. `wrap_routes`
 //# wraps only a group of routes, such as every `/admin` route.
@@ -300,7 +300,7 @@ derive Equatable for Headers
 impl Headers {
     /// `name` as HTTP writes header names, each word capitalized:
     /// `content-type` is `Content-Type`. A name that holds a space or other
-    /// character a header name cannot is answered as it is.
+    /// character a header name cannot is returned as it is.
     //! import std::http.Headers
     //!
     //! assert Headers.canonical_key("x-request-id") == "X-Request-Id"
@@ -749,7 +749,7 @@ pub struct Request {
 impl Request {
     /// The form's fields: those of the body (`post_form`) and then the
     /// URL's query. It reads the body, which a request can do once, so keep
-    /// what it answers.
+    /// what it returns.
     //! import std::http.{Method, Request}
     //! import std::http_testing
     //! import std::url.Query
@@ -766,7 +766,7 @@ impl Request {
     /// The fields of the body: a URL-encoded body of a `POST`, `PUT` or
     /// `PATCH`, or a multipart form's fields.
     /// Empty for any other request. It reads the body, at most 10 MB of a
-    /// URL-encoded one or the request's `body_limit`, and answers
+    /// URL-encoded one or the request's `body_limit`, and returns
     /// `Error.BodyTooLarge` past that.
     //! import std::http.{Body, Method, Request}
     //! import std::http_testing
@@ -940,7 +940,7 @@ impl Request {
     }
 
     /// The request with a body that fails past `max` bytes, as Go's
-    /// `MaxBytesReader`: reading it then answers an `io.Error`, and the
+    /// `MaxBytesReader`: reading it then returns an `io.Error`, and the
     /// form readers `Error.BodyTooLarge`. `max` becomes the request's
     /// `body_limit`, which replaces the form defaults, so an upload route
     /// can raise them; a second limit only lowers the first.
@@ -1116,7 +1116,7 @@ impl Request {
     }
 }
 
-/// A response a client received, or one a handler answers.
+/// A response a client received, or one a handler returns.
 pub struct Response {
     status: Status = Status.ok
     headers: Headers = Headers[]
@@ -1141,7 +1141,7 @@ pub struct Response {
     /// response, as HTTP/1 servers otherwise refuse. Go's
     /// `ResponseController.EnableFullDuplex`.
     full_duplex: Bool = False
-    /// Set by `Response.upgrade`: the server answers, then hands the
+    /// Set by `Response.upgrade`: the server responds, then hands the
     /// connection to this function.
     upgrade: Maybe<(net.Connection) -> Unit> = None
 }
@@ -1198,7 +1198,7 @@ impl Response {
         wire_response(if body { 1 } else { 2 }, response, io.stderr)
     }
 
-    /// A response that answers `status` and `headers`, then hands the
+    /// A response that sends `status` and `headers`, then hands the
     /// connection to `on_connection`, which speaks another protocol over
     /// it, as a WebSocket server does after `101 Switching Protocols`. The
     /// connection is closed when `on_connection` returns. Go's `Hijack`.
@@ -1297,10 +1297,10 @@ impl Response {
 
     /// `data` as the response to `request`. Its `Content-Type` comes from
     /// the extension of `name`, or from the data itself, unless `headers`
-    /// sets one. A `Range` is answered with 206 and the parts asked for, and
+    /// sets one. A `Range` gets 206 and the parts asked for, and
     /// the `If-*` conditional headers are checked against `modified` and
     /// the `ETag` in `headers`, so an `If-None-Match` that names it is a
-    /// 304. The response carries `headers`. It answers as Go's
+    /// 304. The response carries `headers`. It responds as Go's
     /// `ServeContent` does.
     //! import std::http.{Method, Response, Status}
     //! import std::http_testing
@@ -1339,9 +1339,9 @@ impl Response {
         )
     }
 
-    /// `value` answered as a response, with each of `headers` set in
+    /// `value` as a response, with each of `headers` set in
     /// place of any value the response has for that name. Middleware uses
-    /// it on whatever its handler answered.
+    /// it on whatever its handler returned.
     //! import std::html.Html
     //! import std::http.Response
     //!
@@ -1360,7 +1360,7 @@ impl Response {
         #{..response, headers: set}
     }
 
-    /// `value` answered as a response, with each of `headers` the
+    /// `value` as a response, with each of `headers` the
     /// response does not have already: a header the handler set is kept.
     //! import std::http.Response
     //!
@@ -1427,16 +1427,16 @@ impl Response {
     }
 }
 
-/// A value a handler may answer with: every place std::http takes a
+/// A value a handler may return: every place std::http takes a
 /// handler takes a `Handler`, a `(Request) -> ToResponse`, and calls
 /// `to_response` once on what it returns. A handler with several steps
 /// that can fail returns `Result<Response, AppError>` and uses `?`, and
 /// the program's error type implements `ToResponse` to render itself, as
 /// axum's `IntoResponse` does.
 ///
-/// `Response` answers as itself, `Html` as `Response.html` does (a 200
+/// `Response` is sent as it is, `Html` as `Response.html` makes it (a 200
 /// page), and a `Result` as its `Ok` or its `Err`. `String` has no
-/// implementation: a handler that answers text says which kind with
+/// implementation: a handler that returns text says which kind with
 /// `Body.Text`, `Response.error` or a content type of its own.
 //! import std::html.Html
 //! import std::http.{self, Body, Method, Request, Response, Route, Router, Status}
@@ -1469,7 +1469,7 @@ pub interface ToResponse {
 }
 
 /// A request handler: a function from a `Request` to any value that
-/// answers as a response (`ToResponse`). `Router.new`, `serve` and the
+/// converts to a response (`ToResponse`). `Router.new`, `serve` and the
 /// middleware take one. A named function or a lambda is one as it stands.
 pub typealias Handler (Request) -> ToResponse
 
@@ -1532,7 +1532,7 @@ pub enum Error {
 derive Equatable for Error
 
 impl Error {
-    /// Whether the error is a timeout, as Go's `Timeout()` answers.
+    /// Whether the error is a timeout, as Go's `Timeout()` reports.
     pub fn is_timeout(error: Error) -> Bool {
         case error {
             .Timeout{during: _} -> True
@@ -1616,20 +1616,20 @@ impl Display for Error {
 pub enum Redirects {
     /// Follow up to `max` redirects, as Go does (10).
     Follow {max: Int = 10}
-    /// Answer the redirect response itself.
+    /// Return the redirect response itself.
     Never
     /// Ask a function before each redirect, as Go's `CheckRedirect` does.
     /// It gets the request the redirect would send and the requests
-    /// already sent, oldest first, and answers whether to send it. There
+    /// already sent, oldest first, and returns whether to send it. There
     /// is no limit but the function's.
     Decide (Request, List<Request>) -> Redirect
 }
 
-/// What a `Redirects.Decide` function answers for one redirect.
+/// What a `Redirects.Decide` function returns for one redirect.
 pub enum Redirect {
     /// Send the request.
     Follow
-    /// Answer the redirect response itself, as Go's `ErrUseLastResponse`.
+    /// Return the redirect response itself, as Go's `ErrUseLastResponse`.
     Stop
     /// Fail the request with `Error.RedirectRefused` and `reason`.
     Refuse String
@@ -1667,7 +1667,7 @@ pub struct Transport {
     http2: Http2Options = Http2Options{}
     /// Headers sent with each `CONNECT` to a proxy.
     proxy_connect_headers: Headers = Headers[]
-    /// Sees each proxy's answer to `CONNECT`; an `Err` fails the request.
+    /// Sees each proxy's response to `CONNECT`; an `Err` fails the request.
     /// Go's `OnProxyConnectResponse`. It runs on the task sending.
     on_proxy_connect: Maybe<(Url, Response) -> Result<Unit, Error>> = None
 }
@@ -1724,7 +1724,7 @@ pub struct Http2Options {
     max_receive_buffer_per_stream: Maybe<Int> = None
     /// Pings a connection that has been quiet this long.
     send_ping_timeout: Maybe<Duration> = None
-    /// Closes a connection whose ping is not answered in this long.
+    /// Closes a connection whose ping gets no reply in this long.
     ping_timeout: Maybe<Duration> = None
     /// Closes a connection that accepts no bytes for this long.
     write_byte_timeout: Maybe<Duration> = None
@@ -1914,7 +1914,7 @@ impl Client {
 
 /// The client `http.fetch` and the other module functions use: the default
 /// options over one connection pool the whole program shares, as Go's
-/// `DefaultClient`. `http_testing.run` answers in its place.
+/// `DefaultClient`. `http_testing.run` responds in its place.
 pub fn default_client() -> Client {
     Client{handle: http_host.default_client(), options: ClientOptions{}}
 }
@@ -2167,7 +2167,7 @@ fn response_of(exchange: http_host.Exchange, body: Body) -> Response {
     }
 }
 
-/// How a server listens and answers. A timeout of `None` is none.
+/// How a server listens and responds. A timeout of `None` is none.
 pub struct Server {
     /// The address to listen on, `host:port`, as Go's `Server.Addr`:
     /// `:http` is port 80 on every interface. Port 0 picks a free one,
@@ -2199,7 +2199,7 @@ pub struct Server {
     /// The most values one request header may hold: Go's
     /// `DefaultMaxHeaderValueCount`, 500, when `None`.
     max_header_value_count: Maybe<Int> = None
-    /// Answers `OPTIONS *` itself, as Go does; `False` hands it to the
+    /// Responds to `OPTIONS *` itself, as Go does; `False` hands it to the
     /// handler.
     answer_options_star: Bool = True
     /// Honours the priorities HTTP/2 and HTTP/3 clients ask for.
@@ -2230,7 +2230,7 @@ fn conn_state(code: Int) -> ConnState {
     }
 }
 
-/// A server listening for requests: `listen` binds it, and `serve` answers
+/// A server listening for requests: `listen` binds it, and `serve` responds to
 /// what arrives.
 pub struct Listener {
     handle: http_host.Listener
@@ -2246,7 +2246,7 @@ impl Listener {
 
     /// Stops the server as Go's `Server.Shutdown` does: it stops accepting,
     /// waits up to the server's `shutdown_timeout` for the requests it is
-    /// answering, then closes every connection. A second call does nothing.
+    /// serving, then closes every connection. A second call does nothing.
     pub fn shutdown(listener: Listener) -> Unit {
         http_host.shutdown(listener.handle, Duration.as_nanos(listener.server.shutdown_timeout))
     }
@@ -2259,7 +2259,7 @@ impl Listener {
 }
 
 /// Binds the server's address. The server accepts connections from here
-/// on; `serve` answers the requests they send.
+/// on; `serve` responds to the requests they send.
 pub fn listen(server: Server = Server{}) -> Result<Listener, Error> {
     durations = [
         nanos(server.read_timeout),
@@ -2334,8 +2334,8 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error> {
     Ok(Listener{handle, server})
 }
 
-/// Answers each request `listener` receives with `handler`, each as a task
-/// of `supervisor`, so its `max_running` bounds the requests answered at
+/// Serves each request `listener` receives with `handler`, each as a task
+/// of `supervisor`, so its `max_running` bounds the requests served at
 /// once. Returns when the calling task is stopped, as at shutdown, after
 /// shutting the listener down.
 ///
@@ -2343,8 +2343,8 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error> {
 /// with the server's `request_timeout` as a deadline. The app's `Context`
 /// field reads it while the handler runs, and `request.context` holds it.
 /// The handler's task is stopped when the client goes away. A handler that
-/// traps answers a 500. Use a supervisor that does not restart its tasks
-/// (`Restart.Temporary`, the default); a restarted handler answers nothing.
+/// traps sends a 500. Use a supervisor that does not restart its tasks
+/// (`Restart.Temporary`, the default); a restarted handler sends nothing.
 ///
 /// When the program shuts down, at a signal or when `main` returns, the
 /// server stops accepting at once, as Go's `Server.Shutdown` does. The
@@ -2558,7 +2558,7 @@ impl Display for Route {
 /// `{$}` only the end. The most specific pattern wins; `GET` also matches
 /// `HEAD`. A request whose path is not clean, or that lacks a trailing
 /// slash a pattern has, is redirected; one whose path matches only under
-/// another method answers 405 with `Allow`; anything else answers 404.
+/// another method gets 405 with `Allow`; anything else gets 404.
 //! import std::http.{Body, Method, Request, Response, Route, Router, Status}
 //! import std::http_testing
 //!
@@ -2617,9 +2617,9 @@ impl Router {
         }
     }
 
-    /// Answers `request` with the handler of the pattern that matches it,
+    /// Serves `request` with the handler of the pattern that matches it,
     /// with `request.pattern` and its path values set, or with what the
-    /// router answers itself: a redirect, a 405 or a 404.
+    /// router sends itself: a redirect, a 405 or a 404.
     pub fn serve(router: Router, request: Request) -> Response {
         case Router.route(router, request) {
             ["match", index, pattern, ..values] -> {
@@ -2685,7 +2685,7 @@ fn from_go(parts: List<String>) -> Response {
     }
 }
 
-/// A handler that answers every request with `Response.not_found`.
+/// A handler that responds to every request with `Response.not_found`.
 pub fn not_found(Request) -> Response {
     Response.not_found()
 }
@@ -2697,7 +2697,7 @@ pub fn redirect_to(to: String, status: Status) -> (Request) -> Response {
 }
 
 /// Middleware that removes `prefix` from the request's path, and from its
-/// escaped form, before `handler` sees it, and answers 404 to a path
+/// escaped form, before `handler` sees it, and returns 404 for a path
 /// without it.
 //! import std::http.{Body, Method, Request, Response}
 //! import std::http_testing
@@ -2758,8 +2758,8 @@ pub fn allow_query_semicolons(handler: Handler) -> (Request) -> Response {
     }
 }
 
-/// Middleware that answers `503 Service Unavailable` with `message` when
-/// `handler` has not answered within `after`, and stops the handler's
+/// Middleware that returns `503 Service Unavailable` with `message` when
+/// `handler` has not returned within `after`, and stops the handler's
 /// task.
 //! import std::duration.Duration
 //! import std::http.{self, Body, Method, Request, Response, Status}
@@ -2886,7 +2886,7 @@ pub struct CrossOrigin {
     trusted_origins: List<Origin> = []
     /// `Router` patterns whose requests pass unchecked.
     bypass_patterns: List<Route> = []
-    /// The handler a refused request goes to; `None` answers `403
+    /// The handler a refused request goes to; `None` returns `403
     /// Forbidden`.
     deny: Maybe<Handler> = None
 }
@@ -2931,7 +2931,7 @@ impl CrossOrigin {
 }
 
 /// Middleware that sends a request
-/// `CrossOrigin.check` refuses to `options.deny`, or answers `403`, and
+/// `CrossOrigin.check` refuses to `options.deny`, or returns `403`, and
 /// passes one that matches a bypass pattern unchecked. Each `Origin` was
 /// checked when it was made, so the middleware itself cannot fail.
 //! import std::http.{self, Body, CrossOrigin, Method, Request, Response, Route, Status}
@@ -3037,7 +3037,7 @@ pub struct Cors {
     origins: List<Origin> = []
     /// Lets every origin in with `Access-Control-Allow-Origin: *`. A
     /// browser sends no cookies or credentials to `*`, so with this set
-    /// `credentials` is not sent: answering every origin with credentials
+    /// `credentials` is not sent: responding to every origin with credentials
     /// would let any site act as the signed-in user.
     any_origin: Bool = False
     /// The methods a preflight allows.
@@ -3052,17 +3052,17 @@ pub struct Cors {
     /// Lets the browser send cookies and credentials, and the page read
     /// the response to such a request.
     credentials: Bool = False
-    /// How long a browser may keep a preflight's answer; `None` leaves it
+    /// How long a browser may keep a preflight's response; `None` leaves it
     /// to the browser, a few seconds.
     max_age: Maybe<Duration> = None
 }
 
-/// Middleware that answers CORS for the origins `options` allows, so a
+/// Middleware that handles CORS for the origins `options` allows, so a
 /// page on another origin, such as a frontend on its own host, can call
 /// the handler from a browser.
 ///
 /// A preflight, an `OPTIONS` request with `Origin` and
-/// `Access-Control-Request-Method`, is answered `204 No Content` here and
+/// `Access-Control-Request-Method`, gets `204 No Content` here and
 /// never reaches the handler. Any other request reaches it, and its
 /// response gets `Access-Control-Allow-Origin` with the request's origin
 /// when that origin is allowed. A request from an origin that is not
@@ -3070,7 +3070,7 @@ pub struct Cors {
 /// the page; the handler still runs, as it would for a form posted from
 /// that origin, so pair `cors` with `cross_origin_protection` or
 /// credentials checks for requests that change state. Every response
-/// gets `Vary: Origin`, so a cache does not hand one origin's answer to
+/// gets `Vary: Origin`, so a cache does not hand one origin's response to
 /// another.
 //! import std::http.{self, Body, Cors, Method, Origin, Request, Response, Status}
 //! import std::http_testing
@@ -3191,7 +3191,7 @@ fn set_listed(headers: Headers, name: String, values: List<String>) -> Headers {
 }
 
 /// Middleware that writes one `Info` record to `logger` for each
-/// request, after the handler answers: `request` with the `method`, the
+/// request, after the handler returns: `request` with the `method`, the
 /// `path`, the response's `status`, `duration_ms`, the time the handler
 /// took, and `bytes` when the body's length is known without reading it
 /// (a streamed body's is not). A request that carries `X-Request-Id`
@@ -3418,13 +3418,393 @@ fn is_request_id(text: String) -> Bool {
         })
 }
 
+/// How `compress` compresses.
+pub struct Compress {
+    /// The shortest body worth compressing, in bytes. A body known to be
+    /// shorter is sent as it is, since gzip's framing outweighs what it
+    /// saves on a few hundred bytes.
+    min_size: Int = 1024
+    /// gzip's level, from 1, the fastest, to 9, the smallest.
+    level: Int = 6
+}
+
+/// Middleware that compresses each response body with gzip when the
+/// request's `Accept-Encoding` takes it (a coding it gives `q=0` is
+/// refused), and adds `Vary: Accept-Encoding` to every response so a
+/// cache keeps the two forms apart. A compressed response gets
+/// `Content-Encoding: gzip`, loses its `Content-Length`, and has a strong
+/// `ETag` made weak (`W/"..."`), since its bytes are not the ones the tag
+/// names; `If-None-Match` still matches it.
+///
+/// A response is sent as it is when it already has a `Content-Encoding`
+/// (a precompressed file `serve_embedded` sends), has no body (1xx, 204,
+/// 304, a `HEAD`), is a range (206), says `Cache-Control: no-transform`,
+/// has a body known to be shorter than `options.min_size`, or has a
+/// content type that is compressed already: images other than SVG, audio,
+/// video, archives such as zip and gzip, and `woff` fonts. A body of
+/// bytes with no `Content-Type` gets the one its bytes are sniffed as
+/// first; a streamed body with none is sent as it is.
+///
+/// A `Body.Stream` is compressed as it is read, and a `Body.Produce` as
+/// it writes, each `Writer.flush` passing what it wrote so far to the
+/// client, so server-sent events still arrive one by one. Go's standard
+/// library has no brotli encoder, so `compress` writes only gzip; serve
+/// `.br` files precompressed (`serve_embedded`).
+//! import std::http.{self, Body, Method, Request, Response, Status}
+//! import std::http_testing
+//!
+//! page = String.repeat("<p>hello</p>", 200)
+//! app = (fn _: Request -> Response{body: Body.Text(page)}) |> http.compress()
+//!
+//! asking = fn accept: String -> {
+//!     r = http_testing.request(Method.Get, "/")
+//!     #{..r, headers: Headers[#("Accept-Encoding", accept)]}
+//! }
+//!
+//! zipped = app(asking("gzip, br"))
+//! assert Headers.get(zipped.headers, "Content-Encoding") == Some("gzip")
+//! assert Headers.get(zipped.headers, "Content-Type") == Some("text/plain; charset=utf-8")
+//! assert Headers.get(zipped.headers, "Vary") == Some("Accept-Encoding")
+//! assert Bytes.length(Response.bytes(zipped)!) < 100
+//! assert http_testing.decompressed(zipped) == Ok(String.to_bytes(page))
+//!
+//! plain = app(asking("gzip;q=0, identity"))
+//! assert Headers.get(plain.headers, "Content-Encoding") == None
+//! assert Headers.get(plain.headers, "Vary") == Some("Accept-Encoding")
+//! assert Response.text(plain) == Ok(page)
+//!
+//! small = (fn _: Request -> Response{body: Body.Text("hi")}) |> http.compress()
+//! assert Headers.get(small(asking("gzip")).headers, "Content-Encoding") == None
+//
+pub fn compress(handler: Handler, options: Compress = Compress{}) -> (Request) -> Response {
+    fn request -> compressed(request, ToResponse.to_response(handler(request)), options)
+}
+
+/// `response` to `request` as `compress` sends it.
+fn compressed(request: Request, response: Response, options: Compress) -> Response {
+    code = Status.code(response.status)
+    if code < 200 { return response }
+    varied = #{..response, headers: vary_on(response.headers, "Accept-Encoding")}
+
+    no_transform =
+        Headers.values(response.headers, "Cache-Control")
+        |> Iter.any(fn v -> String.contains(String.lowercase(v), "no-transform"))
+
+    skip = code == 204
+        or code == 206
+        or code == 304
+        or request.method == Method.Head
+        or Headers.has(response.headers, "Content-Encoding")
+        or Headers.has(response.headers, "Content-Range")
+        or no_transform
+        or not Iter.contains(accepted_codings(request), "gzip")
+
+    if skip { return varied }
+
+    short = case response.content_length {
+        Some(n) -> n < options.min_size
+        None -> False
+    }
+
+    if short { return varied }
+    headers = typed(varied.headers, varied.body)
+
+    case varied.body {
+        .Empty ->
+            varied
+
+        .Multipart(_) ->
+            varied
+
+        .Stream(r) ->
+            if Headers.has(headers, "Content-Type") and compressible(headers) {
+                gzip_response(varied, headers, Body.Stream(http_host.gzip_reader(r, options.level)))
+            } else {
+                varied
+            }
+
+        .Produce(produce) ->
+            if Headers.has(headers, "Content-Type") and compressible(headers) {
+                body = Body.Produce(fn w -> {
+                    gz = http_host.gzip_writer(w, options.level)
+                    produced = produce(gz)
+                    closed = Writer.close(gz)
+                    Result.flat_map(produced, fn _: Unit -> closed)
+                })
+
+                gzip_response(varied, headers, body)
+            } else {
+                varied
+            }
+
+        other -> {
+            data = Body.bytes_of(other)
+
+            sniffed = if Headers.has(headers, "Content-Type") {
+                headers
+            } else {
+                Headers.set(headers, "Content-Type", detect_content_type(data))
+            }
+
+            if Bytes.length(data) < options.min_size or not compressible(sniffed) {
+                varied
+            } else {
+                gzip_response(
+                    varied,
+                    sniffed,
+                    Body.Bytes(http_host.gzip_bytes(data, options.level)),
+                )
+            }
+        }
+    }
+}
+
+/// `response` with `body`, compressed, and `headers` changed to say so.
+fn gzip_response(response: Response, headers: Headers, body: Body) -> Response {
+    weak =
+        Headers.values(headers, "ETag")
+        |> Iter.map(fn tag -> {
+            if String.starts_with(tag, "\"") {
+                "W/${tag}"
+            } else {
+                tag
+            }
+        })
+        |> Iter.to_list()
+
+    tagged = Iter.reduce(weak, Headers.remove(headers, "ETag"), fn acc, tag -> {
+        Headers.add(acc, "ETag", tag)
+    })
+
+    sent =
+        tagged
+        |> Headers.remove("Content-Length")
+        |> Headers.set("Content-Encoding", "gzip")
+
+    #{..response, headers: sent, body, content_length: None}
+}
+
+/// Whether the `Content-Type` in `headers` names a type gzip shrinks: not
+/// one compressed already.
+fn compressible(headers: Headers) -> Bool {
+    media =
+        Headers.get(headers, "Content-Type")
+        |> Maybe.with_default("")
+        |> String.split(";")
+        |> List.head()
+        |> Maybe.with_default("")
+        |> String.trim()
+        |> String.lowercase()
+
+    packed = [
+        "application/gzip",
+        "application/x-gzip",
+        "application/zip",
+        "application/x-bzip2",
+        "application/x-xz",
+        "application/zstd",
+        "application/x-7z-compressed",
+        "application/vnd.rar",
+        "application/x-rar-compressed",
+        "application/font-woff",
+        "font/woff",
+        "font/woff2",
+    ]
+
+    media_class = Iter.any(["image/", "audio/", "video/"], fn p -> String.starts_with(media, p))
+    not (media_class and media != "image/svg+xml") and not List.contains(packed, media)
+}
+
+/// `headers` with `name` in `Vary`, unless it is there or `Vary` is `*`.
+fn vary_on(headers: Headers, name: String) -> Headers {
+    listed =
+        Headers.values(headers, "Vary")
+        |> Iter.flat_map(fn v -> String.split(v, ","))
+        |> Iter.map(fn t -> String.lowercase(String.trim(t)))
+        |> Iter.to_list()
+
+    if Iter.any(listed, fn t -> t == "*" or t == String.lowercase(name)) {
+        headers
+    } else {
+        Headers.add(headers, "Vary", name)
+    }
+}
+
+/// Middleware that lets a request through to `handler` only with a
+/// `Basic` `Authorization` header whose user and password `check`
+/// accepts. Any other request gets `401 Unauthorized` with
+/// `WWW-Authenticate: Basic realm="<realm>", charset="UTF-8"`, which has
+/// a browser ask for them. The handler reads the user with
+/// `Request.basic_auth`. Send it only over HTTPS: the password crosses in
+/// every request, encoded but not encrypted.
+///
+/// Write `check` with `hash.equal_in_constant_time`, never `==`, which
+/// returns at the first byte that differs and so tells an attacker by its
+/// timing how much of a guess was right. Comparing SHA-256 digests keeps
+/// the lengths equal, so the time depends on neither, and checking both
+/// before combining them keeps a right user from showing either.
+//! import std::hash
+//! import std::http.{self, Body, Method, Request, Response, Status}
+//! import std::http_testing
+//!
+//! same = fn given: String, expected: String -> {
+//!     hash.equal_in_constant_time(
+//!         hash.sha256(String.to_bytes(given)),
+//!         hash.sha256(String.to_bytes(expected)),
+//!     )
+//! }
+//!
+//! admin_only = fn user: String, password: String -> {
+//!     user_ok = same(user, "admin")
+//!     password_ok = same(password, "s3cret")
+//!     user_ok and password_ok
+//! }
+//!
+//! hello = fn r: Request -> Response{body: Body.Text("hello ${Request.basic_auth(r)!.0}")}
+//! app = hello |> http.basic_auth("admin", admin_only)
+//! visit = http_testing.request(Method.Get, "/admin")
+//!
+//! refused = app(visit)
+//! assert refused.status == Status.unauthorized
+//!
+//! assert Headers.get(refused.headers, "WWW-Authenticate")
+//!     == Some("Basic realm=\"admin\", charset=\"UTF-8\"")
+//!
+//! assert app(Request.with_basic_auth(visit, "admin", "guess")).status == Status.unauthorized
+//! assert Response.text(app(Request.with_basic_auth(visit, "admin", "s3cret"))) == Ok("hello admin")
+//
+pub fn basic_auth(handler: Handler, realm: String, check: (String, String) -> Bool) -> (
+    Request
+) -> Response {
+    quoted = String.replace(realm, "\\", "\\\\") |> String.replace("\"", "\\\"")
+    challenge = "Basic realm=\"${quoted}\", charset=\"UTF-8\""
+
+    fn request -> {
+        case Request.basic_auth(request) {
+            Some(#(user, password)) when check(user, password) ->
+                ToResponse.to_response(handler(request))
+
+            _ ->
+                Response.with_headers(
+                    Response.error(Status.unauthorized, "401 Unauthorized"),
+                    Headers[#("WWW-Authenticate", challenge)],
+                )
+        }
+    }
+}
+
+/// Middleware that lets an HTML form, which can send only `GET` and
+/// `POST`, stand for a `PUT`, `PATCH` or `DELETE`: a `POST` whose
+/// URL-encoded body has a `_method` field naming one of those three, in
+/// any case, reaches `handler` as that method, so a router's
+/// `DELETE /posts/{id}` route takes it. Any other request, and any other
+/// `_method`, passes as it came. The form is read up to the request's
+/// `body_limit`, or 10 MB, and the handler can read it again; past the
+/// limit the request gets `413`.
+///
+/// Wrap the router, so the method is changed before it routes, and put
+/// `limit_body` outside it (after it in a pipe) for its limit to hold
+/// here. The `X-HTTP-Method-Override` header is not read: a page on
+/// another origin could set it on a request a browser lets through.
+//! import std::http.{self, Body, Method, Request, Response, Route, Router}
+//! import std::http_testing
+//!
+//! router = Router.new([
+//!     #(Route`POST /posts`, fn _ -> Response{body: Body.Text("created")}),
+//!     #(
+//!         Route`PATCH /posts/{id}`,
+//!         fn r: Request -> Response{body: Body.Text("titled ${Request.form_value(r, "title")!}")},
+//!     ),
+//!     #(Route`DELETE /posts/{id}`, fn _ -> Response{body: Body.Text("deleted")}),
+//! ])!
+//!
+//! app = Router.handler(router) |> http.method_override()
+//!
+//! form = fn target: String, fields: List<#(String, String)> -> {
+//!     http_testing.form_request(Method.Post, target, fields)
+//! }
+//!
+//! assert Response.text(app(form("/posts/7", [#("_method", "delete")]))) == Ok("deleted")
+//!
+//! assert Response.text(app(form("/posts/7", [#("_method", "PATCH"), #("title", "Hi")])))
+//!     == Ok("titled Hi")
+//!
+//! assert Response.text(app(form("/posts", [#("_method", "CONNECT")]))) == Ok("created")
+//
+pub fn method_override(handler: Handler) -> (Request) -> Response {
+    fn request -> {
+        posted_form = request.method == Method.Post
+            and Request.media_type(request) == "application/x-www-form-urlencoded"
+
+        if not posted_form { return ToResponse.to_response(handler(request)) }
+        max = Maybe.with_default(request.body_limit, max_form_body)
+
+        case read_capped(request.body, max, request.body_limit) {
+            Ok(data) -> {
+                asked =
+                    Bytes.to_string(data)
+                    |> Result.to_maybe()
+                    |> Maybe.flat_map(fn text -> Query.parse(text) |> Result.to_maybe())
+                    |> Maybe.flat_map(fn q -> Query.get(q, "_method"))
+                    |> Maybe.map(String.uppercase)
+
+                method = case asked {
+                    Some("PUT") -> Method.Put
+                    Some("PATCH") -> Method.Patch
+                    Some("DELETE") -> Method.Delete
+                    _ -> Method.Post
+                }
+
+                ToResponse.to_response(handler(#{..request, method, body: Body.Bytes(data)}))
+            }
+
+            Err(Error.BodyTooLarge{limit: _}) ->
+                Response.error(Status.request_entity_too_large, "413 Request Entity Too Large")
+
+            Err(_) ->
+                Response.error(Status.bad_request, "400 Bad Request")
+        }
+    }
+}
+
 /// The file at `path` as the response to `request`, with ranges and
 /// conditional requests (`Response.content`). A directory
-/// is redirected to its path with a trailing slash, then answered with its
+/// is redirected to its path with a trailing slash, then served with its
 /// `index.html` or a listing of its entries; a request for `.../index.html`
-/// is redirected to `./`. A missing file is a 404 and one that cannot be
-/// read a 403 or 500. Files come through std::fs, so `fs_testing.run` and
-/// `fs.within` apply.
+/// is redirected to `./`.
+///
+/// When nothing is at `file`, the request's path ends in no `/` and `file`
+/// does not end in `.html`, the page `file.html` is served in its place, as
+/// static hosts do: `/about` gets `about.html`, which is the
+/// file Next's and SvelteKit's static exports write for each route. The
+/// order is the file, then a directory, then the page. A request for
+/// `/about.html` is served that file as named, not redirected. Anything
+/// else missing is a 404, and a file that cannot be read a 403 or 500.
+/// Files come through std::fs, so `fs_testing.run` and `fs.within` apply.
+//! import std::fs_testing.{self, Sandbox}
+//! import std::http.{Method, Response, Status}
+//! import std::http_testing
+//!
+//! get = fn target: String, file: String -> serve_file(http_testing.request(Method.Get, target), file)
+//!
+//! site = %{"site/about.html" => "<p>about</p>", "site/blog/index.html" => "<p>blog</p>"}
+//!
+//! ran = fs_testing.run(Sandbox{files: site}, fn -> {
+//!     #(
+//!         get("/about", "site/about"),
+//!         get("/about.html", "site/about.html"),
+//!         get("/blog", "site/blog"),
+//!         get("/missing", "site/missing"),
+//!     )
+//! })
+//!
+//! #(about, named, blog, missing) = ran.value
+//! assert Response.text(about) == Ok("<p>about</p>")
+//! assert Headers.get(about.headers, "Content-Type") == Some("text/html; charset=utf-8")
+//! assert Response.text(named) == Ok("<p>about</p>")
+//! assert blog.status == Status.moved_permanently
+//! assert missing.status == Status.not_found
+//
 pub fn serve_file(request: Request, file: String) -> Response {
     asked = request.url.path
 
@@ -3443,28 +3823,81 @@ pub fn serve_file(request: Request, file: String) -> Response {
                     }
 
                 _ ->
-                    case fs.read(file) {
-                        Ok(data) ->
-                            Response.content(request, path.base(file), Some(meta.modified), data)
-
-                        Err(e) ->
-                            failed(e)
-                    }
+                    disk_file(request, file, meta)
             }
 
         Err(e) ->
-            failed(e)
+            case disk_page(asked, file) {
+                Some(#(page, meta)) -> disk_file(request, page, meta)
+                None -> failed(e)
+            }
     }
 }
 
-/// A handler that answers each request with the file under `root` its
+/// The file on disk at `file`, which is one, as the response to `request`.
+fn disk_file(request: Request, file: String, meta: fs.Metadata) -> Response {
+    case fs.read(file) {
+        Ok(data) -> Response.content(request, path.base(file), Some(meta.modified), data)
+        Err(e) -> failed(e)
+    }
+}
+
+/// The page a request for `asked` tries when nothing is at `file`:
+/// `file.html`, when `asked` ends in no `/` and `file` not in `.html`.
+fn html_page(asked: String, file: String) -> Maybe<String> {
+    if String.ends_with(asked, "/") or String.ends_with(file, ".html") {
+        None
+    } else {
+        Some("${file}.html")
+    }
+}
+
+/// `html_page` on disk, with its metadata, when it is a file there.
+fn disk_page(asked: String, file: String) -> Maybe<#(String, fs.Metadata)> {
+    html_page(asked, file)
+    |> Maybe.flat_map(fn page -> {
+        case fs.metadata(page) {
+            Ok(meta) ->
+                case meta.kind {
+                    fs.Kind.Directory -> None
+                    _ -> Some(#(page, meta))
+                }
+
+            Err(_) ->
+                None
+        }
+    })
+}
+
+/// `html_page` in `files`, when it is a file there.
+fn embedded_page(asked: String, files: Files, file: String) -> Maybe<String> {
+    html_page(asked, file)
+    |> Maybe.flat_map(fn page -> {
+        case Files.metadata(files, page) {
+            Ok(meta) ->
+                case meta.kind {
+                    fs.Kind.Directory -> None
+                    _ -> Some(page)
+                }
+
+            Err(_) ->
+                None
+        }
+    })
+}
+
+/// A handler that serves each request the file under `root` its
 /// cleaned path names (`serve_file`).
 ///
-/// With `single_page`, a request for a page route that names no file is
-/// answered with `root`'s `index.html`, status 200, so a single-page app
-/// whose client-side router owns `/settings` loads at that URL
-/// (`is_page_route`). A file that exists is served whatever its name, and
-/// a request for a missing asset is still a 404.
+/// A path that names no file or directory is tried with `.html` appended,
+/// so `/about` gets `about.html` (`serve_file`).
+///
+/// With `single_page`, a request for a page route that names no file,
+/// directory or `.html` page gets `root`'s `index.html`,
+/// status 200, so a single-page app whose client-side router owns
+/// `/settings` loads at that URL (`is_page_route`). A file that exists is
+/// served whatever its name, and a request for a missing asset is still a
+/// 404.
 //! import std::fs_testing.{self, Sandbox}
 //! import std::http.{Method, Response, Status}
 //! import std::http_testing
@@ -3487,7 +3920,8 @@ pub fn file_server(root: String, single_page: Bool = False) -> (Request) -> Resp
 
         if single_page
             and is_page_route(request)
-            and fs.metadata(file) is Err(io.Error.NotFound{}) {
+            and fs.metadata(file) is Err(io.Error.NotFound{})
+            and disk_page(request.url.path, file) is None {
             serve_file(request, path.join(root, "index.html"))
         } else {
             serve_file(request, file)
@@ -3498,10 +3932,13 @@ pub fn file_server(root: String, single_page: Bool = False) -> (Request) -> Resp
 /// `serve_file` from files a program embeds (std::embed): the file at
 /// `file` in `files` as the response to `request`, with its `Content-Type`
 /// from its name, ranges and conditional requests. A directory is
-/// redirected to its path with a trailing slash, then answered with its
+/// redirected to its path with a trailing slash, then served with its
 /// `index.html`; one with no `index.html` is a 404, since an embedded
 /// tree is not listed. A request for `.../index.html` is redirected to
-/// `./`. A missing file is a 404.
+/// `./`. When nothing is at `file`, the request's path ends in no `/` and
+/// `file` does not end in `.html`, the page `file.html` is served in its
+/// place, as `serve_file` serves it: the file, then a directory, then the
+/// page. Anything else missing is a 404.
 ///
 /// The file's SHA-256, which the compiler took when it read the file, is
 /// its strong `ETag`, so a request whose `If-None-Match` names it is a 304
@@ -3521,7 +3958,7 @@ pub fn file_server(root: String, single_page: Bool = False) -> (Request) -> Resp
 /// Vite's and webpack's compression plugins write them, is sent as that
 /// sibling when the request's `Accept-Encoding` takes its coding (`br`
 /// first), with `Content-Encoding`, the original name's `Content-Type`,
-/// and the sibling's own `ETag`. Every answer for such a file carries
+/// and the sibling's own `ETag`. Every response for such a file carries
 /// `Vary: Accept-Encoding`. Nothing is compressed while the program runs.
 //! import std::http.{Method, Response, Status}
 //! import std::http_testing
@@ -3552,6 +3989,25 @@ pub fn file_server(root: String, single_page: Bool = False) -> (Request) -> Resp
 //! again = http_testing.request(Method.Get, "/")
 //! again = #{..again, headers: Headers.set(again.headers, "If-None-Match", etag)}
 //! assert serve_embedded(again, files, ".").status == Status.not_modified
+//!
+//! pages = Files.from_bytes([
+//!     #("about.html", String.to_bytes("<p>about</p>")),
+//!     #("about.html.br", String.to_bytes("squeezed")),
+//! ])
+//!
+//! about = serve_embedded(http_testing.request(Method.Get, "/about"), pages, "about")
+//! assert Response.text(about) == Ok("<p>about</p>")
+//! assert Headers.get(about.headers, "Content-Type") == Some("text/html; charset=utf-8")
+//! assert Headers.get(about.headers, "Vary") == Some("Accept-Encoding")
+//!
+//! brotli = http_testing.request(Method.Get, "/about")
+//! brotli = #{..brotli, headers: Headers.set(brotli.headers, "Accept-Encoding", "br")}
+//! squeezed = serve_embedded(brotli, pages, "about")
+//! assert Headers.get(squeezed.headers, "Content-Encoding") == Some("br")
+//! assert Response.text(squeezed) == Ok("squeezed")
+//!
+//! slashed = serve_embedded(http_testing.request(Method.Get, "/about/"), pages, "about")
+//! assert slashed.status == Status.not_found
 //
 pub fn serve_embedded(
     request: Request,
@@ -3586,12 +4042,15 @@ pub fn serve_embedded(
             }
 
         Err(e) ->
-            failed(e)
+            case embedded_page(asked, files, file) {
+                Some(page) -> embedded_file(request, files, page, immutable)
+                None -> failed(e)
+            }
     }
 }
 
 /// `file_server` over files a program embeds (std::embed): a handler that
-/// answers each request with the file its cleaned path names in `files`
+/// serves each request the file its cleaned path names in `files`
 /// (`serve_embedded`, which `immutable` is passed to). A path is cleaned
 /// before it is looked up, so no request reaches outside the tree. Serve
 /// a folder's files at the root with `Files.sub`:
@@ -3604,9 +4063,12 @@ pub fn serve_embedded(
 /// }
 /// ```
 ///
-/// With `single_page`, a request for a page route that names no file is
-/// answered with the root `index.html`, status 200, as `file_server`
-/// answers it. A Vite build's `dist` is served so:
+/// A path that names no file or directory is tried with `.html` appended,
+/// so a static export with a page per route, `about.html` for `/about`,
+/// is served as written. With `single_page`, a request for a page route
+/// that names no file, directory or `.html` page gets the root
+/// `index.html`, status 200, as `file_server` serves it. A Vite build's
+/// `dist` is served so:
 ///
 /// ```nomi
 /// embed web `web/dist`
@@ -3637,6 +4099,17 @@ pub fn serve_embedded(
 //! }
 //!
 //! assert Response.text(app(visit("/settings/profile"))) == Ok("<div id=root></div>")
+//!
+//! exported = file_server_embedded(
+//!     Files.from_bytes([
+//!         #("index.html", String.to_bytes("<p>home</p>")),
+//!         #("about.html", String.to_bytes("<p>about</p>")),
+//!     ]),
+//!     single_page: True,
+//! )
+//!
+//! assert Response.text(exported(visit("/about"))) == Ok("<p>about</p>")
+//! assert Response.text(exported(visit("/contact"))) == Ok("<p>home</p>")
 //! assert Response.text(app(visit("/users/jane.doe"))) == Ok("<div id=root></div>")
 //!
 //! missing = http_testing.request(Method.Get, "/assets/gone-0a1b2c3d.js")
@@ -3651,7 +4124,10 @@ pub fn file_server_embedded(
     fn request -> {
         file = String.drop(path.clean(rooted(request.url.path)), 1)
 
-        if single_page and is_page_route(request) and not Files.exists(files, file) {
+        if single_page
+            and is_page_route(request)
+            and not Files.exists(files, file)
+            and embedded_page(request.url.path, files, file) is None {
             embedded_file(request, files, "index.html", immutable)
         } else {
             serve_embedded(request, files, file, immutable: immutable)
@@ -3660,7 +4136,7 @@ pub fn file_server_embedded(
 }
 
 /// Whether `request` asks for a page a single-page app's client-side
-/// router answers, which `file_server` and `file_server_embedded` answer
+/// router handles, which `file_server` and `file_server_embedded` respond to
 /// with `index.html` under `single_page` when no file matches the path: a
 /// `GET` or `HEAD` from a client that takes HTML, whose `Accept` names
 /// `text/html`. A browser sends that only when it navigates to a page,
@@ -4101,9 +4577,9 @@ impl Display for ConnState {
     }
 }
 
-/// Answers each request `listener` receives with `handler`, each as a task
+/// Serves each request `listener` receives with `handler`, each as a task
 /// of a `concurrent` block of its own, and returns once the listener shuts
-/// down and every request it took is answered. For a server with no
+/// down and every request it took is served. For a server with no
 /// supervisor, as in a test; a program's server uses `serve` and a
 /// supervisor, whose `max_running` bounds the requests in flight.
 pub fn serve_here(listener: Listener, handler: Handler) -> Unit {
@@ -4206,10 +4682,10 @@ pub struct ReverseProxy {
     rewrite: (ProxyRequest) -> ProxyRequest
     /// The client that sends the outgoing request.
     client: Client = default_client()
-    /// Changes each response before it goes back; an `Err` answers as
+    /// Changes each response before it goes back; an `Err` is handled as
     /// `on_error` does.
     modify_response: Maybe<(Response) -> Result<Response, Error>> = None
-    /// Answers when the request fails; `None` answers 502 Bad Gateway.
+    /// Responds when the request fails; `None` returns 502 Bad Gateway.
     on_error: Maybe<(Request, Error) -> Response> = None
     /// How often the response is flushed to the client while it streams:
     /// `None` flushes it as it arrives only for a response of unknown
@@ -4256,7 +4732,7 @@ fn without_hop_headers(headers: Headers) -> Headers {
     [..hop_headers, ..named] |> Iter.reduce(headers, fn h, name -> Headers.remove(h, name))
 }
 
-/// A handler that forwards each request as `options` says and answers
+/// A handler that forwards each request as `options` says and responds
 /// with the response, its connection headers removed: Go's
 /// `ReverseProxy.ServeHTTP`. The response streams to the client as it
 /// arrives, flushed as `flush_interval` says.
@@ -4310,7 +4786,7 @@ fn proxy_log(options: ReverseProxy, text: String) -> Unit {
 
 // The upstream response with a body that streams to the client: sent once,
 // following no redirect, as Go's Transport does for a ReverseProxy. A faked
-// or round-tripped client answers whole.
+// or round-tripped client response comes back whole.
 fn forward(options: ReverseProxy, outgoing: Request) -> Result<Response, Error> {
     faked: Maybe<Result<Response, Error>> = http_host.answered(outgoing)
     if Some(answer) = faked { return answer }
@@ -4399,9 +4875,9 @@ pub enum TraceEvent {
     /// It returned the connection to the idle pool, or failed to.
     PutIdleConnection {error: Maybe<String>}
     FirstResponseByte
-    /// The server answered `100 Continue`.
+    /// The server sent `100 Continue`.
     Continue
-    /// The server answered a 1xx status before the final one.
+    /// The server sent a 1xx status before the final one.
     Informational {status: Status, headers: Headers}
     DnsStart {host: String}
     DnsDone {addresses: List<String>, error: Maybe<String>, coalesced: Bool}

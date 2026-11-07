@@ -331,10 +331,10 @@ pub enum Error {
     /// The connection could not be made or broke: refused, reset, timed
     /// out, or TLS failed.
     Network {reason: String}
-    /// The server answered `command` with a failure `code`.
+    /// The server replied to `command` with a failure `code`.
     Rejected {command: String, code: Int, reply: String}
     /// The server cannot do what the config requires (STARTTLS, an AUTH
-    /// mechanism std speaks), or answered with something that is not
+    /// mechanism std speaks), or replied with something that is not
     /// SMTP.
     Protocol {reason: String}
 }
@@ -343,7 +343,7 @@ derive Equatable for Error
 
 impl Error {
     /// Whether sending again later may succeed: a network failure or a
-    /// 4xx reply. A job that sends mail can answer `Failure.Retry` for these
+    /// 4xx reply. A job that sends mail can return `Failure.Retry` for these
     /// and `Failure.Discard` for the rest.
     //! assert Error.is_temporary(Error.Rejected{command: "RCPT TO", code: 421, reply: "busy"})
     //! refute Error.is_temporary(Error.Rejected{command: "RCPT TO", code: 550, reply: "no such user"})

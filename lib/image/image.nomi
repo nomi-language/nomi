@@ -1,7 +1,7 @@
 //# Images: decode JPEG, PNG and WebP, resize, crop, and encode JPEG and
-//# PNG. `image.decode(bytes)` answers an `Image`; `Image.fit` scales one
+//# PNG. `image.decode(bytes)` returns an `Image`; `Image.fit` scales one
 //# down into a box keeping its shape; `Image.encode_jpeg` and
-//# `Image.encode_png` answer the bytes of a file.
+//# `Image.encode_png` return the bytes of a file.
 //#
 //# Decoding refuses an image whose header declares more pixels than
 //# `max_pixels` before it decodes any of them, since a small file can
@@ -150,7 +150,7 @@ pub fn decode(data: Bytes, max_pixels: Int = 50_000_000) -> Result<Image, Error>
     Ok(Image{handle, format: format_of(format_raw(handle))})
 }
 
-/// A decoded image. Every operation answers a new `Image`; none changes
+/// A decoded image. Every operation returns a new `Image`; none changes
 /// the one it is given.
 pub opaque struct Image {
     handle: Handle
@@ -178,7 +178,7 @@ impl Image {
     }
 
     /// `image` scaled down to fit inside `max_width` by `max_height`,
-    /// keeping its shape. An image that already fits is answered as it is:
+    /// keeping its shape. An image that already fits is returned as it is:
     /// `fit` never scales up. The bounds must be positive.
     pub fn fit(image: Image, max_width: Int, max_height: Int) -> Image {
         if max_width < 1 or max_height < 1 { unreachable "Image.fit's box must be at least 1 by 1" }

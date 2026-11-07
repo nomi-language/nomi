@@ -31,13 +31,14 @@ page's content, and `signup_form` draws the form. The form posts to
 `/signup`, and its handler reads the field with `Request.form_value`. When
 the input is wrong, the handler draws the form again with the error. When
 it is right, it redirects with a 303, so reloading the next page does not
-post the form twice. `main` sends two posts through the router without a
-network, one good and one bad, to show the responses:
+post the form twice. The router sits behind `http.cross_origin_protection`,
+which refuses a form another site posts. `main` sends two posts through
+them without a network, one good and one bad, to show the responses:
 
 ```nomi-run
 import {
     std::html.Html
-    std::http.{Request, Response, Route, Router, Status}
+    std::http.{self, CrossOrigin, Request, Response, Route, Router, Status}
     std::http_testing
 }
 
@@ -80,10 +81,8 @@ fn signup(request: Request) -> Response {
 
 fn main() {
     router = Router.new([#(Route`GET /signup`, show_signup), #(Route`POST /signup`, signup)])!
-
-    post = fn email: String -> {
-        Router.serve(router, http_testing.form_request(.Post, "/signup", [#("email", email)]))
-    }
+    app = Router.handler(router) |> http.cross_origin_protection(CrossOrigin{})
+    post = fn email: String -> app(http_testing.form_request(.Post, "/signup", [#("email", email)]))
 
     dbg post("ada@example.com").status
     bad = post("<ada>")
@@ -92,9 +91,9 @@ fn main() {
 }
 ```
 <!-- expect
-dbg line 51: post("ada@example.com").status = Status(303)
-dbg line 53: bad.status = Status(422)
-dbg line 54: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
+dbg line 49: post("ada@example.com").status = Status(303)
+dbg line 51: bad.status = Status(422)
+dbg line 52: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
 -->
 
 Each `${...}` is escaped for where it stands, so the `<ada>` typed into the
@@ -103,8 +102,11 @@ holding a `Maybe` shows its value, or nothing when it is `None`. Static
 files such as the htmx script and a stylesheet go in a folder the program
 embeds and serves with `http.file_server_embedded`, as the next section
 does with a JavaScript build.
+A form that edits or deletes posts a hidden `_method` field of `PATCH`
+or `DELETE`, and a router wrapped in `http.method_override()` routes it
+as that method.
 [HTTP](/http/#handlers-and-routes) covers templates, routes and errors in
-depth.
+depth, and [sessions](/http/#sessions) keep a signed-in user across pages.
 
 ## A JavaScript frontend
 
@@ -352,12 +354,10 @@ proxy and hashed files:
   `out/` and hashes `_next/static/**`.
 
 A static export with a page per route, from Next or a prerendering
-SvelteKit, writes `/about` as `about.html` by default, and the server
-does not look for that file. Set `trailingSlash: true` in
-`next.config.js`, or `export const trailingSlash = 'always'` in
-SvelteKit's root layout, so each page is written as `about/index.html`,
-which the server serves for `/about`. Leave `single_page` off for such a
-site, so a path with no page is a 404 rather than the home page.
+SvelteKit, writes `/about` as `about.html`, and the server serves that
+file for `/about` when no `about` file or directory exists, so such an
+export works as written. Leave `single_page` off for such a site, so a
+path with no page is a 404 rather than the home page.
 
 ### Releasing
 

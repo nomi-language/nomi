@@ -1,9 +1,6 @@
 // An application keeps its locale in an application field, read from LANG
 // at boot, and passes it to whatever formats text.
-import {
-    std::io
-    std::locale.Locale
-}
+import std::io
 
 pub struct App {
     locale: Locale

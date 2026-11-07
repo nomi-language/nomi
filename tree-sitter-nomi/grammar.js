@@ -223,11 +223,11 @@ module.exports = grammar({
 
     // A declaration by the general rule
     // `[pub] keyword name [(params)] [-> type] [raw body]`, whose keyword
-    // the grammar does not know: `message cart_items(count: Int) `...``,
+    // the grammar does not know: `phrase cart_items(count: Int) `...``,
     // `noun item `...``. Two names in a row at the top level start nothing
     // else; a line break between them ends a statement, as in the Go
     // parser. The body may carry a tag, which the Go parser reads and the
-    // analysis refuses on `message` and `noun`.
+    // analysis refuses on `phrase` and `noun`.
     keyword_declaration: $ => prec.right(seq(
       optional($.pub),
       field('keyword', $.identifier),
@@ -1057,13 +1057,23 @@ module.exports = grammar({
       field('capture', $.capture),
     )),
 
-    // The pipe stage `x |> tap fn v -> body` runs the lambda (or capture) on
-    // the piped value and passes the value on. Its lambda is a `then`
-    // lambda: the body ends at the next `|>`.
+    // The pipe stage `x |> tap fn v -> body` runs the lambda (or capture, or
+    // the function `x |> tap io.print` names) on the piped value and passes
+    // the value on. Its lambda is a `then` lambda: the body ends at the next
+    // `|>`.
     tap_stage: $ => seq('tap', choice(
       field('lambda', alias($._then_lambda, $.lambda)),
       field('capture', $.capture),
+      field('function', $._tap_function_name),
     )),
+
+    // A function's name: `log_it`, `io.print`, `Log.info`.
+    _tap_function_name: $ => choice(
+      $.identifier,
+      $.type_identifier,
+      alias($._tap_qualified_name, $.field_access),
+    ),
+    _tap_qualified_name: $ => prec.left(12, seq($._tap_function_name, token.immediate('.'), $._field_identifier)),
 
     // A call body is preferred over ending the lambda early: without it,
     // `then fn v -> io.print(v)` parsed as `(x |> then fn v -> io).print(v)`.
@@ -2304,7 +2314,8 @@ module.exports = grammar({
 
     // A capture: `&` against a function's body, which is one postfix-level
     // operand: a call (`&Int.max(&1, 0)`), a parenthesized expression
-    // (`&(&1 > 2)`) or a literal (`&#Point{x: &1}`, `&#(&1, 0)`, `&[&1]`).
+    // (`&(&1 > 2)`) or a literal (`&#Point{x: &1}`, `&#(&1, 0)`, `&[&1]`,
+    // `&"id ${&1}"`, `&Sql"id = ${&1}"`).
     // It binds below a call and above every binary operator, so
     // `&f(&1)(2)` captures both calls and `&f(&1) + 1` adds to the capture.
     capture: $ => prec(10, seq('&', field('body', $._capture_body))),
@@ -2322,6 +2333,12 @@ module.exports = grammar({
       $.vector,
       $.set,
       $.map_construction,
+      $.string,
+      $.triple_string,
+      $.raw_string,
+      $.tagged_type_string,
+      $.tagged_type_triple_string,
+      $.raw_tagged_string,
     )),
     type_identifier: $ => /[A-Z][a-zA-Z0-9_]*/,
 

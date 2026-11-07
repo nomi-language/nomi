@@ -1,6 +1,6 @@
 ---
 title: "Pattern Matching, Maybe & Result"
-description: "`case` takes values apart by shape. Maybe and Result hold an answer or its absence, and `?` passes a failure up."
+description: "`case` takes values apart by shape. Maybe and Result hold a result or its absence, and `?` passes a failure up."
 ---
 
 A `case` expression takes a value and runs the first arm whose pattern matches
@@ -321,10 +321,10 @@ with a `case` or with `if Some(n) = x`, as
 
 ## `Maybe<T>` and `Result<T, E>`
 
-Nomi uses two enums for operations that might not have an answer:
+Nomi uses two enums for operations that might not have a result:
 
 - [`Maybe<T>`](/reference/maybe/) is either `Some(value)` or `None`. Use it
-  when there may be no answer and there is nothing more to say about why.
+  when there may be no result and there is nothing more to say about why.
 - [`Result<T, E>`](/reference/results/) is either `Ok(value)` or `Err(error)`.
   Use it when a failure comes with an error that explains it.
 

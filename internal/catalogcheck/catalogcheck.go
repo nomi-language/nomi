@@ -1,9 +1,9 @@
 // Package catalogcheck holds a catalog's entries to the declarations they
-// translate: the checks of a `message`'s and a `noun`'s entry, and the
-// agreement of a program's nouns with its messages. The compiler runs them
+// translate: the checks of a `phrase`'s and a `noun`'s entry, and the
+// agreement of a program's nouns with its phrases. The compiler runs them
 // over the catalogs under `[i18n].catalogs` (internal/analysis), and
 // `Catalog.load` runs them while a program runs over a catalog it was
-// handed (internal/stdmessageformat), so a catalog loaded at run time is
+// handed (internal/stdphraseformat), so a catalog loaded at run time is
 // held to exactly what a compiled one is, and a rejected entry's reason is
 // the text the compiler prints.
 //
@@ -44,7 +44,7 @@ func LanguageName(tag string) string {
 	return tag
 }
 
-// Declaration is a `message` or a `noun` as its entries are checked: its
+// Declaration is a `phrase` or a `noun` as its entries are checked: its
 // declared name, its source text and the locale that text is in.
 type Declaration struct {
 	Name         string
@@ -75,7 +75,7 @@ func sourceChecks(entry *catalog.Entry, d Declaration, locale string, partial bo
 	case !mf2.Same(entry.Source.Text, d.Source):
 		return []catalog.Diagnostic{diag(entry.Source.KeySpan.Start, entry.Source.Span.End,
 			fmt.Sprintf("%s: `%s` was translated from an older %s text\n  was:%s\n  now:%s", locale, d.Name, lang, ShownText(entry.Source.Text), ShownText(d.Source)),
-			fmt.Sprintf("update the translation, then accept it with the quick fix or `nomi messages accept %s %s`", locale, d.Name))}
+			fmt.Sprintf("update the translation, then accept it with the quick fix or `nomi phrases accept %s %s`", locale, d.Name))}
 	}
 	return nil
 }
@@ -102,17 +102,17 @@ func textChecks(v catalog.Value, sig mf2.Signature, loc mf2.Locale) []catalog.Di
 	return out
 }
 
-// MessageEntry is what is wrong with entry, a message's entry in the
-// catalog of loc, against the message's declaration d and signature sig:
+// PhraseEntry is what is wrong with entry, a phrase's entry in the
+// catalog of loc, against the phrase's declaration d and signature sig:
 // a key other than `source` and `text`, no `text`, a `source` that is
 // missing or older than the declaration's text (not in a partial locale),
 // and what mf2.Validate finds in the text. It is in the order the compiler
 // reports them.
-func MessageEntry(entry *catalog.Entry, d Declaration, sig mf2.Signature, loc mf2.Locale, partial bool) []catalog.Diagnostic {
+func PhraseEntry(entry *catalog.Entry, d Declaration, sig mf2.Signature, loc mf2.Locale, partial bool) []catalog.Diagnostic {
 	var out []catalog.Diagnostic
 	for _, f := range entry.Fields {
 		out = append(out, diag(f.Value.KeySpan.Start, f.Value.KeySpan.End,
-			fmt.Sprintf("%s: `%s` is not a key of a message's entry; an entry holds `source` and `text`", loc.Tag, f.Name)))
+			fmt.Sprintf("%s: `%s` is not a key of a phrase's entry; an entry holds `source` and `text`", loc.Tag, f.Name)))
 	}
 	if !entry.Text.Present {
 		return append(out, diag(entry.Span.Start, entry.Span.End, fmt.Sprintf("%s: `%s` has no `text`", loc.Tag, d.Name), "write its translation as `text = '''...'''`"))
@@ -126,7 +126,7 @@ func MessageEntry(entry *catalog.Entry, d Declaration, sig mf2.Signature, loc mf
 // missing or older than the declaration's text (not in a partial locale),
 // a `gender` missing where the language's nouns have one, given where they
 // have none, or not one of its genders, a key that is no case of the
-// language, a form that is not a valid message over `$count` with the
+// language, a form that is not a valid phrase over `$count` with the
 // plural arms the locale needs, and no `nominative`.
 func NounEntry(entry *catalog.Entry, d Declaration, loc mf2.Locale, partial bool) []catalog.Diagnostic {
 	var out []catalog.Diagnostic
@@ -136,7 +136,7 @@ func NounEntry(entry *catalog.Entry, d Declaration, loc mf2.Locale, partial bool
 	if entry.Text.Present {
 		at(entry.Text.KeySpan.Start, entry.Text.KeySpan.End,
 			fmt.Sprintf("%s: `%s` is a noun, whose entry gives a form per case and no `text`", loc.Tag, d.Name),
-			fmt.Sprintf("write its forms as `nominative = %s` and the other cases messages ask for", catalog.Literal(strings.TrimSpace(entry.Text.Text))))
+			fmt.Sprintf("write its forms as `nominative = %s` and the other cases phrases ask for", catalog.Literal(strings.TrimSpace(entry.Text.Text))))
 	}
 	out = append(out, sourceChecks(entry, d, loc.Tag, partial)...)
 	g := entry.Field(GenderKey)
@@ -172,12 +172,12 @@ func NounEntry(entry *catalog.Entry, d Declaration, loc mf2.Locale, partial bool
 	}
 	if !nominative {
 		at(entry.Span.Start, entry.Span.End, fmt.Sprintf("%s: `%s` has no `nominative` form", loc.Tag, d.Name),
-			"add `nominative = '''...'''`, the form a message writes when it names no case")
+			"add `nominative = '''...'''`, the form a phrase writes when it names no case")
 	}
 	return out
 }
 
-// Noun is a noun as a message's text in one locale reads it: its declared
+// Noun is a noun as a phrase's text in one locale reads it: its declared
 // name, its qualified name (`staff.courier`), its gender there, "" when it
 // has none, and whether it has each form.
 type Noun struct {
@@ -202,7 +202,7 @@ type MissingArm struct {
 }
 
 // Agreement holds nouns, every noun a program has as read in loc, to text,
-// the text in loc of the message sig declares: every noun has every case
+// the text in loc of the phrase sig declares: every noun has every case
 // form the text asks for with `:nomi:noun case=...`, and every selector on
 // a noun's gender has an arm for each gender some noun has. Forms are in
 // the order of the nouns and then the uses; arms in the order of the
@@ -230,7 +230,7 @@ func Agreement(text *mf2.Message, sig mf2.Signature, loc mf2.Locale, nouns []Nou
 			}
 			forms = append(forms, MissingForm{Noun: i,
 				Message: fmt.Sprintf("%s: `%s` has no `%s` form, which `%s` asks for", loc.Tag, n.Name, u.Case, sig.Name),
-				Hint:    fmt.Sprintf("add `%s = '''...'''` to `[%s]`: every noun has each form a message in its locale asks for, since a message may be given any noun", u.Case, n.Name)})
+				Hint:    fmt.Sprintf("add `%s = '''...'''` to `[%s]`: every noun has each form a phrase in its locale asks for, since a phrase may be given any noun", u.Case, n.Name)})
 		}
 	}
 	var arms []MissingArm
@@ -252,7 +252,7 @@ func Agreement(text *mf2.Message, sig mf2.Signature, loc mf2.Locale, nouns []Nou
 	return forms, arms
 }
 
-// ShownText is a message text as a diagnostic shows it after the word that
+// ShownText is a phrase text as a diagnostic shows it after the word that
 // names it: on that line when it is one line, else indented under it.
 func ShownText(s string) string {
 	s = strings.TrimSpace(s)

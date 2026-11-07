@@ -45,8 +45,23 @@
 //# objects a bucket already holds. `../etc/passwd`, `/abs` and `a\b` are
 //# refused before any backend builds a path or a URL from them.
 //#
-//# Objects move whole, as `Bytes`; there is no listing, streaming or
-//# multipart upload.
+//# ## Listing
+//#
+//# `Store.list` returns one page of the keys under a prefix, in order,
+//# with each object's size and time. With a delimiter, keys that go on
+//# past it are folded into the common prefix they share, as a directory
+//# listing shows a folder once; a page's `next` is passed back as
+//# `continuation` for the page after it. `storage.list_all` follows the
+//# pages to the end:
+//#
+//# ```nomi
+//# page = Store.list(App.store, ListOptions{prefix: "avatars/", delimiter: "/"})?
+//#
+//# everything = storage.list_all(App.store, prefix: "avatars/")?
+//# ```
+//#
+//# Objects move whole, as `Bytes`; there is no streaming or multipart
+//# upload.
 
 import {
     bool.Bool.{self, False, True}
@@ -74,8 +89,8 @@ import {
 //! assert "${Error.NotFound{key: "a.txt"}}" == "no object has the key a.txt"
 //
 pub enum Error {
-    /// No object has the key. `get` answers it; `info` answers `Ok(None)`
-    /// instead, and `delete` answers `Ok`.
+    /// No object has the key. `get` returns it; `info` returns `Ok(None)`
+    /// instead, and `delete` returns `Ok`.
     NotFound {key: String}
 
     /// The key breaks the key rules (`check_key`). `reason` says which.
@@ -139,22 +154,68 @@ pub struct Object {
 derive Equatable for Object
 derive Debug for Object
 
+/// An object as a listing shows it: its key, its size in bytes, and when
+/// it was last stored.
+pub struct Entry {
+    key: String
+    size: Int
+    modified: Instant
+}
+
+derive Equatable for Entry
+derive Debug for Entry
+
+/// Which keys `Store.list` lists, and which page of them.
+pub struct ListOptions {
+    /// Only keys that start with this. It may be any text a key may hold,
+    /// a `/` at its end included.
+    prefix: String = ""
+    /// When not empty, a key that holds this after `prefix` is folded
+    /// into the common prefix up to and including its first one, listed
+    /// once in `Listing.prefixes` instead of in `objects`.
+    delimiter: String = ""
+    /// The `next` of the page before, to list the page after it.
+    continuation: Maybe<String> = None
+    /// The most objects and prefixes a page holds, 1 to 1,000. A value
+    /// outside that is taken as the nearer end.
+    limit: Int = 1000
+}
+
+derive Equatable for ListOptions
+derive Debug for ListOptions
+
+/// One page of a listing: the objects and the common prefixes on it, each
+/// in key order, and the continuation for the page after it, or `None` on
+/// the last page.
+pub struct Listing {
+    objects: List<Entry> = []
+    prefixes: List<String> = []
+    next: Maybe<String> = None
+}
+
+derive Equatable for Listing
+derive Debug for Listing
+
 /// A place objects live, each under a key. `storage.local`, `lib/storage/s3`
 /// and `storage_testing.Memory` implement it.
 ///
 /// Every backend follows these rules, and std::storage_testing's
 /// `conformance` suite checks each:
 ///
-/// - Every function checks its key with `check_key` first, and answers its
+/// - Every function checks its key with `check_key` first, and returns its
 ///   `Err(.InvalidKey)` before doing anything else. `put` then checks the
 ///   content type with `check_content_type`.
 /// - `put` replaces any object under the key. A reader sees the old object
 ///   or the new one, never part of one.
-/// - `get` and `info` answer the bytes and content type the last `put`
+/// - `get` and `info` return the bytes and content type the last `put`
 ///   stored, and its size.
 /// - `get` of a missing key is `Err(.NotFound)`; `info` of one is
 ///   `Ok(None)`; `delete` of one is `Ok`.
-/// - `url` does no I/O. It answers a URL whether or not the object exists.
+/// - `url` does no I/O. It returns a URL whether or not the object exists.
+/// - `list` returns the keys under its prefix in byte order, its prefix
+///   checked with `check_prefix` first, folds keys that go on past the
+///   delimiter into their common prefix, and pages as `ListOptions` says;
+///   `page` is that rule over a list of entries.
 //! import std::storage_testing.Memory
 //!
 //! store: Store = Memory.new()
@@ -176,6 +237,8 @@ pub interface Store {
     /// Where a reader fetches the object under `key`, with no I/O, or
     /// `Err(.NoPublicUrl)` from a store made without one.
     fn url(store: self, key: String) -> Result<Url, Error>
+    /// One page of the objects whose keys start with `options.prefix`.
+    fn list(store: self, options: ListOptions) -> Result<Listing, Error>
 
     /// Whether an object has the key.
     fn exists(store: self, key: String) -> Result<Bool, Error> {
@@ -230,6 +293,149 @@ pub fn check_key(key: String) -> Result<Unit, Error> {
     Ok(Unit)
 }
 
+/// `Ok` when `prefix` can start a key, as `list` takes it: at most 1,024
+/// bytes, with no control character and no `\`. It may be empty, end
+/// with `/` or stop inside a segment.
+//! assert check_prefix("") == Ok(Unit)
+//! assert check_prefix("avatars/") == Ok(Unit)
+//! assert check_prefix("a\\b") is Err(.InvalidKey{})
+//
+pub fn check_prefix(prefix: String) -> Result<Unit, Error> {
+    bad = fn reason: String -> Err(Error.InvalidKey{key: prefix, reason})
+    size = byte_length(prefix)
+    if size > 1024 { return bad("it is ${size} bytes, over 1024") }
+
+    if Some(c) = Iter.find(String.to_codepoints(prefix), is_control) {
+        return bad("it holds the control character ${String.to_literal("${c}")}")
+    }
+
+    if String.contains(prefix, "\\") { return bad("it holds \\, which no key holds") }
+    Ok(Unit)
+}
+
+/// The page of `entries` that `options` asks for, as every backend lists:
+/// the entries whose keys start with the prefix, in key order, each key
+/// that holds the delimiter after the prefix folded into its common
+/// prefix, after the continuation, at most `limit` of them. The
+/// continuation is the last key or prefix of the page before, so a
+/// backend that holds its keys can list with this alone.
+//! at = Instant.from_seconds(0)
+//! entry = fn key: String -> Entry{key, size: 1, modified: at}
+//! entries = [entry("p/b/2"), entry("p/a"), entry("p/b/1"), entry("q"), entry("p/c")]
+//!
+//! assert page(entries, ListOptions{prefix: "p/"}).objects
+//! |> Iter.map(fn e -> e.key)
+//! |> Iter.to_list() == ["p/a", "p/b/1", "p/b/2", "p/c"]
+//!
+//! assert page(entries, ListOptions{prefix: "p/", delimiter: "/", limit: 2}) == Listing{
+//!     objects: [entry("p/a")],
+//!     prefixes: ["p/b/"],
+//!     next: Some("p/b/"),
+//! }
+//!
+//! assert page(
+//!     entries,
+//!     ListOptions{prefix: "p/", delimiter: "/", limit: 2, continuation: Some("p/b/")},
+//! ) == Listing{objects: [entry("p/c")]}
+//
+pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing {
+    limit = if options.limit < 1 {
+        1
+    } else if options.limit > 1000 {
+        1000
+    } else {
+        options.limit
+    }
+
+    items =
+        entries
+        |> Iter.filter(fn e -> String.starts_with(e.key, options.prefix))
+        |> Iter.sort_by(fn e -> e.key)
+        |> Iter.map(fn e -> {
+            case folded(e.key, options) {
+                Some(p) -> #(p, None)
+                None -> #(e.key, Some(e))
+            }
+        })
+        |> Iter.chunk_by(fn #(text, _) -> text)
+        |> Iter.flat_map(fn group -> Iter.first(group))
+        |> Iter.filter(fn #(text, _) -> {
+            case options.continuation {
+                Some(after) -> text > after
+                None -> True
+            }
+        })
+        |> Iter.take(limit + 1)
+        |> Iter.to_list()
+
+    shown = Iter.take(items, limit) |> Iter.to_list()
+
+    next = if Iter.count(items) > limit {
+        Iter.last(shown) |> Maybe.map(fn #(text, _) -> text)
+    } else {
+        None
+    }
+
+    Listing{
+        objects: shown |> Iter.flat_map(fn #(_, entry) -> entry) |> Iter.to_list(),
+        prefixes: shown
+        |> Iter.filter(fn #(_, entry) -> entry == None)
+        |> Iter.map(fn #(text, _) -> text)
+        |> Iter.to_list(),
+        next,
+    }
+}
+
+// The common prefix `key` is folded into, when it holds the delimiter
+// after the prefix.
+fn folded(key: String, options: ListOptions) -> Maybe<String> {
+    if options.delimiter == "" { return None }
+    rest = String.drop(key, String.length(options.prefix))
+
+    case String.split(rest, options.delimiter) {
+        [head, _, ..] -> Some("${options.prefix}${head}${options.delimiter}")
+        _ -> None
+    }
+}
+
+/// Every object and common prefix under `prefix`, following each page's
+/// `next` to the last page.
+//! import std::storage_testing.Memory
+//!
+//! store = Memory.new()
+//! _ = Store.put(store, "a/1", String.to_bytes("x"), "text/plain")
+//! _ = Store.put(store, "a/2/z", String.to_bytes("y"), "text/plain")
+//! all = list_all(store, prefix: "a/", delimiter: "/", page_size: 1)!
+//! assert all.objects |> Iter.map(fn e -> e.key) |> Iter.to_list() == ["a/1"]
+//! assert all.prefixes == ["a/2/"]
+//! assert all.next == None
+//
+pub fn list_all(
+    store: Store,
+    prefix: String = "",
+    delimiter: String = "",
+    page_size: Int = 1000,
+) -> Result<Listing, Error> {
+    follow(store, ListOptions{prefix, delimiter, limit: page_size}, Listing{})
+}
+
+fn follow(store: Store, options: ListOptions, done: Listing) -> Result<Listing, Error> {
+    listed = Store.list(store, options)?
+
+    all = Listing{
+        objects: done.objects + listed.objects,
+        prefixes: done.prefixes + listed.prefixes,
+    }
+
+    case listed.next {
+        Some(token) when Some(token) != options.continuation ->
+            follow(store, #{..options, continuation: Some(token)}, all)
+
+        _ ->
+            Ok(all)
+    }
+}
+
 fn byte_length(text: String) -> Int {
     Bytes.length(String.to_bytes(text))
 }
@@ -242,7 +448,7 @@ fn is_control(c: Codepoint) -> Bool {
 
 /// `base` with the segments of `key` joined to its path, each escaped, so
 /// that a `%`, `?` or `#` in a key stays part of the path. A backend's
-/// `url` answers it for its public base. `key` is not checked.
+/// `url` returns it for its public base. `key` is not checked.
 //! u = join_key(Url`https://cdn.example.com/files/`, "a b/50%(1)#2.jpg")
 //! assert u.path == "/files/a b/50%(1)#2.jpg"
 //! assert "${u}" == "https://cdn.example.com/files/a%20b/50%25%281%29%232.jpg"
@@ -291,7 +497,7 @@ pub fn check_content_type(content_type: String) -> Result<Unit, Error> {
 ///
 /// `public_base` is where the app serves the directory, as
 /// `Some(Url`/files/`)` with a route to `storage.handler`; `url` joins the
-/// key to it. With `None`, `url` answers `Err(.NoPublicUrl)`.
+/// key to it. With `None`, `url` returns `Err(.NoPublicUrl)`.
 ///
 /// A `put` writes the type file, then the object, each to a temporary file
 /// renamed over the old one, so a reader sees the old object or the new
@@ -453,6 +659,74 @@ impl Store for Local {
             None -> Err(Error.NoPublicUrl)
         }
     }
+
+    fn list(local: Local, options: ListOptions) -> Result<Listing, Error> {
+        check_prefix(options.prefix)?
+
+        base = if String.ends_with(local.root, "/") {
+            local.root
+        } else {
+            "${local.root}/"
+        }
+
+        entries =
+            fs.walk(local.root)
+            |> Iter.map(fn walked -> {
+                case walked {
+                    Ok(entry) when entry.kind == Kind.File ->
+                        local_entry(base, entry.path, options.prefix)
+
+                    Ok(_) ->
+                        Ok(None)
+
+                    Err(.NotFound{path}) when path == local.root ->
+                        Ok(None)
+
+                    Err(e) ->
+                        Err(from_io(options.prefix, e))
+                }
+            })
+            |> Result.collect()?
+
+        Ok(page(Maybe.values(entries), options))
+    }
+}
+
+// The entry for the file at `file`, under `base`, when it holds an object
+// whose key starts with `prefix`: no segment of its path starts with `.`,
+// which leaves out the types directory and a put's temporary files.
+fn local_entry(base: String, file: String, prefix: String) -> Result<Maybe<Entry>, Error> {
+    segments = String.split(String.drop(file, String.length(base)), "/")
+    if Iter.any(segments, fn s -> String.starts_with(s, ".")) { return Ok(None) }
+    key = segments |> Iter.map(key_segment) |> String.join("/")
+    if not String.starts_with(key, prefix) { return Ok(None) }
+    meta = fs.metadata(file) |> Result.map_err(fn e -> from_io(key, e))?
+    Ok(Some(Entry{key, size: meta.size, modified: meta.modified}))
+}
+
+// A key's segment from its name on disk: each `%` and two hexadecimal
+// digits `file_names` wrote is the character again.
+fn key_segment(name: String) -> String {
+    case String.split(name, "%") {
+        [first, ..escaped] ->
+            first + (escaped
+            |> Iter.map(fn part -> {
+                code =
+                    hex.decode(String.take(part, 2))
+                    |> Result.flat_map(fn b -> {
+                        Bytes.to_string(b) |> Result.map_err(fn _ -> "not UTF-8")
+                    })
+
+                case code {
+                    Ok(c) -> c + String.drop(part, 2)
+                    Err(_) -> "%" + part
+                }
+            })
+            |> String.join(""))
+
+        [] ->
+            name
+    }
 }
 
 // The names on disk of the segments of `key`, as `local` describes them.
@@ -542,8 +816,8 @@ fn io_code(error: io.Error) -> String {
     }
 }
 
-/// A handler that answers `GET` and `HEAD` with the object whose key is the
-/// request's path value `param`, with its stored content type. It answers
+/// A handler that serves `GET` and `HEAD` with the object whose key is the
+/// request's path value `param`, with its stored content type. It handles
 /// `Range` and conditional requests as `Response.content` does. A missing
 /// object or an invalid key is a 404, `Denied` a 403, `Unavailable` a 503,
 /// and any other error a 500.

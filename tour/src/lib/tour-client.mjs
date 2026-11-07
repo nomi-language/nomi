@@ -308,7 +308,7 @@ function splitFiles(source) {
 }
 
 // fileLanguage names the language a multi-file example's tab holds, by its
-// file name: "nomi" for a Nomi source, "toml" for a manifest or message
+// file name: "nomi" for a Nomi source, "toml" for a manifest or phrase
 // catalog, and "text" for a data file the program reads (`notes.txt`),
 // which the run puts in the program's in-memory file system. "go" is a Go
 // file the example binds, which the tour links ahead of time, so its tab is

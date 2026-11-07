@@ -7,7 +7,7 @@
 // kind of value it is) and answers diagnostics the same way; Print writes a
 // message's canonical text; Format renders a message with its arguments
 // through an Env that supplies a locale's plural rules and number
-// formatting. The compiler's `message` declarations and a runtime catalog
+// formatting. The compiler's `phrase` declarations and a runtime catalog
 // loader can both call it unchanged.
 //
 // The functions Nomi formats are the stable defaults `:string`,
@@ -190,6 +190,9 @@ type parser struct {
 	src  string
 	pos  int
 	errs []Diagnostic
+	// record has the parse keep the tokens it reads in toks (Tokens).
+	record bool
+	toks   []Token
 }
 
 // bail records an error at pos and stops the parse.
@@ -270,6 +273,7 @@ func (p *parser) complex(m *Message) {
 func (p *parser) input() Declaration {
 	start := p.pos
 	p.pos += len(".input")
+	p.emit(TokenKeyword, start, p.pos)
 	p.ws()
 	if !p.at("{") {
 		p.fail(p.pos, p.pos+1, "`.input` is followed by an expression of a variable: `.input {$name :function}`")
@@ -284,6 +288,7 @@ func (p *parser) input() Declaration {
 func (p *parser) local() Declaration {
 	start := p.pos
 	p.pos += len(".local")
+	p.emit(TokenKeyword, start, p.pos)
 	if !p.ws() {
 		p.fail(p.pos, p.pos+1, "expected a space after `.local`")
 	}
@@ -295,6 +300,7 @@ func (p *parser) local() Declaration {
 	if !p.at("=") {
 		p.fail(p.pos, p.pos+1, "expected `=` after `.local %s`", "$"+v.Name)
 	}
+	p.emit(TokenOperator, p.pos, p.pos+1)
 	p.pos++
 	p.ws()
 	if !p.at("{") {
@@ -305,6 +311,7 @@ func (p *parser) local() Declaration {
 }
 
 func (p *parser) matcher(m *Message) {
+	p.emit(TokenKeyword, p.pos, p.pos+len(".match"))
 	p.pos += len(".match")
 	for {
 		ws := p.ws()
@@ -361,12 +368,14 @@ func (p *parser) key() Key {
 	start := p.pos
 	if p.at("*") {
 		p.pos++
+		p.emit(TokenCatchAll, start, p.pos)
 		return Key{CatchAll: true, Span: Span{start, p.pos}}
 	}
 	lit, ok := p.literal()
 	if !ok {
 		p.fail(p.pos, p.pos+1, "expected a key: `*`, a name, a number or a `|quoted|` literal")
 	}
+	p.emit(TokenKey, lit.Span.Start, lit.Span.End)
 	return Key{Value: lit.Value, Span: lit.Span}
 }
 
@@ -374,11 +383,13 @@ func (p *parser) quotedPattern() Pattern {
 	if !p.at("{{") {
 		p.fail(p.pos, p.pos+1, "expected `{{`")
 	}
+	p.emit(TokenQuote, p.pos, p.pos+2)
 	p.pos += 2
 	pat := p.pattern(true)
 	if !p.at("}}") {
 		p.fail(p.pos, p.pos+1, "expected `}}` to close the pattern")
 	}
+	p.emit(TokenQuote, p.pos, p.pos+2)
 	p.pos += 2
 	return pat
 }
@@ -440,14 +451,17 @@ func (p *parser) isMarkup() bool {
 
 func (p *parser) markup() Markup {
 	start := p.pos
+	p.emit(TokenBrace, p.pos, p.pos+1)
 	p.pos++ // {
 	p.ws()
 	mk := Markup{Kind: MarkupOpen}
 	if p.at("/") {
 		mk.Kind = MarkupClose
 	}
+	nameStart := p.pos
 	p.pos++ // # or /
 	mk.Name = p.identifier()
+	p.emit(TokenMarkup, nameStart, p.pos)
 	for {
 		ws := p.ws()
 		if p.at("}") || p.at("/") || p.at("@") {
@@ -461,12 +475,14 @@ func (p *parser) markup() Markup {
 	mk.Attributes = p.attributes()
 	p.ws()
 	if p.at("/") && mk.Kind == MarkupOpen {
+		p.emit(TokenOperator, p.pos, p.pos+1)
 		p.pos++
 		mk.Kind = MarkupStandalone
 	}
 	if !p.at("}") {
 		p.fail(p.pos, p.pos+1, "expected `}` to close the markup")
 	}
+	p.emit(TokenBrace, p.pos, p.pos+1)
 	p.pos++
 	mk.Span = Span{start, p.pos}
 	return mk
@@ -474,6 +490,7 @@ func (p *parser) markup() Markup {
 
 func (p *parser) expression() Expression {
 	start := p.pos
+	p.emit(TokenBrace, p.pos, p.pos+1)
 	p.pos++ // {
 	p.ws()
 	e := Expression{}
@@ -485,6 +502,7 @@ func (p *parser) expression() Expression {
 		if !ok {
 			p.fail(p.pos, p.pos+1, "expected `$name`, a literal or `:function` in the expression")
 		}
+		p.emitLiteral(lit)
 		e.Operand = &lit
 	}
 	ws := p.ws()
@@ -503,6 +521,7 @@ func (p *parser) expression() Expression {
 		}
 		p.fail(p.pos, p.pos+1, "expected `}` to close the expression")
 	}
+	p.emit(TokenBrace, p.pos, p.pos+1)
 	p.pos++
 	e.Span = Span{start, p.pos}
 	return e
@@ -520,15 +539,18 @@ func (p *parser) attributes() []Attribute {
 		start := p.pos
 		p.pos++
 		a := Attribute{Name: p.identifier()}
+		p.emit(TokenAttribute, start, p.pos)
 		save = p.pos
 		p.ws()
 		if p.at("=") {
+			p.emit(TokenOperator, p.pos, p.pos+1)
 			p.pos++
 			p.ws()
 			lit, ok := p.literal()
 			if !ok {
 				p.fail(p.pos, p.pos+1, "an attribute's value is a literal")
 			}
+			p.emitLiteral(lit)
 			a.Value = &lit
 		} else {
 			p.pos = save
@@ -541,7 +563,17 @@ func (p *parser) attributes() []Attribute {
 func (p *parser) function() Function {
 	start := p.pos
 	p.pos++ // :
-	f := Function{Name: p.identifier()}
+	name := p.name()
+	if p.at(":") {
+		p.emit(TokenNamespace, start, p.pos)
+		colon := p.pos
+		p.pos++
+		name += ":" + p.name()
+		p.emit(TokenFunction, colon, p.pos)
+	} else {
+		p.emit(TokenFunction, start, p.pos)
+	}
+	f := Function{Name: name}
 	for {
 		save := p.pos
 		ws := p.ws()
@@ -559,10 +591,12 @@ func (p *parser) option() Option {
 	start := p.pos
 	name := p.identifier()
 	nameSpan := Span{start, p.pos}
+	p.emit(TokenOption, start, p.pos)
 	p.ws()
 	if !p.at("=") {
 		p.fail(p.pos, p.pos+1, "expected `=` after the option name `%s`", name)
 	}
+	p.emit(TokenOperator, p.pos, p.pos+1)
 	p.pos++
 	p.ws()
 	var v Operand
@@ -574,6 +608,7 @@ func (p *parser) option() Option {
 		if !ok {
 			p.fail(p.pos, p.pos+1, "an option's value is a literal or a `$variable`")
 		}
+		p.emitLiteral(lit)
 		v = lit
 	}
 	return Option{Name: name, Value: v, NameSpan: nameSpan, Span: Span{start, p.pos}}
@@ -583,6 +618,9 @@ func (p *parser) variable() Variable {
 	start := p.pos
 	p.pos++ // $
 	name := p.name()
+	if p.record {
+		p.toks = append(p.toks, Token{Kind: TokenVariable, Span: Span{start, p.pos}, Name: name})
+	}
 	return Variable{Name: name, Span: Span{start, p.pos}}
 }
 

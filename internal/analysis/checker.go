@@ -12,6 +12,9 @@ import (
 
 // checker walks function bodies and validates type consistency.
 type checker struct {
+	// patternBound holds each name a pattern binds, by its position, for
+	// unwrappedOneShortHint.
+	patternBound map[Pos]bool
 	// caseLiteral is the checked literal the case being checked matches on,
 	// for its patterns' errors (checkCase).
 	caseLiteral *ast.TaggedString
@@ -1496,8 +1499,8 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		c.checkAttachedTests(node)
 		switch n := node.(type) {
 		case *ast.FuncDef:
-			if e := messageExpansionOf(n); e != nil {
-				if !c.checkMessage(n, e) {
+			if e := phraseExpansionOf(n); e != nil {
+				if !c.checkPhrase(n, e) {
 					c.checkExpansionBody(n)
 				}
 				continue
@@ -5252,6 +5255,11 @@ func (c *checker) unboundNameError(n *ast.Ident, testScope *Scope) TypeError {
 		return e
 	}
 	e := undefinedVariableError(n, c.valueNamesAt(n.Line, n.Col, testScope))
+	if h := stdModuleImportHint(n.Name); h != "" {
+		// `io.print` with no `import std::io`: the module, not a near name.
+		e.Hints = []string{h}
+		return e
+	}
 	if len(e.Hints) == 0 {
 		if de, ok := c.bareDispatchConfusion(e, n); ok {
 			return de
@@ -5399,7 +5407,7 @@ func (c *checker) checkTypeIdent(n *ast.TypeIdent) Type {
 				Line:    n.Line,
 				Col:     n.Col,
 				Message: "undefined type or variant '" + n.Name + "'",
-			}.WithHint(didYouMean(n.Name, c.typeNamesAt(n.Line, n.Col))))
+			}.WithHint(c.undefinedTypeHint(n.Name, n.Line, n.Col)))
 		}
 	} else {
 		// derive Synthesized code (position in the synth band) referencing
@@ -5417,7 +5425,7 @@ func (c *checker) checkTypeIdent(n *ast.TypeIdent) Type {
 			Line:    n.Line,
 			Col:     n.Col,
 			Message: "undefined type or variant '" + n.Name + "'",
-		}.WithHint(didYouMean(n.Name, c.typeNamesAt(n.Line, n.Col))))
+		}.WithHint(c.undefinedTypeHint(n.Name, n.Line, n.Col)))
 	}
 
 	// Still has unsolved (non-caller-scope) TypeParam_s — instantiate them
@@ -8070,7 +8078,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				if _, isPh := value.(*ast.Placeholder); !isPh && valTy != nil && expectedTy != nil {
 					argLine, argCol := nodeLineCol(value)
 					if !c.argMatchesParam(valTy, expectedTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
-						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(c.defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(c.mismatchHint(expectedTy, valTy)))
+						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(c.defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(c.unwrappedOneShortHint(expectedTy, valTy, value)).WithHint(c.mismatchHint(expectedTy, valTy)))
 					}
 				}
 			} else {
@@ -8934,7 +8942,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(arg)
 				if !c.argMatchesParam(argTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(arg, c.typef(
-						"%s: expected %s, got %s", c.argLabel(n, i), ft.Params[slot], argTy)).WithHint(c.elselessIfHint(ft.Params[slot], arg, "pass")).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(c.mismatchHint(ft.Params[slot], argTy)))
+						"%s: expected %s, got %s", c.argLabel(n, i), ft.Params[slot], argTy)).WithHint(c.elselessIfHint(ft.Params[slot], arg, "pass")).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(c.unwrappedOneShortHint(ft.Params[slot], argTy, arg)).WithHint(c.mismatchHint(ft.Params[slot], argTy)))
 				}
 			}
 		}
@@ -14700,7 +14708,32 @@ func (c *checker) checkTryBoundary(operand *EnumType, at ast.Node) {
 	if got == nil || want == nil || c.tryErrTypesAgree(want, got, line, col) {
 		return
 	}
-	c.addMismatch(line, col, want, got, c.typef("`?` error type mismatch: expected %s, got %s (the enclosing function returns %s); convert the error before the `?`, for example with Result.map_err", want, got, boundary))
+	msg := c.typef("`?` error type mismatch: expected %s, got %s (the enclosing function returns %s); convert the error before the `?`, for example with Result.map_err", want, got, boundary)
+	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(c.tryConversionHint(want, got)).WithHint(c.mismatchHint(want, got)))
+}
+
+// tryConversionHint writes the `Result.map_err` stage that converts a `?`
+// operand's error got to the boundary's error want, when one is plain: a
+// variant of want whose one payload is got (`Result.map_err(AppError.Io)`),
+// or, for a String boundary, the error written by its Display impl
+// (`Result.map_err(&"...: ${&1}")`). Otherwise it is "".
+func (c *checker) tryConversionHint(want, got Type) string {
+	if et, ok := want.(*EnumType); ok && len(et.TypeArgs) == 0 {
+		var found []string
+		for _, v := range et.Variants {
+			if v.Kind == VariantPositional && v.DataType != nil && TypesEqual(resolveTypeVar(v.DataType), got) {
+				found = append(found, v.Name)
+			}
+		}
+		if len(found) == 1 {
+			return c.typef("wrap the error in `%s.%s`: `|> Result.map_err(%s.%s)?`", want, found[0], want, found[0])
+		}
+		return ""
+	}
+	if TypesEqual(want, TypeString) && c.hasImpl(got, "Display") {
+		return "write the error as a String that says what failed: `|> Result.map_err(&\"...: ${&1}\")?`"
+	}
+	return ""
 }
 
 // tryErrTypesAgree reports whether a `?` operand's error type `got` inhabits
@@ -14807,7 +14840,7 @@ func (c *checker) checkBreak(n *ast.Break) Type {
 		// state type, so its value must be Unit too.
 		if vTy := c.checkNode(n.Value); vTy != nil && !isUnitLike(vTy) && !isInfallibleLike(vTy) {
 			c.report(errAt(n.Value, c.typef(
-				"a stateless `Iter.loop` answers Unit, so `break` cannot give it %s", vTy)).WithHint(statelessLoopHint))
+				"a stateless `Iter.loop` returns Unit, so `break` cannot give it %s", vTy)).WithHint(statelessLoopHint))
 		}
 		return TypeInfallible
 	}
@@ -15994,6 +16027,12 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 	// the binding once here rather than in each arm.
 	expectedTy = resolveTypeVar(expectedTy)
 	c.fa.recordPatternType(pattern, expectedTy)
+	if c.patternBound == nil {
+		c.patternBound = map[Pos]bool{}
+	}
+	for _, site := range patternSites(pattern) {
+		c.patternBound[site.pos] = true
+	}
 	switch n := pattern.(type) {
 	case *ast.WildcardPattern:
 		// Wildcard binds nothing, but the position has a known type from

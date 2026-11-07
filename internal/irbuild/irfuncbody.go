@@ -394,7 +394,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		// which its expansion could not know.
 		text := t.Value
 		if fd, ok := bl.root.(*ast.FuncDef); ok && fd.Expansion != nil {
-			if table, ok := analysis.MessageTableText(bl.g.fa, fd, t); ok {
+			if table, ok := analysis.PhraseTableText(bl.g.fa, fd, t); ok {
 				text = table
 			}
 		}

@@ -169,7 +169,7 @@ it `foo`.
 Write an acronym as a word: `Json`, `Toml`, `Uuid`, `HttpClient`, `IoError`.
 
 Split a file's name into words as any other value name is split:
-`std::message_format`, `std::code_points`, `order_lines.nomi`, never
+`std::phrase_format`, `std::code_points`, `order_lines.nomi`, never
 `orderlines`. A name ends in `_test` only when the
 file holds tests, since `_test.nomi` is what marks a test file; a module that
 helps tests run is named for what it holds, as `std::sql_testing` holds the
@@ -197,7 +197,7 @@ want the same verb, put the distinction in the owner or the name.
 differ; within one owner, pick a name that describes the path, such as
 `String.to_codepoints(text)`.
 
-Name a function, binding or field that answers a `Bool` for what it asks. A
+Name a function, binding or field that returns a `Bool` for what it asks. A
 state or an adjective takes `is_` or `has_`: `is_empty`, `is_valid`,
 `is_leap_year`, `has_children`. A verb stays bare: `Set.contains`,
 `String.starts_with`, `Iter.any`, `path.matches`. A `?` after an expression
@@ -356,7 +356,7 @@ Iter.to_set([1, 2, 3])
 - A `|>` chain can be an operand of `and` or `or` directly:
   `Iter.is_empty(run) or Iter.windows(list, Iter.count(run)) |> Iter.any(&(&1 == run))`.
   Don't bind it first: a binding runs the chain even when the other operand
-  already decides the answer, and the operator would not.
+  already decides the result, and the operator would not.
 - For arithmetic, concatenation and other expression-building operators, bind
   the pipeline first (`inner = xs |> Iter.map(Int.to_string) |> Iter.to_list()`),
   then build the expression from the binding.
@@ -392,14 +392,15 @@ temporary tracing. It returns its value, so it goes inside an expression
 restructuring the code. Keep `io.inspect(value)` for intentional program
 output where a Debug rendering is part of the program's behavior.
 
-**`dbg`, `tap` or `then`.** The three stages answer different needs (spec §8
+**`dbg`, `tap` or `then`.** The three stages serve different needs (spec §8
 *The `tap` stage*):
 
 - `|> dbg` is a temporary look at the value. It is a warning in the editor and
   `nomi build` refuses it, so it never ships.
 - `|> tap fn v -> ...` is an effect the program keeps, such as a log line or a
   progress message, run on the value without changing it. Its lambda returns
-  `Unit`.
+  `Unit`. A function that takes the value as it is goes by name, `|> tap
+  log_line`, not `|> tap &log_line(&1)`.
 - `|> then fn v -> ...` replaces the value with the lambda's result.
 
 ```nomi
@@ -662,7 +663,7 @@ fn code(color: Color) -> Int {
 ```
 
 not `Color.variants() |> Iter.find_index(&(&1 == color))`, a search whose
-`None` the reader has to prove cannot happen, and whose answers change when
+`None` the reader has to prove cannot happen, and whose results change when
 someone reorders the enum.
 
 ### 16. Leave out a struct literal's type name where the context names it
@@ -927,7 +928,7 @@ case result {
 
 ### 25. Join arms with one body by `or`
 
-Arms that answer the same thing are one arm with alternatives (spec §10
+Arms that return the same thing are one arm with alternatives (spec §10
 *Alternatives*; tour:
 [Pattern Matching](/pattern-matching/#matching-alternatives-with-or)):
 
@@ -1049,11 +1050,11 @@ write `&(not f(&1))`.
 ### 29. Pick the tool by what happens on failure
 
 **Writing a function that can fail.** When a function you write cannot give
-the answer asked for, decide by who could have known (spec §11 *Traps,
+the result asked for, decide by who could have known (spec §11 *Traps,
 `Maybe` and `Result`*; tour:
 [Pattern Matching](/pattern-matching/#maybet-and-resultt-e)):
 
-- Return `Maybe` or `Result` when the answer depends on data the caller does
+- Return `Maybe` or `Result` when the result depends on data the caller does
   not control or cannot cheaply check: a lookup that may miss, a parse, input,
   a file, a position that may legitimately fall off the edge.
 - Trap when the caller broke a promise it could have checked: an index it
@@ -1067,7 +1068,7 @@ Write the function once, returning a `Maybe` or a `Result`, as std's `get`
 does, and let a caller that knows the call cannot fail write `!` after it:
 
 ```nomi
-// the index comes from data: the miss is an answer
+// the index comes from data: the miss is an outcome
 case Vector.get(row, column) {
     Some(cell) -> cell
     None -> blank
@@ -1149,7 +1150,7 @@ fn position(student: Student) -> Int {
 }
 ```
 
-`Maybe.with_default(0)` in its place answers 0 for a student someone forgot
+`Maybe.with_default(0)` in its place returns 0 for a student someone forgot
 to list, and nothing flags it. The reason is the claim a reader checks, so
 state the invariant, not the symptom: "every student is listed", not "not
 found". Never use `unreachable` or `!` for data from outside the program: one
@@ -1190,20 +1191,20 @@ fn parse(text: String) -> Header {
 }
 ```
 
-A made-up `Header{name: "", size: 0}` runs and returns a wrong answer that
+A made-up `Header{name: "", size: 0}` runs and returns a wrong result that
 nothing flags; `todo` stops the program at the line that is missing, the editor
 lists it as a warning, and `nomi build` refuses to ship it. Give a reason when
 the next step is not obvious from the signature, and keep it to what is left to
 do. Use `todo` while writing code, not as a permanent marker for a case that
 cannot happen: such a case is better shaped out of the types, and where the
 types cannot say it, `unreachable "reason"` states the invariant (§29). One
-that can happen deserves a real answer or an `Err`.
+that can happen deserves a real result or an `Err`.
 
 ## Collections and iteration
 
 ### 31. Test membership with `in`
 
-Every collection answers membership, and `x in c` asks it (spec §8
+Every collection reports membership, and `x in c` asks it (spec §8
 *Membership*; tour: [Collections](/collections/#sets)): a set, a map (a
 key), a range, a list, a vector, bytes and a string. Write `name in
 reserved`, not `List.contains(reserved, name)` or `Contains.contains(reserved,
@@ -1809,7 +1810,7 @@ can pipe into it (§7): `Map.get(m, k)`, `String.trim(s)`, `Iter.map(xs, f)`.
 Options and callbacks come after it.
 
 HTTP middleware follows the rule: the handler is the value it works on, so
-it comes first, and the middleware answers a handler,
+it comes first, and the middleware returns a handler,
 `fn require_admin(handler: Handler) -> (Request) -> Response`. A stack of
 middleware is then a pipe. A middleware that hands the handler a value,
 such as the signed-in user, says so in the handler's type,
@@ -1824,7 +1825,7 @@ type: `Int.to_float`, `Int.to_decimal`, `Float.to_int`, `String.to_int`,
 `String.to_decimal`, `Int.to_codepoint`. `from_` is for building a value out
 of its units, an encoding or a collection, on the type it builds:
 `Instant.from_seconds`, `Uuid.from_bytes`, `Int.from_digits`,
-`String.from_codepoints`, `Bytes.from_list`. A function that answers a
+`String.from_codepoints`, `Bytes.from_list`. A function that returns a
 value of the type it takes is named for what it does, with no `to_`:
 `String.trim`, `String.uppercase`, `String.fold_case`, `String.snake_case`.
 

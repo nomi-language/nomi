@@ -37,7 +37,7 @@ import (
 //   - the fix a parse error carries: braces around a body written over
 //     several lines, `//` for a `///` or `//!` inside a body
 //     (code_action_parse_fix.go).
-//   - "Add the pl translation of `m`" for a `message` a listed locale has
+//   - "Add the pl translation of `m`" for a `phrase` a listed locale has
 //     no translation of, and in a catalog, marking a stale translation
 //     current and giving one the arms its locale needs (catalogs.go).
 //
@@ -46,12 +46,21 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 	uri := string(params.TextDocument.URI)
 	only := params.Context.Only
 	if isInputURI(uri) {
-		if d := s.catalogAt(uri); d != nil && kindAllowed(only, protocol.CodeActionKindQuickFix) {
-			if actions := s.catalogActions(d, params.Range, params.Context.Diagnostics); len(actions) > 0 {
-				return actions, nil
-			}
+		d := s.catalogAt(uri)
+		if d == nil {
+			return nil, nil
 		}
-		return nil, nil
+		var actions []protocol.CodeAction
+		if kindAllowed(only, protocol.CodeActionKindQuickFix) {
+			actions = append(actions, s.catalogActions(d, params.Range, params.Context.Diagnostics)...)
+		}
+		if kindAllowed(only, protocol.CodeActionKindRefactorRewrite) {
+			actions = append(actions, d.catalogPluralActions(params.Range)...)
+		}
+		if len(actions) == 0 {
+			return nil, nil
+		}
+		return actions, nil
 	}
 	snap := s.docs.Snapshot(uri)
 	if snap == nil || snap.Analysis == nil {
@@ -71,6 +80,9 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, s.missingTranslationActions(snap.Nodes, snap.Analysis, params.Range, params.Context.Diagnostics)...)
 	}
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)
+	if kindAllowed(only, protocol.CodeActionKindRefactorRewrite) {
+		actions = append(actions, pluralFormActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range)...)
+	}
 	if kindAllowed(only, protocol.CodeActionKindSourceOrganizeImports) {
 		if a := buildOrganizeImportsAction(snap.Content, snap.Nodes, snap.Analysis, uri); a != nil {
 			actions = append(actions, *a)

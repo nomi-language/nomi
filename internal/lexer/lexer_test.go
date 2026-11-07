@@ -1376,6 +1376,21 @@ func TestIsCompleteBalancedBraces(t *testing.T) {
 	}
 }
 
+// An open string that may span lines continues the input: a raw backtick
+// string, a tagged one and a triple-quoted one. A closed one does not.
+func TestIsCompleteOpenMultilineString(t *testing.T) {
+	for _, src := range []string{"noun show `", "x = `abc", "s = \"\"\"", "s = \"\"\"\nabc", "l = Locale`en"} {
+		if IsComplete(src) {
+			t.Errorf("IsComplete(%q) = true, want false: the string is still open", src)
+		}
+	}
+	for _, src := range []string{"noun show `a`", "x = `\nabc\n`", "x = \"\"\"\nabc\n\"\"\""} {
+		if !IsComplete(src) {
+			t.Errorf("IsComplete(%q) = false, want true", src)
+		}
+	}
+}
+
 func TestLexQuestionIsItsOwnToken(t *testing.T) {
 	// A `?` is never part of a name: `empty?(xs)` is the name `empty`, a
 	// `?` and a call's parentheses.

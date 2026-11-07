@@ -113,3 +113,46 @@ fn h() {
                 (placeholder)))))
         (call_expression
           function: (identifier))))))
+
+================================================================================
+A string literal is a capture's body, and the capture ends with it
+================================================================================
+
+fn h() {
+  f = &"id ${&1}"
+  g = &Sql"id = ${&1}"
+  k = &"a${&1}" + "b"
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (capture
+          body: (string
+            (string_content)
+            (string_interpolation
+              (placeholder)))))
+      (binding
+        (identifier)
+        (capture
+          body: (tagged_type_string
+            tag: (type_identifier)
+            (string_content)
+            (string_interpolation
+              (placeholder)))))
+      (binding
+        (identifier)
+        (binary_expression
+          (capture
+            body: (string
+              (string_content)
+              (string_interpolation
+                (placeholder))))
+          (string
+            (string_content)))))))

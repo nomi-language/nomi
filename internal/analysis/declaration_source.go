@@ -19,7 +19,7 @@ import (
 // declarationSources answers, by module key, the nodes of a file under
 // root the program read as its interface, as its source gives them, each
 // file parsed once, its keyword declarations expanded by expand as the
-// file's check expands them: a `message` or `noun` read as its interface
+// file's check expands them: a `phrase` or `noun` read as its interface
 // has the keyword but not what it expanded from (its texts by locale).
 // Requests read it concurrently.
 type declarationSources struct {

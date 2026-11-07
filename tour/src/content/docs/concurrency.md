@@ -203,7 +203,7 @@ dbg line 22: answer = "failed: 503"
 When several arms are ready at once, the first one listed wins. For one
 channel and a timeout,
 [`Receiver.receive_within`](/reference/channels/#receiverreceive_within)
-answers `Ok(Some(v))`, `Ok(None)` when closed, or `Err(TimedOut)`.
+returns `Ok(Some(v))`, `Ok(None)` when closed, or `Err(TimedOut)`.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>

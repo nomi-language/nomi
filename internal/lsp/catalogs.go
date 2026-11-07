@@ -14,19 +14,19 @@ import (
 	"github.com/nomi-language/nomi/internal/mf2"
 )
 
-// A message's catalogs in the editor: completion, hover and quick fixes in
-// a catalog file, and the quick fix on a `message` that writes a missing
+// A phrase's catalogs in the editor: completion, hover and quick fixes in
+// a catalog file, and the quick fix on a `phrase` that writes a missing
 // translation. A catalog is a TOML file at a Nomi file's path under the
 // module's `[i18n].catalogs` directory, in a locale's directory
 // (analysis.CatalogAt); any other TOML file gets nothing from here.
 
 // catalogDoc is a catalog an editor asked about: its text as the analysis
-// reads it, where it sits, and the messages of the Nomi file whose
+// reads it, where it sits, and the phrases of the Nomi file whose
 // translations it holds.
 type catalogDoc struct {
 	uri, path, text string
 	place           analysis.CatalogPlace
-	messages        []catalogMessage
+	phrases         []catalogPhrase
 	nouns           []catalogNoun
 	// genders are the genders the nouns of the module's catalogs in this
 	// locale give, which a selector on a noun's gender needs arms for
@@ -37,25 +37,25 @@ type catalogDoc struct {
 	read func(string) (string, bool)
 }
 
-// catalogMessage is one `message` of a catalog's Nomi file.
-type catalogMessage struct {
+// catalogPhrase is one `phrase` of a catalog's Nomi file.
+type catalogPhrase struct {
 	fn   *ast.FuncDef
-	info *analysis.MessageInfo
+	info *analysis.PhraseInfo
 	sig  mf2.Signature
 }
 
-func (m catalogMessage) name() string { return m.info.Decl.Name }
+func (m catalogPhrase) name() string { return m.info.Decl.Name }
 
-// messagesOf are the messages nodes declare, with their signatures from fa.
-func messagesOf(nodes []ast.Node, fa *analysis.FileAnalysis) []catalogMessage {
-	var out []catalogMessage
+// phrasesOf are the phrases nodes declare, with their signatures from fa.
+func phrasesOf(nodes []ast.Node, fa *analysis.FileAnalysis) []catalogPhrase {
+	var out []catalogPhrase
 	for _, n := range nodes {
 		fn, ok := n.(*ast.FuncDef)
 		if !ok {
 			continue
 		}
-		if info := analysis.MessageOf(fn); info != nil {
-			out = append(out, catalogMessage{fn: fn, info: info, sig: analysis.MessageSignature(fa, fn)})
+		if info := analysis.PhraseOf(fn); info != nil {
+			out = append(out, catalogPhrase{fn: fn, info: info, sig: analysis.PhraseSignature(fa, fn)})
 		}
 	}
 	return out
@@ -71,7 +71,7 @@ func (s *Server) catalogAt(uri string) *catalogDoc {
 	text, _ := s.docs.InputText(path)
 	d := &catalogDoc{uri: uri, path: path, text: text, place: place}
 	if snap := s.docs.Analyzed(pathToURI(place.NomiPath)); snap != nil {
-		d.messages = messagesOf(snap.Nodes, snap.Analysis)
+		d.phrases = phrasesOf(snap.Nodes, snap.Analysis)
 		d.nouns = nounsOf(snap.Nodes)
 	}
 	d.read = s.docs.InputText
@@ -79,21 +79,21 @@ func (s *Server) catalogAt(uri string) *catalogDoc {
 	return d
 }
 
-func (d *catalogDoc) message(name string) (catalogMessage, bool) {
-	for _, m := range d.messages {
+func (d *catalogDoc) phrase(name string) (catalogPhrase, bool) {
+	for _, m := range d.phrases {
 		if m.name() == name {
 			return m, true
 		}
 	}
-	return catalogMessage{}, false
+	return catalogPhrase{}, false
 }
 
 // rules is the locale a text of key ("text" or "source") is checked in.
-func (d *catalogDoc) rules(m catalogMessage, key string) mf2.Locale {
+func (d *catalogDoc) rules(m catalogPhrase, key string) mf2.Locale {
 	if key == "source" {
-		return analysis.MessageRules(m.info.SourceLocale, false)
+		return analysis.PhraseRules(m.info.SourceLocale, false)
 	}
-	loc := analysis.MessageRules(d.place.Locale, false)
+	loc := analysis.PhraseRules(d.place.Locale, false)
 	loc.NounGenders = d.genders
 	return loc
 }
@@ -190,7 +190,7 @@ func scanCatalog(text string, offset int) catalogCursor {
 	return catalogCursor{table: table}
 }
 
-// catalogCompletion completes in a catalog: a message's name in a table's
+// catalogCompletion completes in a catalog: a phrase's name in a table's
 // header, a parameter after `$`, and a variant's keys at the start of a
 // line of a `.match`: the plural categories the locale's rules select for
 // the selector, or the variants of its enum.
@@ -213,7 +213,7 @@ func (s *Server) catalogCompletion(d *catalogDoc, pos protocol.Position) []proto
 	var items []protocol.CompletionItem
 	if cur.header {
 		f, _ := catalog.Parse(d.text)
-		for i, m := range d.messages {
+		for i, m := range d.phrases {
 			if e := f.Entry(m.name()); e != nil && m.name() != cur.table {
 				continue
 			}
@@ -233,7 +233,7 @@ func (s *Server) catalogCompletion(d *catalogDoc, pos protocol.Position) []proto
 	if cur.key == "" {
 		return nil
 	}
-	m, ok := d.message(cur.table)
+	m, ok := d.phrase(cur.table)
 	if !ok {
 		return nil
 	}
@@ -308,8 +308,8 @@ func (s *Server) catalogCompletion(d *catalogDoc, pos protocol.Position) []proto
 
 // selectorsOf are the keys each selector of a catalog string takes: from
 // the string itself, or, while the line at cursor is half typed, from the
-// string without that line, or from the message's source text.
-func selectorsOf(body string, cursor int, m catalogMessage, rules mf2.Locale) []mf2.SelectorKeys {
+// string without that line, or from the phrase's source text.
+func selectorsOf(body string, cursor int, m catalogPhrase, rules mf2.Locale) []mf2.SelectorKeys {
 	lineStart := strings.LastIndexByte(body[:cursor], '\n') + 1
 	lineEnd := strings.IndexByte(body[cursor:], '\n')
 	if lineEnd < 0 {
@@ -344,8 +344,8 @@ func pluralExamples(rules mf2.Locale, category string) string {
 	return strings.Join(out, ", ")
 }
 
-// signatureOf is how a message reads in a completion's detail.
-func signatureOf(m catalogMessage) string {
+// signatureOf is how a phrase reads in a completion's detail.
+func signatureOf(m catalogPhrase) string {
 	var ps []string
 	for i, p := range m.fn.Params {
 		t := ""
@@ -354,10 +354,10 @@ func signatureOf(m catalogMessage) string {
 		}
 		ps = append(ps, p.Name+": "+t)
 	}
-	return fmt.Sprintf("message %s(%s)", m.name(), strings.Join(ps, ", "))
+	return fmt.Sprintf("phrase %s(%s)", m.name(), strings.Join(ps, ", "))
 }
 
-// catalogHover shows, over a catalog's entry, the message it translates:
+// catalogHover shows, over a catalog's entry, the phrase it translates:
 // its signature and doc comment, whether the translation is current, and
 // for a stale one the text it was translated from beside the text now.
 func (s *Server) catalogHover(d *catalogDoc, pos protocol.Position) *protocol.Hover {
@@ -375,7 +375,7 @@ func (s *Server) catalogHover(d *catalogDoc, pos protocol.Position) *protocol.Ho
 	if n, ok := d.noun(entry.Name); ok {
 		return d.nounHover(n, entry)
 	}
-	m, ok := d.message(entry.Name)
+	m, ok := d.phrase(entry.Name)
 	if !ok {
 		return nil
 	}
@@ -424,7 +424,7 @@ func (s *Server) catalogActions(d *catalogDoc, rng protocol.Range, diags []proto
 			actions = append(actions, d.nounActions(n, e, len(perrs) == 0, related)...)
 			continue
 		}
-		m, ok := d.message(e.Name)
+		m, ok := d.phrase(e.Name)
 		if !ok {
 			continue
 		}
@@ -453,13 +453,13 @@ func (s *Server) catalogActions(d *catalogDoc, rng protocol.Range, diags []proto
 	return actions
 }
 
-// missingTranslationActions are the quick fixes on a `message` for each
+// missingTranslationActions are the quick fixes on a `phrase` for each
 // locale that lacks its translation: write the entry, with the source text
 // as `source` and as `text`, given every arm the locale needs, for the
 // translator to translate.
 func (s *Server) missingTranslationActions(nodes []ast.Node, fa *analysis.FileAnalysis, rng protocol.Range, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var actions []protocol.CodeAction
-	for _, m := range messagesOf(nodes, fa) {
+	for _, m := range phrasesOf(nodes, fa) {
 		kd := m.info.Decl
 		first, last := uint32(kd.Line-1), uint32(kd.NameLine-1)
 		if kd.Span.EndLine > 0 {
@@ -473,7 +473,7 @@ func (s *Server) missingTranslationActions(nodes []ast.Node, fa *analysis.FileAn
 				continue
 			}
 			text := strings.Trim(m.info.Source, "\n")
-			fitted := mf2.Apply(text, mf2.FitArms(text, m.sig, analysis.MessageRules(l.Locale, false)))
+			fitted := mf2.Apply(text, mf2.FitArms(text, m.sig, analysis.PhraseRules(l.Locale, false)))
 			entry := fmt.Sprintf("[%s]\nsource = %s\ntext = %s\n", kd.Name, catalog.Block(m.info.Source), catalog.Block(fitted))
 			var related []protocol.Diagnostic
 			for _, dg := range diags {

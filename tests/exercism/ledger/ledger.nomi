@@ -3,7 +3,6 @@
 import {
     std::calendar.{Date, DateFields}
     std::currency.Currency
-    std::locale.Locale
     std::money.{CurrencySign, Money}
 }
 

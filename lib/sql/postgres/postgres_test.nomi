@@ -255,7 +255,7 @@ fn until_waiting(listener: Listener, steps: Int = 1000) -> Bool {
     }
 }
 
-// Waits the same way until the listener has answered `count`
+// Waits the same way until the listener has returned `count`
 // notifications.
 fn until_received(listener: Listener, count: Int, steps: Int = 1000) -> Bool {
     if postgres.listener_received_raw(listener.handle) >= count {
@@ -269,7 +269,7 @@ fn until_received(listener: Listener, count: Int, steps: Int = 1000) -> Bool {
 }
 
 // A task that was cancelled while it waited in Go either unwinds
-// (`Cancelled`) or returns the `Timeout` its Go call answered.
+// (`Cancelled`) or returns the `Timeout` its Go call returned.
 fn saw_cancel<T>(outcome: Outcome<Result<T, sql.Error>>) -> Bool {
     case outcome {
         .Cancelled -> True
@@ -330,7 +330,7 @@ test "closing a listener ends forward while its channel is full" {
     ended = concurrent {
         forwarder = Task.spawn(fn -> Listener.forward(listener, notes.sender))
         _ = Conn.query(db, Sql"SELECT pg_notify('orders', 'one'), pg_notify('orders', 'two')")?
-        // The first fills the channel, so once the listener has answered
+        // The first fills the channel, so once the listener has returned
         // the second, the task holds it and nothing reads the channel.
         held = until_received(listener, 2)
         close_quietly(listener)

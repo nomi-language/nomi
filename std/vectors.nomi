@@ -31,7 +31,7 @@ impl Vector<T> {
 
     /// Returns the element at zero-based `index`, or None when the index is
     /// outside the vector. Use it when the index comes from data and may miss;
-    /// for an index that must exist, `Vector.get(vector, index)!` answers the
+    /// for an index that must exist, `Vector.get(vector, index)!` returns the
     /// element and traps on any other index.
     //! assert Vector.get(#["a", "b"], 1) == Some("b")
     //! assert Vector.get(#["a", "b"], 9) == None

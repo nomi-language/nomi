@@ -421,6 +421,11 @@ func parseReplInput(input string) (*replInput, error) {
 			if d.typeName != "" {
 				in.typeNames[d.typeName] = true
 			}
+			if d.valueName() != "" {
+				// A phrase, noun or embed takes its name from an earlier
+				// function, once or value, as a redefined function does.
+				in.fnNames[d.valueName()] = true
+			}
 			continue
 		}
 		in.stmts = append(in.stmts, replText{text, start})
@@ -523,11 +528,25 @@ func replDeclOf(n ast.Node, text string) (*replDecl, bool) {
 	case *ast.EmbedDecl:
 		// The files it names are read from the working directory when its
 		// input is checked.
-		d.key, d.name = "embed "+t.Name, t.Name
+		d.key, d.name = "value "+t.Name, t.Name
+	case *ast.KeywordDecl:
+		// A `phrase` (a function) or a `noun` (a value), which the front end
+		// expands in the input's file; a later input imports it by name. A
+		// keyword the front end does not build in gets its error there.
+		d.key, d.name = "value "+t.Name, t.Name
 	default:
 		return nil, false
 	}
 	return d, true
+}
+
+// valueName is the function or value a `phrase`, `noun` or `embed`
+// declares, "" for any other declaration.
+func (d *replDecl) valueName() string {
+	if strings.HasPrefix(d.key, "value ") {
+		return d.name
+	}
+	return ""
 }
 
 // replIfaceImplKey is the key of an impl of iface for recv, written or
@@ -1144,6 +1163,9 @@ func (s *replSession) prepare(in *replInput, key string) *replPlan {
 		case d.typeName != "" && redeclared[d.key+"\x00"]:
 			// A type the input redeclares: its file keeps it for what
 			// names it there, and the name means the input's.
+		case d.valueName() != "" && in.fnNames[d.valueName()]:
+			// A phrase, noun or embed whose name the input gives a function
+			// or once: its file keeps it for what names it there.
 		default:
 			plan.decls = append(plan.decls, d)
 		}

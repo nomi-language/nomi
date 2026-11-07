@@ -538,7 +538,7 @@ impl Date {
 
     /// How many days month `month` (1 to 12) of `year` has: 28 to 31,
     /// with 29 in February of a leap year. A month outside 1 to 12 is
-    /// `Err(.InvalidValue(...))`, as `Date.new` answers for it.
+    /// `Err(.InvalidValue(...))`, as `Date.new` returns for it.
     //! assert Date.days_in_month(2026, 1) == Ok(31)
     //! assert Date.days_in_month(2026, 4) == Ok(30)
     //! assert Date.days_in_month(2026, 2) == Ok(28)
@@ -1561,7 +1561,7 @@ impl Anchored for OffsetDateTime {
     ///
     /// Read rather than computed, which is the difference from `DateTime`: a
     /// zoned value has to ask the tzdb what its offset is at that instant, and a
-    /// fixed-offset value carries the answer.
+    /// fixed-offset value carries the result.
     fn offset(odt: OffsetDateTime) -> Duration {
         Duration.seconds(odt.offset_seconds)
     }
@@ -2078,7 +2078,7 @@ impl Anchored for DateTime {
 
     /// The effective UTC offset at this instant.
     ///
-    /// COMPUTED, unlike `OffsetDateTime.offset`: the answer depends on where
+    /// COMPUTED, unlike `OffsetDateTime.offset`: the result depends on where
     /// this moment falls among the zone's transitions, so it is a tzdb read.
     fn offset(d: DateTime) -> Duration {
         Duration.nanoseconds(zoned_offset_nanos(d))
@@ -2756,7 +2756,7 @@ impl Error {
     ///
     /// A `kind` outside 1..=5 cannot arise: the Go side writes only those five
     /// tags, and 0 is handled by the lifts below before they reach here. The
-    /// final arm is `Ambiguous` because the chain needs a total answer, not
+    /// final arm is `Ambiguous` because the chain needs a total result, not
     /// because 5 is a fallback.
     fn of(kind: Int, reason: String) -> Error {
         if kind == 1 {

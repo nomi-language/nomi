@@ -12,7 +12,7 @@ func TestHover_StdModuleNameShowsItsDocs(t *testing.T) {
 		{"the import line itself", "import std::▮uuid\n\nfn main() {\n  dbg uuid.v4()\n}\n",
 			[]string{"More in the [reference](https://nomi-lang.org/reference/uuid/)."}, nil},
 		{"a module imported for testing", "import std::http_testing\n\nfn main() {\n  dbg ▮http_testing.request(.Get, \"/\")\n}\n",
-			[]string{"```nomi\nimport std::http_testing\n```", "Answers std::http's requests with a function instead of the network",
+			[]string{"```nomi\nimport std::http_testing\n```", "Serves std::http's requests with a function instead of the network",
 				"More in the [reference](https://nomi-lang.org/reference/http_testing/)."}, nil},
 	})
 }

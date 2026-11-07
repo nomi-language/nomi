@@ -6,7 +6,7 @@ Neovim support for Nomi. Requires Neovim 0.11 or newer.
 |---|---|
 | `.nomi`, or an extensionless file whose `#!` line names `nomi` → `nomi` filetype | plain Neovim (`ftdetect/nomi.lua`, `lua/nomi/filetype.lua`) |
 | `nomi-lsp` client: diagnostics, hover, go-to-definition, formatting | plain Neovim (`lsp/nomi.lua`, enabled by `plugin/nomi.lua`) |
-| The same client in a module's message catalogs, the TOML files under its `[i18n].catalogs` directory, and in no other TOML buffer (`lua/nomi/catalogs.lua`) | plain Neovim |
+| The same client in a module's phrase catalogs, the TOML files under its `[i18n].catalogs` directory, and in no other TOML buffer (`lua/nomi/catalogs.lua`) | plain Neovim |
 | Tree-sitter highlighting, including typed-literal injections | plain Neovim plus the compiled `nomi` parser |
 | Dimmed `//!` attached tests, the one under the cursor shown normally (`lua/nomi/attached_tests.lua`) | plain Neovim plus the parser |
 | Tree-sitter folding (`foldmethod=expr`) | plain Neovim plus the parser |

@@ -56,6 +56,39 @@ fn f() {
                   function: (identifier))))))))))
 
 ================================================================================
+A tap stage names its function
+================================================================================
+
+fn f() {
+  xs |> tap log_it |> tap io.print |> tap Log.info |> g()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (pipe_expression
+        (pipe_expression
+          (pipe_expression
+            (pipe_expression
+              (identifier)
+              (tap_stage
+                function: (identifier)))
+            (tap_stage
+              function: (field_access
+                (identifier)
+                (identifier))))
+          (tap_stage
+            function: (field_access
+              (type_identifier)
+              (identifier))))
+        (call_expression
+          function: (identifier))))))
+
+================================================================================
 A keyword file name in an import path
 ================================================================================
 

@@ -29,7 +29,7 @@
 //# orders text, the calendar types and `Duration` format and parse dates,
 //# times and lengths of time, [std::localize](/reference/localize/) holds the
 //# `Localize` interface and the parse error, and
-//# [std::message](/reference/message/) holds the `Message` a `message`
+//# [std::phrase](/reference/phrase/) holds the `Phrase` a `phrase`
 //# declaration returns. All the locale data comes from one pinned CLDR
 //# release, 48.2. Which locales a program carries is set in `nomi.toml`'s
 //# [`[i18n]`](/tooling/projects/#i18n) table.
@@ -315,7 +315,7 @@ impl Locale {
     /// working. A file another build wrote, such as one a browser cached
     /// from the last deploy, is refused, since its text may not fit the new
     /// program. Anywhere else the program carries every listed locale, and
-    /// `load` answers `Ok(Unit)` at once, as it does for a locale already
+    /// `load` returns `Ok(Unit)` at once, as it does for a locale already
     /// loaded or one the program does not list.
     ///
     /// ```toml

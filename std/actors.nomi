@@ -6,11 +6,11 @@
 //# call gives another size (`inbox: 256`).
 //#
 //# `Actor.cast` sends a message and returns at once. `Actor.call` sends a
-//# message that carries a `Reply`, which the handler answers with
-//# `Reply.send`, and waits for the answer up to a timeout, five seconds
+//# message that carries a `Reply`, which the handler replies to with
+//# `Reply.send`, and waits for the reply up to a timeout, five seconds
 //# unless the call gives another (`timeout: Duration.seconds(1)`). A message type
-//# is an enum, and a variant that expects an answer holds the `Reply` for
-//# it, so each kind of call has its own answer type:
+//# is an enum, and a variant that expects a reply holds the `Reply` for
+//# it, so each kind of call has its own reply type:
 //#
 //# ```nomi
 //# enum Counter {
@@ -61,15 +61,15 @@ pub opaque struct Actor<M> {
     inbox: Channel<M>
 }
 
-/// The way back to a caller waiting in `Actor.call`: the handler answers
+/// The way back to a caller waiting in `Actor.call`: the handler replies
 /// it with `Reply.send`.
 pub opaque struct Reply<R> {
     sender: Sender<R>
 }
 
-/// Why a call or cast got no answer.
+/// Why a call or cast got no reply.
 pub enum CallError {
-    /// The answer did not come within the call's timeout.
+    /// The reply did not come within the call's timeout.
     TimedOut
     /// The actor has stopped, so the message was not delivered.
     Stopped
@@ -116,7 +116,7 @@ impl Actor<M> {
 
     /// Sends the message `message` builds around a fresh `Reply`, and waits
     /// up to `timeout`, five seconds unless the call says otherwise, for the
-    /// handler's `Reply.send`: `Err(TimedOut)` when no answer comes in time,
+    /// handler's `Reply.send`: `Err(TimedOut)` when no reply comes in time,
     /// `Err(Stopped)` when the actor has stopped.
     pub fn call<R>(
         actor: Actor<M>,
@@ -140,14 +140,14 @@ impl Actor<M> {
     }
 
     /// Closes the actor's inbox. The task handles the messages already
-    /// queued and ends; a later cast or call answers `Err(Stopped)`.
+    /// queued and ends; a later cast or call returns `Err(Stopped)`.
     pub fn stop(actor: Actor<M>) -> Unit {
         Sender.close(actor.inbox.sender)
     }
 }
 
 impl Reply<R> {
-    /// Answers the caller waiting on `reply`. An answer to a caller that
+    /// Replies to the caller waiting on `reply`. A reply to a caller that
     /// has stopped waiting is dropped.
     pub fn send(reply: Reply<R>, value: R) -> Unit {
         _ = Sender.send(reply.sender, value)

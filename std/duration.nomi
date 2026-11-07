@@ -58,7 +58,7 @@ import {
 ///
 /// A Duration holds a signed 64-bit count of nanoseconds, about 292 years
 /// either way, which is what clocks, timers and Go's `time.Duration` count
-/// in. A constructor or an operator whose answer is past that faults, naming
+/// in. A constructor or an operator whose result is past that faults, naming
 /// the length it was asked for.
 pub opaque type Duration Int
 

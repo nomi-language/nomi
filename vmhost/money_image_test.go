@@ -17,12 +17,12 @@ func moneyProgram(body string) string {
 	if strings.Contains(body, "CurrencyDisplay") {
 		money = "{CurrencyDisplay, Money}"
 	}
-	return "import {\n    std::currency.Currency\n    std::io\n    std::locale.Locale\n    std::money." + money + "\n}\n\n" + body
+	return "import {\n    std::currency.Currency\n    std::io\n    std::money." + money + "\n}\n\n" + body
 }
 
 // moneyLiteralProgram formats literal, a Money literal, in pl and de.
 func moneyLiteralProgram(literal string) string {
-	return "import {\n    std::io\n    std::locale.Locale\n    std::money.Money\n}\n\n" +
+	return "import {\n    std::io\n    std::money.Money\n}\n\n" +
 		"fn main() {\n    price = " + literal + "\n" +
 		"    io.print(Money.format(price, Locale`pl`))\n    io.print(Money.format(price, Locale`de`))\n}\n"
 }
@@ -159,7 +159,7 @@ func TestLocaleImage_OneCurrencyCarriesAFewBytes(t *testing.T) {
 }
 
 // A message's `:currency` carries names only when its text asks for them.
-func TestLocaleImage_MessageCurrencyNames(t *testing.T) {
+func TestLocaleImage_PhraseCurrencyNames(t *testing.T) {
 	for _, c := range []struct {
 		name, option, want string
 		names              bool
@@ -168,9 +168,9 @@ func TestLocaleImage_MessageCurrencyNames(t *testing.T) {
 		{"code", " currencyDisplay=code", "Razem: 12,50 EUR\n", false},
 		{"name", " currencyDisplay=name", "Razem: 12,50 euro\n", true},
 	} {
-		src := "import {\n    std::currency.Currency\n    std::io\n    std::locale.Locale\n    std::message.Message\n    std::money.Money\n}\n\n" +
-			"message total(amount: Money) `Razem: {$amount :currency" + c.option + "}`\n\n" +
-			"fn main() {\n    io.print(total(Money{amount: 12.5d, currency: Currency`EUR`}) |> Message.format(Locale`pl`))\n}\n"
+		src := "import {\n    std::currency.Currency\n    std::io\n    std::money.Money\n}\n\n" +
+			"phrase total(amount: Money) `Razem: {$amount :currency" + c.option + "}`\n\n" +
+			"fn main() {\n    io.print(total(Money{amount: 12.5d, currency: Currency`EUR`}) |> Phrase.format(Locale`pl`))\n}\n"
 		m, err := analysis.ParseManifestData([]byte("[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nsource_locale = \"pl\"\nlocales = [\"pl\"]\n"), "<virtual nomi.toml>")
 		if err != nil {
 			t.Fatal(err)

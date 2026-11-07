@@ -2909,7 +2909,19 @@
             "named": true
           },
           {
+            "type": "raw_string",
+            "named": true
+          },
+          {
+            "type": "raw_tagged_string",
+            "named": true
+          },
+          {
             "type": "set",
+            "named": true
+          },
+          {
+            "type": "string",
             "named": true
           },
           {
@@ -2918,6 +2930,18 @@
           },
           {
             "type": "struct_update",
+            "named": true
+          },
+          {
+            "type": "tagged_type_string",
+            "named": true
+          },
+          {
+            "type": "tagged_type_triple_string",
+            "named": true
+          },
+          {
+            "type": "triple_string",
             "named": true
           },
           {
@@ -16023,6 +16047,24 @@
         "types": [
           {
             "type": "capture",
+            "named": true
+          }
+        ]
+      },
+      "function": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "field_access",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
             "named": true
           }
         ]

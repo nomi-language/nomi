@@ -134,16 +134,16 @@ func containerArgs(t Type) []Type {
 	return nil
 }
 
-// runtimeNounHint explains a `String` where std/message's `Noun` is
+// runtimeNounHint explains a `String` where std/phrase's `Noun` is
 // wanted: a noun is a `noun` declaration, whose gender and forms the
 // compiler checks every message against, and text read at run time has
 // none of them.
 func runtimeNounHint(want, have Type) string {
 	st, ok := resolveTV(want).(*StructType)
-	if !ok || st.Name != "Noun" || st.Origin != "std/message" || !TypesEqual(resolveTV(have), TypeString) {
+	if !ok || st.Name != "Noun" || st.Origin != "std/phrase" || !TypesEqual(resolveTV(have), TypeString) {
 		return ""
 	}
-	return "a `Noun` is a `noun` declaration, whose gender and forms the compiler holds every message to; text known only at run time, such as a product's name from a database, has neither, so pass a declared noun (`shop.book`), or give the message a `String` parameter it writes as `{$name}`"
+	return "a `Noun` is a `noun` declaration, whose gender and forms the compiler holds every phrase to; text known only at run time, such as a product's name from a database, has neither, so pass a declared noun (`shop.book`), or give the phrase a `String` parameter it writes as `{$name}`"
 }
 
 // iterMaterializeHint names the function that turns an Iter into the std

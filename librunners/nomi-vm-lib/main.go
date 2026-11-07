@@ -14,8 +14,9 @@ import (
 	hostadapt "github.com/nomi-language/nomi/hostadapt"
 	goside1 "github.com/nomi-language/nomi/lib/image/goside"
 	goside2 "github.com/nomi-language/nomi/lib/markdown/goside"
-	goside3 "github.com/nomi-language/nomi/lib/sql/postgres/goside"
-	goside4 "github.com/nomi-language/nomi/lib/sql/sqlite/goside"
+	goside3 "github.com/nomi-language/nomi/lib/password_hashers/goside"
+	goside4 "github.com/nomi-language/nomi/lib/sql/postgres/goside"
+	goside5 "github.com/nomi-language/nomi/lib/sql/sqlite/goside"
 	testside "github.com/nomi-language/nomi/lib/sql/sqlkit/testside"
 	toolside "github.com/nomi-language/nomi/lib/sql/sqlkit/toolside"
 	rt "github.com/nomi-language/nomi/rt"
@@ -64,68 +65,76 @@ var (
 	_ = goside1.Width
 //line github.com/nomi-language/nomi/lib/markdown/markdown.nomi:29
 	_ = goside2.ToHTML
+//line github.com/nomi-language/nomi/lib/password_hashers/password_hashers.nomi:40
+	_ = goside3.Argon2id
+//line github.com/nomi-language/nomi/lib/password_hashers/password_hashers.nomi:46
+	_ = goside3.BcryptCost
+//line github.com/nomi-language/nomi/lib/password_hashers/password_hashers.nomi:42
+	_ = goside3.BcryptHash
+//line github.com/nomi-language/nomi/lib/password_hashers/password_hashers.nomi:44
+	_ = goside3.BcryptVerify
 //line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:35
-	_ = (*goside3.Session)(nil)
+	_ = (*goside4.Session)(nil)
 //line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:111
-	_ = (*goside3.Listener)(nil)
+	_ = (*goside4.Listener)(nil)
 //line github.com/nomi-language/nomi/lib/sql/postgres/describe.nomi:81
-	_ = goside3.Describe
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:101
-	_ = goside3.Begin
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:123
-	_ = goside3.CloseListener
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:109
-	_ = goside3.Close
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:103
-	_ = goside3.Commit
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:84
-	_ = goside3.Connect
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:99
-	_ = goside3.EachRow
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:92
-	_ = goside3.Exec
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:119
-	_ = goside3.Listen
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:125
-	_ = goside3.IsClosed
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:131
-	_ = goside3.Received
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:128
-	_ = goside3.Waiting
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:107
-	_ = goside3.Ping
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:86
-	_ = goside3.Pool
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:105
-	_ = goside3.Rollback
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:90
-	_ = goside3.Run
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:88
-	_ = goside3.Scratch
-//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:121
-	_ = goside3.Wait
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:39
-	_ = (*goside4.Conn)(nil)
-//line github.com/nomi-language/nomi/lib/sql/sqlite/describe.nomi:74
 	_ = goside4.Describe
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:110
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:101
 	_ = goside4.Begin
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:118
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:123
+	_ = goside4.CloseListener
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:109
 	_ = goside4.Close
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:112
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:103
 	_ = goside4.Commit
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:108
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:84
+	_ = goside4.Connect
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:99
 	_ = goside4.EachRow
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:99
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:92
 	_ = goside4.Exec
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:83
-	_ = goside4.Open
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:116
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:119
+	_ = goside4.Listen
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:125
+	_ = goside4.IsClosed
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:131
+	_ = goside4.Received
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:128
+	_ = goside4.Waiting
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:107
 	_ = goside4.Ping
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:114
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:86
+	_ = goside4.Pool
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:105
 	_ = goside4.Rollback
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:91
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:90
 	_ = goside4.Run
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:88
+	_ = goside4.Scratch
+//line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:121
+	_ = goside4.Wait
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:39
+	_ = (*goside5.Conn)(nil)
+//line github.com/nomi-language/nomi/lib/sql/sqlite/describe.nomi:74
+	_ = goside5.Describe
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:110
+	_ = goside5.Begin
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:118
+	_ = goside5.Close
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:112
+	_ = goside5.Commit
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:108
+	_ = goside5.EachRow
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:99
+	_ = goside5.Exec
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:83
+	_ = goside5.Open
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:116
+	_ = goside5.Ping
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:114
+	_ = goside5.Rollback
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:91
+	_ = goside5.Run
 //line github.com/nomi-language/nomi/lib/sql/sqlkit/sqlkit_test.nomi:964
 	_ = testside.RemoveAll
 //line github.com/nomi-language/nomi/lib/sql/sqlkit/sqlkit_test.nomi:962
@@ -143,51 +152,51 @@ var nomiHostSpec_d1 = &hostadapt.DescSpec{Name: "image.Failure", Kind: rt.KindSt
 
 var nomiHostSpec_d2 = &hostadapt.DescSpec{Name: "image.Info", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "format", Type: rt.SlotString}, {Name: "width", Type: rt.SlotInt}, {Name: "height", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
 
-var nomiHostSpec_d3 = &hostadapt.DescSpec{Name: "describe.Migration", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}, {Name: "text", Type: rt.SlotString}}}
+var nomiHostSpec_d5 = &hostadapt.DescSpec{Name: "describe.Migration", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}, {Name: "text", Type: rt.SlotString}}}
 
-var nomiHostSpec_d4 = &hostadapt.DescSpec{Name: "describe.Description", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "tables", Type: rt.SlotRef}, {Name: "statements", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "migration", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
+var nomiHostSpec_d6 = &hostadapt.DescSpec{Name: "describe.Description", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "tables", Type: rt.SlotRef}, {Name: "statements", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "migration", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
 
-var nomiHostSpec_d5 = &hostadapt.DescSpec{Name: "describe.Table", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "columns", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
+var nomiHostSpec_d7 = &hostadapt.DescSpec{Name: "describe.Table", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "columns", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
 
-var nomiHostSpec_d6 = &hostadapt.DescSpec{Name: "describe.TableColumn", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "type_name", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}, {Name: "primary_key", Type: rt.SlotBool}, {Name: "has_default", Type: rt.SlotBool}, {Name: "values", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
+var nomiHostSpec_d8 = &hostadapt.DescSpec{Name: "describe.TableColumn", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "type_name", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}, {Name: "primary_key", Type: rt.SlotBool}, {Name: "has_default", Type: rt.SlotBool}, {Name: "values", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
 
-var nomiHostSpec_d7 = &hostadapt.DescSpec{Name: "describe.Statement", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "params", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
+var nomiHostSpec_d9 = &hostadapt.DescSpec{Name: "describe.Statement", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "params", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
 
-var nomiHostSpec_d8 = &hostadapt.DescSpec{Name: "describe.Column", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "type_name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}, {Name: "nullable", Type: rt.SlotBool}}}
+var nomiHostSpec_d10 = &hostadapt.DescSpec{Name: "describe.Column", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "type_name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}, {Name: "nullable", Type: rt.SlotBool}}}
 
-var nomiHostSpec_d9 = &hostadapt.DescSpec{Name: "postgres.Failure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "code", Type: rt.SlotString}, {Name: "message", Type: rt.SlotString}, {Name: "constraint", Type: rt.SlotInt}, {Name: "name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}}}
+var nomiHostSpec_d11 = &hostadapt.DescSpec{Name: "postgres.Failure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "code", Type: rt.SlotString}, {Name: "message", Type: rt.SlotString}, {Name: "constraint", Type: rt.SlotInt}, {Name: "name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}}}
 
-var nomiHostSpec_d10 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+var nomiHostSpec_d12 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var nomiHostSpec_d11 = &hostadapt.DescSpec{Name: "postgres.Cell", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}, {Name: "items", Type: rt.SlotRef}}}
+var nomiHostSpec_d13 = &hostadapt.DescSpec{Name: "postgres.Cell", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}, {Name: "items", Type: rt.SlotRef}}}
 
-var nomiHostSpec_d12 = &hostadapt.DescSpec{Name: "postgres.Item", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}}}
+var nomiHostSpec_d14 = &hostadapt.DescSpec{Name: "postgres.Item", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}}}
 
-var nomiHostSpec_d13 = &hostadapt.DescSpec{Name: "postgres.RawRow", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "cells", Type: rt.SlotRef}}}
+var nomiHostSpec_d15 = &hostadapt.DescSpec{Name: "postgres.RawRow", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "cells", Type: rt.SlotRef}}}
 
-var nomiHostSpec_d14 = &hostadapt.DescSpec{Name: "postgres.Answer", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "rows", Type: rt.SlotRef}, {Name: "changed", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
+var nomiHostSpec_d16 = &hostadapt.DescSpec{Name: "postgres.Answer", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "rows", Type: rt.SlotRef}, {Name: "changed", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
 
-var nomiHostSpec_d15 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+var nomiHostSpec_d17 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var nomiHostSpec_d16 = &hostadapt.DescSpec{Name: "postgres.Notice", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "channel", Type: rt.SlotString}, {Name: "payload", Type: rt.SlotString}, {Name: "failure", Type: rt.SlotRef}}}
+var nomiHostSpec_d18 = &hostadapt.DescSpec{Name: "postgres.Notice", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "channel", Type: rt.SlotString}, {Name: "payload", Type: rt.SlotString}, {Name: "failure", Type: rt.SlotRef}}}
 
-var nomiHostSpec_d17 = &hostadapt.DescSpec{Name: "describe.Table", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "sql", Type: rt.SlotString}, {Name: "columns", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
+var nomiHostSpec_d19 = &hostadapt.DescSpec{Name: "describe.Table", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "sql", Type: rt.SlotString}, {Name: "columns", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
 
-var nomiHostSpec_d18 = &hostadapt.DescSpec{Name: "describe.TableColumn", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "declared", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}, {Name: "primary_key", Type: rt.SlotBool}, {Name: "has_default", Type: rt.SlotBool}, {Name: "migration", Type: rt.SlotString}}}
+var nomiHostSpec_d20 = &hostadapt.DescSpec{Name: "describe.TableColumn", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "declared", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}, {Name: "primary_key", Type: rt.SlotBool}, {Name: "has_default", Type: rt.SlotBool}, {Name: "migration", Type: rt.SlotString}}}
 
-var nomiHostSpec_d19 = &hostadapt.DescSpec{Name: "describe.Statement", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "params", Type: rt.SlotInt}, {Name: "plan", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
+var nomiHostSpec_d21 = &hostadapt.DescSpec{Name: "describe.Statement", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "params", Type: rt.SlotInt}, {Name: "plan", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
 
-var nomiHostSpec_d20 = &hostadapt.DescSpec{Name: "describe.Column", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "declared", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "origin", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}}}
+var nomiHostSpec_d22 = &hostadapt.DescSpec{Name: "describe.Column", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "declared", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "origin", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}}}
 
-var nomiHostSpec_d21 = &hostadapt.DescSpec{Name: "sqlite.Level", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "depth", Type: rt.SlotInt}, {Name: "token", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
+var nomiHostSpec_d23 = &hostadapt.DescSpec{Name: "sqlite.Level", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "depth", Type: rt.SlotInt}, {Name: "token", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
 
-var nomiHostSpec_d22 = &hostadapt.DescSpec{Name: "sqlite.Failure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "code", Type: rt.SlotString}, {Name: "message", Type: rt.SlotString}, {Name: "constraint", Type: rt.SlotInt}, {Name: "name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}}}
+var nomiHostSpec_d24 = &hostadapt.DescSpec{Name: "sqlite.Failure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "code", Type: rt.SlotString}, {Name: "message", Type: rt.SlotString}, {Name: "constraint", Type: rt.SlotInt}, {Name: "name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}}}
 
-var nomiHostSpec_d23 = &hostadapt.DescSpec{Name: "sqlite.Cell", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}}}
+var nomiHostSpec_d25 = &hostadapt.DescSpec{Name: "sqlite.Cell", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}}}
 
-var nomiHostSpec_d24 = &hostadapt.DescSpec{Name: "sqlite.RawRow", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "types", Type: rt.SlotRef}, {Name: "cells", Type: rt.SlotRef}}}
+var nomiHostSpec_d26 = &hostadapt.DescSpec{Name: "sqlite.RawRow", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "types", Type: rt.SlotRef}, {Name: "cells", Type: rt.SlotRef}}}
 
-var nomiHostSpec_d25 = &hostadapt.DescSpec{Name: "sqlite.Answer", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "types", Type: rt.SlotRef}, {Name: "rows", Type: rt.SlotRef}, {Name: "changed", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
+var nomiHostSpec_d27 = &hostadapt.DescSpec{Name: "sqlite.Answer", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "types", Type: rt.SlotRef}, {Name: "rows", Type: rt.SlotRef}, {Name: "changed", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
 
 // nomiHostBound holds the descriptors the adapters build with, resolved once.
 type nomiHostBound struct {
@@ -218,6 +227,8 @@ type nomiHostBound struct {
 	d23 *rt.TypeDesc
 	d24 *rt.TypeDesc
 	d25 *rt.TypeDesc
+	d26 *rt.TypeDesc
+	d27 *rt.TypeDesc
 }
 
 // nomiHostSpecs lists the descriptor specs the adapters build with, so an engine can
@@ -226,8 +237,6 @@ func nomiHostSpecs() []*hostadapt.DescSpec {
 	return []*hostadapt.DescSpec{
 		nomiHostSpec_d1,
 		nomiHostSpec_d2,
-		nomiHostSpec_d3,
-		nomiHostSpec_d4,
 		nomiHostSpec_d5,
 		nomiHostSpec_d6,
 		nomiHostSpec_d7,
@@ -249,6 +258,8 @@ func nomiHostSpecs() []*hostadapt.DescSpec {
 		nomiHostSpec_d23,
 		nomiHostSpec_d24,
 		nomiHostSpec_d25,
+		nomiHostSpec_d26,
+		nomiHostSpec_d27,
 	}
 }
 
@@ -266,6 +277,10 @@ func nomiHostNames() []string {
 		"image/image.probe_raw",
 		"image/image.width_raw",
 		"markdown/markdown.to_html",
+		"password_hashers/password_hashers.argon2id_raw",
+		"password_hashers/password_hashers.bcrypt_cost_raw",
+		"password_hashers/password_hashers.bcrypt_hash_raw",
+		"password_hashers/password_hashers.bcrypt_verify_raw",
 		"postgres/describe.describe",
 		"postgres/postgres.begin_raw",
 		"postgres/postgres.close_listener_raw",
@@ -312,12 +327,8 @@ func nomiHostBind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d2, err = env.Desc(nomiHostSpec_d2); err != nil {
 		return nil, err
 	}
-	if b.d3, err = env.Desc(nomiHostSpec_d3); err != nil {
-		return nil, err
-	}
-	if b.d4, err = env.Desc(nomiHostSpec_d4); err != nil {
-		return nil, err
-	}
+	b.d3 = rt.TupleDesc(rt.SlotString, rt.SlotString)
+	b.d4 = rt.TupleDesc(rt.SlotBool, rt.SlotString)
 	if b.d5, err = env.Desc(nomiHostSpec_d5); err != nil {
 		return nil, err
 	}
@@ -381,49 +392,59 @@ func nomiHostBind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d25, err = env.Desc(nomiHostSpec_d25); err != nil {
 		return nil, err
 	}
+	if b.d26, err = env.Desc(nomiHostSpec_d26); err != nil {
+		return nil, err
+	}
+	if b.d27, err = env.Desc(nomiHostSpec_d27); err != nil {
+		return nil, err
+	}
 	return map[string]hostadapt.Func{
-		"image/image.crop_raw":                    b.fn1,
-		"image/image.decode_raw":                  b.fn5,
-		"image/image.encode_jpeg_raw":             b.fn10,
-		"image/image.encode_png_raw":              b.fn12,
-		"image/image.fill_raw":                    b.fn13,
-		"image/image.fit_raw":                     b.fn14,
-		"image/image.format_raw":                  b.fn15,
-		"image/image.height_raw":                  b.fn17,
-		"image/image.probe_raw":                   b.fn19,
-		"image/image.width_raw":                   b.fn22,
-		"markdown/markdown.to_html":               b.fn23,
-		"postgres/describe.describe":              b.fn25,
-		"postgres/postgres.begin_raw":             b.fn45,
-		"postgres/postgres.close_listener_raw":    b.fn51,
-		"postgres/postgres.close_raw":             b.fn53,
-		"postgres/postgres.commit_raw":            b.fn54,
-		"postgres/postgres.connect_raw":           b.fn55,
-		"postgres/postgres.each_row_raw":          b.fn56,
-		"postgres/postgres.exec_raw":              b.fn71,
-		"postgres/postgres.listen_raw":            b.fn77,
-		"postgres/postgres.listener_closed_raw":   b.fn79,
-		"postgres/postgres.listener_received_raw": b.fn81,
-		"postgres/postgres.listener_waiting_raw":  b.fn82,
-		"postgres/postgres.ping_raw":              b.fn83,
-		"postgres/postgres.pool_raw":              b.fn84,
-		"postgres/postgres.rollback_raw":          b.fn85,
-		"postgres/postgres.run_raw":               b.fn86,
-		"postgres/postgres.scratch_raw":           b.fn87,
-		"postgres/postgres.wait_raw":              b.fn88,
-		"sqlite/describe.describe":                b.fn91,
-		"sqlite/sqlite.begin_raw":                 b.fn108,
-		"sqlite/sqlite.close_raw":                 b.fn113,
-		"sqlite/sqlite.commit_raw":                b.fn114,
-		"sqlite/sqlite.each_row_raw":              b.fn115,
-		"sqlite/sqlite.exec_raw":                  b.fn125,
-		"sqlite/sqlite.open_raw":                  b.fn132,
-		"sqlite/sqlite.ping_raw":                  b.fn134,
-		"sqlite/sqlite.rollback_raw":              b.fn135,
-		"sqlite/sqlite.run_raw":                   b.fn136,
-		"remove_all":                              b.fn137,
-		"temp_dir":                                b.fn138,
-		"sqlkit/tools/generate.config_text":       b.fn139,
+		"image/image.crop_raw":                                b.fn1,
+		"image/image.decode_raw":                              b.fn5,
+		"image/image.encode_jpeg_raw":                         b.fn10,
+		"image/image.encode_png_raw":                          b.fn12,
+		"image/image.fill_raw":                                b.fn13,
+		"image/image.fit_raw":                                 b.fn14,
+		"image/image.format_raw":                              b.fn15,
+		"image/image.height_raw":                              b.fn17,
+		"image/image.probe_raw":                               b.fn19,
+		"image/image.width_raw":                               b.fn22,
+		"markdown/markdown.to_html":                           b.fn23,
+		"password_hashers/password_hashers.argon2id_raw":      b.fn25,
+		"password_hashers/password_hashers.bcrypt_cost_raw":   b.fn26,
+		"password_hashers/password_hashers.bcrypt_hash_raw":   b.fn27,
+		"password_hashers/password_hashers.bcrypt_verify_raw": b.fn28,
+		"postgres/describe.describe":                          b.fn29,
+		"postgres/postgres.begin_raw":                         b.fn49,
+		"postgres/postgres.close_listener_raw":                b.fn55,
+		"postgres/postgres.close_raw":                         b.fn57,
+		"postgres/postgres.commit_raw":                        b.fn58,
+		"postgres/postgres.connect_raw":                       b.fn59,
+		"postgres/postgres.each_row_raw":                      b.fn60,
+		"postgres/postgres.exec_raw":                          b.fn75,
+		"postgres/postgres.listen_raw":                        b.fn81,
+		"postgres/postgres.listener_closed_raw":               b.fn83,
+		"postgres/postgres.listener_received_raw":             b.fn85,
+		"postgres/postgres.listener_waiting_raw":              b.fn86,
+		"postgres/postgres.ping_raw":                          b.fn87,
+		"postgres/postgres.pool_raw":                          b.fn88,
+		"postgres/postgres.rollback_raw":                      b.fn89,
+		"postgres/postgres.run_raw":                           b.fn90,
+		"postgres/postgres.scratch_raw":                       b.fn91,
+		"postgres/postgres.wait_raw":                          b.fn92,
+		"sqlite/describe.describe":                            b.fn95,
+		"sqlite/sqlite.begin_raw":                             b.fn112,
+		"sqlite/sqlite.close_raw":                             b.fn117,
+		"sqlite/sqlite.commit_raw":                            b.fn118,
+		"sqlite/sqlite.each_row_raw":                          b.fn119,
+		"sqlite/sqlite.exec_raw":                              b.fn129,
+		"sqlite/sqlite.open_raw":                              b.fn136,
+		"sqlite/sqlite.ping_raw":                              b.fn138,
+		"sqlite/sqlite.rollback_raw":                          b.fn139,
+		"sqlite/sqlite.run_raw":                               b.fn140,
+		"remove_all":                                          b.fn141,
+		"temp_dir":                                            b.fn142,
+		"sqlkit/tools/generate.config_text":                   b.fn143,
 	}, nil
 }
 
@@ -756,21 +777,119 @@ func (b *nomiHostBound) fn23(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	return v0, nil
 }
 
-// in27 reads a Migration as Go goside3.Migration.
-func (b *nomiHostBound) in27(fr *rt.Frame, v rt.Value) (out goside3.Migration, err error) {
+// fn25 adapts password_hashers/password_hashers.argon2id_raw: argon2id_raw(password: Bytes, salt: Bytes, time: Int, memory_kib: Int, threads: Int, length: Int) -> Bytes
+func (b *nomiHostBound) fn25(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("password_hashers/password_hashers.argon2id_raw", &err)
+	if len(args) != 6 {
+		return nil, hostadapt.Arity("password_hashers/password_hashers.argon2id_raw", 6, len(args))
+	}
+	a0, err := b.in6(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.argon2id_raw", 0, "goside.Argon2id", "password", err)
+	}
+	a1, err := b.in6(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.argon2id_raw", 1, "goside.Argon2id", "salt", err)
+	}
+	a2, err := b.in3(fr, args[2])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.argon2id_raw", 2, "goside.Argon2id", "time", err)
+	}
+	a3, err := b.in3(fr, args[3])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.argon2id_raw", 3, "goside.Argon2id", "memoryKiB", err)
+	}
+	a4, err := b.in3(fr, args[4])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.argon2id_raw", 4, "goside.Argon2id", "threads", err)
+	}
+	a5, err := b.in3(fr, args[5])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.argon2id_raw", 5, "goside.Argon2id", "length", err)
+	}
+	r0 := goside3.Argon2id(a0, a1, a2, a3, a4, a5)
+	v0, err := b.out11(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Argon2id", err)
+	}
+	return v0, nil
+}
+
+// fn26 adapts password_hashers/password_hashers.bcrypt_cost_raw: bcrypt_cost_raw(stored: String) -> Int
+func (b *nomiHostBound) fn26(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("password_hashers/password_hashers.bcrypt_cost_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("password_hashers/password_hashers.bcrypt_cost_raw", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.bcrypt_cost_raw", 0, "goside.BcryptCost", "stored", err)
+	}
+	r0 := goside3.BcryptCost(a0)
+	v0, err := b.out18(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.BcryptCost", err)
+	}
+	return v0, nil
+}
+
+// fn27 adapts password_hashers/password_hashers.bcrypt_hash_raw: bcrypt_hash_raw(password: Bytes, cost: Int) -> #(String, String)
+func (b *nomiHostBound) fn27(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("password_hashers/password_hashers.bcrypt_hash_raw", &err)
+	if len(args) != 2 {
+		return nil, hostadapt.Arity("password_hashers/password_hashers.bcrypt_hash_raw", 2, len(args))
+	}
+	a0, err := b.in6(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.bcrypt_hash_raw", 0, "goside.BcryptHash", "password", err)
+	}
+	a1, err := b.in3(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.bcrypt_hash_raw", 1, "goside.BcryptHash", "cost", err)
+	}
+	r0, r1 := goside3.BcryptHash(a0, a1)
+	tup := b.d3.New()
+	tup.S[0] = string(r0)
+	tup.S[1] = string(r1)
+	return tup, nil
+}
+
+// fn28 adapts password_hashers/password_hashers.bcrypt_verify_raw: bcrypt_verify_raw(password: Bytes, stored: String) -> #(Bool, String)
+func (b *nomiHostBound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("password_hashers/password_hashers.bcrypt_verify_raw", &err)
+	if len(args) != 2 {
+		return nil, hostadapt.Arity("password_hashers/password_hashers.bcrypt_verify_raw", 2, len(args))
+	}
+	a0, err := b.in6(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.bcrypt_verify_raw", 0, "goside.BcryptVerify", "password", err)
+	}
+	a1, err := b.in24(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("password_hashers/password_hashers.bcrypt_verify_raw", 1, "goside.BcryptVerify", "stored", err)
+	}
+	r0, r1 := goside3.BcryptVerify(a0, a1)
+	tup := b.d4.New()
+	tup.W[0] = rt.BoolWord(bool(r0))
+	tup.S[0] = string(r1)
+	return tup, nil
+}
+
+// in31 reads a Migration as Go goside4.Migration.
+func (b *nomiHostBound) in31(fr *rt.Frame, v rt.Value) (out goside4.Migration, err error) {
 	r, err := hostadapt.Record(v, "describe.Migration")
 	if err != nil {
 		return out, err
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d3, 0, 0, "path")
+		x, err := hostadapt.StringField(r, b.d5, 0, 0, "path")
 		if err != nil {
 			return out, err
 		}
 		out.Path = string(x)
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d3, 1, 1, "text")
+		x, err := hostadapt.StringField(r, b.d5, 1, 1, "text")
 		if err != nil {
 			return out, err
 		}
@@ -779,16 +898,16 @@ func (b *nomiHostBound) in27(fr *rt.Frame, v rt.Value) (out goside3.Migration, e
 	return out, nil
 }
 
-// in26 reads a List<Migration> as Go []goside3.Migration.
-func (b *nomiHostBound) in26(fr *rt.Frame, v rt.Value) (out []goside3.Migration, err error) {
+// in30 reads a List<Migration> as Go []goside4.Migration.
+func (b *nomiHostBound) in30(fr *rt.Frame, v rt.Value) (out []goside4.Migration, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
 	}
-	out = make([]goside3.Migration, 0, hostadapt.Len(xs))
+	out = make([]goside4.Migration, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in27(fr, c.Head)
+		e, err := b.in31(fr, c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -798,8 +917,8 @@ func (b *nomiHostBound) in26(fr *rt.Frame, v rt.Value) (out []goside3.Migration,
 	return out, nil
 }
 
-// in28 reads a List<String> as Go []string.
-func (b *nomiHostBound) in28(fr *rt.Frame, v rt.Value) (out []string, err error) {
+// in32 reads a List<String> as Go []string.
+func (b *nomiHostBound) in32(fr *rt.Frame, v rt.Value) (out []string, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -817,8 +936,8 @@ func (b *nomiHostBound) in28(fr *rt.Frame, v rt.Value) (out []string, err error)
 	return out, nil
 }
 
-// out34 builds a List<String> from Go []string.
-func (b *nomiHostBound) out34(v []string) (rt.Value, error) {
+// out38 builds a List<String> from Go []string.
+func (b *nomiHostBound) out38(v []string) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out16(v[i])
@@ -830,28 +949,28 @@ func (b *nomiHostBound) out34(v []string) (rt.Value, error) {
 	return xs, nil
 }
 
-// out33 builds a TableColumn from Go goside3.TableColumn.
-func (b *nomiHostBound) out33(v goside3.TableColumn) (rt.Value, error) {
-	r := b.d6.New()
+// out37 builds a TableColumn from Go goside4.TableColumn.
+func (b *nomiHostBound) out37(v goside4.TableColumn) (rt.Value, error) {
+	r := b.d8.New()
 	r.S[0] = string(v.Name)
 	r.S[1] = string(v.TypeName)
 	r.W[0] = rt.BoolWord(bool(v.NotNull))
 	r.W[1] = rt.BoolWord(bool(v.PrimaryKey))
 	r.W[2] = rt.BoolWord(bool(v.HasDefault))
-	w35, err := b.out34(v.Values)
+	w39, err := b.out38(v.Values)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "values", err)
 	}
-	r.R[0] = w35
+	r.R[0] = w39
 	r.S[2] = string(v.Migration)
 	return r, nil
 }
 
-// out32 builds a List<TableColumn> from Go []goside3.TableColumn.
-func (b *nomiHostBound) out32(v []goside3.TableColumn) (rt.Value, error) {
+// out36 builds a List<TableColumn> from Go []goside4.TableColumn.
+func (b *nomiHostBound) out36(v []goside4.TableColumn) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out33(v[i])
+		x, err := b.out37(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -860,24 +979,24 @@ func (b *nomiHostBound) out32(v []goside3.TableColumn) (rt.Value, error) {
 	return xs, nil
 }
 
-// out31 builds a Table from Go goside3.Table.
-func (b *nomiHostBound) out31(v goside3.Table) (rt.Value, error) {
-	r := b.d5.New()
+// out35 builds a Table from Go goside4.Table.
+func (b *nomiHostBound) out35(v goside4.Table) (rt.Value, error) {
+	r := b.d7.New()
 	r.S[0] = string(v.Name)
-	w36, err := b.out32(v.Columns)
+	w40, err := b.out36(v.Columns)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "columns", err)
 	}
-	r.R[0] = w36
+	r.R[0] = w40
 	r.S[1] = string(v.Migration)
 	return r, nil
 }
 
-// out30 builds a List<Table> from Go []goside3.Table.
-func (b *nomiHostBound) out30(v []goside3.Table) (rt.Value, error) {
+// out34 builds a List<Table> from Go []goside4.Table.
+func (b *nomiHostBound) out34(v []goside4.Table) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out31(v[i])
+		x, err := b.out35(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -886,9 +1005,9 @@ func (b *nomiHostBound) out30(v []goside3.Table) (rt.Value, error) {
 	return xs, nil
 }
 
-// out41 builds a Column from Go goside3.Column.
-func (b *nomiHostBound) out41(v goside3.Column) (rt.Value, error) {
-	r := b.d8.New()
+// out45 builds a Column from Go goside4.Column.
+func (b *nomiHostBound) out45(v goside4.Column) (rt.Value, error) {
+	r := b.d10.New()
 	r.S[0] = string(v.Name)
 	r.S[1] = string(v.TypeName)
 	r.S[2] = string(v.Table)
@@ -897,11 +1016,11 @@ func (b *nomiHostBound) out41(v goside3.Column) (rt.Value, error) {
 	return r, nil
 }
 
-// out40 builds a List<Column> from Go []goside3.Column.
-func (b *nomiHostBound) out40(v []goside3.Column) (rt.Value, error) {
+// out44 builds a List<Column> from Go []goside4.Column.
+func (b *nomiHostBound) out44(v []goside4.Column) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out41(v[i])
+		x, err := b.out45(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -910,29 +1029,29 @@ func (b *nomiHostBound) out40(v []goside3.Column) (rt.Value, error) {
 	return xs, nil
 }
 
-// out39 builds a Statement from Go goside3.Statement.
-func (b *nomiHostBound) out39(v goside3.Statement) (rt.Value, error) {
-	r := b.d7.New()
-	w42, err := b.out40(v.Columns)
+// out43 builds a Statement from Go goside4.Statement.
+func (b *nomiHostBound) out43(v goside4.Statement) (rt.Value, error) {
+	r := b.d9.New()
+	w46, err := b.out44(v.Columns)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "columns", err)
 	}
-	r.R[0] = w42
-	w43, err := b.out34(v.Params)
+	r.R[0] = w46
+	w47, err := b.out38(v.Params)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "params", err)
 	}
-	r.R[1] = w43
+	r.R[1] = w47
 	r.S[0] = string(v.Error)
 	r.SetIntSlot(0, rt.Value(int64(v.Offset)))
 	return r, nil
 }
 
-// out38 builds a List<Statement> from Go []goside3.Statement.
-func (b *nomiHostBound) out38(v []goside3.Statement) (rt.Value, error) {
+// out42 builds a List<Statement> from Go []goside4.Statement.
+func (b *nomiHostBound) out42(v []goside4.Statement) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out39(v[i])
+		x, err := b.out43(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -941,27 +1060,27 @@ func (b *nomiHostBound) out38(v []goside3.Statement) (rt.Value, error) {
 	return xs, nil
 }
 
-// out29 builds a Description from Go goside3.Description.
-func (b *nomiHostBound) out29(v goside3.Description) (rt.Value, error) {
-	r := b.d4.New()
-	w37, err := b.out30(v.Tables)
+// out33 builds a Description from Go goside4.Description.
+func (b *nomiHostBound) out33(v goside4.Description) (rt.Value, error) {
+	r := b.d6.New()
+	w41, err := b.out34(v.Tables)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "tables", err)
 	}
-	r.R[0] = w37
-	w44, err := b.out38(v.Statements)
+	r.R[0] = w41
+	w48, err := b.out42(v.Statements)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "statements", err)
 	}
-	r.R[1] = w44
+	r.R[1] = w48
 	r.S[0] = string(v.Error)
 	r.S[1] = string(v.Migration)
 	r.SetIntSlot(0, rt.Value(int64(v.Offset)))
 	return r, nil
 }
 
-// fn25 adapts postgres/describe.describe: describe(url: String, migrations: List<Migration>, statements: List<String>) -> Description
-func (b *nomiHostBound) fn25(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn29 adapts postgres/describe.describe: describe(url: String, migrations: List<Migration>, statements: List<String>) -> Description
+func (b *nomiHostBound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/describe.describe", &err)
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("postgres/describe.describe", 3, len(args))
@@ -970,43 +1089,43 @@ func (b *nomiHostBound) fn25(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	if err != nil {
 		return nil, hostadapt.Param("postgres/describe.describe", 0, "goside.Describe", "url", err)
 	}
-	a1, err := b.in26(fr, args[1])
+	a1, err := b.in30(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/describe.describe", 1, "goside.Describe", "migrations", err)
 	}
-	a2, err := b.in28(fr, args[2])
+	a2, err := b.in32(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/describe.describe", 2, "goside.Describe", "statements", err)
 	}
-	r0 := goside3.Describe(fr.Context(), a0, a1, a2)
-	v0, err := b.out29(r0)
+	r0 := goside4.Describe(fr.Context(), a0, a1, a2)
+	v0, err := b.out33(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Describe", err)
 	}
 	return v0, nil
 }
 
-// in46 reads a Handle as Go *goside3.Session.
-func (b *nomiHostBound) in46(fr *rt.Frame, v rt.Value) (out *goside3.Session, err error) {
+// in50 reads a Handle as Go *goside4.Session.
+func (b *nomiHostBound) in50(fr *rt.Frame, v rt.Value) (out *goside4.Session, err error) {
 	h, err := hostadapt.Handle(v, "postgres.Handle")
 	if err != nil {
 		return out, err
 	}
-	p, ok := h.(*goside3.Session)
+	p, ok := h.(*goside4.Session)
 	if !ok {
-		return out, fmt.Errorf("postgres.Handle handle holds %T, not *goside3.Session", h)
+		return out, fmt.Errorf("postgres.Handle handle holds %T, not *goside4.Session", h)
 	}
 	return p, nil
 }
 
-// out47 builds a Handle from Go *goside3.Session.
-func (b *nomiHostBound) out47(v *goside3.Session) (rt.Value, error) {
+// out51 builds a Handle from Go *goside4.Session.
+func (b *nomiHostBound) out51(v *goside4.Session) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "postgres.Handle", Value: v}, nil
 }
 
-// out49 builds a Failure from Go goside3.Failure.
-func (b *nomiHostBound) out49(v goside3.Failure) (rt.Value, error) {
-	r := b.d9.New()
+// out53 builds a Failure from Go goside4.Failure.
+func (b *nomiHostBound) out53(v goside4.Failure) (rt.Value, error) {
+	r := b.d11.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[0] = string(v.Code)
 	r.S[1] = string(v.Message)
@@ -1017,100 +1136,100 @@ func (b *nomiHostBound) out49(v goside3.Failure) (rt.Value, error) {
 	return r, nil
 }
 
-// fn45 adapts postgres/postgres.begin_raw: begin_raw(h: Handle) -> #(Handle, Failure)
-func (b *nomiHostBound) fn45(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn49 adapts postgres/postgres.begin_raw: begin_raw(h: Handle) -> #(Handle, Failure)
+func (b *nomiHostBound) fn49(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.begin_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.begin_raw", 1, len(args))
 	}
-	a0, err := b.in46(fr, args[0])
+	a0, err := b.in50(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.begin_raw", 0, "goside.Begin", "s", err)
 	}
-	r0, r1 := goside3.Begin(fr.Context(), a0)
+	r0, r1 := goside4.Begin(fr.Context(), a0)
 	tup := b.d0.New()
-	w48, err := b.out47(r0)
+	w52, err := b.out51(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Begin", fmt.Errorf("%s: marshaling return 0: %w", "postgres/postgres.begin_raw", err))
 	}
-	tup.R[0] = w48
-	w50, err := b.out49(r1)
+	tup.R[0] = w52
+	w54, err := b.out53(r1)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Begin", fmt.Errorf("%s: marshaling return 1: %w", "postgres/postgres.begin_raw", err))
 	}
-	tup.R[1] = w50
+	tup.R[1] = w54
 	return tup, nil
 }
 
-// in52 reads a ListenHandle as Go *goside3.Listener.
-func (b *nomiHostBound) in52(fr *rt.Frame, v rt.Value) (out *goside3.Listener, err error) {
+// in56 reads a ListenHandle as Go *goside4.Listener.
+func (b *nomiHostBound) in56(fr *rt.Frame, v rt.Value) (out *goside4.Listener, err error) {
 	h, err := hostadapt.Handle(v, "postgres.ListenHandle")
 	if err != nil {
 		return out, err
 	}
-	p, ok := h.(*goside3.Listener)
+	p, ok := h.(*goside4.Listener)
 	if !ok {
-		return out, fmt.Errorf("postgres.ListenHandle handle holds %T, not *goside3.Listener", h)
+		return out, fmt.Errorf("postgres.ListenHandle handle holds %T, not *goside4.Listener", h)
 	}
 	return p, nil
 }
 
-// fn51 adapts postgres/postgres.close_listener_raw: close_listener_raw(l: ListenHandle) -> Failure
-func (b *nomiHostBound) fn51(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn55 adapts postgres/postgres.close_listener_raw: close_listener_raw(l: ListenHandle) -> Failure
+func (b *nomiHostBound) fn55(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.close_listener_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.close_listener_raw", 1, len(args))
 	}
-	a0, err := b.in52(fr, args[0])
+	a0, err := b.in56(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.close_listener_raw", 0, "goside.CloseListener", "l", err)
 	}
-	r0 := goside3.CloseListener(a0)
-	v0, err := b.out49(r0)
+	r0 := goside4.CloseListener(a0)
+	v0, err := b.out53(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.CloseListener", err)
 	}
 	return v0, nil
 }
 
-// fn53 adapts postgres/postgres.close_raw: close_raw(h: Handle) -> Failure
-func (b *nomiHostBound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn57 adapts postgres/postgres.close_raw: close_raw(h: Handle) -> Failure
+func (b *nomiHostBound) fn57(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.close_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.close_raw", 1, len(args))
 	}
-	a0, err := b.in46(fr, args[0])
+	a0, err := b.in50(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.close_raw", 0, "goside.Close", "s", err)
 	}
-	r0 := goside3.Close(a0)
-	v0, err := b.out49(r0)
+	r0 := goside4.Close(a0)
+	v0, err := b.out53(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Close", err)
 	}
 	return v0, nil
 }
 
-// fn54 adapts postgres/postgres.commit_raw: commit_raw(h: Handle) -> Failure
-func (b *nomiHostBound) fn54(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn58 adapts postgres/postgres.commit_raw: commit_raw(h: Handle) -> Failure
+func (b *nomiHostBound) fn58(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.commit_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.commit_raw", 1, len(args))
 	}
-	a0, err := b.in46(fr, args[0])
+	a0, err := b.in50(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.commit_raw", 0, "goside.Commit", "s", err)
 	}
-	r0 := goside3.Commit(fr.Context(), a0)
-	v0, err := b.out49(r0)
+	r0 := goside4.Commit(fr.Context(), a0)
+	v0, err := b.out53(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Commit", err)
 	}
 	return v0, nil
 }
 
-// fn55 adapts postgres/postgres.connect_raw: connect_raw(url: String) -> Result<Handle, String>
-func (b *nomiHostBound) fn55(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn59 adapts postgres/postgres.connect_raw: connect_raw(url: String) -> Result<Handle, String>
+func (b *nomiHostBound) fn59(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.connect_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.connect_raw", 1, len(args))
@@ -1119,29 +1238,29 @@ func (b *nomiHostBound) fn55(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.connect_raw", 0, "goside.Connect", "url", err)
 	}
-	r0, e := goside3.Connect(fr.Context(), a0)
+	r0, e := goside4.Connect(fr.Context(), a0)
 	if e != nil {
-		rec := b.d10.NewVariant(1)
+		rec := b.d12.NewVariant(1)
 		rec.S[0] = e.Error()
 		return rec, nil
 	}
-	v0, err := b.out47(r0)
+	v0, err := b.out51(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Connect", err)
 	}
-	ok := b.d10.NewVariant(0)
+	ok := b.d12.NewVariant(0)
 	ok.R[0] = v0
 	return ok, nil
 }
 
-// in60 reads a Item as Go goside3.Item.
-func (b *nomiHostBound) in60(fr *rt.Frame, v rt.Value) (out goside3.Item, err error) {
+// in64 reads a Item as Go goside4.Item.
+func (b *nomiHostBound) in64(fr *rt.Frame, v rt.Value) (out goside4.Item, err error) {
 	r, err := hostadapt.Record(v, "postgres.Item")
 	if err != nil {
 		return out, err
 	}
 	{
-		x, err := hostadapt.IntValueField(r, b.d12, 0, 0, "kind")
+		x, err := hostadapt.IntValueField(r, b.d14, 0, 0, "kind")
 		if err != nil {
 			return out, err
 		}
@@ -1152,7 +1271,7 @@ func (b *nomiHostBound) in60(fr *rt.Frame, v rt.Value) (out goside3.Item, err er
 		out.Kind = y
 	}
 	{
-		x, err := hostadapt.IntValueField(r, b.d12, 1, 1, "int")
+		x, err := hostadapt.IntValueField(r, b.d14, 1, 1, "int")
 		if err != nil {
 			return out, err
 		}
@@ -1163,21 +1282,21 @@ func (b *nomiHostBound) in60(fr *rt.Frame, v rt.Value) (out goside3.Item, err er
 		out.Int = y
 	}
 	{
-		x, err := hostadapt.FloatField(r, b.d12, 2, 2, "float")
+		x, err := hostadapt.FloatField(r, b.d14, 2, 2, "float")
 		if err != nil {
 			return out, err
 		}
 		out.Float = float64(x)
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d12, 3, 0, "text")
+		x, err := hostadapt.StringField(r, b.d14, 3, 0, "text")
 		if err != nil {
 			return out, err
 		}
 		out.Text = string(x)
 	}
 	{
-		x, err := hostadapt.BytesField(r, b.d12, 4, 1, "bytes")
+		x, err := hostadapt.BytesField(r, b.d14, 4, 1, "bytes")
 		if err != nil {
 			return out, err
 		}
@@ -1186,16 +1305,16 @@ func (b *nomiHostBound) in60(fr *rt.Frame, v rt.Value) (out goside3.Item, err er
 	return out, nil
 }
 
-// in59 reads a List<Item> as Go []goside3.Item.
-func (b *nomiHostBound) in59(fr *rt.Frame, v rt.Value) (out []goside3.Item, err error) {
+// in63 reads a List<Item> as Go []goside4.Item.
+func (b *nomiHostBound) in63(fr *rt.Frame, v rt.Value) (out []goside4.Item, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
 	}
-	out = make([]goside3.Item, 0, hostadapt.Len(xs))
+	out = make([]goside4.Item, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in60(fr, c.Head)
+		e, err := b.in64(fr, c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -1205,14 +1324,14 @@ func (b *nomiHostBound) in59(fr *rt.Frame, v rt.Value) (out []goside3.Item, err 
 	return out, nil
 }
 
-// in58 reads a Cell as Go goside3.Cell.
-func (b *nomiHostBound) in58(fr *rt.Frame, v rt.Value) (out goside3.Cell, err error) {
+// in62 reads a Cell as Go goside4.Cell.
+func (b *nomiHostBound) in62(fr *rt.Frame, v rt.Value) (out goside4.Cell, err error) {
 	r, err := hostadapt.Record(v, "postgres.Cell")
 	if err != nil {
 		return out, err
 	}
 	{
-		x, err := hostadapt.IntValueField(r, b.d11, 0, 0, "kind")
+		x, err := hostadapt.IntValueField(r, b.d13, 0, 0, "kind")
 		if err != nil {
 			return out, err
 		}
@@ -1223,7 +1342,7 @@ func (b *nomiHostBound) in58(fr *rt.Frame, v rt.Value) (out goside3.Cell, err er
 		out.Kind = y
 	}
 	{
-		x, err := hostadapt.IntValueField(r, b.d11, 1, 1, "int")
+		x, err := hostadapt.IntValueField(r, b.d13, 1, 1, "int")
 		if err != nil {
 			return out, err
 		}
@@ -1234,32 +1353,32 @@ func (b *nomiHostBound) in58(fr *rt.Frame, v rt.Value) (out goside3.Cell, err er
 		out.Int = y
 	}
 	{
-		x, err := hostadapt.FloatField(r, b.d11, 2, 2, "float")
+		x, err := hostadapt.FloatField(r, b.d13, 2, 2, "float")
 		if err != nil {
 			return out, err
 		}
 		out.Float = float64(x)
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d11, 3, 0, "text")
+		x, err := hostadapt.StringField(r, b.d13, 3, 0, "text")
 		if err != nil {
 			return out, err
 		}
 		out.Text = string(x)
 	}
 	{
-		x, err := hostadapt.BytesField(r, b.d11, 4, 1, "bytes")
+		x, err := hostadapt.BytesField(r, b.d13, 4, 1, "bytes")
 		if err != nil {
 			return out, err
 		}
 		out.Bytes = []uint8(x)
 	}
 	{
-		x, err := hostadapt.RefField(r, b.d11, 5, 0, "items")
+		x, err := hostadapt.RefField(r, b.d13, 5, 0, "items")
 		if err != nil {
 			return out, err
 		}
-		y, err := b.in59(fr, x)
+		y, err := b.in63(fr, x)
 		if err != nil {
 			return out, fmt.Errorf("field %q: %w", "items", err)
 		}
@@ -1268,16 +1387,16 @@ func (b *nomiHostBound) in58(fr *rt.Frame, v rt.Value) (out goside3.Cell, err er
 	return out, nil
 }
 
-// in57 reads a List<Cell> as Go []goside3.Cell.
-func (b *nomiHostBound) in57(fr *rt.Frame, v rt.Value) (out []goside3.Cell, err error) {
+// in61 reads a List<Cell> as Go []goside4.Cell.
+func (b *nomiHostBound) in61(fr *rt.Frame, v rt.Value) (out []goside4.Cell, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
 	}
-	out = make([]goside3.Cell, 0, hostadapt.Len(xs))
+	out = make([]goside4.Cell, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in58(fr, c.Head)
+		e, err := b.in62(fr, c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -1287,9 +1406,9 @@ func (b *nomiHostBound) in57(fr *rt.Frame, v rt.Value) (out []goside3.Cell, err 
 	return out, nil
 }
 
-// out67 builds a Item from Go goside3.Item.
-func (b *nomiHostBound) out67(v goside3.Item) (rt.Value, error) {
-	r := b.d12.New()
+// out71 builds a Item from Go goside4.Item.
+func (b *nomiHostBound) out71(v goside4.Item) (rt.Value, error) {
+	r := b.d14.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.SetIntSlot(1, rt.Value(int64(v.Int)))
 	r.W[2] = rt.FloatWord(float64(v.Float))
@@ -1298,11 +1417,11 @@ func (b *nomiHostBound) out67(v goside3.Item) (rt.Value, error) {
 	return r, nil
 }
 
-// out66 builds a List<Item> from Go []goside3.Item.
-func (b *nomiHostBound) out66(v []goside3.Item) (rt.Value, error) {
+// out70 builds a List<Item> from Go []goside4.Item.
+func (b *nomiHostBound) out70(v []goside4.Item) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out67(v[i])
+		x, err := b.out71(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -1311,27 +1430,27 @@ func (b *nomiHostBound) out66(v []goside3.Item) (rt.Value, error) {
 	return xs, nil
 }
 
-// out65 builds a Cell from Go goside3.Cell.
-func (b *nomiHostBound) out65(v goside3.Cell) (rt.Value, error) {
-	r := b.d11.New()
+// out69 builds a Cell from Go goside4.Cell.
+func (b *nomiHostBound) out69(v goside4.Cell) (rt.Value, error) {
+	r := b.d13.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.SetIntSlot(1, rt.Value(int64(v.Int)))
 	r.W[2] = rt.FloatWord(float64(v.Float))
 	r.S[0] = string(v.Text)
 	r.S[1] = string(rt.Bytes(v.Bytes))
-	w68, err := b.out66(v.Items)
+	w72, err := b.out70(v.Items)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "items", err)
 	}
-	r.R[0] = w68
+	r.R[0] = w72
 	return r, nil
 }
 
-// out64 builds a List<Cell> from Go []goside3.Cell.
-func (b *nomiHostBound) out64(v []goside3.Cell) (rt.Value, error) {
+// out68 builds a List<Cell> from Go []goside4.Cell.
+func (b *nomiHostBound) out68(v []goside4.Cell) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out65(v[i])
+		x, err := b.out69(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -1340,24 +1459,24 @@ func (b *nomiHostBound) out64(v []goside3.Cell) (rt.Value, error) {
 	return xs, nil
 }
 
-// out62 builds a RawRow from Go goside3.Row.
-func (b *nomiHostBound) out62(v goside3.Row) (rt.Value, error) {
-	r := b.d13.New()
-	w63, err := b.out34(v.Columns)
+// out66 builds a RawRow from Go goside4.Row.
+func (b *nomiHostBound) out66(v goside4.Row) (rt.Value, error) {
+	r := b.d15.New()
+	w67, err := b.out38(v.Columns)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "columns", err)
 	}
-	r.R[0] = w63
-	w69, err := b.out64(v.Cells)
+	r.R[0] = w67
+	w73, err := b.out68(v.Cells)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "cells", err)
 	}
-	r.R[1] = w69
+	r.R[1] = w73
 	return r, nil
 }
 
-// in70 reads a Bool as Go bool.
-func (b *nomiHostBound) in70(fr *rt.Frame, v rt.Value) (out bool, err error) {
+// in74 reads a Bool as Go bool.
+func (b *nomiHostBound) in74(fr *rt.Frame, v rt.Value) (out bool, err error) {
 	x, ok := v.(bool)
 	if !ok {
 		return out, hostadapt.Want("Bool", v)
@@ -1365,13 +1484,13 @@ func (b *nomiHostBound) in70(fr *rt.Frame, v rt.Value) (out bool, err error) {
 	return bool(x), nil
 }
 
-// in61 reads a (RawRow) -> Bool as Go func(goside3.Row) bool.
-func (b *nomiHostBound) in61(fr *rt.Frame, v rt.Value) (out func(goside3.Row) bool, err error) {
+// in65 reads a (RawRow) -> Bool as Go func(goside4.Row) bool.
+func (b *nomiHostBound) in65(fr *rt.Frame, v rt.Value) (out func(goside4.Row) bool, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
-	return func(p0 goside3.Row) bool {
-		x0, err := b.out62(p0)
+	return func(p0 goside4.Row) bool {
+		x0, err := b.out66(p0)
 		if err != nil {
 			panic(fmt.Sprintf("Nomi callback arg 0: %v", err))
 		}
@@ -1379,7 +1498,7 @@ func (b *nomiHostBound) in61(fr *rt.Frame, v rt.Value) (out func(goside3.Row) bo
 		if err != nil {
 			panic(hostadapt.CallbackFailure(err, "func(goside.Row) bool"))
 		}
-		y, err := b.in70(fr, res)
+		y, err := b.in74(fr, res)
 		if err != nil {
 			panic(hostadapt.CallbackFailure(err, "func(goside.Row) bool"))
 		}
@@ -1387,41 +1506,41 @@ func (b *nomiHostBound) in61(fr *rt.Frame, v rt.Value) (out func(goside3.Row) bo
 	}, nil
 }
 
-// fn56 adapts postgres/postgres.each_row_raw: each_row_raw(h: Handle, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
-func (b *nomiHostBound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn60 adapts postgres/postgres.each_row_raw: each_row_raw(h: Handle, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
+func (b *nomiHostBound) fn60(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.each_row_raw", &err)
 	if len(args) != 4 {
 		return nil, hostadapt.Arity("postgres/postgres.each_row_raw", 4, len(args))
 	}
-	a0, err := b.in46(fr, args[0])
+	a0, err := b.in50(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.each_row_raw", 0, "goside.EachRow", "s", err)
 	}
-	a1, err := b.in28(fr, args[1])
+	a1, err := b.in32(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.each_row_raw", 1, "goside.EachRow", "parts", err)
 	}
-	a2, err := b.in57(fr, args[2])
+	a2, err := b.in61(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.each_row_raw", 2, "goside.EachRow", "params", err)
 	}
-	a3, err := b.in61(fr, args[3])
+	a3, err := b.in65(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.each_row_raw", 3, "goside.EachRow", "f", err)
 	}
-	r0 := goside3.EachRow(fr.Context(), a0, a1, a2, a3)
-	v0, err := b.out49(r0)
+	r0 := goside4.EachRow(fr.Context(), a0, a1, a2, a3)
+	v0, err := b.out53(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.EachRow", err)
 	}
 	return v0, nil
 }
 
-// out74 builds a List<List<Cell>> from Go [][]goside3.Cell.
-func (b *nomiHostBound) out74(v [][]goside3.Cell) (rt.Value, error) {
+// out78 builds a List<List<Cell>> from Go [][]goside4.Cell.
+func (b *nomiHostBound) out78(v [][]goside4.Cell) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out64(v[i])
+		x, err := b.out68(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -1430,61 +1549,61 @@ func (b *nomiHostBound) out74(v [][]goside3.Cell) (rt.Value, error) {
 	return xs, nil
 }
 
-// out72 builds a Answer from Go goside3.Answer.
-func (b *nomiHostBound) out72(v goside3.Answer) (rt.Value, error) {
-	r := b.d14.New()
-	w73, err := b.out34(v.Columns)
+// out76 builds a Answer from Go goside4.Answer.
+func (b *nomiHostBound) out76(v goside4.Answer) (rt.Value, error) {
+	r := b.d16.New()
+	w77, err := b.out38(v.Columns)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "columns", err)
 	}
-	r.R[0] = w73
-	w75, err := b.out74(v.Rows)
+	r.R[0] = w77
+	w79, err := b.out78(v.Rows)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "rows", err)
 	}
-	r.R[1] = w75
+	r.R[1] = w79
 	r.SetIntSlot(0, rt.Value(int64(v.Changed)))
-	w76, err := b.out49(v.Failure)
+	w80, err := b.out53(v.Failure)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "failure", err)
 	}
-	r.R[2] = w76
+	r.R[2] = w80
 	return r, nil
 }
 
-// fn71 adapts postgres/postgres.exec_raw: exec_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer
-func (b *nomiHostBound) fn71(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn75 adapts postgres/postgres.exec_raw: exec_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer
+func (b *nomiHostBound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.exec_raw", &err)
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("postgres/postgres.exec_raw", 3, len(args))
 	}
-	a0, err := b.in46(fr, args[0])
+	a0, err := b.in50(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.exec_raw", 0, "goside.Exec", "s", err)
 	}
-	a1, err := b.in28(fr, args[1])
+	a1, err := b.in32(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.exec_raw", 1, "goside.Exec", "parts", err)
 	}
-	a2, err := b.in57(fr, args[2])
+	a2, err := b.in61(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.exec_raw", 2, "goside.Exec", "params", err)
 	}
-	r0 := goside3.Exec(fr.Context(), a0, a1, a2)
-	v0, err := b.out72(r0)
+	r0 := goside4.Exec(fr.Context(), a0, a1, a2)
+	v0, err := b.out76(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Exec", err)
 	}
 	return v0, nil
 }
 
-// out78 builds a ListenHandle from Go *goside3.Listener.
-func (b *nomiHostBound) out78(v *goside3.Listener) (rt.Value, error) {
+// out82 builds a ListenHandle from Go *goside4.Listener.
+func (b *nomiHostBound) out82(v *goside4.Listener) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "postgres.ListenHandle", Value: v}, nil
 }
 
-// fn77 adapts postgres/postgres.listen_raw: listen_raw(url: String, channel: String) -> Result<ListenHandle, String>
-func (b *nomiHostBound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn81 adapts postgres/postgres.listen_raw: listen_raw(url: String, channel: String) -> Result<ListenHandle, String>
+func (b *nomiHostBound) fn81(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.listen_raw", &err)
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("postgres/postgres.listen_raw", 2, len(args))
@@ -1497,55 +1616,55 @@ func (b *nomiHostBound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.listen_raw", 1, "goside.Listen", "channel", err)
 	}
-	r0, e := goside3.Listen(fr.Context(), a0, a1)
+	r0, e := goside4.Listen(fr.Context(), a0, a1)
 	if e != nil {
-		rec := b.d10.NewVariant(1)
+		rec := b.d12.NewVariant(1)
 		rec.S[0] = e.Error()
 		return rec, nil
 	}
-	v0, err := b.out78(r0)
+	v0, err := b.out82(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Listen", err)
 	}
-	ok := b.d10.NewVariant(0)
+	ok := b.d12.NewVariant(0)
 	ok.R[0] = v0
 	return ok, nil
 }
 
-// out80 builds a Bool from Go bool.
-func (b *nomiHostBound) out80(v bool) (rt.Value, error) {
+// out84 builds a Bool from Go bool.
+func (b *nomiHostBound) out84(v bool) (rt.Value, error) {
 	return bool(v), nil
 }
 
-// fn79 adapts postgres/postgres.listener_closed_raw: listener_closed_raw(l: ListenHandle) -> Bool
-func (b *nomiHostBound) fn79(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn83 adapts postgres/postgres.listener_closed_raw: listener_closed_raw(l: ListenHandle) -> Bool
+func (b *nomiHostBound) fn83(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.listener_closed_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.listener_closed_raw", 1, len(args))
 	}
-	a0, err := b.in52(fr, args[0])
+	a0, err := b.in56(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.listener_closed_raw", 0, "goside.IsClosed", "l", err)
 	}
-	r0 := goside3.IsClosed(a0)
-	v0, err := b.out80(r0)
+	r0 := goside4.IsClosed(a0)
+	v0, err := b.out84(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.IsClosed", err)
 	}
 	return v0, nil
 }
 
-// fn81 adapts postgres/postgres.listener_received_raw: listener_received_raw(l: ListenHandle) -> Int
-func (b *nomiHostBound) fn81(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn85 adapts postgres/postgres.listener_received_raw: listener_received_raw(l: ListenHandle) -> Int
+func (b *nomiHostBound) fn85(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.listener_received_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.listener_received_raw", 1, len(args))
 	}
-	a0, err := b.in52(fr, args[0])
+	a0, err := b.in56(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.listener_received_raw", 0, "goside.Received", "l", err)
 	}
-	r0 := goside3.Received(a0)
+	r0 := goside4.Received(a0)
 	v0, err := b.out18(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Received", err)
@@ -1553,44 +1672,44 @@ func (b *nomiHostBound) fn81(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	return v0, nil
 }
 
-// fn82 adapts postgres/postgres.listener_waiting_raw: listener_waiting_raw(l: ListenHandle) -> Bool
-func (b *nomiHostBound) fn82(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn86 adapts postgres/postgres.listener_waiting_raw: listener_waiting_raw(l: ListenHandle) -> Bool
+func (b *nomiHostBound) fn86(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.listener_waiting_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.listener_waiting_raw", 1, len(args))
 	}
-	a0, err := b.in52(fr, args[0])
+	a0, err := b.in56(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.listener_waiting_raw", 0, "goside.Waiting", "l", err)
 	}
-	r0 := goside3.Waiting(a0)
-	v0, err := b.out80(r0)
+	r0 := goside4.Waiting(a0)
+	v0, err := b.out84(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Waiting", err)
 	}
 	return v0, nil
 }
 
-// fn83 adapts postgres/postgres.ping_raw: ping_raw(h: Handle) -> Failure
-func (b *nomiHostBound) fn83(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn87 adapts postgres/postgres.ping_raw: ping_raw(h: Handle) -> Failure
+func (b *nomiHostBound) fn87(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.ping_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.ping_raw", 1, len(args))
 	}
-	a0, err := b.in46(fr, args[0])
+	a0, err := b.in50(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.ping_raw", 0, "goside.Ping", "s", err)
 	}
-	r0 := goside3.Ping(fr.Context(), a0)
-	v0, err := b.out49(r0)
+	r0 := goside4.Ping(fr.Context(), a0)
+	v0, err := b.out53(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Ping", err)
 	}
 	return v0, nil
 }
 
-// fn84 adapts postgres/postgres.pool_raw: pool_raw(url: String) -> Handle
-func (b *nomiHostBound) fn84(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn88 adapts postgres/postgres.pool_raw: pool_raw(url: String) -> Handle
+func (b *nomiHostBound) fn88(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.pool_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.pool_raw", 1, len(args))
@@ -1599,67 +1718,67 @@ func (b *nomiHostBound) fn84(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.pool_raw", 0, "goside.Pool", "url", err)
 	}
-	r0 := goside3.Pool(a0)
-	v0, err := b.out47(r0)
+	r0 := goside4.Pool(a0)
+	v0, err := b.out51(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Pool", err)
 	}
 	return v0, nil
 }
 
-// fn85 adapts postgres/postgres.rollback_raw: rollback_raw(h: Handle) -> Failure
-func (b *nomiHostBound) fn85(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn89 adapts postgres/postgres.rollback_raw: rollback_raw(h: Handle) -> Failure
+func (b *nomiHostBound) fn89(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.rollback_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.rollback_raw", 1, len(args))
 	}
-	a0, err := b.in46(fr, args[0])
+	a0, err := b.in50(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.rollback_raw", 0, "goside.Rollback", "s", err)
 	}
-	r0 := goside3.Rollback(fr.Context(), a0)
-	v0, err := b.out49(r0)
+	r0 := goside4.Rollback(fr.Context(), a0)
+	v0, err := b.out53(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Rollback", err)
 	}
 	return v0, nil
 }
 
-// fn86 adapts postgres/postgres.run_raw: run_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer
-func (b *nomiHostBound) fn86(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn90 adapts postgres/postgres.run_raw: run_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer
+func (b *nomiHostBound) fn90(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.run_raw", &err)
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("postgres/postgres.run_raw", 3, len(args))
 	}
-	a0, err := b.in46(fr, args[0])
+	a0, err := b.in50(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.run_raw", 0, "goside.Run", "s", err)
 	}
-	a1, err := b.in28(fr, args[1])
+	a1, err := b.in32(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.run_raw", 1, "goside.Run", "parts", err)
 	}
-	a2, err := b.in57(fr, args[2])
+	a2, err := b.in61(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.run_raw", 2, "goside.Run", "params", err)
 	}
-	r0 := goside3.Run(fr.Context(), a0, a1, a2)
-	v0, err := b.out72(r0)
+	r0 := goside4.Run(fr.Context(), a0, a1, a2)
+	v0, err := b.out76(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Run", err)
 	}
 	return v0, nil
 }
 
-// fn87 adapts postgres/postgres.scratch_raw: scratch_raw() -> Result<String, String>
-func (b *nomiHostBound) fn87(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn91 adapts postgres/postgres.scratch_raw: scratch_raw() -> Result<String, String>
+func (b *nomiHostBound) fn91(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.scratch_raw", &err)
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("postgres/postgres.scratch_raw", 0, len(args))
 	}
-	r0, e := goside3.Scratch(fr.Context())
+	r0, e := goside4.Scratch(fr.Context())
 	if e != nil {
-		rec := b.d15.NewVariant(1)
+		rec := b.d17.NewVariant(1)
 		rec.S[0] = e.Error()
 		return rec, nil
 	}
@@ -1667,57 +1786,57 @@ func (b *nomiHostBound) fn87(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Scratch", err)
 	}
-	ok := b.d15.NewVariant(0)
+	ok := b.d17.NewVariant(0)
 	ok.S[0] = v0.(string)
 	return ok, nil
 }
 
-// out89 builds a Notice from Go goside3.Notice.
-func (b *nomiHostBound) out89(v goside3.Notice) (rt.Value, error) {
-	r := b.d16.New()
+// out93 builds a Notice from Go goside4.Notice.
+func (b *nomiHostBound) out93(v goside4.Notice) (rt.Value, error) {
+	r := b.d18.New()
 	r.S[0] = string(v.Channel)
 	r.S[1] = string(v.Payload)
-	w90, err := b.out49(v.Failure)
+	w94, err := b.out53(v.Failure)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "failure", err)
 	}
-	r.R[0] = w90
+	r.R[0] = w94
 	return r, nil
 }
 
-// fn88 adapts postgres/postgres.wait_raw: wait_raw(l: ListenHandle) -> Notice
-func (b *nomiHostBound) fn88(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn92 adapts postgres/postgres.wait_raw: wait_raw(l: ListenHandle) -> Notice
+func (b *nomiHostBound) fn92(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.wait_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("postgres/postgres.wait_raw", 1, len(args))
 	}
-	a0, err := b.in52(fr, args[0])
+	a0, err := b.in56(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("postgres/postgres.wait_raw", 0, "goside.Wait", "l", err)
 	}
-	r0 := goside3.Wait(fr.Context(), a0)
-	v0, err := b.out89(r0)
+	r0 := goside4.Wait(fr.Context(), a0)
+	v0, err := b.out93(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Wait", err)
 	}
 	return v0, nil
 }
 
-// in93 reads a Migration as Go goside4.Migration.
-func (b *nomiHostBound) in93(fr *rt.Frame, v rt.Value) (out goside4.Migration, err error) {
+// in97 reads a Migration as Go goside5.Migration.
+func (b *nomiHostBound) in97(fr *rt.Frame, v rt.Value) (out goside5.Migration, err error) {
 	r, err := hostadapt.Record(v, "describe.Migration")
 	if err != nil {
 		return out, err
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d3, 0, 0, "path")
+		x, err := hostadapt.StringField(r, b.d5, 0, 0, "path")
 		if err != nil {
 			return out, err
 		}
 		out.Path = string(x)
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d3, 1, 1, "text")
+		x, err := hostadapt.StringField(r, b.d5, 1, 1, "text")
 		if err != nil {
 			return out, err
 		}
@@ -1726,16 +1845,16 @@ func (b *nomiHostBound) in93(fr *rt.Frame, v rt.Value) (out goside4.Migration, e
 	return out, nil
 }
 
-// in92 reads a List<Migration> as Go []goside4.Migration.
-func (b *nomiHostBound) in92(fr *rt.Frame, v rt.Value) (out []goside4.Migration, err error) {
+// in96 reads a List<Migration> as Go []goside5.Migration.
+func (b *nomiHostBound) in96(fr *rt.Frame, v rt.Value) (out []goside5.Migration, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
 	}
-	out = make([]goside4.Migration, 0, hostadapt.Len(xs))
+	out = make([]goside5.Migration, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in93(fr, c.Head)
+		e, err := b.in97(fr, c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -1745,9 +1864,9 @@ func (b *nomiHostBound) in92(fr *rt.Frame, v rt.Value) (out []goside4.Migration,
 	return out, nil
 }
 
-// out98 builds a TableColumn from Go goside4.TableColumn.
-func (b *nomiHostBound) out98(v goside4.TableColumn) (rt.Value, error) {
-	r := b.d18.New()
+// out102 builds a TableColumn from Go goside5.TableColumn.
+func (b *nomiHostBound) out102(v goside5.TableColumn) (rt.Value, error) {
+	r := b.d20.New()
 	r.S[0] = string(v.Name)
 	r.S[1] = string(v.Declared)
 	r.W[0] = rt.BoolWord(bool(v.NotNull))
@@ -1757,91 +1876,8 @@ func (b *nomiHostBound) out98(v goside4.TableColumn) (rt.Value, error) {
 	return r, nil
 }
 
-// out97 builds a List<TableColumn> from Go []goside4.TableColumn.
-func (b *nomiHostBound) out97(v []goside4.TableColumn) (rt.Value, error) {
-	var xs *rt.List[any]
-	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out98(v[i])
-		if err != nil {
-			return nil, fmt.Errorf("index %d: %w", i, err)
-		}
-		xs = rt.Cons[any](x, xs)
-	}
-	return xs, nil
-}
-
-// out96 builds a Table from Go goside4.Table.
-func (b *nomiHostBound) out96(v goside4.Table) (rt.Value, error) {
-	r := b.d17.New()
-	r.S[0] = string(v.Name)
-	r.S[1] = string(v.Sql)
-	w99, err := b.out97(v.Columns)
-	if err != nil {
-		return nil, fmt.Errorf("field %q: %w", "columns", err)
-	}
-	r.R[0] = w99
-	r.S[2] = string(v.Migration)
-	return r, nil
-}
-
-// out95 builds a List<Table> from Go []goside4.Table.
-func (b *nomiHostBound) out95(v []goside4.Table) (rt.Value, error) {
-	var xs *rt.List[any]
-	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out96(v[i])
-		if err != nil {
-			return nil, fmt.Errorf("index %d: %w", i, err)
-		}
-		xs = rt.Cons[any](x, xs)
-	}
-	return xs, nil
-}
-
-// out104 builds a Column from Go goside4.Column.
-func (b *nomiHostBound) out104(v goside4.Column) (rt.Value, error) {
-	r := b.d20.New()
-	r.S[0] = string(v.Name)
-	r.S[1] = string(v.Declared)
-	r.S[2] = string(v.Table)
-	r.S[3] = string(v.Origin)
-	r.W[0] = rt.BoolWord(bool(v.NotNull))
-	return r, nil
-}
-
-// out103 builds a List<Column> from Go []goside4.Column.
-func (b *nomiHostBound) out103(v []goside4.Column) (rt.Value, error) {
-	var xs *rt.List[any]
-	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out104(v[i])
-		if err != nil {
-			return nil, fmt.Errorf("index %d: %w", i, err)
-		}
-		xs = rt.Cons[any](x, xs)
-	}
-	return xs, nil
-}
-
-// out102 builds a Statement from Go goside4.Statement.
-func (b *nomiHostBound) out102(v goside4.Statement) (rt.Value, error) {
-	r := b.d19.New()
-	w105, err := b.out103(v.Columns)
-	if err != nil {
-		return nil, fmt.Errorf("field %q: %w", "columns", err)
-	}
-	r.R[0] = w105
-	r.SetIntSlot(0, rt.Value(int64(v.Params)))
-	w106, err := b.out34(v.Plan)
-	if err != nil {
-		return nil, fmt.Errorf("field %q: %w", "plan", err)
-	}
-	r.R[1] = w106
-	r.S[0] = string(v.Error)
-	r.SetIntSlot(1, rt.Value(int64(v.Offset)))
-	return r, nil
-}
-
-// out101 builds a List<Statement> from Go []goside4.Statement.
-func (b *nomiHostBound) out101(v []goside4.Statement) (rt.Value, error) {
+// out101 builds a List<TableColumn> from Go []goside5.TableColumn.
+func (b *nomiHostBound) out101(v []goside5.TableColumn) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out102(v[i])
@@ -1853,63 +1889,146 @@ func (b *nomiHostBound) out101(v []goside4.Statement) (rt.Value, error) {
 	return xs, nil
 }
 
-// out94 builds a Description from Go goside4.Description.
-func (b *nomiHostBound) out94(v goside4.Description) (rt.Value, error) {
-	r := b.d4.New()
-	w100, err := b.out95(v.Tables)
+// out100 builds a Table from Go goside5.Table.
+func (b *nomiHostBound) out100(v goside5.Table) (rt.Value, error) {
+	r := b.d19.New()
+	r.S[0] = string(v.Name)
+	r.S[1] = string(v.Sql)
+	w103, err := b.out101(v.Columns)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "columns", err)
+	}
+	r.R[0] = w103
+	r.S[2] = string(v.Migration)
+	return r, nil
+}
+
+// out99 builds a List<Table> from Go []goside5.Table.
+func (b *nomiHostBound) out99(v []goside5.Table) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out100(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out108 builds a Column from Go goside5.Column.
+func (b *nomiHostBound) out108(v goside5.Column) (rt.Value, error) {
+	r := b.d22.New()
+	r.S[0] = string(v.Name)
+	r.S[1] = string(v.Declared)
+	r.S[2] = string(v.Table)
+	r.S[3] = string(v.Origin)
+	r.W[0] = rt.BoolWord(bool(v.NotNull))
+	return r, nil
+}
+
+// out107 builds a List<Column> from Go []goside5.Column.
+func (b *nomiHostBound) out107(v []goside5.Column) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out108(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out106 builds a Statement from Go goside5.Statement.
+func (b *nomiHostBound) out106(v goside5.Statement) (rt.Value, error) {
+	r := b.d21.New()
+	w109, err := b.out107(v.Columns)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "columns", err)
+	}
+	r.R[0] = w109
+	r.SetIntSlot(0, rt.Value(int64(v.Params)))
+	w110, err := b.out38(v.Plan)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "plan", err)
+	}
+	r.R[1] = w110
+	r.S[0] = string(v.Error)
+	r.SetIntSlot(1, rt.Value(int64(v.Offset)))
+	return r, nil
+}
+
+// out105 builds a List<Statement> from Go []goside5.Statement.
+func (b *nomiHostBound) out105(v []goside5.Statement) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out106(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out98 builds a Description from Go goside5.Description.
+func (b *nomiHostBound) out98(v goside5.Description) (rt.Value, error) {
+	r := b.d6.New()
+	w104, err := b.out99(v.Tables)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "tables", err)
 	}
-	r.R[0] = w100
-	w107, err := b.out101(v.Statements)
+	r.R[0] = w104
+	w111, err := b.out105(v.Statements)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "statements", err)
 	}
-	r.R[1] = w107
+	r.R[1] = w111
 	r.S[0] = string(v.Error)
 	r.S[1] = string(v.Migration)
 	r.SetIntSlot(0, rt.Value(int64(v.Offset)))
 	return r, nil
 }
 
-// fn91 adapts sqlite/describe.describe: describe(migrations: List<Migration>, statements: List<String>) -> Description
-func (b *nomiHostBound) fn91(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn95 adapts sqlite/describe.describe: describe(migrations: List<Migration>, statements: List<String>) -> Description
+func (b *nomiHostBound) fn95(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/describe.describe", &err)
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("sqlite/describe.describe", 2, len(args))
 	}
-	a0, err := b.in92(fr, args[0])
+	a0, err := b.in96(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/describe.describe", 0, "goside.Describe", "migrations", err)
 	}
-	a1, err := b.in28(fr, args[1])
+	a1, err := b.in32(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/describe.describe", 1, "goside.Describe", "statements", err)
 	}
-	r0 := goside4.Describe(a0, a1)
-	v0, err := b.out94(r0)
+	r0 := goside5.Describe(a0, a1)
+	v0, err := b.out98(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Describe", err)
 	}
 	return v0, nil
 }
 
-// in109 reads a Handle as Go *goside4.Conn.
-func (b *nomiHostBound) in109(fr *rt.Frame, v rt.Value) (out *goside4.Conn, err error) {
+// in113 reads a Handle as Go *goside5.Conn.
+func (b *nomiHostBound) in113(fr *rt.Frame, v rt.Value) (out *goside5.Conn, err error) {
 	h, err := hostadapt.Handle(v, "sqlite.Handle")
 	if err != nil {
 		return out, err
 	}
-	p, ok := h.(*goside4.Conn)
+	p, ok := h.(*goside5.Conn)
 	if !ok {
-		return out, fmt.Errorf("sqlite.Handle handle holds %T, not *goside4.Conn", h)
+		return out, fmt.Errorf("sqlite.Handle handle holds %T, not *goside5.Conn", h)
 	}
 	return p, nil
 }
 
-// out111 builds a Failure from Go goside4.Failure.
-func (b *nomiHostBound) out111(v goside4.Failure) (rt.Value, error) {
-	r := b.d22.New()
+// out115 builds a Failure from Go goside5.Failure.
+func (b *nomiHostBound) out115(v goside5.Failure) (rt.Value, error) {
+	r := b.d24.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[0] = string(v.Code)
 	r.S[1] = string(v.Message)
@@ -1920,26 +2039,26 @@ func (b *nomiHostBound) out111(v goside4.Failure) (rt.Value, error) {
 	return r, nil
 }
 
-// out110 builds a Level from Go goside4.Level.
-func (b *nomiHostBound) out110(v goside4.Level) (rt.Value, error) {
-	r := b.d21.New()
+// out114 builds a Level from Go goside5.Level.
+func (b *nomiHostBound) out114(v goside5.Level) (rt.Value, error) {
+	r := b.d23.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Depth)))
 	r.SetIntSlot(1, rt.Value(int64(v.Token)))
-	w112, err := b.out111(v.Failure)
+	w116, err := b.out115(v.Failure)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "failure", err)
 	}
-	r.R[0] = w112
+	r.R[0] = w116
 	return r, nil
 }
 
-// fn108 adapts sqlite/sqlite.begin_raw: begin_raw(h: Handle, depth: Int, token: Int) -> Level
-func (b *nomiHostBound) fn108(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn112 adapts sqlite/sqlite.begin_raw: begin_raw(h: Handle, depth: Int, token: Int) -> Level
+func (b *nomiHostBound) fn112(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.begin_raw", &err)
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("sqlite/sqlite.begin_raw", 3, len(args))
 	}
-	a0, err := b.in109(fr, args[0])
+	a0, err := b.in113(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.begin_raw", 0, "goside.Begin", "c", err)
 	}
@@ -1951,39 +2070,39 @@ func (b *nomiHostBound) fn108(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.begin_raw", 2, "goside.Begin", "token", err)
 	}
-	r0 := goside4.Begin(a0, a1, a2)
-	v0, err := b.out110(r0)
+	r0 := goside5.Begin(a0, a1, a2)
+	v0, err := b.out114(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Begin", err)
 	}
 	return v0, nil
 }
 
-// fn113 adapts sqlite/sqlite.close_raw: close_raw(h: Handle) -> Failure
-func (b *nomiHostBound) fn113(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn117 adapts sqlite/sqlite.close_raw: close_raw(h: Handle) -> Failure
+func (b *nomiHostBound) fn117(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.close_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("sqlite/sqlite.close_raw", 1, len(args))
 	}
-	a0, err := b.in109(fr, args[0])
+	a0, err := b.in113(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.close_raw", 0, "goside.Close", "c", err)
 	}
-	r0 := goside4.Close(a0)
-	v0, err := b.out111(r0)
+	r0 := goside5.Close(a0)
+	v0, err := b.out115(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Close", err)
 	}
 	return v0, nil
 }
 
-// fn114 adapts sqlite/sqlite.commit_raw: commit_raw(h: Handle, depth: Int, token: Int) -> Failure
-func (b *nomiHostBound) fn114(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn118 adapts sqlite/sqlite.commit_raw: commit_raw(h: Handle, depth: Int, token: Int) -> Failure
+func (b *nomiHostBound) fn118(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.commit_raw", &err)
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("sqlite/sqlite.commit_raw", 3, len(args))
 	}
-	a0, err := b.in109(fr, args[0])
+	a0, err := b.in113(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.commit_raw", 0, "goside.Commit", "c", err)
 	}
@@ -1995,22 +2114,22 @@ func (b *nomiHostBound) fn114(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.commit_raw", 2, "goside.Commit", "token", err)
 	}
-	r0 := goside4.Commit(a0, a1, a2)
-	v0, err := b.out111(r0)
+	r0 := goside5.Commit(a0, a1, a2)
+	v0, err := b.out115(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Commit", err)
 	}
 	return v0, nil
 }
 
-// in117 reads a Cell as Go goside4.Cell.
-func (b *nomiHostBound) in117(fr *rt.Frame, v rt.Value) (out goside4.Cell, err error) {
+// in121 reads a Cell as Go goside5.Cell.
+func (b *nomiHostBound) in121(fr *rt.Frame, v rt.Value) (out goside5.Cell, err error) {
 	r, err := hostadapt.Record(v, "sqlite.Cell")
 	if err != nil {
 		return out, err
 	}
 	{
-		x, err := hostadapt.IntValueField(r, b.d23, 0, 0, "kind")
+		x, err := hostadapt.IntValueField(r, b.d25, 0, 0, "kind")
 		if err != nil {
 			return out, err
 		}
@@ -2021,7 +2140,7 @@ func (b *nomiHostBound) in117(fr *rt.Frame, v rt.Value) (out goside4.Cell, err e
 		out.Kind = y
 	}
 	{
-		x, err := hostadapt.IntValueField(r, b.d23, 1, 1, "int")
+		x, err := hostadapt.IntValueField(r, b.d25, 1, 1, "int")
 		if err != nil {
 			return out, err
 		}
@@ -2032,21 +2151,21 @@ func (b *nomiHostBound) in117(fr *rt.Frame, v rt.Value) (out goside4.Cell, err e
 		out.Int = y
 	}
 	{
-		x, err := hostadapt.FloatField(r, b.d23, 2, 2, "float")
+		x, err := hostadapt.FloatField(r, b.d25, 2, 2, "float")
 		if err != nil {
 			return out, err
 		}
 		out.Float = float64(x)
 	}
 	{
-		x, err := hostadapt.StringField(r, b.d23, 3, 0, "text")
+		x, err := hostadapt.StringField(r, b.d25, 3, 0, "text")
 		if err != nil {
 			return out, err
 		}
 		out.Text = string(x)
 	}
 	{
-		x, err := hostadapt.BytesField(r, b.d23, 4, 1, "bytes")
+		x, err := hostadapt.BytesField(r, b.d25, 4, 1, "bytes")
 		if err != nil {
 			return out, err
 		}
@@ -2055,16 +2174,16 @@ func (b *nomiHostBound) in117(fr *rt.Frame, v rt.Value) (out goside4.Cell, err e
 	return out, nil
 }
 
-// in116 reads a List<Cell> as Go []goside4.Cell.
-func (b *nomiHostBound) in116(fr *rt.Frame, v rt.Value) (out []goside4.Cell, err error) {
+// in120 reads a List<Cell> as Go []goside5.Cell.
+func (b *nomiHostBound) in120(fr *rt.Frame, v rt.Value) (out []goside5.Cell, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
 	}
-	out = make([]goside4.Cell, 0, hostadapt.Len(xs))
+	out = make([]goside5.Cell, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
-		e, err := b.in117(fr, c.Head)
+		e, err := b.in121(fr, c.Head)
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -2074,9 +2193,9 @@ func (b *nomiHostBound) in116(fr *rt.Frame, v rt.Value) (out []goside4.Cell, err
 	return out, nil
 }
 
-// out123 builds a Cell from Go goside4.Cell.
-func (b *nomiHostBound) out123(v goside4.Cell) (rt.Value, error) {
-	r := b.d23.New()
+// out127 builds a Cell from Go goside5.Cell.
+func (b *nomiHostBound) out127(v goside5.Cell) (rt.Value, error) {
+	r := b.d25.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.SetIntSlot(1, rt.Value(int64(v.Int)))
 	r.W[2] = rt.FloatWord(float64(v.Float))
@@ -2085,11 +2204,11 @@ func (b *nomiHostBound) out123(v goside4.Cell) (rt.Value, error) {
 	return r, nil
 }
 
-// out122 builds a List<Cell> from Go []goside4.Cell.
-func (b *nomiHostBound) out122(v []goside4.Cell) (rt.Value, error) {
+// out126 builds a List<Cell> from Go []goside5.Cell.
+func (b *nomiHostBound) out126(v []goside5.Cell) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out123(v[i])
+		x, err := b.out127(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -2098,34 +2217,34 @@ func (b *nomiHostBound) out122(v []goside4.Cell) (rt.Value, error) {
 	return xs, nil
 }
 
-// out119 builds a RawRow from Go goside4.Row.
-func (b *nomiHostBound) out119(v goside4.Row) (rt.Value, error) {
-	r := b.d24.New()
-	w120, err := b.out34(v.Columns)
+// out123 builds a RawRow from Go goside5.Row.
+func (b *nomiHostBound) out123(v goside5.Row) (rt.Value, error) {
+	r := b.d26.New()
+	w124, err := b.out38(v.Columns)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "columns", err)
 	}
-	r.R[0] = w120
-	w121, err := b.out34(v.Types)
+	r.R[0] = w124
+	w125, err := b.out38(v.Types)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "types", err)
 	}
-	r.R[1] = w121
-	w124, err := b.out122(v.Cells)
+	r.R[1] = w125
+	w128, err := b.out126(v.Cells)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "cells", err)
 	}
-	r.R[2] = w124
+	r.R[2] = w128
 	return r, nil
 }
 
-// in118 reads a (RawRow) -> Bool as Go func(goside4.Row) bool.
-func (b *nomiHostBound) in118(fr *rt.Frame, v rt.Value) (out func(goside4.Row) bool, err error) {
+// in122 reads a (RawRow) -> Bool as Go func(goside5.Row) bool.
+func (b *nomiHostBound) in122(fr *rt.Frame, v rt.Value) (out func(goside5.Row) bool, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
-	return func(p0 goside4.Row) bool {
-		x0, err := b.out119(p0)
+	return func(p0 goside5.Row) bool {
+		x0, err := b.out123(p0)
 		if err != nil {
 			panic(fmt.Sprintf("Nomi callback arg 0: %v", err))
 		}
@@ -2133,7 +2252,7 @@ func (b *nomiHostBound) in118(fr *rt.Frame, v rt.Value) (out func(goside4.Row) b
 		if err != nil {
 			panic(hostadapt.CallbackFailure(err, "func(goside.Row) bool"))
 		}
-		y, err := b.in70(fr, res)
+		y, err := b.in74(fr, res)
 		if err != nil {
 			panic(hostadapt.CallbackFailure(err, "func(goside.Row) bool"))
 		}
@@ -2141,13 +2260,13 @@ func (b *nomiHostBound) in118(fr *rt.Frame, v rt.Value) (out func(goside4.Row) b
 	}, nil
 }
 
-// fn115 adapts sqlite/sqlite.each_row_raw: each_row_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
-func (b *nomiHostBound) fn115(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn119 adapts sqlite/sqlite.each_row_raw: each_row_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
+func (b *nomiHostBound) fn119(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.each_row_raw", &err)
 	if len(args) != 6 {
 		return nil, hostadapt.Arity("sqlite/sqlite.each_row_raw", 6, len(args))
 	}
-	a0, err := b.in109(fr, args[0])
+	a0, err := b.in113(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 0, "goside.EachRow", "c", err)
 	}
@@ -2159,31 +2278,31 @@ func (b *nomiHostBound) fn115(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 2, "goside.EachRow", "token", err)
 	}
-	a3, err := b.in28(fr, args[3])
+	a3, err := b.in32(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 3, "goside.EachRow", "parts", err)
 	}
-	a4, err := b.in116(fr, args[4])
+	a4, err := b.in120(fr, args[4])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 4, "goside.EachRow", "params", err)
 	}
-	a5, err := b.in118(fr, args[5])
+	a5, err := b.in122(fr, args[5])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 5, "goside.EachRow", "f", err)
 	}
-	r0 := goside4.EachRow(fr.Context(), a0, a1, a2, a3, a4, a5)
-	v0, err := b.out111(r0)
+	r0 := goside5.EachRow(fr.Context(), a0, a1, a2, a3, a4, a5)
+	v0, err := b.out115(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.EachRow", err)
 	}
 	return v0, nil
 }
 
-// out129 builds a List<List<Cell>> from Go [][]goside4.Cell.
-func (b *nomiHostBound) out129(v [][]goside4.Cell) (rt.Value, error) {
+// out133 builds a List<List<Cell>> from Go [][]goside5.Cell.
+func (b *nomiHostBound) out133(v [][]goside5.Cell) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out122(v[i])
+		x, err := b.out126(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -2192,40 +2311,40 @@ func (b *nomiHostBound) out129(v [][]goside4.Cell) (rt.Value, error) {
 	return xs, nil
 }
 
-// out126 builds a Answer from Go goside4.Answer.
-func (b *nomiHostBound) out126(v goside4.Answer) (rt.Value, error) {
-	r := b.d25.New()
-	w127, err := b.out34(v.Columns)
+// out130 builds a Answer from Go goside5.Answer.
+func (b *nomiHostBound) out130(v goside5.Answer) (rt.Value, error) {
+	r := b.d27.New()
+	w131, err := b.out38(v.Columns)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "columns", err)
 	}
-	r.R[0] = w127
-	w128, err := b.out34(v.Types)
+	r.R[0] = w131
+	w132, err := b.out38(v.Types)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "types", err)
 	}
-	r.R[1] = w128
-	w130, err := b.out129(v.Rows)
+	r.R[1] = w132
+	w134, err := b.out133(v.Rows)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "rows", err)
 	}
-	r.R[2] = w130
+	r.R[2] = w134
 	r.SetIntSlot(0, rt.Value(int64(v.Changed)))
-	w131, err := b.out111(v.Failure)
+	w135, err := b.out115(v.Failure)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "failure", err)
 	}
-	r.R[3] = w131
+	r.R[3] = w135
 	return r, nil
 }
 
-// fn125 adapts sqlite/sqlite.exec_raw: exec_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
-func (b *nomiHostBound) fn125(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn129 adapts sqlite/sqlite.exec_raw: exec_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
+func (b *nomiHostBound) fn129(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.exec_raw", &err)
 	if len(args) != 5 {
 		return nil, hostadapt.Arity("sqlite/sqlite.exec_raw", 5, len(args))
 	}
-	a0, err := b.in109(fr, args[0])
+	a0, err := b.in113(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 0, "goside.Exec", "c", err)
 	}
@@ -2237,29 +2356,29 @@ func (b *nomiHostBound) fn125(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 2, "goside.Exec", "token", err)
 	}
-	a3, err := b.in28(fr, args[3])
+	a3, err := b.in32(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 3, "goside.Exec", "parts", err)
 	}
-	a4, err := b.in116(fr, args[4])
+	a4, err := b.in120(fr, args[4])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 4, "goside.Exec", "params", err)
 	}
-	r0 := goside4.Exec(fr.Context(), a0, a1, a2, a3, a4)
-	v0, err := b.out126(r0)
+	r0 := goside5.Exec(fr.Context(), a0, a1, a2, a3, a4)
+	v0, err := b.out130(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Exec", err)
 	}
 	return v0, nil
 }
 
-// out133 builds a Handle from Go *goside4.Conn.
-func (b *nomiHostBound) out133(v *goside4.Conn) (rt.Value, error) {
+// out137 builds a Handle from Go *goside5.Conn.
+func (b *nomiHostBound) out137(v *goside5.Conn) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "sqlite.Handle", Value: v}, nil
 }
 
-// fn132 adapts sqlite/sqlite.open_raw: open_raw(path: String) -> Result<Handle, String>
-func (b *nomiHostBound) fn132(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn136 adapts sqlite/sqlite.open_raw: open_raw(path: String) -> Result<Handle, String>
+func (b *nomiHostBound) fn136(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.open_raw", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("sqlite/sqlite.open_raw", 1, len(args))
@@ -2268,28 +2387,28 @@ func (b *nomiHostBound) fn132(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.open_raw", 0, "goside.Open", "path", err)
 	}
-	r0, e := goside4.Open(a0)
+	r0, e := goside5.Open(a0)
 	if e != nil {
-		rec := b.d10.NewVariant(1)
+		rec := b.d12.NewVariant(1)
 		rec.S[0] = e.Error()
 		return rec, nil
 	}
-	v0, err := b.out133(r0)
+	v0, err := b.out137(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Open", err)
 	}
-	ok := b.d10.NewVariant(0)
+	ok := b.d12.NewVariant(0)
 	ok.R[0] = v0
 	return ok, nil
 }
 
-// fn134 adapts sqlite/sqlite.ping_raw: ping_raw(h: Handle, depth: Int, token: Int) -> Failure
-func (b *nomiHostBound) fn134(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn138 adapts sqlite/sqlite.ping_raw: ping_raw(h: Handle, depth: Int, token: Int) -> Failure
+func (b *nomiHostBound) fn138(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.ping_raw", &err)
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("sqlite/sqlite.ping_raw", 3, len(args))
 	}
-	a0, err := b.in109(fr, args[0])
+	a0, err := b.in113(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.ping_raw", 0, "goside.Ping", "c", err)
 	}
@@ -2301,21 +2420,21 @@ func (b *nomiHostBound) fn134(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.ping_raw", 2, "goside.Ping", "token", err)
 	}
-	r0 := goside4.Ping(a0, a1, a2)
-	v0, err := b.out111(r0)
+	r0 := goside5.Ping(a0, a1, a2)
+	v0, err := b.out115(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Ping", err)
 	}
 	return v0, nil
 }
 
-// fn135 adapts sqlite/sqlite.rollback_raw: rollback_raw(h: Handle, depth: Int, token: Int) -> Failure
-func (b *nomiHostBound) fn135(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn139 adapts sqlite/sqlite.rollback_raw: rollback_raw(h: Handle, depth: Int, token: Int) -> Failure
+func (b *nomiHostBound) fn139(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.rollback_raw", &err)
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("sqlite/sqlite.rollback_raw", 3, len(args))
 	}
-	a0, err := b.in109(fr, args[0])
+	a0, err := b.in113(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.rollback_raw", 0, "goside.Rollback", "c", err)
 	}
@@ -2327,21 +2446,21 @@ func (b *nomiHostBound) fn135(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.rollback_raw", 2, "goside.Rollback", "token", err)
 	}
-	r0 := goside4.Rollback(a0, a1, a2)
-	v0, err := b.out111(r0)
+	r0 := goside5.Rollback(a0, a1, a2)
+	v0, err := b.out115(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Rollback", err)
 	}
 	return v0, nil
 }
 
-// fn136 adapts sqlite/sqlite.run_raw: run_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
-func (b *nomiHostBound) fn136(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn140 adapts sqlite/sqlite.run_raw: run_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
+func (b *nomiHostBound) fn140(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.run_raw", &err)
 	if len(args) != 5 {
 		return nil, hostadapt.Arity("sqlite/sqlite.run_raw", 5, len(args))
 	}
-	a0, err := b.in109(fr, args[0])
+	a0, err := b.in113(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 0, "goside.Run", "c", err)
 	}
@@ -2353,24 +2472,24 @@ func (b *nomiHostBound) fn136(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 2, "goside.Run", "token", err)
 	}
-	a3, err := b.in28(fr, args[3])
+	a3, err := b.in32(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 3, "goside.Run", "parts", err)
 	}
-	a4, err := b.in116(fr, args[4])
+	a4, err := b.in120(fr, args[4])
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 4, "goside.Run", "params", err)
 	}
-	r0 := goside4.Run(fr.Context(), a0, a1, a2, a3, a4)
-	v0, err := b.out126(r0)
+	r0 := goside5.Run(fr.Context(), a0, a1, a2, a3, a4)
+	v0, err := b.out130(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Run", err)
 	}
 	return v0, nil
 }
 
-// fn137 adapts remove_all: remove_all(path: String) -> Result<Unit, String>
-func (b *nomiHostBound) fn137(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn141 adapts remove_all: remove_all(path: String) -> Result<Unit, String>
+func (b *nomiHostBound) fn141(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("remove_all", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("remove_all", 1, len(args))
@@ -2381,24 +2500,24 @@ func (b *nomiHostBound) fn137(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	e := testside.RemoveAll(a0)
 	if e != nil {
-		rec := b.d10.NewVariant(1)
+		rec := b.d12.NewVariant(1)
 		rec.S[0] = e.Error()
 		return rec, nil
 	}
-	ok := b.d10.NewVariant(0)
+	ok := b.d12.NewVariant(0)
 	ok.R[0] = rt.Unit{}
 	return ok, nil
 }
 
-// fn138 adapts temp_dir: temp_dir() -> Result<String, String>
-func (b *nomiHostBound) fn138(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn142 adapts temp_dir: temp_dir() -> Result<String, String>
+func (b *nomiHostBound) fn142(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("temp_dir", &err)
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("temp_dir", 0, len(args))
 	}
 	r0, e := testside.TempDir()
 	if e != nil {
-		rec := b.d15.NewVariant(1)
+		rec := b.d17.NewVariant(1)
 		rec.S[0] = e.Error()
 		return rec, nil
 	}
@@ -2406,13 +2525,13 @@ func (b *nomiHostBound) fn138(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Returned("testside.TempDir", err)
 	}
-	ok := b.d15.NewVariant(0)
+	ok := b.d17.NewVariant(0)
 	ok.S[0] = v0.(string)
 	return ok, nil
 }
 
-// fn139 adapts sqlkit/tools/generate.config_text: config_text(root: String) -> Result<String, String>
-func (b *nomiHostBound) fn139(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn143 adapts sqlkit/tools/generate.config_text: config_text(root: String) -> Result<String, String>
+func (b *nomiHostBound) fn143(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlkit/tools/generate.config_text", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("sqlkit/tools/generate.config_text", 1, len(args))
@@ -2423,7 +2542,7 @@ func (b *nomiHostBound) fn139(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	r0, e := toolside.Config(a0)
 	if e != nil {
-		rec := b.d15.NewVariant(1)
+		rec := b.d17.NewVariant(1)
 		rec.S[0] = e.Error()
 		return rec, nil
 	}
@@ -2431,7 +2550,7 @@ func (b *nomiHostBound) fn139(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Returned("toolside.Config", err)
 	}
-	ok := b.d15.NewVariant(0)
+	ok := b.d17.NewVariant(0)
 	ok.S[0] = v0.(string)
 	return ok, nil
 }
@@ -2508,6 +2627,30 @@ func nomiHostTable(targetPath string) func(*hostadapt.Env) (map[string]hostadapt
 		if f, ok := funcs["markdown/markdown.to_html"]; ok {
 			if k := nomiExternKey(targetPath, "markdown/markdown.to_html", "to_html", "github.com/nomi-language/nomi/lib/markdown/markdown.nomi"); k != "markdown/markdown.to_html" {
 				delete(funcs, "markdown/markdown.to_html")
+				funcs[k] = f
+			}
+		}
+		if f, ok := funcs["password_hashers/password_hashers.argon2id_raw"]; ok {
+			if k := nomiExternKey(targetPath, "password_hashers/password_hashers.argon2id_raw", "argon2id_raw", "github.com/nomi-language/nomi/lib/password_hashers/password_hashers.nomi"); k != "password_hashers/password_hashers.argon2id_raw" {
+				delete(funcs, "password_hashers/password_hashers.argon2id_raw")
+				funcs[k] = f
+			}
+		}
+		if f, ok := funcs["password_hashers/password_hashers.bcrypt_cost_raw"]; ok {
+			if k := nomiExternKey(targetPath, "password_hashers/password_hashers.bcrypt_cost_raw", "bcrypt_cost_raw", "github.com/nomi-language/nomi/lib/password_hashers/password_hashers.nomi"); k != "password_hashers/password_hashers.bcrypt_cost_raw" {
+				delete(funcs, "password_hashers/password_hashers.bcrypt_cost_raw")
+				funcs[k] = f
+			}
+		}
+		if f, ok := funcs["password_hashers/password_hashers.bcrypt_hash_raw"]; ok {
+			if k := nomiExternKey(targetPath, "password_hashers/password_hashers.bcrypt_hash_raw", "bcrypt_hash_raw", "github.com/nomi-language/nomi/lib/password_hashers/password_hashers.nomi"); k != "password_hashers/password_hashers.bcrypt_hash_raw" {
+				delete(funcs, "password_hashers/password_hashers.bcrypt_hash_raw")
+				funcs[k] = f
+			}
+		}
+		if f, ok := funcs["password_hashers/password_hashers.bcrypt_verify_raw"]; ok {
+			if k := nomiExternKey(targetPath, "password_hashers/password_hashers.bcrypt_verify_raw", "bcrypt_verify_raw", "github.com/nomi-language/nomi/lib/password_hashers/password_hashers.nomi"); k != "password_hashers/password_hashers.bcrypt_verify_raw" {
+				delete(funcs, "password_hashers/password_hashers.bcrypt_verify_raw")
 				funcs[k] = f
 			}
 		}

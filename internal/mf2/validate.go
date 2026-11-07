@@ -20,8 +20,8 @@ const (
 	KindString
 	// KindEnum is an enum whose variants carry nothing.
 	KindEnum
-	// KindMessage is another message.
-	KindMessage
+	// KindPhrase is another message.
+	KindPhrase
 	// KindNoun is a `Noun`: a `noun` declaration, which `:nomi:noun`
 	// writes and `:nomi:gender` selects by.
 	KindNoun

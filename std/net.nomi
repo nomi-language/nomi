@@ -1,6 +1,6 @@
 //# TCP connections. `net.dial` opens a connection,
-//# and `net.listen` with `net.serve` answers the connections that arrive,
-//# each as a task of a supervisor, as `http.serve` answers requests. A
+//# and `net.listen` with `net.serve` handles the connections that arrive,
+//# each as a task of a supervisor, as `http.serve` handles requests. A
 //# connection is read and written through std::io's streams:
 //#
 //# ```nomi
@@ -188,7 +188,7 @@ pub enum Error {
     Closed
     /// An address that does not parse.
     InvalidAddress {address: String, reason: String}
-    /// A name the resolver could not answer.
+    /// A name the resolver could not resolve.
     Dns {host: String, reason: String, server: Maybe<String>, not_found: Bool}
     /// Any other failure of `op` (`dial`, `listen`, `lookup`) on `address`.
     Other {op: String, address: String, reason: String}
@@ -198,7 +198,7 @@ pub enum Error {
 derive Equatable for Error
 
 impl Error {
-    /// The error for the parts a crossing answers: a net variant, or a
+    /// The error for the parts a crossing returns: a net variant, or a
     /// tls.Error's.
     pub fn from_parts(parts: List<String>) -> Error {
         case parts {
@@ -248,7 +248,7 @@ impl Error {
         Error.Tls{error}
     }
 
-    /// Whether the error is a timeout, as Go's `Timeout()` answers.
+    /// Whether the error is a timeout, as Go's `Timeout()` returns.
     pub fn is_timeout(error: Error) -> Bool {
         case error {
             .Timeout{address: _} -> True
@@ -357,7 +357,7 @@ fn int(text: String) -> Int {
     String.to_int(text) |> Maybe.with_default(0)
 }
 
-/// The addresses of `host`, as the system resolver answers.
+/// The addresses of `host`, as the system resolver returns.
 //! assert net.lookup_host("localhost")
 //! |> Result.map(fn xs -> Iter.any(xs, fn a -> a == "127.0.0.1" or a == "::1")) == Ok(True)
 //
@@ -505,7 +505,7 @@ pub fn listen(
     Ok(Listener{handle})
 }
 
-/// Answers each connection `listener` accepts with `handler`, each as a
+/// Handles each connection `listener` accepts with `handler`, each as a
 /// task of `supervisor`, and closes the connection when the handler
 /// returns. Returns when the listener is closed or the calling task is
 /// stopped, as at shutdown, after closing the listener.

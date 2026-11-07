@@ -256,7 +256,8 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 //
 // They are the impls whose headers write type arguments: the 48 OPERATOR
 // pairs (the arithmetic ones and the bitwise ones on Int and Byte), String's Contains, Url's
-// `CheckedLiteral<String, Url>`, Toml's `CheckedLiteral<ToToml, Toml>` and std/jobs's Cron literal, and std/fs's `Lines`, `Chunks` and `Walk` as
+// `CheckedLiteral<String, Url>`, Toml's `CheckedLiteral<ToToml, Toml>` and std/jobs's Cron literal, and std/fs's `Lines`, `Chunks` and `Walk`,
+// std/csv's `RecordIter` and `RowIter` and std/xml's `TokenIter` as
 // `Iter<Result<...>>`. One mechanism explains the whole set:
 // `ImplBlockInterfaceKey` spells such an impl with its type arguments
 // (`Add<Days, Date>`, `Contains<Regex>`), while `Impls` and `ImplManifest`
@@ -282,8 +283,8 @@ const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/Bit
 	"Int/ShiftRight Int/Subtract Lines/Iter List/Add Map/Add " +
 	"Money/Add Money/Multiply Money/Subtract NaiveDateTime/Add " +
 	"NaiveDateTime/Subtract OffsetDateTime/Add " +
-	"OffsetDateTime/Subtract Set/Add Set/Subtract Statement/Add " +
-	"String/Add String/Contains Time/Add Time/Subtract Toml/CheckedLiteral Url/CheckedLiteral Vector/Add " +
+	"OffsetDateTime/Subtract RecordIter/Iter RowIter/Iter Set/Add Set/Subtract Statement/Add " +
+	"String/Add String/Contains Time/Add Time/Subtract TokenIter/Iter Toml/CheckedLiteral Url/CheckedLiteral Vector/Add " +
 	"Walk/Iter"
 
 // A user type that shares a name with a std type implementing an operator

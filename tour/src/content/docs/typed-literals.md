@@ -184,7 +184,7 @@ calendar types. ``Date`2026-06-15` `` is a `Date`, and
 ``Date`2026-13-01` `` does not compile.
 
 The compiler runs only a `from_fragments` that returns a `Result`, and that
-run must work out its answer from the text alone. If it prints, reads a file
+run must work out its result from the text alone. If it prints, reads a file
 or the clock, or never finishes, a backtick literal of that type is a compile
 error that tells you to use double quotes instead. When the program runs,
 such a literal is built once, the first time it is reached, so a literal

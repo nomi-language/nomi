@@ -32,11 +32,11 @@ type WebImage struct {
 // locales (`[i18n].locales`) carries in its image only those
 // `[i18n].web_embedded` names (the source locale unless it says
 // otherwise), with the root data, every listed locale's plural rules and
-// grammatical features, and every message's source text. Each other listed
+// grammatical features, and every phrase's source text. Each other listed
 // locale is a file, `locales/<tag>.nomil`, holding its CLDR numbers and
-// lists and its messages' and nouns' texts, with those of each ancestor on
+// lists and its phrases' and nouns' texts, with those of each ancestor on
 // its chain that is not embedded either; `Locale.load` fetches it
-// (stdmessageformat's LocaleFile). Every locale was checked by the
+// (stdphraseformat's LocaleFile). Every locale was checked by the
 // compiler all the same: the split moves bytes, not checks.
 //
 // The image and its files share a build id, a digest of them all, which
@@ -55,9 +55,9 @@ func (p *Program) BuildWebImage() (*WebImage, error) {
 			remote = append(remote, tag)
 		}
 	}
-	messages, nouns := vm.MessageTableConsts(im.Modules, vm.ModuleFuncs(im.Modules), stdMessage)
-	// A program with no messages that formats nothing has nothing to split.
-	if len(remote) == 0 || len(messages)+len(nouns) == 0 && parts&(cldrdata.PartNumbers|cldrdata.PartLists) == 0 {
+	phrases, nouns := vm.PhraseTableConsts(im.Modules, vm.ModuleFuncs(im.Modules), stdPhrase)
+	// A program with no phrases that formats nothing has nothing to split.
+	if len(remote) == 0 || len(phrases)+len(nouns) == 0 && parts&(cldrdata.PartNumbers|cldrdata.PartLists) == 0 {
 		im.Locales = cldrfull.Select(need.selection(p.locales, p.source))
 		out.Image, err = ir.EncodeImage(im, ir.WithFileNames(p.imageName))
 		return out, err
@@ -71,13 +71,13 @@ func (p *Program) BuildWebImage() (*WebImage, error) {
 	textsOf := func(tag string) *localefiles.Translations {
 		t := texts[tag]
 		if t == nil {
-			t = &localefiles.Translations{Locale: tag, Messages: map[string]string{}, Nouns: map[string]localefiles.NounForms{}}
+			t = &localefiles.Translations{Locale: tag, Phrases: map[string]string{}, Nouns: map[string]localefiles.NounForms{}}
 			texts[tag] = t
 		}
 		return t
 	}
 	replaced := map[*ir.Const]string{}
-	for _, c := range messages {
+	for _, c := range phrases {
 		t, err := mf2.DecodeTable(c.Text())
 		if err != nil {
 			continue
@@ -88,7 +88,7 @@ func (p *Program) BuildWebImage() (*WebImage, error) {
 			if keep(tag, t.Source) {
 				kept.Texts[tag] = text
 			} else {
-				textsOf(tag).Messages[t.Name] = text
+				textsOf(tag).Phrases[t.Name] = text
 			}
 		}
 		replaced[c] = mf2.EncodeTable(kept)

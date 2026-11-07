@@ -103,8 +103,8 @@ const usage = `usage:
                                         format and search Nomi through the compiler
   nomi tool <module> <name> [args]      run a module's tool, tools/<name>.nomi,
                                         such as a code generator
-  nomi messages accept <locale> <msg>   mark a locale's translation of a message
-                                        current, recording the message's text as
+  nomi phrases accept <locale> <name>   mark a locale's translation of a phrase
+                                        current, recording the phrase's text as
                                         the source it was translated from
   nomi version                          print the version
 `
@@ -122,7 +122,7 @@ func main() {
 		os.Args = append([]string{os.Args[0], command}, rest...)
 	}
 	switch command {
-	case "dap", "mcp", dap.TerminalCommand, "fmt", "messages", "version", "help", "--help", "-h", "new", "init", "remove":
+	case "dap", "mcp", dap.TerminalCommand, "fmt", "phrases", "version", "help", "--help", "-h", "new", "init", "remove":
 		// The debugger is started by an editor, which never downloads, and
 		// the others build nothing.
 	default:
@@ -243,8 +243,8 @@ func main() {
 			}
 			os.Exit(1)
 		}
-	} else if command == "messages" {
-		if err := runMessages(os.Args[2:]); err != nil {
+	} else if command == "phrases" {
+		if err := runPhrases(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -407,7 +407,7 @@ func runCheck(path string) error {
 
 // writeCheckFailure writes the failed check of the program entry: a
 // `FAIL <file>` line for each file that holds errors (a file the entry
-// imports, or a message catalog), in the order its first error
+// imports, or a phrase catalog), in the order its first error
 // comes, with that file's errors below it. An error an earlier entry's
 // check already printed is not printed again (reported keeps them); an
 // entry whose errors were all printed says so. A failure that is not a

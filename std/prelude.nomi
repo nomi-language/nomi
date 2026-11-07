@@ -30,10 +30,12 @@ pub import {
     int.Int
     iter.Iter
     lists.List
+    locale.Locale
     maps.Map
     maybe.Maybe
     maybe.Maybe.{None, Some}
     multiply.Multiply
+    phrase.{Noun, Phrase}
     productable.Productable
     ranges.Range
     results.{Infallible, Result}

@@ -251,7 +251,7 @@ func TestCheckFromInterfacesMatchesFull(t *testing.T) {
 	t.Parallel()
 	t.Run("layered", func(t *testing.T) { interfaceSteps(t, layeredProject(), layeredEdits) })
 	t.Run("signal", func(t *testing.T) { interfaceSteps(t, signalProject(), signalEdits) })
-	t.Run("messages", func(t *testing.T) { interfaceSteps(t, messagesProject(t), messagesEdits) })
+	t.Run("phrases", func(t *testing.T) { interfaceSteps(t, phrasesProject(t), phrasesEdits) })
 	t.Run("dispatch", func(t *testing.T) { interfaceSteps(t, dispatchProject(), dispatchEdits) })
 	t.Run("local type argument", func(t *testing.T) { interfaceSteps(t, rateProject(), rateEdits) })
 	t.Run("same names in two files", func(t *testing.T) {

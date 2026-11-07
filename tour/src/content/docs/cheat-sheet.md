@@ -202,6 +202,9 @@ test result: ok. 1 passed, 0 failed
 
 - `if` and `case` are expressions. `case` must cover every shape the value can
   take. A guard is written `when`: `Some(n) when n > 0 -> ...`.
+- A name in a pattern binds a new variable; it never compares. A pattern
+  name that names a `once` is an error, so write the comparison as a guard:
+  `c when c == not_found -> ...`.
 - The branches of an `if` or `case` have one type. Branches of different
   types that implement one interface join as it only where the value's type
   is written as that interface, by an annotation, a parameter or a declared
@@ -270,7 +273,8 @@ test result: ok. 1 passed, 0 failed
 - A fold's starting value comes before its callback:
   `Iter.reduce(xs, 0, fn acc, x -> acc + x)`. So do `Iter.scan`,
   `Iter.map_reduce` and `Iter.loop`.
-- A capture is a short lambda: `&(&1 * 10)`, `&Map.get(m, &1)`.
+- A capture is a short lambda: `&(&1 * 10)`, `&Map.get(m, &1)`,
+  `&"id ${&1}"`.
 - There are no `for` or `while` loops. Use `Iter` functions, recursion (tail
   calls run in constant stack), or `Iter.loop(start, fn state -> ...)` with
   `break`.
@@ -445,10 +449,7 @@ test result: ok. 2 passed, 0 failed
   month and weekday names and `AM`/`PM`, which are words of a language.
 
 ```nomi-run
-import {
-    std::calendar.{DateTime, DateTimeFields, DateTimePattern}
-    std::locale.Locale
-}
+import std::calendar.{DateTime, DateTimeFields, DateTimePattern}
 
 test "dates" {
     at = DateTime`2026-01-05T15:04:00-05:00[America/New_York]`

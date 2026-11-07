@@ -430,7 +430,7 @@ _ = Supervisor.flush(Config.notify)
 ```
 
 When a deadline passes, it stops all the code under it. `Wait.UpTo` gives
-you an answer either way. Use a deadline when there's nothing worth doing
+you a result either way. Use a deadline when there's nothing worth doing
 after the limit. Use `Wait.UpTo` when you want to find out and then decide.
 
 Outside tests, you can call flush at a checkpoint, for example to make sure
@@ -513,10 +513,10 @@ handles messages one at a time, in the order they were sent, and no locks
 are needed.
 
 `Actor.cast` returns as soon as its message is queued. `Actor.call` builds
-its message around a new `Reply`, which the handler answers with
-`Reply.send`, and waits for the answer up to a timeout, five seconds unless
+its message around a new `Reply`, which the handler replies to with
+`Reply.send`, and waits for the reply up to a timeout, five seconds unless
 the call gives another (`timeout: Duration.seconds(1)`). Each call has its own `Reply`, so two callers can't get each
-other's answers, and a call that gets none answers `Err(CallError.TimedOut)`.
+other's replies, and a call that gets none returns `Err(CallError.TimedOut)`.
 
 Each read costs two channel operations and a switch between tasks. If the
 state is mostly read, ask whether it needs to live in the program and change

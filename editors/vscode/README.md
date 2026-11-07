@@ -11,10 +11,10 @@ and its forks:
   semantic tokens.
 - The language server, `nomi-lsp`: diagnostics, hover, completion,
   go-to-definition, formatting and the rest of what it serves.
-- Message catalogs: the client also attaches `nomi-lsp` to each module's
+- Phrase catalogs: the client also attaches `nomi-lsp` to each module's
   catalogs, the TOML files under the directory its `nomi.toml` names in
   `[i18n].catalogs` (`locales/` unless it names another), for their
-  diagnostics, completion of message names, parameters and variant keys,
+  diagnostics, completion of phrase names, parameters and variant keys,
   hover, and quick fixes. It attaches to no other TOML file. The extension
   reads every `nomi.toml` in the workspace when it starts, and restarts the
   client when a change to one moves the catalogs.

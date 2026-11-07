@@ -634,6 +634,13 @@ fn main() {
 // `SmtpConfig`'s settings), and std/mail_testing and std/storage_testing 1
 // each (`Failing.error`), all on top-level structs.
 //
+// std/http's `Compress` (min_size, level) adds two more on a top-level struct.
+//
+// std/csv adds 8 (`Options`' five and `WriteOptions`' three), std/xml 7
+// (`Name`'s space and prefix, `Element`'s attributes, namespaces and
+// children, `WriteOptions`' two) and std/storage 7 (`ListOptions`' four and
+// `Listing`'s three), all on top-level structs.
+//
 // `tour (nomi-run)` reads 1 rather than 2 because the same cutover removed
 // the other site. `app-fields.md`'s "basic shape" block declared
 // `struct MyApp { context: Context = Context.root(); port: Int }` plus an
@@ -653,9 +660,14 @@ fn main() {
 // `app-fields.md`'s "Settings per environment" block adds
 // three, on the top-level struct `Config` (deployment, database_url,
 // max_connections), its development defaults.
+//
+// std/passwords and std/jwt add ten, all on top-level structs: `Pbkdf2`'s
+// three parameters, `Phc`'s `version` and `params`, and `Validation`'s
+// five checks. tests/20-data-access/jwt_test.nomi adds one (`Login`'s
+// `admin`).
 var fieldDefaultDenominator = map[string]int{
-	"std":             238,
-	"tests":           63,
+	"std":             292,
+	"tests":           64,
 	"tour (nomi-run)": 26,
 	"tour (nomi)":     0,
 }

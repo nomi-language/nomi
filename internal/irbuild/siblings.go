@@ -414,8 +414,8 @@ func (x *fileIndex) resolveSignatures(gens []*gen) {
 //
 // A std module lowered with the program (inStd) is the exception: its
 // private functions are what an expansion's hidden import calls
-// (`message$.compiled`), and the analyzer refuses any other file that names
-// one ("`message.compiled` is internal to std/message"), so a call the
+// (`phrase$.compiled`), and the analyzer refuses any other file that names
+// one ("`phrase.compiled` is internal to std/phrase"), so a call the
 // builder sees is one the language admits.
 func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 	f := &fileFunc{name: fd.Name, decl: fd}

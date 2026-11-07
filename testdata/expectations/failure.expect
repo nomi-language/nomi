@@ -111,10 +111,10 @@ T
 C assertable_subject_report.nomi
 E 1
 N 4
-H 84a77eab3f3347b358945c62abfca7e970e820f3d736b0d28fe4a0beffaa6e78
+H 33055aec5384cbbb7ad27ed063374c7cbcce92ada599415713cb648def82a50c
 T ok <root>/internal/irbuild/testdata/assertable_subject_report.nomi :: an Assertable that holds keeps the whole file honest
 T FAIL <root>/internal/irbuild/testdata/assertable_subject_report.nomi :: a failing Assertable assertion renders the rows it authored
-T   line 64: values were not equal
+T   line 68: values were not equal
 T     assert equals(left, right)
 T     values:
 T       left
@@ -128,10 +128,10 @@ T       expected
 T         = 42
 T     actual: 41
 T FAIL <root>/internal/irbuild/testdata/assertable_subject_report.nomi :: a failing refutation of an Assertable says so in its own words
-T   line 68: refute failed
+T   line 72: refute failed
 T     refute equals(9, 9)
 T FAIL <root>/internal/irbuild/testdata/assertable_subject_report.nomi :: a failing Assertable assertion on a bound name shows where it came from
-T   line 82: values were not equal
+T   line 86: values were not equal
 T     assert comparison
 T     defined as:
 T       equals(5, 6)

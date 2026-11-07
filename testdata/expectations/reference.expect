@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
-records 74
-declared-cases 861
+records 81
+declared-cases 934
 failing 0
 C actors
 E 0
@@ -212,6 +212,23 @@ T ok Context.with_deadline
 T ok Context.with_timeout
 T ok Context.with_value
 T ok Context.value
+C csv
+E 0
+N 13
+H 88ce9dcca19863525bca8fd1952fd47ce33f678dd0103aafc2bfc65c010c2336
+T ok struct Options
+T ok enum Error
+T ok struct Row
+T ok Row.get
+T ok Row.to_map
+T ok csv.decode
+T ok csv.decode_bytes
+T ok csv.decode_rows
+T ok csv.records
+T ok csv.rows
+T ok struct WriteOptions
+T ok csv.encode
+T ok csv.write
 C currency
 E 0
 N 7
@@ -378,8 +395,8 @@ T ok fs_testing.text
 T ok fs_testing.conformance
 C hash
 E 0
-N 14
-H 9075340ff29eb56a0241105f927847dee2fc6df7e806f9cd8728bdaa841e3c06
+N 15
+H d2a96f502c7404fd4e4c7f9514a44cd2019f64e72c6ca7f205cceb1fd071325e
 T ok hash.sha256
 T ok hash.sha256_hex
 T ok hash.sha512
@@ -394,6 +411,7 @@ T ok hash.hmac_sha256 #2
 T ok hash.hmac_sha512
 T ok hash.hmac_sha512 #2
 T ok hash.equal_in_constant_time
+T ok hash.pbkdf2_sha256
 C hex
 E 0
 N 2
@@ -413,8 +431,8 @@ T ok Html.concat
 T ok Html.each
 C http
 E 0
-N 62
-H d5709425eb7646e40fe9aea3e2e8733c1a9999c141bc12fbd84055b9139fbd5f
+N 66
+H ef191754f01df65b47d4494a5880177ad7f16195874543a55273c88caa94631d
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -465,6 +483,10 @@ T ok http.cors
 T ok http.log_requests
 T ok http.security_headers
 T ok http.request_id
+T ok http.compress
+T ok http.basic_auth
+T ok http.method_override
+T ok http.serve_file
 T ok http.file_server
 T ok http.serve_embedded
 T ok http.file_server_embedded
@@ -479,13 +501,15 @@ T ok http.chunked_reader
 T ok http.multipart_parts
 C http_testing
 E 0
-N 5
-H ae405a7478c72f799d30321ababa232591c2e8ccacd9539bf1e81152992984b9
+N 7
+H 6975d42b9510cec54a0b540fc4a02eca259d4f3ded5694eb08d80518fe7d497b
 T ok http_testing.run
 T ok http_testing.request
 T ok http_testing.form_request
 T ok http_testing.chunks
+T ok http_testing.decompressed
 T ok http_testing.with_server [not run in the browser: listen]
+T ok http_testing.open_websocket
 C instant
 E 0
 N 9
@@ -677,6 +701,15 @@ T ok Json.encode
 T ok Json.to_dynamic
 T ok Json.decode_as
 T ok Json.encode_as
+C jwt
+E 0
+N 5
+H 55f3408ad1a605935a5442a36bdc64939dbfb11b041f40a6abb1d1b5e4c06f6d
+T ok SigningKey.hs256
+T ok SigningKey.eddsa
+T ok jwt.sign
+T ok jwt.verify
+T ok jwt.verify_as
 C lists
 E 0
 N 11
@@ -793,8 +826,8 @@ H 90184696d8d380b04e0ccff629ad1df93c1ddaca7d61ee18d9d2f1d7931c48aa
 T ok interface Matcher
 C maybe
 E 0
-N 11
-H c029b1765a6422f84e6404686dd32c20e2f78d5b6edf991514b48a3f0dc7c50b
+N 12
+H 446c43132426710043a8c6b605c6b93bf7fe7039514117232e8eda5204bd80cf
 T ok enum Maybe
 T ok Maybe.is_some
 T ok Maybe.is_none
@@ -802,6 +835,7 @@ T ok Maybe.map
 T ok Maybe.with_default
 T ok Maybe.to_result
 T ok Maybe.flat_map
+T ok Maybe.filter
 T ok Maybe.flatten
 T ok Maybe.collect
 T ok Maybe.values
@@ -838,6 +872,16 @@ T ok net.split_host_port
 T ok net.join_host_port
 T ok net.lookup_host [not run in the browser: connect]
 T ok net.lookup_port [not run in the browser: connect]
+C passwords
+E 0
+N 6
+H dbe0c13db42109d95f6c8998e3a90a8afb6f3f9f65a331585f0f7476e2d7f622
+T ok passwords.hash
+T ok passwords.verify
+T ok passwords.needs_rehash
+T ok passwords.algorithm
+T ok Phc.parse
+T ok Phc.int_param
 C path
 E 0
 N 10
@@ -937,6 +981,14 @@ E 0
 N 1
 H 1f8a2911d85fc0c2cc46801fd1c76e17bfc099aade578f10dd10c6fab6ee2113
 T ok struct Reverse
+C sessions
+E 0
+N 4
+H bd129b65ee74c521448f73c243ab33d6c285c13261d7c5c83eadedb4876d5608
+T ok SessionKey.derive
+T ok Session.new
+T ok sessions.with_session
+T ok sessions.write
 C sets
 E 0
 N 11
@@ -952,6 +1004,21 @@ T ok Set.contains (impl Contains for Set<T>)
 T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
 T ok Set.empty_sum (impl Summable for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
+C signatures
+E 0
+N 11
+H 3556277e3aebe6f25cbc8da8abcda2fbf42951e2708da0ffa31531d3a25c1db8
+T ok PrivateKey.generate_ed25519
+T ok PrivateKey.generate_ecdsa_p256
+T ok PrivateKey.generate_rsa
+T ok PrivateKey.from_pem
+T ok PrivateKey.from_ed25519_seed
+T ok PrivateKey.to_pem
+T ok PublicKey.from_pem
+T ok signatures.sign
+T ok signatures.sign_with
+T ok signatures.verify
+T ok signatures.verify_with
 C sql
 E 0
 N 21
@@ -990,11 +1057,14 @@ T ok sql_testing.conformance
 T ok sql_testing.rules
 C storage
 E 0
-N 7
-H 08d76698325e2fe0c481da1413cc94d71662a4bdb38425e435f45a2f057fbfed
+N 10
+H ae5dfb9bdc9f8978bd949d562906e4a1795c5fa29667744e765e00b14bad2e38
 T ok enum Error
 T ok interface Store
 T ok storage.check_key
+T ok storage.check_prefix
+T ok storage.page
+T ok storage.list_all
 T ok storage.join_key
 T ok storage.check_content_type
 T ok storage.local
@@ -1171,3 +1241,34 @@ T ok Vector.next_item
 T ok Vector.contains (impl Contains for Vector<T>)
 T ok Vector.add (impl Add<Vector<T>, Vector<T>> for Vector<T>)
 T ok Vector.empty_sum (impl Summable for Vector<T>)
+C websocket
+E 0
+N 6
+H ae072e861ace1b3ac51c19fdc97607f14b2d05745e59c64ff9dc619609b65c25
+T ok Error.to_string (impl Display for Error)
+T ok WebSocket.each
+T ok WebSocket.close
+T ok websocket.accept
+T ok websocket.is_upgrade
+T ok websocket.connect [not run in the browser: connect listen]
+C xml
+E 0
+N 17
+H d2b1ae0948a104870b28d276c865a0aa6855ec6007013a1c9e4eb14db885b6b3
+T ok struct Name
+T ok struct Element
+T ok Element.new
+T ok Element.elements
+T ok Element.child
+T ok Element.children_named
+T ok Element.child_text
+T ok Element.text
+T ok Element.attribute
+T ok enum Error
+T ok xml.decode
+T ok xml.decode_bytes
+T ok xml.read
+T ok xml.tokens
+T ok struct WriteOptions
+T ok xml.encode
+T ok xml.write

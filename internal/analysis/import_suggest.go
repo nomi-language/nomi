@@ -86,7 +86,14 @@ func addNamespaceSuggestion(fa *FileAnalysis, name string, pos Pos, seen map[Pos
 	if fa.References[pos] != nil || fa.Definitions[pos] != nil {
 		return
 	}
-	if fa.Program().StdlibModuleScopes[name] == nil {
+	if exports := stdExports(); exports != nil {
+		if !exports.modules[name] {
+			return
+		}
+	} else if fa.Program().StdlibModuleScopes[name] == nil {
+		return
+	}
+	if _, internal := internalStdModules[name]; internal {
 		return
 	}
 	seen[pos] = true
@@ -116,8 +123,20 @@ func addTypeSuggestions(fa *FileAnalysis, typeIndex map[string][]string, name st
 // Resolved != nil), so without it the index would claim e.g. `Map` is exported
 // by every module that imports it. Restricting to owner-like kinds keeps impl
 // methods and variant constructors out.
+//
+// With std's sources installed (SetStdSources) the index is theirs, every
+// public module's, whichever modules this process built: the same modules
+// the "import `std::http.Method`" help of an unbound name names.
 func buildStdlibTypeIndex(fa *FileAnalysis) map[string][]string {
 	idx := map[string][]string{}
+	if exports := stdExports(); exports != nil {
+		for name, modules := range exports.types {
+			for _, m := range modules {
+				idx[name] = append(idx[name], "std/"+m)
+			}
+		}
+		return idx
+	}
 	seen := map[*Scope]bool{}
 	// In module order, so a name several modules export lists them, and
 	// offers their imports, in the same order on every run.

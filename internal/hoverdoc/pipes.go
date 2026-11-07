@@ -138,14 +138,19 @@ func (s *shapeSearch) describeStage(b *ast.Binary, in string) pipeStage {
 	case *ast.Then:
 		if r.Capture != nil {
 			return pipeStage{text: "then " + format.RenderNode(r.Capture), out: out,
-				detail: []string{"`&1` is the `" + in + "`; the stage answers the capture's result."}}
+				detail: []string{"`&1` is the `" + in + "`; the stage returns the capture's result."}}
 		}
 		return pipeStage{text: "then fn " + lambdaParams(r.Lambda) + " -> …", out: out,
-			detail: []string{lambdaBinds(r.Lambda, in) + "; the stage answers the lambda's result."}}
+			detail: []string{lambdaBinds(r.Lambda, in) + "; the stage returns the lambda's result."}}
 	case *ast.Tap:
 		if r.Capture != nil {
 			return pipeStage{text: "tap " + format.RenderNode(r.Capture), out: out,
 				detail: []string{"`&1` is the `" + in + "`; the capture runs for its effect and the value passes on unchanged."}}
+		}
+		if r.Name != nil {
+			name := format.RenderNode(r.Name)
+			return pipeStage{text: "tap " + name, out: out,
+				detail: []string{"`" + name + "` runs on the `" + in + "` for its effect and the value passes on unchanged."}}
 		}
 		return pipeStage{text: "tap fn " + lambdaParams(r.Lambda) + " -> …", out: out,
 			detail: []string{lambdaBinds(r.Lambda, in) + "; the lambda runs for its effect and the value passes on unchanged."}}

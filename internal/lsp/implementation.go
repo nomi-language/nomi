@@ -47,7 +47,7 @@ func (s *Server) textDocumentImplementation(ctx *glsp.Context, params *protocol.
 		real = real.Resolved
 	}
 
-	// A declaration a keyword declaration expanded into (a `message`'s
+	// A declaration a keyword declaration expanded into (a `phrase`'s
 	// function, a `noun`'s value): its implementations are the input spans
 	// its span map names, each catalog entry it was made of.
 	if info := analysis.ExpansionOfNode(real.Node); info != nil {

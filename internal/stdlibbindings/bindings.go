@@ -86,17 +86,19 @@ package stdlibbindings
 import (
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/stdcalendar"
+	"github.com/nomi-language/nomi/internal/stdcsv"
 	"github.com/nomi-language/nomi/internal/stdformat"
 	"github.com/nomi-language/nomi/internal/stdhttp"
 	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/internal/stdlocale"
-	"github.com/nomi-language/nomi/internal/stdmessageformat"
+	"github.com/nomi-language/nomi/internal/stdphraseformat"
 	"github.com/nomi-language/nomi/internal/stdplural"
 	"github.com/nomi-language/nomi/internal/stdprocess"
 	"github.com/nomi-language/nomi/internal/stdrandom"
 	"github.com/nomi-language/nomi/internal/stdregex"
 	"github.com/nomi-language/nomi/internal/stdstrings"
 	"github.com/nomi-language/nomi/internal/stdtoml"
+	"github.com/nomi-language/nomi/internal/stdxml"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -274,9 +276,9 @@ func Funcs() []Binding {
 		{Name: "locale.locale_available", Fn: stdlocale.FFIAvailable},
 		{Name: "locale.locale_load_raw", Fn: stdlocale.FFILoad},
 		{Name: "locale.locale_loaded_raw", Fn: stdlocale.FFILoaded},
-		{Name: "message_format.format_raw", Fn: stdmessageformat.FFIFormat, PanicsPropagate: true},
-		{Name: "message_format.load_raw", Fn: stdmessageformat.FFILoad},
-		{Name: "message_format.noun_raw", Fn: stdmessageformat.FFINoun, PanicsPropagate: true},
+		{Name: "phrase_format.format_raw", Fn: stdphraseformat.FFIFormat, PanicsPropagate: true},
+		{Name: "phrase_format.load_raw", Fn: stdphraseformat.FFILoad},
+		{Name: "phrase_format.noun_raw", Fn: stdphraseformat.FFINoun, PanicsPropagate: true},
 		{Name: "money_format.money_format_raw", Fn: stdformat.FFIFormatMoney},
 		{Name: "money_format.money_mixed", Fn: stdformat.FFIMoneyMixed, PanicsPropagate: true},
 		{Name: "money_format.money_parse_raw", Fn: stdformat.FFIParseMoney},
@@ -371,9 +373,9 @@ func LocaleParts() map[string]cldrdata.Parts {
 		"currency.currency_digits_of":      cldrdata.PartCurrencyCodes,
 		"money_format.money_format_raw":    numbers | cldrdata.PartCurrencies | cldrdata.PartCurrencyNames | cldrdata.PartPlurals,
 		"money_format.money_parse_raw":     numbers | cldrdata.PartCurrencies,
-		"message_format.format_raw":        cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartNumbers,
-		"message_format.noun_raw":          cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartNumbers,
-		"message_format.load_raw":          cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartGrammar | cldrdata.PartAvailable,
+		"phrase_format.format_raw":         cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartNumbers,
+		"phrase_format.noun_raw":           cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartNumbers,
+		"phrase_format.load_raw":           cldrdata.PartListedParents | cldrdata.PartPlurals | cldrdata.PartGrammar | cldrdata.PartAvailable,
 	}
 }
 
@@ -410,6 +412,27 @@ func RtFuncs() []Binding {
 		{Name: "hash.hmac_sha256", Fn: rt.HMACSHA256},
 		{Name: "hash.hmac_sha512", Fn: rt.HMACSHA512},
 		{Name: "hash.equal_in_constant_time", Fn: rt.EqualInConstantTime},
+		{Name: "hash.pbkdf2_sha256", Fn: rt.PBKDF2SHA256},
+		{Name: "signatures_host.generate_ed25519", Fn: stdhttp.SigGenerateEd25519},
+		{Name: "signatures_host.generate_p256", Fn: stdhttp.SigGenerateP256},
+		{Name: "signatures_host.generate_rsa", Fn: stdhttp.SigGenerateRSA},
+		{Name: "signatures_host.private_from_der", Fn: stdhttp.SigPrivateFromDER},
+		{Name: "signatures_host.private_from_pem", Fn: stdhttp.SigPrivateFromPEM},
+		{Name: "signatures_host.private_to_pem", Fn: stdhttp.SigPrivateToPEM},
+		{Name: "signatures_host.private_kind", Fn: stdhttp.SigPrivateKind},
+		{Name: "signatures_host.public_of", Fn: stdhttp.SigPublicOf},
+		{Name: "signatures_host.public_from_der", Fn: stdhttp.SigPublicFromDER},
+		{Name: "signatures_host.public_from_pem", Fn: stdhttp.SigPublicFromPEM},
+		{Name: "signatures_host.public_to_pem", Fn: stdhttp.SigPublicToPEM},
+		{Name: "signatures_host.public_kind", Fn: stdhttp.SigPublicKind},
+		{Name: "signatures_host.ed25519_from_seed", Fn: stdhttp.SigEd25519FromSeed},
+		{Name: "signatures_host.ed25519_seed", Fn: stdhttp.SigEd25519Seed},
+		{Name: "signatures_host.ed25519_public_from_bytes", Fn: stdhttp.SigEd25519PublicFromBytes},
+		{Name: "signatures_host.ed25519_public_bytes", Fn: stdhttp.SigEd25519PublicBytes},
+		{Name: "signatures_host.sign", Fn: stdhttp.SigSign},
+		{Name: "signatures_host.verify", Fn: stdhttp.SigVerify},
+		{Name: "http_host.seal", Fn: rt.Seal},
+		{Name: "http_host.open_sealed", Fn: rt.Open},
 		{Name: "base64.standard", Fn: rt.Base64Encode},
 		{Name: "base64.decode", Fn: rt.Base64Decode},
 		{Name: "base64.url_safe", Fn: rt.Base64URLEncode},
@@ -677,6 +700,10 @@ func RtFuncs() []Binding {
 		{Name: "http_host.wire_response", Fn: stdhttp.WireResponse},
 		{Name: "http_host.chunked_reader", Fn: stdhttp.ChunkedReader},
 		{Name: "http_host.chunked_writer", Fn: stdhttp.ChunkedWriter},
+		{Name: "http_host.gzip_bytes", Fn: stdhttp.GzipBytes},
+		{Name: "http_host.gunzip", Fn: stdhttp.Gunzip},
+		{Name: "http_host.gzip_writer", Fn: stdhttp.GzipWriter},
+		{Name: "http_host.gzip_reader", Fn: stdhttp.GzipReader},
 		{Name: "http_host.multipart_reader", Fn: stdhttp.MultipartReader},
 		{Name: "http_host.next_part", Fn: stdhttp.NextPart},
 		{Name: "http_host.part_headers", Fn: stdhttp.PartHeaders},
@@ -685,6 +712,17 @@ func RtFuncs() []Binding {
 		{Name: "http_host.part_file_name", Fn: stdhttp.PartFileName},
 		{Name: "http_host.multipart_write", Fn: stdhttp.MultipartWrite},
 		{Name: "http_host.close_connections", Fn: stdhttp.CloseConnections},
+		{Name: "http_host.ws_accept_key", Fn: stdhttp.WsAcceptKey},
+		{Name: "http_host.ws_valid_key", Fn: stdhttp.WsValidKey},
+		{Name: "http_host.ws_open", Fn: stdhttp.WsOpen},
+		{Name: "http_host.ws_connect", Fn: stdhttp.WsConnect},
+		{Name: "http_host.ws_protocol", Fn: stdhttp.WsProtocol},
+		{Name: "http_host.ws_id", Fn: stdhttp.WsID},
+		{Name: "http_host.ws_receive", Fn: stdhttp.WsReceive},
+		{Name: "http_host.ws_send", Fn: stdhttp.WsSend},
+		{Name: "http_host.ws_ping", Fn: stdhttp.WsPing},
+		{Name: "http_host.ws_close", Fn: stdhttp.WsClose},
+		{Name: "http_host.ws_pipe", Fn: stdhttp.WsPipe},
 		{Name: "http_host.tls_verify_hostname", Fn: stdhttp.TLSVerifyHostname},
 		{Name: "http_host.net_listen_with", Fn: stdhttp.ListenWith, Class: ClassListen},
 		{Name: "http_host.net_listener_deadline", Fn: stdhttp.NetListenerDeadline},
@@ -746,6 +784,27 @@ func RtFuncs() []Binding {
 		{Name: "process_host.fake_dir", Fn: stdprocess.FakeDir},
 		{Name: "process_host.fake_env", Fn: stdprocess.FakeEnv},
 		{Name: "process_host.fake_input", Fn: stdprocess.FakeInput},
+		{Name: "csv_host.open", Fn: stdcsv.Open},
+		{Name: "csv_host.next", Fn: stdcsv.Next},
+		{Name: "csv_host.line", Fn: stdcsv.Line},
+		{Name: "csv_host.stopped", Fn: stdcsv.Stopped},
+		{Name: "csv_host.message", Fn: stdcsv.Message},
+		{Name: "csv_host.failure", Fn: stdcsv.Failure},
+		{Name: "csv_host.encode", Fn: stdcsv.Encode},
+		{Name: "xml_host.open", Fn: stdxml.Open},
+		{Name: "xml_host.next", Fn: stdxml.Next},
+		{Name: "xml_host.name", Fn: stdxml.Name},
+		{Name: "xml_host.attributes", Fn: stdxml.Attributes},
+		{Name: "xml_host.namespaces", Fn: stdxml.Namespaces},
+		{Name: "xml_host.text", Fn: stdxml.Text},
+		{Name: "xml_host.target", Fn: stdxml.Target},
+		{Name: "xml_host.position", Fn: stdxml.Position},
+		{Name: "xml_host.stopped", Fn: stdxml.Stopped},
+		{Name: "xml_host.message", Fn: stdxml.Message},
+		{Name: "xml_host.failure", Fn: stdxml.Failure},
+		{Name: "xml_host.escape_text", Fn: stdxml.EscapeText},
+		{Name: "xml_host.escape_attribute", Fn: stdxml.EscapeAttribute},
+		{Name: "xml_host.is_name", Fn: stdxml.IsName},
 	}
 	for i := range rows {
 		rows[i].PanicsPropagate = true

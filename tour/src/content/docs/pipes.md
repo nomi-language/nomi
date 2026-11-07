@@ -198,7 +198,8 @@ GO NORTH NOW
 -->
 
 `tap` calls a lambda with the piped value and then passes the same value on.
-Use it for a side effect, such as logging. The lambda must return `Unit`.
+Use it for a side effect, such as logging. The lambda must return `Unit`. A
+function works by name too: `|> tap io.print`.
 
 If a `tap` lambda returns some other value, the compiler reports an error
 and suggests `then`, because `tap` would throw that value away. To look at a

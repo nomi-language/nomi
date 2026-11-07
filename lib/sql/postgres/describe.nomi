@@ -1,12 +1,12 @@
 //# Asking Postgres about a schema and its statements, for tools such as
 //# `nomi tool sqlkit generate`: `describe.describe(url, migrations,
 //# statements)` makes a scratch database, `nomi_prepare_<hash>`, on the
-//# development server at `url`, applies the migrations to it, and answers
+//# development server at `url`, applies the migrations to it, and returns
 //# its tables and, for each statement, the type Postgres inferred for each
 //# parameter and its result columns (with the table column each one reads,
 //# and whether it may be NULL), or the error that stopped it from
 //# preparing and the byte Postgres gave for it. The scratch database is
-//# dropped before it answers.
+//# dropped before it returns.
 
 gopkg "github.com/nomi-language/nomi/lib/sql/postgres/goside"
 
@@ -62,7 +62,7 @@ pub struct Statement {
 /// The tables the migrations build and each statement's description; or,
 /// when a migration fails, its error (with `migration` naming it and
 /// `offset` the byte of its text) and nothing else. A server that does not
-/// answer is an `error` with no `migration`.
+/// respond is an `error` with no `migration`.
 pub struct Description {
     tables: List<Table>
     statements: List<Statement>

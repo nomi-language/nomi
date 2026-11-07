@@ -736,12 +736,12 @@ func TestIncrementalMatchesFull(t *testing.T) {
 	t.Run("signal", func(t *testing.T) {
 		runChecked(t, signalProject(), signalEdits, recheck)
 	})
-	t.Run("messages", func(t *testing.T) {
-		p := messagesProject(t)
+	t.Run("phrases", func(t *testing.T) {
+		p := phrasesProject(t)
 		if errs := fullCheck(p, p.texts).Errors; len(errs["main"])+len(errs["cart"]) > 0 {
 			t.Fatalf("the project does not check: %v", errs)
 		}
-		runChecked(t, p, messagesEdits, recheck)
+		runChecked(t, p, phrasesEdits, recheck)
 	})
 	t.Run("dispatch", func(t *testing.T) {
 		p := dispatchProject()

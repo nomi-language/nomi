@@ -9,7 +9,7 @@
 //# A `Command` names a program and its arguments, with no shell between:
 //# nothing in an argument is expanded, split or quoted, so an argument
 //# holding a space or a `*` reaches the program as it is. `output` runs it
-//# to the end and answers what it wrote, `run` runs it with its output
+//# to the end and returns what it wrote, `run` runs it with its output
 //# going to the program's own, and `with_spawned` runs a body while it
 //# runs, with its three streams to read and write. A program that ends
 //# with a non-zero code is a `Status` to inspect, not an error; an `Err`
@@ -47,7 +47,7 @@ import {
     strings.String
 }
 
-/// What a `main` or an entry boot answers in its `Err` to end the program
+/// What a `main` or an entry boot returns in its `Err` to end the program
 /// with a status of its choosing. The program prints `message` and a
 /// newline to stderr when it is not empty, with no `error: ` before it, and
 /// exits with `code`. A `code` outside 0 to 255 is a trap. An `Exit` with
@@ -153,7 +153,7 @@ impl Display for Status {
     }
 }
 
-/// What `output` answers: how the program ended and everything it wrote.
+/// What `output` returns: how the program ended and everything it wrote.
 pub struct Output {
     status: Status
     stdout: Bytes
@@ -162,7 +162,7 @@ pub struct Output {
 
 derive Equatable for Output
 
-/// Runs `command` to its end and answers its status and everything it
+/// Runs `command` to its end and returns its status and everything it
 /// wrote to its standard output and error. A non-zero exit is in the
 /// status; an `Err` means the program could not be started (`NotFound`
 /// when nothing on the `PATH` has its name). A task that is cancelled, or
@@ -194,7 +194,7 @@ pub fn output(command: Command) -> Result<Output, Error> {
 
 /// Runs `command` to its end with its standard output and error going to
 /// the running program's own (and so to an `io.capture` in force), and
-/// answers its status.
+/// returns its status.
 //! import std::process_testing.{self, Answer}
 //! import std::io
 //!
@@ -262,7 +262,7 @@ impl Child {
     }
 
     /// Ends the program's standard input and waits for it to end. A
-    /// second wait answers the first's status.
+    /// second wait returns the first's status.
     pub fn wait(child: Child) -> Result<Status, Error> {
         parts = process_host.wait(child.handle)?
 

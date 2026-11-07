@@ -17,8 +17,8 @@ import (
 // manifest is m, that nothing reads: a directory for a locale `[i18n]` does
 // not list, or for the source locale, whose text is in the declarations; a
 // catalog file whose Nomi file does not exist; and, for a file of the
-// program that declares no message (files, by module key), every entry of
-// its catalogs. A file that declares messages reports its own catalogs'
+// program that declares no phrase (files, by module key), every entry of
+// its catalogs. A file that declares phrases reports its own catalogs'
 // stray entries (checkFileCatalogs). Each error is in the catalog file it
 // is about. A module whose manifest lists no locales has no catalogs.
 func CheckCatalogTree(root string, m *Manifest, files map[string][]ast.Node) []TypeError {
@@ -44,7 +44,7 @@ func CheckCatalogTree(root string, m *Manifest, files map[string][]ast.Node) []T
 		switch {
 		case loc == m.Source():
 			errs = append(errs, TypeError{File: catalogs[0], Line: 1, Col: 1,
-				Message: fmt.Sprintf("%s is the source locale, whose text is in the `message` declarations: its catalog directory is read by nothing", loc)})
+				Message: fmt.Sprintf("%s is the source locale, whose text is in the `phrase` declarations: its catalog directory is read by nothing", loc)})
 			continue
 		case !slices.Contains(listed, loc):
 			errs = append(errs, TypeError{File: catalogs[0], Line: 1, Col: 1,
@@ -65,7 +65,7 @@ func CheckCatalogTree(root string, m *Manifest, files map[string][]ast.Node) []T
 				continue
 			}
 			nodes, inProgram := files[key]
-			if !inProgram || declaresMessages(nodes) {
+			if !inProgram || declaresPhrases(nodes) {
 				continue
 			}
 			text, ok := DiskInputs(path)
@@ -77,8 +77,8 @@ func CheckCatalogTree(root string, m *Manifest, files map[string][]ast.Node) []T
 				l, c := catalog.LineCol(text, entry.Span.Start)
 				el, ec := catalog.LineCol(text, entry.Span.End)
 				errs = append(errs, TypeError{File: path, Line: l, Col: c, EndLine: el, EndCol: ec,
-					Message: fmt.Sprintf("%s: `%s` is not a message or noun of %s", loc, entry.Name, filepath.Base(key)+".nomi")}.
-					WithHint("a catalog holds the translations of its Nomi file's `message` and `noun` declarations; remove the entry, or declare it"))
+					Message: fmt.Sprintf("%s: `%s` is not a phrase or noun of %s", loc, entry.Name, filepath.Base(key)+".nomi")}.
+					WithHint("a catalog holds the translations of its Nomi file's `phrase` and `noun` declarations; remove the entry, or declare it"))
 			}
 		}
 	}
@@ -98,13 +98,13 @@ func catalogFiles(dir string) []string {
 	return out
 }
 
-// declaresMessages reports whether nodes hold a message or a noun,
+// declaresPhrases reports whether nodes hold a phrase or a noun,
 // expanded or not.
-func declaresMessages(nodes []ast.Node) bool {
+func declaresPhrases(nodes []ast.Node) bool {
 	for _, n := range nodes {
 		switch d := n.(type) {
 		case *ast.FuncDef:
-			if messageExpansionOf(d) != nil {
+			if phraseExpansionOf(d) != nil {
 				return true
 			}
 		case *ast.OnceBinding:

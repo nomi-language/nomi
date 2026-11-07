@@ -28,7 +28,7 @@ derive Equatable for User
 derive ToJson for User
 derive FromJson for User
 
-/// The body of a `/users` answer and of the database: users by name.
+/// The body of a `/users` response and of the database: users by name.
 pub struct Users {
     users: List<User>
 }
@@ -60,19 +60,19 @@ struct Iou {
 
 derive FromJson for Iou
 
-/// Why a request has no answer.
+/// Why a request has no response.
 pub enum Error {
     /// The payload or the database is not JSON of the expected shape; the
     /// error says where.
     InvalidJson Json.Error
-    /// No method answers this URL.
+    /// No method handles this URL.
     NotFound String
     UnknownUser String
     UserExists String
 }
 
-/// The IOU tracker: every user by name. Each request answers JSON text, and
-/// a `POST` answers the tracker after it too.
+/// The IOU tracker: every user by name. Each request returns JSON text, and
+/// a `POST` returns the tracker after it too.
 pub opaque struct RestApi {
     users: Map<String, User>
 }
@@ -89,7 +89,7 @@ impl RestApi {
         )
     }
 
-    /// Answers a `GET` of `url`: `/users` lists every user, or the users
+    /// Returns a `GET` of `url`: `/users` lists every user, or the users
     /// `payload` names, by name.
     pub fn get(api: RestApi, url: String, payload: Maybe<String> = None) -> Result<String, Error> {
         if url != "/users" { return Err(.NotFound(url)) }
@@ -108,8 +108,8 @@ impl RestApi {
         Ok(Json.encode_as(Users{users: Iter.sort_by(users, .name)}))
     }
 
-    /// Answers a `POST` of `payload` to `url`, and the tracker after it.
-    /// `/add` adds a user and answers it; `/iou` records a loan and answers
+    /// Returns a `POST` of `payload` to `url`, and the tracker after it.
+    /// `/add` adds a user and returns it; `/iou` records a loan and returns
     /// the lender and the borrower, by name.
     pub fn post(api: RestApi, url: String, payload: String) -> Result<#(String, RestApi), Error> {
         case url {
@@ -274,10 +274,10 @@ test result: ok. 9 passed, 0 failed
 
 ## How it's written
 
-- Every request and answer is JSON text read and written with std/json. The shapes are structs with `derive ToJson` and `derive FromJson`: `User`, `Users` (the `{"users": [...]}` of the database and of the answers), and the three payloads, `UserNames`, `NewUser` and `Iou`, which stay private. `User`'s `owes`, `owed_by` and `balance` have defaults, so a new user is `User{name: request.user}`.
-- `RestApi` is a value, an opaque struct of the users by name. `RestApi.new(database)` reads the database; `RestApi.get(api, url, payload)` answers the text; `RestApi.post(api, url, payload)` answers the text and the tracker after the request, since nothing changes in place.
+- Every request and response is JSON text read and written with std/json. The shapes are structs with `derive ToJson` and `derive FromJson`: `User`, `Users` (the `{"users": [...]}` of the database and of the responses), and the three payloads, `UserNames`, `NewUser` and `Iou`, which stay private. `User`'s `owes`, `owed_by` and `balance` have defaults, so a new user is `User{name: request.user}`.
+- `RestApi` is a value, an opaque struct of the users by name. `RestApi.new(database)` reads the database; `RestApi.get(api, url, payload)` returns the text; `RestApi.post(api, url, payload)` returns the text and the tracker after the request, since nothing changes in place.
 - Each failure is an `Error` variant: JSON that is not of the expected shape (holding std/json's `Json.Error`), an unknown URL, an unknown user, and a user added twice. The canonical data has no failing case.
 - A loan is kept as one number per pair: what the borrower owes the lender, less what the lender already owed the borrower, plus the new amount. `with_net` writes that number into one side of each user's maps, or neither when it is zero, and works the balance out again from the maps, so the canonical "lender owes borrower" cases need no case analysis.
 - Text becomes a typed value in one call, `Json.decode_as`, whose `T` comes from the binding's annotation (`iou: Iou = ...`), and its `Json.Error` becomes `Error.InvalidJson` with `Result.map_err`. `Json.encode_as` is the other direction, from a value to text.
-- The tests compare answers as values, not text. `Json.encode` writes `Float(3.0)` as `3`, and the canonical data writes `3.0`; the two are the same JSON number, so each answer and each expected text are read back into `Users` or `User` and compared with `==`. The JSON is written in backtick raw strings, so its quotes need no escapes.
+- The tests compare responses as values, not text. `Json.encode` writes `Float(3.0)` as `3`, and the canonical data writes `3.0`; the two are the same JSON number, so each response and each expected text are read back into `Users` or `User` and compared with `==`. The JSON is written in backtick raw strings, so its quotes need no escapes.
 - The canonical "user management" group is a `group` of three tests, since each case sends a different request; the six "iou" cases are one `subtests` table. A `subtests` row cannot use `?`, so the table takes each step apart with `assert Ok(...) = ...`.

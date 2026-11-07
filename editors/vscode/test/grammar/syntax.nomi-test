@@ -22,10 +22,10 @@ pub fn doubled(n: Int) -> Int { todo }
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- keyword.control.nomi
 pub fn first(xs: List<Int>) -> Int { unreachable "callers pass a non-empty list" }
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~----------- keyword.control.nomi
-pub message cart_items(count: Int) `{$count} items`
+pub phrase cart_items(count: Int) `{$count} items`
 // <--- keyword.declaration.nomi
-// <~~~~------- keyword.declaration.nomi
-// <~~~~~~~~~~~~---------- entity.name.function.nomi
+// <~~~~------ keyword.declaration.nomi
+// <~~~~~~~~~~~---------- entity.name.function.nomi
 pub noun item `{{item}}`
 // <--- keyword.declaration.nomi
 // <~~~~---- keyword.declaration.nomi

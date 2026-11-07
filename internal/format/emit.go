@@ -3077,6 +3077,9 @@ func emitTap(v *ast.Tap) Doc {
 	if v.Capture != nil {
 		return Concat(Text("tap "), emit(v.Capture))
 	}
+	if v.Name != nil {
+		return Concat(Text("tap "), emit(v.Name))
+	}
 	return Concat(Text("tap "), emitLambdaKeepingBraces(v.Lambda, true))
 }
 
@@ -3801,7 +3804,10 @@ func emitBinary(v *ast.Binary, next follower) Doc {
 	broken := Group(Concat(head, Nest(defaultIndent, rest)))
 	single := !(v.Op == "and" || v.Op == "or")
 	return WithColumn(func(col, indent, width int) Doc {
-		if !fits(head, nil, width-col) {
+		// A first operand that keeps a line break whatever the layout (a
+		// literal written across lines, which fits counts as one line)
+		// breaks anyway, so it keeps the operator too.
+		if !fits(head, nil, width-col) || containsHardLine(head) {
 			return inline
 		}
 		// A comparison whose right operand spans lines on a line of its

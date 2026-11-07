@@ -13,7 +13,6 @@ func TestMoneyAndDateLiterals_AreTheirValues(t *testing.T) {
 		"    std::calendar.{Date, DateFields, DatePattern}\n" +
 		"    std::currency.Currency\n" +
 		"    std::io\n" +
-		"    std::locale.Locale\n" +
 		"    std::money.Money\n" +
 		"}\n\n" +
 		"once bitcoin = Currency`BTC:8`\n\n" +

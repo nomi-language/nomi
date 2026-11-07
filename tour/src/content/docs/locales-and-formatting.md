@@ -24,6 +24,7 @@ A [`Locale`](/reference/locale/) is written as a short code called a
 language tag, in backticks: `` Locale`en-US` `` is English as written in the
 United States, `` Locale`de` `` is German, and `` Locale`pt-BR` `` is
 Portuguese as written in Brazil. The language comes first, then the region.
+`Locale` is in the prelude, so it needs no import.
 
 `Int.format`, `Float.format` and `Decimal.format` write a number the way a
 reader of a locale expects. `format_percent` writes a fraction as a
@@ -31,10 +32,7 @@ percentage, so `0.15` becomes `15%`. Use `Decimal` for amounts that must
 stay exact. A price in a currency is a `Money`, shown below.
 
 ```nomi-run
-import {
-    std::io
-    std::locale.Locale
-}
+import std::io
 
 fn main() {
     sold = 1234567
@@ -103,7 +101,6 @@ default for a date), `.Long` or `.Full`.
 import {
     std::calendar.{Date, DateTime}
     std::io
-    std::locale.Locale
 }
 
 fn main() {
@@ -150,7 +147,6 @@ locale uses for those fields.
 import {
     std::calendar.{Date, DateFields}
     std::io
-    std::locale.Locale
 }
 
 fn main() {
@@ -200,7 +196,6 @@ import {
     std::calendar.TimeUnit
     std::duration.Duration
     std::io
-    std::locale.Locale
 }
 
 fn main() {
@@ -236,10 +231,7 @@ The page shows who else is looking at an item. `String.join_list` joins the
 names the way the reader's language joins them:
 
 ```nomi-run
-import {
-    std::io
-    std::locale.Locale
-}
+import std::io
 
 fn main() {
     watching = ["Anna", "Ben", "Chloé"]
@@ -261,10 +253,10 @@ fn main() {
 en-US: Anna, Ben, and Chloé
 en-GB: Anna, Ben and Chloé
 pl: Anna, Ben i Chloé
-dbg line 14: String.join_list(["Anna", "Ben"], Locale`en-US`) = "Anna and Ben"
-dbg line 15: String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or) = "S, M, or L"
-dbg line 16: String.join_list(["S", "M", "L"], Locale`pl`, style: .Or) = "S, M lub L"
-dbg line 17: String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit) = "2 lb, 3 oz"
+dbg line 11: String.join_list(["Anna", "Ben"], Locale`en-US`) = "Anna and Ben"
+dbg line 12: String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or) = "S, M, or L"
+dbg line 13: String.join_list(["S", "M", "L"], Locale`pl`, style: .Or) = "S, M lub L"
+dbg line 14: String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit) = "2 lb, 3 oz"
 -->
 
 American English puts a comma before "and", and British English doesn't.
@@ -282,10 +274,7 @@ and the same locale you used to show it to them. The locale matters:
 `1.200` means twelve hundred in German but one point two in English.
 
 ```nomi-run
-import {
-    std::io
-    std::locale.Locale
-}
+import std::io
 
 fn main() {
     dbg Int.parse_in("1,200", Locale`en-US`)
@@ -304,13 +293,13 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 7: Int.parse_in("1,200", Locale`en-US`) = Ok(1200)
-dbg line 8: Int.parse_in("1.200", Locale`de`) = Ok(1200)
-dbg line 9: Int.parse_in("1200", Locale`de`) = Ok(1200)
-dbg line 10: Int.parse_in("1.200", Locale`en-US`) = Err(Unexpected{at: 1, text: "."})
-dbg line 11: Decimal.parse_in("49,90", Locale`de`) = Ok(49.90d)
-dbg line 12: Int.parse_in(" 3 ", Locale`en-US`) = Err(Unexpected{at: 0, text: " "})
-dbg line 13: Int.parse_in(" 3 ", Locale`en-US`, lenient: True) = Ok(3)
+dbg line 4: Int.parse_in("1,200", Locale`en-US`) = Ok(1200)
+dbg line 5: Int.parse_in("1.200", Locale`de`) = Ok(1200)
+dbg line 6: Int.parse_in("1200", Locale`de`) = Ok(1200)
+dbg line 7: Int.parse_in("1.200", Locale`en-US`) = Err(Unexpected{at: 1, text: "."})
+dbg line 8: Decimal.parse_in("49,90", Locale`de`) = Ok(49.90d)
+dbg line 9: Int.parse_in(" 3 ", Locale`en-US`) = Err(Unexpected{at: 0, text: " "})
+dbg line 10: Int.parse_in(" 3 ", Locale`en-US`, lenient: True) = Ok(3)
 not a quantity: unexpected `.` at 1
 -->
 
@@ -330,10 +319,7 @@ what went wrong and where. `at` counts characters from the start of the text.
 reads a date written in a locale's style, `.Short` unless you pass another:
 
 ```nomi-run
-import {
-    std::calendar.Date
-    std::locale.Locale
-}
+import std::calendar.Date
 
 fn main() {
     us = Locale`en-US`
@@ -348,11 +334,11 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 9: Date.parse_in("10/20/26", us) = Ok(2026-10-20)
-dbg line 10: Date.parse_in("10/20/2026", us) = Err(InvalidFormat("unexpected `2` at 8 after the date"))
-dbg line 11: Date.parse_in("10/20/2026", us, lenient: True) = Ok(2026-10-20)
-dbg line 12: Date.parse_in("2/31/26", us) = Err(InvalidValue("month 2 of 2026 has no day 31"))
-dbg line 13: Date.parse_in("Oct 20, 2026", us, style: .Medium) = Ok(2026-10-20)
+dbg line 6: Date.parse_in("10/20/26", us) = Ok(2026-10-20)
+dbg line 7: Date.parse_in("10/20/2026", us) = Err(InvalidFormat("unexpected `2` at 8 after the date"))
+dbg line 8: Date.parse_in("10/20/2026", us, lenient: True) = Ok(2026-10-20)
+dbg line 9: Date.parse_in("2/31/26", us) = Err(InvalidValue("month 2 of 2026 has no day 31"))
+dbg line 10: Date.parse_in("Oct 20, 2026", us, style: .Medium) = Ok(2026-10-20)
 -->
 
 `lenient: True` also accepts a four-digit year where the locale writes two.
@@ -372,8 +358,6 @@ When the locale comes from outside, such as a web address or a setting, use
 different spelling, such as `pl_PL.UTF-8`, which `Locale.from_posix` reads.
 
 ```nomi-run
-import std::locale.Locale
-
 fn main() {
     dbg Locale.parse("EN-us")
     dbg Locale.parse("pt_BR")
@@ -384,10 +368,10 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 4: Locale.parse("EN-us") = Ok(Locale`en-US`)
-dbg line 5: Locale.parse("pt_BR") = Err(Underscore{suggestion: "pt-BR"})
-dbg line 6: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale`pl-PL`)
-dbg line 7: Locale.fallbacks(Locale`es-MX`) = [Locale`es-MX`, Locale`es-419`, Locale`es`]
+dbg line 2: Locale.parse("EN-us") = Ok(Locale`en-US`)
+dbg line 3: Locale.parse("pt_BR") = Err(Underscore{suggestion: "pt-BR"})
+dbg line 4: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale`pl-PL`)
+dbg line 5: Locale.fallbacks(Locale`es-MX`) = [Locale`es-MX`, Locale`es-419`, Locale`es`]
 -->
 
 `Locale.parse` fixes the capital letters, so `EN-us` becomes `en-US`.
@@ -414,8 +398,6 @@ The shop has pages in only a few languages. `Locale.negotiate` picks the one
 that suits the reader best, or a default when none comes close:
 
 ```nomi-run
-import std::locale.Locale
-
 once shop = [Locale`en`, Locale`de`, Locale`pl`, Locale`pt`]
 
 fn page_locale(wanted: List<Locale>) -> Locale {
@@ -432,10 +414,10 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 10: page_locale([Locale`pt-BR`, Locale`en-US`]) = Locale`pt`
-dbg line 11: page_locale([Locale`de-AT`]) = Locale`de`
-dbg line 12: page_locale([Locale`ja`, Locale`pl`]) = Locale`pl`
-dbg line 13: page_locale([Locale`ja`]) = Locale`en`
+dbg line 8: page_locale([Locale`pt-BR`, Locale`en-US`]) = Locale`pt`
+dbg line 9: page_locale([Locale`de-AT`]) = Locale`de`
+dbg line 10: page_locale([Locale`ja`, Locale`pl`]) = Locale`pl`
+dbg line 11: page_locale([Locale`ja`]) = Locale`en`
 -->
 
 A reader from Brazil gets Portuguese, and a reader from Austria gets German.
@@ -453,10 +435,7 @@ done. Std's format functions don't read the field, so pass `App.locale` to
 them, as `cart_total` does:
 
 ```nomi-run
-import {
-    std::io
-    std::locale.Locale
-}
+import std::io
 
 struct App {
     locale: Locale
@@ -524,7 +503,6 @@ one language order them. Make one for the locale, then sort with its
 import {
     std::collation.Collator
     std::io
-    std::locale.Locale
 }
 
 fn main() {
@@ -563,8 +541,6 @@ take the locale. To match text without regard to case, compare the
 results of `String.fold_case`:
 
 ```nomi-run
-import std::locale.Locale
-
 fn main() {
     dbg String.uppercase("istanbul")
     dbg String.uppercase_in("istanbul", Locale`tr`)
@@ -575,10 +551,10 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 4: String.uppercase("istanbul") = "ISTANBUL"
-dbg line 5: String.uppercase_in("istanbul", Locale`tr`) = "İSTANBUL"
-dbg line 6: String.lowercase_in("KIRMIZI", Locale`tr`) = "kırmızı"
-dbg line 7: String.fold_case("Straße") == String.fold_case("STRASSE") = True
+dbg line 2: String.uppercase("istanbul") = "ISTANBUL"
+dbg line 3: String.uppercase_in("istanbul", Locale`tr`) = "İSTANBUL"
+dbg line 4: String.lowercase_in("KIRMIZI", Locale`tr`) = "kırmızı"
+dbg line 5: String.fold_case("Straße") == String.fold_case("STRASSE") = True
 -->
 
 ## `Localize`
@@ -594,7 +570,6 @@ back. Give your own type both when it is shown to programs and to people:
 ```nomi-run
 import {
     std::io
-    std::locale.Locale
     std::localize.Localize
 }
 

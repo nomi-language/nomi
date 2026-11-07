@@ -162,11 +162,11 @@ fn main() {
 	rejects(t, `import std
 
 fn main() {
-    std::message_format.x()
+    std::phrase_format.x()
     std::nosuch.f()
 }
 `,
-		"4:5: `std::message_format` is internal to std::message",
+		"4:5: `std::phrase_format` is internal to std::phrase",
 		"5:5: `std::nosuch` names no file: std has no nosuch.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::base64`, `std::bits`, `std::bitwise` and more")
 }
 

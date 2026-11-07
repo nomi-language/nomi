@@ -49,7 +49,7 @@ pub host type Map<K, V>
 impl Map<K, V> {
     /// Gets a value by key. Returns Some(value) if the key is present, None
     /// otherwise. When the program guarantees the key is there, as it does
-    /// for a key it took from the map itself, `Map.get(m, key)!` answers the
+    /// for a key it took from the map itself, `Map.get(m, key)!` returns the
     /// value and traps on a missing key.
     //! assert Map.get(%{"a" => 1, "b" => 2}, "a") == Some(1)
     //! assert Map.get(%{"a" => 1, "b" => 2}, "z") == None

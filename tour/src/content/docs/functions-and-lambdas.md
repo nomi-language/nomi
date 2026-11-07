@@ -85,6 +85,7 @@ fn main() {
     dbg xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list()
     dbg xs |> Iter.map(&Point{x: &1, y: 0}) |> Iter.to_list()
     dbg xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list()
+    dbg xs |> Iter.map(&"id ${&1}") |> Iter.to_list()
 }
 
 ```
@@ -93,12 +94,13 @@ dbg line 8: xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list() = [2, 3]
 dbg line 9: xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list() = [3, 5, 7]
 dbg line 10: xs |> Iter.map(&Point{x: &1, y: 0}) |> Iter.to_list() = [Point{x: 1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}]
 dbg line 11: xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list() = [2, 2, 3]
+dbg line 12: xs |> Iter.map(&"id ${&1}") |> Iter.to_list() = ["id 1", "id 2", "id 3"]
 -->
 
 A capture writes a small function in place: `&`, then the function's body.
 `&1` is its first parameter, `&2` its second. `&(&1 > 1)` is `fn x -> x >
-1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, and `&Point{x: &1, y: 0}` is
-`fn x -> Point{x: x, y: 0}`.
+1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, `&Point{x: &1, y: 0}` is
+`fn x -> Point{x: x, y: 0}`, and `&"id ${&1}"` is `fn x -> "id ${x}"`.
 
 `Iter.filter` and `Iter.map` work on any collection, and `Iter.to_list`
 collects the result into a list. [Collections](/collections/) covers them.
@@ -436,7 +438,7 @@ If the program does reach it, the guarantee was wrong, so the program stops
 with `line 4: unreachable: split always returns at least one part`. Use it
 only for what the program itself makes true, as here: `String.split` never
 returns an empty list. Input a user typed makes no such promise, so a
-missing value there needs a real answer.
+missing value there needs real handling.
 
 When the guarantee is that one call succeeds, a
 [postfix `!`](/pattern-matching/#calls-that-cannot-fail) says it after the

@@ -234,7 +234,7 @@ impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
     }
 }
 
-// `is_infinite` is answered by the Range's view rather than written here: an
+// `is_infinite` is returned by the Range's view rather than written here: an
 // unbounded Range is endless, a rule over Int that a body generic in `T`
 // cannot state.
 impl Iter for Range<T> where T: Discrete {

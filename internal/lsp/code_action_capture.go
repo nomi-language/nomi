@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -11,27 +12,39 @@ import (
 // "Use a capture" rewrites a lambda as the capture it says (spec §7,
 // *Captures*): `fn s -> s > 50` becomes `&(&1 > 50)`, `fn l
 // -> Set.contains(letters, l)` becomes `&Set.contains(letters, &1)`, `fn
-// x -> Point{x: x, y: 0}` becomes `&Point{x: &1, y: 0}`. "Write as a
-// lambda" is the way back: a capture becomes `fn x -> ...`, each parameter
-// named for the callee's parameter it fills, else `x`, `y`, ...
+// x -> Point{x: x, y: 0}` becomes `&Point{x: &1, y: 0}`, `fn s ->
+// grade(s.score)` becomes `&grade(&1.score)`, `fn x -> "id ${x}"` becomes
+// `&"id ${&1}"`. "Write as a lambda" is the way back: a capture becomes
+// `fn x -> ...`, each parameter named for the callee's parameter it fills,
+// else `x`, `y`, ...
 //
 // lambdaPlaceholder decides which lambdas the first applies to. A capture
 // evaluates its body on each call as the lambda does, so the rewrite keeps
-// what the lambda does; the rule keeps a lambda whose body is more than one
-// step. A lambda qualifies when
+// what the lambda does. A lambda qualifies when
 //
 //   - it has one parameter, or two, each a plain name with no annotation
 //     and no default;
 //   - its body is one expression, not a block: a call, an operator other
-//     than `and`, `or` and `|>`, or a struct or tuple literal;
-//   - each parameter stands in that expression exactly once, as a whole
-//     argument, operand or field, in the order the parameters are written;
+//     than `and`, `or` and `|>`, a struct or tuple literal, or a one-line
+//     string;
+//   - each parameter is read in that expression, at any depth and any
+//     number of times (`fn t -> t == String.reverse(t)` becomes
+//     `&(&1 == String.reverse(&1))`), the first reads in the order the
+//     parameters are written, and none inside a lambda or capture of its
+//     own, where `&N` would not be this function's parameter; the body
+//     holds no capture, since captures do not nest;
 //   - the checker expected a function type of its arity where it stands,
 //     which gives `&N` its type;
-//   - for a call, each parameter's type is the one the callee's parameter
-//     declares, up to the callee's own type parameters: a partial capture
-//     takes the callee's parameter types, so a lambda over a List passed
-//     where the callee takes an Iter keeps its lambda.
+//   - for a partial capture (a call that takes each parameter once, whole,
+//     as its own argument, in order), each parameter's type is the one the
+//     callee's parameter declares, up to the callee's own type parameters:
+//     a partial capture takes the callee's parameter types, so a lambda
+//     over a List passed where the callee takes an Iter keeps its lambda.
+//     Any other capture takes the expected function type's parameters, as
+//     the lambda does.
+//
+// A lambda whose whole body is a field read, `fn s -> s.score`, keeps its
+// form: style rule 10 writes it `.score`, and no action rewrites it.
 //
 // Both rewrites need an expected function type, so a lambda bound with no
 // annotation, whose parameter only its body types, keeps its form.
@@ -43,18 +56,20 @@ type placeholderRewrite struct {
 	text       string
 }
 
-// placeholderUse is a lambda parameter's one read in the body.
+// placeholderUse is one read of a lambda parameter in the body.
 type placeholderUse struct {
 	param int
 	id    *ast.Ident
+	// field marks the receiver of a field read, `s` in `s.score`.
+	field bool
 	// pun marks a punned struct field, `Point{x}`, whose one token is
 	// both the field's label and the read.
 	pun bool
 }
 
 // lambdaPlaceholder answers the capture form of l. When l does not qualify
-// it answers why: notPlaceholderShape when the style rule keeps the lambda
-// for its shape (a pattern, two steps, two uses, a field read, a seed),
+// it answers why: notPlaceholderShape when the rule keeps the lambda for
+// its shape (a pattern, a block, a bare field read, a read out of order),
 // else what the position or the other arguments lack.
 func (r *refactorRequest) lambdaPlaceholder(l *ast.Lambda) (placeholderRewrite, string) {
 	var none placeholderRewrite
@@ -110,30 +125,32 @@ func (r *refactorRequest) lambdaPlaceholder(l *ast.Lambda) (placeholderRewrite, 
 		}
 	case *ast.TupleLit:
 		operands = e.Items
+	case *ast.StringInterp:
+		if e.Triple {
+			return none, notPlaceholderShape
+		}
+		for _, part := range e.Parts {
+			if se, ok := part.(ast.StringExpr); ok {
+				operands = append(operands, se.Expr)
+			}
+		}
 	default:
 		return none, notPlaceholderShape
 	}
 	if callee != nil && mentions(callee, names) {
 		return none, notPlaceholderShape
 	}
-	var uses []placeholderUse
-	for _, op := range operands {
-		if id, ok := op.(*ast.Ident); ok {
-			if i, isParam := names[id.Name]; isParam {
-				uses = append(uses, placeholderUse{param: i, id: id})
-				continue
-			}
-		}
-		if mentions(op, names) {
-			return none, notPlaceholderShape
-		}
-	}
-	if len(uses) != len(l.Params) {
+	uses, ok := r.parameterReads(l, body, names)
+	if !ok {
 		return none, notPlaceholderShape
 	}
-	for i, u := range uses {
-		if u.param != i {
-			return none, notPlaceholderShape
+	// A call that takes each parameter once, whole, as its own argument in
+	// the order they are written is a partial capture (spec §7 *Captures*).
+	partial := false
+	if _, isCall := body.(*ast.Call); isCall && len(uses) == len(l.Params) {
+		partial = true
+		for i, u := range uses {
+			partial = partial && u.param == i && !u.field && containsNode(operands, u.id)
 		}
 	}
 	ft, ok := analysis.ResolveTypeVar(r.fa.ExpectedTypes[l]).(*analysis.FuncType)
@@ -147,16 +164,7 @@ func (r *refactorRequest) lambdaPlaceholder(l *ast.Lambda) (placeholderRewrite, 
 	if !ok || len(ft.Params) != len(l.Params) {
 		return none, "no function type is expected where it stands"
 	}
-	if sl, ok := body.(*ast.StructLit); ok {
-		for i := range uses {
-			for _, f := range sl.Fields {
-				if f.Value == uses[i].id && f.Line == uses[i].id.Line && f.Col == uses[i].id.Col {
-					uses[i].pun = true
-				}
-			}
-		}
-	}
-	if _, isCall := body.(*ast.Call); isCall {
+	if partial {
 		for _, u := range uses {
 			if !r.fillsDeclaredType(u.id) {
 				return none, "the call converts the parameter to the type the callee declares"
@@ -199,7 +207,8 @@ func (r *refactorRequest) placeholderText(l *ast.Lambda, uses []placeholderUse) 
 	}
 	var b strings.Builder
 	_, literal := l.Body.Stmts[0].(*ast.ExprStmt).Expr.(*ast.StructLit)
-	if _, tuple := l.Body.Stmts[0].(*ast.ExprStmt).Expr.(*ast.TupleLit); tuple {
+	switch l.Body.Stmts[0].(*ast.ExprStmt).Expr.(type) {
+	case *ast.TupleLit, *ast.StringInterp:
 		literal = true
 	}
 	_, call := l.Body.Stmts[0].(*ast.ExprStmt).Expr.(*ast.Call)
@@ -210,13 +219,13 @@ func (r *refactorRequest) placeholderText(l *ast.Lambda, uses []placeholderUse) 
 		b.WriteString("&")
 	}
 	at := bodyStart
-	for i, u := range uses {
+	for _, u := range uses {
 		off := posToOffset(r.offs, u.id.Line, u.id.Col)
 		if off < at || off+len(u.id.Name) > end || r.content[off:off+len(u.id.Name)] != u.id.Name {
 			return none, "its text is not where its positions say"
 		}
 		b.WriteString(r.content[at:off])
-		hole := fmt.Sprintf("&%d", i+1)
+		hole := fmt.Sprintf("&%d", u.param+1)
 		if u.pun {
 			hole = u.id.Name + ": " + hole
 		}
@@ -228,6 +237,85 @@ func (r *refactorRequest) placeholderText(l *ast.Lambda, uses []placeholderUse) 
 		b.WriteString(")")
 	}
 	return placeholderRewrite{start: start, end: end, text: b.String()}, ""
+}
+
+// parameterReads lists every read of l's parameters in body, in source
+// order. It fails when a parameter is never read, when the first reads are
+// out of the parameters' order, when a read stands inside a function of its
+// own (a lambda or a capture, where `&N` would not be l's parameter), when
+// the body holds a capture (captures do not nest), or when a name of a
+// parameter in body resolves to something else.
+func (r *refactorRequest) parameterReads(l *ast.Lambda, body ast.Node, names map[string]int) ([]placeholderUse, bool) {
+	defs := make([]*analysis.Symbol, len(l.Params))
+	for i, p := range l.Params {
+		defs[i] = r.fa.Definitions[analysis.Pos{Line: p.Line, Col: p.Col}]
+		if defs[i] == nil {
+			return nil, false
+		}
+	}
+	var uses []placeholderUse
+	ok := true
+	ast.Inspect(body, func(n ast.Node) bool {
+		if !ok {
+			return false
+		}
+		switch v := n.(type) {
+		case *ast.Capture:
+			ok = false
+			return false
+		case *ast.Ident:
+			i, isParam := names[v.Name]
+			if !isParam {
+				return true
+			}
+			pos := analysis.Pos{Line: v.Line, Col: v.Col}
+			sym := r.fa.References[pos]
+			if sym == nil || !matchesIdentity(sym, symbolIdentity(defs[i])) {
+				ok = false
+				return false
+			}
+			for m := r.parent[v]; m != nil && m != body; m = r.parent[m] {
+				switch m.(type) {
+				case *ast.Lambda, *ast.Capture:
+					ok = false
+					return false
+				}
+			}
+			_, pun := r.fa.PunnedFieldLabels[pos]
+			fa, inField := r.parent[v].(*ast.FieldAccess)
+			uses = append(uses, placeholderUse{param: i, id: v, field: inField && fa.Object == ast.Node(v), pun: pun})
+		}
+		return true
+	})
+	if !ok {
+		return nil, false
+	}
+	sort.SliceStable(uses, func(a, b int) bool {
+		if uses[a].id.Line != uses[b].id.Line {
+			return uses[a].id.Line < uses[b].id.Line
+		}
+		return uses[a].id.Col < uses[b].id.Col
+	})
+	next := 0
+	for _, u := range uses {
+		if u.param > next {
+			return nil, false
+		}
+		if u.param == next {
+			next++
+		}
+	}
+	return uses, next == len(l.Params)
+}
+
+// containsNode reports whether n is one of ns.
+func containsNode(ns []ast.Node, n ast.Node) bool {
+	for _, m := range ns {
+		if m == n {
+			return true
+		}
+	}
+	return false
 }
 
 // isFunctionSlot reports whether n stands where a lambda can take the
@@ -528,4 +616,38 @@ func (r *refactorRequest) calleeParamName(call *ast.Call, slot int) string {
 		return params[slot].Name
 	}
 	return ""
+}
+
+// tapByName offers "Pass `f` by name" on a `tap` stage's capture that only
+// passes the piped value on, `tap &f(&1)`: the stage takes the function
+// itself, `tap f` (spec §8 *The `tap` stage*).
+func (r *refactorRequest) tapByName() (string, string, bool) {
+	found := r.innermost(func(n ast.Node) bool {
+		_, ok := n.(*ast.Capture)
+		return ok
+	})
+	target, _ := found.(*ast.Capture)
+	if target == nil {
+		return "", "", false
+	}
+	if tap, ok := r.parent[target].(*ast.Tap); !ok || tap.Capture != target {
+		return "", "", false
+	}
+	call := target.PartialCall()
+	if call == nil || len(call.Args) != 1 || len(call.TypeArgs) > 0 || !isCalleeName(call.Func) {
+		return "", "", false
+	}
+	if hole, ok := call.Args[0].(*ast.Placeholder); !ok || hole.N != 1 {
+		return "", "", false
+	}
+	capStart, capEnd, ok := r.span(target)
+	if !ok {
+		return "", "", false
+	}
+	nameStart, nameEnd, ok := r.span(call.Func)
+	if !ok {
+		return "", "", false
+	}
+	name := r.content[nameStart:nameEnd]
+	return "Pass `" + name + "` by name", r.replace(capStart, capEnd, name), true
 }

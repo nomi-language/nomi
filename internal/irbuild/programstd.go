@@ -38,7 +38,8 @@ import (
 //   - declares no `host fn` and no `host type`: every body is Nomi, and the
 //     builder lowers it as it lowers a program's own file;
 //   - is imported by no module lowered once for the process, since a shared
-//     body cannot name a type each program declares again;
+//     body cannot name a type each program declares again (the prelude,
+//     which declares nothing and only re-exports, may import one);
 //   - checks and lowers with no error or decline, its `//!` cases included.
 //
 // The prelude types, the collections, Iter, Maybe and Result, and every
@@ -59,15 +60,21 @@ var programStdModules = map[string]bool{
 	"log_testing":      true,
 	"mail":             true,
 	"mail_testing":     true,
-	"message":          true,
+	"phrase":           true,
 	"money":            true,
 	"net":              true,
+	"passwords":        true,
 	"path":             true,
 	"process":          true,
 	"process_testing":  true,
 	"reverse":          true,
+	"sessions":         true,
+	"signatures":       true,
+	"jwt":              true,
 	"actors":           true,
 	"bits":             true,
+	"csv":              true,
+	"xml":              true,
 	"sql":              true,
 	"storage":          true,
 	"storage_testing":  true,
@@ -76,6 +83,7 @@ var programStdModules = map[string]bool{
 	"sql_testing":      true,
 	"url":              true,
 	"uuid":             true,
+	"websocket":        true,
 }
 
 // isProgramStd reports whether the std module named name (`uuid`, without
@@ -173,7 +181,25 @@ func withProgramStd(p *Program) *Program {
 // in std/sql.nomi), so a std/ path counts in a std module too.
 func importedStdModules(nodes []ast.Node, inStd bool) []string {
 	var out []string
+	var named map[string]bool
 	add := func(s *ast.ImportStmt) {
+		if !inStd && analysis.IsPreludeImport(s) && len(s.Names) > 0 {
+			// A prelude import reaches its module only when the file names
+			// what it imports: every user file imports std/phrase's `Phrase`
+			// and `Noun` through the prelude, and a program that names
+			// neither, nor declares a phrase or noun (whose expansion imports
+			// the module under its own alias), lowers none of it.
+			if named == nil {
+				named = namesIn(nodes)
+			}
+			used := false
+			for _, n := range s.Names {
+				used = used || named[ast.ImportNodeName(n)]
+			}
+			if !used {
+				return
+			}
+		}
 		n := s.FileSegments
 		if n <= 0 || n > len(s.ModulePath) {
 			n = len(s.ModulePath)
@@ -317,4 +343,28 @@ func generateProgramStdReferenceIR(module string, test *ast.TestDecl, fa *analys
 		HasTests: true,
 	}
 	return prog, res, nil
+}
+
+// namesIn is every name nodes write as an identifier or a type name, outside
+// their imports.
+func namesIn(nodes []ast.Node) map[string]bool {
+	out := map[string]bool{}
+	for _, n := range nodes {
+		ast.Inspect(n, func(m ast.Node) bool {
+			switch x := m.(type) {
+			case *ast.ImportStmt, *ast.ImportBlock:
+				return false
+			case *ast.Ident:
+				out[x.Name] = true
+			case *ast.TypeIdent:
+				out[x.Name] = true
+			case *ast.SimpleType:
+				out[x.Name] = true
+			case *ast.GenericType:
+				out[x.Name] = true
+			}
+			return true
+		})
+	}
+	return out
 }

@@ -132,7 +132,7 @@ func (c *Cache) Program(opts ...Option) (*Program, bool) {
 	}
 	res := &irbuild.Result{HasMain: im.HasMain, IR: im.Modules}
 	p := newProgram(prog, res, map[string]string{}, cfg)
-	p.tablesOnce.Do(func() { p.tables = [2][]string{a.messages, a.nouns} })
+	p.tablesOnce.Do(func() { p.tables = [2][]string{a.phrases, a.nouns} })
 	if p.entry == nil || !p.runsClean() {
 		return nil, false
 	}
@@ -187,7 +187,7 @@ func (p *Program) keep(checked bool) {
 		return
 	}
 	a := artifact{entry: p.prog.Entry().Path, root: p.prog.Root, hasTests: p.prog.HasTests}
-	a.messages, a.nouns = p.messageTables()
+	a.phrases, a.nouns = p.phraseTables()
 	if a.entry != c.path {
 		return
 	}
@@ -280,7 +280,7 @@ func (p *Program) cacheImage() ([]byte, error) {
 
 // inputs are what the program was built from: its root's tree, each other
 // module's root (a dependency's), each `embed` pattern's base (the
-// directory or file its literal leading names spell) with every file in it, and each of its files and the catalogs its messages read.
+// directory or file its literal leading names spell) with every file in it, and each of its files and the catalogs its phrases read.
 func (p *Program) inputs() ([]progcache.Tree, []string) {
 	root := p.prog.Root
 	if root == "" {
@@ -329,9 +329,9 @@ func (p *Program) inputs() ([]progcache.Tree, []string) {
 
 // artifact is what a Cache keeps for a program.
 type artifact struct {
-	entry, root     string
-	hasTests        bool
-	messages, nouns []string
+	entry, root    string
+	hasTests       bool
+	phrases, nouns []string
 	// image is the program's IR (cacheImage), or empty for a program with
 	// neither main nor tests, which is kept only to say it checks.
 	image []byte
@@ -353,7 +353,7 @@ func (a artifact) encode() []byte {
 	} else {
 		b.WriteByte(0)
 	}
-	for _, list := range [][]string{a.messages, a.nouns} {
+	for _, list := range [][]string{a.phrases, a.nouns} {
 		putUvarint(&b, uint64(len(list)))
 		for _, s := range list {
 			putString(&b, s)
@@ -397,7 +397,7 @@ func decodeArtifact(data []byte) (a artifact, err error) {
 		return a, errBadArtifact
 	}
 	a.hasTests = flag == 1
-	for _, list := range []*[]string{&a.messages, &a.nouns} {
+	for _, list := range []*[]string{&a.phrases, &a.nouns} {
 		n := uv()
 		for i := uint64(0); i < n && err == nil; i++ {
 			*list = append(*list, str())

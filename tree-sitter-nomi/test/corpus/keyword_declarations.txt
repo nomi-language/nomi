@@ -1,8 +1,8 @@
 ================================================================================
-A message declaration
+A phrase declaration
 ================================================================================
 
-pub message cart_items(count: Int) `
+pub phrase cart_items(count: Int) `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}

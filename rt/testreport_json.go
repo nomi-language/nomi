@@ -37,7 +37,7 @@ import (
 // A "file" record is a failure that stopped a file's tests from running at all
 // (a load or type error): the text report's `FAIL <file>: <error>` line.
 //
-// `message` is the block the text report prints under a FAIL line, without
+// `phrase` is the block the text report prints under a FAIL line, without
 // colour and without the trailing newline. `error_line` is present only when
 // the failure names a line.
 //

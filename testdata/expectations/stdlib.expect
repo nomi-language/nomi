@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
-records 76
-declared-cases 884
+records 83
+declared-cases 957
 failing 0
 C actors
 E 0
@@ -241,6 +241,25 @@ T ok <root>/std/context.nomi :: impl / with_value //! test lines 78-80
 T ok <root>/std/context.nomi :: impl / value //! test lines 90-92
 T test result: ok. 7 passed, 0 failed
 T
+C csv
+E 0
+N 13
+H 27c006df2b2dd7fb598d5ed0270dacd69f53917c13072e88c61a20c1760fce6a
+T ok <root>/std/csv.nomi :: Options //! test lines 66-71
+T ok <root>/std/csv.nomi :: Error //! test lines 90-92
+T ok <root>/std/csv.nomi :: Row //! test lines 123-127
+T ok <root>/std/csv.nomi :: impl / get //! test lines 142-144
+T ok <root>/std/csv.nomi :: impl / to_map //! test lines 153-154
+T ok <root>/std/csv.nomi :: decode //! test lines 168-183
+T ok <root>/std/csv.nomi :: decode_bytes //! test lines 190-196
+T ok <root>/std/csv.nomi :: decode_rows //! test lines 207-209
+T ok <root>/std/csv.nomi :: records //! test lines 219-228
+T ok <root>/std/csv.nomi :: rows //! test lines 237-244
+T ok <root>/std/csv.nomi :: WriteOptions //! test lines 350-351
+T ok <root>/std/csv.nomi :: encode //! test lines 370-374
+T ok <root>/std/csv.nomi :: write //! test lines 382-384
+T test result: ok. 13 passed, 0 failed
+T
 C currency
 E 0
 N 7
@@ -423,23 +442,24 @@ T test result: ok. 4 passed, 0 failed
 T
 C hash
 E 0
-N 14
-H 158d9e040f8a31811f09dceb70f018647babd158d05072eca45f1698c7ae9550
-T ok <root>/std/hash.nomi :: sha256 //! test lines 39-41
-T ok <root>/std/hash.nomi :: sha256_hex //! test lines 46-52
-T ok <root>/std/hash.nomi :: sha512 //! test lines 59-61
-T ok <root>/std/hash.nomi :: sha512_hex //! test lines 66-74
-T ok <root>/std/hash.nomi :: md5 //! test lines 85-87
-T ok <root>/std/hash.nomi :: md5_hex //! test lines 93-99
-T ok <root>/std/hash.nomi :: md5_hex //! test lines 101-106
-T ok <root>/std/hash.nomi :: sha1 //! test lines 116-118
-T ok <root>/std/hash.nomi :: sha1_hex //! test lines 124-131
-T ok <root>/std/hash.nomi :: hmac_sha256 //! test lines 140-146
-T ok <root>/std/hash.nomi :: hmac_sha256 //! test lines 148-161
-T ok <root>/std/hash.nomi :: hmac_sha512 //! test lines 166-169
-T ok <root>/std/hash.nomi :: hmac_sha512 //! test lines 171-186
-T ok <root>/std/hash.nomi :: equal_in_constant_time //! test lines 194-200
-T test result: ok. 14 passed, 0 failed
+N 15
+H 9a57db9431446956b2729b06472adb13f30c79e4b7d4cb2e7a37f4967081d10a
+T ok <root>/std/hash.nomi :: sha256 //! test lines 44-46
+T ok <root>/std/hash.nomi :: sha256_hex //! test lines 51-57
+T ok <root>/std/hash.nomi :: sha512 //! test lines 64-66
+T ok <root>/std/hash.nomi :: sha512_hex //! test lines 71-79
+T ok <root>/std/hash.nomi :: md5 //! test lines 90-92
+T ok <root>/std/hash.nomi :: md5_hex //! test lines 98-104
+T ok <root>/std/hash.nomi :: md5_hex //! test lines 106-111
+T ok <root>/std/hash.nomi :: sha1 //! test lines 121-123
+T ok <root>/std/hash.nomi :: sha1_hex //! test lines 129-136
+T ok <root>/std/hash.nomi :: hmac_sha256 //! test lines 145-151
+T ok <root>/std/hash.nomi :: hmac_sha256 //! test lines 153-166
+T ok <root>/std/hash.nomi :: hmac_sha512 //! test lines 171-174
+T ok <root>/std/hash.nomi :: hmac_sha512 //! test lines 176-191
+T ok <root>/std/hash.nomi :: equal_in_constant_time //! test lines 199-205
+T ok <root>/std/hash.nomi :: pbkdf2_sha256 //! test lines 215-229
+T test result: ok. 15 passed, 0 failed
 T
 C hex
 E 0
@@ -467,8 +487,8 @@ T test result: ok. 10 passed, 0 failed
 T
 C http
 E 0
-N 62
-H dbb49499f7a7763a4835b10d483f83ef8b2a089f7099628ae004524b9cb4674b
+N 66
+H d300e1f02e7b8721bbe71e1c7765e2964609ed2519016543d08b0bbeefb57ae8
 T ok <root>/std/http.nomi :: impl / text //! test lines 94-97
 T ok <root>/std/http.nomi :: impl / parse //! test lines 115-118
 T ok <root>/std/http.nomi :: impl / from_code //! test lines 214-217
@@ -519,30 +539,36 @@ T ok <root>/std/http.nomi :: cors //! test lines 3075-3113
 T ok <root>/std/http.nomi :: log_requests //! test lines 3200-3219
 T ok <root>/std/http.nomi :: security_headers //! test lines 3290-3320
 T ok <root>/std/http.nomi :: request_id //! test lines 3355-3375
-T ok <root>/std/http.nomi :: file_server //! test lines 3468-3482
-T ok <root>/std/http.nomi :: serve_embedded //! test lines 3526-3554
-T ok <root>/std/http.nomi :: file_server_embedded //! test lines 3622-3644
-T ok <root>/std/http.nomi :: is_page_route //! test lines 3669-3683
-T ok <root>/std/http.nomi :: detect_content_type //! test line 3841
-T ok <root>/std/http.nomi :: format_time //! test lines 3849-3851
-T ok <root>/std/http.nomi :: impl / parse_header //! test lines 3914-3917
-T ok <root>/std/http.nomi :: impl / parse_set_cookie //! test lines 3927-3932
-T ok <root>/std/http.nomi :: impl / cookies //! test lines 4050-4059
-T ok <root>/std/http.nomi :: impl / to_string //! test lines 4089-4091
-T ok <root>/std/http.nomi :: chunked_reader //! test lines 4551-4555
-T ok <root>/std/http.nomi :: multipart_parts //! test lines 4597-4608
-T test result: ok. 62 passed, 0 failed
+T ok <root>/std/http.nomi :: compress //! test lines 3453-3477
+T ok <root>/std/http.nomi :: basic_auth //! test lines 3646-3674
+T ok <root>/std/http.nomi :: method_override //! test lines 3709-3732
+T ok <root>/std/http.nomi :: serve_file //! test lines 3784-3806
+T ok <root>/std/http.nomi :: file_server //! test lines 3901-3915
+T ok <root>/std/http.nomi :: serve_embedded //! test lines 3963-4010
+T ok <root>/std/http.nomi :: file_server_embedded //! test lines 4084-4117
+T ok <root>/std/http.nomi :: is_page_route //! test lines 4145-4159
+T ok <root>/std/http.nomi :: detect_content_type //! test line 4317
+T ok <root>/std/http.nomi :: format_time //! test lines 4325-4327
+T ok <root>/std/http.nomi :: impl / parse_header //! test lines 4390-4393
+T ok <root>/std/http.nomi :: impl / parse_set_cookie //! test lines 4403-4408
+T ok <root>/std/http.nomi :: impl / cookies //! test lines 4526-4535
+T ok <root>/std/http.nomi :: impl / to_string //! test lines 4565-4567
+T ok <root>/std/http.nomi :: chunked_reader //! test lines 5027-5031
+T ok <root>/std/http.nomi :: multipart_parts //! test lines 5073-5084
+T test result: ok. 66 passed, 0 failed
 T
 C http_testing
 E 0
-N 5
-H 05c4d1a162dc34356f1ef201c9f79254af827b0c958cf90b7f81cee51fa99510
-T ok <root>/std/http_testing.nomi :: run //! test lines 57-69
-T ok <root>/std/http_testing.nomi :: request //! test lines 81-84
-T ok <root>/std/http_testing.nomi :: form_request //! test lines 94-98
-T ok <root>/std/http_testing.nomi :: chunks //! test lines 112-124
-T ok <root>/std/http_testing.nomi :: with_server //! test lines 187-195
-T test result: ok. 5 passed, 0 failed
+N 7
+H fa4d666c324c35ece71fabb9aa0bc213b90739d1862cfcbe3e1151a0c71a5f42
+T ok <root>/std/http_testing.nomi :: run //! test lines 60-72
+T ok <root>/std/http_testing.nomi :: request //! test lines 84-87
+T ok <root>/std/http_testing.nomi :: form_request //! test lines 97-101
+T ok <root>/std/http_testing.nomi :: chunks //! test lines 115-127
+T ok <root>/std/http_testing.nomi :: decompressed //! test lines 161-169
+T ok <root>/std/http_testing.nomi :: with_server //! test lines 216-224
+T ok <root>/std/http_testing.nomi :: open_websocket //! test lines 291-318
+T test result: ok. 7 passed, 0 failed
 T
 C instant
 E 0
@@ -760,6 +786,17 @@ T ok <root>/std/json.nomi :: impl / to_json //! test line 651
 T ok <root>/std/json.nomi :: impl / from_json //! test lines 662-674
 T test result: ok. 16 passed, 0 failed
 T
+C jwt
+E 0
+N 5
+H 5a21b696d83d7b5370c598359dea7ce7495990eca539924de5b5718f4845b389
+T ok <root>/std/jwt.nomi :: impl / hs256 //! test lines 105-108
+T ok <root>/std/jwt.nomi :: impl / eddsa //! test lines 131-138
+T ok <root>/std/jwt.nomi :: sign //! test lines 278-286
+T ok <root>/std/jwt.nomi :: verify //! test lines 325-345
+T ok <root>/std/jwt.nomi :: verify_as //! test lines 376-383
+T test result: ok. 5 passed, 0 failed
+T
 C lists
 E 0
 N 11
@@ -898,8 +935,8 @@ T test result: ok. 1 passed, 0 failed
 T
 C maybe
 E 0
-N 11
-H 166611cb4148f7d0393e763146d48b054b52765e63be3613a6b4ea5bb2ab4cc6
+N 12
+H a8b498820af6f7884f296c3eac925a6f017a34c8621daebb47c7fb12474a920a
 T ok <root>/std/maybe.nomi :: Maybe //! test lines 24-33
 T ok <root>/std/maybe.nomi :: impl / is_some //! test lines 42-43
 T ok <root>/std/maybe.nomi :: impl / is_none //! test lines 53-54
@@ -907,26 +944,12 @@ T ok <root>/std/maybe.nomi :: impl / map //! test lines 64-65
 T ok <root>/std/maybe.nomi :: impl / with_default //! test lines 75-76
 T ok <root>/std/maybe.nomi :: impl / to_result //! test lines 86-87
 T ok <root>/std/maybe.nomi :: impl / flat_map //! test lines 97-106
-T ok <root>/std/maybe.nomi :: impl / flatten //! test lines 117-122
-T ok <root>/std/maybe.nomi :: impl / collect //! test lines 133-159
-T ok <root>/std/maybe.nomi :: impl / values //! test lines 173-191
-T ok <root>/std/maybe.nomi :: impl / each_while //! test lines 210-223
-T test result: ok. 11 passed, 0 failed
-T
-C message
-E 0
-N 2
-H 993d562d6dffbb947c9bba26702881dc5a652bc480a9fb5161fd130e98c3b8e0
-T ok <root>/std/message.nomi :: integer //! test lines 569-570
-T ok <root>/std/message.nomi :: list //! test line 622
-T test result: ok. 2 passed, 0 failed
-T
-C message_format
-E 0
-N 1
-H 4107e9f182e0cfafd7094b660aabe93ab08e99011d989ba23bd4350e1ebfa42d
-T ok <root>/std/message_format.nomi :: variant_name //! test lines 20-22
-T test result: ok. 1 passed, 0 failed
+T ok <root>/std/maybe.nomi :: impl / filter //! test lines 117-124
+T ok <root>/std/maybe.nomi :: impl / flatten //! test lines 135-140
+T ok <root>/std/maybe.nomi :: impl / collect //! test lines 151-177
+T ok <root>/std/maybe.nomi :: impl / values //! test lines 191-209
+T ok <root>/std/maybe.nomi :: impl / each_while //! test lines 228-241
+T test result: ok. 12 passed, 0 failed
 T
 C money
 E 0
@@ -964,6 +987,18 @@ T ok <root>/std/net.nomi :: lookup_host //! test lines 361-362
 T ok <root>/std/net.nomi :: lookup_port //! test line 409
 T test result: ok. 6 passed, 0 failed
 T
+C passwords
+E 0
+N 6
+H 490adbe379178dd5a924622a8cd8fafe714f522f4ee2d5b73da0b80f49edd4a2
+T ok <root>/std/passwords.nomi :: hash //! test lines 157-166
+T ok <root>/std/passwords.nomi :: verify //! test lines 177-190
+T ok <root>/std/passwords.nomi :: needs_rehash //! test lines 211-216
+T ok <root>/std/passwords.nomi :: algorithm //! test lines 230-234
+T ok <root>/std/passwords.nomi :: impl / parse //! test lines 263-272
+T ok <root>/std/passwords.nomi :: impl / int_param //! test lines 321-325
+T test result: ok. 6 passed, 0 failed
+T
 C path
 E 0
 N 10
@@ -979,6 +1014,21 @@ T ok <root>/std/path.nomi :: stem //! test lines 186-189
 T ok <root>/std/path.nomi :: relative //! test lines 208-213
 T ok <root>/std/path.nomi :: matches //! test lines 261-270
 T test result: ok. 10 passed, 0 failed
+T
+C phrase
+E 0
+N 2
+H 5b1d981efbccddb580ef599685e705f72d3fe8f1f534f5e37880100ef40c3c5a
+T ok <root>/std/phrase.nomi :: integer //! test lines 569-570
+T ok <root>/std/phrase.nomi :: list //! test line 622
+T test result: ok. 2 passed, 0 failed
+T
+C phrase_format
+E 0
+N 1
+H 4b665ed770e6834dbc0fc73757ef0c2a029b9019a206d443e744aefee9ff2299
+T ok <root>/std/phrase_format.nomi :: variant_name //! test lines 20-22
+T test result: ok. 1 passed, 0 failed
 T
 C plural
 E 0
@@ -1083,6 +1133,16 @@ H 6ca4679220a35cf486c248c705065fe0776484ba337b91170275171547836869
 T ok <root>/std/reverse.nomi :: Reverse //! test lines 15-25
 T test result: ok. 1 passed, 0 failed
 T
+C sessions
+E 0
+N 4
+H d8bc67836e6a3805b7a5bf64ac461c506206773c1aa578b32b91bc4b4180f02d
+T ok <root>/std/sessions.nomi :: impl / derive //! test lines 79-82
+T ok <root>/std/sessions.nomi :: impl / new //! test lines 152-156
+T ok <root>/std/sessions.nomi :: with_session //! test lines 197-216
+T ok <root>/std/sessions.nomi :: write //! test lines 242-255
+T test result: ok. 4 passed, 0 failed
+T
 C sets
 E 0
 N 11
@@ -1098,6 +1158,23 @@ T ok <root>/std/sets.nomi :: impl / contains //! test lines 81-84
 T ok <root>/std/sets.nomi :: impl / add //! test lines 146-147
 T ok <root>/std/sets.nomi :: impl / empty_sum //! test lines 156-159
 T ok <root>/std/sets.nomi :: impl / subtract //! test lines 168-169
+T test result: ok. 11 passed, 0 failed
+T
+C signatures
+E 0
+N 11
+H a62210a43b7ba264d4f2cd327c319d36b3c2948d70a6e5e816e67088ea50f5b9
+T ok <root>/std/signatures.nomi :: impl / generate_ed25519 //! test lines 101-105
+T ok <root>/std/signatures.nomi :: impl / generate_ecdsa_p256 //! test lines 112-114
+T ok <root>/std/signatures.nomi :: impl / generate_rsa //! test lines 123-125
+T ok <root>/std/signatures.nomi :: impl / from_pem //! test lines 136-147
+T ok <root>/std/signatures.nomi :: impl / from_ed25519_seed //! test lines 160-170
+T ok <root>/std/signatures.nomi :: impl / to_pem //! test lines 179-184
+T ok <root>/std/signatures.nomi :: impl / from_pem //! test lines 229-238
+T ok <root>/std/signatures.nomi :: sign //! test lines 295-305
+T ok <root>/std/signatures.nomi :: sign_with //! test lines 313-321
+T ok <root>/std/signatures.nomi :: verify //! test lines 334-347
+T ok <root>/std/signatures.nomi :: verify_with //! test lines 355-361
 T test result: ok. 11 passed, 0 failed
 T
 C sql
@@ -1144,28 +1221,31 @@ T test result: ok. 7 passed, 0 failed
 T
 C storage
 E 0
-N 7
-H b29c81c645658476c69dc80d461d092aa6366521d3828a3bcef7cc11222a91c9
-T ok <root>/std/storage.nomi :: Error //! test line 74
-T ok <root>/std/storage.nomi :: Store //! test lines 158-163
-T ok <root>/std/storage.nomi :: check_key //! test lines 191-203
-T ok <root>/std/storage.nomi :: join_key //! test lines 246-248
-T ok <root>/std/storage.nomi :: check_content_type //! test lines 259-262
-T ok <root>/std/storage.nomi :: local //! test lines 317-327
-T ok <root>/std/storage.nomi :: handler //! test lines 558-575
-T test result: ok. 7 passed, 0 failed
+N 10
+H 85bfdcec19f2ca94dddcc9fb1eab54a79c8c6c4fc15108609266ddfb0a427de6
+T ok <root>/std/storage.nomi :: Error //! test line 89
+T ok <root>/std/storage.nomi :: Store //! test lines 219-224
+T ok <root>/std/storage.nomi :: check_key //! test lines 254-266
+T ok <root>/std/storage.nomi :: check_prefix //! test lines 299-301
+T ok <root>/std/storage.nomi :: page //! test lines 322-339
+T ok <root>/std/storage.nomi :: list_all //! test lines 403-411
+T ok <root>/std/storage.nomi :: join_key //! test lines 452-454
+T ok <root>/std/storage.nomi :: check_content_type //! test lines 465-468
+T ok <root>/std/storage.nomi :: local //! test lines 523-533
+T ok <root>/std/storage.nomi :: handler //! test lines 832-849
+T test result: ok. 10 passed, 0 failed
 T
 C storage_testing
 E 0
 N 7
-H 9c497df59483b56a6021adc9c353068e99a40ef7c4598addbc44e6925884f77a
+H 89595789e66cece2b774272497084a110d04f646ee0ec3b152c545e9276309a4
 T ok <root>/std/storage_testing.nomi :: Memory //! test lines 42-45
 T ok <root>/std/storage_testing.nomi :: impl / keys //! test lines 65-68
-T ok <root>/std/storage_testing.nomi :: Failing //! test lines 133-136
-T ok <root>/std/storage_testing.nomi :: conformance //! test line 203
-T ok <root>/std/storage_testing.nomi :: rules //! test line 223
-T ok <root>/std/storage_testing.nomi :: invalid_keys //! test line 230
-T ok <root>/std/storage_testing.nomi :: odd_keys //! test line 255
+T ok <root>/std/storage_testing.nomi :: Failing //! test lines 147-150
+T ok <root>/std/storage_testing.nomi :: conformance //! test line 223
+T ok <root>/std/storage_testing.nomi :: rules //! test line 243
+T ok <root>/std/storage_testing.nomi :: invalid_keys //! test line 250
+T ok <root>/std/storage_testing.nomi :: odd_keys //! test line 275
 T test result: ok. 7 passed, 0 failed
 T
 C strings
@@ -1353,4 +1433,39 @@ T ok <root>/std/vectors.nomi :: impl / contains //! test lines 83-86
 T ok <root>/std/vectors.nomi :: impl / add //! test lines 93-94
 T ok <root>/std/vectors.nomi :: impl / empty_sum //! test lines 104-107
 T test result: ok. 9 passed, 0 failed
+T
+C websocket
+E 0
+N 6
+H 2e4fc8344dd4e3ffc0d35029cdde16bf94e7db1515a9013f37aa11aa71a7ad51
+T ok <root>/std/websocket.nomi :: impl / to_string //! test lines 99-102
+T ok <root>/std/websocket.nomi :: impl / each //! test lines 183-206
+T ok <root>/std/websocket.nomi :: impl / close //! test lines 245-257
+T ok <root>/std/websocket.nomi :: accept //! test lines 292-319
+T ok <root>/std/websocket.nomi :: is_upgrade //! test lines 365-371
+T ok <root>/std/websocket.nomi :: connect //! test lines 379-410
+T test result: ok. 6 passed, 0 failed
+T
+C xml
+E 0
+N 17
+H 33587881f3b4cda8e1944fbb8ad59bbc32e55e229d3ba7c8eea60b9208c5028a
+T ok <root>/std/xml.nomi :: Name //! test lines 59-62
+T ok <root>/std/xml.nomi :: Element //! test lines 106-107
+T ok <root>/std/xml.nomi :: impl / new //! test lines 133-136
+T ok <root>/std/xml.nomi :: impl / elements //! test lines 143-144
+T ok <root>/std/xml.nomi :: impl / child //! test lines 159-161
+T ok <root>/std/xml.nomi :: impl / children_named //! test lines 169-174
+T ok <root>/std/xml.nomi :: impl / child_text //! test lines 188-190
+T ok <root>/std/xml.nomi :: impl / text //! test lines 202-203
+T ok <root>/std/xml.nomi :: impl / attribute //! test lines 219-222
+T ok <root>/std/xml.nomi :: Error //! test lines 265-267
+T ok <root>/std/xml.nomi :: decode //! test lines 298-318
+T ok <root>/std/xml.nomi :: decode_bytes //! test line 325
+T ok <root>/std/xml.nomi :: read //! test line 332
+T ok <root>/std/xml.nomi :: tokens //! test lines 345-359
+T ok <root>/std/xml.nomi :: WriteOptions //! test lines 534-547
+T ok <root>/std/xml.nomi :: encode //! test lines 564-579
+T ok <root>/std/xml.nomi :: write //! test lines 592-594
+T test result: ok. 17 passed, 0 failed
 T

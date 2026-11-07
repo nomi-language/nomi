@@ -1,6 +1,5 @@
 import {
-    std::locale.{LoadError, Locale}
-    std::message.Message
+    std::locale.LoadError
     cart
 }
 
@@ -11,7 +10,7 @@ test "every listed locale is loaded already" {
     assert Locale.load(Locale`pl`) == Ok(Unit)
     // A locale the program does not list has no file to load either.
     assert Locale.load(Locale`fr`) == Ok(Unit)
-    assert cart.cart_items(2) |> Message.format(Locale`pl`) == "2 produkty w koszyku"
+    assert cart.cart_items(2) |> Phrase.format(Locale`pl`) == "2 produkty w koszyku"
 }
 
 test "a failed load names the locale whose file failed" {

@@ -681,7 +681,7 @@ A `typealias` is another name for an existing type. `Rule` and
 `(String) -> Maybe<String>` are the same type, and you can use either one
 anywhere. There is no wrapping and no conversion: `too_short` is an ordinary
 function, and the list holds it as a `Rule`. `Maybe.values` keeps the `Some`
-answers and drops the `None`s.
+returns and drops the `None`s.
 
 The point is shorter signatures. `problems` takes a `List<Rule>` instead of a
 `List<(String) -> Maybe<String>>`. Reach for an alias to shorten a long

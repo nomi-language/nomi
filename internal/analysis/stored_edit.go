@@ -377,14 +377,7 @@ func (dm *DocumentManager) advanceStored(sp *storedProgram, changed map[string]s
 			rep.Reduced = red.of(key)
 		}
 		rep.Errs = storedDocumentErrors(c, key == rec.Entry, sp.entryOwn, rep.Reduced, damaged)
-		// Whether each whole-file import is used is the reductions', which
-		// the program checked whole settles on the file's analysis
-		// (CheckImplImports) and its document reads.
-		for _, ii := range c.FA.ImplImports {
-			err := unusedImportError(ii.UnusedImport)
-			unused := slices.ContainsFunc(rep.Reduced.Imports, func(e TypeError) bool { return reflect.DeepEqual(e, err) })
-			c.FA.Program().settleImplImport(ii, unused)
-		}
+		settleStoredImplImports(c.FA, rep.Reduced)
 		if !rep.empty() {
 			reports[key] = rep
 		}
@@ -654,6 +647,18 @@ func (r *storedReport) reductions() storedReduced {
 		return storedReduced{}
 	}
 	return r.Reduced
+}
+
+// settleStoredImplImports settles each whole-file import of fa, a file
+// checked against interfaces, as red, the reductions over bodies, words it:
+// the program checked whole settles it on the file's analysis
+// (CheckImplImports), and the document reads it there.
+func settleStoredImplImports(fa *FileAnalysis, red storedReduced) {
+	for _, ii := range fa.ImplImports {
+		err := unusedImportError(ii.UnusedImport)
+		unused := slices.ContainsFunc(red.Imports, func(e TypeError) bool { return reflect.DeepEqual(e, err) })
+		fa.Program().settleImplImport(ii, unused)
+	}
 }
 
 // empty reports whether r's file reports nothing.

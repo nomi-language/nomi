@@ -55,7 +55,7 @@
 //# }
 //# ```
 //#
-//# A handler answers `Ok(Unit)`, or a `Failure`: `Retry` after a backoff of
+//# A handler returns `Ok(Unit)`, or a `Failure`: `Retry` after a backoff of
 //# `attempt^4 + 15` seconds plus up to a tenth more, `Snooze` after a delay
 //# of its own without counting an attempt, or `Discard`. A trap counts as a
 //# `Retry`, and so does running past the job's `timeout`, which cancels the
@@ -67,7 +67,7 @@
 //# ## Unique jobs and priorities
 //#
 //# An enqueue with `unique` stores nothing when a job holding the same key
-//# is stored, and answers that job's id with `duplicate: True`. A key is
+//# is stored, and returns that job's id with `duplicate: True`. A key is
 //# the job's kind and the `Unique`'s `key`; by default a job holds it while
 //# it is available or running, and with `across: .Kept` for as long as the
 //# queue keeps it. A `period` makes the key one per period, counted from
@@ -132,7 +132,7 @@
 //# ## Writing a backend
 //#
 //# Everything after `Worker` on this page is for a backend or a test queue:
-//# the `Queue` interface and the values it takes and answers (`NewJob`,
+//# the `Queue` interface and the values it takes and returns (`NewJob`,
 //# `Claimed`, `Settle`), `Handler`, which a worker runs, and the pieces a
 //# worker is built from (`run_one`, `settle_for`, `backoff`,
 //# `handlers_by_kind`, `wake`, `enqueue_due`).
@@ -264,10 +264,10 @@ impl Display for JobId {
 }
 
 /// Enqueues a job of `job`'s kind for `args` on `conn`, due at once or at
-/// `run_at`, at `job`'s priority or `priority`, and answers its id. `conn`
+/// `run_at`, at `job`'s priority or `priority`, and returns its id. `conn`
 /// may be a transaction, and the job is stored only if the transaction
 /// commits. With `unique`, an enqueue that finds a stored job holding the
-/// same key stores nothing and answers that job's id, with `duplicate`
+/// same key stores nothing and returns that job's id, with `duplicate`
 /// set. A failed write is the queue's `sql.Error`.
 //! import std::sql_testing.Fake
 //! import std::jobs_testing.Inline
@@ -536,7 +536,7 @@ impl Display for CronError {
 }
 
 impl Cron {
-    /// Reads a cron expression, or answers what is wrong with it and
+    /// Reads a cron expression, or returns what is wrong with it and
     /// where.
     //! assert Result.is_ok(Cron.parse("@hourly"))
     //!
@@ -1183,14 +1183,14 @@ impl Worker {
 pub interface Queue {
     /// Stores `job` on `conn`, which may be a transaction: the job exists
     /// only if `conn`'s writes commit. When a stored job holds `job`'s
-    /// unique key, stores nothing and answers that job's id with
+    /// unique key, stores nothing and returns that job's id with
     /// `duplicate: True`. A unique enqueue in a transaction still open
     /// holds its key against the others until the transaction ends.
     fn insert(queue: self, conn: Conn, job: NewJob) -> Result<Enqueued, sql.Error>
     /// Marks up to `limit` due jobs of these queues and kinds as running
     /// for `worker`, held for `lease`, each with its attempt counted, and
-    /// answers them highest priority first, then oldest. Two claims never
-    /// answer the same job.
+    /// returns them highest priority first, then oldest. Two claims never
+    /// return the same job.
     fn claim(
         queue: self,
         worker: String,
@@ -1204,12 +1204,12 @@ pub interface Queue {
     /// Records how `job` ended. `False` when `worker` no longer holds it.
     fn settle(queue: self, worker: String, job: Claimed, how: Settle) -> Result<Bool, sql.Error>
     /// Makes every job `worker` still holds available at once, with this
-    /// run's attempt not counted. Answers how many.
+    /// run's attempt not counted. Returns how many.
     fn release(queue: self, worker: String) -> Result<Int, sql.Error>
     /// Makes every job whose lease ran out available again, or discarded
-    /// when it used its last attempt. Answers how many.
+    /// when it used its last attempt. Returns how many.
     fn rescue(queue: self) -> Result<Int, sql.Error>
-    /// Deletes finished jobs older than the queue keeps them. Answers how
+    /// Deletes finished jobs older than the queue keeps them. Returns how
     /// many.
     fn prune(queue: self) -> Result<Int, sql.Error>
     /// Sends `Unit` on `wake` when a job may have become due, from a task
@@ -1221,7 +1221,7 @@ pub interface Queue {
     fn last_tick(queue: self, schedule: String) -> Result<Maybe<Instant>, sql.Error>
     /// Records `tick` for the schedule named `schedule`, unless a later
     /// one is recorded, and stores `job` as `insert` does, on the queue's
-    /// own connection and in the same transaction. Answers the insert, or
+    /// own connection and in the same transaction. Returns the insert, or
     /// `None` without a job.
     fn record_tick(
         queue: self,
@@ -1262,7 +1262,7 @@ derive Debug for Claimed
 
 /// How a claimed job ended, as a worker hands it to its queue.
 pub enum Settle {
-    /// The handler answered `Ok`.
+    /// The handler returned `Ok`.
     Completed
 
     /// Available again at `at`; the run counted as an attempt.
@@ -1317,8 +1317,8 @@ pub fn wake(wake: Sender<Unit>) {
 }
 
 /// Runs `handler` on `args` under the handler's timeout. The handler runs
-/// in a task of its own: a trap answers `Retry` with the trap's message at
-/// once, and running past the timeout cancels the task and answers
+/// in a task of its own: a trap returns `Retry` with the trap's message at
+/// once, and running past the timeout cancels the task and returns
 /// `Retry("timed out")`.
 //! ok = Job.new("ok", fn _: Int -> Ok(Unit))
 //! assert run_one(ok, Json.Int(1)) == Ok(Unit)
@@ -1361,7 +1361,7 @@ pub fn backoff(attempt: Int) -> Duration {
     Duration.seconds(attempt * attempt * attempt * attempt + 15)
 }
 
-/// How `claimed` settles when its handler answered `answer` at `now`. A
+/// How `claimed` settles when its handler returned `answer` at `now`. A
 /// retry waits the backoff plus a share of it, up to a tenth, taken from
 /// `now`'s nanoseconds, so jobs that failed together do not all come back
 /// at once. A retry of the last attempt is a discard.
@@ -1802,7 +1802,7 @@ fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed)
 }
 
 // Run `body` while a second task renews the job's lease every third of
-// it, until the body answers.
+// it, until the body returns.
 fn renewing(
     worker: Worker,
     claimed: Claimed,

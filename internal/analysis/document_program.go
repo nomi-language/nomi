@@ -565,7 +565,7 @@ type programChecks struct {
 	// catalogTree holds the errors about the module's catalogs that nothing
 	// reads (CheckCatalogTree).
 	catalogTree []TypeError
-	// declChecks holds the agreement of nouns and messages, by module
+	// declChecks holds the agreement of nouns and phrases, by module
 	// key, "" for the entry to report (CheckProgramDeclarations).
 	declChecks map[string][]TypeError
 	// frontEnd holds the derive-lowering and duplicate test name errors the

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 367
-declared-cases 181
+records 370
+declared-cases 182
 failing 0
 C app-fields.md:L105
 E 0
@@ -234,21 +234,21 @@ H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L227
+C cheat-sheet.md:L230
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L280
+C cheat-sheet.md:L284
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L321
+C cheat-sheet.md:L325
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
@@ -262,7 +262,7 @@ H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L383
+C cheat-sheet.md:L387
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -271,7 +271,7 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L447
+C cheat-sheet.md:L451
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
@@ -471,18 +471,18 @@ T
 C dates-and-times.md:L201
 E 0
 N 0
-H 43669045fccef0751eb3a9a34b38375366678d90ef69cde7c49e4fec5818b5a2
-T dbg line 8: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
-T dbg line 9: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
+H 07bb37977e6a936d4d6e884bc57afd62283600c41cb8659990b2a3509f9c48d2
+T dbg line 5: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
+T dbg line 6: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
 T
-C dates-and-times.md:L228
+C dates-and-times.md:L225
 E 0
 N 0
 H 38794e768781e37f66fc93601ee066dcd6f6796e72c100a43db2f54839a964a0
 T dbg line 6: tokyo = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
 T dbg line 7: ny == tokyo = True
 T
-C dates-and-times.md:L255
+C dates-and-times.md:L252
 E 0
 N 0
 H 8cdc422a57b9d3eedcd8cc4099cec1027a0a1621697bf2cf8ace0f4051ae9fc3
@@ -1878,19 +1878,19 @@ H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C frontends.md:L143
+C frontends.md:L145
 E 0
 N 0
 H 7e21ffb6dbdd29df9ee96fd53625ef0f0b85dcbd32486165ede2d7b322e5fb7b
 T dbg line 25: Response.text(list_todos(http_testing.request(.Get, "/api/todos"))) = Ok("[{\"id\":1,\"title\":\"Write the API\",\"done\":true},{\"id\":2,\"title\":\"Write the page\",\"done\":false}]")
 T
-C frontends.md:L37
+C frontends.md:L38
 E 0
 N 0
-H f0315a41a7c4068f92fa78b6648965b69508b06a2b3bb77a52647740539f70bc
-T dbg line 51: post("ada@example.com").status = Status(303)
-T dbg line 53: bad.status = Status(422)
-T dbg line 54: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
+H 4ca6c7e5f3d5af16a27692243ea3850ae5cfbeb35567fb6bc7cf0fb3eb9bd373
+T dbg line 49: post("ada@example.com").status = Status(303)
+T dbg line 51: bad.status = Status(422)
+T dbg line 52: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</title>\n    <script src='/static/htmx.min.js' defer></script>\n  </head>\n  <body><form method='post' action='/signup'>\n  <input name='email' value='&lt;ada&gt;'>\n  <p class='error'>That is not an email address.</p>\n  <button>Sign up</button>\n</form></body>\n</html>")
 T
 C functions-and-lambdas.md:L12
 E 0
@@ -1899,7 +1899,7 @@ H f6ccf37ab3ee63b6e0ad8400466695f930c851fb4f99f3d4eb56d58d05d846be
 T dbg line 11: add(3, 4) = 7
 T dbg line 12: abs(-9) = 9
 T
-C functions-and-lambdas.md:L185
+C functions-and-lambdas.md:L187
 E 0
 N 0
 H 41732bf383823f41415afcdec076d138095dbffa40e2be0721f8b497e57bdd5e
@@ -1908,7 +1908,7 @@ T dbg line 7: greet("World", "Hi") = "Hi, World!"
 T dbg line 11: add(5) = 15
 T dbg line 12: add(5, 2) = 7
 T
-C functions-and-lambdas.md:L243
+C functions-and-lambdas.md:L245
 E 0
 N 0
 H 5a75baa21186e7996be93bb40480a8abfdcb0f66042a04e61111288d5c50fa29
@@ -1916,7 +1916,7 @@ T dbg line 6: connect("localhost") = "localhost:8080:30"
 T dbg line 7: connect("localhost", timeout: 10) = "localhost:8080:10"
 T dbg line 8: connect(host: "api", port: 443, timeout: 5) = "api:443:5"
 T
-C functions-and-lambdas.md:L283
+C functions-and-lambdas.md:L285
 E 0
 N 0
 H 2dd345f90f7d867c1f990360e879b4c0045f7be19a25e6aa0bd1d7472f6741ee
@@ -1924,7 +1924,7 @@ T dbg line 22: diff = 7
 T dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
 T dbg line 24: add_pair(#(20, 22)) = 42
 T
-C functions-and-lambdas.md:L350
+C functions-and-lambdas.md:L352
 E 0
 N 0
 H 1b3f2615e5310cafc065aef3b352e88fdd3769495725b2a187d165775ed4973f
@@ -1932,7 +1932,7 @@ T dbg line 10: transform(5, fn x -> x + 1) = 6
 T dbg line 11: transform(5, factor: 3, fn x -> x + 1) = 16
 T dbg line 12: transform(5, factor: 3, double) = 30
 T
-C functions-and-lambdas.md:L413
+C functions-and-lambdas.md:L415
 E 0
 N 0
 H 603dda6a246f0e461002dfc04a26b5a6a18bb3eb8c627c4a7fc9746d699b4ac0
@@ -1949,11 +1949,12 @@ T
 C functions-and-lambdas.md:L76
 E 0
 N 0
-H a28532a973e68b08c9dd6310c4befdc63f1fc3ec803dd9e02e317969db795f5c
+H 3ee0bd7176c2e9757c2425fe01e9cec7469c3af4a95fc77ddd05180b60c9120d
 T dbg line 8: xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list() = [2, 3]
 T dbg line 9: xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list() = [3, 5, 7]
 T dbg line 10: xs |> Iter.map(&Point{x: &1, y: 0}) |> Iter.to_list() = [Point{x: 1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}]
 T dbg line 11: xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list() = [2, 2, 3]
+T dbg line 12: xs |> Iter.map(&"id ${&1}") |> Iter.to_list() = ["id 1", "id 2", "id 3"]
 T
 C generating-code.md:L285
 E 0
@@ -1988,7 +1989,7 @@ H d59ad04725cb4d783d88d6f4bb9d8aa14026593801d2642735e7ac2a2b926600
 T dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 T dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
 T
-C http.md:L116
+C http.md:L119
 E 0
 N 0
 H 17a32976d88b397334d71c10ec2f11af6f247933a3da8dcf1e9ba939bdad603d
@@ -2000,7 +2001,7 @@ N 0
 H b2d081ab19838216aa3178588b98237b4643bd979c1b80c5b81b74734a70f366
 T dbg line 20: ran.value = Ok("hello from /greet/ann b")
 T
-C http.md:L166
+C http.md:L169
 E 0
 N 0
 H 4b0f0888e2c296776a3de89001cc2b607695d40f5b55364d51772222adf2ab11
@@ -2008,7 +2009,7 @@ T dbg line 55: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
 T dbg line 56: answer("/users/8").status = Status(404)
 T dbg line 57: Response.text(answer("/users/x")) = Ok("not a number: x\n")
 T
-C http.md:L303
+C http.md:L311
 E 0
 N 0
 H 2076b0c9d76ac5518fc596ebddaeedaa15c9fa322d11199e216900e2f13403b4
@@ -2018,7 +2019,15 @@ T dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
 T dbg line 65: app(http_testing.request(.Get, "/dashboard")).status = Status(401)
 T dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
 T
-C http.md:L395
+C http.md:L405
+E 0
+N 0
+H 76a854e0c29bbdbd523ae81c29745f5c00fede19e70a8d6a2134fdc8f31936fc
+T dbg line 55: Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
+T dbg line 56: app(http_testing.request(.Get, "/dashboard")).status = Status(303)
+T dbg line 63: app(Request.add_cookie(forged, cookie)).status = Status(403)
+T
+C http.md:L511
 E 0
 N 0
 H 7a85e46390ce5ea6c5dc0967f13c2693d828a917d1b6e03ae486a121de9ea31d
@@ -2031,6 +2040,13 @@ N 0
 H 3476914905abd2abf097ed7a552d8b47563f2fb0a55baae25df6bab38ad79a78
 T dbg line 14: Response.text(found) = Ok("user 7")
 T dbg line 16: missing.status = Status(404)
+T
+C http.md:L628
+E 0
+N 1
+H b15893906451bcb5240d4d6eef8c96b3a7a0215aa35368c9214a36d2814ef0b4
+T ok the server shouts back
+T test result: ok. 1 passed, 0 failed
 T
 C input-and-output.md:L120
 E 0
@@ -2222,6 +2238,14 @@ H 71fd30974ec2dbe550574e36c69e22bb55a2c7c6638fedb45b2217ecdb77eda7
 T dbg line 13: text = "{\"firstName\":\"Ada\",\"age\":36}"
 T dbg line 16: user = User{first_name: "Ada", age: 36}
 T
+C json-and-dynamic.md:L194
+E 0
+N 0
+H 250a0e4203ea0c9cf401af9d9ddea56df05e09cd85a76966f19c5d57f88cec7b
+T dbg line 8: rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list() = [Some("36")]
+T dbg line 11: Element.child_text(doc, "title") = Some("News & notes")
+T dbg line 12: csv.decode("a,\"b") = Err(Syntax{message: "a quoted field is not closed, or has a quote in it that is not doubled", line: 1, column: 5})
+T
 C json-and-dynamic.md:L72
 E 0
 N 0
@@ -2233,7 +2257,7 @@ T an object with the keys age, name
 T null
 T not JSON: json decode error at line 1, col 2: unexpected end of input: incomplete JSON value
 T
-C locales-and-formatting.md:L102
+C locales-and-formatting.md:L100
 E 0
 N 0
 H bbf1e0c3c15c425fff37d20b2b89c8db9bbcd9749d6288b5e803c077addb606a
@@ -2246,14 +2270,14 @@ T 20.10.26
 T 20.10.2026, 17:30
 T 20. Oktober 2026, 17:30:00 GMT-4
 T
-C locales-and-formatting.md:L149
+C locales-and-formatting.md:L146
 E 0
 N 0
 H 426718416f00660d1108273849f97396db08b2ec28103e1008d120f6a428bc4a
 T en-US: Tuesday, October 20 | Oct 2026
 T de: Dienstag, 20. Oktober | Okt. 2026
 T
-C locales-and-formatting.md:L198
+C locales-and-formatting.md:L194
 E 0
 N 0
 H c0b327732921d72916148ad1e50d7582ca8ace33c49ca1cec9435770e54796c7
@@ -2264,32 +2288,42 @@ T 1 hour, 30 minutes
 T 1 godzina i 30 minut
 T 1h 30m
 T
-C locales-and-formatting.md:L238
+C locales-and-formatting.md:L233
 E 0
 N 0
-H ffdd21e418ca7dec7e0e72f173809a0ef23afbbe95d56b6d3d8c90aded557709
+H 0109e622ec28d160aeee232d5bfe5da0b9f41b4e50903bbbcd5aaf085462e35a
 T en-US: Anna, Ben, and Chloé
 T en-GB: Anna, Ben and Chloé
 T pl: Anna, Ben i Chloé
-T dbg line 14: String.join_list(["Anna", "Ben"], Locale`en-US`) = "Anna and Ben"
-T dbg line 15: String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or) = "S, M, or L"
-T dbg line 16: String.join_list(["S", "M", "L"], Locale`pl`, style: .Or) = "S, M lub L"
-T dbg line 17: String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit) = "2 lb, 3 oz"
+T dbg line 11: String.join_list(["Anna", "Ben"], Locale`en-US`) = "Anna and Ben"
+T dbg line 12: String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or) = "S, M, or L"
+T dbg line 13: String.join_list(["S", "M", "L"], Locale`pl`, style: .Or) = "S, M lub L"
+T dbg line 14: String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit) = "2 lb, 3 oz"
 T
-C locales-and-formatting.md:L284
+C locales-and-formatting.md:L276
 E 0
 N 0
-H 8ce64a9ea4ed632a1baac08872653fce78ca1547b13968040b17190b3d8b0b63
-T dbg line 7: Int.parse_in("1,200", Locale`en-US`) = Ok(1200)
-T dbg line 8: Int.parse_in("1.200", Locale`de`) = Ok(1200)
-T dbg line 9: Int.parse_in("1200", Locale`de`) = Ok(1200)
-T dbg line 10: Int.parse_in("1.200", Locale`en-US`) = Err(Unexpected{at: 1, text: "."})
-T dbg line 11: Decimal.parse_in("49,90", Locale`de`) = Ok(49.90d)
-T dbg line 12: Int.parse_in(" 3 ", Locale`en-US`) = Err(Unexpected{at: 0, text: " "})
-T dbg line 13: Int.parse_in(" 3 ", Locale`en-US`, lenient: True) = Ok(3)
+H 066347e5c60b0a1cfcd76c08ab189106e33f249c8b2c145e90f60f611800285d
+T dbg line 4: Int.parse_in("1,200", Locale`en-US`) = Ok(1200)
+T dbg line 5: Int.parse_in("1.200", Locale`de`) = Ok(1200)
+T dbg line 6: Int.parse_in("1200", Locale`de`) = Ok(1200)
+T dbg line 7: Int.parse_in("1.200", Locale`en-US`) = Err(Unexpected{at: 1, text: "."})
+T dbg line 8: Decimal.parse_in("49,90", Locale`de`) = Ok(49.90d)
+T dbg line 9: Int.parse_in(" 3 ", Locale`en-US`) = Err(Unexpected{at: 0, text: " "})
+T dbg line 10: Int.parse_in(" 3 ", Locale`en-US`, lenient: True) = Ok(3)
 T not a quantity: unexpected `.` at 1
 T
-C locales-and-formatting.md:L33
+C locales-and-formatting.md:L321
+E 0
+N 0
+H f76c6ca821944317a7c6b0dba85f53570f051b0d216f1a568119234617b6815c
+T dbg line 6: Date.parse_in("10/20/26", us) = Ok(2026-10-20)
+T dbg line 7: Date.parse_in("10/20/2026", us) = Err(InvalidFormat("unexpected `2` at 8 after the date"))
+T dbg line 8: Date.parse_in("10/20/2026", us, lenient: True) = Ok(2026-10-20)
+T dbg line 9: Date.parse_in("2/31/26", us) = Err(InvalidValue("month 2 of 2026 has no day 31"))
+T dbg line 10: Date.parse_in("Oct 20, 2026", us, style: .Medium) = Ok(2026-10-20)
+T
+C locales-and-formatting.md:L34
 E 0
 N 0
 H ddf6bf9038fb6eb1d53c49020c528aecd8098b94df6ad7c7af752165bb2ee1f7
@@ -2300,42 +2334,32 @@ T hi: 12,34,567 sold, 1,299.50, 15% off
 T ar-EG: ١٬٢٣٤٬٥٦٧ sold, ١٬٢٩٩٫٥٠, ١٥٪؜ off
 T ar-EG-u-nu-latn: 1,234,567 sold, 1,299.50, 15‎%‎ off
 T
-C locales-and-formatting.md:L332
+C locales-and-formatting.md:L360
 E 0
 N 0
-H 31a5588a41a05c878960ef27742d950023c59ed7426ec56a69ad96b6b77b9c35
-T dbg line 9: Date.parse_in("10/20/26", us) = Ok(2026-10-20)
-T dbg line 10: Date.parse_in("10/20/2026", us) = Err(InvalidFormat("unexpected `2` at 8 after the date"))
-T dbg line 11: Date.parse_in("10/20/2026", us, lenient: True) = Ok(2026-10-20)
-T dbg line 12: Date.parse_in("2/31/26", us) = Err(InvalidValue("month 2 of 2026 has no day 31"))
-T dbg line 13: Date.parse_in("Oct 20, 2026", us, style: .Medium) = Ok(2026-10-20)
+H 54c81d4d7f7566752ba13ef00c1c95aaa8a4f353d08dc893a170c4daa6e31fb0
+T dbg line 2: Locale.parse("EN-us") = Ok(Locale`en-US`)
+T dbg line 3: Locale.parse("pt_BR") = Err(Underscore{suggestion: "pt-BR"})
+T dbg line 4: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale`pl-PL`)
+T dbg line 5: Locale.fallbacks(Locale`es-MX`) = [Locale`es-MX`, Locale`es-419`, Locale`es`]
 T
-C locales-and-formatting.md:L374
+C locales-and-formatting.md:L400
 E 0
 N 0
-H 910728ba4af470f69ff20e922f4d7a47a3de20738dcba95f35fe6c2cf2783b75
-T dbg line 4: Locale.parse("EN-us") = Ok(Locale`en-US`)
-T dbg line 5: Locale.parse("pt_BR") = Err(Underscore{suggestion: "pt-BR"})
-T dbg line 6: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale`pl-PL`)
-T dbg line 7: Locale.fallbacks(Locale`es-MX`) = [Locale`es-MX`, Locale`es-419`, Locale`es`]
+H a6cbe4e6018f1bca9328e26d9d17f28800e5e85372d53a77cc05cf9750962dbb
+T dbg line 8: page_locale([Locale`pt-BR`, Locale`en-US`]) = Locale`pt`
+T dbg line 9: page_locale([Locale`de-AT`]) = Locale`de`
+T dbg line 10: page_locale([Locale`ja`, Locale`pl`]) = Locale`pl`
+T dbg line 11: page_locale([Locale`ja`]) = Locale`en`
 T
-C locales-and-formatting.md:L416
-E 0
-N 0
-H de7262b3296091d1275aa5fa9cae608a1340bb25bc5348439158a76f5a22f830
-T dbg line 10: page_locale([Locale`pt-BR`, Locale`en-US`]) = Locale`pt`
-T dbg line 11: page_locale([Locale`de-AT`]) = Locale`de`
-T dbg line 12: page_locale([Locale`ja`, Locale`pl`]) = Locale`pl`
-T dbg line 13: page_locale([Locale`ja`]) = Locale`en`
-T
-C locales-and-formatting.md:L455
+C locales-and-formatting.md:L437
 E 0
 N 0
 H f08f52da162cf50ad134e649f7ea5b6b8ef21d8420370a7782f25606cf84a3b1
 T /cart in de: 1.299,50
 T /cart in en: 1,299.50
 T
-C locales-and-formatting.md:L523
+C locales-and-formatting.md:L502
 E 0
 N 0
 H af70d3bcc308c04e446d3671a57f8ef3fb15b06d9d539a871a2232e0fd11c026
@@ -2344,16 +2368,16 @@ T sv: Abel, Śliwa, Sowa, Żak, Zorn, Åberg, Ärlig, Öberg
 T pl: Abel, Åberg, Ärlig, Öberg, Sowa, Śliwa, Zorn, Żak
 T bytes: Abel, Sowa, Zorn, Ärlig, Åberg, Öberg, Śliwa, Żak
 T
-C locales-and-formatting.md:L565
+C locales-and-formatting.md:L543
 E 0
 N 0
-H 2d659b9ee692689fb70d6b2e61c0ef72f2b774489bfe1f7cef636cac104a08a7
-T dbg line 4: String.uppercase("istanbul") = "ISTANBUL"
-T dbg line 5: String.uppercase_in("istanbul", Locale`tr`) = "İSTANBUL"
-T dbg line 6: String.lowercase_in("KIRMIZI", Locale`tr`) = "kırmızı"
-T dbg line 7: String.fold_case("Straße") == String.fold_case("STRASSE") = True
+H 56c2c79015ee992ebb8476c1ffa5120979bfc6bdc558406b3425cd9c51b574de
+T dbg line 2: String.uppercase("istanbul") = "ISTANBUL"
+T dbg line 3: String.uppercase_in("istanbul", Locale`tr`) = "İSTANBUL"
+T dbg line 4: String.lowercase_in("KIRMIZI", Locale`tr`) = "kırmızı"
+T dbg line 5: String.fold_case("Straße") == String.fold_case("STRASSE") = True
 T
-C locales-and-formatting.md:L594
+C locales-and-formatting.md:L570
 E 0
 N 0
 H 498402278768b3d0b340ff445408ae9c2ed61aeaac533c11f5938658c2b81a8b
@@ -2431,35 +2455,35 @@ T
 C money.md:L182
 E 0
 N 0
-H 2081d0b63b95d887aa601d91de3f892b894d09ece5d031c14e1c3d912b6412d9
+H a9e780568d71c1cace880e0198b6137418f8729350d15895cfdc9383e2777f9e
 T 1500 PTS:0
 T PTS 1,500
-T dbg line 12: Currency.parse("PTS:0") == Ok(points.currency) = True
+T dbg line 11: Currency.parse("PTS:0") == Ok(points.currency) = True
 T
-C money.md:L252
+C money.md:L251
 E 0
 N 0
-H c3350629c6b59f06c3ebbeff3b4f7ba293da52475abfeeb3a3d0442921272ec8
+H 0dcdb19a617fb4d3fa21711111077b0c002988f93b777607a5e7fc63420c6684
 T en-US: $1,299.50
 T de: 1.299,50 $
 T fr: 1 299,50 $US
-T dbg line 13: "${price}" = "1299.5 USD"
-T dbg line 14: Money.format(Money`1500 JPY`, Locale`ja`) = "￥1,500"
+T dbg line 12: "${price}" = "1299.5 USD"
+T dbg line 13: Money.format(Money`1500 JPY`, Locale`ja`) = "￥1,500"
 T
-C money.md:L294
+C money.md:L292
 E 0
 N 0
-H e05cf2d8d4bb1ca1910d8ec4b115a85935ba21d7eb9b0949a1cfafe50f7fe742
-T dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
-T dbg line 9: Money.format(usd, Locale`en-CA`) = "US$5.00"
+H 650ef88f33a15987de577ce22b2fc04977127ffb04628ae8443a139334e55937
+T dbg line 5: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
+T dbg line 6: Money.format(usd, Locale`en-CA`) = "US$5.00"
 T
-C money.md:L327
+C money.md:L322
 E 0
 N 0
-H cf759832b904a10731ae324a7b1ddaff63e2cf916ddbc25eadc2629c82dcd440
-T dbg line 9: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
-T dbg line 10: Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
-T dbg line 11: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(WrongCurrency{expected: Currency`USD`, found: "€"})
+H 5fffd830661484e4a14d4bac211cf470e828c87363f3ac3f5b690a8a9071dc38
+T dbg line 8: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
+T dbg line 9: Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
+T dbg line 10: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(WrongCurrency{expected: Currency`USD`, found: "€"})
 T
 C money.md:L69
 E 0
@@ -2586,21 +2610,21 @@ H 8e2f8cbcbab2178f82dc2bf661bbd1dc5133d5b4c5a8cbd25c3cc7242a71610b
 T got 3 words
 T GO NORTH NOW
 T
-C pipes.md:L233
+C pipes.md:L234
 E 0
 N 0
 H 19540fbf1d2038602010f27020e1e665e66b9336907a212e02b342d1b977cede
 T dbg line 10: parse("  21  ") = Some(42)
 T dbg line 11: parse("abc") = None
 T
-C pipes.md:L259
+C pipes.md:L260
 E 0
 N 1
 H 6466c7087e99d349b351e11d2c93f7b122939dd4b964973e2d18dcfd315aa648
 T ok pipeline result is true
 T test result: ok. 1 passed, 0 failed
 T
-C pipes.md:L276
+C pipes.md:L277
 E 0
 N 0
 H b19c0d5c19299a93d3148eaf67ed7d28ea8bfe4b2570719cdc7036e4ed4618c5
@@ -3007,7 +3031,7 @@ H cfbb19b0fc6f852297e1671c2273a5570f042ffcc58080b0bf25fd569435bfdb
 T ok assert can match an error variant
 T test result: ok. 1 passed, 0 failed
 T
-C translating-text.md:L237
+C translating-text.md:L241
 E 0
 N 0
 H 1030230db848a213a42098dbf99578f22a23da347beaf53788f975fd14bab6aa
@@ -3031,14 +3055,14 @@ T Ships Tuesday, October 20
 T Razem: 27,35 USD
 T Wysyłka: wtorek, 20 października
 T
-C translating-text.md:L474
+C translating-text.md:L472
 E 0
 N 0
 H 84f8991f46beecdfda168d26ac8982e7663b2466be5c030ba443800df4709618
 T Your book has shipped. | Twoja książka została wysłana.
 T Your laptop has shipped. | Twój laptop został wysłany.
 T
-C translating-text.md:L74
+C translating-text.md:L79
 E 0
 N 0
 H 6cd765881f6eed0d7cad6f3cc930980c28d2dbb649c94ff0e8742ae72aadf395

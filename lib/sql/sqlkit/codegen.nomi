@@ -4,7 +4,7 @@
 //# file, and a test that the generated files are current. The generated
 //# code states each fact about a query as code that checks only when the
 //# fact holds: a column of the `INTEGER` family is read by a function
-//# bounded by `SqlInt`, and a nullable one answers a `Maybe`.
+//# bounded by `SqlInt`, and a nullable one returns a `Maybe`.
 
 import {
     databases.{self, Database}
@@ -1153,7 +1153,7 @@ fn unwrap(text: String, name: String) -> String {
 }
 
 /// The shape a query takes once SQLite gives its columns, or what is wrong
-/// with its result type. SQL that returns no rows answers the number of
+/// with its result type. SQL that returns no rows returns the number of
 /// rows it changed (`-> Changed`) or nothing (`-> Unit`), and only SQL
 /// that returns rows can leave its result type out or name a row type.
 fn described_shape(

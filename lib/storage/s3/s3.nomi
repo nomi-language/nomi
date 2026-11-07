@@ -25,24 +25,30 @@
 //# `Unavailable` (a network failure, a timeout, or a 429, 500, 502, 503 or
 //# 504) is tried again `retries` times, after 100 ms and then 400 ms, each
 //# with up to half again at random, and signed again each time. Every call
-//# is a whole-object `PUT`, `GET`, `HEAD` or `DELETE`, so a retry is safe.
+//# is a whole-object `PUT`, `GET`, `HEAD` or `DELETE`, or a listing's
+//# `GET`, so a retry is safe.
+//#
+//# `Store.list` is S3's `ListObjectsV2`, read with std::xml: a page's
+//# `next` is the server's continuation token, and `limit` is `max-keys`,
+//# which counts common prefixes as well as objects.
 //#
 //# `presign_get` and `presign_put` make URLs that let whoever holds them
 //# read or write one object for a while with no credentials. `sign` and
 //# `presign` are the signer itself, for an S3 call this module does not
-//# make. Listing, multipart uploads and streaming are not built.
+//# make. Multipart uploads and streaming are not built.
 
 import {
-    std::calendar.{DateTime, DateTimePattern}
+    std::calendar.{Anchored, DateTime, DateTimePattern, OffsetDateTime}
     std::duration.Duration
     std::hash
     std::hex
     std::http.{self, Body, Client, ClientOptions, Headers, Method, Request, Response, Status}
     std::instant.Instant
     std::regex.Regex
-    std::storage.{self, Info, Object, Store}
+    std::storage.{self, Entry, Info, ListOptions, Listing, Object, Store}
     std::timer
     std::url.{Query, Url}
+    std::xml.{self, Element}
 }
 
 /// How requests name the bucket.
@@ -321,9 +327,82 @@ impl Store for Bucket {
             None -> Ok(object_url(bucket.config, key))
         }
     }
+
+    fn list(bucket: Bucket, options: ListOptions) -> Result<storage.Listing, storage.Error> {
+        storage.check_prefix(options.prefix)?
+        config = bucket.config
+        limit = Int.max(1, Int.min(options.limit, 1000))
+
+        pairs =
+            [
+                Some(#("list-type", "2")),
+                Some(#("max-keys", "${limit}")),
+                if options.prefix == "" {
+                    None
+                } else {
+                    Some(#("prefix", options.prefix))
+                },
+                if options.delimiter == "" {
+                    None
+                } else {
+                    Some(#("delimiter", options.delimiter))
+                },
+                options.continuation |> Maybe.map(fn token -> #("continuation-token", token)),
+            ]
+            |> Maybe.values()
+
+        url = #{..bucket_url(config), query: Some(canonical_query(Query(pairs)))}
+        response = attempt(bucket, Request{method: Method.Get, url}, options.prefix, 0)?
+        body = Response.text(response) |> Result.map_err(fn e -> from_http(e))?
+        listing_of(body)
+    }
 }
 
-// Send one call's request, signed afresh for each attempt, and answer the
+// The listing a `ListObjectsV2` response's XML describes.
+fn listing_of(body: String) -> Result<Listing, storage.Error> {
+    bad = fn message: String -> storage.Error.Backend{code: "InvalidResponse", message}
+    doc = xml.decode(body) |> Result.map_err(fn e -> bad("the listing is not XML: ${e}"))?
+
+    objects =
+        Element.children_named(doc, "Contents")
+        |> Iter.map(fn contents -> {
+            key =
+                Element.child_text(contents, "Key")
+                |> Maybe.to_result(bad("a listed object has no Key"))?
+
+            size =
+                Element.child_text(contents, "Size")
+                |> Maybe.flat_map(String.to_int)
+                |> Maybe.to_result(bad("the listed object ${key} has no Size"))?
+
+            modified =
+                Element.child_text(contents, "LastModified")
+                |> Maybe.flat_map(fn text -> OffsetDateTime.parse(text) |> Result.to_maybe())
+                |> Maybe.map(&Anchored.to_instant(&1))
+                |> Maybe.to_result(bad("the listed object ${key} has no LastModified time"))?
+
+            Ok(Entry{key, size, modified})
+        })
+        |> Result.collect()?
+
+    prefixes =
+        Element.children_named(doc, "CommonPrefixes")
+        |> Iter.map(fn common -> Element.child_text(common, "Prefix"))
+        |> Maybe.values()
+
+    next = if Element.child_text(doc, "IsTruncated") == Some("true") {
+        Some(
+            Element.child_text(doc, "NextContinuationToken")
+            |> Maybe.to_result(bad("a truncated listing has no NextContinuationToken"))?
+        )
+    } else {
+        None
+    }
+
+    Ok(Listing{objects, prefixes, next})
+}
+
+// Send one call's request, signed afresh for each attempt, and return the
 // response of the first attempt that succeeds, or the last failure.
 fn send(
     bucket: Bucket,
@@ -392,7 +471,7 @@ fn info_of(response: Response, size: Int) -> Info {
     Info{size, content_type, modified}
 }
 
-// The storage error for a response S3 answered with a status other than a
+// The storage error for a response S3 returned with a status other than a
 // success.
 fn failure(key: String, response: Response) -> storage.Error {
     status = Status.code(response.status)
@@ -444,32 +523,13 @@ struct ErrorDocument {
     region: Maybe<String>
 }
 
-// S3's error document is flat: `<Error><Code>..</Code><Message>..</Message>
-// ...</Error>`. This reads its `Code`, `Message` and `Region` and nothing
-// else; it is not an XML parser.
+// S3's error document: `<Error><Code>..</Code><Message>..</Message>
+// ...</Error>`, of which this reads `Code`, `Message` and `Region`.
 fn parse_error(body: String) -> Maybe<ErrorDocument> {
-    code = String.captures(body, Regex`<Code>([^<]*)</Code>`)?
-    message = String.captures(body, Regex`<Message>([^<]*)</Message>`) |> Maybe.with_default("")
-    region = String.captures(body, Regex`<Region>([^<]*)</Region>`)
-
-    Some(
-        ErrorDocument{
-            code: unescape(code),
-            message: unescape(message),
-            region: region |> Maybe.map(unescape),
-        }
-    )
-}
-
-// The five entities XML predefines, with `&amp;` last so `&amp;lt;` stays
-// `&lt;`.
-fn unescape(text: String) -> String {
-    text
-    |> String.replace("&lt;", "<")
-    |> String.replace("&gt;", ">")
-    |> String.replace("&quot;", "\"")
-    |> String.replace("&apos;", "'")
-    |> String.replace("&amp;", "&")
+    doc = xml.decode(body) |> Result.to_maybe()?
+    code = Element.child_text(doc, "Code")?
+    message = Element.child_text(doc, "Message") |> Maybe.with_default("")
+    Some(ErrorDocument{code, message, region: Element.child_text(doc, "Region")})
 }
 
 fn from_http(error: http.Error) -> storage.Error {
@@ -556,6 +616,19 @@ fn check_expires(expires: Duration) -> Result<Unit, storage.Error> {
         invalid("a presigned URL expires after 1 second to 7 days, not ${expires}")
     } else {
         Ok(Unit)
+    }
+}
+
+// The bucket's URL on the endpoint, in the configured addressing style.
+fn bucket_url(config: Config) -> Url {
+    endpoint = config.endpoint
+
+    case config.addressing {
+        .Path ->
+            Url{scheme: endpoint.scheme, host: endpoint.host, path: "/${config.bucket}"}
+
+        .VirtualHost ->
+            Url{scheme: endpoint.scheme, host: "${config.bucket}.${endpoint.host}", path: "/"}
     }
 }
 

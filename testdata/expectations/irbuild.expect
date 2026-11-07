@@ -13,7 +13,7 @@ population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
 records 384
 declared-cases 0
-failing 86
+failing 87
 C assert_subject_test.nomi@8cbc70b189c27641
 E 1
 N 0
@@ -1126,35 +1126,6 @@ T    |
 T 15 | }
 T    | ^
 T
-C control_test.nomi@6d8be07fce15fc16
-E 1
-N 0
-H 003a684a8c0304067875a181388c087543bc27e2bbf3ef9fd4cc8d5bce49dd95
-S -- control_test.nomi 342 --
-S import {
-S     std::locale.Locale
-S     std::strings.ListWidth
-S }
-S
-S test "a named argument past an omitted default" {
-S   assert String.join_list(["a", "b"], Locale`en`, width: .Short) == "a & b"
-S }
-S
-S test "a failing one still reports the call's value" {
-S   w = ListWidth.Short
-S   assert String.join_list(["a", "b"], Locale`en`, width: w) == "a and b"
-S }
-S
-S
-T ok <dir>/control_test.nomi :: a named argument past an omitted default
-T FAIL <dir>/control_test.nomi :: a failing one still reports the call's value
-T   line 12: assertion failed
-T     assert String.join_list(["a", "b"], Locale`en`, width: w) == "a and b"
-T     values:
-T       String.join_list(["a", "b"], Locale`en`, width: w)
-T         = "a & b"
-T test result: FAILED. 1 passed, 1 failed
-T
 C control_test.nomi@6f99216c40c64a62
 E 0
 N 0
@@ -1866,6 +1837,34 @@ T ok <dir>/control_test.nomi :: a subject's operand that leaves
 T   operand left
 T test result: FAILED. 3 passed, 1 failed
 T
+C control_test.nomi@d72e12e1f871756a
+E 1
+N 0
+H 4c8f5b26a0c17cb299d908fa81108491b836cb8acf2daa941165daf4ed5a47c7
+S -- control_test.nomi 319 --
+S import {
+S     std::strings.ListWidth
+S }
+S
+S test "a named argument past an omitted default" {
+S   assert String.join_list(["a", "b"], Locale`en`, width: .Short) == "a & b"
+S }
+S
+S test "a failing one still reports the call's value" {
+S   w = ListWidth.Short
+S   assert String.join_list(["a", "b"], Locale`en`, width: w) == "a and b"
+S }
+S
+S
+T ok <dir>/control_test.nomi :: a named argument past an omitted default
+T FAIL <dir>/control_test.nomi :: a failing one still reports the call's value
+T   line 11: assertion failed
+T     assert String.join_list(["a", "b"], Locale`en`, width: w) == "a and b"
+T     values:
+T       String.join_list(["a", "b"], Locale`en`, width: w)
+T         = "a & b"
+T test result: FAILED. 1 passed, 1 failed
+T
 C control_test.nomi@dca829aed7291c62
 E 1
 N 0
@@ -2039,7 +2038,7 @@ T
 C group_test.nomi@0096f54cfe4db215
 E 1
 N 0
-H bdb16066a531d9d555c9177b849973a7504ecb357e1c923558a38de0c504e4c7
+H 47faf9166dcb242771c3077d7f9da1fe76241096b6000f2aa2647231f44cb069
 S -- group_test.nomi 551 --
 S pub struct App {
 S   context: Context
@@ -2088,7 +2087,7 @@ T  --> <dir>/group_test.nomi:6:18
 T   |
 T 6 | pub fn boot() -> App {
 T   |                  ^^^
-T   = help: declare `-> Result<App, String>`, or another error type, and wrap the value boot answers in `Ok(...)`
+T   = help: declare `-> Result<App, String>`, or another error type, and wrap the value boot returns in `Ok(...)`
 T test result: FAILED. 0 passed, 1 failed
 T
 C group_test.nomi@0cab18e3d7d483c7
@@ -2916,7 +2915,7 @@ T
 C group_test.nomi@bc63065b08a8b8a8
 E 1
 N 0
-H 4f41650651d85eb8221d589f4ed88673ffa08042f4102eeecf28ea4ff4c3b233
+H 37b2b403895263cfdb9d0f4a8a15c2ac0229e4f59df4d9de7566bff0075c8dd4
 S -- group_test.nomi 255 --
 S pub struct App {
 S   context: Context
@@ -2948,7 +2947,7 @@ T   --> <dir>/group_test.nomi:10:18
 T    |
 T 10 | pub fn boot() -> App {
 T    |                  ^^^
-T    = help: declare `-> Result<App, String>`, or another error type, and wrap the value boot answers in `Ok(...)`
+T    = help: declare `-> Result<App, String>`, or another error type, and wrap the value boot returns in `Ok(...)`
 T test result: FAILED. 0 passed, 1 failed
 T
 C group_test.nomi@c6d1575d1b3d9c36
@@ -3199,7 +3198,7 @@ T
 C group_test.nomi@e4204a715390286e
 E 1
 N 0
-H bdb16066a531d9d555c9177b849973a7504ecb357e1c923558a38de0c504e4c7
+H 47faf9166dcb242771c3077d7f9da1fe76241096b6000f2aa2647231f44cb069
 S -- group_test.nomi 372 --
 S pub struct App {
 S   context: Context
@@ -3232,7 +3231,7 @@ T  --> <dir>/group_test.nomi:6:18
 T   |
 T 6 | pub fn boot() -> App {
 T   |                  ^^^
-T   = help: declare `-> Result<App, String>`, or another error type, and wrap the value boot answers in `Ok(...)`
+T   = help: declare `-> Result<App, String>`, or another error type, and wrap the value boot returns in `Ok(...)`
 T test result: FAILED. 0 passed, 1 failed
 T
 C group_test.nomi@ec152ed22a6cd66e
@@ -3498,27 +3497,65 @@ T       find(2)
 T     actual: None
 T test result: FAILED. 3 passed, 5 failed
 T
-C internal/irbuild/testdata/assertable_subject.nomi@1813aaf3d3784f83
-E 0
-N 0
-H c3b6fc0e740652657ae926da1a4b695c364541287a80a549a565d65c836d572c
-T ok <dir>/assertable_subject.nomi :: a passing Assertable holds and its value is the subject
-T ok <dir>/assertable_subject.nomi :: a refutation holds when the Assertable reports a failure
-T ok <dir>/assertable_subject.nomi :: a failing check carries the reason, actual and detail rows it answered
-T ok <dir>/assertable_subject.nomi :: the report shows the authored details, in the order they were answered
-T ok <dir>/assertable_subject.nomi :: an Assertable answering the declared defaults reports them
-T ok <dir>/assertable_subject.nomi :: an explicitly empty reason falls back to the site's own words
-T ok <dir>/assertable_subject.nomi :: a failed refutation says so in its own words
-T ok <dir>/assertable_subject.nomi :: a bound Assertable subject carries its defining expression
-T test result: ok. 8 passed, 0 failed
-T
-C internal/irbuild/testdata/assertable_subject_report.nomi@cac61708510a0ec7
+C internal/irbuild/testdata/assertable_subject.nomi@ded6920a58d46d8d
 E 1
 N 0
-H 7c9bb0e319fb15856d43df628ea35b7c8fd2387e13e56187d3a3237b09284366
+H a16c28275f375a445e3d88dcc068dc75eb60c3f5e2f85b9dd94f95dc06f65551
+T ok <dir>/assertable_subject.nomi :: a passing Assertable holds and its value is the subject
+T ok <dir>/assertable_subject.nomi :: a refutation holds when the Assertable reports a failure
+T FAIL <dir>/assertable_subject.nomi :: a failing check carries the reason, actual and detail rows it answered
+T   line 130: assertion failed
+T     assert observed.line == 123
+T     values:
+T       observed.line
+T         = 127
+T FAIL <dir>/assertable_subject.nomi :: the report shows the authored details, in the order they were answered
+T   line 146: assertion failed
+T     assert AssertionFailure.format(failure) == """ lines 147-159 """
+T     values:
+T       failure
+T         = AssertionFailure{actual: Some("41"), binding: None, details: [AssertionDetail{label: "actual", value: "41"}, AssertionDetail{label: "expected", value: "42"}], expression: "equals(x, y)", keyword: "check", line: 144, reason: "values were not equal", subtests: [], values: [AssertionValue{expression: "x", pipeline: [], value: "41"}, AssertionValue{expression: "y", pipeline: [], value: "42"}]}
+T     expected """ ... """ (-) and actual AssertionFailure.format(failure) (+) differ
+T
+T         147 - │ line 140: values were not equal
+T             + │ line 144: values were not equal
+T         148   │   check equals(x, y)
+T         149   │   values:
+T         150   │     x
+T               │   ... 9 lines match ...
+T FAIL <dir>/assertable_subject.nomi :: an Assertable answering the declared defaults reports them
+T   line 170: assertion failed
+T     assert AssertionFailure.format(failure) == """ lines 171-172 """
+T     values:
+T       failure
+T         = AssertionFailure{actual: None, binding: None, details: [], expression: "Defaulted{ok: False}", keyword: "check", line: 164, reason: "assertion failed", subtests: [], values: []}
+T     expected """ ... """ (-) and actual AssertionFailure.format(failure) (+) differ
+T
+T         171 - │ line 160: assertion failed
+T             + │ line 164: assertion failed
+T         172   │   check Defaulted{ok: False}
+T ok <dir>/assertable_subject.nomi :: an explicitly empty reason falls back to the site's own words
+T FAIL <dir>/assertable_subject.nomi :: a failed refutation says so in its own words
+T   line 194: assertion failed
+T     assert AssertionFailure.format(failure) == """ lines 195-196 """
+T     values:
+T       failure
+T         = AssertionFailure{actual: None, binding: None, details: [], expression: "equals(3, 3)", keyword: "refute", line: 109, reason: "refute failed", subtests: [], values: []}
+T     expected """ ... """ (-) and actual AssertionFailure.format(failure) (+) differ
+T
+T         195 - │ line 105: refute failed
+T             + │ line 109: refute failed
+T         196   │   refute equals(3, 3)
+T ok <dir>/assertable_subject.nomi :: a bound Assertable subject carries its defining expression
+T test result: FAILED. 4 passed, 4 failed
+T
+C internal/irbuild/testdata/assertable_subject_report.nomi@ba86ea4177ce532f
+E 1
+N 0
+H fe0e44e001c249d5b289728bbba4fb655ed5605ac7544c918c1856cf7afaf1c2
 T ok <dir>/assertable_subject_report.nomi :: an Assertable that holds keeps the whole file honest
 T FAIL <dir>/assertable_subject_report.nomi :: a failing Assertable assertion renders the rows it authored
-T   line 64: values were not equal
+T   line 68: values were not equal
 T     assert equals(left, right)
 T     values:
 T       left
@@ -3532,10 +3569,10 @@ T       expected
 T         = 42
 T     actual: 41
 T FAIL <dir>/assertable_subject_report.nomi :: a failing refutation of an Assertable says so in its own words
-T   line 68: refute failed
+T   line 72: refute failed
 T     refute equals(9, 9)
 T FAIL <dir>/assertable_subject_report.nomi :: a failing Assertable assertion on a bound name shows where it came from
-T   line 82: values were not equal
+T   line 86: values were not equal
 T     assert comparison
 T     defined as:
 T       equals(5, 6)
@@ -9762,15 +9799,16 @@ T ok <dir>/add_test.nomi :: Add impl identity includes rhs type
 T ok <dir>/add_test.nomi :: generic operators use their interface output type
 T test result: ok. 6 passed, 0 failed
 T
-C tests/13-iterators-and-pipes/pipes_test.nomi@b53d28fe3b5c2c1d
+C tests/13-iterators-and-pipes/pipes_test.nomi@3699d07d91b1c5b3
 E 0
 N 0
-H 9e0436ed2f67a56e40284d844885c425b0e97ac92c29c89fa7aa2cb312dab2b1
+H dcc203566113b33932f799caf625098892b57c0ee2d2c964c13dc6fb06e50a41
 T ok <dir>/pipes_test.nomi :: pipes thread the previous value into call stages
 T ok <dir>/pipes_test.nomi :: partial applications leave placeholder arguments open
 T ok <dir>/pipes_test.nomi :: bare dbg pipe stages inspect and pass through the previous value
 T ok <dir>/pipes_test.nomi :: pipes into dispatch functions preserve interface dispatch
-T test result: ok. 4 passed, 0 failed
+T ok <dir>/pipes_test.nomi :: tap stages run a function by name and pass the value on
+T test result: ok. 5 passed, 0 failed
 T
 C tests/15-app-and-defer/context_values_test.nomi@5e00e4f7c87ed43b
 E 0

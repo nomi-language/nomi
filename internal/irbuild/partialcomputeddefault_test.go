@@ -138,7 +138,6 @@ fn main() {
 func TestPartialComputedDefault_StdCallee(t *testing.T) {
 	verifyLambdaProgram(t, `import {
     std::io
-    std::locale.Locale
     std::strings
     std::strings.ListStyle
     std::strings.ListWidth

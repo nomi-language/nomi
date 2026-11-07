@@ -2256,11 +2256,11 @@ func (n *OnceBinding) LineNum() int   { return n.Line }
 //
 //	[pub] keyword name [(params)] [-> type] [[Tag]raw body]
 //
-// whose keyword the grammar does not know: `message cart_items(count: Int)
+// whose keyword the grammar does not know: `phrase cart_items(count: Int)
 // `{$count :integer} items“. Two names in a row start nothing else at the
 // top of a file, so the rule takes nothing from other declarations. What a
 // declaration means is its keyword's: internal/analysis expands each
-// keyword it builds in (`message`, `noun`) into declarations the checker
+// keyword it builds in (`phrase`, `noun`) into declarations the checker
 // checks (analysis.ExpandDeclarations), and rejects any other.
 //
 // Line and Col are the keyword's position; NameLine and NameCol the
@@ -2414,7 +2414,7 @@ type EmbeddedFile struct {
 }
 
 // Expansion marks a declaration a keyword declaration expanded into: the
-// function a `message` declares, or the `once` a `noun` names. Keyword is
+// function a `phrase` declares, or the `once` a `noun` names. Keyword is
 // the declaration's keyword.
 // What the expanding keyword keeps about the declaration (its body, its
 // inputs, the span map back to them) is Detail, which this package never
@@ -2734,24 +2734,31 @@ func (n *Then) Fn() Node {
 func (*Then) NodeType() string { return "Then" }
 func (n *Then) LineNum() int   { return n.Line }
 
-// Tap is the pipe stage `x |> tap fn v -> body` (or `x |> tap &f(&1)`),
-// which runs Lambda (or Capture) on the piped value for its effect and
-// passes the value on unchanged. Exactly one of Lambda and Capture is set,
-// and the function returns Unit. It is only ever the right operand of a
-// `|>`. Line and Col are the `tap` keyword's.
+// Tap is the pipe stage `x |> tap fn v -> body` (or `x |> tap &f(&1)`, or
+// `x |> tap log_it`), which runs Lambda (or Capture, or the function Name
+// names) on the piped value for its effect and passes the value on
+// unchanged. Exactly one of Lambda, Capture and Name is set, and the
+// function returns Unit. Name is a function's name: an *Ident (`log_it`, or
+// a local binding holding a function) or a *FieldAccess over one
+// (`io.print`, `Log.info`). It is only ever the right operand of a `|>`.
+// Line and Col are the `tap` keyword's.
 type Tap struct {
 	TriviaCarrier
 	SpanCarrier
 	Lambda  *Lambda
 	Capture *Capture
+	Name    Node
 	Line    int
 	Col     int
 }
 
-// Fn is the stage's function: its lambda or its capture.
+// Fn is the stage's function: its lambda, its capture or its name.
 func (n *Tap) Fn() Node {
 	if n.Capture != nil {
 		return n.Capture
+	}
+	if n.Name != nil {
+		return n.Name
 	}
 	return n.Lambda
 }

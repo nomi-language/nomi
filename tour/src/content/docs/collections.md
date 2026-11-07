@@ -163,7 +163,7 @@ items up by index or add them at the end. Use a list when you add items at the
 front.
 
 Indexes start at 0.
-[`Vector.get`](/reference/vectors/#vectorget) answers a
+[`Vector.get`](/reference/vectors/#vectorget) returns a
 [`Maybe`](/reference/maybe/): `Some(item)` when the index is inside the
 vector, `None` when it is not. Use it when the index comes from data.
 `Vector.get(names, 1)!`, with a

@@ -123,7 +123,7 @@ test "no name given" {
 	}
 }
 
-// A block's message catalogs are virtual files by their path, `.toml`
+// A block's phrase catalogs are virtual files by their path, `.toml`
 // included; any other kind of file is a data file the program reads at run
 // time.
 func TestFromMarkedSourceKeepsCatalogsByPath(t *testing.T) {

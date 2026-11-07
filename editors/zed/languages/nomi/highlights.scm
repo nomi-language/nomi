@@ -397,6 +397,14 @@
   . (field_access
     (identifier) @function .))
 
+; The function a `tap` stage names: `tap log_it`, `tap io.print`
+(tap_stage
+  function: (identifier) @function)
+
+(tap_stage
+  function: (field_access
+    (identifier) @function .))
+
 
 ; Function definitions
 (function_definition
@@ -404,7 +412,7 @@
 (function_definition
   name: (identifier) @function)
 
-; Keyword declarations: `message cart_items(count: Int) `...``.
+; Keyword declarations: `phrase cart_items(count: Int) `...``.
 (keyword_declaration
   keyword: (identifier) @keyword)
 (keyword_declaration

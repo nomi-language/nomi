@@ -317,7 +317,7 @@ func writeFailure(w io.Writer, name string, err error, output string) {
 }
 
 // writeFailureBody is the block under a FAIL line. The JSON report's
-// `message` is this block, so it is rendered here once.
+// `phrase` is this block, so it is rendered here once.
 func writeFailureBody(w io.Writer, err error) {
 	var assertionErr *AssertionFailure
 	if errors.As(err, &assertionErr) {

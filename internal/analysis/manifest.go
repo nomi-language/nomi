@@ -38,10 +38,10 @@ type Manifest struct {
 	// locale.
 	Locales []string
 	// SourceLocale is [i18n].source_locale, canonical: the locale a
-	// `message` declaration's own text is in. "en" when unset.
+	// `phrase` declaration's own text is in. "en" when unset.
 	SourceLocale string
 	// PartialLocales is [i18n].partial_locales, canonical: locales whose
-	// catalogs may leave a message out, which then shows in the source
+	// catalogs may leave a phrase out, which then shows in the source
 	// locale. The program carries their data too.
 	PartialLocales []string
 	// Catalogs is [i18n].catalogs: the directory under the module root
@@ -248,7 +248,7 @@ func i18nLocales(raw *[]string, sourceLabel string) ([]string, error) {
 	return out, nil
 }
 
-// i18nMessageSettings reads [i18n]'s settings for messages into m:
+// i18nMessageSettings reads [i18n]'s settings for phrases into m:
 // source_locale, a tag that locales lists when it lists any; partial_locales,
 // tags that locales does not list; and catalogs, a relative directory that
 // stays under the module root.
@@ -262,7 +262,7 @@ func i18nMessageSettings(m *Manifest, raw manifestFile, sourceLabel string) erro
 	}
 	if raw.I18n.PartialLocales != nil {
 		if m.Locales == nil {
-			return fmt.Errorf("%s: [i18n] partial_locales needs locales: list the locales every message is translated into", sourceLabel)
+			return fmt.Errorf("%s: [i18n] partial_locales needs locales: list the locales every phrase is translated into", sourceLabel)
 		}
 		if len(*raw.I18n.PartialLocales) > 0 {
 			tags, err := i18nLocales(raw.I18n.PartialLocales, sourceLabel)

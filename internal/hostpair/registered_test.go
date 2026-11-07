@@ -214,7 +214,7 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 			"the walk is not reaching most of the stdlib and the Go-backed set below is a lower bound",
 			report.Silent)
 	}
-	if got, want := strings.Join(report.GoBacked, " "), "calendar collation currency decimal duration float int locale message_format money_format plural random regex strings toml_host"; got != want {
+	if got, want := strings.Join(report.GoBacked, " "), "calendar collation currency decimal duration float int locale money_format phrase_format plural random regex strings toml_host"; got != want {
 		t.Errorf("Go-backed std modules derived as %q, want %q. A NEW module here is fine — "+
 			"update this control. A MISSING one means its rows stopped matching its declarations.",
 			got, want)
@@ -235,9 +235,9 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 // declaration (the orphan check), but their other declarations are not
 // missing rows. std/duration is another: `Duration.format`'s
 // `duration_format_raw` is a Funcs row and `Duration.to_string` an rt row.
-// std/message_format's `format_raw` is a Funcs row and its `variant_name` a
+// std/phrase_format's `format_raw` is a Funcs row and its `variant_name` a
 // VM intrinsic.
-var mixedBackingModules = map[string]bool{"strings": true, "int": true, "float": true, "decimal": true, "duration": true, "message_format": true}
+var mixedBackingModules = map[string]bool{"strings": true, "int": true, "float": true, "decimal": true, "duration": true, "phrase_format": true}
 
 // unregisteredModule is the module of a report.Unregistered entry, which reads
 // "func <module>.<key>" or "type <module>.<name>".

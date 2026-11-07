@@ -36,14 +36,14 @@ func TestParseReadsEntriesWithTheirOffsets(t *testing.T) {
 func TestParseRefusesWhatACatalogIsNot(t *testing.T) {
 	cases := []struct{ text, want string }{
 		{"[a]\nsource = 3\n", "a catalog's values are strings: write `source = '''...'''`"},
-		{"[a.b]\n", "a catalog's tables are messages: `[name]`, with no dotted name"},
-		{"[[a]]\n", "a catalog has no arrays of tables: each message is one `[name]` table"},
+		{"[a.b]\n", "a catalog's tables are phrases: `[name]`, with no dotted name"},
+		{"[[a]]\n", "a catalog has no arrays of tables: each phrase is one `[name]` table"},
 		{"[a]\ngender = 'x'\ngender = 'y'\n", "`a` gives `gender` twice"},
 		{"[a]\ntext = 'x'\ntext = 'y'\n", "`a` gives `text` twice"},
 		{"[a]\n[a]\n", "`a` has two tables in this catalog"},
 		{"[a]\ntext = '''x\n", "this `'''` string is not closed"},
 		{"[a]\ntext = 'x' y\n", "unexpected text after the value; a catalog line holds one key and its string"},
-		{"text = 'x'\n", "`text` is outside any message: a catalog's keys are in `[name]` tables"},
+		{"text = 'x'\n", "`text` is outside any phrase: a catalog's keys are in `[name]` tables"},
 	}
 	for _, c := range cases {
 		_, diags := catalog.Parse(c.text)

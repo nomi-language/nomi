@@ -577,7 +577,7 @@ pub struct ConnectionState {
 }
 
 impl ConnectionState {
-    /// The state a crossing answers: the handshake's fields, the local
+    /// The state a crossing returns: the handshake's fields, the local
     /// certificate's info, the peer's certificates, then each verified
     /// chain.
     pub fn of_parts(parts: List<List<String>>) -> ConnectionState {
@@ -638,7 +638,7 @@ pub enum Error {
 derive Equatable for Error
 
 impl Error {
-    /// The error for the parts a crossing answers.
+    /// The error for the parts a crossing returns.
     pub fn from_parts(parts: List<String>) -> Error {
         case parts {
             ["Alert", code, reason] ->
@@ -708,7 +708,7 @@ pub fn dial(
 }
 
 /// A TLS client over an open connection, as STARTTLS starts one. Use the
-/// answer, not `conn`, from here on.
+/// result, not `conn`, from here on.
 pub fn client(conn: Connection, config: ClientConfig) -> Result<Connection, net.Error> {
     host = ClientConfig.host(config) |> Result.map_err(net.Error.of_tls)?
 

@@ -78,5 +78,5 @@ test result: ok. 1 passed, 0 failed
 -->
 
 The comprehension becomes a pipe that reads in the order it runs: split,
-filter, map, collect. `average` says in its type that it may have no answer,
+filter, map, collect. `average` says in its type that it may have no result,
 so a caller cannot forget the empty case.

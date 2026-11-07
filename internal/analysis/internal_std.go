@@ -12,11 +12,11 @@ import (
 // a program writes:
 //
 //   - A std file's private declaration (one without `pub`). A program
-//     naming one gets "`message.compiled` is internal to std/message"
+//     naming one gets "`phrase.compiled` is internal to std/phrase"
 //     rather than the "has no member" another file's private name gets,
 //     since the name is std's and the reader may have seen it in a
-//     generated body. An expansion reaches std/message's private
-//     constructors (`message$.compiled`, `message$.integer`) through its
+//     generated body. An expansion reaches std/phrase's private
+//     constructors (`phrase$.compiled`, `phrase$.integer`) through its
 //     hidden import, whose alias holds a `$` that no source can write
 //     (isHiddenImportAlias), and so does nothing else.
 //   - An internal std module (internalStdModules): the Go-backed half of a
@@ -26,17 +26,20 @@ import (
 // internalStdModules maps each internal std module to the std module it
 // serves, which is what a program uses instead.
 var internalStdModules = map[string]string{
-	"embed_host":     "embed",
-	"fs_host":        "fs",
-	"html_host":      "html",
-	"message_format": "message",
-	"money_format":   "money",
-	"process_host":   "process",
-	"http_host":      "http",
-	"toml_host":      "toml",
-	"url_host":       "url",
-	"path_host":      "path",
-	"mail_host":      "mail",
+	"embed_host":      "embed",
+	"fs_host":         "fs",
+	"html_host":       "html",
+	"phrase_format":   "phrase",
+	"money_format":    "money",
+	"process_host":    "process",
+	"http_host":       "http",
+	"toml_host":       "toml",
+	"csv_host":        "csv",
+	"xml_host":        "xml",
+	"url_host":        "url",
+	"path_host":       "path",
+	"mail_host":       "mail",
+	"signatures_host": "signatures",
 }
 
 // InternalStdModule reports whether the std module name (`money_format`) is
@@ -47,9 +50,19 @@ func InternalStdModule(name string) (owner string, ok bool) {
 }
 
 // isHiddenImportAlias reports whether alias names a hidden import an
-// expansion added (`message$`): no source can write a `$`.
+// expansion added (`phrase$`): no source can write a `$`.
 func isHiddenImportAlias(alias string) bool {
 	return strings.Contains(alias, "$")
+}
+
+// undefinedTypeHint is the help for name, a type or variant written at
+// line:col that names nothing in scope: the import that brings it when it
+// is a std type, otherwise the closest name in scope.
+func (c *checker) undefinedTypeHint(name string, line, col int) string {
+	if h := stdTypeImportHint(name); h != "" {
+		return h
+	}
+	return didYouMean(name, c.typeNamesAt(line, col))
 }
 
 // internalToStd is the error for a program naming what, a private
@@ -83,7 +96,7 @@ func (c *checker) checkInternalStdImport(n *ast.ImportStmt) {
 		WithHint(fmt.Sprintf("import std::%s and use its functions", owner)))
 }
 
-// stdModuleOf answers the std module (`message`) the file API object obj
+// stdModuleOf answers the std module (`phrase`) the file API object obj
 // names, when it names one.
 func (c *checker) stdModuleOf(obj ast.Node) (string, bool) {
 	var pos Pos

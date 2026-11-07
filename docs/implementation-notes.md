@@ -10,7 +10,7 @@ does, and where something lives, is for grep and the code's own comments.
 
 ## Contents
 
-**How the implementation is built.** [The engine and `nomi check`](#the-engine-and-nomi-check), [Kept programs](#kept-programs), [Front end](#front-end), [Keyword declarations and their inputs](#keyword-declarations-and-their-inputs), [Embedded files](#embedded-files), [HTML templates](#html-templates), [File interfaces](#file-interfaces), [Language server analysis](#language-server-analysis), [IR builder](#ir-builder), [VM](#vm), [Debugging and `nomi dap`](#debugging-and-nomi-dap), [rt](#rt), [Int: exact at any size](#int-exact-at-any-size), [Stdlib](#stdlib), [std and lib](#std-and-lib), [Host functions](#host-functions), [Why std uses `host` rather than `go`](#why-std-uses-host-rather-than-go), [Files](#files), [Logging and actors](#logging-and-actors), [Background jobs](#background-jobs), [Mail](#mail), [Object storage](#object-storage), [Locale data](#locale-data), [Collation](#collation), [Embedding](#embedding), [Go FFI wrapper](#go-ffi-wrapper), [Modules](#modules), [`nomi build`](#nomi-build), [REPL](#repl).
+**How the implementation is built.** [The engine and `nomi check`](#the-engine-and-nomi-check), [Kept programs](#kept-programs), [Front end](#front-end), [Keyword declarations and their inputs](#keyword-declarations-and-their-inputs), [Embedded files](#embedded-files), [HTML templates](#html-templates), [File interfaces](#file-interfaces), [Language server analysis](#language-server-analysis), [IR builder](#ir-builder), [VM](#vm), [Debugging and `nomi dap`](#debugging-and-nomi-dap), [rt](#rt), [Int: exact at any size](#int-exact-at-any-size), [Stdlib](#stdlib), [std and lib](#std-and-lib), [Host functions](#host-functions), [Why std uses `host` rather than `go`](#why-std-uses-host-rather-than-go), [CSV and XML](#csv-and-xml), [Passwords, signatures and JWTs](#passwords-signatures-and-jwts), [Files](#files), [Logging and actors](#logging-and-actors), [Background jobs](#background-jobs), [Mail](#mail), [Object storage](#object-storage), [Locale data](#locale-data), [Collation](#collation), [Embedding](#embedding), [Go FFI wrapper](#go-ffi-wrapper), [Modules](#modules), [`nomi build`](#nomi-build), [REPL](#repl).
 
 **Formatter and syntax.** [Formatter: layout](tooling.md#formatting), [Formatter: brace-bounded field constructs](#formatter-brace-bounded-field-constructs), [Formatter: fixed layouts](#formatter-fixed-layouts), [Formatter: one-line `if` and binding `else`](#formatter-one-line-if-and-binding-else), [Formatter: a line break after a literal's opening bracket](#formatter-a-line-break-after-a-literals-opening-bracket), [Formatter: filled literal lists](#formatter-filled-literal-lists), [Formatter: comparison and boolean operators](#formatter-comparison-and-boolean-operators), [Formatter: compound depth](#formatter-compound-depth), [Formatter: comments](#formatter-comments), [`or` patterns](#or-patterns), [`if` without `else`](#if-without-else), [Captures](#captures).
 
@@ -91,7 +91,7 @@ A record is kept only for a program with no Go bindings that loads
 cleanly: no diagnostic, no declined body, and nothing its main, boot or
 test cases reach that a machine cannot run (`runsClean`), so a hit says the
 program checks and a kept program reports nothing a fresh load would word
-differently. It holds the entry, the root, the message tables and one IR
+differently. It holds the entry, the root, the phrase tables and one IR
 image: what main and the boot reach (`vm.PruneImage`, as a build keeps)
 for a program without tests, every module for a file with tests. Positions
 keep their paths. A hit decodes the image and runs it in a `vmhost.Program`
@@ -239,8 +239,8 @@ processes fit together, and gob writes them. `ReduceFacts` runs the
 reductions over the facts of every project file of a program, with the
 program's missing-impl supply (`ProgramSupply`: the impl index's impls of
 each type with the project files' own laid over them, and the identity
-index) and the stdlib's base (`StdContextOf`), and answers what the passes
-over the analyses answer. A program built over the base keeps only what its
+index) and the stdlib's base (`StdContextOf`), and returns what the passes
+over the analyses return. A program built over the base keeps only what its
 files change of the base's supply (`OverBase`: the impls and identity
 entries they add, the pairs they make judgeable and those they make
 unjudgeable), which the reduction lays over the base it reduces with. The
@@ -258,7 +258,7 @@ wrote a record had built
   step is its first call to a callee of that depth (`bootDepths`); the
   program's check uses the same rule, which made the chain a diagnostic
   names independent of map order;
-- application-field roots: the file's own answer, when the program
+- application-field roots: the file's own result, when the program
   declares no application type (`AppFacts.Exact`). With one, a root's walk
   reads other files' bodies (a factory's, an interface method's
   implementations), and the facts do not hold it;
@@ -329,7 +329,7 @@ ends with `parser.NotePathUses`, which sets each path-only import's
 below the name it binds, `users` and `reports::daily` for `import
 views::admin` in a file that writes `admin::users.index` and
 `admin::reports::daily.show`. The parser cannot tell a file from a
-directory; resolution does. A loader answers a path that names a directory
+directory; resolution does. A loader returns a path that names a directory
 and no file with a `*DirectoryError` listing it (the frontend's and
 stdcompiler's virtual files, a `DocumentManager` program's texts and a
 check against interfaces' file set say so for what they hold in memory),
@@ -381,34 +381,49 @@ segments after it, and applies every `PathAtUseCode` fix in its
 ## Keyword declarations and their inputs
 
 A top-level declaration that starts with a keyword and a name
-(``message cart_items(count: Int) `...` ``) is read by one rule whatever the
-keyword. `message`, `noun` and `embed` ([Embedded files](#embedded-files)) are
+(``phrase cart_items(count: Int) `...` ``) is read by one rule whatever the
+keyword. `phrase`, `noun` and `embed` ([Embedded files](#embedded-files)) are
 the only keywords Nomi knows, and any other
 is an error. Nomi has no macros: a library that generates code ships a tool
 (`nomi tool`) that writes ordinary `.nomi` files.
 
 Every path that prepares a file expands these declarations, so the checker,
-the language server and the builder all see the same functions. A `message`
+the language server and the builder all see the same functions. A `phrase`
 becomes the function it declares, in its place, with the declaration's
 parameter nodes and its name's position, and a body in the synthesized band.
-A `noun` becomes the `once` of std/message's `Noun` it names.
+A `noun` becomes the `once` of std/phrase's `Noun` it names.
 
-An expansion gets two hidden imports (`message$`, `message_format$`) that no
-source can name. They are the only way in to std's internals: std/message's
-private constructors and the internal modules `std/message_format` and
+An expansion gets two hidden imports (`phrase$`, `phrase_format$`) that no
+source can name. They are the only way in to std's internals: std/phrase's
+private constructors and the internal modules `std/phrase_format` and
 `std/money_format`. A program that names one is told it is internal, and
 docgen does not document them. This is why the IR builder lowers a call to a
-std module's private function.
+std module's private function. No diagnostic names a hidden alias: the
+registry's `phrase$.Noun` is never a "did you mean" (`SuggestDotted`).
+
+A name a file does not bind that a public std module exports as a type, or
+that names a public std module, gets the help `` import `std::http.Method` ``
+(`stdTypeImportHint`, `stdModuleImportHint`, `internal/analysis/std_exports.go`).
+A process builds only the std modules it reaches, so the answer comes from
+std's sources, which package std installs (`analysis.SetStdSources`) and the
+first such diagnostic parses once. A name two or three modules export lists
+each import; a name four or more export gets none, since that list is noise
+(`Wide` in `TestStdImportHints`). Internal modules and the prelude are never
+named. The language server's "Add import" quick fix
+(`FindMissingImports`) reads the same index, so it offers the import the
+help names (`TestCodeAction_AddImport_IsTheImportTheHelpNames`). A phrase
+parameter whose type names nothing gets that error alone: `checkPhrase`
+skips the phrase's text and wrapping checks, which would repeat it.
 
 The expansion reads inputs, the catalogs, and records each with its text and
 a span map back to the declaration and each catalog entry. An error in an
 input is reported at the input: `nomi check` prints the input's text, and
 the language server publishes it on the input's URI. Agreement of nouns and
-messages is checked over the whole program.
+phrases is checked over the whole program.
 
 A kept program records its inputs. A changed input is an edit to the files
 that read it, with their text unchanged, so a catalog edit that keeps every
-message's signature rebuilds one file's bodies.
+phrase's signature rebuilds one file's bodies.
 
 ## Embedded files
 
@@ -438,7 +453,7 @@ file's directory, records no error: its index goes in
 constructor as a second argument, a list of string literals, which makes
 each an empty directory of the tree, so `Files.sub` of it is an empty
 tree. Nothing in the front end reports it: `analysis.EmbedWarnings`
-answers a file's warnings (`EmbedInfo.Warnings`, code `embed-missing`),
+returns a file's warnings (`EmbedInfo.Warnings`, code `embed-missing`),
 which vmhost hands to `WithWarnings` once a load has checked the program
 (`Program.Warnings`; `nomi run`, `check`, `test`, the FFI wrapper's modes
 and the REPL pass one; `nomi check --format json` writes them as records
@@ -459,7 +474,7 @@ path on disk, or the data file's key) and its size and SHA-256, which the
 resolver computes by streaming the file through the hash; no stage keeps
 an embedded file's bytes. The checker types it `List<#(String, Int, Int)>`
 and reports the pattern errors the expansion kept (`checkEmbed`);
-`analysis.EmbedOf` answers what each pattern matched, which the language
+`analysis.EmbedOf` returns what each pattern matched, which the language
 server's hover and go to definition read. The IR builder lowers it to a
 list of tuples of a `ConstString` path, an `ir.ConstEmbedded` handle and a
 `ConstInt` size (`irembed.go`); only a reached `once`'s are lowered, so
@@ -490,11 +505,11 @@ live as long as the program holds them. The source is the host's
   region, found by sum (`ir.Image.Files`), [below](#nomi-build).
 
 `Files.sum` crosses into std/embed_host's `sum` (`rt.EmbeddedSum`), which
-answers the ref's sum from the table and reads nothing; the image already
+returns the ref's sum from the table and reads nothing; the image already
 holds it, so the format did not change for it. std/http's
 `serve_embedded` sends it as the file's strong `ETag` through
 `Response.content`'s `headers`, which `http_host.answer_content` sets on
-the recorder before Go's `ServeContent` runs, so Go answers
+the recorder before Go's `ServeContent` runs, so Go handles
 `If-None-Match` and `If-Range` against it. A precompressed sibling
 (`file.br`, `file.gz`) is a file of the tree like any other, with its own
 sum, so its `ETag` differs from the original's with no extra record.
@@ -569,7 +584,7 @@ context (`htmlSlotHelp`).
 
 A file that imports std/html gains `import std::html as html$`
 (`withHtmlImport`), so `html$` reaches std/html's private slot functions as
-`message$` reaches std/message's; another std file gains it as `import html
+`phrase$` reaches std/phrase's; another std file gains it as `import html
 as html$`, in std's spelling, and std/http's directory listing is a
 literal. An aliased whole-module import moves the module's key in the
 builder's module map to the alias, so the file's own `import html.Html`
@@ -712,7 +727,7 @@ opened and closed many files kept a program for each.
 
 A recheck rewrites installed analyses in place. So a reader of one holds
 `DocumentManager.View`, and a recheck takes that lock exclusively until it
-has installed its answer.
+has installed its result.
 
 **Closed files.** A request that needs a closed file's analysis
 (references and rename read every file whose text names the symbol, the
@@ -739,7 +754,7 @@ it belongs to: at 50k lines references to a function 137 files call took
 holds each closed file of every multi-file corpus project, as a request
 reads it, to a build of the file alone with the same documents open,
 after each of a sequence of edits to the open entry, saved and then
-unsaved, and requires some closed file answered from the program past an
+unsaved, and requires some closed file served from the program past an
 unsaved edit (`ClosedPastUnsavedEntry`); what a derive synthesizes is left out, since a build of
 the file alone checks less of it and no request reads it.
 
@@ -769,7 +784,7 @@ document's diagnostics as `documentErrors` assembles them, and what the
 reductions over facts report in it, `storedReportsOf`), which the open
 documents and closed files read; a program that reports what only the
 program checked whole words (its impls' errors, a missing impl, a noun's
-or message's disagreement, a catalog nothing reads, any diagnostic beside
+or phrase's disagreement, a catalog nothing reads, any diagnostic beside
 an application type, or a reduction's diagnostic its file's document does
 not hold) keeps none. At 50k lines a project with a typo in a leaf opens
 from its record in 0.27 s, where it was checked whole in 1.08 s. A
@@ -789,13 +804,13 @@ the embeds again (`EmbedInfo.sameOnDisk`), so a file that changed after
 the program's check is one the store sees moved; a record is not opened
 once a file under a base came, went or changed
 (`TestOpenFromRecordReadsEmbeddedFiles`). The inputs the files' expansions read
-(message catalogs) are named in the record with their texts' SHA-256, so a
+(phrase catalogs) are named in the record with their texts' SHA-256, so a
 record is not opened once one changed on disk, and a program opened from
 its record is forgotten once one holds another text, an open catalog's
 edit included (`TestOpenFromRecordReadsCatalogs`). The record is written
 when the server's lowering of an open document, with its program kept and
 every text on disk, finds nothing (`NoteLoweredClean`): after an open or a
-save. The lowering of a document opened from a record takes its answer
+save. The lowering of a document opened from a record takes its result
 from the record when the record lists the document (`StoredLoweredClean`);
 otherwise the entry is lowered from a kept lowering (below) and any other
 document from its text, since a document opened from a record offers no
@@ -804,7 +819,7 @@ document from its text, since a document opened from a record offers no
 A file checked against interfaces reads the other files' declarations
 without their attached tests and with a typed `once`'s value `todo`. A
 program built so carries the other files' texts, and hover reads a
-declaration's examples and value, and a `message`'s or `noun`'s texts by
+declaration's examples and value, and a `phrase`'s or `noun`'s texts by
 locale, from its source, expanded as its check expands it
 (`FileAnalysis.DeclarationSource`). It also sees only the impls the file
 can see, so implementation, and references to an interface method, check
@@ -845,7 +860,7 @@ bodies and positions, every position the check's declarations hold moves
 with the edit over the files the check read, the bodies are walked again,
 and the check's own diagnostics are worked out again. A rebuild rewrites an
 installed analysis, so it takes the view lock, and the build holds it until
-its answer is installed. An open document keeps its installed analysis
+its result is installed. An open document keeps its installed analysis
 while no file its check read changed how its interface is written; one an
 edit checks again must import a changed file, so that the edit's
 propagation analyzes it again.
@@ -862,7 +877,7 @@ otherwise (whole where it read its impls alone, or other impls of it), and
 one that can see an impl the edit added, removed or changed. The build
 hands the kept analyses its own program, as a kept program's recheck
 does, so it takes the view lock first and the edit's build holds it until
-its answer is installed; the installed check is dropped. What the earlier
+its result is installed; the installed check is dropped. What the earlier
 program knew of the kept files' `once` bindings carries over, as in
 `checkProgramFrom`. The entry checks every other file through its closure,
 so after a leaf's signature edit it builds the leaf and the entry again,
@@ -938,7 +953,7 @@ the program's analyses when it wrote the record (`analyzedlowering.Kept`).
 
 **References from a record** (`stored_refs.go`). References and rename
 read every closed file whose text names the symbol. A closed file of a
-program opened from its record is answered from its stored references
+program opened from its record is served from its stored references
 (each reference, punned field label and definition with the symbol there,
 by name, source file, kind and position) while it holds the record's text
 and no file a stored symbol is declared in has changed how its interface
@@ -997,12 +1012,44 @@ document's diagnostics to an analysis of the file on its own. See
 
 The server never applies an edit computed from an analysis older than the
 text it edits. `didChange` stores the text and returns, and the document is
-analyzed 50 ms after the last edit. Completion and signature help answer at
+analyzed 50 ms after the last edit. Completion and signature help respond at
 once from the last finished analysis, with positions mapped into it, since
 waiting made menus arrive too late. Hover, definition, references, symbols,
 semantic tokens and inlay hints wait up to 2 s for the current analysis.
-Rename and code actions fail with `ContentModified` rather than answer from
+Rename and code actions fail with `ContentModified` rather than respond from
 an older one.
+
+**MessageFormat 2 in the editor** (`phrase_tokens.go`,
+`code_action_plural.go`). No editor Nomi supports has an MF2 grammar for
+the injection `tree-sitter-nomi/queries/injections.scm` asks for, so the
+server colors MF2 itself. `mf2.Tokens` runs the MF2 parser with recording
+on: each piece of syntax it consumes is a token, and a parse that stops at
+a syntax error keeps the tokens read before it. Text a pattern writes is
+no token, so the editor's string color stays. `phraseBodyTokens` places
+each token of a `phrase` or `noun` body in the source with
+`ast.KeywordDecl.BodyPosition`, which accounts for a multi-line body's
+stripped indentation, and drops a token that would cross a line;
+`catalogTokens` places a catalog string's tokens through
+`catalog.Value.Offset` and skips a basic string with an escape, which
+breaks the byte mapping. `encodeTokens` merges them with semtokens' identifier
+tokens, drops any token that starts inside the one before it, and converts
+columns to UTF-16. The token types: `keyword` for `.input`, `.local`,
+`.match` and the key `*`; `parameter` for a `$name` that is a parameter
+(a noun's `$count`), `variable` for a `.local`; `namespace` and `function`
+for `:nomi` and `:noun`; `property` for an option's or attribute's name;
+`enumMember` for a key and a name literal, `number` and `string` for
+number and quoted literals; `type` for a markup name; `operator` for
+`{{`, `}}`, `{`, `}`, `=` and a markup's `/`. The tour's highlighter does
+not use them.
+
+"Add plural forms" is `mf2.AddPluralForms`: it keeps the declarations,
+adds `.input {$name :integer}` unless one declares the variable, adds
+`.match`, and asks `mf2.Selectors` which keys the selector needs in the
+locale, so the arms are those the checker would require (whole-number
+categories: English `one`, Polish `one`, `few` and `many`), each with the
+old pattern, then `*`. The server writes the result as a multi-line body
+four spaces past the declaration, which `nomi fmt` leaves as it is, or in a
+catalog as a multi-line literal string (`catalog.Literal`).
 
 ## IR builder
 
@@ -1019,8 +1066,14 @@ descriptor for each. Its interfaces are program interfaces, boxed and
 dispatched by the VM's ordinary path. Its positions are stdlib positions, so
 a trap inside it is reported at the program's call, as one inside a shared
 module is. `TestProgramStdModulesQualify` holds each listed module to the
-rule: no `host fn` or `host type`, no shared std module imports it, and it
-checks and lowers with no decline.
+rule: no `host fn` or `host type`, no shared std module imports it (the
+prelude, which only re-exports, may), and it checks and lowers with no
+decline. The prelude's import of std/phrase's `Phrase` and `Noun` reaches
+the module only from a file that names one of them (`importedStdModules`);
+a `phrase` or `noun` declaration reaches it through its expansion's hidden
+import. Otherwise every program would lower std/phrase and std/money, and
+their checked `Currency` literals would keep any program from a kept
+lowering (`Result.Keep`).
 
 Their bodies are lowered once per process, all of the listed modules as one
 program, and linked into each program by name (`programstdlink.go`). The
@@ -1229,14 +1282,14 @@ in Nomi by `nomi()`), and a value is an `expr`: its IR temporary and its
 kind. Do not add Go text or Go names to the builder.
 
 `irRetainedStructKind` and `irRetainedEnumKind` keep each typeDef's last
-answer, stamped with a process-wide epoch (`kindmemo.go`). A function that
+result, stamped with a process-wide epoch (`kindmemo.go`). A function that
 writes an existing typeDef's fields, variants, slots, layout or
 lowerability opens a `changingTypes` bracket around the writes: the memo is
 off while one is open, and opening or closing one invalidates every stored
-answer. A function that builds a new typeDef and writes nothing else opens a
+result. A function that builds a new typeDef and writes nothing else opens a
 `constructingType` bracket, which turns the memo off without invalidating.
-Under `go test` every memoized answer is recomputed and compared, so a write
-outside a bracket fails the first test that reads the stale answer;
+Under `go test` every memoized result is recomputed and compared, so a write
+outside a bracket fails the first test that reads the stale result;
 `TestKindMemo_*` count the walks one lowering makes and plant such a write.
 
 ### Lowering one file
@@ -1262,7 +1315,7 @@ not even what F asks of it, since its nodes are its interface's, and every
 table resolves a linkage name the kept objects name to their symbol, as a
 program resolves the listed std modules it links. F is first but is not
 the entry unless it is, so its gen builds no boot, main failure or test
-table, and whether the program starts an app is the kept answer. The
+table, and whether the program starts an app is the kept result. The
 registry's sets start as the kept ones, so F records the dispatch entries
 other files' boxing asks of it.
 
@@ -1271,7 +1324,7 @@ make is carried from its kept object (`carryKept`): a function whose
 linkage name continues the name of a top-level declaration of F whose
 fingerprint is unchanged (an instance of F's generic function another file
 asked for, a field default's accessor), and the dispatch entries to what F
-now holds. `LowerFile` answers a `*FileMiss`, and its caller lowers the
+now holds. `LowerFile` returns a `*FileMiss`, and its caller lowers the
 whole program, whenever the result could differ from a whole lowering: F's
 declines or refusals are not the whole lowering's; another file's are not
 among them; F holds erased an instance or boxes an enum no file did; a new
@@ -1303,7 +1356,7 @@ keeps that module's functions beside the std instances.
 
 `LowerSessionFile` (session.go) is the REPL's form of it: a session's newest
 file lowered against the modules the earlier files lowered, kept in memory,
-with what a lowering of one file of a whole program answers a miss for
+with what a lowering of one file of a whole program returns a miss for
 taken as it comes ([REPL](#repl)).
 
 ### Instantiation and dispatch
@@ -1322,7 +1375,7 @@ A std interface held as a value is lowered as a program's own is
 (`internal/irbuild/stdprogiface.go`). Each file that names one builds a def
 from std's declaration, and a generic one is instantiated per type arguments
 as a program template is. The signatures are std's source: while they
-resolve, `srcFA` answers std's file, so a position-keyed lookup
+resolve, `srcFA` returns std's file, so a position-keyed lookup
 (`Maybe<String>` in `Matcher.find_in`, `Fragment<I>` in `Literal`) reads what
 the checker recorded there, and a type expression naming no substituted type
 parameter resolves in the declaring module's scope, as a std function's
@@ -1356,8 +1409,8 @@ built with the gen's refusals and the decline bookkeeping set aside
 (`stdProgIsolated`), so a failed one leaves the boxing site's refusal. Its
 nodes sit at line 1, column 1, where no reference is recorded.
 `Hashable.hash` of a value held as `Hashable` dispatches through the table
-like any other function, so it answers what the call on the concrete value
-answers (`TestStdProgIface_InterfaceCallsAnswerAsTheDirectCall`). A Map key
+like any other function, so it returns what the call on the concrete value
+returns (`TestStdProgIface_InterfaceCallsAnswerAsTheDirectCall`). A Map key
 or Set element of interface type, and `Hashable.hash` of a value held as
 some other interface, hash with `vm.hash_value` (vm/keys.go), which has
 only to agree with `==`.
@@ -1387,7 +1440,7 @@ Vector, Set, Map (keys and values), Maybe or Result, nested and through a
 tuple's elements and a record's fields (`analysis.unifyAssignArg`,
 `carriesOwnType`; `unifyAssignFree` inside a function type there), and
 refuses the others with help that names the explicit form. The builder
-answers such a value with one `ir.Copy` typed at the wider kind
+returns such a value with one `ir.Copy` typed at the wider kind
 (`relabels`, `irCopyRelabel`, irrelabel.go), in `coerceEmpty` before any
 rebuild is tried and in `qualSignature`, so a std or sibling function's
 argument passes as it is. `ir.ValType.Accepts` accepts the copy: two
@@ -1401,7 +1454,7 @@ hashing read each slot by its own layout (`rt.Keys.recordsEqual`,
 `hashSlot`), so it reads, compares and hashes as a record built at the
 wider type. `TestRelabel_ConvertsNoElement` counts it: converting a list of
 10,000 Ints, structs, functions or lists, or a map of 10,000 entries, enters
-one function body (the converting function's) and answers the very list it
+one function body (the converting function's) and returns the very list it
 was given, where `Iter.map(xs, keep) |> Iter.to_list()` enters 10,001 and
 builds a new one.
 
@@ -1486,13 +1539,13 @@ Neovim plugin start it; `nomi-lsp`'s Debug lenses name `nomi.debugTest` and
 
 Step back replays the program rather than restoring a saved state. A debug
 machine counts the statements it runs and records each crossing out of the
-machine whose answer a replay cannot compute (input, the clock, randomness,
+machine whose result a replay cannot compute (input, the clock, randomness,
 timers, files, std/compiler's hosts) with its result and statement. Going
 back abandons the run and replays the program from its start on a fresh
-machine, answering each crossing from the recording and checking that it is
+machine, returning each crossing from the recording and checking that it is
 the same call at the same statement. There are no checkpoints, so going back
 from statement N runs every statement before the target again. A read that
-an `io.capture` or `io.replay` answers runs again instead of being recorded,
+an `io.capture` or `io.replay` returns runs again instead of being recorded,
 so the capture's transcript replays too. A replay cannot reproduce how tasks
 interleave, so step back turns off at the first task, `concurrent`,
 supervisor or channel.
@@ -1519,7 +1572,7 @@ standard library, `uniseg` and itself (`TestRuntimeImportsOnlyItsAllowlist`).
 Its internal organization may change freely to serve the VM.
 
 A frame's Go context carries what the machine gives every frame: its locale
-data, message tables, streams, files and input. A supervised task's frame
+data, phrase tables, streams, files and input. A supervised task's frame
 takes those values from the frame that spawned it and its cancellation from
 the supervisor, so it outlives the request that spawned it and still reads
 the program's locale data rather than `cldrdata.Default`'s, which a runner
@@ -1535,7 +1588,7 @@ as a plain 64-bit integer.
 **In `rt`.** A value that fits int64 is an `int64` everywhere: a `Value`, a
 VM word register, a record's word slot. A value past int64's range is a
 `*rt.BigInt`, an immutable `math/big` integer. There is one canonical form:
-every operation answers an int64 when the value fits, so `big - big` that
+every operation returns an int64 when the value fits, so `big - big` that
 lands back in range is an int64 again. Equality, hashing, ordering, Map keys
 and rendering therefore compare like with like and need no normalization
 where they are used.
@@ -1558,7 +1611,7 @@ predictable branch per return.
 
 The fast path of addition adds two words when neither is `rt.BigWord` and
 the result fits int64 and is not `rt.BigWord`; anything else goes to a slow
-path kept out of the loop, which answers exactly. Multiplication detects a
+path kept out of the loop, which computes the exact result. Multiplication detects a
 product past int64 with `bits.Mul64` rather than a division. Equality
 compares words and looks at the shadows only when both are `rt.BigWord`,
 since in canonical form a big value never equals an int64. Division and
@@ -1587,7 +1640,7 @@ right, since a word with no big slot beside it is its own int64.
 the AST and IR as a big constant, and the image encodes it as base-10 text.
 
 **64-bit modular arithmetic.** `derive Hashable`'s mixers and
-`Int.wrapping_add`, `wrapping_sub` and `wrapping_mul` answer the low 64 bits
+`Int.wrapping_add`, `wrapping_sub` and `wrapping_mul` return the low 64 bits
 of the exact result as a signed int64, so a hash stays a 64-bit number.
 
 **Where an Int must fit a machine integer.**
@@ -1616,7 +1669,7 @@ of the exact result as a signed int64, so a hash stays a 64-bit number.
   it holds; nomi.d.ts types an Int as `number | bigint`, and `nomi types`,
   for JSON a frontend reads with `JSON.parse`, as `number`.
 - A Range's count protocol inside rt counts in int64; a range of more
-  elements than that declines there, while `known_count` answers the exact
+  elements than that declines there, while `known_count` returns the exact
   count.
 
 ## Stdlib
@@ -1740,7 +1793,7 @@ and std/compiler use, since they read the whole stdlib.
 `NOMI_STD_WHOLE=1` builds every module in one build at the first call, as
 before; the tests below compare a run on the lazy stdlib with a run on it.
 
-Two rules make a part of the stdlib answer as the whole does. A program can
+Two rules make a part of the stdlib behave as the whole does. A program can
 reach no declaration of a module it does not import, directly or through
 what it imports, and an impl lives in its interface's or its type's module,
 one either imports, or a base module, so a program's impl index holds every
@@ -1781,12 +1834,12 @@ layers over std: database drivers (`lib/sql/sqlite`, over
 modernc.org/sqlite, and `lib/sql/postgres`, over pgx), `lib/sql/migrate`
 (the migration runner sqlkit's `migrate` calls), `lib/sql/sqlkit`,
 `lib/markdown`, over goldmark, `lib/image`, over golang.org/x/image,
-`lib/jobs/postgres` and `lib/storage/s3`, Nomi alone over std, later an
+`lib/password_hashers`, over golang.org/x/crypto, `lib/jobs/postgres` and `lib/storage/s3`, Nomi alone over std, later an
 HTTP router or framework.
 
 `lib/markdown` renders with goldmark's CommonMark and GFM extensions and
 keeps its safe defaults (raw HTML omitted, dangerous URLs emptied), which is
-what lets `markdown.render` answer its output through `Html.trusted`. Its Go
+what lets `markdown.render` return its output through `Html.trusted`. Its Go
 side is one function bound with `go`; rendering to memory cannot fail.
 
 `lib/image` decodes with Go's `image/jpeg` and `image/png` and x/image's
@@ -1798,7 +1851,7 @@ is below what an eye sees, so the module needs no third-party Go beyond
 x/image. `decode` reads the header first and refuses an image declaring
 more than its `max_pixels` before decoding, since Go's decoders allocate
 for the declared size. A Go `*Image` is never changed after it is made,
-and a failed call answers a shared empty one beside its failure, so no nil
+and a failed call returns a shared empty one beside its failure, so no nil
 handle reaches Nomi. No call takes a context: the decoders and scalers
 cannot stop partway, and the pixel limit bounds each call. A call does
 not hold up other tasks; four decode, fit and encode passes on that photo
@@ -1844,7 +1897,7 @@ browser build through a workspace (see [Tour internals](#tour-internals)).
 
 ## Host functions
 
-A stdlib `host fn` is answered either by a VM intrinsic (tasks, channels,
+A stdlib `host fn` is implemented either by a VM intrinsic (tasks, channels,
 collection kernels, `io.print`) or by an adapter generated from the one
 hand-maintained table, `internal/stdlibbindings`. AGENTS.md's "Adding a
 stdlib host function" lists the steps for a new row.
@@ -1873,6 +1926,17 @@ on it (`"${locale}"` would call its `Display`). `typeOnlyImportModules`
 keeps such an import from reordering the modules. In a shared module, a
 function's parameter cannot be an `Iter<T>` unless it is generic, and a
 generic function's defaults cannot be left out at a call.
+
+A program std module whose Go half holds state across calls keeps it in a
+handle: a `host type` in its internal `_host` module, an rt struct over
+`any` (rt/formats.go, rt/processes.go), a row in `stdHostSpecs`, `rtHeld`
+and `irStreamKinds`, and the module in `alsoImplements` when the Go
+package is named for the public module (`internal/stdcsv` is
+`std/csv_host`'s); the `_host` module goes in `internalStdModules`
+(internal/analysis), so programs cannot import it and the reference
+leaves it out. An rt-shaped host function returns one value, so a
+crossing that has several to give returns a `List<Int>` or splits into
+one call per value.
 
 A module written only in Nomi (no `host fn`, no `host type`) that no shared
 std module imports needs none of that: add its name to `programStdModules`
@@ -1921,6 +1985,40 @@ Why std does not use the `go` spelling:
 A user's `go` binding pays the same projection, which is correct: it crosses a
 real FFI boundary into code the compiler does not own.
 
+## CSV and XML
+
+`std/csv` and `std/xml` are Nomi lowered with each program, over the
+internal `std/csv_host` and `std/xml_host` (`internal/stdcsv`,
+`internal/stdxml`, over Go's encoding/csv and encoding/xml). Reading goes
+through a handle, `rt.CsvRecords` or `rt.XmlTokens`, over a Go reader
+that reads the program's `Reader` (`internal/lineinput`), so a string, a
+file and a stream are one path: `csv.decode(text)` is `csv.records` over
+`Reader.from_text`. The input drops a leading UTF-8 byte order mark and
+keeps the lines read since the oldest one an error may still name, so
+Go's byte columns become code point columns, as std/json reports them.
+Each crossing sets the input's frame before it reads, since a Reader is
+read on the crossing's frame; a read that unwinds goes through Go's
+parser as a panic, and the handle is not used again.
+
+The CSV reader replaces Go's error texts with its own. Writing a record
+is Go's `csv.Writer`, one record per crossing, except a record of one
+empty field, which Go writes as an empty line a reader skips; it is
+written `""`.
+
+The XML reader reads Go's raw tokens and does the namespace work itself,
+so a `Name` keeps the prefix the document wrote beside its namespace. It
+checks what raw tokens leave out: an end tag closes the open element,
+one root and no text outside it, a declared prefix, no attribute or
+declaration twice, the XML declaration first. Go's strict decoder knows
+only the five predefined entities and character references and reads no
+DTD, and the reader refuses a DOCTYPE unless `allow_doctype`, so an XXE
+document fails before its first entity. The writer is Nomi: it tracks
+the bindings in scope, declares a namespace an element's or attribute's
+name is in where it is not bound (an unprefixed attribute in a namespace
+gets the first free `nsN`), and escapes text and attribute values in Go
+(`escape_text`, `escape_attribute`, pure crossings), replacing a
+character XML 1.0 cannot hold with U+FFFD.
+
 ## Files
 
 `std/fs`, `std/path` and `std/fs_testing` are lowered with each program.
@@ -1951,19 +2049,21 @@ tests run it against both. A test that touches the disk does it inside
 
 ## HTTP
 
-`std/url` and `std/http` are lowered with each program (`programStdModules`), so their structs stand in public signatures; their Go crossings are the internal modules `std/url_host` (rt/url.go, pure) and `std/http_host` (internal/stdhttp). A `Url` crosses as a list of its 14 parts. A request crosses as its parts too: method, URL text, headers as alternating names and values, the body as bytes or a `Reader`; `http_host.send` answers an `Exchange` handle (rt.HTTPExchange) whose accessors read the response, or an `http.Error` variant's name and fields. A `Client` holds a `Client` handle (rt.HTTPClient) over Go's `http.Client`, which owns the pool; `http.default_client()` is one Go client for the process. `send` carries the `network` class, which wasip1 lacks. On js/wasm the transport keeps Go's `fetch` path by setting no dial function (`transport_js.go`).
+`std/url` and `std/http` are lowered with each program (`programStdModules`), so their structs stand in public signatures; their Go crossings are the internal modules `std/url_host` (rt/url.go, pure) and `std/http_host` (internal/stdhttp). A `Url` crosses as a list of its 14 parts. A request crosses as its parts too: method, URL text, headers as alternating names and values, the body as bytes or a `Reader`; `http_host.send` returns an `Exchange` handle (rt.HTTPExchange) whose accessors read the response, or an `http.Error` variant's name and fields. A `Client` holds a `Client` handle (rt.HTTPClient) over Go's `http.Client`, which owns the pool; `http.default_client()` is one Go client for the process. `send` carries the `network` class, which wasip1 lacks. On js/wasm the transport keeps Go's `fetch` path by setting no dial function (`transport_js.go`).
 
-`http_testing.run` is three crossings the VM answers (internal/vm/network.go): `run_on` installs the answer function on the frame (rt.EnterNetwork), `answer_on` calls it for a request and records the request, and `recorded_on` hands back the requests. The builder lowers them as it lowers `run_on` for files (`answerOn`, `recordedOn` in ircapture.go).
+`http_testing.run` is three crossings the VM implements (internal/vm/network.go): `run_on` installs the `answer` function on the frame (rt.EnterNetwork), `answer_on` calls it for a request and records the request, and `recorded_on` hands back the requests. The builder lowers them as it lowers `run_on` for files (`answerOn`, `recordedOn` in ircapture.go).
 
-A server is Go's `http.Server` (internal/stdhttp/server.go). Go calls its handler on a goroutine per request; that handler hands the request to the program over a channel (`http_host.next`) and waits until the program has answered (`http_host.finish`), so no Nomi code runs on Go's goroutines. `http.serve` loops on `next` in the calling task and spawns each request on the supervisor it was given. The request task runs its handler through `http_host.request_on`, a VM crossing (`networkRequestHost`, lowered by `requestOn` in ircapture.go): the handler gets the request's context, the active context with the server's `request_timeout` as a deadline, on a frame whose app `Context` field reads it and which stops when the client goes away (`rt.EnterRequest`, which ends the frame's Go context when the request's does). Every write to the `ResponseWriter` holds the request's lock, and once Go's handler has returned a write fails rather than touch it. A request answered with nothing written gets a 500 from the deferred `finish`; a request whose task a supervisor restarts finds it answered and returns. `Body.Produce` writes through an rt `Writer` whose sink flushes to the client on each write it passes on. `http_host.listen` carries the `listen` class, which js/wasm and wasip1 lack.
+A server is Go's `http.Server` (internal/stdhttp/server.go). Go calls its handler on a goroutine per request; that handler hands the request to the program over a channel (`http_host.next`) and waits until the program has responded (`http_host.finish`), so no Nomi code runs on Go's goroutines. `http.serve` loops on `next` in the calling task and spawns each request on the supervisor it was given. The request task runs its handler through `http_host.request_on`, a VM crossing (`networkRequestHost`, lowered by `requestOn` in ircapture.go): the handler gets the request's context, the active context with the server's `request_timeout` as a deadline, on a frame whose app `Context` field reads it and which stops when the client goes away (`rt.EnterRequest`, which ends the frame's Go context when the request's does). Every write to the `ResponseWriter` holds the request's lock, and once Go's handler has returned a write fails rather than touch it. A request whose handler wrote nothing gets a 500 from the deferred `finish`; a request whose task a supervisor restarts finds the response already sent and returns. `Body.Produce` writes through an rt `Writer` whose sink flushes to the client on each write it passes on. `http_host.listen` carries the `listen` class, which js/wasm and wasip1 lack.
 
-`Router` builds Go's `ServeMux` over its patterns (`http_host.new_mux`), each with a handler that only records which pattern matched and its wildcards' values; `http_host.route` runs the mux on a recorder and answers the match, or what the mux wrote itself (a redirect, a 405, a 404). So pattern syntax, precedence, conflicts and path cleaning are Go's own. `Response.redirect` and `Response.content` run Go's `Redirect` and `ServeContent` on a recorder the same way; `http.serve_file` reads through std/fs and hands the bytes to `ServeContent`. Cookies cross as lists of their fields, and a `CookieJar` is Go's cookiejar as a handle (rt.HTTPJar).
+`Router` builds Go's `ServeMux` over its patterns (`http_host.new_mux`), each with a handler that only records which pattern matched and its wildcards' values; `http_host.route` runs the mux on a recorder and returns the match, or what the mux wrote itself (a redirect, a 405, a 404). So pattern syntax, precedence, conflicts and path cleaning are Go's own. `Response.redirect` and `Response.content` run Go's `Redirect` and `ServeContent` on a recorder the same way; `http.serve_file` reads through std/fs and hands the bytes to `ServeContent`. Cookies cross as lists of their fields, and a `CookieJar` is Go's cookiejar as a handle (rt.HTTPJar).
 
-A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The form readers read a body through `read_capped`, in Nomi, which copies at most one byte past the limit into `Writer.collect` and leaves the rest of the stream unread; the limit is the request's `body_limit` (set by `Request.limit_body`, which also wraps the stream in Go's `MaxBytesReader` semantics, and applied to every request by `Server.max_body` in `answer`), else 10 MB for a URL-encoded form and 32 MB for a multipart one. A read that the `MaxBytesReader` cuts off exactly at `body_limit` is reported as `Error.BodyTooLarge`. Every middleware (`timeout`, `cross_origin_protection`, `cors`, `log_requests`, `security_headers`, `request_id` and the rest) is a Nomi function that takes the handler first and answers a handler, with no host function of its own. `cross_origin_protection` builds one `Router` per bypass pattern, since overlapping patterns are fine there and one router refuses them, and asks `CrossOrigin.check`, which runs Go's `CrossOriginProtection.Check` (`http_host.cross_origin_check`) over the trusted origins and the Nomi request's method, `Host` and headers. It does not hand Go the request the server received (`Request.incoming`): a middleware before it may have changed the headers, and the check must read what the handler holds. The other questions Go answers about a request's parts cross the same way, as plain strings: `Headers.write_to` (`Header.WriteSubset`), `Protocol.parse` (`ParseHTTPVersion`), `Request.basic_auth` and `Request.add_cookie`.
+A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The form readers read a body through `read_capped`, in Nomi, which copies at most one byte past the limit into `Writer.collect` and leaves the rest of the stream unread; the limit is the request's `body_limit` (set by `Request.limit_body`, which also wraps the stream in Go's `MaxBytesReader` semantics, and applied to every request by `Server.max_body` in `answer`), else 10 MB for a URL-encoded form and 32 MB for a multipart one. A read that the `MaxBytesReader` cuts off exactly at `body_limit` is reported as `Error.BodyTooLarge`. Every middleware (`timeout`, `cross_origin_protection`, `cors`, `log_requests`, `security_headers`, `request_id` and the rest) is a Nomi function that takes the handler first and returns a handler; only `compress` crosses to Go, for compress/gzip (internal/stdhttp/compress.go). It picks the body's form: a whole body goes through `http_host.gzip_bytes`, a `Body.Stream` through `gzip_reader`, which compresses on read and flushes the compressor after each read of the source so a slow stream is not held back, and a `Body.Produce` writes into `gzip_writer`, whose `rt.WriteSink.Flush` hook flushes the compressor and then the writer under it at each `Writer.flush`. `http_testing.decompressed` reads a response back through `http_host.gunzip`. `method_override` reads a URL-encoded `POST` body through `read_capped` and hands the handler a request whose body is those bytes, so the handler reads the form again. `cross_origin_protection` builds one `Router` per bypass pattern, since overlapping patterns are fine there and one router refuses them, and asks `CrossOrigin.check`, which runs Go's `CrossOriginProtection.Check` (`http_host.cross_origin_check`) over the trusted origins and the Nomi request's method, `Host` and headers. It does not hand Go the request the server received (`Request.incoming`): a middleware before it may have changed the headers, and the check must read what the handler holds. The other questions Go answers about a request's parts cross the same way, as plain strings: `Headers.write_to` (`Header.WriteSubset`), `Protocol.parse` (`ParseHTTPVersion`), `Request.basic_auth` and `Request.add_cookie`.
 
-`std/tls` and `std/net` are lowered with each program too, and their crossings sit in `std/http_host` beside HTTP's, implemented in internal/stdhttp (tls.go, netconn.go), so the HTTP, TLS and TCP Go sides share one adapter package. A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's `*tls.Config` from its parts (`http_host.tls_config`, then `tls_with_certificate` per certificate) and holds it as a `TlsConfig` handle for that use. A `Certificate` is a handle over Go's `tls.Certificate`, its key never read back. A `Connection` is a handle (rt.NetConn) over a `net.Conn`, TCP or `*tls.Conn`, with one rt `Reader` and one unbuffered `Writer` made when it opens; a `context.AfterFunc` on the context of the task that dialed sets a past deadline when it ends, so a cancelled task's reads and writes stop. A listener (rt.NetListener) accepts on a goroutine into a channel, as the HTTP server hands requests over, so `Listener.accept` can stop for the waiting task's cancellation or an accept deadline; it registers a drain hook that closes it. `net.Error` sorts Go's errors with `errors.Is` against the system's error numbers (not matched on Windows). `http.serve_here` answers requests as tasks of the enclosing `concurrent` block, which `http_testing.with_server` uses with a certificate `http_host.test_certificate` makes; `http.reverse_proxy` is Nomi over the client's send. `dial_with`, `tls_dial` and `lookup` carry the `connect` class, which js/wasm and wasip1 lack: a browser offers a program only `fetch`, so there each answers the no-sockets error (`noSocketsMessage`).
+`std/tls` and `std/net` are lowered with each program too, and their crossings sit in `std/http_host` beside HTTP's, implemented in internal/stdhttp (tls.go, netconn.go), so the HTTP, TLS and TCP Go sides share one adapter package. A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's `*tls.Config` from its parts (`http_host.tls_config`, then `tls_with_certificate` per certificate) and holds it as a `TlsConfig` handle for that use. A `Certificate` is a handle over Go's `tls.Certificate`, its key never read back. A `Connection` is a handle (rt.NetConn) over a `net.Conn`, TCP or `*tls.Conn`, with one rt `Reader` and one unbuffered `Writer` made when it opens; a `context.AfterFunc` on the context of the task that dialed sets a past deadline when it ends, so a cancelled task's reads and writes stop. A listener (rt.NetListener) accepts on a goroutine into a channel, as the HTTP server hands requests over, so `Listener.accept` can stop for the waiting task's cancellation or an accept deadline; it registers a drain hook that closes it. `net.Error` sorts Go's errors with `errors.Is` against the system's error numbers (not matched on Windows). `http.serve_here` serves requests as tasks of the enclosing `concurrent` block, which `http_testing.with_server` uses with a certificate `http_host.test_certificate` makes; `http.reverse_proxy` is Nomi over the client's send. `dial_with`, `tls_dial` and `lookup` carry the `connect` class, which js/wasm and wasip1 lack: a browser offers a program only `fetch`, so there each returns the no-sockets error (`noSocketsMessage`).
 
-Go calls a program's hooks on goroutines of its own, where no Nomi code may run. A broker (internal/stdhttp/broker.go) carries each call to the Nomi task waiting in the crossing whose work set it off, which runs it on its own frame: a server's broker is served by `http_host.next`, a client's by `send`, which runs Go's `Do` on a goroutine and serves the broker until it answers, and a TLS configuration's by whichever of these uses it (the listener or client adopts it) or by the handshake itself (`tls_dial`, `tls_client`, `tls_server`, and the accept of a TLS listener, which runs the handshake there instead of on the first read). A hook that waits for an answer (`certificate_for`, `verify`, `on_proxy_connect`) blocks Go's goroutine until the task has run it; one that only reports (connection states, the error log, `on_shutdown`, HTTP/2's error counter, the key log) is queued, and `next` runs what is left before it answers that the server has shut down. A hook that traps traps the waiting task. A TLS state crosses as lists of parts (`stateParts`), the same for a connection, a request, a response and a trace event. `Response.upgrade` takes the connection with Go's `ResponseController.Hijack`, writes the status line and headers itself, and hands the handler a `Connection` that reads what Go's server had already buffered first. `Request.read` and `Response.read` run Go's `ReadRequest` and `ReadResponse` under a `bufio.Reader` over a reader that answers one byte per read, so no byte of the next message is taken. The reverse proxy sends once with the client's handle, following no redirect, and answers a `Body.Produce` that copies the upstream body, flushing per `flush_interval`. `http_host.Handle` (rt.HTTPHandle) holds the Go values a std struct wraps that have no handle type of their own: a ClientHello, a tracer, a read message, a multipart reader and its parts.
+Go calls a program's hooks on goroutines of its own, where no Nomi code may run. A broker (internal/stdhttp/broker.go) carries each call to the Nomi task waiting in the crossing whose work set it off, which runs it on its own frame: a server's broker is served by `http_host.next`, a client's by `send`, which runs Go's `Do` on a goroutine and serves the broker until it returns, and a TLS configuration's by whichever of these uses it (the listener or client adopts it) or by the handshake itself (`tls_dial`, `tls_client`, `tls_server`, and the accept of a TLS listener, which runs the handshake there instead of on the first read). A hook that waits for a result (`certificate_for`, `verify`, `on_proxy_connect`) blocks Go's goroutine until the task has run it; one that only reports (connection states, the error log, `on_shutdown`, HTTP/2's error counter, the key log) is queued, and `next` runs what is left before it reports that the server has shut down. A hook that traps traps the waiting task. A TLS state crosses as lists of parts (`stateParts`), the same for a connection, a request, a response and a trace event. `Response.upgrade` takes the connection with Go's `ResponseController.Hijack`, writes the status line and headers itself, and hands the handler a `Connection` that reads what Go's server had already buffered first. `Request.read` and `Response.read` run Go's `ReadRequest` and `ReadResponse` under a `bufio.Reader` over a reader that returns one byte per read, so no byte of the next message is taken. The reverse proxy sends once with the client's handle, following no redirect, and returns a `Body.Produce` that copies the upstream body, flushing per `flush_interval`. `http_host.Handle` (rt.HTTPHandle) holds the Go values a std struct wraps that have no handle type of their own: a ClientHello, a tracer, a read message, a multipart reader and its parts.
+
+`std/websocket` is Nomi over eleven crossings in `std/http_host` (internal/stdhttp/websocket.go), and the protocol is internal/websocket, which uses only Go's standard library: Go has no WebSocket package. Framing, masking, the UTF-8 check, ping replies and the limit are byte work per frame that is cheap in Go and slow in the VM, and the serialized writes need a Go mutex, so the protocol is in Go rather than in Nomi over `Connection`'s streams. `websocket.accept` checks the handshake in Nomi and returns `Response.upgrade`, so middleware sees an ordinary `101` response and the connection runs in `respond`, on the request's task, after the middleware has returned; `compress` already returns a `1xx` response untouched. `ws_open` wraps the hijacked `net.Conn` (reads go through Go's server buffer first) and clears the deadlines Go's server left on it. `connect` dials with std/net or std/tls and `ws_connect` runs the client's handshake in Go on the raw `net.Conn`, reading the response through its own `bufio.Reader`, which the connection keeps, so no frame behind the `101` is lost and the `Connection`'s `Reader` is never read. A `Conn` (a `Handle`) has one reader at a time (`rmu`) and one write lock (`wmu`) that every frame takes, a pong and a ping-interval ping included, so a broadcast from an actor and the handler's own sends interleave whole frames. A blocking call stops when the calling task's context ends, by a past deadline set from `context.AfterFunc`. `receive` returns a message as `Bytes` with a first byte of 1 for text or 2 for binary, so one crossing returns either. A close frame is echoed and the connection closed at once; `close` sends one and reads until the peer's or five seconds, or waits for the task already reading to see it. A protocol error sends the close code RFC 6455 names (1002, 1007, 1009) and closes. Each connection registers a drain hook that starts closing with 1001. `http_testing.open_websocket` runs the handler's `on_connection` on a task over `ws_pipe`, an in-memory pair that buffers what is written, since `net.Pipe`'s unbuffered ends deadlock when both send a close frame at once. internal/websocket's tests feed hand-built frames to a server (Autobahn's sections 1 to 7 and 9, written as a table), and `TestWebSocket_EndToEnd` (internal/stdhttp) runs wss through the middleware stack on 127.0.0.1.
 
 `internal/stdhttp/inventory.txt` lists every exported identifier of Go's HTTP packages with what Nomi does with it and the phase that lands it; `TestGoInventoryIsComplete` holds the file to the Go the tests run under and every covered row of a landed phase (`stdhttp.LandedPhase`) to a declaration std has.
 
@@ -2104,12 +2204,62 @@ TLS from the first byte, no TLS) and reads what arrives with Go's
 net/mail, mime and mime/multipart, so the headers, encoded words and
 multipart structure are checked by parsers that share nothing with them.
 
+## Sessions
+
+`std/sessions` is written in Nomi and lowered with each program; its two
+crossings sit in `std/http_host`: `seal` and `open_sealed`, AES-256-GCM
+over Go's crypto/aes and crypto/cipher in rt (rt/seal.go), with a random
+12-byte nonce before the ciphertext. A cookie's value is that, in unpadded
+base64url, over a JSON object: `c` and `s`, the Unix seconds the session
+began and was last written, `f`, the flash messages for the next request,
+and `v`, the app's value through its `ToJson`, absent for none. The
+additional data is `nomi session 1 <cookie name>`, so a value sealed for
+one cookie does not open as another and a change of format is a change of
+label. `SessionKey.derive` is the secret's HMAC-SHA256 under a fixed
+label. `open` tries `key`, then each of `previous_keys`; anything that
+does not open, decode or parse, or is past `max_age` or `idle_timeout`,
+reads as no session. `with_session` writes nothing when the response
+already sets the cookie (`Response.cookies`); otherwise it deletes a
+cookie that did not open, and rewrites one whose flash was read or whose
+last-seen time is a minute old under an idle timeout. `write` replaces
+any `Set-Cookie` of the cookie's name, so the last write wins. There is
+no server-side store: a later one would keep an id in the same sealed
+cookie and the value in the store, behind the same `Session` and `write`.
+
+## Passwords, signatures and JWTs
+
+`std/passwords`, `std/signatures` and `std/jwt` are written in Nomi and
+lowered with each program. `passwords`' one crossing is
+`hash.pbkdf2_sha256` (Go's crypto/pbkdf2 in rt/digest.go), with its salt
+from `random.secure_bytes`. A stored hash is a PHC string (`Phc`), and
+`verify` picks the first `PasswordHasher` in its list whose `reads`
+accepts the string's algorithm id, so a module adds an algorithm by
+implementing the interface: `lib/password_hashers` adds Argon2id and
+bcrypt over golang.org/x/crypto, writing Argon2id's PHC string with
+std's `Phc` and passing bcrypt's own `$2a$` encoding through. Each
+hasher compares with `hash.equal_in_constant_time`.
+
+`signatures`' crossings sit in the internal `std/signatures_host`, whose Go
+side is internal/stdhttp/signatures.go. A key crosses as DER, a private
+key as PKCS #8 and a public key as PKIX, which the opaque `PrivateKey`
+and `PublicKey` hold beside their kind; each crossing parses it again,
+which for RSA is the larger part of a verify's cost, as it is of a
+sign's. The encodings are crypto/x509's, and crypto/x509 links net, so
+the functions are in stdhttp, the package the adapter generator moves to
+the network runner (`alsoImplements` in internal/hostgen/stdtable): a
+program that never touches a key keeps the runner without crypto/x509
+(`cmd/nomi-vm`'s deps test). ECDSA's `EcdsaSha256` signature is r and s
+as 32 bytes each, converted from Go's ASN.1 form; `EcdsaSha256Der` is
+Go's form as it is. `jwt` builds on both: HS256 is `hash.hmac_sha256`,
+the others `signatures.sign_with` and `verify_with`, and a key holds the
+one algorithm it was made for, which a token's `alg` must name.
+
 ## Object storage
 
 `std/storage` and `std/storage_testing` are written in Nomi alone and
 lowered with each program. `Store` is an interface no function of which
 returns `self` or takes two `self` operands, so it is dispatched on
-interface values, and `storage.local` and `s3.store` each answer a
+interface values, and `storage.local` and `s3.store` each return a
 `Store` over a private struct, so boot code picks a backend with an `if` whose branches are both `Store`. Every backend calls
 `check_key` before anything else, and `check_content_type` in `put`; the
 key grammar (no empty segment, no segment starting with `.`, no control
@@ -2131,9 +2281,20 @@ then the bytes to `<root>/<key>`, each with `WriteMode.ReplaceAtomically`,
 whose temporary file starts with `.`, so no key names it. A read of a key
 whose path is a directory, or runs through a file, is `NotFound`; a file
 with no type file is typed by `http.detect_content_type`. `storage.handler`
-answers through `Response.content`, which runs Go's `ServeContent` for
+responds through `Response.content`, which runs Go's `ServeContent` for
 ranges and conditional requests, and then sets the stored type on a 200 or
 a single-range 206.
+
+`Store.list` pages by one rule, `storage.page`: the entries under the
+prefix in key order, each key that holds the delimiter after the prefix
+folded into its common prefix, deduplicated, then those after the
+continuation, `limit` of them; the continuation is the last key or
+prefix shown. Keys under one prefix are contiguous in that order, so a
+continuation that is a prefix skips every key under it. `Memory` and the
+local store list with it; the local store walks its root, leaves out
+every path with a segment starting with `.` (the types directory, a
+put's temporary files), and reads each name's `%XX` escapes back. S3's
+`ListObjectsV2` pages on the server, whose continuation token is opaque.
 
 `Memory` keeps a `Map<String, Object>` in a `Channel<State>` of capacity
 one, as `jobs_testing.Inline` does. `storage_testing.conformance` runs each
@@ -2149,15 +2310,15 @@ sorted, every header the request carries signed with `host`, and the body's
 SHA-256 or `UNSIGNED-PAYLOAD`. It builds a request's `Url` with the encoded
 path in `raw_path` when it differs, so what Go sends is what was signed.
 std/url's escapers are Go's, which differ from SigV4's (`$` kept, a space
-as `+`), so the module has its own `uri_encode`. S3's error documents are
-read with three regular expressions for `Code`, `Message` and `Region`, and
-the five predefined entities; std has no XML. Each attempt is signed afresh,
+as `+`), so the module has its own `uri_encode`. S3's error documents and
+`ListObjectsV2` pages are read with std/xml; a listing's query is written
+with the same `uri_encode` the signer applies. Each attempt is signed afresh,
 and a call that ends `Unavailable` (a transport failure or a 429 or 5xx)
 sleeps 100 ms, then 400 ms, with up to half again from the clock's
 nanoseconds, before trying again. A library cannot read the context in
 force, so a retry does not check the deadline itself: a passed deadline
 unwinds the task. Its tests sign AWS's three published examples, and
-answer requests with std/http_testing, including a fake server over a
+respond to requests with std/http_testing, including a fake server over a
 `Memory` that runs the conformance suite; `lib/storage/minio` runs it
 against a real MinIO, and `TestLibModules` skips that project without
 `minio` on PATH.
@@ -2185,12 +2346,12 @@ without changing the process's.
 (`rt.EnterProcesses`, `process_host.run_on`, a VM intrinsic beside
 `fs_host.run_on`), which tasks inherit as they inherit the file system.
 `start` asks the frame first: under the fake it records the call and
-answers from the first matching `Answer`, never the operating system.
+responds from the first matching `Answer`, never the operating system.
 `internal/stdprocess`'s tests run one program against the test binary as a
 helper and against the fake, and require the same transcript.
 
 A js/wasm or wasip1 build lacks the class (`vmhost.TargetLacks`); built
-anyway, `start` answers `Unsupported`.
+anyway, `start` returns `Unsupported`.
 
 ## Locale data
 
@@ -2230,9 +2391,9 @@ data, and it decides a few fallback steps (`zh-TW` to `zh-Hant`) and the
 distances `Locale.negotiate` uses.
 
 `Catalog.load` runs the compiler's own catalog checks while the program
-runs. Each message's function carries a table of its parameters with the
+runs. Each phrase's function carries a table of its parameters with the
 types the checker resolved, and a running program finds the tables in the
-functions it carries. A built image holds only the messages it reaches, and
+functions it carries. A built image holds only the phrases it reaches, and
 `nomi run` walks the same reach, so both accept the same entries.
 
 ## Collation
@@ -2273,7 +2434,7 @@ ICU's data, so nothing compares them.
 tour wasm and FFI wrapper all go through it, so an embedder runs programs
 exactly as `nomi run` does.
 
-A plain user `host fn` or `host type` is answered by an embedder's host
+A plain user `host fn` or `host type` is implemented by an embedder's host
 table, keyed by the declaration's key. A project's crossing, a `go`
 binding's included, is named under a project prefix, and a machine binds
 every table but std/compiler's under those names. So a project file named
@@ -2289,7 +2450,7 @@ An embedder's own files are a `vmhost.FileSystem`, adapted to stdio's
 `nomi run`, `nomi check` and `nomi test` on a program with Go bindings
 generate a cached Go wrapper that imports the bound Go packages and holds a
 host adapter for each bound declaration. `nomi run` and `nomi test` then run
-the program on the VM inside the wrapper, which answers a crossing into Go
+the program on the VM inside the wrapper, which carries a crossing into Go
 through that adapter; `nomi check` stops after load and analysis. Pure-Nomi
 programs and tests run in process with no wrapper.
 
@@ -2320,8 +2481,8 @@ value. Either closes the Go value through its own `Close` when it has one. A
 so Go reads from the handle's buffer and writes in order with the program,
 under the handle's lock, on the frame of the binding's call. A Go value that
 keeps the stream past the call reads or writes it later on that frame. The
-match is by the declared Go type, so a function that answers a concrete type
-(`*gzip.Reader`) needs a one-line Go function in the project that answers
+match is by the declared Go type, so a function that returns a concrete type
+(`*gzip.Reader`) needs a one-line Go function in the project that returns
 the interface.
 
 The generator reads a Go type's exported fields only: an unexported
@@ -2411,7 +2572,7 @@ generated wrapper when every binding's declaring file is in a module of
 generated. nomi-lib is looked up beside `nomi`, then in the release
 download cache, then downloaded from the release's lib archive
 (`findLibWrapper`, gated by `ffirun.AllowLibDownload`, which only the CLI
-calls); `ProjectRunner` answers nomi-vm-lib the same way for a native or
+calls); `ProjectRunner` finds nomi-vm-lib the same way for a native or
 `js/wasm` target (`Variant.Lib`). Each must carry `nomi`'s VCS stamp, as
 nomi-vm must. Anything else takes the generated-wrapper path, and a
 missing toolchain or compiler source there names the first binding that
@@ -2451,7 +2612,7 @@ other version.
 ## Modules
 
 A project's dependencies are the modules its `go.mod` requires.
-`internal/modcache` answers which it needs and where each is (a local
+`internal/modcache` returns which it needs and where each is (a local
 `replace`, or the Go module cache), reading only the disk. `internal/modfetch`
 downloads missing modules through the module proxy protocol and the checksum
 database with `golang.org/x/mod`, with no `go` command, and writes or edits
@@ -2496,7 +2657,7 @@ startup. `--target goos/goarch` cross-compiles.
 
 **Runner variants.** Every runner comes in two builds. The untagged one
 links every std module's Go side; the one built with the `nomi_nonet` tag
-(`nomi-vm-nonet`, `nomi-vm-reactor-nonet`) answers the network crossings
+(`nomi-vm-nonet`, `nomi-vm-reactor-nonet`) fails the network crossings
 with an error instead, so it links no net/http, crypto/tls, crypto/x509
 or net. Importing net/http keeps its whole client transport alive through
 `DefaultTransport`, so leaving the package out is the only way to drop it:
@@ -2587,7 +2748,7 @@ per exported function, and the page, plus the author's static files from the
 program's `web/` folder or `--static <dir>`. A program that lists its
 locales embeds only `[i18n].web_embedded`'s and gets one
 `locales/<tag>.nomil` per other listed locale, which `Locale.load` fetches
-through nomi.js. The image's message tables are written without those
+through nomi.js. The image's phrase tables are written without those
 locales' texts.
 
 `nomi run --web` serves the generated files from a temporary directory and
@@ -2634,7 +2795,7 @@ It offers `loadRuntime`, `load`/`call` and `run` over that ABI in browsers
 and Node (`TestBuildCommand_ReactorWritesTheWasiLoader` drives it in Node).
 `nomi build --target wasip1/wasm` writes the same two files beside a reactor
 with an embedded program, whose `load()` and `run()` with no argument call
-`nomi_load` with length 0. That boots the embedded program and answers its
+`nomi_load` with length 0. That boots the embedded program and returns its
 exports, and a reactor with none refuses it.
 
 **`--no-vm`** writes the image alone as a compiled program,
@@ -2739,7 +2900,7 @@ modules the earlier files lowered, which the session keeps in memory
 (`irbuild.SessionObjects`) and the machine already links: every earlier
 file its check read is `fromObjects`, and the new file's names resolve to
 the earlier modules' symbols by linkage name, as `LowerFile` resolves kept
-objects. Two things `LowerFile` answers a miss for are taken as they come.
+objects. Two things `LowerFile` returns a miss for are taken as they come.
 An earlier file that declares anything generic is read with its bodies
 grafted onto its interface (`ProgramInterfaces.SetBodies`,
 `analysis.GraftBodies`) and checked, and its gen is `linked` rather than
@@ -2796,6 +2957,18 @@ a redefined impl's are. An impl in a third file, neither the type's nor
 the caller's, is found for a std generic instance by the type's
 declaration (`implForDecl`), as `Json.encode_as(r)` needs for a later
 input's `derive ToJson for R`.
+
+Every top-level declaration the parser makes is a declaration of the
+input's file, never a statement of its `main` (`replDeclOf`;
+`TestReplVM_EveryTopLevelDeclarationIsADeclaration` parses one of each
+node type). A `phrase` or `noun` (`ast.KeywordDecl`) and an `embed`
+share the key `value <name>` and are imported by name, as a type is; the
+front end expands each in the input's file. The name joins the input's
+function names, so it shadows an earlier function, once or value of that
+name for later inputs, and a later function of its name shadows it. The
+session has no project root, so `[i18n]` is its default: source locale
+`en`, no catalogs. `lexer.IsComplete` reads an input whose last token is a
+raw or triple-quoted string still open as one that continues.
 
 A file imports only the names its text names, so an undefined name's
 `did you mean` hint would offer only those. The REPL hands the session
@@ -2991,7 +3164,7 @@ tests it before running.
 An `if` with no `else`, or an `else if` chain with no final `else`, whose
 branches have a value of a type T other than Unit is `Maybe<T>`. The checker
 (`analysis/elseless_if.go`) checks the chain's branches as an `if` with an
-`else` does, each link answering its branches' own type, against the
+`else` does, each link returning its branches' own type, against the
 expected Maybe's payload or, with no Maybe expected, against Unit as a
 statement's are. The joined type T makes the head `Maybe<T>` unless it is
 Unit or Infallible (every branch leaves). The head is recorded in
@@ -3224,7 +3397,7 @@ cached or fresh artifact, which is where a fact a program's check reads
 from a body that no body check had yet put in place (once types, before
 `BuildStdDeclarations` inferred them) showed.
 
-### A stdlib built a module at a time answers as the whole one
+### A stdlib built a module at a time behaves as the whole one
 
 `TestShared_LazyModulesAreEagerModules` (`std`) builds the stdlib from the
 artifact's base and adds every module alone, in three shuffled orders, and
@@ -3239,7 +3412,7 @@ time](#the-stdlib-a-module-at-a-time)).
 that declares tests, on corpus and stdlib files in fresh processes, on the
 lazy stdlib and under `NOMI_STD_WHOLE=1`, and require the same output and
 exit: the sample holds files that reach the stdlib in ways an import does
-not say (an `export fn`, a boot, a message catalog, embedded files, a std
+not say (an `export fn`, a boot, a phrase catalog, embedded files, a std
 module's own cases), the rotating set 12 files of `tests/` and `std/` a
 day. `internal/expectation`'s suites run in one process on the lazy
 stdlib, which grows as the corpus runs, and match their records.
@@ -3273,9 +3446,9 @@ once it is fixed.
 
 ### Incremental checking
 
-An incremental check must answer what a full check answers.
+An incremental check must return what a full check returns.
 `analysis.DocumentManager.Recheck` takes a checked program and an edit and
-answers the program after the edit, which must be what a full check builds
+returns the program after the edit, which must be what a full check builds
 from the edited texts (see [Language server analysis](#language-server-analysis)).
 `analysis.DumpProgramForTest` renders a checked program as text, including
 the diagnostics `nomi check` prints
@@ -3284,7 +3457,7 @@ end).
 
 `TestIncrementalMatchesFull` (`internal/analysis`, about 13 seconds) applies
 fixed edit sequences to small projects the test declares (layered imports,
-message catalogs, dispatch, app types) and the multi-file corpus
+phrase catalogs, dispatch, app types) and the multi-file corpus
 directories. After each edit it compares the recheck's dump with a fresh
 full check's, byte for byte. `TestIncrementalHarnessCatchesAStaleResult`
 proves a stale recheck fails it.
@@ -3292,18 +3465,18 @@ proves a stale recheck fails it.
 `go test ./internal/analysis -run '^$' -fuzz '^FuzzIncrementalMatchesFull$' -fuzztime 5m -fuzzminimizetime 5s -parallel 4`
 mutates a project file and edits it the same way, and
 `TestIncrementalMatchesFullSample` (about 2 seconds) runs a fixed sample of
-those edits under plain `go test`. Its `messages` project holds catalogs on
+those edits under plain `go test`. Its `phrases` project holds catalogs on
 disk: an edit step whose key ends in `.toml` writes that input and rechecks
 with an input edit, and `TestOpenDocumentCatalogEditsMatchFreshBuilds` holds
 open documents to fresh builds through the same edits.
 
 ### Checking against interfaces
 
-A file checked against interfaces must answer what a check of the whole
-program from source answers for it (see [file interfaces](#file-interfaces)).
+A file checked against interfaces must return what a check of the whole
+program from source returns for it (see [file interfaces](#file-interfaces)).
 `DocumentManager.CheckFromInterfacesForTest` checks every project file of a
 checked program against the interfaces of the files it reads, written and
-read back, and answers the program those checks make: each file's analysis,
+read back, and returns the program those checks make: each file's analysis,
 nodes and own diagnostics from its check, the program's reductions from the
 check from source (`CheckedProgram.factsFrom`). `TestCheckFromInterfacesMatchesFull`
 (`internal/analysis`, about 40 seconds) compares its dump with the full
@@ -3318,7 +3491,7 @@ of each program again against interfaces after it checks the program, and
 fail the program with the first file whose own diagnostics differ. The
 expectation suites run under it in `scripts/check-full.sh`, one step per
 suite (`interfaces-corpus`, `-stdlib`, `-tour`, `-failure`), so every
-program they record holds the two to one answer. Each still compares its
+program they record holds the two to one result. Each still compares its
 golden file byte for byte, so the script's package step skips the four
 suites rather than run them a second time without the check.
 
@@ -3330,12 +3503,12 @@ an `==`'s impl were dropped as ambiguous
 program's check typing `Box.inspect`, in a file that neither declares nor
 imports a `Box`, through another file's impl by name; a bare type name the
 file binds to nothing now names nothing
-(`TestUndefinedTypeOwnerReadsNoOtherFile`), and answering `List.size`, in a
+(`TestUndefinedTypeOwnerReadsNoOtherFile`), and resolving `List.size`, in a
 file with its own `impl Sized for List<Int>`, with another file's impl of
 another `Sized`: the impl index keyed by receiver and name keeps one, so a
 file's own impl now wins, for the receiver its impl header names (under a
 block import of std's `Duration`, a file's own `Duration.seconds` does not
-answer; `TestOwnerDecl_BlockImportRebindsAStdType`). An empty file's interface holds
+resolve; `TestOwnerDecl_BlockImportRebindsAStdType`). An empty file's interface holds
 no nodes rather than an empty list, so a check against interfaces passes
 over it as discovery passes over the empty source. A difference the harness
 knows and has not fixed is pinned in `knownInterfaceGaps` by a reproducer
@@ -3344,13 +3517,13 @@ explains.
 
 ### Opening from a record
 
-A program the language server opens from its record must answer what the
-program checked whole answers (see [language server
+A program the language server opens from its record must return what the
+program checked whole returns (see [language server
 analysis](#language-server-analysis)). `TestOpenFromRecordMatchesAFullCheck`
 (`internal/lsp`, about 15 seconds) writes the record of every multi-file
 corpus project and a generated one, opens every file in a server that
 reads the record and in one with the artifact cache off, and compares at
-every identifier the answers to hover, definition, type definition,
+every identifier the responses to hover, definition, type definition,
 document highlight, references, prepare-rename and rename, completion,
 signature help, call hierarchy and implementation, and each document's
 published diagnostics, symbols, semantic tokens, inlay hints, code lenses
@@ -3360,11 +3533,11 @@ also with a typo and then a syntax error in its entry's first body; most
 of those, and the project that embeds files, must be recorded. And
 `go test ./internal/analysis -run '^$' -fuzz '^FuzzOpenFromRecordMatchesFull$' -fuzztime 5m -parallel 4`
 replaces one file's text with the input after the record is written, on
-disk before the files are opened (the record must not answer) or in the
+disk before the files are opened (the record must not be used) or in the
 open document after, and compares again.
 `TestServerOpensAProgramFromItsRecord` drives two servers over the protocol:
 the first writes the record after its lowering, and the second opens from
-it, building one file, takes its lowering's answer from the record, and
+it, building one file, takes its lowering's result from the record, and
 takes its first edit in the program opened from the record.
 
 `TestOpenFromRecordEditsMatchAFullCheck` (`internal/analysis`, about 28
@@ -3398,7 +3571,7 @@ and references to an interface method), references and rename over the
 closed files among them; most edits must be taken from the record, and
 projectgen's typos (`TypoLeaf`, `TypoEntry`) and their undoing each must.
 `TestOpenFromRecordMatchesAFullCheck` requires a closed file's references
-to have been answered from a record. `TestStoredLoweringMatchesTheText`
+to have been served from a record. `TestStoredLoweringMatchesTheText`
 and `...Generated` (`internal/lsp`) lower the entry after edits from the
 record's kept lowering and require the diagnostics a lowering of the text
 reports, and a lowering file by file after each body edit.
@@ -3636,7 +3809,7 @@ corpus, with whether the VM ran it on synthesized arguments
 its body and the run did not end in a machine refusal: a construct the
 machine runs no code for, an undeclared local, a callee no module retained,
 or a crossing with no binding. A trap, an `Err`, a `todo` or a limit is the
-body's answer. A dispatched call whose receiver's type has no retained impl
+body's result. A dispatched call whose receiver's type has no retained impl
 counts as a missing callee, since the probe hands an interface-typed
 parameter or field a value of a type the program retains an impl of. A
 function not entered on any argument is in the `PROBE` bucket.
@@ -3856,7 +4029,7 @@ not among them, since the browser build sends it through fetch.
 The walk counts what a prompt could reach, which is wider than what it
 does: a call through an interface reaches every impl (`mail_testing.rules`
 reaches the SMTP mailer through `Mailer.send`), and a crossing a fake
-answers on the frame still counts (`process.run`'s prompt runs under
+handles on the frame still counts (`process.run`'s prompt runs under
 `process_testing.run`). So docgen runs a flagged prompt once, natively, as
 its editor runs, and keeps only the classes whose calls went on to the
 operating system: `internal/osreach` counts them, noted where internal/stdprocess
@@ -3876,7 +4049,7 @@ in the browser: <classes>]` and still runs it natively.
 generated pages through the staged wasm under node, requires each live
 editor to run clean, and logs each prompt the page does not run that ran
 clean anyway (`net.lookup_port`, which Go's built-in table of service
-ports answers without a resolver).
+ports resolves without a resolver).
 
 An editor's edit is its test: the module's declarations are the embedded
 ones, which the process has checked and lowered. So `vmhost.StdlibReference`

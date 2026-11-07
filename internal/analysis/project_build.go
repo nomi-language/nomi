@@ -1450,7 +1450,7 @@ func reportBootResult(fa *FileAnalysis, fn *ast.FuncDef, app Type) {
 	if app != nil {
 		name = typeLabel(app)
 	}
-	e.Hints = []string{fmt.Sprintf("declare `-> Result<%s, String>`, or another error type, and wrap the value boot answers in `Ok(...)`", name)}
+	e.Hints = []string{fmt.Sprintf("declare `-> Result<%s, String>`, or another error type, and wrap the value boot returns in `Ok(...)`", name)}
 	fa.BootErrors = append(fa.BootErrors, e)
 }
 

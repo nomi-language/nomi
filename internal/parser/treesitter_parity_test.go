@@ -372,7 +372,7 @@ var rejectedInputs = []parityInput{
 	// A keyword declaration's name is never a type name.
 	{"a misspelled type keyword before a type name", "pub strct Point {\n    x: Int\n}\n"},
 	{"a keyword before a type name", "pub one_of Size `small`\n"},
-	{"a message named by a type name", "message Hi `Hi`\n"},
+	{"a phrase named by a type name", "phrase Hi `Hi`\n"},
 	{"two struct fields on one line", "struct P {\n    x: Int    y: Int\n}\n"},
 	{"a struct field after a default on its line", "struct P {\n    x: Int = 1 y: Int\n}\n"},
 	{"two enum variants on one line", "enum E {\n    A Int B\n}\n"},

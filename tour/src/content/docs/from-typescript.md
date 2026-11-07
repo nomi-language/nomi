@@ -103,5 +103,5 @@ test result: ok. 1 passed, 0 failed
 -->
 
 A field default, `qty: Int = 1`, takes the place of an optional property
-and `??`. `cheapest` answers `None` for an empty list instead of
+and `??`. `cheapest` returns `None` for an empty list instead of
 `undefined`, and the caller's `case` or `?` has to handle it.

@@ -205,6 +205,18 @@ func TestCapture_Rejections(t *testing.T) {
 			"cannot infer type for `&2` in `&Int.divide(&1, &2)`\nhelp: `Int` has 2 `Divide` impls, whose right operands are `Int` and `NonZeroInt`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int, Int) -> Int = &Int.divide(&1, &2)`, or write a lambda with an annotated parameter, as in `fn a: Int, b: Int -> Int.divide(a, b)`"},
 		{"an operand of and", "fn f(ready: Bool) -> (Int) -> Bool { &(&1 > 2) and ready }\n",
 			"cannot infer type for `&1` in `&(&1 > 2)`"},
+		{"no expected type, a string", "fn f() -> String {\n    say = &\"id ${&1}\"\n    say(1)\n}\n",
+			"cannot infer type for `&1` in `&\"id ${&1}\"`\nhelp: annotate the binding with the function's type, as in `f: (T) -> String = &\"id ${&1}\"`, or write a lambda with an annotated parameter, as in `fn x: T -> \"id ${x}\"`; a later use of the function does not give it one"},
+		{"a string with no parameter", "fn f() -> List<String> { [1] |> Iter.map(&\"plain\") |> Iter.to_list() }\n",
+			"a capture uses at least `&1`\nhelp: `&` makes a function of the `&1`, `&2`, ... in its body; for a function of no arguments, write `fn -> \"plain\"`"},
+		{"a raw string has no slot", "fn f() -> List<String> { [1] |> Iter.map(&`raw ${&1}`) |> Iter.to_list() }\n",
+			"a capture uses at least `&1`"},
+		{"captures do not nest in a string", "fn f() -> List<String> { [1] |> Iter.map(&\"${add(&1, &Int.max(&1, 0))}\") |> Iter.to_list() }\n",
+			"captures do not nest; write the inner one as `fn x -> ...`"},
+		{"a capture alone in a string capture's slot", "fn f() -> List<String> { [1] |> Iter.map(&\"${&add(&1, 1)}\") |> Iter.to_list() }\n",
+			"captures do not nest; write the inner one as `fn x -> ...`"},
+		{"a string capture is one operand", "fn f() -> List<String> { [1] |> Iter.map(&\"a${&1}\" + \"b\") |> Iter.to_list() }\n",
+			"cannot infer type for `&1` in `&\"a${&1}\"`"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(captureDecls + tc.body)
@@ -241,6 +253,7 @@ func TestCapture_AParameterOutsideACapture(t *testing.T) {
 		{"a struct literal", "fn f() -> (Int) -> Point { Point{x: &1, y: 0} }\n", "write `&Point{x: &1, y: 0}`"},
 		{"a tuple", "fn f() -> (Int) -> #(Int, Int) { #(&1, 0) }\n", "write `&#(&1, 0)`"},
 		{"a list", "fn f() -> (Int) -> List<Int> { [&1, 0] }\n", "write `&[&1, 0]`"},
+		{"a string", "fn f() -> List<String> { [1] |> Iter.map(\"id ${&1}\") |> Iter.to_list() }\n", "write `&\"id ${&1}\"`"},
 		{"parentheses", "fn f() -> (Int) -> Int { (&1) + 1 }\n", "write `&((&1) + 1)`"},
 		{"a pipe stage", "fn f() -> Int { 10 |> divide(100, &1) }\n", "a pipe fills the first argument; write `|> then &divide(100, &1)`"},
 		{"alone", "fn f() -> Int {\n    g = &1\n    g\n}\n", "a capture is `&` and the function's body, as in `&(&1 > 2)` or `&Int.max(&1, 0)`; `&N` alone is no function, so write a lambda"},

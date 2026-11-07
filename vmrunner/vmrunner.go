@@ -34,7 +34,7 @@ import (
 	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/ir"
-	"github.com/nomi-language/nomi/internal/stdmessageformat"
+	"github.com/nomi-language/nomi/internal/stdphraseformat"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 )
@@ -306,7 +306,7 @@ func run(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		fmt.Fprintf(stderr, "nomi: %v\n", err)
 		return 1
 	}
-	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr).WithLocaleData(locales).WithMessages(messages(im)).
+	m := vm.NewProgram(entry, im.Modules, stdout).WithHosts(hosts...).WithErrorOutput(stderr).WithLocaleData(locales).WithPhrases(phrases(im)).
 		WithEmbeddedSource(newImageEmbedded(im.Files, image.files))
 	if in != nil {
 		m = m.WithInput(in)
@@ -352,12 +352,12 @@ func localeData(im ir.Image) (*cldrdata.Data, error) {
 	return d, nil
 }
 
-// messages is the program's messages: the tables its image carries, which
-// are those of the messages and nouns it reaches, and in a page the locale
+// phrases is the program's phrases: the tables its image carries, which
+// are those of the phrases and nouns it reaches, and in a page the locale
 // files it loads.
-func messages(im ir.Image) *stdmessageformat.Runtime {
-	return stdmessageformat.NewRuntime(func() ([]string, []string) {
-		return vm.MessageTables(im.Modules, vm.ModuleFuncs(im.Modules), func(name string) bool { return name == vm.MessageModule })
+func phrases(im ir.Image) *stdphraseformat.Runtime {
+	return stdphraseformat.NewRuntime(func() ([]string, []string) {
+		return vm.PhraseTables(im.Modules, vm.ModuleFuncs(im.Modules), func(name string) bool { return name == vm.PhraseModule })
 	}, localeFetcher())
 }
 

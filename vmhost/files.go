@@ -104,7 +104,7 @@ func (f *MemoryFiles) Read() []string {
 }
 
 // DataFiles are the files a marked source's `// FILE: <name>` sections hold
-// that are not Nomi sources, `nomi.toml` or message catalogs (`notes.txt`,
+// that are not Nomi sources, `nomi.toml` or phrase catalogs (`notes.txt`,
 // `data/prices.csv`), by name: what a tour block seeds its in-memory file
 // system with (SplitMultiFile answers the rest).
 func DataFiles(src string) (map[string]string, error) {

@@ -16,7 +16,7 @@ import {
 ///
 /// An Instant holds a signed 64-bit count of nanoseconds from the epoch,
 /// the years 1677 to 2262, which is what clocks and Go's `time.Time` count
-/// in. A constructor or an operator whose answer is past that faults.
+/// in. A constructor or an operator whose result is past that faults.
 pub opaque type Instant Int
 
 // `ns` when an Instant holds it; a fault naming it otherwise.

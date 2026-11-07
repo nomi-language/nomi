@@ -1,0 +1,132 @@
+// std::websocket's server side through http_testing's in-memory
+// connection: the handshake's refusals, the middleware an upgrade passes
+// through, limits and timeouts. websocket_chat/ holds a chat room.
+import {
+    std::duration.Duration
+    std::http.{self, Handler, Headers, Method, Origin, Request, Response, SecurityHeaders, Status}
+    std::http_testing
+    std::log.{self, Logger}
+    std::log_testing
+    std::websocket.{self, AcceptOptions, Error, Message, WebSocket}
+}
+
+fn echo(request: Request) -> Response {
+    websocket.accept(request, fn ws -> {
+        _ = WebSocket.each(ws, fn message -> {
+            _ = WebSocket.send(ws, message)
+        })
+    })
+}
+
+fn handshake(method: Method, headers: List<#(String, String)>) -> Request {
+    #{..http_testing.request(method, "/ws"), host: Some("example.com"), headers: Headers(headers)}
+}
+
+once good = [
+    #("Upgrade", "websocket"),
+    #("Connection", "keep-alive, Upgrade"),
+    #("Sec-WebSocket-Version", "13"),
+    #("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ=="),
+]
+
+test "a handshake is accepted with the key's accept value" {
+    response = echo(handshake(Method.Get, good))
+    assert response.status == Status.switching_protocols
+
+    assert Headers.get(response.headers, "Sec-WebSocket-Accept")
+        == Some("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
+
+    assert Headers.get(response.headers, "Upgrade") == Some("websocket")
+}
+
+test "a request that is not a handshake is refused" {
+    assert echo(handshake(Method.Post, good)).status == Status.method_not_allowed
+
+    old = good |> Iter.filter(fn #(k, _) -> k != "Sec-WebSocket-Version") |> Iter.to_list()
+    refused = echo(handshake(Method.Get, old + [#("Sec-WebSocket-Version", "8")]))
+    assert refused.status == Status.upgrade_required
+    assert Headers.get(refused.headers, "Sec-WebSocket-Version") == Some("13")
+
+    bad_key = good |> Iter.filter(fn #(k, _) -> k != "Sec-WebSocket-Key") |> Iter.to_list()
+
+    assert echo(handshake(Method.Get, bad_key + [#("Sec-WebSocket-Key", "short")])).status
+        == Status.bad_request
+
+    assert echo(http_testing.request(Method.Get, "/ws")).status == Status.upgrade_required
+}
+
+test "an allowed origin passes and another is refused" {
+    trusting = fn request: Request -> {
+        options = AcceptOptions{allowed_origins: [Origin`https://app.example.com`]}
+        websocket.accept(request, options, fn _ -> Unit)
+    }
+
+    from = fn origin: String -> handshake(Method.Get, good + [#("Origin", origin)])
+    assert trusting(from("https://app.example.com")).status == Status.switching_protocols
+    assert trusting(from("http://example.com")).status == Status.switching_protocols
+    assert trusting(from("https://evil.example")).status == Status.forbidden
+    assert trusting(from("null")).status == Status.forbidden
+}
+
+fn stacked(handler: Handler, logger: Logger) -> (Request) -> Response {
+    handler
+    |> http.timeout(Duration.milliseconds(500), "slow")
+    |> http.limit_body(4)
+    |> http.compress()
+    |> http.security_headers(SecurityHeaders{})
+    |> http.log_requests(logger)
+}
+
+test "middleware leaves the upgrade working" {
+    asking = #{
+        ..handshake(Method.Get, good),
+        headers: Headers(good + [#("Accept-Encoding", "gzip")]),
+    }
+
+    response = stacked(echo, Logger.discard())(asking)
+    assert response.status == Status.switching_protocols
+    refute Headers.has(response.headers, "Content-Encoding")
+    assert Headers.get(response.headers, "X-Content-Type-Options") == Some("nosniff")
+
+    got = log_testing.run(fn logger: Logger -> {
+        http_testing.open_websocket(stacked(echo, logger), "/ws", fn ws -> {
+            _ = WebSocket.send_text(ws, "longer than the body limit")
+            WebSocket.receive(ws)
+        })
+    })
+
+    assert Ok(echoed) = got.value
+    assert echoed == Ok(Some(Message.Text("longer than the body limit")))
+    record = List.head(got.records)!
+    assert List.contains(record.fields, log.int("status", 101))
+}
+
+test "a message over the limit closes the connection with 1009" {
+    small = fn request: Request -> {
+        websocket.accept(request, AcceptOptions{max_message_size: 8}, fn ws -> {
+            _ = WebSocket.each(ws, fn _ -> Unit)
+        })
+    }
+
+    got = http_testing.open_websocket(small, "/", fn ws -> {
+        _ = WebSocket.send_text(ws, "12345678")
+        _ = WebSocket.send_text(ws, "123456789")
+        WebSocket.receive(ws)
+    })
+
+    assert Ok(Err(Error.Closed{code: 1009, reason})) = got
+    assert String.contains(reason, "over 8 bytes")
+}
+
+test "an idle connection is closed with 1001" {
+    idle = fn request: Request -> {
+        websocket.accept(request, AcceptOptions{
+            idle_timeout: Some(Duration.milliseconds(20)),
+        }, fn ws -> {
+            _ = WebSocket.each(ws, fn _ -> Unit)
+        })
+    }
+
+    got = http_testing.open_websocket(idle, "/", fn ws -> WebSocket.receive(ws))
+    assert Ok(Ok(None)) = got
+}

@@ -72,7 +72,7 @@ func intList(v ...int64) any {
 	return rtList(items...)
 }
 
-// cartItems is a message table (mf2.Table) as a `message` declaration's
+// cartItems is a phrase table (mf2.Table) as a `phrase` declaration's
 // function holds it.
 const bookNoun = `{"name": "shop.book", "source": "en", "genders": {"pl": "feminine"}, "forms": {"en": {"nominative": ".input {$count :integer}\n.match $count\none {{book}}\n* {{books}}"}, "pl": {"nominative": ".input {$count :integer}\n.match $count\none {{książka}}\nfew {{książki}}\nmany {{książek}}\n* {{książki}}"}}}`
 
@@ -363,17 +363,17 @@ func formatCases() map[string][]argSet {
 		"locale.locale_available":         sets(a()),
 		"locale.locale_loaded_raw":        sets(a()),
 		"locale.locale_load_raw":          sets(a(s("pl")), a(s("en"))),
-		"message_format.noun_raw": sets(a(s(bookNoun), loc("pl")), a(s(bookNoun), loc("pl-PL")), a(s(bookNoun), loc("fr")),
+		"phrase_format.noun_raw": sets(a(s(bookNoun), loc("pl")), a(s(bookNoun), loc("pl-PL")), a(s(bookNoun), loc("fr")),
 			a(s(bookNoun), loc("en-XA")), a(s("not a noun"), loc("pl"))),
-		"message_format.format_raw": sets(
+		"phrase_format.format_raw": sets(
 			a(s(cartItems), loc("en"), strs(), intList(0), strs("1"), strs(""), strs("1")),
 			a(s(cartItems), loc("pl"), strs(), intList(0), strs("3"), strs(""), strs("3")),
 			a(s(cartItems), loc("pl"), strs(), intList(0), strs("25"), strs(""), strs("25")),
 			a(s(cartItems), loc("pt-PT"), strs(), intList(0), strs("2"), strs(""), strs("2")),
 			a(s(cartItems), loc("en-XA"), strs(), intList(0), strs("2"), strs(""), strs("2")),
-			a(s(cartItems), loc("pl"), strs(`{"locale":"pl","messages":{"shop.cart_items":"{{loaded}}"}}`), intList(0), strs("2"), strs(""), strs("2"))),
+			a(s(cartItems), loc("pl"), strs(`{"locale":"pl","phrases":{"shop.cart_items":"{{loaded}}"}}`), intList(0), strs("2"), strs(""), strs("2"))),
 		// A machine with no tables: every entry names nothing it has.
-		"message_format.load_raw": sets(
+		"phrase_format.load_raw": sets(
 			a(s("[shop.cart_items]\nsource = '''x'''\ntext = '''y'''\n"), loc("pl")),
 			a(s("[cart_items]\ntext = '''y'''\n"), loc("pl")),
 			a(s("[x\n"), loc("pl")),

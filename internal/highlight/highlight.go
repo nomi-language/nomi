@@ -103,7 +103,7 @@ func ByteCol(code string, line, col int) int {
 // Program is a multi-file snippet analyzed as one program: the tour's
 // tabbed examples, whose tabs are `// FILE: <name>` sections of one source
 // (internal/virtualproject). Every Nomi file is analyzed as part of the
-// whole program, the manifest and message catalogs included, as the run
+// whole program, the manifest and phrase catalogs included, as the run
 // builds it, so a name one tab imports from another resolves.
 type Program struct {
 	files map[string]ProgramFile

@@ -17,7 +17,7 @@ end
 ---@type vim.lsp.Config
 return {
   cmd = { cmd },
-  -- A TOML buffer only when it is one of a module's message catalogs.
+  -- A TOML buffer only when it is one of a module's phrase catalogs.
   filetypes = { 'nomi', 'toml' },
   root_dir = function(bufnr, on_dir)
     if vim.bo[bufnr].filetype == 'toml' then

@@ -21,7 +21,6 @@ import (
 
 const localeProgram = `import {
     std::io
-    std::locale.Locale
 }
 
 fn main() {
@@ -135,7 +134,7 @@ func TestLocaleImage_CarriesOnlyTheReachedParts(t *testing.T) {
 		{"fallbacks", `io.print("${Result.map(Locale.parse("es-MX"), Locale.fallbacks)}")`,
 			[]string{"parent\tes-MX\tes-419"}, []string{"locale\t", "cardinal\t", "symbols\t"}},
 	} {
-		src := "import {\n    std::io\n    std::locale.Locale\n    std::plural.PluralCategory\n}\n\nfn main() {\n    " + c.body + "\n}\n"
+		src := "import {\n    std::io\n    std::plural.PluralCategory\n}\n\nfn main() {\n    " + c.body + "\n}\n"
 		if !strings.Contains(c.body, "Plural") {
 			src = strings.Replace(src, "    std::plural.PluralCategory\n", "", 1)
 		}
@@ -210,7 +209,6 @@ func TestLocaleImage_ASupervisedTaskReadsTheProgramsLocales(t *testing.T) {
 	src := `import {
     std::calendar.{DateTime, DateTimeFields, NaiveDateTime}
     std::io
-    std::locale.Locale
     std::supervisors.Supervisor
 }
 

@@ -182,7 +182,7 @@ it.
   error.
 - `continue` takes no value. To carry a new value forward, make it the
   callback's result.
-- A bare `break` in `find`, `any` and `all` answers `None`, `False` and
+- A bare `break` in `find`, `any` and `all` returns `None`, `False` and
   `True`.
 - A `defer` in a callback runs at the end of each round, before the next
   one starts.

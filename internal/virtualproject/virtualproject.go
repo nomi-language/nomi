@@ -17,7 +17,7 @@ type Project struct {
 	EntrySource string
 	EntryName   string
 	// VirtualFiles are the other Nomi sources by module name, and the
-	// message catalogs by their path with `.toml` (`locales/pl/cart.toml`).
+	// phrase catalogs by their path with `.toml` (`locales/pl/cart.toml`).
 	VirtualFiles map[string]string
 	Manifest     *analysis.Manifest
 	// DataFiles are the files a program reads at run time, by their path
@@ -376,7 +376,7 @@ func fromFiles(files map[string]string, entry string) (Project, error) {
 		case isNomiSource(name):
 			virtualFiles[NormalizeModuleName(name)] = body
 		case strings.HasSuffix(name, ".toml"):
-			// A message catalog, which the declaring file's expansion
+			// A phrase catalog, which the declaring file's expansion
 			// reads by its path from the module root.
 			virtualFiles[strings.TrimPrefix(name, "./")] = body
 			dataFiles[strings.TrimPrefix(name, "./")] = body

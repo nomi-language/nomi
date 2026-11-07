@@ -4825,10 +4825,64 @@
                 "type": "SYMBOL",
                 "name": "capture"
               }
+            },
+            {
+              "type": "FIELD",
+              "name": "function",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_tap_function_name"
+              }
             }
           ]
         }
       ]
+    },
+    "_tap_function_name": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "type_identifier"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_tap_qualified_name"
+          },
+          "named": true,
+          "value": "field_access"
+        }
+      ]
+    },
+    "_tap_qualified_name": {
+      "type": "PREC_LEFT",
+      "value": 12,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "_tap_function_name"
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "."
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_field_identifier"
+          }
+        ]
+      }
     },
     "_then_lambda": {
       "type": "PREC_RIGHT",
@@ -12528,6 +12582,30 @@
           {
             "type": "SYMBOL",
             "name": "map_construction"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "string"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "triple_string"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "raw_string"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "tagged_type_string"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "tagged_type_triple_string"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "raw_tagged_string"
           }
         ]
       }

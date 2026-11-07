@@ -9,7 +9,7 @@
 // A SQLite database's scratch database is in memory. A Postgres database's
 // is `nomi_prepare_<hash>_<random>` on the development server the
 // environment variable `dev_url_env` names (`DATABASE_URL` by default),
-// dropped before the tool answers.
+// dropped before the tool returns.
 //
 // A migration or a query the database rejects, and a query whose
 // annotation does not fit its SQL, stops the tool with the problem at its
@@ -122,7 +122,7 @@ fn distinct(files: List<Generated>) -> Result<Unit, String> {
 }
 
 // Write db's generated files, or with check compare them, printing what
-// it did; answers the paths that changed.
+// it did; returns the paths that changed.
 fn settle(db: Database, files: List<Generated>, check: Bool) -> Result<List<String>, String> {
     changed =
         files

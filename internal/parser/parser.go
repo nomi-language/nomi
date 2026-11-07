@@ -523,27 +523,53 @@ func (p *Parser) recoverStmtInBlock(from int, err error) *ast.ErrorNode {
 		pe = ParseError{Line: tok.Line, Col: tok.Col, Message: err.Error()}
 	}
 	p.recovered = append(p.recovered, pe)
+	// The brackets the damaged statement opened before the error and has
+	// not closed: in `x = case v { n -> n |> tap 1 }` the error is inside
+	// the case's `{`, so the `}` after it closes the case, not the block.
+	var open []token.TokenType
+	for i := from; i < p.pos && i < len(p.tokens); i++ {
+		switch t := p.tokens[i].Type; t {
+		case token.LBRACE, token.LPAREN, token.LBRACKET:
+			open = append(open, t)
+		case token.RBRACE, token.RPAREN, token.RBRACKET:
+			if len(open) > 0 && open[len(open)-1] == openerOf(t) {
+				open = open[:len(open)-1]
+			}
+		}
+	}
+	// carried counts the brackets at the bottom of open, the ones opened
+	// before the error.
+	carried := len(open)
 	// parseStmt may have failed without consuming anything (a stray
 	// closing bracket where a statement was expected). Step over one
 	// token so the enclosing loop always makes progress.
 	if p.pos == from && !p.atEnd() {
 		p.advance()
 	}
-	depth := 0
 skip:
 	for !p.atEnd() {
-		switch p.peek().Type {
+		switch t := p.peek().Type; t {
 		case token.LBRACE, token.LPAREN, token.LBRACKET:
-			depth++
+			open = append(open, t)
 		case token.RBRACE, token.RPAREN, token.RBRACKET:
-			if depth == 0 {
+			if len(open) == 0 || open[len(open)-1] != openerOf(t) {
 				// Closes an enclosing construct, not anything the
 				// damaged statement opened. Leave it for the caller.
 				break skip
 			}
-			depth--
+			open = open[:len(open)-1]
+			carried = min(carried, len(open))
 		case token.NEWLINE, token.SEMICOLON:
-			if depth == 0 {
+			// A `(` or `[` opened before the error holds no statements, so
+			// it ends at the line's end: in `let = (` above more lines the
+			// `(` may never be closed, and counting it would take the rest
+			// of the block into the damaged run. A `{` the error is inside,
+			// a case's or a lambda's, holds lines and keeps them.
+			for carried > 0 && carried == len(open) && open[len(open)-1] != token.LBRACE {
+				open = open[:len(open)-1]
+				carried--
+			}
+			if len(open) == 0 {
 				p.advance() // the terminator belongs to the damaged run
 				break skip
 			}
@@ -551,7 +577,7 @@ skip:
 			token.TYPEALIAS, token.INTERFACE,
 			token.IMPORT, token.PUB, token.EXTERN,
 			token.EXPORT, token.ONCE, token.TEST:
-			if depth == 0 {
+			if len(open) == 0 {
 				// A top-level keyword at block depth means the block's
 				// `}` is missing. Stop here so the block can close
 				// itself and the declaration that follows still parses.
@@ -580,6 +606,17 @@ skip:
 		EndLine: span.EndLine,
 		EndCol:  span.EndCol,
 	}
+}
+
+// openerOf is the opening bracket a closing one closes.
+func openerOf(closer token.TokenType) token.TokenType {
+	switch closer {
+	case token.RBRACE:
+		return token.LBRACE
+	case token.RPAREN:
+		return token.LPAREN
+	}
+	return token.LBRACKET
 }
 
 // blockClosedByColumnOneDecl reports whether the cursor sits on a
@@ -2409,16 +2446,42 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 		p.recordSpan(fn, capStart)
 		capture, ok := fn.(*ast.Capture)
 		if !ok {
-			return nil, errorAt(tok.Line, tok.Col, "`%s` takes a lambda or a capture: write `%s fn v -> ...` or `%s &f(&1)`", tok.Lexeme, tok.Lexeme, tok.Lexeme)
+			return nil, errorAt(tok.Line, tok.Col, "%s", pipeStageOperandMessage(tok))
 		}
 		if tok.Type == token.TAP {
 			stage = &ast.Tap{Capture: capture, Line: tok.Line, Col: tok.Col}
 		} else {
 			stage = &ast.Then{Capture: capture, Line: tok.Line, Col: tok.Col}
 		}
+	} else if !p.atEnd() && (p.peek().Type == token.IDENT || p.peek().Type == token.TYPE_IDENT) {
+		// `tap io.print`: a function by name. `then f` would be `|> f()`.
+		nameStart := p.pos
+		fn, err := p.parseExpr(tryOperandPrecedence)
+		if err != nil {
+			return nil, err
+		}
+		p.recordSpan(fn, nameStart)
+		name, ok := pipeStageFuncName(fn)
+		if tok.Type == token.THEN {
+			msg := ParseError{Line: tok.Line, Col: tok.Col, Message: pipeStageOperandMessage(tok)}
+			if ok {
+				msg.Hints = []string{fmt.Sprintf("write `|> %s()` for a function by name", name)}
+			}
+			return nil, msg
+		}
+		if !ok {
+			e := ParseError{Line: tok.Line, Col: tok.Col, Message: pipeStageOperandMessage(tok)}
+			if call, isCall := fn.(*ast.Call); isCall {
+				if callee, named := pipeStageFuncName(call.Func); named {
+					e.Hints = []string{fmt.Sprintf("write `tap %s` to call it with the piped value, or a capture such as `tap &%s(&1, ...)` to pass more arguments", callee, callee)}
+				}
+			}
+			return nil, e
+		}
+		stage = &ast.Tap{Name: fn, Line: tok.Line, Col: tok.Col}
 	} else {
 		if p.atEnd() || p.peek().Type != token.FN {
-			return nil, errorAt(tok.Line, tok.Col, "`%s` takes a lambda or a capture: write `%s fn v -> ...` or `%s &f(&1)`", tok.Lexeme, tok.Lexeme, tok.Lexeme)
+			return nil, errorAt(tok.Line, tok.Col, "%s", pipeStageOperandMessage(tok))
 		}
 		lamStart := p.pos
 		lam, err := p.parseLambdaStop(true)
@@ -2443,6 +2506,35 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 		result = pipeNode(result, q, q.Line, q.Col)
 	}
 	return result, nil
+}
+
+// pipeStageOperandMessage is the error for a `then` or `tap` stage whose
+// operand is no function the stage takes.
+func pipeStageOperandMessage(tok token.Token) string {
+	if tok.Type == token.TAP {
+		return "`tap` takes a function: write `tap f`, `tap fn v -> ...` or `tap &f(&1)`"
+	}
+	return "`then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)`"
+}
+
+// pipeStageFuncName spells n when it is a function's name, as a `tap` stage
+// takes one: `log_it`, `io.print`, `Log.info`. ok is false for any other
+// expression.
+func pipeStageFuncName(n ast.Node) (string, bool) {
+	switch x := n.(type) {
+	case *ast.Ident:
+		return x.Name, true
+	case *ast.TypeIdent:
+		return x.Name, true
+	case *ast.FieldAccess:
+		if x.Field == nil {
+			return "", false
+		}
+		if owner, ok := pipeStageFuncName(x.Object); ok {
+			return owner + "." + x.Field.Name, true
+		}
+	}
+	return "", false
 }
 
 func (p *Parser) parsePipeValueKeywordStage(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {
@@ -10335,9 +10427,9 @@ func (p *Parser) parseOnceBinding(public bool) (ast.Node, error) {
 // ---------------------------------------------------------------------------
 
 // startsKeywordDecl reports whether the cursor is at a keyword
-// declaration's keyword: two names in a row (`message hi`). A name before
+// declaration's keyword: two names in a row (`phrase hi`). A name before
 // a type name is not one, so a misspelled declaration keyword
-// (`strct Point`) keeps its own error, except after `message`, `noun` and
+// (`strct Point`) keeps its own error, except after `phrase`, `noun` and
 // `embed`, whose declaration's error it is: they name a function or a
 // value.
 func (p *Parser) startsKeywordDecl() bool {
@@ -10349,7 +10441,7 @@ func (p *Parser) startsKeywordDecl() bool {
 		return true
 	case token.TYPE_IDENT:
 		switch p.peek().Lexeme {
-		case "message", "noun", "embed":
+		case "phrase", "noun", "embed":
 			return true
 		}
 	}
@@ -10422,7 +10514,7 @@ func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
 			col := tok.Col - len(tok.Tag)
 			return nil, errorAt(tok.Line, col, "the body of a `%s` declaration is a raw string: write it between backticks", written)
 		}
-		if decl.BodyTag != "" && (decl.Keyword == "message" || decl.Keyword == "noun") {
+		if decl.BodyTag != "" && (decl.Keyword == "phrase" || decl.Keyword == "noun") {
 			return nil, errorAt(decl.Body.Line, decl.TagCol(), "a `%s` body is MessageFormat 2 text and takes no tag: remove `%s`", decl.Keyword, decl.BodyTag)
 		}
 	}
@@ -10430,7 +10522,7 @@ func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
 		switch tok := p.peek(); tok.Type {
 		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT, token.EOF:
 		default:
-			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in a `%s` declaration; it is `%s name(params) -> Type `body``, each part after the name optional", tok.Lexeme, written, written)
+			return nil, unexpectedIn(tok, fmt.Sprintf("a `%s` declaration", written), fmt.Sprintf("; it is `%s name(params) -> Type `body``, each part after the name optional", written))
 		}
 	}
 	return decl, nil

@@ -58,7 +58,7 @@ import (
 	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/ir"
-	"github.com/nomi-language/nomi/internal/stdmessageformat"
+	"github.com/nomi-language/nomi/internal/stdphraseformat"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -128,9 +128,9 @@ type Machine struct {
 	// locale file replaces (std/locale's Locale.load), or nil for
 	// cldrdata.Default. See WithLocaleData.
 	locales *cldrdata.Store
-	// messages is what the program knows of its messages beyond a call's
-	// table, or nil. See WithMessages.
-	messages *stdmessageformat.Runtime
+	// phrases is what the program knows of its phrases beyond a call's
+	// table, or nil. See WithPhrases.
+	phrases *stdphraseformat.Runtime
 	// embedded is the table of the embedded files the program named, and
 	// where it reads their contents. See WithEmbeddedSource and
 	// embedded.go.
@@ -305,12 +305,12 @@ func (m *Machine) WithLocaleLoader(load func() *cldrdata.Data) *Machine {
 	return m
 }
 
-// WithMessages sets the program's messages: the message and noun tables it
+// WithPhrases sets the program's phrases: the phrase and noun tables it
 // carries, which a catalog loaded at run time is checked against, and the
-// translations of the locales it loads (stdmessageformat.Runtime), which
-// std/message's adapters read through the frames the machine runs.
-func (m *Machine) WithMessages(r *stdmessageformat.Runtime) *Machine {
-	m.messages = r
+// translations of the locales it loads (stdphraseformat.Runtime), which
+// std/phrase's adapters read through the frames the machine runs.
+func (m *Machine) WithPhrases(r *stdphraseformat.Runtime) *Machine {
+	m.phrases = r
 	return m
 }
 
@@ -331,8 +331,8 @@ func (m *Machine) withDiagnostics(ctx context.Context) context.Context {
 		ctx = cldrdata.WithStore(ctx, m.locales)
 	}
 	ctx = rt.WithEmbeddedFiles(ctx, m.embedded)
-	if m.messages != nil {
-		ctx = stdmessageformat.WithRuntime(ctx, m.messages)
+	if m.phrases != nil {
+		ctx = stdphraseformat.WithRuntime(ctx, m.phrases)
 	}
 	return ctx
 }
@@ -394,12 +394,12 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 	m := &Machine{mod: entry, out: &syncWriter{w: out}, boot: entry.Boot(), tasks: &taskLimit{},
 		codes: &codeTable{}, embedded: rt.NewEmbeddedFiles(DiskEmbedded{})}
 	m.adapters = newHostTables(m)
-	// The program's messages are, unless WithMessages says otherwise, the
+	// The program's phrases are, unless WithPhrases says otherwise, the
 	// tables every function of its modules carries, worked out when a
 	// catalog is first loaded.
 	mods := append([]*ir.Module{entry}, rest...)
-	m.messages = stdmessageformat.NewRuntime(func() ([]string, []string) {
-		return MessageTables(mods, ModuleFuncs(mods), StdMessageModule)
+	m.phrases = stdphraseformat.NewRuntime(func() ([]string, []string) {
+		return PhraseTables(mods, ModuleFuncs(mods), StdPhraseModule)
 	}, nil)
 	m.initOnceCells(entry, rest)
 	m.addImpls(entry)
@@ -477,10 +477,10 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		captureShapeKey: captureShapeHost,
 		// `Hashable.hash` of an interface value (keys.go).
 		"vm.hash_value": hashValueHost,
-		// std/message_format's `variant_name`: an enum value's variant.
-		"message_format.variant_name": variantNameHost,
-		"List.compare":                containerCompareHost("List.compare"),
-		"Vector.compare":              containerCompareHost("Vector.compare"),
+		// std/phrase_format's `variant_name`: an enum value's variant.
+		"phrase_format.variant_name": variantNameHost,
+		"List.compare":               containerCompareHost("List.compare"),
+		"Vector.compare":             containerCompareHost("Vector.compare"),
 
 		"Range.contains":      rangeHost(true),
 		"Range.step_by":       rangeStepBy,
@@ -1501,11 +1501,11 @@ func widenedEmbed(ty *ir.ValType, subj any) bool {
 // value, is.
 func variantNameHost(_ *Machine, _ ir.Pos, args []any) (any, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("vm: message_format.variant_name: expected one operand, got %d", len(args))
+		return nil, fmt.Errorf("vm: phrase_format.variant_name: expected one operand, got %d", len(args))
 	}
 	r, ok := enumRecord(args[0])
 	if !ok {
-		return nil, fmt.Errorf("vm: message_format.variant_name: the operand is %T, not an enum value", args[0])
+		return nil, fmt.Errorf("vm: phrase_format.variant_name: the operand is %T, not an enum value", args[0])
 	}
 	return variantName(r), nil
 }

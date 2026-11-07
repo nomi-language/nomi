@@ -1,14 +1,16 @@
 import {
+    std::calendar.OffsetDateTime
     std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
     std::hash
     std::http.{self, Body, Headers, Method, Request, Response, Status}
     std::http_testing
     std::instant.Instant
-    std::storage.{self, Store}
+    std::storage.{self, Entry, ListOptions, Listing, Store}
     std::storage_testing.{self, Memory}
     std::testing.Clock
     std::url.{Query, Url}
+    std::xml.{self, Element, Name, Node}
     s3.{self, Addressing, Config, Credentials, Payload}
 }
 
@@ -381,7 +383,7 @@ test "network failures are Unavailable and a bad certificate is not" {
     assert failing(http.Error.BodyTooLarge{limit: 1}) is Err(.Backend{code: "TooLarge"})
 }
 
-// An answer that fails with `first` for its first `failures` requests and
+// A sender that fails with `first` for its first `failures` requests and
 // succeeds after.
 fn flaky(failures: Int, first: Int) -> (Request) -> Result<Response, http.Error> {
     calls: Channel<Int> = Channel.buffered(1)
@@ -514,6 +516,12 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
             )
         }
 
+        query = Url.query_values(request.url)
+
+        if request.method == Method.Get and Query.get(query, "list-type") == Some("2") {
+            return Ok(list_response(memory, key, query))
+        }
+
         answer = case request.method {
             .Put -> {
                 content_type =
@@ -569,6 +577,130 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
                 )
         }
     }
+}
+
+// A `ListObjectsV2` response from the fake server: the bucket's objects
+// are the Memory's keys under `<bucket>/`, and its continuation token is
+// the Memory's with the bucket left off.
+fn list_response(memory: Memory, bucket: String, query: Query) -> Response {
+    within = "${bucket}/"
+    prefix = Query.get(query, "prefix") |> Maybe.with_default("")
+
+    options = ListOptions{
+        prefix: "${within}${prefix}",
+        delimiter: Query.get(query, "delimiter") |> Maybe.with_default(""),
+        continuation: Query.get(query, "continuation-token")
+        |> Maybe.map(fn token -> "${within}${token}"),
+        limit: Query.get(query, "max-keys")
+        |> Maybe.flat_map(String.to_int)
+        |> Maybe.with_default(1000),
+    }
+
+    listing = Store.list(memory, options)!
+    inner = fn key: String -> String.drop(key, String.length(within))
+    field = fn name: String, value: String -> Node.Element(Element.new(name, [Node.Text(value)]))
+
+    contents =
+        listing.objects
+        |> Iter.map(fn e -> {
+            Node.Element(
+                Element.new(
+                    "Contents",
+                    [
+                        field("Key", inner(e.key)),
+                        field(
+                            "LastModified",
+                            "${OffsetDateTime.from_instant(e.modified, Duration.seconds(0))}",
+                        ),
+                        field("Size", "${e.size}"),
+                    ],
+                )
+            )
+        })
+        |> Iter.to_list()
+
+    prefixes =
+        listing.prefixes
+        |> Iter.map(fn p -> {
+            Node.Element(Element.new("CommonPrefixes", [field("Prefix", inner(p))]))
+        })
+        |> Iter.to_list()
+
+    next = case listing.next {
+        Some(token) -> [field("IsTruncated", "true"), field("NextContinuationToken", inner(token))]
+        None -> [field("IsTruncated", "false")]
+    }
+
+    root = Element{
+        name: Name{local: "ListBucketResult", space: "http://s3.amazonaws.com/doc/2006-03-01/"},
+        children: [field("Name", bucket), field("Prefix", prefix)] + contents + prefixes + next,
+    }
+
+    Response{
+        headers: Headers[#("Content-Type", "application/xml")],
+        body: Body.Text(xml.encode(root, xml.WriteOptions{declaration: True})!),
+    }
+}
+
+test "a listing sends ListObjectsV2 with its options and reads the page" {
+    page = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+          <Name>photos</Name>
+          <IsTruncated>true</IsTruncated>
+          <Contents>
+            <Key>posts/a&amp;b.jpg</Key>
+            <LastModified>2009-10-12T17:50:30.000Z</LastModified>
+            <ETag>&quot;fba9dede5f27731c9771645a39863328&quot;</ETag>
+            <Size>434234</Size>
+          </Contents>
+          <CommonPrefixes><Prefix>posts/2024/</Prefix></CommonPrefixes>
+          <NextContinuationToken>1ueGcxLPRx1Tr/XYExHnhbYLgveDs2J/wm36Hy4vbOwM=</NextContinuationToken>
+        </ListBucketResult>
+        """
+
+    answer = fn _request: Request -> Ok(Response{body: Body.Text(page)})
+
+    ran = http_testing.run(answer, fn -> {
+        Store.list(
+            store_of(config()),
+            ListOptions{prefix: "posts/", delimiter: "/", continuation: Some("t+1/="), limit: 2},
+        )
+    })
+
+    assert ran.value == Ok(
+        Listing{
+            objects: [
+                Entry{
+                    key: "posts/a&b.jpg",
+                    size: 434234,
+                    modified: Instant.from_nanos(1_255_369_830_000_000_000),
+                },
+            ],
+            prefixes: ["posts/2024/"],
+            next: Some("1ueGcxLPRx1Tr/XYExHnhbYLgveDs2J/wm36Hy4vbOwM="),
+        }
+    )
+
+    assert [request] = ran.requests
+    assert request.method == Method.Get
+    assert request.url.path == "/photos"
+
+    assert Url.query_values(request.url) == Query([
+            #("continuation-token", "t+1/="),
+            #("delimiter", "/"),
+            #("list-type", "2"),
+            #("max-keys", "2"),
+            #("prefix", "posts/"),
+        ])
+
+    assert Headers.get(request.headers, "Authorization") is Some(_)
+}
+
+test "a listing that is not S3's XML is an InvalidResponse" {
+    answer = fn _request: Request -> Ok(Response{body: Body.Text("<ListBucketResult><Contents/>")})
+    ran = http_testing.run(answer, fn -> Store.list(store_of(config()), ListOptions{}))
+    assert ran.value is Err(.Backend{code: "InvalidResponse"})
 }
 
 test "the store passes the conformance suite against a fake server" {

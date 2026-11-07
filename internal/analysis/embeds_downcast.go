@@ -193,5 +193,5 @@ func (c *checker) addMismatch(line, col int, want, have Type, msg string) {
 
 // addMismatchAt is addMismatch over n's extent: the value that does not fit.
 func (c *checker) addMismatchAt(n ast.Node, want, have Type, msg string) {
-	c.report(shapeLiteralConfusion(errAt(n, msg).WithHint(c.mismatchHint(want, have)), want, n))
+	c.report(shapeLiteralConfusion(errAt(n, msg).WithHint(c.unwrappedOneShortHint(want, have, n)).WithHint(c.mismatchHint(want, have)), want, n))
 }

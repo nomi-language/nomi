@@ -380,7 +380,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	// the registry root) still stops all of them.
 	//
 	// Its values are the spawning frame's: what the machine put on every
-	// frame's context (its locale data, message tables, streams, files and
+	// frame's context (its locale data, phrase tables, streams, files and
 	// input). The supervisor's context, made in boot from the process
 	// registry, carries none of them, and a task that read its values found
 	// cldrdata.Default's data instead of the program's: every locale with

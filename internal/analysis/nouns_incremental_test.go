@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// nounsProject is a project with nouns and the messages that agree with
-// them in one file, a noun of another file that a message must also agree
+// nounsProject is a project with nouns and the phrases that agree with
+// them in one file, a noun of another file that a phrase must also agree
 // with, and their Polish catalogs.
 func nounsProject(tb testing.TB) incrementalProject {
 	dir := tb.TempDir()
@@ -24,8 +24,8 @@ func nounsProject(tb testing.TB) incrementalProject {
 		"locales/pl/stock.toml": "[laptop]\nsource = '''laptop'''\ngender = \"inanimate\"\nnominative = '''laptop'''\ngenitive = '''laptopa'''\n",
 	}
 	p := incrementalProject{name: "nouns", entry: "main", dir: dir, texts: map[string]string{
-		"main":  "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    shop\n    stock\n}\n\nfn main() {\n    io.print(Message.format(shop.has_shipped(stock.laptop), Locale`pl`))\n}\n",
-		"shop":  "import std::message.Noun\n\npub noun book `" + book + "`\n\npub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\npub message sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n",
+		"main":  "import {\n    std::io\n    shop\n    stock\n}\n\nfn main() {\n    io.print(Phrase.format(shop.has_shipped(stock.laptop), Locale`pl`))\n}\n",
+		"shop":  "pub noun book `" + book + "`\n\npub phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\npub phrase sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n",
 		"stock": "pub noun laptop `laptop`\n",
 	}}
 	for key, text := range p.texts {
@@ -46,15 +46,15 @@ func nounsProject(tb testing.TB) incrementalProject {
 	return p
 }
 
-// nounsEdits edit a noun's catalog entry (its gender, a form a message asks
-// for) in its own file's catalog and in another file's, a message's
+// nounsEdits edit a noun's catalog entry (its gender, a form a phrase asks
+// for) in its own file's catalog and in another file's, a phrase's
 // selector, and a noun's text. Each catalog edit keeps every signature, so
 // it rebuilds the reading file's bodies alone, and the agreement check,
 // which reads every file, answers as a full check does.
 var nounsEdits = []editStep{
 	replace("catalog body only: another file's noun becomes personal", "locales/pl/stock.toml", `"inanimate"`, `"personal"`),
 	restore("catalog body only: back", "locales/pl/stock.toml"),
-	replace("catalog body only: a form a message asks for removed", "locales/pl/stock.toml", "genitive = '''laptopa'''\n", ""),
+	replace("catalog body only: a form a phrase asks for removed", "locales/pl/stock.toml", "genitive = '''laptopa'''\n", ""),
 	restore("catalog body only: the form back", "locales/pl/stock.toml"),
 	replace("catalog body only: a gender arm removed", "locales/pl/shop.toml", " inanimate {{Twój {$product :nomi:noun} został wysłany.}}", ""),
 	restore("catalog body only: the arm back", "locales/pl/shop.toml"),

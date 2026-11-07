@@ -46,7 +46,8 @@ func irSupervisorKind(k kind) bool {
 // Child and Fake, the rt.ChildProcess and rt.ProcessFake std/process and
 // std/process_testing hold (rt/processes.go), or std/http_host's Client and
 // Exchange, the rt.HTTPClient and rt.HTTPExchange std/http holds
-// (rt/network.go).
+// (rt/network.go), or std/csv_host's Records and std/xml_host's Tokens,
+// the readers std/csv and std/xml hold (rt/formats.go).
 func irStreamKind(k kind) bool {
 	if k.tag != tagNamed {
 		return false
@@ -67,6 +68,7 @@ var irStreamKinds = sync.OnceValue(func() []kind {
 		stdHostOriginKind("std/http_host", "Conn"), stdHostOriginKind("std/http_host", "TcpListener"),
 		stdHostOriginKind("std/http_host", "Mux"), stdHostOriginKind("std/http_host", "Jar"),
 		stdHostOriginKind("std/http_host", "Handle"),
+		stdHostOriginKind("std/csv_host", "Records"), stdHostOriginKind("std/xml_host", "Tokens"),
 	}
 })
 

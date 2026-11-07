@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -415,5 +416,44 @@ func TestCodeAction_IgnoresNonUnusedDiagnostics(t *testing.T) {
 	actions := buildRemoveUnusedActions(content, nodes, fa, "file:///t.nomi", diags)
 	if len(actions) != 0 {
 		t.Errorf("expected no code actions for a non-unused diagnostic, got %d", len(actions))
+	}
+}
+
+// The quick fix adds the import the diagnostic's help names, for a std
+// type, a std module and a name two std modules export.
+func TestCodeAction_AddImport_IsTheImportTheHelpNames(t *testing.T) {
+	cases := []struct {
+		src  string
+		want []string
+	}{
+		{"fn main() {\n  _m = Method.Post\n}\n", []string{"std::http.Method"}},
+		{"fn f(_c: Catalog) -> Int {\n  1\n}\n", []string{"std::phrase.Catalog"}},
+		{"fn main() {\n  io.inspect(1)\n}\n", []string{"std::io"}},
+		{"fn f(_m: Message) -> Int {\n  1\n}\n", []string{"std::mail.Message", "std::websocket.Message"}},
+	}
+	for _, c := range cases {
+		content, nodes, fa, diags := addImportFixture(t, c.src)
+		var helps []string
+		for _, d := range diags {
+			if _, help, ok := strings.Cut(d.Message, "\nhelp: import "); ok {
+				helps = append(helps, help)
+			}
+		}
+		if len(helps) != 1 {
+			t.Errorf("%q: helps %q, want one naming an import", c.src, helps)
+			continue
+		}
+		var titles []string
+		for _, a := range buildAddImportActions(content, nodes, fa, "file:///t.nomi", diags) {
+			titles = append(titles, strings.TrimPrefix(a.Title, "Add import "))
+		}
+		if strings.Join(titles, " ") != strings.Join(c.want, " ") {
+			t.Errorf("%q: quick fixes %q, want %q", c.src, titles, c.want)
+		}
+		for _, w := range c.want {
+			if !strings.Contains(helps[0], "`"+w+"`") {
+				t.Errorf("%q: help %q does not name %s", c.src, helps[0], w)
+			}
+		}
 	}
 }

@@ -33,7 +33,7 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("pl's genders in the image: %v", genders)
 	}
 	texts := localefiles.New("pl")
-	texts.Messages["cart.items"] = "{{rzeczy}}"
+	texts.Phrases["cart.items"] = "{{rzeczy}}"
 	file := func(build, locale string) []byte {
 		f := &localefiles.File{Build: build, Locales: []string{locale},
 			CLDR: cldrfull.FileBundle([]string{locale}, cldrdata.AllParts, nil), Texts: []*localefiles.Translations{texts}}
@@ -75,7 +75,7 @@ func TestLoad(t *testing.T) {
 	if v, _, _ := store.Data().Resolve([]string{"pl"}, "symbols\tlatn"); !strings.HasPrefix(v, ",") {
 		t.Errorf("pl's symbols after the load: %q", v)
 	}
-	if m, ok := l.Installed("pl").Message("cart.items"); !ok || m == nil {
+	if m, ok := l.Installed("pl").Phrase("cart.items"); !ok || m == nil {
 		t.Error("the texts are not installed")
 	}
 	if got := localefiles.Loaded(store, l, []string{"en", "pl"}); !slices.Equal(got, []string{"en", "pl"}) {

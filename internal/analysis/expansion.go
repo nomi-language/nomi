@@ -10,18 +10,18 @@ import (
 )
 
 // A keyword declaration (ast.KeywordDecl) expands into declarations the
-// checker checks as it checks any: a `message` into the function it
+// checker checks as it checks any: a `phrase` into the function it
 // declares. Expansion is the compiler's general mechanism for a declaration
 // checked against something outside Nomi, and its parts are general:
 //
 //   - Inputs. An expansion reads files under the module root (a
-//     `message`, its catalogs) through the site's InputReader, and records
+//     `phrase`, its catalogs) through the site's InputReader, and records
 //     each one it read with its text. The files are inputs of the declaring
 //     file: a program keeps them (CheckedProgram.Inputs), and an edit to one
 //     rechecks the files that read it, through the paths an edit to the
 //     file's own text takes (DocumentManager.RecheckEdits).
 //   - Positions. The declarations an expansion writes keep the user's own
-//     nodes where it copies them (a `message`'s parameters) and its name's
+//     nodes where it copies them (a `phrase`'s parameters) and its name's
 //     position, and put everything they add in the synthesized band, at a
 //     slot that is a function of the declaration's place in its file, so
 //     the same source expands to the same positions every time.
@@ -103,7 +103,7 @@ type ExpansionInput struct {
 }
 
 // ExpansionSpan is one span of an input an expansion was made of: a
-// catalog's entry for a message, labelled by its locale.
+// catalog's entry for a phrase, labelled by its locale.
 type ExpansionSpan struct {
 	Path  string
 	Label string
@@ -204,13 +204,13 @@ func (c *checker) checkExpansionBody(fn *ast.FuncDef) {
 }
 
 // ExpandDeclarations answers nodes with each keyword declaration expanded
-// at site: a `message` becomes the function it declares, and a `noun` and an
+// at site: a `phrase` becomes the function it declares, and a `noun` and an
 // `embed` (embed.go) the `once` each names, in its place, and the file gains
-// the hidden imports its expansions name std/message and std/embed by, and
+// the hidden imports its expansions name std/phrase and std/embed by, and
 // the one a `derive ToJson` or `derive FromJson` names std/json by
 // (withJsonImport). A declaration of any other keyword stays, for the
 // checker to refuse. Expanding again is a no-op: an expanded file holds no
-// `message` or `embed` declaration. A nil site expands messages with no
+// `phrase` or `embed` declaration. A nil site expands phrases with no
 // inputs, as a file with no project, and an `embed` into an error.
 //
 // Each expansion is positioned at the band slot of its declaration's
@@ -239,10 +239,10 @@ func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
 	if site == nil {
 		site = &ExpansionSite{}
 	}
-	cats := &catalogSet{site: site, files: map[string]*messageCatalog{}}
+	cats := &catalogSet{site: site, files: map[string]*phraseCatalog{}}
 	out := make([]ast.Node, 0, len(nodes)+1)
-	if hasMessage && !hasMessageImport(nodes) {
-		out = append(out, messageImports()...)
+	if hasMessage && !hasPhraseImport(nodes) {
+		out = append(out, phraseImports()...)
 	}
 	if hasEmbed && !hasEmbedImport(nodes) {
 		out = append(out, embedImport())
@@ -265,8 +265,8 @@ func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
 		switch {
 		case !ok:
 			add(n)
-		case kd.Keyword == keywordMessage:
-			add(expandMessage(kd, site, cats, synthSlot(synthOriginDecl, index, synthKindEquatable)))
+		case kd.Keyword == keywordPhrase:
+			add(expandPhrase(kd, site, cats, synthSlot(synthOriginDecl, index, synthKindEquatable)))
 		case kd.Keyword == keywordNoun:
 			add(expandNoun(kd, site, cats, synthSlot(synthOriginDecl, index, synthKindEquatable)))
 		default:

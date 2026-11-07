@@ -1,5 +1,5 @@
 //# Files and directories. Every function takes a path as a `String`
-//# (std::path works on them) and answers a `Result` whose error is
+//# (std::path works on them) and returns a `Result` whose error is
 //# `io.Error`, which names the path it is about: `NotFound`,
 //# `AlreadyExists`, `IsADirectory` and the rest. An empty path or one
 //# holding a NUL byte is `InvalidPath`, and every error names the path as
@@ -101,7 +101,7 @@ pub struct Entry {
 
 derive Equatable for Entry
 
-/// What `fs.metadata` answers about a path.
+/// What `fs.metadata` returns about a path.
 pub struct Metadata {
     kind: Kind
     /// The size in bytes; 0 for a directory.
@@ -488,7 +488,7 @@ pub fn open_file(path: String, access: Access = Access.Read) -> Result<File, Err
 
 /// Opens `path` as `fs.open_file` does, runs `body` with the file, and
 /// closes it on every exit. A failed close after an `Ok` body is the
-/// answer.
+/// result.
 ///
 /// ```nomi
 /// fn patch_header(db: String, header: Bytes) -> Result<Unit, io.Error> {
@@ -519,14 +519,14 @@ pub fn with_file<T>(
 
 /// Runs `body` with every std::fs call in it, and in the tasks it starts,
 /// confined to the directory `dir`. Inside, a relative path is under
-/// `dir`, an absolute path must be under it, `fs.current_dir()` answers it,
+/// `dir`, an absolute path must be under it, `fs.current_dir()` returns it,
 /// and a path that leads outside it, by `..` or through a symlink, is
 /// `InvalidPath` instead of reaching what is there, with the reason `the
 /// path leads outside the directory fs.within confines calls to`. An
 /// absolute symlink is refused for the same reason, wherever it points. On
 /// the operating system's file system each name is resolved under the
 /// directory as it is opened, so a symlink changed during the call cannot
-/// lead out either. `fs.current_dir()` answers `dir` made absolute.
+/// lead out either. `fs.current_dir()` returns `dir` made absolute.
 /// `fs.with_temp_dir` is `Unsupported {operation: "fs.with_temp_dir",
 /// target: "fs.within"}`, since its directory is elsewhere. A `within`
 /// inside another confines the call further. A `dir` that is not a
@@ -726,7 +726,7 @@ fn walk_entries(
 /// `path.matches`'s rule, applied to the paths `fs.walk` finds under the
 /// longest part of the pattern with no wildcard, so a symlink matches as
 /// itself and is not followed. A pattern with no `**` is matched no deeper
-/// than it reaches. A pattern with no wildcard answers the path when
+/// than it reaches. A pattern with no wildcard returns the path when
 /// something is there. Nothing under a missing directory is `Ok([])`.
 ///
 /// ```nomi
@@ -1030,7 +1030,7 @@ pub fn read_link(path: String) -> Result<String, Error> {
 /// `0o644`, `0o755`, from 0 to `0o777`; any other mode is `Other` with the
 /// code `EINVAL`. Windows keeps only the owner's write bit, so a file reads
 /// back as `0o666` or `0o444`. In memory (the browser, a sandbox) the bits
-/// are kept and answered by `fs.metadata`, but nothing is refused for them.
+/// are kept and returned by `fs.metadata`, but nothing is refused for them.
 ///
 /// ```nomi
 /// fs.set_mode("deploy.sh", 0o755)?
@@ -1057,7 +1057,7 @@ fn kind_at(position: Int) -> Kind {
     }
 }
 
-/// Whether something is at `path`. It answers a `Result` because a refusal
+/// Whether something is at `path`. It returns a `Result` because a refusal
 /// (`PermissionDenied`) is not absence: only `NotFound` is `Ok(False)`.
 ///
 /// ```nomi
@@ -1100,7 +1100,7 @@ pub fn temp_dir() -> String {
 /// path, then removes it and everything in it, on every exit. It is how a
 /// test exercises the real file system; a named temporary file is
 /// `fs.create(path.join(dir, "x"), mode: .New)` inside it. In a wasip1
-/// module whose runtime preopened none of those directories it answers
+/// module whose runtime preopened none of those directories it returns
 /// `Err(io.Error.Unsupported{operation: "fs.with_temp_dir", target:
 /// "wasip1/wasm with no preopened directory (TMPDIR, /tmp or the working
 /// directory)"})` and does not call `body`.

@@ -100,8 +100,8 @@ type Program struct {
 	// currencyModules is what each directory's module allows custom
 	// currency literals to name, by directory (currencyModuleOf).
 	currencyModules map[string]currencyModule
-	// tables are the message and noun tables the program carries, worked
-	// out once (messageTables).
+	// tables are the phrase and noun tables the program carries, worked
+	// out once (phraseTables).
 	tablesOnce sync.Once
 	tables     [2][]string
 }
@@ -230,7 +230,7 @@ func (p *Program) machine(out io.Writer) *vm.Machine {
 // callee in first. Only checkLiterals passes another module, for a program
 // whose entry file retained nothing.
 func (p *Program) machineOver(entry *ir.Module, out io.Writer) *vm.Machine {
-	m := vm.NewProgram(entry, p.res.IRModules(), out).WithHosts(p.hosts...).WithLocaleLoader(p.localeData).WithMessages(p.messages())
+	m := vm.NewProgram(entry, p.res.IRModules(), out).WithHosts(p.hosts...).WithLocaleLoader(p.localeData).WithPhrases(p.phrases())
 	if p.errOut != nil {
 		m = m.WithErrorOutput(p.errOut)
 	}

@@ -26,6 +26,14 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 		}
 	}
 
+	// A pattern name refused for naming a `once` is reported there.
+	onceShadows := make(map[Pos]bool)
+	for _, e := range fa.TypeErrors {
+		if e.Code == OnceShadowCode {
+			onceShadows[Pos{Line: e.Line, Col: e.Col}] = true
+		}
+	}
+
 	var errs []TypeError
 	// A name an `or` pattern binds is one symbol defined at each
 	// alternative's site; it is reported once.
@@ -61,7 +69,7 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 		if IsSynthesizedLine(sym.Pos.Line) {
 			continue
 		}
-		if used[sym] {
+		if used[sym] || onceShadows[Pos{Line: sym.Pos.Line, Col: sym.Pos.Col}] {
 			continue
 		}
 		if kind == "parameter" && unfinishedBody(owner) {

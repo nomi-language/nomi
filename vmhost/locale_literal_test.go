@@ -11,7 +11,6 @@ import (
 func TestLocaleLiteral_IsItsCanonicalLocale(t *testing.T) {
 	const src = "import {\n" +
 		"    std::io\n" +
-		"    std::locale.Locale\n" +
 		"}\n\n" +
 		"once polish = Locale`pl-PL`\n\n" +
 		"fn main() {\n" +
@@ -41,7 +40,7 @@ func TestLocaleLiteral_InvalidTagIsACompileError(t *testing.T) {
 		{"Locale`xx`", "typed literal Locale`xx` is invalid: `xx` is not a known language, script or region subtag"},
 		{"Locale``", "typed literal Locale`` is invalid: a locale tag cannot be empty"},
 	} {
-		src := "import std::locale.Locale\n\nfn main() {\n    _ = " + c.literal + "\n}\n"
+		src := "fn main() {\n    _ = " + c.literal + "\n}\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.literal, len(ds), ds)

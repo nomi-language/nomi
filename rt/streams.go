@@ -97,6 +97,9 @@ type WriteSink struct {
 	Fail func(op string, err error) IOError
 	// Unbuffered sends each write to W as it is made.
 	Unbuffered bool
+	// Flush runs at Writer.flush once the buffer has reached W, for a W
+	// that holds bytes itself (a compressor), or is nil.
+	Flush func() error
 }
 
 // readHandle is a Reader's state behind the value. The cleanup the Go
@@ -547,6 +550,11 @@ func WriterFlush(fr *Frame, w Writer) Result[Unit, IOError] {
 	st.at(fr)
 	if st.w != nil {
 		if err := st.w.Flush(); err != nil {
+			return Err[Unit](st.fail("write", err))
+		}
+	}
+	if st.sink.Flush != nil {
+		if err := st.sink.Flush(); err != nil {
 			return Err[Unit](st.fail("write", err))
 		}
 	}

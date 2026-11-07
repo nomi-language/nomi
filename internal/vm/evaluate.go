@@ -239,7 +239,7 @@ var pureCrossings = map[string]bool{
 	"money_format.money_format_raw": true, "money_format.money_parse_raw": true,
 	// A message's formatting, and the intrinsic that names an enum
 	// value's variant.
-	"message_format.format_raw": true, "message_format.variant_name": true,
+	"phrase_format.format_raw": true, "phrase_format.variant_name": true,
 
 	"Date.days_between": true, "Date.to_string": true,
 	"DateTime.day": true, "DateTime.hour": true, "DateTime.minute": true, "DateTime.month": true,
@@ -296,6 +296,7 @@ var pureCrossings = map[string]bool{
 	"hex.encode": true, "hex.decode": true,
 	"http_host.check_pattern": true,
 	"toml_host.check":         true, "toml_host.build": true, "toml_host.quote": true, "toml_host.float": true,
+	"csv_host.encode": true, "xml_host.escape_text": true, "xml_host.escape_attribute": true, "xml_host.is_name": true,
 	"url_host.escape_query": true, "url_host.unescape_query": true,
 	"url_host.escape_path_segment": true, "url_host.unescape_path_segment": true,
 	"url_host.parse_parts": true, "url_host.format_parts": true, "url_host.redacted_parts": true,

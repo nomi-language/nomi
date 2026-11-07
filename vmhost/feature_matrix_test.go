@@ -251,8 +251,8 @@ var mxFeatures = []mxFeature{
 	{name: "distinct", decls: "type Meters Int", typ: "Meters", expr: "Meters(3)", want: "Meters(3)"},
 	{name: "bitwise operator impl", decls: mxFlags, typ: "Flags", expr: "~~~(Flags(1) ||| Flags(4))", want: "Flags(-6)"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", tags: tagUnit},
-	{name: "message", decls: "message greet(name: String) `Hello, {$name}!`", typ: "Message", expr: `greet("Ann")`,
-		obs: "Message.format($v, Locale`pl`)", want: "Hello, Ann!"},
+	{name: "phrase", decls: "phrase greet(name: String) `Hello, {$name}!`", typ: "Phrase", expr: `greet("Ann")`,
+		obs: "Phrase.format($v, Locale`pl`)", want: "Hello, Ann!"},
 	{name: "generic struct", decls: mxBox, typ: "Box<Int>", expr: "Box{v: 1}", want: "Box{v: 1}"},
 	{name: "generic enum", decls: mxTree, typ: "Tree<String>", expr: `Tree.Leaf("a")`, want: `Leaf("a")`},
 	{name: "generic bare variant", decls: mxTree, typ: "Tree<Int>", expr: "Tree.Nil", want: "Nil", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
@@ -900,14 +900,12 @@ var mxStdImports = []struct{ name, module, item string }{
 	{"Json", "std::json", "Json"},
 	{"ToJson", "std::json", "ToJson"},
 	{"FromJson", "std::json", "FromJson"},
-	{"Message", "std::message", "Message"},
-	{"Locale", "std::locale", "Locale"},
 }
 
 var (
 	mxIdent    = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
-	mxDeclName = regexp.MustCompile(`(?m)^(?:struct|enum|type|interface|fn|once|typealias|message) ([A-Za-z_][A-Za-z0-9_]*)`)
-	mxPubDecl  = regexp.MustCompile(`(?m)^(struct|enum|type|interface|fn|once|typealias|message) `)
+	mxDeclName = regexp.MustCompile(`(?m)^(?:struct|enum|type|interface|fn|once|typealias|phrase) ([A-Za-z_][A-Za-z0-9_]*)`)
+	mxPubDecl  = regexp.MustCompile(`(?m)^(struct|enum|type|interface|fn|once|typealias|phrase) `)
 	mxStrLit   = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
 )
 

@@ -1,6 +1,5 @@
 import {
     std::calendar.Date
-    std::message.Noun
     std::money.Money
 }
 
@@ -29,20 +28,20 @@ pub noun phone_case `
     `
 
 /// Sent when a parcel leaves the warehouse.
-pub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
+pub phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
 
 /// Shown on a category page that has nothing in stock.
-pub message sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`
+pub phrase sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`
 
 /// How many of a product the cart holds, the noun agreeing with the count.
-pub message in_cart(
+pub phrase in_cart(
     count: Int,
     product: Noun,
 ) `{$count} {$product :nomi:noun count=$count} in your cart`
 
 /// Other shoppers looking at the same item, the verb agreeing with how many
 /// there are.
-pub message watching(people: List<String>) `
+pub phrase watching(people: List<String>) `
     .input {$people :nomi:list}
     .match $people
     one {{{$people} is watching this item}}
@@ -50,7 +49,7 @@ pub message watching(people: List<String>) `
     `
 
 /// The order's total, in its currency.
-pub message order_total(total: Money) `Total: {$total :currency}`
+pub phrase order_total(total: Money) `Total: {$total :currency}`
 
 /// The day an order ships: the weekday, the month and the day.
-pub message ships_on(date: Date) `Ships {$date :datetime weekday=long month=long day=numeric}`
+pub phrase ships_on(date: Date) `Ships {$date :datetime weekday=long month=long day=numeric}`

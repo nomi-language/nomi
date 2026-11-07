@@ -7,7 +7,7 @@ import (
 )
 
 // The agreement checks: a `noun` declaration and its catalog entries, and
-// the whole-program checks that hold every noun to every message (check 7
+// the whole-program checks that hold every noun to every phrase (check 7
 // of the i18n design).
 
 const nounManifest = `[module]
@@ -23,11 +23,11 @@ partial_locales = ["de"]
 const bookSource = `.input {$count :integer} .match $count one {{book}} * {{books}}`
 const laptopSource = `.input {$count :integer} .match $count one {{laptop}} * {{laptops}}`
 
-const nounShop = "import std::message.Noun\n\n" +
+const nounShop = "" +
 	"pub noun book `" + bookSource + "`\n\n" +
 	"pub noun laptop `" + laptopSource + "`\n\n" +
-	"pub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\n" +
-	"pub message sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n"
+	"pub phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\n" +
+	"pub phrase sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n"
 
 // nounEntry renders a noun's catalog entry.
 func nounEntry(name, source, gender string, forms ...string) string {
@@ -53,7 +53,7 @@ func nounFiles() map[string]string {
 	return map[string]string{
 		"nomi.toml": nounManifest,
 		"shop.nomi": nounShop,
-		"main.nomi": "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    shop\n}\n\nfn main() {\n    io.print(Message.format(shop.has_shipped(shop.book), Locale`pl`))\n}\n",
+		"main.nomi": "import {\n    std::io\n    shop\n}\n\nfn main() {\n    io.print(Phrase.format(shop.has_shipped(shop.book), Locale`pl`))\n}\n",
 		"locales/pl/shop.toml": nounEntry("book", bookSource, "feminine", "nominative", ksiazkaNom, "genitive", ksiazkaGen) +
 			nounEntry("laptop", laptopSource, "inanimate", "nominative", laptopNom, "genitive", laptopGen) +
 			entry("has_shipped", "Your {$product :nomi:noun} has shipped.", shippedPl) +
@@ -104,19 +104,19 @@ func TestNouns_EachCheckRefuses(t *testing.T) {
 		}, "locales/pl/shop.toml:10:1: pl: `laptop` is a noun, whose entry gives a form per case and no `text`"},
 		{"missing translation", func(f map[string]string) {
 			f[pl] = strings.Replace(f[pl], nounEntry("laptop", laptopSource, "inanimate", "nominative", laptopNom, "genitive", laptopGen), "", 1)
-		}, "shop.nomi:5:10: pl: `laptop` has no translation"},
+		}, "shop.nomi:3:10: pl: `laptop` has no translation"},
 		{"stale", func(f map[string]string) {
 			f["shop.nomi"] = strings.Replace(f["shop.nomi"], "{{books}}", "{{some books}}", 1)
 		}, "locales/pl/shop.toml:2:1: pl: `book` was translated from an older English text"},
-		{"a case form a message asks for", func(f map[string]string) {
+		{"a case form a phrase asks for", func(f map[string]string) {
 			f[pl] = strings.Replace(f[pl], "genitive = '''"+laptopGen+"'''\n", "", 1)
 		}, "locales/pl/shop.toml:7:1: pl: `laptop` has no `genitive` form, which `sold_out` asks for"},
-		{"a case name in a message", func(f map[string]string) {
+		{"a case name in a phrase", func(f map[string]string) {
 			f[pl] = strings.Replace(f[pl], "case=genitive", "case=genetive", 1)
 		}, "locales/pl/shop.toml:19:42: pl: `genetive` is not a case in Polish"},
 		{"a case in a language with none", func(f map[string]string) {
 			f["shop.nomi"] = strings.Replace(f["shop.nomi"], "count=2} left", "case=genitive} left", 1)
-		}, "shop.nomi:9:67: en: `genitive` is not a case in English"},
+		}, "shop.nomi:7:66: en: `genitive` is not a case in English"},
 		{"a gender arm for a noun of the program", func(f map[string]string) {
 			f["shop.nomi"] += "\npub noun phone_case `phone case`\n"
 			f[pl] += nounEntry("phone_case", "phone case", "neuter", "nominative", "etui", "genitive", "etui")
@@ -133,22 +133,22 @@ func TestNouns_EachCheckRefuses(t *testing.T) {
 		{"a gender selector in English", func(f map[string]string) {
 			f["shop.nomi"] = strings.Replace(f["shop.nomi"], "`Your {$product :nomi:noun} has shipped.`",
 				"`.input {$product :nomi:gender} .match $product * {{Your {$product :nomi:noun} has shipped.}}`", 1)
-		}, "shop.nomi:7:79: en: English nouns have no grammatical gender, so `has_shipped` cannot select on `$product`'s"},
+		}, "shop.nomi:5:78: en: English nouns have no grammatical gender, so `has_shipped` cannot select on `$product`'s"},
 		{"a noun function on a String", func(f map[string]string) {
 			f["shop.nomi"] = strings.Replace(f["shop.nomi"], "has_shipped(product: Noun)", "has_shipped(product: String)", 1)
-		}, "shop.nomi:7:58: en: `:nomi:noun` takes a `Noun`, and `$product` is a `String`"},
+		}, "shop.nomi:5:57: en: `:nomi:noun` takes a `Noun`, and `$product` is a `String`"},
 		{"a runtime string where a Noun is expected", func(f map[string]string) {
 			f["main.nomi"] = strings.Replace(f["main.nomi"], "shop.has_shipped(shop.book)", `shop.has_shipped("The Pragmatic Programmer")`, 1)
-		}, "main.nomi:9:46: argument 1: expected Noun, got String\n  help: a `Noun` is a `noun` declaration"},
+		}, "main.nomi:7:45: argument 1: expected Noun, got String\n  help: a `Noun` is a `noun` declaration"},
 		{"a noun with parameters", func(f map[string]string) {
 			f["shop.nomi"] = strings.Replace(f["shop.nomi"], "pub noun book `", "pub noun book(n: Int) `", 1)
-		}, "shop.nomi:3:10: `noun book` takes no parameters"},
+		}, "shop.nomi:1:10: `noun book` takes no parameters"},
 		{"a noun with no text", func(f map[string]string) {
 			f["shop.nomi"] += "\npub noun mug\n"
-		}, "shop.nomi:11:10: `noun mug` has no text"},
+		}, "shop.nomi:9:10: `noun mug` has no text"},
 		{"a noun's own plural arms", func(f map[string]string) {
 			f["shop.nomi"] = strings.Replace(f["shop.nomi"], "one {{book}} * {{books}}", "* {{books}}", 1)
-		}, "shop.nomi:3:48: en: `book` has no `one` arm; 1 selects `one` in English"},
+		}, "shop.nomi:1:48: en: `book` has no `one` arm; 1 selects `one` in English"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -169,7 +169,7 @@ func TestNouns_EachCheckRefuses(t *testing.T) {
 }
 
 // A partial locale may lack a noun; a noun it has must still have the
-// forms its messages ask for.
+// forms its phrases ask for.
 func TestNouns_APartialLocaleMayLackANoun(t *testing.T) {
 	files := nounFiles()
 	files["locales/de/shop.toml"] = nounEntry("book", bookSource, "neuter", "nominative", ".input {$count :integer} .match $count one {{Buch}} * {{Bücher}}") +
@@ -186,7 +186,7 @@ func TestNouns_AGenderedSourceLocaleIsRefused(t *testing.T) {
 	files := map[string]string{
 		"nomi.toml": strings.Replace(nounManifest, `source_locale = "en"`, `source_locale = "pl"`, 1),
 		"shop.nomi": "pub noun book `książka`\n",
-		"main.nomi": "import {\n    std::io\n    std::locale.Locale\n    shop\n}\n\nfn main() {\n    io.print(Localize.localize(shop.book, Locale`pl`))\n}\n",
+		"main.nomi": "import {\n    std::io\n    shop\n}\n\nfn main() {\n    io.print(Localize.localize(shop.book, Locale`pl`))\n}\n",
 	}
 	files["nomi.toml"] = strings.Replace(files["nomi.toml"], `locales = ["en", "pl"]`, `locales = ["pl"]`, 1)
 	ds := checkShop(t, files)

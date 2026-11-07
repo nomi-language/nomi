@@ -236,7 +236,7 @@ CLDR fallback chains and negotiation; plural categories; an app that keeps
 its locale in an application field; locale-aware number formatting and
 parsing and list joining; and a project whose `nomi.toml` lists its locales
 under `[i18n]` (`listed_locales/`), with how an unlisted locale falls back;
-and a shop whose `message` declarations are translated in catalogs
+and a shop whose `phrase` declarations are translated in catalogs
 (`shop/`, with `locales/<tag>/cart.toml`): plurals, an enum selector,
 fallbacks through `pt-PT` and partial locales, right-to-left isolation and
 the pseudo-locales; and its `noun` declarations (`order.nomi`): Polish and

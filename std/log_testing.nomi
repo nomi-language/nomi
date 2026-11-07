@@ -1,6 +1,6 @@
 //# Records what a body logs, as values a test asserts on.
 //# `log_testing.run(fn logger -> body)` hands the body a `Logger` that
-//# writes nowhere, and answers the body's value with every record it
+//# writes nowhere, and returns the body's value with every record it
 //# logged through that logger, in order. A body that logs through an app
 //# field gives it the recorder with `with App.logger = logger`.
 
@@ -30,14 +30,14 @@ pub struct Record {
 
 derive Equatable for Record
 
-/// What `run` answers: the body's value and the records it logged.
+/// What `run` returns: the body's value and the records it logged.
 pub struct Logged<T> {
     value: T
     records: List<Record>
 }
 
 /// Runs `body` with a logger that records each record at `min` or above,
-/// `Debug` unless set, and answers its value and the records, in order.
+/// `Debug` unless set, and returns its value and the records, in order.
 //! import std::log
 //!
 //! got = run(fn logger -> log.warn(logger, "slow", [log.int("ms", 900)]))

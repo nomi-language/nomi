@@ -76,6 +76,7 @@ const libPrefix = compilerModulePath + "/lib/"
 var libModules = []string{
 	"lib/image",
 	"lib/markdown",
+	"lib/password_hashers",
 	"lib/sql/postgres",
 	"lib/sql/sqlite",
 	"lib/sql/sqlkit",

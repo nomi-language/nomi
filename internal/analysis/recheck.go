@@ -71,7 +71,7 @@ var bodyFields = map[reflect.Type]map[string]bool{
 	reflect.TypeFor[ast.TestDecl]():     {"Body": true, "Clock": true, "Boot": true, "Setup": true, "ContextPattern": true},
 	reflect.TypeFor[ast.OnceBinding]():  {"Value": true},
 	// A keyword declaration's body is what its expansion's body is made of
-	// (a `message`'s source text); its name and parameters are its
+	// (a `phrase`'s source text); its name and parameters are its
 	// interface.
 	reflect.TypeFor[ast.KeywordDecl](): {"Body": true},
 	// An `embed`'s patterns are what its value is made of; its name is its

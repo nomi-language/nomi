@@ -22,10 +22,10 @@
 //# ## Capture types
 //#
 //# `Regex<C>` carries the type of its capture groups: `C` is what
-//# `String.captures` answers for a match, inside a `Maybe`, and what
+//# `String.captures` returns for a match, inside a `Maybe`, and what
 //# `String.captures_all` lists. The groups are the pattern's from group 1,
 //# in the order the pattern opens them; the whole match is `String.find`'s
-//# answer, not a group. A `Regex` literal whose pattern is fixed text (a
+//# result, not a group. A `Regex` literal whose pattern is fixed text (a
 //# backtick literal, or a double-quoted one with no `${...}`) has `C`
 //# computed from the pattern by the compiler, as Swift types
 //# `/(\d+)-(\w+)?/`:

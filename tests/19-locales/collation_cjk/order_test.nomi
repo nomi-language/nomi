@@ -1,7 +1,4 @@
-import {
-    std::collation.Collator
-    std::locale.Locale
-}
+import std::collation.Collator
 
 fn sorted(words: List<String>, collator: Collator) -> List<String> {
     Iter.sort_with(words, &Collator.compare(collator, &1, &2))

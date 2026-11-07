@@ -9,7 +9,7 @@ FROM users
 WHERE email = @email;
 
 -- query: insert_user(email: String, name: Maybe<String>) -> Int
--- Add a user, answering its id.
+-- Add a user, returning its id.
 INSERT INTO users (email, name) VALUES (@email, @name)
 RETURNING id;
 

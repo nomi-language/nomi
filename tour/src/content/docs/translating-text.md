@@ -1,35 +1,35 @@
 ---
 title: "Translating Text"
-description: "Declare the text people read as messages, translate it in catalogs the compiler checks, and let each language choose its own plural forms and words."
+description: "Declare the text people read as phrases, translate it in catalogs the compiler checks, and let each language choose its own plural forms and words."
 ---
 
-A **message** is text for people. You write it once in the program's own
+A **phrase** is text for people. You write it once in the program's own
 language, and each other language gets a translation in a file beside the
-code. A message can also change its words with a number: in Polish,
+code. A phrase can also change its words with a number: in Polish,
 "3 items" is "3 produkty" but "5 items" is "5 produktów".
 
-A message has two parts:
+A phrase has two parts:
 
 - Its **declaration** in Nomi: a name, typed parameters, and the text in
   the **source locale**, the language the program is written in (English
   unless you say otherwise).
 - Its **translations**, one per locale, in **catalogs**: one TOML file per
-  locale for each Nomi file that declares messages.
+  locale for each Nomi file that declares phrases.
 
-`Message.format` writes it in a reader's locale.
+`Phrase.format` writes it in a reader's locale.
 
 The text uses
 [MessageFormat 2](https://www.unicode.org/reports/tr35/tr35-messageFormat.html),
 a Unicode standard for translatable text, so translators and their tools
 can read it.
 
-## Declaring a message
+## Declaring a phrase
 
-Here is the cart badge as a message:
+Here is the cart badge as a phrase:
 
 ```nomi
 /// The cart badge, such as "3 items in your cart".
-pub message cart_count(count: Int) `
+pub phrase cart_count(count: Int) `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}
@@ -39,8 +39,8 @@ pub message cart_count(count: Int) `
 
 It reads like this:
 
-- `message cart_count(count: Int)` declares a function, `cart_count`, that
-  takes an `Int` and returns a [`Message`](/reference/message/). If the
+- `phrase cart_count(count: Int)` declares a function, `cart_count`, that
+  takes an `Int` and returns a [`Phrase`](/reference/phrase/). If the
   declaration is in `cart.nomi`, another file calls it as
   `cart.cart_count(3)`.
 - The text goes in backticks. Inside it, `$count` is the parameter.
@@ -55,11 +55,16 @@ It reads like this:
 - `{$count}` inside a variant writes the number, formatted for the
   reader's locale.
 
+Start from `` `{$count} items in your cart` `` and the editor's refactor
+**Add plural forms for `$count`** writes the `.input`, the `.match` and a
+variant for each category your source language has, each holding the old
+text.
+
 ## Catalogs
 
-The Polish translation of `cart.nomi`'s messages goes in
+The Polish translation of `cart.nomi`'s phrases goes in
 `locales/pl/cart.toml`: the catalog directory, then the locale, then the
-Nomi file's own path with `.toml` at the end. Each message is a table named
+Nomi file's own path with `.toml` at the end. Each phrase is a table named
 after it, holding two strings:
 
 - `text` is the translation.
@@ -75,8 +80,6 @@ is one file. Edit the Polish and run it again:
 // FILE: main.nomi
 import {
     std::io
-    std::locale.Locale
-    std::message.Message
     cart
 }
 
@@ -84,15 +87,15 @@ fn main() {
     [1, 2, 5, 22]
     |> Iter.each(fn n -> {
         badge = cart.cart_count(n)
-        en = Message.format(badge, Locale`en`)
-        pl = Message.format(badge, Locale`pl`)
+        en = Phrase.format(badge, Locale`en`)
+        pl = Phrase.format(badge, Locale`pl`)
         io.print("${en} | ${pl}")
     })
 }
 
 // FILE: cart.nomi
 /// The cart badge, such as "3 items in your cart".
-pub message cart_count(count: Int) `
+pub phrase cart_count(count: Int) `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}
@@ -131,10 +134,11 @@ locales = ["en", "pl"]
 22 items in your cart | 22 produkty w koszyku
 -->
 
-`cart.cart_count(n)` doesn't make any text yet. It makes a `Message`: which
-message, and its arguments. `Message.format` picks the text for the locale
-and fills it in. So a function can return a `Message` without knowing who
+`cart.cart_count(n)` doesn't make any text yet. It makes a `Phrase`: which
+phrase, and its arguments. `Phrase.format` picks the text for the locale
+and fills it in. So a function can return a `Phrase` without knowing who
 will read it, and the code that knows the reader's locale formats it.
+`Phrase`, `Noun` and `Locale` are in the prelude, so none needs an import.
 
 A locale the program has no translation for gets the source locale's text.
 A locale near one it has gets that one's: `pl-PL` shows the Polish.
@@ -169,13 +173,13 @@ Turn it into a `Decimal` first.
 gives a number's category in program code, but don't use it to choose words.
 A `case` on the category holds one language's words, chosen by that
 language's rules, and every new language needs another branch that only a
-programmer can change. Put the words in a message instead, and let each
+programmer can change. Put the words in a phrase instead, and let each
 translation choose its own forms.
 
 ## What the compiler checks
 
 The compiler reads the catalogs with the program and holds each
-translation to its message. A Polish `cart_count` with no `few` variant
+translation to its phrase. A Polish `cart_count` with no `few` variant
 gives this error:
 
 ```console
@@ -189,8 +193,8 @@ error: pl: `cart_count` has no `few` arm; 2, 3 and 4 select `few` in Polish
 The error says which numbers would have used the missing category, so you
 can check the fix.
 
-The editor helps with each of these. Hovering a message shows its text in
-every locale. In a catalog, the editor completes message names, parameter
+The editor helps with each of these. Hovering a phrase shows its text in
+every locale. In a catalog, the editor completes phrase names, parameter
 names after `$`, and the keys a `.match` needs. Its quick fixes add a
 missing translation (a copy of the English with every variant the locale
 needs, ready to translate) and add missing variants.
@@ -198,10 +202,10 @@ needs, ready to translate) and add missing variants.
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- A locale in `locales` with no translation of a message is an error.
-- So is a catalog entry that names no message, a catalog that belongs to
+- A locale in `locales` with no translation of a phrase is an error.
+- So is a catalog entry that names no phrase, a catalog that belongs to
   no Nomi file, and a catalog directory for a locale `[i18n]` doesn't list.
-- A text may use only the message's parameters, and the English text must
+- A text may use only the phrase's parameters, and the English text must
   use every one, so a translator can see what each is for.
 - A function on the wrong type, such as `:integer` on a `String`, is an
   error, and so is a plural `.match` missing a category the locale needs or
@@ -209,18 +213,18 @@ needs, ready to translate) and add missing variants.
 - A translation made from an older English text is an error, as
   [When the English changes](#when-the-english-changes) shows.
 
-Spec: [Messages](/spec/typed-literals-and-keyword-declarations/#messages),
+Spec: [Phrases](/spec/typed-literals-and-keyword-declarations/#phrases),
 [Nouns and agreement](/spec/typed-literals-and-keyword-declarations/#nouns-and-agreement),
 [What the compiler checks](/spec/typed-literals-and-keyword-declarations/#what-the-compiler-checks).
 
 </div>
 
-## Lists, and messages inside messages
+## Lists, and phrases inside phrases
 
 A placeholder with no function, such as `{$name}`, writes its value with
-[`Localize`](/locales-and-formatting/#localize) in the message's locale, so
-any type that implements `Localize` can be a parameter. A `Message`
-implements `Localize` too, so one message can hold another.
+[`Localize`](/locales-and-formatting/#localize) in the phrase's locale, so
+any type that implements `Localize` can be a parameter. A `Phrase`
+implements `Localize` too, so one phrase can hold another.
 
 A list of names needs more than that. `:nomi:list` takes a `List<String>`,
 joins it the way the reader's language joins a list (from
@@ -238,8 +242,6 @@ The full cart page puts these together:
 // FILE: main.nomi
 import {
     std::io
-    std::locale.Locale
-    std::message.Message
     cart
 }
 
@@ -254,13 +256,11 @@ fn main() {
 
     [Locale`en`, Locale`pl`]
     |> Iter.each(fn locale -> {
-        lines |> Iter.each(fn line -> io.print(Message.format(line, locale)))
+        lines |> Iter.each(fn line -> io.print(Phrase.format(line, locale)))
     })
 }
 
 // FILE: cart.nomi
-import std::message.Message
-
 /// Where an order is.
 pub enum Status {
     Pending
@@ -269,7 +269,7 @@ pub enum Status {
 }
 
 /// The cart badge, such as "3 items in your cart".
-pub message cart_count(count: Int) `
+pub phrase cart_count(count: Int) `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}
@@ -277,7 +277,7 @@ pub message cart_count(count: Int) `
     `
 
 /// Where the customer's order is.
-pub message order_status(status: Status) `
+pub phrase order_status(status: Status) `
     .input {$status :string}
     .match $status
     Pending {{Your order is waiting to ship}}
@@ -287,7 +287,7 @@ pub message order_status(status: Status) `
     `
 
 /// Other shoppers looking at the same item.
-pub message watching(people: List<String>) `
+pub phrase watching(people: List<String>) `
     .input {$people :nomi:list}
     .match $people
     one {{{$people} is watching this item}}
@@ -295,7 +295,7 @@ pub message watching(people: List<String>) `
     `
 
 /// A greeting before the cart badge.
-pub message greeting(name: String, cart: Message) `{$name}, you have {$cart}`
+pub phrase greeting(name: String, cart: Phrase) `{$name}, you have {$cart}`
 
 // FILE: locales/pl/cart.toml
 [cart_count]
@@ -384,9 +384,9 @@ Three of the lines need more than a plain translation:
 - **The greeting.** The cart badge inside it is formatted in the same
   locale as the greeting, so the Polish reads "22 produkty".
 
-## Prices and dates in messages
+## Prices and dates in phrases
 
-A message takes a `Money` and the calendar types like any other value.
+A phrase takes a `Money` and the calendar types like any other value.
 `{$total :currency}` writes a price as `Money.format` does, and `:date`,
 `:time` and `:datetime` write dates and times. `:datetime` takes either
 `dateStyle` and `timeStyle`, or the fields to show, as in
@@ -397,8 +397,6 @@ A message takes a `Money` and the calendar types like any other value.
 import {
     std::calendar.Date
     std::io
-    std::locale.Locale
-    std::message.Message
     std::money.Money
     order
 }
@@ -411,7 +409,7 @@ fn main() {
 
     [Locale`en`, Locale`pl`]
     |> Iter.each(fn locale -> {
-        lines |> Iter.each(fn line -> io.print(Message.format(line, locale)))
+        lines |> Iter.each(fn line -> io.print(Phrase.format(line, locale)))
     })
 }
 
@@ -422,10 +420,10 @@ import {
 }
 
 /// The order's total, in its currency.
-pub message order_total(total: Money) `Total: {$total :currency}`
+pub phrase order_total(total: Money) `Total: {$total :currency}`
 
 /// The day the order ships.
-pub message ships_on(date: Date) `Ships {$date :datetime weekday=long month=long day=numeric}`
+pub phrase ships_on(date: Date) `Ships {$date :datetime weekday=long month=long day=numeric}`
 
 // FILE: locales/pl/order.toml
 [order_total]
@@ -454,7 +452,7 @@ Wysyłka: wtorek, 20 października
 The compiler checks the types here as well: `:currency` on a `Decimal` is
 an error, since a `Decimal` has no currency. A translation can also choose
 its words by the day of the week with `:nomi:weekday`, which the
-[`std::message` reference](/reference/message/) describes.
+[`std::phrase` reference](/reference/phrase/) describes.
 
 ## Nouns
 
@@ -465,18 +463,16 @@ noun's **gender**: "książka" (book) is feminine and "laptop" is masculine.
 English never shows this, so one English sentence becomes several Polish
 ones.
 
-A `noun` declaration names a thing a message can talk about. Its text is
-the English word, written as a small message over `$count`, so it can say
+A `noun` declaration names a thing a phrase can talk about. Its text is
+the English word, written as a small phrase over `$count`, so it can say
 "book" or "books". The catalog gives the noun's Polish `gender` and its
-forms, and the translation of a message chooses a variant by the gender with
+forms, and the translation of a phrase chooses a variant by the gender with
 `:nomi:gender`:
 
 ```nomi-run
 // FILE: main.nomi
 import {
     std::io
-    std::locale.Locale
-    std::message.Message
     shop
 }
 
@@ -484,15 +480,13 @@ fn main() {
     [shop.book, shop.laptop]
     |> Iter.each(fn product -> {
         shipped = shop.has_shipped(product)
-        en = Message.format(shipped, Locale`en`)
-        pl = Message.format(shipped, Locale`pl`)
+        en = Phrase.format(shipped, Locale`en`)
+        pl = Phrase.format(shipped, Locale`pl`)
         io.print("${en} | ${pl}")
     })
 }
 
 // FILE: shop.nomi
-import std::message.Noun
-
 pub noun book `
     .input {$count :integer}
     .match $count
@@ -508,7 +502,7 @@ pub noun laptop `
     `
 
 /// Sent when a parcel leaves the warehouse.
-pub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
+pub phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
 
 // FILE: locales/pl/shop.toml
 [book]
@@ -570,23 +564,23 @@ Your laptop has shipped. | Twój laptop został wysłany.
 
 `{$product :nomi:noun}` writes the noun. Polish calls a thing such as a
 laptop `inanimate`, one of three kinds of masculine. The `nominative` is the
-noun's plain form; a message can ask for another form with `case=`, as in
+noun's plain form; a phrase can ask for another form with `case=`, as in
 `{$product :nomi:noun case=genitive}`, the form after "brak"
 ("no ... left").
 
-The compiler holds every noun to every message, since a message can be
+The compiler holds every noun to every phrase, since a phrase can be
 given any noun the program declares. Every Polish noun needs a gender and
-each form some message asks for, and a `.match` on gender needs a variant
+each form some phrase asks for, and a `.match` on gender needs a variant
 for every gender the program's nouns have. A product's own name read from a
-database is a `String`, not a `Noun`, so a message writes it with a plain
+database is a `String`, not a `Noun`, so a phrase writes it with a plain
 `{$title}` in a sentence that doesn't need to agree with it. The
-[`Noun` reference](/reference/message/#struct-noun) covers genders, cases
+[`Noun` reference](/reference/phrase/#struct-noun) covers genders, cases
 and these checks in full.
 
 ## The `[i18n]` settings
 
 `nomi.toml`'s `[i18n]` section says which locales must translate every
-message (`locales`), which may leave some out and show the source text
+phrase (`locales`), which may leave some out and show the source text
 instead (`partial_locales`, for a translation still being written), the
 source locale when it is not English, and where the catalogs live. English
 has no catalog: its text is in the declarations.
@@ -623,15 +617,15 @@ error: pl: `cart_count` was translated from an older English text
   |
 2 | source = '''
   | ^^^^^^^^^^^^ (through line 7)
-  = help: update the translation, then accept it with the quick fix or `nomi messages accept pl cart_count`
+  = help: update the translation, then accept it with the quick fix or `nomi phrases accept pl cart_count`
 ```
 
-The text is compared as a message, not letter by letter, so changing only
+The text is compared as a phrase, not letter by letter, so changing only
 spaces or line breaks makes nothing stale. Once the translator has updated
 the Polish, run:
 
 ```console
-$ nomi messages accept pl cart_count
+$ nomi phrases accept pl cart_count
 ```
 
 It records the new English as the entry's `source`, and the error goes
@@ -639,12 +633,12 @@ away. The editor's quick fix does the same.
 
 A program can also take corrected translations while it runs. Fetch the
 catalog text, from a translation service say, and read it with
-[`Catalog.load`](/reference/message/#catalogload)`(text, locale)`. It
+[`Catalog.load`](/reference/phrase/#catalogload)`(text, locale)`. It
 checks each entry as the compiler does, and returns the catalog with the
-entries it rejected. Pass the catalog to `Message.format` in a list:
+entries it rejected. Pass the catalog to `Phrase.format` in a list:
 `catalogs: [catalog]`.
 
-## Messages in the browser
+## Phrases in the browser
 
 `nomi build --web` puts only the source locale, or the locales
 `web_embedded` lists, in `app.wasm`, and writes each other locale's data

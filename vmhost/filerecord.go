@@ -43,7 +43,7 @@ package vmhost
 // checks that it reaches nothing a machine cannot run. Both records are
 // then written again for the new texts. Anything relink cannot do is a
 // miss, and the command checks and lowers the whole program as it does
-// with no cache. A file that declares keyword declarations (`message`,
+// with no cache. A file that declares keyword declarations (`phrase`,
 // `noun`, `embed`) is never relowered alone, since what they expand to
 // reads more than the file.
 
@@ -574,7 +574,7 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	trees, files := c.files.Inputs()
 	if cfg.cacheable() {
 		a := artifact{entry: c.path, root: rec.Root, hasTests: rec.HasTests}
-		a.messages, a.nouns = p.messageTables()
+		a.phrases, a.nouns = p.phraseTables()
 		if p.HasMain() || rec.HasTests {
 			if image, err := p.cacheImage(); err == nil {
 				a.image = image

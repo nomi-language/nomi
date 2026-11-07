@@ -1,4 +1,4 @@
-import std::locale.{self, Locale}
+import std::locale
 
 test "parsing canonicalizes case and deprecated subtags" {
     assert Locale.parse("EN-us") == Ok(Locale`en-US`)

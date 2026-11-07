@@ -186,19 +186,19 @@ func (need localeNeed) selection(locales []string, source string) cldrdata.Selec
 // carries (stdlibbindings.LocaleParts). A program that reaches no crossing
 // that reads locale data carries none.
 //
-// Messages read more than their crossing says: a message's text may use
+// Phrases read more than their crossing says: a phrase's text may use
 // `:currency` or the date functions, so the parts those need are added
-// when the program's message tables use them, and `:datetime`'s fields
+// when the program's phrase tables use them, and `:datetime`'s fields
 // add their skeletons. A program that loads catalogs while it runs may
 // format any of them, and carries all.
 //
 // A program whose skeletons are all literals (vm.SkeletonLiterals) or
-// message fields carries each one's resolved pattern instead of the
+// phrase fields carries each one's resolved pattern instead of the
 // locales' available formats.
 //
 // Currency names, and the plural rules that pick a name's form, are
 // carried only when the program can write one (vm.CurrencyNames, or a
-// message whose `:currency` says `currencyDisplay=name`); and a program
+// phrase whose `:currency` says `currencyDisplay=name`); and a program
 // whose currencies are all literals (vm.CurrencyLiterals) carries the
 // symbols and names of those currencies alone.
 func localeNeeds(crossings []string, mods []*ir.Module) localeNeed {
@@ -217,13 +217,13 @@ func localeNeeds(crossings []string, mods []*ir.Module) localeNeed {
 	names := reached[moneyFormat] && vm.CurrencyNames(mods, funcs)
 	dynamic := false
 	var skeletons []string
-	if reached["message_format.format_raw"] {
-		messages, _ := vm.MessageTables(mods, funcs, stdMessage)
-		parts, fields, named := messageParts(messages)
+	if reached["phrase_format.format_raw"] {
+		phrases, _ := vm.PhraseTables(mods, funcs, stdPhrase)
+		parts, fields, named := phraseParts(phrases)
 		need.parts |= parts
 		names = names || named
 		skeletons = append(skeletons, fields...)
-		if reached["message_format.load_raw"] {
+		if reached["phrase_format.load_raw"] {
 			need.parts |= cldrdata.PartCurrencies | cldrdata.PartCurrencyCodes | cldrdata.PartDates | cldrdata.PartSkeletons
 			names = true
 			dynamic = true
@@ -259,11 +259,11 @@ const (
 	currencyNames = cldrdata.PartCurrencyNames | cldrdata.PartPlurals
 )
 
-// messageParts are the parts of the CLDR data the functions message
-// tables' texts use need beyond a message's own crossing, the skeletons
+// phraseParts are the parts of the CLDR data the functions phrase
+// tables' texts use need beyond a phrase's own crossing, the skeletons
 // their `:datetime` field options name, and whether a `:currency` writes a
 // currency's name: `currencyDisplay=name`, or a variable display.
-func messageParts(tables []string) (cldrdata.Parts, []string, bool) {
+func phraseParts(tables []string) (cldrdata.Parts, []string, bool) {
 	var parts cldrdata.Parts
 	var skeletons []string
 	names := false

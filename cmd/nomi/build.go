@@ -333,7 +333,7 @@ func programEntry(cmd, entry string) (string, error) {
 }
 
 // hasGoBindings reports whether ffirun.Prepare's answer is a project with Go
-// bindings, which only a runner built with them can answer.
+// bindings, which only a runner built with them can run.
 func hasGoBindings(res *ffirun.Result, err error) bool {
 	return err == nil && !res.FastPath || ffirun.NeedsCompilerSource(err)
 }
@@ -438,7 +438,7 @@ var wasip1 = ffirun.Target{GOOS: "wasip1", GOARCH: "wasm"}
 // errNoVMGoBindings is `nomi build --no-vm` for an FFI project: its Go
 // bindings need a runner built with them, which the shared nomi-vm is not.
 var errNoVMGoBindings = errors.New("nomi build --no-vm: this project has Go bindings, which only a VM " +
-	"built with them can answer, so it has no portable compiled program. Use `nomi build` for an executable that links them")
+	"built with them can run, so it has no portable compiled program. Use `nomi build` for an executable that links them")
 
 // writeImageFile writes the .nomic file `nomi build --no-vm` makes: image,
 // its code and then its files region streamed from sources, behind a

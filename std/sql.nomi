@@ -59,7 +59,7 @@ import {
 ///   SQL text.
 /// - `each_row` calls `f` with each row in order and stops when `f`
 ///   returns `False`.
-/// - `exec` answers the number of rows the statement changed.
+/// - `exec` returns the number of rows the statement changed.
 /// - A `Timestamptz` compares in time order with the timestamps the
 ///   database writes itself (`DEFAULT CURRENT_TIMESTAMP`), in `WHERE` and
 ///   `ORDER BY`.
@@ -391,7 +391,7 @@ pub interface ToSql {
     fn to_sql(value: self) -> Value
 }
 
-/// A type that can be read from a column. `from_sql` answers `Err` with
+/// A type that can be read from a column. `from_sql` returns `Err` with
 /// the name of the type it expected (`"Int"`) when the value is not one;
 /// `Row.get` turns that into an `Error.Decode`, or an
 /// `Error.UnexpectedNull` when the value was NULL. std implements it for
@@ -732,7 +732,7 @@ impl Row {
     }
 
     /// The value of the column named `column` as a `T`. A value of another
-    /// type is `Err(.Decode)`, whose `expected` is what `from_sql` answered
+    /// type is `Err(.Decode)`, whose `expected` is what `from_sql` returned
     /// and `found` the value's `Value.kind`, and NULL read as a type that is
     /// not a `Maybe` is `Err(.UnexpectedNull)`. `T` is inferred from the
     /// expected type (`n: Int = Row.get(row, "n")?`) or given
@@ -767,7 +767,7 @@ impl Row {
 }
 
 // The error of reading value, from column of row, as a type whose from_sql
-// answered expected.
+// returned expected.
 fn decode_error(row: Row, column: String, value: Value, expected: String) -> Error {
     case value {
         .Null -> Error.UnexpectedNull{query: row.query, column}
@@ -958,7 +958,7 @@ impl Display for ConstraintKind {
 /// the body returns `Ok`, or `rollback` when it returns `Err` or traps.
 /// On a `conn` that is itself a transaction, the transaction is a
 /// savepoint, so an inner `sql.transaction` that fails rolls back
-/// only its own work. The answer is the body's, or the `Err` of a `begin` or
+/// only its own work. The result is the body's, or the `Err` of a `begin` or
 /// `commit` that failed.
 ///
 /// The rollback is a `defer` that runs whenever the transaction is left;
@@ -975,8 +975,8 @@ pub fn transaction<T>(conn: Conn, body: (Conn) -> Result<T, Error>) -> Result<T,
 
 /// Open a connection with `open`, run `body` on it, and close it:
 /// after the body returns `Ok`, `Err` or traps, and on every other way
-/// out. The answer is the body's, or the `Err` of an `open` or a
-/// `close` that failed after the body answered `Ok`.
+/// out. The result is the body's, or the `Err` of an `open` or a
+/// `close` that failed after the body returned `Ok`.
 //! import std::sql_testing.Fake
 //!
 //! fake = Fake.new()
@@ -1002,13 +1002,13 @@ pub fn with_connection<C, T>(
 }
 
 /// Close `conn` and drop a failed close: `Conn.close` for a `defer`,
-/// which cannot answer anything. Use it for a connection held past one
+/// which cannot return anything. Use it for a connection held past one
 /// body, such as one a test group's `setup` opens for each test and
 /// closes when the test ends. Nothing reports or records a close that
 /// fails, so when the code that uses the connection is one body, run it
-/// in `sql.with_connection`, which answers a failed close.
+/// in `sql.with_connection`, which reports a failed close.
 ///
-/// A `defer` call answers `Unit`, so it cannot report a failed close, and a
+/// A `defer` call returns `Unit`, so it cannot report a failed close, and a
 /// `defer` in a group's `setup` runs when the test finishes.
 /// `with_connection`'s own `defer` is `close_quietly`.
 ///
@@ -1045,7 +1045,7 @@ pub fn close_quietly(conn: Conn) {
 
 // Rolls tx back when transaction leaves it, by a return, an `Err` or a trap.
 // After a commit the rollback is a no-op (Conn's rules), and a `defer` cannot
-// answer anything, so its result is dropped.
+// return anything, so its result is dropped.
 fn settle(tx: Conn) {
     _ = Conn.rollback(tx)
 }

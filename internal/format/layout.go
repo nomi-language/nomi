@@ -518,6 +518,13 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 			ok, _ := fitsFirstLine(v.d, rem)
 			return ok
 		}
+		// What follows a literal kept across lines is on its last line, after
+		// its `]` or `}`: charge that line, so `] |> f(...)` is measured with
+		// its bracket.
+		if w, hit := lastLineWidth(v.d); hit {
+			*rem -= w
+			return *rem >= 0
+		}
 		return true
 	case docHidden:
 		// Hide from ancestor fits: claim to fit, contribute 0 width.
@@ -568,6 +575,45 @@ func fitsFirstLine(d Doc, rem *int) (ok, hitHard bool) {
 		return fitsFirstLine(v.f(true), rem)
 	}
 	return fitsWalk(d, rem, false), false
+}
+
+// lastLineWidth is the flat width of what d writes after its last HardLine;
+// hitHard says it has one.
+func lastLineWidth(d Doc) (width int, hitHard bool) {
+	switch v := d.(type) {
+	case docText:
+		return textWidth(v.s), false
+	case docLine:
+		return textWidth(v.alt), false
+	case docHard:
+		return 0, true
+	case docConcat:
+		wb, hb := lastLineWidth(v.b)
+		if hb {
+			return wb, true
+		}
+		wa, ha := lastLineWidth(v.a)
+		return wa + wb, ha
+	case docNest:
+		return lastLineWidth(v.d)
+	case docGroup:
+		return lastLineWidth(v.d)
+	case docIfBroken:
+		return lastLineWidth(v.flat)
+	case docLocalBroken:
+		return lastLineWidth(v.d)
+	case docInString:
+		return lastLineWidth(v.d)
+	case docWithIndent:
+		return lastLineWidth(v.f(0, unboundedWidth))
+	case docWithColumn:
+		return lastLineWidth(v.f(0, 0, unboundedWidth))
+	case docAtLineIndent:
+		return lastLineWidth(v.f(true))
+	case docBrokenTail:
+		return lastLineWidth(brokenView(v.d))
+	}
+	return 0, false
 }
 
 // brokenView is d as it renders in a broken Group, one level deep: an

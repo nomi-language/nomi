@@ -16,7 +16,6 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 import {
     std::calendar.{Date, DateFields}
     std::currency.Currency
-    std::locale.Locale
     std::money.{CurrencySign, Money}
 }
 

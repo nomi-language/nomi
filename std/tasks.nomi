@@ -1,7 +1,7 @@
 //# Tasks: work running in parallel inside a `concurrent { }` block.
 //# `Task.spawn` starts one and `Task.await` waits for its value;
 //# `Task.spawn_all` and `Task.await_all` do the same for many at once,
-//# with a bound on how many run together. `Task.outcome` answers how a
+//# with a bound on how many run together. `Task.outcome` returns how a
 //# task ended as a value (`Outcome`: completed, cancelled or failed), and
 //# `Task.cancel` stops one. Where a task may be spawned, what may not
 //# escape its block, and how errors and cancellation travel are language

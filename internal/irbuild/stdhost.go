@@ -350,6 +350,11 @@ var stdHostSpecs = []stdHostSpec{
 	{origin: "std/http_host", nomi: "Jar", goType: reflect.TypeFor[rt.HTTPJar]()},
 	{origin: "std/http_host", nomi: "Handle", goType: reflect.TypeFor[rt.HTTPHandle]()},
 	{origin: "std/process_host", nomi: "Fake", goType: reflect.TypeFor[rt.ProcessFake]()},
+	// `Records` and `Tokens`, std/csv_host's and std/xml_host's readers
+	// over a Reader, for the reason `Child` is: rt's structs over what
+	// internal/stdcsv and internal/stdxml build (rt/formats.go).
+	{origin: "std/csv_host", nomi: "Records", goType: reflect.TypeFor[rt.CsvRecords]()},
+	{origin: "std/xml_host", nomi: "Tokens", goType: reflect.TypeFor[rt.XmlTokens]()},
 }
 
 // stdHostDefs is the process-wide *typeDef per spec, keyed by spec index.

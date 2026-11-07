@@ -1,7 +1,4 @@
-import {
-    std::locale.Locale
-    main.{self, App}
-}
+import main.{self, App}
 
 group "Polish from LANG" {
     boot main.boot(Startup{env: %{"LANG" => "pl_PL.UTF-8"}})

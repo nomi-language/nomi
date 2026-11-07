@@ -29,7 +29,7 @@ in the [standard library reference](/reference/). To install `nomi`, see
 | `nomi add`, `nomi remove`, `nomi update`, `nomi fetch` | Change and download dependencies ([Add, update and remove dependencies](#add-update-and-remove-dependencies)). |
 | `nomi tool <module> <name>` | Run a module's tool ([Tools](#tools-nomi-tool)). |
 | `nomi types <paths>` | Write TypeScript declarations of the JSON a backend's types cross as ([TypeScript types](#typescript-types-nomi-types)). |
-| `nomi messages accept <locale> <message>` | Mark a translation current ([`[i18n]`](#i18n)). |
+| `nomi phrases accept <locale> <phrase>` | Mark a translation current ([`[i18n]`](#i18n)). |
 | `nomi dap` | The debugger editors start ([Debugging](#debugging)). |
 | `nomi mcp` | The compiler as tools for a coding agent ([Coding agents](#coding-agents-nomi-mcp)). |
 | `nomi version` | Print the version. |
@@ -47,7 +47,7 @@ In a directory without `entry_points`, a file that another file there
 imports is checked through that importer, as `nomi run` loads it, and
 listed as `ok <file> (through <importer>)`; a file nothing there imports
 is checked on its own. A failed check of a directory prints `FAIL <file>` for each file that
-holds errors, a file the program imports or a message catalog, with
+holds errors, a file the program imports or a phrase catalog, with
 its errors below it, and an error two programs share once.
 
 A file that does not parse reports every syntax error it holds in one
@@ -265,6 +265,8 @@ needs no `go.mod`.
 
 The REPL compiles each input as one more file of the session's program, which sees the declarations and top-level bindings of the inputs before it, and runs it on one live VM. An earlier input is never checked, compiled or run again, so an input takes as long in a long session as in a new one: a later input reads the value an earlier binding computed, and a closure keeps the value it captured. Redefining a function affects later inputs only, and so does redeclaring a type with a different declaration: earlier values, functions and impls keep the old type, and a later input that names the type gets the new one, which starts with no impls. When the two meet in an error, each is named by the input that declared it (`expected Point (input 1), got Point (input 5)`). Redeclaring a type exactly as it is keeps it, and redefining an impl replaces the old one everywhere. An input that fails to check, faults or is blocked prints its error and changes nothing.
 
+An input may be any declaration a file may hold: `fn`, `host fn`, a type, an interface, an `impl` or `derive`, an `import`, `gopkg`, `once`, `embed`, `test` and `group`, and `phrase` and `noun` declarations. A `phrase`, `noun` or `embed` is redefined as a function is: an earlier function keeps the one it was written against. The REPL is no project, so its source locale is `en` and it reads no catalogs, as a file run outside a project does. An input continues onto the next line while a `{`, `(` or `[` is open, while it ends in an operator, and while a backtick or `"""` string is open.
+
 ### The artifact cache
 
 `nomi run`, `nomi check`, `nomi test` and `nomi build` keep each program
@@ -279,7 +281,7 @@ otherwise. A program with Go bindings is not kept.
 
 A program is read again only while the files its build can read are as
 they were: its `.nomi` files and every other in its project and its
-dependencies, `nomi.toml` and the other `.toml` files (message catalogs),
+dependencies, `nomi.toml` and the other `.toml` files (phrase catalogs),
 `go.mod` and `go.sum`, the files under a folder an `embed` pattern names, and
 any `nomi.toml`, `main.nomi` or `go.mod` above the project. Any change to
 them, or a new `nomi`, builds the program again; other files the project
@@ -356,9 +358,9 @@ Every key `nomi.toml` accepts:
 |---|---|---|
 | `[module]` | `name` | The module's short name, the first part of other modules' import paths. |
 | `[module]` | `entry_points` | The files with a `fn main`, other than tools ([Project mode](#project-mode-nomi-run-moduleentry)). |
-| `[i18n]` | `locales` | The locales every message is translated into, and whose CLDR data the program carries ([`[i18n]`](#i18n)). |
-| `[i18n]` | `partial_locales` | Locales whose catalogs may leave a message out. |
-| `[i18n]` | `source_locale` | The language of `message` declarations' own text; `en` when left out. |
+| `[i18n]` | `locales` | The locales every phrase is translated into, and whose CLDR data the program carries ([`[i18n]`](#i18n)). |
+| `[i18n]` | `partial_locales` | Locales whose catalogs may leave a phrase out. |
+| `[i18n]` | `source_locale` | The language of `phrase` declarations' own text; `en` when left out. |
 | `[i18n]` | `catalogs` | The catalog directory under the module root; `locales` when left out. |
 | `[i18n]` | `web_embedded` | The locales a browser build puts in `app.wasm` ([Locales in the browser](#locales-in-the-browser)). |
 | `[money]` | `custom_currencies` | The custom currencies the module's literals may write ([`[money]`](#money)). |
@@ -439,8 +441,8 @@ This is why a sub-directory file like `app/prod.nomi` correctly finds `types.nom
 ### `[i18n]`
 
 `nomi.toml`'s `[i18n]` table names the locales whose CLDR data the program
-carries ([A program's locale data](#a-programs-locale-data)) and how its messages are translated
-(spec §18 *Messages*):
+carries ([A program's locale data](#a-programs-locale-data)) and how its phrases are translated
+(spec §18 *Phrases*):
 
 ```toml
 # nomi.toml
@@ -453,16 +455,16 @@ catalogs = "locales"
 
 Each entry is a BCP 47 tag, read as `Locale.parse` reads one and kept in its
 canonical spelling (`"PL"` is `pl`), in the order written, which is the
-order `Locale.available()` answers. A program with no `[i18n]` table carries
+order `Locale.available()` returns. A program with no `[i18n]` table carries
 every locale. Each of these is an error at the manifest, which `nomi check`,
 `nomi run` and the editor report: an empty list, an entry that is not a tag
 (`"pt_BR"`, whose error suggests `pt-BR`), one listed twice after
 canonicalization, `und` (CLDR's root, which every program carries), and a
 tag for which neither CLDR nor any parent of it but root has data (`qaa`).
 
-`source_locale` is the locale a `message` declaration's own text is in,
+`source_locale` is the locale a `phrase` declaration's own text is in,
 English when it is left out. `partial_locales` are locales whose catalogs may
-leave a message out, which then shows in the source locale; they need
+leave a phrase out, which then shows in the source locale; they need
 `locales`, are checked as its entries are, may not repeat one, and the
 program carries their data too. `catalogs` is the directory under the module
 root holding a directory of catalogs per locale, `locales` when it is left
@@ -475,13 +477,13 @@ The program carries the data of one pinned CLDR release, 48.2. Each
 translation is an entry in a catalog: a TOML file at the declaring file's
 path under the catalog directory, in a directory per locale, so
 `shop/cart.nomi`'s Polish catalog is `locales/pl/shop/cart.toml`. Each
-locale in `locales` must have every message, and a locale in
+locale in `locales` must have every phrase, and a locale in
 `partial_locales` may leave any out. What a catalog holds is in
-[std::message](/reference/message/).
+[std::phrase](/reference/phrase/).
 
-`nomi messages accept <locale> <message>` marks a locale's translation of a
-message current: it records the message's text as it is now as the source
-the translation was made from. `<message>` is the name of a `message`
+`nomi phrases accept <locale> <phrase>` marks a locale's translation of a
+phrase current: it records the phrase's text as it is now as the source
+the translation was made from. `<phrase>` is the name of a `phrase`
 declaration, or `path/to/file:name` when two files of the module declare
 one of that name.
 
@@ -503,7 +505,7 @@ malformed code (`"pts:0"`), an ISO 4217 code (`"EUR:2"`), digits that are not
 a whole number from 0 to 18 written without leading zeros (`"PTS:19"`,
 `"PTS:00"`), and an entry listed twice. A module with no `[money]` table, or
 an empty list, writes no custom currency literal. The table is the module's
-own: a dependency's literals answer to the dependency's `nomi.toml`, and the
+own: a dependency's literals belong to the dependency's `nomi.toml`, and the
 application's list does not reach them.
 
 ## Modules and dependencies
@@ -997,7 +999,7 @@ A program's `embed` declarations (spec §18 *Embedded files*) are resolved when 
 
 A file's contents are read when the program reads that file, never all at once. A built executable or `.nomic` keeps the files after its code and maps them, so starting it costs the same however much it embeds, and a file it serves is paged in by the operating system rather than held in the program's memory; `nomi build` writes them from the files on disk without loading them whole. `nomi run` and `nomi test` read an embedded file from disk when the program reads it, and stop the program with an error naming the file if it changed after the program was compiled; run it again to embed the new contents. The REPL reads them from its working directory; a tour example reads its `// FILE:` data files.
 
-A pattern whose folder or file does not exist yet, such as a frontend's `web/dist` before its first `npm run build`, is a warning in `nomi run`, `nomi check`, `nomi test`, the REPL and the editor: the program compiles with that path as an empty directory, and a read under it answers `NotFound`. `nomi build`, for every target, refuses it as an error, so a release never carries an empty frontend. A program with such a warning is not kept in the artifact cache, so each run reports it, and the next run after the folder appears embeds its files.
+A pattern whose folder or file does not exist yet, such as a frontend's `web/dist` before its first `npm run build`, is a warning in `nomi run`, `nomi check`, `nomi test`, the REPL and the editor: the program compiles with that path as an empty directory, and a read under it returns `NotFound`. `nomi build`, for every target, refuses it as an error, so a release never carries an empty frontend. A program with such a warning is not kept in the artifact cache, so each run reports it, and the next run after the folder appears embeds its files.
 
 Only the declarations a program reaches go into its build, so an `embed` nothing reads costs nothing, and a program with none is unchanged. The files count toward the compiled program's size, so a `wasip1/wasm` module's 4 MiB limit (above) includes them. `nomi run --watch` does not watch embedded files: a change to one is picked up at the next run.
 
@@ -1007,9 +1009,9 @@ A std host function that acts outside the program in a way some target cannot ha
 
 `nomi build` walks what `main`, the boot and the exported functions can reach, and refuses a program that reaches a call of a class its target lacks. It writes nothing and lists each call in the program's own code that reaches the class, at that call: the std function it calls (`fs.read_text`), the host function that one reaches (`fs_host.read_text`), and the functions the call is reached through. A hint follows, to build for another target or pass `--allow-unsupported <class>`.
 
-The walk counts a call in a branch the program never takes, so `--allow-unsupported <class>` (repeatable) builds anyway. Such a call answers `Err(io.Error.Unsupported{operation, target})` when it runs; it never traps. `--no-vm` names no target and is not checked.
+The walk counts a call in a branch the program never takes, so `--allow-unsupported <class>` (repeatable) builds anyway. Such a call returns `Err(io.Error.Unsupported{operation, target})` when it runs; it never traps. `--no-vm` names no target and is not checked.
 
-A project with Go bindings is checked the same way, over the std calls it reaches. A Go binding itself carries no class: what a bound Go function does is opaque to the compiler, and whether its package builds for the target is Go's answer (above). A bound function that reads a file in a `js/wasm` module reaches Go's in-memory file system there, as std::fs's calls do.
+A project with Go bindings is checked the same way, over the std calls it reaches. A Go binding itself carries no class: what a bound Go function does is opaque to the compiler, and whether its package builds for the target is for Go to decide (above). A bound function that reads a file in a `js/wasm` module reaches Go's in-memory file system there, as std::fs's calls do.
 
 `nomi build --web` of a program that reaches `files` prints one line, `` nomi build --web: this program uses files; in the browser it sees only the files run's "files" option gives it ``.
 
@@ -1019,7 +1021,7 @@ A project with Go bindings is checked the same way, over the std calls it reache
 
 - It records the program's exported functions, so a program with an `export fn` and no `fn main` builds too. `nomi-vm` and `nomi run` refuse to run such a program, with `` this program has no `fn main`; it is called through its exported functions ``, and exit 1.
 - It refuses what `nomi build` refuses, with the same text.
-- It refuses a project with Go bindings, whose bindings only a VM built with them can answer: `` nomi build --no-vm: this project has Go bindings, which only a VM built with them can answer, so it has no portable compiled program ``.
+- It refuses a project with Go bindings, whose bindings only a VM built with them can run: `` nomi build --no-vm: this project has Go bindings, which only a VM built with them can run, so it has no portable compiled program ``.
 - `--no-vm` takes no `--target` and no `--web`. A test file has no compiled program.
 
 A `.nomic` file is a header followed by the program's image:
@@ -1226,7 +1228,7 @@ x.nomi_free(ptr, len);
 
 The program boots on the first `nomi_call` or `nomi_main`, and every later
 call runs on that booted program, so a `once` value an earlier call forced is
-not computed again. A boot that fails makes every `nomi_call` answer its
+not computed again. A boot that fails makes every `nomi_call` return its
 error. `main` does not run unless the runner calls `nomi_main`, which it may
 do before, between or after calls; in a program with no `fn main` it writes
 `` this program has no `fn main`; it is called through its exported
@@ -1241,11 +1243,11 @@ program with an `export fn` is embedded in, with its image area empty.
 The runner compiles it once, instantiates it for each script, calls
 `_initialize`, writes the whole `.nomic` file, header included, into a buffer
 from `nomi_alloc`, and calls `nomi_load` with it. `nomi_load` copies the
-bytes before it returns, boots the program, and answers like `nomi_call`:
+bytes before it returns, boots the program, and returns like `nomi_call`:
 
 - `{"ok": ["add(a: Int, b: Int) -> Int", ...]}` on success: the program's
   exported functions as `export fn` declares them, without `export fn`, in
-  declaration order. A program with only a `main` answers `{"ok": []}`.
+  declaration order. A program with only a `main` returns `{"ok": []}`.
 - `{"error": "..."}` when the bytes are not a `.nomic` file (`` the loaded
   program: not a compiled Nomi program (.nomic) ``), are cut short or carry
   bytes after the program, are in a program format this reactor does not
@@ -1255,7 +1257,7 @@ bytes before it returns, boots the program, and answers like `nomi_call`:
 
 After a successful load, `nomi_call` and `nomi_main` work on the loaded
 program exactly as on an embedded one. A failed load leaves the reactor with
-no program, so the runner may load again. A reactor with no program answers
+no program, so the runner may load again. A reactor with no program returns
 `nomi_call` with `` {"error": "this reactor has no program yet: write a
 compiled program (.nomic) into memory from nomi_alloc and pass it to
 nomi_load first"} ``, and `nomi_main` writes that text to stderr and returns 1.
@@ -1275,9 +1277,9 @@ which carries none ``.
 
 `nomi_load` with a length of 0 loads nothing (`ptr` is not read). In a
 reactor `nomi build` embedded a program in, it boots that program, as the
-first `nomi_call` would, and answers as a load does: the exported functions'
+first `nomi_call` would, and returns as a load does: the exported functions'
 signatures, or the boot's error. A runner calls it to learn what it can call
-before it calls anything; calling it again answers the same. In a reactor
+before it calls anything; calling it again returns the same. In a reactor
 with no program it is the error result `` this reactor has no program built
 in: pass it a compiled program (.nomic) ``, and the reactor stays ready for
 a load.
@@ -1288,7 +1290,7 @@ with its TypeScript declarations in `nomi-wasi.d.ts`, and `nomi build
 JavaScript host for this ABI, an ES module that runs in browsers and in Node
 with no WASI library, as Go's `wasm_exec.js` is the host for `js/wasm`. It
 implements the WASI preview1 imports the reactor needs (no preopened
-directories; an import it does not know answers `ENOSYS`), and over the ABI
+directories; an import it does not know returns `ENOSYS`), and over the ABI
 above it offers `loadRuntime(reactor)`, which compiles the module once;
 `runtime.load(nomic)`, which instantiates it, calls `nomi_load`, and resolves
 to a program whose `exports` are the load's signatures and whose
@@ -1342,20 +1344,20 @@ A site may offer many locales while each reader reads one, so `nomi build
 --web` does not put them all in `app.wasm`. It compiles in the locales
 `[i18n].web_embedded` names (the source locale unless it says otherwise),
 with CLDR's root, every listed locale's plural rules and grammatical
-features, and every message's source text, and writes each other listed
+features, and every phrase's source text, and writes each other listed
 locale to `locales/<tag>.nomil` beside it: that locale's numbers and lists
-and its messages' and nouns' translations, with those of each ancestor on
+and its phrases' and nouns' translations, with those of each ancestor on
 its fallback chain that is not embedded either, so one file serves the
 locale (`pt-PT`'s holds `pt`'s too). Every locale is still checked when the
 program is built. A program that lists no locales, a program with no
-messages that formats nothing, and every other kind of build carry every
+phrases that formats nothing, and every other kind of build carry every
 locale in the program.
 
 A program shows a page in a locale only after
 [`Locale.load`](/reference/locale/#localeload) has fetched its file, which
 the calling task waits for. A file another build wrote, such as one a
 browser cached from the last deploy, is refused: the image and its files
-share a build id. Anywhere but a browser build `Locale.load` answers at
+share a build id. Anywhere but a browser build `Locale.load` returns at
 once.
 
 ## Go bindings
@@ -1449,7 +1451,7 @@ server whose command is `nomi` and whose argument is `mcp`. The server
 starts in the client's working directory, and a relative path in a tool's
 arguments is read from there.
 
-| Tool | Arguments | Answers |
+| Tool | Arguments | Returns |
 |---|---|---|
 | `check` | `path` | `nomi check --format json`'s records, as lists: `diagnostics` (each with its span, `hints` and any `fix`), `files` and `summary`, plus `ok`. |
 | `type_at` | `file`, `line`, `col` | The hover text the language server shows there: a type, a signature, a doc comment. |
@@ -1462,7 +1464,7 @@ arguments is read from there.
 
 A position is a 1-based line and a 1-based byte column, as `check` reports
 them, and a location is a `file` with a span in the same form. A tool that
-fails answers its error as text with `isError` set, for the agent to read.
+fails returns its error as text with `isError` set, for the agent to read.
 
 A `search_std` query with `->` is a signature, such as `String, String ->
 List<String>`. Its parameters match in any order, a parameter with a
@@ -1477,7 +1479,7 @@ doc comments.
 
 `check` and `run_tests` run `nomi check` and `nomi test` as child processes
 of the same `nomi`, and download the modules a project needs as those
-commands do. The other tools answer in process: the language server's
+commands do. The other tools run in process: the language server's
 analysis for positions, which reads each file from the disk when a tool
 names it, and the formatter.
 
@@ -1502,7 +1504,7 @@ test `--line` would select, as `nomi run` and `nomi test` run them.
   frame. Stepping passes through the standard library unless the launch sets
   `justMyCode` to false.
 - **Step back and reverse continue.** Going back replays the program from
-  its start, answering input, the clock, randomness and files from what the
+  its start, supplying input, the clock, randomness and files from what the
   session recorded, so nothing is printed or read twice. A program that
   starts a task, a `concurrent` block, a supervisor or a channel cannot go
   back, and says why.
@@ -1529,6 +1531,21 @@ the [VS Code README](../editors/vscode/README.md) has the table.
 
 Hover on an `embed` declaration's name, or on a use of it, shows its patterns, how many files and bytes it holds, and the first files with their sizes; hover on one pattern shows what that pattern matched. Go to definition on a pattern opens the file or folder it names, every match for a glob. A pattern that matches nothing, or that a rule refuses, is a diagnostic at the pattern: a warning when the path it names does not exist yet, an error otherwise. The server finds the files without reading them, and it rechecks the declaration when the declaring file changes, not when a file it embeds is added or removed.
 
-### Message catalogs in the editor
+### Phrase catalogs in the editor
 
-The language server reports a catalog's errors in the catalog file, open or not, and rechecks when a catalog changes. Go to definition on a call of a message lands on its declaration, and go to implementations lists its catalog entries. Hover on a message shows its signature, its doc comment and its text in the source locale and in each listed and partial locale, naming the locale whose text a locale with no current translation shows. In a catalog it completes the file's message names in a table's header, the message's parameters after `$`, and a variant's keys: the plural categories the locale's rules select for the selector, the enum's variants, or the genders the module's nouns have; in a noun's entry, its `gender` and cases, the language's genders as its `gender`, and the cases after `case=`. Hover on a noun shows its gender and forms in each locale, and go to implementations lists its catalog entries. Its quick fixes add a listed locale's missing translation (the source text as `source`, and as `text` with every arm the locale needs), mark a stale translation current as `nomi messages accept` does, add the plural, enum or gender arms a translation lacks, and add each form a noun lacks that the locale's messages ask for, a copy of its nominative. An editor attaches the server to the TOML files under `[i18n].catalogs`; the server answers no other TOML file.
+The language server reports a catalog's errors in the catalog file, open or not, and rechecks when a catalog changes. Go to definition on a call of a phrase lands on its declaration, and go to implementations lists its catalog entries. Hover on a phrase shows its signature, its doc comment and its text in the source locale and in each listed and partial locale, naming the locale whose text a locale with no current translation shows. In a catalog it completes the file's phrase names in a table's header, the phrase's parameters after `$`, and a variant's keys: the plural categories the locale's rules select for the selector, the enum's variants, or the genders the module's nouns have; in a noun's entry, its `gender` and cases, the language's genders as its `gender`, and the cases after `case=`. Hover on a noun shows its gender and forms in each locale, and go to implementations lists its catalog entries. Its quick fixes add a listed locale's missing translation (the source text as `source`, and as `text` with every arm the locale needs), mark a stale translation current as `nomi phrases accept` does, add the plural, enum or gender arms a translation lacks, and add each form a noun lacks that the locale's phrases ask for, a copy of its nominative. An editor attaches the server to the TOML files under `[i18n].catalogs`; the server serves no other TOML file.
+
+The server colors the MessageFormat 2 in a `phrase` or `noun` body and in a catalog's `source`, `text` and form strings with semantic tokens, since no editor ships an MF2 grammar: `.input`, `.local`, `.match` and `*` as keywords, `$count` as a parameter (a `.local` as a variable), `:integer` and `:nomi:noun` as functions with `:nomi` as a namespace, `count=` and `case=` as properties, keys and name literals such as `one` and `genitive` as enum members, and the braces `{{`, `}}`, `{` and `}` as operators. The text between them keeps the string color. A body with a syntax error is colored up to the error. VS Code and Neovim show the tokens with no setting. Zed shows them only with semantic tokens on, `"languages": { "Nomi": { "semantic_tokens": "combined" } }` in its settings, and for catalogs the same under `"TOML"`. Helix does not read semantic tokens, so a body there stays one string.
+
+On a `phrase` whose text has no `.match`, the refactor "Add plural forms for `$count`" is offered for each `Int` parameter, and on a `noun` for its `$count`. It rewrites the text to select on the parameter, with an arm for each plural category the source locale's rules give a whole number and the catch-all, each holding the old text for you to edit:
+
+```nomi
+pub phrase cart_items(count: Int) `
+    .input {$count :integer}
+    .match $count
+    one {{{$count} items in your cart}}
+    * {{{$count} items in your cart}}
+    `
+```
+
+An existing `.input {$count ...}` stays. In a Polish project the arms are `one`, `few`, `many` and `*`. In a catalog the same refactor rewrites the translation or noun form under the cursor with that locale's categories.

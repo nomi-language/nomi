@@ -19,7 +19,7 @@ import {
 /// A program `start` started, or the fake's stand-in for one.
 pub host type Child
 
-/// The fake `process_testing.run` answers starts with.
+/// The fake `process_testing.run` responds to starts with.
 pub host type Fake
 
 /// Starts `program` with `args`, its environment extended by `env` (made
@@ -84,7 +84,7 @@ pub host fn fake_refuse(
     error: Error,
 ) -> Unit
 
-/// How many starts the fake answered.
+/// How many starts the fake responded to.
 pub host fn fake_calls(fake: Fake) -> Int
 
 /// The program and then the arguments of the call at position `i`.
@@ -99,12 +99,12 @@ pub host fn fake_env(fake: Fake, i: Int) -> Map<String, String>
 /// What the call at position `i` was given on its standard input.
 pub host fn fake_input(fake: Fake, i: Int) -> Bytes
 
-/// Runs `body` with `fake` answering every std::process call in it, its
-/// tasks' included, and answers what it returned.
+/// Runs `body` with `fake` responding to every std::process call in it, its
+/// tasks' included, and returns what it returned.
 pub fn run_in<T>(fake: Fake, body: () -> T) -> T {
     run_on(fake, body, fn value -> value)
 }
 
 /// Calls `body` on a frame whose processes are `fake` and hands its value
-/// to `finish` on the caller's. Answered by the VM.
+/// to `finish` on the caller's. Implemented by the VM.
 host fn run_on<T>(fake: Fake, body: () -> T, finish: (T) -> T) -> T

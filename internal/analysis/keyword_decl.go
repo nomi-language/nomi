@@ -7,17 +7,17 @@ import (
 )
 
 // The keywords a declaration by the general rule (ast.KeywordDecl) may
-// name. `message` expands into the function it declares and `noun` into
+// name. `phrase` expands into the function it declares and `noun` into
 // the `once` it names (ExpandDeclarations). Any other keyword is an error.
 const (
-	keywordMessage = "message"
-	keywordNoun    = "noun"
+	keywordPhrase = "phrase"
+	keywordNoun   = "noun"
 )
 
 // isBuiltinKeyword reports whether kd is written with a keyword Nomi
-// builds in, `message` or `noun`.
+// builds in, `phrase` or `noun`.
 func isBuiltinKeyword(kd *ast.KeywordDecl) bool {
-	return kd.Keyword == keywordMessage || kd.Keyword == keywordNoun
+	return kd.Keyword == keywordPhrase || kd.Keyword == keywordNoun
 }
 
 // unexpandedKeywordError is the error at a keyword declaration nothing
@@ -25,12 +25,15 @@ func isBuiltinKeyword(kd *ast.KeywordDecl) bool {
 func (c *checker) unexpandedKeywordError(n *ast.KeywordDecl) TypeError {
 	e := TypeError{Line: n.Line, Col: n.Col, EndLine: n.Line, EndCol: n.KeywordEndCol()}
 	switch n.Keyword {
-	case keywordMessage, keywordNoun:
-		// LowerDerives expands every message and noun; one that reaches the
+	case keywordPhrase, keywordNoun:
+		// LowerDerives expands every phrase and noun; one that reaches the
 		// checker is a defect of the path that prepared its file.
 		e.Message = fmt.Sprintf("this `%s` declaration was not expanded, a defect in Nomi", n.Keyword)
 		return e
 	}
 	e.Message = fmt.Sprintf("unknown declaration keyword `%s`", n.Keyword)
-	return e.WithHint("a declaration that starts with a keyword and a name is written with a keyword Nomi knows: `message`, `noun` or `embed`")
+	if n.Keyword == "message" {
+		return e.WithHint("text a person reads is declared with `phrase`: `phrase " + n.Name + "(...)`")
+	}
+	return e.WithHint("a declaration that starts with a keyword and a name is written with a keyword Nomi knows: `phrase`, `noun` or `embed`")
 }

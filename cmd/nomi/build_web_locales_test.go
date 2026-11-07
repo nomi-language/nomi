@@ -24,15 +24,13 @@ import (
 // German partial, whose main formats before and after loading Polish.
 var localesProject = map[string]string{
 	"nomi.toml": "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\", \"pt\"]\npartial_locales = [\"de\"]\n",
-	"text.nomi": "pub message items(count: Int) `\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    `\n",
+	"text.nomi": "pub phrase items(count: Int) `\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    `\n",
 	"locales/pl/text.toml": "[items]\nsource = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\n* {{{$count} items}}\n'''\n" +
 		"text = '''\n.input {$count :integer}\n.match $count\none {{{$count} rzecz}}\nfew {{{$count} rzeczy}}\nmany {{{$count} rzeczy}}\n* {{{$count} rzeczy}}\n'''\n",
 	"locales/pt/text.toml": "[items]\nsource = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\n* {{{$count} items}}\n'''\n" +
 		"text = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\nmany {{{$count} de itens}}\n* {{{$count} itens}}\n'''\n",
 	"main.nomi": `import {
     std::io
-    std::locale.Locale
-    std::message.Message
     text
 }
 
@@ -46,11 +44,11 @@ fn report(locale: Locale) {
 fn main() {
     pl = Locale` + "`pl`" + `
     io.print("${Locale.loaded()}")
-    io.print(text.items(3) |> Message.format(pl))
+    io.print(text.items(3) |> Phrase.format(pl))
     io.print(Int.format(1234567, pl))
     io.print(String.join_list(["a", "b", "c"], pl))
     report(pl)
-    io.print(text.items(3) |> Message.format(pl))
+    io.print(text.items(3) |> Phrase.format(pl))
     io.print(Int.format(1234567, Locale` + "`pl-PL`" + `))
     io.print("${Locale.loaded()}")
     report(Locale` + "`de`" + `)
@@ -112,7 +110,7 @@ func TestBuildWeb_Locales(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Build != d.Build() || !slices.Equal(f.Locales, []string{"pl"}) || !strings.Contains(string(f.CLDR), "symbols\tlatn\t,") ||
-		!strings.Contains(f.Texts[0].Messages["text.items"], "rzeczy") {
+		!strings.Contains(f.Texts[0].Phrases["text.items"], "rzeczy") {
 		t.Errorf("pl.nomil: build %q, locales %v, cldr %q, texts %+v", f.Build, f.Locales, f.CLDR, f.Texts[0])
 	}
 	if bytes.Contains(image.Locales, []byte("rzeczy")) {

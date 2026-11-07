@@ -215,3 +215,16 @@ test "`_` is a discard, not a capture's parameter" {
         String.contains(d.message, "`_` is a discard name, not a value")
     })
 }
+
+test "a string literal is a capture's body" {
+    labels = [1, 2] |> Iter.map(&"id ${&1}") |> Iter.to_list()
+    assert labels == ["id 1", "id 2"]
+    failed: (String) -> String = &"Failed to initialize image storage: ${&1}"
+    assert failed("disk full") == "Failed to initialize image storage: disk full"
+
+    pair: (String, Int) -> String = &"""
+        ${&1}: ${&2}
+        """
+
+    assert pair("a", 2) == "a: 2"
+}

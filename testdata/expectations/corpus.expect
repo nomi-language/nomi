@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 684
-declared-cases 3868
+records 693
+declared-cases 3947
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1545,8 +1545,8 @@ T test result: ok. 8 passed, 0 failed
 T
 C 09-functions-and-control-flow/captures_test.nomi
 E 0
-N 14
-H ce6795c68afe680fdfb6f60942d43a60b39d30ce46146e9d4f00fee8be7b1ca4
+N 15
+H 758d9f9beac02a79d76b20eb3ef4d578fea3b57f5faf186e710d094ebc158ce8
 T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a parenthesized operator is a function of its parameters
 T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a capture names its parameters by number
 T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: ranges and unary operators
@@ -1564,7 +1564,8 @@ T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a pipe fil
 T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: captures do not nest
 T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: with no expected function type a capture has no type
 T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: `_` is a discard, not a capture's parameter
-T test result: ok. 14 passed, 0 failed
+T ok <root>/tests/09-functions-and-control-flow/captures_test.nomi :: a string literal is a capture's body
+T test result: ok. 15 passed, 0 failed
 T
 C 09-functions-and-control-flow/closures_and_lambdas_test.nomi
 E 0
@@ -2623,13 +2624,14 @@ T test result: ok. 5 passed, 0 failed
 T
 C 13-iterators-and-pipes/pipes_test.nomi
 E 0
-N 4
-H 80991e31ce298d88a435924217296bd778c922c5b6ceb910fd519c2c6533f94a
+N 5
+H 0bdaa632ef8f26f01324423dcfed6cdb293719d89ee942dba2aa78f7fa6e2b21
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: pipes thread the previous value into call stages
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: partial applications leave placeholder arguments open
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: bare dbg pipe stages inspect and pass through the previous value
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: pipes into dispatch functions preserve interface dispatch
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: tap stages run a function by name and pass the value on
+T test result: ok. 5 passed, 0 failed
 T
 C 13-iterators-and-pipes/reader_iter_test.nomi
 E 0
@@ -3989,16 +3991,6 @@ T ok <root>/tests/19-locales/locale_test.nomi :: locales are map keys
 T ok <root>/tests/19-locales/locale_test.nomi :: Debug gives the literal
 T test result: ok. 9 passed, 0 failed
 T
-C 19-locales/message_functions_test.nomi
-E 0
-N 4
-H 551b816d6e011d28e3623545d653bdd5b66577ae678d29846b043415c15c36af
-T ok <root>/tests/19-locales/message_functions_test.nomi :: the money and date functions write in the reader's locale
-T ok <root>/tests/19-locales/message_functions_test.nomi :: each function takes the type it writes
-T ok <root>/tests/19-locales/message_functions_test.nomi :: options are checked by name and value
-T ok <root>/tests/19-locales/message_functions_test.nomi :: a date or an amount does not select
-T test result: ok. 4 passed, 0 failed
-T
 C 19-locales/money_test.nomi
 E 0
 N 12
@@ -4034,6 +4026,16 @@ T ok <root>/tests/19-locales/number_format_test.nomi :: a decimal's digits are l
 T ok <root>/tests/19-locales/number_format_test.nomi :: a float reads a percentage back as a fraction
 T test result: ok. 11 passed, 0 failed
 T
+C 19-locales/phrase_functions_test.nomi
+E 0
+N 4
+H 5bf73893373640c2359f6a6052f769f4ce15da09a0cd109c7012b122b90cba5e
+T ok <root>/tests/19-locales/phrase_functions_test.nomi :: the money and date functions write in the reader's locale
+T ok <root>/tests/19-locales/phrase_functions_test.nomi :: each function takes the type it writes
+T ok <root>/tests/19-locales/phrase_functions_test.nomi :: options are checked by name and value
+T ok <root>/tests/19-locales/phrase_functions_test.nomi :: a date or an amount does not select
+T test result: ok. 4 passed, 0 failed
+T
 C 19-locales/plural_test.nomi
 E 0
 N 12
@@ -4062,7 +4064,7 @@ T
 C 19-locales/shop/cart_test.nomi
 E 0
 N 11
-H 12cb823c1352d29798f847ab4c3781e932cad81a37cf09d0c61ec74187251968
+H abfbd68614daa62f62658705ff11b2fe055047914030d357175216c5ced81409
 T ok <root>/tests/19-locales/shop/cart_test.nomi :: a count selects English's and Polish's plural forms
 T ok <root>/tests/19-locales/shop/cart_test.nomi :: a number is written as the locale writes it
 T ok <root>/tests/19-locales/shop/cart_test.nomi :: an enum selects its variant's arm
@@ -4070,22 +4072,22 @@ T ok <root>/tests/19-locales/shop/cart_test.nomi :: pt-PT falls back to pt
 T ok <root>/tests/19-locales/shop/cart_test.nomi :: a partial locale falls back to the source for what it lacks
 T ok <root>/tests/19-locales/shop/cart_test.nomi :: an unlisted locale shows the source
 T ok <root>/tests/19-locales/shop/cart_test.nomi :: a placeholder is isolated in a right-to-left locale
-T ok <root>/tests/19-locales/shop/cart_test.nomi :: a message's argument is another message, formatted in the same locale
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a phrase's argument is another phrase, formatted in the same locale
 T ok <root>/tests/19-locales/shop/cart_test.nomi :: a list of names fills a placeholder
 T ok <root>/tests/19-locales/shop/cart_test.nomi :: the pseudo-locales need no catalog
-T ok <root>/tests/19-locales/shop/cart_test.nomi :: a message is a value: equal when its declaration and arguments are
+T ok <root>/tests/19-locales/shop/cart_test.nomi :: a phrase is a value: equal when its declaration and arguments are
 T test result: ok. 11 passed, 0 failed
 T
 C 19-locales/shop/loaded_catalog_test.nomi
 E 0
 N 7
-H 606d8ea12c84d881ec1f24dca89c508589c4679515d3bfc7636e705fb5f4fcbf
+H 325de108b084df7bd2fe5c74c052d179c1da5f916f2116a48733b217e70df75f
 T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a loaded translation comes before the compiled one
-T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: the first catalog that translates a message gives its text
-T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a rejected entry is never used: the message keeps its compiled text
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: the first catalog that translates a phrase gives its text
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a rejected entry is never used: the phrase keeps its compiled text
 T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: an entry is rejected for what the compiler rejects it for
 T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a noun's entry is checked as the compiler checks it
-T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: loaded nouns and messages agree with the program's
+T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: loaded nouns and phrases agree with the program's
 T ok <root>/tests/19-locales/shop/loaded_catalog_test.nomi :: a catalog names what the program has, in a locale it lists
 T test result: ok. 7 passed, 0 failed
 T
@@ -4107,10 +4109,10 @@ T
 C 19-locales/shop/order_test.nomi
 E 0
 N 9
-H b2a16c67c3845df136578dcfd080c8e687cf728fcb0c0694fb536f3f87bee2e0
+H 2a2a31757cfc44e1b49ebeb618273456be27ee81d3bff37c23551f7878250cd0
 T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun's gender chooses the words that agree with it
 T ok <root>/tests/19-locales/shop/order_test.nomi :: Portuguese nouns are masculine or feminine
-T ok <root>/tests/19-locales/shop/order_test.nomi :: a message asks a noun for a case
+T ok <root>/tests/19-locales/shop/order_test.nomi :: a phrase asks a noun for a case
 T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun's form follows a count
 T ok <root>/tests/19-locales/shop/order_test.nomi :: a list is joined as the locale joins one, and the verb agrees with its length
 T ok <root>/tests/19-locales/shop/order_test.nomi :: a total is written as the reader's locale writes an amount in its currency
@@ -4119,10 +4121,28 @@ T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun formats itself as it
 T ok <root>/tests/19-locales/shop/order_test.nomi :: a noun is a value: equal when it is the same declaration
 T test result: ok. 9 passed, 0 failed
 T
+C 20-data-access/csv_test.nomi
+E 0
+N 12
+H 5602b6b3f156a07afe8dc5a0c4a8f872a349e4737f59b4da25ac06c5e1ad7a5e
+T ok <root>/tests/20-data-access/csv_test.nomi :: records round-trip through encode and decode
+T ok <root>/tests/20-data-access/csv_test.nomi :: embedded quotes are doubled and read back once
+T ok <root>/tests/20-data-access/csv_test.nomi :: a quoted field may hold line breaks, and the next record's line is counted past them
+T ok <root>/tests/20-data-access/csv_test.nomi :: a byte order mark at the start is dropped, and only there
+T ok <root>/tests/20-data-access/csv_test.nomi :: CRLF line ends read as LF ends, and CRLF writes
+T ok <root>/tests/20-data-access/csv_test.nomi :: malformed input names its line and column in code points
+T ok <root>/tests/20-data-access/csv_test.nomi :: options that cannot be used are an error, not a guess
+T ok <root>/tests/20-data-access/csv_test.nomi :: a stream is read a record at a time and stops at its first failure
+T ok <root>/tests/20-data-access/csv_test.nomi :: a failing reader is an Io error
+T ok <root>/tests/20-data-access/csv_test.nomi :: rows look up fields by column name
+T ok <root>/tests/20-data-access/csv_test.nomi :: writing streams records to a writer
+T ok <root>/tests/20-data-access/csv_test.nomi :: the formula guard is off unless asked for
+T test result: ok. 12 passed, 0 failed
+T
 C 20-data-access/http_middleware_test.nomi
 E 0
-N 11
-H a08c1c103450bf3ecfae8afc88244846cd44b2c74588010ab98f52e093b8ef22
+N 23
+H a70e6947df166eb705e2ad495123c03797af10fe527c04e75ddb6d6c462f3a7a
 T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a preflight from an allowed origin is answered without the handler
 T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a preflight from another origin gets no CORS headers and no handler
 T ok <root>/tests/20-data-access/http_middleware_test.nomi :: an OPTIONS request that is no preflight reaches the handler
@@ -4134,7 +4154,73 @@ T ok <root>/tests/20-data-access/http_middleware_test.nomi :: any origin is a wi
 T ok <root>/tests/20-data-access/http_middleware_test.nomi :: an origin matches exactly
 T ok <root>/tests/20-data-access/http_middleware_test.nomi :: the handler's own Vary is kept
 T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a stack reads as a pipe, the last stage outermost
-T test result: ok. 11 passed, 0 failed
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: compress gzips a streamed body as it is read
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: compress gzips a produced body, and each flush sends what was written
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: compress makes a strong ETag weak, and a weak one stays
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: compress leaves a body with no content, a HEAD and a 304 alone, with Vary
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: compress leaves compressed types alone and compresses SVG
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: compress sniffs a body of bytes with no Content-Type first
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: compress keeps a Vary the handler set and adds to it
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: compress passes a precompressed file through
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: a compressed response reaches a client whole
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: basic_auth quotes its realm and refuses another scheme
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: method_override leaves a streamed body for the handler to read
+T ok <root>/tests/20-data-access/http_middleware_test.nomi :: method_override reads only a POST, and only within the body limit
+T test result: ok. 23 passed, 0 failed
+T
+C 20-data-access/jwt_test.nomi
+E 0
+N 9
+H 030a0a1f49871183f1c9fa00a44fb9ce2d19a28ffa85f2f873f3de4808533dcb
+T ok <root>/tests/20-data-access/jwt_test.nomi :: RFC 7515 A.2: an RS256 token verifies, and signing again makes the same token
+T ok <root>/tests/20-data-access/jwt_test.nomi :: RFC 7515 A.3: an ES256 token verifies
+T ok <root>/tests/20-data-access/jwt_test.nomi :: RFC 8037 A.4: an EdDSA token signs as the RFC's
+T ok <root>/tests/20-data-access/jwt_test.nomi :: each algorithm round trips with a fresh key
+T ok <root>/tests/20-data-access/jwt_test.nomi :: claims as a typed struct
+T ok <root>/tests/20-data-access/jwt_test.nomi :: a tampered token does not verify
+T ok <root>/tests/20-data-access/jwt_test.nomi :: an unsigned token, and one signed with another algorithm, are refused
+T ok <root>/tests/20-data-access/jwt_test.nomi :: issuer, audience and a missing expiry
+T ok <root>/tests/20-data-access/jwt_test.nomi :: expiry / a token expires at exp plus the leeway, and is not valid before nbf
+T test result: ok. 9 passed, 0 failed
+T
+C 20-data-access/passwords_test.nomi
+E 0
+N 5
+H 2dae5f1ed2afd17fefbda2c53f63f365a8251bd9982b7252a2905805f1530486
+T ok <root>/tests/20-data-access/passwords_test.nomi :: a hash verifies its password and no other
+T ok <root>/tests/20-data-access/passwords_test.nomi :: the default hasher is PBKDF2-SHA256 at 600,000 iterations
+T ok <root>/tests/20-data-access/passwords_test.nomi :: a hash made with old parameters verifies and asks to be rehashed
+T ok <root>/tests/20-data-access/passwords_test.nomi :: a malformed stored hash is an Err, not a mismatch
+T ok <root>/tests/20-data-access/passwords_test.nomi :: verify picks the hasher that reads the stored algorithm
+T test result: ok. 5 passed, 0 failed
+T
+C 20-data-access/sessions_test.nomi
+E 0
+N 13
+H ba29e83cf41d46a64927e957bebeb6fbf8594ae48b7f8df38daefbb614b1ace6
+T ok <root>/tests/20-data-access/sessions_test.nomi :: a session written by one request is read by the next
+T ok <root>/tests/20-data-access/sessions_test.nomi :: a request with no cookie has no session and gets no cookie
+T ok <root>/tests/20-data-access/sessions_test.nomi :: an unchanged session writes no cookie
+T ok <root>/tests/20-data-access/sessions_test.nomi :: a flash message is read once
+T ok <root>/tests/20-data-access/sessions_test.nomi :: clearing deletes the session and keeps its flash
+T ok <root>/tests/20-data-access/sessions_test.nomi :: a changed cookie reads as no session and is deleted
+T ok <root>/tests/20-data-access/sessions_test.nomi :: a cookie sealed for one name does not open as another
+T ok <root>/tests/20-data-access/sessions_test.nomi :: keys rotate: the old key still opens, and the next write uses the new one
+T ok <root>/tests/20-data-access/sessions_test.nomi :: the handler's own write replaces an earlier one
+T ok <root>/tests/20-data-access/sessions_test.nomi :: a session too large for a cookie is a 500
+T ok <root>/tests/20-data-access/sessions_test.nomi :: a cross-site post never reaches the session
+T ok <root>/tests/20-data-access/sessions_test.nomi :: expiry / a session ends at max_age however busy it is
+T ok <root>/tests/20-data-access/sessions_test.nomi :: expiry / an idle session ends, and a request moves its timeout along
+T test result: ok. 13 passed, 0 failed
+T
+C 20-data-access/signatures_test.nomi
+E 0
+N 3
+H 009824b4a6e13fc17a2869e9c6a71ea38b3ff3fb84fdc2f38d51ea20ce14e550
+T ok <root>/tests/20-data-access/signatures_test.nomi :: a signature verifies only its message under its key
+T ok <root>/tests/20-data-access/signatures_test.nomi :: keys round trip through PEM and DER, and never print their bytes
+T ok <root>/tests/20-data-access/signatures_test.nomi :: a key of another algorithm or a broken PEM is an Err
+T test result: ok. 3 passed, 0 failed
 T
 C 20-data-access/sql_test.nomi
 E 0
@@ -4164,8 +4250,8 @@ T test result: ok. 20 passed, 0 failed
 T
 C 20-data-access/storage_test.nomi
 E 0
-N 14
-H d5159ee8400db0761e9c00668d9b9d87e0a922f7e9ebbbb4e518c2d4f3dbada4
+N 16
+H d9c1aaa46e3de9cddefbd5059bb7014de6343f27a2288687fd1861d00b42ca9b
 T ok <root>/tests/20-data-access/storage_test.nomi :: Memory passes the conformance suite
 T ok <root>/tests/20-data-access/storage_test.nomi :: the local store passes the conformance suite in a sandbox
 T ok <root>/tests/20-data-access/storage_test.nomi :: the local store passes the conformance suite on disk
@@ -4180,7 +4266,9 @@ T ok <root>/tests/20-data-access/storage_test.nomi :: the handler answers a rang
 T ok <root>/tests/20-data-access/storage_test.nomi :: the handler maps store errors to statuses
 T ok <root>/tests/20-data-access/storage_test.nomi :: the local store writes the characters a file name cannot hold as escapes
 T ok <root>/tests/20-data-access/storage_test.nomi :: a key's URL routes back to its object
-T test result: ok. 14 passed, 0 failed
+T ok <root>/tests/20-data-access/storage_test.nomi :: the local store lists keys as written, not as their file names
+T ok <root>/tests/20-data-access/storage_test.nomi :: a local store with no directory yet lists nothing
+T test result: ok. 16 passed, 0 failed
 T
 C 20-data-access/transactions_test.nomi
 E 0
@@ -4226,6 +4314,51 @@ T ok <root>/tests/20-data-access/uuid_test.nomi :: v7 under a virtual clock / a 
 T ok <root>/tests/20-data-access/uuid_test.nomi :: order is the unsigned order of the bits
 T ok <root>/tests/20-data-access/uuid_test.nomi :: equal UUIDs are one key
 T test result: ok. 10 passed, 0 failed
+T
+C 20-data-access/websocket_chat/chat.nomi
+E 0
+N 0
+H a19698f4c4e016d50dd068a0a487153965d7fcac850fa376baa69799a6e66a16
+T heard back: anyone here?
+T
+C 20-data-access/websocket_chat/chat_test.nomi
+E 0
+N 2
+H 7f35e7aad80380c6b32e67768132b051338f8303387687732bc29616fa200392
+T ok <root>/tests/20-data-access/websocket_chat/chat_test.nomi :: a chat room / a message reaches every member
+T ok <root>/tests/20-data-access/websocket_chat/chat_test.nomi :: a chat room / a member alone hears their own message
+T test result: ok. 2 passed, 0 failed
+T
+C 20-data-access/websocket_test.nomi
+E 0
+N 6
+H 26630d0bbc5885d819a2efec6caa171d06d7a352818c53477cbdb9be025b9e5f
+T ok <root>/tests/20-data-access/websocket_test.nomi :: a handshake is accepted with the key's accept value
+T ok <root>/tests/20-data-access/websocket_test.nomi :: a request that is not a handshake is refused
+T ok <root>/tests/20-data-access/websocket_test.nomi :: an allowed origin passes and another is refused
+T ok <root>/tests/20-data-access/websocket_test.nomi :: middleware leaves the upgrade working
+T ok <root>/tests/20-data-access/websocket_test.nomi :: a message over the limit closes the connection with 1009
+T ok <root>/tests/20-data-access/websocket_test.nomi :: an idle connection is closed with 1001
+T test result: ok. 6 passed, 0 failed
+T
+C 20-data-access/xml_test.nomi
+E 0
+N 13
+H a4779ba0d7a5a5f8d7b5d7057100979869e9dfa9a6124750db0386fe0a99c559
+T ok <root>/tests/20-data-access/xml_test.nomi :: a document reads into a tree and writes back as the same tree
+T ok <root>/tests/20-data-access/xml_test.nomi :: namespaces a hand-built tree names are declared where they are not in scope
+T ok <root>/tests/20-data-access/xml_test.nomi :: text and attributes are escaped so they read back as written
+T ok <root>/tests/20-data-access/xml_test.nomi :: entities and character references are read, and others refused
+T ok <root>/tests/20-data-access/xml_test.nomi :: an XXE document is refused before it expands anything
+T ok <root>/tests/20-data-access/xml_test.nomi :: a billion laughs document is refused, and inert even with its DOCTYPE skipped
+T ok <root>/tests/20-data-access/xml_test.nomi :: malformed documents name their line and column
+T ok <root>/tests/20-data-access/xml_test.nomi :: a byte order mark before the document is dropped
+T ok <root>/tests/20-data-access/xml_test.nomi :: a stream is read a token at a time
+T ok <root>/tests/20-data-access/xml_test.nomi :: a stream's failure is its last token
+T ok <root>/tests/20-data-access/xml_test.nomi :: indentation lays out element-only content and leaves mixed content alone
+T ok <root>/tests/20-data-access/xml_test.nomi :: a tree that cannot be written is refused
+T ok <root>/tests/20-data-access/xml_test.nomi :: writing goes to a writer with a declaration
+T test result: ok. 13 passed, 0 failed
 T
 C exercism/acronym/acronym.nomi
 E 1

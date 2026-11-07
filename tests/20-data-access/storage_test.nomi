@@ -195,3 +195,36 @@ test "a key's URL routes back to its object" {
 
     assert served == keys |> Iter.map(fn key -> #("/files/${key}", Ok(key))) |> Iter.to_list()
 }
+
+test "the local store lists keys as written, not as their file names" {
+    keys = ["a:b*?.txt", "100%/x(1) é.jpg", "con.txt", "end. ", "dir/sub/deep.txt"]
+
+    ran = fs_testing.run(Sandbox{}, fn -> {
+        store = storage.local("files")
+
+        _ =
+            keys
+            |> Iter.map(fn key -> Store.put(store, key, String.to_bytes(key), "text/plain"))
+            |> Result.collect()?
+
+        all = storage.list_all(store)?
+        folded = Store.list(store, storage.ListOptions{delimiter: "/"})?
+        Ok(#(all, folded))
+    })
+
+    assert Ok(#(all, folded)) = ran.value
+    assert all.objects |> Iter.map(fn e -> e.key) |> Iter.to_list() == Iter.sort(keys)
+    assert all.objects |> Iter.map(fn e -> e.size) |> Iter.to_list() == [16, 9, 7, 16, 5]
+    assert folded.prefixes == ["100%/", "dir/"]
+
+    assert folded.objects |> Iter.map(fn e -> e.key) |> Iter.to_list() == [
+        "a:b*?.txt",
+        "con.txt",
+        "end. ",
+    ]
+}
+
+test "a local store with no directory yet lists nothing" {
+    ran = fs_testing.run(Sandbox{}, fn -> Store.list(storage.local("none"), storage.ListOptions{}))
+    assert ran.value == Ok(storage.Listing{})
+}

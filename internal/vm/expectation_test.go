@@ -1124,7 +1124,7 @@ func tourFiles(path string) any {
 }
 
 // tourFileName is an import-path key as a file name, idempotent over a name
-// that already carries the suffix; a message catalog's key is its path,
+// that already carries the suffix; a phrase catalog's key is its path,
 // `.toml` included.
 func tourFileName(name string) string {
 	if strings.HasSuffix(name, ".nomi") || strings.HasSuffix(name, ".toml") {

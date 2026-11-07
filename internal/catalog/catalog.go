@@ -1,9 +1,9 @@
-// Package catalog reads message catalogs: the TOML files that hold a
-// locale's translations of one Nomi file's `message` declarations, at the
+// Package catalog reads phrase catalogs: the TOML files that hold a
+// locale's translations of one Nomi file's `phrase` declarations, at the
 // file's own path under the catalog directory
 // (`locales/pl/shop/cart.toml` for `shop/cart.nomi`).
 //
-// A catalog is a table per message, named by the message, holding two
+// A catalog is a table per phrase, named by the phrase, holding two
 // strings: `text`, the translation (MessageFormat 2), and `source`, the
 // source-locale text it was translated from, which tells a stale
 // translation from a current one:
@@ -46,7 +46,7 @@ type File struct {
 	Entries []*Entry
 }
 
-// Entry returns the entry for the message named name.
+// Entry returns the entry for the phrase named name.
 func (f *File) Entry(name string) *Entry {
 	if f == nil {
 		return nil
@@ -59,7 +59,7 @@ func (f *File) Entry(name string) *Entry {
 	return nil
 }
 
-// Entry is one message's table.
+// Entry is one phrase's table.
 type Entry struct {
 	Name string
 	// Span is the table's header, `[name]`; NameSpan its name.
@@ -205,7 +205,7 @@ func (p *parser) table() {
 	start := p.pos
 	if strings.HasPrefix(p.src[p.pos:], "[[") {
 		p.skipLine()
-		p.errorf(start, p.pos, "a catalog has no arrays of tables: each message is one `[name]` table")
+		p.errorf(start, p.pos, "a catalog has no arrays of tables: each phrase is one `[name]` table")
 		p.cur = nil
 		return
 	}
@@ -214,7 +214,7 @@ func (p *parser) table() {
 	nameStart := p.pos
 	name, ok := p.key()
 	if ok && p.qualified && p.pos < len(p.src) && p.src[p.pos] == '.' {
-		// `[file.message]`: the file's name, then the declaration's.
+		// `[file.phrase]`: the file's name, then the declaration's.
 		p.pos++
 		var decl string
 		decl, ok = p.key()
@@ -225,11 +225,11 @@ func (p *parser) table() {
 	if !ok || p.pos >= len(p.src) || p.src[p.pos] != ']' {
 		p.skipLine()
 		if p.qualified {
-			p.errorf(start, p.pos, "expected `[file.name]`, a message or noun by the name of its file")
+			p.errorf(start, p.pos, "expected `[file.name]`, a phrase or noun by the name of its file")
 		} else if ok && strings.Contains(p.src[nameEnd:p.pos], ".") {
-			p.errorf(start, p.pos, "a catalog's tables are messages: `[name]`, with no dotted name")
+			p.errorf(start, p.pos, "a catalog's tables are phrases: `[name]`, with no dotted name")
 		} else {
-			p.errorf(start, p.pos, "expected `[name]`, the name of a message")
+			p.errorf(start, p.pos, "expected `[name]`, the name of a phrase")
 		}
 		p.cur = nil
 		return
@@ -300,9 +300,9 @@ func (p *parser) keyValue() {
 	if p.cur == nil {
 		if len(p.out.Entries) == 0 && !p.seenTable() {
 			if p.qualified {
-				p.errorf(start, keyEnd, "`%s` is outside any message: a catalog's keys are in `[file.name]` tables", key)
+				p.errorf(start, keyEnd, "`%s` is outside any phrase: a catalog's keys are in `[file.name]` tables", key)
 			} else {
-				p.errorf(start, keyEnd, "`%s` is outside any message: a catalog's keys are in `[name]` tables", key)
+				p.errorf(start, keyEnd, "`%s` is outside any phrase: a catalog's keys are in `[name]` tables", key)
 			}
 		}
 		return
@@ -520,10 +520,10 @@ func Literal(text string) string {
 	return b.String()
 }
 
-// Block writes a message's text as an entry's string: Literal's form, with
+// Block writes a phrase's text as an entry's string: Literal's form, with
 // the text's surrounding line breaks dropped and, for a text of several
 // lines, one line break at its end, so the closing quotes stand on their
-// own line. The line breaks are no part of the message.
+// own line. The line breaks are no part of the phrase.
 func Block(text string) string {
 	text = strings.Trim(text, "\n")
 	if strings.Contains(text, "\n") {

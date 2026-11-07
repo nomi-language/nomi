@@ -16,6 +16,9 @@ var explanations = map[string]string{
 		"(`Maybe`, `Result`, `List`, `Iter`, ...). Remove it.",
 	"unused-binding": "A binding or parameter is never read. Remove it, or name it with a leading `_` " +
 		"(`_ = f()`, `_unused`) to say the value is ignored on purpose.",
+	"once-shadow": "A name in a pattern names a `once` in scope. A pattern name always binds a new name, " +
+		"so it matches every value instead of comparing with the `once`. Bind another name and compare in a guard " +
+		"(`x when x == limit ->`), or rename the binding if no comparison was meant.",
 	"unreachable-code": "A statement follows one that always leaves its block (`return`, a trap, a loop that never breaks), " +
 		"so it never runs. Remove it or move it before the exit.",
 	"unconditional-recursion": "Every path through the function calls the function itself with its own parameters " +

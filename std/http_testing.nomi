@@ -1,6 +1,6 @@
-//# Answers std::http's requests with a function instead of the network, and
+//# Serves std::http's requests with a function instead of the network, and
 //# records them. `http_testing.run(answer, body)` runs `body`; every request
-//# std::http sends in it, and in the tasks it starts, is answered by
+//# std::http sends in it, and in the tasks it starts, gets its response from
 //# `answer`, and the result holds body's value and the requests, in order.
 //#
 //# ```nomi
@@ -30,6 +30,7 @@ import {
         Request,
         Response,
         Server,
+        ToResponse,
         Transport
     }
     http_host
@@ -38,22 +39,24 @@ import {
     iter.Iter
     lists.List
     maybe.Maybe.{self, None, Some}
-    results.Result.{self, Ok}
+    net.Connection
+    results.Result.{self, Err, Ok}
     strings.String
     tasks.Task
     tls.{Certificate, CertificateInfo, ClientConfig, Roots, ServerConfig}
     unit.Unit
     url.{Query, Url}
+    websocket.WebSocket
 }
 
-/// What `run` answers: `body`'s value, and each request the fake answered,
+/// What `run` returns: `body`'s value, and each request the fake served,
 /// in order.
 pub struct Ran<T> {
     value: T
     requests: List<Request>
 }
 
-/// Runs `body` with `answer` answering every std::http request in it.
+/// Runs `body` with `answer` responding to every std::http request in it.
 //! import std::http.{Body, Status}
 //! import std::http_testing
 //!
@@ -152,6 +155,32 @@ pub fn chunks(response: Response) -> List<Bytes> {
     }
 }
 
+/// The body `response` holds before any compression: what `http.compress`
+/// gzipped, unzipped, when its `Content-Encoding` is `gzip`, and any other
+/// body as it is. A `Body.Produce` is read as `chunks` reads it.
+//! import std::http.{self, Body, Method, Response}
+//! import std::http_testing
+//!
+//! page = String.repeat("hello ", 500)
+//! app = (fn _ -> Response{body: Body.Text(page)}) |> http.compress()
+//! r = http_testing.request(Method.Get, "/")
+//! sent = app(#{..r, headers: Headers[#("Accept-Encoding", "gzip")]})
+//! assert Headers.get(sent.headers, "Content-Encoding") == Some("gzip")
+//! assert http_testing.decompressed(sent) == Ok(String.to_bytes(page))
+//
+pub fn decompressed(response: Response) -> Result<Bytes, Error> {
+    data = case response.body {
+        .Produce(_) -> Iter.reduce(chunks(response), String.to_bytes(""), Bytes.concat)
+        other -> Body.read_all(other)?
+    }
+
+    if Headers.get(response.headers, "Content-Encoding") == Some("gzip") {
+        http_host.gunzip(data) |> Result.map_err(fn reason -> Error.Protocol{reason})
+    } else {
+        Ok(data)
+    }
+}
+
 fn gather(receiver: Receiver<Bytes>, taken: List<Bytes>) -> List<Bytes> {
     case Receiver.receive(receiver) {
         Some(chunk) when Bytes.length(chunk) > 0 -> gather(receiver, [..taken, chunk])
@@ -179,7 +208,7 @@ impl TestServer {
     }
 }
 
-/// Runs `body` while a real server answers on 127.0.0.1 with `handler`,
+/// Runs `body` while a real server listens on 127.0.0.1 with `handler`,
 /// then shuts it down: Go's `httptest.NewServer`. With `tls`, it serves
 /// HTTPS with a certificate made for it, which `TestServer.client` trusts
 /// (`NewTLSServer`). `server` configures it (`NewUnstartedServer`); its
@@ -250,5 +279,88 @@ pub fn with_server<T>(
         Listener.shutdown(listener)
         Task.await(serving)
         result
+    }
+}
+
+/// Sends `handler` a WebSocket handshake for `target`, with `headers`
+/// added, and when it accepts, runs `body` with the client's end of a
+/// connection in memory, whose other end the handler's function serves on
+/// a task of its own; no socket is opened. The client's end is closed when
+/// `body` returns, and the handler's function is waited for. A handler
+/// that does not accept returns its response as the `Err`.
+//! import std::http.{Request, Status}
+//! import std::http_testing
+//! import std::websocket.{self, Message, WebSocket}
+//!
+//! shout = fn request: Request -> {
+//!     websocket.accept(request, fn ws -> {
+//!         case WebSocket.receive(ws) {
+//!             Ok(Some(.Text(text))) -> {
+//!                 _ = WebSocket.send_text(ws, String.uppercase(text))
+//!             }
+//!
+//!             _ ->
+//!                 Unit
+//!         }
+//!     })
+//! }
+//!
+//! got = http_testing.open_websocket(shout, "/", fn ws -> {
+//!     _ = WebSocket.send_text(ws, "hi")
+//!     WebSocket.receive(ws)
+//! })
+//!
+//! assert Ok(received) = got
+//! assert received == Ok(Some(Message.Text("HI")))
+//!
+//! page = fn _: Request -> Response{body: Body.Text("not a socket")}
+//! assert Err(response) = http_testing.open_websocket(page, "/", fn _ -> Unit)
+//! assert response.status == Status.ok
+//
+pub fn open_websocket<T>(
+    handler: Handler,
+    target: String = "/",
+    headers: Headers = Headers[],
+    body: (WebSocket) -> T,
+) -> Result<T, Response> {
+    base = request(Method.Get, target)
+    Headers(extra) = headers
+
+    required = [
+        #("Upgrade", "websocket"),
+        #("Connection", "Upgrade"),
+        #("Sec-WebSocket-Version", "13"),
+        #("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ=="),
+    ]
+
+    handshake = Headers(required + extra)
+
+    response = ToResponse.to_response(
+        handler(#{..base, host: Some(base.url.host), headers: handshake})
+    )
+
+    on_connection = case response.upgrade {
+        Some(f) -> f
+        None -> return Err(response)
+    }
+
+    #(server, client) = case http_host.ws_pipe() {
+        [a, b] -> #(Connection.of_handle(a), Connection.of_handle(b))
+        _ -> todo
+    }
+
+    protocol = Headers.get(response.headers, "Sec-WebSocket-Protocol")
+
+    concurrent {
+        serving = Task.spawn(fn -> {
+            on_connection(server)
+            Connection.close(server)
+        })
+
+        ws = WebSocket.over(client, True, protocol)
+        result = body(ws)
+        _ = WebSocket.close(ws)
+        Task.await(serving)
+        Ok(result)
     }
 }

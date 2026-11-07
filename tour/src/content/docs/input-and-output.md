@@ -182,7 +182,7 @@ There is no function that exits on the spot. Returning an `Exit`, through
 A program runs another, such as `git` or a formatter, with a
 [`Command`](/reference/process/): the program's name and its arguments. No
 shell reads them, so `"a b"` reaches the program as one argument and `*` is
-not expanded. `process.output` runs the command to its end and answers an
+not expanded. `process.output` runs the command to its end and returns an
 `Output`: its `status`, and the bytes it wrote to `stdout` and `stderr`.
 
 A program that runs and fails is not an error. Its exit code is in the
@@ -228,13 +228,13 @@ dbg line 29: outside.value = Ok(None)
 -->
 
 The page cannot start programs, so `main` runs `current_branch` under
-[`process_testing`](/reference/process_testing/), which answers each command
+[`process_testing`](/reference/process_testing/), which responds to each command
 from a list of `Answer`s instead of starting it, as a test does. For the
 same reason, `nomi build` refuses to build a program that starts others for
 WebAssembly.
 
 Two other functions run a command. `process.run` lets the program write
-straight to your program's own output and answers only its status, as a
+straight to your program's own output and returns only its status, as a
 build step would. `process.with_spawned(command, fn child -> ...)` runs a
 body while the program runs, writing to its input and reading its output as
 it goes. When the body ends, a program still running is killed.

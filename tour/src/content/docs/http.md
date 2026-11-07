@@ -5,8 +5,8 @@ description: "Send HTTP requests, write handlers, route requests by checked patt
 
 ## Making requests
 
-[`std::http`](/reference/http/) sends HTTP requests and answers them.
-`http.get` fetches a URL and answers a `Response` with its whole body read,
+[`std::http`](/reference/http/) sends HTTP requests and responds to them.
+`http.get` fetches a URL and returns a `Response` with its whole body read,
 `http.post` sends a body, and `http.fetch` sends a `Request` you build. A
 status is not an error: a 404 is a `Response` like a 200, and
 `Status.is_success` says which it is. An `Err` means no response arrived,
@@ -40,7 +40,7 @@ dbg line 20: ran.value = Ok("hello from /greet/ann b")
 -->
 
 The page cannot reach the network, so `main` runs `greeting` under
-[`http_testing`](/reference/http_testing/), which answers each request with
+[`http_testing`](/reference/http_testing/), which responds to each request with
 a function instead, as a test does. `Url"..."` is a [checked
 literal](/typed-literals/#checked-literals): it is a `Url`, not a `Result`,
 and it escapes each `${...}` for where it stands. `ann b` goes out as the
@@ -85,7 +85,10 @@ dbg line 16: missing.status = Status(404)
 
 `http_testing.form_request(.Post, "/signup", [#("email", "ada@example.com")])`
 builds a request that posts a form, as
-[Frontends](/frontends/#pages-rendered-on-the-server) does.
+[Frontends](/frontends/#pages-rendered-on-the-server) does. An HTML form
+sends only `GET` and `POST`, so `Router.handler(router) |>
+http.method_override()` routes a posted form with a `_method` field of
+`PUT`, `PATCH` or `DELETE` as that method.
 
 A route is checked when the program is checked, so a pattern Go would
 refuse is a compile error at the literal:
@@ -101,11 +104,11 @@ fn main() {
 main.nomi:4:9: typed literal Route`GET /users/{id}/posts/{id}` is invalid: pattern GET /users/{id}/posts/{id}: at offset 22: duplicate wildcard name "id"
 -->
 
-`Router.new` still answers an `Err` for two routes that match the same
+`Router.new` still returns an `Err` for two routes that match the same
 requests, since each literal sees only its own pattern. `Route.parse`
 checks a pattern built at run time.
 
-A handler answers with a page through `Response.html`, which takes an
+A handler responds with a page through `Response.html`, which takes an
 [`Html`](/reference/html/). Write one with an `Html"..."` literal, an HTML
 template the compiler checks. Each `${...}` is escaped for where it stands,
 so the `<nobody>` below arrives as text, and an unclosed tag or a slot in a
@@ -153,15 +156,15 @@ What a slot in an attribute, a URL or a
 `style` takes is in the spec's
 [HTML templates](/spec/typed-literals-and-keyword-declarations/#html-templates).
 
-A handler may answer with any value whose type implements
+A handler may return any value whose type implements
 [`ToResponse`](/reference/http/#interface-toresponse): a `Response`, an
 `Html` page, or a `Result` of two such types. The handler's type,
 `(Request) -> ToResponse`, is named
 [`http.Handler`](/reference/http/#type-handler), which `Router.new`,
 `http.serve` and middleware such as `http.limit_body` take. So a handler
 with several steps that can fail returns a `Result` and passes each
-failure up with `?`, and the app's error enum says how each failure
-answers. One route list holds both kinds of handler:
+failure up with `?`, and the app's error enum says what response each
+failure gets. One route list holds both kinds of handler:
 
 ```nomi-run
 import {
@@ -231,9 +234,9 @@ dbg line 57: Response.text(answer("/users/x")) = Ok("not a number: x\n")
 
 ## Serving
 
-`http.listen` binds the server's address, and `http.serve` answers each
+`http.listen` binds the server's address, and `http.serve` serves each
 request as a task of a [supervisor](/background-work/), so its
-`max_running` bounds the requests answered at once. Each handler runs
+`max_running` bounds the requests served at once. Each handler runs
 under its request's context, and its task stops if the client goes away.
 When the program shuts down, at a signal or when `main` returns, the
 server stops accepting at once, and the requests it already took finish
@@ -285,14 +288,19 @@ upload route that needs more.
 
 ## Middleware
 
-A middleware takes a handler first and answers a new handler that does
+A middleware takes a handler first and returns a new handler that does
 something before or after it. Since a pipe passes its head as the first
 argument, a stack of middleware reads top to bottom, each stage wrapping
 the ones above it. `http.wrap_routes` wraps one group of routes, such as
 every `/admin` route, before they join the others. std::http has `cors`,
-`log_requests`, `security_headers`, `request_id`, `limit_body`, `timeout`
-and `cross_origin_protection`; see the
-[reference](/reference/http/#httpcors) for their options.
+`log_requests`, `security_headers`, `request_id`, `limit_body`, `timeout`,
+`cross_origin_protection`, `compress`, `basic_auth` and
+`method_override`; see the [reference](/reference/http/#httpcors) for
+their options. `http.compress()` gzips a response for a client that
+takes gzip. `http.basic_auth("admin", check)` returns 401 until the
+browser sends a user and password `check` accepts; compare them with
+`hash.equal_in_constant_time`, never `==`, whose timing shows how much
+of a guess was right.
 
 A middleware that finds a value for the handler, such as the signed-in
 user, takes a handler that accepts it, as `require_user` does below.
@@ -381,6 +389,114 @@ dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = 
 path, status and time. Put it before `request_id` in the pipe, so it runs
 inside it and logs the id `request_id` gives the request.
 
+### Sessions
+
+[std::sessions](/reference/sessions/) keeps a value of your own type
+across requests in one cookie, encrypted and authenticated with
+AES-256-GCM under a key derived from a secret the app holds.
+`sessions.with_session(store)` is middleware that hands the handler the
+session beside the request, as a `Session<T>`, so `require_user` can be
+built on it. A handler changes the session with `Session.set` or
+`Session.clear` and writes it onto its response with `sessions.write`; a
+response that writes nothing leaves the cookie alone. `Session.add_flash`
+leaves a message the next request reads once, in `session.flash`. A cookie
+that was changed or has expired reads as no session:
+
+```nomi-run
+import {
+    std::html.Html
+    std::http.{self, CrossOrigin, Headers, Request, Response, Route, Router, Status, ToResponse}
+    std::http_testing
+    std::json.{FromJson, ToJson}
+    std::sessions.{self, CookieStore, Session, SessionKey}
+}
+
+struct Visit {
+    user: String
+}
+
+derive ToJson for Visit
+derive FromJson for Visit
+
+// A real app derives the key in boot, from a secret in its environment.
+once store = CookieStore{key: SessionKey.derive("a secret of 32 bytes or more, kept out of git")!}
+
+fn sign_in(request: Request, session: Session<Visit>) -> Response {
+    user = Request.form_value(request, "user") |> Maybe.with_default("")
+
+    Response.redirect(request, "/dashboard", Status.see_other)
+    |> sessions.write(Session.set(session, Visit{user}))
+}
+
+fn sign_out(request: Request, session: Session<Visit>) -> Response {
+    Response.redirect(request, "/", Status.see_other) |> sessions.write(Session.clear(session))
+}
+
+fn require_user(handler: (Request, Visit) -> ToResponse) -> (Request) -> Response {
+    check = fn request: Request, session: Session<Visit> -> {
+        case session.value {
+            Some(visit) -> ToResponse.to_response(handler(request, visit))
+            None -> Response.redirect(request, "/sign-in", Status.see_other)
+        }
+    }
+
+    check |> sessions.with_session(store)
+}
+
+fn dashboard(Request, visit: Visit) -> Html {
+    Html"<h1>Hello, ${visit.user}</h1>"
+}
+
+fn main() {
+    routes = [
+        #(Route`POST /sign-in`, sign_in |> sessions.with_session(store)),
+        #(Route`POST /sign-out`, sign_out |> sessions.with_session(store)),
+        #(Route`GET /dashboard`, require_user(dashboard)),
+    ]
+
+    app = Router.handler(Router.new(routes)!) |> http.cross_origin_protection(CrossOrigin{})
+    signed_in = app(http_testing.form_request(.Post, "/sign-in", [#("user", "Ada")]))
+    cookie = List.head(Response.cookies(signed_in))!
+    dbg Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie)))
+    dbg app(http_testing.request(.Get, "/dashboard")).status
+
+    forged = #{
+        ..http_testing.form_request(.Post, "/sign-out", []),
+        headers: Headers[#("Sec-Fetch-Site", "cross-site")],
+    }
+
+    dbg app(Request.add_cookie(forged, cookie)).status
+}
+```
+<!-- expect
+dbg line 55: Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
+dbg line 56: app(http_testing.request(.Get, "/dashboard")).status = Status(303)
+dbg line 63: app(Request.add_cookie(forged, cookie)).status = Status(403)
+-->
+
+There is no CSRF token. `cross_origin_protection` refuses a `POST`, `PUT`,
+`PATCH` or `DELETE` that the browser says came from another origin, and
+the session cookie is `SameSite=Lax`, so a browser leaves it off a form
+another site posts. Keep `GET` routes free of changes, since neither
+check stops them.
+
+The sign-in above takes any name. A real one checks a password against
+a hash stored with the user. [std::passwords](/reference/passwords/)
+makes the hash, PBKDF2-SHA256 with a random salt, and checks it in
+constant time; the stored string records how it was made, so
+`passwords.needs_rehash` says when to store a new one at sign-in:
+
+```nomi
+stored = passwords.hash(form.password)?
+
+// at sign-in:
+if passwords.verify(form.password, user.password_hash) == Ok(True) { ... }
+```
+
+Argon2id and bcrypt are in the `lib/password_hashers` module. For an
+API whose clients send a bearer token instead of a cookie,
+[std::jwt](/reference/jwt/) signs and checks JSON Web Tokens.
+
 ## Storing files
 
 Uploaded files go in a [`Store`](/reference/storage/), which keeps each
@@ -388,7 +504,7 @@ file whole under a key. `storage.local(root)` keeps them in a directory,
 `lib/storage/s3` in a bucket on any S3-protocol server, and
 `storage_testing.Memory` in memory for tests. Code that stores files takes
 a `Store`, so boot picks the backend and the rest of the code doesn't
-change. `Store.url` answers where a file can be fetched, and
+change. `Store.url` returns where a file can be fetched, and
 `storage.handler` serves a store's files through the app with their stored
 content type:
 
@@ -426,10 +542,129 @@ punctuation and letters of any script, but not a control character or a
 `\`, and it may not start with a dot. So a key taken from a request
 cannot reach outside a local store's directory.
 
+`Store.list(store, ListOptions{prefix: "avatars/", delimiter: "/"})`
+returns a page of the keys under a prefix, in order, with the deeper keys
+folded into their common prefixes, and `storage.list_all` follows the
+pages to the end.
+
+## WebSockets
+
+A WebSocket keeps one connection open, and either end sends messages on
+it whenever it likes. A handler accepts one with `websocket.accept`, which
+returns the `101 Switching Protocols` response and then runs its function
+over the connection, on the request's task, until the function returns.
+`WebSocket.receive` returns `Ok(None)` once the client has closed, and any
+task may call `WebSocket.send`, so an actor can hold a room's connections
+and broadcast to them:
+
+```nomi-run compile-only
+import {
+    std::actors.Actor
+    std::http.{self, Request, Response, Server}
+    std::supervisors.Supervisor
+    std::websocket.{self, WebSocket}
+}
+
+enum Room {
+    Join WebSocket
+    Leave Int
+    Say String
+}
+
+struct App {
+    web: Supervisor
+    room: Actor<Room>
+}
+
+fn boot(_startup: Startup) -> Result<App, String> {
+    web = Supervisor.new(max_running: 256)
+
+    room = Actor.start(web, %{}, fn members: Map<Int, WebSocket>, message: Room -> {
+        case message {
+            .Join(ws) ->
+                Map.put(members, WebSocket.id(ws), ws)
+
+            .Leave(id) ->
+                Map.remove(members, id)
+
+            .Say(text) -> {
+                Iter.each(Map.values(members), fn ws -> {
+                    _ = WebSocket.send_text(ws, text)
+                })
+
+                members
+            }
+        }
+    })
+
+    Ok(App{web, room})
+}
+
+fn chat(request: Request) -> Response {
+    websocket.accept(request, fn ws -> {
+        _ = Actor.cast(App.room, .Join(ws))
+
+        _ = WebSocket.each(ws, fn message -> {
+            if .Text(text) = message { _ = Actor.cast(App.room, .Say(text)) }
+        })
+
+        _ = Actor.cast(App.room, .Leave(WebSocket.id(ws)))
+    })
+}
+
+fn main() -> Result<Unit, http.Error> {
+    listener = http.listen(Server{address: ":8080"})?
+    http.serve(listener, chat, App.web)
+    Ok(Unit)
+}
+```
+
+`accept` refuses a page from another origin with `403` unless
+`AcceptOptions.allowed_origins` lists it, and closes a connection whose
+message is over `max_message_size`, 1 MiB unless set. A client connects
+with `websocket.connect(Url`wss://example.com/chat`)`. A test hands a
+handler a connection in memory with `http_testing.open_websocket`:
+
+```nomi-run
+import {
+    std::http.{Request, Response}
+    std::http_testing
+    std::websocket.{self, Message, WebSocket}
+}
+
+fn shout(request: Request) -> Response {
+    websocket.accept(request, fn ws -> {
+        _ = WebSocket.each(ws, fn message -> {
+            if .Text(text) = message { _ = WebSocket.send_text(ws, String.uppercase(text)) }
+        })
+    })
+}
+
+test "the server shouts back" {
+    heard = http_testing.open_websocket(shout, "/", fn ws -> {
+        _ = WebSocket.send_text(ws, "hello")
+        WebSocket.receive(ws)
+    })
+
+    assert Ok(reply) = heard
+    assert reply == Ok(Some(Message.Text("HELLO")))
+}
+```
+<!-- expect
+ok the server shouts back
+test result: ok. 1 passed, 0 failed
+-->
+
+Middleware sees the `101` response when the handler returns it, so
+`log_requests` logs the handshake, `timeout` does not stop the connection
+after it, and `compress` leaves it alone. `Server.request_timeout` is a
+deadline for the request's whole task, so leave it unset on a server with
+WebSockets.
+
 ## Testing against a real server
 
 A test that needs a real connection, for a client's redirects, cookies or
-timeouts, runs a server with `http_testing.with_server`. It answers with a
+timeouts, runs a server with `http_testing.with_server`. It serves a
 handler on a free port of 127.0.0.1 while its body runs, then shuts down:
 
 ```nomi-run compile-only

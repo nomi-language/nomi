@@ -125,7 +125,7 @@ impl Float {
     /// A Float is binary, so most decimal fractions are not exactly one:
     /// `2.675` is 2.67499999999999982236431605997495353221893310546875, which
     /// rounds to `2.67` at scale 2 even under `HalfUp`. The rounding is of
-    /// that exact value, and the answer is the Float nearest the rounded
+    /// that exact value, and the result is the Float nearest the rounded
     /// decimal, so `Float.round(0.125, 2)` prints `0.12` but is not exactly
     /// 0.12 either. Round a `Decimal` when the decimal digits must be exact.
     //! import std::decimal.RoundingMode
@@ -248,7 +248,7 @@ impl Float {
         }
     }
 
-    /// `x` raised to the power `y`, with IEEE 754's answers at the edges, as
+    /// `x` raised to the power `y`, with IEEE 754's results at the edges, as
     /// Go's `math.Pow` gives them: `Float.pow(x, 0.0)` and
     /// `Float.pow(1.0, y)` are `1.0` for every `x` and `y`, NaN included; a
     /// negative `x` to a `y` that is not a whole number is NaN; `0.0` to a
@@ -288,13 +288,13 @@ impl Float {
     pub host fn log(x: Float) -> Float
 
     /// The base-2 logarithm of `x`, exact at a power of two, with
-    /// `Float.log`'s answers at `0.0`, a negative `x` and the infinities.
+    /// `Float.log`'s results at `0.0`, a negative `x` and the infinities.
     //! assert Float.log2(8.0) == 3.0
     //! assert Float.log2(0.5) == -1.0
     //
     pub host fn log2(x: Float) -> Float
 
-    /// The base-10 logarithm of `x`, with `Float.log`'s answers at `0.0`, a
+    /// The base-10 logarithm of `x`, with `Float.log`'s results at `0.0`, a
     /// negative `x` and the infinities.
     //! assert Float.log10(1000.0) == 3.0
     //! assert Float.log10(0.0) == Float.negative_infinity()

@@ -66,7 +66,7 @@ func stdRowModule(row hostgen.FuncRow) (string, error) {
 		return "", err
 	}
 	// A Go package name runs words together where the module's has an
-	// underscore: internal/stdmessageformat implements std/message_format.
+	// underscore: internal/stdphraseformat implements std/phrase_format.
 	if found && strings.ReplaceAll(module, "_", "") == name {
 		return module, nil
 	}
@@ -79,8 +79,12 @@ func stdRowModule(row hostgen.FuncRow) (string, error) {
 // alsoImplements are the std modules an adapter package implements besides
 // its own: internal/stdio is std/io's, and std/fs_host's, the Go-backed half
 // of std/fs; internal/stdprocess is std/process_host's, std/process's;
-// internal/stdtoml is std/toml_host's, std/toml's.
-var alsoImplements = map[string][]string{"io": {"fs_host"}, "process": {"process_host"}, "http": {"http_host"}, "toml": {"toml_host"}}
+// internal/stdtoml is std/toml_host's, std/toml's; internal/stdcsv and
+// internal/stdxml are std/csv_host's and std/xml_host's; internal/stdhttp is
+// std/http_host's and std/signatures_host's, whose key encodings need
+// crypto/x509, which only the runner with the network links.
+var alsoImplements = map[string][]string{"io": {"fs_host"}, "process": {"process_host"}, "http": {"http_host", "signatures_host"}, "toml": {"toml_host"},
+	"csv": {"csv_host"}, "xml": {"xml_host"}}
 
 const (
 	rtPackage     = "github.com/nomi-language/nomi/rt"

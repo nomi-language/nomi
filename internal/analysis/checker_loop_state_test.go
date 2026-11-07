@@ -81,7 +81,7 @@ func expectOneLoopError(t *testing.T, errs []analysis.TypeError, msg string, lin
 func TestLoopState_StatelessBreakValueRejected(t *testing.T) {
 	expectOneLoopError(t, checkLoopSource(t, `fn main() {
   Iter.loop(fn -> { break 42 })
-}`), "a stateless `Iter.loop` answers Unit, so `break` cannot give it Int", 2, 27)
+}`), "a stateless `Iter.loop` returns Unit, so `break` cannot give it Int", 2, 27)
 	expectOneLoopError(t, checkLoopSource(t, `import std::io
 
 fn main() {
@@ -92,7 +92,7 @@ fn main() {
       None -> continue
     }
   })
-}`), "a stateless `Iter.loop` answers Unit, so `break` cannot give it Int", 7, 24)
+}`), "a stateless `Iter.loop` returns Unit, so `break` cannot give it Int", 7, 24)
 }
 
 // A stateless loop's callback result is its next state, Unit, so a body

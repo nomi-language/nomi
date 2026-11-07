@@ -43,3 +43,33 @@ func (c *checker) wholeResultHint(expected, got Type, expr ast.Node) string {
 	}
 	return ""
 }
+
+// unwrappedOneShortHint explains a name holding a `Maybe<T>` given where a
+// `T` is expected, when a pattern bound the name: the pattern unwrapped one
+// level short, as `Ok(input) = io.read_line() else { break }` does over a
+// `Result<Maybe<String>, Error>`, and the error otherwise stands at each
+// use, far from the pattern. The help names the pattern's line and the
+// `Some(...)` to write there. Any other expression, a name bound by
+// `name = value`, or a `Maybe` whose payload is not what is expected gets
+// "".
+func (c *checker) unwrappedOneShortHint(expected, got Type, expr ast.Node) string {
+	id, ok := expr.(*ast.Ident)
+	if !ok || c.fa == nil {
+		return ""
+	}
+	have, ok := resolveTypeVar(got).(*EnumType)
+	if !ok || have.Name != "Maybe" || len(have.TypeArgs) != 1 {
+		return ""
+	}
+	inner := resolveTypeVar(have.TypeArgs[0])
+	if want := resolveTypeVar(expected); want == nil || !TypeAssignable(want, inner) {
+		return ""
+	}
+	sym := c.fa.References[Pos{Line: id.Line, Col: id.Col}]
+	if sym == nil || sym.Kind != SymbolBinding || !c.patternBound[Pos{Line: sym.Pos.Line, Col: sym.Pos.Col}] {
+		return ""
+	}
+	return c.typef("`%s` is a `%s`, bound one level short by the pattern on line %d; "+
+		"write `Some(%s)` in its place there to bind the `%s`",
+		id.Name, have, sym.Pos.Line, id.Name, inner)
+}

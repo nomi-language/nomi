@@ -191,7 +191,7 @@ These words are reserved and cannot name anything:
 
 These words have a meaning only where their construct stands, and are
 ordinary names elsewhere: `host` (§19), `open` (§12), `embeds` (§4),
-`message`, `noun` and `embed` (§18), and `group`, `clock`, `boot` and `setup` (§17).
+`phrase`, `noun` and `embed` (§18), and `group`, `clock`, `boot` and `setup` (§17).
 
 `derive`, `gopkg` and `go` may name a parameter or a binding, but a
 statement that begins with one of them always starts that declaration. So
@@ -684,7 +684,7 @@ A range over a type that implements `Discrete` (`Int`, `Codepoint`) is an
 (`String`, `Float`, `Decimal`) is an interval, used for membership.
 
 `Discrete` and `Steppable<S>` are the prelude interfaces behind this.
-`Discrete.next(v)` answers the value after `v`, or `None` past the last, and
+`Discrete.next(v)` returns the value after `v`, or `None` past the last, and
 a range of a `Discrete` type walks its values with it. `Steppable<S>`'s
 `step_by(v, by)` moves `v` by a step of type `S`, and `Range.step_by` walks
 a range of a `Steppable` type by a step the caller gives, as
@@ -2257,7 +2257,7 @@ one end. So `a == b` does not imply `a <= b` when both are NaN.
 
 A file's top level holds declarations only: imports, functions, types,
 interfaces, impls, derives, `once` values, tests, host declarations and
-keyword declarations (`message`, `noun`, `embed`). A binding, an expression or another statement at top
+keyword declarations (`phrase`, `noun`, `embed`). A binding, an expression or another statement at top
 level is an error; code runs inside a function. `x = 3` at top level is
 `` a binding cannot be written at file level: a file binds a value only with `once` ``.
 
@@ -2720,7 +2720,10 @@ body, which is one of:
 
 - a call: `&Int.max(&1, 0)`, `&Some(&1 + 1)`, `&f(&2, &1)`;
 - a parenthesized expression: `&(&1 > 2)`, `&(&1 * 2 + 1)`, `&(not &1)`;
-- a literal or construction: `&Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1, 0]`.
+- a literal or construction: `&Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1, 0]`,
+  and a string literal of any form, typed literals among them:
+  `&"id ${&1}"` is `fn x -> "id ${x}"`, and `&Sql"id = ${&1}"` is
+  `fn x -> Sql"id = ${x}"`.
 
 ```nomi
 fn main() {
@@ -2728,6 +2731,7 @@ fn main() {
     dbg Iter.map(["ab"], &String.length(&1)) |> Iter.to_list() // [2]
     add: (Int, Int) -> Int = &(&1 + &2)
     dbg add(1, 2) // 3
+    dbg Iter.map([7], &"id ${&1}") |> Iter.to_list() // ["id 7"]
 }
 ```
 
@@ -2735,8 +2739,8 @@ The body is one postfix-level operand, so `&f(&1) + 1` adds 1 to a capture;
 the function of the sum is `&(f(&1) + 1)`. Anything else after `&` is
 ``a capture is `&` and a call, a parenthesized expression or a literal, as in `&f(&1)` or `&(&1 > 2)` ``:
 `&x`, `&f(&1).x` (write `&(f(&1).x)`), `&Int.max` (the function itself is
-`Int.max`). `&not f(&1)` is the error that asks for parentheses, and `& (x)`
-with a space is
+`Int.max`), `&'a'`, `&-1`. `&not f(&1)` is the error that asks for
+parentheses, and `& (x)` with a space is
 ``a capture's `&` is written against its body, with no space: `&(&1 > 2)`, `&f(&1)`, `&Point{x: &1}` ``.
 
 `&N` is parameter N of the capture around it. `&` and a decimal number from
@@ -3177,7 +3181,7 @@ named argument is evaluated where it is written, not where its parameter
 stands, so `f(b: g(), a: h())` runs `g` before `h`. A pipe's head is evaluated
 before the stage's other arguments. `x in c` evaluates `x` before `c`. `and`
 and `or` evaluate their right operand only when the left does not decide the
-answer (*Logical operators*).
+return (*Logical operators*).
 
 ```nomi
 fn add(a: Int, b: Int) -> Int {
@@ -3260,7 +3264,7 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
 #### Integer arithmetic is exact
 
 An `Int` holds a whole number of any size. `+`, `-`, `*`, prefix `-`, `/` and
-`%` answer exactly and never overflow. A value that fits in 64 bits costs what
+`%` give exact results and never overflow. A value that fits in 64 bits costs what
 a machine integer costs; a larger one grows as it needs to.
 
 ```nomi
@@ -3271,7 +3275,7 @@ fn main() {
 }
 ```
 
-`Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` answer the low
+`Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` return the low
 64 bits of the exact result as a signed 64-bit `Int`, for arithmetic defined
 over 64 bits (a hash, a checksum). `derive Hashable` mixes with them.
 
@@ -3327,7 +3331,7 @@ fail on `10d / 3d`.
   `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)`
   for a quotient that must terminate``.
 - [std::decimal](/reference/decimal/)'s `Decimal.divide` rounds to a scale
-  and `RoundingMode`, and `Decimal.divide_exact` answers `None` for a
+  and `RoundingMode`, and `Decimal.divide_exact` returns `None` for a
   quotient that does not terminate.
 
 Equality and comparison are by value and ignore scale: `1.50d == 1.5d` is
@@ -3423,14 +3427,14 @@ fn main() {
 
 - On `Int` the operators read the value as two's complement with as many bits
   as it needs, a negative value having endless leading ones. So `&&&`, `|||`,
-  `^^^` and `~~~` answer at any size, and `~~~n == -n - 1`.
+  `^^^` and `~~~` give exact results at any size, and `~~~n == -n - 1`.
 - `a <<< n` is `a` times 2 to the `n`, exact: no bit is shifted out.
 - `a >>> n` divides by 2 to the `n`, rounding toward negative infinity. A count
-  past `a`'s bits answers `0` for a non-negative `a` and `-1` for a negative
+  past `a`'s bits returns `0` for a non-negative `a` and `-1` for a negative
   one.
 - A negative shift count traps (`line 3: negative shift count -1`), and so does
   a left shift whose result would not fit in memory.
-- `Byte` has `&&&`, `|||`, `^^^` and `~~~`, whose answers stay within 8 bits
+- `Byte` has `&&&`, `|||`, `^^^` and `~~~`, whose results stay within 8 bits
   (`~~~b` is `255 - b`). It has no shift, since a left shift could carry bits
   past 8: shift the `Int` (`Byte.to_int(b) <<< 1`). `b <<< 1` is ``no impl of
   `ShiftLeft` for `Byte` (required via shift left operator `<<<`)``.
@@ -3477,7 +3481,7 @@ passing as values (`Iter.reduce(flags, 0, Int.bitwise_or)`).
 
 ### Logical operators
 
-`and`, `or` and prefix `not`. Each takes and answers `Bool`.
+`and`, `or` and prefix `not`. Each takes and returns `Bool`.
 
 - `not x` is `True` when `x` is `False`. An operand of another type is an
   error: `` `not` takes a Bool, got Int ``.
@@ -3493,7 +3497,7 @@ passing as values (`Iter.reduce(flags, 0, Int.bitwise_or)`).
   body `&not f(&1)` (write `&(not f(&1))`).
 - `a and b` is `if a { b } else { False }`, and `a or b` is `if a { True } else
   { b }`: the right operand runs only when the left does not decide the
-  answer. The right operand may leave instead of answering (a block ending in
+  result. The right operand may leave instead of returning (a block ending in
   `return`, `break` or `continue`, an `if` or `case` every arm of which
   leaves, a failing `?`, a trap). On that path the expression has no value;
   on the other its value is the left operand's.
@@ -3527,8 +3531,8 @@ fn main() {
 Taught in [Pattern Matching](/pattern-matching/#testing-a-match-with-is).
 
 `value is Pattern` is a `Bool`: whether the value matches the pattern. It
-answers what a `case` with a `True` arm for the pattern and a `_ -> False` arm
-answers.
+returns what a `case` with a `True` arm for the pattern and a `_ -> False` arm
+returns.
 
 ```nomi
 enum Block {
@@ -3572,7 +3576,7 @@ fn main() {
   one pattern ``. When the right side is read as a Bool and is not one, the
   `'or' operands must be Bool` error's help names the parenthesized form.
 - **A pattern that always matches is an error,** since the test could only
-  answer `True`: `` `_` matches every value of type Kind, so this test is
+  return `True`: `` `_` matches every value of type Kind, so this test is
   always True ``. There is no exhaustiveness to check.
 - The value is evaluated once, before the pattern is tested.
 - There is no `is not`: `x is not 1` is `` `is not` is not an operator ``,
@@ -3614,7 +3618,7 @@ fn main() {
   (`` `in` does not chain with `==` ``).
 - There is no `not in`: `x not in xs` is `` `not in` is not an operator ``,
   whose help says to write `not x in xs`.
-- Any type with a `Contains` impl answers `in`, and so does a type parameter
+- Any type with a `Contains` impl supports `in`, and so does a type parameter
   bounded by `Contains<T>`. `String` implements `Contains` at three type
   arguments, and a call takes the one its argument's type chooses (§12
   *Several instantiations for one type*).
@@ -3756,7 +3760,9 @@ fn main() {
 
 - `then` is followed by a lambda or a capture. Anything else is the parse
   error `` `then` takes a lambda or a capture: write `then fn v -> ...` or
-  `then &f(&1)` ``.
+  `then &f(&1)` ``. For a function by name, `x |> then f` would be `x |> f()`,
+  so it is that error with the help `` write `|> f()` for a function by name
+  ``.
 - The function takes one parameter, the piped value. A lambda's parameter may
   be a destructuring pattern. A capture's is `&1`, which may stand anywhere,
   positional or named, as often as it is written, and is computed once:
@@ -3784,9 +3790,9 @@ fn main() {
 Taught in [Pipes](/pipes/#the-tap-stage).
 
 `x |> tap fn v -> body` runs the lambda on the piped value for its effect and
-passes the value on unchanged. `x |> tap &io.print(&1)` does the same with a
-capture. The value is computed once and the function runs once, at that point
-in the pipeline.
+passes the value on unchanged. `x |> tap io.print` does the same with a
+function by name, and `x |> tap &log(level, &1)` with a capture. The value is
+computed once and the function runs once, at that point in the pipeline.
 
 ```nomi
 import std::io
@@ -3798,12 +3804,13 @@ fn main() {
         |> tap fn words -> io.print("got ${Iter.count(words)} words")
         |> Iter.map(String.uppercase)
         |> String.join(" ")
+        |> tap io.print
 
-    io.print(shout)
+    io.print(String.length(shout))
 }
 ```
 
-This prints `got 3 words`, then `GO NORTH NOW`.
+This prints `got 3 words`, then `GO NORTH NOW`, then `12`.
 
 - The lambda follows the `then` rules: one parameter, which may be a pattern;
   a bare body ends at the next `|>`.
@@ -3811,8 +3818,22 @@ This prints `got 3 words`, then `GO NORTH NOW`.
   input on unchanged, so its lambda must return Unit; got Int ``, whose help
   says to use `then`. A body may end in a `dbg` observation, as a `Unit`
   function body may (§9).
+- A function by name is a plain name (`log_it`), a qualified one
+  (`io.print`, `Log.info`) or a local binding that holds a function. It is
+  typed as a function value passed where `(T) -> Unit` is expected, `T` the
+  piped value's type: a generic function is instantiated from the piped
+  value, and a function whose parameters after the first all have defaults
+  is called with them filled (§7 *Default Arguments*). Any other function is
+  an error at the name: `` a `tap` function takes one parameter, the piped
+  value; `pair` takes 2 ``, `` `says` takes a String, but the pipe passes an
+  Int ``, or `` `tap` passes its input on unchanged, so its function must
+  return Unit; `double` returns Int ``, whose help says to call it as a
+  stage, `|> double()`. A name that holds no function is `` `tap` takes a
+  function, but `count` is an Int ``. Anything after `tap` other than a name,
+  a lambda or a capture is the parse error `` `tap` takes a function: write
+  `tap f`, `tap fn v -> ...` or `tap &f(&1)` ``.
 - A `?` or `return` in the lambda exits the lambda, so a body that uses `?`
-  answers a `Result` or `Maybe` and is rejected.
+  returns a `Result` or `Maybe` and is rejected.
 - `tap?` is `` `tap` passes its input on unchanged, so there is no result for
   a `?` to propagate ``, whose help says to handle the failure inside the
   lambda or use `then?`.
@@ -4250,6 +4271,18 @@ A pattern is *refutable* when some value of its type does not match it, and
 A name in a pattern binds the matched value. A name that starts with `_` is a
 discard and binds nothing. A pattern binds each name once: `Some(n) as n` is
 `` `n` is bound twice in one pattern; give each binding its own name ``.
+
+A name never compares, even when it names a value in scope. In a pattern that
+may fail to match (a `case` arm, a pattern `if`, a binding with `else`, an
+`else` arm and an `assert`), a name that names a `once` visible there, declared
+in the file or imported, is an error at the name, since it would match every
+value: with `once not_found = 404`, `case code { not_found -> ... }` is
+`` this binds a new `not_found`, which matches every value; `not_found` is a
+`once` ``, with the help ``to compare with it, write `code when code ==
+not_found` ``. A local binding of the same name hides the `once` and the rule
+does not apply, and neither does a discard name. A plain binding, a
+parameter and a destructure without `else` bind new names by intent: there a
+name may hide a `once` as it may any other name.
 
 ### Literal patterns
 
@@ -4916,7 +4949,10 @@ each checked at the `?`:
 3. **The error types are the same type.** `` `?` error type mismatch: expected
    String, got Json.DecodeError (the enclosing function returns Result<Int,
    String>); convert the error before the `?`, for example with
-   Result.map_err ``.
+   Result.map_err ``. Its help writes the stage when one is plain: the
+   boundary enum's one variant whose payload is the error
+   (`` |> Result.map_err(AppError.Io)? ``), or, for a `String` boundary and
+   an error with a `Display` impl, `` |> Result.map_err(&"...: ${&1}")? ``.
 
 There is no conversion at the `?`. `Result.map_err` converts, written where the
 types differ:
@@ -4927,7 +4963,7 @@ fn status(text: String) -> Result<Int, Int> {
 }
 
 fn port(text: String) -> Result<Int, String> {
-    n = status(text) |> Result.map_err(fn code -> "error ${code}")?
+    n = status(text) |> Result.map_err(&"error ${&1}")?
     Ok(n)
 }
 
@@ -5018,13 +5054,13 @@ fn main() {
 
 ### Traps, `Maybe` and `Result`
 
-An operation that cannot give the answer asked for either returns a `Maybe` or
+An operation that cannot give the result asked for either returns a `Maybe` or
 `Result`, or traps. std returns one when the outcome depends on data the
 caller does not control (`Map.get`, `String.to_int`, I/O), and traps when the
 caller broke a promise it could have checked: a divisor it chose (`/`, §8
 *Integer division and remainder*), an index it computed (`Vector.set`), a
 `todo` it left in, or an `unreachable` whose invariant it broke. Each trapping
-operation has a total way around it, such as `Vector.get`, which answers
+operation has a total way around it, such as `Vector.get`, which returns
 `None` where `Vector.get(...)!` traps. Writing Nomi's
 [Pick the tool by what happens on failure](/writing/) applies the same rule
 to code a program writes.
@@ -6006,7 +6042,13 @@ fn main() {
   FromJson`) need none.
 - **Fields.** Each field's type must implement the interface, checked at the
   derive: ``no impl of `Equatable` for `User` (required via `derive Equatable
-  for Wrapper`, field `id`)``. An interface-typed field is not checked there,
+  for Wrapper`, field `id`)``, with the help to derive or implement it on
+  `User`. A variant's payload is checked the same way, named by its variant.
+  When the field's type is a std type, which a program cannot derive or
+  implement an interface for, the help says so: ``only std can implement
+  `Equatable` for `Json.ShapeError`; wrap it in a type of your own that
+  implements `Equatable` ``. Every derivable interface but `Debug`, which
+  every type has, is checked. An interface-typed field is not checked there,
   since its concrete type is known only at run time. A function has no
   equality, so a field that is or holds one cannot take a derived
   `Equatable`, `Hashable` or `Comparable`: ``no impl of `Equatable` for `(Int)
@@ -6149,13 +6191,13 @@ expected.
 
 #### Infinite iterators
 
-`is_infinite` answers `True` for `Iter.repeat`, `Iter.from`, `Iter.iterate`
+`is_infinite` returns `True` for `Iter.repeat`, `Iter.from`, `Iter.iterate`
 (whose step cannot `break`), `Range.from`, `Range.naturals`, `Range.step_by` of
 an unbounded range whose step moves, and `Iter.cycle` of a source that is
-infinite or knows a non-zero count. A type of the program answers `False`
+infinite or knows a non-zero count. A type of the program returns `False`
 unless its `impl Iter` writes `is_infinite`. Each adapter carries the
-answer when the pipeline is built: `map` over an infinite source is
-infinite, and `take` never is. When in doubt the answer is `False`.
+result when the pipeline is built: `map` over an infinite source is
+infinite, and `take` never is. When in doubt the result is `False`.
 
 A terminal that has to reach the end of its source (`to_list`, `count`,
 `sort`, `sum`, ...) asks `is_infinite` first and traps on `True`, naming the
@@ -6284,7 +6326,7 @@ fn main() {
 - **Bare `break`** ends the loop with the state this round started with. A
   binding in the body that shadows the parameter does not change it.
 - **A stateless callback** (`fn -> ...`) has state `Unit`. Its body's result is
-  `Unit`, every `break` in it is bare or `break Unit`, and the loop answers
+  `Unit`, every `break` in it is bare or `break Unit`, and the loop returns
   `Unit`. The call takes the callback alone, `Iter.loop(fn -> ...)`. A
   starting state beside it is ``a stateless `Iter.loop` takes no starting
   state``.
@@ -6320,9 +6362,9 @@ Taught in [Iteration and Loops](/iteration-and-loops/#break-and-continue-in-iter
 `Iter.each`, `Iter.find`, `Iter.any`, `Iter.all`, `Map.map_values`,
 `Map.map_keys` and `Iter.loop`.
 
-A callback's result is its answer for this element. `continue` skips the
+A callback's result is its result for this element. `continue` skips the
 element. `break` stops the iteration with what has accumulated. `break value`
-gives `value` as this element's answer and then stops. The signal they send has
+gives `value` as this element's result and then stops. The signal they send has
 no spelling in the language: it is not a type, and nothing imports or matches
 it.
 
@@ -6331,7 +6373,7 @@ it.
 | `map` | this element's output, emitted | no output | stops; outputs so far |
 | `filter` | the keep decision (`break True` keeps it) | drops it | stops |
 | `reduce` | the accumulator | accumulator unchanged | the accumulator so far |
-| `find`, `any`, `all` | the predicate's answer | skips | `None`, `False`, `True` |
+| `find`, `any`, `all` | the predicate's result | skips | `None`, `False`, `True` |
 | `drop_while` | the drop decision: `break False` emits this element and ends | drops it | ends with nothing more |
 | `flat_map` | this element's expansion, emitted | no output | stops |
 | `scan` | the new state, yielded | yields nothing, keeps the state | ends without yielding |
@@ -6501,7 +6543,7 @@ fn page(rows: List<admin::users.Row>) -> String {
 - **A path that names no file** is an error at the use that says what is there: `admin::user.render(u)` is `` `admin::user` names no file: views::admin has no user.nomi ``, with the hint `` did you mean `admin::users`? ``, or a list of the directory's files and directories when no name is close. A path that names a directory, `admin::reports.total()`, is `` `admin::reports` is a directory, not a file ``, whose hint names a file in it.
 - **Only the files a path reaches are part of the program.** Importing a directory loads no file under it. Each path the import's scope writes below the name loads the file it names, as an import of that file would, and the file's impls come with it. A directory import through which no path reaches a file is unused: `imported directory 'admin' is unused — remove the import`.
 - **A file wins over a directory of its name.** Where `views/admin.nomi` sits beside `views/admin/`, `import views::admin` names the file, since a parent file beside the directory of its children is the usual layout (*Cyclic imports* below). The directory is reached from its parent: `import views`, then `views::admin::users.index(rows)`.
-- **Module roots.** A module's own name alone names its root directory when the root holds no file and no directory of that name: inside module `my_app`, `import my_app` binds the root, and `my_app::users.count()` reaches `users.nomi` there. A dependency's name alone is its root in the same way when the dependency has no file of its name (*Files and modules* above), and `import std` binds the standard library's root: `std::io.print(x)`. A path through `std` reaches an internal std module no more than an import does: `` `std::message_format` is internal to std::message ``.
+- **Module roots.** A module's own name alone names its root directory when the root holds no file and no directory of that name: inside module `my_app`, `import my_app` binds the root, and `my_app::users.count()` reaches `users.nomi` there. A dependency's name alone is its root in the same way when the dependency has no file of its name (*Files and modules* above), and `import std` binds the standard library's root: `std::io.print(x)`. A path through `std` reaches an internal std module no more than an import does: `` `std::phrase_format` is internal to std::phrase ``.
 - **Another module's directory.** A directory that holds its own `nomi.toml` is another module's root, which no path of this module reaches. `import plugins::billing` is the error `` `plugins::billing` is another module's directory: it holds a nomi.toml ``, whose hint says to add the module with `nomi add` and import it by its name, and a path through it at a use is `` `plugins::billing::pay` is in another module's directory: plugins/billing/ holds a nomi.toml ``. A path into an `internal/` directory from outside its parent's subtree is the error an import of that file is (*Files and modules* above).
 - **Scope.** The directory's name is a short name like a file's (*Short names* above): an alias renames it (`import views::admin as pages`, then `pages::users.index(rows)`), an import at the top of a block binds it in that block only, and a local, a parameter or a pattern binding of the name wins in its scope, where a path through the name is the error `` `admin` here is the parameter on line 3, not the directory views::admin ``.
 
@@ -6527,7 +6569,8 @@ Every file outside the standard library starts with the imports in `std/prelude.
 - the primitive and collection types `Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set` and `Range`, and `Bool` with its variants `True` and `False`;
 - `Maybe` with `Some` and `None`, and `Result` with `Ok` and `Err`;
 - the interfaces `Add`, `Subtract`, `Multiply`, `Divide`, `BitwiseAnd`, `BitwiseOr`, `BitwiseXor`, `BitwiseNot`, `ShiftLeft`, `ShiftRight`, `Comparable`, `Contains`, `Debug`, `Discrete`, `Display`, `Distinct`, `Equatable`, `Hashable`, `Iter`, `Productable`, `Steppable`, `Struct`, `Summable` and `Variants`;
-- `Ordering`, `Type`, `Startup` and `Context`.
+- `Ordering`, `Type`, `Startup` and `Context`;
+- `Locale` (std::locale), and `Phrase` and `Noun` (§18 *Phrases*), so formatting a phrase needs no import.
 
 What it leaves out:
 
@@ -6573,6 +6616,10 @@ An import path that names no file is an error at the path, in every import form,
 A hint names a sibling file the path misspells (``did you mean 'helpers'?``), or, for an import that selects names from a path that is a directory, a file inside it (`` `sub` is a directory; import a file in it, such as `sub::inner` ``). When `go.mod` requires a module the Go module cache does not hold, the hint says to run `nomi fetch`. When the first name is neither a file nor a directory and `go.mod` does not require it, the hint says to run `nomi add`, with the directory when exactly one directory under the project root (at most three levels down) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or directory otherwise.
 
 A selected name the file does not export is an error at the name: `file 'std::io' has no exported name 'nosuchname'`.
+
+#### Names a missing import would bind
+
+A name is in scope only through an import, so a std type or module used without one is the ordinary error for an unbound name, with a help naming the import. `Method.Post` is `undefined type or variant 'Method'` with ``help: import `std::http.Method` ``, `c: Catalog` is `unknown type "Catalog"` with ``help: import `std::phrase.Catalog` ``, and `io.print("x")` is `undefined variable 'io'` with ``help: import `std::io` ``. A type name two or three std modules export lists each import (``help: import `std::mail.Message` or `std::websocket.Message` ``); one that more export names none. The help never names an internal std module.
 
 #### Unused imports are errors
 
@@ -6649,7 +6696,7 @@ test "area" {
 - **Impl functions follow the interface.** If the interface is `pub`, other files can call an impl's functions; if it is private, they cannot. There is no per-function `pub` in an `impl Iface for Type` block.
 - **No renames at the declaration.** A declaration is published under its own name. An imported item is re-exported under its local name.
 - **`opaque`.** `pub opaque struct`, `pub opaque enum` and `pub opaque type Name Inner` publish the type's name and keep its construction, destructuring and field access private (§4 *Opaque distinct types*). `opaque` on anything else is an error: `'pub opaque' must be followed by 'struct', 'enum', or 'type'`, and on a zero-sized type `` cannot declare 'Marker' as opaque — zero-sized distinct types have no representation to hide ``.
-- **Std's internals.** A std file's private declarations, and the internal modules `std::message_format` and `std::money_format`, belong to std. Naming one is the error `` `message.compiled` is internal to std::message ``, or `` `std::money_format` is internal to std::money `` for an import.
+- **Std's internals.** A std file's private declarations, and the internal modules `std::phrase_format` and `std::money_format`, belong to std. Naming one is the error `` `phrase.compiled` is internal to std::phrase ``, or `` `std::money_format` is internal to std::money `` for an import.
 
 ### Visibility consistency
 
@@ -6880,7 +6927,7 @@ Taught in [App Fields, Defer & Context](/app-fields/#cleanup-and-failure-in-boot
 
 A `defer` in the outer block of an entry boot runs after `main` returns and the tasks it owns have stopped. A `defer` in a test's boot or `setup` runs after that test and its work. A `defer` anywhere else runs when its block ends. A deferred call keeps the arguments and the field values in force when it was registered. A failing cleanup does not hide the first failure or stop the rest of the cleanup.
 
-A boot that returns `Err(e)` fails the program: `main` does not run, work boot started is stopped, the calls boot registered with `defer` run, most recent first, and the program exits as one whose `main` returned `Err(e)` does (*Exit status* above). A program with exported functions answers that error in place of the booted program (§7 *Exported Functions*). In a `group`, a boot that returns `Err` fails each test it serves before the body runs, with the report of an early `?` (§17 *Groups*). A trap in boot is a trap like any other.
+A boot that returns `Err(e)` fails the program: `main` does not run, work boot started is stopped, the calls boot registered with `defer` run, most recent first, and the program exits as one whose `main` returned `Err(e)` does (*Exit status* above). A program with exported functions returns that error in place of the booted program (§7 *Exported Functions*). In a `group`, a boot that returns `Err` fails each test it serves before the body runs, with the report of an early `?` (§17 *Groups*). A trap in boot is a trap like any other.
 
 ```nomi
 import std::io
@@ -7097,7 +7144,7 @@ fn main() -> Unit {
 
 #### Waiting on several channels
 
-`Channel.select(arms)` waits until one of a list of arms can finish, runs that arm's handler and answers its result. An arm is an `Arm<R>`: `Arm.receive(receiver, handle)` passes `handle` the received `Maybe<T>`, `Arm.send(sender, value, handle)` passes it the send's `Result<Unit, ChannelClosed>`, and `Arm.after(wait, handle)` calls it with nothing once `wait` has passed. The arms may be on channels of different element types; every handler returns the one type `R`.
+`Channel.select(arms)` waits until one of a list of arms can finish, runs that arm's handler and returns its result. An arm is an `Arm<R>`: `Arm.receive(receiver, handle)` passes `handle` the received `Maybe<T>`, `Arm.send(sender, value, handle)` passes it the send's `Result<Unit, ChannelClosed>`, and `Arm.after(wait, handle)` calls it with nothing once `wait` has passed. The arms may be on channels of different element types; every handler returns the one type `R`.
 
 ```nomi
 import {
@@ -7743,27 +7790,28 @@ A top-level declaration that starts with a keyword and a name is a **keyword dec
 [pub] keyword name [(params)] [-> type] [raw body]
 ```
 
-Each part after the name may be left out, and the body is a backtick string. Two identifiers in a row at the top level of a file always start a keyword declaration (`foo bar` is ``unknown declaration keyword `foo` ``), and a line break between them ends a statement. The keyword decides what the declaration means: `message` and `noun` (*Messages* below) and `embed` (*Embedded files* below) are the keywords Nomi knows.
+Each part after the name may be left out, and the body is a backtick string. Two identifiers in a row at the top level of a file always start a keyword declaration (`foo bar` is ``unknown declaration keyword `foo` ``), and a line break between them ends a statement. The keyword decides what the declaration means: `phrase` and `noun` (*Phrases* below) and `embed` (*Embedded files* below) are the keywords Nomi knows.
 
 | Violation | Error |
 |---|---|
 | Another keyword | `` unknown declaration keyword `database` `` |
-| A type name as the name | `` the name of a `message` is snake_case, not the type name `Hi` `` |
+| `message` | ``unknown declaration keyword `message` ``, with a help naming `phrase` |
+| A type name as the name | `` the name of a `phrase` is snake_case, not the type name `Hi` `` |
 | A name before a type name | `` `strct` declares nothing: a type is declared with `struct`, `enum` or `type` `` |
-| A tag on a `message` body | `` a `message` body is MessageFormat 2 text and takes no tag: remove `Mf2` `` |
-| A result type on a `message` | ``a `message` declaration returns a `Message`, so it is written with no `-> String` `` |
+| A tag on a `phrase` body | `` a `phrase` body is MessageFormat 2 text and takes no tag: remove `Mf2` `` |
+| A result type on a `phrase` | ``a `phrase` declaration returns a `Phrase`, so it is written with no `-> String` `` |
 
 Nomi has no macros. Code a library would generate from data, such as functions from SQL queries, is written by a tool the library ships into ordinary `.nomi` files that a program imports and commits (`nomi tool`, [tooling reference](/tooling/commands/); taught in [Generating Code](/generating-code/#a-tool)).
 
-### Messages
+### Phrases
 
-Taught in [Translating Text](/translating-text/#declaring-a-message).
+Taught in [Translating Text](/translating-text/#declaring-a-phrase).
 
-Text a person reads is declared once, in the program's source language, with `message`, and translated in catalogs, one TOML file per locale and Nomi file. The text is [MessageFormat 2](https://www.unicode.org/reports/tr35/tr35-messageFormat.html) (MF2). Catalogs and `[i18n]` are in the [tooling reference](/tooling/projects/#i18n).
+Text a person reads is declared once, in the program's source language, with `phrase`, and translated in catalogs, one TOML file per locale and Nomi file. The text is [MessageFormat 2](https://www.unicode.org/reports/tr35/tr35-messageFormat.html) (MF2). Catalogs and `[i18n]` are in the [tooling reference](/tooling/projects/#i18n).
 
 ```nomi
 /// How many items the cart holds.
-pub message cart_items(count: Int) `
+pub phrase cart_items(count: Int) `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}
@@ -7773,15 +7821,15 @@ pub message cart_items(count: Int) `
 
 #### The declaration
 
-A `message` declares a function of the same name whose parameters are the message's and whose result is a `Message` (`std::message`). It is called like any function of its file (`cart.cart_items(3)`) and takes a doc comment and `pub`. It writes no result type. Its body is the text in the source locale, `[i18n].source_locale`, English unless the manifest says otherwise.
+A `phrase` declares a function of the same name whose parameters are the phrase's and whose result is a `Phrase` (`std::phrase`). It is called like any function of its file (`cart.cart_items(3)`) and takes a doc comment and `pub`. It writes no result type. Its body is the text in the source locale, `[i18n].source_locale`, English unless the manifest says otherwise.
 
-A `Message` holds which message and its arguments, and no locale; `Message.format(message, locale)` writes it in one. Two messages are equal when they are the same declaration with equal arguments, `Debug` shows `cart.cart_items(3)`, and `Message` implements `Localize`, so a message passed to another message is formatted in the same locale.
+A `Phrase` holds which phrase and its arguments, and no locale; `Phrase.format(phrase, locale)` writes it in one. Two phrases are equal when they are the same declaration with equal arguments, `Debug` shows `cart.cart_items(3)`, and `Phrase` implements `Localize`, so a phrase passed to another phrase is formatted in the same locale.
 
-MF2 text formats with the stable functions `:string`, `:number`, `:integer`, `:percent` and `:currency`, the draft `:date`, `:time` and `:datetime`, and Nomi's own `:nomi:noun`, `:nomi:gender`, `:nomi:list` and `:nomi:weekday`. Each takes a parameter of the types and the options [std::message](/reference/message/#functions-in-a-text) lists, and anything else is a compile error at the placeholder:
+MF2 text formats with the stable functions `:string`, `:number`, `:integer`, `:percent` and `:currency`, the draft `:date`, `:time` and `:datetime`, and Nomi's own `:nomi:noun`, `:nomi:gender`, `:nomi:list` and `:nomi:weekday`. Each takes a parameter of the types and the options [std::phrase](/reference/phrase/#functions-in-a-text) lists, and anything else is a compile error at the placeholder:
 
 - A field the value lacks is an error at the option, ``en: `hour` names a time of day, and `$day` is a `Date`, which has none``, and so are styles beside fields. `:date`, `:time` and `:datetime` select nothing: ``en: `:date` writes a calendar value and selects nothing``, whose help points to `:nomi:weekday`.
 - `:nomi:weekday` only selects. A selector that names one day needs all seven, and a placeholder that writes it is ``en: `:nomi:weekday` selects by the day of the week and writes nothing``.
-- A placeholder with no function, `{$name}`, writes its value with `Localize`, so its type must implement `Localize` (`Int`, `Float`, `Decimal`, `String` and `Message` do).
+- A placeholder with no function, `{$name}`, writes its value with `Localize`, so its type must implement `Localize` (`Int`, `Float`, `Decimal`, `String` and `Phrase` do).
 - An enum selected or written with `:string` reads as its variant's name (`Shipped`), whatever its `Debug` says.
 - `:offset` and `:unit` are each `` `:offset` is not supported yet ``.
 
@@ -7789,18 +7837,16 @@ MF2 text formats with the stable functions `:string`, `:number`, `:integer`, `:p
 
 Taught in [Translating Text](/translating-text/#nouns).
 
-A sentence often agrees with a noun: in Polish, the possessive, auxiliary and participle of "Your book has shipped" follow the noun's gender. A `noun` declaration names such a thing as a value of std::message's `Noun`:
+A sentence often agrees with a noun: in Polish, the possessive, auxiliary and participle of "Your book has shipped" follow the noun's gender. A `noun` declaration names such a thing as a `Noun`, a prelude type:
 
 ```nomi
-import std::message.Noun
-
 pub noun book `.input {$count :integer} .match $count one {{book}} * {{books}}`
 
 /// Sent when a parcel leaves the warehouse.
-pub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
+pub phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`
 ```
 
-A `noun` takes no parameters and no result type. Its body is its form in the source locale, MF2 over one implicit `$count: Int`, how many things the text names. `shop.book` is the noun: a `Noun` a message takes as an argument and a struct may hold. Its catalog entry, in the catalog of the file's messages, gives the `source` it was translated from, its `gender` where the language's nouns have one, and one form per grammatical case, each MF2 over `$count`:
+A `noun` takes no parameters and no result type. Its body is its form in the source locale, MF2 over one implicit `$count: Int`, how many things the text names. `shop.book` is the noun: a `Noun` a phrase takes as an argument and a struct may hold. Its catalog entry, in the catalog of the file's phrases, gives the `source` it was translated from, its `gender` where the language's nouns have one, and one form per grammatical case, each MF2 over `$count`:
 
 ```toml
 [book]
@@ -7822,9 +7868,9 @@ inanimate {{Twój {$product :nomi:noun} został wysłany.}}
 
 A language's genders and cases are CLDR's grammatical features: Polish has `animate`, `inanimate`, `personal`, `feminine` and `neuter`, and seven cases. A language CLDR lists no cases for, English among them, has only the `nominative`, the form the declaration gives.
 
-`{$product :nomi:noun}` writes the noun's form for `case` and `count` in the locale of the message's text, and `.input {$product :nomi:gender}` selects by its gender there. `{$product}` with no function, and `Localize`, write its `nominative` for one thing. A noun is formatted only through a message or `Localize`, never by `Display`. Two nouns are equal when they are the same declaration, and `Debug` shows `shop.book`.
+`{$product :nomi:noun}` writes the noun's form for `case` and `count` in the locale of the phrase's text, and `.input {$product :nomi:gender}` selects by its gender there. `{$product}` with no function, and `Localize`, write its `nominative` for one thing. A noun is formatted only through a phrase or `Localize`, never by `Display`. Two nouns are equal when they are the same declaration, and `Debug` shows `shop.book`.
 
-The set of nouns is closed: every `Noun` is a declaration in a file the program reaches, so agreement is checked over the whole program, as coherence is. A name known only at run time, such as a title from a database, is a `String`, and passing one where a `Noun` is expected is the error `expected Noun, got String`, whose hint says a noun is a declaration. A message writes such a name through a `String` parameter, in a sentence that does not agree with it. A `noun` must be declared in a project whose source locale's language has no grammatical gender, since the declaration has no place to give one: `` `noun book` is declared in Polish, whose nouns have a grammatical gender, which a `noun` declaration has no place to give ``.
+The set of nouns is closed: every `Noun` is a declaration in a file the program reaches, so agreement is checked over the whole program, as coherence is. A name known only at run time, such as a title from a database, is a `String`, and passing one where a `Noun` is expected is the error `expected Noun, got String`, whose hint says a noun is a declaration. A phrase writes such a name through a `String` parameter, in a sentence that does not agree with it. A `noun` must be declared in a project whose source locale's language has no grammatical gender, since the declaration has no place to give one: `` `noun book` is declared in Polish, whose nouns have a grammatical gender, which a `noun` declaration has no place to give ``.
 
 #### What the compiler checks
 
@@ -7832,8 +7878,8 @@ Taught in [Translating Text](/translating-text/#what-the-compiler-checks).
 
 Each check is an error at the declaration, in its text, or in the catalog entry it is about:
 
-1. **Completeness.** Every message has text in every locale `locales` lists: in that locale's catalog, in a listed ancestor's on its CLDR fallback chain (`pt-PT` may leave out what `pt` says), or because the source locale is that ancestor. A locale in `partial_locales` may leave a message out, and the message then shows in the source locale.
-2. **No stray entries.** A catalog entry that names no message or noun of its file (``pl: `ghost` is not a message or noun of cart.nomi``), a catalog file whose Nomi file does not exist, and a catalog directory for a locale `[i18n]` does not list, or for the source locale.
+1. **Completeness.** Every phrase has text in every locale `locales` lists: in that locale's catalog, in a listed ancestor's on its CLDR fallback chain (`pt-PT` may leave out what `pt` says), or because the source locale is that ancestor. A locale in `partial_locales` may leave a phrase out, and the phrase then shows in the source locale.
+2. **No stray entries.** A catalog entry that names no phrase or noun of its file (``pl: `ghost` is not a phrase or noun of cart.nomi``), a catalog file whose Nomi file does not exist, and a catalog directory for a locale `[i18n]` does not list, or for the source locale.
 3. **Parameters.** Every variable a text reads is a parameter or a variable the text declares (``pl: `$cnt` is not a parameter of `cart_items` ``), and the source text uses every parameter (``en: the source text of `m` does not use `$count` ``).
 4. **Types.** Each function takes the types its row above names, and an unannotated placeholder's type implements `Localize`.
 5. **Plural arms.** A plural selector has an arm for every category the locale's rules select for the operand's type, except `other`, which `*` covers: for an `Int`, English needs `one`, and Polish `one`, `few` and `many`. An English-shaped Polish text is ``pl: `cart_items` has no `few` arm; 2, 3 and 4 select `few` in Polish``. A key that is not one of the locale's categories, or a number, is an error. A `Float` selects no plural category, since its category depends on the digits it shows, which a `Decimal` keeps.
@@ -7844,12 +7890,12 @@ Each check is an error at the declaration, in its text, or in the catalog entry 
    pl: `cart_items` was translated from an older English text
      was: {$count :integer} items
      now: {$count :integer} items in your cart
-   help: update the translation, then accept it with the quick fix or `nomi messages accept pl cart_items`
+   help: update the translation, then accept it with the quick fix or `nomi phrases accept pl cart_items`
    ```
 
-   In `partial_locales` a stale entry counts as missing, so the message shows in the source locale, never in a translation of an old meaning.
+   In `partial_locales` a stale entry counts as missing, so the phrase shows in the source locale, never in a translation of an old meaning.
 8. **MF2 validity**, including MF2's required variant whose keys are all `*`, kept even where the other arms cover every value, so catalogs stay valid for other MF2 tools.
-9. **Agreement.** Every noun has a translation in every listed locale, as a message does, with its `source` and no `text`. Its entry has a `gender` exactly when the language's nouns have one, and it is one CLDR lists (``pl: `masculine` is not a gender in Polish``). Every other key is a case of the language (``pl: `genetive` is not a case in Polish, nor a key of a noun's entry``), the `nominative` is present, and each form has the plural arms the locale needs. A `case=` option names a case of the language (``en: `genitive` is not a case in English``). Over the whole program, every noun has each form some message in the locale asks for (``pl: `laptop` has no `genitive` form, which `sold_out` asks for``, at the noun's entry), and each gender selector has an arm for every gender some noun has there, naming the noun (``pl: `has_shipped` has no `personal` arm; the noun `staff.courier` is personal in Polish``). A gender selector in a language with no genders is ``en: English nouns have no grammatical gender, so `has_shipped` cannot select on `$product`'s``.
+9. **Agreement.** Every noun has a translation in every listed locale, as a phrase does, with its `source` and no `text`. Its entry has a `gender` exactly when the language's nouns have one, and it is one CLDR lists (``pl: `masculine` is not a gender in Polish``). Every other key is a case of the language (``pl: `genetive` is not a case in Polish, nor a key of a noun's entry``), the `nominative` is present, and each form has the plural arms the locale needs. A `case=` option names a case of the language (``en: `genitive` is not a case in English``). Over the whole program, every noun has each form some phrase in the locale asks for (``pl: `laptop` has no `genitive` form, which `sold_out` asks for``, at the noun's entry), and each gender selector has an arm for every gender some noun has there, naming the noun (``pl: `has_shipped` has no `personal` arm; the noun `staff.courier` is personal in Polish``). A gender selector in a language with no genders is ``en: English nouns have no grammatical gender, so `has_shipped` cannot select on `$product`'s``.
 
 ### Embedded files
 
@@ -7884,7 +7930,7 @@ The body is one or more patterns, separated by white space; a pattern that holds
 - A pattern that matches a file embeds it, whatever its name. One that matches a directory embeds every file under it, except names that start with `.` or `_`; a pattern that starts with `all:` embeds those too (`all:static`).
 - A directory holding a `nomi.toml` of its own is another module: a directory walk leaves it out, and a pattern that names it, or a file under it, is an error.
 - A path in the tree is the file's path from the module root (`static/index.html`), whatever pattern matched it, and two patterns that match one file embed it once.
-- A pattern whose base does not exist, from the module root or from the declaring file's directory, is a warning rather than an error, except in a build. The base is the path its names spell before the first one holding a wildcard, the whole pattern when none does: `web/dist` for `web/dist` and for `web/dist/*.js`. The tree holds the base as an empty directory, so `Files.sub(site, "web/dist")` is an empty tree, and a read under it answers `NotFound`. This is the state of a frontend's build folder before its first build: `nomi run`, `nomi check`, `nomi test`, the REPL and the language server report ``the `embed` pattern `web/dist` matches no file: `web/dist` does not exist, so `site` is empty until it does`` at the pattern and go on, and `nomi build` refuses it, for every target, so a built program holds the files its patterns name. A pattern that matches nothing in a base that exists (`static/*.png` in a `static` with no `.png`) is an error everywhere.
+- A pattern whose base does not exist, from the module root or from the declaring file's directory, is a warning rather than an error, except in a build. The base is the path its names spell before the first one holding a wildcard, the whole pattern when none does: `web/dist` for `web/dist` and for `web/dist/*.js`. The tree holds the base as an empty directory, so `Files.sub(site, "web/dist")` is an empty tree, and a read under it returns `NotFound`. This is the state of a frontend's build folder before its first build: `nomi run`, `nomi check`, `nomi test`, the REPL and the language server report ``the `embed` pattern `web/dist` matches no file: `web/dist` does not exist, so `site` is empty until it does`` at the pattern and go on, and `nomi build` refuses it, for every target, so a built program holds the files its patterns name. A pattern that matches nothing in a base that exists (`static/*.png` in a `static` with no `.png`) is an error everywhere.
 
 | Violation | Error, at the pattern |
 |---|---|
@@ -7935,11 +7981,11 @@ host fn abs(n: Int) -> Int
 
 #### `host` declarations and embedders
 
-A Go program that embeds Nomi answers the `host fn`s its Nomi program declares from a host table it passes in ([implementation notes](implementation-notes.md#embedding) cover the Go API).
+A Go program that embeds Nomi implements the `host fn`s its Nomi program declares from a host table it passes in ([implementation notes](implementation-notes.md#embedding) cover the Go API).
 
 - A plain `host type` in such a program is an opaque handle. The table's functions create and read its values; Nomi code passes them around and stores them. The type needs no registration.
-- A table answers each function by its declaration's key: its name in the entry file, `module.name` in another file.
-- A program's own host functions never answer a std call, nor the reverse, even when a file of the program has a Go-backed std module's name: a project's `regex.nomi` may bind a Go function named `compile` and use it beside `std::regex`'s.
+- A table implements each function by its declaration's key: its name in the entry file, `module.name` in another file.
+- A program's own host functions never implement a std call, nor the reverse, even when a file of the program has a Go-backed std module's name: a project's `regex.nomi` may bind a Go function named `compile` and use it beside `std::regex`'s.
 
 ### Binding Go packages: `gopkg` and `go`
 
@@ -7950,7 +7996,7 @@ Taught in [Calling Go](/calling-go/#binding-the-go-standard-library).
 - The path is a valid Go import path: `gopkg "callback:= f(s": not a valid Go import path: invalid char ':'`.
 - A Go standard library package needs no `go.mod` and no Go code of the project's own; its source is the Go toolchain's. A package internal to the standard library is an error: `gopkg "internal/abi": internal to the Go standard library, which no other module may import`.
 - Any other path is provided by the nearest `go.mod` above the declaring file: a package of the project's own module, or of a module that `go.mod` requires or replaces. A path outside those is an error at the path.
-- A file held in memory rather than on disk (one an embedder passes with the source it loads) has no `go.mod`. Its bindings are answered by the host table its program is loaded with, and one the table does not answer is a load error naming it.
+- A file held in memory rather than on disk (one an embedder passes with the source it loads) has no `go.mod`. Its bindings are implemented by the host table its program is loaded with, and one the table does not implement is a load error naming it.
 - A `gopkg` is a top-level declaration: `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
 - The alias in `go alias.Symbol` is one a `gopkg` of the same file declares: `` `go t.ToUpper`: no `gopkg` in this file declares the alias t ``.
 - A Go type binding is opaque: `type B go s.Builder` is ``Go type binding B must be declared with `opaque type` ``. It may be private, a raw handle behind a Nomi facade (`opaque type RawConn go ffi.Conn`), or public (`pub opaque type Regex go ffi.Regex`); either way it can be named and passed but not constructed, unwrapped or inspected.

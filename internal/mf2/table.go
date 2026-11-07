@@ -8,7 +8,7 @@ import (
 )
 
 // Table is a message as a program carries it: what the compiler checked,
-// for the formatter to run. The function a `message` declaration expands
+// for the formatter to run. The function a `phrase` declaration expands
 // into holds it as text (EncodeTable), so a program carries the texts of
 // the messages it reaches and no others.
 type Table struct {
@@ -84,9 +84,9 @@ func decodeTable(text string) (*decoded, error) {
 	return actual.(*decoded), nil
 }
 
-// TableMessage is the parsed text of locale in the table text, once per
+// TablePhrase is the parsed text of locale in the table text, once per
 // table and locale.
-func TableMessage(text, locale string) (*Table, *Message, error) {
+func TablePhrase(text, locale string) (*Table, *Message, error) {
 	d, err := decodeTable(text)
 	if err != nil {
 		return nil, nil, err

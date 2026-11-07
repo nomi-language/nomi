@@ -74,7 +74,8 @@ func TestParseEmbedDeclErrors(t *testing.T) {
 		{"embed site `\"a\"b`\n", "line 1, col 13: a quoted `embed` pattern ends at its closing `\"`"},
 		{"embed site `\"\"`\n", "line 1, col 13: an `embed` pattern is empty"},
 		{"embed Site `a`\n", "line 1, col 7: the name of a `embed` is snake_case, not the type name `Site`"},
-		{"embed site `a` 1\n", "line 1, col 16: unexpected 1 in an `embed` declaration"},
+		{"embed site `a` 1\n", "line 1, col 16: unexpected `1` in an `embed` declaration"},
+		{"embed site `a", "line 1, col 12: unterminated raw string; close it with `"},
 	}
 	for _, c := range cases {
 		_, err := Parse(lexer.Lex(c.src))

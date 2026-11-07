@@ -25,11 +25,11 @@ import (
 
 // stdLazyFixed are corpus files whose programs reach the stdlib in a way an
 // import does not say: an exported function's JSON crossing, a boot, a
-// message catalog, embedded files.
+// phrase catalog, embedded files.
 var stdLazyFixed = []string{
 	"tests/01-foundations/standard_streams/streams.nomi",
 	"tests/18-ffi-and-dynamic/context_ffi_app/main.nomi",
-	"tests/19-locales/message_functions_test.nomi",
+	"tests/19-locales/phrase_functions_test.nomi",
 	"tests/14-modules-and-packaging/embedded_files/embedded_files_test.nomi",
 	"std/json.nomi",
 	"std/http.nomi",

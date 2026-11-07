@@ -5233,6 +5233,7 @@ func (e *Encoder) structTap(x *ast.Tap) {
 	} else if e.ptr(x.Capture) {
 		e.structCapture(x.Capture)
 	}
+	e.value(x.Name)
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
 }
@@ -5255,6 +5256,9 @@ func (d *Decoder) structTap(x *ast.Tap) {
 		d.refs = append(d.refs, x6)
 		d.structCapture(x6)
 		x.Capture = x6
+	}
+	if v7 := d.value(); v7 != nil {
+		x.Name = v7.(ast.Node)
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())

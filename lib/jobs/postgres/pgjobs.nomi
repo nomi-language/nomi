@@ -1,5 +1,5 @@
 //# A durable `std::jobs` queue in a Postgres table. `pgjobs.queue(db, url)`
-//# answers a `Queue` whose jobs live in the `nomi_jobs` table of the
+//# returns a `Queue` whose jobs live in the `nomi_jobs` table of the
 //# database `db` points at; an enqueue writes on the caller's `Conn`, so it
 //# commits or rolls back with the caller's transaction.
 //#
@@ -15,7 +15,7 @@
 //# `schema.sql` beside this file is the table, for a project's migrations to
 //# copy, and `schema_upgrade.sql` brings a table made from an earlier
 //# `schema.sql` up to it; `pgjobs.install(conn)` does both where needed, for
-//# tests and small apps. `queue` checks the table first and answers an
+//# tests and small apps. `queue` checks the table first and returns an
 //# error naming what an older table lacks.
 //#
 //# A worker claims due jobs with `FOR UPDATE SKIP LOCKED`, so workers in any

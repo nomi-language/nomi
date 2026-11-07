@@ -839,7 +839,7 @@ test "a generated file's header records the digest, and the test compares it" {
 }
 
 // --- the runtime ---------------------------------------------------------
-// A fake connection whose every query answers rows of one column `n`.
+// A fake connection whose every query returns rows of one column `n`.
 fn numbers(values: List<Value>) -> Fake {
     Fake.new(
         answer: fn statement, _ -> {

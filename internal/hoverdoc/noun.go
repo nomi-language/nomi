@@ -10,7 +10,7 @@ import (
 
 // nounOnce is the `once` a `noun` declaration expanded into that sym
 // names, or nil, as its file's source has it when fa's program read the
-// file as its interface (messageFunc).
+// file as its interface (phraseFunc).
 func nounOnce(sym *analysis.Symbol, fa *analysis.FileAnalysis) *ast.OnceBinding {
 	for s := sym; s != nil; s = s.Resolved {
 		if o, ok := s.Node.(*ast.OnceBinding); ok && o.Expansion != nil {
@@ -54,7 +54,7 @@ func NounTexts(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
 		if l.Partial {
 			head += " (partial)"
 		}
-		if l.State == analysis.MessageCurrent {
+		if l.State == analysis.PhraseCurrent {
 			if l.Gender != "" {
 				head += ", " + l.Gender
 			}
@@ -66,11 +66,11 @@ func NounTexts(sym *analysis.Symbol, fa *analysis.FileAnalysis) string {
 			continue
 		}
 		switch l.State {
-		case analysis.MessageStale:
+		case analysis.PhraseStale:
 			head += fmt.Sprintf(": stale, translated from an older %s text", analysis.LanguageName(info.SourceLocale))
-		case analysis.MessageUnrecorded:
+		case analysis.PhraseUnrecorded:
 			head += fmt.Sprintf(": the entry does not record the %s text it was translated from", analysis.LanguageName(info.SourceLocale))
-		case analysis.MessageMissing:
+		case analysis.PhraseMissing:
 			if l.Required {
 				head += ": no translation"
 			} else {

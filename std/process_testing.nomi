@@ -1,9 +1,9 @@
 //# Testing code that starts programs, without starting any. Inside
 //# `process_testing.run(answers, body)`, every std::process call `body`
-//# makes, and every call the tasks it starts make, is answered by the
+//# makes, and every call the tasks it starts make, is handled by the
 //# first `Answer` for its program and arguments, and recorded. `run`
-//# answers what `body` returned together with each call, in order, with
-//# the input the program was given. A program no answer names fails to
+//# returns what `body` returned together with each call, in order, with
+//# the input the program was given. A program no `Answer` names fails to
 //# start with `NotFound`, as a program missing from the `PATH` does. As
 //# with `fs_testing.run`, the answers last for the call and follow its
 //# tasks, and a nested `run` takes over for its own call.
@@ -41,7 +41,7 @@ import {
     strings.String
 }
 
-/// How the fake answers a start of `program`: with the given output and
+/// How the fake responds to a start of `program`: with the given output and
 /// exit code, or, when `error` is set, by failing to start with it.
 //! import std::process.{self, Command, Status}
 //!
@@ -65,9 +65,9 @@ import {
 //! assert deployed == Err(Error.PermissionDenied{path: "deploy"})
 //
 pub struct Answer {
-    /// The program it answers, as the command names it.
+    /// The program it matches, as the command names it.
     program: String
-    /// The arguments it answers; `None` answers any.
+    /// The arguments it matches; `None` matches any.
     args: Maybe<List<String>> = None
     /// The exit code.
     code: Int = 0
@@ -79,7 +79,7 @@ pub struct Answer {
     error: Maybe<Error> = None
 }
 
-/// One start the fake answered, or refused.
+/// One start the fake responded to, or refused.
 pub struct Call {
     program: String
     args: List<String> = []
@@ -93,7 +93,7 @@ pub struct Call {
 
 derive Equatable for Call
 
-/// What `run` answers.
+/// What `run` returns.
 pub struct Ran<T> {
     /// What `body` returned.
     value: T
@@ -101,8 +101,8 @@ pub struct Ran<T> {
     calls: List<Call>
 }
 
-/// Runs `body` with `answers` answering every std::process call it makes,
-/// and answers what it returned with each call. Nothing is started. If
+/// Runs `body` with `answers` handling every std::process call it makes,
+/// and returns what it returned with each call. Nothing is started. If
 /// `body` traps, the trap propagates.
 //! import std::process.{self, Command, Stdin}
 //!

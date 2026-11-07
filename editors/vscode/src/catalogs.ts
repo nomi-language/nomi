@@ -1,5 +1,5 @@
 /**
- * Message catalogs: the TOML files a module's `message` translations live
+ * Phrase catalogs: the TOML files a module's `phrase` translations live
  * in, under the directory `[i18n].catalogs` names in its nomi.toml
  * (`locales` unless it says otherwise). The language client attaches to
  * them, and to no other TOML file, through the document filters this

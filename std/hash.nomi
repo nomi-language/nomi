@@ -17,6 +17,9 @@
 //#   someone sent with `equal_in_constant_time`, never `==`, which returns
 //#   as soon as a byte differs and so tells an attacker how much of a forgery
 //#   was right.
+//# - To stretch a password or passphrase into a key: `pbkdf2_sha256`
+//#   (RFC 8018). To store a password for logging in, use
+//#   std::passwords, which salts it and records how it was hashed.
 //# - To match a format that names an older hash: `md5` (ETags, legacy
 //#   checksums) and `sha1` (Git object names). Both are broken for security,
 //#   since inputs with the same digest can be made, so never use them to
@@ -24,14 +27,16 @@
 //#
 //# None of these is for storing passwords. They are fast by design, which
 //# lets an attacker who has the digests guess billions of passwords a
-//# second. std has no password hash.
+//# second. Store a password with std::passwords, which is slow on purpose.
 //#
-//# Every function here is pure, so a typed literal's handler may call them.
+//# Every function here is pure, so a typed literal's handler may call them,
+//# except `pbkdf2_sha256`, whose cost is its iteration count.
 
 import {
     bool.Bool
     bytes.Bytes
     hex
+    int.Int
     strings.String
 }
 
@@ -200,3 +205,27 @@ pub host fn hmac_sha512(key: Bytes, data: Bytes) -> Bytes
 //! refute hash.equal_in_constant_time(sent, Bytes.slice(sent, 0, 16))
 //
 pub host fn equal_in_constant_time(a: Bytes, b: Bytes) -> Bool
+
+/// PBKDF2 with HMAC-SHA256 (RFC 8018): a key `length` bytes long derived
+/// from `password` and `salt` by `iterations` rounds of HMAC-SHA256. Each
+/// round costs the same, so the count sets how long a guess takes. An
+/// `iterations` below 1, or a `length` outside 1 to 1024, is a runtime
+/// error. To store a password, use std::passwords, which picks the salt
+/// and the count and records both.
+//! import std::hash
+//! import std::hex
+//!
+//! // RFC 7914, section 11.
+//! key = hash.pbkdf2_sha256(String.to_bytes("passwd"), String.to_bytes("salt"), 1, 64)
+//!
+//! assert hex.encode(
+//!     key
+//! ) == "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783"
+//!
+//! slow = hash.pbkdf2_sha256(String.to_bytes("Password"), String.to_bytes("NaCl"), 80_000, 64)
+//!
+//! assert hex.encode(
+//!     slow
+//! ) == "4ddcd8f60b98be21830cee5ef22701f9641a4418d04c0414aeff08876b34ab56a1d425a1225833549adb841b51c9b3176a272bdebba1d078478f62b397f33c8d"
+//
+pub host fn pbkdf2_sha256(password: Bytes, salt: Bytes, iterations: Int, length: Int) -> Bytes

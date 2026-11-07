@@ -148,7 +148,7 @@ impl Currency {
     /// A custom currency: `code`, 1 to 12 of `A`–`Z` and `0`–`9` starting
     /// with a letter, that is not an ISO 4217 code, with `minor_digits`
     /// digits after the decimal point, 0 to 18. A three-letter code such as
-    /// `BTC` is allowed; if CLDR ever lists it as ISO, this answers
+    /// `BTC` is allowed; if CLDR ever lists it as ISO, this returns
     /// `Err(.IsoCode)` and its literal stops compiling.
     //! assert Currency.custom("BTC", 8) |> Result.map(&Currency.minor_digits(&1)) == Ok(8)
     //! assert Currency.custom("EUR", 2) == Err(Error.IsoCode{code: "EUR"})

@@ -14,13 +14,13 @@ import (
 // go to implementations, and the quick fixes that add a missing gender arm
 // and a missing form.
 
-const orderNouns = "import std::message.Noun\n\n" +
+const orderNouns = "" +
 	"/// A book, a product category.\n" +
 	"pub noun book `.input {$count :integer} .match $count one {{book}} * {{books}}`\n\n" +
 	"pub noun laptop `.input {$count :integer} .match $count one {{laptop}} * {{laptops}}`\n\n" +
 	"pub noun phone_case `phone case`\n\n" +
-	"pub message has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\n" +
-	"pub message sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n"
+	"pub phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\n" +
+	"pub phrase sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n"
 
 const polishOrder = "[book]\nsource = '''.input {$count :integer} .match $count one {{book}} * {{books}}'''\ngender = \"feminine\"\n" +
 	"nominative = '''.input {$count :integer} .match $count one {{książka}} few {{książki}} many {{książek}} * {{książki}}'''\n" +
@@ -37,7 +37,7 @@ const polishOrder = "[book]\nsource = '''.input {$count :integer} .match $count 
 func nounProject() map[string]string {
 	return map[string]string{
 		"nomi.toml":             "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
-		"main.nomi":             "import {\n    std::io\n    std::locale.Locale\n    std::message.Message\n    order\n}\n\nfn main() {\n    io.print(Message.format(order.has_shipped(order.book), Locale`pl`))\n}\n",
+		"main.nomi":             "import {\n    std::io\n    order\n}\n\nfn main() {\n    io.print(Phrase.format(order.has_shipped(order.book), Locale`pl`))\n}\n",
 		"order.nomi":            orderNouns,
 		"locales/pl/order.toml": polishOrder,
 	}
@@ -80,11 +80,11 @@ func TestNouns_HoverShowsTheFormsInEachLocale(t *testing.T) {
 	files := nounProject()
 	s, mainURI := openProject(t, files, "main.nomi")
 	main := files["main.nomi"]
-	use := messageHoverText(t, s, mainURI, offsetPosition(main, strings.Index(main, "order.book")+7))
+	use := phraseHoverText(t, s, mainURI, offsetPosition(main, strings.Index(main, "order.book")+7))
 	root := strings.TrimSuffix(uriToPath(mainURI), "main.nomi")
 	orderURI := pathToURI(filepath.Join(root, "order.nomi"))
 	s.docs.Open(orderURI, orderNouns)
-	decl := messageHoverText(t, s, orderURI, offsetPosition(orderNouns, strings.Index(orderNouns, "noun book")+6))
+	decl := phraseHoverText(t, s, orderURI, offsetPosition(orderNouns, strings.Index(orderNouns, "noun book")+6))
 	for name, text := range map[string]string{"use": use, "declaration": decl} {
 		for _, want := range []string{
 			"noun book: Noun",
@@ -131,7 +131,7 @@ func TestNouns_CompletionInACatalog(t *testing.T) {
 
 	keyLine := strings.Index(draft, "laptops}}'''\n\n") + len("laptops}}'''\n")
 	if got := strings.Join(catalogCompletionLabels(t, s, uri, offsetPosition(draft, keyLine)), " "); got != "gender genitive dative accusative instrumental vocative locative" {
-		t.Errorf("at a noun entry's key: %q, want its gender, then the case its messages ask for, then the others", got)
+		t.Errorf("at a noun entry's key: %q, want its gender, then the case its phrases ask for, then the others", got)
 	}
 	if got := strings.Join(catalogCompletionLabels(t, s, uri, offsetPosition(draft, strings.Index(draft, "gender = \"\"")+10)), " "); got != "feminine animate inanimate personal neuter" {
 		t.Errorf("in `gender`: %q, want the genders the nouns have first", got)
@@ -145,9 +145,9 @@ func TestNouns_CompletionInACatalog(t *testing.T) {
 	}
 }
 
-// A message that selects on a noun's gender and lacks an arm for a gender
+// A phrase that selects on a noun's gender and lacks an arm for a gender
 // the program's nouns have gets it from the arms quick fix, and a noun
-// that lacks a form its locale's messages ask for gets one from its own.
+// that lacks a form its locale's phrases ask for gets one from its own.
 func TestNouns_QuickFixesAddTheGenderArmAndTheForm(t *testing.T) {
 	files := nounProject()
 	short := strings.Replace(polishOrder, "neuter {{Twoje {$product :nomi:noun} zostało wysłane.}}\n", "", 1)
@@ -169,14 +169,14 @@ func TestNouns_QuickFixesAddTheGenderArmAndTheForm(t *testing.T) {
 	}
 	s, _ := openProjectAt(t, root, "order.nomi")
 	uri := pathToURI(filepath.Join(root, "locales/pl/order.toml"))
-	applyEdits(t, root, actionTitled(t, messageCodeActions(t, s, uri, catalogPointAt(short, "inanimate {{Tw"), nil), "Give the pl translation of `has_shipped` the arms Polish needs").Edit)
+	applyEdits(t, root, actionTitled(t, phraseCodeActions(t, s, uri, catalogPointAt(short, "inanimate {{Tw"), nil), "Give the pl translation of `has_shipped` the arms Polish needs").Edit)
 	data, _ := os.ReadFile(uriToPath(uri))
 	text := string(data)
 	if !strings.Contains(text, "neuter {{Twoja przesyłka została wysłana.}}\n* {{") {
 		t.Errorf("the neuter arm was not added from the catch-all:\n%s", text)
 	}
 	s.docs.SetInputOverlay(uriToPath(uri), text)
-	applyEdits(t, root, actionTitled(t, messageCodeActions(t, s, uri, catalogPointAt(text, "[laptop]"), nil), "Give the pl translation of `laptop` the `genitive` form its messages ask for").Edit)
+	applyEdits(t, root, actionTitled(t, phraseCodeActions(t, s, uri, catalogPointAt(text, "[laptop]"), nil), "Give the pl translation of `laptop` the `genitive` form its phrases ask for").Edit)
 	data, _ = os.ReadFile(uriToPath(uri))
 	if !strings.Contains(string(data), "genitive = '''.input {$count :integer} .match $count one {{laptop}} few {{laptopy}} many {{laptopów}} * {{laptopa}}'''") {
 		t.Errorf("the genitive was not added as a copy of the nominative:\n%s", data)

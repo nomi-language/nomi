@@ -20,7 +20,8 @@ import (
 //   - "Generate function ..." for an undefined call (code_action_generate.go)
 //   - "Extract variable" and "Inline variable" (code_action_extract.go)
 //   - "Convert to case" and "Convert to if/else" (code_action_if_case.go)
-//   - "Use a placeholder" and "Write as a lambda" (code_action_placeholder.go)
+//   - "Use a capture", "Write as a lambda" and "Pass `f` by name"
+//     (code_action_capture.go)
 //
 // Each one edits the document text and hands the result to the fill fixes'
 // finish, so a document that was `nomi fmt` output stays formatted and the
@@ -119,6 +120,9 @@ func (s *Server) buildRefactorActions(content string, nodes []ast.Node, fa *anal
 		add(protocol.CodeActionKindRefactorRewrite, title, edited, nil)
 	}
 	if title, edited, ok := r.writeAsLambda(); ok {
+		add(protocol.CodeActionKindRefactorRewrite, title, edited, nil)
+	}
+	if title, edited, ok := r.tapByName(); ok {
 		add(protocol.CodeActionKindRefactorRewrite, title, edited, nil)
 	}
 	return out

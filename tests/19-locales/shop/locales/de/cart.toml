@@ -1,5 +1,5 @@
 # German, a partial locale. `cart_items` was translated from an older
-# English text, so it is left out and the message shows in English;
+# English text, so it is left out and the phrase shows in English;
 # `order_status` is current.
 
 [cart_items]

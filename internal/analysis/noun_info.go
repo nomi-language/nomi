@@ -38,14 +38,14 @@ type NounLocale struct {
 	Path  string
 	Found bool
 	// Entry is the noun's entry, nil when it has none; State says whether
-	// it is current (MessageNoText never applies to a noun).
+	// it is current (PhraseNoText never applies to a noun).
 	Entry *catalog.Entry
-	State MessageState
+	State PhraseState
 	// Gender is the entry's gender, "" when it gives none.
 	Gender string
 	// Forms are the entry's forms by case, in the order they are written.
 	Forms []catalog.Field
-	// Shows is the locale whose forms a message in this locale writes.
+	// Shows is the locale whose forms a phrase in this locale writes.
 	Shows string
 	// Required reports that a missing entry is an error.
 	Required bool
@@ -68,13 +68,13 @@ func NounOf(o *ast.OnceBinding) *NounInfo {
 		l.Entry = c.file.Entry(e.decl.Name)
 		switch {
 		case l.Entry == nil:
-			l.State = MessageMissing
+			l.State = PhraseMissing
 		case !l.Entry.Source.Present:
-			l.State = MessageUnrecorded
+			l.State = PhraseUnrecorded
 		case !mf2.Same(l.Entry.Source.Text, info.Source):
-			l.State = MessageStale
+			l.State = PhraseStale
 		default:
-			l.State = MessageCurrent
+			l.State = PhraseCurrent
 			current[c.locale] = true
 		}
 		if l.Entry != nil {
@@ -91,7 +91,7 @@ func NounOf(o *ast.OnceBinding) *NounInfo {
 	for i := range info.Locales {
 		l := &info.Locales[i]
 		l.Shows = shownLocale(l.Locale, e.source, current)
-		l.Required = l.State == MessageMissing && !l.Partial && !e.fallsBack(l.Locale, info.Source)
+		l.Required = l.State == PhraseMissing && !l.Partial && !e.fallsBack(l.Locale, info.Source)
 	}
 	return info
 }
@@ -140,7 +140,7 @@ func CatalogGenders(place CatalogPlace, read func(string) (string, bool)) []stri
 	return out
 }
 
-// CatalogCases are the cases the messages of a module's catalogs in one
+// CatalogCases are the cases the phrases of a module's catalogs in one
 // locale's directory ask a noun for with `:nomi:noun`, the nominative
 // first, each once: the forms each noun's entry there needs, as far as one
 // module's catalogs tell. read is as CatalogGenders's.

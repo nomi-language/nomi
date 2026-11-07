@@ -2,12 +2,13 @@ package parser
 
 import (
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/token"
 )
 
 // parseCapture parses a capture (spec §7, *Captures*): `&` written against
 // the function's body, which is one postfix-level operand: a call (`&Int.max(&1, 0)`), a parenthesized expression
 // (`&(&1 > 2)`) or a literal (`&Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1]`,
-// `&%{&1 => 0}`). So `&f(&1) + 1` adds 1 to a function, and the body of a
+// `&%{&1 => 0}`, `&"id ${&1}"`, `&Url"/users/${&1}"`). So `&f(&1) + 1` adds 1 to a function, and the body of a
 // function of the whole sum is parenthesized: `&(f(&1) + 1)`.
 //
 // Each `&N` in the body is the capture's parameter N. A capture whose body
@@ -26,7 +27,7 @@ func (p *Parser) parseCapture() (ast.Node, error) {
 	}
 	p.recordSpan(body, start)
 	if !captureBody(body) {
-		return nil, errorAt(amp.Line, amp.Col, "a capture is `&` and a call, a parenthesized expression or a literal, as in `&f(&1)` or `&(&1 > 2)`")
+		return nil, errorAt(amp.Line, amp.Col, token.CaptureBodyProblem)
 	}
 	openPartialArgs(body)
 	return &ast.Capture{Body: body, Line: amp.Line, Col: amp.Col}, nil
@@ -37,7 +38,8 @@ func (p *Parser) parseCapture() (ast.Node, error) {
 func captureBody(n ast.Node) bool {
 	switch v := n.(type) {
 	case *ast.Call, *ast.GroupedExpr, *ast.StructLit, *ast.TupleLit, *ast.ListLit,
-		*ast.ListSpreadLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit:
+		*ast.ListSpreadLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit,
+		*ast.StringLit, *ast.StringInterp, *ast.TaggedString:
 		return true
 	case *ast.Unwrap:
 		// `&Vector.get(v, &1)!`: the body unwraps a call's result, so its

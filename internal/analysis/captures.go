@@ -296,7 +296,7 @@ func (c *checker) strayPlaceholders() map[*ast.PlaceholderParam]*strayPlaceholde
 // capture's body (`&Int.max(&1, 0)`), unless it is a pipe's stage, which
 // the pipe fills at its first argument (`|> then &divide(100, &1)`). An
 // operator, range, field read or parentheses around p are part of the body
-// (`&(&1 * 2 + 1)`), and so is a literal p is a field or element of
+// (`&(&1 * 2 + 1)`), and so is a literal p is a field, element or slot of
 // (`&Point{x: &1, y: 0}`).
 func strayHelp(p *ast.PlaceholderParam, parents []ast.Node) *strayPlaceholder {
 	var cur ast.Node = p
@@ -332,7 +332,7 @@ climb:
 				cur = v
 				continue
 			}
-		case *ast.StructLit, *ast.TupleLit, *ast.ListLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit:
+		case *ast.StructLit, *ast.TupleLit, *ast.ListLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit, *ast.StringInterp, *ast.TaggedString:
 			return &strayPlaceholder{at: v, hint: fmt.Sprintf("write `&%s`", format.RenderNode(v))}
 		}
 		break climb
@@ -799,6 +799,14 @@ func replaceHoles(n ast.Node, names map[ast.Node]string) ast.Node {
 			cp.Items[i] = replaceHoles(item, names)
 		}
 		return &cp
+	case *ast.StringInterp:
+		cp := *v
+		cp.Parts = replacePartHoles(v.Parts, names)
+		return &cp
+	case *ast.TaggedString:
+		cp := *v
+		cp.Parts = replacePartHoles(v.Parts, names)
+		return &cp
 	case *ast.NamedArg:
 		cp := *v
 		cp.Value = replaceHoles(v.Value, names)
@@ -812,6 +820,19 @@ func replaceHoles(n ast.Node, names map[ast.Node]string) ast.Node {
 		return &cp
 	}
 	return n
+}
+
+// replacePartHoles is a copy of a string literal's parts with each hole in
+// names written as its name: `"id ${&1}"` reads `"id ${x}"`.
+func replacePartHoles(parts []ast.StringPart, names map[ast.Node]string) []ast.StringPart {
+	cp := make([]ast.StringPart, len(parts))
+	for i, p := range parts {
+		if e, ok := p.(ast.StringExpr); ok {
+			p = ast.StringExpr{Expr: replaceHoles(e.Expr, names)}
+		}
+		cp[i] = p
+	}
+	return cp
 }
 
 // recordPlaceholder notes the `&n` at line and col for the semantic tokens

@@ -81,7 +81,7 @@ fn wait_live(endpoint: Url, tries: Int) -> Result<Unit, String> {
     }
 }
 
-// Send `request` signed for `config`'s server, and answer its response
+// Send `request` signed for `config`'s server, and return its response
 // when it succeeds.
 fn signed(config: Config, request: Request) -> Result<Response, String> {
     signed = s3.sign(request, config.credentials, config.region, Instant.now())

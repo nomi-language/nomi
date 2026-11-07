@@ -15,7 +15,7 @@ fn m(name: String, text: String) -> Migration {
 
 // Runs body on a fresh database of each engine: SQLite in memory, and a
 // database of the process's scratch Postgres server (which needs `initdb`
-// and `postgres` on PATH). Answers each engine's name and result.
+// and `postgres` on PATH). Returns each engine's name and result.
 fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<#(String, Result<T, Error>)> {
     opens: List<#(String, () -> Result<Conn, sql.Error>)> = [
         #("sqlite", fn -> sqlite.memory()),
@@ -40,7 +40,7 @@ fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<#(String, Result<T, Erro
     |> Iter.to_list()
 }
 
-// The same answer from both engines.
+// The same result from both engines.
 fn both<T>(answer: Result<T, Error>) -> List<#(String, Result<T, Error>)> {
     [#("sqlite", answer), #("postgres", answer)]
 }

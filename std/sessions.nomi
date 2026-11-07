@@ -1,0 +1,458 @@
+//# Sessions for server-rendered web apps: a value of the app's own type
+//# that lives across requests in one cookie, encrypted and authenticated
+//# with AES-256-GCM, so a browser can neither read nor change it.
+//#
+//# `with_session` is middleware that hands the handler the request's
+//# session, by type, beside the request. The handler reads
+//# `session.value`, and to change it builds a new session with
+//# `Session.set`, `Session.clear` or `Session.add_flash` and writes it onto
+//# its response with `sessions.write`:
+//#
+//# ```nomi
+//# fn sign_in(request: Request, session: Session<Visit>) -> Response {
+//#     next = session |> Session.set(Visit{user_id: 7}) |> Session.add_flash("Welcome back.")
+//#     Response.redirect(request, "/", Status.see_other) |> sessions.write(next)
+//# }
+//#
+//# routes = [#(Route`POST /sign-in`, sign_in |> sessions.with_session(App.sessions))]
+//# ```
+//#
+//# A response that writes nothing leaves the cookie as it is. A cookie
+//# that was changed, sealed under a key the store does not hold, or has
+//# expired reads as no session, never as an error.
+//#
+//# The key comes from a secret the app holds, read in `boot`:
+//#
+//# ```nomi
+//# secret = Map.get(startup.env, "SESSION_SECRET") |> Maybe.to_result("SESSION_SECRET is not set")?
+//#
+//# store = CookieStore{key: SessionKey.derive(secret)?}
+//# ```
+//#
+//# ## Cross-site request forgery
+//#
+//# There is no CSRF token. Put `http.cross_origin_protection` in the
+//# stack: it refuses a `POST`, `PUT`, `PATCH` or `DELETE` that a browser
+//# says came from another origin, by `Sec-Fetch-Site` or else `Origin`,
+//# which every current browser sends and a page cannot forge. The session
+//# cookie is `SameSite=Lax` as well, so a browser leaves it off a
+//# cross-site form post even where those headers are missing. Keep `GET`
+//# and `HEAD` free of changes, since both checks let them through.
+//#
+//# ## What a cookie session cannot do
+//#
+//# The whole value travels in the cookie, so it must stay under about 4 KB
+//# sealed: `write` returns 500 for one over 4,096 bytes. Keep an id in the
+//# session and the data in a database. A copy of the cookie stays valid
+//# until it expires, so `Session.clear` signs one browser out but cannot
+//# revoke a stolen copy; a short `max_age` or `idle_timeout` bounds that.
+
+import {
+    base64
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    duration.Duration
+    hash
+    http.{self, Cookie, Headers, MaxAge, Request, Response, SameSite, Status, ToResponse}
+    http_host
+    instant.Instant
+    int.Int
+    iter.Iter
+    json.{FromJson, Json, ToJson}
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+}
+
+/// A 32-byte AES-256 key that seals session cookies. Its `Debug` shows
+/// nothing of it.
+pub opaque type SessionKey Bytes
+
+impl SessionKey {
+    /// The key for `secret`, which must hold at least 32 bytes, such as 32
+    /// random bytes in base64 (`openssl rand -base64 32`). The key is the
+    /// secret's HMAC-SHA256, so a secret of any length gives a key of the
+    /// right size; a shorter secret is an `Err`, since it would be easy to
+    /// guess.
+    //! import std::sessions.SessionKey
+    //!
+    //! assert SessionKey.derive("6Zb0mXbJ4f0rS2sQm0JzRj1tYk8H3v9c") |> Result.is_ok()
+    //! assert SessionKey.derive("hunter2") == Err("a session secret needs at least 32 bytes, got 7")
+    //
+    pub fn derive(secret: String) -> Result<SessionKey, String> {
+        data = String.to_bytes(secret)
+        length = Bytes.length(data)
+
+        if length < 32 {
+            Err("a session secret needs at least 32 bytes, got ${length}")
+        } else {
+            Ok(SessionKey(hash.hmac_sha256(data, String.to_bytes("nomi session key"))))
+        }
+    }
+}
+
+/// Where sessions are kept: one cookie per browser, sealed under `key`.
+/// The cookie is `HttpOnly`, `SameSite=Lax` and, unless `secure` is
+/// turned off, `Secure`.
+pub struct CookieStore {
+    /// The key that seals each cookie written.
+    key: SessionKey
+    /// Keys a cookie may still be sealed under. To rotate keys, make the
+    /// new key `key` and move the old one here; each cookie is sealed under
+    /// the new key the next time it is written, and the old one can go
+    /// once `max_age` has passed.
+    previous_keys: List<SessionKey> = []
+    /// The cookie's name.
+    name: String = "session"
+    /// How long a session lasts from when it was first set, however busy
+    /// it is. The browser is told to drop the cookie then too.
+    max_age: Duration = Duration.hours(14 * 24)
+    /// How long a session lasts with no request. A session read with this
+    /// set is written again at most once a minute, to move its last-seen
+    /// time, so the timeout counts from within a minute of the last
+    /// request.
+    idle_timeout: Maybe<Duration> = None
+    /// Whether the cookie is `Secure`, sent only over HTTPS. Turn it off
+    /// to serve a session over plain HTTP in development.
+    secure: Bool = True
+    /// The cookie's `Path`.
+    path: String = "/"
+    /// The cookie's `Domain`; `None` keeps it to the host that set it.
+    domain: Maybe<String> = None
+}
+
+/// A request's session: `value`, the app's `T`, or `None` when the
+/// request carried no session, and the flash messages the previous
+/// response left for this one. The functions on `Session` build a changed
+/// session, and `sessions.write` puts it on a response.
+pub struct Session<T> {
+    value: Maybe<T>
+    /// Messages added with `Session.add_flash` by the response before this
+    /// request. They are shown once: after this request the cookie no
+    /// longer holds them.
+    flash: List<String>
+    state: SessionState
+}
+
+/// What a `Session` carries besides its value: its store, when it began
+/// and was last written, and the flash messages to write.
+pub opaque struct SessionState {
+    store: CookieStore
+    created: Int
+    seen: Int
+    outgoing: List<String>
+}
+
+impl Session<T> {
+    /// An empty session in `store`, for calling a handler that takes a
+    /// session directly in a test. `with_session` makes the session a
+    /// handler is given.
+    //! import std::sessions.{CookieStore, Session, SessionKey}
+    //!
+    //! store = CookieStore{key: SessionKey.derive("a test secret of 32 bytes or more")!}
+    //! session: Session<Int> = Session.new(store) |> Session.set(7)
+    //! assert session.value == Some(7)
+    //
+    pub fn new<T>(store: CookieStore) -> Session<T> {
+        empty(store, now())
+    }
+
+    /// The session holding `value`. A session that held none starts its
+    /// `max_age` now.
+    pub fn set<T>(session: Session<T>, value: T) -> Session<T> {
+        state = case session.value {
+            Some(_) -> session.state
+            None -> #{..session.state, created: now()}
+        }
+
+        #{..session, value: Some(value), state}
+    }
+
+    /// The session holding no value, as at signing out. Written, it deletes
+    /// the cookie, unless it carries a flash message.
+    pub fn clear<T>(session: Session<T>) -> Session<T> {
+        #{..session, value: None}
+    }
+
+    /// The session with `message` added to the flash messages the next
+    /// request reads.
+    pub fn add_flash<T>(session: Session<T>, message: String) -> Session<T> {
+        state = session.state
+        #{..session, state: #{..state, outgoing: state.outgoing + [message]}}
+    }
+
+    /// The session with its `max_age` started again now, as at signing in
+    /// when a session already held a value.
+    pub fn renew<T>(session: Session<T>) -> Session<T> {
+        #{..session, state: #{..session.state, created: now()}}
+    }
+}
+
+/// Middleware that reads the request's session from its cookie and hands
+/// it to `handler`. The cookie is written only when the response says so
+/// with `write`, or to take away flash messages this request read, to move
+/// an idle timeout along, or to delete a cookie that did not open.
+//! import std::http.{Body, Method, Request, Response}
+//! import std::http_testing
+//! import std::sessions.{self, CookieStore, Session, SessionKey}
+//!
+//! store = CookieStore{key: SessionKey.derive("a test secret of 32 bytes or more")!}
+//!
+//! count = fn _: Request, session: Session<Int> -> {
+//!     n = Maybe.with_default(session.value, 0) + 1
+//!     Response{body: Body.Text("${n}")} |> sessions.write(Session.set(session, n))
+//! }
+//!
+//! app = count |> sessions.with_session(store)
+//! first = app(http_testing.request(Method.Get, "/"))
+//! assert Response.text(first) == Ok("1")
+//!
+//! cookie = List.head(Response.cookies(first))!
+//! assert cookie.http_only and cookie.secure
+//!
+//! again = Request.add_cookie(http_testing.request(Method.Get, "/"), cookie)
+//! assert Response.text(app(again)) == Ok("2")
+//
+pub fn with_session<T>(handler: (Request, Session<T>) -> ToResponse, store: CookieStore) -> (
+    Request
+) -> Response where T: ToJson and FromJson {
+    fn request -> {
+        #(session, stale) = read<T>(request, store)
+        response = ToResponse.to_response(handler(request, session))
+
+        if writes(response, store.name) {
+            response
+        } else if stale {
+            replace_cookie(response, removal(store))
+        } else if not Iter.is_empty(session.flash) or idle_due(session) {
+            write(response, session)
+        } else {
+            response
+        }
+    }
+}
+
+/// `response` with a `Set-Cookie` header that holds `session`, in place
+/// of any the response already sets for the session's cookie. A session
+/// with no value and no flash message deletes the cookie. A sealed cookie
+/// over 4,096 bytes gets `500 Internal Server Error`, since a
+/// browser would drop it.
+//! import std::http.Response
+//! import std::sessions.{self, CookieStore, Session, SessionKey}
+//!
+//! store = CookieStore{key: SessionKey.derive("a test secret of 32 bytes or more")!, secure: False}
+//! session: Session<String> = Session.new(store)
+//!
+//! saved = sessions.write(Response{}, Session.set(session, "ada"))
+//! cookie = List.head(Response.cookies(saved))!
+//! assert cookie.name == "session" and cookie.path == Some("/") and not cookie.secure
+//!
+//! cleared = sessions.write(Response{}, Session.clear(session))
+//!
+//! assert Headers.get(cleared.headers, "Set-Cookie")
+//!     == Some("session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+//
+pub fn write<T>(response: Response, session: Session<T>) -> Response where T: ToJson {
+    state = session.state
+    store = state.store
+    at = now()
+    left = state.created + Duration.as_seconds(store.max_age) - at
+
+    lifetime = case store.idle_timeout {
+        Some(idle) -> Int.min(left, Duration.as_seconds(idle))
+        None -> left
+    }
+
+    if (session.value == None and Iter.is_empty(state.outgoing)) or lifetime <= 0 {
+        return replace_cookie(response, removal(store))
+    }
+
+    fields = %{
+        "c" => Json.Int(state.created),
+        "s" => Json.Int(at),
+        "f" => Json.Arr(
+            state.outgoing
+            |> Iter.map(Json.String)
+            |> Iter.to_list()
+        ),
+    }
+
+    payload = case session.value {
+        Some(v) -> Map.put(fields, "v", ToJson.to_json(v))
+        None -> fields
+    }
+
+    plain = String.to_bytes(Json.encode(Json.Obj(payload)))
+
+    case http_host.seal(key_bytes(store.key), plain, label(store)) {
+        Ok(sealed) -> {
+            cookie = #{
+                ..base_cookie(store),
+                value: base64.encode_url(sealed, padded: False),
+                max_age: MaxAge.Seconds(lifetime),
+            }
+
+            if String.length("${cookie}") > 4096 {
+                Response.error(
+                    Status.internal_server_error,
+                    "the session is over 4096 bytes sealed",
+                )
+            } else {
+                replace_cookie(response, cookie)
+            }
+        }
+
+        Err(reason) ->
+            Response.error(Status.internal_server_error, reason)
+    }
+}
+
+// The session `request` carries, and whether it carried a cookie of the
+// store's name that did not open or had expired.
+fn read<T>(request: Request, store: CookieStore) -> #(Session<T>, Bool) where T: FromJson {
+    at = now()
+
+    case Request.cookie(request, store.name) {
+        None ->
+            #(empty(store, at), False)
+
+        Some(cookie) ->
+            case open(store, cookie.value, at) {
+                Some(session) -> #(session, False)
+                None -> #(empty(store, at), True)
+            }
+    }
+}
+
+fn empty<T>(store: CookieStore, at: Int) -> Session<T> {
+    Session{
+        value: None,
+        flash: [],
+        state: SessionState{store, created: at, seen: at, outgoing: []},
+    }
+}
+
+fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where T: FromJson {
+    sealed = base64.decode_url(text) |> Result.to_maybe()?
+    plain = unseal(store, sealed)?
+    decoded = Bytes.to_string(plain) |> Result.to_maybe()?
+
+    fields = case Json.decode(decoded) {
+        Ok(Json.Obj(m)) -> m
+        _ -> return None
+    }
+
+    created = int_field(fields, "c")?
+    seen = int_field(fields, "s")?
+    flash = strings_field(fields, "f")?
+
+    if at >= created + Duration.as_seconds(store.max_age) { return None }
+
+    idle = store.idle_timeout |> Maybe.map(fn d -> at >= seen + Duration.as_seconds(d))
+    if idle == Some(True) { return None }
+
+    value = case Map.get(fields, "v") {
+        Some(json) ->
+            Some(
+                T.from_json(json)
+                |> Result.to_maybe()?
+            )
+
+        None ->
+            None
+    }
+
+    Some(Session{
+        value,
+        flash,
+        state: SessionState{store, created, seen, outgoing: []},
+    })
+}
+
+fn unseal(store: CookieStore, sealed: Bytes) -> Maybe<Bytes> {
+    keys = [store.key] + store.previous_keys
+    Iter.find_map(keys, fn key -> http_host.open_sealed(key_bytes(key), sealed, label(store)))
+}
+
+fn int_field(fields: Map<String, Json>, name: String) -> Maybe<Int> {
+    case Map.get(fields, name) {
+        Some(Json.Int(n)) -> Some(n)
+        _ -> None
+    }
+}
+
+fn strings_field(fields: Map<String, Json>, name: String) -> Maybe<List<String>> {
+    case Map.get(fields, name) {
+        Some(Json.Arr(items)) ->
+            Iter.reduce(items, Some([]), fn acc, item -> {
+                case #(acc, item) {
+                    #(Some(texts), Json.String(t)) -> Some(texts + [t])
+                    _ -> None
+                }
+            })
+
+        _ ->
+            None
+    }
+}
+
+// Whether a session read under an idle timeout is due to be written again,
+// to move its last-seen time: a minute after it last was.
+fn idle_due<T>(session: Session<T>) -> Bool {
+    session.value != None
+        and session.state.store.idle_timeout != None
+        and now() - session.state.seen >= 60
+}
+
+// Whether `response` already sets the cookie `name`.
+fn writes(response: Response, name: String) -> Bool {
+    Response.cookies(response) |> Iter.any(fn c -> c.name == name)
+}
+
+// `response` with `cookie` in place of any `Set-Cookie` of its name.
+fn replace_cookie(response: Response, cookie: Cookie) -> Response {
+    Headers(fields) = response.headers
+
+    other = fn header: #(String, String) -> {
+        #(name, value) = header
+        name_of = Cookie.parse_set_cookie(value) |> Result.map(fn c -> c.name)
+        Headers.canonical_key(name) != "Set-Cookie" or name_of != Ok(cookie.name)
+    }
+
+    kept = fields |> Iter.filter(other) |> Iter.to_list()
+    Response.set_cookie(#{..response, headers: Headers(kept)}, cookie)
+}
+
+fn base_cookie(store: CookieStore) -> Cookie {
+    Cookie{
+        name: store.name,
+        value: "",
+        path: Some(store.path),
+        domain: store.domain,
+        secure: store.secure,
+        http_only: True,
+        same_site: SameSite.Lax,
+    }
+}
+
+// The cookie that deletes the session's.
+fn removal(store: CookieStore) -> Cookie {
+    #{..base_cookie(store), max_age: MaxAge.DeleteNow}
+}
+
+// The additional data each cookie is sealed with: the format's version and
+// the cookie's name, so a value sealed for one cookie does not open as
+// another.
+fn label(store: CookieStore) -> Bytes {
+    String.to_bytes("nomi session 1 ${store.name}")
+}
+
+fn key_bytes(SessionKey(data)) -> Bytes {
+    data
+}
+
+fn now() -> Int {
+    Instant.to_seconds(Instant.now())
+}

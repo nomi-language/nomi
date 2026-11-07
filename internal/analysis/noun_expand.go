@@ -8,12 +8,12 @@ import (
 	"github.com/nomi-language/nomi/internal/mf2"
 )
 
-// A `noun` declaration names a thing a message talks about, as a value of
-// std/message's `Noun`:
+// A `noun` declaration names a thing a phrase talks about, as a value of
+// std/phrase's `Noun`:
 //
 //	pub noun book `.input {$count :integer} .match $count one {{book}} * {{books}}`
 //
-// Its body is its source-locale form, a message over one implicit `$count`.
+// Its body is its source-locale form, a phrase over one implicit `$count`.
 // Each catalog's entry for it holds the `source` it was translated from, its
 // `gender` in a language whose nouns have one, and a form per grammatical
 // case:
@@ -26,7 +26,7 @@ import (
 //
 // It expands into the `once` it names (expandNoun); the checks of the
 // declaration and its entries are checkNoun's, and those that hold every
-// noun of a program to every message are CheckAgreement's.
+// noun of a program to every phrase are CheckAgreement's.
 
 // nounExpansion is what a `noun` keeps on the `once` it expands into: the
 // declaration, the locales it is checked in and the catalogs it read.
@@ -40,7 +40,7 @@ type nounExpansion struct {
 	source           string
 	locales, partial []string
 	// catalogs are the catalogs of locales and then partial, in order.
-	catalogs []*messageCatalog
+	catalogs []*phraseCatalog
 	root     string
 }
 
@@ -94,7 +94,7 @@ func nounEntryCurrent(entry *catalog.Entry, source string) bool {
 
 // expandNoun writes the value a `noun` names:
 //
-//	pub once book: message$.Noun = message$.compiled_noun("cart.book", "<table>")
+//	pub once book: phrase$.Noun = phrase$.compiled_noun("cart.book", "<table>")
 //
 // The `once` has the declaration's name at its name's position; its type
 // and value are in the synthesized band at slot. The table (mf2.NounTable)
@@ -141,10 +141,10 @@ func expandNoun(kd *ast.KeywordDecl, site *ExpansionSite, cats *catalogSet, slot
 		table.Forms[c.locale] = forms
 	}
 	value := &ast.Call{
-		Func: fieldAccess(identExpr(messageModuleAlias, 0, 0), "compiled_noun", 0, 0),
+		Func: fieldAccess(identExpr(phraseModuleAlias, 0, 0), "compiled_noun", 0, 0),
 		Args: []ast.Node{&ast.StringLit{Value: e.name}, &ast.StringLit{Value: mf2.EncodeNoun(table)}},
 	}
-	typ := &ast.QualifiedType{Module: messageModuleAlias, Member: &ast.SimpleType{Name: "Noun"}}
+	typ := &ast.QualifiedType{Module: phraseModuleAlias, Member: &ast.SimpleType{Name: "Noun"}}
 	// Stamp the added nodes in the synthesized band, as a function's.
 	carrier := &ast.FuncDef{ReturnTypeExpr: typ, Body: &ast.Block{Stmts: []ast.Node{exprStmt(value, 0, 0)}}}
 	uniquifyPositions(carrier, slot)

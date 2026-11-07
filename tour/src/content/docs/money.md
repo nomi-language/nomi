@@ -184,7 +184,6 @@ This example is a small project of two files; each tab is one file:
 import {
     std::currency.Currency
     std::io
-    std::locale.Locale
     std::money.Money
 }
 
@@ -206,7 +205,7 @@ custom_currencies = ["PTS:0"]
 <!-- expect
 1500 PTS:0
 PTS 1,500
-dbg line 12: Currency.parse("PTS:0") == Ok(points.currency) = True
+dbg line 11: Currency.parse("PTS:0") == Ok(points.currency) = True
 -->
 
 Two custom currencies are equal when their codes and digits are, so two
@@ -252,7 +251,6 @@ currency's symbol in the right place. How a locale writes numbers is in
 ```nomi-run
 import {
     std::io
-    std::locale.Locale
     std::money.Money
 }
 
@@ -272,8 +270,8 @@ fn main() {
 en-US: $1,299.50
 de: 1.299,50 $
 fr: 1 299,50 $US
-dbg line 13: "${price}" = "1299.5 USD"
-dbg line 14: Money.format(Money`1500 JPY`, Locale`ja`) = "￥1,500"
+dbg line 12: "${price}" = "1299.5 USD"
+dbg line 13: Money.format(Money`1500 JPY`, Locale`ja`) = "￥1,500"
 -->
 
 The dollar sign comes before the amount in American English and after it in
@@ -292,10 +290,7 @@ string, it is the same for every reader.
 narrow symbol, its code, or its name.
 
 ```nomi-run
-import {
-    std::locale.Locale
-    std::money.Money
-}
+import std::money.Money
 
 fn main() {
     usd = Money`5 USD`
@@ -306,8 +301,8 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
-dbg line 9: Money.format(usd, Locale`en-CA`) = "US$5.00"
+dbg line 5: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
+dbg line 6: Money.format(usd, Locale`en-CA`) = "US$5.00"
 -->
 
 After `USD` is a no-break space, which `dbg` writes `\u{a0}`. Canadian
@@ -327,7 +322,6 @@ takes the amount alone.
 ```nomi-run
 import {
     std::currency.Currency
-    std::locale.Locale
     std::money.Money
 }
 
@@ -341,9 +335,9 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 9: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 10: Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 11: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(WrongCurrency{expected: Currency`USD`, found: "€"})
+dbg line 8: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
+dbg line 9: Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
+dbg line 10: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(WrongCurrency{expected: Currency`USD`, found: "€"})
 -->
 
 A price in another currency is an error, and so is one with more digits

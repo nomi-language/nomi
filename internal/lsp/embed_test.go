@@ -27,7 +27,7 @@ func embedProject() map[string]string {
 func TestEmbed_HoverOnTheNameSaysWhatItHolds(t *testing.T) {
 	s, uri := openProject(t, embedProject(), "main.nomi")
 	for _, at := range []int{strings.Index(embedMain, "site `") + 1, strings.Index(embedMain, "paths(site)") + 7} {
-		got := messageHoverText(t, s, uri, offsetPosition(embedMain, at))
+		got := phraseHoverText(t, s, uri, offsetPosition(embedMain, at))
 		for _, want := range []string{
 			"embed site `static page.html`: Files",
 			"The site.",
@@ -44,7 +44,7 @@ func TestEmbed_HoverOnTheNameSaysWhatItHolds(t *testing.T) {
 
 func TestEmbed_HoverOnAPatternSaysWhatItMatched(t *testing.T) {
 	s, uri := openProject(t, embedProject(), "main.nomi")
-	got := messageHoverText(t, s, uri, offsetPosition(embedMain, strings.Index(embedMain, "static page")+2))
+	got := phraseHoverText(t, s, uri, offsetPosition(embedMain, strings.Index(embedMain, "static page")+2))
 	want := "`static` embeds 2 files, 20 B, embedded when the program is compiled\n- `static/css/site.css` (8 B)\n- `static/index.html` (12 B)"
 	if got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
@@ -117,7 +117,7 @@ func TestEmbed_APatternWhoseBaseDoesNotExistIsAWarningAtIt(t *testing.T) {
 		got[0].Range.Start != (protocol.Position{Line: 3, Character: 19}) || got[0].Range.End != (protocol.Position{Line: 3, Character: 27}) {
 		t.Fatalf("diagnostics %+v", got)
 	}
-	hover := messageHoverText(t, s, uri, offsetPosition(main, strings.Index(main, "web/dist")+1))
+	hover := phraseHoverText(t, s, uri, offsetPosition(main, strings.Index(main, "web/dist")+1))
 	if hover != "`web/dist` matches no file: `web/dist` does not exist yet" {
 		t.Fatalf("hover: %q", hover)
 	}

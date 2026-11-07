@@ -6,6 +6,7 @@ require (
 	github.com/nomi-language/nomi v0.0.0-00010101000000-000000000000
 	github.com/nomi-language/nomi/lib/image v0.0.0-00010101000000-000000000000
 	github.com/nomi-language/nomi/lib/markdown v0.0.0-00010101000000-000000000000
+	github.com/nomi-language/nomi/lib/password_hashers v0.0.0-00010101000000-000000000000
 	github.com/nomi-language/nomi/lib/sql/postgres v0.0.0-20261102000000-000000000000
 	github.com/nomi-language/nomi/lib/sql/sqlite v0.0.0-20261026231947-3434642c92e9
 	github.com/nomi-language/nomi/lib/sql/sqlkit v0.0.0-00010101000000-000000000000
@@ -42,6 +43,7 @@ replace (
 	github.com/nomi-language/nomi => ../
 	github.com/nomi-language/nomi/lib/image => ../lib/image
 	github.com/nomi-language/nomi/lib/markdown => ../lib/markdown
+	github.com/nomi-language/nomi/lib/password_hashers => ../lib/password_hashers
 	github.com/nomi-language/nomi/lib/sql/migrate => ../lib/sql/migrate
 	github.com/nomi-language/nomi/lib/sql/postgres => ../lib/sql/postgres
 	github.com/nomi-language/nomi/lib/sql/sqlite => ../lib/sql/sqlite

@@ -29,11 +29,30 @@ func tokenShown(tok token.Token) string {
 		return "a string"
 	case token.CODEPOINT_LITERAL:
 		return "`'" + tok.Lexeme + "'`"
+	case token.ILLEGAL:
+		// An unterminated literal's Lexeme is the text it read, and a
+		// malformed string's is its problem: neither is what was written.
+		if what, _, ok := strings.Cut(tok.Problem, ";"); ok && strings.HasPrefix(what, "unterminated ") {
+			return "an " + what
+		}
+		if tok.Lexeme == "" || tok.Lexeme == tok.Problem {
+			return "malformed text"
+		}
 	}
 	if tok.Lexeme == "" {
 		return strings.ToLower(tok.Type.String())
 	}
 	return "`" + tok.Lexeme + "`"
+}
+
+// unexpectedIn is the error for tok where where's shape does not take it:
+// the lexer's problem for a malformed token (an unterminated string says
+// how to close it), otherwise `unexpected <tok> in <where>` and the shape.
+func unexpectedIn(tok token.Token, where, shape string) error {
+	if tok.Type == token.ILLEGAL && tok.Problem != "" {
+		return errorAt(tok.Line, tok.Col, "%s", tok.Problem)
+	}
+	return errorAt(tok.Line, tok.Col, "unexpected %s in %s%s", tokenShown(tok), where, shape)
 }
 
 // binaryOnlyOperator reports whether tt is an operator that only joins two

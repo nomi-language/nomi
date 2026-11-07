@@ -26,7 +26,7 @@ import {
 //# helpers, and the value-based (scale-insensitive) arithmetic/`Equatable`/`Comparable`/
 //# `Hashable` impls. `+ - *` and `Decimal.pow` are exact; only
 //# `Decimal.divide`, `Decimal.sqrt` and `Decimal.round` round. There is no `/`: `Decimal.divide` names its
-//# rounding, and `Decimal.divide_exact` answers `None` for a quotient that
+//# rounding, and `Decimal.divide_exact` returns `None` for a quotient that
 //# does not terminate.
 //#
 //# `Decimal.format` and `Decimal.format_percent` write a decimal as a reader
@@ -96,7 +96,7 @@ impl Decimal {
     /// `d` multiplied by itself `exp` times, exactly, as `*` multiplies: the
     /// scale is `exp` times `d`'s, so `1.5d` squared is `2.25d` and `1.50d`
     /// squared `2.2500d`. `Decimal.pow(d, 0)` is `1d` for every `d`, `0d`
-    /// included. A negative `exp` traps: its answer is a quotient that may
+    /// included. A negative `exp` traps: its result is a quotient that may
     /// not end, so write `Decimal.divide(1d, Decimal.pow(d, n), scale,
     /// mode)`, which names its rounding. A result whose scale is past
     /// Decimal's (about two billion digits) traps too.

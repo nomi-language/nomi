@@ -66,7 +66,7 @@ impl Hashable for Byte {
     }
 }
 
-// A Byte has `&&&`, `|||`, `^^^` and `~~~`, whose answers stay within its 8
+// A Byte has `&&&`, `|||`, `^^^` and `~~~`, whose results stay within its 8
 // bits, and no shift: a left shift would carry bits past them, and Nomi
 // traps rather than wrap. Shift the Int, `Byte.to_int(b) <<< 1`.
 impl BitwiseAnd<Byte, Byte> for Byte {
@@ -125,7 +125,7 @@ impl Bytes {
 
     /// Returns the byte at zero-based `index`, or None when the index is
     /// outside the buffer. For an index that must exist, `Bytes.get(data,
-    /// index)!` answers the byte and traps on any other index.
+    /// index)!` returns the byte and traps on any other index.
     //! a: Byte = 97
     //! b: Byte = 98
     //! data = Bytes.from_list([a, b])

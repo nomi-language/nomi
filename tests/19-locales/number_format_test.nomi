@@ -1,7 +1,4 @@
-import {
-    std::locale.Locale
-    std::localize.{Localize, NumberParseError}
-}
+import std::localize.{Localize, NumberParseError}
 
 test "grouping follows the locale" {
     assert Int.format(1234567, Locale`en`) == "1,234,567"

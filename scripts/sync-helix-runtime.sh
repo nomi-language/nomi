@@ -56,7 +56,7 @@ esac
 
 mkdir -p "$USER_HELIX/runtime/queries" "$USER_HELIX/runtime/grammars"
 USER_QUERIES="$USER_HELIX/runtime/queries/nomi"
-# nomi-catalog is the language of a module's message catalogs, whose
+# nomi-catalog is the language of a module's phrase catalogs, whose
 # queries inherit Helix's TOML ones.
 for lang in nomi nomi-catalog; do
   user_dir="$USER_HELIX/runtime/queries/$lang"

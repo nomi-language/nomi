@@ -86,3 +86,50 @@ test "pipes into dispatch functions preserve interface dispatch" {
     assert int_text == "5"
     assert set_text == "%[1, 2, 3]"
 }
+
+test "tap stages run a function by name and pass the value on" {
+    result = compiler.run(
+        """
+          import std::io
+
+          fn log_it(n: Int) {
+            io.print(n + 100)
+          }
+
+          fn labeled(n: Int, label: String = "n") {
+            io.print(label + " = " + Int.to_string(n))
+          }
+
+          fn show<T>(v: T) where T: Display {
+            io.print(v)
+          }
+
+          fn main() {
+            value =
+              5
+              |> tap log_it
+              |> tap labeled
+              |> tap show
+              |> tap io.print
+              |> double()
+
+            io.print(value)
+          }
+
+          fn double(x: Int) -> Int {
+            x * 2
+          }
+        """
+    )
+
+    assert result == Ok(
+        """
+        105
+        n = 5
+        5
+        5
+        10
+
+        """
+    )
+}

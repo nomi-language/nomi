@@ -199,10 +199,7 @@ person reads a date the way their language writes it, so `Date.format`
 takes a locale:
 
 ```nomi-run
-import {
-    std::calendar.Date
-    std::locale.Locale
-}
+import std::calendar.Date
 
 fn main() {
     ships = Date`2026-10-20`
@@ -212,8 +209,8 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 8: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
-dbg line 9: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
+dbg line 5: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
+dbg line 6: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
 -->
 
 [Locales & Formatting](/locales-and-formatting/#dates-and-times) covers

@@ -20,7 +20,7 @@
 //# `.` and the empty path name its root. A path is cleaned first, so
 //# `./static//a.css` is `static/a.css`; one that starts with `/` or leaves
 //# the tree with `..` is `InvalidPath`. Errors are std::io's, as std::fs
-//# answers them, so code written for the disk reads an embedded tree with
+//# returns them, so code written for the disk reads an embedded tree with
 //# the same `case`. Every file reports the Unix epoch,
 //# `1970-01-01T00:00:00Z`, as its modification time, and mode `0o444`; a
 //# directory reports `0o555`.
@@ -344,7 +344,7 @@ impl Files {
 
     /// The SHA-256 of the contents of the file at `p`, in lowercase hex.
     /// An embedded file's was taken when the program was compiled, so it
-    /// is answered without reading the file: `http.serve_embedded` sends
+    /// is returned without reading the file: `http.serve_embedded` sends
     /// it as the file's `ETag`.
     //! files = Files.from_bytes([#("a.txt", String.to_bytes("abc"))])
     //!

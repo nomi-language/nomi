@@ -19,12 +19,12 @@ func TestParseKeywordDeclarations(t *testing.T) {
 		result               string
 		value                string
 	}{
-		{"message", "pub message cart_items(count: Int) `{$count :integer} items`\n", "message", "cart_items", true, true, true, 1, "", "{$count :integer} items"},
+		{"phrase", "pub phrase cart_items(count: Int) `{$count :integer} items`\n", "phrase", "cart_items", true, true, true, 1, "", "{$count :integer} items"},
 		{"bare", "database main\n", "database", "main", false, false, false, 0, "", ""},
 		{"body only", "noun item `{{item}}`\n", "noun", "item", false, false, true, 0, "", "{{item}}"},
-		{"empty params", "message hello() `Hello`\n", "message", "hello", false, true, true, 0, "", "Hello"},
+		{"empty params", "phrase hello() `Hello`\n", "phrase", "hello", false, true, true, 0, "", "Hello"},
 		{"result", "query user_by_email(email: String) -> Maybe<User> `select 1`\n", "query", "user_by_email", false, true, true, 1, "Maybe<User>", "select 1"},
-		{"multi-line body", "message status(state: Status) `\n    .input {$state :string}\n    .match $state\n    * {{x}}\n    `\n", "message", "status", false, true, true, 1, "", ".input {$state :string}\n.match $state\n* {{x}}"},
+		{"multi-line body", "phrase status(state: Status) `\n    .input {$state :string}\n    .match $state\n    * {{x}}\n    `\n", "phrase", "status", false, true, true, 1, "", ".input {$state :string}\n.match $state\n* {{x}}"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -56,13 +56,13 @@ func TestParseKeywordDeclarations(t *testing.T) {
 // The keyword's and the name's positions, and where each byte of a
 // multi-line body is in the source.
 func TestParseKeywordDeclPositions(t *testing.T) {
-	src := "/// The status.\npub message status(state: Status) `\n    .input {$state :string}\n    * {{x}}\n    `\n"
+	src := "/// The status.\npub phrase status(state: Status) `\n    .input {$state :string}\n    * {{x}}\n    `\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
 	}
 	d := nodes[0].(*ast.KeywordDecl)
-	if d.Line != 2 || d.Col != 5 || d.NameLine != 2 || d.NameCol != 13 || d.Doc != "The status." {
+	if d.Line != 2 || d.Col != 5 || d.NameLine != 2 || d.NameCol != 12 || d.Doc != "The status." {
 		t.Fatalf("keyword %d:%d, name %d:%d, doc %q", d.Line, d.Col, d.NameLine, d.NameCol, d.Doc)
 	}
 	// `$state` on the body's first line is at 3:13, `{{x}}` on its second at 4:7.
@@ -71,12 +71,12 @@ func TestParseKeywordDeclPositions(t *testing.T) {
 			t.Errorf("offset %d at %d:%d, want %d:%d", c.offset, l, col, c.line, c.col)
 		}
 	}
-	one, err := Parse(lexer.Lex("message hi `Hi {$name}`\n"))
+	one, err := Parse(lexer.Lex("phrase hi `Hi {$name}`\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l, col := one[0].(*ast.KeywordDecl).BodyPosition(3); l != 1 || col != 16 {
-		t.Errorf("one-line offset 3 at %d:%d, want 1:16", l, col)
+	if l, col := one[0].(*ast.KeywordDecl).BodyPosition(3); l != 1 || col != 15 {
+		t.Errorf("one-line offset 3 at %d:%d, want 1:15", l, col)
 	}
 }
 
@@ -85,12 +85,14 @@ func TestParseKeywordDeclRefusals(t *testing.T) {
 		name, src, want string
 		line, col       int
 	}{
-		{"quoted body", "message hi \"Hi\"\n", "the body of a `message` declaration is a raw string: write it between backticks", 1, 12},
-		{"trailing", "message hi `Hi` 3\n", "unexpected 3 in a `message` declaration; it is `message name(params) -> Type `body``, each part after the name optional", 1, 17},
-		{"tagged message", "message hi Mf2`Hi`\n", "a `message` body is MessageFormat 2 text and takes no tag: remove `Mf2`", 1, 12},
+		{"quoted body", "phrase hi \"Hi\"\n", "the body of a `phrase` declaration is a raw string: write it between backticks", 1, 11},
+		{"trailing", "phrase hi `Hi` 3\n", "unexpected `3` in a `phrase` declaration; it is `phrase name(params) -> Type `body``, each part after the name optional", 1, 16},
+		{"open body", "noun show `", "unterminated raw string; close it with `", 1, 11},
+		{"open body after params", "phrase hi(n: Int) `{$n}", "unterminated raw string; close it with `", 1, 19},
+		{"tagged phrase", "phrase hi Mf2`Hi`\n", "a `phrase` body is MessageFormat 2 text and takes no tag: remove `Mf2`", 1, 11},
 		{"tagged noun", "noun item Mf2`{{item}}`\n", "a `noun` body is MessageFormat 2 text and takes no tag: remove `Mf2`", 1, 11},
 		{"misspelled type keyword", "pub strct Point {\n    x: Int\n}\n", "`strct` declares nothing: a type is declared with `struct`, `enum` or `type`", 1, 5},
-		{"in a body", "fn main() {\n    message hi `Hi`\n}\n", "", 0, 0},
+		{"in a body", "fn main() {\n    phrase hi `Hi`\n}\n", "", 0, 0},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -117,7 +119,7 @@ func TestParseKeywordDeclRefusals(t *testing.T) {
 
 // A name before a type name is no keyword
 // declaration, so the top-level forms that start that way keep their
-// meaning (`derive Debug for Point`), except after `message` and `noun`,
+// meaning (`derive Debug for Point`), except after `phrase` and `noun`,
 // whose names are never type names: that is their error.
 func TestParseKeywordDeclNamesNoType(t *testing.T) {
 	nodes, err := Parse(lexer.Lex("derive Debug for Point\n"))
@@ -127,7 +129,7 @@ func TestParseKeywordDeclNamesNoType(t *testing.T) {
 	if _, ok := nodes[0].(*ast.KeywordDecl); ok {
 		t.Fatalf("`derive Debug for Point` was read as a keyword declaration")
 	}
-	for _, kw := range []string{"message", "noun"} {
+	for _, kw := range []string{"phrase", "noun"} {
 		_, errs := ParseWithRecovery(lexer.Lex(kw + " Hi `Hi`\n"))
 		if len(errs) == 0 {
 			t.Fatalf("the parser accepts a `%s` named by a type name", kw)
@@ -141,7 +143,7 @@ func TestParseKeywordDeclNamesNoType(t *testing.T) {
 // A body may be a multi-line raw string, whose lines start at BodyCol, and
 // has no tag.
 func TestParseMultiLineKeywordDeclBody(t *testing.T) {
-	multi := "message orders `\n    SELECT 1\n    FROM t\n    `\n"
+	multi := "phrase orders `\n    SELECT 1\n    FROM t\n    `\n"
 	nodes, err := Parse(lexer.Lex(multi))
 	if err != nil {
 		t.Fatal(err)

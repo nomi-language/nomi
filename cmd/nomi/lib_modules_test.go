@@ -136,6 +136,23 @@ func TestLibModules(t *testing.T) {
 			t.Fatalf("go test ./... in lib/image: %v\n%s", err, out)
 		}
 	})
+	passwordsDir := filepath.Join(root, "lib", "password_hashers")
+	t.Run("password_hashers", func(t *testing.T) {
+		download := exec.Command("go", "mod", "download")
+		download.Dir = passwordsDir
+		if out, err := download.CombinedOutput(); err != nil {
+			t.Fatalf("go mod download in lib/password_hashers: %v\n%s", err, out)
+		}
+		passes(t, root, "test", filepath.Join("lib", "password_hashers"))
+	})
+	t.Run("password_hashers's Go tests", func(t *testing.T) {
+		cmd := exec.Command("go", "test", "-count=1", "./...")
+		cmd.Dir = passwordsDir
+		cmd.Env = os.Environ()
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("go test ./... in lib/password_hashers: %v\n%s", err, out)
+		}
+	})
 	// The postgres driver's tests run on postgres.scratch()'s throwaway
 	// server, which needs initdb and postgres on PATH and a POSIX shell.
 	postgresDir := filepath.Join(root, "lib", "sql", "postgres")

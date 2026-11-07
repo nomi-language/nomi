@@ -188,7 +188,7 @@ impl SmtpServer {
     }
 }
 
-/// Runs `body` while an SMTP server answers on 127.0.0.1, then stops it.
+/// Runs `body` while an SMTP server listens on 127.0.0.1, then stops it.
 /// With `starttls` it offers STARTTLS with a certificate made for
 /// 127.0.0.1; with `credentials` it offers AUTH PLAIN and LOGIN and takes
 /// no mail until a client authenticates with them. It refuses a recipient
@@ -302,7 +302,7 @@ fn serve(conn: Connection, rules: Rules) {
     if reply(peer, "220 127.0.0.1 nomi test SMTP") { converse(peer, rules) }
 }
 
-// Writes `line` and a CRLF, and answers whether the write went through.
+// Writes `line` and a CRLF, and returns whether the write went through.
 fn reply(peer: Peer, line: String) -> Bool {
     Result.is_ok(Writer.write_text(Connection.writer(peer.conn), "${line}\r\n"))
 }
@@ -583,7 +583,7 @@ impl Display for Broken {
     }
 }
 
-/// Runs every conformance rule against mailers from `open`, and answers
+/// Runs every conformance rule against mailers from `open`, and returns
 /// the rules broken: none for a backend that conforms. Each rule opens a
 /// fresh mailer and reads what reached its server through `received`.
 ///

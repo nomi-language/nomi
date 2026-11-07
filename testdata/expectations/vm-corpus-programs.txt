@@ -16,3 +16,4 @@
 16-concurrency/supervisors/app.nomi
 19-locales/app_locale/main.nomi
 19-locales/listed_locales/main.nomi
+20-data-access/websocket_chat/chat.nomi

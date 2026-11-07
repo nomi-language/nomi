@@ -22,7 +22,7 @@ import (
 const CalendarModule = "std/calendar.nomi"
 
 // stdCalendarModule reports whether a module, by its name, is
-// std/calendar, as StdMessageModule reports std/message.
+// std/calendar, as StdPhraseModule reports std/phrase.
 func stdCalendarModule(name string) bool { return stdModule(name, CalendarModule) }
 
 // fieldsCheck is the crossing a skeleton's parse reaches.

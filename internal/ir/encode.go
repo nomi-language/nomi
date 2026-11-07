@@ -324,7 +324,7 @@ func WithFileNames(rename func(string) string) EncodeOption {
 
 // WithConstTexts writes the text of each constant texts holds as texts
 // gives it, and every other constant as it is. A browser build writes its
-// messages' tables with only the locales it embeds, and the rest as files
+// phrases' tables with only the locales it embeds, and the rest as files
 // the program loads (vmhost's BuildWebImage); the graph is unchanged.
 func WithConstTexts(texts map[*Const]string) EncodeOption {
 	return func(e *encoder) { e.texts = texts }

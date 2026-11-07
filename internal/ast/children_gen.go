@@ -1540,6 +1540,9 @@ func childrenOfTap(x *Tap, fn func(Node)) {
 	if x.Capture != nil {
 		fn(x.Capture)
 	}
+	if !absent(x.Name) {
+		fn(x.Name)
+	}
 }
 
 func childrenOfTestDecl(x *TestDecl, fn func(Node)) {

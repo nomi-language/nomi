@@ -296,6 +296,35 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 	}
 }
 
+// unusedImplImportProject imports a whole file no name uses, whose impl
+// block for a type it does not declare the program does not use either:
+// the program checked whole settles the import unused and reports it, and
+// a document opened from the record must say the same (DumpFileForTest's
+// "impl import ... unused").
+func unusedImplImportProject() incrementalProject {
+	return incrementalProject{name: "unused impl import", entry: "main", texts: map[string]string{
+		"main": `import {
+    std::io
+    shout
+}
+
+fn main() {
+    io.print("quiet")
+}
+`,
+		"shout": `pub interface Shout {
+    fn shout(self) -> String
+}
+
+impl Shout for Int {
+    fn shout(n: Int) -> String {
+        "${n}!"
+    }
+}
+`,
+	}}
+}
+
 // reportsWhatNoFileWords reports whether reasons, why a manager checked
 // whole programs, name only what an edit in a program opened from its
 // record leaves to the program checked whole: diagnostics the program
@@ -337,8 +366,8 @@ func sortedTextKeys(p incrementalProject) []string {
 }
 
 // TestOpenFromRecordMatchesAFullCheckDumps: every document of every
-// multi-file corpus project and of orderProject, layeredProject and
-// rateProject opened from its program's record has the analysis it has
+// multi-file corpus project and of orderProject, layeredProject,
+// rateProject and unusedImplImportProject opened from its program's record has the analysis it has
 // when its program is checked whole, dump for dump (DumpFileForTest), with
 // the same diagnostics, nodes and offered program. Each corpus project is
 // opened again with a typo and then a syntax error in its entry's first
@@ -346,7 +375,7 @@ func sortedTextKeys(p incrementalProject) []string {
 // recorded, and so must the project that embeds files.
 func TestOpenFromRecordMatchesAFullCheckDumps(t *testing.T) {
 	t.Setenv(artifactcache.RootEnv, t.TempDir())
-	projects := []incrementalProject{orderIncremental(), layeredProject(), rateProject()}
+	projects := []incrementalProject{orderIncremental(), layeredProject(), rateProject(), unusedImplImportProject()}
 	corpus, err := corpusProjects()
 	if err != nil {
 		t.Fatal(err)

@@ -182,6 +182,36 @@ So the second entry's error says where it is, `[1].age`, and what was wrong.
 Use `Dynamic` where data comes in from outside. Inside your program, give
 data real types.
 
+## CSV and XML
+
+[`std::csv`](/reference/csv/) reads records, or rows found by a header's
+column names, and writes them quoted as RFC 4180 says.
+[`std::xml`](/reference/xml/) reads a document into a tree of elements
+and writes one back. Both read a `Reader` a record or a token at a time
+when a file is too large to hold, and both name the line and column of
+anything malformed:
+
+```nomi-run
+import {
+    std::csv
+    std::xml.{self, Element}
+}
+
+fn main() {
+    rows = csv.decode_rows("name,age\nAda,36\n")!
+    dbg rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list()
+
+    doc = xml.decode("<feed><title>News &amp; notes</title></feed>")!
+    dbg Element.child_text(doc, "title")
+    dbg csv.decode("a,\"b")
+}
+```
+<!-- expect
+dbg line 8: rows |> Iter.map(&csv.Row.get(&1, "age")) |> Iter.to_list() = [Some("36")]
+dbg line 11: Element.child_text(doc, "title") = Some("News & notes")
+dbg line 12: csv.decode("a,\"b") = Err(Syntax{message: "a quoted field is not closed, or has a quote in it that is not doubled", line: 1, column: 5})
+-->
+
 ## Bytes in text
 
 JSON, URLs and HTTP headers carry text, so bytes travel in them encoded.

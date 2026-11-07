@@ -392,6 +392,7 @@ compiler.nomi:Hover.inspect	ran
 compiler.nomi:Project.inspect	ran
 compiler.nomi:RunFile.inspect	ran
 context.nomi:Context.inspect	ran
+csv_host.nomi:Records.inspect	ran
 currency.nomi:Currency.code	ran
 currency.nomi:Currency.custom	ran
 currency.nomi:Currency.equal	ran
@@ -671,13 +672,13 @@ localize.nomi:NumberParseError.equal	ran
 localize.nomi:NumberParseError.inspect	ran
 localize.nomi:NumberParseError.to_string	ran
 localize.nomi:String.localize	ran
-message_format.nomi:format	ran
-message_format.nomi:load	ran
-message_format.nomi:noun_text	ran
 money_format.nomi:format	ran
 money_format.nomi:label	ran
 money_format.nomi:parse	ran
 money_format.nomi:require_same	ran
+phrase_format.nomi:format	ran
+phrase_format.nomi:load	ran
+phrase_format.nomi:noun_text	ran
 plural.nomi:Decimal.plural_operand	ran
 plural.nomi:Int.plural_operand	ran
 plural.nomi:PluralCategory.cardinals	ran
@@ -768,3 +769,4 @@ supervisors.nomi:supervisors.Supervisor.new default 5	ran
 unit.nomi:Unit.equal	ran
 unit.nomi:Unit.hash	ran
 unit.nomi:Unit.inspect	ran
+xml_host.nomi:Tokens.inspect	ran

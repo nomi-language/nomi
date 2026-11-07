@@ -3,10 +3,12 @@ package rt
 import (
 	"crypto/hmac"
 	"crypto/md5"
+	"crypto/pbkdf2"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle"
+	"fmt"
 )
 
 // SHA256 is the SHA-256 digest of data, 32 bytes: std/hash's `sha256`.
@@ -56,4 +58,22 @@ func HMACSHA512(key, data Bytes) Bytes {
 // not on where they first differ.
 func EqualInConstantTime(a, b Bytes) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+// PBKDF2SHA256 is std/hash's `pbkdf2_sha256`: PBKDF2 with HMAC-SHA256
+// (RFC 8018) over password and salt, iterations rounds, length bytes long.
+// An iteration count below 1, or a length outside 1 to 1024 bytes, is a
+// trap; std/passwords checks its options before it calls this.
+func PBKDF2SHA256(password, salt Bytes, iterations, length int64) Bytes {
+	if iterations < 1 {
+		Trap(fmt.Sprintf("hash.pbkdf2_sha256: iterations must be at least 1, got %d", iterations))
+	}
+	if length < 1 || length > 1024 {
+		Trap(fmt.Sprintf("hash.pbkdf2_sha256: length must be 1 to 1024 bytes, got %d", length))
+	}
+	key, err := pbkdf2.Key(sha256.New, string(password), []byte(salt), int(iterations), int(length))
+	if err != nil {
+		Trap("hash.pbkdf2_sha256: " + err.Error())
+	}
+	return Bytes(key)
 }

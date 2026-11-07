@@ -100,7 +100,7 @@ func TestHover_PipeCallStages(t *testing.T) {
 		{"a then stage's capture", `fn main() {
   io.inspect(10 ▮|> then &divide(100, &1))
 }
-`, "`Int` → `then &divide(100, &1)` → `Int`\n\n`&1` is the `Int`; the stage answers the capture's result."},
+`, "`Int` → `then &divide(100, &1)` → `Int`\n\n`&1` is the `Int`; the stage returns the capture's result."},
 		{"a pipe inside a lambda body", `fn main() {
   xs = [1, 2] |> Iter.map(fn n -> n ▮|> Int.to_string()) |> Iter.to_list()
   io.inspect(xs)
@@ -138,19 +138,25 @@ func TestHover_PipeKeywordStages(t *testing.T) {
   ▮|> then fn v -> v + 1
   io.inspect(n)
 }
-`, "`Int` → `then fn v -> …` → `Int`\n\n`v` is the `Int`; the stage answers the lambda's result."},
+`, "`Int` → `then fn v -> …` → `Int`\n\n`v` is the `Int`; the stage returns the lambda's result."},
 		{"then with a pattern", `fn main() {
   n = #(1, 2)
   ▮|> then fn #(a, b) -> a + b
   io.inspect(n)
 }
-`, "`#(Int, Int)` → `then fn #(a, b) -> …` → `Int`\n\n`#(a, b)` matches the `#(Int, Int)`; the stage answers the lambda's result."},
+`, "`#(Int, Int)` → `then fn #(a, b) -> …` → `Int`\n\n`#(a, b)` matches the `#(Int, Int)`; the stage returns the lambda's result."},
 		{"tap", `fn main() {
   n = 3
   ▮|> tap fn v -> io.inspect(v)
   io.inspect(n)
 }
 `, "`Int` → `tap fn v -> …` → `Int`\n\n`v` is the `Int`; the lambda runs for its effect and the value passes on unchanged."},
+		{"tap with a function by name", `fn main() {
+  n = 3
+  ▮|> tap io.inspect
+  io.inspect(n)
+}
+`, "`Int` → `tap io.inspect` → `Int`\n\n`io.inspect` runs on the `Int` for its effect and the value passes on unchanged."},
 		{"a ? in a function", `fn parse(s: String) -> Result<Int, String> {
   n = s |> String.to_int() ▮|> Maybe.to_result("bad")?
   Ok(n)

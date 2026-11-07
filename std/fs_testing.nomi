@@ -1,7 +1,7 @@
 //# Testing code that reads and writes files, without the disk. Inside
 //# `fs_testing.run(sandbox, body)`, every std::fs call `body` makes, and
 //# every call the tasks it starts make, goes to an in-memory file system
-//# built from the sandbox. `run` answers what `body` returned together
+//# built from the sandbox. `run` returns what `body` returned together
 //# with the files afterwards, each operation in order and the handles left
 //# open. As with `io.capture`, the sandbox lasts for the call and follows
 //# its tasks, two tasks running their own `fs_testing.run` at once never
@@ -49,7 +49,7 @@ import {
 }
 
 /// The files a `run` starts with. The sandbox keeps permission bits and
-/// answers them, and refuses nothing because of them.
+/// returns them, and refuses nothing because of them.
 pub struct Sandbox {
     /// Text files by path. A relative path is under `cwd`, and the
     /// directories above each file exist.
@@ -64,7 +64,7 @@ pub struct Sandbox {
     /// Operations that fail with a given error, matched in order.
     failures: List<Failure> = []
     /// What relative paths resolve against, and what `fs.current_dir`
-    /// answers.
+    /// returns.
     cwd: String = "/work"
 }
 
@@ -118,7 +118,7 @@ pub enum Operation {
 
 derive Equatable for Operation
 
-/// What `run` answers.
+/// What `run` returns.
 pub struct Ran<T> {
     /// What `body` returned.
     value: T
@@ -139,7 +139,7 @@ pub struct Ran<T> {
 }
 
 /// Runs `body` with an in-memory file system built from `sandbox`, and
-/// answers what it returned with the files afterwards. Nothing touches the
+/// returns what it returned with the files afterwards. Nothing touches the
 /// disk. If `body` traps, the trap propagates.
 //! ran = run(Sandbox{files: %{"in.txt" => "b\na\n"}}, fn -> {
 //!     names = Result.collect(fs.lines("in.txt"))?
@@ -215,7 +215,7 @@ pub struct ConformanceFailure {
 }
 
 /// Runs every rule of std::fs against the directory `root`, which must
-/// exist and be empty, and answers the rules the file system there broke.
+/// exist and be empty, and returns the rules the file system there broke.
 /// Each rule works in a directory of its own under `root`. The rules cover
 /// each `WriteMode`, `NotFound` for a missing parent, sorted listings,
 /// `remove` of a directory with entries, `remove_all` of a missing path,

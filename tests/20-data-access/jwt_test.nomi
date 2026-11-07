@@ -1,0 +1,256 @@
+// std::jwt over std::signatures: the RFC examples for each algorithm,
+// round trips, and the tokens a server must refuse: tampered, expired, not
+// yet valid, for another issuer or audience, unsigned, and signed with
+// another algorithm than the key's.
+import {
+    std::base64
+    std::duration.Duration
+    std::instant.Instant
+    std::json.{FromJson, Json, ToJson}
+    std::jwt.{self, Algorithm, JwtError, SigningKey, Validation, VerifyingKey}
+    std::signatures.{self, PrivateKey, PublicKey}
+    std::testing.Clock
+    std::timer
+}
+
+// RFC 7515, appendix A.2's RSA key, written as PEM.
+fn rsa_private() -> PrivateKey {
+    PrivateKey.from_pem(
+        """
+        -----BEGIN PRIVATE KEY-----
+        MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCh+BYK4uPJtGXO
+        jS1lYmM2K5J9vinh8CR3/BYlzJChNuOL2TSXxbbqY913EeZ8dCn5VrD7io8ImtxL
+        aYk8wTM/U+3QGbh3hCUv7JFP5IV3aVlL6kKA0ywPVb9ilE8TA5a8bpvfbr3SvaNn
+        juygxmj3AbONv/s4yDQs4v5tJ/reSlpIdJed1LnPmt7Ex1sFhSwsD174pcF1A5L5
+        ROjtZMEQxrZHYJqkeDrrnGya11UxMFBji4NmXG9veoKjlnAqH2QbgtPr8jkiGUkf
+        toaHLFcW9Qr4NY2ai50Xw0Byj3+H2JoY2PyrZ62EWQwuz3WTOTY8BwNNb2BvniHg
+        VFbK5emhAgMBAAECggEAEq5xpGnNCivDflJsRQBXHx1hdR1k6Ulwe2JZD50LpXyW
+        PEAeP88vLNO97IjlA7/GQ5sLKMgvfTeXZx9SE+7YwVol2NXOoAJe46sui395IW/G
+        O+pWJ1O0BkTGoVEn2bKVRUCgu+GjBVaYLU6f3l9kJfFNS3E0QbVdxzubSu3Mkqzj
+        kn439X0M/V51gfpRLI9JYanrC4D4qAdGcopV/0ZHHzQlBjudU2QvXt4ehNYTCBr6
+        XCLQUShb1juUO1ZdiYoFaFQT5Tw8bGUl/x/jTj3ccPDVZFD9pIuhLhBOneufuBiB
+        4cS98l2SR/RQyGWSeWjnczT0QU91p1DhOVRuOopznQKBgQDgHMQQ60imZV1URk0K
+        pLttoLhyt3SmqdEf/kgHePDdtzEafpAu+cS191R2JiuoF2yzWXnwFDcqGigp5BNr
+        0AHQfD8/Lk8l1Mk09jxxCfui5nYooNyac8YFjm3vItzVCVDnEd3BbVWG8qf6deqE
+        lMGAg+C2V0L4oNXnP7LZcPAZRwKBgQC5A8R+CZW2MvRTLLHzwZkUXV866cff7tx6
+        kqa0finGG0KgeqlaZPxgCZnFp7AeAcCMtiynVlJ7vMVgePsLq6XtON4tB5kP9jAP
+        rq3rbAOal78eUH5OcED6eNuCV8ixEu1eWcPNCS/l1OW1EnXUEoEHKl54Xrrz2uNw
+        kgMTP1FZ1wKBgAcCn1dwJKufzBWQxWQp1vsM5fggqPN1qGb5y0MAk3g7/Ls5bkUp
+        5u9SN0Ai3Ya6hNnvWJMb7sXQX6U/zyO2M/hTip7tUeh7CXgwo59dkpN75gJLVds2
+        9+DAncu3KXU4f2Fa+7bLNrur53k8KwPOq2bbuTG69QtV7Jr5MR0AHWKNAoGBAIf/
+        evpitUf+4JYbLpvNXWcY052Mpz22aR84mY3nh3F2LF2mjMJDpTg7FmuyPcVw6EcG
+        yoAe9fa65iNqCq+jdw6PVNGo2hxfjSiZ8IIzHdsPXI89//pMjZcQK9r+CCoRjaZj
+        OYiIDktVWZzmevJuv6WywUqd57LE3Zar3dLSIkx1AoGAIYd7DHOhrWvxkwPQsRM2
+        tOgrjbcrfvtQJipd+DlcxyVuuM9sQLdgjVk2oy26F0EmpScGLq2MowX7fhd/QJQ3
+        ydy5cY7YIBi87w93IKLEdfnbJtoOPLUW0ITrJReOgo1cq9SbsxYawBgfp/gh6A56
+        03k2+ZQwVK0JKSHuLFkuQ3U=
+        -----END PRIVATE KEY-----
+        """
+    )!
+}
+
+fn rsa_public_pem() -> String {
+    """
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAofgWCuLjybRlzo0tZWJj
+    NiuSfb4p4fAkd/wWJcyQoTbji9k0l8W26mPddxHmfHQp+Vaw+4qPCJrcS2mJPMEz
+    P1Pt0Bm4d4QlL+yRT+SFd2lZS+pCgNMsD1W/YpRPEwOWvG6b32690r2jZ47soMZo
+    9wGzjb/7OMg0LOL+bSf63kpaSHSXndS5z5rexMdbBYUsLA9e+KXBdQOS+UTo7WTB
+    EMa2R2CapHg665xsmtdVMTBQY4uDZlxvb3qCo5ZwKh9kG4LT6/I5IhlJH7aGhyxX
+    FvUK+DWNmoudF8NAco9/h9iaGNj8q2ethFkMLs91kzk2PAcDTW9gb54h4FRWyuXp
+    oQIDAQAB
+    -----END PUBLIC KEY-----
+    """
+}
+
+// RFC 7515, appendix A.3's P-256 public key, written as PEM.
+fn ec_public() -> PublicKey {
+    PublicKey.from_pem(
+        """
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEf83OJ3D2xF1Bg8vub9tLe1gHMzV7
+        6e8Tus9uPHvRVEXH8UTNG72bfocs3+257rn0s2ldbqkLJK2KRiMohYjlrQ==
+        -----END PUBLIC KEY-----
+        """
+    )!
+}
+
+// The claims RFC 7515's examples sign: issuer "joe", expiring at
+// 1300819380.
+fn before_expiry() -> Validation {
+    Validation{issuer: Some("joe"), now: Some(Instant.from_seconds(1_300_819_000))}
+}
+
+fn secret() -> Bytes {
+    String.to_bytes("a secret of thirty-two bytes, or more")
+}
+
+test "RFC 7515 A.2: an RS256 token verifies, and signing again makes the same token" {
+    token = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ.cC4hiUPoj9Eetdgtv3hF80EGrhuB__dzERat0XF9g2VtQgr9PJbu3XOiZj5RZmh7AAuHIm4Bh-0Qc_lF5YKt_O8W2Fp5jujGbds9uJdbF9CUAr7t1dnZcAcQjbKBYNX4BAynRFdiuB--f_nZLgrnbyTyWzO75vRK5h6xBArLIARNPvkSjtQBMHlb1L07Qe7K0GarZRmB_eSN9383LcOLn6_dO--xi12jzDwusC-eOkHWEsqtFZESc6BfI7noOPqvhJ1phCnvWh6IeYI2w9QOYEUipUTI8np6LbgGY9Fs98rqVt5AXLIhWkWywlVmtVrBp0igcN_IoypGlUPQGe77Rw"
+    key = VerifyingKey.rs256(PublicKey.from_pem(rsa_public_pem())!)!
+    claims = jwt.verify(token, key, before_expiry())!
+    assert Map.get(claims, "http://example.com/is_root") == Some(Json.Bool(True))
+    assert PrivateKey.public_key(rsa_private()) == PublicKey.from_pem(rsa_public_pem())!
+    // PKCS #1 v1.5 signing is deterministic, so a token signed here with
+    // the same key and claims checks the same way.
+    signing = SigningKey.rs256(rsa_private())!
+    mine = jwt.sign(claims, signing)
+    assert jwt.verify(mine, key, before_expiry()) == Ok(claims)
+}
+
+test "RFC 7515 A.3: an ES256 token verifies" {
+    token = "eyJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ.DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8ISlSApmWQxfKTUJqPP3-Kg6NU1Q"
+    key = VerifyingKey.es256(ec_public())!
+    assert jwt.verify(token, key, before_expiry()) |> Result.is_ok()
+}
+
+test "RFC 8037 A.4: an EdDSA token signs as the RFC's" {
+    // The RFC's payload is text, not claims, so the token is checked a
+    // level down, with std::signatures, and a claims token round trips.
+    seed = base64.decode_url("nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A")!
+    key = PrivateKey.from_ed25519_seed(seed)!
+    input = String.to_bytes("eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc")
+    signature = signatures.sign(key, input)
+
+    assert base64.encode_url(signature, padded: False)
+        == "hgyY0il_MGCjP0JzlnLWG1PPOt7-09PGcvMg3AIbQR6dWbhijcNR4ki4iylGjg5BhVsPt9g7sVvpAr_MuM0KAg"
+
+    signing = SigningKey.eddsa(key)!
+    token = jwt.sign(%{"sub" => Json.String("ada")}, signing)
+
+    claims = jwt.verify(
+        token,
+        SigningKey.verifying_key(signing),
+        Validation{require_expiry: False},
+    )!
+
+    assert Map.get(claims, "sub") == Some(Json.String("ada"))
+}
+
+test "each algorithm round trips with a fresh key" {
+    claims = %{"sub" => Json.String("ada"), "exp" => Json.Int(4_000_000_000)}
+
+    keys = [
+        SigningKey.hs256(secret())!,
+        SigningKey.ps256(rsa_private())!,
+        SigningKey.es256(PrivateKey.generate_ecdsa_p256())!,
+        SigningKey.eddsa(PrivateKey.generate_ed25519())!,
+    ]
+
+    verified =
+        keys
+        |> Iter.map(fn key -> jwt.verify(jwt.sign(claims, key), SigningKey.verifying_key(key)))
+        |> Iter.to_list()
+
+    assert verified == [Ok(claims), Ok(claims), Ok(claims), Ok(claims)]
+}
+
+struct Login {
+    sub: String
+    exp: Int
+    admin: Bool = False
+}
+
+derive ToJson for Login
+derive FromJson for Login
+derive Equatable for Login
+
+test "claims as a typed struct" {
+    key = SigningKey.hs256(secret())!
+    token = jwt.sign_as(Login{sub: "ada", exp: 4_000_000_000, admin: True}, key)
+    login: Login = jwt.verify_as(token, SigningKey.verifying_key(key))!
+    assert login == Login{sub: "ada", exp: 4_000_000_000, admin: True}
+
+    other = jwt.sign(%{"exp" => Json.Int(4_000_000_000)}, key)
+    refused: Result<Login, JwtError> = jwt.verify_as(other, SigningKey.verifying_key(key))
+    assert refused is Err(JwtError.Claims(_))
+}
+
+test "a tampered token does not verify" {
+    key = SigningKey.hs256(secret())!
+    token = jwt.sign(%{"sub" => Json.String("ada"), "exp" => Json.Int(4_000_000_000)}, key)
+    assert [header, _, signature] = String.split(token, ".")
+    forged = base64.encode_url(String.to_bytes(`{"sub":"root","exp":4000000000}`), padded: False)
+
+    verifier = SigningKey.verifying_key(key)
+    assert jwt.verify("${header}.${forged}.${signature}", verifier) == Err(JwtError.BadSignature)
+
+    other = VerifyingKey.hs256(String.to_bytes("another secret of thirty-two bytes"))!
+    assert jwt.verify(token, other) == Err(JwtError.BadSignature)
+
+    assert jwt.verify("${header}.${forged}", verifier)
+        == Err(JwtError.Malformed("a token is three parts joined by `.`"))
+}
+
+test "an unsigned token, and one signed with another algorithm, are refused" {
+    // `alg: none` with an empty signature.
+    none = base64.encode_url(String.to_bytes(`{"alg":"none"}`), padded: False)
+    claims = base64.encode_url(String.to_bytes(`{"sub":"root"}`), padded: False)
+    verifier = VerifyingKey.hs256(secret())!
+
+    assert jwt.verify("${none}.${claims}.", verifier)
+        == Err(JwtError.WrongAlgorithm("an unsigned token (`alg` none) is refused"))
+
+    // The classic confusion: an HS256 token whose secret is the server's
+    // RSA public key, sent to a server that checks RS256. The key decides
+    // the algorithm, so the token's header cannot.
+    forger = SigningKey.hs256(String.to_bytes(rsa_public_pem()))!
+    forged = jwt.sign(%{"sub" => Json.String("root")}, forger)
+    rsa = VerifyingKey.rs256(PrivateKey.public_key(rsa_private()))!
+
+    assert jwt.verify(forged, rsa)
+        == Err(JwtError.WrongAlgorithm("the token's algorithm is HS256, and the key's is RS256"))
+
+    assert SigningKey.es256(rsa_private()) == Err("ES256 signs with an ECDSA P-256 key, not RSA")
+    assert VerifyingKey.algorithm(rsa) == Algorithm.Rs256
+}
+
+test "issuer, audience and a missing expiry" {
+    key = SigningKey.hs256(secret())!
+    verifier = SigningKey.verifying_key(key)
+
+    token = jwt.sign(
+        %{
+            "iss" => Json.String("auth"),
+            "aud" => Json.Arr([Json.String("api"), Json.String("web")]),
+        },
+        key,
+    )
+
+    open = Validation{require_expiry: False}
+
+    assert jwt.verify(token, verifier) == Err(JwtError.MissingClaim("exp"))
+
+    assert jwt.verify(token, verifier, #{..open, audience: Some("web"), issuer: Some("auth")})
+        |> Result.is_ok()
+
+    assert jwt.verify(token, verifier, #{..open, audience: Some("admin")})
+        == Err(JwtError.WrongAudience)
+
+    assert jwt.verify(token, verifier, open) == Err(JwtError.WrongAudience)
+
+    assert jwt.verify(token, verifier, #{..open, audience: Some("api"), issuer: Some("other")})
+        == Err(JwtError.WrongIssuer)
+}
+
+group "expiry" {
+    clock Clock.Virtual
+
+    test "a token expires at exp plus the leeway, and is not valid before nbf" {
+        key = SigningKey.hs256(secret())!
+        verifier = SigningKey.verifying_key(key)
+        now = Instant.to_seconds(Instant.now())
+        token = jwt.sign(%{"nbf" => Json.Int(now + 600), "exp" => Json.Int(now + 3600)}, key)
+
+        assert jwt.verify(token, verifier) == Err(JwtError.NotYetValid)
+        timer.sleep(Duration.minutes(9))
+        assert jwt.verify(token, verifier) |> Result.is_ok()
+        timer.sleep(Duration.minutes(51))
+        assert jwt.verify(token, verifier) |> Result.is_ok()
+        timer.sleep(Duration.minutes(1))
+        assert jwt.verify(token, verifier) == Err(JwtError.Expired)
+
+        assert jwt.verify(token, verifier, Validation{leeway: Duration.minutes(5)})
+            |> Result.is_ok()
+    }
+}

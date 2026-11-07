@@ -96,7 +96,7 @@ pub fn digits(d: Decimal) -> Int {
 }
 
 /// The decimal of at most 15 digits, at `scale`, that x is the float of, if
-/// there is one: what a `DECIMAL(p, s)` value SQLite answered as a float was.
+/// there is one: what a `DECIMAL(p, s)` value SQLite returned as a float was.
 //! assert runtime.exact(12.5, 2) == Some(12.50d)
 //! assert runtime.exact(0.1 + 0.2, 2) == None
 //! assert runtime.exact(12.555, 2) == None
@@ -131,7 +131,7 @@ fn exact_digits() -> Int {
 
 /// The row with the number at `position` as a `Decimal` at `scale`, which a
 /// `DECIMAL(p, s)` column or `CAST(... AS DECIMAL(p, s))` declares: SQLite
-/// answers an expression's value as an integer or a float, and a float is
+/// returns an expression's value as an integer or a float, and a float is
 /// read only when it is exactly a decimal of that scale and at most 15
 /// digits. One that is not is an error rather than a rounded value: it is
 /// what SQLite's floating-point arithmetic made of the decimals (a sum of
@@ -510,13 +510,13 @@ pub fn rows<T>(
 }
 
 /// A statement that returns no rows: the number of rows it changed, what a
-/// `-> Changed` query answers.
+/// `-> Changed` query returns.
 pub fn exec(conn: Conn, statement: Statement) -> Result<Changed, sql.Error> {
     Conn.exec(conn, statement) |> Result.map(fn rows -> Changed{rows})
 }
 
 /// A statement that returns no rows, run for its effect alone: what a
-/// `-> Unit` query answers.
+/// `-> Unit` query returns.
 pub fn run(conn: Conn, statement: Statement) -> Result<Unit, sql.Error> {
     _ = Conn.exec(conn, statement)?
     Ok(Unit)

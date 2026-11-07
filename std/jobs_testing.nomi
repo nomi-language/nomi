@@ -391,7 +391,7 @@ fn claim_order(job: StoredJob) -> #(Int, Int, Int) {
 }
 
 /// One job `run_queued` ran: its id, kind and arguments, and what its
-/// handler answered.
+/// handler returned.
 pub struct Ran {
     id: JobId
     kind: String
@@ -404,7 +404,7 @@ derive Equatable for Ran
 /// Runs every due job of the kinds `handlers` handle, in the test's own
 /// task, oldest first, and settles each as a worker would. A job a handler
 /// enqueues runs in the same call when it is due; a retried or snoozed job
-/// does not, since it is due later. Answers each job run, in order. Two
+/// does not, since it is due later. Returns each job run, in order. Two
 /// handlers of one kind trap, as `Worker.start` does.
 //! queue = Inline.new()
 //!
@@ -468,7 +468,7 @@ fn run_due(
 }
 
 /// Decodes `text`, a stored job's arguments as JSON, as `job`'s argument
-/// type, or answers the decode error. A test keeps an old payload, copied
+/// type, or returns the decode error. A test keeps an old payload, copied
 /// out of a queue, decoding against the current type.
 //! job = Job.new("count", fn _: Int -> Ok(Unit))
 //! assert decodes(job, "3") == Ok(3)
@@ -501,7 +501,7 @@ impl Display for Broken {
     }
 }
 
-/// Runs every conformance rule against queues from `open`, and answers the
+/// Runs every conformance rule against queues from `open`, and returns the
 /// rules broken: none for a backend that conforms. Each rule opens a fresh
 /// queue on a fresh connection and enqueues jobs of the kinds
 /// `conformance` and `conformance_other` on it. `transactional` is
@@ -1135,7 +1135,7 @@ fn peek(inline: Inline) -> State {
 }
 
 // Change the job `claimed` names when `worker` still holds it at that
-// attempt, and answer whether it did.
+// attempt, and return whether it did.
 fn held(
     inline: Inline,
     worker: String,
@@ -1152,7 +1152,7 @@ fn held(
     Ok(change_where(inline, holds, change) == 1)
 }
 
-// Change every job `matches` picks, and answer how many.
+// Change every job `matches` picks, and return how many.
 fn change_where(
     inline: Inline,
     matches: (StoredJob) -> Bool,

@@ -54,6 +54,8 @@ var rtHeld = map[string]string{
 	"http_host.Jar":          TypeKey(ReflectType(reflect.TypeFor[rt.HTTPJar]())),
 	"process_host.Fake":      TypeKey(ReflectType(reflect.TypeFor[rt.ProcessFake]())),
 	"http_host.Handle":       TypeKey(ReflectType(reflect.TypeFor[rt.HTTPHandle]())),
+	"csv_host.Records":       TypeKey(ReflectType(reflect.TypeFor[rt.CsvRecords]())),
+	"xml_host.Tokens":        TypeKey(ReflectType(reflect.TypeFor[rt.XmlTokens]())),
 }
 
 // rtGenericBase is the generic type an rt instantiation instantiates, or "".

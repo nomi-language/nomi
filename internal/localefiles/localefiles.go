@@ -4,17 +4,17 @@
 // A browser build (`nomi build --web`) compiles only the locales
 // `[i18n].web_embedded` names into app.wasm, and writes each other listed
 // locale to a locale file, `locales/<tag>.nomil`, beside it: that locale's
-// CLDR numbers and lists, and its messages' and nouns' texts, with those
+// CLDR numbers and lists, and its phrases' and nouns' texts, with those
 // of each ancestor on its chain that is not embedded either, so one file
 // serves the locale (vmhost's BuildWebImage). std/locale's `Locale.load`
 // fetches the files a locale needs, refuses one another build wrote, and
 // installs the rest: the CLDR data into the machine's cldrdata.Store and
-// the texts into its Loader, where std/message's formatter finds them
-// after the program's own tables (internal/stdmessageformat). The build
+// the texts into its Loader, where std/phrase's formatter finds them
+// after the program's own tables (internal/stdphraseformat). The build
 // checked every file's texts, so loading checks only the build id.
 //
 // The same Translations hold a catalog loaded at run time, which
-// std/message's `Catalog.load` checked.
+// std/phrase's `Catalog.load` checked.
 package localefiles
 
 import (
@@ -30,12 +30,12 @@ import (
 	"github.com/nomi-language/nomi/internal/mf2"
 )
 
-// Translations are one locale's message and noun texts that are not in the
+// Translations are one locale's phrase and noun texts that are not in the
 // program's tables, canonical, by qualified name.
 type Translations struct {
-	Locale   string               `json:"locale"`
-	Messages map[string]string    `json:"messages,omitempty"`
-	Nouns    map[string]NounForms `json:"nouns,omitempty"`
+	Locale  string               `json:"locale"`
+	Phrases map[string]string    `json:"phrases,omitempty"`
+	Nouns   map[string]NounForms `json:"nouns,omitempty"`
 
 	mu     sync.Mutex
 	parsed map[string]*mf2.Message
@@ -49,7 +49,7 @@ type NounForms struct {
 
 // New is empty translations for locale.
 func New(locale string) *Translations {
-	return &Translations{Locale: locale, Messages: map[string]string{}, Nouns: map[string]NounForms{}}
+	return &Translations{Locale: locale, Phrases: map[string]string{}, Nouns: map[string]NounForms{}}
 }
 
 // Parse is text, one of t's, parsed once.
@@ -70,12 +70,12 @@ func (t *Translations) Parse(text string) (*mf2.Message, bool) {
 	return m, m != nil
 }
 
-// Message is the text of the message name, parsed, if t has it.
-func (t *Translations) Message(name string) (*mf2.Message, bool) {
+// Phrase is the text of the phrase name, parsed, if t has it.
+func (t *Translations) Phrase(name string) (*mf2.Message, bool) {
 	if t == nil {
 		return nil, false
 	}
-	text, ok := t.Messages[name]
+	text, ok := t.Phrases[name]
 	if !ok {
 		return nil, false
 	}
@@ -114,7 +114,7 @@ type File struct {
 	// CLDR is their records, a cldrdata bundle: bytes, which JSON writes in
 	// base64, since a collation table is not text.
 	CLDR []byte `json:"cldr,omitempty"`
-	// Texts are each locale's message and noun texts.
+	// Texts are each locale's phrase and noun texts.
 	Texts []*Translations `json:"texts"`
 }
 

@@ -1149,4 +1149,4 @@ a	gen.importedVariantAt | false | strings.HasPrefix(et.Origin, "std/")#1	variant
 d	gen.importedVariantAt | false | k.tag != tagNamed ¦¦ k.def == nil#1	variantalias.go:137	-	whether project of an unlowerable sibling enum answers a non-named kind here or a named unlowerable def was not determined
 b	gen.importedVariantAt | false | v == nil#1	variantalias.go:141	-	the checker resolved the variant from this enum's declaration, so the def has it
 a	irScalarBuilder.variantNameCall | false | method != "variant_name" ¦¦ len(t.Args) != 1#1	variantname.go:18	expect,irbuild,vmhost	
--	irScalarBuilder.variantNameCall | false | !isStd ¦¦ module != "message_format" && module != "std/message_format"#1	variantname.go:25	-	
+-	irScalarBuilder.variantNameCall | false | !isStd ¦¦ module != "phrase_format" && module != "std/phrase_format"#1	variantname.go:25	-	

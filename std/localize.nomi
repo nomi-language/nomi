@@ -29,7 +29,7 @@ import {
 /// defaults, and `String` itself. Std also implements it for
 /// `Money` (`Money.format` with the currency's symbol), `Date`, `Time`,
 /// `NaiveDateTime` and `DateTime` (`format` with its default styles),
-/// `Duration` (`Duration.format` in long words), `Message` (`Message.format`)
+/// `Duration` (`Duration.format` in long words), `Phrase` (`Phrase.format`)
 /// and `Noun` (its nominative for one thing).
 //! assert Localize.localize(1234567, Locale`de`) == "1.234.567"
 //! assert Localize.localize("Tak", Locale`pl`) == "Tak"

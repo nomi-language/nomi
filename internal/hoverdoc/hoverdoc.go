@@ -974,7 +974,7 @@ func typeAt(ft *analysis.FuncType, i int) analysis.Type {
 
 func renderTypeExprSelfAware(te ast.TypeExpr, resolved analysis.Type, receiver analysis.Type, receiverName string) string {
 	if q, ok := te.(*ast.QualifiedType); ok && strings.HasSuffix(q.Module, "$") {
-		// A qualifier no source writes, a message expansion's hidden
+		// A qualifier no source writes, a phrase expansion's hidden
 		// import: the reader knows the type by its own name.
 		return q.Member.TypeString()
 	}

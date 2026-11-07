@@ -73,7 +73,9 @@ func TestProgramStdModulesQualify(t *testing.T) {
 		}
 	}
 	for module, nodes := range lib.Nodes {
-		if isProgramStd(module) {
+		// The prelude only re-exports: its lowering declares nothing that
+		// could name a listed module's type (`Phrase`, `Noun`).
+		if isProgramStd(module) || module == "prelude" {
 			continue
 		}
 		for _, imported := range importedStdModules(nodes, true) {

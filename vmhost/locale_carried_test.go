@@ -26,7 +26,7 @@ const carriedToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18
 // localeLiteral is a program that formats in the locale tag names, written
 // as a literal.
 func localeLiteral(tag string) string {
-	return "import {\n    std::io\n    std::locale.Locale\n}\n\nfn main() {\n" +
+	return "import {\n    std::io\n}\n\nfn main() {\n" +
 		"    io.print(String.join_list([\"a\", \"b\"], Locale`" + tag + "`))\n}\n"
 }
 
@@ -43,8 +43,8 @@ func TestLocaleLiteral_NotCarriedIsACompileError(t *testing.T) {
 	}
 	d := ds[0]
 	want := "typed literal Locale`fr`: `fr` is not one of this program's locales (`en`, `de` in nomi.toml's [i18n]): add it there, or format in one of them"
-	if d.Message != want || d.Line != 7 || d.Code != InvalidLiteralCode {
-		t.Errorf("diagnostic at %d:%d (%s): %q\nwant at line 7: %q", d.Line, d.Col, d.Code, d.Message, want)
+	if d.Message != want || d.Line != 6 || d.Code != InvalidLiteralCode {
+		t.Errorf("diagnostic at %d:%d (%s): %q\nwant at line 6: %q", d.Line, d.Col, d.Code, d.Message, want)
 	}
 	if len(d.Hints) != 1 || !strings.Contains(d.Hints[0], "Locale.parse") {
 		t.Errorf("hints %q, want one naming Locale.parse", d.Hints)
@@ -96,7 +96,6 @@ func mustManifest(t *testing.T, toml string) *analysis.Manifest {
 func TestNotCarriedLocale_FormatsAsTheSource(t *testing.T) {
 	const src = `import {
     std::io
-    std::locale.Locale
     std::calendar.Date
     std::currency.Currency
     std::money.Money

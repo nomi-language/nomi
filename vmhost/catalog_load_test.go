@@ -15,20 +15,20 @@ import (
 )
 
 // catalogProject is a project whose main loads a catalog at run time: one
-// accepted entry, one stale, one for a message main never reaches, and one
+// accepted entry, one stale, one for a phrase main never reaches, and one
 // with an enum arm missing.
 var catalogProject = map[string]string{
 	"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
 	"text.nomi": "pub enum Status {\n    Open\n    Closed\n}\n\n" +
-		"pub message items(count: Int) `\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    `\n\n" +
-		"pub message status(status: Status) `\n    .input {$status :string}\n    .match $status\n    Open {{open}}\n    Closed {{closed}}\n    * {{open}}\n    `\n\n" +
-		"pub message unused(name: String) `{$name} is never shown`\n",
+		"pub phrase items(count: Int) `\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    `\n\n" +
+		"pub phrase status(status: Status) `\n    .input {$status :string}\n    .match $status\n    Open {{open}}\n    Closed {{closed}}\n    * {{open}}\n    `\n\n" +
+		"pub phrase unused(name: String) `{$name} is never shown`\n",
 	"locales/pl/text.toml": "[items]\nsource = '''\n.input {$count :integer}\n.match $count\none {{{$count} item}}\n* {{{$count} items}}\n'''\n" +
 		"text = '''\n.input {$count :integer}\n.match $count\none {{{$count} rzecz}}\nfew {{{$count} rzeczy}}\nmany {{{$count} rzeczy}}\n* {{{$count} rzeczy}}\n'''\n\n" +
 		"[status]\nsource = '''\n.input {$status :string}\n.match $status\nOpen {{open}}\nClosed {{closed}}\n* {{open}}\n'''\n" +
 		"text = '''\n.input {$status :string}\n.match $status\nOpen {{otwarte}}\nClosed {{zamknięte}}\n* {{otwarte}}\n'''\n\n" +
 		"[unused]\nsource = '''{$name} is never shown'''\ntext = '''{$name} nie jest pokazywane'''\n",
-	"main.nomi": "import {\n    std::io\n    std::locale.Locale\n    std::message.{Catalog, Message}\n    text\n}\n\n" +
+	"main.nomi": "import {\n    std::io\n    std::phrase.Catalog\n    text\n}\n\n" +
 		"fn main() {\n    loaded = \"\"\"\n" +
 		"    [text.items]\n    source = '''\n    .input {$count :integer}\n    .match $count\n    one {{{$count} item}}\n    * {{{$count} items}}\n    '''\n" +
 		"    text = '''\n    .input {$count :integer}\n    .match $count\n    one {{{$count} sztuka}}\n    few {{{$count} sztuki}}\n    many {{{$count} sztuk}}\n    * {{{$count} sztuki}}\n    '''\n\n" +
@@ -38,14 +38,14 @@ var catalogProject = map[string]string{
 		"    \"\"\"\n" +
 		"    #(catalog, rejected) = Catalog.load(loaded, Locale`pl`)\n" +
 		"    Iter.each(rejected, fn r -> io.print(\"${r.key}: ${r.reason}\"))\n" +
-		"    io.print(text.items(3) |> Message.format(Locale`pl`, catalogs: [catalog]))\n" +
-		"    io.print(text.status(text.Status.Closed) |> Message.format(Locale`pl`, catalogs: [catalog]))\n" +
+		"    io.print(text.items(3) |> Phrase.format(Locale`pl`, catalogs: [catalog]))\n" +
+		"    io.print(text.status(text.Status.Closed) |> Phrase.format(Locale`pl`, catalogs: [catalog]))\n" +
 		"}\n",
 }
 
 // A catalog loaded at run time is checked against the signatures the
 // program was compiled with, the enum's variants included, and a built
-// program carries only the tables of the messages it reaches, so it
+// program carries only the tables of the phrases it reaches, so it
 // accepts and rejects the entries `nomi run` does.
 func TestCatalogLoad_ABuiltProgramChecksAsTheProgramDoes(t *testing.T) {
 	dir := t.TempDir()
@@ -63,7 +63,7 @@ func TestCatalogLoad_ABuiltProgramChecksAsTheProgramDoes(t *testing.T) {
 		t.Fatalf("the front end rejects the program: %v", err)
 	}
 	want := "text.status: `status` has no `Closed` arm; `.match $status` needs an arm for every variant of `Status`\n" +
-		"text.unused: `text.unused` is not a message or noun the program uses\n" +
+		"text.unused: `text.unused` is not a phrase or noun the program uses\n" +
 		"3 sztuki\n" +
 		"zamknięte\n"
 	var inProcess bytes.Buffer
@@ -82,15 +82,15 @@ func TestCatalogLoad_ABuiltProgramChecksAsTheProgramDoes(t *testing.T) {
 		t.Errorf("the built image exits %d and prints:\n%s%s\nwant:\n%s", code, built.String(), stderr.String(), want)
 	}
 
-	// The image's tables are the reached messages', with their parameters'
+	// The image's tables are the reached phrases', with their parameters'
 	// resolved types.
 	im, err := ir.DecodeImage(image)
 	if err != nil {
 		t.Fatal(err)
 	}
-	messages, _ := vm.MessageTables(im.Modules, vm.ModuleFuncs(im.Modules), func(name string) bool { return name == vm.MessageModule })
+	phrases, _ := vm.PhraseTables(im.Modules, vm.ModuleFuncs(im.Modules), func(name string) bool { return name == vm.PhraseModule })
 	var names []string
-	for _, text := range messages {
+	for _, text := range phrases {
 		table, err := mf2.DecodeTable(text)
 		if err != nil {
 			t.Fatal(err)

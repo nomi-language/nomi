@@ -351,6 +351,13 @@ func unknownTypeError(reg *TypeRegistry, line, col int, name string) TypeError {
 				full, name, full[:strings.LastIndex(full, ".")]))
 		}
 	}
+	if !strings.Contains(name, ".") {
+		if h := stdTypeImportHint(name); h != "" {
+			return e.WithHint(h)
+		}
+	}
+	if reg != nil && !strings.Contains(name, ".") {
+	}
 	if reg != nil && !strings.Contains(name, ".") {
 		if et := reg.EnumWithVariant(name); et != nil {
 			return e.WithHint(variantTypeHint(et, name))

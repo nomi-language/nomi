@@ -1,8 +1,8 @@
 //# Channels: typed queues between tasks, each split into a `Sender` and a
 //# `Receiver`. `Channel.buffered(capacity)` lets a producer run ahead of
 //# its consumer; `Channel.unbuffered()` makes every send wait for a
-//# receive. `Sender.send` answers `Err` once the channel is closed,
-//# `Sender.close` closes it, and `Receiver.receive` answers `None` when it
+//# receive. `Sender.send` returns `Err` once the channel is closed,
+//# `Sender.close` closes it, and `Receiver.receive` returns `None` when it
 //# is closed and drained. `Channel.select` waits on several channel
 //# operations and timers at once, and `Receiver.receive_within` on one
 //# channel with a timeout. How a task waiting on a channel is cancelled is a

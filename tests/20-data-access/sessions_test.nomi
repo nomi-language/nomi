@@ -1,0 +1,232 @@
+// std::sessions: a session sealed in a cookie, read by `with_session` and
+// written by `sessions.write`, through a router as an app runs it.
+import {
+    std::duration.Duration
+    std::http.{self, Body, CrossOrigin, Headers, MaxAge, Method, Request, Response, Route, Router, Status}
+    std::http_testing
+    std::json.{FromJson, ToJson}
+    std::sessions.{self, CookieStore, Session, SessionKey}
+    std::testing.Clock
+    std::timer
+}
+
+struct Visit {
+    user: String
+}
+
+derive ToJson for Visit
+derive FromJson for Visit
+
+once key = SessionKey.derive("the first test secret, 32 bytes or more")!
+once next_key = SessionKey.derive("the second test secret, 32 bytes or more")!
+once store = CookieStore{key}
+
+fn sign_in(request: Request, session: Session<Visit>) -> Response {
+    user = Request.form_value(request, "user") |> Maybe.with_default("")
+    next = session |> Session.set(Visit{user}) |> Session.add_flash("Welcome, ${user}.")
+    Response.redirect(request, "/", Status.see_other) |> sessions.write(next)
+}
+
+fn sign_out(request: Request, session: Session<Visit>) -> Response {
+    next = session |> Session.clear() |> Session.add_flash("Signed out.")
+    Response.redirect(request, "/", Status.see_other) |> sessions.write(next)
+}
+
+fn home(Request, session: Session<Visit>) -> Response {
+    who = session.value |> Maybe.map(fn v -> v.user) |> Maybe.with_default("nobody")
+    notes = String.join(session.flash, " ")
+    Response{body: Body.Text("${who} [${notes}]")}
+}
+
+// The app's routes, each given the session in `kept`, behind
+// cross-origin protection.
+fn app(kept: CookieStore) -> (Request) -> Response {
+    routes = [
+        #(Route`GET /`, home |> sessions.with_session(kept)),
+        #(Route`POST /sign-in`, sign_in |> sessions.with_session(kept)),
+        #(Route`POST /sign-out`, sign_out |> sessions.with_session(kept)),
+    ]
+
+    Router.new(routes)!
+    |> Router.handler()
+    |> http.cross_origin_protection(CrossOrigin{})
+}
+
+// The request `request` with the cookies `response` sets, as a browser
+// sends them back; a cookie set with `Max-Age=0` is left out.
+fn carry(request: Request, response: Response) -> Request {
+    Response.cookies(response)
+    |> Iter.filter(fn c -> c.max_age != MaxAge.DeleteNow)
+    |> Iter.reduce(request, fn r, c -> Request.add_cookie(r, c))
+}
+
+fn get(after: Response) -> Request {
+    carry(http_testing.request(Method.Get, "/"), after)
+}
+
+fn signed_in(kept: CookieStore, user: String) -> Response {
+    app(kept)(http_testing.form_request(Method.Post, "/sign-in", [#("user", user)]))
+}
+
+test "a session written by one request is read by the next" {
+    signed = signed_in(store, "ada")
+    assert signed.status == Status.see_other
+    cookie = List.head(Response.cookies(signed))!
+    assert cookie.name == "session" and cookie.http_only and cookie.secure
+    assert cookie.same_site == http.SameSite.Lax and cookie.path == Some("/")
+    assert cookie.max_age == MaxAge.Seconds(14 * 24 * 60 * 60)
+    assert not String.contains(cookie.value, "ada")
+
+    assert Response.text(app(store)(get(signed))) == Ok("ada [Welcome, ada.]")
+}
+
+test "a request with no cookie has no session and gets no cookie" {
+    r = app(store)(http_testing.request(Method.Get, "/"))
+    assert Response.text(r) == Ok("nobody []")
+    assert Headers.get(r.headers, "Set-Cookie") == None
+}
+
+test "an unchanged session writes no cookie" {
+    signed = signed_in(store, "ada")
+    // The first read takes the flash away, which writes the cookie once.
+    shown = app(store)(get(signed))
+    assert Headers.values(shown.headers, "Set-Cookie") |> Iter.count() == 1
+
+    again = app(store)(get(shown))
+    assert Response.text(again) == Ok("ada []")
+    assert Headers.get(again.headers, "Set-Cookie") == None
+}
+
+test "a flash message is read once" {
+    signed = signed_in(store, "ada")
+    first = app(store)(get(signed))
+    assert Response.text(first) == Ok("ada [Welcome, ada.]")
+    assert Response.text(app(store)(get(first))) == Ok("ada []")
+}
+
+test "clearing deletes the session and keeps its flash" {
+    signed = get(signed_in(store, "ada"))
+    out = app(store)(#{..signed, method: Method.Post, url: #{..signed.url, path: "/sign-out"}})
+    assert Response.text(app(store)(get(out))) == Ok("nobody [Signed out.]")
+
+    empty: Session<Visit> = Session.new(store)
+    plain = sessions.write(Response{}, Session.clear(empty))
+    gone = List.head(Response.cookies(plain))!
+    assert gone.max_age == MaxAge.DeleteNow and gone.value == ""
+}
+
+test "a changed cookie reads as no session and is deleted" {
+    cookie = List.head(Response.cookies(signed_in(store, "ada")))!
+    // One character in the middle, whose six bits all count.
+    at = String.length(cookie.value) / 2
+
+    swapped = if String.slice(cookie.value, at, at + 1) == "A" {
+        "B"
+    } else {
+        "A"
+    }
+
+    forged = String.slice(cookie.value, 0, at) + swapped + String.slice(
+        cookie.value,
+        at + 1,
+        String.length(cookie.value),
+    )
+
+    r = app(store)(
+        Request.add_cookie(http_testing.request(Method.Get, "/"), #{..cookie, value: forged})
+    )
+
+    assert Response.text(r) == Ok("nobody []")
+    assert List.head(Response.cookies(r))!.max_age == MaxAge.DeleteNow
+
+    junk = Request.add_cookie(
+        http_testing.request(Method.Get, "/"),
+        #{..cookie, value: "not sealed"},
+    )
+
+    assert Response.text(app(store)(junk)) == Ok("nobody []")
+}
+
+test "a cookie sealed for one name does not open as another" {
+    cookie = List.head(Response.cookies(signed_in(store, "ada")))!
+    other = CookieStore{key, name: "other"}
+    request = Request.add_cookie(http_testing.request(Method.Get, "/"), #{..cookie, name: "other"})
+    assert Response.text(app(other)(request)) == Ok("nobody []")
+}
+
+test "keys rotate: the old key still opens, and the next write uses the new one" {
+    signed = signed_in(store, "ada")
+
+    rotated = CookieStore{key: next_key, previous_keys: [key]}
+    shown = app(rotated)(get(signed))
+    assert Response.text(shown) == Ok("ada [Welcome, ada.]")
+
+    only_new = CookieStore{key: next_key}
+    assert Response.text(app(only_new)(get(signed))) == Ok("nobody []")
+    assert Response.text(app(only_new)(get(shown))) == Ok("ada []")
+}
+
+test "the handler's own write replaces an earlier one" {
+    session: Session<Visit> = Session.new(store)
+
+    twice =
+        Response{}
+        |> sessions.write(Session.set(session, Visit{user: "a"}))
+        |> sessions.write(Session.set(session, Visit{user: "b"}))
+
+    assert Headers.values(twice.headers, "Set-Cookie") |> Iter.count() == 1
+    assert Response.text(app(store)(get(twice))) == Ok("b []")
+}
+
+test "a session too large for a cookie is a 500" {
+    session: Session<Visit> = Session.new(store)
+    big = Session.set(session, Visit{user: String.repeat("x", 5000)})
+    assert sessions.write(Response{}, big).status == Status.internal_server_error
+}
+
+test "a cross-site post never reaches the session" {
+    forged = #{
+        ..http_testing.form_request(Method.Post, "/sign-in", [#("user", "mallory")]),
+        headers: Headers[#("Sec-Fetch-Site", "cross-site")],
+    }
+
+    r = app(store)(forged)
+    assert r.status == Status.forbidden
+    assert Headers.get(r.headers, "Set-Cookie") == None
+}
+
+group "expiry" {
+    clock Clock.Virtual
+
+    test "a session ends at max_age however busy it is" {
+        short = CookieStore{key, max_age: Duration.hours(1)}
+        signed = signed_in(short, "ada")
+        timer.sleep(Duration.minutes(59))
+        assert Response.text(app(short)(get(signed))) == Ok("ada [Welcome, ada.]")
+        timer.sleep(Duration.minutes(1))
+        assert Response.text(app(short)(get(signed))) == Ok("nobody []")
+    }
+
+    test "an idle session ends, and a request moves its timeout along" {
+        idle = CookieStore{key, idle_timeout: Some(Duration.minutes(30))}
+        signed = signed_in(idle, "ada")
+        assert List.head(Response.cookies(signed))!.max_age == MaxAge.Seconds(30 * 60)
+
+        timer.sleep(Duration.minutes(20))
+        seen = app(idle)(get(signed))
+        assert Response.text(seen) == Ok("ada [Welcome, ada.]")
+
+        // Within a minute of a write, a read writes nothing.
+        quiet = app(idle)(get(seen))
+        assert Headers.get(quiet.headers, "Set-Cookie") == None
+
+        timer.sleep(Duration.minutes(20))
+        assert Response.text(app(idle)(get(signed))) == Ok("nobody []")
+        moved = app(idle)(get(seen))
+        assert Response.text(moved) == Ok("ada []")
+        assert Headers.values(moved.headers, "Set-Cookie") |> Iter.count() == 1
+
+        timer.sleep(Duration.minutes(31))
+        assert Response.text(app(idle)(get(moved))) == Ok("nobody []")
+    }
+}

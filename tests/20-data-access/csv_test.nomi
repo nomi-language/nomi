@@ -1,0 +1,127 @@
+import {
+    std::csv.{self, Error, FieldCount, Options, Row, WriteOptions}
+    std::io.{Reader, Writer}
+}
+
+test "records round-trip through encode and decode" {
+    records = [
+        ["plain", "with,comma", "with \"quotes\""],
+        ["line\nbreak", "", " leading space"],
+        ["trailing space ", "tab\there", "\r\n"],
+        ["é", "日本語", "🙂"],
+    ]
+
+    assert csv.decode(csv.encode(records)) == Ok(
+        [
+            ["plain", "with,comma", "with \"quotes\""],
+            ["line\nbreak", "", " leading space"],
+            // A \r\n in a quoted field is read as \n.
+            ["trailing space ", "tab\there", "\n"],
+            ["é", "日本語", "🙂"],
+        ]
+    )
+}
+
+test "embedded quotes are doubled and read back once" {
+    assert csv.encode([["a\"b", "\""]]) == "\"a\"\"b\",\"\"\"\"\n"
+    assert csv.decode("\"a\"\"b\",\"\"\"\"") == Ok([["a\"b", "\""]])
+}
+
+test "a quoted field may hold line breaks, and the next record's line is counted past them" {
+    text = "id,note\n1,\"two\nlines\"\n2,x\n"
+    rows = csv.decode_rows(text)!
+
+    assert rows |> Iter.map(fn row -> Row.get(row, "note")) |> Iter.to_list() == [
+        Some("two\nlines"),
+        Some("x"),
+    ]
+
+    assert rows |> Iter.map(fn row -> row.line) |> Iter.to_list() == [2, 4]
+}
+
+test "a byte order mark at the start is dropped, and only there" {
+    assert csv.decode("\u{feff}a,b\n\u{feff}c,d") == Ok([["a", "b"], ["\u{feff}c", "d"]])
+    assert csv.decode_bytes(String.to_bytes("\u{feff}x")) == Ok([["x"]])
+}
+
+test "CRLF line ends read as LF ends, and CRLF writes" {
+    assert csv.decode("a,b\r\nc,d\r\n") == Ok([["a", "b"], ["c", "d"]])
+    assert csv.encode([["a"], ["b"]], WriteOptions{crlf: True}) == "a\r\nb\r\n"
+}
+
+test "malformed input names its line and column in code points" {
+    assert csv.decode("ok,fine\nnaïve,\"open") == Err(Error.Syntax{
+            message: "a quoted field is not closed, or has a quote in it that is not doubled",
+            line: 2,
+            column: 12,
+        })
+
+    assert csv.decode("a,b\nc\"d,e") == Err(Error.Syntax{
+            message: "a quote in a field that is not quoted; double it inside a quoted field, or allow lazy quotes",
+            line: 2,
+            column: 2,
+        })
+
+    assert csv.decode("a,b\nc,d,e") == Err(Error.Syntax{
+            message: "the record has 3 fields, not 2",
+            line: 2,
+            column: 1,
+        })
+
+    assert csv.decode("a,b\nc", Options{fields: FieldCount.Exactly(1)}) == Err(Error.Syntax{
+            message: "the record has 2 fields, not 1",
+            line: 1,
+            column: 1,
+        })
+}
+
+test "options that cannot be used are an error, not a guess" {
+    assert csv.decode("a", Options{delimiter: '"'}) is Err(.InvalidOptions{})
+    assert csv.decode("a", Options{delimiter: ';', comment: Some(';')}) is Err(.InvalidOptions{})
+    assert csv.decode("a", Options{fields: FieldCount.Exactly(-1)}) is Err(.InvalidOptions{})
+}
+
+test "a stream is read a record at a time and stops at its first failure" {
+    chunks = ["a,b\nc,", "d\n\"e", "\nf\"\n", "g,\"h"]
+    r = Reader.from_text_chunks(chunks)
+
+    assert Iter.to_list(csv.records(r, Options{fields: .Any})) == [
+        Ok(["a", "b"]),
+        Ok(["c", "d"]),
+        Ok(["e\nf"]),
+        Err(Error.Syntax{
+            message: "a quoted field is not closed, or has a quote in it that is not doubled",
+            line: 5,
+            column: 5,
+        }),
+    ]
+}
+
+test "a failing reader is an Io error" {
+    r = Reader.from_text("a,b")
+    _ = Reader.close(r)
+    assert Iter.to_list(csv.records(r)) is [Err(.Io{})]
+}
+
+test "rows look up fields by column name" {
+    rows = csv.decode_rows("name,email\nAda,ada@example.com\n")!
+    assert [row] = rows
+    assert Row.get(row, "email") == Some("ada@example.com")
+    assert Row.to_map(row) == %{"name" => "Ada", "email" => "ada@example.com"}
+}
+
+test "writing streams records to a writer" {
+    #(written, data) = Writer.collect(fn w -> {
+        csv.write(w, Iter.map(1..=3, fn n -> ["${n}", "x${n}"]))
+    })
+
+    assert written == Ok(Unit)
+    assert Bytes.to_string(data) == Ok("1,x1\n2,x2\n3,x3\n")
+}
+
+test "the formula guard is off unless asked for" {
+    assert csv.encode([["=1+1", "@cmd", "+x", "-2", "safe"]]) == "=1+1,@cmd,+x,-2,safe\n"
+
+    assert csv.encode([["=1+1", "@cmd", "+x", "-2", "safe"]], WriteOptions{escape_formulas: True})
+        == "'=1+1,'@cmd,'+x,'-2,safe\n"
+}

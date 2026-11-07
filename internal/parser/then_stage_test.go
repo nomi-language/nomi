@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -96,6 +97,31 @@ func TestLambda_BodyRunsPastAPipe(t *testing.T) {
 	}
 	if _, ok := stages[0].(*ast.Lambda); !ok {
 		t.Errorf("stage is %T, want *ast.Lambda", stages[0])
+	}
+}
+
+// `then f` would be `|> f()`, which the help says.
+func TestThen_FunctionByNameIsACall(t *testing.T) {
+	for src, hint := range map[string]string{
+		"x = 5 |> then f":        "write `|> f()` for a function by name",
+		"x = 5 |> then io.print": "write `|> io.print()` for a function by name",
+		"x = 5 |> then Int.abs":  "write `|> Int.abs()` for a function by name",
+	} {
+		var pe ParseError
+		if err := parseError(t, src); !errors.As(err, &pe) {
+			t.Fatalf("%s: error %v is no ParseError", src, err)
+		}
+		if want := "`then` takes a lambda or a capture: write `then fn v -> ...` or `then &f(&1)`"; pe.Message != want {
+			t.Errorf("%s: message %q, want %q", src, pe.Message, want)
+		}
+		if len(pe.Hints) != 1 || pe.Hints[0] != hint {
+			t.Errorf("%s: hints %q, want %q", src, pe.Hints, hint)
+		}
+	}
+	// Any other operand keeps the message alone.
+	var pe ParseError
+	if err := parseError(t, "x = 5 |> then 42"); !errors.As(err, &pe) || len(pe.Hints) != 0 {
+		t.Errorf("then 42: %v, hints %q", err, pe.Hints)
 	}
 }
 

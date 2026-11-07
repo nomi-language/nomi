@@ -35,7 +35,7 @@ const (
 
 // libTestModules are the lib/ modules the fake proxy serves, by directory.
 var libTestModules = []string{
-	"lib/image", "lib/markdown", "lib/sql/migrate", "lib/sql/postgres", "lib/sql/sqlite", "lib/sql/sqlkit",
+	"lib/image", "lib/markdown", "lib/password_hashers", "lib/sql/migrate", "lib/sql/postgres", "lib/sql/sqlite", "lib/sql/sqlkit",
 }
 
 // fakeLibRelease is a release-shaped nomi with the lib archive's binaries

@@ -27,7 +27,7 @@ import (
 // Config is what a Checker resolves a program against.
 type Config struct {
 	// VirtualFiles are in-memory sibling sources by bare module name, and
-	// an in-memory program's message catalogs by their path with `.toml`
+	// an in-memory program's phrase catalogs by their path with `.toml`
 	// (read through a staged VirtualManifest's `[i18n]`), consulted
 	// before disk for a one-segment import (the tour playground and the REPL).
 	VirtualFiles map[string]string
@@ -442,7 +442,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	if !c.cfg.AllowUnusedImports {
 		errs = append(errs, implImportErrs[fa]...)
 	}
-	// The agreement of every noun with every message.
+	// The agreement of every noun with every phrase.
 	extFiles := map[string][]ast.Node{c.entryModRel: nodes}
 	for _, key := range sibKeys {
 		if !analysis.IsStdlibKey(key) {

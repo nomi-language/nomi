@@ -14,8 +14,8 @@ import (
 
 // A noun's entries in the editor: completion of its keys (its `gender` and
 // a form per case) and of its gender, hover, and the quick fixes that mark
-// it current and add the forms the locale's messages ask for. In a
-// message's text, `case=` completes the locale's cases.
+// it current and add the forms the locale's phrases ask for. In a
+// phrase's text, `case=` completes the locale's cases.
 
 // catalogNoun is one `noun` of a catalog's Nomi file.
 type catalogNoun struct {
@@ -53,10 +53,10 @@ type completionItem func(label, detail string, kind protocol.CompletionItemKind,
 
 // nounCompletion completes in a noun's table: the keys it lacks at the
 // start of a line (`gender` where the language has genders, then each
-// case, those the locale's messages ask for first), and a gender in the
+// case, those the locale's phrases ask for first), and a gender in the
 // string of its `gender`.
 func (d *catalogDoc) nounCompletion(n catalogNoun, cur catalogCursor, off int, item completionItem) []protocol.CompletionItem {
-	loc := analysis.MessageRules(d.place.Locale, false)
+	loc := analysis.PhraseRules(d.place.Locale, false)
 	var items []protocol.CompletionItem
 	if cur.key == "gender" {
 		for i, g := range loc.Genders {
@@ -92,14 +92,14 @@ func (d *catalogDoc) nounCompletion(n catalogNoun, cur catalogCursor, off int, i
 		}
 		sort, what := fmt.Sprintf("2%04d", i), "a case in "+loc.Language
 		if containsStr(asked, c) {
-			sort, what = fmt.Sprintf("1%04d", i), "a case the locale's messages ask for"
+			sort, what = fmt.Sprintf("1%04d", i), "a case the locale's phrases ask for"
 		}
 		items = append(items, item(c, what, protocol.CompletionItemKindProperty, "", sort))
 	}
 	return items
 }
 
-// caseCompletion completes a case after `case=` in a message's or a noun
+// caseCompletion completes a case after `case=` in a phrase's or a noun
 // form's text, or nil when the cursor is not there.
 func (d *catalogDoc) caseCompletion(off int, cur catalogCursor, item completionItem) []protocol.CompletionItem {
 	start := off
@@ -109,7 +109,7 @@ func (d *catalogDoc) caseCompletion(off int, cur catalogCursor, item completionI
 	if !strings.HasSuffix(d.text[cur.body:start], "case=") {
 		return nil
 	}
-	loc := analysis.MessageRules(d.place.Locale, false)
+	loc := analysis.PhraseRules(d.place.Locale, false)
 	var items []protocol.CompletionItem
 	for i, c := range loc.CaseNames() {
 		items = append(items, item(c, "a case in "+loc.Language, protocol.CompletionItemKindEnumMember, "", fmt.Sprintf("%04d", i)))
@@ -129,7 +129,7 @@ func (d *catalogDoc) nounHover(n catalogNoun, entry *catalog.Entry) *protocol.Ho
 	fence := func(text string) {
 		b.WriteString("\n```\n" + strings.TrimSpace(text) + "\n```\n")
 	}
-	loc := analysis.MessageRules(d.place.Locale, false)
+	loc := analysis.PhraseRules(d.place.Locale, false)
 	if len(loc.Genders) > 0 {
 		fmt.Fprintf(&b, "\n%s nouns are %s.\n", loc.Language, strings.Join(quoteEach(loc.Genders), ", "))
 	}
@@ -150,7 +150,7 @@ func (d *catalogDoc) nounHover(n catalogNoun, entry *catalog.Entry) *protocol.Ho
 }
 
 // nounActions are the quick fixes on a noun's entry: mark it current, and
-// add each form the locale's messages ask for that it lacks, a copy of its
+// add each form the locale's phrases ask for that it lacks, a copy of its
 // nominative (or of the source text) for the translator to decline.
 func (d *catalogDoc) nounActions(n catalogNoun, e *catalog.Entry, parses bool, related []protocol.Diagnostic) []protocol.CodeAction {
 	var actions []protocol.CodeAction
@@ -191,7 +191,7 @@ func (d *catalogDoc) nounActions(n catalogNoun, e *catalog.Entry, parses bool, r
 		what = "`" + missing[0] + "` form"
 	}
 	actions = append(actions, quickFix(
-		fmt.Sprintf("Give the %s translation of `%s` the %s its messages ask for", d.place.Locale, e.Name, what),
+		fmt.Sprintf("Give the %s translation of `%s` the %s its phrases ask for", d.place.Locale, e.Name, what),
 		d.uri, []protocol.TextEdit{edit}, related, false))
 	return actions
 }

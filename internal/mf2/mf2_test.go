@@ -9,7 +9,7 @@ import (
 	"github.com/nomi-language/nomi/internal/stdplural"
 )
 
-func TestParseAcceptsMessages(t *testing.T) {
+func TestParseAcceptsPhrases(t *testing.T) {
 	for _, src := range []string{
 		"",
 		"Hello, world!",
@@ -234,8 +234,8 @@ func (e env) Gender(noun string) string {
 	return t.Genders[e.tag]
 }
 
-// Money and Date show what the formatter asks for, which the stdmessageformat
-// environment answers from CLDR (internal/stdmessageformat's tests).
+// Money and Date show what the formatter asks for, which the stdphraseformat
+// environment answers from CLDR (internal/stdphraseformat's tests).
 func (e env) Money(amount, currency, display string) string {
 	return amount + " " + currency + " (" + display + ")"
 }

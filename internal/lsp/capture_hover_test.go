@@ -25,6 +25,10 @@ func TestHover_CaptureAndItsParameters(t *testing.T) {
 			[]string{"```nomi\nInt\n```", "of the capture `(Int) -> Point`."}, nil},
 		{"a tuple's element", "fn main() {\n  pair: (Int) -> #(Int, String) = &#(▮&1, \"a\")\n  io.inspect(pair(1))\n}\n",
 			[]string{"```nomi\nInt\n```", "of the capture `(Int) -> #(Int, String)`."}, nil},
+		{"a string's slot", "fn main() {\n  say: (Int) -> String = &\"id ${▮&1}\"\n  io.inspect(say(1))\n}\n",
+			[]string{"```nomi\nInt\n```", "`&1` is the first parameter of the capture `(Int) -> String`."}, nil},
+		{"a string capture's `&`", "fn main() {\n  ids = [1] |> Iter.map(▮&\"id ${&1}\") |> Iter.to_list()\n  io.inspect(ids)\n}\n",
+			[]string{"```nomi\n(Int) -> String\n```"}, nil},
 		{"a partial capture's `&1` shows the parameter it leaves open", "fn main() {\n  inc = &Int.max(▮&1, 0)\n  io.inspect(inc(1))\n}\n",
 			[]string{"a: Int"}, []string{"first parameter of the capture"}},
 	})

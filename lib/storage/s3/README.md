@@ -55,13 +55,17 @@ fn boot(startup: Startup) -> Result<App, String> {
   `payload: Payload.Unsigned`.
 - Each attempt is bounded by `timeout` (30 seconds), and a call that fails
   with `Unavailable` is tried again `retries` times (2).
+- `Store.list` is `ListObjectsV2`, read with `std/xml`: a prefix, a
+  delimiter for common prefixes, a page of up to 1,000 keys (`max-keys`,
+  which counts common prefixes too) and the server's continuation token
+  as the page's `next`.
 - `s3.presign_get` and `s3.presign_put` make URLs that read or write one
   object for up to 7 days with no credentials. `s3.sign` and `s3.presign`
-  sign a request this module does not make, such as `ListObjectsV2`.
+  sign a request this module does not make, such as `CopyObject`.
 
 ## Not built
 
-- Listing, multipart uploads and streaming.
+- Multipart uploads and streaming.
 - Session tokens and AWS configuration: it takes a static key pair and an
   explicit endpoint.
 - Bucket management.

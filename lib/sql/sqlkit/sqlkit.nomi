@@ -3,7 +3,7 @@
 //# ordinary Nomi files: the schema (a row struct per table, named in the
 //# singular, an enum per `CHECK (column IN (...))` column, and the
 //# migrations as data) and a function per query that runs its SQL on a
-//# `Conn` and answers typed rows. This file holds what the generated code
+//# `Conn` and returns typed rows. This file holds what the generated code
 //# and its callers use: `Rows<T>`, `Changed`, `Migration` and `migrate`,
 //# and the SQL type families.
 //#
@@ -34,7 +34,7 @@ pub opaque struct Rows<T> {
 
 impl Rows<T> {
     /// The rows `statement` reads on `conn`, each read by `decode`: what a
-    /// generated `-> Rows<T>` function answers. `query` is the query's
+    /// generated `-> Rows<T>` function returns. `query` is the query's
     /// name, which its errors carry.
     pub fn new(
         conn: Conn,
@@ -49,7 +49,7 @@ impl Rows<T> {
     /// one row at a time: the rows are never all in memory. A row that does
     /// not decode stops the fold with its error, and so does the database.
     pub fn fold<A>(rows: Rows<T>, initial: A, f: (A, T) -> A) -> Result<A, sql.Error> {
-        // each_row's callback answers only whether to go on, so the
+        // each_row's callback returns only whether to go on, so the
         // accumulator waits in a channel between rows.
         state: Channel<Result<A, sql.Error>> = Channel.buffered(1)
         _ = Sender.send(state.sender, Ok(initial))
@@ -94,10 +94,10 @@ impl Rows<T> {
     }
 }
 
-/// What a query whose SQL returns no rows answers when it declares
+/// What a query whose SQL returns no rows returns when it declares
 /// `-> Changed`: the number of rows the statement changed. It is a type of
 /// its own, not an `Int`, so SQL that stops returning rows (an `INSERT`
-/// that loses its `RETURNING id`) fails to check rather than answer a count
+/// that loses its `RETURNING id`) fails to check rather than return a count
 /// where a value was meant.
 pub struct Changed {
     rows: Int
@@ -115,7 +115,7 @@ pub typealias Migration runner.Migration
 /// order, in a savepoint with its record in `nomi_migrations`. A migration
 /// whose text changed after it ran is refused, before anything runs, with
 /// `Error.Database{code: "migrate"}` naming its file; a migration that fails
-/// answers its own error, and the ones before it stay applied.
+/// returns its own error, and the ones before it stay applied.
 pub fn migrate(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Error> {
     runner.apply(conn, migrations)
     |> Result.map(fn _ -> Unit)

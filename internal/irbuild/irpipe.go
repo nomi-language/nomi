@@ -19,7 +19,7 @@ package irbuild
 //
 //	*ast.Call                  the splice, a shallow copy of the stage
 //	*ast.Then                  a call of its lambda or capture with the piped value
-//	*ast.Tap                   a call of its lambda or capture with the held piped value, which it answers
+//	*ast.Tap                   a call of its lambda, capture or named function with the held piped value, which it answers
 //	*ast.Dbg with a nil Expr   `bl.dbgOf`, whose operand is the piped value
 //
 // A `then` stage uses the same indirect-call path as a prefix lambda call. A
@@ -174,7 +174,19 @@ func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bo
 	defer delete(bl.boundK, held.Name)
 	fnLine, fnCol := nodePos(r.Fn())
 	call := &ast.Call{Func: r.Fn(), Args: []ast.Node{held}, Line: fnLine, Col: fnCol}
-	res, resK, _, ok := bl.pipedInto(call)
+	var res ir.Temp
+	var resK kind
+	if r.Name != nil {
+		// `x |> tap io.print`: the name is the function value the checker
+		// typed against `(T) -> Unit`, instantiated or with its defaults
+		// filled, and the call goes through it.
+		prev := bl.pipedCall
+		bl.pipedCall = call
+		res, resK, _, ok = bl.indirectCall(call)
+		bl.pipedCall = prev
+	} else {
+		res, resK, _, ok = bl.pipedInto(call)
+	}
 	if !ok {
 		return no()
 	}

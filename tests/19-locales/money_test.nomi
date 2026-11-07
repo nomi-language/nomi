@@ -1,7 +1,6 @@
 import {
     std::compiler
     std::currency.{self, Currency}
-    std::locale.Locale
     std::localize.{Localize, NumberParseError}
     std::money.Money
 }

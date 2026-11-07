@@ -1,0 +1,47 @@
+//# The Go-backed half of std::csv: a reader of CSV records over a
+//# `Reader`, and one record written as CSV (internal/stdcsv, over Go's
+//# encoding/csv). It is internal; a program imports std::csv.
+
+import {
+    bool.Bool
+    int.Int
+    io.{Error, Reader}
+    lists.List
+    strings.String
+}
+
+/// A CSV reader over a `Reader`, which reads it a record at a time.
+pub host type Records
+
+/// A reader of the CSV in `reader`. `delimiter` and `comment` are code
+/// points, `comment` 0 for none; `fields` is the field count of every
+/// record, 0 for the first record's and -1 for any.
+pub host fn open(
+    reader: Reader,
+    delimiter: Int,
+    comment: Int,
+    trim: Bool,
+    lazy: Bool,
+    fields: Int,
+) -> Records
+
+/// The next record's fields, or `[]` once reading stopped (`stopped`
+/// says why).
+pub host fn next(records: Records) -> List<String>
+
+/// The line the last record `next` returned starts on.
+pub host fn line(records: Records) -> Int
+
+/// Why reading stopped, as `[kind, line, column]`: kind 0 at the end (or
+/// not yet), 1 a syntax error at the line and column, 2 the reader failed
+/// (`failure`), 3 invalid options.
+pub host fn stopped(records: Records) -> List<Int>
+
+/// The message of the failure `stopped` describes.
+pub host fn message(records: Records) -> String
+
+/// The reader's error, once `stopped` says 2.
+pub host fn failure(records: Records) -> Error
+
+/// `fields` as one CSV line, ended by `\r\n` when `crlf` and `\n` if not.
+pub host fn encode(fields: List<String>, delimiter: Int, crlf: Bool) -> String

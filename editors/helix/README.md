@@ -3,7 +3,7 @@
 This directory provides:
 
 - `languages.toml` for `.nomi` file detection (and an extensionless script whose `#!` line names `nomi`), `nomi-lsp`, `nomi fmt`, the debugger (`nomi dap`), and the external tree-sitter grammar
-- a `nomi-catalog` language for a module's message catalogs, `locales/**/*.toml`: Helix's TOML grammar and queries (`runtime/queries/nomi-catalog/` inherits them), with `nomi-lsp` for the catalog's diagnostics, completion, hover and quick fixes. Helix chooses a language by path, so a module whose `[i18n].catalogs` names another directory adds its own `{ glob = "<dir>/**/*.toml" }` to `file-types`. This block was checked as TOML but not yet run in Helix.
+- a `nomi-catalog` language for a module's phrase catalogs, `locales/**/*.toml`: Helix's TOML grammar and queries (`runtime/queries/nomi-catalog/` inherits them), with `nomi-lsp` for the catalog's diagnostics, completion, hover and quick fixes. Helix chooses a language by path, so a module whose `[i18n].catalogs` names another directory adds its own `{ glob = "<dir>/**/*.toml" }` to `file-types`. This block was checked as TOML but not yet run in Helix.
 - tree-sitter highlighting and typed-literal injection queries mirrored from `tree-sitter-nomi/queries/`
 - Helix-specific indentation, textobject, locals, and fold queries
 

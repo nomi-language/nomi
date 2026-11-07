@@ -1,4 +1,4 @@
-//# SQLite for `std::sql`: `sqlite.open(path)` and `sqlite.memory()` answer a
+//# SQLite for `std::sql`: `sqlite.open(path)` and `sqlite.memory()` return a
 //# `Conn` to one SQLite database, over the pure-Go `modernc.org/sqlite`, so
 //# a program that uses it builds with no C compiler and cross-compiles to
 //# every target Go's SQLite port supports. A browser build runs on SQLite's
@@ -118,7 +118,7 @@ fn ping_raw(h: Handle, depth: Int, token: Int) -> Failure go goside.Ping
 fn close_raw(h: Handle) -> Failure go goside.Close
 
 /// A connection to one SQLite database, or a transaction or savepoint on
-/// it: what `open` and `memory` answer, and what `Conn.begin` answers on
+/// it: what `open` and `memory` return, and what `Conn.begin` returns on
 /// one. `depth` is 0 for the connection, 1 for a transaction and more for
 /// each savepoint inside it.
 pub opaque struct SqliteConn {

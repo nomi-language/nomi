@@ -8,7 +8,7 @@
 ; The `#!` interpreter line of an executable script.
 (shebang) @comment
 
-; Keyword declarations: `message cart_items(count: Int) `...``, whose
+; Keyword declarations: `phrase cart_items(count: Int) `...``, whose
 ; keyword the grammar does not know and whose name is a function's, except
 ; an `embed`'s, which names a value, as a `once` does.
 (keyword_declaration
@@ -83,6 +83,14 @@
   function: (type_identifier) @constructor)
 
 (call_expression
+  function: (field_access
+    (identifier) @function.call .))
+
+; The function a `tap` stage names: `tap log_it`, `tap io.print`
+(tap_stage
+  function: (identifier) @function.call)
+
+(tap_stage
   function: (field_access
     (identifier) @function.call .))
 

@@ -198,7 +198,7 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 		byBindingPos[importBindingUseKey{name: it.sym.Name, pos: it.sym.Pos}] = i
 		byQualifiedObjectName[it.name] = i
 		// The bound name as well as the token, for the same reason
-		// `message` prefers it: a dotted import binds `Probe.Reading`, and
+		// `phrase` prefers it: a dotted import binds `Probe.Reading`, and
 		// that whole name is what a qualifier in the file spells.
 		if it.sym != nil && it.sym.Name != "" {
 			byQualifiedObjectName[it.sym.Name] = i

@@ -418,7 +418,7 @@ func downloadBinary(base, version string, target Target, s binSpec, dest string,
 		advice := "Connect to the network and re-run"
 		var status *httpStatusError
 		if errors.As(err, &status) {
-			advice = fmt.Sprintf("The server answered, so check that %s is a published release with an "+
+			advice = fmt.Sprintf("The server responded, so check that %s is a published release with an "+
 				"archive for %s", version, target)
 		}
 		return fmt.Errorf("ffirun: no %s for %s is installed, and downloading it from the %s release failed: "+

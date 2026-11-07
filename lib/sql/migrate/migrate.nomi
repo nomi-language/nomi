@@ -159,7 +159,7 @@ pub fn read_from(files: Files, dir: String) -> Result<List<Migration>, Error> {
 }
 
 /// Read the migrations in `dir` and apply the ones `conn`'s database has
-/// not run (`read`, then `apply`). Answers the versions it ran, in order.
+/// not run (`read`, then `apply`). Returns the versions it ran, in order.
 pub fn up(conn: Conn, dir: String) -> Result<List<String>, Error> {
     migrations = read(dir)?
     apply(conn, migrations)
@@ -175,7 +175,7 @@ pub fn up_from(conn: Conn, files: Files, dir: String) -> Result<List<String>, Er
 /// Bring `conn`'s database up to date with `migrations`: lock, create
 /// `nomi_migrations` if it is missing, refuse a migration whose text
 /// changed after it ran, then run each one not yet recorded, in list
-/// order, in a savepoint with its record. Answers the versions it ran.
+/// order, in a savepoint with its record. Returns the versions it ran.
 ///
 /// The run is one transaction on one connection, so a pool works: the
 /// lock, the records and every migration share it. A migration that fails
@@ -241,7 +241,7 @@ pub fn status(conn: Conn, migrations: List<Migration>) -> Result<Status, Error> 
 /// Move a database that golang-migrate kept to this runner, once, without
 /// running anything: record each of `migrations` whose leading number is at
 /// most golang-migrate's version (its table `schema_migrations`) as applied,
-/// with the checksum of its text now. Answers the versions it recorded;
+/// with the checksum of its text now. Returns the versions it recorded;
 /// running it again records nothing new. After it, `up` runs only the
 /// migrations numbered past that version, and `schema_migrations` can be
 /// dropped.
@@ -469,7 +469,7 @@ fn table_exists(conn: Conn, name: String) -> Result<Bool, Error> {
 }
 
 // Run each migration in a savepoint with its record, stopping at the first
-// that fails. Answers the versions run and the failure, if one stopped it.
+// that fails. Returns the versions run and the failure, if one stopped it.
 fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> #(List<String>, Maybe<Error>) {
     case pending {
         [] ->

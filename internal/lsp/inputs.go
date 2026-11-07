@@ -13,7 +13,7 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
-// Diagnostics in files that are not Nomi: a `message`'s catalogs, and any
+// Diagnostics in files that are not Nomi: a `phrase`'s catalogs, and any
 // input a keyword declaration's expansion reads (analysis/expansion.go).
 //
 // The analysis reports each with the declaring file's diagnostics, as a
@@ -39,7 +39,7 @@ func (s *Server) followsInput(uri string) bool {
 }
 
 // readsInput reports whether an analysis reads the file at uri as an input:
-// a message catalog, under a module's `[i18n].catalogs` directory in a
+// a phrase catalog, under a module's `[i18n].catalogs` directory in a
 // listed locale's, or one an analysis read. Editing any
 // other TOML file, a Cargo.toml in the same workspace, rechecks nothing.
 func (s *Server) readsInput(uri string) bool {
@@ -213,7 +213,7 @@ func (s *Server) inputOpen(uri string) bool {
 }
 
 // expansionLocations are the input spans an expansion was made of, as
-// locations: a message's entry in each catalog.
+// locations: a phrase's entry in each catalog.
 func expansionLocations(info *analysis.ExpansionInfo) []protocol.Location {
 	var out []protocol.Location
 	for _, in := range info.Inputs {

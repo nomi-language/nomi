@@ -69,21 +69,20 @@ func IsComplete(source string) bool {
 	}
 
 	// Find last non-EOF, non-NEWLINE, non-trivia token
-	var last token.TokenType
 	for i := len(tokens) - 1; i >= 0; i-- {
-		tt := tokens[i].Type
-		if tt != token.EOF && tt != token.NEWLINE && tt != token.COMMENT && tt != token.TEST_PROMPT && tt != token.BLANK_LINE {
-			last = tt
-			break
+		tok := tokens[i]
+		switch tok.Type {
+		case token.EOF, token.NEWLINE, token.COMMENT, token.TEST_PROMPT, token.BLANK_LINE:
+			continue
+		case token.ILLEGAL:
+			// A string that may span lines and is still open continues on
+			// the next line; any other malformed token is reported now.
+			return tok.Problem != unterminatedRaw && tok.Problem != unterminatedTriple
 		}
+		return canEndStatement(tok.Type)
 	}
-
-	// If no real tokens, it's complete (empty/whitespace)
-	if last == 0 {
-		return true
-	}
-
-	return canEndStatement(last)
+	// No real tokens: empty or whitespace.
+	return true
 }
 
 type lexer struct {
@@ -368,7 +367,7 @@ func (l *lexer) scanRawBacktick(tag string) {
 		l.advance()
 	}
 	l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(buf),
-		Problem: "unterminated raw string; close it with `", Line: startLine, Col: startCol})
+		Problem: unterminatedRaw, Line: startLine, Col: startCol})
 }
 
 // scanString scans a regular (non-raw) single-line string. Cursor sits
@@ -808,8 +807,15 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 	}
 
 	l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(buf),
-		Problem: `unterminated triple-quoted string; close it with """`, Line: startLine, Col: startCol})
+		Problem: unterminatedTriple, Line: startLine, Col: startCol})
 }
+
+// The problems of a raw or triple-quoted string still open at the end of
+// the source, which IsComplete reads as an input that continues.
+const (
+	unterminatedRaw    = "unterminated raw string; close it with `"
+	unterminatedTriple = `unterminated triple-quoted string; close it with """`
+)
 
 // skipCRBeforeLF steps over the CR of a CRLF line end, so a multi-line
 // string in a file saved with CRLF (Git's checkout on Windows) holds the
@@ -1142,7 +1148,8 @@ func (l *lexer) scanOperatorOrDelimiter() {
 	case '&':
 		// `&1`, `&2`, ...: the parameter of that number of the capture
 		// around it, and `&` written against a call, a parenthesized
-		// expression or a literal starts a capture (spec §7, *Captures*).
+		// expression or a literal, a string's quote among them, starts a
+		// capture (spec §7, *Captures*).
 		// `&&&` is bitwise and. `&&` is the C-family spelling of `and`, so
 		// it is one ILLEGAL token that says so.
 		if l.peekAt(1) == '&' && l.peekAt(2) == '&' {
@@ -1169,10 +1176,14 @@ func (l *lexer) scanOperatorOrDelimiter() {
 			l.advance()
 			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&&",
 				Problem: "Nomi spells logical and `and`: write `a and b`, not `a && b`", Line: startLine, Col: startCol})
-		} else {
+		} else if next := l.peekAt(1); next == ' ' || next == '\t' || next == '\n' || next == '\r' || next == 0 {
 			l.advance()
 			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&", Line: startLine, Col: startCol,
 				Problem: "a capture's `&` is written against its body, with no space: `&(&1 > 2)`, `&f(&1)`, `&Point{x: &1}`"})
+		} else {
+			l.advance()
+			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&", Line: startLine, Col: startCol,
+				Problem: token.CaptureBodyProblem})
 		}
 	case '?':
 		l.advance()
@@ -1369,7 +1380,7 @@ func isDigit(ch byte) bool {
 // for the C-family negation `&!f(&1)`.
 func startsCaptureBody(ch byte) bool {
 	switch {
-	case ch == '(', ch == '[', ch == '#', ch == '%', ch == '.', ch == '!':
+	case ch == '(', ch == '[', ch == '#', ch == '%', ch == '.', ch == '!', ch == '"', ch == '`':
 		return true
 	case ch >= 'a' && ch <= 'z', ch >= 'A' && ch <= 'Z':
 		return true

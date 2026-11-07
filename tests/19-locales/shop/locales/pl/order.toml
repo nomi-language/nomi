@@ -1,5 +1,5 @@
 # Polish nouns have a gender and seven cases. Each noun gives the gender
-# and the cases the messages ask for: the nominative, and the genitive
+# and the cases the phrases ask for: the nominative, and the genitive
 # that `sold_out` asks for after "Brak".
 
 [book]

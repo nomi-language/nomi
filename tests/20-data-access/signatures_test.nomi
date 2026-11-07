@@ -1,0 +1,62 @@
+// std::signatures: each key kind signs and verifies, keys round trip
+// through PEM and DER without printing their bytes, and bad keys are an Err.
+import std::signatures.{self, KeyKind, PrivateKey, PublicKey, Scheme}
+
+test "a signature verifies only its message under its key" {
+    keys = [
+        PrivateKey.generate_ed25519(),
+        PrivateKey.generate_ecdsa_p256(),
+        PrivateKey.generate_rsa()!,
+    ]
+
+    message = String.to_bytes("pay 10 to ada")
+    tampered = String.to_bytes("pay 99 to ada")
+
+    results =
+        keys
+        |> Iter.map(fn key -> {
+            public = PrivateKey.public_key(key)
+            signature = signatures.sign(key, message)
+
+            #(
+                signatures.verify(public, message, signature),
+                signatures.verify(public, tampered, signature),
+            )
+        })
+        |> Iter.to_list()
+
+    assert results == [#(True, False), #(True, False), #(True, False)]
+}
+
+test "keys round trip through PEM and DER, and never print their bytes" {
+    key = PrivateKey.generate_rsa()!
+    assert PrivateKey.kind(key) == KeyKind.Rsa
+    assert "${key}" == "PrivateKey(RSA)"
+    assert "${PrivateKey.public_key(key)}" == "PublicKey(RSA)"
+
+    again = PrivateKey.from_pem(PrivateKey.to_pem(key))!
+    assert PrivateKey.to_der(again) == PrivateKey.to_der(key)
+
+    public = PrivateKey.public_key(key)
+    assert PublicKey.from_pem(PublicKey.to_pem(public))! == public
+    assert PublicKey.from_der(PublicKey.to_der(public))! == public
+
+    // PSS signatures are randomized, and each verifies.
+    message = String.to_bytes("hello")
+    a = signatures.sign_with(key, Scheme.RsaPssSha256, message)!
+    b = signatures.sign_with(key, Scheme.RsaPssSha256, message)!
+    assert a != b
+    assert signatures.verify_with(public, Scheme.RsaPssSha256, message, a)
+    refute signatures.verify(public, message, a)
+}
+
+test "a key of another algorithm or a broken PEM is an Err" {
+    assert PublicKey.from_pem("-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n")
+        |> Result.is_err()
+
+    assert PrivateKey.from_der(String.to_bytes("not a key"))
+        == Err("not a PKCS #8, PKCS #1 or SEC 1 private key")
+
+    assert PublicKey.from_ed25519_bytes(Bytes.from_list([1, 2, 3]))
+        == Err("an Ed25519 public key is 32 bytes, got 3")
+}

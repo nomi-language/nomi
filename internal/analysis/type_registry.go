@@ -128,7 +128,9 @@ func (r *TypeRegistry) SuggestDotted(bare string) string {
 		// hint on every run.
 		best := ""
 		for name := range reg.types {
-			if strings.HasSuffix(name, suffix) && (best == "" || name < best) {
+			// A name an expansion's hidden import qualifies (`phrase$.Noun`)
+			// is not one a program can write.
+			if strings.HasSuffix(name, suffix) && !isHiddenImportAlias(name) && (best == "" || name < best) {
 				best = name
 			}
 		}

@@ -45,13 +45,11 @@ func TestProgramOfModulesAnswersEachTab(t *testing.T) {
 }
 
 // programHoverSrc is the tour's first translating-text example: a call in
-// main.nomi into a message declared in cart.nomi, whose Polish text is a
+// main.nomi into a phrase declared in cart.nomi, whose Polish text is a
 // catalog and whose locales the manifest lists.
 const programHoverSrc = `// FILE: main.nomi
 import {
     std::io
-    std::locale.Locale
-    std::message.Message
     cart
 }
 
@@ -59,13 +57,13 @@ fn main() {
     [1, 2]
     |> Iter.each(fn n -> {
         badge = cart.cart_count(n)
-        io.print(Message.format(badge, Locale` + "`en`" + `))
+        io.print(Phrase.format(badge, Locale` + "`en`" + `))
     })
 }
 
 // FILE: cart.nomi
 /// The cart badge, such as "3 items in your cart".
-pub message cart_count(count: Int) ` + "`" + `
+pub phrase cart_count(count: Int) ` + "`" + `
     .input {$count :integer}
     .match $count
     one {{{$count} item in your cart}}
@@ -116,14 +114,14 @@ func colOf(t *testing.T, prog *highlight.Program, name string, line int, sub str
 
 // TestProgramHoverResolvesAcrossFiles holds the tour's multi-file hover to
 // the whole program: a call in main.nomi into cart.nomi shows the
-// message's signature and doc from cart.nomi, and a declaration inside
+// phrase's signature and doc from cart.nomi, and a declaration inside
 // cart.nomi answers too.
 func TestProgramHoverResolvesAcrossFiles(t *testing.T) {
 	prog := highlight.AnalyzeProgram(programHoverSrc, "", std.Shared())
 
-	got := prog.HoverIn("main.nomi", 11, colOf(t, prog, "main.nomi", 11, "cart_count"))
+	got := prog.HoverIn("main.nomi", 9, colOf(t, prog, "main.nomi", 9, "cart_count"))
 	if !strings.Contains(got, "cart_count(count: Int)") || !strings.Contains(got, "The cart badge") {
-		t.Errorf("hover on cart.cart_count in main.nomi = %q; want the message's signature and doc", got)
+		t.Errorf("hover on cart.cart_count in main.nomi = %q; want the phrase's signature and doc", got)
 	}
 
 	got = prog.HoverIn("cart.nomi", 9, colOf(t, prog, "cart.nomi", 9, "total"))
@@ -144,8 +142,8 @@ func TestProgramHoverResolvesAcrossFiles(t *testing.T) {
 func TestProgramHoverSurvivesAnError(t *testing.T) {
 	src := strings.Replace(programHoverSrc, "fn main() {\n", "fn main() {\n    x: Int = \"no\"\n", 1)
 	prog := highlight.AnalyzeProgram(src, "", std.Shared())
-	got := prog.HoverIn("main.nomi", 12, colOf(t, prog, "main.nomi", 12, "cart_count"))
+	got := prog.HoverIn("main.nomi", 10, colOf(t, prog, "main.nomi", 10, "cart_count"))
 	if !strings.Contains(got, "cart_count(count: Int)") {
-		t.Errorf("hover on cart.cart_count with a type error elsewhere = %q; want the message's signature", got)
+		t.Errorf("hover on cart.cart_count with a type error elsewhere = %q; want the phrase's signature", got)
 	}
 }

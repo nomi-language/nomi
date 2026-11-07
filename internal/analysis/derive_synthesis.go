@@ -356,6 +356,13 @@ func isPreludeInjectLine(line int) bool {
 	return line >= lo && line < lo+synthRegionSize*synthLineStride
 }
 
+// IsPreludeImport reports whether s is one of the prelude imports a build
+// prepended to a user file, rather than an import its source writes or an
+// expansion's hidden import (whose alias holds a `$`).
+func IsPreludeImport(s *ast.ImportStmt) bool {
+	return isPreludeInjectLine(s.Line) && s.ModuleAlias == nil
+}
+
 // IsSynthesizedLine reports whether a (1-based) source line falls in the
 // synthesized-position band that derive synthesis allocates from. Callers
 // that walk fa.Definitions or References across an entire file may want to
@@ -2128,11 +2135,14 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 		// AttachStdlibProjectImpls), so no graceful-degradation branch
 		// is needed here — if we got past that guard, FinalizeCoherence
 		// is the diagnostic owner.
-		fa.RecordManifest(baseName, ifaceName, Recording{
-			Pos:    fieldPos,
-			Kind:   RecordingKindDeriveSynth,
-			Derive: ctx,
-		})
+		rec := Recording{
+			Pos:        fieldPos,
+			Kind:       RecordingKindDeriveSynth,
+			Derive:     ctx,
+			TypeOrigin: deriveComponentOrigin(fa, baseName),
+		}
+		fa.RecordManifest(baseName, ifaceName, rec)
+		errs = append(errs, stdDeriveGap(fa, impls, baseName, ifaceName, rec)...)
 		if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
 			// Generic-instantiation recursion: when the base type itself
 			// implements `ifaceName` and is being instantiated with type
@@ -2141,7 +2151,7 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 			// recordings to the *current* field so the diagnostic points
 			// at the user's `w: Wrapper<C>` site, not Wrapper's synth.
 			for _, ta := range typeArgs(te) {
-				recordDeriveTypeArg(fa, impls, ifaceName, ta, ctx, typeParamSet)
+				errs = append(errs, recordDeriveTypeArg(fa, impls, ifaceName, ta, ctx, typeParamSet)...)
 			}
 		}
 	}
@@ -2251,35 +2261,80 @@ func phantomTypeArgs(baseName string) bool {
 	return baseName == regexName
 }
 
-func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) {
+func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) []TypeError {
 	if te == nil {
-		return
+		return nil
 	}
 	baseName := TypeExprBaseName(te)
 	if baseName == "" {
-		return
+		return nil
 	}
 	if typeParamSet[baseName] {
 		// Type-param at the inner position — the outer @derive's
 		// implicit bound carries the requirement.
-		return
+		return nil
 	}
 	if isInterfaceTypeName(fa, baseName) {
 		// Existential at the inner position — runtime resolves.
-		return
+		return nil
 	}
-	fa.RecordManifest(baseName, ifaceName, Recording{
-		Pos:    ctx.FieldPos,
-		Kind:   RecordingKindDeriveSynth,
-		Derive: ctx,
-	})
+	rec := Recording{
+		Pos:        ctx.FieldPos,
+		Kind:       RecordingKindDeriveSynth,
+		Derive:     ctx,
+		TypeOrigin: deriveComponentOrigin(fa, baseName),
+	}
+	fa.RecordManifest(baseName, ifaceName, rec)
+	errs := stdDeriveGap(fa, impls, baseName, ifaceName, rec)
 	// Recurse further: an impl on a generic type will dispatch through
 	// each layer of its TypeArgs in turn.
 	if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
 		for _, inner := range typeArgs(te) {
-			recordDeriveTypeArg(fa, impls, ifaceName, inner, ctx, typeParamSet)
+			errs = append(errs, recordDeriveTypeArg(fa, impls, ifaceName, inner, ctx, typeParamSet)...)
 		}
 	}
+	return errs
+}
+
+// deriveComponentOrigin is the build key of the file that declares the
+// component type named baseName as fa sees it (`std/json` for
+// `Json.ShapeError`), or "" when the name resolves to no nominal type. A
+// derive demand carries it so the missing-impl diagnostic can tell a std
+// type, which the program cannot derive or implement, from its own.
+func deriveComponentOrigin(fa *FileAnalysis, baseName string) string {
+	if fa == nil || fa.ModuleScope == nil {
+		return ""
+	}
+	sym := fa.ModuleScope.Lookup(baseName)
+	if sym == nil {
+		return ""
+	}
+	if sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym.Type == nil {
+		return ""
+	}
+	if origin, ok := nominalOrigin(sym.Type); ok {
+		return origin
+	}
+	return ""
+}
+
+// stdDeriveGap is the error for a derive in a std file whose component
+// rec names has no impl of iface. DetectMissingImpls leaves out a demand
+// every recording of which is the stdlib's (its hands-off rule), so a std
+// derive over such a component would pass the front end, and the builder
+// would then decline the derived body. A program never declares std's
+// derives, so the error is reported here, where std's own analysis sees it.
+func stdDeriveGap(fa *FileAnalysis, impls *ProjectImplIndex, baseName, iface string, rec Recording) []TypeError {
+	if !missingImplsChecked(iface) || !isStdlibRecording(rec) || hasInterfaceImpl(fa, impls, baseName, iface) {
+		return nil
+	}
+	return []TypeError{TypeError{
+		File: rec.Pos.File, Line: rec.Pos.Line, Col: rec.Pos.Col,
+		Message: fmt.Sprintf("no impl of `%s` for `%s` (required via %s)", iface, baseName, formatRecordingVia(rec)),
+	}.WithHint(missingImplHelp(iface, baseName))}
 }
 
 // hasInterfaceImpl reports whether the named type has an Iface impl

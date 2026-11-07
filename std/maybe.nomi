@@ -112,6 +112,24 @@ impl Maybe<T> {
         }
     }
 
+    /// Keeps the value inside Some when `keep` returns True for it, and
+    /// otherwise returns None.
+    //! assert Maybe.filter(Maybe.Some(4), &(&1 > 2)) == Maybe.Some(4)
+    //! assert Maybe.filter(Maybe.Some(1), &(&1 > 2)) == Maybe.None
+    //! nothing: Maybe<Int> = Maybe.None
+    //! assert Maybe.filter(nothing, &(&1 > 2)) == Maybe.None
+    //!
+    //! // An empty setting counts as unset.
+    //! host = Maybe.Some("") |> Maybe.filter(&(&1 != "")) |> Maybe.with_default("localhost")
+    //! assert host == "localhost"
+    //
+    pub fn filter<T>(maybe: Maybe<T>, keep: (T) -> Bool) -> Maybe<T> {
+        case maybe {
+            Some(v) when keep(v) -> maybe
+            _ -> Maybe.None
+        }
+    }
+
     /// Removes one level of nesting: `Some(Some(v))` becomes `Some(v)`, and
     /// both `Some(None)` and `None` become `None`.
     //! assert Maybe.flatten(Maybe.Some(Maybe.Some(3))) == Maybe.Some(3)
@@ -206,7 +224,7 @@ impl Iter for Maybe<T> {
     /// A `Maybe` iterates as zero or one elements: `Some(x)` pushes `x` to
     /// `yield`, and `None` pushes nothing. So a `Maybe` goes wherever an
     /// `Iter` does, as in `Iter.concat(lines, reaction)` or a `flat_map`
-    /// whose function answers a `Maybe`.
+    /// whose function returns a `Maybe`.
     //! assert Iter.to_list(Maybe.Some(3)) == [3]
     //! none: Maybe<Int> = Maybe.None
     //! assert Iter.to_list(none) == []

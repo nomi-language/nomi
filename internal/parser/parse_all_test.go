@@ -3,6 +3,7 @@ package parser
 import (
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 )
 
@@ -27,5 +28,32 @@ func TestParseAll_ReportsEachStatementsError(t *testing.T) {
 	}
 	if _, errs := ParseAll(lexer.Lex("fn main() {\n    dbg 1\n}\n")); errs != nil {
 		t.Fatalf("a valid file has errors: %v", errs)
+	}
+}
+
+// A `(` a damaged statement left open ends at the end of the line the
+// error is on: the statements after it parse, so the names they use are
+// still used (an import they name is not reported unused). A `{` the error
+// is inside keeps its lines (TestTap_BadOperandDoesNotCascade).
+func TestParseAll_UnclosedParenEndsAtTheLine(t *testing.T) {
+	src := "fn main() {\n    let = (\n    io.print(a)\n    io.print(b)\n    io.print(after)\n}\n\nfn next() {}\n"
+	if _, errs := ParseAll(lexer.Lex(src)); len(errs) != 1 {
+		t.Fatalf("got %d errors, want 1: %v", len(errs), errs)
+	}
+	nodes, errs, _ := ParseResilient(lexer.Lex(src))
+	names := map[string]bool{}
+	for _, n := range nodes {
+		ast.Inspect(n, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok {
+				names[id.Name] = true
+			}
+			return true
+		})
+	}
+	if !names["after"] {
+		t.Errorf("the statement after the damaged run was dropped: %v", errs)
+	}
+	if len(nodes) != 2 {
+		t.Errorf("got %d declarations, want 2", len(nodes))
 	}
 }

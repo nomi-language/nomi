@@ -34,6 +34,13 @@ func TestParseCapture_Bodies(t *testing.T) {
 		{"&%[&1]", "*ast.SetLit", false},
 		{"&%{&1 => 0}", "*ast.MapLit", false},
 		{"&(not keep(&1))", "*ast.GroupedExpr", false},
+		{"&\"id ${&1}\"", "*ast.StringInterp", false},
+		{"&\"plain\"", "*ast.StringLit", false},
+		{"&\"\"\"\n    ${&1}\n    \"\"\"", "*ast.StringInterp", false},
+		{"&`raw`", "*ast.StringLit", false},
+		{"&Sql\"id = ${&1}\"", "*ast.TaggedString", false},
+		{"&Html\"\"\"\n    <p>${&1}</p>\n    \"\"\"", "*ast.TaggedString", false},
+		{"&Regex`a+`", "*ast.TaggedString", false},
 	} {
 		t.Run(tc.src, func(t *testing.T) {
 			c, ok := parseExpr(t, tc.src).(*ast.Capture)
@@ -51,6 +58,13 @@ func TestParseCapture_Bodies(t *testing.T) {
 	b, ok := parseExpr(t, "&f(&1) + 1").(*ast.Binary)
 	if !ok || b.Op != "+" {
 		t.Fatalf("`&f(&1) + 1` is no sum")
+	}
+	if _, ok := b.Left.(*ast.Capture); !ok {
+		t.Errorf("the sum's left operand is %T, want the capture", b.Left)
+	}
+	b, ok = parseExpr(t, "&\"a${&1}\" + \"b\"").(*ast.Binary)
+	if !ok || b.Op != "+" {
+		t.Fatalf("`&\"a${&1}\" + \"b\"` is no sum")
 	}
 	if _, ok := b.Left.(*ast.Capture); !ok {
 		t.Errorf("the sum's left operand is %T, want the capture", b.Left)
@@ -99,6 +113,12 @@ func TestParseCapture_Errors(t *testing.T) {
 		{"f = &!keep(&1)", "Nomi spells logical not `not`: write `not x`, not `!x`"},
 		{"f = &not keep(&1)", "`not` binds looser than comparisons and arithmetic"},
 		{"f = & !keep(&1)", "a capture's `&` is written against its body, with no space"},
+		{"f = & \"id ${&1}\"", "a capture's `&` is written against its body, with no space"},
+		{"f = &'a'", "a capture is `&` and a call, a parenthesized expression or a literal, as in `&f(&1)` or `&(&1 > 2)`"},
+		{"f = &-1", "a capture is `&` and a call, a parenthesized expression or a literal"},
+		{"f = &{ &1 }", "a capture is `&` and a call, a parenthesized expression or a literal"},
+		{"f = &True", "a capture is `&` and a call, a parenthesized expression or a literal"},
+		{"f = &\"a\".length", "a capture is `&` and a call, a parenthesized expression or a literal"},
 	} {
 		t.Run(tc.src, func(t *testing.T) {
 			_, err := Parse(lexer.Lex(tc.src))

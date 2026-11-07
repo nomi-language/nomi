@@ -78,7 +78,7 @@
 //# A `List`, `Vector` or `Set` yields its elements, a `List` and a `Vector`
 //# in order. A `Map<K, V>` yields `#(key, value)` pairs in insertion order, a
 //# `String` its grapheme clusters, and a `Maybe` its value when it is `Some`,
-//# so `Iter.flat_map(xs, f)` with an `f` that answers a `Maybe` keeps the
+//# so `Iter.flat_map(xs, f)` with an `f` that returns a `Maybe` keeps the
 //# `Some` values.
 //#
 //# If you want a List back from a List, the spelling is always the explicit
@@ -115,7 +115,7 @@
 //#   `cycle`, `concat`, `intersperse`, `with_index`, `chunks`, `windows`,
 //#   `chunk_by`, `permutations`, `combinations`. Each is built once, when the
 //#   chain is built, not per element, so a pipeline fuses.
-//# - **Terminals** consume the source and answer a value: `reduce`,
+//# - **Terminals** consume the source and return a value: `reduce`,
 //#   `try_reduce`, `map_reduce`, `find`, `find_index`, `find_map`, `each`,
 //#   `any`, `all`, `contains`, `is_empty`, `first`, `last`, `get`, `count`,
 //#   `min`, `max`, `min_by`, `max_by`, `sum`, `product`, `sort`, `sort_by`,
@@ -145,14 +145,14 @@
 //#
 //# There is no first-element fallback, so a reduction never fails at run
 //# time for an empty source. For the least or greatest element, which has no
-//# answer for an empty source, use `Iter.min` and `Iter.max`: each answers a
+//# return for an empty source, use `Iter.min` and `Iter.max`: each returns a
 //# `Maybe`, `None` when the source is empty.
 //#
 //# `Iter.scan`, `Iter.map_reduce` and `Iter.try_reduce` take their
 //# starting value the same way, and so does `Iter.loop`, which has no
 //# source: `Iter.loop(0, step)`. `Iter.scan` is lazy and yields each state
 //# after the starting value, one per element; `Iter.map_reduce` is eager and
-//# answers the final state with the outputs in order, `#(start, [])` for an
+//# returns the final state with the outputs in order, `#(start, [])` for an
 //# empty source.
 //#
 //# ## Element types
@@ -239,7 +239,7 @@ pub interface Iter<T> {
     /// Some(n) if this iterator can report how many elements it yields without
     /// consuming them; None if it can't (a filtered/lazy pipeline) or won't
     /// terminate (an unbounded source, which `is_infinite` reports). `Iter.count`
-    /// uses it for an O(1) count. `Iter.take(n)` answers it when its source
+    /// uses it for an O(1) count. `Iter.take(n)` returns it when its source
     /// does or never ends.
     open fn known_count(_collection: self) -> Maybe<Int> {
         None
@@ -247,14 +247,14 @@ pub interface Iter<T> {
 
     /// True if this iterator never ends on its own, so a terminal that has to
     /// reach its end (`Iter.to_list`, `Iter.count`, `Iter.sum`, ...) could
-    /// never answer. Such a terminal traps at once instead of running until
+    /// never return. Such a terminal traps at once instead of running until
     /// memory runs out. False means it may end. The sources that never end
     /// (`Iter.repeat`, `Iter.from`, `Iter.iterate`, `Iter.cycle` of a
-    /// non-empty source, `Range.from`) answer True, and so does every lazy
+    /// non-empty source, `Range.from`) return True, and so does every lazy
     /// adapter over one that cannot stop it; `Iter.take` and `Iter.take_while`
     /// can.
     ///
-    /// A type of your own answers False unless its impl writes this function.
+    /// A type of your own returns False unless its impl writes this function.
     open fn is_infinite(_collection: self) -> Bool {
         False
     }
@@ -270,7 +270,7 @@ impl Iter<T> {
     /// `break` value type, and the loop's result type are all one type `S`:
     /// for a stated callback `S` comes from the starting state, and a
     /// stateless callback has state `Unit`, so it breaks with `break` alone
-    /// and the loop answers `Unit`.
+    /// and the loop returns `Unit`.
     ///
     /// Use `break value` to exit with `value`, or bare `break` to exit with
     /// the current state. `continue` starts the next round with the state
@@ -314,7 +314,7 @@ impl Iter<T> {
     /// The starting value is `from`, before the callback:
     /// `Iter.reduce(xs, 0, Int.add)` and
     /// `Iter.reduce(xs, 0, fn acc, x -> acc + x)` are the same fold. It is
-    /// the answer for an empty source. For the least or greatest element use
+    /// the result for an empty source. For the least or greatest element use
     /// `Iter.min` or `Iter.max`.
     ///
     /// Supports `break` / `break value` / `continue` in the callback.
@@ -346,7 +346,7 @@ impl Iter<T> {
     /// state with the outputs in order. The callback takes the state and an
     /// element and returns `#(next_state, output)`, state first as in
     /// `Iter.reduce`; the starting state is `from`, as in `Iter.reduce`. An
-    /// empty source answers the starting state and no outputs. Consumes the
+    /// empty source returns the starting state and no outputs. Consumes the
     /// whole iterator.
     ///
     /// In the callback, `continue` skips the element: no output, and the
@@ -390,7 +390,7 @@ impl Iter<T> {
     /// Applies `f` to each element in turn and returns the first `Some` it
     /// gives, or None when it gives none. Stops at that element, so it ends
     /// on an infinite source that holds one. It is `Iter.find` for a search
-    /// whose test also computes the answer.
+    /// whose test also computes the result.
     //
     //! assert Iter.find_map(["x", "12", "7"], String.to_int) == Some(12)
     //! assert Iter.find_map(["x", "y"], String.to_int) == None
@@ -414,7 +414,7 @@ impl Iter<T> {
     /// the state and each element in turn, and returns `Ok` of the final
     /// state, or the first `Err` the step gives. Stops at that element, so it
     /// reads no further and ends on an infinite source that fails. An empty
-    /// source answers `Ok(from)`. Use it, not `Iter.reduce` with `?` on the
+    /// source returns `Ok(from)`. Use it, not `Iter.reduce` with `?` on the
     /// accumulator, which visits every element.
     //
     //! fn add_digit(total: Int, text: String) -> Result<Int, String> {
@@ -1155,7 +1155,7 @@ impl Iter<T> {
     /// `String`) inherits the `None` default and folds in O(n). Because the fold
     /// runs to exhaustion, `Iter.count` traps on an infinite source — bound it
     /// with `Iter.take(n)` first. For the sized-only,
-    /// non-consuming answer (`None` when unknown or unbounded), use
+    /// non-consuming return (`None` when unknown or unbounded), use
     /// `Iter.known_count` directly.
     //
     //! assert Iter.count([10, 20, 30]) == 3

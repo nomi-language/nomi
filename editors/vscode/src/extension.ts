@@ -84,7 +84,7 @@ async function startClient(): Promise<void> {
     documentSelector: [
       { scheme: "file", language: "nomi" },
       { scheme: "untitled", language: "nomi" },
-      // The module's message catalogs, and no other TOML file.
+      // The module's phrase catalogs, and no other TOML file.
       ...catalogs,
     ],
   };

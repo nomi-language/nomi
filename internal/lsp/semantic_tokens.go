@@ -1,6 +1,8 @@
 package lsp
 
 import (
+	"sort"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/semtokens"
@@ -23,6 +25,11 @@ var tokenTypes = []string{
 	string(protocol.SemanticTokenTypeProperty),   // 8
 	string(protocol.SemanticTokenTypeNamespace),  // 9
 	string(protocol.SemanticTokenTypeComment),    // 10
+	// The MF2 in phrase and noun bodies and in catalogs (phrase_tokens.go).
+	string(protocol.SemanticTokenTypeKeyword),  // 11
+	string(protocol.SemanticTokenTypeOperator), // 12
+	string(protocol.SemanticTokenTypeNumber),   // 13
+	string(protocol.SemanticTokenTypeString),   // 14
 }
 
 // tokenModifiers lists the semantic token modifiers in legend order (bit
@@ -44,25 +51,44 @@ const (
 // encodeSemanticTokens builds the LSP semantic-tokens data array from a
 // FileAnalysis, the nodes it was built from and the text it analyzed.
 // Identifier classification is shared with the language-tour highlighter via
-// the semtokens package; this function maps the shared token-type names into
-// this legend's indices, sets the modifiers, and delta-encodes them, with
-// start columns and lengths in the UTF-16 code units the protocol counts.
+// the semtokens package; the MF2 in phrase and noun bodies is this server's
+// own (phraseBodyTokens).
 func encodeSemanticTokens(fa *analysis.FileAnalysis, nodes []ast.Node, content string) []protocol.UInteger {
-	toks := semtokens.UTF16(content, semtokens.Collect(fa))
+	toks := append(semtokens.Collect(fa), phraseBodyTokens(nodes)...)
+	return encodeTokens(content, toks, semtokens.AttachedTestLines(nodes))
+}
+
+// encodeTokens maps toks, found in content with byte columns, into this
+// legend's indices, sets the modifiers, and delta-encodes them, with start
+// columns and lengths in the UTF-16 code units the protocol counts. A token
+// that starts inside the one before it is dropped, since the protocol's
+// tokens do not overlap.
+func encodeTokens(content string, toks []semtokens.Token, attached map[int]bool) []protocol.UInteger {
+	sort.SliceStable(toks, func(i, j int) bool {
+		if toks[i].Line != toks[j].Line {
+			return toks[i].Line < toks[j].Line
+		}
+		return toks[i].Col < toks[j].Col
+	})
+	var kept []semtokens.Token
+	for _, tok := range toks {
+		if n := len(kept); n > 0 && kept[n-1].Line == tok.Line && tok.Col < kept[n-1].Col+kept[n-1].Length {
+			continue
+		}
+		kept = append(kept, tok)
+	}
+	toks = semtokens.UTF16(content, kept)
 	if len(toks) == 0 {
 		// Never nil: it marshals as `"data": null`, which Neovim's
 		// semantic-tokens handler crashes on when a file is empty.
 		return []protocol.UInteger{}
 	}
-	attached := semtokens.AttachedTestLines(nodes)
 
 	typeIndex := make(map[string]uint32, len(tokenTypes))
 	for i, name := range tokenTypes {
 		typeIndex[name] = uint32(i)
 	}
 
-	// semtokens.Collect already returns tokens sorted by (line, col), which is
-	// what the delta encoding requires.
 	data := make([]protocol.UInteger, 0, len(toks)*5)
 	prevLine := 1
 	prevCol := 1
@@ -98,6 +124,13 @@ func encodeSemanticTokens(fa *analysis.FileAnalysis, nodes []ast.Node, content s
 
 func (s *Server) textDocumentSemanticTokensFull(ctx *glsp.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
 	uri := string(params.TextDocument.URI)
+	if isInputURI(uri) {
+		// A catalog's MF2 strings; any other TOML file has none.
+		if d := s.catalogAt(uri); d != nil {
+			return &protocol.SemanticTokens{Data: encodeTokens(d.text, catalogTokens(d), nil)}, nil
+		}
+		return nil, nil
+	}
 	doc := s.docs.Snapshot(uri)
 	if doc == nil {
 		return nil, nil

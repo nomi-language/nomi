@@ -290,8 +290,8 @@
           "match": "\\bhost\\b(?=\\s+(?:fn|type)\\b)"
         },
         {
-          "comment": "A keyword declaration Nomi builds in (`message cart_items(...)`, `noun item`): its keyword and its name, at the start of a line.",
-          "match": "^(?:(pub)\\s+)?(message|noun)\\s+([a-z_][A-Za-z0-9_]*)",
+          "comment": "A keyword declaration Nomi builds in (`phrase cart_items(...)`, `noun item`): its keyword and its name, at the start of a line.",
+          "match": "^(?:(pub)\\s+)?(phrase|noun)\\s+([a-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.declaration.nomi"
@@ -478,7 +478,7 @@
         },
         {
           "name": "keyword.other.capture.nomi",
-          "match": "&(?=[(\\[#%.!A-Za-z])"
+          "match": "&(?=[(\\[#%.!A-Za-z\"`])"
         },
         {
           "name": "comment.discard.nomi",

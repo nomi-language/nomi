@@ -37,7 +37,7 @@ import {
 //# to look for is called a matcher, not a pattern, because a pattern in Nomi
 //# is a destructuring shape.
 //#
-//# - Each `Matcher` function answers one of these operations with the
+//# - Each `Matcher` function returns one of these operations with the
 //#   matcher first (`is_contained_in`, `is_prefix_of`, `is_suffix_of`,
 //#   `split_in`, `replace_in`, `find_all_in`, `find_in`). A type of your own
 //#   implements it to become searchable, and a generic function of your own
@@ -49,7 +49,7 @@ import {
 //#   references in the replacement (`$1`, `${name}`, `$$` for a `$`); with any other
 //#   matcher the replacement is literal text.
 //# - `String.captures` and `String.captures_all` take a `Regex` rather than
-//#   any `Matcher`, since only a regex has groups, and answer each match's
+//#   any `Matcher`, since only a regex has groups, and return each match's
 //#   groups as the regex's capture type
 //#   ([capture types](/reference/regex/#capture-types)).
 //# - `String.split` and the other `Matcher` search functions are generic, so

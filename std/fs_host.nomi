@@ -117,11 +117,11 @@ pub host fn sandbox_log(sandbox: FileSystem) -> List<String>
 pub host fn sandbox_open(sandbox: FileSystem) -> List<String>
 
 /// Runs `body` with `files` as the file system every `std::fs` call in it
-/// reaches, its tasks' included, and answers what it returned.
+/// reaches, its tasks' included, and returns what it returned.
 pub fn run_in<T>(files: FileSystem, body: () -> T) -> T {
     run_on(files, body, fn value -> value)
 }
 
 /// Calls `body` on a frame that reaches `files` and hands its value to
-/// `finish` on the caller's. Answered by the VM.
+/// `finish` on the caller's. Implemented by the VM.
 host fn run_on<T>(files: FileSystem, body: () -> T, finish: (T) -> T) -> T

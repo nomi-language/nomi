@@ -1,5 +1,5 @@
 # German, a partial locale: the total and the shipping date. The nouns and
-# the other messages show in English.
+# the other phrases show in English.
 
 [order_total]
 source = '''Total: {$total :currency}'''

@@ -1,5 +1,4 @@
 import {
-    std::locale.Locale
     std::plural.PluralCategory
     main
 }

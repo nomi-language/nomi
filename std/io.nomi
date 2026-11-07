@@ -1,12 +1,12 @@
 //# Input and output: the standard streams, readers and writers, files
-//# opened at a position, and the one error type they all answer.
+//# opened at a position, and the one error type they all return.
 //# `io.print`, `io.write` and `io.inspect` write to standard output,
 //# `io.eprint` and `io.ewrite` to standard error, and `io.read_line` reads
 //# standard input. `Reader` and `Writer` are streams: the standard ones
 //# (`io.stdin`, `io.stdout`, `io.stderr`), files that `std::fs` opens, and
 //# readers and writers the program makes over data or functions. A `File`
 //# is a file read and written at a position. `io.capture` and `io.replay`
-//# run a function against given input and answer what it printed, which is
+//# run a function against given input and return what it printed, which is
 //# how a test checks a program's output.
 //#
 //# ## Standard streams
@@ -17,7 +17,7 @@
 //# and `write` for standard error. Each call is one write: two tasks
 //# printing at once never interleave inside a line.
 //#
-//# `io.read_line()` answers `Ok(None)` at the end of the input, so a loop
+//# `io.read_line()` returns `Ok(None)` at the end of the input, so a loop
 //# ends on `Ok(Some(line)) = io.read_line() else { break }`, and an
 //# `io.read_line()?` does not treat the end as a failure.
 //#
@@ -30,14 +30,14 @@
 //#   changes. Using it moves the stream on, and where a use goes is decided
 //#   when it is made, so a value read before an `io.capture` began writes
 //#   into the capture inside it.
-//# - `Reader.read_line(r)` on standard input answers what `io.read_line()`
-//#   answers and reads from the same buffer. A write to `io.stdout` lands in
+//# - `Reader.read_line(r)` on standard input returns what `io.read_line()`
+//#   returns and reads from the same buffer. A write to `io.stdout` lands in
 //#   order with `io.print`'s. Inside `io.capture` the handles reach the
 //#   capture as `io.print` and `io.read_line` do.
 //# - A read of standard input that is waiting for input is a safe point. A
 //#   task cancelled while it waits (`Task.cancel`, the teardown of its
 //#   `concurrent` block, a supervisor drain) unwinds there at once, as one
-//#   waiting on a channel does, and what arrives afterwards is answered to
+//#   waiting on a channel does, and what arrives afterwards is returned to
 //#   the next read, a partial line included.
 //#
 //# ## Readers and writers
@@ -55,7 +55,7 @@
 //# read, which starts it, and keeps that read's `io.capture`.
 //#
 //# A writer over a file is buffered: `Writer.flush` sends what it holds on,
-//# and `Writer.close` flushes and closes, answering the error of a write the
+//# and `Writer.close` flushes and closes, returning the error of a write the
 //# buffer held or of the close, since a failed close of a written file can
 //# lose data.
 //#
@@ -304,7 +304,7 @@ pub host fn eprint<T>(value: T) -> Unit where T: Display
 pub host fn ewrite<T>(value: T) -> Unit where T: Display
 
 /// Reads the next line of standard input, without its `\n` and a `\r`
-/// before it. Answers `Ok(None)` at the end of the input, and `Err` when the
+/// before it. Returns `Ok(None)` at the end of the input, and `Err` when the
 /// read fails. A line that is not UTF-8 is
 /// `Err(io.Error.InvalidText{path: "<stdin>", offset})`, `offset` being
 /// the byte offset of its first bad sequence within the line; the lines
@@ -418,7 +418,7 @@ impl Reader {
     pub host fn read_line(r: Reader) -> Result<Maybe<String>, Error>
 
     /// Up to `max` bytes, at least one, or `Ok(None)` at the end of the
-    /// stream. A read answers what is ready, so it may answer fewer than
+    /// stream. A read returns what is ready, so it may return fewer than
     /// `max` bytes before the end. A `max` below 1 is a trap.
     ///
     /// ```nomi
@@ -532,7 +532,7 @@ impl Reader {
         })
     }
 
-    /// Copies everything left in `r` into `w` and answers how many bytes it
+    /// Copies everything left in `r` into `w` and returns how many bytes it
     /// copied. It reads and writes a chunk at a time, so a large file never
     /// has to fit in memory.
     ///
@@ -601,7 +601,7 @@ impl Reader {
 
     /// A reader that calls `next` each time it needs more bytes: `Ok(Some(chunk))`
     /// is the next chunk, `Ok(None)` the end of the stream, and `Err(e)` a
-    /// failure the read that asked answers with. An empty chunk is skipped.
+    /// failure the read that asked returns with. An empty chunk is skipped.
     /// `next` runs when a read needs it, on the task that reads and inside
     /// the `io.capture` that read is in, so a reader adapts any source a
     /// function can pull from. A trap in `next` is a trap of the read.
@@ -718,7 +718,7 @@ impl Writer {
     //
     pub host fn flush(w: Writer) -> Result<Unit, Error>
 
-    /// Flushes the stream and closes it, and answers whether everything
+    /// Flushes the stream and closes it, and returns whether everything
     /// written reached the file: a failed close of a written file means
     /// data may be lost. A second close is `Closed`, and so is any write
     /// after the first. Closing a standard stream does nothing.
@@ -751,7 +751,7 @@ impl Writer {
     }
 
     /// Writes each chunk in order and stops at the first failure, which it
-    /// answers. A chunk is pulled when the one before it is written, so the
+    /// returns. A chunk is pulled when the one before it is written, so the
     /// sequence may be long.
     ///
     /// ```nomi
@@ -775,7 +775,7 @@ impl Writer {
 
     /// Writes each item's user-facing representation followed by `\n`, as
     /// `Writer.print` writes one, and stops at the first failure, which it
-    /// answers.
+    /// returns.
     ///
     /// ```nomi
     /// Writer.write_lines(io.stdout, ["pear", "apple"])?
@@ -810,7 +810,7 @@ impl Writer {
     /// not kept; with `unbuffered: True` each write reaches `write` as it is
     /// made. `close`, named, runs when the writer is closed, after the last
     /// bytes. An `Err` from either is the error the write, flush or close
-    /// answers, and a buffered writer answers a failed send's error to every
+    /// returns, and a buffered writer returns a failed send's error to every
     /// later write, as a writer over a file does. Both run on the task that
     /// writes, flushes or closes, inside its `io.capture`. `write` may write
     /// to another writer, but not to the one it is fed by.
@@ -846,7 +846,7 @@ impl Writer {
         writer_from_fn(write, close, unbuffered)
     }
 
-    /// Calls `body` with a writer into memory and answers what `body`
+    /// Calls `body` with a writer into memory and returns what `body`
     /// returned and every byte it wrote. The writer is closed when `body`
     /// returns, so a write through it after that is `Closed`. It is the
     /// writer a test hands code written against `Writer`;
@@ -970,7 +970,7 @@ impl File {
 
 host fn file_read(f: File, max: Int) -> Result<Maybe<Bytes>, Error>
 
-/// What `io.capture` answers: the value `run` returned, everything it
+/// What `io.capture` returns: the value `run` returned, everything it
 /// printed to stdout and to stderr, and its stdout and input together as a
 /// transcript.
 pub struct Captured<T> {
@@ -995,12 +995,12 @@ pub struct Captured<T> {
     transcript: String
 }
 
-/// Calls `run` with `input` as its standard input and answers what it
+/// Calls `run` with `input` as its standard input and returns what it
 /// returned together with everything it printed.
 ///
 /// While `run` runs, `io.read_line` reads `input` one line at a time with
 /// the line ending stripped, as it reads stdin (`\n` or `\r\n`; a last line
-/// with no newline is still a line), and answers `Ok(None)` once it is used
+/// with no newline is still a line), and returns `Ok(None)` once it is used
 /// up. `io.print`, `io.write` and `io.inspect` append exactly what they
 /// would have written to stdout to `output`, and `io.eprint` and
 /// `io.ewrite` what they would have written to stderr to `errors`. The
@@ -1065,14 +1065,14 @@ pub fn capture<T>(input: String, run: () -> T) -> Captured<T> {
 
 /// Calls `run` under a capture of `input` and hands its result, output,
 /// error output and transcript to `finish`, which builds the `Captured`.
-/// Answered by the VM.
+/// Implemented by the VM.
 host fn run_captured<T>(
     input: String,
     run: () -> T,
     finish: (T, String, String, String) -> Captured<T>,
 ) -> Captured<T>
 
-/// What `io.replay` answers. `assert` holds on it when the transcript
+/// What `io.replay` returns. `assert` holds on it when the transcript
 /// matches the script, and its failure shows a line diff of the two. It
 /// does not hold what `run` returned; use `io.capture` to check that.
 pub struct Replayed {
@@ -1109,7 +1109,7 @@ fn replay_reason(replayed: Replayed) -> String {
     }
 }
 
-/// Runs `run` against a script of an interactive session and answers a
+/// Runs `run` against a script of an interactive session and returns a
 /// `Replayed` that `assert` checks: `assert io.replay(script, main)`.
 ///
 /// The script is the session, output and input in order. Its base column
@@ -1120,7 +1120,7 @@ fn replay_reason(replayed: Replayed) -> String {
 ///
 /// - A line indented past the base column, by spaces or tabs, whose text
 ///   then starts with `> ` is input. What follows `> ` is what the next
-///   `io.read_line` answers, leading spaces included. `>` alone after the
+///   `io.read_line` returns, leading spaces included. `>` alone after the
 ///   indentation (a `> ` whose trailing space was dropped) is an empty line.
 /// - Every other line is output the program must print, exactly as
 ///   written, indentation included: indentation past the closing
@@ -1145,7 +1145,7 @@ fn replay_reason(replayed: Replayed) -> String {
 /// final newline, do not count, so a `"""` script, which drops its last
 /// newline, matches output that ends in one, and a prompt's trailing space
 /// need not be written. Once the script's input is used up, `io.read_line`
-/// answers `Ok(None)`, and that read adds nothing to the transcript; the
+/// returns `Ok(None)`, and that read adds nothing to the transcript; the
 /// prompt it answered stays on one line with what is printed next. An input
 /// line the program never read fails the replay, and the reason says how
 /// many were left. A read writes its line into the transcript at the
@@ -1296,7 +1296,7 @@ pub fn replay<T>(script: String, run: () -> T) -> Replayed {
 
 /// Calls `run` under a capture whose input is the script's input lines and
 /// hands `finish` its result, its output, the transcript and the script as
-/// replay compares them, and the count of input lines never read. Answered
+/// replay compares them, and the count of input lines never read. Implemented
 /// by the VM.
 host fn run_replayed<T>(
     script: String,

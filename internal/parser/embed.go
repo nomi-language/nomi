@@ -48,13 +48,13 @@ func (p *Parser) parseEmbedDecl(kwTok, nameTok token.Token, public bool) (ast.No
 	case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT, token.EOF:
 		return nil, errorAt(nameTok.Line, nameTok.Col+len(nameTok.Lexeme), "an `embed` names the files it holds: %s", shape)
 	default:
-		return nil, errorAt(tok.Line, tok.Col, "unexpected %s in an `embed` declaration: %s", tok.Lexeme, shape)
+		return nil, unexpectedIn(tok, "an `embed` declaration", ": "+shape)
 	}
 	if !p.atEnd() {
 		switch tok := p.peek(); tok.Type {
 		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT, token.EOF:
 		default:
-			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in an `embed` declaration: %s", tok.Lexeme, shape)
+			return nil, unexpectedIn(tok, "an `embed` declaration", ": "+shape)
 		}
 	}
 	patterns, err := embedPatterns(decl)

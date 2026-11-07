@@ -1,0 +1,15 @@
+// The function a `tap` stage names reads as a called function, as a call's
+// callee does. The caret lines below each line name the highlight of the
+// token they point at.
+import std::io
+
+pub fn log_it(n: Int) {
+    io.print(n)
+}
+
+pub fn traced(n: Int) -> Int {
+    n |> tap log_it |> tap io.print
+    //   ^^^ keyword
+    //       ^^^^^^ function.call
+    //                        ^^^^^ function.call
+}

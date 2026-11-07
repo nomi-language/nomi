@@ -20,7 +20,7 @@ import {
 /// A client: Go's `http.Client` with its connection pool.
 pub host type Client
 
-/// A response a client answered, its body read or open.
+/// A response a client received, its body read or open.
 pub host type Exchange
 
 /// One of the Go values std::http keeps for a program: a TLS ClientHello, a
@@ -143,7 +143,7 @@ pub host type Incoming
 /// Binds `address` and starts serving. `durations` are the read,
 /// read-header, write, idle and shutdown timeouts in nanoseconds, 0 for
 /// Go's default (none); `limits` the most header bytes and header values,
-/// 0 for Go's; `flags` keep-alives, answering `OPTIONS *`, and client
+/// 0 for Go's; `flags` keep-alives, responding to `OPTIONS *`, and client
 /// priority; `protocols` HTTP/1, HTTP/2 and unencrypted HTTP/2, when
 /// `has_protocols`; `http2` and `http2_flags` an Http2Options' parts. Each
 /// hook runs on the task waiting in `next`. When the program starts
@@ -194,14 +194,14 @@ pub host fn in_body(incoming: Incoming) -> Reader
 /// The server address the request came in on.
 pub host fn in_local(incoming: Incoming) -> String
 
-/// The connection's TLS state, as `tls_state_parts` answers it.
+/// The connection's TLS state, as `tls_state_parts` returns it.
 pub host fn in_tls(incoming: Incoming) -> Maybe<List<List<String>>>
 
 /// Go's `ResponseController.SetReadDeadline`, `by` nanoseconds from now,
 /// 0 for none.
 pub host fn extend_read_deadline(incoming: Incoming, by: Int) -> Result<Unit, String>
 
-/// Answers `status` and `headers`, then takes the connection from the
+/// Sends `status` and `headers`, then takes the connection from the
 /// server (Go's `Hijack`).
 pub host fn upgrade(
     incoming: Incoming,
@@ -226,7 +226,7 @@ pub host fn respond(
 ) -> Result<Unit, List<String>>
 
 /// Writes the status and headers, announcing the trailers named, and
-/// answers a writer over the body that sends what it passes on at once.
+/// returns a writer over the body that sends what it passes on at once.
 pub host fn produce(
     incoming: Incoming,
     status: Int,
@@ -236,7 +236,7 @@ pub host fn produce(
     full_duplex: Bool,
 ) -> Writer
 
-/// The program has answered: sets the trailers, and answers a 500 when
+/// The program has responded: sets the trailers, and sends a 500 when
 /// nothing was written.
 pub host fn finish(incoming: Incoming, trailers: List<String>) -> Unit
 
@@ -257,7 +257,7 @@ pub host fn new_mux(patterns: List<String>) -> Result<Mux, List<String>>
 
 /// Matches a request as the mux's `ServeHTTP` does: `["match", index,
 /// pattern, name, value, ...]`, or `["answer", status, body, name, value,
-/// ...]` for what the mux answers itself.
+/// ...]` for a response the mux makes itself.
 pub host fn route(mux: Mux, method: String, host: String, target: String) -> List<String>
 
 /// Go's `ServeContent` for `data` named `name`, modified at `modified`
@@ -274,7 +274,7 @@ pub host fn answer_content(
     data: Bytes,
 ) -> List<String>
 
-/// Go's `Redirect` to `to`, as `answer_content` answers.
+/// Go's `Redirect` to `to`, as `answer_content` returns.
 pub host fn answer_redirect(
     method: String,
     target: String,
@@ -328,19 +328,19 @@ host fn request_on<T, R>(
     finish: (T) -> R,
 ) -> R
 
-/// Runs `body` with `answer` answering every request std::http sends in it,
+/// Runs `body` with `answer` responding to every request std::http sends in it,
 /// and in the tasks it starts.
 pub fn with_fake<Q, A, T>(answer: (Q) -> A, body: () -> T) -> T {
     run_on(answer, body, fn v -> v)
 }
 
-/// What the installed fake answers `request`, recording it; `None` with no
+/// What the installed fake returns for `request`, recording it; `None` with no
 /// fake installed.
 pub fn answered<Q, A>(request: Q) -> Maybe<A> {
     answer_on(request, fn a -> Some(a), fn -> None)
 }
 
-/// The requests the installed fake has answered, in order.
+/// The requests the installed fake has served, in order.
 pub fn answered_requests<Q>() -> List<Q> {
     recorded_on(fn requests -> requests)
 }
@@ -484,7 +484,7 @@ pub host fn hello_supports(hello: Handle, certificate: Certificate) -> String
 /// The listener's connections as TLS servers with `config`.
 pub host fn tls_wrap_listener(listener: TcpListener, config: TlsConfig) -> TcpListener
 
-/// The response's TLS state, as `tls_state_parts` answers it.
+/// The response's TLS state, as `tls_state_parts` returns it.
 pub host fn exchange_tls(exchange: Exchange) -> Maybe<List<List<String>>>
 
 /// A recorder of what Go's httptrace reports.
@@ -527,7 +527,7 @@ pub host fn split_host_port(address: String) -> Result<List<String>, List<String
 
 pub host fn join_host_port(host: String, port: String) -> String
 
-/// The system resolver's answer for `kind` (host, ip, address, cname, ns,
+/// The system resolver's result for `kind` (host, ip, address, cname, ns,
 /// txt, mx, port, srv) about `name`, flat: mx as host and preference
 /// pairs, srv as its cname then target, port, priority and weight; for
 /// srv, `name` is "service protocol domain".
@@ -589,7 +589,7 @@ pub host fn wire_body(message: Handle) -> Bytes
 
 /// A request written to `w` (op 0), as a proxy writes it (1), or dumped as
 /// a server received it with its body (2) or without (3), or as a client
-/// sends it with (4) or without (5). A dump answers its text.
+/// sends it with (4) or without (5). A dump returns its text.
 pub host fn wire_request(
     op: Int,
     w: Writer,
@@ -626,6 +626,22 @@ pub host fn chunked_reader(r: Reader) -> Reader
 
 pub host fn chunked_writer(w: Writer) -> Writer
 
+/// `data` compressed with gzip at `level`, 1 to 9; any other level is
+/// Go's default.
+pub host fn gzip_bytes(data: Bytes, level: Int) -> Bytes
+
+/// The bytes gzip `data` holds, or why it is not gzip.
+pub host fn gunzip(data: Bytes) -> Result<Bytes, String>
+
+/// A writer that compresses into `w` with gzip at `level`. Its flush
+/// flushes the compressor and `w`; closing it writes gzip's end and leaves
+/// `w` open.
+pub host fn gzip_writer(w: Writer, level: Int) -> Writer
+
+/// A reader of `r`'s bytes compressed with gzip at `level`, each read of
+/// `r` flushed through.
+pub host fn gzip_reader(r: Reader, level: Int) -> Reader
+
 /// Go's `multipart.Reader` over `r`; `raw` leaves parts undecoded.
 pub host fn multipart_reader(r: Reader, boundary: String, raw: Bool) -> Handle
 
@@ -644,3 +660,51 @@ pub host fn multipart_write(w: Writer, boundary: String, parts: List<Bytes>) -> 
 /// Closes every connection the server holds, as httptest's
 /// `CloseClientConnections` does.
 pub host fn close_connections(listener: Listener) -> Unit
+
+/// `data` encrypted and authenticated under a 32-byte `key` with
+/// AES-256-GCM, `label` as additional data: a random nonce, then the
+/// ciphertext and its tag (`rt.Seal`). A key of another length is an Err.
+pub host fn seal(key: Bytes, data: Bytes, label: Bytes) -> Result<Bytes, String>
+
+/// What `seal` sealed under `key` and `label`, or `None` for anything
+/// else (`rt.Open`).
+pub host fn open_sealed(key: Bytes, sealed: Bytes, label: Bytes) -> Maybe<Bytes>
+
+/// Sec-WebSocket-Accept for a Sec-WebSocket-Key (RFC 6455).
+pub host fn ws_accept_key(key: String) -> String
+
+/// Whether `key` is a Sec-WebSocket-Key: 16 bytes in base64.
+pub host fn ws_valid_key(key: String) -> Bool
+
+/// A WebSocket over `conn`, its handshake done; durations in nanoseconds,
+/// 0 for none, and a `max` message size of 0 or less for no limit.
+pub host fn ws_open(conn: Conn, client: Bool, max: Int, ping: Int, idle: Int) -> Handle
+
+/// A client's opening handshake over `conn`; `headers` alternate name and
+/// value. An Err is a websocket.Error variant's name and fields.
+pub host fn ws_connect(
+    conn: Conn,
+    host: String,
+    target: String,
+    headers: List<String>,
+    protocols: List<String>,
+    max: Int,
+    ping: Int,
+    idle: Int,
+) -> Result<Handle, List<String>>
+
+/// The subprotocol the server chose in `ws_connect`, "" for none.
+pub host fn ws_protocol(ws: Handle) -> String
+
+pub host fn ws_id(ws: Handle) -> Int
+
+/// The next message, its first byte 1 for text or 2 for binary, then its
+/// payload; `None` after a clean close.
+pub host fn ws_receive(ws: Handle) -> Result<Maybe<Bytes>, List<String>>
+
+pub host fn ws_send(ws: Handle, text: Bool, data: Bytes) -> Result<Unit, List<String>>
+pub host fn ws_ping(ws: Handle, data: Bytes) -> Result<Unit, List<String>>
+pub host fn ws_close(ws: Handle, code: Int, reason: String) -> Result<Unit, List<String>>
+
+/// Two connected ends in memory that buffer what is written.
+pub host fn ws_pipe() -> List<Conn>

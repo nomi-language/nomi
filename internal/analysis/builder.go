@@ -961,6 +961,11 @@ type builder struct {
 	// site for the name is another definition site of the same symbol
 	// (bindPatternName), so the name is one binding with several sites.
 	orBound map[string]*Symbol
+	// refutable is set while definePattern binds a pattern that may fail to
+	// match (a `case` arm, an `if` pattern, an `else` arm, `Pattern = value
+	// else`), where a bare name that names a `once` is refused
+	// (checkOnceShadow).
+	refutable *refutablePattern
 
 	// reexportsDefined are the file's `pub import` statements a project
 	// build defined before any file's annotations (defineReexports), which
@@ -1539,7 +1544,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 
 		case *ast.PatternDestructure:
 			b.walkNode(s.Value, scope)
-			b.definePatternRoot(s.Pattern, scope, s)
+			b.defineAssertedPattern(s, scope)
 
 		case *ast.PatternBinding:
 			b.walkPatternBinding(s, scope)
@@ -4573,7 +4578,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 			if n.CondPattern != nil {
 				child := NewScope(scope)
 				setScopeSpan(child, n.Line, n.Col, blockEndLine(n.Then), blockEndCol(n.Then))
-				b.definePatternIn(n.CondPattern, child, n.Then)
+				b.definePatternRefutable(n.CondPattern, child, n.Then, n.Cond, false)
 				b.walkBlock(n.Then, child)
 			} else {
 				b.walkScopedBlock(n.Then, scope)
@@ -4592,7 +4597,11 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		for _, branch := range n.Branches {
 			child := NewScope(scope)
 			setScopeSpan(child, branch.Line, branch.Col, branch.EndLine, branch.EndCol)
-			b.definePatternIn(branch.Pattern, child, branch.Body)
+			if n.Value != nil {
+				b.definePatternRefutable(branch.Pattern, child, branch.Body, n.Value, true)
+			} else {
+				b.definePatternIn(branch.Pattern, child, branch.Body)
+			}
 			// Walk the pattern as an expression too — for ad-hoc conditionals
 			// (no value), the pattern IS an expression containing identifiers
 			// that need reference resolution (e.g., x > 10 -> "big").
@@ -5321,7 +5330,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 
 		case *ast.PatternDestructure:
 			b.walkNode(s.Value, scope)
-			b.definePatternRoot(s.Pattern, scope, s)
+			b.defineAssertedPattern(s, scope)
 
 		case *ast.PatternBinding:
 			b.walkPatternBinding(s, scope)
@@ -5373,10 +5382,21 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 	return scope
 }
 
+// defineAssertedPattern binds the names of `assert Pattern = value`, a
+// pattern that may fail to match.
+func (b *builder) defineAssertedPattern(n *ast.PatternDestructure, scope *Scope) {
+	prev := b.refutable
+	b.refutable = &refutablePattern{root: n.Pattern, subject: identName(n.Value)}
+	defer func() { b.refutable = prev }()
+	b.definePatternRoot(n.Pattern, scope, n)
+}
+
 // walkPatternBinding resolves `Pattern = value [else { ... }]`. The value and
 // the else run before the pattern's names exist, so neither sees them; the
 // names are then defined in scope for the statements after the binding. Each
-// else arm is its own scope, as a case arm is.
+// else arm is its own scope, as a case arm is. With an `else` the pattern
+// may fail to match; without one it is a destructure, whose names are
+// plainly new.
 func (b *builder) walkPatternBinding(n *ast.PatternBinding, scope *Scope) {
 	b.walkNode(n.Value, scope)
 	if e := n.Else; e != nil {
@@ -5388,7 +5408,7 @@ func (b *builder) walkPatternBinding(n *ast.PatternBinding, scope *Scope) {
 		for _, arm := range e.Arms {
 			child := NewScope(scope)
 			setScopeSpan(child, arm.Line, arm.Col, arm.EndLine, arm.EndCol)
-			b.definePatternIn(arm.Pattern, child, arm.Body)
+			b.definePatternRefutable(arm.Pattern, child, arm.Body, nil, true)
 			b.walkNode(arm.Pattern, child)
 			if arm.Guard != nil {
 				b.walkNode(arm.Guard, child)
@@ -5397,6 +5417,11 @@ func (b *builder) walkPatternBinding(n *ast.PatternBinding, scope *Scope) {
 				b.walkNode(arm.Body, child)
 			}
 		}
+	}
+	if n.Else != nil {
+		prev := b.refutable
+		b.refutable = &refutablePattern{root: n.Pattern, subject: identName(n.Value)}
+		defer func() { b.refutable = prev }()
 	}
 	b.definePatternRoot(n.Pattern, scope, n)
 }
@@ -5534,6 +5559,87 @@ func (b *builder) definePatternIn(node ast.Node, scope *Scope, body ast.Node) {
 	b.definePattern(node, scope)
 }
 
+// OnceShadowCode tags checkOnceShadow's error. The binding it reports is
+// not also reported as never read: the fix is a new name, not a `_`.
+const OnceShadowCode = "once-shadow"
+
+// refutablePattern is the pattern definePattern is binding when it may fail
+// to match, and what a guard that compares with a `once` would bind.
+type refutablePattern struct {
+	// root is the whole pattern: a name that is all of it is the value
+	// matched, which subject names when it is a plain name.
+	root ast.Node
+	// subject is the name of the matched value (`code` in `case code`), or
+	// "" when it is not a plain name.
+	subject string
+	// guarded is whether the pattern may take a `when` guard: a `case` or
+	// `else` arm's may, an `if` pattern's and a binding's may not.
+	guarded bool
+}
+
+// definePatternRefutable is definePatternIn for a pattern that may fail to
+// match, matched against subject, with each bare name in it held to
+// checkOnceShadow.
+func (b *builder) definePatternRefutable(node ast.Node, scope *Scope, body ast.Node, subject ast.Node, guarded bool) {
+	prev := b.refutable
+	b.refutable = &refutablePattern{root: node, subject: identName(subject), guarded: guarded}
+	defer func() { b.refutable = prev }()
+	b.definePatternIn(node, scope, body)
+}
+
+// identName is the name n is when it is a plain name, else "".
+func identName(n ast.Node) string {
+	if id, ok := n.(*ast.Ident); ok {
+		return id.Name
+	}
+	return ""
+}
+
+// checkOnceShadow refuses a bare name in a refutable pattern that names a
+// `once` visible there (spec §10 *Patterns*). The name binds a new
+// variable and matches every value, which reads as a comparison with the
+// once and is not one: `case code { not_found -> ... }` takes every code.
+//
+// name is at pos; node is the pattern that is the name alone, nil for a
+// variant's payload name.
+func (b *builder) checkOnceShadow(name string, pos Pos, node ast.Node, scope *Scope) {
+	if b.refutable == nil || ast.IsDiscardName(name) || b.orBound[name] != nil {
+		return
+	}
+	sym := scope.Lookup(name)
+	if sym == nil {
+		return
+	}
+	if sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym.Kind != SymbolOnce {
+		return
+	}
+	root := node != nil && node == b.refutable.root
+	other := "value"
+	if root && b.refutable.subject != "" {
+		other = b.refutable.subject
+	}
+	if other == name {
+		other = "v"
+	}
+	var help string
+	switch {
+	case b.refutable.guarded && root:
+		help = fmt.Sprintf("to compare with it, write `%[1]s when %[1]s == %[2]s`", other, name)
+	case b.refutable.guarded:
+		help = fmt.Sprintf("to compare with it, bind `%[1]s` here and add `when %[1]s == %[2]s`", other, name)
+	default:
+		help = fmt.Sprintf("to compare with it, bind `%[1]s` here and compare `%[1]s == %[2]s`", other, name)
+	}
+	b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
+		Line: pos.Line, Col: pos.Col, EndLine: pos.Line, EndCol: pos.Col + len(name),
+		Message: fmt.Sprintf("this binds a new `%[1]s`, which matches every value; `%[1]s` is a `once`", name),
+		Code:    OnceShadowCode,
+	}.WithHint(help))
+}
+
 // defineParamPattern binds a destructured parameter of fn, a function, lambda
 // or interface method, marking each name it binds as that function's
 // (Symbol.ParamOf).
@@ -5581,6 +5687,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 
 	switch n := node.(type) {
 	case *ast.IdentPattern:
+		b.checkOnceShadow(n.Name, Pos{Line: n.Line, Col: n.Col}, node, scope)
 		b.bindPatternName(n.Name, Pos{Line: n.Line, Col: n.Col}, bindingNode, scope)
 
 	case *ast.AsPattern:
@@ -5619,6 +5726,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		if n.Payload != nil {
 			b.definePatternOwned(n.Payload, scope, owner)
 		} else if n.Binding != "" {
+			b.checkOnceShadow(n.Binding, Pos{Line: n.Line, Col: n.BindingCol}, nil, scope)
 			b.bindPatternName(n.Binding, Pos{Line: n.Line, Col: n.BindingCol}, bindingNode, scope)
 		}
 

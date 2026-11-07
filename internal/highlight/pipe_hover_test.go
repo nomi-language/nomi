@@ -53,7 +53,7 @@ test "parses" {
 	}{
 		{"a call stage", "  |> Maybe.values()", 1, "`Iter<Maybe<Int>>` → `Maybe.values(maybes)` → `List<Int>`\n\n```nomi\nfn values(maybes: Iter<Maybe<Int>>) -> List<Int>\n```\n\nThe piped value fills `maybes`."},
 		{"tap", "  |> tap fn v", 1, "`Int` → `tap fn v -> …` → `Int`\n\n`v` is the `Int`; the lambda runs for its effect and the value passes on unchanged."},
-		{"then", "  |> then fn v", 1, "`Int` → `then fn v -> …` → `Int`\n\n`v` is the `Int`; the stage answers the lambda's result."},
+		{"then", "  |> then fn v", 1, "`Int` → `then fn v -> …` → `Int`\n\n`v` is the `Int`; the stage returns the lambda's result."},
 		{"dbg", "  |> dbg", 1, "`Int` → `dbg` → `Int`\n\nPrints the value with its source line and passes it on unchanged."},
 		{"a ? in a function", `  n = s |> String.to_int()`, 2, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
 		{"a ? in a test", `  n = "4" |>`, 2, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},

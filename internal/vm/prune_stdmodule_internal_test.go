@@ -32,7 +32,7 @@ func TestStdModule_FindsAStdModuleByAnySystemsPath(t *testing.T) {
 		{"/home/me/nomi/std/money.nomi", MoneyModule, true},
 		{`D:\a\nomi\nomi\std\money.nomi`, MoneyModule, true},
 		{`D:\a\nomi\nomi\std\calendar.nomi`, CalendarModule, true},
-		{`C:\work\std\message.nomi`, MessageModule, true},
+		{`C:\work\std\phrase.nomi`, PhraseModule, true},
 		{`D:\a\std\money_format.nomi`, MoneyModule, false},
 		{"/home/me/mystd/money.nomi", MoneyModule, false},
 		{"money.nomi", MoneyModule, false},

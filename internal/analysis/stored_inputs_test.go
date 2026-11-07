@@ -12,7 +12,7 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
-// TestOpenFromRecordReadsCatalogs: a program whose `message` file reads
+// TestOpenFromRecordReadsCatalogs: a program whose `phrase` file reads
 // catalogs gets a record, which names the catalogs it read. Its documents
 // opened from the record answer what the program checked whole does; a
 // body edit of its importer is taken in the program opened from the
@@ -22,7 +22,7 @@ import (
 // the record at all.
 func TestOpenFromRecordReadsCatalogs(t *testing.T) {
 	t.Setenv(artifactcache.RootEnv, t.TempDir())
-	p := messagesProject(t)
+	p := phrasesProject(t)
 	uri := func(key string) string {
 		return fileuri.FromPath(filepath.Join(p.dir, filepath.FromSlash(key)+".nomi"))
 	}
@@ -67,7 +67,7 @@ func TestOpenFromRecordReadsCatalogs(t *testing.T) {
 	compare("opened", stored, whole)
 
 	// A body edit of the file that formats the message is taken in the
-	// program opened from the record. (An edit of the `message` file is
+	// program opened from the record. (An edit of the `phrase` file is
 	// checked whole: its expansion reads more than the file.)
 	edited := strings.Replace(texts["main"], "cart_items(3)", "cart_items(4)", 1)
 	before := stored.StoredEdits()

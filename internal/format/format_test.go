@@ -358,6 +358,10 @@ func TestFormat_In(t *testing.T) {
 		{"x in xs |> Iter.to_set()\n", "x in xs |> Iter.to_set()\n"},
 		{"x + 1 in xs\n", "x + 1 in xs\n"},
 		{"y = &(&1 in seen)\n", "y = &(&1 in seen)\n"},
+		{"y = &\"id ${&1}\"\n", "y = &\"id ${&1}\"\n"},
+		{"y = &\"a${&1}\" + \"b\"\n", "y = &\"a${&1}\" + \"b\"\n"},
+		{"y = &Sql\"id = ${&1}\"\n", "y = &Sql\"id = ${&1}\"\n"},
+		{"y = &(\"id ${&1}\")\n", "y = &(\"id ${&1}\")\n"},
 		{"y = x\n    in seen\n", "y = x in seen\n"},
 	} {
 		got, err := Format(tc.src)
@@ -3682,8 +3686,8 @@ SELECT *
 		{
 			// A message's body is a raw string.
 			name: "keyword declaration",
-			src:  "message welcome(name: String) `\nHello, {$name}!\n`\n",
-			want: "message welcome(name: String) `\n    Hello, {$name}!\n    `\n",
+			src:  "phrase welcome(name: String) `\nHello, {$name}!\n`\n",
+			want: "phrase welcome(name: String) `\n    Hello, {$name}!\n    `\n",
 		},
 		{
 			// The list breaks its elements onto their own lines, so the

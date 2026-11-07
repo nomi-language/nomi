@@ -344,3 +344,9 @@ type Token struct {
 	EndCol  int
 	Indent  int
 }
+
+// CaptureBodyProblem is the error for `&` against something that is no
+// capture's body (spec §7, *Captures*). The lexer reports it when the
+// character after `&` starts no body, and the parser when the operand
+// after `&` is none.
+const CaptureBodyProblem = "a capture is `&` and a call, a parenthesized expression or a literal, as in `&f(&1)` or `&(&1 > 2)`"

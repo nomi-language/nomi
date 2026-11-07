@@ -25,7 +25,7 @@ import (
 // each project file's interface (StoredInterface), the SHA-256 of its text,
 // and the documents whose lowering found nothing. A record is written for
 // a program that reads no file of another module and takes no Go
-// bindings, every input an expansion read (a message catalog) holding on
+// bindings, every input an expansion read (a phrase catalog) holding on
 // disk what it read and named in the record, and every `embed`'s files as
 // the snapshot found them. It keeps what each file reports
 // (storedReportsOf), and is not written for a program that reports what
@@ -70,7 +70,7 @@ type storedRecord struct {
 	Files map[string]storedFile
 	// AppTypes are the program's application types.
 	AppTypes []AppTypeName
-	// Inputs are the inputs the files' expansions read (message catalogs), by
+	// Inputs are the inputs the files' expansions read (phrase catalogs), by
 	// path, each with the SHA-256 of its text and whether it was found. The
 	// record is stored with them as files it was built from, and a program
 	// opened from it is forgotten once one holds another text.
@@ -365,6 +365,7 @@ func (dm *DocumentManager) storedBuild(sp *storedProgram, key, content string) (
 		c.FA.TypeErrors = slices.Clone(rep.Errs)
 		b.errs, b.damaged = rep.Syntax, rep.Damaged
 	}
+	settleStoredImplImports(c.FA, rep.reductions())
 	if sp.installed == nil {
 		sp.installed = map[string]*storedInstall{}
 	}
@@ -453,6 +454,7 @@ func (dm *DocumentManager) storedClosed(uri string) *DocSnapshot {
 			c.FA.TypeErrors = slices.Clone(rep.Errs)
 			snap.Errors, snap.Damaged = rep.Syntax, rep.Damaged
 		}
+		settleStoredImplImports(c.FA, rep.reductions())
 		return snap
 	}
 	return nil
@@ -693,7 +695,7 @@ func embedInputs(p *CheckedProgram) ([]progcache.Tree, []string, []*EmbedInfo) {
 // (storedReport), by module key, and false when p reports something a
 // program opened from its record cannot answer as the program checked
 // whole does: the program's own errors about impls, a missing impl, a
-// noun's or message's disagreement, a catalog nothing reads, a diagnostic
+// noun's or phrase's disagreement, a catalog nothing reads, a diagnostic
 // in a program with an application type, or one in a program the
 // reductions over facts cannot reduce.
 func storedReportsOf(p *CheckedProgram, rec *storedRecord, appTypes bool) (map[string]*storedReport, bool) {

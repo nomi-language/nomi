@@ -15,20 +15,20 @@ import (
 // The checks of a `noun` declaration and its catalog entries, all errors:
 //
 //   - The declaration takes no parameters and no `-> type`, and its text is
-//     a valid message over `$count` with the plural arms the source locale
+//     a valid phrase over `$count` with the plural arms the source locale
 //     needs. Its source locale's language has no grammatical gender, since
 //     a declaration has no place to give one.
-//   - Completeness and freshness as a message's: every listed locale has
+//   - Completeness and freshness as a phrase's: every listed locale has
 //     an entry, or a listed ancestor's, and each records the current
 //     source text.
 //   - Gender: an entry has a `gender` exactly when its language's nouns
 //     have one, and it is one CLDR lists for the language.
 //   - Forms: every other key is a case CLDR lists for the language (or
 //     `nominative`, in a language CLDR gives no cases), the `nominative`
-//     is there, and each form is a valid message over `$count` with the
+//     is there, and each form is a valid phrase over `$count` with the
 //     plural arms the locale needs.
 //
-// The forms a message asks for and the gender arms a message needs are
+// The forms a phrase asks for and the gender arms a phrase needs are
 // checked over the whole program (CheckAgreement).
 
 // checkNoun checks the noun o expands, and reports whether it found an
@@ -41,7 +41,7 @@ func (c *checker) checkNoun(o *ast.OnceBinding, e *nounExpansion) bool {
 	}
 	if kd.HasParams {
 		c.errors = append(c.errors, nameErr(fmt.Sprintf("`noun %s` takes no parameters", kd.Name)).
-			WithHint("its forms read one value, `$count`, how many things the text names, which a message gives with `:nomi:noun count=...`"))
+			WithHint("its forms read one value, `$count`, how many things the text names, which a phrase gives with `:nomi:noun count=...`"))
 	}
 	if kd.ReturnTypeExpr != nil {
 		c.errors = append(c.errors, errAt(kd.ReturnTypeExpr, fmt.Sprintf("a `noun` declaration is a `Noun`, so it is written with no `-> %s`", kd.ReturnTypeExpr.TypeString())))
@@ -71,7 +71,7 @@ func (c *checker) checkNoun(o *ast.OnceBinding, e *nounExpansion) bool {
 }
 
 // checkNounEntry checks e's entry in cat.
-func (c *checker) checkNounEntry(e *nounExpansion, cat *messageCatalog, sig mf2.Signature, source string) {
+func (c *checker) checkNounEntry(e *nounExpansion, cat *phraseCatalog, sig mf2.Signature, source string) {
 	kd := e.decl
 	partial := e.partialLocale(cat.locale)
 	entry := cat.file.Entry(kd.Name)

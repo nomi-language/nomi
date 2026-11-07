@@ -119,9 +119,9 @@ contexts:
       scope: punctuation.separator.namespace.nomi
     - match: '\bhost\b(?=\s+(fn|type)\b)'
       scope: keyword.declaration.nomi
-    # A keyword declaration Nomi builds in (`message cart_items(...)`,
+    # A keyword declaration Nomi builds in (`phrase cart_items(...)`,
     # `noun item`): its keyword and its name, at the start of a line.
-    - match: '^(?:(pub)\s+)?(message|noun)\s+([a-z_][A-Za-z0-9_]*)'
+    - match: '^(?:(pub)\s+)?(phrase|noun)\s+([a-z_][A-Za-z0-9_]*)'
       captures:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi
@@ -212,10 +212,11 @@ contexts:
     - match: '\b{{type_ident}}\b'
       scope: storage.type.nomi
     # A capture's parameter, `&1`, and the capture's `&`, written against
-    # the function's body: `&(&1 > 2)`, `&f(&1)`, `&Point{x: &1}`, `&!f(&1)`.
+    # the function's body: `&(&1 > 2)`, `&f(&1)`, `&Point{x: &1}`, `&!f(&1)`,
+    # `&"id ${&1}"`.
     - match: '&[1-9][0-9]*'
       scope: variable.parameter.nomi
-    - match: '&(?=[(\[#%.!A-Za-z])'
+    - match: '&(?=[(\[#%.!A-Za-z"`])'
       scope: keyword.other.capture.nomi
     - match: '\b_(?!_)[a-zA-Z0-9_]*\b'
       scope: comment.discard.nomi

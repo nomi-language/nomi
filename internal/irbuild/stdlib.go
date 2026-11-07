@@ -209,19 +209,33 @@ var hostPackages = [...]struct{ path, local string }{
 	{localeHostPath, "stdlocale"},
 	{pluralHostPath, "stdplural"},
 	{formatHostPath, "stdformat"},
-	{messageHostPath, "stdmessageformat"},
+	{phraseHostPath, "stdphraseformat"},
 	{tomlHostPath, "stdtoml"},
+	{csvHostPath, "stdcsv"},
+	{xmlHostPath, "stdxml"},
 }
+
+// csvHostPath is std/csv_host's implementation: a CSV reader over a
+// Reader, over Go's encoding/csv, and one record written as CSV. Its
+// boundary is the Records handle, Reader, String, Int, Bool, List<String>
+// and io.Error.
+const csvHostPath = "github.com/nomi-language/nomi/internal/stdcsv"
+
+// xmlHostPath is std/xml_host's implementation: an XML token reader over
+// a Reader, over Go's encoding/xml, and the writer's escaping. Its
+// boundary is the Tokens handle, Reader, String, Int, Bool, List<String>
+// and io.Error.
+const xmlHostPath = "github.com/nomi-language/nomi/internal/stdxml"
 
 // tomlHostPath is std/toml's host implementation: a `Toml"..."` literal's
 // check and build over github.com/BurntSushi/toml. Its boundary is String,
 // Float, Int and List<String>.
 const tomlHostPath = "github.com/nomi-language/nomi/internal/stdtoml"
 
-// messageHostPath is std/message_format's host implementation, the
+// phraseHostPath is std/phrase_format's host implementation, the
 // MessageFormat 2 formatter. Its boundary is String, List<Int> and
 // List<String>; the `Locale` crosses as its tag.
-const messageHostPath = "github.com/nomi-language/nomi/internal/stdmessageformat"
+const phraseHostPath = "github.com/nomi-language/nomi/internal/stdphraseformat"
 
 // formatHostPath is the host implementation of locale-aware number and list
 // formatting and number parsing (`Int.format`, `Decimal.parse_in`,

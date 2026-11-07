@@ -422,8 +422,8 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 // `Display` because their text is for a reader in a locale, with the call
 // that writes it.
 var readerFormatted = map[string]string{
-	"std/message.Message": "Message.format(m, locale)",
-	"std/message.Noun":    "Localize.localize(noun, locale)",
+	"std/phrase.Phrase": "Phrase.format(m, locale)",
+	"std/phrase.Noun":   "Localize.localize(noun, locale)",
 }
 
 // stdTypeHelp is the help for typeName, a std type of origin that has no

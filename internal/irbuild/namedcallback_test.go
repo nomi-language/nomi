@@ -330,7 +330,6 @@ test "a failing one reports the written arguments" {
 // as "a named argument".
 func TestNamedCallback_StdShortCallWithAHoleInAnAssertion(t *testing.T) {
 	const src = `import {
-    std::locale.Locale
     std::strings.ListWidth
 }
 

@@ -30,7 +30,7 @@ import {
     maps.Map
     maybe.Maybe.{self, None, Some}
     results.Result.{self, Err, Ok}
-    storage.{self, Error, Info, Object, Store}
+    storage.{self, Entry, Error, Info, ListOptions, Listing, Object, Store}
     strings.String
     unit.Unit
     url.Url
@@ -107,6 +107,20 @@ impl Store for Memory {
         storage.check_key(key)?
         Ok(storage.join_key(memory.public_base, key))
     }
+
+    fn list(memory: Memory, options: ListOptions) -> Result<Listing, Error> {
+        storage.check_prefix(options.prefix)?
+
+        entries =
+            peek(memory).objects
+            |> Iter.map(fn #(key, object) -> Entry{
+                key,
+                size: object.info.size,
+                modified: object.info.modified,
+            })
+
+        Ok(storage.page(entries, options))
+    }
 }
 
 // The store's state, taken out of its channel until `put` puts it back.
@@ -169,6 +183,11 @@ impl Store for Failing {
         _ = key
         Err(failing.error)
     }
+
+    fn list(failing: Failing, options: ListOptions) -> Result<Listing, Error> {
+        _ = options
+        Err(failing.error)
+    }
 }
 
 /// A conformance rule a backend broke, and how. Its `Display` is `rule:
@@ -186,7 +205,7 @@ impl Display for Broken {
     }
 }
 
-/// Runs every conformance rule against stores from `open`, and answers the
+/// Runs every conformance rule against stores from `open`, and returns the
 /// rules broken: none for a backend that conforms. Each rule opens a fresh
 /// store and puts and reads objects under keys starting with
 /// `conformance/`, except the rule on invalid keys, which puts `b` and
@@ -197,8 +216,9 @@ impl Display for Broken {
 /// replacing another, a missing key for each function, a delete, every
 /// invalid key refused by every function with nothing stored, invalid
 /// content types, an empty object, every byte value, an object of 5 MiB,
-/// keys with punctuation, spaces and other scripts (`odd_keys`), and
-/// `url`. There is no rule that keys `a` and `a/b` can both exist:
+/// keys with punctuation, spaces and other scripts (`odd_keys`), `url`,
+/// and `list` under `conformance/list/`: its order, sizes, common
+/// prefixes and pages. There is no rule that keys `a` and `a/b` can both exist:
 /// S3 allows it and `storage.local` cannot.
 //! assert conformance(fn -> Ok(Memory.new())) == []
 //
@@ -343,6 +363,32 @@ fn refuses(key: String, function: String, answer: Result<Unit, Error>) -> Result
         Err(.InvalidKey{}) -> Ok(Unit)
         Err(e) -> Err("${function} of the key \"${key}\" answered ${e}, not InvalidKey")
         Ok(_) -> Err("${function} of the key \"${key}\" answered Ok, not InvalidKey")
+    }
+}
+
+fn list_keys(listing: Listing) -> List<String> {
+    listing.objects |> Iter.map(fn e -> e.key) |> Iter.to_list()
+}
+
+fn list_page(store: Store, options: ListOptions) -> Result<Listing, String> {
+    Store.list(store, options) |> Result.map_err(fn e -> "list ${options.prefix}: ${e}")
+}
+
+// The keys and prefixes on each page from `options` on, up to `left`
+// pages.
+fn paged(store: Store, options: ListOptions, left: Int) -> Result<List<List<String>>, String> {
+    if left == 0 { return Err("list returned more pages than it has keys") }
+    listed = list_page(store, options)?
+    here = list_keys(listed) + listed.prefixes
+
+    case listed.next {
+        Some(token) -> {
+            rest = paged(store, #{..options, continuation: Some(token)}, left - 1)?
+            Ok([here, ..rest])
+        }
+
+        None ->
+            Ok([here])
     }
 }
 
@@ -550,6 +596,68 @@ fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
                     |> Result.collect()?
 
                 Ok(Unit)
+            },
+        ),
+        #(
+            "list returns the keys under a prefix in order, folds a delimiter's prefixes and pages",
+            fn store -> {
+                base = "conformance/list/"
+                names = ["e f.txt", "b/d.txt", "a.txt", "b/c.txt"]
+
+                _ =
+                    names
+                    |> Iter.map(fn name -> {
+                        put_object(store, "${base}${name}", bytes(name), "text/plain")
+                    })
+                    |> Result.collect()?
+
+                put_object(store, "conformance/listed.txt", bytes("outside"), "text/plain")?
+                all = list_page(store, ListOptions{prefix: base})?
+
+                sorted =
+                    ["a.txt", "b/c.txt", "b/d.txt", "e f.txt"]
+                    |> Iter.map(fn n -> "${base}${n}")
+                    |> Iter.to_list()
+
+                expect(list_keys(all) == sorted, "list returned ${list_keys(all)}, not ${sorted}")?
+
+                sizes = all.objects |> Iter.map(fn e -> e.size) |> Iter.to_list()
+                expect(sizes == [5, 7, 7, 7], "list returned the sizes ${sizes}")?
+
+                expect(
+                    all.prefixes == [] and all.next == None,
+                    "list without a delimiter returned prefixes or a next page",
+                )?
+
+                folded = list_page(store, ListOptions{prefix: base, delimiter: "/"})?
+
+                expect(
+                    list_keys(folded) == ["${base}a.txt", "${base}e f.txt"]
+                        and folded.prefixes == ["${base}b/"],
+                    "list with the delimiter / returned ${list_keys(folded)} and the prefixes ${folded.prefixes}",
+                )?
+
+                pages = paged(store, ListOptions{prefix: base, delimiter: "/", limit: 1}, 5)?
+
+                expect(
+                    pages == [["${base}a.txt"], ["${base}b/"], ["${base}e f.txt"]],
+                    "list a page at a time returned ${pages}",
+                )?
+
+                everything =
+                    storage.list_all(store, prefix: base, page_size: 3)
+                    |> Result.map_err(fn e -> "list_all: ${e}")?
+
+                expect(
+                    list_keys(everything) == sorted,
+                    "list_all returned ${list_keys(everything)}",
+                )?
+
+                case Store.list(store, ListOptions{prefix: "a\\b"}) {
+                    Err(.InvalidKey{}) -> Ok(Unit)
+                    Err(e) -> Err("list of the prefix a\\b returned ${e}, not InvalidKey")
+                    Ok(_) -> Err("list of the prefix a\\b returned a listing, not InvalidKey")
+                }
             },
         ),
         #(

@@ -1,4 +1,4 @@
-//# Postgres for `std::sql`: `postgres.pool(url)` answers a `Conn` over a
+//# Postgres for `std::sql`: `postgres.pool(url)` returns a `Conn` over a
 //# pool of connections, and `postgres.connect(url)` one over a single
 //# connection, through the pure-Go `pgx`. `postgres.scratch()` makes a
 //# fresh empty database on a throwaway server, for tests.
@@ -13,7 +13,7 @@
 //#
 //# Every statement runs under the calling task's context, so a
 //# `Context.with_timeout` deadline or a cancelled task cancels it on the
-//# server and answers `Error.Timeout`; the connection stays usable. A
+//# server and returns `Error.Timeout`; the connection stays usable. A
 //# transaction holds one connection of the pool until it ends; a
 //# transaction inside one is a savepoint. A constraint error names the
 //# constraint as Postgres does, and a not-null violation as Postgres 18
@@ -127,12 +127,12 @@ fn listener_closed_raw(l: ListenHandle) -> Bool go goside.IsClosed
 // Whether a `wait` is blocked on the server now; for this module's tests.
 fn listener_waiting_raw(l: ListenHandle) -> Bool go goside.Waiting
 
-// How many notifications `wait` has answered; for this module's tests.
+// How many notifications `wait` has returned; for this module's tests.
 fn listener_received_raw(l: ListenHandle) -> Int go goside.Received
 
 /// A pool of connections to a Postgres database, or a transaction or
-/// savepoint on it: what `pool` and `connect` answer, and what
-/// `Conn.begin` answers on one.
+/// savepoint on it: what `pool` and `connect` return, and what
+/// `Conn.begin` returns on one.
 pub opaque struct PgConn {
     handle: Handle
 }
@@ -151,7 +151,7 @@ pub fn pool(url: String) -> Conn {
 /// server is `Err(.Connection)`. A transaction is open on the whole
 /// connection, so a statement sent through the connection while one is
 /// open is refused; run it on the `Conn` the transaction's `begin`
-/// answered. What a temporary table needs, since it lives on one
+/// returned. What a temporary table needs, since it lives on one
 /// connection.
 pub fn connect(url: String) -> Result<Conn, sql.Error> {
     case connect_raw(url) {
@@ -166,7 +166,7 @@ pub fn connect(url: String) -> Result<Conn, sql.Error> {
 /// temporary directory and on a free local port; it stops and its directory
 /// is removed when the process ends. Each call makes another database on
 /// it. A machine with no `initdb` or `postgres` on `PATH`, and Windows,
-/// answer `Err(.Connection)` saying so.
+/// return `Err(.Connection)` saying so.
 pub fn scratch() -> Result<String, sql.Error> {
     scratch_raw() |> Result.map_err(fn message -> sql.Error.Connection{message})
 }
