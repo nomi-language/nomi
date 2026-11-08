@@ -54,7 +54,7 @@ func TestAsPattern_BindsLooserThanEveryOtherConstruct(t *testing.T) {
 }
 
 func TestAsPattern_EveryNestedPosition(t *testing.T) {
-	tp, ok := caseArmPattern(t, "#(Some(_) as a, [x, ..rest] as xs)").(*ast.TuplePattern)
+	tp, ok := caseArmPattern(t, "(Some(_) as a, [x, ..rest] as xs)").(*ast.TuplePattern)
 	if !ok || len(tp.Patterns) != 2 {
 		t.Fatal("want a two-element tuple pattern")
 	}
@@ -84,7 +84,7 @@ func TestAsPattern_ChainsParse(t *testing.T) {
 }
 
 func TestAsPattern_StatementAndParameterPositions(t *testing.T) {
-	pb := parsePatternBinding(t, "#(a, b) as pair = make()")
+	pb := parsePatternBinding(t, "(a, b) as pair = make()")
 	asPatternOf(t, pb.Pattern, "pair")
 
 	pb = parsePatternBinding(t, "Some(n) as m = find() else { return 0 }")

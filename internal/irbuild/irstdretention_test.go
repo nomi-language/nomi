@@ -103,39 +103,39 @@ fn main() {
 			[]string{"smaller", "sign", "main"}},
 		{"lists of String pairs", `import std::io
 
-fn entry_name(entry: #(String, String)) -> String {
-  #(name, _) = entry
+fn entry_name(entry: (String, String)) -> String {
+  (name, _) = entry
   name
 }
 
-fn entry_value(entry: #(String, String)) -> String {
-  #(_, value) = entry
+fn entry_value(entry: (String, String)) -> String {
+  (_, value) = entry
   value
 }
 
-fn lookup(entries: List<#(String, String)>, key: String) -> Maybe<String> {
+fn lookup(entries: List<(String, String)>, key: String) -> Maybe<String> {
   case Iter.find(entries, fn entry -> entry_name(entry) == key) {
     .Some(entry) -> Maybe.Some(entry_value(entry))
     .None -> Maybe.None
   }
 }
 
-fn values(entries: List<#(String, String)>, key: String) -> List<String> {
+fn values(entries: List<(String, String)>, key: String) -> List<String> {
   entries
   |> Iter.filter(fn entry -> entry_name(entry) == key)
   |> Iter.map(fn entry -> entry_value(entry))
   |> Iter.to_list()
 }
 
-fn put(entries: List<#(String, String)>, key: String, value: String) -> List<#(String, String)> {
+fn put(entries: List<(String, String)>, key: String, value: String) -> List<(String, String)> {
   entries
   |> Iter.filter(fn entry -> entry_name(entry) != key)
-  |> Iter.concat([#(key, value)])
+  |> Iter.concat([(key, value)])
   |> Iter.to_list()
 }
 
 fn main() {
-  xs = [#("a", "1"), #("b", "2"), #("a", "3")]
+  xs = [("a", "1"), ("b", "2"), ("a", "3")]
   io.inspect(lookup(xs, "a"))
   io.inspect(lookup(xs, "z"))
   io.inspect(values(xs, "a"))

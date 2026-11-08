@@ -688,13 +688,13 @@ struct Piece {
 // The non-empty pieces of `text` between `separator`s, each with its
 // offset, `base` code points into the expression.
 fn pieces(text: String, separator: String, base: Int) -> List<Piece> {
-    #(found, _) = Iter.reduce(String.split(text, separator), #([], base), fn #(acc, at), part -> {
+    (found, _) = Iter.reduce(String.split(text, separator), ([], base), fn (acc, at), part -> {
         next = at + String.length(part) + String.length(separator)
 
         if part == "" {
-            #(acc, next)
+            (acc, next)
         } else {
-            #(acc + [Piece{text: part, offset: at}], next)
+            (acc + [Piece{text: part, offset: at}], next)
         }
     })
 
@@ -756,16 +756,16 @@ fn field(piece: Piece, f: Field) -> Result<Set<Int>, CronError> {
 // The values one item of a field's list names: `*`, `a`, `a-b`, each with
 // an optional `/step`.
 fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
-    #(range, step) = case String.split(item.text, "/") {
+    (range, step) = case String.split(item.text, "/") {
         [range] ->
-            #(range, None)
+            (range, None)
 
         [range, step_text] -> {
             at = item.offset + String.length(range) + 1
 
             case digits(step_text) {
                 Some(n) when n >= 1 ->
-                    #(range, Some(n))
+                    (range, Some(n))
 
                 _ ->
                     return Err(
@@ -781,17 +781,17 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
             return Err(CronError{offset: item.offset, message: "${item.text} has more than one /"})
     }
 
-    #(low, high) = if range == "*" {
-        #(f.low, f.star_high)
+    (low, high) = if range == "*" {
+        (f.low, f.star_high)
     } else {
         case String.split(range, "-") {
             [one] -> {
                 n = value(one, item.offset, f)?
 
                 if Maybe.is_some(step) {
-                    #(n, f.star_high)
+                    (n, f.star_high)
                 } else {
-                    #(n, n)
+                    (n, n)
                 }
             }
 
@@ -805,7 +805,7 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
                     )
                 }
 
-                #(a, b)
+                (a, b)
             }
 
             _ ->

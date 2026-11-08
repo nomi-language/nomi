@@ -94,13 +94,13 @@ func TestScalarArith_TheWrittenOutSpellingBlamesTheCallsOwnLine(t *testing.T) {
 	}
 }
 
-// TestScalarArith_TheTwelveKeysStayUnbound is the SCOPE BOUNDARY, pinned
+// TestScalarArith_TheOperatorKeysStayUnbound is the SCOPE BOUNDARY, pinned
 // rather than left as an absence.
 //
 // The written-out scalar operator impls lower through a BUILDER ARM and
 // deliberately have no stdlibBindings row, so their std keys are still refused
 // by the index and still exempted in TestStdlibRefusesUnmappedHostFnsByName.
-// The twelve are the Int, Float and Decimal operators plus String's `+`. None
+// They are the Int, Float and Decimal arithmetic operators plus String's `+`. None
 // can be a registry row, because a row is a named rt symbol of exactly the Nomi
 // arity and has nowhere to put the line a `/` fault must blame. Two things
 // follow and both are checkable here:
@@ -117,10 +117,10 @@ func TestScalarArith_TheWrittenOutSpellingBlamesTheCallsOwnLine(t *testing.T) {
 //
 // The host table contains no key with a `<` in it, so the registry cannot
 // supply a same-shape positive. The control is taken from the STD INDEX
-// instead: each of the twelve keys must NAME A REAL DECLARATION in
+// instead: each key must NAME A REAL DECLARATION in
 // `stdlibLowering().byKey`, so a typo fails directly and the check does not
 // depend on any binding existing.
-func TestScalarArith_TheTwelveKeysStayUnbound(t *testing.T) {
+func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 	keys := []string{
 		"int.Int.Add<Int, Int>.add",
 		"int.Int.Subtract<Int, Int>.subtract",
@@ -134,6 +134,10 @@ func TestScalarArith_TheTwelveKeysStayUnbound(t *testing.T) {
 		"decimal.Decimal.Add<Decimal, Decimal>.add",
 		"decimal.Decimal.Subtract<Decimal, Decimal>.subtract",
 		"decimal.Decimal.Multiply<Decimal, Decimal>.multiply",
+		"decimal.Decimal.Divide<Decimal, Decimal>.divide",
+		"int.Int.Remainder<Int, Int>.remainder",
+		"float.Float.Remainder<Float, Float>.remainder",
+		"decimal.Decimal.Remainder<Decimal, Decimal>.remainder",
 	}
 	for _, key := range keys {
 		if _, bound := stdlibHostFuncs[key]; bound {

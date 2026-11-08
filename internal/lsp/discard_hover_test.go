@@ -35,7 +35,7 @@ fn count() -> Int {
 		broken bool
 	}{
 		{"a tuple element", coin + `fn main() {
-  #(▮_, coins) = #(1, [Coin.Penny])
+  (▮_, coins) = (1, [Coin.Penny])
   io.inspect(coins)
 }
 `, "`Int`, discarded", false},
@@ -124,12 +124,12 @@ fn main() {
 }
 `, "`String`, discarded", false},
 		{"a reduce seed pattern", coin + `fn main() {
-  r = Iter.reduce([1, 2], #(0, []), fn #(▮_, acc), x -> #(x, [x, ..acc]))
+  r = Iter.reduce([1, 2], (0, []), fn (▮_, acc), x -> (x, [x, ..acc]))
   io.inspect(r)
 }
 `, "`Int`, discarded", false},
 		{"a subtests row pattern", coin + `test "rows" {
-  subtests [#(1, "a")], #(n, ▮_) {
+  subtests [(1, "a")], (n, ▮_) {
     assert n > 0
   }
   io.inspect(0)

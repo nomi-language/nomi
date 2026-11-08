@@ -290,7 +290,7 @@ test "bare variant construction diagnostics require enum qualification" {
 
           enum Shape {
             Circle Float
-            Position #(Int, Int)
+            Position (Int, Int)
           }
 
           enum Container {

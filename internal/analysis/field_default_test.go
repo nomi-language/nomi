@@ -667,7 +667,7 @@ fn main() {
 // `admin`).
 var fieldDefaultDenominator = map[string]int{
 	"std":             292,
-	"tests":           64,
+	"tests":           75,
 	"tour (nomi-run)": 26,
 	"tour (nomi)":     0,
 }

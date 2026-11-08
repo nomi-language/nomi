@@ -127,7 +127,7 @@ func DisplayText(v any) string {
 // every nested value — a tuple's components, a record's fields, a list's,
 // vector's or map's elements, a variant's payload — rendered by elem, which is
 // the engine's Display over a nested value (a declared type's `impl Display`,
-// or this again). The spec's intrinsics table: `#(Display(a), Display(b))`,
+// or this again). The spec's intrinsics table: `(Display(a), Display(b))`,
 // `#{f: Display(v)}`, `[Display(v1), ...]`, `Some(Display(v))`. DisplayText is
 // the assertion row's rendering, whose nested Strings are quoted.
 func DisplayTextWith(v any, elem func(any) string) string {
@@ -217,8 +217,8 @@ func namedParts(r *Record, render func(any) string) []string {
 	return parts
 }
 
-// FormatTuple joins rendered tuple components: `#(1, "a")`.
-func FormatTuple(parts []string) string { return "#(" + strings.Join(parts, ", ") + ")" }
+// FormatTuple joins rendered tuple components: `(1, "a")`.
+func FormatTuple(parts []string) string { return "(" + strings.Join(parts, ", ") + ")" }
 
 // FormatVariant is a payload-carrying variant or a distinct value around its
 // rendered payload: `Some(1)`, `Id(5)`.

@@ -10,8 +10,9 @@
 //# nothing in an argument is expanded, split or quoted, so an argument
 //# holding a space or a `*` reaches the program as it is. `output` runs it
 //# to the end and returns what it wrote, `run` runs it with its output
-//# going to the program's own, and `with_spawned` runs a body while it
-//# runs, with its three streams to read and write. A program that ends
+//# going to the program's own, and `spawn` starts it with its three
+//# streams to read and write, and `defer Child.kill(child)` stops it when
+//# the function that started it ends. A program that ends
 //# with a non-zero code is a `Status` to inspect, not an error; an `Err`
 //# means it could not be started.
 //#
@@ -43,6 +44,7 @@ import {
     maps.Map
     maybe.Maybe.{self, None, Some}
     process_host
+    resources.Release
     results.Result.{self, Ok}
     strings.String
 }
@@ -183,6 +185,7 @@ derive Equatable for Output
 //
 pub fn output(command: Command) -> Result<Output, Error> {
     child = start(command, 2, 2, False)?
+    defer Child.kill(child)
     status = Child.wait(child)?
 
     Ok(Output{
@@ -207,41 +210,54 @@ pub fn output(command: Command) -> Result<Output, Error> {
 //
 pub fn run(command: Command) -> Result<Status, Error> {
     child = start(command, 1, 1, False)?
+    defer Child.kill(child)
     Child.wait(child)
 }
 
-/// Starts `command` and runs `body` while it runs, with the program's
-/// standard input to write and its standard output and error to read
-/// (`Child.stdin`, `Child.stdout`, `Child.stderr`; the command's `stdin` is
-/// not used). `Child.wait` closes the input and waits for the program to
-/// end. When `body` returns, traps or is cancelled, a program still
-/// running is killed, so none outlives the call. An `Err` means the
-/// program could not be started.
+/// Starts `command` with the program's standard input to write and its
+/// standard output and error to read (`Child.stdin`, `Child.stdout`,
+/// `Child.stderr`; the command's `stdin` is not used). Defer `Child.kill`
+/// on the next line, so a program still running when the function ends,
+/// returns, traps or is cancelled, is killed and none outlives it.
+/// `Child.wait` closes the input and waits for the program to end. An
+/// `Err` means the program could not be started.
+///
+/// ```nomi
+/// child = process.spawn(Command{program: "sort"})?
+///
+/// defer Child.kill(child)
+/// ```
 //! import std::process_testing.{self, Answer, Call}
 //!
-//! ran = process_testing.run([Answer{program: "sort", stdout: "a\nb\n"}], fn -> {
-//!     with_spawned(Command{program: "sort"}, fn child -> {
-//!         _ = Writer.write_text(Child.stdin(child), "b\na\n")
-//!         status = Child.wait(child)
-//!         #(status, Reader.read_all_text(Child.stdout(child)))
-//!     })
-//! })
+//! fn sorted(text: String) -> Result<String, Error> {
+//!     child = spawn(Command{program: "sort"})?
+//!     defer Child.kill(child)
+//!     Writer.write_text(Child.stdin(child), text)?
+//!     _ = Child.wait(child)?
+//!     Reader.read_all_text(Child.stdout(child))
+//! }
 //!
-//! assert ran.value == Ok(#(Ok(Status.Exited{code: 0}), Ok("a\nb\n")))
+//! ran = process_testing.run([Answer{program: "sort", stdout: "a\nb\n"}], fn -> sorted("b\na\n"))
+//!
+//! assert ran.value == Ok("a\nb\n")
 //! assert ran.calls == [Call{program: "sort", input: String.to_bytes("b\na\n")}]
 //
-pub fn with_spawned<T>(command: Command, body: (Child) -> T) -> Result<T, Error> {
-    child = start(command, 3, 3, True)?
-    defer process_host.kill(child.handle)
-    Ok(body(child))
+pub fn spawn(command: Command) -> Result<Child, Error> {
+    start(command, 3, 3, True)
 }
 
-/// A program `with_spawned` started.
+/// A program `spawn` started.
 pub opaque struct Child {
     handle: process_host.Child
 }
 
 impl Child {
+    /// Kills the program if it is still running, and does nothing once it
+    /// has ended: the form for a `defer` after `process.spawn`.
+    pub fn kill(child: Child) -> Unit {
+        process_host.kill(child.handle)
+    }
+
     /// The writer to the program's standard input. Writes are buffered:
     /// `Writer.flush` sends them on, and `Child.wait` or `Writer.close`
     /// ends the input.
@@ -274,12 +290,18 @@ impl Child {
     }
 }
 
+impl Release for Child {
+    fn release(child: Child) {
+        Child.kill(child)
+    }
+}
+
 // Starts command with its output and error in the modes given (the
 // program's 1, captured 2, piped 3), and its input piped when piped is
 // set, else as the command says.
 fn start(command: Command, stdout: Int, stderr: Int, piped: Bool) -> Result<Child, Error> {
-    #(mode, input) = if piped {
-        #(3, Reader.from_text(""))
+    (mode, input) = if piped {
+        (3, Reader.from_text(""))
     } else {
         stdin_of(command.stdin)
     }
@@ -299,12 +321,12 @@ fn start(command: Command, stdout: Int, stderr: Int, piped: Bool) -> Result<Chil
     Ok(Child{handle})
 }
 
-fn stdin_of(stdin: Stdin) -> #(Int, Reader) {
+fn stdin_of(stdin: Stdin) -> (Int, Reader) {
     case stdin {
-        Stdin.Null -> #(0, Reader.from_text(""))
-        Stdin.Inherit -> #(1, Reader.from_text(""))
-        Stdin.Text(text) -> #(2, Reader.from_text(text))
-        Stdin.Bytes(data) -> #(2, Reader.from_bytes(data))
-        Stdin.From(reader) -> #(2, reader)
+        Stdin.Null -> (0, Reader.from_text(""))
+        Stdin.Inherit -> (1, Reader.from_text(""))
+        Stdin.Text(text) -> (2, Reader.from_text(text))
+        Stdin.Bytes(data) -> (2, Reader.from_bytes(data))
+        Stdin.From(reader) -> (2, reader)
     }
 }

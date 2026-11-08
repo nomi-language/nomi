@@ -460,9 +460,9 @@ Some operators call interface functions:
 
 - `==` uses [`Equatable`](/reference/equatable/), when the type implements it.
 - `<`, `>` and the other comparisons use [`Comparable`](/reference/comparable/).
-- `+`, `-`, `*` and `/` use [`Add`](/reference/add/),
-  [`Subtract`](/reference/subtract/), [`Multiply`](/reference/multiply/) and
-  [`Divide`](/reference/divide/).
+- `+`, `-`, `*`, `/` and `%` use [`Add`](/reference/add/),
+  [`Subtract`](/reference/subtract/), [`Multiply`](/reference/multiply/),
+  [`Divide`](/reference/divide/) and [`Remainder`](/reference/remainder/).
 
 The arithmetic interfaces take two type parameters: the type of the right-hand
 side, and the type of the result. So the same interface covers adding two
@@ -569,8 +569,10 @@ shows.
 ### Structural equality
 
 Values of your own types compare with `==` with no impl or derive: they are
-equal when their fields are equal, and they can be `Map` keys. Function values
-are the exception; they have no equality.
+equal when their fields are equal, and they can be `Map` keys. They also meet
+a `where T: Equatable` or `where T: Hashable` bound, so `p in [q]` and
+`List.contains` work on them too. Function values are the exception; they
+have no equality.
 
 ```nomi-run
 struct Point {
@@ -591,17 +593,9 @@ dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
 -->
 
-You still sometimes need `derive Equatable` or `derive Hashable`, for one of
-two reasons.
-
-The first is generic bounds. A function with `where T: Equatable` accepts only
-types that implement `Equatable`; built-in `==` doesn't count. `List.contains`
-is one, so `List.contains([Point{x: 1, y: 2}], Point{x: 1, y: 2})` is the
-error `` Point does not implement Equatable (required by `where T: Equatable`) ``
-until you add `derive Equatable for Point`.
-
-The second is custom equality. An `impl Equatable for Type { ... }` block you
-write replaces the built-in `==` for that type. That's how `DateTime` compares
+You write an `impl Equatable` only for custom equality. An `impl Equatable
+for Type { ... }` block you write replaces the built-in `==` for that type,
+and generic code bounded by `Equatable` uses it too. That's how `DateTime` compares
 by the moment it names: the same moment in two time zones is `==` (see
 [Dates and times](/dates-and-times/)).
 
@@ -623,13 +617,18 @@ derive Comparable for Version
 fn main() {
     dbg Version{major: 1, minor: 9} < Version{major: 1, minor: 10}
     dbg Version{major: 2, minor: 0} < Version{major: 1, minor: 10}
+    dbg Version.max(Version{major: 1, minor: 9}, Version{major: 1, minor: 10})
 }
 
 ```
 <!-- expect
 dbg line 9: Version{major: 1, minor: 9} < Version{major: 1, minor: 10} = True
 dbg line 10: Version{major: 2, minor: 0} < Version{major: 1, minor: 10} = False
+dbg line 11: Version.max(Version{major: 1, minor: 9}, Version{major: 1, minor: 10}) = Version{major: 1, minor: 10}
 -->
+
+Every `Comparable` type also has `min`, `max` and `clamp`, as `Version.max`
+shows. `Int.clamp(n, 0, 100)` holds a number to a range, both ends included.
 
 On an enum, `derive Comparable` ranks the variants in the order they are
 declared, and compares payloads only between two values of the same variant.
@@ -660,7 +659,7 @@ dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
 
 A tuple key sorts by several fields, and
 [`Reverse.of`](/reference/reverse/) around a key puts the largest first:
-`Iter.sort_by(users, fn u -> #(Reverse.of(u.age), u.name))`.
+`Iter.sort_by(users, fn u -> (Reverse.of(u.age), u.name))`.
 [`Iter.sort_with`](/reference/iter/#itersort_with) takes a function that
 compares two values. So when the compiler says a type has no `Comparable`
 impl, the fix is usually `sort_by`, not the derive.

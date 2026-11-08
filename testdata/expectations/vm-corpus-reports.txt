@@ -97,6 +97,7 @@
 11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi
 11-interfaces-and-impls/container_impls/container_impls_test.nomi
 11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi
+11-interfaces-and-impls/defaults_through_the_type/defaults_through_the_type_test.nomi
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi
 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi
 11-interfaces-and-impls/interface_field_update_test.nomi
@@ -111,6 +112,7 @@
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi
 12-derives-and-standard-interfaces/derives_test.nomi
 12-derives-and-standard-interfaces/display_debug_test.nomi
+12-derives-and-standard-interfaces/equality_bounds_test.nomi
 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
 12-derives-and-standard-interfaces/set_debug_test.nomi
 12-derives-and-standard-interfaces/unit_hashable_test.nomi
@@ -153,6 +155,7 @@
 15-app-and-defer/file_store_pattern_test.nomi
 15-app-and-defer/import_vs_app/import_vs_app_test.nomi
 15-app-and-defer/logging/logging_test.nomi
+15-app-and-defer/release_test.nomi
 15-app-and-defer/with_overrides/with_overrides_test.nomi
 16-concurrency/actor/actor_test.nomi
 16-concurrency/jobs/jobs_test.nomi

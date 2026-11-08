@@ -170,7 +170,7 @@ pub fn presign_put(
         presign(
             Method.Put,
             object_url(config, key),
-            Headers[#("Content-Type", content_type)],
+            Headers[("Content-Type", content_type)],
             config.credentials,
             config.region,
             Instant.now(),
@@ -201,7 +201,7 @@ pub fn sign(
         |> Headers.set("x-amz-content-sha256", hashed)
 
     signing = #{..request, headers}
-    #(names, canonical) = canonical_request(signing, Url.query_values(request.url), hashed)
+    (names, canonical) = canonical_request(signing, Url.query_values(request.url), hashed)
     signature = signature_of(credentials.secret_key, region, stamp, canonical)
 
     authorization = "AWS4-HMAC-SHA256 Credential=${credentials.access_key}/${scope(
@@ -231,14 +231,14 @@ pub fn presign(
     Query(given) = Url.query_values(url)
 
     query = given + [
-        #("X-Amz-Algorithm", "AWS4-HMAC-SHA256"),
-        #("X-Amz-Credential", "${credentials.access_key}/${scope(stamp, region)}"),
-        #("X-Amz-Date", stamp),
-        #("X-Amz-Expires", "${Duration.as_seconds(expires)}"),
-        #("X-Amz-SignedHeaders", names),
+        ("X-Amz-Algorithm", "AWS4-HMAC-SHA256"),
+        ("X-Amz-Credential", "${credentials.access_key}/${scope(stamp, region)}"),
+        ("X-Amz-Date", stamp),
+        ("X-Amz-Expires", "${Duration.as_seconds(expires)}"),
+        ("X-Amz-SignedHeaders", names),
     ]
 
-    #(_, canonical) = canonical_request(request, Query(query), "UNSIGNED-PAYLOAD")
+    (_, canonical) = canonical_request(request, Query(query), "UNSIGNED-PAYLOAD")
     signature = signature_of(credentials.secret_key, region, stamp, canonical)
     #{..url, query: Some("${canonical_query(Query(query))}&X-Amz-Signature=${signature}")}
 }
@@ -262,9 +262,9 @@ impl Store for Bucket {
 
         headers =
             [
-                Some(#("Content-Type", content_type)),
-                config.acl |> Maybe.map(fn acl -> #("x-amz-acl", acl)),
-                config.cache_control |> Maybe.map(fn value -> #("Cache-Control", value)),
+                Some(("Content-Type", content_type)),
+                config.acl |> Maybe.map(fn acl -> ("x-amz-acl", acl)),
+                config.cache_control |> Maybe.map(fn value -> ("Cache-Control", value)),
             ]
             |> Maybe.values()
 
@@ -331,23 +331,23 @@ impl Store for Bucket {
     fn list(bucket: Bucket, options: ListOptions) -> Result<storage.Listing, storage.Error> {
         storage.check_prefix(options.prefix)?
         config = bucket.config
-        limit = Int.max(1, Int.min(options.limit, 1000))
+        limit = Int.clamp(options.limit, 1, 1000)
 
         pairs =
             [
-                Some(#("list-type", "2")),
-                Some(#("max-keys", "${limit}")),
+                Some(("list-type", "2")),
+                Some(("max-keys", "${limit}")),
                 if options.prefix == "" {
                     None
                 } else {
-                    Some(#("prefix", options.prefix))
+                    Some(("prefix", options.prefix))
                 },
                 if options.delimiter == "" {
                     None
                 } else {
-                    Some(#("delimiter", options.delimiter))
+                    Some(("delimiter", options.delimiter))
                 },
-                options.continuation |> Maybe.map(fn token -> #("continuation-token", token)),
+                options.continuation |> Maybe.map(fn token -> ("continuation-token", token)),
             ]
             |> Maybe.values()
 
@@ -636,9 +636,9 @@ fn bucket_url(config: Config) -> Url {
 fn object_url(config: Config, key: String) -> Url {
     endpoint = config.endpoint
 
-    #(host, path) = case config.addressing {
-        .Path -> #(endpoint.host, "/${config.bucket}/${key}")
-        .VirtualHost -> #("${config.bucket}.${endpoint.host}", "/${key}")
+    (host, path) = case config.addressing {
+        .Path -> (endpoint.host, "/${config.bucket}/${key}")
+        .VirtualHost -> ("${config.bucket}.${endpoint.host}", "/${key}")
     }
 
     encoded = uri_encode(path, keep_slash: True)
@@ -657,11 +657,11 @@ fn scope(stamp: String, region: String) -> String {
 }
 
 fn payload_hash(body: Body, payload: Payload) -> String {
-    case #(payload, body) {
-        #(.Unsigned, _) -> "UNSIGNED-PAYLOAD"
-        #(.Signed, .Empty) -> hash.sha256_hex(String.to_bytes(""))
-        #(.Signed, .Text(text)) -> hash.sha256_hex(String.to_bytes(text))
-        #(.Signed, .Bytes(data)) -> hash.sha256_hex(data)
+    case (payload, body) {
+        (.Unsigned, _) -> "UNSIGNED-PAYLOAD"
+        (.Signed, .Empty) -> hash.sha256_hex(String.to_bytes(""))
+        (.Signed, .Text(text)) -> hash.sha256_hex(String.to_bytes(text))
+        (.Signed, .Bytes(data)) -> hash.sha256_hex(data)
         _ -> "UNSIGNED-PAYLOAD"
     }
 }
@@ -669,31 +669,31 @@ fn payload_hash(body: Body, payload: Payload) -> String {
 // The signed header names, lowercase, sorted and joined with `;`: `host`
 // and each header the request carries.
 fn signed_names(request: Request) -> String {
-    canonical_headers(request) |> Iter.map(fn #(name, _) -> name) |> String.join(";")
+    canonical_headers(request) |> Iter.map(fn (name, _) -> name) |> String.join(";")
 }
 
 // Each signed header as its lowercase name and its values, trimmed, with
 // runs of spaces made one, and joined with `,`, sorted by name.
-fn canonical_headers(request: Request) -> List<#(String, String)> {
+fn canonical_headers(request: Request) -> List<(String, String)> {
     host = Maybe.with_default(request.host, request.url.host)
     Headers(given) = request.headers
 
     pairs =
-        [#("host", host), ..given]
-        |> Iter.map(fn #(name, value) -> #(String.lowercase(name), value))
+        [("host", host), ..given]
+        |> Iter.map(fn (name, value) -> (String.lowercase(name), value))
 
     pairs
-    |> Iter.map(fn #(name, _) -> name)
+    |> Iter.map(fn (name, _) -> name)
     |> Iter.to_set()
     |> Iter.sort()
     |> Iter.map(fn name -> {
         values =
             pairs
-            |> Iter.filter(fn #(n, _) -> n == name)
-            |> Iter.map(fn #(_, value) -> collapse(value))
+            |> Iter.filter(fn (n, _) -> n == name)
+            |> Iter.map(fn (_, value) -> collapse(value))
             |> String.join(",")
 
-        #(name, values)
+        (name, values)
     })
     |> Iter.to_list()
 }
@@ -704,9 +704,9 @@ fn collapse(value: String) -> String {
 
 // The canonical request for `request` with the query `query` and the
 // payload hash `hashed`, and the signed header names it lists.
-fn canonical_request(request: Request, query: Query, hashed: String) -> #(String, String) {
+fn canonical_request(request: Request, query: Query, hashed: String) -> (String, String) {
     headers = canonical_headers(request)
-    names = headers |> Iter.map(fn #(name, _) -> name) |> String.join(";")
+    names = headers |> Iter.map(fn (name, _) -> name) |> String.join(";")
 
     path = if request.url.path == "" {
         "/"
@@ -719,14 +719,14 @@ fn canonical_request(request: Request, query: Query, hashed: String) -> #(String
             Method.text(request.method),
             uri_encode(path, keep_slash: True),
             canonical_query(query),
-            headers |> Iter.map(fn #(name, value) -> "${name}:${value}\n") |> String.join(""),
+            headers |> Iter.map(fn (name, value) -> "${name}:${value}\n") |> String.join(""),
             names,
             hashed,
         ],
         "\n",
     )
 
-    #(names, canonical)
+    (names, canonical)
 }
 
 // Each query name and value URI-encoded, sorted by name then value, joined
@@ -735,9 +735,9 @@ fn canonical_query(query: Query) -> String {
     Query(pairs) = query
 
     pairs
-    |> Iter.map(fn #(name, value) -> #(uri_encode(name), uri_encode(value)))
+    |> Iter.map(fn (name, value) -> (uri_encode(name), uri_encode(value)))
     |> Iter.sort()
-    |> Iter.map(fn #(name, value) -> "${name}=${value}")
+    |> Iter.map(fn (name, value) -> "${name}=${value}")
     |> String.join("&")
 }
 

@@ -36,6 +36,12 @@ func buildRenameEdits(fa *analysis.FileAnalysis, target *analysis.Symbol, id sym
 	}
 	for pos, sym := range fa.Definitions {
 		if !analysis.IsSynthesizedLine(pos.Line) && matchesSymbol(sym, target, id) {
+			if _, punned := fa.PunnedFieldLabels[pos]; punned {
+				// A punned pattern field (`#{home} = routes.public`) binds
+				// the name it reads: the binding renames to `home: sink`.
+				edits = append(edits, makeTextEdit(pos, sym.Name, sym.Name+": "+newName))
+				continue
+			}
 			edits = append(edits, makeTextEdit(pos, sym.Name, newName))
 		}
 	}

@@ -286,7 +286,7 @@ func irStdStructNominal(k kind) bool {
 // irComposedFieldKind is a user struct field composed of retained values:
 // a tuple, a List, a Vector, a Set or a Map whose parts are field kinds
 // themselves, a declared struct among them (`items: List<Point>`,
-// `pair: #(Int, Int)`). A struct reached through a part is decided
+// `pair: (Int, Int)`). A struct reached through a part is decided
 // co-inductively with `outer` extended, so a struct that names itself through
 // a list (`kids: List<Tree>`) is decided once rather than recursing.
 func irComposedFieldKind(k kind, outer []*typeDef) bool {
@@ -325,7 +325,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			return part(p.comp.parts[0]) && part(p.comp.parts[1])
 		}
 		if p.tag == tagNamed && p.def != nil && p.def.preludeOf != nil && p.def.isEnum && irKindReaches(p, outer) {
-			// `pair: #(Int, Maybe<Tree>)` inside Tree: a prelude wrapper's
+			// `pair: (Int, Maybe<Tree>)` inside Tree: a prelude wrapper's
 			// payloads decided with the walk's stack, as the field-level
 			// wrapper below is. irRetainedValueKind would restart the walk.
 			if !irPreludeWrapperOver(p, outer) {
@@ -711,8 +711,8 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	}
 	d, found := bl.g.namedType(tn.Name)
 	if !found {
-		// Another file's interface default, copied here (namesFrom), names
-		// a struct this file does not (portableDefault): the type the
+		// Another file's source lowered here under its names
+		// (namesFrom) names a struct this file does not: the type the
 		// checker gave the literal there is the struct.
 		if bl.g.namesFromGen() == nil {
 			return no()

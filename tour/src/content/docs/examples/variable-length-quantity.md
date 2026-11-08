@@ -29,7 +29,7 @@ fn encode_one(n: Int) -> List<Byte> {
 
     digits
     |> Iter.with_index()
-    |> Iter.map(fn #(i, digit) -> {
+    |> Iter.map(fn (i, digit) -> {
         byte = Int.to_byte(digit)!
         if i == last { byte } else { byte ||| 0x80 }
     })
@@ -39,15 +39,15 @@ fn encode_one(n: Int) -> List<Byte> {
 /// The numbers `bytes` encode, or an error when the last number's final byte
 /// is missing.
 pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String> {
-    #(pending, values) =
+    (pending, values) =
         bytes
         |> Iter.map_reduce(None, fn pending: Maybe<Int>, byte -> {
             value = Maybe.with_default(pending, 0) <<< 7 ||| Byte.to_int(byte &&& 0x7F)
 
             if byte &&& 0x80 == 0 {
-                #(None, Some(value))
+                (None, Some(value))
             } else {
-                #(Some(value), None)
+                (Some(value), None)
             }
         })
 
@@ -63,30 +63,30 @@ pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String> {
 import variable_length_quantity
 
 test "encode a series of integers, producing a series of bytes" {
-    cases: List<#(String, List<Int>, List<Byte>)> = [
-        #("zero", [0x0], [0x0]),
-        #("arbitrary single byte", [0x40], [0x40]),
-        #("asymmetric single byte", [0x53], [0x53]),
-        #("largest single byte", [0x7F], [0x7F]),
-        #("smallest double byte", [0x80], [0x81, 0x0]),
-        #("arbitrary double byte", [0x2000], [0xC0, 0x0]),
-        #("asymmetric double byte", [0xAD], [0x81, 0x2D]),
-        #("largest double byte", [0x3FFF], [0xFF, 0x7F]),
-        #("smallest triple byte", [0x4000], [0x81, 0x80, 0x0]),
-        #("arbitrary triple byte", [0x100000], [0xC0, 0x80, 0x0]),
-        #("asymmetric triple byte", [0x1D59C], [0x87, 0xAB, 0x1C]),
-        #("largest triple byte", [0x1FFFFF], [0xFF, 0xFF, 0x7F]),
-        #("smallest quadruple byte", [0x200000], [0x81, 0x80, 0x80, 0x0]),
-        #("arbitrary quadruple byte", [0x8000000], [0xC0, 0x80, 0x80, 0x0]),
-        #("asymmetric quadruple byte", [0x357704], [0x81, 0xD5, 0xEE, 0x4]),
-        #("largest quadruple byte", [0xFFFFFFF], [0xFF, 0xFF, 0xFF, 0x7F]),
-        #("smallest quintuple byte", [0x10000000], [0x81, 0x80, 0x80, 0x80, 0x0]),
-        #("arbitrary quintuple byte", [0xFF000000], [0x8F, 0xF8, 0x80, 0x80, 0x0]),
-        #("asymmetric quintuple byte", [0x86656105], [0x88, 0xB3, 0x95, 0xC2, 0x5]),
-        #("maximum 32-bit integer input", [0xFFFFFFFF], [0x8F, 0xFF, 0xFF, 0xFF, 0x7F]),
-        #("two single-byte values", [0x40, 0x7F], [0x40, 0x7F]),
-        #("two multi-byte values", [0x4000, 0x123456], [0x81, 0x80, 0x0, 0xC8, 0xE8, 0x56]),
-        #(
+    cases: List<(String, List<Int>, List<Byte>)> = [
+        ("zero", [0x0], [0x0]),
+        ("arbitrary single byte", [0x40], [0x40]),
+        ("asymmetric single byte", [0x53], [0x53]),
+        ("largest single byte", [0x7F], [0x7F]),
+        ("smallest double byte", [0x80], [0x81, 0x0]),
+        ("arbitrary double byte", [0x2000], [0xC0, 0x0]),
+        ("asymmetric double byte", [0xAD], [0x81, 0x2D]),
+        ("largest double byte", [0x3FFF], [0xFF, 0x7F]),
+        ("smallest triple byte", [0x4000], [0x81, 0x80, 0x0]),
+        ("arbitrary triple byte", [0x100000], [0xC0, 0x80, 0x0]),
+        ("asymmetric triple byte", [0x1D59C], [0x87, 0xAB, 0x1C]),
+        ("largest triple byte", [0x1FFFFF], [0xFF, 0xFF, 0x7F]),
+        ("smallest quadruple byte", [0x200000], [0x81, 0x80, 0x80, 0x0]),
+        ("arbitrary quadruple byte", [0x8000000], [0xC0, 0x80, 0x80, 0x0]),
+        ("asymmetric quadruple byte", [0x357704], [0x81, 0xD5, 0xEE, 0x4]),
+        ("largest quadruple byte", [0xFFFFFFF], [0xFF, 0xFF, 0xFF, 0x7F]),
+        ("smallest quintuple byte", [0x10000000], [0x81, 0x80, 0x80, 0x80, 0x0]),
+        ("arbitrary quintuple byte", [0xFF000000], [0x8F, 0xF8, 0x80, 0x80, 0x0]),
+        ("asymmetric quintuple byte", [0x86656105], [0x88, 0xB3, 0x95, 0xC2, 0x5]),
+        ("maximum 32-bit integer input", [0xFFFFFFFF], [0x8F, 0xFF, 0xFF, 0xFF, 0x7F]),
+        ("two single-byte values", [0x40, 0x7F], [0x40, 0x7F]),
+        ("two multi-byte values", [0x4000, 0x123456], [0x81, 0x80, 0x0, 0xC8, 0xE8, 0x56]),
+        (
             "many multi-byte values",
             [0x2000, 0x123456, 0xFFFFFFF, 0x0, 0x3FFF, 0x4000],
             [
@@ -96,25 +96,25 @@ test "encode a series of integers, producing a series of bytes" {
         ),
     ]
 
-    subtests cases, #(description, integers, expected), description {
+    subtests cases, (description, integers, expected), description {
         assert variable_length_quantity.encode(integers) == expected
     }
 }
 
 test "decode a series of bytes, producing a series of integers" {
-    cases: List<#(String, List<Byte>, Result<List<Int>, String>)> = [
-        #("one byte", [0x7F], Ok([0x7F])),
-        #("two bytes", [0xC0, 0x0], Ok([0x2000])),
-        #("three bytes", [0xFF, 0xFF, 0x7F], Ok([0x1FFFFF])),
-        #("four bytes", [0x81, 0x80, 0x80, 0x0], Ok([0x200000])),
-        #("maximum 32-bit integer", [0x8F, 0xFF, 0xFF, 0xFF, 0x7F], Ok([0xFFFFFFFF])),
-        #("incomplete sequence causes error", [0xFF], Err("incomplete sequence")),
-        #(
+    cases: List<(String, List<Byte>, Result<List<Int>, String>)> = [
+        ("one byte", [0x7F], Ok([0x7F])),
+        ("two bytes", [0xC0, 0x0], Ok([0x2000])),
+        ("three bytes", [0xFF, 0xFF, 0x7F], Ok([0x1FFFFF])),
+        ("four bytes", [0x81, 0x80, 0x80, 0x0], Ok([0x200000])),
+        ("maximum 32-bit integer", [0x8F, 0xFF, 0xFF, 0xFF, 0x7F], Ok([0xFFFFFFFF])),
+        ("incomplete sequence causes error", [0xFF], Err("incomplete sequence")),
+        (
             "incomplete sequence causes error, even if value is zero",
             [0x80],
             Err("incomplete sequence"),
         ),
-        #(
+        (
             "multiple values",
             [
                 0xC0, 0x0, 0xC8, 0xE8, 0x56, 0xFF, 0xFF, 0xFF, 0x7F, 0x0, 0xFF, 0x7F, 0x81, 0x80,
@@ -124,7 +124,7 @@ test "decode a series of bytes, producing a series of integers" {
         ),
     ]
 
-    subtests cases, #(description, bytes, expected), description {
+    subtests cases, (description, bytes, expected), description {
         assert variable_length_quantity.decode(bytes) == expected
     }
 }

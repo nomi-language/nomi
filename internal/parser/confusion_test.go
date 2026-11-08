@@ -33,11 +33,18 @@ func TestConfusion_ParserNamesNomisSpelling(t *testing.T) {
 		{"%{x: 1}", "fn main() {\n    p = %{x: 1}\n}\n", "`key => value`", "fn main() {\n    p = #{x: 1}\n}\n"},
 		{`{"k": 1}`, "fn main() {\n    m = {\"a\": 1, \"b\": [2]}\n}\n", "a map literal is", "fn main() {\n    m = %{\"a\" => 1, \"b\" => [2]}\n}\n"},
 		{"Map{", "fn main() {\n    m = Map{\"a\" => 1}\n}\n", "a map literal is", "fn main() {\n    m = %{\"a\" => 1}\n}\n"},
-		{"(a, b)", "fn main() {\n    t = (1, 2)\n}\n", "write `#(a, b)`", "fn main() {\n    t = #(1, 2)\n}\n"},
-		{"(Int, String)", "fn f(p: (Int, String)) -> Int {\n    1\n}\n", "a tuple type starts with `#`", "fn f(p: #(Int, String)) -> Int {\n    1\n}\n"},
+		{"#(a, b)", "fn main() {\n    t = #(1, 2)\n}\n", "a tuple is written without `#`", "fn main() {\n    t = (1, 2)\n}\n"},
+		{"#(a, b) =", "fn main() {\n    #(a, b) = (1, 2)\n}\n", "a tuple is written without `#`", "fn main() {\n    (a, b) = (1, 2)\n}\n"},
+		{"#(a, b) ->", "fn main() {\n    x = case (1, 2) {\n        #(a, _) -> a\n    }\n}\n", "a tuple is written without `#`", "fn main() {\n    x = case (1, 2) {\n        (a, _) -> a\n    }\n}\n"},
+		{"#(Int, String)", "fn f(p: #(Int, String)) -> Int {\n    1\n}\n", "a tuple is written without `#`", "fn f(p: (Int, String)) -> Int {\n    1\n}\n"},
 		{"& &1.field", "fn main() {\n    xs = [#{amount: 1}] |> Iter.map(& &1.amount) |> Iter.to_list()\n}\n", "the field accessor `.amount`", "fn main() {\n    xs = [#{amount: 1}] |> Iter.map(.amount) |> Iter.to_list()\n}\n"},
 		{"& &1 * 2", "fn main() {\n    xs = [1] |> Iter.map(& &1 * 2) |> Iter.to_list()\n}\n", "holds its body in parentheses", "fn main() {\n    xs = [1] |> Iter.map(&(&1 * 2)) |> Iter.to_list()\n}\n"},
 		{"& &1 in a call", "fn main() {\n    xs = Iter.reduce([1], 0, & &1 + &2)\n}\n", "holds its body in parentheses", "fn main() {\n    xs = Iter.reduce([1], 0, &(&1 + &2))\n}\n"},
+		{"t.0", "fn main() {\n    t = (1, 2)\n    dbg t.0\n}\n", "write `t.first`", "fn main() {\n    t = (1, 2)\n    dbg t.first\n}\n"},
+		{"t.1.0", "fn main() {\n    dbg t.1.0 + 1\n}\n", "write `t.second.first`", "fn main() {\n    dbg t.second.first + 1\n}\n"},
+		{"&1.1", "fn main() {\n    xs = Iter.map(ps, &(&1.1 * 2))\n}\n", "write `&1.second`", "fn main() {\n    xs = Iter.map(ps, &(&1.second * 2))\n}\n"},
+		{"accessor .1", "fn main() {\n    xs = Iter.map(ps, .1)\n}\n", "write `.second`", "fn main() {\n    xs = Iter.map(ps, .second)\n}\n"},
+		{"accessor .x.2.0", "fn main() {\n    xs = Iter.map(ps, .x.2.0)\n}\n", "write `.third.first`", "fn main() {\n    xs = Iter.map(ps, .x.third.first)\n}\n"},
 		{"vec!", "fn main() {\n    v = vec![1, 2]\n}\n", "Nomi has no macros", "fn main() {\n    v = [1, 2]\n}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -75,7 +82,7 @@ func TestConfusion_BraceListNamesTupleAndSet(t *testing.T) {
 	if err == nil || !errors.As(err, &pe) {
 		t.Fatalf("Parse: %v, want a ParseError", err)
 	}
-	if !strings.Contains(pe.Message, "`#(a, b)`") || !strings.Contains(pe.Message, "`%[a, b]`") || pe.Fix != nil {
+	if !strings.Contains(pe.Message, "`(a, b)`") || !strings.Contains(pe.Message, "`%[a, b]`") || pe.Fix != nil {
 		t.Fatalf("error = %q, fix %+v; want both spellings and no fix", pe.Message, pe.Fix)
 	}
 }
@@ -89,7 +96,7 @@ func TestConfusion_NomisOwnFormsStillParse(t *testing.T) {
 		"fn main() {\n    x: Int = 1\n    dbg x\n}\n",
 		"fn main() {\n    p = geo.Point{x: 1}\n}\n",
 		"fn main() {\n    b = {\n        x: Int = 1\n        x\n    }\n}\n",
-		"fn main() {\n    m = %{\"a\" => 1}\n    t = #(1, 2)\n    g = (1)\n}\n",
+		"fn main() {\n    m = %{\"a\" => 1}\n    t = (1, 2)\n    g = (1)\n}\n",
 		"fn f(g: (Int, String) -> Int) -> Int {\n    1\n}\n",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {

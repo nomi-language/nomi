@@ -1,4 +1,5 @@
 import {
+    debug.Debug
     display.Display
     variants.Variants
 }
@@ -21,7 +22,7 @@ impl Ordering {
     /// second, each in its own direction: below, points descending (the
     /// arguments swapped), then name ascending. Both comparisons run; for
     /// keys that all sort the same way, a tuple key (`Iter.sort_by(rows, fn r
-    /// -> #(r.team, r.name))`) says the same thing and compares the second
+    /// -> (r.team, r.name))`) says the same thing and compares the second
     /// key only on a tie.
     //
     //! import std::int.Int
@@ -31,15 +32,15 @@ impl Ordering {
     //! assert Ordering.chain(Ordering.Less, Ordering.Greater) == Ordering.Less
     //! assert Ordering.chain(Ordering.Equal, Ordering.Greater) == Ordering.Greater
     //!
-    //! rows = [#("ann", 3), #("bob", 6), #("cy", 3)]
+    //! rows = [("ann", 3), ("bob", 6), ("cy", 3)]
     //!
     //! ranked =
     //!     rows
-    //!     |> Iter.sort_with(fn #(a, a_points), #(b, b_points) -> {
+    //!     |> Iter.sort_with(fn (a, a_points), (b, b_points) -> {
     //!         Ordering.chain(Int.compare(b_points, a_points), String.compare(a, b))
     //!     })
     //!
-    //! assert ranked == [#("bob", 6), #("ann", 3), #("cy", 3)]
+    //! assert ranked == [("bob", 6), ("ann", 3), ("cy", 3)]
     //
     pub fn chain(first: Ordering, next: Ordering) -> Ordering {
         case first {
@@ -87,20 +88,84 @@ derive Display for Direction
 /// A tuple is `Comparable` when every element is, lexicographically: the
 /// first elements decide unless they are `Equal`, then the second, and so
 /// on. That makes a tuple the key for a sort by several fields,
-/// `Iter.sort_by(rows, fn r -> #(r.team, r.name))`. To sort one of the keys
-/// descending, negate a number in the key (`#(-r.points, r.name)`), or
-/// wrap it in `Reverse.of` from `std::reverse`, `#(Reverse.of(r.name), r.points)`, which works for any `Comparable` key; a number can also be negated, `#(-r.points, r.name)`.
+/// `Iter.sort_by(rows, fn r -> (r.team, r.name))`. To sort one of the keys
+/// descending, negate a number in the key (`(-r.points, r.name)`), or
+/// wrap it in `Reverse.of` from `std::reverse`, `(Reverse.of(r.name), r.points)`, which works for any `Comparable` key; a number can also be negated, `(-r.points, r.name)`.
+///
+/// Every `Comparable` type also has `min`, `max` and `clamp`, written once
+/// here over `compare`: `Int.min(a, b)`, `Date.clamp(day, first, last)`, or
+/// `Comparable.min(a, b)` in a function generic over a `T: Comparable`.
+//! import std::calendar.Date
+//! import std::duration.Duration
+//! import std::int.Int
 //! import std::iter.Iter
 //! import std::maybe.Maybe.Some
+//! import std::strings.String
 //!
-//! assert #(1, "b") < #(2, "a")
-//! assert #(1, "a") < #(1, "b")
-//! assert Iter.max([#(1, "z"), #(2, "a")]) == Some(#(2, "a"))
+//! assert (1, "b") < (2, "a")
+//! assert (1, "a") < (1, "b")
+//! assert Iter.max([(1, "z"), (2, "a")]) == Some((2, "a"))
 //!
-//! rows = [#("cy", 3), #("bob", 6), #("ann", 3)]
-//! by_points = Iter.sort_by(rows, fn #(name, points) -> #(-points, name))
-//! assert by_points == [#("bob", 6), #("ann", 3), #("cy", 3)]
+//! rows = [("cy", 3), ("bob", 6), ("ann", 3)]
+//! by_points = Iter.sort_by(rows, fn (name, points) -> (-points, name))
+//! assert by_points == [("bob", 6), ("ann", 3), ("cy", 3)]
+//!
+//! assert Int.min(3, -2) == -2
+//! assert Int.max(3, -2) == 3
+//! assert Int.min(-Int.pow(10, 30), 1) == -Int.pow(10, 30)
+//! assert Int.clamp(15, 0, 10) == 10
+//! assert Int.clamp(-3, 0, 10) == 0
+//! assert Int.clamp(7, 0, 10) == 7
+//! assert String.min("pear", "apple") == "apple"
+//! assert String.clamp("zebra", "a", "m") == "m"
+//! assert Duration.max(Duration.seconds(90), Duration.minutes(1)) == Duration.seconds(90)
+//!
+//! assert Duration.clamp(Duration.seconds(5), Duration.seconds(30), Duration.minutes(5))
+//!     == Duration.seconds(30)
+//!
+//! assert Date.min(Date`2026-03-01`, Date`2025-12-31`) == Date`2025-12-31`
+//! assert Date.clamp(Date`2027-01-01`, Date`2026-01-01`, Date`2026-12-31`) == Date`2026-12-31`
+//! assert Comparable.max((1, "b"), (1, "a")) == (1, "b")
 //
 pub interface Comparable {
     fn compare(a: self, b: self) -> Ordering
+
+    /// The lesser of `a` and `b` by `compare`; a tie returns `a`. `Float`
+    /// overrides it with IEEE 754's `minimum`, where NaN wins.
+    open fn min(a: self, b: self) -> self {
+        case compare(b, a) {
+            .Less -> b
+            _ -> a
+        }
+    }
+
+    /// The greater of `a` and `b` by `compare`; a tie returns `a`. `Float`
+    /// overrides it with IEEE 754's `maximum`, where NaN wins.
+    open fn max(a: self, b: self) -> self {
+        case compare(b, a) {
+            .Greater -> b
+            _ -> a
+        }
+    }
+
+    /// `value` held to `low..high`, both ends included: `low` when `value` is
+    /// below it, `high` when above, else `value`. A `low` greater than `high`
+    /// is a range written backwards, so it traps, naming both bounds:
+    /// `Comparable.clamp: low 10 is greater than high 1`. `Float` overrides
+    /// it so that a NaN `value` stays NaN and a NaN bound traps.
+    open fn clamp(value: self, low: self, high: self) -> self {
+        if compare(low, high) == .Greater {
+            clamp_reversed(Debug.inspect(low), Debug.inspect(high))
+        }
+
+        case {
+            compare(value, low) == .Less -> low
+            compare(value, high) == .Greater -> high
+            _ -> value
+        }
+    }
 }
+
+// Traps for a `clamp` whose bounds are backwards, with the text
+// `Comparable.clamp: low 10 is greater than high 1`.
+host fn clamp_reversed(low: String, high: String) -> Unit

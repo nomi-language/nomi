@@ -195,10 +195,10 @@ func structIfaceMatches(decl *ast.InterfaceDef) bool {
 	case m.Name != structIfaceUpdate:
 		return false
 	case !m.Extern, m.Body != nil, m.Open:
-		// A Nomi-bodied or `open` default would be monomorphized into each
-		// implementing block by inheritDefaults, resolving names in the
-		// IMPLEMENTING module's scope — and there is no implementing block for
-		// a structural marker, so there is nowhere for a default to go.
+		// A Nomi-bodied or `open` default is lowered once per implementing
+		// block (inheritDefaults, ifacedefault.go), and there is no
+		// implementing block for a structural marker, so there is nowhere
+		// for a default to go.
 		return false
 	case len(m.TypeParams) > 0, len(m.WhereClauses) > 0:
 		return false

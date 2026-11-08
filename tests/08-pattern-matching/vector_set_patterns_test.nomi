@@ -41,11 +41,11 @@ test "a vector pattern takes a vector apart from either end" {
 
 test "a vector pattern's rest is the elements between its heads and tails" {
     result = case #[1, 2, 3, 4, 5] {
-        #[a, ..mid, z] -> #(a, mid, z)
-        _ -> #(0, #[], 0)
+        #[a, ..mid, z] -> (a, mid, z)
+        _ -> (0, #[], 0)
     }
 
-    assert result == #(1, #[2, 3, 4], 5)
+    assert result == (1, #[2, 3, 4], 5)
     #[first, ..rest] = #[9, 8] else { return }
     assert first == 9
     assert rest == #[8]
@@ -65,10 +65,10 @@ test "an exact vector pattern matches only its own length" {
 }
 
 test "vector patterns nest and combine with or and as" {
-    pairs = #[#(1, "a"), #(2, "b")]
+    pairs = #[(1, "a"), (2, "b")]
 
     assert case pairs {
-        #[#(n, s), ..] -> "${n}${s}"
+        #[(n, s), ..] -> "${n}${s}"
         _ -> ""
     } == "1a"
 

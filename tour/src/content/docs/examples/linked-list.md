@@ -43,14 +43,14 @@ impl LinkedList<T> {
 
     /// The last value of `list` and the list without it, or `None` when it is
     /// empty.
-    pub fn pop(list: LinkedList<T>) -> Maybe<#(T, LinkedList<T>)> {
+    pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
         case list.back {
             [last, ..back] ->
-                Some(#(last, #{..list, back}))
+                Some((last, #{..list, back}))
 
             [] -> {
                 case Iter.reverse(list.front) {
-                    [last, ..back] -> Some(#(last, LinkedList{front: [], back}))
+                    [last, ..back] -> Some((last, LinkedList{front: [], back}))
                     [] -> None
                 }
             }
@@ -59,14 +59,14 @@ impl LinkedList<T> {
 
     /// The first value of `list` and the list without it, or `None` when it
     /// is empty.
-    pub fn shift(list: LinkedList<T>) -> Maybe<#(T, LinkedList<T>)> {
+    pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
         case list.front {
             [first, ..front] ->
-                Some(#(first, #{..list, front}))
+                Some((first, #{..list, front}))
 
             [] -> {
                 case Iter.reverse(list.back) {
-                    [first, ..front] -> Some(#(first, LinkedList{front, back: []}))
+                    [first, ..front] -> Some((first, LinkedList{front, back: []}))
                     [] -> None
                 }
             }
@@ -111,35 +111,35 @@ derive Equatable for Step
 /// steps as they happened. A list that does what every step says answers the
 /// steps it was given.
 fn replay(steps: List<Step>) -> List<Step> {
-    #(_list, happened) =
+    (_list, happened) =
         steps
         |> Iter.map_reduce(LinkedList.new(), fn list, step -> {
             case step {
                 .Push(value) ->
-                    #(LinkedList.push(list, value), Step.Push(value))
+                    (LinkedList.push(list, value), Step.Push(value))
 
                 .Unshift(value) ->
-                    #(LinkedList.unshift(list, value), .Unshift(value))
+                    (LinkedList.unshift(list, value), .Unshift(value))
 
                 .Pop(_) or .PopFails -> {
                     case LinkedList.pop(list) {
-                        Some(#(value, rest)) -> #(rest, .Pop(value))
-                        None -> #(list, .PopFails)
+                        Some((value, rest)) -> (rest, .Pop(value))
+                        None -> (list, .PopFails)
                     }
                 }
 
                 .Shift(_) or .ShiftFails -> {
                     case LinkedList.shift(list) {
-                        Some(#(value, rest)) -> #(rest, .Shift(value))
-                        None -> #(list, .ShiftFails)
+                        Some((value, rest)) -> (rest, .Shift(value))
+                        None -> (list, .ShiftFails)
                     }
                 }
 
                 .Count(_) ->
-                    #(list, .Count(Iter.count(list)))
+                    (list, .Count(Iter.count(list)))
 
                 .Delete(value) ->
-                    #(LinkedList.delete(list, value), .Delete(value))
+                    (LinkedList.delete(list, value), .Delete(value))
             }
         })
 
@@ -148,18 +148,18 @@ fn replay(steps: List<Step>) -> List<Step> {
 
 test "linked list" {
     [
-        #("pop gets element from the list", [Step.Push(7), .Pop(7)]),
-        #(
+        ("pop gets element from the list", [Step.Push(7), .Pop(7)]),
+        (
             "push/pop respectively add/remove at the end of the list",
             [.Push(11), .Push(13), .Pop(13), .Pop(11)],
         ),
-        #("shift gets an element from the list", [.Push(17), .Shift(17)]),
-        #("shift gets first element from the list", [.Push(23), .Push(5), .Shift(23), .Shift(5)]),
-        #(
+        ("shift gets an element from the list", [.Push(17), .Shift(17)]),
+        ("shift gets first element from the list", [.Push(23), .Push(5), .Shift(23), .Shift(5)]),
+        (
             "unshift adds element at start of the list",
             [.Unshift(23), .Unshift(5), .Shift(5), .Shift(23)],
         ),
-        #(
+        (
             "pop, push, shift, and unshift can be used in any order",
             [
                 .Push(1),
@@ -174,9 +174,9 @@ test "linked list" {
                 .Shift(3),
             ],
         ),
-        #("count an empty list", [.Count(0)]),
-        #("count a list with items", [.Push(37), .Push(1), .Count(2)]),
-        #(
+        ("count an empty list", [.Count(0)]),
+        ("count a list with items", [.Push(37), .Push(1), .Count(2)]),
+        (
             "count is correct after mutation",
             [
                 .Push(31),
@@ -189,40 +189,40 @@ test "linked list" {
                 .Count(0),
             ],
         ),
-        #(
+        (
             "popping to empty doesn't break the list",
             [.Push(41), .Push(59), .Pop(59), .Pop(41), .Push(47), .Count(1), .Pop(47)],
         ),
-        #(
+        (
             "shifting to empty doesn't break the list",
             [.Push(41), .Push(59), .Shift(41), .Shift(59), .Push(47), .Count(1), .Shift(47)],
         ),
-        #("deletes the only element", [.Push(61), .Delete(61), .Count(0)]),
-        #(
+        ("deletes the only element", [.Push(61), .Delete(61), .Count(0)]),
+        (
             "deletes the element with the specified value from the list",
             [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Pop(79), .Shift(71)],
         ),
-        #(
+        (
             "deletes the element with the specified value from the list, re-assigns tail",
             [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Pop(79), .Pop(71)],
         ),
-        #(
+        (
             "deletes the element with the specified value from the list, re-assigns head",
             [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Shift(71), .Shift(79)],
         ),
-        #(
+        (
             "deletes the first of two elements",
             [.Push(97), .Push(101), .Delete(97), .Count(1), .Pop(101)],
         ),
-        #(
+        (
             "deletes the second of two elements",
             [.Push(97), .Push(101), .Delete(101), .Count(1), .Pop(97)],
         ),
-        #(
+        (
             "delete does not modify the list if the element is not found",
             [.Push(89), .Delete(103), .Count(1)],
         ),
-        #(
+        (
             "deletes only the first occurrence",
             [
                 .Push(73),
@@ -237,7 +237,7 @@ test "linked list" {
             ],
         ),
     ]
-    |> subtests #(description, steps), description {
+    |> subtests (description, steps), description {
         assert replay(steps) == steps
     }
 }
@@ -259,7 +259,7 @@ test result: ok. 20 passed, 0 failed
 
 - Adapted: the exercise asks for a doubly linked list, whose nodes point both ways and are edited in place. Nomi values cannot change, so no node can point back at one built after it; the port keeps the operations and their cost instead, as a persistent double-ended list. Each operation answers a new list.
 - `LinkedList<T>` is an opaque struct of two `List`s, the front values in order and the back values newest first, so both ends are a list head: `push`, `unshift` and a `pop` or `shift` that finds its end non-empty take constant time. An end that runs out reverses the other list once, which every value pays at most once on its way through.
-- `pop` and `shift` answer `Maybe<#(T, LinkedList<T>)>`, the value and the list without it, with `None` for an empty list. The canonical data never empties a list too far, and the test file adds one case, marked not canonical, that does.
+- `pop` and `shift` answer `Maybe<(T, LinkedList<T>)>`, the value and the list without it, with `None` for an empty list. The canonical data never empties a list too far, and the test file adds one case, marked not canonical, that does.
 - `impl Iter<T> for LinkedList<T>` walks the front, then the back reversed, so the count is std's `Iter.count` and `delete` reads the values in order with `Iter.to_list`. `delete` takes out the first equal value with `List.remove` and answers the rest as one front list.
 - The canonical cases are lists of operations, so the test file follows circular-buffer and simple-linked-list: each is a list of `Step`s (`Push(7)`, `Pop(7)`, `Shift(17)`, `Unshift(23)`, `Count(2)`, `Delete(83)`), `replay` runs them on an empty list with one `Iter.map_reduce`, and each row asserts `replay(steps) == steps`. Where a canonical pop or shift gives no expected value, its step names the value it takes.
 - The 19 canonical cases are one `subtests` table named by the description column.

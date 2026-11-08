@@ -20,7 +20,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `s.strip()`, `len(xs)` | `String.trim(s)`, `Iter.count(xs)`: functions are called through their owner |
 | `[f(x) for x in xs if p(x)]` | `xs \|> Iter.filter(p) \|> Iter.map(f) \|> Iter.to_list()` |
 | `{"a": 1}`, `{1, 2}` | `%{"a" => 1}`, `%[1, 2]` |
-| `(a, b)`, `a, b = pair` | `#(a, b)`, `#(a, b) = pair` |
+| `(a, b)`, `a, b = pair` | `(a, b)`, `(a, b) = pair` |
 | `None` | `None`, but only in a `Maybe<T>`: a value that may be missing says so in its type |
 | `raise ValueError(..)`, `try:` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `class User:` with `self.name` | `struct User { name: String }`, read as `user.name`; behavior goes in `impl User { .. }` |
@@ -51,7 +51,7 @@ fn word_lengths(text: String) -> Map<String, Int> {
     text
     |> String.words()
     |> Iter.filter(fn word -> String.length(word) > 2)
-    |> Iter.map(fn word -> #(String.lowercase(word), String.length(word)))
+    |> Iter.map(fn word -> (String.lowercase(word), String.length(word)))
     |> Iter.to_map()
 }
 

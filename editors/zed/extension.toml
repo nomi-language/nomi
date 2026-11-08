@@ -23,4 +23,4 @@ schema_path = "debug_adapter_schemas/Nomi.json"
 
 [grammars.nomi]
 repository = "https://github.com/nomi-language/tree-sitter-nomi"
-rev = "397bf1a28099a2aede3aabb9b206678daa5f18b1"
+rev = "11194a545c562a3c2a87745122226df87fc840b1"

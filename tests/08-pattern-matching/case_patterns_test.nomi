@@ -59,9 +59,9 @@ fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int {
     }
 }
 
-fn first_of_pair(m: Maybe<#(Int, String)>) -> Int {
+fn first_of_pair(m: Maybe<(Int, String)>) -> Int {
     case m {
-        Some(#(n, _)) -> n
+        Some((n, _)) -> n
         None -> 0
     }
 }
@@ -84,17 +84,17 @@ test "enum case expressions cover variants and nested payloads" {
     assert unwrap_or(Some(Ok(99))) == 99
     assert unwrap_or(Some(Err("nope"))) == -1
     assert unwrap_or(None) == 0
-    assert first_of_pair(Some(#(10, "hi"))) == 10
+    assert first_of_pair(Some((10, "hi"))) == 10
     assert first_of_pair(None) == 0
     assert label_bool(True) == "yes"
     assert label_bool(False) == "no"
 }
 
 test "nested variant patterns destructure recursive payloads" {
-    pair_opt = Some(#(1, "a"))
+    pair_opt = Some((1, "a"))
 
     pair_text = case pair_opt {
-        Some(#(_, s)) -> s
+        Some((_, s)) -> s
         None -> "none"
     }
 
@@ -112,10 +112,10 @@ test "nested variant patterns destructure recursive payloads" {
         None -> "none"
     }
 
-    deep = Some(Some(#(7, "deep")))
+    deep = Some(Some((7, "deep")))
 
     deep_match = case deep {
-        Some(Some(#(_, s))) -> s
+        Some(Some((_, s))) -> s
         _ -> "miss"
     }
 
@@ -165,10 +165,10 @@ fn unwrap(o: Outer) -> Int {
 }
 
 test "nested struct patterns work inside variants tuples and fields" {
-    pair = #(Point{x: 5, y: 6}, 10)
+    pair = (Point{x: 5, y: 6}, 10)
 
     pair_sum = case pair {
-        #(Point{x, y}, n) -> x + y + n
+        (Point{x, y}, n) -> x + y + n
     }
 
     assert sum(Wrapped.Pair(Point{x: 3, y: 4})) == 7
@@ -199,9 +199,9 @@ fn classify_decimal(d: Decimal) -> String {
     }
 }
 
-fn classify_pair(t: #(Int, Int)) -> String {
+fn classify_pair(t: (Int, Int)) -> String {
     case t {
-        #(-1, -2) -> "both neg"
+        (-1, -2) -> "both neg"
         _ -> "other"
     }
 }
@@ -233,7 +233,7 @@ test "negative numeric literals can appear in pattern positions" {
     assert classify_int(-2) == "neg two"
     assert classify_float(-2.5) == "neg float"
     assert classify_decimal(-2.50d) == "neg decimal"
-    assert classify_pair(#(-1, -2)) == "both neg"
+    assert classify_pair((-1, -2)) == "both neg"
     assert classify_list([-1, 2]) == "neg head"
     assert classify_maybe(Some(-2)) == "some neg two"
     assert classify_map(neg_value_map) == "neg val"

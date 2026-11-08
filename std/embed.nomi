@@ -63,7 +63,7 @@ pub opaque struct Files {
     files: Map<String, Contents>
     /// Each directory's entries, by its path (`.` for the root): each
     /// name, and whether it is a directory, in name order.
-    dirs: Map<String, List<#(String, Bool)>>
+    dirs: Map<String, List<(String, Bool)>>
 }
 
 /// A file's contents. An embedded file's are `Stored`: the value holds the
@@ -112,9 +112,9 @@ once zero_time = Instant.from_seconds(0)
 //!
 //! assert Files.read(files, "web/dist/index.html") == Err(Error.NotFound{path: "web/dist/index.html"})
 //
-fn from_entries(entries: List<#(String, Int, Int)>, empty: List<String>) -> Files {
+fn from_entries(entries: List<(String, Int, Int)>, empty: List<String>) -> Files {
     entries
-    |> Iter.reduce(%{}, fn acc, #(p, handle, size) -> {
+    |> Iter.reduce(%{}, fn acc, (p, handle, size) -> {
         Map.put(acc, p, Contents.Stored{handle, size})
     })
     |> tree(empty)
@@ -123,9 +123,9 @@ fn from_entries(entries: List<#(String, Int, Int)>, empty: List<String>) -> File
 /// The tree of `entries`, each a file's path and contents, held in the
 /// value: the trees the examples here read.
 //! files = from_held([
-//!     #("static/b.css", String.to_bytes("b")),
-//!     #("static/img/a.png", String.to_bytes("a")),
-//!     #("index.html", String.to_bytes("i")),
+//!     ("static/b.css", String.to_bytes("b")),
+//!     ("static/img/a.png", String.to_bytes("a")),
+//!     ("index.html", String.to_bytes("i")),
 //! ])
 //!
 //! assert Files.paths(files) == ["index.html", "static/b.css", "static/img/a.png"]
@@ -135,16 +135,16 @@ fn from_entries(entries: List<#(String, Int, Int)>, empty: List<String>) -> File
 //!         Entry{path: "./static", name: "static", kind: Kind.Directory},
 //!     ])
 //
-fn from_held(entries: List<#(String, Bytes)>) -> Files {
+fn from_held(entries: List<(String, Bytes)>) -> Files {
     entries
-    |> Iter.reduce(%{}, fn acc, #(p, data) -> Map.put(acc, p, Contents.Held(data)))
+    |> Iter.reduce(%{}, fn acc, (p, data) -> Map.put(acc, p, Contents.Held(data)))
     |> tree([])
 }
 
 /// The tree of `files`, by their paths, and of the directories `empty`. A
 /// file's directories are made from its path.
 fn tree(files: Map<String, Contents>, empty: List<String>) -> Files {
-    with_files = files |> Iter.reduce(%{}, fn acc, #(p, _) -> add_parents(acc, p, False))
+    with_files = files |> Iter.reduce(%{}, fn acc, (p, _) -> add_parents(acc, p, False))
 
     dirs =
         empty
@@ -161,7 +161,7 @@ fn tree(files: Map<String, Contents>, empty: List<String>) -> Files {
             |> Map.keys()
             |> Iter.sort()
             |> Iter.map(fn name -> {
-                #(name, Map.get(names, name) |> Maybe.with_default(False))
+                (name, Map.get(names, name) |> Maybe.with_default(False))
             })
             |> Iter.to_list()
         })
@@ -221,7 +221,7 @@ impl Files {
     /// ```nomi
     /// logo = Files.read(site, "static/logo.png")?
     /// ```
-    //! files = from_held([#("a/b.txt", String.to_bytes("hi"))])
+    //! files = from_held([("a/b.txt", String.to_bytes("hi"))])
     //!
     //! assert Files.read(files, "a/b.txt") == Ok(String.to_bytes("hi"))
     //! assert Files.read(files, "./a//b.txt") == Ok(String.to_bytes("hi"))
@@ -243,8 +243,8 @@ impl Files {
     /// UTF-8 are `InvalidText`, with the offset of the first byte that is
     /// not.
     //! files = from_held([
-    //!     #("a.txt", String.to_bytes("hé")),
-    //!     #("b.bin", Bytes.from_list([104, 255])),
+    //!     ("a.txt", String.to_bytes("hé")),
+    //!     ("b.bin", Bytes.from_list([104, 255])),
     //! ])
     //!
     //! assert Files.read_text(files, "a.txt") == Ok("hé")
@@ -259,7 +259,7 @@ impl Files {
 
     /// The entries of the directory `dir`, in name order. Each entry's path
     /// is `dir` and its name joined with `/`, as std::fs's `list` writes it.
-    //! files = from_held([#("d/b.txt", String.to_bytes("")), #("d/a/x.txt", String.to_bytes(""))])
+    //! files = from_held([("d/b.txt", String.to_bytes("")), ("d/a/x.txt", String.to_bytes(""))])
     //!
     //! assert Files.list(files, "d") == Ok([
     //!         Entry{path: "d/a", name: "a", kind: Kind.Directory},
@@ -276,7 +276,7 @@ impl Files {
             Some(names) ->
                 Ok(
                     names
-                    |> Iter.map(fn #(name, is_dir) -> {
+                    |> Iter.map(fn (name, is_dir) -> {
                         joined = if String.ends_with(dir, "/") {
                             "${dir}${name}"
                         } else {
@@ -301,7 +301,7 @@ impl Files {
     /// name order, and a directory's own entries right after it, as
     /// std::fs's `walk` orders them. A `root` that is not a directory is
     /// one `Err` item.
-    //! files = from_held([#("d/b.txt", String.to_bytes("")), #("d/a/x.txt", String.to_bytes(""))])
+    //! files = from_held([("d/b.txt", String.to_bytes("")), ("d/a/x.txt", String.to_bytes(""))])
     //!
     //! walked = Files.walk(files, "d") |> Iter.map(fn e -> Result.map(e, fn e -> e.path)) |> Iter.to_list()
     //! assert walked == [Ok("d/a"), Ok("d/a/x.txt"), Ok("d/b.txt")]
@@ -313,7 +313,7 @@ impl Files {
 
     /// What is at `p`: its kind, its size in bytes (0 for a directory),
     /// the Unix epoch as its modification time, and its mode.
-    //! files = from_held([#("a/b.txt", String.to_bytes("hi"))])
+    //! files = from_held([("a/b.txt", String.to_bytes("hi"))])
     //!
     //! assert Files.metadata(files, "a/b.txt") is Ok(Metadata{kind: Kind.File, size: 2, mode: 0o444})
     //! assert Files.metadata(files, "a") is Ok(Metadata{kind: Kind.Directory, size: 0, mode: 0o555})
@@ -346,7 +346,7 @@ impl Files {
     /// An embedded file's was taken when the program was compiled, so it
     /// is returned without reading the file: `http.serve_embedded` sends
     /// it as the file's `ETag`.
-    //! files = Files.from_bytes([#("a.txt", String.to_bytes("abc"))])
+    //! files = Files.from_bytes([("a.txt", String.to_bytes("abc"))])
     //!
     //! assert Files.sum(files, "a.txt")
     //!     == Ok("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
@@ -367,20 +367,20 @@ impl Files {
     /// A tree of the files `entries` name, each a path and its contents,
     /// held in the value rather than embedded: what a test serves in
     /// place of an `embed`. Each path is cleaned (`path.clean`).
-    //! files = Files.from_bytes([#("./static//a.css", String.to_bytes("a"))])
+    //! files = Files.from_bytes([("./static//a.css", String.to_bytes("a"))])
     //!
     //! assert Files.paths(files) == ["static/a.css"]
     //! assert Files.read_text(files, "static/a.css") == Ok("a")
     //
-    pub fn from_bytes(entries: List<#(String, Bytes)>) -> Files {
+    pub fn from_bytes(entries: List<(String, Bytes)>) -> Files {
         entries
-        |> Iter.map(fn #(p, data) -> #(path.clean(p), data))
+        |> Iter.map(fn (p, data) -> (path.clean(p), data))
         |> Iter.to_list()
         |> from_held()
     }
 
     /// Whether a file or directory is at `p`.
-    //! files = from_held([#("a/b.txt", String.to_bytes("hi"))])
+    //! files = from_held([("a/b.txt", String.to_bytes("hi"))])
     //!
     //! assert Files.exists(files, "a/b.txt")
     //! assert Files.exists(files, "a")
@@ -394,7 +394,7 @@ impl Files {
     }
 
     /// The path of every file in the tree, sorted.
-    //! files = from_held([#("b.txt", String.to_bytes("")), #("a/c.txt", String.to_bytes(""))])
+    //! files = from_held([("b.txt", String.to_bytes("")), ("a/c.txt", String.to_bytes(""))])
     //!
     //! assert Files.paths(files) == ["a/c.txt", "b.txt"]
     //
@@ -405,9 +405,7 @@ impl Files {
     /// The tree under the directory `dir`, with paths from it: what
     /// `http.file_server_embedded` serves a `static` folder from, so
     /// `static/index.html` is `/index.html`.
-    //! files = from_held(
-    //!     [#("static/index.html", String.to_bytes("hi")), #("main.css", String.to_bytes(""))]
-    //! )
+    //! files = from_held([("static/index.html", String.to_bytes("hi")), ("main.css", String.to_bytes(""))])
     //!
     //! site = Files.sub(files, "static")!
     //! assert Files.paths(site) == ["index.html"]
@@ -434,14 +432,14 @@ impl Files {
 
         empty =
             files.dirs
-            |> Iter.filter(fn #(d, names) -> String.starts_with(d, prefix) and names == [])
-            |> Iter.map(fn #(d, _) -> String.drop(d, String.length(prefix)))
+            |> Iter.filter(fn (d, names) -> String.starts_with(d, prefix) and names == [])
+            |> Iter.map(fn (d, _) -> String.drop(d, String.length(prefix)))
             |> Iter.to_list()
 
         Ok(
             files.files
-            |> Iter.filter(fn #(p, _) -> String.starts_with(p, prefix))
-            |> Iter.reduce(%{}, fn acc, #(p, c) -> {
+            |> Iter.filter(fn (p, _) -> String.starts_with(p, prefix))
+            |> Iter.reduce(%{}, fn acc, (p, c) -> {
                 Map.put(acc, String.drop(p, String.length(prefix)), c)
             })
             |> tree(empty)

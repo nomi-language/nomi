@@ -116,6 +116,10 @@ type typeOwner struct {
 // that declared it.
 type typeRegistry struct {
 	byDecl map[ast.Node]*typeOwner
+	// ifaceParamDefaults is where each parameter default of an interface
+	// function the program's files declare is declared, gathered on first
+	// ask (ifaceslotdefault.go).
+	ifaceParamDefaults map[ast.Node]ifaceParamDefault
 	// linkNames is the linkage path of each declaration of the program's
 	// own files (link.go).
 	linkNames map[ast.Node]declName
@@ -133,12 +137,12 @@ type typeRegistry struct {
 	// component.go.
 	pkgOf []string
 	owner []int
-	// equatable is every DECLARATION the program writes an `impl Equatable`
-	// for, gathered once on first ask and nil until then — most programs never
-	// ask. Keyed on the declaration NODE because that is the type's identity
-	// and the question is asked from a package that holds only a mirror. See
-	// declaresEquatable.
-	equatable map[ast.Node]bool
+	// declared is, by interface (std's Equatable or Hashable), every
+	// DECLARATION the program writes an impl of it for, gathered once on
+	// first ask and nil until then — most programs never ask. Keyed on the
+	// declaration NODE because that is the type's identity and the question
+	// is asked from a package that holds only a mirror. See declaresImpl.
+	declared map[string]map[ast.Node]bool
 	// erasedInsts is every generic instance some file holds erased, by the
 	// owner's def's portable spelling (erasedKey): an impl another file
 	// writes for it is recorded for dispatch there (irInstanceImpls).
@@ -1010,9 +1014,17 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 
 // --- what a mirror cannot see for itself ------------------------------------
 
-// foreignNoEquatableImpl establishes, for a MIRROR, that no file in the program
-// writes an `impl Equatable` for the type — the question noEquatableImpl asks
-// of a local declaration by reading its own table.
+// foreignNoEquatableImpl is foreignNoImpl for Equatable.
+func (g *gen) foreignNoEquatableImpl(d *typeDef) bool { return g.foreignNoImpl("Equatable", d) }
+
+// declaresEquatable is declaresImpl for Equatable.
+func (r *typeRegistry) declaresEquatable(decl ast.Node) bool {
+	return r.declaresImpl("Equatable", decl)
+}
+
+// foreignNoImpl establishes, for a MIRROR, that no file in the program writes
+// an `impl iface` for the type — the question noImplOf asks of a local
+// declaration by reading its own table.
 //
 // It has to be POSITIVE, and the reason is the one noEquatableImpl gives: a
 // missing impl is exactly when `==` is structural equality, and an impl this
@@ -1035,7 +1047,7 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 // local arm does too, and the error direction is the safe one: a user who
 // declares their own `interface Equatable` makes this answer false and
 // over-refuse, never the reverse.
-func (g *gen) foreignNoEquatableImpl(d *typeDef) bool {
+func (g *gen) foreignNoImpl(iface string, d *typeDef) bool {
 	if g.reg == nil || d.decl == nil {
 		return false
 	}
@@ -1058,11 +1070,12 @@ func (g *gen) foreignNoEquatableImpl(d *typeDef) bool {
 	if src := owner.types[o.nomi]; src == nil || src.decl != d.decl {
 		return false
 	}
-	return !g.reg.declaresEquatable(d.decl)
+	return !g.reg.declaresImpl(iface, d.decl)
 }
 
-// declaresEquatable reports whether ANY file in the program writes an
-// `impl Equatable` for this declaration, lowerable or not.
+// declaresImpl reports whether ANY file in the program writes an
+// `impl iface` (std's Equatable or Hashable) for this declaration, lowerable
+// or not.
 //
 // "Or not" is the load-bearing half. An impl that exists and cannot be lowered
 // must make the comparison REFUSE, not silently become structural — the same
@@ -1073,26 +1086,53 @@ func (g *gen) foreignNoEquatableImpl(d *typeDef) bool {
 // Answers false — "no impl" — only once every gen's table is COMPLETE. While
 // any is short of declareFuncs the answer is "declared", which over-refuses,
 // because a half-built table cannot be told apart from an empty one.
-func (r *typeRegistry) declaresEquatable(decl ast.Node) bool {
-	if r.equatable == nil {
+func (r *typeRegistry) declaresImpl(iface string, decl ast.Node) bool {
+	if r.declared[iface] == nil {
 		for _, g := range r.gens {
 			if g == nil || !g.funcsDone {
 				return true
 			}
 		}
-		r.equatable = map[ast.Node]bool{}
+		if r.declared == nil {
+			r.declared = map[string]map[ast.Node]bool{}
+		}
+		set := map[ast.Node]bool{}
 		for _, g := range r.gens {
 			for _, impl := range g.implOrder {
-				if impl.ifaceName != "Equatable" || impl.recv.tag != tagNamed || impl.recv.def == nil {
+				if impl.ifaceName != iface || impl.recv.tag != tagNamed || impl.recv.def == nil {
 					continue
 				}
 				if impl.recv.def.decl != nil {
-					r.equatable[impl.recv.def.decl] = true
+					set[impl.recv.def.decl] = true
 				}
 			}
+			// A generic type's impls, derived or written, are registered
+			// against each instance as it is built, never in implOrder; an
+			// instance's decl is its template's.
+			for _, tpl := range g.genericTemplates {
+				markTemplateImpl(set, tpl, iface)
+			}
+			for _, tpl := range g.blockLocalTemplates {
+				markTemplateImpl(set, tpl, iface)
+			}
+		}
+		r.declared[iface] = set
+	}
+	return r.declared[iface][decl]
+}
+
+// markTemplateImpl adds tpl's declaration to set when one of its impl blocks
+// is an `impl iface`.
+func markTemplateImpl(set map[ast.Node]bool, tpl *genericTemplate, iface string) {
+	if tpl == nil || tpl.decl == nil {
+		return
+	}
+	for _, it := range tpl.impls {
+		if it.decl != nil && it.decl.Interface != nil && implReceiverBaseName(it.decl.Interface) == iface {
+			set[tpl.decl] = true
+			return
 		}
 	}
-	return r.equatable[decl]
 }
 
 // --- the reference graph ----------------------------------------------------

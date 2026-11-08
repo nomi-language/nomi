@@ -29,12 +29,12 @@ pub fn transpose(lines: List<String>) -> List<String> {
 /// from it to the end. The widths never grow down the lines, so the lines
 /// that reach a column are always the first ones.
 fn padded(lines: List<String>) -> List<String> {
-    #(_width, rows) =
+    (_width, rows) =
         lines
         |> Iter.reverse()
         |> Iter.map_reduce(0, fn width, line -> {
             width = Int.max(width, String.length(line))
-            #(width, String.pad_end(line, width))
+            (width, String.pad_end(line, width))
         })
 
     Iter.reverse(rows)
@@ -45,16 +45,16 @@ import transpose.transpose
 
 test "transpose" {
     [
-        #("empty string", [], []),
-        #("two characters in a row", ["A1"], ["A", "1"]),
-        #("two characters in a column", ["A", "1"], ["A1"]),
-        #("simple", ["ABC", "123"], ["A1", "B2", "C3"]),
-        #(
+        ("empty string", [], []),
+        ("two characters in a row", ["A1"], ["A", "1"]),
+        ("two characters in a column", ["A", "1"], ["A1"]),
+        ("simple", ["ABC", "123"], ["A1", "B2", "C3"]),
+        (
             "single line",
             ["Single line."],
             ["S", "i", "n", "g", "l", "e", " ", "l", "i", "n", "e", "."],
         ),
-        #(
+        (
             "first line longer than second line",
             ["The fourth line.", "The fifth line."],
             [
@@ -76,7 +76,7 @@ test "transpose" {
                 ".",
             ],
         ),
-        #(
+        (
             "second line longer than first line",
             ["The first line.", "The second line."],
             [
@@ -98,7 +98,7 @@ test "transpose" {
                 " .",
             ],
         ),
-        #(
+        (
             "mixed line length",
             ["The longest line.", "A long line.", "A longer line.", "A line."],
             [
@@ -121,28 +121,28 @@ test "transpose" {
                 ".",
             ],
         ),
-        #(
+        (
             "square",
             ["HEART", "EMBER", "ABUSE", "RESIN", "TREND"],
             ["HEART", "EMBER", "ABUSE", "RESIN", "TREND"],
         ),
-        #(
+        (
             "rectangle",
             ["FRACTURE", "OUTLINED", "BLOOMING", "SEPTETTE"],
             ["FOBS", "RULE", "ATOP", "CLOT", "TIME", "UNIT", "RENT", "EDGE"],
         ),
-        #(
+        (
             "triangle",
             ["T", "EE", "AAA", "SSSS", "EEEEE", "RRRRRR"],
             ["TEASER", " EASER", "  ASER", "   SER", "    ER", "     R"],
         ),
-        #(
+        (
             "jagged triangle",
             ["11", "2", "3333", "444", "555555", "66666"],
             ["123456", "1 3456", "  3456", "  3 56", "    56", "    5"],
         ),
     ]
-    |> subtests #(description, lines, expected), description {
+    |> subtests (description, lines, expected), description {
         assert transpose(lines) == expected
     }
 }

@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -122,6 +123,12 @@ func (g *gen) irErases(want, have kind) bool {
 		// its box names std's impl instantiated at its kind (irStdBoxPlan).
 		return true
 	}
+	if irStdDisplayExistential(want) && irStdGenericInstance(have) {
+		// An instance of a std generic type (`Route<Unit>`): std's shared
+		// lowering records no impl under this instance's key, so the value
+		// enters boxed, naming a thunk that calls its Display (irStdBoxPlan).
+		return false
+	}
 	if irStdStructExistential(want) {
 		// std's universal Struct: every declared struct and anonymous
 		// record implements it structurally, and the VM holds the value.
@@ -149,6 +156,13 @@ func (g *gen) irErases(want, have kind) bool {
 		}
 	}
 	return erases
+}
+
+// irStdGenericInstance reports whether k is a program's view of an instance
+// of a generic type std declares (`Route<Unit>`, a mirror of std/http's).
+func irStdGenericInstance(k kind) bool {
+	return k.tag == tagNamed && k.def != nil && k.def.genericOf != nil && k.def.preludeOf == nil &&
+		strings.HasPrefix(k.def.foreign, "std/")
 }
 
 // irDispatchEnum reports whether d is an enum a dispatch can select an impl

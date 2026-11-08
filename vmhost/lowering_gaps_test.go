@@ -60,12 +60,12 @@ struct Visit {
     user: String
 }
 
-fn read<T>() -> #(Box<T>, Bool) {
-    #(Box{value: None}, True)
+fn read<T>() -> (Box<T>, Bool) {
+    (Box{value: None}, True)
 }
 
 fn wrap<T>(handler: (Box<T>) -> String) -> String {
-    #(box, _) = read()
+    (box, _) = read()
     handler(box)
 }
 

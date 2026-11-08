@@ -75,8 +75,7 @@ func positionedFaults() []positionedFault {
 		{"DeferredCleanupError", func(l int) string { return DeferredCleanupError(l, "failure").Error() }},
 
 		{"DivByZeroError", func(l int) string { return DivByZeroError(l).Error() }},
-		{"FloatModuloText", FloatModuloText},
-		{"DecimalModuloText", DecimalModuloText},
+		{"DecimalQuoTooLongText", DecimalQuoTooLongText},
 		{"AssertionFailure.Error", func(l int) string {
 			return (&AssertionFailure{Line: l, Reason: "assertion failed"}).Error()
 		}},
@@ -108,8 +107,7 @@ var wantAtLine7 = map[string]string{
 	"DeferredCleanupError": "line 7: deferred cleanup failed: failure",
 
 	"DivByZeroError":           "line 7: division by zero",
-	"FloatModuloText":          "line 7: modulo not supported on floats",
-	"DecimalModuloText":        "line 7: modulo is not defined on Decimal",
+	"DecimalQuoTooLongText":    "line 7: the quotient has more digits than a Decimal holds",
 	"AssertionFailure.Error":   "line 7: assertion failed",
 	"EarlyReturnFailure.Error": "line 7: test returned early",
 	"NoCaseMatchError":         "line 7: no matching case branch",

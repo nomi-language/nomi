@@ -267,7 +267,7 @@ func patternColOf(n ast.Node) int {
 
 // checkParamPatternRefutable reports an error for each refutable sub-pattern in
 // a parameter position. It is type-driven, recursing into tuple/struct element
-// types so a nested refutable pattern (`#(.Some(x), n)`) is caught. addError is
+// types so a nested refutable pattern (`(.Some(x), n)`) is caught. addError is
 // the checker's error sink (line, col, msg).
 func (c *checker) checkParamPatternRefutable(pattern ast.Node, ty Type, addError func(line, col int, msg string)) {
 	switch p := pattern.(type) {
@@ -376,4 +376,46 @@ func structFieldsOf(ty Type) []FieldDef {
 		return st.Fields
 	}
 	return nil
+}
+
+// paramWritten is a parameter as its function's signature writes it, for a
+// diagnostic that names one with no name of its own: a pattern with its
+// annotation (`#{id}: #{id: Uuid}`), or the type of one written as its type
+// (`fn stats(Request)`). A named parameter is its name.
+func paramWritten(p ast.Param) string {
+	switch {
+	case p.Destructure != nil && p.TypeAnnotation != nil:
+		return patternSource(p.Destructure) + ": " + p.TypeAnnotation.TypeString()
+	case p.Destructure != nil:
+		return patternSource(p.Destructure)
+	case p.TypeOnly && p.TypeAnnotation != nil:
+		return p.TypeAnnotation.TypeString()
+	}
+	return p.Name
+}
+
+// paramNamed reports whether p has a name the program wrote, which a
+// diagnostic quotes and a named argument can pass. The synthesized slot of a
+// destructured parameter (`__destr_<line>_<col>`) and the `_` of one written
+// as its type are not.
+func paramNamed(p ast.Param) bool {
+	return p.Destructure == nil && !p.TypeOnly && p.Name != ""
+}
+
+// paramLabel names p in a diagnostic: `parameter 'name'`, or `parameter`
+// and the parameter as it is written when it has no name.
+func paramLabel(p ast.Param) string {
+	if paramNamed(p) {
+		return fmt.Sprintf("parameter '%s'", p.Name)
+	}
+	return fmt.Sprintf("parameter `%s`", paramWritten(p))
+}
+
+// paramHead is what stands before a parameter's `: Type` in a signature a
+// hint writes out: its pattern when it destructures, else its name.
+func paramHead(p ast.Param) string {
+	if p.Destructure != nil {
+		return patternSource(p.Destructure)
+	}
+	return p.Name
 }

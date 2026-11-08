@@ -34,7 +34,7 @@ fn helper() -> Int {
 }
 
 export fn tries(game: Game, limit: Int) -> Unit {
-    _ = #(game, limit)
+    _ = (game, limit)
 }
 `
 	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {

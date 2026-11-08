@@ -65,10 +65,10 @@ test "an inner capture keeps its own output" {
         })
 
         io.write(inner.output)
-        #(inner.value, io.read_line())
+        (inner.value, io.read_line())
     })
 
-    assert outer.value == #(Ok(Some("inner")), Ok(Some("outer")))
+    assert outer.value == (Ok(Some("inner")), Ok(Some("outer")))
     assert outer.output == "ab"
 }
 
@@ -92,10 +92,10 @@ test "two tasks capturing at once do not see each other's output" {
     both = concurrent {
         a = Task.spawn(fn -> io.capture("", fn -> write_n("a", 20)))
         b = Task.spawn(fn -> io.capture("", fn -> write_n("b", 20)))
-        #(Task.await(a).output, Task.await(b).output)
+        (Task.await(a).output, Task.await(b).output)
     }
 
-    assert both == #(String.repeat("a", 20), String.repeat("b", 20))
+    assert both == (String.repeat("a", 20), String.repeat("b", 20))
 }
 
 test "stderr is captured apart from stdout and the transcript" {

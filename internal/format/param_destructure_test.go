@@ -51,7 +51,7 @@ func TestFmt_QualifiedEnum_StripRedundantAnnotation(t *testing.T) {
 // --- fmt keeps non-redundant / load-bearing annotations ---
 
 func TestFmt_Tuple_KeepsAnnotation(t *testing.T) {
-	fmtContains(t, "fn f(#(a, b): #(Int, Int)) -> Int { a + b }\n", "#(a, b): #(Int, Int)")
+	fmtContains(t, "fn f((a, b): (Int, Int)) -> Int { a + b }\n", "(a, b): (Int, Int)")
 }
 
 func TestFmt_AnonStruct_KeepsAnnotation(t *testing.T) {
@@ -143,7 +143,7 @@ func TestFmt_Lambda_Distinct_StripRedundantAnnotation(t *testing.T) {
 }
 
 func TestFmt_Lambda_Tuple_KeepsAnnotation(t *testing.T) {
-	fmtContains(t, "f = fn #(a, b): #(Int, Int) -> a\n", "fn #(a, b): #(Int, Int) ->")
+	fmtContains(t, "f = fn (a, b): (Int, Int) -> a\n", "fn (a, b): (Int, Int) ->")
 }
 
 // --- round-trip stability ---
@@ -151,7 +151,7 @@ func TestFmt_Lambda_Tuple_KeepsAnnotation(t *testing.T) {
 func TestFmt_RoundTrip_Stable(t *testing.T) {
 	cases := []string{
 		"fn f(Dur(x)) -> Int {\n    x\n}\n",
-		"fn f(#(a, b): #(Int, Int)) -> Int {\n    a + b\n}\n",
+		"fn f((a, b): (Int, Int)) -> Int {\n    a + b\n}\n",
 		"fn f(Point{x, y}) -> Int {\n    x + y\n}\n",
 		"fn f(#{x, y}: Point) -> Int {\n    x + y\n}\n",
 	}

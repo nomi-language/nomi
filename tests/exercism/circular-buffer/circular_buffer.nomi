@@ -43,9 +43,9 @@ impl Buffer<T> {
     }
 
     /// The oldest item and the buffer without it, or `Empty`.
-    pub fn read(buffer: Buffer<T>) -> Result<#(T, Buffer<T>), Error> {
+    pub fn read(buffer: Buffer<T>) -> Result<(T, Buffer<T>), Error> {
         case buffer.items {
-            [oldest, ..rest] -> Ok(#(oldest, #{..buffer, items: rest}))
+            [oldest, ..rest] -> Ok((oldest, #{..buffer, items: rest}))
             [] -> Err(.Empty)
         }
     }

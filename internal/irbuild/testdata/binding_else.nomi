@@ -45,15 +45,15 @@ fn shown(email: Maybe<String>) -> String {
     e
 }
 
-fn parse_size(text: String) -> Result<#(Int, Int), String> {
+fn parse_size(text: String) -> Result<(Int, Int), String> {
     case text {
-        "big" -> Ok(#(200, 100))
+        "big" -> Ok((200, 100))
         _ -> Err("unknown size ${text}")
     }
 }
 
 fn area(text: String) -> Int {
-    Ok(#(width, height)) = parse_size(text) else { #(80, 24) }
+    Ok((width, height)) = parse_size(text) else { (80, 24) }
 
     width * height
 }
@@ -138,8 +138,8 @@ fn lookup(m: Map<String, Int>) -> Int {
     a
 }
 
-fn pair(p: #(Maybe<Int>, Int)) -> Int {
-    #(Some(a), b) = p else { return 0 }
+fn pair(p: (Maybe<Int>, Int)) -> Int {
+    (Some(a), b) = p else { return 0 }
     a + b
 }
 
@@ -165,12 +165,12 @@ fn print_sizes(lines: List<String>) {
 }
 
 fn loop_sum(xs: List<Maybe<Int>>) -> Int {
-    Iter.loop(#(0, xs), fn state -> {
-        #(acc, rest) = state
-        [head, ..tail] = rest else { break #(acc, rest) }
-        Some(n) = head else { return #(acc, tail) }
-        #(acc + n, tail)
-    }).0
+    Iter.loop((0, xs), fn state -> {
+        (acc, rest) = state
+        [head, ..tail] = rest else { break (acc, rest) }
+        Some(n) = head else { return (acc, tail) }
+        (acc + n, tail)
+    }).first
 }
 
 fn main() {
@@ -205,8 +205,8 @@ fn main() {
     unit_arms(Err("e"))
     io.print(lookup(%{"a" => 5}))
     io.print(lookup(%{"b" => 5}))
-    io.print(pair(#(Some(1), 2)))
-    io.print(pair(#(None, 2)))
+    io.print(pair((Some(1), 2)))
+    io.print(pair((None, 2)))
     io.print(via_try(Ok(1), Ok(5)))
     io.print(via_try(Err("a"), Ok(5)))
     io.print(via_try(Err("a"), Err("b")))

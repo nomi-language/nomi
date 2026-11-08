@@ -52,14 +52,14 @@ import {
 //! ]
 //!
 //! ran = run(answers, fn -> {
-//!     #(
+//!     (
 //!         process.output(Command{program: "git", args: ["push"]}),
 //!         process.run(Command{program: "git", args: ["fetch"]}),
 //!         process.run(Command{program: "deploy"}),
 //!     )
 //! })
 //!
-//! #(pushed, fetched, deployed) = ran.value
+//! (pushed, fetched, deployed) = ran.value
 //! assert Result.map(pushed, fn o -> o.status) == Ok(Status.Exited{code: 1})
 //! assert fetched == Ok(Status.Exited{code: 0})
 //! assert deployed == Err(Error.PermissionDenied{path: "deploy"})
@@ -147,9 +147,9 @@ pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T> {
     calls =
         0..process_host.fake_calls(fake)
         |> Iter.map(fn i -> {
-            #(program, args) = case process_host.fake_command(fake, i) {
-                [first, ..rest] -> #(first, rest)
-                [] -> #("", [])
+            (program, args) = case process_host.fake_command(fake, i) {
+                [first, ..rest] -> (first, rest)
+                [] -> ("", [])
             }
 
             dir = process_host.fake_dir(fake, i)

@@ -307,7 +307,7 @@ func TestTypeNamesAnyWalksEveryCompositeForm(t *testing.T) {
 		{"(T) -> Bool", true},
 		{"(Int) -> Bool", false},
 		{"(Int) -> T", true},
-		{"(#(K, Int)) -> Bool", true},
+		{"((K, Int)) -> Bool", true},
 		{"#{name: T}", true},
 		{"#{name: String}", false},
 	} {

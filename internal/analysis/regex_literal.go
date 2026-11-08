@@ -24,7 +24,7 @@ import (
 //     several;
 //   - one unnamed group: that group's type, `String` or `Maybe<String>`,
 //     since Nomi has no one-element tuple;
-//   - otherwise: the tuple of the groups in order, `#(String, Maybe<String>)`.
+//   - otherwise: the tuple of the groups in order, `(String, Maybe<String>)`.
 //
 // A group is `String` when every match fills it and `Maybe<String>` when a
 // match can leave it out (regexgroups.Group.Optional).

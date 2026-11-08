@@ -37,10 +37,10 @@ impl Style {
         }
     }
 
-    fn headings(style: Style) -> #(String, String, String) {
+    fn headings(style: Style) -> (String, String, String) {
         case style {
-            .American -> #("Date", "Description", "Change")
-            .Dutch -> #("Datum", "Omschrijving", "Verandering")
+            .American -> ("Date", "Description", "Change")
+            .Dutch -> ("Datum", "Omschrijving", "Verandering")
         }
     }
 }
@@ -48,12 +48,12 @@ impl Style {
 /// The ledger's lines: a heading, then each entry by date, description and
 /// change, with amounts in `currency` written in `style`.
 pub fn format_entries(currency: Currency, style: Style, entries: List<Entry>) -> List<String> {
-    #(date, description, change) = Style.headings(style)
+    (date, description, change) = Style.headings(style)
     heading = row(date, description, String.pad_end(change, 13))
 
     lines =
         entries
-        |> Iter.sort_by(fn entry -> #(entry.date, entry.description, entry.cents))
+        |> Iter.sort_by(fn entry -> (entry.date, entry.description, entry.cents))
         |> Iter.map(&format_entry(currency, style, &1))
 
     [heading, ..lines]

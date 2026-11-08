@@ -108,6 +108,16 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 // literalCallee is the symbol a call to the handler h, declared by fd,
 // names, or nil and why it does not lower.
 func (g *gen) literalCallee(h literalTarget, fd *ast.FuncDef) (*ir.Symbol, string) {
+	if h.inst != nil {
+		return h.inst.sym, ""
+	}
+	if h.item != nil {
+		return g.irCalleeSym(h.item, h.label), ""
+	}
+	if h.unit < 0 && h.sym != nil {
+		// Another file's instance impl (genericLiteralImpl).
+		return h.sym, ""
+	}
 	if h.std != nil {
 		// A stdlib handler, such as Regex's, is a retained std body called
 		// as stdlibInvoke spells it.

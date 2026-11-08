@@ -140,11 +140,11 @@ func TestHover_PipeKeywordStages(t *testing.T) {
 }
 `, "`Int` → `then fn v -> …` → `Int`\n\n`v` is the `Int`; the stage returns the lambda's result."},
 		{"then with a pattern", `fn main() {
-  n = #(1, 2)
-  ▮|> then fn #(a, b) -> a + b
+  n = (1, 2)
+  ▮|> then fn (a, b) -> a + b
   io.inspect(n)
 }
-`, "`#(Int, Int)` → `then fn #(a, b) -> …` → `Int`\n\n`#(a, b)` matches the `#(Int, Int)`; the stage returns the lambda's result."},
+`, "`(Int, Int)` → `then fn (a, b) -> …` → `Int`\n\n`(a, b)` matches the `(Int, Int)`; the stage returns the lambda's result."},
 		{"tap", `fn main() {
   n = 3
   ▮|> tap fn v -> io.inspect(v)

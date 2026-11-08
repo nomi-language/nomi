@@ -111,7 +111,7 @@ func TestCompletion_TriggerCharacters(t *testing.T) {
 		{"binding annotation", ":", "fn f() {\n    n:" + cursorMark + "\n}\n", true},
 		{"return type", ">", "fn f() ->" + cursorMark + "\n", true},
 		{"generic return type", ">", "fn f<T>(x: T) ->" + cursorMark + "\n", true},
-		{"lambda arrow after a tuple pattern", ">", "fn f() {\n    g = fn #(a, b) ->" + cursorMark + "\n}\n", false},
+		{"lambda arrow after a tuple pattern", ">", "fn f() {\n    g = fn (a, b) ->" + cursorMark + "\n}\n", false},
 		{"struct field declaration", ":", "struct P {\n    x:" + cursorMark + "\n}\n", true},
 		{"struct literal field", ":", "struct P {\n    x: Int\n}\n\nfn f() -> P {\n    P{x:" + cursorMark + "}\n}\n", false},
 	}

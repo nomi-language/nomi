@@ -372,6 +372,9 @@ func (s *Server) catalogHover(d *catalogDoc, pos protocol.Position) *protocol.Ho
 	if entry == nil {
 		return nil
 	}
+	if h := d.catalogTextHover(entry, off); h != nil {
+		return h
+	}
 	if n, ok := d.noun(entry.Name); ok {
 		return d.nounHover(n, entry)
 	}

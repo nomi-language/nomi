@@ -116,7 +116,8 @@ type fileFunc struct {
 	// the default EXPRESSIONS rather than only know they exist. Needed because
 	// filling a cross-file default is admissible exactly when every name the
 	// expression mentions resolves to the same declaration from both files —
-	// portableDefault's question, asked here over a file function's parameters.
+	// defaultNamesAgree's question, asked here over a file function's
+	// parameters.
 	params0 []ast.Param
 	// generic marks a generic declaration. Its `why` stays set, because no
 	// monomorphic signature exists to call; a call site builds an instance

@@ -19,8 +19,8 @@ func TestFormat_LambdaParameterCommentStaysAfterItsComma(t *testing.T) {
 			"fn main() {\n    body = Iter.reduce(xs, fn acc, // c1\n        frag -> {\n        case frag {\n            _ -> acc\n        }\n    })\n}\n",
 		},
 		"after a destructured parameter": {
-			"fn main() {\n    body = Iter.reduce(xs, fn #(p, q), // c1\n frag ->\n        case frag {\n            _ -> p\n        }\n    )\n}\n",
-			"fn main() {\n    body = Iter.reduce(xs, fn #(p, q), // c1\n        frag -> {\n        case frag {\n            _ -> p\n        }\n    })\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, fn (p, q), // c1\n frag ->\n        case frag {\n            _ -> p\n        }\n    )\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, fn (p, q), // c1\n        frag -> {\n        case frag {\n            _ -> p\n        }\n    })\n}\n",
 		},
 		"after a bare name, one-line body": {
 			"fn main() {\n    c = Iter.reduce(xs, fn acc, // c1\n frag -> acc)\n}\n",

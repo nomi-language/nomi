@@ -15,6 +15,10 @@ struct Q {
   a: Int
 }
 
+struct F {
+  f: (Int) -> Int
+}
+
 fn total<T>(x: T) -> Int where T: Shape {
   Shape.area(x)
 }
@@ -34,8 +38,8 @@ fn inc(x: Int) -> Int {
 	cases := []struct {
 		name, body, want string
 	}{
-		{"a tuple at a program interface", `total(#(1, 2))`,
-			"#(Int, Int) does not implement Shape (required by `where T: Shape`)\n" +
+		{"a tuple at a program interface", `total((1, 2))`,
+			"(Int, Int) does not implement Shape (required by `where T: Shape`)\n" +
 				"help: no impl can be written for a tuple, which implements only Equatable, Hashable, Comparable and Display, each when every element does; declare a struct of your own that implements `Shape`"},
 		{"an anonymous struct at a program interface", `total(#{a: 1})`,
 			"#{a: Int} does not implement Shape (required by `where T: Shape`)\n" +
@@ -43,19 +47,21 @@ fn inc(x: Int) -> Int {
 		{"a function at a program interface", `total(inc)`,
 			"(Int) -> Int does not implement Shape (required by `where T: Shape`)\n" +
 				"help: a function value implements no interface but Debug"},
-		{"a tuple with a struct without Hashable", `h(#(1, Q{a: 1}))`,
-			"#(Int, Q) does not implement Hashable (required by `where T: Hashable`)\n" +
-				"help: `#(Int, Q)` is Hashable when each element is, and `Q` is not: add `derive Hashable` to `Q`"},
-		{"a tuple with a struct without Equatable", `e(#(Q{a: 1}, 2))`,
-			"#(Q, Int) does not implement Equatable (required by `where T: Equatable`)\n" +
-				"help: `#(Q, Int)` is Equatable when each element is, and `Q` is not: add `derive Equatable` to `Q`"},
-		{"a nested tuple with a struct without Hashable", `h(#(1, #("a", Q{a: 1})))`,
-			"#(Int, #(String, Q)) does not implement Hashable (required by `where T: Hashable`)"},
-		{"an anonymous struct with a struct without Hashable", `h(#{q: Q{a: 1}})`,
-			"#{q: Q} does not implement Hashable (required by `where T: Hashable`)\n" +
-				"help: `#{q: Q}` is Hashable when each field is, and `Q` is not"},
-		{"a tuple with a function", `h(#(1, inc))`,
-			"#(Int, (Int) -> Int) does not implement Hashable (required by `where T: Hashable`)"},
+		// A struct with no impl of its own meets Equatable and Hashable by
+		// its equality, so only one that holds a function is refused.
+		{"a tuple with a struct without Hashable", `h((1, F{f: inc}))`,
+			"(Int, F) does not implement Hashable (required by `where T: Hashable`)\n" +
+				"help: `(Int, F)` holds `(Int) -> Int`, and a function value has no equality"},
+		{"a tuple with a struct without Equatable", `e((F{f: inc}, 2))`,
+			"(F, Int) does not implement Equatable (required by `where T: Equatable`)\n" +
+				"help: `(F, Int)` holds `(Int) -> Int`, and a function value has no equality"},
+		{"a nested tuple with a struct without Hashable", `h((1, ("a", F{f: inc})))`,
+			"(Int, (String, F)) does not implement Hashable (required by `where T: Hashable`)"},
+		{"an anonymous struct with a struct without Hashable", `h(#{q: F{f: inc}})`,
+			"#{q: F} does not implement Hashable (required by `where T: Hashable`)\n" +
+				"help: `#{q: F}` holds `(Int) -> Int`, and a function value has no equality"},
+		{"a tuple with a function", `h((1, inc))`,
+			"(Int, (Int) -> Int) does not implement Hashable (required by `where T: Hashable`)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -97,17 +103,17 @@ fn d<T>(_x: T) -> Int where T: Display {
 }
 `
 	for _, body := range []string{
-		`h(#(1, "a"))`,
-		`h(#(1, #("a", 2.0)))`,
-		`h(#(P{a: 1}, 2))`,
-		`h(Some(#(1, 2)))`,
-		`h([#(1, 2)])`,
+		`h((1, "a"))`,
+		`h((1, ("a", 2.0)))`,
+		`h((P{a: 1}, 2))`,
+		`h(Some((1, 2)))`,
+		`h([(1, 2)])`,
 		`h(#{a: 1, b: "x"})`,
-		`e(#(1, [P{a: 1}]))`,
-		`e([#(1, 2)])`,
-		`c(#(1, "a"))`,
-		`c([#(1, "a")])`,
-		`d(#(1, "a"))`,
+		`e((1, [P{a: 1}]))`,
+		`e([(1, 2)])`,
+		`c((1, "a"))`,
+		`c([(1, "a")])`,
+		`d((1, "a"))`,
 		`d(#{a: 1})`,
 	} {
 		t.Run(body, func(t *testing.T) {
@@ -151,21 +157,21 @@ fn inc(x: Int) -> Int {
 	cases := []struct {
 		name, stmt, want string
 	}{
-		{"a tuple with a struct without Hashable", `_ = hh(#(1, Q{a: 1}))`,
-			"argument 1: expected Hashable, got #(Int, Q)\n" +
-				"help: `#(Int, Q)` is Hashable when each element is, and `Q` is not: add `derive Hashable` to `Q`"},
-		{"a tuple at a program interface", `_ = sh(#(1, 2))`,
-			"argument 1: expected Shape, got #(Int, Int)\n" +
+		{"a tuple with a struct without Hashable", `_ = hh((1, Q{a: 1}))`,
+			"argument 1: expected Hashable, got (Int, Q)\n" +
+				"help: `(Int, Q)` is Hashable when each element is, and `Q` is not: add `derive Hashable` to `Q`"},
+		{"a tuple at a program interface", `_ = sh((1, 2))`,
+			"argument 1: expected Shape, got (Int, Int)\n" +
 				"help: no impl can be written for a tuple, which implements only Equatable, Hashable, Comparable and Display, each when every element does; declare a struct of your own that implements `Shape`"},
 		{"an anonymous struct at a program interface", `_ = sh(#{a: 1})`,
 			"argument 1: expected Shape, got #{a: Int}\n" +
 				"help: no impl can be written for an anonymous struct"},
-		{"a tuple with a function at Display", `_ = show(#(1, inc))`,
-			"help: `#(Int, (Int) -> Int)` is Display when each part is, and `(Int) -> Int` is not: a function value has no `Display`"},
-		{"a list element", `xs: List<Hashable> = [#(1, Q{a: 1})]
+		{"a tuple with a function at Display", `_ = show((1, inc))`,
+			"help: `(Int, (Int) -> Int)` is Display when each part is, and `(Int) -> Int` is not: a function value has no `Display`"},
+		{"a list element", `xs: List<Hashable> = [(1, Q{a: 1})]
   _ = xs`,
-			"list element type mismatch: expected Hashable, got #(Int, Q)\n" +
-				"help: `#(Int, Q)` is Hashable when each element is, and `Q` is not"},
+			"list element type mismatch: expected Hashable, got (Int, Q)\n" +
+				"help: `(Int, Q)` is Hashable when each element is, and `Q` is not"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -203,17 +209,17 @@ fn show(d: Display) -> String {
 }
 `
 	for _, stmt := range []string{
-		`_ = hh(#(1, 2))`,
-		`_ = hh(#(P{a: 1}, "x"))`,
-		`_ = hh(#{a: 1, b: #(2, 3)})`,
-		`_ = eq(#(1, 2), #(1, 2))`,
+		`_ = hh((1, 2))`,
+		`_ = hh((P{a: 1}, "x"))`,
+		`_ = hh(#{a: 1, b: (2, 3)})`,
+		`_ = eq((1, 2), (1, 2))`,
 		`_ = eq(#{a: 1}, 3)`,
-		`_ = show(#(1, "a"))`,
+		`_ = show((1, "a"))`,
 		`_ = show(#{a: 1})`,
-		"xs: List<Hashable> = [#(1, 2), 3]\n  _ = xs",
-		"ds: List<Display> = [#(1, \"x\"), #{b: 2.5}]\n  _ = ds",
-		"m: Map<Hashable, Int> = %{#(1, 2) => 1, 3 => 4}\n  _ = m",
-		"e: Equatable = #(P{a: 1}, [1])\n  _ = e",
+		"xs: List<Hashable> = [(1, 2), 3]\n  _ = xs",
+		"ds: List<Display> = [(1, \"x\"), #{b: 2.5}]\n  _ = ds",
+		"m: Map<Hashable, Int> = %{(1, 2) => 1, 3 => 4}\n  _ = m",
+		"e: Equatable = (P{a: 1}, [1])\n  _ = e",
 	} {
 		t.Run(stmt, func(t *testing.T) {
 			src := decls + "\nfn run() -> Unit {\n  " + stmt + "\n}\n"

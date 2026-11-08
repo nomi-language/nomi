@@ -671,6 +671,8 @@ func emitNode(n ast.Node) Doc {
 		return emitUnary(v, followsOther)
 	case *ast.Is:
 		return emitIs(v)
+	case *ast.Ascription:
+		return emitAscription(v)
 	case *ast.Block:
 		// Flat form:   "{ expr }"
 		// Broken form: "{\n  stmt1\n  stmt2\n  ...\n}"
@@ -736,10 +738,6 @@ func emitNode(n ast.Node) Doc {
 	case *ast.Tap:
 		return emitTap(v)
 	case *ast.FieldAccess:
-		if lit, ok := decimalIntReceiver(v.Object); ok && startsWithDigit(v.Field.Name) {
-			// `0 .0` written `0.0` would lex as one Float.
-			return Concat(Text("("), emit(lit), Text(")."), Text(v.Field.Name))
-		}
 		if comments := triviaComments(v.Object); len(comments) > 0 {
 			// `self // note` then `.get(b)` on the next line: the comment
 			// ends the receiver's line and the access continues below it.
@@ -953,9 +951,9 @@ func emitNode(n ast.Node) Doc {
 	case *ast.OnceBinding:
 		return emitOnceBinding(v)
 	case *ast.TupleDestructure:
-		// #(a, b, _) = expr — bindings are *Ident or nil (wildcard).
+		// (a, b, _) = expr — bindings are *Ident or nil (wildcard).
 		parts := make([]Doc, 0, len(v.Bindings)*2+3)
-		parts = append(parts, Text("#("))
+		parts = append(parts, Text("("))
 		for i, b := range v.Bindings {
 			if i > 0 {
 				parts = append(parts, Text(", "))
@@ -976,7 +974,7 @@ func emitNode(n ast.Node) Doc {
 					docs[i] = Text(b.Name)
 				}
 			}
-			return emitBindingValue(emitCommentedListNoLastComma("#(", ")", docs, cs), v.Value)
+			return emitBindingValue(emitCommentedListNoLastComma("(", ")", docs, cs), v.Value)
 		}
 		return emitBindingValue(Concat(parts...), v.Value)
 	case *ast.StructDestructure:
@@ -1573,9 +1571,9 @@ func emitWith(v *ast.With) Doc {
 // own, after the rows' pipeline written one stage per line:
 //
 //	[
-//	    #("basic", "Portable Network Graphics", "PNG"),
+//	    ("basic", "Portable Network Graphics", "PNG"),
 //	]
-//	|> subtests #(description, phrase, expected), description {
+//	|> subtests (description, phrase, expected), description {
 func emitSubtests(v *ast.Subtests) Doc {
 	if v.Piped {
 		return emitPipedSubtests(v)
@@ -1619,7 +1617,7 @@ func emitSubtestsPattern(n ast.Node) Doc {
 	if hasComments {
 		return emitPattern(n)
 	}
-	return withDangling(n, bracedList("#(", ")", elems, false))
+	return withDangling(n, bracedList("(", ")", elems, false))
 }
 
 // emitDefer renders `defer call(...)`.
@@ -1818,28 +1816,6 @@ func emitGroupedExpr(v *ast.GroupedExpr) Doc {
 		return emit(v.Expr)
 	}
 	return Concat(Text("("), emit(v.Expr), Text(")"))
-}
-
-// decimalIntReceiver returns the Int literal a field read's receiver is,
-// through any parentheses, when the literal prints as decimal digits: a
-// number field written straight after it would lex as a Float's fraction.
-// A hex, binary or octal literal ends at the dot, so it needs no guard.
-func decimalIntReceiver(n ast.Node) (*ast.IntLit, bool) {
-	for g, ok := n.(*ast.GroupedExpr); ok && g.Expr != nil; g, ok = n.(*ast.GroupedExpr) {
-		n = g.Expr
-	}
-	lit, ok := n.(*ast.IntLit)
-	if !ok {
-		return nil, false
-	}
-	if len(lit.Lexeme) > 1 && lit.Lexeme[0] == '0' && strings.ContainsRune("xXbBoO", rune(lit.Lexeme[1])) {
-		return nil, false
-	}
-	return lit, true
-}
-
-func startsWithDigit(s string) bool {
-	return s != "" && s[0] >= '0' && s[0] <= '9'
 }
 
 // emitMarked writes the expression a postfix `!` or `?` is written
@@ -2549,8 +2525,8 @@ func bracedList(open, close string, elems []Doc, lastComma bool) Doc {
 func emitStructLit(v *ast.StructLit) Doc {
 	open := structOpen(v.TypeName)
 	hasEndTrivia := trailingHasComment(v.EndTrivia)
-	hasInterFieldTrivia := structFieldValsHaveLeading(v.Fields) || v.Spread != nil && itemComments(v.Spread) != nil
-	elems := make([]Doc, 0, len(v.Fields)+1)
+	hasInterFieldTrivia := structFieldValsHaveLeading(v.Fields) || structFieldValsHaveLeading(v.Positional) || v.Spread != nil && itemComments(v.Spread) != nil
+	elems := make([]Doc, 0, len(v.Fields)+len(v.Positional)+1)
 	// `..head` leads, always. The position rule is the parser's and the
 	// formatter has no freedom here: moving it would be a different
 	// program (a spread after a field does not parse).
@@ -2559,6 +2535,12 @@ func emitStructLit(v *ast.StructLit) Doc {
 	}
 	for _, f := range v.Fields {
 		elems = append(elems, emitStructFieldValWithLeading(f))
+	}
+	// A value written with no field name is an error the checker reports;
+	// the formatter, which runs without it, keeps the value after the
+	// named fields.
+	for _, f := range v.Positional {
+		elems = append(elems, Concat(append(emitLeadingComments(withoutBlankTrivia(f.LeadingComments)), emitPositionalValue(f.Value))...))
 	}
 	// EndTrivia (trailing in-body comment) or any inter-field leading
 	// comment forces the broken form — a `// comment` can't share a
@@ -2569,6 +2551,25 @@ func emitStructLit(v *ast.StructLit) Doc {
 		return emitCommentedList(open, "}", elems, structLitComments(v), v.EndTrivia)
 	}
 	return emitBracedList(open, "}", elems)
+}
+
+// emitPositionalValue writes a struct literal's value with no field name. A
+// parenthesized name, `User{(age)}`, keeps one pair of parentheses:
+// emitGroupedExpr drops them around an identifier, and `User{age}` puns
+// the field `age`, a different program.
+func emitPositionalValue(n ast.Node) Doc {
+	g, ok := n.(*ast.GroupedExpr)
+	if !ok || groupedHasComments(g) {
+		return emit(n)
+	}
+	inner := g.Expr
+	for next, ok := inner.(*ast.GroupedExpr); ok && next.Expr != nil && !nodeHasDangling(next); next, ok = inner.(*ast.GroupedExpr) {
+		inner = next.Expr
+	}
+	if _, ok := inner.(*ast.Ident); !ok {
+		return emit(n)
+	}
+	return withDangling(g, Concat(Text("("), emit(inner), Text(")")))
 }
 
 // structLitFirstLine is the line v's first element starts on, its spread's
@@ -2615,6 +2616,9 @@ func structLitComments(v *ast.StructLit) []*ast.ItemComments {
 		out = append(out, itemComments(v.Spread))
 	}
 	for _, f := range v.Fields {
+		out = append(out, &ast.ItemComments{Trailing: f.Trailing})
+	}
+	for _, f := range v.Positional {
 		out = append(out, &ast.ItemComments{Trailing: f.Trailing})
 	}
 	return out
@@ -3389,7 +3393,7 @@ func emitLambdaHeader(lam *ast.Lambda) Doc {
 // emitLambdaParam renders a single lambda param. Supports bare name, name
 // with default (`acc = 0`), name with type annotation (`x: Int`),
 // destructuring patterns (tuple/struct/map), and destructuring patterns
-// with defaults (`#(a, b) = #(0, 1)`). Type annotations must round-trip
+// with defaults (`(a, b) = (0, 1)`). Type annotations must round-trip
 // because the checker rejects unannotated local-lambda bindings; a redundant
 // self-typing one is already gone (stripSelfTypingAnnotations).
 func emitLambdaParam(p ast.Param) Doc {
@@ -3498,7 +3502,7 @@ func emitPatternNode(n ast.Node) Doc {
 	case *ast.OrPattern:
 		return emitOrPattern(v)
 	case *ast.TuplePattern:
-		open := shapeOpen("#", nil, "(")
+		open := "("
 		elems, cs, ok := patternItems(v.Patterns)
 		if ok {
 			return emitCommentedListNoLastComma(open, ")", elems, cs)
@@ -3718,6 +3722,16 @@ const notOperandPrecedence = 4
 // is True`.
 const isPrecedence = 4
 
+// ascriptionPrecedence is the binding level of `as` (the parser's, `|>`'s).
+const ascriptionPrecedence = 6
+
+// emitAscription writes `value as Type`. The value holds what binds at
+// least as tightly as `|>` bare, so `xs |> Iter.to_list() as List<Int>`
+// keeps its shape, and a looser operator keeps its parentheses.
+func emitAscription(v *ast.Ascription) Doc {
+	return Concat(emitOperand(v.Value, ascriptionPrecedence, followsOther), Text(" as "), emitTypeExpr(v.Type))
+}
+
 // emitIs writes `value is Pattern` with one space on each side of `is`. A
 // pattern that is an `or` (or names one with `as`) keeps its parentheses,
 // since a bare `or` after the pattern is the Boolean `or`.
@@ -3815,11 +3829,70 @@ func emitBinary(v *ast.Binary, next follower) Doc {
 		// operator after the first operand, and the right operand breaks
 		// inside its brackets.
 		last := parts[len(parts)-1]
-		if single && !fits(last.right, nil, width-indent-defaultIndent-len(last.op)-1) {
+		lastFits := fits(last.right, nil, width-indent-defaultIndent-len(last.op)-1)
+		if single && !lastFits {
+			return inline
+		}
+		// An `and` or `or` chain whose last operand ends in a bracketed
+		// literal that breaks even on a line of its own stays on its line,
+		// as far as the literal's opening bracket, when that fits, and the
+		// literal breaks inside its brackets. Broken before the operator
+		// instead, the literal would keep its line break after the bracket
+		// (brokenAfterOpen), and a second format would join the chain.
+		if !single && !lastFits && endsInBrokenLiteral(v.Right) && !anyPartComments(parts) &&
+			fits(Concat(head, chainPrefix(parts[:len(parts)-1])), nil, width-col) && fits(Nil(), inline, width-col) {
 			return inline
 		}
 		return broken
 	})
+}
+
+// endsInBrokenLiteral reports whether n's right edge is a bracketed literal
+// or pattern that keeps a line break after its opening bracket
+// (brokenAfterOpen): the operand of a `not`, the right operand of an
+// operator other than `|>`, or the pattern of an `is`.
+func endsInBrokenLiteral(n ast.Node) bool {
+	for {
+		if hasDangling(n) || itemComments(n) != nil {
+			return false
+		}
+		switch v := n.(type) {
+		case *ast.Unary:
+			n = v.Right
+		case *ast.Binary:
+			if v.Op == "|>" {
+				return false
+			}
+			n = v.Right
+		case *ast.Is:
+			n = v.Pattern
+		case *ast.StructLit, *ast.ListLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit, *ast.StructPattern:
+			return true
+		default:
+			return false
+		}
+	}
+}
+
+// chainPrefix writes parts as emitBinary's flat layout does, each operator
+// and right operand after a space.
+func chainPrefix(parts []binaryPart) Doc {
+	var d Doc = Nil()
+	for _, part := range parts {
+		d = Concat(d, Text(" "), Text(part.op), Text(" "), part.right)
+	}
+	return d
+}
+
+// anyPartComments reports whether a comment is written before any of
+// parts' operators.
+func anyPartComments(parts []binaryPart) bool {
+	for _, part := range parts {
+		if len(part.comments) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // trailingBeforeOperator is the text of each line comment written after
@@ -3968,6 +4041,9 @@ func emitOperand(child ast.Node, minPrec int, next follower) Doc {
 		return Concat(Text("("), emit(child), Text(")"))
 	}
 	if _, ok := child.(*ast.Is); ok && minPrec > isPrecedence {
+		return Concat(Text("("), emit(child), Text(")"))
+	}
+	if _, ok := child.(*ast.Ascription); ok && minPrec > ascriptionPrecedence {
 		return Concat(Text("("), emit(child), Text(")"))
 	}
 	if next == followsOther {
@@ -4269,7 +4345,7 @@ func emitFuncDefParam(p ast.Param) Doc {
 
 // emitTypeExpr renders a TypeExpr as a Doc. Each type-expression node has
 // its own case so nested anon structs participate in the width budget no
-// matter how deeply they sit (`List<#{...}>`, `#(String, #{...})`,
+// matter how deeply they sit (`List<#{...}>`, `(String, #{...})`,
 // `(Int, #{...}) -> R`, `mod.Foo<#{...}>`).
 //
 // Containers (GenericType, FuncType, QualifiedType) are intentionally
@@ -4277,7 +4353,7 @@ func emitFuncDefParam(p ast.Param) Doc {
 // recursive emitTypeExpr calls. This keeps the "outer container stays
 // inline, inner anon struct flows multi-line" shape — same approach
 // Prettier takes for `Promise<#{...}>` in TypeScript. Long containers of
-// only-simple types (`#(VeryLongTypeA, VeryLongTypeB, ...)`) therefore
+// only-simple types (`(VeryLongTypeA, VeryLongTypeB, ...)`) therefore
 // don't auto-break at the container; they spill, same as before this
 // change. The escape hatch when that bites is a `typealias` for the
 // inner names.
@@ -4351,13 +4427,13 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 		}
 		if cs, ok := typesComments(n.Params); ok {
 			if n.Return == nil {
-				return emitCommentedListNoLastComma("#(", ")", paramDocs, cs)
+				return emitCommentedListNoLastComma("(", ")", paramDocs, cs)
 			}
 			list := emitCommentedListNoLastComma("(", ")", paramDocs, cs)
 			return Concat(list, Text(" -> "), emitTypeExpr(n.Return))
 		}
 		if n.Return == nil {
-			parts := []Doc{Text("#(")}
+			parts := []Doc{Text("(")}
 			for i, p := range paramDocs {
 				if i > 0 {
 					parts = append(parts, Text(", "))
@@ -4750,7 +4826,7 @@ func emitTypeParams(tp []ast.TypeParam) Doc {
 	if cs := typeParamsComments(tp); anyComments(cs) {
 		docs := make([]Doc, len(tp))
 		for i, p := range tp {
-			docs[i] = Text(p.Name)
+			docs[i] = emitTypeParam(p)
 		}
 		return emitCommentedListNoLastComma("<", ">", docs, cs)
 	}
@@ -4760,10 +4836,18 @@ func emitTypeParams(tp []ast.TypeParam) Doc {
 		if i > 0 {
 			parts = append(parts, Text(", "))
 		}
-		parts = append(parts, Text(p.Name))
+		parts = append(parts, emitTypeParam(p))
 	}
 	parts = append(parts, Text(">"))
 	return Concat(parts...)
+}
+
+// emitTypeParam is one type parameter, `P`, or `P = Unit` with a default.
+func emitTypeParam(p ast.TypeParam) Doc {
+	if p.Default == nil {
+		return Text(p.Name)
+	}
+	return Concat(Text(p.Name), Text(" = "), emitTypeExpr(p.Default))
 }
 
 // emitMultilineBracedListWithEndTrivia renders a declaration body
@@ -4840,11 +4924,20 @@ func emitStructField(f ast.StructField) Doc {
 	// the next time: none is written.
 	parts = append(parts, emitLeadingComments(withoutBlankTrivia(f.LeadingComments))...)
 	parts = append(parts, emitDocComment(f.Doc)...)
-	parts = append(parts, Text(f.Name), Text(": "), emitTypeExpr(f.TypeAnnotation))
+	parts = append(parts, emitFieldHead(f)...)
 	if f.Default != nil {
 		parts = append(parts, Text(" = "), emit(f.Default))
 	}
 	return Concat(parts...)
+}
+
+// emitFieldHead is a field's name and its type, `name: Type`, or its name
+// alone for a field whose type comes from its default (`misses = 0`).
+func emitFieldHead(f ast.StructField) []Doc {
+	if f.TypeAnnotation == nil {
+		return []Doc{Text(f.Name)}
+	}
+	return []Doc{Text(f.Name), Text(": "), emitTypeExpr(f.TypeAnnotation)}
 }
 
 // emitLeadingComments renders trivia captured on a body-member's
@@ -4886,7 +4979,7 @@ func withoutBlankTrivia(trivia []ast.Trivia) []ast.Trivia {
 }
 
 // emitStructDeclField renders one struct-declaration body field in the
-// canonical form: `name: Type[ = default]` — one per line, no commas.
+// canonical form: `name: Type[ = default]` or `name = default` — one per line, no commas.
 // Leading `//` trivia and the `///` doc comment stack above the item (doc
 // closest to the field). The comma-separated form stays in emitStructField
 // for anon-struct types and struct-shaped enum variant payloads.
@@ -4894,7 +4987,7 @@ func emitStructDeclField(f ast.StructField) Doc {
 	parts := []Doc{}
 	parts = append(parts, emitLeadingComments(f.LeadingComments)...)
 	parts = append(parts, emitDocComment(f.Doc)...)
-	parts = append(parts, Text(f.Name), Text(": "), emitTypeExpr(f.TypeAnnotation))
+	parts = append(parts, emitFieldHead(f)...)
 	if f.Default != nil {
 		parts = append(parts, Text(" = "), emit(f.Default))
 	}

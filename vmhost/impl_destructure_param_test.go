@@ -10,7 +10,7 @@ import (
 
 // An impl function's parameter may destructure its argument, as a file-level
 // function's may: a distinct (`Balance(n)`), a struct (`Point{x, y}`) and a
-// tuple (`#(a, b): #(Int, Int)`), in an inherent block, an interface impl, a
+// tuple (`(a, b): (Int, Int)`), in an inherent block, an interface impl, a
 // generic block, and an interface default. Each used to be refused as
 // "destructuring parameter", so every call to one stopped the program with
 // "this call to `Balance.cents` is not supported yet".
@@ -37,15 +37,15 @@ struct Point {
 
 impl Point {
     fn sum(Point{x, y}) -> Int { x + y }
-    fn swap(#(a, b): #(Int, Int)) -> #(Int, Int) { #(b, a) }
-    fn shifted(Point{x, y} as p, #(dx, dy): #(Int, Int)) -> String {
+    fn swap((a, b): (Int, Int)) -> (Int, Int) { (b, a) }
+    fn shifted(Point{x, y} as p, (dx, dy): (Int, Int)) -> String {
         "${Point.sum(p)} -> ${x + dx},${y + dy}"
     }
 }
 
 interface Named {
     fn name(value: self) -> String
-    fn wrapped(value: self, #(open, close): #(String, String)) -> String {
+    fn wrapped(value: self, (open, close): (String, String)) -> String {
         "${open}${Named.name(value)}${close}"
     }
     fn plus(value: self, Point{x, y}) -> String { "${Named.name(value)}+${x + y}" }
@@ -69,11 +69,11 @@ impl Display for Box<T> where T: Display {
 }
 
 interface Pick<T> {
-    fn pick(value: self, pair: #(T, T)) -> T
+    fn pick(value: self, pair: (T, T)) -> T
 }
 
 impl Pick<String> for Point {
-    fn pick(Point{x, y}, #(a, b): #(String, String)) -> String {
+    fn pick(Point{x, y}, (a, b): (String, String)) -> String {
         if x > y { a } else { b }
     }
 }
@@ -83,22 +83,22 @@ fn main() {
     io.print(Slug("a") == Slug("a"))
     io.print(Slug("a") == Slug("b"))
     io.print(Point.sum(Point{x: 1, y: 2}))
-    io.print(Point.swap(#(1, 2)))
-    io.print(Point.shifted(Point{x: 1, y: 2}, #(10, 20)))
-    io.print(Named.wrapped(Point{x: 1, y: 2}, #("<", ">")))
+    io.print(Point.swap((1, 2)))
+    io.print(Point.shifted(Point{x: 1, y: 2}, (10, 20)))
+    io.print(Named.wrapped(Point{x: 1, y: 2}, ("<", ">")))
     io.print(Point.plus(Point{x: 1, y: 2}, Point{x: 3, y: 4}))
     named: List<Named> = [Point{x: 5, y: 6}]
-    io.print(named |> Iter.map(fn n -> Named.wrapped(n, #("[", "]"))) |> Iter.to_list())
+    io.print(named |> Iter.map(fn n -> Named.wrapped(n, ("[", "]"))) |> Iter.to_list())
     io.print(Box.get(Box{value: "v", count: 1}))
     io.print(Display.to_string(Box{value: 7, count: 3}))
-    io.print(Pick.pick(Point{x: 2, y: 1}, #("first", "second")))
+    io.print(Pick.pick(Point{x: 2, y: 1}, ("first", "second")))
 }
 `)
 	want := `300
 True
 False
 3
-#(2, 1)
+(2, 1)
 3 -> 11,22
 <p12>
 p12+7
@@ -134,7 +134,7 @@ impl Pair {
 
 pub interface Shape {
     fn area(shape: self) -> Int
-    fn describe(shape: self, #(label, unit): #(String, String)) -> String {
+    fn describe(shape: self, (label, unit): (String, String)) -> String {
         "${label} ${Shape.area(shape)} ${unit}"
     }
 }
@@ -162,8 +162,8 @@ impl Shape for Square {
 fn main() {
     io.print(Balance.cents(Balance(3)))
     io.print(Pair.total(Pair{left: 3, right: 4}))
-    io.print(Shape.describe(Pair{left: 3, right: 4}, #("area", "m2")))
-    io.print(Shape.describe(Square{side: 3}, #("square", "m2")))
+    io.print(Shape.describe(Pair{left: 3, right: 4}, ("area", "m2")))
+    io.print(Shape.describe(Square{side: 3}, ("square", "m2")))
 }
 `)
 	if err != nil {

@@ -30,16 +30,16 @@ impl School {
     /// Every student, by grade and then by name.
     pub fn roster(school: School) -> List<String> {
         school.grades
-        |> Iter.sort_by(fn #(name, grade) -> #(grade, name))
-        |> Iter.map(fn #(name, _grade) -> name)
+        |> Iter.sort_by(fn (name, grade) -> (grade, name))
+        |> Iter.map(fn (name, _grade) -> name)
         |> Iter.to_list()
     }
 
     /// The students in `grade`, by name.
     pub fn grade(school: School, grade: Int) -> List<String> {
         school.grades
-        |> Iter.filter(fn #(_name, in_grade) -> in_grade == grade)
-        |> Iter.map(fn #(name, _grade) -> name)
+        |> Iter.filter(fn (_name, in_grade) -> in_grade == grade)
+        |> Iter.map(fn (name, _grade) -> name)
         |> Iter.sort()
     }
 }

@@ -21,7 +21,7 @@ fn main() {
   io.inspect([1, 2] |> Iter.cycle() |> Iter.take(5) |> Iter.to_list())
   [7, 8] |> Iter.each(fn x -> io.print(x))
   io.inspect(Set.size([3, 1, 3, 2] |> Iter.to_set()))
-  io.inspect([#("a", 1), #("b", 2), #("a", 3)] |> Iter.to_map())
+  io.inspect([("a", 1), ("b", 2), ("a", 3)] |> Iter.to_map())
   io.inspect([1, 2] |> Iter.flat_map(fn x -> [x, x * 10]) |> Iter.to_list())
   io.inspect([[1], [2, 3]] |> Iter.flatten())
   io.inspect([1, 2, 3, 4, 5] |> Iter.chunks(2) |> Iter.to_list())
@@ -75,7 +75,7 @@ fn main() {
 // family to_list reads, and through a generic function's Iter<T> parameter.
 func TestIRIterToVector_EverySourceFamily(t *testing.T) {
 	verifyLambdaProgram(t, irIterToVectorSource,
-		"#[1, 2, 3]\n#[\"a\", \"b\"]\n#[3, 1]\n#[#(\"a\", 1), #(\"b\", 2)]\n#[\"h\", \"é\"]\n#[1, 2, 3]\n2\n#[2, 1]\n"+
+		"#[1, 2, 3]\n#[\"a\", \"b\"]\n#[3, 1]\n#[(\"a\", 1), (\"b\", 2)]\n#[\"h\", \"é\"]\n#[1, 2, 3]\n2\n#[2, 1]\n"+
 			"#[20, 40]\n#[]\n#[1, 2]\n#[1]\n#[\"p\", \"q\"]\n")
 }
 
@@ -104,7 +104,7 @@ fn main() {
   io.print(1..=3 |> Iter.map(Int.to_string) |> String.join("-"))
   io.print(Countdown{from: 3} |> Iter.map(Int.to_string) |> String.join(","))
   io.print(Iter.from(1) |> Iter.filter(fn x -> x % 2 == 0) |> Iter.map(Int.to_string) |> Iter.take(3) |> String.join(" "))
-  io.print(%{"k" => 1} |> Iter.map(fn #(k, v) -> k + "=" + Int.to_string(v)) |> String.join("&"))
+  io.print(%{"k" => 1} |> Iter.map(fn (k, v) -> k + "=" + Int.to_string(v)) |> String.join("&"))
   io.print(joined(["p", "q"]))
   io.print(joined(%["r"]))
 }
@@ -158,13 +158,13 @@ fn main() {
 }
 
 const irLoopShapesSource = `test "a state tuple advances through an if tail" {
-  #(_, steps) = Iter.loop(#(27, 0), fn state -> {
-    #(n, count) = state
+  (_, steps) = Iter.loop((27, 0), fn state -> {
+    (n, count) = state
     if n == 1 { break state }
     if n % 2 == 0 {
-      #(n / 2, count + 1)
+      (n / 2, count + 1)
     } else {
-      #(n * 3 + 1, count + 1)
+      (n * 3 + 1, count + 1)
     }
   })
 

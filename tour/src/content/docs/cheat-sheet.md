@@ -20,13 +20,15 @@ compiler checks. The full rules are in the
   `Unit`. Its body's last expression is its result. `return` is there for an
   early exit.
 - A parameter may have a default, and an argument may name its parameter.
+  A parameter with a default may leave out its type when the default tells
+  it: `fn search(query: String, limit = 10)`.
 - A parameter the body never reads may be written as its type alone:
   `fn health(Request) -> Response` takes a `Request` and binds nothing.
 - A lambda is `fn x -> ...` or `fn x, y -> { ... }`. Its parameters are
   inferred from where it is passed. A lambda bound to a name needs annotated
   parameters: `fn n: Int -> n * 2`. In a collection literal, one element's
   annotation types the same parameter in the others:
-  `[#("a", fn n: Int -> n), #("b", fn n -> n * 2)]`.
+  `[("a", fn n: Int -> n), ("b", fn n -> n * 2)]`.
 - `once name = expr` is the only file-level value computed by code. It is
   computed on first use, once, even when several tasks read it at the same
   time.
@@ -63,23 +65,40 @@ test result: ok. 1 passed, 0 failed
   `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}`. In the head of an `if`
   or `case` it goes in parentheses: `case (Point{x: 1}) { ... }`. A named
   tuple is its name and its elements: `Pair(1, "x")`.
+- A tuple's items are read by ordinal, counting from one as `&1` does:
+  `t.first`, `t.second`, ... `t.twentieth`, never `t.0`. A named tuple reads
+  them the same way, and so do accessors and captures: `Iter.map(.second)`,
+  `&(&1.first * 2)`.
+- A tuple is its parentheses with a comma inside: `(a, b)`; `(x)` only
+  groups. Passed as a call's one argument it keeps its own parentheses,
+  `f((a, b))`, and a function type taking one tuple is `((A, B)) -> C`.
 - Every other literal but a list starts with its shape's symbol: `#` for an
-  anonymous struct, a tuple or a vector (`#{x: 1}`, `#(a, b)`, `#[1, 2]`),
-  `%` for a map or a set. A plain `{` is always a block.
+  anonymous struct or a vector (`#{x: 1}`, `#[1, 2]`), `%` for a map or a
+  set. A plain `{` is always a block.
 - Patterns use the same forms as literals.
-- Types are written without a symbol, except tuples and anonymous structs:
-  `List<Int>`, `Vector<T>`, `Map<K, V>`, `Set<T>`, `#(Int, String)`,
+- Types are written without a symbol, except anonymous structs:
+  `List<Int>`, `Vector<T>`, `Map<K, V>`, `Set<T>`, `(Int, String)`,
   `#{x: Int}`.
 - Strings interpolate with `${...}`. A backtick string is raw: no escapes and
   no interpolation. A type name before a backtick string is a typed literal,
   checked at compile time: ``Regex`\d+` ``, ``Url`https://nomi-lang.org` ``.
   A type that implements `CheckedLiteral`, such as `Url`, is checked in
   every quote style, slots included: `Url"https://x.org/${id}"` is a `Url`,
-  never a `Result`.
+  never a `Result`. A `Url` slot takes any `Display` value, such as an `Int`
+  or a `Uuid`, and escapes its text for where it stands. Where a `Url` is
+  expected, the tag can be left out: `u: Url = "https://x.org/"`, or
+  `http.get("https://x.org/")`. A `String` value there is still an error.
 - std::html's `Html"..."` is an HTML template the compiler checks. Each
   `${...}` is escaped for where it stands. A one-line fragment quotes its
   attributes with `'`, since `"` ends the literal:
   `Html"<b class='x'>${n}</b>"`. Several lines go in `Html"""..."""`.
+- A `Decimal` literal ends in `d`: `1.50d`. `+`, `-` and `*` are exact, and
+  `/` rounds to 34 significant digits, half-even, keeping an exact quotient
+  exact: `10.00d / 4d == 2.5d`. `Decimal.divide(a, b, 2, .HalfEven)` names the
+  scale instead. `%` is the remainder with the left operand's sign on `Int`,
+  `Float` and `Decimal` alike (`-7 % 3 == -1`; `Int.modulo` is the floored
+  form). An `Int` and a `Decimal` never mix in one operator: write
+  `Int.to_decimal(n) / 100d`.
 - The constants are `True`, `False`, `None` and `Unit`. There is no `null`.
   Each is a pattern as well: `Ok(Unit) -> ...` matches a `Result<Unit, E>`.
 
@@ -87,7 +106,7 @@ test result: ok. 1 passed, 0 failed
 |---|---|---|
 | list | `[1, 2]` | `Ids[1, 2]` |
 | vector | `#[1, 2]` | `#Path[1, 2]` |
-| tuple | `#(1, "x")` | `Pair(1, "x")` |
+| tuple | `(1, "x")` | `Pair(1, "x")` |
 | struct | `Point{x: 1}`, `#{x: 1}` | `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` |
 | map | `%{"a" => 1}` | `%Kvs{"a" => 1}` |
 | set | `%[1, 2]` | `%Tags["a"]` |
@@ -101,11 +120,15 @@ struct Point {
 test "literals" {
     point = Point{x: 1}
     moved = #{..point, y: 5}
-    #(count, name) = #(2, "Ada")
+    (count, name) = (2, "Ada")
+    pair = (2, "Ada")
 
     assert moved == Point{x: 1, y: 5}
     assert %{"a" => 1, "b" => 2} == %{"b" => 2, "a" => 1}
     assert "${name} has ${count}" == "Ada has 2"
+    assert pair.second == name
+    assert Int.to_decimal(1999) / 100d == 19.99d
+    assert -7.5d % 2d == -1.5d
     assert `a\n` == "a\\n"
     assert [first, ..rest] = [1, 2, 3]
     assert first == 1 and rest == [2, 3]
@@ -122,6 +145,16 @@ test result: ok. 1 passed, 0 failed
   per line, with no commas, `|` or `field` keyword. An interface declares only
   functions. A value every implementor supplies is a function, such as
   `fn name(value: self) -> String`.
+- A field with a default may leave out its type when the default alone
+  tells it: `misses = 0` is an `Int` field. An empty collection, `None` or a
+  `.Variant` needs the type written: `guessed: Set<String> = %[]`.
+- `value as Type` checks the value with the type expected, as
+  `x: Type = value` does, where no annotation can stand: `[] as
+  List<String>` inside an anonymous struct literal. It converts nothing:
+  `x as Float` with `x: Int` is an error; write `Int.to_float(x)`.
+- A type parameter may have a default, `Route<P = Unit>`. In a type
+  position a left-out argument is the default, so `route: Route` takes only
+  a `Route<Unit>`; it is never a type to infer.
 - Behavior goes in top-level `impl Type { ... }`, `impl Interface for Type
   { ... }` and `derive Interface for Type` declarations.
 - `type UserId Int` is a distinct type: `UserId(5)` builds one, and the pattern
@@ -226,6 +259,14 @@ test result: ok. 1 passed, 0 failed
 - In a pipe, `text |> parse()?` passes up a failure of that stage, and
   `|> then? fn v -> ...` does the same for a lambda's result.
 - `x is Pattern` is a `Bool`.
+- A resource is closed by a `defer` on the line after it is acquired; std
+  has no `with_*` function that runs a lambda with one. A deferred call
+  returns `Unit`, so a writer's success path ends with `Writer.close(w)?`,
+  which commits and reports a failed close, after `defer Writer.discard(w)`,
+  which throws the output away on an `Err` or a trap. The checker holds both:
+  an opened resource with no deferred release, one dropped with
+  `_ = fs.open(p)?`, and a deferred discard on a path that returns `Ok`
+  without the close, are compile errors.
 
 ```nomi-run
 fn parse_age(text: String) -> Result<Int, String> {
@@ -293,7 +334,7 @@ test "iteration and pipes" {
     assert Iter.reduce(evens, 0, fn acc, n -> acc + n) == 300
     assert List.head(evens) == Some(20)
     assert ["b", "a"] |> Iter.sort() |> String.join(", ") == "a, b"
-    assert Iter.map_reduce([1, 2], 0, fn total, n -> #(total + n, total)) == #(3, [0, 1])
+    assert Iter.map_reduce([1, 2], 0, fn total, n -> (total + n, total)) == (3, [0, 1])
 }
 ```
 <!-- expect

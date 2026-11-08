@@ -187,7 +187,7 @@ fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, s
             values =
                 Row.values(row)
                 |> Iter.with_index()
-                |> Iter.map(fn #(i, v) -> if i == position { Value.Decimal(d) } else { v })
+                |> Iter.map(fn (i, v) -> if i == position { Value.Decimal(d) } else { v })
 
             Ok(
                 Row.new(

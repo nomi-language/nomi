@@ -126,7 +126,7 @@
 (destructuring_binding
   binding: (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
-; A destructure's nested pattern (`#(#(_a, b), c) = pair`,
+; A destructure's nested pattern (`((_a, b), c) = pair`,
 ; `#{x: Some(_n), y} = q else { ... }`), spelled as an expression.
 (destructuring_binding
   pattern: [
@@ -155,7 +155,7 @@
   . (identifier) @comment
   (#eq? @comment "_"))
 ; Pattern nodes. Each rule names a direct parent, so a discard nested in
-; patterns at any depth (`Some(Ok(#(_a, b)))`, `[_x, .._rest]`) matches one.
+; patterns at any depth (`Some(Ok((_a, b)))`, `[_x, .._rest]`) matches one.
 (tuple_pattern
   (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
@@ -197,7 +197,7 @@
     (identifier) @comment)
   (#match? @comment "^\\s*_($|[^_])"))
 ; A pattern spelled as the expression it looks like: the left side of a
-; binding with `else` or a pattern assertion (`Some(#(_n, o)) = opt`,
+; binding with `else` or a pattern assertion (`Some((_n, o)) = opt`,
 ; `assert Err(_) = r`), the pattern before `as`, and a case, guard or else
 ; arm that took the expression reading (`Some(Ok((_g, n))) when n > 0 ->`).
 ; Those expressions also occur as values, where an identifier is read, so
@@ -208,7 +208,7 @@
 ; descendant operator, so the alternation spells out each depth: a discard
 ; directly in a call, tuple, list, vector, struct construction, anonymous
 ; struct or map value, under at most two calls, tuples or lists
-; (`Ok(Some(#(_a, b)))`).
+; (`Ok(Some((_a, b)))`).
 ; A deeper one keeps its colour. Each depth costs query compile time (the
 ; tour compiles this file once per page), which is what stops it at three.
 ((_ .
@@ -546,7 +546,7 @@
 
 ; Struct/enum field definitions
 (field_definition
-  (identifier) @variable.other.member)
+  name: (identifier) @variable.other.member)
 
 ; Anonymous struct fields
 (anon_struct_field
@@ -692,12 +692,12 @@
 ; name: a literal that builds a value (a struct's, map's or struct update's
 ; braces, a list's, vector's or set's brackets, a tuple's parentheses, each
 ; with the `#` or `%` that starts it: `#{`, `Point{`, `%{`, `%Kvs{`, `#[`,
-; `%[`, `#(`), a constructor call's parentheses, and every pattern's
+; `%[`), a constructor call's parentheses, and every pattern's
 ; delimiters (tuple, list, vector, set, struct, map and variant-payload
 ; patterns, wherever they appear). Every other delimiter is program structure and is
 ; @punctuation.bracket: blocks, declaration bodies, function calls, grouping,
 ; parameter lists and types. A pattern spelled as the expression it looks like
-; (`Some(#(n, [a])) = found else {...}`, `assert Err(_) = r`) parses as the
+; (`Some((n, [a])) = found else {...}`, `assert Err(_) = r`) parses as the
 ; literal and call nodes below, so it takes @type with no rule of its own.
 (anon_struct ["#{" "}"] @type)
 (struct_update ["#{" "}"] @type)
@@ -706,11 +706,11 @@
 (list ["[" "]"] @type)
 (vector ["#[" "#" "[" "]"] @type)
 (set ["%[" "%" "[" "]"] @type)
-(tuple_expression ["#(" ")"] @type)
+(tuple_expression ["(" ")"] @type)
 (struct_pattern ["#{" "{" "}"] @type)
 (map_pattern ["%{" "%" "{" "}"] @type)
-(destructuring_binding ["#(" "#{" "%{" "%" ")" "{" "}"] @type)
-(tuple_pattern ["#(" ")"] @type)
+(destructuring_binding ["(" "#{" "%{" "%" ")" "{" "}"] @type)
+(tuple_pattern ["(" ")"] @type)
 (list_pattern ["[" "]"] @type)
 (vector_pattern ["#[" "#" "[" "]"] @type)
 (set_pattern ["%[" "%" "[" "]"] @type)
@@ -728,7 +728,6 @@
   ["(" ")"] @type)
 
 "#{" @punctuation.bracket
-"#(" @punctuation.bracket
 "#[" @punctuation.bracket
 "%{" @punctuation.bracket
 "%[" @punctuation.bracket

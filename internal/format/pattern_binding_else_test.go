@@ -104,7 +104,7 @@ func TestFormat_BindingElse_ArmComments(t *testing.T) {
 // A binding without else whose pattern no destructure statement spells keeps
 // its pattern and value.
 func TestFormat_BindingElse_GeneralPatternWithoutElse(t *testing.T) {
-	src := "fn f(r: Result<#(Int, Int), String>) -> Int {\n    Ok(#(w, h)) = r\n    w * h\n}\n"
+	src := "fn f(r: Result<(Int, Int), String>) -> Int {\n    Ok((w, h)) = r\n    w * h\n}\n"
 	if got := formatTwice(t, src); got != src {
 		t.Errorf("got:\n%s\nwant:\n%s", got, src)
 	}

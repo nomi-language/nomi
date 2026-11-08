@@ -51,7 +51,7 @@ var nestedForms = []struct {
 		return "fn main() {\n  " + strings.Repeat("%{1 => ", d) + "x" + strings.Repeat("}", d) + " = todo\n}\n"
 	}},
 	{"tuple patterns", func(d int) string {
-		return "fn main() {\n  " + strings.Repeat("#(", d) + "a, b" + strings.Repeat(", c)", d) + " = todo\n}\n"
+		return "fn main() {\n  " + strings.Repeat("(", d) + "a, b" + strings.Repeat(", c)", d) + " = todo\n}\n"
 	}},
 	{"types", func(d int) string {
 		return "fn f(_x: " + strings.Repeat("List<", d) + "Int" + strings.Repeat(">", d) + ") {\n}\n"

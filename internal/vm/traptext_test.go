@@ -80,7 +80,7 @@ func TestTrapText_OneHomePerText(t *testing.T) {
 	}
 	for _, want := range []string{
 		"line %d: division by zero",
-		"line %d: modulo not supported on floats",
+		"line %d: no matching case branch",
 	} {
 		if _, found := owned[want]; !found {
 			t.Fatalf("rt declares %q and the scan did not find it; the extractor is wrong", want)
@@ -155,15 +155,14 @@ func TestTrapText_TheVMRetypesNone(t *testing.T) {
 			strings.Join(mine, "\n  "))
 	}
 	// The VM must nevertheless REACH the text, or this zero is the zero of an
-	// engine that simply has no Float `%` arm. `arith`'s FaultUndefined arm is
-	// the caller and `rt.FloatModuloError`, over `rt.FloatModuloText`, is
-	// what it calls.
+	// engine that simply has no Int `/` arm. `intArith` is the caller and
+	// `rt.DivByZeroError`, over rt's division-by-zero text, is what it calls.
 	src, err := os.ReadFile(filepath.Join(root, "internal", "vm", "vm.go"))
 	if err != nil {
 		t.Fatalf("reading vm.go: %v", err)
 	}
-	if !strings.Contains(string(src), "rt.FloatModuloError(line)") {
-		t.Error("vm.go does not call rt.FloatModuloError, so the zero above is the zero of " +
+	if !strings.Contains(string(src), "rt.DivByZeroError(line)") {
+		t.Error("vm.go does not call rt.DivByZeroError, so the zero above is the zero of " +
 			"an engine that never reaches the text rather than one that reads it")
 	}
 }

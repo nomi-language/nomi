@@ -41,7 +41,7 @@ fn main() {
     io.inspect(Config{counter: Counter{inbox: c}})
     io.print(Debug.inspect([c]))
     io.print(Debug.inspect(#[c]))
-    io.print(Debug.inspect(#(c, 1)))
+    io.print(Debug.inspect((c, 1)))
     io.print(Debug.inspect(%{"a" => c}))
     m: Maybe<Channel<Int>> = Some(c)
     io.print(Debug.inspect(m))
@@ -64,7 +64,7 @@ fn main() {
 		"Config{counter: Counter{inbox: "+ch+"}}\n"+
 		"["+ch+"]\n"+
 		"#["+ch+"]\n"+
-		"#("+ch+", 1)\n"+
+		"("+ch+", 1)\n"+
 		"%{\"a\" => "+ch+"}\n"+
 		"Some("+ch+")\n"+
 		"dbg line 31: r = Ok("+ch+")\n"+

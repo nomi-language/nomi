@@ -57,7 +57,7 @@ func irHandleFieldKind(k kind) bool {
 // irHandleElemEnds reports whether a handle's element elem holds no handle
 // that leads back to self (nil outside a declaration's walk), within a small
 // depth: Unit, a leaf, a structural composite (`Map<String, Int>`,
-// `List<List<Int>>`, `#(Int, String)`) whose parts end, or a named
+// `List<List<Int>>`, `(Int, String)`) whose parts end, or a named
 // declaration other than self whose own handles end. A function element
 // stays outside.
 func irHandleElemEnds(elem kind, self *typeDef, depth int) bool {

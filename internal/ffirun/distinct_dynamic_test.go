@@ -138,7 +138,7 @@ fn inc_maybe(x: Maybe<Id>) -> Maybe<Id> go crossing.IncMaybe
 
 fn tenfold(x: Id) -> Result<Id, String> go crossing.Tenfold
 
-fn pair(x: Id) -> #(Id, String) go crossing.Pair
+fn pair(x: Id) -> (Id, String) go crossing.Pair
 
 fn apply(x: Id, f: (Id) -> Id) -> Id go crossing.Apply
 
@@ -194,7 +194,7 @@ fn main() {
 		`Some(Id(2))`,
 		`None`,
 		`Ok(Id(40))`,
-		`#(Id(4), "p")`,
+		`(Id(4), "p")`,
 		`Id(102)`,
 		`Row{name: "a", n: Id(2)}`,
 		`Wrapped(Plain{name: "w", n: 2})`,

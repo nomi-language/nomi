@@ -50,9 +50,9 @@ fn outcome(store: FakeStore) -> Result<Unit, String> {
 
 /// Runs each line in turn, starting from no tasks, and returns the tasks and
 /// the lines the last command showed.
-fn run_lines(lines: List<String>) -> Result<#(Map<Int, Task>, List<String>), String> {
-    Iter.reduce(lines, Ok(#(%{}, [])), fn state, line -> {
-        #(tasks, _shown) = state?
+fn run_lines(lines: List<String>) -> Result<(Map<Int, Task>, List<String>), String> {
+    Iter.reduce(lines, Ok((%{}, [])), fn state, line -> {
+        (tasks, _shown) = state?
         command = commands.parse(line)?
         commands.run(command, tasks, FakeStore{}, FixedClock{at: noon})
     })
@@ -71,13 +71,13 @@ test "malformed lines are errors" {
 }
 
 test "added tasks are numbered from 1 and stamped by the clock" {
-    #(tasks, _shown) = run_lines(["add first", "add second"])?
+    (tasks, _shown) = run_lines(["add first", "add second"])?
 
     assert Map.get(tasks, 2) == Some(Task{id: 2, title: "second", created: noon})
 }
 
 test "list shows the tasks with a status, in id order" {
-    #(_tasks, shown) = run_lines(
+    (_tasks, shown) = run_lines(
         ["add a", "add b", "add c", "done 3", "start 2", "done 1", "list done"]
     )?
 

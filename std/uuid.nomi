@@ -26,6 +26,7 @@ import {
     lists.List
     literals.{Fragment, Literal}
     maybe.Maybe.{self, None, Some}
+    parse.Parse
     random.{self, Generator, Seed}
     results.Result.{self, Err, Ok}
     strings.String
@@ -77,40 +78,6 @@ impl Display for Error {
 }
 
 impl Uuid {
-    /// Read the 36-character hyphenated form, in either case. Braces, a
-    /// `urn:uuid:` prefix and the 32-digit form without hyphens are not
-    /// accepted.
-    //! assert Display.to_string(Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")?)
-    //!     == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-    //!
-    //! assert Uuid.parse("6ba7b810") == Err(Error.Length{length: 8})
-    //!
-    //! assert Uuid.parse("6ba7b810+9dad-11d1-80b4-00c04fd430c8")
-    //!     == Err(Error.Separator{index: 8, found: "+"})
-    //!
-    //! assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(Error.Digit{index: 7, found: "g"})
-    //
-    pub fn parse(text: String) -> Result<Uuid, Error> {
-        codepoints = String.to_codepoints(text)
-        count = Iter.count(codepoints)
-
-        if count != 36 { return Err(Error.Length{length: count}) }
-
-        #(_, high, low, failure) = Iter.reduce(codepoints, #(0, 0, 0, None), fn acc, cp -> {
-            #(index, high, low, failure) = acc
-
-            case failure {
-                Some(_) -> acc
-                None -> read_char(high, low, index, cp)
-            }
-        })
-
-        case failure {
-            Some(e) -> Err(e)
-            None -> Ok(Uuid{high, low})
-        }
-    }
-
     /// The nil UUID, all 128 bits zero.
     //! assert Display.to_string(Uuid.nil()) == "00000000-0000-0000-0000-000000000000"
     //
@@ -175,6 +142,42 @@ impl Uuid {
         low = random_int()?
         high = millis <<< 16 ||| random_high &&& 4095
         Ok(Uuid{high: with_version(high, 7), low: with_variant(low)})
+    }
+}
+
+impl Parse<Error> for Uuid {
+    /// Read the 36-character hyphenated form, in either case. Braces, a
+    /// `urn:uuid:` prefix and the 32-digit form without hyphens are not
+    /// accepted.
+    //! assert Display.to_string(Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")?)
+    //!     == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+    //!
+    //! assert Uuid.parse("6ba7b810") == Err(Error.Length{length: 8})
+    //!
+    //! assert Uuid.parse("6ba7b810+9dad-11d1-80b4-00c04fd430c8")
+    //!     == Err(Error.Separator{index: 8, found: "+"})
+    //!
+    //! assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(Error.Digit{index: 7, found: "g"})
+    //
+    fn parse(text: String) -> Result<Uuid, Error> {
+        codepoints = String.to_codepoints(text)
+        count = Iter.count(codepoints)
+
+        if count != 36 { return Err(Error.Length{length: count}) }
+
+        (_, high, low, failure) = Iter.reduce(codepoints, (0, 0, 0, None), fn acc, cp -> {
+            (index, high, low, failure) = acc
+
+            case failure {
+                Some(_) -> acc
+                None -> read_char(high, low, index, cp)
+            }
+        })
+
+        case failure {
+            Some(e) -> Err(e)
+            None -> Ok(Uuid{high, low})
+        }
     }
 }
 
@@ -283,25 +286,25 @@ fn unsigned_key(half: Int) -> Int {
 // One character of the 36: a hyphen at 8, 13, 18 and 23, otherwise a digit
 // shifted into the half it belongs to (the first 16 digits are the high
 // half).
-fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> #(Int, Int, Int, Maybe<Error>) {
+fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> (Int, Int, Int, Maybe<Error>) {
     found = Display.to_string(cp)
     next = index + 1
 
     if index == 8 or index == 13 or index == 18 or index == 23 {
-        if found == "-" { return #(next, high, low, None) }
+        if found == "-" { return (next, high, low, None) }
 
-        return #(next, high, low, Some(Error.Separator{index, found}))
+        return (next, high, low, Some(Error.Separator{index, found}))
     }
 
     case hex_value(Codepoint.to_int(cp)) {
         None ->
-            #(next, high, low, Some(Error.Digit{index, found}))
+            (next, high, low, Some(Error.Digit{index, found}))
 
         Some(digit) ->
             if index < 19 {
-                #(next, Int.wrapping_mul(high, 16) ||| digit, low, None)
+                (next, Int.wrapping_mul(high, 16) ||| digit, low, None)
             } else {
-                #(next, high, Int.wrapping_mul(low, 16) ||| digit, None)
+                (next, high, Int.wrapping_mul(low, 16) ||| digit, None)
             }
     }
 }
@@ -353,7 +356,7 @@ fn half_bytes(half: Int) -> Bytes {
 // whole of Int is a bijection of the seed, so the bits are the entropy's.
 fn random_int() -> Result<Int, random.Error> {
     seed = Seed.from_os()?
-    #(n, _) = Generator.step(Generator.int(sign_bit, -1 - sign_bit), seed)
+    (n, _) = Generator.step(Generator.int(sign_bit, -1 - sign_bit), seed)
     Ok(n)
 }
 

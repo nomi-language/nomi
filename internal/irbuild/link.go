@@ -125,6 +125,12 @@ func (g *gen) linkName(token any, _ string) string {
 	switch t := token.(type) {
 	case *ast.FuncDef:
 		if inst := g.stdInstCur; inst != nil && inst.fd == t {
+			if im := inst.f.ifaceDefault; im != nil {
+				// A std interface default's instance at a receiver: the
+				// declaration is the interface's function, which the
+				// instance's synthesized FuncDef presents (stdifacedefault.go).
+				return within(g.declLink(im), "<"+stdInstLinkArgs(inst)+">")
+			}
 			// A std generic body's instance, in its own gen (stdinst.go).
 			return within(g.declLink(t), "<"+stdInstLinkArgs(inst)+">")
 		}
@@ -138,6 +144,8 @@ func (g *gen) linkName(token any, _ string) string {
 			return ""
 		}
 		return g.declLink(t.decl)
+	case *ifaceDefaultInst:
+		return g.ifaceDefaultLink(t)
 	case *monoInst:
 		if t.tpl == nil {
 			return ""
@@ -158,6 +166,8 @@ func (g *gen) linkName(token any, _ string) string {
 			return ""
 		}
 		return within(g.typeLink(t.def), "."+t.variant+"."+t.field+" default")
+	case irIfaceSlotDefault:
+		return within(g.declLink(t.im), "<"+t.kinds+"> default "+strconv.Itoa(t.slot+1))
 	case irFileSlotDefault:
 		return within(t.callee.Link(), " default "+strconv.Itoa(t.slot+1))
 	case irSlotDefault:

@@ -19,8 +19,8 @@ interface Sized {
         x
     }
 
-    fn pair(x: self) -> #(self, self) {
-        #(x, Sized.grown(x))
+    fn pair(x: self) -> (self, self) {
+        (x, Sized.grown(x))
     }
 
     fn twice(x: self, y: self) -> List<self> {
@@ -82,14 +82,14 @@ impl Display for Word {
 }
 
 fn total<T>(t: T) -> Int where T: Sized {
-    #(a, b) = T.pair(T.same(t))
+    (a, b) = T.pair(T.same(t))
     sizes = T.twice(a, b) |> Iter.map(fn x -> Sized.size(x)) |> Iter.to_list()
     Sized.size(T.grown(a)) + Sized.size(b) + Iter.count(sizes)
 }
 
 fn main() {
     io.print(Pot.same(Pot{ n: 3 }).n)
-    #(a, b) = Pot.pair(Pot{ n: 3 })
+    (a, b) = Pot.pair(Pot{ n: 3 })
     io.print("${a.n} ${b.n}")
     io.print(Pot.twice(a, b) |> Iter.map(fn p -> p.n) |> Iter.to_list())
     io.print(Pot.zero().n)
@@ -118,8 +118,8 @@ func TestDefaultSelfResult_RunsFromAnotherFile(t *testing.T) {
         Grow.make(Grow.size(g) + 1)
     }
 
-    fn both(g: self) -> #(self, self) {
-        #(g, Grow.grown(g))
+    fn both(g: self) -> (self, self) {
+        (g, Grow.grown(g))
     }
 
     fn zero() -> self {
@@ -145,7 +145,7 @@ impl Grow for Pot {
 }
 
 fn bigger<T>(t: T) -> Int where T: Grow {
-    #(a, b) = T.both(t)
+    (a, b) = T.both(t)
     Grow.size(a) + Grow.size(b)
 }
 
@@ -174,8 +174,8 @@ func TestDefaultSelfResult_ExistentialCallIsAnError(t *testing.T) {
         x
     }
 
-    fn pair(x: self) -> #(self, self) {
-        #(x, x)
+    fn pair(x: self) -> (self, self) {
+        (x, x)
     }
 
     fn both(x: self, y: self) -> Int {
@@ -207,9 +207,9 @@ func TestDefaultSelfResult_ExistentialCallIsAnError(t *testing.T) {
 		},
 		{
 			name: "self inside the result",
-			bad:  "fn f(e: Sized) -> Int {\n    #(a, _) = Sized.pair(e)\n    Sized.size(a)\n}\n",
-			good: "fn f<T>(e: T) -> Int where T: Sized {\n    #(a, _) = Sized.pair(e)\n    Sized.size(a)\n}\n",
-			want: "main.nomi:25:26: `Sized.pair` cannot be called on `e`, a `Sized`: its result is `self`",
+			bad:  "fn f(e: Sized) -> Int {\n    (a, _) = Sized.pair(e)\n    Sized.size(a)\n}\n",
+			good: "fn f<T>(e: T) -> Int where T: Sized {\n    (a, _) = Sized.pair(e)\n    Sized.size(a)\n}\n",
+			want: "main.nomi:25:25: `Sized.pair` cannot be called on `e`, a `Sized`: its result is `self`",
 			help: "`fn f<T>(e: T) -> Int where T: Sized`",
 		},
 		{

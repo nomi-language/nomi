@@ -223,7 +223,7 @@ func (r *completionRequest) symbolOf(n ast.Node) *analysis.Symbol {
 // fieldOf returns the field named name of a struct or anonymous struct
 // value type, with a generic struct's type arguments substituted.
 func fieldOf(t analysis.Type, name string) (analysis.FieldDef, bool) {
-	for _, f := range fieldsOf(t) {
+	for _, f := range readFieldsOf(t) {
 		if f.Name == name {
 			return f, true
 		}
@@ -250,6 +250,37 @@ func fieldsOf(t analysis.Type) []analysis.FieldDef {
 		return out
 	case *analysis.AnonStructType:
 		return v.Fields
+	}
+	return nil
+}
+
+// readFieldsOf lists what `x.‸` reads from a value of type t: fieldsOf, and
+// for a tuple or a named tuple its items under their ordinal names
+// (`first`, `second`, ...), each typed as its item.
+func readFieldsOf(t analysis.Type) []analysis.FieldDef {
+	if tup := tupleOf(t); tup != nil {
+		var out []analysis.FieldDef
+		for i, elem := range tup.Elems {
+			name, ok := ast.TupleOrdinal(i)
+			if !ok {
+				break
+			}
+			out = append(out, analysis.FieldDef{Name: name, Type: elem})
+		}
+		return out
+	}
+	return fieldsOf(t)
+}
+
+// tupleOf is t's tuple: t itself, or the tuple a named tuple wraps.
+func tupleOf(t analysis.Type) *analysis.TupleType {
+	switch v := analysis.ResolveTypeVar(t).(type) {
+	case *analysis.TupleType:
+		return v
+	case *analysis.DistinctType:
+		if tup, ok := analysis.ResolveTypeVar(analysis.DistinctInner(v)).(*analysis.TupleType); ok {
+			return tup
+		}
 	}
 	return nil
 }

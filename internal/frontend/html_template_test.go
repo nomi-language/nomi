@@ -96,7 +96,7 @@ func TestHtmlTemplate_SlotTypeErrorsSayWhatTheContextTakes(t *testing.T) {
 		{`    Html"<input checked=${name}>"`, "this slot takes an `OptionalAttribute`, and a `String` is not one", "pass a `Bool` or a `Maybe<String>`"},
 		{`    Html"<p>${Some(n > 0)}</p>"`, "element content does not show a `Maybe<Bool>`", "unwrap it; a `Maybe` of a `ToHtml` value shows its value"},
 		{`    Html"<p>${[name]}</p>"`, "element content does not show a `List<String>`", "render its elements with `Html.each`"},
-		{`    Html"<p>${#(n, n)}</p>"`, "element content does not show a `#(Int, Int)`", "put each part in a slot of its own"},
+		{`    Html"<p>${(n, n)}</p>"`, "element content does not show a `(Int, Int)`", "put each part in a slot of its own"},
 		{`    Html"<p class='${Some(Some(n))}'></p>"`, "this slot does not show a `Maybe<Maybe<Int>>`", "flatten it with `Maybe.flatten`"},
 		{`    Html"<p class='${Some(h)}'></p>"`, "this slot takes a `Display`, and a `Maybe<Html>` is not one", "or a `Maybe` of one, which writes nothing for `None`"},
 		{`    Html"<p>${fn x: Int -> x}</p>"`, "this slot takes a `ToHtml` or a `Display`, and a `(Int) -> Int` is neither", "or any other `Display` value, escaped as text"},

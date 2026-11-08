@@ -61,7 +61,9 @@ func (c *checker) checkStructDefFieldDefaults(n *ast.StructDef) {
 	if !ok || st == nil {
 		return
 	}
-	c.checkFieldDefaults(n.Name, n.Fields, st.Fields)
+	c.checkFieldDefaults(n.Name, n.Fields, st.Fields, func(f ast.StructField, t Type) {
+		setStructFieldType(c.fa, n, f, t)
+	})
 }
 
 // checkEnumDefFieldDefaults is the enum-variant twin. A record variant's fields
@@ -90,7 +92,9 @@ func (c *checker) checkEnumDefFieldDefaults(n *ast.EnumDef) {
 		if declared == nil {
 			continue
 		}
-		c.checkFieldDefaults(n.Name+"."+v.Name, v.Fields, declared)
+		c.checkFieldDefaults(n.Name+"."+v.Name, v.Fields, declared, func(f ast.StructField, t Type) {
+			setVariantFieldType(c.fa, n, v.Name, f, t)
+		})
 	}
 }
 
@@ -114,7 +118,11 @@ func (c *checker) declaredStructType(pos Pos, name string) Type {
 // checkFieldDefaults is the rule itself, shared by the struct and enum-variant
 // entry points. `owner` names the declaration in the diagnostic (`Cfg`, or
 // `Status.Active` for a record variant).
-func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, declaredFields []FieldDef) {
+//
+// A field with no type takes its default's (default_type.go): its default
+// is checked with no expected type, and set gives a block-local field, which
+// the inference phase does not see, its type.
+func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, declaredFields []FieldDef, set func(ast.StructField, Type)) {
 	for _, f := range fields {
 		if f.Default == nil {
 			continue
@@ -124,6 +132,10 @@ func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, dec
 			line, col = f.Line, f.Col
 		}
 		declared := findFieldType(declaredFields, f.Name)
+		if f.TypeAnnotation == nil && declared != nil {
+			c.checkInferredDefault(fieldDefaultExitless(f.Name, owner), "field", f.Name, f.Default, declared, f.Line, f.Col, func(t Type) { set(f, t) })
+			continue
+		}
 		if declared == nil {
 			// The annotation itself failed to resolve, or the field has
 			// none. Either way the failure is already reported by

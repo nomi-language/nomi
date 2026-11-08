@@ -18,9 +18,9 @@ test "a bare name is not a pipe stage" {
         """
         |> compiler.check()
 
-    places = Iter.map(diagnostics, fn d -> #(d.line, d.col)) |> Iter.to_list()
+    places = Iter.map(diagnostics, fn d -> (d.line, d.col)) |> Iter.to_list()
 
-    assert places == [#(8, 8), #(8, 18)]
+    assert places == [(8, 8), (8, 18)]
 
     assert Iter.any(diagnostics, fn d -> {
         String.starts_with(d.message, "a pipe stage is a call: write `double()`")
@@ -37,7 +37,7 @@ test "a type name is not a conversion function" {
         fn main() {
           n = Int("4")
           s = String(4)
-          _ = #(n, s)
+          _ = (n, s)
         }
         """
         |> compiler.check()

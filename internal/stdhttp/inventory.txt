@@ -20,7 +20,7 @@ Client.CheckRedirect | covered | phase 2 | `ClientOptions.redirects: Redirects` 
 Client.Jar | covered | phase 3 | `ClientOptions.cookies: Maybe<CookieJar>`
 Client.Timeout | covered | phase 2 | `ClientOptions.timeout: Maybe<Duration>`
 Client.Get | covered | phase 2 | `Client.get(client, url)`
-Client.Do | covered | phase 2 | `Client.fetch(client, request)` (whole body) and `Client.with_response(client, request, body)` (streaming)
+Client.Do | covered | phase 2 | `Client.fetch(client, request)` (whole body) and `Client.stream(client, request)`, a `StreamedResponse`, with `defer StreamedResponse.close(response)` (streaming)
 Client.Post | covered | phase 2 | `Client.post(client, url, body)`
 Client.PostForm | covered | phase 2 | `Client.post_form(client, url, query)`
 Client.Head | covered | phase 2 | `Client.head(client, url)`
@@ -117,7 +117,7 @@ Handler.ServeHTTP | mapped | phase 3 | Calling the function
 HandlerFunc | mapped | phase 3 | Any function of that type is a handler
 HandlerFunc.ServeHTTP | mapped | phase 3 | Calling the function
 Head | covered | phase 2 | `http.head(url)`
-Header | covered | phase 2 | `Headers`, an immutable, ordered, case-insensitive multi-map (`Headers[#("Accept", "text/html")]`)
+Header | covered | phase 2 | `Headers`, an immutable, ordered, case-insensitive multi-map (`Headers[("Accept", "text/html")]`)
 Header.Add | covered | phase 2 | `Headers.add(headers, name, value) -> Headers`
 Header.Set | covered | phase 2 | `Headers.set(headers, name, value) -> Headers`
 Header.Get | covered | phase 2 | `Headers.get(headers, name) -> Maybe<String>`
@@ -207,10 +207,10 @@ Request.CookiesNamed | covered | phase 3 | `Request.cookies_named(request, name)
 Request.Cookie | covered | phase 3 | `Request.cookie(request, name) -> Maybe<Cookie>`
 Request.AddCookie | covered | phase 3 | `Request.add_cookie(request, cookie) -> Request`
 Request.Referer | covered | phase 2 | `Request.referer(request) -> Maybe<String>`
-Request.MultipartReader | covered | phase 6 | `Request.with_parts(request, body: (Iter<Result<Part, Error>>) -> T) -> Result<T, Error>`
+Request.MultipartReader | covered | phase 6 | `Request.parts(request) -> Result<Iter<Result<Part, Error>>, Error>`
 Request.Write | covered | phase 6 | `Request.write_to(request, w) -> Result<Unit, Error>`
 Request.WriteProxy | covered | phase 6 | `Request.write_to(request, w, proxy: True)`
-Request.BasicAuth | covered | phase 2 | `Request.basic_auth(request) -> Maybe<#(String, String)>`
+Request.BasicAuth | covered | phase 2 | `Request.basic_auth(request) -> Maybe<(String, String)>`
 Request.SetBasicAuth | covered | phase 2 | `Request.with_basic_auth(request, user, password) -> Request`
 Request.ParseForm | mapped | phase 4 | `Request.form` parses on demand
 Request.ParseMultipartForm | mapped | phase 4 | `Request.multipart_form` parses on demand
@@ -247,7 +247,7 @@ ResponseController.EnableFullDuplex | covered | phase 6 | `Response.full_duplex:
 ResponseWriter | mapped | phase 3 | The handler returns a `Response`; `Body.Produce` writes a body as it goes
 ResponseWriter.Header | covered | phase 3 | `Response.headers`
 ResponseWriter.Write | mapped | phase 3 | `Response.body`, or writes inside `Body.Produce`
-ResponseWriter.WriteHeader | covered | phase 3 | `Response.status`; a 1xx goes in `Response.informational: List<#(Status, Headers)>`
+ResponseWriter.WriteHeader | covered | phase 3 | `Response.status`; a 1xx goes in `Response.informational: List<(Status, Headers)>`
 RoundTripper | covered | phase 2 | `ClientOptions.round_trip: Maybe<(Request) -> Result<Response, Error>>`, a function that answers every request
 RoundTripper.RoundTrip | covered | phase 2 | `ClientOptions.round_trip: Maybe<RoundTrip>`
 SameSite | covered | phase 3 | `SameSite` enum: `Default`, `Lax`, `Strict`, `None`
@@ -256,10 +256,10 @@ ServeContent | covered | phase 3 | `Response.content(request, name, modified: Ma
 ServeFile | covered | phase 3 | `http.serve_file(request, path) -> Response`
 ServeFileFS | covered | phase 3 | `http.serve_file(request, path)` (std/fs's backend)
 ServeMux | covered | phase 3 | `Router`
-ServeMux.Handler | covered | phase 3 | `Router.find(router, request) -> Maybe<#(Handler, String)>`
+ServeMux.Handler | covered | phase 3 | `Router.find(router, request) -> Maybe<(Handler, String)>`
 ServeMux.ServeHTTP | covered | phase 3 | `Router.handler(router) -> Handler`
-ServeMux.Handle | covered | phase 3 | `Router.new`, whose `#(route, handler)` rows are Go's Handle calls
-ServeMux.HandleFunc | covered | phase 3 | `Router.new`, whose `#(route, handler)` rows are Go's HandleFunc calls
+ServeMux.Handle | covered | phase 3 | `Router.new`, whose `(route, handler)` rows are Go's Handle calls
+ServeMux.HandleFunc | covered | phase 3 | `Router.new`, whose `(route, handler)` rows are Go's HandleFunc calls
 ServeTLS | covered | phase 5 | `http.listen` with `Server.tls: Some(...)`
 Server | covered | phase 3 | `Server` options struct
 Server.Addr | covered | phase 3 | `Server.address: String = ":http"`
@@ -390,7 +390,7 @@ Userinfo | covered | phase 1 | `Userinfo` struct
 Userinfo.Username | covered | phase 1 | `Userinfo.name: String`
 Userinfo.Password | covered | phase 1 | `Userinfo.password: Maybe<String>`
 Userinfo.String | covered | phase 1 | `Display for Userinfo`
-Values | covered | phase 1 | `Query`, an immutable, ordered multi-map (`Query[#("q", "nomi")]`)
+Values | covered | phase 1 | `Query`, an immutable, ordered multi-map (`Query[("q", "nomi")]`)
 Values.Get | covered | phase 1 | `Query.get(query, key) -> Maybe<String>`
 Values.Set | covered | phase 1 | `Query.set(query, key, value) -> Query`
 Values.Add | covered | phase 1 | `Query.add(query, key, value) -> Query`
@@ -838,7 +838,7 @@ LookupIP | covered | phase 5 | `net.lookup_ip(host) -> Result<List<String>, Erro
 LookupMX | covered | phase 5 | `net.lookup_mx(domain) -> Result<List<Mx>, Error>`
 LookupNS | covered | phase 5 | `net.lookup_ns(domain) -> Result<List<String>, Error>`
 LookupPort | covered | phase 5 | `net.lookup_port(service) -> Result<Int, Error>`
-LookupSRV | covered | phase 5 | `net.lookup_srv(service, protocol, domain) -> Result<#(String, List<Srv>), Error>`
+LookupSRV | covered | phase 5 | `net.lookup_srv(service, protocol, domain) -> Result<(String, List<Srv>), Error>`
 LookupTXT | covered | phase 5 | `net.lookup_txt(domain) -> Result<List<String>, Error>`
 MX | covered | phase 5 | `Mx` struct
 MX.Host | covered | phase 5 | `Mx.host: String`
@@ -862,7 +862,7 @@ ParseError | covered | phase 5 | `net.Error.InvalidAddress`
 ParseError.* | covered | phase 5 | `net.Error.InvalidAddress`'s `address` and `reason`, and `Display for net.Error`
 ParseIP | skipped | IP arithmetic; later.
 ParseMAC | skipped | Network interfaces; later.
-Pipe | covered | phase 5 | `net.pipe() -> #(Connection, Connection)`, two ends in memory, for tests
+Pipe | covered | phase 5 | `net.pipe() -> (Connection, Connection)`, two ends in memory, for tests
 ResolveIPAddr | skipped | Raw IP sockets.
 ResolveTCPAddr | covered | phase 5 | `net.lookup_host` and `net.split_host_port`
 ResolveUDPAddr | skipped | UDP; later.
@@ -887,7 +887,7 @@ SRV.Target | covered | phase 5 | `Srv.target: String`
 SRV.Port | covered | phase 5 | `Srv.port: Int`
 SRV.Priority | covered | phase 5 | `Srv.priority: Int`
 SRV.Weight | covered | phase 5 | `Srv.weight: Int`
-SplitHostPort | covered | phase 5 | `net.split_host_port(address) -> Result<#(String, String), Error>`
+SplitHostPort | covered | phase 5 | `net.split_host_port(address) -> Result<(String, String), Error>`
 TCPAddr | mapped | phase 5 | A `"host:port"` string
 TCPAddr.* | mapped | phase 5 | A `"host:port"` string; `net.split_host_port` takes it apart
 TCPAddrFromAddrPort | skipped | Takes a `netip.AddrPort`; later, with `std/netip`.

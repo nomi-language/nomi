@@ -81,16 +81,16 @@ fn main() {
     })
     // A loop in a loop's callback, in a lambda: the inner exits are the
     // inner loop's, and the outer 'return' after it is the outer loop's.
-    nested = fn rows: Int -> Iter.loop(#(0, 0), fn outer -> {
-        #(i, sum) = outer
+    nested = fn rows: Int -> Iter.loop((0, 0), fn outer -> {
+        (i, sum) = outer
         if i >= rows { break outer }
         inner = Iter.loop(0, fn j -> {
             if j == 1 { return 5 }
             if j > i + 5 { break j }
             j + 1
         })
-        if inner == 7 { return #(i + 1, sum) }
-        #(i + 1, sum + inner)
+        if inner == 7 { return (i + 1, sum) }
+        (i + 1, sum + inner)
     })
     io.inspect(nested(3))
     // A lambda that captures outer bindings the loop reads.
@@ -119,7 +119,7 @@ fn main() {
     io.print(direct)
 }
 `, "after the loop: 1103\n1104\nafter the loop: 20\n21\n[20, 60]\n[10, 20, 30]\n"+
-		"each 3: 4\neach 5: 5\n#(3, 14)\n15\n81\n16\n")
+		"each 3: 4\neach 5: 5\n(3, 14)\n15\n81\n16\n")
 }
 
 // A lambda in a test body: the loop lowers in the lambda, and the lambda's

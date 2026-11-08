@@ -51,7 +51,7 @@ package ir
 // AN INTERFACE AND NOT A FIELD, for `Arith.Faults`' own reason: whether an
 // operation can fault is DERIVED from what the operation is, so a consumer
 // asks the node rather than reading a bit a producer had to set. Two node
-// types satisfy it today — `*Arith` (twelve operator-and-domain combinations)
+// types satisfy it today — `*Arith` (the operator-and-domain combinations that trap)
 // and `*Proj` — which is what keeps this from being an interface with one
 // implementor dressed up as a general rule.
 type Faulting interface {

@@ -75,9 +75,9 @@ func TestCheckTarget_NamesTheProgramsOwnCallSites(t *testing.T) {
 	}
 }
 
-// A crossing two std functions deep (`fs.with_temp_dir` defers a private
-// `remove_quietly`, which removes the directory) is reported at the
-// program's call of the std function it entered std through.
+// A crossing two std functions deep (`fs.glob` calls `fs.exists`, which
+// reads metadata) is reported at the program's call of the std function it
+// entered std through.
 func TestCheckTarget_ACrossingDeepInStdIsReportedAtTheProgramsCall(t *testing.T) {
 	defer vmhost.LackingTargetForTest("nomitest", "nofiles", vmhost.ClassFiles)()
 	src := `import {
@@ -86,7 +86,7 @@ func TestCheckTarget_ACrossingDeepInStdIsReportedAtTheProgramsCall(t *testing.T)
 }
 
 fn scratch() -> Result<Int, io.Error> {
-    fs.with_temp_dir(fn _ -> Ok(1))
+    fs.glob("notes/*.txt") |> Result.map(fn names -> Iter.count(names))
 }
 
 fn main() {
@@ -103,18 +103,18 @@ fn main() {
 	}
 	refused := p.CheckTarget("nomi build --target nomitest/nofiles", "nomitest", "nofiles", false, nil)
 	if refused == nil {
-		t.Fatal("a target lacking files does not refuse fs.with_temp_dir")
+		t.Fatal("a target lacking files does not refuse fs.glob")
 	}
 	crossings := map[string]bool{}
 	for _, u := range refused.Uses {
-		if u.Site != "scratch.nomi:7:21" || !strings.HasPrefix(u.Callee, "fs.with_temp_dir") ||
+		if u.Site != "scratch.nomi:7:12" || !strings.HasPrefix(u.Callee, "fs.glob") ||
 			strings.Join(u.Chain, " ") != "main scratch" {
-			t.Errorf("use %+v, want it at scratch.nomi:7:21, the call of fs.with_temp_dir in scratch", u)
+			t.Errorf("use %+v, want it at scratch.nomi:7:12, the call of fs.glob in scratch", u)
 		}
 		crossings[u.Crossing] = true
 	}
-	if !crossings["fs_host.make_temp_dir"] || !crossings["fs_host.remove_all"] {
-		t.Errorf("the crossings are %v, want make_temp_dir and remove_all", crossings)
+	if !crossings["fs_host.metadata"] || !crossings["fs_host.list"] {
+		t.Errorf("the crossings are %v, want metadata and list", crossings)
 	}
 }
 

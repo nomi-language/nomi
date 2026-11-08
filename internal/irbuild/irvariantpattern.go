@@ -107,7 +107,7 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 			return nil, nil, false
 		}
 	case *ast.TuplePattern:
-		// A flat tuple pattern over a tuple payload (`Some(#(n, _))`), tested
+		// A flat tuple pattern over a tuple payload (`Some((n, _))`), tested
 		// against the projected payload as a tuple case arm is.
 		if _, ok := tupleCaseComponents(pat.Payload, pk); pat.Binding != "" || !ok {
 			return nil, nil, false

@@ -349,8 +349,8 @@ pub fn verify(
     key: VerifyingKey,
     validation: Validation = Validation{},
 ) -> Result<Map<String, Json>, JwtError> {
-    #(header_part, claims_part, signature_part) = case String.split(token, ".") {
-        [h, c, s] -> #(h, c, s)
+    (header_part, claims_part, signature_part) = case String.split(token, ".") {
+        [h, c, s] -> (h, c, s)
         _ -> return Err(JwtError.Malformed("a token is three parts joined by `.`"))
     }
 
@@ -530,22 +530,22 @@ fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Uni
             Unit
     }
 
-    case #(validation.audience, Map.get(claims, "aud")) {
-        #(_, None) when validation.audience |> Maybe.is_some() ->
+    case (validation.audience, Map.get(claims, "aud")) {
+        (_, None) when validation.audience |> Maybe.is_some() ->
             Err(JwtError.WrongAudience)
 
-        #(None, Some(_)) ->
+        (None, Some(_)) ->
             Err(JwtError.WrongAudience)
 
-        #(Some(audience), Some(.String(aud))) when aud == audience ->
+        (Some(audience), Some(.String(aud))) when aud == audience ->
             Ok(Unit)
 
-        #(Some(audience), Some(.Arr(list))) when Iter.any(list, fn a -> {
+        (Some(audience), Some(.Arr(list))) when Iter.any(list, fn a -> {
             a == Json.String(audience)
         }) ->
             Ok(Unit)
 
-        #(Some(_), Some(_)) ->
+        (Some(_), Some(_)) ->
             Err(JwtError.WrongAudience)
 
         _ ->

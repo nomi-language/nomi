@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Annotates a flower field with the number of flowers next to each empty
 //# square.
 
-once neighbours = [#(-1, -1), #(-1, 0), #(-1, 1), #(0, -1), #(0, 1), #(1, -1), #(1, 0), #(1, 1)]
+once neighbours = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
 /// Writes the count of adjacent flowers into each empty square of a board of
 /// `*` flowers and ` ` spaces. A square next to no flower stays a space.
@@ -22,37 +22,33 @@ pub fn annotate(garden: List<String>) -> List<String> {
     flowers =
         garden
         |> Iter.with_index()
-        |> Iter.flat_map(fn #(row, line) -> flowers_in_row(row, line))
+        |> Iter.flat_map(fn (row, line) -> flowers_in_row(row, line))
         |> Iter.to_set()
 
     garden
     |> Iter.with_index()
-    |> Iter.map(fn #(row, line) -> {
+    |> Iter.map(fn (row, line) -> {
         line
         |> Iter.with_index()
-        |> Iter.map(fn #(column, square) -> annotate_square(flowers, #(row, column), square))
+        |> Iter.map(fn (column, square) -> annotate_square(flowers, (row, column), square))
         |> String.join()
     })
     |> Iter.to_list()
 }
 
-fn flowers_in_row(row: Int, line: String) -> Iter<#(Int, Int)> {
+fn flowers_in_row(row: Int, line: String) -> Iter<(Int, Int)> {
     line
     |> Iter.with_index()
-    |> Iter.filter(fn #(_column, square) -> square == "*")
-    |> Iter.map(fn #(column, _square) -> #(row, column))
+    |> Iter.filter(fn (_column, square) -> square == "*")
+    |> Iter.map(fn (column, _square) -> (row, column))
 }
 
-fn annotate_square(
-    flowers: Set<#(Int, Int)>,
-    #(row, column): #(Int, Int),
-    square: String,
-) -> String {
+fn annotate_square(flowers: Set<(Int, Int)>, (row, column): (Int, Int), square: String) -> String {
     if square == "*" { return square }
 
     count =
         neighbours
-        |> Iter.filter(fn #(dr, dc) -> #(row + dr, column + dc) in flowers)
+        |> Iter.filter(fn (dr, dc) -> (row + dr, column + dc) in flowers)
         |> Iter.count()
 
     if count == 0 {
@@ -242,7 +238,7 @@ test result: ok. 13 passed, 0 failed
 
 ## How it's written
 
-- The garden stays `List<String>` in and out. Flowers are collected once into a `Set<#(Int, Int)>` of coordinates, so counting neighbours is eight set lookups and there is no grid indexing or bounds check.
+- The garden stays `List<String>` in and out. Flowers are collected once into a `Set<(Int, Int)>` of coordinates, so counting neighbours is eight set lookups and there is no grid indexing or bounds check.
 - Rows are iterated as strings of graphemes (`Iter` over `String`), comparing squares with `"*"`, not as codepoints; style §20 keeps text in strings.
 - The eight offsets are a `once` literal rather than generated from `-1..=1` twice with the centre removed.
 - Each canonical case is its own `test`, with the garden bound to `garden` before the assertion.

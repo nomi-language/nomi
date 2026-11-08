@@ -1068,10 +1068,9 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			w[d] = math.Float64bits(rt.NegFloat(math.Float64frombits(w[code[pc+1]])))
 			pc += 2
 		case opRemF:
-			// `rt.ModFloat` always traps, and the checker rejects the
-			// construct; the text is rt's one home.
-			err = rt.FloatModuloError(c.line(at))
-			goto failed
+			// IEEE 754's fmod: NaN for a zero divisor, never a fault.
+			w[d] = math.Float64bits(rt.ModFloat(math.Float64frombits(w[code[pc+1]]), math.Float64frombits(w[code[pc+2]])))
+			pc += 3
 
 		case opCmpI:
 			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])

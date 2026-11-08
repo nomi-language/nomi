@@ -26,10 +26,10 @@ fn main() {
   xs = [1, 2, 3]
   Iter.reverse(xs) |> io.inspect()
   xs |> Iter.map(fn x -> x * 10) |> Iter.reverse() |> io.inspect()
-  "abc" |> Iter.with_index() |> Iter.map(fn p -> "${p.0}:${p.1}") |> Iter.to_list() |> io.inspect()
-  Iter.zip(xs, ["a", "b"]) |> Iter.map(fn p -> "${p.1}${p.0}") |> Iter.to_list() |> io.inspect()
-  Iter.zip(Iter.from(10), xs) |> Iter.map(fn p -> p.0 + p.1) |> Iter.to_list() |> io.inspect()
-  Iter.from(5) |> Iter.take(3) |> Iter.with_index() |> Iter.map(fn p -> p.0 * p.1) |> Iter.to_list() |> io.inspect()
+  "abc" |> Iter.with_index() |> Iter.map(fn p -> "${p.first}:${p.second}") |> Iter.to_list() |> io.inspect()
+  Iter.zip(xs, ["a", "b"]) |> Iter.map(fn p -> "${p.second}${p.first}") |> Iter.to_list() |> io.inspect()
+  Iter.zip(Iter.from(10), xs) |> Iter.map(fn p -> p.first + p.second) |> Iter.to_list() |> io.inspect()
+  Iter.from(5) |> Iter.take(3) |> Iter.with_index() |> Iter.map(fn p -> p.first * p.second) |> Iter.to_list() |> io.inspect()
 }
 `, "[3, 2, 1]\n[30, 20, 10]\n[\"0:a\", \"1:b\", \"2:c\"]\n[\"a1\", \"b2\"]\n[11, 13, 15]\n[0, 6, 14]\n"},
 		{"known_count per source family", `import std::io
@@ -51,28 +51,28 @@ fn main() {
   Iter.get(xs, 9) |> io.inspect()
   Iter.get(xs, -1) |> io.inspect()
   parts = Iter.partition(xs, fn x -> x % 2 == 0)
-  parts.0 |> io.inspect()
-  parts.1 |> io.inspect()
+  parts.first |> io.inspect()
+  parts.second |> io.inspect()
   none = xs |> Iter.partition(fn x -> x > 100)
-  none.0 |> io.inspect()
-  none.1 |> Iter.count() |> io.print()
+  none.first |> io.inspect()
+  none.second |> Iter.count() |> io.print()
 }
 `, "Some(9)\nNone\nNone\n[4, 10]\n[7, 9]\n[]\n4\n"},
 		{"map and set sources", `import std::io
 
 fn main() {
   ages = %{"ann" => 31, "bo" => 22, "cy" => 40}
-  ages |> Iter.map(fn p -> "${p.0}=${p.1}") |> Iter.to_list() |> io.inspect()
+  ages |> Iter.map(fn p -> "${p.first}=${p.second}") |> Iter.to_list() |> io.inspect()
   Iter.count(ages) |> io.print()
   Iter.known_count(ages) |> io.inspect()
-  ages |> Iter.filter(fn p -> p.1 > 30) |> Iter.count() |> io.print()
-  Iter.any(ages, fn p -> p.0 == "bo") |> io.print()
+  ages |> Iter.filter(fn p -> p.second > 30) |> Iter.count() |> io.print()
+  Iter.any(ages, fn p -> p.first == "bo") |> io.print()
   five = 5
   s = %[five, 3, five, 9]
   s |> Iter.to_list() |> io.inspect()
   Iter.count(s) |> io.print()
   Iter.known_count(s) |> io.inspect()
-  Iter.zip(s, ["x", "y"]) |> Iter.map(fn p -> "${p.1}${p.0}") |> Iter.to_list() |> io.inspect()
+  Iter.zip(s, ["x", "y"]) |> Iter.map(fn p -> "${p.second}${p.first}") |> Iter.to_list() |> io.inspect()
   s |> Iter.reduce(0, fn a, x -> a + x) |> io.print()
   Iter.sort(s) |> io.inspect()
 }

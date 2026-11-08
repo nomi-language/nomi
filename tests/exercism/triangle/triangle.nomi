@@ -10,7 +10,7 @@ pub enum Kind {
 /// Classifies three side lengths, or answers `None` when they do not make a
 /// triangle: a side is not positive, or one side is longer than the other two
 /// together.
-pub fn kind(#(a, b, c): #(Float, Float, Float)) -> Maybe<Kind> {
+pub fn kind((a, b, c): (Float, Float, Float)) -> Maybe<Kind> {
     positive = a > 0.0 and b > 0.0 and c > 0.0
     inequality = a + b >= c and b + c >= a and a + c >= b
     if not (positive and inequality) { return None }
@@ -23,16 +23,16 @@ pub fn kind(#(a, b, c): #(Float, Float, Float)) -> Maybe<Kind> {
 }
 
 /// All three sides are equal.
-pub fn is_equilateral(sides: #(Float, Float, Float)) -> Bool {
+pub fn is_equilateral(sides: (Float, Float, Float)) -> Bool {
     kind(sides) == Some(.Equilateral)
 }
 
 /// At least two sides are equal, so every equilateral triangle is isosceles.
-pub fn is_isosceles(sides: #(Float, Float, Float)) -> Bool {
+pub fn is_isosceles(sides: (Float, Float, Float)) -> Bool {
     kind(sides) is Some(.Equilateral or .Isosceles)
 }
 
 /// No two sides are equal.
-pub fn is_scalene(sides: #(Float, Float, Float)) -> Bool {
+pub fn is_scalene(sides: (Float, Float, Float)) -> Bool {
     kind(sides) == Some(.Scalene)
 }

@@ -258,7 +258,7 @@ func (p *goProjection) String() string {
 	case projGeneric:
 		return p.name + "<" + join(p.args) + ">"
 	case projTuple:
-		return "#(" + join(p.args) + ")"
+		return "(" + join(p.args) + ")"
 	case projFunc:
 		return "(" + join(p.args) + ") -> " + p.ret.String()
 	case projStruct:

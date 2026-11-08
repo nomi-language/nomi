@@ -84,7 +84,7 @@ func StringSeq(s string) Seq[string] {
 //
 // `for i := range len(data)` and not `for i := range data`, which is the one
 // mistake this function exists in order not to make: `range` over a Go string
-// yields `#(byteIndex, rune)` at rune boundaries, so it would silently skip the
+// yields `(byteIndex, rune)` at rune boundaries, so it would silently skip the
 // continuation bytes of every multi-byte sequence. `String.to_bytes("café")` is
 // five octets and four runes, and the corpus checks exactly that case —
 // 04-scalars-and-text/strings_test.nomi expects `[99, 97, 102, 195, 169]`,
@@ -129,9 +129,9 @@ func BytesSeq(data Bytes) Seq[Byte] {
 // --- Map --------------------------------------------------------------------
 
 // MapEachWhile is `impl Iter for Map<K, V>`'s
-// `host fn each_while(m: Map<K, V>, yield: (#(K, V)) -> Bool) -> Bool`.
+// `host fn each_while(m: Map<K, V>, yield: ((K, V)) -> Bool) -> Bool`.
 //
-// `pair` builds the caller's `#(K, V)` tuple, because a Nomi tuple lowers to an
+// `pair` builds the caller's `(K, V)` tuple, because a Nomi tuple lowers to an
 // anonymous Go struct generated per package and rt cannot name it. The closure
 // is allocated once when the pipeline is built, not per element.
 //
@@ -148,7 +148,7 @@ func MapEachWhile[K, V, P any](fr *Frame, m Map[K, V], pair func(K, V) P, yield 
 	return true
 }
 
-// MapSeq views a Map as a push sequence of its `#(K, V)` pairs.
+// MapSeq views a Map as a push sequence of its `(K, V)` pairs.
 //
 // `MapEntries` is called inside `Run` rather than once here, so the sequence is
 // replayable and holds no materialized slice between consumptions.
@@ -292,7 +292,7 @@ func SeqDrop[T any](src Seq[T], n int64) Seq[T] {
 
 // WithIndexEach is `host fn with_index_each<T>(source: Iter<T>, yield) -> Bool`.
 //
-// `pair` builds the `#(Int, T)` tuple for the same reason MapEachWhile takes
+// `pair` builds the `(Int, T)` tuple for the same reason MapEachWhile takes
 // one: the tuple is an anonymous Go struct rt cannot name.
 //
 // The index is incremented for every element the source produced, whether or
@@ -308,7 +308,7 @@ func WithIndexEach[T, P any](fr *Frame, src Seq[T], pair func(int64, T) P, yield
 	})
 }
 
-// SeqWithIndex is `pub fn with_index<T>(source: Iter<T>) -> Iter<#(Int, T)>`.
+// SeqWithIndex is `pub fn with_index<T>(source: Iter<T>) -> Iter<(Int, T)>`.
 func SeqWithIndex[T, P any](src Seq[T], pair func(int64, T) P) Seq[P] {
 	return Seq[P]{Run: func(fr *Frame, yield func(fr *Frame, item P) bool) bool {
 		return WithIndexEach(fr, src, pair, yield)
@@ -547,7 +547,7 @@ func seqPull[U any](fr *Frame, src Seq[U]) (next func() (U, bool), stop func()) 
 	})
 }
 
-// SeqZip is `pub fn zip<T, U>(a: Iter<T>, b: Iter<U>) -> Iter<#(T, U)>`.
+// SeqZip is `pub fn zip<T, U>(a: Iter<T>, b: Iter<U>) -> Iter<(T, U)>`.
 //
 // The left source drives and the right becomes a pull cursor, because two push
 // sources cannot both be in charge of the loop. That asymmetry is the reason zip

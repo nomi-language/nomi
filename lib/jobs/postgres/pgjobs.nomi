@@ -108,16 +108,16 @@ fn check_schema(db: Conn, table: String) -> Result<Unit, sql.Error> {
 
     rows = Conn.query(db, statement)?
 
-    seed: Result<#(List<String>, List<String>), sql.Error> = Ok(#([], []))
+    seed: Result<(List<String>, List<String>), sql.Error> = Ok(([], []))
 
-    #(columns, relations) = Iter.reduce(rows, seed, fn acc, row -> {
-        #(cs, rs) = acc?
+    (columns, relations) = Iter.reduce(rows, seed, fn acc, row -> {
+        (cs, rs) = acc?
         name = Row.get<String>(row, "name")?
 
         if Row.get<String>(row, "kind")? == "column" {
-            Ok(#(cs + [name], rs))
+            Ok((cs + [name], rs))
         } else {
-            Ok(#(cs, rs + [name]))
+            Ok((cs, rs + [name]))
         }
     })?
 
@@ -319,19 +319,19 @@ impl Queue for Table {
 
         rows = Conn.query(t.db, in_table(t.table, statement))?
 
-        seed: Result<List<#(#(Int, Int, Int), Claimed)>, sql.Error> = Ok([])
+        seed: Result<List<((Int, Int, Int), Claimed)>, sql.Error> = Ok([])
 
         claimed = Iter.reduce(rows, seed, fn acc, row -> {
             found = acc?
             run_at = Row.get<Instant>(row, "run_at")?
             c = claimed_of(row)?
-            order = #(0 - Row.get<Int>(row, "priority")?, Instant.as_nanos(run_at), id_of(c.id))
-            Ok(found + [#(order, c)])
+            order = (0 - Row.get<Int>(row, "priority")?, Instant.as_nanos(run_at), id_of(c.id))
+            Ok(found + [(order, c)])
         })?
 
         claimed
-        |> Iter.sort_by(fn #(order, _) -> order)
-        |> Iter.map(fn #(_, c) -> c)
+        |> Iter.sort_by(fn (order, _) -> order)
+        |> Iter.map(fn (_, c) -> c)
         |> Iter.to_list()
         |> Ok()
     }

@@ -132,11 +132,11 @@ test "to_vector" {
 }
 
 test "to_map" {
-    assert hide(Iter.from(0)) |> Iter.map(fn x -> #(x, x)) |> Iter.to_map() == %{}
+    assert hide(Iter.from(0)) |> Iter.map(fn x -> (x, x)) |> Iter.to_map() == %{}
 }
 
 test "partition" {
-    assert hide(Iter.from(0)) |> Iter.partition(fn x -> x > 1) == #([], [])
+    assert hide(Iter.from(0)) |> Iter.partition(fn x -> x > 1) == ([], [])
 }
 
 test "group_by" {
@@ -152,7 +152,7 @@ test "flatten" {
 }
 
 test "map_reduce" {
-    assert hide(Iter.from(0)) |> Iter.map_reduce(0, fn s, x -> #(s + x, x)) == #(0, [])
+    assert hide(Iter.from(0)) |> Iter.map_reduce(0, fn s, x -> (s + x, x)) == (0, [])
 }
 
 test "String.join" {
@@ -165,7 +165,7 @@ test "Maybe.values" {
 
 test "Result.partition" {
     ok: Result<Int, String> = Result.Ok(1)
-    assert hide(Iter.repeat(ok)) |> Result.partition() == #([], [])
+    assert hide(Iter.repeat(ok)) |> Result.partition() == ([], [])
 }
 
 test "Task.spawn_all" {
@@ -183,7 +183,7 @@ test "through adapters that keep it infinite" {
     |> Iter.drop(2)
     |> Iter.drop_while(&(&1 < 10))
     |> Iter.with_index()
-    |> Iter.map(fn #(i, _) -> i)
+    |> Iter.map(fn (i, _) -> i)
     |> Iter.scan(0, fn total, x -> total + x)
     |> Iter.chunks(2)
     |> Iter.chunk_by(&Iter.count(&1))

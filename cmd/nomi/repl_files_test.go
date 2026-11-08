@@ -7,9 +7,9 @@ import "testing"
 // A generic function an earlier input declared is instantiated at the types
 // a later input calls it with, which no earlier lowering made.
 func TestReplVM_AnEarlierGenericIsInstantiatedLater(t *testing.T) {
-	replExpect(t, "fn pair<T>(x: T) -> #(T, T) {\n  #(x, x)\n}\npair(1)\npair(\"s\")\n"+
+	replExpect(t, "fn pair<T>(x: T) -> (T, T) {\n  (x, x)\n}\npair(1)\npair(\"s\")\n"+
 		"struct Box<T> {\n  v: T\n}\nb = Box{v: [1, 2]}\nb\nBox{v: pair(True)}\n",
-		"#(1, 1)\n#(\"s\", \"s\")\nBox{v: [1, 2]}\nBox{v: #(True, True)}\n")
+		"(1, 1)\n(\"s\", \"s\")\nBox{v: [1, 2]}\nBox{v: (True, True)}\n")
 }
 
 // An impl redefined in a later input replaces the earlier one for the

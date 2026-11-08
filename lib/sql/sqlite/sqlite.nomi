@@ -245,7 +245,7 @@ fn present(text: String) -> Maybe<String> {
 fn cells(statement: Statement) -> Result<List<Cell>, sql.Error> {
     statement.params
     |> Iter.with_index()
-    |> Iter.map(fn #(position, value) -> to_cell(position + 1, value))
+    |> Iter.map(fn (position, value) -> to_cell(position + 1, value))
     |> Result.collect()
 }
 
@@ -331,7 +331,7 @@ fn utc_text(i: Instant) -> String {
 fn to_row(query: String, columns: List<String>, types: List<String>, cells: List<Cell>) -> Row {
     values =
         Iter.zip(types, cells)
-        |> Iter.map(fn #(declared, c) -> to_value(declared, c))
+        |> Iter.map(fn (declared, c) -> to_value(declared, c))
         |> Iter.to_list()
 
     Row.new(
@@ -346,29 +346,29 @@ fn to_row(query: String, columns: List<String>, types: List<String>, cells: List
 fn to_value(declared: String, c: Cell) -> Value {
     plain = stored(c)
 
-    typed = case #(affinity(declared), plain) {
-        #("BOOL", .Int(n)) ->
+    typed = case (affinity(declared), plain) {
+        ("BOOL", .Int(n)) ->
             Some(Value.Bool(n != 0))
 
-        #("DECIMAL", .Text(s)) ->
+        ("DECIMAL", .Text(s)) ->
             String.to_decimal(s) |> Maybe.map(Value.Decimal)
 
-        #("DATE", .Text(s)) ->
+        ("DATE", .Text(s)) ->
             Date.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Date)
 
-        #("TIME", .Text(s)) ->
+        ("TIME", .Text(s)) ->
             Time.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Time)
 
-        #("TIMESTAMP", .Text(s)) ->
+        ("TIMESTAMP", .Text(s)) ->
             NaiveDateTime.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
 
-        #("TIMESTAMPTZ", .Text(s)) ->
+        ("TIMESTAMPTZ", .Text(s)) ->
             instant(s) |> Maybe.map(Value.Timestamptz)
 
-        #("UUID", .Text(s)) ->
+        ("UUID", .Text(s)) ->
             Uuid.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
 
-        #("JSON", .Text(s)) ->
+        ("JSON", .Text(s)) ->
             Json.decode(s) |> Result.to_maybe() |> Maybe.map(Value.Json)
 
         _ ->

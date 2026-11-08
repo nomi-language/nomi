@@ -31,10 +31,6 @@ pub host fn open(path: String) -> Result<Reader, Error>
 /// A writer over the file at `path`, in the write mode at position `mode`.
 pub host fn create(path: String, mode: Int) -> Result<Writer, Error>
 
-/// Gives up a writer still open: an atomic write leaves the old file as it
-/// was, and any other writer is closed. A closed writer is left alone.
-pub host fn discard(w: Writer) -> Unit
-
 /// The entries of `dir`, sorted by name, each its kind's letter (`f`, `d`,
 /// `l`, `o`) and its name, or `!` and the name with U+FFFD for each bad
 /// sequence when it is not UTF-8.

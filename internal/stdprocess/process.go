@@ -5,8 +5,8 @@
 //
 // A child is started by `start` with each stream in a mode the Nomi side
 // chose: `process.output` captures stdout and stderr, `process.run` sends
-// them to the program's own output, and `process.with_spawned` pipes all
-// three to the body. Nothing is run through a shell: the program is looked
+// them to the program's own output, and `process.spawn` pipes all
+// three to the caller. Nothing is run through a shell: the program is looked
 // up on PATH when its name has no separator, and its arguments are passed
 // as they are.
 package stdprocess

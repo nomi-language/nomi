@@ -391,7 +391,7 @@ func (r *completionRequest) candidates() []candidate {
 }
 
 // shapeHeadCandidates offers the names a literal's `#` or `%` can head:
-// after `#`, structs, enums and distinct types over a tuple or vector;
+// after `#`, structs, enums and distinct types over a vector;
 // after `%`, distinct types over a map or set. Unqualified, the modules
 // that qualify such a name are offered too.
 func (r *completionRequest) shapeHeadCandidates() []candidate {

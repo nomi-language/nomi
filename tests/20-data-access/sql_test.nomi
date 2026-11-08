@@ -77,11 +77,11 @@ test "a row reads every std type, and Maybe of each" {
     at = Instant.from_seconds(1760866200)
 
     row = Row.new("SELECT *", [
-        #("day", Value.Date(day)),
-        #("at", Value.Timestamptz(at)),
-        #("price", Value.Decimal(12.50d)),
-        #("doc", Value.Json(Json.Null)),
-        #("gone", Value.Null),
+        ("day", Value.Date(day)),
+        ("at", Value.Timestamptz(at)),
+        ("price", Value.Decimal(12.50d)),
+        ("doc", Value.Json(Json.Null)),
+        ("gone", Value.Null),
     ])
 
     assert Row.get<Date>(row, "day") == Ok(day)
@@ -163,9 +163,9 @@ test "from_sql names the type it expected when the value is not one" {
 
 fn user_row() -> Row {
     Row.new("SELECT id, name, nickname FROM users", [
-        #("id", Value.Int(7)),
-        #("name", Value.Text("Ada")),
-        #("nickname", Value.Null),
+        ("id", Value.Int(7)),
+        ("name", Value.Text("Ada")),
+        ("nickname", Value.Null),
     ])
 }
 

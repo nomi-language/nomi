@@ -9,7 +9,7 @@ import (
 // returns the error messages.
 func shapePatternErrors(t *testing.T, body string) []string {
 	t.Helper()
-	src := "type Path Vector<Int>\n\nfn run(s: Set<String>, v: Vector<Int>, p: Path) -> Int {\n    _ = #(s, v, p)\n" + body + "\n}\n"
+	src := "type Path Vector<Int>\n\nfn run(s: Set<String>, v: Vector<Int>, p: Path) -> Int {\n    _ = (s, v, p)\n" + body + "\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	var out []string
 	for _, e := range errs {
@@ -113,7 +113,7 @@ func TestSetPatternsCheck(t *testing.T) {
 // The spellings the shape symbols replace that still parse are checker
 // errors, never another meaning.
 func TestOldShapeSpellingsAreCheckerErrors(t *testing.T) {
-	const decls = "type Pair #(Int, String)\n\n"
+	const decls = "type Pair (Int, String)\n\n"
 	check := func(body, want string) {
 		t.Helper()
 		_, errs := checkSourceWithStdlib(decls + "fn run(p: Pair) -> Int {\n    _ = p\n" + body + "\n    0\n}\n")
@@ -126,5 +126,5 @@ func TestOldShapeSpellingsAreCheckerErrors(t *testing.T) {
 	}
 	check(`    _ = Vector[1, 2]`, "Vector is not a list-distinct type")
 	check(`    _ = Set[1, 2]`, "Set is not a list-distinct type")
-	check(`    _ = Pair(1, "a", 2)`, "Pair wraps #(Int, String), a tuple of 2 elements; got 3")
+	check(`    _ = Pair(1, "a", 2)`, "Pair wraps (Int, String), a tuple of 2 elements; got 3")
 }

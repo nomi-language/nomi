@@ -186,14 +186,19 @@ func fieldNames(fields []FieldDef) []string {
 }
 
 // typeMemberNames are what `Type.member` can name on typeName: its variants
-// when it is an enum, and the functions its impl blocks declare.
+// when it is an enum, the functions its impl blocks declare, and the
+// defaults it inherits from its interfaces.
 func (c *checker) typeMemberNames(typeName string) []string {
 	var names []string
 	if et, ok := c.reg.Lookup(typeName).(*EnumType); ok && et != nil {
 		names = variantNames(et)
 	}
 	if c.fa != nil {
-		for name := range c.fa.VisibleTypeMethods(typeName) {
+		fns := c.fa.TypeDefaultFunctions(typeName)
+		for name, sym := range c.fa.VisibleTypeMethods(typeName) {
+			fns[name] = sym
+		}
+		for name := range fns {
 			names = append(names, name)
 		}
 	}

@@ -43,16 +43,16 @@ impl School {
     /// Every student, by grade and then by name.
     pub fn roster(school: School) -> List<String> {
         school.grades
-        |> Iter.sort_by(fn #(name, grade) -> #(grade, name))
-        |> Iter.map(fn #(name, _grade) -> name)
+        |> Iter.sort_by(fn (name, grade) -> (grade, name))
+        |> Iter.map(fn (name, _grade) -> name)
         |> Iter.to_list()
     }
 
     /// The students in `grade`, by name.
     pub fn grade(school: School, grade: Int) -> List<String> {
         school.grades
-        |> Iter.filter(fn #(_name, in_grade) -> in_grade == grade)
-        |> Iter.map(fn #(name, _grade) -> name)
+        |> Iter.filter(fn (_name, in_grade) -> in_grade == grade)
+        |> Iter.map(fn (name, _grade) -> name)
         |> Iter.sort()
     }
 }
@@ -60,134 +60,134 @@ impl School {
 // FILE: grade_school_test.nomi
 import grade_school.School
 
-/// Adds each `#(name, grade)` in turn, answering the school after all of
+/// Adds each `(name, grade)` in turn, answering the school after all of
 /// them and whether each was added.
-fn enroll(students: List<#(String, Int)>) -> #(School, List<Bool>) {
+fn enroll(students: List<(String, Int)>) -> (School, List<Bool>) {
     students
-    |> Iter.map_reduce(School.new(), fn school, #(name, grade) -> {
+    |> Iter.map_reduce(School.new(), fn school, (name, grade) -> {
         case School.add(school, name, grade) {
-            Ok(added) -> #(added, True)
-            Err(_) -> #(school, False)
+            Ok(added) -> (added, True)
+            Err(_) -> (school, False)
         }
     })
 }
 
 test "adding students" {
     [
-        #("Add a student", [#("Aimee", 2)], [True]),
-        #(
+        ("Add a student", [("Aimee", 2)], [True]),
+        (
             "Adding multiple students in the same grade in the roster",
-            [#("Blair", 2), #("James", 2), #("Paul", 2)],
+            [("Blair", 2), ("James", 2), ("Paul", 2)],
             [True, True, True],
         ),
-        #(
+        (
             "Cannot add student to same grade in the roster more than once",
-            [#("Blair", 2), #("James", 2), #("James", 2), #("Paul", 2)],
+            [("Blair", 2), ("James", 2), ("James", 2), ("Paul", 2)],
             [True, True, False, True],
         ),
-        #("Adding students in multiple grades", [#("Chelsea", 3), #("Logan", 7)], [True, True]),
-        #(
+        ("Adding students in multiple grades", [("Chelsea", 3), ("Logan", 7)], [True, True]),
+        (
             "Cannot add same student to multiple grades in the roster",
-            [#("Blair", 2), #("James", 2), #("James", 3), #("Paul", 3)],
+            [("Blair", 2), ("James", 2), ("James", 3), ("Paul", 3)],
             [True, True, False, True],
         ),
     ]
-    |> subtests #(description, students, expected), description {
-        #(_school, added) = enroll(students)
+    |> subtests (description, students, expected), description {
+        (_school, added) = enroll(students)
         assert added == expected
     }
 }
 
 test "the roster" {
     [
-        #("Roster is empty when no student is added", [], []),
-        #("Student is added to the roster", [#("Aimee", 2)], ["Aimee"]),
-        #(
+        ("Roster is empty when no student is added", [], []),
+        ("Student is added to the roster", [("Aimee", 2)], ["Aimee"]),
+        (
             "Multiple students in the same grade are added to the roster",
-            [#("Blair", 2), #("James", 2), #("Paul", 2)],
+            [("Blair", 2), ("James", 2), ("Paul", 2)],
             ["Blair", "James", "Paul"],
         ),
-        #(
+        (
             "Student not added to same grade in the roster more than once",
-            [#("Blair", 2), #("James", 2), #("James", 2), #("Paul", 2)],
+            [("Blair", 2), ("James", 2), ("James", 2), ("Paul", 2)],
             ["Blair", "James", "Paul"],
         ),
-        #(
+        (
             "Students in multiple grades are added to the roster",
-            [#("Chelsea", 3), #("Logan", 7)],
+            [("Chelsea", 3), ("Logan", 7)],
             ["Chelsea", "Logan"],
         ),
-        #(
+        (
             "Student not added to multiple grades in the roster",
-            [#("Blair", 2), #("James", 2), #("James", 3), #("Paul", 3)],
+            [("Blair", 2), ("James", 2), ("James", 3), ("Paul", 3)],
             ["Blair", "James", "Paul"],
         ),
-        #(
+        (
             "Students are sorted by grades in the roster",
-            [#("Jim", 3), #("Peter", 2), #("Anna", 1)],
+            [("Jim", 3), ("Peter", 2), ("Anna", 1)],
             ["Anna", "Peter", "Jim"],
         ),
-        #(
+        (
             "Students are sorted by name in the roster",
-            [#("Peter", 2), #("Zoe", 2), #("Alex", 2)],
+            [("Peter", 2), ("Zoe", 2), ("Alex", 2)],
             ["Alex", "Peter", "Zoe"],
         ),
-        #(
+        (
             "Students are sorted by grades and then by name in the roster",
             [
-                #("Peter", 2),
-                #("Anna", 1),
-                #("Barb", 1),
-                #("Zoe", 2),
-                #("Alex", 2),
-                #("Jim", 3),
-                #("Charlie", 1),
+                ("Peter", 2),
+                ("Anna", 1),
+                ("Barb", 1),
+                ("Zoe", 2),
+                ("Alex", 2),
+                ("Jim", 3),
+                ("Charlie", 1),
             ],
             ["Anna", "Barb", "Charlie", "Alex", "Peter", "Zoe", "Jim"],
         ),
     ]
-    |> subtests #(description, students, expected), description {
-        #(school, _added) = enroll(students)
+    |> subtests (description, students, expected), description {
+        (school, _added) = enroll(students)
         assert School.roster(school) == expected
     }
 }
 
 test "one grade" {
     [
-        #("Grade is empty if no students in the roster", [], 1, []),
-        #(
+        ("Grade is empty if no students in the roster", [], 1, []),
+        (
             "Grade is empty if no students in that grade",
-            [#("Peter", 2), #("Zoe", 2), #("Alex", 2), #("Jim", 3)],
+            [("Peter", 2), ("Zoe", 2), ("Alex", 2), ("Jim", 3)],
             1,
             [],
         ),
-        #(
+        (
             "Student not added to same grade more than once",
-            [#("Blair", 2), #("James", 2), #("James", 2), #("Paul", 2)],
+            [("Blair", 2), ("James", 2), ("James", 2), ("Paul", 2)],
             2,
             ["Blair", "James", "Paul"],
         ),
-        #(
+        (
             "Student not added to multiple grades",
-            [#("Blair", 2), #("James", 2), #("James", 3), #("Paul", 3)],
+            [("Blair", 2), ("James", 2), ("James", 3), ("Paul", 3)],
             2,
             ["Blair", "James"],
         ),
-        #(
+        (
             "Student not added to other grade for multiple grades",
-            [#("Blair", 2), #("James", 2), #("James", 3), #("Paul", 3)],
+            [("Blair", 2), ("James", 2), ("James", 3), ("Paul", 3)],
             3,
             ["Paul"],
         ),
-        #(
+        (
             "Students are sorted by name in a grade",
-            [#("Franklin", 5), #("Bradley", 5), #("Jeff", 1)],
+            [("Franklin", 5), ("Bradley", 5), ("Jeff", 1)],
             5,
             ["Bradley", "Franklin"],
         ),
     ]
-    |> subtests #(description, students, grade, expected), description {
-        #(school, _added) = enroll(students)
+    |> subtests (description, students, grade, expected), description {
+        (school, _added) = enroll(students)
         assert School.grade(school, grade) == expected
     }
 }
@@ -203,7 +203,7 @@ test result: ok. 20 passed, 0 failed
 
 - `School` is an opaque struct over one `Map<String, Int>` from each name to its grade. A student is enrolled at most once in the whole school, so the name is the key, and the map refuses a second grade for a name by construction rather than by a check across grades.
 - `School.add` returns `Result<School, Error>`, with `Error.AlreadyEnrolled` for a name already on the roster. The school is a value, so adding returns the new school; the canonical "add" cases' `true` and `false` are whether each `add` answered `Ok`.
-- The roster is one `Iter.sort_by` with the tuple key `#(grade, name)` (style §37): tuples compare element by element, so the grade decides and the name breaks a tie.
+- The roster is one `Iter.sort_by` with the tuple key `(grade, name)` (style §37): tuples compare element by element, so the grade decides and the name breaks a tie.
 - `School.grade` filters the map's pairs to the grade and sorts the names with `Iter.sort`.
 - The tests build each school with an `enroll` helper, one `Iter.map_reduce` over the students whose state is the school and whose output is whether each `add` succeeded. A refused add keeps the school as it was, which is what the canonical cases expect of the roster after a duplicate.
 - The three canonical properties are three `subtests` tables. The roster and grade tables open with empty lists and need no annotation, since later rows give the element types. The three cases that newer ones reimplement are left out.

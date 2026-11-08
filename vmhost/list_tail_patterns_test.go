@@ -41,9 +41,9 @@ fn body(lines: List<String>) -> String {
     String.join(inner, "|")
 }
 
-fn pairs(xs: List<#(String, Int)>) -> String {
+fn pairs(xs: List<(String, Int)>) -> String {
     case xs {
-        [#(k, _), .., #(_, v)] -> "${k} ${v}"
+        [(k, _), .., (_, v)] -> "${k} ${v}"
         _ -> "none"
     }
 }
@@ -62,8 +62,8 @@ fn main() {
     io.print(body(["graph {", "}"]))
     io.print(body(["graph {"]))
     io.print(body(["graph {", "a"]))
-    io.print(pairs([#("a", 1), #("b", 2), #("c", 3)]))
-    io.print(pairs([#("a", 1)]))
+    io.print(pairs([("a", 1), ("b", 2), ("c", 3)]))
+    io.print(pairs([("a", 1)]))
     io.print(pairs([]))
 }
 `)

@@ -18,6 +18,10 @@ struct Point {
     x: Int
 }
 
+struct Op {
+    f: (Int) -> Int
+}
+
 interface Shape {
     fn area(s: self) -> Float
     fn scale(s: self, by: Float) -> self
@@ -38,6 +42,10 @@ fn key<H>(h: H) -> Int where H: Hashable {
     Hashable.hash(h)
 }
 
+fn rank<C>(a: C, b: C) -> Ordering where C: Comparable {
+    Comparable.compare(a, b)
+}
+
 `
 	for _, tc := range []struct {
 		name, call, message, help string
@@ -50,9 +58,9 @@ fn key<H>(h: H) -> Int where H: Hashable {
 		},
 		{
 			"broad std interface, std type",
-			`key(Ordering.Less)`,
-			"Ordering does not implement Hashable (required by `where H: Hashable`)",
-			"only std can implement `Hashable` for `Ordering`; wrap it in a type of your own that implements `Hashable`",
+			`rank(Ordering.Less, Ordering.More)`,
+			"Ordering does not implement Comparable (required by `where C: Comparable`)",
+			"only std can implement `Comparable` for `Ordering`; wrap it in a type of your own that implements `Comparable`",
 		},
 		{
 			"own interface",
@@ -68,9 +76,15 @@ fn key<H>(h: H) -> Int where H: Hashable {
 		},
 		{
 			"derivable interface, own type",
-			`key(Point{x: 1})`,
-			"Point does not implement Hashable (required by `where H: Hashable`)",
-			"add `derive Hashable` to `Point` or write an `impl Hashable for Point` block with `fn hash(value: Point) -> Int`",
+			`rank(Point{x: 1}, Point{x: 2})`,
+			"Point does not implement Comparable (required by `where C: Comparable`)",
+			"add `derive Comparable` to `Point` or write an `impl Comparable for Point` block with `fn compare(a: Point, b: Point) -> Ordering`",
+		},
+		{
+			"an equality bound, a type that holds a function",
+			`key(Op{f: fn x -> x})`,
+			"Op does not implement Hashable (required by `where H: Hashable`)",
+			"`Op` holds `(Int) -> Int`, and a function value has no equality",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

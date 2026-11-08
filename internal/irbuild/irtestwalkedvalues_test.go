@@ -33,9 +33,9 @@ impl Literal for Upper {
 }
 
 test "a tuple" {
-  pair = #(1, "one")
-  assert pair.0 == 1
-  assert pair.1 == "uno"
+  pair = (1, "one")
+  assert pair.first == 1
+  assert pair.second == "uno"
 }
 
 test "a map" {

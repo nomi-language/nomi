@@ -52,7 +52,7 @@ fn verse(number: Int) -> List<String> {
     chain =
         swallowed
         |> Iter.zip(Iter.drop(swallowed, 1))
-        |> Iter.map(fn #(predator, prey) -> {
+        |> Iter.map(fn (predator, prey) -> {
             "She swallowed the ${predator.name} to catch the ${prey.name}${prey.detail}."
         })
 

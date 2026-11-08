@@ -23,8 +23,8 @@ func TestVM_PartialQualified(t *testing.T) {
 		"> d",
 		"app> e",
 		"app> f",
-		"#(1, 2)",
-		"[#(0, 3), #(0, 4)]",
+		"(1, 2)",
+		"[(0, 3), (0, 4)]",
 		`["xxx"]`,
 		"",
 	}, "\n")

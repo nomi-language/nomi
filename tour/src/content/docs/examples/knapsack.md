@@ -37,7 +37,7 @@ pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int {
 fn consider(best: Vector<Int>, item: Item) -> Vector<Int> {
     best
     |> Iter.with_index()
-    |> Iter.map(fn #(capacity, without) -> {
+    |> Iter.map(fn (capacity, without) -> {
         if capacity < item.weight {
             without
         } else {
@@ -51,10 +51,10 @@ fn consider(best: Vector<Int>, item: Item) -> Vector<Int> {
 import knapsack.{self, Item}
 
 test "maximum value" {
-    cases: List<#(String, Int, List<Item>, Int)> = [
-        #("no items", 100, [], 0),
-        #("one item, too heavy", 10, [#{weight: 100, value: 1}], 0),
-        #(
+    cases: List<(String, Int, List<Item>, Int)> = [
+        ("no items", 100, [], 0),
+        ("one item, too heavy", 10, [#{weight: 100, value: 1}], 0),
+        (
             "five items (cannot be greedy by weight)",
             10,
             [
@@ -66,7 +66,7 @@ test "maximum value" {
             ],
             21,
         ),
-        #(
+        (
             "five items (cannot be greedy by value)",
             10,
             [
@@ -78,7 +78,7 @@ test "maximum value" {
             ],
             80,
         ),
-        #(
+        (
             "example knapsack",
             10,
             [
@@ -89,7 +89,7 @@ test "maximum value" {
             ],
             90,
         ),
-        #(
+        (
             "8 items",
             104,
             [
@@ -104,7 +104,7 @@ test "maximum value" {
             ],
             900,
         ),
-        #(
+        (
             "15 items",
             750,
             [
@@ -128,7 +128,7 @@ test "maximum value" {
         ),
     ]
 
-    subtests cases, #(description, maximum_weight, items, expected), description {
+    subtests cases, (description, maximum_weight, items, expected), description {
         assert knapsack.maximum_value(items, maximum_weight) == expected
     }
 }

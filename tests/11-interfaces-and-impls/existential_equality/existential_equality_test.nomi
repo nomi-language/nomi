@@ -80,7 +80,7 @@ test "an embeds enum's hand-written Equatable decides for its values" {
 test "inside a tuple, a Maybe and a list" {
     a: Show = Name{text: "Ada"}
     b: Show = Name{text: "ada"}
-    assert #(a, 1) == #(b, 1)
+    assert (a, 1) == (b, 1)
     left: Maybe<Show> = Some(a)
     right: Maybe<Show> = Some(b)
     assert left == right

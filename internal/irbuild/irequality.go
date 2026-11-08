@@ -248,6 +248,11 @@ func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
 	if g.reg == nil || k.def == nil || k.def.decl == nil {
 		return nil, nil
 	}
+	if k.def.instOrigin != nil {
+		// A mirror of another file's generic instance: its impls are
+		// registered against the owner's instance, never in implOrder.
+		return g.instanceImpl(k.def, "Equatable", "equal")
+	}
 	for _, og := range g.reg.gens {
 		if og == nil || og == g {
 			continue

@@ -17,33 +17,33 @@ struct Point {
 }
 
 fn main() {
-    f = fn #(a, b): #(Int, Int) = #(1, 2) -> a + b
+    f = fn (a, b): (Int, Int) = (1, 2) -> a + b
     io.inspect(f())
-    io.inspect(f(#(10, 20)))
+    io.inspect(f((10, 20)))
     g = fn Point{x, y} = Point{x: 3, y: 4} -> x * y
     io.inspect(g())
     io.inspect(g(Point{x: 5, y: 6}))
-    h = fn #(a, #(b, c)): #(Int, #(Int, Int)) = #(1, #(2, 3)) -> a + b * c
+    h = fn (a, (b, c)): (Int, (Int, Int)) = (1, (2, 3)) -> a + b * c
     io.inspect(h())
-    io.inspect(h(#(2, #(3, 4))))
-    n = fn #(p, Point{x, y}): #(String, Point) = #("o", Point{x: 0, y: 0}) -> "${p}${x}${y}"
+    io.inspect(h((2, (3, 4))))
+    n = fn (p, Point{x, y}): (String, Point) = ("o", Point{x: 0, y: 0}) -> "${p}${x}${y}"
     io.inspect(n())
-    io.inspect(n(#("q", Point{x: 1, y: 2})))
-    k = fn n: Int, #(lo, hi): #(Int, Int) = #(n, n + 1) -> lo + hi
+    io.inspect(n(("q", Point{x: 1, y: 2})))
+    k = fn n: Int, (lo, hi): (Int, Int) = (n, n + 1) -> lo + hi
     io.inspect(k(5))
-    io.inspect(k(5, #(0, 1)))
-    s = fn #(a, b): #(Int, Int), #(c, d): #(Int, Int) = #(b, a) -> a * 1000 + b * 100 + c * 10 + d
-    io.inspect(s(#(1, 2)))
-    io.inspect(s(#(1, 2), #(3, 4)))
-    r = [1, 2, 3, 4] |> Iter.reduce(#(0, 0), fn #(sum, count), x -> #(sum + x, count + 1))
+    io.inspect(k(5, (0, 1)))
+    s = fn (a, b): (Int, Int), (c, d): (Int, Int) = (b, a) -> a * 1000 + b * 100 + c * 10 + d
+    io.inspect(s((1, 2)))
+    io.inspect(s((1, 2), (3, 4)))
+    r = [1, 2, 3, 4] |> Iter.reduce((0, 0), fn (sum, count), x -> (sum + x, count + 1))
     io.inspect(r)
     q = [1, 2, 3] |> Iter.reduce(Point{x: 0, y: 1}, fn Point{x, y}, v -> Point{x: x + v, y: y * (v + 1)})
     io.inspect(q)
-    w = [1, 2] |> Iter.reduce(#(0, #(100, 0)), fn #(s, #(lo, hi)), v -> #(s + v, #(if v < lo { v } else { lo }, if v > hi { v } else { hi })))
+    w = [1, 2] |> Iter.reduce((0, (100, 0)), fn (s, (lo, hi)), v -> (s + v, (if v < lo { v } else { lo }, if v > hi { v } else { hi })))
     io.inspect(w)
-    l = Iter.loop(#(5, 1), fn #(n, acc): #(Int, Int) -> {
-        if n == 0 { break #(n, acc) }
-        #(n - 1, acc * n)
+    l = Iter.loop((5, 1), fn (n, acc): (Int, Int) -> {
+        if n == 0 { break (n, acc) }
+        (n - 1, acc * n)
     })
     io.inspect(l)
     m = Iter.loop(Point{x: 0, y: 0}, fn Point{x, y} -> {
@@ -51,9 +51,9 @@ fn main() {
         Point{x: x + 1, y: y + x}
     })
     io.inspect(m)
-    o = Iter.loop(#(0, #(0, 1)), fn #(i, #(a, b)) -> {
-        if i == 10 { break #(i, #(a, b)) }
-        #(i + 1, #(b, a + b))
+    o = Iter.loop((0, (0, 1)), fn (i, (a, b)) -> {
+        if i == 10 { break (i, (a, b)) }
+        (i + 1, (b, a + b))
     })
     io.inspect(o)
 }
@@ -70,12 +70,12 @@ fn main() {
 1
 1221
 1234
-#(10, 4)
+(10, 4)
 Point{x: 6, y: 24}
-#(3, #(1, 2))
-#(0, 120)
+(3, (1, 2))
+(0, 120)
 Point{x: 3, y: 3}
-#(10, #(55, 89))
+(10, (55, 89))
 `
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)

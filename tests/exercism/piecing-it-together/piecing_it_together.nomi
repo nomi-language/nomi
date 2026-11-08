@@ -86,13 +86,13 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw {
 fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool {
     counts_agree =
         [
-            #(clues.pieces, jigsaw.pieces),
-            #(clues.border, jigsaw.border),
-            #(clues.inside, jigsaw.inside),
-            #(clues.rows, jigsaw.rows),
-            #(clues.columns, jigsaw.columns),
+            (clues.pieces, jigsaw.pieces),
+            (clues.border, jigsaw.border),
+            (clues.inside, jigsaw.inside),
+            (clues.rows, jigsaw.rows),
+            (clues.columns, jigsaw.columns),
         ]
-        |> Iter.all(fn #(known, actual) -> agrees(known, actual))
+        |> Iter.all(fn (known, actual) -> agrees(known, actual))
 
     ratio_agrees = Iter.all(clues.aspect_ratio, &Float.equal_within(&1, jigsaw.aspect_ratio, 1e-9))
 

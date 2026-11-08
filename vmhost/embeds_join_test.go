@@ -9,8 +9,8 @@ import (
 // it embeds is a collection of the enum, at the top or nested, and each
 // embedded value is widened where it sits. The checker typed the top-level
 // joins and the IR builder declined every one but the list ("this map
-// literal is not supported yet"); a nested join (`[#(1, c), #(2, s)]`) the
-// checker typed by its first element, `List<#(Int, Circle)>`, though the
+// literal is not supported yet"); a nested join (`[(1, c), (2, s)]`) the
+// checker typed by its first element, `List<(Int, Circle)>`, though the
 // second holds a Dot.
 func TestEmbedsJoin_CollectionLiteralsWidenTheEmbeddedValues(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
@@ -46,15 +46,15 @@ fn main() {
   io.inspect([c, s])
   io.inspect(#[c, s])
   io.inspect(%[c, s])
-  io.inspect([#(1, c), #(2, s)])
+  io.inspect([(1, c), (2, s)])
   io.inspect([[c], [s]])
   io.inspect([%[c], %[s]])
   io.inspect([#[c], #[s]])
   io.inspect([%{1 => c}, %{2 => s}])
-  io.inspect(%{1 => #(1, c), 2 => #(2, s)})
-  io.inspect(#[#(1, c), #(2, s)])
-  io.inspect(%[#(1, c), #(2, s)])
-  ta: List<#(Int, Shape)> = [#(1, c), #(2, s)]
+  io.inspect(%{1 => (1, c), 2 => (2, s)})
+  io.inspect(#[(1, c), (2, s)])
+  io.inspect(%[(1, c), (2, s)])
+  ta: List<(Int, Shape)> = [(1, c), (2, s)]
   io.inspect(ta)
   na: List<List<Shape>> = [[c], [s]]
   io.inspect(na)
@@ -68,15 +68,15 @@ fn main() {
 		"[Circle{r: 1}, Dot]",
 		"#[Circle{r: 1}, Dot]",
 		"%[Circle{r: 1}, Dot]",
-		"[#(1, Circle{r: 1}), #(2, Dot)]",
+		"[(1, Circle{r: 1}), (2, Dot)]",
 		"[[Circle{r: 1}], [Dot]]",
 		"[%[Circle{r: 1}], %[Dot]]",
 		"[#[Circle{r: 1}], #[Dot]]",
 		"[%{1 => Circle{r: 1}}, %{2 => Dot}]",
-		"%{1 => #(1, Circle{r: 1}), 2 => #(2, Dot)}",
-		"#[#(1, Circle{r: 1}), #(2, Dot)]",
-		"%[#(1, Circle{r: 1}), #(2, Dot)]",
-		"[#(1, Circle{r: 1}), #(2, Dot)]",
+		"%{1 => (1, Circle{r: 1}), 2 => (2, Dot)}",
+		"#[(1, Circle{r: 1}), (2, Dot)]",
+		"%[(1, Circle{r: 1}), (2, Dot)]",
+		"[(1, Circle{r: 1}), (2, Dot)]",
 		"[[Circle{r: 1}], [Dot]]",
 		"[1, 0]",
 		"",

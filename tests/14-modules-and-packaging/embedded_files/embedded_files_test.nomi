@@ -100,13 +100,13 @@ test "a file server redirects a directory and an index" {
 
 test "a file server answers 404 for what it does not serve" {
     [
-        #("a directory with no index.html", "/css/"),
-        #("a hidden file", "/.draft"),
-        #("a missing file", "/nope.html"),
-        #("a path that climbs out", "/../site.nomi"),
-        #("a template outside the served folder", "/templates/page.html"),
+        ("a directory with no index.html", "/css/"),
+        ("a hidden file", "/.draft"),
+        ("a missing file", "/nope.html"),
+        ("a path that climbs out", "/../site.nomi"),
+        ("a template outside the served folder", "/templates/page.html"),
     ]
-    |> subtests #(description, path), description {
+    |> subtests (description, path), description {
         assert get(path).status == Status.not_found
     }
 }

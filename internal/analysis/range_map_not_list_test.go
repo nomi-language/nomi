@@ -34,7 +34,7 @@ func TestRangeAndMapAreNotLists(t *testing.T) {
 		})
 	}
 
-	src := "fn main() {\n  _ = 0..3 |> Iter.to_list() |> List.equal([0, 1, 2])\n  _ = %{\"a\" => 1} |> Iter.to_list() |> List.equal([#(\"a\", 1)])\n}\n"
+	src := "fn main() {\n  _ = 0..3 |> Iter.to_list() |> List.equal([0, 1, 2])\n  _ = %{\"a\" => 1} |> Iter.to_list() |> List.equal([(\"a\", 1)])\n}\n"
 	if _, errs := checkSourceWithStdlib(src); len(errs) != 0 {
 		t.Fatalf("materializing a Range or a Map with Iter.to_list should check: %v", errs)
 	}

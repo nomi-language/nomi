@@ -98,7 +98,7 @@ test "zip is infinite only when both sides are, concat when either is" {
     assert Iter.zip(Iter.from(0), Iter.repeat("a")) |> Iter.is_infinite()
     refute Iter.zip(Iter.from(0), ["a", "b"]) |> Iter.is_infinite()
     refute Iter.zip(["a", "b"], Iter.from(0)) |> Iter.is_infinite()
-    assert Iter.zip(["a", "b"], Iter.from(0)) |> Iter.to_list() == [#("a", 0), #("b", 1)]
+    assert Iter.zip(["a", "b"], Iter.from(0)) |> Iter.to_list() == [("a", 0), ("b", 1)]
     assert Iter.concat([1], Iter.from(0)) |> Iter.is_infinite()
     assert Iter.concat(Iter.from(0), [1]) |> Iter.is_infinite()
     refute Iter.concat([1], [2]) |> Iter.is_infinite()

@@ -90,9 +90,9 @@ fn numbered(text: String) -> Maybe<Description> {
     month = String.strip_suffix(text, "M") |> Maybe.flat_map(String.to_int)
     quarter = String.strip_prefix(text, "Q") |> Maybe.flat_map(String.to_int)
 
-    case #(month, quarter) {
-        #(Some(n), _) when n in 1..=12 -> Some(.Month(n))
-        #(_, Some(n)) when n in 1..=4 -> Some(.Quarter(n))
+    case (month, quarter) {
+        (Some(n), _) when n in 1..=12 -> Some(.Month(n))
+        (_, Some(n)) when n in 1..=4 -> Some(.Quarter(n))
         _ -> None
     }
 }
@@ -172,110 +172,110 @@ import {
 
 test "delivery date" {
     [
-        #(
+        (
             "NOW translates to two hours later",
             NaiveDateTime`2012-02-13T09:00:00`,
             "NOW",
             NaiveDateTime`2012-02-13T11:00:00`,
         ),
-        #(
+        (
             "ASAP before one in the afternoon translates to today at five in the afternoon",
             NaiveDateTime`1999-06-03T09:45:00`,
             "ASAP",
             NaiveDateTime`1999-06-03T17:00:00`,
         ),
-        #(
+        (
             "ASAP at one in the afternoon translates to tomorrow at one in the afternoon",
             NaiveDateTime`2008-12-21T13:00:00`,
             "ASAP",
             NaiveDateTime`2008-12-22T13:00:00`,
         ),
-        #(
+        (
             "ASAP after one in the afternoon translates to tomorrow at one in the afternoon",
             NaiveDateTime`2008-12-21T14:50:00`,
             "ASAP",
             NaiveDateTime`2008-12-22T13:00:00`,
         ),
-        #(
+        (
             "EOW on Monday translates to Friday at five in the afternoon",
             NaiveDateTime`2025-02-03T16:00:00`,
             "EOW",
             NaiveDateTime`2025-02-07T17:00:00`,
         ),
-        #(
+        (
             "EOW on Tuesday translates to Friday at five in the afternoon",
             NaiveDateTime`1997-04-29T10:50:00`,
             "EOW",
             NaiveDateTime`1997-05-02T17:00:00`,
         ),
-        #(
+        (
             "EOW on Wednesday translates to Friday at five in the afternoon",
             NaiveDateTime`2005-09-14T11:00:00`,
             "EOW",
             NaiveDateTime`2005-09-16T17:00:00`,
         ),
-        #(
+        (
             "EOW on Thursday translates to Sunday at eight in the evening",
             NaiveDateTime`2011-05-19T08:30:00`,
             "EOW",
             NaiveDateTime`2011-05-22T20:00:00`,
         ),
-        #(
+        (
             "EOW on Friday translates to Sunday at eight in the evening",
             NaiveDateTime`2022-08-05T14:00:00`,
             "EOW",
             NaiveDateTime`2022-08-07T20:00:00`,
         ),
-        #(
+        (
             "EOW translates to leap day",
             NaiveDateTime`2008-02-25T10:30:00`,
             "EOW",
             NaiveDateTime`2008-02-29T17:00:00`,
         ),
-        #(
+        (
             "2M before the second month of this year translates to the first workday of the second month of this year",
             NaiveDateTime`2007-01-02T14:15:00`,
             "2M",
             NaiveDateTime`2007-02-01T08:00:00`,
         ),
-        #(
+        (
             "11M in the eleventh month translates to the first workday of the eleventh month of next year",
             NaiveDateTime`2013-11-21T15:30:00`,
             "11M",
             NaiveDateTime`2014-11-03T08:00:00`,
         ),
-        #(
+        (
             "4M in the ninth month translates to the first workday of the fourth month of next year",
             NaiveDateTime`2019-11-18T15:15:00`,
             "4M",
             NaiveDateTime`2020-04-01T08:00:00`,
         ),
-        #(
+        (
             "Q1 in the first quarter translates to the last workday of the first quarter of this year",
             NaiveDateTime`2003-01-01T10:45:00`,
             "Q1",
             NaiveDateTime`2003-03-31T08:00:00`,
         ),
-        #(
+        (
             "Q4 in the second quarter translates to the last workday of the fourth quarter of this year",
             NaiveDateTime`2001-04-09T09:00:00`,
             "Q4",
             NaiveDateTime`2001-12-31T08:00:00`,
         ),
-        #(
+        (
             "Q3 in the fourth quarter translates to the last workday of the third quarter of next year",
             NaiveDateTime`2022-10-06T11:00:00`,
             "Q3",
             NaiveDateTime`2023-09-29T08:00:00`,
         ),
-        #(
+        (
             "Q2 starting in the last month of the second quarter translates to the last workday of the second quarter of this year",
             NaiveDateTime`2019-06-15T09:50:00`,
             "Q2",
             NaiveDateTime`2019-06-28T08:00:00`,
         ),
     ]
-    |> subtests #(description, meeting_start, text, expected), description {
+    |> subtests (description, meeting_start, text, expected), description {
         assert swift_scheduling.delivery_date(meeting_start, text) == Ok(expected)
     }
 }

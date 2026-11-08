@@ -111,8 +111,8 @@ adults = Iter.filter(people, fn p -> p.age >= 18)
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- variable.other.property.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.comparison.nomi
-pair = #(1, 2)
-// <~~~~~~~- punctuation.section.nomi
+pair = (1, 2)
+// <~~~~~~~- punctuation.section.bracket.nomi
 ages = %{"ada" => 36}
 // <~~~~~~~- punctuation.section.nomi
 point = #{x: 1}
@@ -203,8 +203,8 @@ group "group" {
 // <~~~~~~~~-------- keyword.control.nomi
             assert a == b
         }
-        [#(1, 1)]
-        |> subtests #(a, b) {
+        [(1, 1)]
+        |> subtests (a, b) {
 // <~~~~~~~~~~~-------- keyword.control.nomi
             assert a == b
         }

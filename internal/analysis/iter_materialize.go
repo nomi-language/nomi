@@ -12,6 +12,12 @@ func mismatchHint(want, have Type) string {
 	if h := runtimeNounHint(want, have); h != "" {
 		return h
 	}
+	if wantP, ok := isRouteType(want); ok && wantP == TypeUnit {
+		if haveP, ok := isRouteType(have); ok && haveP != TypeUnit {
+			// routeCallHint says which function takes the parameters.
+			return ""
+		}
+	}
 	if h := typeArgumentVarianceHint(want, have); h != "" {
 		return h
 	}

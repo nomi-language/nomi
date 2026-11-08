@@ -63,9 +63,9 @@ func TestLiteralPatternMustMatchTheValuesType(t *testing.T) {
   }
 }
 `, `pattern "z" is a String, but the value is an Int`},
-		{"tuple element", `fn f(p: #(Int, String)) -> Int {
+		{"tuple element", `fn f(p: (Int, String)) -> Int {
   case p {
-    #(1, 2) -> 1
+    (1, 2) -> 1
     _ -> 2
   }
 }
@@ -107,8 +107,8 @@ fn f(p: P) -> Int {
 }
 `, `pattern "w" is a String, but the value is an Int`},
 		{"lambda parameter", `fn f() -> Int {
-  g: (#(Int, Int)) -> Int = fn #(a, "x") -> a
-  g(#(1, 2))
+  g: ((Int, Int)) -> Int = fn (a, "x") -> a
+  g((1, 2))
 }
 `, `pattern "x" is a String, but the value is an Int`},
 		{"generic scrutinee", `fn f<T>(x: T) -> Int {
@@ -128,12 +128,12 @@ fn f(p: P) -> Int {
 }
 
 func TestLiteralPatternsOfTheValuesTypeCheck(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f(n: Int, s: String, x: Float, d: Decimal, p: #(Int, String), m: Maybe<String>) -> Int {\n" +
+	_, errs := checkSourceWithStdlib("fn f(n: Int, s: String, x: Float, d: Decimal, p: (Int, String), m: Maybe<String>) -> Int {\n" +
 		"  a = case n {\n    -1 -> 1\n    0x10 -> 2\n    _ -> 3\n  }\n" +
 		"  b = case s {\n    \"x\" -> 1\n    `y` -> 2\n    \"\"\"z\"\"\" -> 3\n    _ -> 4\n  }\n" +
 		"  c = case x {\n    1.5 -> 1\n    -2.0 -> 2\n    _ -> 3\n  }\n" +
 		"  e = case d {\n    1.5d -> 1\n    _ -> 2\n  }\n" +
-		"  g = case p {\n    #(1, \"a\") -> 1\n    _ -> 2\n  }\n" +
+		"  g = case p {\n    (1, \"a\") -> 1\n    _ -> 2\n  }\n" +
 		"  h = case m {\n    Some(\"a\") -> 1\n    _ -> 2\n  }\n" +
 		"  a + b + c + e + g + h\n}\n")
 	expectNoStdlibErrors(t, errs)

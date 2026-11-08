@@ -61,10 +61,10 @@ test "lambda defaults drive parameter inference" {
             }
         })
 
-    fib = Iter.loop(#(0, 1), fn state -> {
-        #(a, b) = state
+    fib = Iter.loop((0, 1), fn state -> {
+        (a, b) = state
         if b > 50 { break state }
-        #(b, a + b)
+        (b, a + b)
     })
 
     squares =
@@ -81,21 +81,21 @@ test "lambda defaults drive parameter inference" {
             }
         })
 
-    taken = Iter.reduce([10, 20, 30, 40], #(0, []), fn state, x -> {
-        #(count, acc) = state
+    taken = Iter.reduce([10, 20, 30, 40], (0, []), fn state, x -> {
+        (count, acc) = state
 
         if count >= 2 {
-            break #(count, acc)
+            break (count, acc)
         } else {
-            #(count + 1, [x, ..acc])
+            (count + 1, [x, ..acc])
         }
     })
 
-    #(_, kept) = taken
+    (_, kept) = taken
 
     counts =
-        [#("a", 1), #("b", 2), #("a", 3)]
-        |> Iter.reduce(%{}, fn acc, #(k, v) -> {
+        [("a", 1), ("b", 2), ("a", 3)]
+        |> Iter.reduce(%{}, fn acc, (k, v) -> {
             case Map.get(acc, k) {
                 Some(prev) -> Map.put(acc, k, prev + v)
                 None -> Map.put(acc, k, v)
@@ -104,7 +104,7 @@ test "lambda defaults drive parameter inference" {
 
     assert square == 0
     assert any_pos
-    assert fib == #(34, 55)
+    assert fib == (34, 55)
     assert squares == [1, 4, 9]
     assert found == Some(3)
     assert Iter.reverse(kept) == [10, 20]
@@ -114,26 +114,26 @@ test "lambda defaults drive parameter inference" {
 
 test "one element's annotation types the lambdas beside it in a literal" {
     tokens = [
-        #("double", fn n -> n * 2),
-        #("negate", fn n: Int -> 0 - n),
-        #("square", fn n -> n * n),
-        #("twice", double),
-        #("next", fn n -> n + 1),
+        ("double", fn n -> n * 2),
+        ("negate", fn n: Int -> 0 - n),
+        ("square", fn n -> n * n),
+        ("twice", double),
+        ("next", fn n -> n + 1),
     ]
 
-    applied = Iter.map(tokens, fn #(name, f) -> #(name, f(5))) |> Iter.to_list()
-    square = Iter.find(tokens, fn #(name, _) -> name == "square")
+    applied = Iter.map(tokens, fn (name, f) -> (name, f(5))) |> Iter.to_list()
+    square = Iter.find(tokens, fn (name, _) -> name == "square")
 
     by_name = %{"inc" => fn n -> n + 1, "dec" => fn n: Int -> n - 1}
 
     assert applied == [
-        #("double", 10),
-        #("negate", -5),
-        #("square", 25),
-        #("twice", 10),
-        #("next", 6),
+        ("double", 10),
+        ("negate", -5),
+        ("square", 25),
+        ("twice", 10),
+        ("next", 6),
     ]
 
-    assert Maybe.map(square, fn #(_, f) -> f(7)) == Some(49)
+    assert Maybe.map(square, fn (_, f) -> f(7)) == Some(49)
     assert Maybe.map(Map.get(by_name, "inc"), fn f -> f(1)) == Some(2)
 }

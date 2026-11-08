@@ -109,7 +109,7 @@ test "decimal set and map keys are scale insensitive" {
 test "decimal arithmetic supports money-shaped totals" {
     subtotal = Iter.sum([19.99d, 5.00d, 2.50d, 0.99d])
     tax_base = subtotal * 875d
-    tax = Decimal.divide(tax_base, 10000d, 4, HalfEven)
+    tax = tax_base / 10000d
     total = Decimal.round(subtotal + tax, 2, HalfEven)
 
     assert Decimal.to_string(subtotal) == "28.48"
@@ -128,30 +128,61 @@ test "decimal arithmetic rejects mixed numeric types" {
     assert test_helpers.has_diagnostic(diagnostics, "binary + type mismatch: Int vs Decimal")
 }
 
-test "decimal has no division operator" {
+test "decimal division rounds to 34 significant digits" {
+    assert Decimal.to_string(10d / 3d) == "3.333333333333333333333333333333333"
+    assert Decimal.to_string(2d / 3d) == "0.6666666666666666666666666666666667"
+    assert Decimal.to_string(-10d / 3d) == "-3.333333333333333333333333333333333"
+    assert Decimal.to_string(10d / -4d) == "-2.5"
+    assert Decimal.to_string(-1d / -8d) == "0.125"
+}
+
+test "an exact decimal quotient keeps its smallest scale" {
+    assert Decimal.to_string(10.00d / 4d) == "2.5"
+    assert Decimal.to_string(1d / 4d) == "0.25"
+    assert Decimal.to_string(6d / 3d) == "2"
+    assert Decimal.scale(6.00d / 3d) == 0
+    assert Decimal.to_string(0.00d / 5d) == "0"
+    assert Divide.divide(9d, 5d) == 1.8d
+}
+
+test "decimal division keeps every integer digit of a large quotient" {
+    big = Int.to_decimal(Int.pow(10, 40))
+    assert Decimal.to_string(big / 3d) == "3333333333333333333333333333333333333333"
+    assert Decimal.to_string(big / 4d) == "2500000000000000000000000000000000000000"
+}
+
+test "decimal division counts significant digits from the first non-zero one" {
+    tiny = 1d / Int.to_decimal(Int.pow(10, 40))
+    assert Decimal.to_string(tiny) == "0.0000000000000000000000000000000000000001"
+
+    assert Decimal.to_string(tiny / 3d)
+        == "0.00000000000000000000000000000000000000003333333333333333333333333333333333"
+}
+
+test "decimal division by zero is a runtime error" {
+    result =
+        """
+        fn main() {
+          zero = 0.00d
+          _ = 1d / zero
+        }
+        """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert "line 3: division by zero" in message
+}
+
+test "decimal division takes no Int operand" {
     diagnostics =
         """
-        fn half(a: Decimal, b: Decimal) -> Decimal {
-          a / b
-        }
-
         fn main() {
-          dbg 1d / 3d
           dbg 1d / 3
-          dbg 1 / 3d
         }
         """
         |> compiler.check()
 
-    message = "Decimal has no `/`: write `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)` for a quotient that must terminate"
-
-    positions =
-        diagnostics
-        |> Iter.map(fn d -> #(d.line, d.col))
-        |> Iter.to_list()
-
-    assert positions == [#(2, 5), #(6, 10), #(7, 10), #(8, 9)]
-    assert Iter.all(diagnostics, fn d -> d.message == message)
+    assert test_helpers.has_diagnostic(diagnostics, "binary / type mismatch: Decimal vs Int")
 }
 
 test "divide_exact keeps the quotient's scale when it terminates" {

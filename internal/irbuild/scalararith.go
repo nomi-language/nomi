@@ -58,9 +58,8 @@ import (
 //
 // # WHAT IS DELIBERATELY NOT HERE
 //
-//   - `%`. std declares no Modulo interface — stdOperatorIfaces says so — so
-//     there is no written-out spelling to lower.
-//   - `Int.divide(n, nz)` over a `NonZeroInt` divisor. That is a SECOND
+//   - `Int.divide(n, nz)` and `Int.remainder(n, nz)` over a `NonZeroInt`
+//     divisor. That is a SECOND
 //     declaration — `impl Divide<NonZeroInt, Int> for Int`, a Nomi body — and it
 //     lowers through the stdlib index. This arm requires both operands to be the
 //     SAME scalar kind, so a NonZeroInt right operand declines here and keeps
@@ -114,7 +113,7 @@ func scalarArithOp(owner, method string) (string, bool) {
 		return v.op, true
 	}
 	switch owner {
-	case "Int", "Float", "String":
+	case "Int", "Float", "Decimal", "String":
 	default:
 		return "", false
 	}

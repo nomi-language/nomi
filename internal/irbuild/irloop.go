@@ -30,7 +30,7 @@ package irbuild
 // way, in that body's own function. Empty seeds the checker did not solve
 // are declined.
 //
-// A destructuring state (`Iter.loop(#(5, 1), fn #(n, acc) -> ...)`) binds the
+// A destructuring state (`Iter.loop((5, 1), fn (n, acc) -> ...)`) binds the
 // pattern's names at the head from the state, each iteration, as a pattern
 // binding with no `else` does. The checker admits only an irrefutable
 // pattern there, so the mismatch path is unreachable; it traps as that
@@ -306,7 +306,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.b.Append(ir.NewRefScope(bl.g.irNodePos(lam), lp.scope, bl.g.irTypes().Symbol(irScopeHandle{}, "$scope")))
 	}
 	if p != nil && p.Destructure != nil {
-		// `fn #(n, acc) ->`: the pattern's names, read off this
+		// `fn (n, acc) ->`: the pattern's names, read off this
 		// iteration's state.
 		at := bl.g.irNodePos(p.Destructure)
 		held := ir.NewBind(at, bl.f.NewTemp(), state.Dst(), ir.NewSymbol("$state"))
@@ -340,7 +340,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 		if extra.Destructure != nil {
-			// `#(b, c) = #(1, 2)`: the pattern's names, read off the
+			// `(b, c) = (1, 2)`: the pattern's names, read off the
 			// default, as the state's pattern is read off the state.
 			at := bl.g.irNodePos(extra.Destructure)
 			cont := bl.f.NewBlock(at, "loop parameter bound")

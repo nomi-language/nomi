@@ -26,7 +26,7 @@ fn main() {
     io.inspect(fs)
     io.inspect(size([fn x: Int -> x, ..fs]))
     io.inspect(Iter.concat(fs, fs) |> Iter.map(fn f -> f(1)) |> Iter.to_list())
-    io.inspect(Iter.zip([1, 2], fs) |> Iter.map(fn #(n, f) -> f(n)) |> Iter.to_list())
+    io.inspect(Iter.zip([1, 2], fs) |> Iter.map(fn (n, f) -> f(n)) |> Iter.to_list())
     io.inspect(Iter.chunks(fs, 1) |> Iter.map(fn c -> Iter.count(c)) |> Iter.to_list())
     io.inspect(Iter.flatten([fs, fs]) |> Iter.map(fn f -> f(3)) |> Iter.to_list())
     io.inspect([1, 2] |> Iter.flat_map(fn n -> [fn y: Int -> y + n]) |> Iter.map(fn f -> f(10)) |> Iter.to_list())
@@ -37,7 +37,7 @@ fn main() {
         Some(f) -> io.inspect(f(7))
         None -> io.inspect(0)
     }
-    m = Iter.to_map([#(1, fn x: Int -> x), #(2, fn x: Int -> x * 3)])
+    m = Iter.to_map([(1, fn x: Int -> x), (2, fn x: Int -> x * 3)])
     io.inspect(m)
     case Map.get(m, 2) {
         Some(f) -> io.inspect(f(7))

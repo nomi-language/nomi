@@ -69,7 +69,7 @@ fn scan(text: String, chars: Vector<String>, i: Int, acc: List<Token>) -> List<T
             Iter.reverse(acc)
 
         Some(c) -> {
-            #(kind, end) = token_at(chars, i, c)
+            (kind, end) = token_at(chars, i, c)
             token = Token{kind, text: String.slice(text, i, end), start: i, end}
             scan(text, chars, end, [token, ..acc])
         }
@@ -80,31 +80,31 @@ fn at(chars: Vector<String>, i: Int) -> String {
     Vector.get(chars, i) |> Maybe.with_default("")
 }
 
-fn token_at(chars: Vector<String>, i: Int, c: String) -> #(Kind, Int) {
+fn token_at(chars: Vector<String>, i: Int, c: String) -> (Kind, Int) {
     next = at(chars, i + 1)
 
     if is_space(c) {
-        #(Kind.Space, skip(chars, i + 1, is_space))
+        (Kind.Space, skip(chars, i + 1, is_space))
     } else if c == "-" and next == "-" {
-        #(Kind.Space, skip(chars, i + 2, fn ch -> ch != "\n" and ch != "\r\n"))
+        (Kind.Space, skip(chars, i + 2, fn ch -> ch != "\n" and ch != "\r\n"))
     } else if c == "/" and next == "*" {
-        #(Kind.Space, block_end(chars, i + 2))
+        (Kind.Space, block_end(chars, i + 2))
     } else if c == "'" {
-        #(Kind.Text, quote_end(chars, i + 1, "'"))
+        (Kind.Text, quote_end(chars, i + 1, "'"))
     } else if c == "\"" {
-        #(Kind.Quoted, quote_end(chars, i + 1, "\""))
+        (Kind.Quoted, quote_end(chars, i + 1, "\""))
     } else if c == "@" and is_name_start(next) {
-        #(Kind.Param, skip(chars, i + 2, is_word))
+        (Kind.Param, skip(chars, i + 2, is_word))
     } else if c == "@" and next == "@" {
         // Postgres's `@@` is an operator, so `@@name` is not a parameter.
-        #(Kind.Punct, i + 2)
+        (Kind.Punct, i + 2)
     } else if c == "$" and next == "{" {
         close = skip(chars, i + 2, fn ch -> ch != "}")
-        #(Kind.Interpolation, Int.min(close + 1, Vector.length(chars)))
+        (Kind.Interpolation, Int.min(close + 1, Vector.length(chars)))
     } else if is_word(c) {
-        #(Kind.Word, skip(chars, i + 1, is_word))
+        (Kind.Word, skip(chars, i + 1, is_word))
     } else {
-        #(Kind.Punct, i + 1)
+        (Kind.Punct, i + 1)
     }
 }
 
@@ -167,8 +167,8 @@ pub struct Override {
 //! t = Token{kind: Kind.Quoted, text: "\"n!: Int\"", start: 0, end: 9}
 //! o = sqltext.override(t)
 //!
-//! assert o |> Maybe.map(fn x -> #(x.column, x.nullable, x.type_text)) == Some(
-//!     #("n", Some(False), Some("Int"))
+//! assert o |> Maybe.map(fn x -> (x.column, x.nullable, x.type_text)) == Some(
+//!     ("n", Some(False), Some("Int"))
 //! )
 //!
 //! assert sqltext.override(#{..t, text: "\"n\""}) == None
@@ -177,17 +177,17 @@ pub fn override(token: Token) -> Maybe<Override> {
     if token.kind != Kind.Quoted { return None }
     inner = token.text |> cut_prefix("\"") |> cut_suffix("\"")
 
-    #(head, type_text) = case String.split(inner, ":") {
-        [name, ty] -> #(String.trim(name), Some(String.trim(ty)))
-        _ -> #(inner, None)
+    (head, type_text) = case String.split(inner, ":") {
+        [name, ty] -> (String.trim(name), Some(String.trim(ty)))
+        _ -> (inner, None)
     }
 
-    #(column, nullable) = if String.ends_with(head, "!") {
-        #(cut_suffix(head, "!"), Some(False))
+    (column, nullable) = if String.ends_with(head, "!") {
+        (cut_suffix(head, "!"), Some(False))
     } else if String.ends_with(head, "?") {
-        #(cut_suffix(head, "?"), Some(True))
+        (cut_suffix(head, "?"), Some(True))
     } else {
-        #(head, None)
+        (head, None)
     }
 
     if nullable == None and type_text == None {
@@ -220,14 +220,14 @@ fn sent(token: Token) -> String {
 pub fn parts(tokens: List<Token>) -> List<String> {
     pieces = pieces(tokens)
 
-    #(done, current) = Iter.reduce(pieces, #([], ""), fn acc, piece -> {
-        #(done, current) = acc
-        #(token, text) = piece
+    (done, current) = Iter.reduce(pieces, ([], ""), fn acc, piece -> {
+        (done, current) = acc
+        (token, text) = piece
 
         if token.kind == Kind.Param {
-            #([current, ..done], "")
+            ([current, ..done], "")
         } else {
-            #(done, current + text)
+            (done, current + text)
         }
     })
 
@@ -236,23 +236,23 @@ pub fn parts(tokens: List<Token>) -> List<String> {
 
 /// Each token that is sent and the text it is sent as: a space for a run
 /// of spaces between other tokens, nothing at either end.
-fn pieces(tokens: List<Token>) -> List<#(Token, String)> {
+fn pieces(tokens: List<Token>) -> List<(Token, String)> {
     solid = tokens |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.to_list()
 
-    #(out, _) = Iter.reduce(tokens, #([], 0), fn acc: #(List<#(Token, String)>, Int), token -> {
-        #(out, seen) = acc
+    (out, _) = Iter.reduce(tokens, ([], 0), fn acc: (List<(Token, String)>, Int), token -> {
+        (out, seen) = acc
 
         if token.kind == Kind.Space {
             // A space is sent once between two tokens that are sent.
             case out {
-                [#(last, _), ..] when last.kind != Kind.Space and seen < Iter.count(solid) ->
-                    #([#(token, " "), ..out], seen)
+                [(last, _), ..] when last.kind != Kind.Space and seen < Iter.count(solid) ->
+                    ([(token, " "), ..out], seen)
 
                 _ ->
                     acc
             }
         } else {
-            #([#(token, sent(token)), ..out], seen + 1)
+            ([(token, sent(token)), ..out], seen + 1)
         }
     })
 
@@ -279,7 +279,7 @@ pub fn postgres_sql(parts: List<String>) -> String {
 fn numbered(parts: List<String>, mark: String) -> String {
     parts
     |> Iter.with_index()
-    |> Iter.map(fn #(i, part) -> if i == 0 { part } else { "${mark}${i}" + part })
+    |> Iter.map(fn (i, part) -> if i == 0 { part } else { "${mark}${i}" + part })
     |> String.join()
 }
 
@@ -289,21 +289,21 @@ fn numbered(parts: List<String>, mark: String) -> String {
 //! assert sqltext.token_at_offset(tokens, 11) |> Maybe.map(fn t -> t.text) == Some("nope")
 //
 pub fn token_at_offset(tokens: List<Token>, offset: Int) -> Maybe<Token> {
-    #(found, _, _) = Iter.reduce(pieces(tokens), #(None, 0, 0), fn acc, piece -> {
-        #(found, at, params) = acc
-        #(token, text) = piece
+    (found, _, _) = Iter.reduce(pieces(tokens), (None, 0, 0), fn acc, piece -> {
+        (found, at, params) = acc
+        (token, text) = piece
 
-        #(width, next_params) = if token.kind == Kind.Param {
-            #(byte_length("?${params + 1}"), params + 1)
+        (width, next_params) = if token.kind == Kind.Param {
+            (byte_length("?${params + 1}"), params + 1)
         } else {
-            #(byte_length(text), params)
+            (byte_length(text), params)
         }
 
         if found == None and offset < at + width and token.kind != Kind.Space {
-            break #(Some(token), at + width, next_params)
+            break (Some(token), at + width, next_params)
         }
 
-        #(found, at + width, next_params)
+        (found, at + width, next_params)
     })
 
     case found {
@@ -335,8 +335,8 @@ pub fn interpolations(tokens: List<Token>) -> List<Token> {
 //! assert items == ["a", "f(b, c) AS d"]
 //
 pub fn select_items(tokens: List<Token>) -> List<List<Token>> {
-    #(items, current, _, state) = Iter.reduce(tokens, #([], [], 0, 0), fn acc, token -> {
-        #(items, current, depth, state) = acc
+    (items, current, _, state) = Iter.reduce(tokens, ([], [], 0, 0), fn acc, token -> {
+        (items, current, depth, state) = acc
 
         upper = if token.kind == Kind.Word {
             String.uppercase(token.text)
@@ -348,20 +348,20 @@ pub fn select_items(tokens: List<Token>) -> List<List<Token>> {
             // 0: before the list; 1: in it; 2: after it.
             0 ->
                 if depth == 0 and (upper == "SELECT" or upper == "RETURNING") {
-                    #(items, [], depth, 1)
+                    (items, [], depth, 1)
                 } else {
-                    #(items, current, depth + nesting(token), 0)
+                    (items, current, depth + nesting(token), 0)
                 }
 
             1 ->
                 if depth == 0 and ends_list(upper) {
-                    break #([current, ..items], [], depth, 2)
+                    break ([current, ..items], [], depth, 2)
                 } else if depth == 0 and token.text == "," and token.kind == Kind.Punct {
-                    #([current, ..items], [], depth, 1)
+                    ([current, ..items], [], depth, 1)
                 } else if upper == "DISTINCT" and Iter.is_empty(solid(current)) {
-                    #(items, current, depth, 1)
+                    (items, current, depth, 1)
                 } else {
-                    #(items, [token, ..current], depth + nesting(token), 1)
+                    (items, [token, ..current], depth + nesting(token), 1)
                 }
 
             _ ->
@@ -451,9 +451,9 @@ pub fn cast_type(item: List<Token>) -> Maybe<String> {
     if text_at(0) != "CAST" or text_at(1) != "(" { return None }
 
     // The closing parenthesis, and the last `AS` directly inside the cast.
-    #(close, as_at, _) = Iter.reduce(Iter.with_index(words)
-    |> Iter.drop(2), #(-1, -1, 1), fn acc, #(i, t) -> {
-        #(close, as_at, depth) = acc
+    (close, as_at, _) = Iter.reduce(Iter.with_index(words)
+    |> Iter.drop(2), (-1, -1, 1), fn acc, (i, t) -> {
+        (close, as_at, depth) = acc
 
         if close >= 0 {
             acc
@@ -461,11 +461,11 @@ pub fn cast_type(item: List<Token>) -> Maybe<String> {
             after = depth + nesting(t)
 
             if after == 0 {
-                #(i, as_at, after)
+                (i, as_at, after)
             } else if depth == 1 and String.uppercase(t.text) == "AS" and t.kind == Kind.Word {
-                #(close, i, after)
+                (close, i, after)
             } else {
-                #(close, as_at, after)
+                (close, as_at, after)
             }
         }
     })
@@ -476,8 +476,8 @@ pub fn cast_type(item: List<Token>) -> Maybe<String> {
         or (rest == 1 and text_at(close + 1) != "")
         or (rest == 2 and text_at(close + 1) == "AS")
 
-    case #(Vector.get(words, as_at), Vector.get(words, close)) {
-        #(Some(a), Some(c)) when as_at >= 0 and close > as_at + 1 and named -> {
+    case (Vector.get(words, as_at), Vector.get(words, close)) {
+        (Some(a), Some(c)) when as_at >= 0 and close > as_at + 1 and named -> {
             inside =
                 item
                 |> Iter.filter(fn t -> t.start > a.start and t.start < c.start)
@@ -498,14 +498,14 @@ pub fn text_of(tokens: List<Token>) -> String {
 
 /// The tokens of the `FROM` and `JOIN` clauses that name a table, each
 /// with the name it goes by in the query: `FROM orders o` is
-/// `#("orders", "o")`.
+/// `("orders", "o")`.
 //! tokens = sqltext.tokens(
 //!     "SELECT 1 FROM orders o LEFT JOIN users AS u ON u.id = o.user_id JOIN items"
 //! )
 //!
-//! assert sqltext.table_names(tokens) == [#("orders", "o"), #("users", "u"), #("items", "items")]
+//! assert sqltext.table_names(tokens) == [("orders", "o"), ("users", "u"), ("items", "items")]
 //
-pub fn table_names(tokens: List<Token>) -> List<#(String, String)> {
+pub fn table_names(tokens: List<Token>) -> List<(String, String)> {
     words = solid(tokens) |> Iter.to_vector()
     count = Vector.length(words)
 
@@ -526,11 +526,7 @@ pub fn table_names(tokens: List<Token>) -> List<#(String, String)> {
                 table
             }
 
-            if is_name(table) {
-                [#(table, alias)]
-            } else {
-                []
-            }
+            if is_name(table) { [(table, alias)] } else { [] }
         } else {
             []
         }
@@ -618,10 +614,10 @@ pub fn listed<T>(m: Maybe<T>) -> List<T> {
 
 /// The line, counting from 0, and the text before it on that line, of
 /// grapheme `index` of `text`: where a token is in its query file.
-//! assert sqltext.position("ab\ncd", 4) == #(1, "c")
+//! assert sqltext.position("ab\ncd", 4) == (1, "c")
 //
-pub fn position(text: String, index: Int) -> #(Int, String) {
+pub fn position(text: String, index: Int) -> (Int, String) {
     before = String.slice(text, 0, index)
     lines = String.split(before, "\n")
-    #(Iter.count(lines) - 1, Iter.last(lines) |> Maybe.with_default(""))
+    (Iter.count(lines) - 1, Iter.last(lines) |> Maybe.with_default(""))
 }

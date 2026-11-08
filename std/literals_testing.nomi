@@ -20,19 +20,24 @@ import {
 /// A `build` that fails for a value traps, and the test fails there. Every
 /// slot gets the same value in one build; a test of mixed slot values calls
 /// `build` itself.
-//! import std::url.Url
+///
+/// For a literal whose slots take an interface, name it as the first type
+/// argument so the values are held as it, as std::url's tests of the `Url`
+/// literal do:
+///
+/// ```nomi
+/// built = build_each<Display, Url>(["/users/", ""], ["a/b", 7], Url.check, Url.build)
+/// ```
+//! built = build_each(["a", "b"], ["x", "y"], fn _ -> Ok(Unit), fn fragments -> Iter.count(fragments))
+//! assert built == Ok([3, 3])
 //!
-//! statics = ["https://example.com/users/", "?tab=", ""]
-//! built = build_each(statics, ["", "..", "a/b c"], Url.check, Url.build)
-//! assert Ok(urls) = built
+//! refused = build_each(["a"], ["x"], fn _ -> {
+//!     Err(LiteralError{fragment: 0, offset: 0, message: "no"})
+//! }, fn _ -> {
+//!     0
+//! })
 //!
-//! assert Iter.map(urls, fn u -> u.host) |> Iter.to_list() == [
-//!     "example.com",
-//!     "example.com",
-//!     "example.com",
-//! ]
-//!
-//! assert Err(_) = build_each(["https://", "/"], ["x"], Url.check, Url.build)
+//! assert refused == Err(LiteralError{fragment: 0, offset: 0, message: "no"})
 //
 pub fn build_each<I, T>(
     statics: List<String>,
@@ -58,7 +63,7 @@ pub fn build_each<I, T>(
 fn fill<I>(statics: List<String>, value: I) -> List<Fragment<I>> {
     statics
     |> Iter.with_index()
-    |> Iter.flat_map(fn #(i, s) -> {
+    |> Iter.flat_map(fn (i, s) -> {
         if i == 0 {
             [Fragment.Static(s)]
         } else {

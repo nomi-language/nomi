@@ -1,9 +1,6 @@
 package analysis_test
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 // A decimal literal types as Decimal, and the blessed operators on two
 // Decimals type-check cleanly.
@@ -20,63 +17,45 @@ func TestDecimalLiteralsAndOperatorsTypecheck(t *testing.T) {
 	expectNoStdlibErrors(t, errs)
 }
 
-const decimalDivisionText = "Decimal has no `/`: write `Decimal.divide(a, b, scale, mode)` to round, " +
-	"or `Decimal.divide_exact(a, b)` for a quotient that must terminate"
-
-// Decimal has no `/`. Each division with a Decimal operand, written as the
-// operator or through `Divide.divide`, is one error at the operator (or the
-// call), and it names the two divisions std/decimal declares rather than the
-// missing `Divide` impl. An Int or Float on the other side gets the same
-// help, not the operand mismatch.
-func TestDecimalDivisionRejected(t *testing.T) {
+// Decimal has `/`: written as the operator or through `Divide.divide`, a
+// division of two Decimals is a Decimal, and Decimal meets a `Divide` bound.
+// An Int or Float on the other side is the operand mismatch `*` gives.
+func TestDecimalDivisionTypechecks(t *testing.T) {
 	src := `fn quotient(x: Decimal, y: Decimal) -> Decimal {
   x / y
 }
 
-fn f() -> Decimal {
-  a = 1d / 3d
-  b = 1d / 3
-  c = 1 / 3d
-  d = 1.5 / 3d
-  e = Divide.divide(1d, 3d)
-  a + b + c + d + e
-}
-`
-	_, errs := checkSourceWithStdlib(src)
-	errs = withoutUnusedBindingErrors(errs)
-	type at struct{ line, col int }
-	want := []at{{2, 5}, {6, 10}, {7, 10}, {8, 9}, {9, 11}, {10, 7}}
-	var got []at
-	for _, e := range errs {
-		if e.Message != decimalDivisionText {
-			t.Errorf("%d:%d: %q, want the Decimal division error", e.Line, e.Col, e.Message)
-			continue
-		}
-		got = append(got, at{e.Line, e.Col})
-	}
-	if len(got) != len(want) {
-		t.Fatalf("Decimal division errors at %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("Decimal division error %d at %v, want %v", i, got[i], want[i])
-		}
-	}
-}
-
-// Generic code whose bound a Decimal cannot meet is rejected at the call:
-// Decimal implements no `Divide`.
-func TestDecimalDoesNotSatisfyADivideBound(t *testing.T) {
-	src := `fn half<T>(x: T, two: T) -> T where T: Divide<T, T> {
+fn half<T>(x: T, two: T) -> T where T: Divide<T, T> {
   x / two
 }
 
 fn f() -> Decimal {
-  half(3d, 2d)
+  a = 1d / 3d
+  b = Divide.divide(1d, 3d)
+  c = Decimal.divide(1d, 3d)
+  a + b + c + quotient(1d, 2d) + half(3d, 2d)
 }
 `
 	_, errs := checkSourceWithStdlib(src)
-	expectStdlibError(t, errs, "Divide")
+	expectNoStdlibErrors(t, errs)
+}
+
+func TestDecimalMixedDivisionRejected(t *testing.T) {
+	for _, tc := range []struct{ expr, want string }{
+		{"1d / 3", "binary / type mismatch: Decimal vs Int"},
+		{"1 / 3d", "binary / type mismatch: Int vs Decimal"},
+	} {
+		_, errs := checkSourceWithStdlib("fn f() -> Decimal {\n  " + tc.expr + "\n}\n")
+		found := false
+		for _, e := range errs {
+			if e.Message == tc.want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s: want %q, got %v", tc.expr, tc.want, errs)
+		}
+	}
 }
 
 // A Decimal on the right of a type with its own `Divide<Decimal, _>` impl is
@@ -88,7 +67,7 @@ func TestDecimalDivisorOfAUserTypeUsesItsImpl(t *testing.T) {
 
 impl Divide<Decimal, Money> for Money {
   fn divide(lhs: Money, rhs: Decimal) -> Money {
-    Money{amount: Decimal.divide_exact(lhs.amount, rhs) |> Maybe.with_default(0d)}
+    Money{amount: lhs.amount / rhs}
   }
 }
 
@@ -144,53 +123,44 @@ func TestDecimalMixedComparisonRejected(t *testing.T) {
 	expectStdlibError(t, errs, "mismatch")
 }
 
-// Modulo is not defined on Decimal — a Decimal % Decimal is a compile error.
-func TestDecimalModuloRejected(t *testing.T) {
-	src := `fn f() -> Decimal {
-  5.0d % 2d
+// `%` dispatches through `Remainder`: Decimal, Float and Duration have
+// impls, and Decimal and Float meet a `Remainder` bound.
+func TestRemainderOnTheStdNumbersTypechecks(t *testing.T) {
+	src := `import std::duration.Duration
+
+fn rem<T>(a: T, b: T) -> T where T: Remainder<T, T> {
+  a % b
+}
+
+fn f() -> Bool {
+  d = 5.0d % 2d
+  x = 7.5 % 2.0
+  quarter = Duration.minutes(40) % Duration.minutes(15)
+  d == 1.0d and x == 1.5 and rem(10.5d, 3d) == 1.5d and rem(1.5, 1.0) == 0.5 and quarter == Duration.minutes(10)
 }
 `
 	_, errs := checkSourceWithStdlib(src)
-	found := false
-	for _, e := range errs {
-		if strings.Contains(e.Message, "modulo") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		msgs := make([]string, len(errs))
-		for i, e := range errs {
-			msgs[i] = e.Error()
-		}
-		t.Fatalf("expected a 'modulo is not defined on Decimal' error, got %d errors:\n  %s",
-			len(errs), strings.Join(msgs, "\n  "))
-	}
+	expectNoStdlibErrors(t, errs)
 }
 
-// Float has no `%` (spec §8 *Integer division and remainder*), so a Float %
-// Float is a compile error, at the operator, rather than a program that
-// traps on every run.
-func TestFloatModuloRejected(t *testing.T) {
-	src := `fn f(a: Float, b: Float) -> Float {
+// A type with no `Remainder` impl gets the missing-impl error `/` gives a
+// type with no `Divide`, at the operator.
+func TestRemainderWithoutAnImplRejected(t *testing.T) {
+	src := `type Score Int
+
+fn f(a: Score, b: Score) -> Score {
   a % b
 }
 `
-	_, errs := checkSourceWithStdlib(src)
-	want := "modulo is not defined on Float; `%` takes two Int operands"
-	for _, e := range errs {
-		if e.Message == want {
-			if e.Line != 2 || e.Col != 5 {
-				t.Fatalf("error at %d:%d, want 2:5", e.Line, e.Col)
-			}
-			return
-		}
+	errs := buildWithStdlibForDerive(src).TypeErrors
+	want := "no impl of `Remainder` for `Score` (required via remainder operator `%`)"
+	e, ok := deriveDiag(errs, want)
+	if !ok {
+		t.Fatalf("expected %q, got %v", want, errs)
 	}
-	msgs := make([]string, len(errs))
-	for i, e := range errs {
-		msgs[i] = e.Error()
+	if e.Line != 4 || e.Col != 5 {
+		t.Fatalf("error at %d:%d, want 4:5", e.Line, e.Col)
 	}
-	t.Fatalf("expected %q, got %d errors:\n  %s", want, len(errs), strings.Join(msgs, "\n  "))
 }
 
 // Int % Int stays accepted.

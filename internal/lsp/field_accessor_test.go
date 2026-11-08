@@ -23,8 +23,9 @@ struct Box<T> {
 
 `
 
-// Hover on a field accessor's segment shows the field at the type it is read
-// at, and go-to-definition lands on the field's declaration.
+// Hover on a field accessor's segment shows the accessor as a function at
+// the types it is read at, and go-to-definition lands on the segment's
+// field's declaration.
 func TestFieldAccessor_HoverAndDefinition(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -35,31 +36,31 @@ func TestFieldAccessor_HoverAndDefinition(t *testing.T) {
 		{
 			name:      "one field",
 			body:      "fn f(users: List<User>) -> List<String> {\n  users |> Iter.map(.▮name) |> Iter.to_list()\n}\n",
-			wantHover: "```nomi\nname: String\n```",
+			wantHover: "```nomi\n.name: (User) -> String\n```",
 			wantDecl:  "name: String",
 		},
 		{
 			name:      "the second segment of a chain",
 			body:      "fn f(users: List<User>) -> List<String> {\n  users |> Iter.map(.address.▮city) |> Iter.to_list()\n}\n",
-			wantHover: "```nomi\ncity: String\n```",
+			wantHover: "```nomi\n.address.city: (User) -> String\n```",
 			wantDecl:  "city: String",
 		},
 		{
 			name:      "the first segment of a chain",
 			body:      "fn f(users: List<User>) -> List<String> {\n  users |> Iter.map(.▮address.city) |> Iter.to_list()\n}\n",
-			wantHover: "```nomi\naddress: Address\n```",
+			wantHover: "```nomi\n.address.city: (User) -> String\n```",
 			wantDecl:  "address: Address",
 		},
 		{
 			name:      "a generic struct's field, instantiated",
 			body:      "fn f(boxes: List<Box<Int>>) -> List<Int> {\n  boxes |> Iter.map(.▮value) |> Iter.to_list()\n}\n",
-			wantHover: "```nomi\nvalue: Int\n```",
+			wantHover: "```nomi\n.value: (Box<Int>) -> Int\n```",
 			wantDecl:  "value: T",
 		},
 		{
 			name:      "an annotated binding",
 			body:      "fn f(u: User) -> Int {\n  get: (User) -> Int = .▮age\n  get(u)\n}\n",
-			wantHover: "```nomi\nage: Int\n```",
+			wantHover: "```nomi\n.age: (User) -> Int\n```",
 			wantDecl:  "age: Int",
 		},
 	}

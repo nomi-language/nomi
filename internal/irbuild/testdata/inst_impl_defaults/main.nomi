@@ -21,11 +21,11 @@ fn double(n: Int) -> Int {
 
 fn main() {
     a = Box.new("a", double)
-    dbg #(a.size, Box.wait_seconds(a), a.handler(4))
+    dbg (a.size, Box.wait_seconds(a), a.handler(4))
     b = Box.new("b", size: 3, double)
-    dbg #(b.size, Box.wait_seconds(b), b.handler(5))
+    dbg (b.size, Box.wait_seconds(b), b.handler(5))
     c = Box.new("c", size: 2, fn s: String -> String.length(s))
-    dbg #(c.size, Box.wait_seconds(c), c.handler("four"))
+    dbg (c.size, Box.wait_seconds(c), c.handler("four"))
     dbg Greeter.new(Cat{nick: "Tom"}).greeting
     dbg Greeter.new(Cat{nick: "Tom"}, punct: "?").greeting
 }

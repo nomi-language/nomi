@@ -11,7 +11,7 @@ import (
 // variables makes fit is an argument mismatch at the argument
 // (reportGenericArgMismatch). The checker used to drop such a failed
 // unification unless the parameter was an interface or a record, so
-// `weight(#(10, "x"))` against `#(Float, T)` checked and the IR builder then
+// `weight((10, "x"))` against `(Float, T)` checked and the IR builder then
 // declined the call; the same argument to a parameter with no type parameter
 // in it was rejected.
 
@@ -23,15 +23,15 @@ struct Size {
     w: Int
 }
 
-fn weight<T>(pair: #(Float, T)) -> Float {
-    pair.0
+fn weight<T>(pair: (Float, T)) -> Float {
+    pair.first
 }
 
-fn nested<T>(pair: #(#(Float, T), Int)) -> Float {
-    pair.0.0
+fn nested<T>(pair: ((Float, T), Int)) -> Float {
+    pair.first.first
 }
 
-fn rest<T>(pairs: List<#(Float, T)>) -> Int {
+fn rest<T>(pairs: List<(Float, T)>) -> Int {
     _ = pairs
     0
 }
@@ -54,12 +54,12 @@ fn record<T>(r: #{w: Float, t: T}) -> Float {
     r.w
 }
 
-fn first<T>(pair: #(Point, T)) -> Point {
-    pair.0
+fn first<T>(pair: (Point, T)) -> Point {
+    pair.first
 }
 
-fn label<T>(pair: #(String, T)) -> String {
-    pair.0
+fn label<T>(pair: (String, T)) -> String {
+    pair.first
 }
 
 fn walk<T>(xs: List<T>) -> Int {
@@ -86,19 +86,19 @@ func TestGenericSlotConflict_MismatchIsRejectedAtTheArgument(t *testing.T) {
 		arg  string
 		want string
 	}{
-		{`x = weight(#(10, "x"))`, `#(10`, "argument 1: expected #(Float, T), got #(Int, String)"},
-		{`x = nested(#(#(10, "x"), 1))`, `#(#`, "argument 1: expected #(#(Float, T), Int), got #(#(Int, String), Int)"},
-		{`x = rest([#(10, "x")])`, `[`, "argument 1: expected List<#(Float, T)>, got List<#(Int, String)>"},
+		{`x = weight((10, "x"))`, `(10`, "argument 1: expected (Float, T), got (Int, String)"},
+		{`x = nested(((10, "x"), 1))`, `((10`, "argument 1: expected ((Float, T), Int), got ((Int, String), Int)"},
+		{`x = rest([(10, "x")])`, `[`, "argument 1: expected List<(Float, T)>, got List<(Int, String)>"},
 		{`x = result(Ok(10))`, `Ok`, "argument 1: expected Result<Float, T>, got Result<Int, _>"},
-		{`x = Generator.weighted(#(-10, "bad"), [])`, `#(-10`, "argument 1: expected #(Float, T), got #(Int, String)"},
-		{`x = first(#(Size{w: 1}, "x"))`, `#(Size`, "argument 1: expected #(Point, T), got #(Size, String)"},
-		{`x = label(#(Point{x: 1}, 2))`, `#(Point`, "argument 1: expected #(String, T), got #(Point, Int)"},
-		{`x = first(#(1, "x"))`, `#(1`, "argument 1: expected #(Point, T), got #(Int, String)"},
-		{`x = weight(#(1.0, "x", 2))`, `#(1.0`, "argument 1: expected #(Float, T), got #(Float, String, Int)"},
+		{`x = Generator.weighted((-10, "bad"), [])`, `(-10`, "argument 1: expected (Float, T), got (Int, String)"},
+		{`x = first((Size{w: 1}, "x"))`, `(Size`, "argument 1: expected (Point, T), got (Size, String)"},
+		{`x = label((Point{x: 1}, 2))`, `(Point`, "argument 1: expected (String, T), got (Point, Int)"},
+		{`x = first((1, "x"))`, `(1`, "argument 1: expected (Point, T), got (Int, String)"},
+		{`x = weight((1.0, "x", 2))`, `(1.0`, "argument 1: expected (Float, T), got (Float, String, Int)"},
 		{`x = record(#{w: 10, t: 1})`, `#{w`, "argument 1: expected #{w: Float, t: T}, got #{w: Int, t: Int}"},
 		{`x = maybe(Some(10), 1)`, `Some`, "argument 1: expected Maybe<Float>, got Maybe<Int>"},
 		{`x = floats([10], 1)`, `10]`, "list element type mismatch: expected Float, got Int"},
-		{`x = Generator.weighted(#(-10.0, "bad"), [#(1, "x")])`, `#(1,`, "list element type mismatch: expected #(Float, String), got #(Int, String)"},
+		{`x = Generator.weighted((-10.0, "bad"), [(1, "x")])`, `(1,`, "list element type mismatch: expected (Float, String), got (Int, String)"},
 	} {
 		src, line := genericSlotSource(tc.stmt)
 		_, errs := checkSourceWithStdlib(src)
@@ -124,20 +124,20 @@ func TestGenericSlotConflict_MismatchIsRejectedAtTheArgument(t *testing.T) {
 // not solved yet.
 func TestGenericSlotConflict_MatchingArgumentsAreAccepted(t *testing.T) {
 	for _, stmt := range []string{
-		`x = weight(#(10.0, "x"))`,
-		`x = weight(#(10.0, 1))`,
-		`x = nested(#(#(10.0, "x"), 1))`,
-		`x = rest([#(10.0, "x"), #(-1.5, "y")])`,
+		`x = weight((10.0, "x"))`,
+		`x = weight((10.0, 1))`,
+		`x = nested(((10.0, "x"), 1))`,
+		`x = rest([(10.0, "x"), (-1.5, "y")])`,
 		`x = floats([10.0], 1)`,
 		`x = maybe(Some(10.0), 1)`,
 		`x = result(Ok(10.0))`,
 		`x = record(#{w: 10.0, t: 1})`,
-		`x = first(#(Point{x: 1}, "x"))`,
-		`x = label(#("a", Size{w: 1}))`,
+		`x = first((Point{x: 1}, "x"))`,
+		`x = label(("a", Size{w: 1}))`,
 		`x = walk([1, 2])`,
 		// A patch named before the struct that solves its Partial<self>.
 		`x = Struct.update(updates: #{x: 2}, original: Point{x: 1})`,
-		`x = Generator.weighted(#(-10.0, "bad"), [])`,
+		`x = Generator.weighted((-10.0, "bad"), [])`,
 	} {
 		src, _ := genericSlotSource(stmt)
 		_, errs := checkSourceWithStdlib(src)

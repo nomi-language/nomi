@@ -2,9 +2,9 @@
 // module top level: an `impl` or `derive` inside a body is an error.
 import std::compiler.{self, Diagnostic}
 
-fn only(diagnostics: List<Diagnostic>) -> List<#(Int, Int, String)> {
+fn only(diagnostics: List<Diagnostic>) -> List<(Int, Int, String)> {
     diagnostics
-    |> Iter.map(fn d -> #(d.line, d.col, d.message))
+    |> Iter.map(fn d -> (d.line, d.col, d.message))
     |> Iter.to_list()
 }
 
@@ -26,7 +26,7 @@ test "an impl block inside a test body is rejected" {
     )
 
     assert only(diagnostics) == [
-        #(5, 5, "an `impl` block must appear at module top-level, not inside a body"),
+        (5, 5, "an `impl` block must appear at module top-level, not inside a body"),
     ]
 }
 
@@ -47,6 +47,6 @@ test "a derive inside a lambda body is rejected" {
     )
 
     assert only(diagnostics) == [
-        #(6, 9, "a `derive` declaration must appear at module top-level, not inside a body"),
+        (6, 9, "a `derive` declaration must appear at module top-level, not inside a body"),
     ]
 }

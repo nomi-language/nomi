@@ -53,7 +53,7 @@ fn sum_pt(Point{x, y}) -> Int {
 Tuple destructuring parameter with annotation
 ================================================================================
 
-fn add_pair(#(a, b): #(Int, Int)) -> Int {
+fn add_pair((a, b): (Int, Int)) -> Int {
   a
 }
 

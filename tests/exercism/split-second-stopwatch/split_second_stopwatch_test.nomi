@@ -11,7 +11,7 @@ enum Step {
     Stop
     Lap
     Reset
-    Refused #(Step, String)
+    Refused (Step, String)
     Advance Duration
     IsIn State
     CurrentLap Duration
@@ -25,17 +25,17 @@ derive Equatable for Step
 /// they happened. A run that does what every step says answers the steps it
 /// was given.
 fn replay(steps: List<Step>) -> List<Step> {
-    #(_watch, happened) =
+    (_watch, happened) =
         steps
         |> Iter.map_reduce(Stopwatch.new(), fn watch, step -> {
             case step {
                 .Start or .Stop or .Lap or .Reset -> command(watch, step)
                 .Refused(tried, _message) -> command(watch, tried)
-                .Advance(by) -> #(Stopwatch.advance(watch, by), step)
-                .IsIn(_) -> #(watch, .IsIn(Stopwatch.state(watch)))
-                .CurrentLap(_) -> #(watch, .CurrentLap(Stopwatch.current_lap(watch)))
-                .Total(_) -> #(watch, .Total(Stopwatch.total(watch)))
-                .PreviousLaps(_) -> #(watch, .PreviousLaps(Stopwatch.previous_laps(watch)))
+                .Advance(by) -> (Stopwatch.advance(watch, by), step)
+                .IsIn(_) -> (watch, .IsIn(Stopwatch.state(watch)))
+                .CurrentLap(_) -> (watch, .CurrentLap(Stopwatch.current_lap(watch)))
+                .Total(_) -> (watch, .Total(Stopwatch.total(watch)))
+                .PreviousLaps(_) -> (watch, .PreviousLaps(Stopwatch.previous_laps(watch)))
             }
         })
 
@@ -44,7 +44,7 @@ fn replay(steps: List<Step>) -> List<Step> {
 
 /// Runs the command `step` names, answering the step and the stopwatch
 /// after it, or the refusal and the stopwatch unchanged.
-fn command(watch: Stopwatch, step: Step) -> #(Stopwatch, Step) {
+fn command(watch: Stopwatch, step: Step) -> (Stopwatch, Step) {
     result = case step {
         .Start -> Stopwatch.start(watch)
         .Stop -> Stopwatch.stop(watch)
@@ -54,33 +54,33 @@ fn command(watch: Stopwatch, step: Step) -> #(Stopwatch, Step) {
     }
 
     case result {
-        Ok(next) -> #(next, step)
-        Err(error) -> #(watch, .Refused(step, "${error}"))
+        Ok(next) -> (next, step)
+        Err(error) -> (watch, .Refused(step, "${error}"))
     }
 }
 
 test "split second stopwatch" {
     [
-        #("new stopwatch starts in ready state", [Step.IsIn(.Ready)]),
-        #("new stopwatch's current lap has no elapsed time", [.CurrentLap(Duration`0s`)]),
-        #("new stopwatch's total has no elapsed time", [.Total(Duration`0s`)]),
-        #("new stopwatch does not have previous laps", [.PreviousLaps([])]),
-        #("start from ready state changes state to running", [.Start, .IsIn(.Running)]),
-        #("start does not change previous laps", [.Start, .PreviousLaps([])]),
-        #(
+        ("new stopwatch starts in ready state", [Step.IsIn(.Ready)]),
+        ("new stopwatch's current lap has no elapsed time", [.CurrentLap(Duration`0s`)]),
+        ("new stopwatch's total has no elapsed time", [.Total(Duration`0s`)]),
+        ("new stopwatch does not have previous laps", [.PreviousLaps([])]),
+        ("start from ready state changes state to running", [.Start, .IsIn(.Running)]),
+        ("start does not change previous laps", [.Start, .PreviousLaps([])]),
+        (
             "start initiates time tracking for current lap",
             [.Start, .Advance(Duration`5s`), .CurrentLap(Duration`5s`)],
         ),
-        #(
+        (
             "start initiates time tracking for total",
             [.Start, .Advance(Duration`23s`), .Total(Duration`23s`)],
         ),
-        #(
+        (
             "start cannot be called from running state",
             [.Start, .Refused(.Start, "cannot start an already running stopwatch")],
         ),
-        #("stop from running state changes state to stopped", [.Start, .Stop, .IsIn(.Stopped)]),
-        #(
+        ("stop from running state changes state to stopped", [.Start, .Stop, .IsIn(.Stopped)]),
+        (
             "stop pauses time tracking for current lap",
             [
                 .Start,
@@ -90,7 +90,7 @@ test "split second stopwatch" {
                 .CurrentLap(Duration`5s`),
             ],
         ),
-        #(
+        (
             "stop pauses time tracking for total",
             [
                 .Start,
@@ -100,19 +100,19 @@ test "split second stopwatch" {
                 .Total(Duration`13s`),
             ],
         ),
-        #(
+        (
             "stop cannot be called from ready state",
             [.Refused(.Stop, "cannot stop a stopwatch that is not running")],
         ),
-        #(
+        (
             "stop cannot be called from stopped state",
             [.Start, .Stop, .Refused(.Stop, "cannot stop a stopwatch that is not running")],
         ),
-        #(
+        (
             "start from stopped state changes state to running",
             [.Start, .Stop, .Start, .IsIn(.Running)],
         ),
-        #(
+        (
             "start from stopped state resumes time tracking for current lap",
             [
                 .Start,
@@ -124,7 +124,7 @@ test "split second stopwatch" {
                 .CurrentLap(Duration`1m28s`),
             ],
         ),
-        #(
+        (
             "start from stopped state resumes time tracking for total",
             [
                 .Start,
@@ -136,7 +136,7 @@ test "split second stopwatch" {
                 .Total(Duration`32s`),
             ],
         ),
-        #(
+        (
             "lap adds current lap to previous laps",
             [
                 .Start,
@@ -148,7 +148,7 @@ test "split second stopwatch" {
                 .PreviousLaps([Duration`1m38s`, Duration`44s`]),
             ],
         ),
-        #(
+        (
             "lap resets current lap and resumes time tracking",
             [
                 .Start,
@@ -159,19 +159,19 @@ test "split second stopwatch" {
                 .CurrentLap(Duration`15s`),
             ],
         ),
-        #(
+        (
             "lap continues time tracking for total",
             [.Start, .Advance(Duration`22s`), .Lap, .Advance(Duration`33s`), .Total(Duration`55s`)],
         ),
-        #(
+        (
             "lap cannot be called from ready state",
             [.Refused(.Lap, "cannot lap a stopwatch that is not running")],
         ),
-        #(
+        (
             "lap cannot be called from stopped state",
             [.Start, .Stop, .Refused(.Lap, "cannot lap a stopwatch that is not running")],
         ),
-        #(
+        (
             "stop does not change previous laps",
             [
                 .Start,
@@ -182,15 +182,15 @@ test "split second stopwatch" {
                 .PreviousLaps([Duration`11m22s`]),
             ],
         ),
-        #(
+        (
             "reset from stopped state changes state to ready",
             [.Start, .Stop, .Reset, .IsIn(.Ready)],
         ),
-        #(
+        (
             "reset resets current lap",
             [.Start, .Advance(Duration`10s`), .Stop, .Reset, .CurrentLap(Duration`0s`)],
         ),
-        #(
+        (
             "reset clears previous laps",
             [
                 .Start,
@@ -204,15 +204,15 @@ test "split second stopwatch" {
                 .PreviousLaps([]),
             ],
         ),
-        #(
+        (
             "reset cannot be called from ready state",
             [.Refused(.Reset, "cannot reset a stopwatch that is not stopped")],
         ),
-        #(
+        (
             "reset cannot be called from running state",
             [.Start, .Refused(.Reset, "cannot reset a stopwatch that is not stopped")],
         ),
-        #(
+        (
             "supports very long laps",
             [
                 .Start,
@@ -233,7 +233,7 @@ test "split second stopwatch" {
             ],
         ),
     ]
-    |> subtests #(description, steps), description {
+    |> subtests (description, steps), description {
         assert replay(steps) == steps
     }
 }

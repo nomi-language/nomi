@@ -14,8 +14,8 @@ import (
 
 const debugInfoSrc = `import std::io
 
-fn describe(pair: #(Int, Int), limit: Int) -> String {
-  #(a, b) = pair
+fn describe(pair: (Int, Int), limit: Int) -> String {
+  (a, b) = pair
   total = a + b
   total = total * 2
   label = case total {
@@ -42,7 +42,7 @@ fn describe(pair: #(Int, Int), limit: Int) -> String {
 }
 
 fn main() {
-  io.print(describe(#(1, 2), 3))
+  io.print(describe((1, 2), 3))
 }
 `
 
@@ -96,7 +96,7 @@ func TestDebugInfo_EveryNamedValueIsAVariable(t *testing.T) {
 		got = append(got, fmt.Sprintf("%s: %s @%d-%d", v.Name, v.Type, v.Scope.Line(), v.Scope.EndLine()))
 	}
 	want := []string{
-		"pair: #(Int, Int) @3-28", "limit: Int @3-28",
+		"pair: (Int, Int) @3-28", "limit: Int @3-28",
 		"a: Int @4-28", "b: Int @4-28",
 		"total: Int @5-28", "total: Int @6-28",
 		"n: Int @9-13", "doubled: Int @10-12",
@@ -137,8 +137,8 @@ func TestDebugInfo_AVariableIsDeclaredAtItsName(t *testing.T) {
 	fns := debugInfoFuncs(t)
 	got := append(decls(fns["describe"]), decls(fns["lambda"])...)
 	want := []string{
-		"pair 3:13-17", "limit 3:32-37",
-		"a 4:5-6", "b 4:8-9",
+		"pair 3:13-17", "limit 3:31-36",
+		"a 4:4-5", "b 4:7-8",
 		"total 5:3-8", "total 6:3-8",
 		"n 9:5-6", "doubled 10:7-14",
 		"label 7:3-8",
@@ -160,11 +160,11 @@ func TestDebugInfo_AVariableIsDeclaredAtItsName(t *testing.T) {
 fn main() {
   #{x, y: why} = P{x: 1, y: 2}
   m = case Some(x) {
-    Some(n) as whole -> #(n, whole)
-    None -> #(0, None)
+    Some(n) as whole -> (n, whole)
+    None -> (0, None)
   }
-  f = fn #(a, b): #(Int, Int) -> a + b
-  _ = #(why, m, f(#(1, 2)))
+  f = fn (a, b): (Int, Int) -> a + b
+  _ = (why, m, f((1, 2)))
 }
 `
 	p, err := AnalyzeSource("main", src)
@@ -193,7 +193,7 @@ fn main() {
 			}
 		}
 	}
-	want = []string{"x 7:5-6", "why 7:11-14", "n 9:10-11", "whole 9:16-21", "m 8:3-4", "f 12:3-4", "a 12:12-13", "b 12:15-16"}
+	want = []string{"x 7:5-6", "why 7:11-14", "n 9:10-11", "whole 9:16-21", "m 8:3-4", "f 12:3-4", "a 12:11-12", "b 12:14-15"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("declarations:\n%s\n\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
@@ -247,8 +247,8 @@ fn main() {
   g = fn b: Box<Int> -> b.item
   o: Maybe<Box<Int>> = None
   m: Map<String, Box<Int>> = %{"a" => Box{item: 2}}
-  pair = #(Box{item: 1}, [Box{item: 2.5}])
-  _ = #(bs, tr, g, o, m, pair)
+  pair = (Box{item: 1}, [Box{item: 2.5}])
+  _ = (bs, tr, g, o, m, pair)
 }
 `
 	p, err := AnalyzeSource("main", src)
@@ -271,7 +271,7 @@ fn main() {
 		}
 	}
 	want := "bs: List<Box<Box<String>>>, tr: Tree<Int>, g: (Box<Int>) -> Int, o: Maybe<Box<Int>>, " +
-		"m: Map<String, Box<Int>>, pair: #(Box<Int>, List<Box<Float>>)"
+		"m: Map<String, Box<Int>>, pair: (Box<Int>, List<Box<Float>>)"
 	if strings.Join(got, ", ") != want {
 		t.Fatalf("main's variables:\n%s\nwant:\n%s", strings.Join(got, ", "), want)
 	}
@@ -280,7 +280,7 @@ fn main() {
 		_, typ, _ := strings.Cut(v, ": ")
 		params = append(params, fmt.Sprintf("p%d: %s", i, typ))
 	}
-	probe := src + "\nfn probe(" + strings.Join(params, ", ") + ") {\n  _ = #(p0, p1, p2, p3, p4, p5)\n}\n"
+	probe := src + "\nfn probe(" + strings.Join(params, ", ") + ") {\n  _ = (p0, p1, p2, p3, p4, p5)\n}\n"
 	if _, err := AnalyzeSource("main", probe); err != nil {
 		t.Fatalf("a spelling does not check as a parameter type: %v\n%s", err, probe)
 	}

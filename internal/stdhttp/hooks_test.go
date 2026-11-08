@@ -84,7 +84,7 @@ fn main() {
     upgrades = http.listen(Server{address: "127.0.0.1:0"})!
     _ = Supervisor.spawn(App.web, fn -> {
         http.serve(upgrades, fn _r: Request -> {
-            Response.upgrade(headers: Headers[#("Upgrade", "echo")], on_connection: fn c: Connection -> {
+            Response.upgrade(headers: Headers[("Upgrade", "echo")], on_connection: fn c: Connection -> {
                 line = Reader.read_line(Connection.reader(c))! |> Maybe.with_default("")
                 _ = Writer.write_text(Connection.writer(c), "upgraded ${line}\n")
             })
@@ -106,7 +106,7 @@ fn main() {
     _ = Supervisor.spawn(App.web, fn -> net.serve(secure, fn c: Connection -> {
         _ = Writer.write_text(Connection.writer(c), "wrapped\n")
     }, App.web))
-    #(sconn, keys) = Writer.collect(fn log -> tls.dial(net.Listener.address(secure), #{..trusted, server_name: Some("localhost"), key_log: Some(log)})!)
+    (sconn, keys) = Writer.collect(fn log -> tls.dial(net.Listener.address(secure), #{..trusted, server_name: Some("localhost"), key_log: Some(log)})!)
     io.print("key log ${String.contains(Bytes.to_string(keys)!, "SECRET")}")
     io.print("wrap ${Reader.read_line(Connection.reader(sconn))! |> Maybe.with_default("-")}")
     Connection.close(sconn)

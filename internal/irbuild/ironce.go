@@ -27,8 +27,9 @@ func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	}
 	if from := bl.g.namesFromGen(); from != nil {
 		if od := from.onces[t.Name]; od != nil && od.k.tag != tagFunc {
-			// A name an inherited default's declaring file binds to its
-			// `once` (portableDefault): that file's cell.
+			// A name another file binds to its `once`, in a parameter
+			// default of that file's filled here (defaultNamesAgree):
+			// that file's cell.
 			return bl.siblingOnceValue(t, bl.g.namesFrom-1, od)
 		}
 	}

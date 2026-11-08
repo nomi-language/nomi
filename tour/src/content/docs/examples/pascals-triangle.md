@@ -24,7 +24,7 @@ pub fn rows(count: Int) -> List<List<Int>> {
 /// zero standing in past either end.
 fn next_row(row: List<Int>) -> List<Int> {
     Iter.zip([0, ..row], [..row, 0])
-    |> Iter.map(fn #(left, right) -> left + right)
+    |> Iter.map(fn (left, right) -> left + right)
     |> Iter.to_list()
 }
 
@@ -33,18 +33,18 @@ import pascals_triangle
 
 test "rows" {
     [
-        #("zero rows", 0, []),
-        #("single row", 1, [[1]]),
-        #("two rows", 2, [[1], [1, 1]]),
-        #("three rows", 3, [[1], [1, 1], [1, 2, 1]]),
-        #("four rows", 4, [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1]]),
-        #("five rows", 5, [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1], [1, 4, 6, 4, 1]]),
-        #(
+        ("zero rows", 0, []),
+        ("single row", 1, [[1]]),
+        ("two rows", 2, [[1], [1, 1]]),
+        ("three rows", 3, [[1], [1, 1], [1, 2, 1]]),
+        ("four rows", 4, [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1]]),
+        ("five rows", 5, [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1], [1, 4, 6, 4, 1]]),
+        (
             "six rows",
             6,
             [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1], [1, 4, 6, 4, 1], [1, 5, 10, 10, 5, 1]],
         ),
-        #(
+        (
             "ten rows",
             10,
             [
@@ -61,7 +61,7 @@ test "rows" {
             ],
         ),
     ]
-    |> subtests #(description, count, expected), description {
+    |> subtests (description, count, expected), description {
         assert pascals_triangle.rows(count) == expected
     }
 }

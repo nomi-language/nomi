@@ -12,7 +12,7 @@ func TestNamedArgConstructor_PositionalFormsAndInterfaceNamesRun(t *testing.T) {
 
 enum Shape {
     Sq Int
-    Pair #(Int, Int)
+    Pair (Int, Int)
     embeds Id
 }
 
@@ -22,7 +22,7 @@ type Id Int
 
 derive Debug for Id
 
-type Two #(Int, String)
+type Two (Int, String)
 
 derive Debug for Two
 
@@ -54,7 +54,7 @@ fn main() {
     f = &Some(&1)
     g: Maybe<Int> = 7 |> Some()
     h = Two(8, "x")
-    io.print(Debug.inspect(#(a, b, c, d, e, f(9), g, h)))
+    io.print(Debug.inspect((a, b, c, d, e, f(9), g, h)))
     p = Struct.update(updates: #{x: say(10)}, original: mk())
     io.print("${p.x} ${p.y}")
     q = Struct.update(updates: #{y: say(11)}, mk())
@@ -65,7 +65,7 @@ fn main() {
     io.print(show(14))
 }
 `)
-	want := `#(Some(1), Ok(2), Sq(3), Pair(4, 5), Id(6), Some(9), Some(7), Two(8, "x"))
+	want := `(Some(1), Ok(2), Sq(3), Pair(4, 5), Id(6), Some(9), Some(7), Two(8, "x"))
 say 10
 mk
 10 1

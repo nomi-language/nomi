@@ -119,8 +119,8 @@ func isDir(path string) bool {
 // project-build path explicitly handles it after iterating this slice.
 var StdlibLoadOrder = []string{
 	"display", "debug", "equatable", "hashable", "comparable",
-	"add", "subtract", "multiply", "divide",
-	"unit", "bool", "maybe", "results",
+	"add", "subtract", "multiply", "divide", "remainder",
+	"unit", "bool", "maybe", "results", "resources",
 	"literals", "assertions", "testing",
 	"discrete", "steppable",
 	"int", "float", "decimal", "code_points",

@@ -99,6 +99,11 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		// Then check registry.
 		if t := reg.Lookup(n.Name); t != nil {
 			if declared {
+				// `Route` where `Route<P = Unit>` was declared is
+				// `Route<Unit>` (default_type_args.go).
+				if !hasTypeArgs(t) && takesDefaultArgs(t, 0) {
+					return instantiateNominal(t, withDefaultArgs(t, []Type{})), nil
+				}
 				if terr := checkGenericArity(t, n.Line, n.Col); terr != nil {
 					return nil, *terr
 				}
@@ -160,69 +165,12 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 						return nil, *terr
 					}
 				}
-				switch bt := t.(type) {
-				case *EnumType:
-					inst := &EnumType{
-						Origin:           bt.Origin,
-						Name:             bt.Name,
-						TypeArgs:         args,
-						Variants:         bt.Variants,
-						TypeParams:       bt.TypeParams,
-						TypeParamDefs:    bt.TypeParamDefs,
-						Opaque:           bt.Opaque,
-						OwningSourceFile: bt.OwningSourceFile,
-					}
-					inst.unbuilt = bt.unbuilt.recordInstance(inst)
-					return inst, nil
-				case *StructType:
-					inst := &StructType{
-						Origin:           bt.Origin,
-						Name:             bt.Name,
-						TypeArgs:         args,
-						Fields:           bt.Fields,
-						TypeParams:       bt.TypeParams,
-						TypeParamDefs:    bt.TypeParamDefs,
-						Opaque:           bt.Opaque,
-						OwningSourceFile: bt.OwningSourceFile,
-					}
-					inst.unbuilt = bt.unbuilt.recordInstance(inst)
-					return inst, nil
-				case *InterfaceType:
-					inst := &InterfaceType{
-						Origin:        bt.Origin,
-						Name:          bt.Name,
-						Methods:       bt.Methods,
-						TypeParams:    bt.TypeParams,
-						TypeParamDefs: bt.TypeParamDefs,
-						TypeArgs:      args,
-						SelfParam:     bt.SelfParam,
-					}
-					inst.unbuilt = bt.unbuilt.recordInstance(inst)
-					return inst, nil
-				case *DistinctType:
-					// A generic distinct (`type Tagged<T> #(String, T)`) or
-					// generic opaque extern (`host type Task<T>`):
-					// instantiate the shell with the resolved TypeArgs so
-					// unification at call sites reaches the inner T. The
-					// TypeParamDefs pointer is shared with the registry
-					// shell, so substitution in checkGenericCall solves the
-					// right TypeParam_. An instance taken before the
-					// declaration is built is completed by distinctBuilt.
-					inst := &DistinctType{
-						Origin:           bt.Origin,
-						Name:             bt.Name,
-						Inner:            bt.Inner,
-						Opaque:           bt.Opaque,
-						OwningSourceFile: bt.OwningSourceFile,
-						TypeParams:       bt.TypeParams,
-						TypeParamDefs:    bt.TypeParamDefs,
-						TypeArgs:         args,
-					}
-					inst.unbuilt = bt.unbuilt.recordInstance(inst)
-					return inst, nil
-				default:
-					return t, nil
+				// `Pair<Int>` where `Pair<A, B = String>` was declared is
+				// `Pair<Int, String>` (default_type_args.go).
+				if takesDefaultArgs(t, len(args)) {
+					args = withDefaultArgs(t, args)
 				}
+				return instantiateNominal(t, args), nil
 			}
 			return nil, unknownTypeError(reg, n.Line, n.Col, n.Name)
 		}

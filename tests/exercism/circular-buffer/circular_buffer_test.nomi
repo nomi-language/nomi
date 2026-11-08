@@ -17,27 +17,27 @@ derive Equatable for Step
 /// answers the steps as they happened. A run that does what every step says
 /// answers the steps it was given.
 fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
-    #(_buffer, happened) =
+    (_buffer, happened) =
         steps
         |> Iter.map_reduce(Buffer.new(capacity), fn buffer, step -> {
             case step {
                 .Write(item) or .WriteFails(item) ->
                     case Buffer.write(buffer, item) {
-                        Ok(written) -> #(written, Step.Write(item))
-                        Err(_) -> #(buffer, .WriteFails(item))
+                        Ok(written) -> (written, Step.Write(item))
+                        Err(_) -> (buffer, .WriteFails(item))
                     }
 
                 .Read(_) or .ReadFails ->
                     case Buffer.read(buffer) {
-                        Ok(#(item, rest)) -> #(rest, .Read(item))
-                        Err(_) -> #(buffer, .ReadFails)
+                        Ok((item, rest)) -> (rest, .Read(item))
+                        Err(_) -> (buffer, .ReadFails)
                     }
 
                 .Clear ->
-                    #(Buffer.clear(buffer), .Clear)
+                    (Buffer.clear(buffer), .Clear)
 
                 .Overwrite(item) ->
-                    #(Buffer.overwrite(buffer, item), .Overwrite(item))
+                    (Buffer.overwrite(buffer, item), .Overwrite(item))
             }
         })
 
@@ -46,39 +46,39 @@ fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
 
 test "circular buffer" {
     [
-        #("reading empty buffer should fail", 1, [Step.ReadFails]),
-        #("can read an item just written", 1, [.Write(1), .Read(1)]),
-        #("each item may only be read once", 1, [.Write(1), .Read(1), .ReadFails]),
-        #(
+        ("reading empty buffer should fail", 1, [Step.ReadFails]),
+        ("can read an item just written", 1, [.Write(1), .Read(1)]),
+        ("each item may only be read once", 1, [.Write(1), .Read(1), .ReadFails]),
+        (
             "items are read in the order they are written",
             2,
             [.Write(1), .Write(2), .Read(1), .Read(2)],
         ),
-        #("full buffer can't be written to", 1, [.Write(1), .WriteFails(2)]),
-        #(
+        ("full buffer can't be written to", 1, [.Write(1), .WriteFails(2)]),
+        (
             "a read frees up capacity for another write",
             1,
             [.Write(1), .Read(1), .Write(2), .Read(2)],
         ),
-        #(
+        (
             "read position is maintained even across multiple writes",
             3,
             [.Write(1), .Write(2), .Read(1), .Write(3), .Read(2), .Read(3)],
         ),
-        #("items cleared out of buffer can't be read", 1, [.Write(1), .Clear, .ReadFails]),
-        #("clear frees up capacity for another write", 1, [.Write(1), .Clear, .Write(2), .Read(2)]),
-        #("clear does nothing on empty buffer", 1, [.Clear, .Write(1), .Read(1)]),
-        #(
+        ("items cleared out of buffer can't be read", 1, [.Write(1), .Clear, .ReadFails]),
+        ("clear frees up capacity for another write", 1, [.Write(1), .Clear, .Write(2), .Read(2)]),
+        ("clear does nothing on empty buffer", 1, [.Clear, .Write(1), .Read(1)]),
+        (
             "overwrite acts like write on non-full buffer",
             2,
             [.Write(1), .Overwrite(2), .Read(1), .Read(2)],
         ),
-        #(
+        (
             "overwrite replaces the oldest item on full buffer",
             2,
             [.Write(1), .Write(2), .Overwrite(3), .Read(2), .Read(3)],
         ),
-        #(
+        (
             "overwrite replaces the oldest item remaining in buffer following a read",
             3,
             [
@@ -93,7 +93,7 @@ test "circular buffer" {
                 .Read(5),
             ],
         ),
-        #(
+        (
             "initial clear does not affect wrapping around",
             2,
             [
@@ -108,7 +108,7 @@ test "circular buffer" {
             ],
         ),
     ]
-    |> subtests #(description, capacity, steps), description {
+    |> subtests (description, capacity, steps), description {
         assert replay(capacity, steps) == steps
     }
 }

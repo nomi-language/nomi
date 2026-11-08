@@ -41,12 +41,12 @@ import flatten_array.{self, Nested}
 
 test "flatten" {
     [
-        #("empty", [], []),
-        #("no nesting", [Nested.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
-        #("flattens a nested array", [
+        ("empty", [], []),
+        ("no nesting", [Nested.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
+        ("flattens a nested array", [
             .Array([.Array([])]),
         ], []),
-        #(
+        (
             "flattens array with just integers present",
             [
                 .Value(1),
@@ -55,7 +55,7 @@ test "flatten" {
             ],
             [1, 2, 3, 4, 5, 6, 7, 8],
         ),
-        #("5 level nesting", [
+        ("5 level nesting", [
             .Value(0),
             .Value(2),
             .Array([
@@ -69,7 +69,7 @@ test "flatten" {
             ]),
             .Value(-2),
         ], [0, 2, 2, 3, 8, 100, 4, 50, -2]),
-        #("6 level nesting", [
+        ("6 level nesting", [
             .Value(1),
             .Array([
                 .Value(2),
@@ -83,18 +83,18 @@ test "flatten" {
             ]),
             .Value(8),
         ], [1, 2, 3, 4, 5, 6, 7, 8]),
-        #("null values are omitted from the final result", [.Value(1), .Value(2), .Null], [1, 2]),
-        #(
+        ("null values are omitted from the final result", [.Value(1), .Value(2), .Null], [1, 2]),
+        (
             "consecutive null values at the front of the array are omitted from the final result",
             [.Null, .Null, .Value(3)],
             [3],
         ),
-        #(
+        (
             "consecutive null values in the middle of the array are omitted from the final result",
             [.Value(1), .Null, .Null, .Value(4)],
             [1, 4],
         ),
-        #("6 level nested array with null values", [
+        ("6 level nested array with null values", [
             .Value(0),
             .Value(2),
             .Array([
@@ -106,7 +106,7 @@ test "flatten" {
             ]),
             .Value(-2),
         ], [0, 2, 2, 3, 8, 100, -2]),
-        #("all values in nested array are null", [
+        ("all values in nested array are null", [
             .Null,
             .Array([
                 .Array([.Array([.Null])]),
@@ -117,7 +117,7 @@ test "flatten" {
             .Null,
         ], []),
     ]
-    |> subtests #(description, array, expected), description {
+    |> subtests (description, array, expected), description {
         assert flatten_array.flatten(array) == expected
     }
 }

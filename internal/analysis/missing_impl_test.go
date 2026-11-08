@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+// A built-in type missing a std interface gets the help that only std can
+// write the impl; missing an interface the program may declare, it keeps
+// the impl-block help, since the program may implement its own interface
+// for `Int`.
+func TestDetectMissingImplsHelpForABuiltinType(t *testing.T) {
+	rec := Recording{Pos: Pos{File: "/abs/proj/main.nomi", Line: 3, Col: 7}, Kind: RecordingKindCallSite}
+	for _, c := range []struct{ iface, typeName, help string }{
+		{"Display", "Unit", "only std can implement `Display` for `Unit`; wrap it in a type of your own that implements `Display`"},
+		{"Remainder", "String", "only std can implement `Remainder` for `String`; wrap it in a type of your own that implements `Remainder`"},
+		{"Shape", "Int", "write an `impl Shape for Int` block"},
+	} {
+		idx := &ProjectImplIndex{
+			Impls:        map[string]map[string]bool{},
+			ImplManifest: map[string]map[string][]Recording{c.iface: {c.typeName: {rec}}},
+		}
+		errs := DetectMissingImpls(idx, nil)
+		if len(errs) != 1 {
+			t.Fatalf("%s for %s: %d errors, want 1: %+v", c.iface, c.typeName, len(errs), errs)
+		}
+		if len(errs[0].Hints) != 1 || errs[0].Hints[0] != c.help {
+			t.Errorf("%s for %s: help %q, want %q", c.iface, c.typeName, errs[0].Hints, c.help)
+		}
+	}
+}
+
 // TestDetectMissingImplsFlagsUnresolvedPair: a (Iface, T) pair recorded
 // from user code with no impl supplied surfaces as one error, anchored
 // at the recording's position.
@@ -127,11 +152,10 @@ func TestDetectMissingImplsAttributesToUserProjectSite(t *testing.T) {
 	if errs[0].Line != 22 || errs[0].Col != 4 {
 		t.Errorf("expected primary site at user-project recording 22:4, got %d:%d", errs[0].Line, errs[0].Col)
 	}
-	// The stdlib site should still appear, as a related location.
-	if len(errs[0].Related) != 1 || errs[0].Related[0].File != "/abs/std/io.nomi" ||
-		errs[0].Related[0].Line != 5 || errs[0].Related[0].Col != 9 ||
-		!strings.HasPrefix(errs[0].Related[0].Message, "also required here via ") {
-		t.Errorf("expected the stdlib site /abs/std/io.nomi:5:9 as the related location; got %+v", errs[0].Related)
+	// The stdlib site is std's own code, which the author cannot act on,
+	// so it is no related location.
+	if len(errs[0].Related) != 0 {
+		t.Errorf("expected no related location for the stdlib site; got %+v", errs[0].Related)
 	}
 }
 

@@ -20,35 +20,35 @@ derive Equatable for Step
 /// steps as they happened. A list that does what every step says answers the
 /// steps it was given.
 fn replay(steps: List<Step>) -> List<Step> {
-    #(_list, happened) =
+    (_list, happened) =
         steps
         |> Iter.map_reduce(LinkedList.new(), fn list, step -> {
             case step {
                 .Push(value) ->
-                    #(LinkedList.push(list, value), Step.Push(value))
+                    (LinkedList.push(list, value), Step.Push(value))
 
                 .Unshift(value) ->
-                    #(LinkedList.unshift(list, value), .Unshift(value))
+                    (LinkedList.unshift(list, value), .Unshift(value))
 
                 .Pop(_) or .PopFails -> {
                     case LinkedList.pop(list) {
-                        Some(#(value, rest)) -> #(rest, .Pop(value))
-                        None -> #(list, .PopFails)
+                        Some((value, rest)) -> (rest, .Pop(value))
+                        None -> (list, .PopFails)
                     }
                 }
 
                 .Shift(_) or .ShiftFails -> {
                     case LinkedList.shift(list) {
-                        Some(#(value, rest)) -> #(rest, .Shift(value))
-                        None -> #(list, .ShiftFails)
+                        Some((value, rest)) -> (rest, .Shift(value))
+                        None -> (list, .ShiftFails)
                     }
                 }
 
                 .Count(_) ->
-                    #(list, .Count(Iter.count(list)))
+                    (list, .Count(Iter.count(list)))
 
                 .Delete(value) ->
-                    #(LinkedList.delete(list, value), .Delete(value))
+                    (LinkedList.delete(list, value), .Delete(value))
             }
         })
 
@@ -57,18 +57,18 @@ fn replay(steps: List<Step>) -> List<Step> {
 
 test "linked list" {
     [
-        #("pop gets element from the list", [Step.Push(7), .Pop(7)]),
-        #(
+        ("pop gets element from the list", [Step.Push(7), .Pop(7)]),
+        (
             "push/pop respectively add/remove at the end of the list",
             [.Push(11), .Push(13), .Pop(13), .Pop(11)],
         ),
-        #("shift gets an element from the list", [.Push(17), .Shift(17)]),
-        #("shift gets first element from the list", [.Push(23), .Push(5), .Shift(23), .Shift(5)]),
-        #(
+        ("shift gets an element from the list", [.Push(17), .Shift(17)]),
+        ("shift gets first element from the list", [.Push(23), .Push(5), .Shift(23), .Shift(5)]),
+        (
             "unshift adds element at start of the list",
             [.Unshift(23), .Unshift(5), .Shift(5), .Shift(23)],
         ),
-        #(
+        (
             "pop, push, shift, and unshift can be used in any order",
             [
                 .Push(1),
@@ -83,9 +83,9 @@ test "linked list" {
                 .Shift(3),
             ],
         ),
-        #("count an empty list", [.Count(0)]),
-        #("count a list with items", [.Push(37), .Push(1), .Count(2)]),
-        #(
+        ("count an empty list", [.Count(0)]),
+        ("count a list with items", [.Push(37), .Push(1), .Count(2)]),
+        (
             "count is correct after mutation",
             [
                 .Push(31),
@@ -98,40 +98,40 @@ test "linked list" {
                 .Count(0),
             ],
         ),
-        #(
+        (
             "popping to empty doesn't break the list",
             [.Push(41), .Push(59), .Pop(59), .Pop(41), .Push(47), .Count(1), .Pop(47)],
         ),
-        #(
+        (
             "shifting to empty doesn't break the list",
             [.Push(41), .Push(59), .Shift(41), .Shift(59), .Push(47), .Count(1), .Shift(47)],
         ),
-        #("deletes the only element", [.Push(61), .Delete(61), .Count(0)]),
-        #(
+        ("deletes the only element", [.Push(61), .Delete(61), .Count(0)]),
+        (
             "deletes the element with the specified value from the list",
             [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Pop(79), .Shift(71)],
         ),
-        #(
+        (
             "deletes the element with the specified value from the list, re-assigns tail",
             [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Pop(79), .Pop(71)],
         ),
-        #(
+        (
             "deletes the element with the specified value from the list, re-assigns head",
             [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Shift(71), .Shift(79)],
         ),
-        #(
+        (
             "deletes the first of two elements",
             [.Push(97), .Push(101), .Delete(97), .Count(1), .Pop(101)],
         ),
-        #(
+        (
             "deletes the second of two elements",
             [.Push(97), .Push(101), .Delete(101), .Count(1), .Pop(97)],
         ),
-        #(
+        (
             "delete does not modify the list if the element is not found",
             [.Push(89), .Delete(103), .Count(1)],
         ),
-        #(
+        (
             "deletes only the first occurrence",
             [
                 .Push(73),
@@ -146,7 +146,7 @@ test "linked list" {
             ],
         ),
     ]
-    |> subtests #(description, steps), description {
+    |> subtests (description, steps), description {
         assert replay(steps) == steps
     }
 }

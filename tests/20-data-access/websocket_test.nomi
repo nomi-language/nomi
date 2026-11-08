@@ -18,15 +18,15 @@ fn echo(request: Request) -> Response {
     })
 }
 
-fn handshake(method: Method, headers: List<#(String, String)>) -> Request {
+fn handshake(method: Method, headers: List<(String, String)>) -> Request {
     #{..http_testing.request(method, "/ws"), host: Some("example.com"), headers: Headers(headers)}
 }
 
 once good = [
-    #("Upgrade", "websocket"),
-    #("Connection", "keep-alive, Upgrade"),
-    #("Sec-WebSocket-Version", "13"),
-    #("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ=="),
+    ("Upgrade", "websocket"),
+    ("Connection", "keep-alive, Upgrade"),
+    ("Sec-WebSocket-Version", "13"),
+    ("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ=="),
 ]
 
 test "a handshake is accepted with the key's accept value" {
@@ -42,14 +42,14 @@ test "a handshake is accepted with the key's accept value" {
 test "a request that is not a handshake is refused" {
     assert echo(handshake(Method.Post, good)).status == Status.method_not_allowed
 
-    old = good |> Iter.filter(fn #(k, _) -> k != "Sec-WebSocket-Version") |> Iter.to_list()
-    refused = echo(handshake(Method.Get, old + [#("Sec-WebSocket-Version", "8")]))
+    old = good |> Iter.filter(fn (k, _) -> k != "Sec-WebSocket-Version") |> Iter.to_list()
+    refused = echo(handshake(Method.Get, old + [("Sec-WebSocket-Version", "8")]))
     assert refused.status == Status.upgrade_required
     assert Headers.get(refused.headers, "Sec-WebSocket-Version") == Some("13")
 
-    bad_key = good |> Iter.filter(fn #(k, _) -> k != "Sec-WebSocket-Key") |> Iter.to_list()
+    bad_key = good |> Iter.filter(fn (k, _) -> k != "Sec-WebSocket-Key") |> Iter.to_list()
 
-    assert echo(handshake(Method.Get, bad_key + [#("Sec-WebSocket-Key", "short")])).status
+    assert echo(handshake(Method.Get, bad_key + [("Sec-WebSocket-Key", "short")])).status
         == Status.bad_request
 
     assert echo(http_testing.request(Method.Get, "/ws")).status == Status.upgrade_required
@@ -61,7 +61,7 @@ test "an allowed origin passes and another is refused" {
         websocket.accept(request, options, fn _ -> Unit)
     }
 
-    from = fn origin: String -> handshake(Method.Get, good + [#("Origin", origin)])
+    from = fn origin: String -> handshake(Method.Get, good + [("Origin", origin)])
     assert trusting(from("https://app.example.com")).status == Status.switching_protocols
     assert trusting(from("http://example.com")).status == Status.switching_protocols
     assert trusting(from("https://evil.example")).status == Status.forbidden
@@ -80,7 +80,7 @@ fn stacked(handler: Handler, logger: Logger) -> (Request) -> Response {
 test "middleware leaves the upgrade working" {
     asking = #{
         ..handshake(Method.Get, good),
-        headers: Headers(good + [#("Accept-Encoding", "gzip")]),
+        headers: Headers(good + [("Accept-Encoding", "gzip")]),
     }
 
     response = stacked(echo, Logger.discard())(asking)

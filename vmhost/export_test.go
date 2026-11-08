@@ -143,8 +143,8 @@ struct Plain {
 		{"enum parameter", "export fn won(o: Outcome) -> Bool {\n    o == Won\n}\n",
 			"parameter `o` of exported function `won` cannot cross as JSON: `Outcome` does not implement `FromJson`",
 			"add `derive FromJson for Outcome`", 18},
-		{"tuple", "export fn add(p: #(Int, Int)) -> Int {\n    p.0 + p.1\n}\n",
-			"parameter `p` of exported function `add` cannot cross as JSON: `#(Int, Int)` does not implement `FromJson`",
+		{"tuple", "export fn add(p: (Int, Int)) -> Int {\n    p.first + p.second\n}\n",
+			"parameter `p` of exported function `add` cannot cross as JSON: `(Int, Int)` does not implement `FromJson`",
 			"a parameter's type must implement `FromJson` and a result's `ToJson`: std implements both for Int, Float, String, Bool, List, Vector, Set, Maybe and Map with String keys, and a struct or enum the program declares can derive them", 18},
 		{"map with Int keys", "export fn size(m: Map<Int, String>) -> Int {\n    Map.size(m)\n}\n",
 			"parameter `m` of exported function `size` cannot cross as JSON: `Map<Int, String>` does not implement `FromJson`",
@@ -225,7 +225,7 @@ derive FromJson for Point with FromJson.Options{rename_all: Json.Case.Camel}
 enum Shape {
     Dot
     Circle {radius: Float}
-    Pair #(Int, String)
+    Pair (Int, String)
     Tagged Point
 }
 

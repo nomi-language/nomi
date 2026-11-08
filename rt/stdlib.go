@@ -482,6 +482,30 @@ func FloatRequireTolerance(tolerance float64) Unit {
 	return Unit{}
 }
 
+// ComparableClampReversed is std/comparable's private `clamp_reversed`:
+// `Comparable.clamp` calls it with its bounds, as `Debug` writes them, when
+// low is greater than high, a range the caller wrote backwards.
+func ComparableClampReversed(low, high string) Unit {
+	Trap("Comparable.clamp: low " + low + " is greater than high " + high)
+	return Unit{}
+}
+
+// FloatRequireClampBounds is std/float's private `require_clamp_bounds`, the
+// check `Float.clamp` makes of its bounds: a NaN bound is no range, and a low
+// above high is a range written backwards, so each traps, naming the bounds
+// as `Comparable.clamp` does.
+func FloatRequireClampBounds(low, high float64) Unit {
+	switch {
+	case math.IsNaN(low):
+		Trap("Comparable.clamp: low NaN is not a number")
+	case math.IsNaN(high):
+		Trap("Comparable.clamp: high NaN is not a number")
+	case low > high:
+		Trap("Comparable.clamp: low " + FormatFloat(low) + " is greater than high " + FormatFloat(high))
+	}
+	return Unit{}
+}
+
 // FloatBits is std/float's private `float_bits`: the IEEE-754 bit pattern as an
 // Int, backing the Float `Hashable` impl.
 func FloatBits(x float64) int64 { return int64(math.Float64bits(x)) }

@@ -22,14 +22,14 @@ pub fn is_paired(text: String) -> Bool {
 
 /// `awaited` holds the closer each open bracket waits for, innermost first.
 fn is_balanced(rest: List<Codepoint>, awaited: List<Codepoint>) -> Bool {
-    case #(rest, awaited) {
-        #([], _) -> awaited == []
-        #(['(', ..rest], _) -> is_balanced(rest, [')', ..awaited])
-        #(['[', ..rest], _) -> is_balanced(rest, [']', ..awaited])
-        #(['{', ..rest], _) -> is_balanced(rest, ['}', ..awaited])
-        #([cp, ..rest], [next, ..awaited]) when cp == next -> is_balanced(rest, awaited)
-        #([')' or ']' or '}', ..], _) -> False
-        #([_, ..rest], _) -> is_balanced(rest, awaited)
+    case (rest, awaited) {
+        ([], _) -> awaited == []
+        (['(', ..rest], _) -> is_balanced(rest, [')', ..awaited])
+        (['[', ..rest], _) -> is_balanced(rest, [']', ..awaited])
+        (['{', ..rest], _) -> is_balanced(rest, ['}', ..awaited])
+        ([cp, ..rest], [next, ..awaited]) when cp == next -> is_balanced(rest, awaited)
+        ([')' or ']' or '}', ..], _) -> False
+        ([_, ..rest], _) -> is_balanced(rest, awaited)
     }
 }
 
@@ -38,32 +38,32 @@ import matching_brackets
 
 test "checks bracket pairing" {
     [
-        #("paired square brackets", "[]", True),
-        #("empty string", "", True),
-        #("unpaired brackets", "[[", False),
-        #("wrong ordered brackets", "}{", False),
-        #("wrong closing bracket", "{]", False),
-        #("paired with whitespace", "{ }", True),
-        #("partially paired brackets", "{[])", False),
-        #("simple nested brackets", "{[]}", True),
-        #("several paired brackets", "{}[]", True),
-        #("paired and nested brackets", "([{}({}[])])", True),
-        #("unopened closing brackets", "{[)][]}", False),
-        #("unpaired and nested brackets", "([{])", False),
-        #("paired and wrong nested brackets", "[({]})", False),
-        #("paired and wrong nested brackets but innermost are correct", "[({}])", False),
-        #("paired and incomplete brackets", "{}[", False),
-        #("too many closing brackets", "[]]", False),
-        #("early unexpected brackets", ")()", False),
-        #("early mismatched brackets", "{)()", False),
-        #("math expression", "(((185 + 223.85) * 15) - 543)/2", True),
-        #(
+        ("paired square brackets", "[]", True),
+        ("empty string", "", True),
+        ("unpaired brackets", "[[", False),
+        ("wrong ordered brackets", "}{", False),
+        ("wrong closing bracket", "{]", False),
+        ("paired with whitespace", "{ }", True),
+        ("partially paired brackets", "{[])", False),
+        ("simple nested brackets", "{[]}", True),
+        ("several paired brackets", "{}[]", True),
+        ("paired and nested brackets", "([{}({}[])])", True),
+        ("unopened closing brackets", "{[)][]}", False),
+        ("unpaired and nested brackets", "([{])", False),
+        ("paired and wrong nested brackets", "[({]})", False),
+        ("paired and wrong nested brackets but innermost are correct", "[({}])", False),
+        ("paired and incomplete brackets", "{}[", False),
+        ("too many closing brackets", "[]]", False),
+        ("early unexpected brackets", ")()", False),
+        ("early mismatched brackets", "{)()", False),
+        ("math expression", "(((185 + 223.85) * 15) - 543)/2", True),
+        (
             "complex latex expression",
             "\\left(\\begin{array}{cc} \\frac{1}{3} & x\\\\ \\mathrm{e}^{x} &... x^2 \\end{array}\\right)",
             True,
         ),
     ]
-    |> subtests #(description, text, expected), description {
+    |> subtests (description, text, expected), description {
         assert matching_brackets.is_paired(text) == expected
     }
 }
@@ -77,6 +77,6 @@ test result: ok. 20 passed, 0 failed
 
 - The string is scanned as `String.to_codepoints`, so each bracket is a codepoint literal in a pattern (style guide §20).
 - The stack holds the closer each open bracket waits for, so a closing bracket only has to equal the stack's head.
-- One `case` over the pair `#(rest, awaited)` with list patterns. A first version matched `rest` alone and nested a `case awaited` in the closer arm; `fmt` then broke every arm of the outer `case` onto two lines, which hid the shape, so the pair form replaced it.
+- One `case` over the pair `(rest, awaited)` with list patterns. A first version matched `rest` alone and nested a `case awaited` in the closer arm; `fmt` then broke every arm of the outer `case` onto two lines, which hid the shape, so the pair form replaced it.
 - One `subtests` table for all 20 cases.
-- A closer that does not match the stack's head ends the scan: `#([')' or ']' or '}', ..], _) -> False`, an `or` pattern nested in the list pattern. A closer that does match is any codepoint equal to the head, since only closers are pushed. Matching the closer by name there too (`[')' or ']' or '}' as closer, ..rest]`) made the arm too long for one line, and `fmt` then broke every arm onto two lines.
+- A closer that does not match the stack's head ends the scan: `([')' or ']' or '}', ..], _) -> False`, an `or` pattern nested in the list pattern. A closer that does match is any codepoint equal to the head, since only closers are pushed. Matching the closer by name there too (`[')' or ']' or '}' as closer, ..rest]`) made the arm too long for one line, and `fmt` then broke every arm onto two lines.

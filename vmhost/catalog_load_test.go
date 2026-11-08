@@ -36,7 +36,7 @@ var catalogProject = map[string]string{
 		"    text = '''\n    .input {$status :string}\n    .match $status\n    Open {{czynne}}\n    * {{czynne}}\n    '''\n\n" +
 		"    [text.unused]\n    source = '''{$name} is never shown'''\n    text = '''{$name} nigdy'''\n" +
 		"    \"\"\"\n" +
-		"    #(catalog, rejected) = Catalog.load(loaded, Locale`pl`)\n" +
+		"    (catalog, rejected) = Catalog.load(loaded, Locale`pl`)\n" +
 		"    Iter.each(rejected, fn r -> io.print(\"${r.key}: ${r.reason}\"))\n" +
 		"    io.print(text.items(3) |> Phrase.format(Locale`pl`, catalogs: [catalog]))\n" +
 		"    io.print(text.status(text.Status.Closed) |> Phrase.format(Locale`pl`, catalogs: [catalog]))\n" +

@@ -207,7 +207,7 @@ func sortRecordings(recs []Recording) {
 // stdlib (only reachable when the suppression rule above is bypassed
 // by some yet-unmodeled case; defensive). The message names how the
 // primary site demands the impl, never its position, which the diagnostic
-// itself carries; the remaining Recordings are related locations. DeriveCtx
+// itself carries; the remaining non-stdlib Recordings are related locations. DeriveCtx
 // info on each derive-sourced Recording is unpacked into the "via"
 // clause so the diagnostic names the @derive site and the offending
 // component.
@@ -363,7 +363,7 @@ func isStdlibRecording(rec Recording) bool {
 // missingImplError builds the diagnostic for one (Iface, T) pair with
 // at least one Recording. Anchors the primary site at the first user-
 // project Recording (stdlib fallback when every Recording is stdlib),
-// attaches the other Recordings as related locations, and
+// attaches the other Recordings outside std as related locations, and
 // appends a help line suggesting either derive or a hand-written impl block.
 // When qualify is set, another type of the same name has the impl, and the
 // message names the type through its declaring module (`users.User`).
@@ -393,9 +393,13 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		File:    primary.Pos.File,
 	}
 
-	// Every other Recording is a related location.
+	// Every other Recording in the program's own code is a related
+	// location. A std one is not: it is a site inside std's own bodies or
+	// doc prompts (`std/json.nomi:82:39` for a program's `Error`, which
+	// shares its bare name with std's), which the author can neither read
+	// as their code nor change.
 	for i, rec := range recs {
-		if i == primaryIdx {
+		if i == primaryIdx || isStdlibRecording(rec) {
 			continue
 		}
 		e = e.WithRelated(RelatedInfo{File: rec.Pos.File, Line: rec.Pos.Line, Col: rec.Pos.Col,
@@ -410,12 +414,49 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		}
 	}
 
-	if IsStdlibKey(primary.TypeOrigin) {
-		// A std type: the program cannot derive or implement it, so the
-		// help says what to do instead.
+	if IsStdlibKey(primary.TypeOrigin) || (builtinPrimitive(primary.TypeOrigin, typeName) && stdOnlyInterface(iface)) {
+		// A std or built-in type missing a std interface: the program
+		// cannot derive or implement it, so the help says what to do
+		// instead.
 		return e.WithHint(stdTypeHelp(iface, typeName, primary.TypeOrigin, nil))
 	}
 	return e.WithHint(missingImplHelp(iface, shown))
+}
+
+// builtinPrimitive reports whether a demand for typeName of origin is for
+// a built-in type with no declaration (`String`, `Unit`): no origin, and
+// one of the built-in singletons' names, which a program cannot declare
+// (checkReservedTypeName).
+func builtinPrimitive(origin, typeName string) bool {
+	if origin != OriginUnresolved {
+		return false
+	}
+	for _, t := range []*PrimitiveType{TypeInt, TypeFloat, TypeDecimal, TypeString, TypeByte, TypeBytes, TypeUnit} {
+		if t.Name_ == typeName {
+			return true
+		}
+	}
+	return false
+}
+
+// preludeInterfaces are the std interfaces the prelude puts in every file's
+// scope, which a program cannot declare again (checkReservedTypeName).
+var preludeInterfaces = map[string]bool{
+	"Add": true, "Comparable": true, "Debug": true, "Discrete": true, "Display": true,
+	"Divide": true, "Equatable": true, "Hashable": true, "Iter": true, "Multiply": true,
+	"Steppable": true, "Struct": true, "Subtract": true,
+}
+
+// stdOnlyInterface reports whether iface, named bare in a missing-impl
+// bucket, is certainly std's: a prelude interface, or an operator's, which
+// only std declares. A program may implement an interface it declares for a
+// built-in type, so any other name keeps the impl-block help.
+func stdOnlyInterface(iface string) bool {
+	if preludeInterfaces[iface] {
+		return true
+	}
+	_, ok := operatorInterfaceByName(iface)
+	return ok
 }
 
 // readerFormatted are the std types, by origin and name, that have no
@@ -446,6 +487,11 @@ func missingImplHelp(iface, typeName string) string {
 	if opIface, ok := operatorInterfaceByName(iface); ok {
 		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s { fn %s(lhs: %s, rhs: Rhs) -> Out { ... } }` block",
 			opIface.Interface, typeName, opIface.Method, typeName)
+	}
+	if iface == "Equatable" || iface == "Hashable" {
+		// A declared type with equality meets either with no impl, so one
+		// that misses it holds a value with none (structural_bounds.go).
+		return fmt.Sprintf("`%s` holds a function, an Iter or a handle to running state, which has no equality; write an `impl %s for %s` block that leaves it out", typeName, iface, typeName)
 	}
 	if deriveSupported[iface] {
 		return fmt.Sprintf("add `derive %s` to `%s` or write an `impl %s for %s` block", iface, typeName, iface, typeName)
@@ -772,6 +818,9 @@ func formatRecordingVia(rec Recording) string {
 		}
 		return "ordering operator"
 	case RecordingKindOperator:
+		if rec.Op == "in" {
+			return "membership test `in`"
+		}
 		if rec.Op != "" {
 			if opIface, ok := operatorInterfaceForOp(rec.Op); ok {
 				return fmt.Sprintf("%s operator `%s`", opIface.Verb, rec.Op)
@@ -811,11 +860,51 @@ func (c *checker) implBoundsUnmetByNamedTypes(concrete Type, bound *InterfaceTyp
 			if typeSatisfiesInterfaceForImplMatch(arg, b, c.implsContext(), c.implTypeArgsContext(), nil) {
 				continue
 			}
-			if concreteTypeName(resolveTypeVar(arg)) == "" {
+			if !c.unmetDemandReachesNamedTypes(arg, b) {
 				return false
 			}
 			unmet = true
 		}
+	}
+	return unmet
+}
+
+// unmetDemandReachesNamedTypes reports whether the demand that t, which
+// misses bound, implement it is recorded at named types alone: t is one, or
+// a tuple or anonymous struct whose parts that miss the bound are, as
+// recordConformanceRecording splits an Equatable, Hashable or Display demand
+// (and a tuple's Comparable one) into its parts'.
+func (c *checker) unmetDemandReachesNamedTypes(t Type, bound *InterfaceType) bool {
+	resolved := resolveTypeVar(t)
+	if concreteTypeName(resolved) != "" {
+		return true
+	}
+	var parts []Type
+	switch bound.Name {
+	case "Equatable", "Hashable", "Display":
+		ps, ok := displayParts(resolved)
+		if !ok {
+			return false
+		}
+		parts = ps
+	case "Comparable":
+		tup, ok := resolved.(*TupleType)
+		if !ok {
+			return false
+		}
+		parts = tup.Elems
+	default:
+		return false
+	}
+	unmet := false
+	for _, p := range parts {
+		if typeSatisfiesInterfaceForImplMatch(p, bound, c.implsContext(), c.implTypeArgsContext(), nil) {
+			continue
+		}
+		if !c.unmetDemandReachesNamedTypes(p, bound) {
+			return false
+		}
+		unmet = true
 	}
 	return unmet
 }

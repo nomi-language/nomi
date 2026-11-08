@@ -105,6 +105,11 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		}
 		return bl.erasedInterfacePlan(t, args, d, m)
 	}
+	if p := bl.defaultInstImplPlan(t, args, d, method, recv); p != nil {
+		// `area(s)` or `Shape.area(s)` in this file's default, lowered for
+		// another file's implementing type: that block's own function.
+		return p
+	}
 	impl := bl.g.implsByIface[d.nomi][recv]
 	if impl == nil {
 		if p := bl.stdRecvIfacePlan(t, args, d, method, recv); p != nil {

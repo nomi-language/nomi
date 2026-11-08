@@ -120,7 +120,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Name:             n.Name,
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
-				unbuilt:          &unbuiltDecl{},
+				unbuilt:          newUnbuilt(n.TypeParams),
 			}
 		}
 	case *ast.EnumDef:
@@ -130,7 +130,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Name:             n.Name,
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
-				unbuilt:          &unbuiltDecl{},
+				unbuilt:          newUnbuilt(n.TypeParams),
 			}
 		}
 	case *ast.TypeDef:
@@ -140,7 +140,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Name:             n.Name,
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
-				unbuilt:          &unbuiltDecl{},
+				unbuilt:          newUnbuilt(n.TypeParams),
 			}
 		}
 	case *ast.InterfaceDef:
@@ -149,7 +149,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Origin:     declaredOrigin(fa),
 				Name:       n.Name,
 				TypeParams: typeParamNames(n.TypeParams),
-				unbuilt:    &unbuiltDecl{},
+				unbuilt:    newUnbuilt(n.TypeParams),
 			}
 		}
 	case *ast.ExternType:
@@ -300,7 +300,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 		case *ast.StructDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				st := &StructType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: &unbuiltDecl{}}
+				st := &StructType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 				if sym != nil {
 					st.Opaque, st.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -309,7 +309,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 		case *ast.EnumDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				et := &EnumType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: &unbuiltDecl{}}
+				et := &EnumType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 				if sym != nil {
 					et.Opaque, et.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -318,7 +318,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 		case *ast.TypeDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: &unbuiltDecl{}}
+				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 				if sym != nil {
 					dt.Opaque, dt.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -327,7 +327,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 		case *ast.InterfaceDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(*Symbol) Type {
-				return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: &unbuiltDecl{}}
+				return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: newUnbuilt(n.TypeParams)}
 			}
 		case *ast.ExternType:
 			name, line, col = n.Name, n.Line, n.Col
@@ -913,13 +913,13 @@ func blockTypeDeclsBinding(block *ast.Block) map[ast.Node]bool {
 func blockTypeShell(fa *FileAnalysis, n ast.Node) Type {
 	switch n := n.(type) {
 	case *ast.StructDef:
-		return &StructType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+		return &StructType{Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 	case *ast.EnumDef:
-		return &EnumType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+		return &EnumType{Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 	case *ast.TypeDef:
-		return &DistinctType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+		return &DistinctType{Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 	case *ast.InterfaceDef:
-		return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: &unbuiltDecl{}}
+		return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: newUnbuilt(n.TypeParams)}
 	}
 	return nil
 }
@@ -1180,13 +1180,14 @@ func buildTypeParamsWithFA(tps []ast.TypeParam, reg *TypeRegistry, fa *FileAnaly
 	return m
 }
 
-func buildSemanticTypeParamsWithWhere(fa *FileAnalysis, reg *TypeRegistry, tps []ast.TypeParam, clauses []ast.WhereConstraint, context string) (map[string]*TypeParam_, []TypeError) {
+func buildSemanticTypeParamsWithWhere(fa *FileAnalysis, reg *TypeRegistry, name string, tps []ast.TypeParam, clauses []ast.WhereConstraint, context string) (map[string]*TypeParam_, []TypeError) {
 	source := buildTypeParamsWithFA(tps, reg, fa)
 	semantic := cloneTypeParamMapDeep(source)
 	if semantic == nil {
 		semantic = map[string]*TypeParam_{}
 	}
 	errs := applyWhereBoundsToTypeParams(fa, reg, semantic, clauses, context)
+	errs = append(errs, resolveTypeParamDefaults(fa, reg, name, tps, semantic)...)
 	return semantic, errs
 }
 
@@ -1218,7 +1219,7 @@ func typeParamDefsFromMap(tps []ast.TypeParam, m map[string]*TypeParam_) []*Type
 
 func buildStructType(fa *FileAnalysis, reg *TypeRegistry, n *ast.StructDef) []TypeError {
 	var errs []TypeError
-	tp, whereErrs := buildSemanticTypeParamsWithWhere(fa, reg, n.TypeParams, n.WhereClauses, fmt.Sprintf("struct '%s'", n.Name))
+	tp, whereErrs := buildSemanticTypeParamsWithWhere(fa, reg, n.Name, n.TypeParams, n.WhereClauses, fmt.Sprintf("struct '%s'", n.Name))
 	errs = append(errs, whereErrs...)
 
 	// Position-based lookup handles nested decls (not in module scope).
@@ -1235,6 +1236,11 @@ func buildStructType(fa *FileAnalysis, reg *TypeRegistry, n *ast.StructDef) []Ty
 	fields := make([]FieldDef, 0, len(n.Fields))
 	for _, f := range n.Fields {
 		if f.TypeAnnotation == nil {
+			if f.Default != nil {
+				// `misses = 0`: the type comes from the default, which the
+				// inference phase checks (default_type.go).
+				fields = append(fields, FieldDef{Name: f.Name, Type: pendingDefault, HasDefault: true})
+			}
 			continue
 		}
 		resolved, err := ResolveDeclaredType(f.TypeAnnotation, reg, tp, fa.References)
@@ -1264,7 +1270,7 @@ func buildStructType(fa *FileAnalysis, reg *TypeRegistry, n *ast.StructDef) []Ty
 
 func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeError {
 	var errs []TypeError
-	tp, whereErrs := buildSemanticTypeParamsWithWhere(fa, reg, n.TypeParams, n.WhereClauses, fmt.Sprintf("enum '%s'", n.Name))
+	tp, whereErrs := buildSemanticTypeParamsWithWhere(fa, reg, n.Name, n.TypeParams, n.WhereClauses, fmt.Sprintf("enum '%s'", n.Name))
 	errs = append(errs, whereErrs...)
 
 	// Position-based lookup handles nested decls (not in module scope).
@@ -1305,6 +1311,9 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 			fields := make([]FieldDef, 0, len(v.Fields))
 			for _, f := range v.Fields {
 				if f.TypeAnnotation == nil {
+					if f.Default != nil {
+						fields = append(fields, FieldDef{Name: f.Name, Type: pendingDefault, HasDefault: true})
+					}
 					continue
 				}
 				resolved, err := ResolveDeclaredType(f.TypeAnnotation, reg, tp, fa.References)
@@ -1487,7 +1496,7 @@ func findVariant(et *EnumType, name string) *VariantDef {
 }
 
 func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeError {
-	tp, errs := buildSemanticTypeParamsWithWhere(fa, reg, n.TypeParams, nil, fmt.Sprintf("type '%s'", n.Name))
+	tp, errs := buildSemanticTypeParamsWithWhere(fa, reg, n.Name, n.TypeParams, nil, fmt.Sprintf("type '%s'", n.Name))
 	// Position-based lookup handles nested decls (not in module scope).
 	sym := fa.Definitions[Pos{Line: n.Line, Col: n.Col}]
 	if sym == nil {
@@ -1526,7 +1535,7 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 }
 
 func buildExternType(fa *FileAnalysis, reg *TypeRegistry, n *ast.ExternType) []TypeError {
-	tp, errs := buildSemanticTypeParamsWithWhere(fa, reg, n.TypeParams, n.WhereClauses, fmt.Sprintf("host type '%s'", n.Name))
+	tp, errs := buildSemanticTypeParamsWithWhere(fa, reg, n.Name, n.TypeParams, n.WhereClauses, fmt.Sprintf("host type '%s'", n.Name))
 	sym := fa.Definitions[Pos{Line: n.Line, Col: n.Col}]
 	if sym == nil {
 		sym = fa.ModuleScope.Lookup(n.Name)
@@ -1569,7 +1578,7 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 			return nil
 		}
 	}
-	tp, whereErrs := buildSemanticTypeParamsWithWhere(fa, reg, n.TypeParams, n.WhereClauses, fmt.Sprintf("interface '%s'", n.Name))
+	tp, whereErrs := buildSemanticTypeParamsWithWhere(fa, reg, n.Name, n.TypeParams, n.WhereClauses, fmt.Sprintf("interface '%s'", n.Name))
 	var errs []TypeError
 	errs = append(errs, whereErrs...)
 	// self is a fresh type param scoped to the interface.
@@ -1586,6 +1595,7 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		for k, v := range tp {
 			mtp[k] = v
 		}
+		errs = append(errs, rejectFunctionTypeParamDefaults(m.TypeParams)...)
 		mExplicit := buildTypeParamsWithFA(m.TypeParams, reg, fa)
 		for k, v := range mExplicit {
 			mtp[k] = v
@@ -1617,6 +1627,12 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 					continue
 				}
 				params = append(params, resolved)
+				continue
+			}
+			if p.TypeAnnotation == nil && p.Default != nil {
+				// `limit = 10`: the type comes from the default
+				// (default_type.go).
+				params = append(params, pendingDefault)
 				continue
 			}
 			if p.TypeAnnotation == nil {
@@ -1820,7 +1836,7 @@ func buildFuncType(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef) []TypeEr
 }
 
 func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, base map[string]*TypeParam_) []TypeError {
-	var errs []TypeError
+	errs := rejectFunctionTypeParamDefaults(n.TypeParams)
 	tp := cloneTypeParamMap(base)
 	explicit := buildTypeParamsWithFA(n.TypeParams, reg, fa)
 	for k, v := range explicit {
@@ -1854,6 +1870,12 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 				continue
 			}
 			params = append(params, resolved)
+			continue
+		}
+		if p.TypeAnnotation == nil && p.Default != nil {
+			// `limit = 10`: the type comes from the default
+			// (default_type.go).
+			params = append(params, pendingDefault)
 			continue
 		}
 		if p.TypeAnnotation == nil {
@@ -2219,6 +2241,12 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 				params = append(params, resolved)
 				continue
 			}
+			if p.TypeAnnotation == nil && p.Default != nil {
+				// `limit = 10`: the type comes from the default
+				// (default_type.go).
+				params = append(params, pendingDefault)
+				continue
+			}
 			if p.TypeAnnotation == nil {
 				errs = append(errs, missingParamType(p)...)
 				params = append(params, nil)
@@ -2290,6 +2318,12 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		}
 		params := make([]Type, 0, len(ef.Params))
 		for _, p := range ef.Params {
+			if p.TypeAnnotation == nil && p.Default != nil {
+				// `limit = 10`: the type comes from the default
+				// (default_type.go).
+				params = append(params, pendingDefault)
+				continue
+			}
 			if p.TypeAnnotation == nil {
 				errs = append(errs, missingParamType(p)...)
 				params = append(params, nil)
@@ -2392,6 +2426,12 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	var errs []TypeError
 	params := make([]Type, 0, len(n.Params))
 	for _, p := range n.Params {
+		if p.TypeAnnotation == nil && p.Default != nil {
+			// `limit = 10`: the type comes from the default
+			// (default_type.go).
+			params = append(params, pendingDefault)
+			continue
+		}
 		if p.TypeAnnotation == nil {
 			errs = append(errs, missingParamType(p)...)
 			params = append(params, nil)

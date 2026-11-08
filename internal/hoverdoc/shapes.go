@@ -147,7 +147,7 @@ func (s *shapeSearch) visit(n ast.Node) {
 	case *ast.MapLit:
 		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
 	case *ast.TupleLit:
-		s.shape(n, n.Line, n.Col, nil, false, func() string { return s.collectionLit(n, nil) })
+		s.shape(n, n.Line, n.Col, nil, true, func() string { return s.collectionLit(n, nil) })
 	case *ast.ListPattern:
 		s.shape(n, n.Line, n.Col, n.TypeName, true, func() string { return s.pattern(n) })
 		if rest, ok := n.TailSpread.(*ast.IdentPattern); ok {
@@ -169,7 +169,7 @@ func (s *shapeSearch) visit(n ast.Node) {
 		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.pattern(n) })
 	case *ast.TuplePattern:
 		if !n.Flat {
-			s.shape(n, n.Line, n.Col, nil, false, func() string { return s.pattern(n) })
+			s.shape(n, n.Line, n.Col, nil, true, func() string { return s.pattern(n) })
 		}
 	case *ast.DotVariant:
 		s.dotVariant(n, n.Line, n.Col, n.Name)
@@ -202,6 +202,8 @@ func (s *shapeSearch) visit(n ast.Node) {
 		})
 	case *ast.Capture:
 		s.capture(n)
+	case *ast.FieldAccessor:
+		s.fieldAccessor(n)
 	case *ast.FuncDef:
 		s.funcKeyword(n)
 		s.discardParams(n.Params, func() *analysis.FuncType { return s.funcDefType(n) })
@@ -357,17 +359,42 @@ func (s *shapeSearch) notePipeStage(stage ast.Node) {
 }
 
 // shapeWord leads a literal's type with the word for its shape when the
-// type is spelled in symbols only: `tuple #(Int, String)`, `anonymous
+// type is spelled in symbols only: `tuple (Int, String)`, `anonymous
 // struct #{x: Int}`. `Set<String>` and the other named collections say
 // their shape already.
 func shapeWord(t string) string {
 	switch {
-	case strings.HasPrefix(t, "#("):
+	case isTupleType(t):
 		return "tuple " + t
 	case strings.HasPrefix(t, "#{"):
 		return "anonymous struct " + t
 	}
 	return t
+}
+
+// isTupleType reports whether a type as written is a tuple, `(Int, String)`:
+// its parentheses close at its end, where a function type's are followed by
+// `->`.
+func isTupleType(t string) bool {
+	if !strings.HasPrefix(t, "(") || !strings.HasSuffix(t, ")") {
+		return false
+	}
+	depth := 0
+	for i := 0; i < len(t); i++ {
+		switch t[i] {
+		case '(', '<', '[', '{':
+			depth++
+		case ')', '>', ']', '}':
+			if t[i] == '>' && i > 0 && t[i-1] == '-' {
+				continue
+			}
+			depth--
+			if depth == 0 && i != len(t)-1 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // fence is code in a nomi fence.
@@ -683,8 +710,8 @@ func variantPayload(v ast.EnumVariant) string {
 			return ""
 		}
 		t := v.DataTypeExpr.TypeString()
-		if strings.HasPrefix(t, "#(") {
-			return "(" + strings.TrimSuffix(strings.TrimPrefix(t, "#("), ")") + ")"
+		if isTupleType(t) {
+			return t
 		}
 		return "(" + t + ")"
 	case "struct":

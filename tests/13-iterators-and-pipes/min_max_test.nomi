@@ -67,17 +67,17 @@ test "Iter.min and Iter.max take any Iter" {
 
 test "Iter.min_by and Iter.max_by compare a key, first on ties" {
     tasks = [
-        #("write", Level.Mid),
-        #("ship", Level.High),
-        #("rest", Level.Low),
-        #("plan", Level.High),
+        ("write", Level.Mid),
+        ("ship", Level.High),
+        ("rest", Level.Low),
+        ("plan", Level.High),
     ]
 
-    none: List<#(String, Level)> = []
+    none: List<(String, Level)> = []
 
-    assert Iter.min_by(tasks, fn #(_, level) -> level) == Some(#("rest", Level.Low))
-    assert Iter.max_by(tasks, fn #(_, level) -> level) == Some(#("ship", Level.High))
-    assert Iter.max_by(none, fn #(_, level) -> level) == None
+    assert Iter.min_by(tasks, fn (_, level) -> level) == Some(("rest", Level.Low))
+    assert Iter.max_by(tasks, fn (_, level) -> level) == Some(("ship", Level.High))
+    assert Iter.max_by(none, fn (_, level) -> level) == None
 }
 
 // No element is read from an empty source, so `[]` needs no element type

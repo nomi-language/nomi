@@ -26,6 +26,6 @@ fn echo_state<T>(x: T) -> T {
 fn main() {
     io.print("${first(7)}")
     io.print("${first("value")}")
-    io.print("${first(#(1, 2))}")
+    io.print("${first((1, 2))}")
     io.print("${echo_state(42)}")
 }

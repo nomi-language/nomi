@@ -80,26 +80,26 @@ fn next_hit(beam: Laser, from: Maybe<Int>, prisms: List<Prism>) -> Maybe<Prism> 
 import prism.{self, Laser, Prism}
 
 test "find sequence" {
-    cases: List<#(String, Laser, List<Prism>, List<Int>)> = [
-        #(
+    cases: List<(String, Laser, List<Prism>, List<Int>)> = [
+        (
             "zero prisms",
             #{x: 0.0, y: 0.0, angle: 0.0},
             [],
             [],
         ),
-        #(
+        (
             "one prism one hit",
             #{x: 0.0, y: 0.0, angle: 0.0},
             [#{id: 1, x: 10.0, y: 0.0, angle: 0.0}],
             [1],
         ),
-        #(
+        (
             "one prism zero hits",
             #{x: 0.0, y: 0.0, angle: 0.0},
             [#{id: 1, x: -10.0, y: 0.0, angle: 0.0}],
             [],
         ),
-        #(
+        (
             "going up zero hits",
             #{x: 0.0, y: 0.0, angle: 90.0},
             [
@@ -109,7 +109,7 @@ test "find sequence" {
             ],
             [],
         ),
-        #(
+        (
             "going down zero hits",
             #{x: 0.0, y: 0.0, angle: -90.0},
             [
@@ -119,7 +119,7 @@ test "find sequence" {
             ],
             [],
         ),
-        #(
+        (
             "going left zero hits",
             #{x: 0.0, y: 0.0, angle: 180.0},
             [
@@ -129,7 +129,7 @@ test "find sequence" {
             ],
             [],
         ),
-        #(
+        (
             "negative angle",
             #{x: 0.0, y: 0.0, angle: -180.0},
             [
@@ -139,31 +139,31 @@ test "find sequence" {
             ],
             [],
         ),
-        #(
+        (
             "large angle",
             #{x: 0.0, y: 0.0, angle: 2340.0},
             [#{id: 1, x: 10.0, y: 0.0, angle: 0.0}],
             [],
         ),
-        #(
+        (
             "upward refraction two hits",
             #{x: 0.0, y: 0.0, angle: 0.0},
             [#{id: 1, x: 10.0, y: 10.0, angle: 0.0}, #{id: 2, x: 10.0, y: 0.0, angle: 90.0}],
             [2, 1],
         ),
-        #(
+        (
             "downward refraction two hits",
             #{x: 0.0, y: 0.0, angle: 0.0},
             [#{id: 1, x: 10.0, y: 0.0, angle: -90.0}, #{id: 2, x: 10.0, y: -10.0, angle: 0.0}],
             [1, 2],
         ),
-        #(
+        (
             "same prism twice",
             #{x: 0.0, y: 0.0, angle: 0.0},
             [#{id: 2, x: 10.0, y: 0.0, angle: 0.0}, #{id: 1, x: 20.0, y: 0.0, angle: -180.0}],
             [2, 1, 2],
         ),
-        #(
+        (
             "simple path",
             #{x: 0.0, y: 0.0, angle: 0.0},
             [
@@ -174,7 +174,7 @@ test "find sequence" {
             ],
             [2, 1, 3],
         ),
-        #(
+        (
             "multiple prisms floating point precision",
             #{x: 0.0, y: 0.0, angle: -6.429},
             [
@@ -222,7 +222,7 @@ test "find sequence" {
                 32, 6, 15, 17, 2, 14, 27, 34, 37, 31, 36, 18, 19, 8, 3, 12,
             ],
         ),
-        #(
+        (
             "complex path with multiple prisms floating point precision",
             #{x: 0.0, y: 0.0, angle: 0.0},
             [
@@ -312,7 +312,7 @@ test "find sequence" {
         ),
     ]
 
-    subtests cases, #(description, start, prisms, expected), description {
+    subtests cases, (description, start, prisms, expected), description {
         assert prism.find_sequence(start, prisms) == expected
     }
 }

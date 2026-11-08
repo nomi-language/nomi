@@ -11,7 +11,7 @@ fn text(data: Bytes) -> String {
 }
 
 test "a buffered from_fn writer hands on what accumulated, on flush" {
-    #(_, sent) = Writer.collect(fn log -> {
+    (_, sent) = Writer.collect(fn log -> {
         w = Writer.from_fn(fn chunk -> Writer.print(log, "chunk ${text(chunk)}"))
         _ = Writer.write_text(w, "a")
         _ = Writer.write_text(w, "b")
@@ -38,7 +38,7 @@ test "an unbuffered from_fn writer hands on each write" {
 }
 
 test "close runs after the last bytes, and its error is close's" {
-    #(closed, log) = Writer.collect(fn log -> {
+    (closed, log) = Writer.collect(fn log -> {
         w = Writer.from_fn(close: fn -> {
             _ = Writer.write_text(log, "|closed")
             Err(Error.TimedOut)
@@ -63,8 +63,8 @@ test "a failing write is the error of the operation that sends the bytes" {
 }
 
 test "a from_fn writer feeds another writer it holds" {
-    #(_, outer) = Writer.collect(fn sink -> {
-        #(_, inner) = Writer.collect(fn mid -> {
+    (_, outer) = Writer.collect(fn sink -> {
+        (_, inner) = Writer.collect(fn mid -> {
             relay = Writer.from_fn(unbuffered: True, fn chunk -> {
                 _ = Writer.write(mid, chunk)
                 Writer.write(sink, chunk)
@@ -94,9 +94,9 @@ test "a from_fn writer inside io.capture prints into the capture" {
 }
 
 test "collect answers the body's value and the bytes, and closes the writer" {
-    #(#(count, kept), data) = Writer.collect(fn w -> {
+    ((count, kept), data) = Writer.collect(fn w -> {
         _ = Writer.write_lines(w, ["pear", "apple"])
-        #(2, w)
+        (2, w)
     })
 
     assert count == 2
@@ -105,7 +105,7 @@ test "collect answers the body's value and the bytes, and closes the writer" {
 }
 
 test "write_all writes a sequence of chunks" {
-    #(copied, data) = Writer.collect(fn w -> {
+    (copied, data) = Writer.collect(fn w -> {
         Writer.write_all(
             w,
             ["abc", "defg"]
@@ -118,7 +118,7 @@ test "write_all writes a sequence of chunks" {
 }
 
 test "write_all and write_lines stop at the first failure" {
-    #(#(written, lines), sizes) = Writer.collect(fn log -> {
+    ((written, lines), sizes) = Writer.collect(fn log -> {
         limited = Writer.from_fn(unbuffered: True, fn chunk -> {
             _ = Writer.write_text(log, "${Bytes.length(chunk)} ")
 
@@ -129,7 +129,7 @@ test "write_all and write_lines stop at the first failure" {
             }
         })
 
-        #(
+        (
             Writer.write_all(
                 limited,
                 [String.to_bytes("ab"), String.to_bytes("cde"), String.to_bytes("f")],

@@ -1,0 +1,35 @@
+==========
+A field whose type comes from its default
+==========
+
+struct Game {
+    word: String
+    misses = 0
+}
+
+enum Shape {
+    Circle{radius = 1.0}
+}
+
+---
+
+(source_file
+  (struct_definition
+    (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        (identifier)
+        (type_identifier))
+      (field_definition
+        (identifier)
+        (integer))))
+  (enum_definition
+    (qualified_type_identifier
+      (type_identifier))
+    (enum_body
+      (enum_variant
+        (type_identifier)
+        (field_definition
+          (identifier)
+          (float))))))

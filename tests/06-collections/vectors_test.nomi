@@ -109,7 +109,7 @@ test "Iter.to_vector materializes any iterator into a vector" {
     assert #["a", "b"] |> Iter.to_vector() == #["a", "b"]
     three = 3
     assert %[3, 1, three] |> Iter.to_vector() == #[3, 1]
-    assert %{"a" => 1, "b" => 2} |> Iter.to_vector() == #[#("a", 1), #("b", 2)]
+    assert %{"a" => 1, "b" => 2} |> Iter.to_vector() == #[("a", 1), ("b", 2)]
     assert "héllo" |> Iter.to_vector() == #["h", "é", "l", "l", "o"]
     assert 1..=4 |> Iter.to_vector() == #[1, 2, 3, 4]
     assert String.to_bytes("ab") |> Iter.to_vector() |> Vector.length() == 2

@@ -464,7 +464,7 @@ func (b *tourModule0Bound) out27(v tourModule0_goside.Failure) (rt.Value, error)
 	return r, nil
 }
 
-// fn23 adapts postgres/postgres.begin_raw: begin_raw(h: Handle) -> #(Handle, Failure)
+// fn23 adapts postgres/postgres.begin_raw: begin_raw(h: Handle) -> (Handle, Failure)
 func (b *tourModule0Bound) fn23(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.begin_raw", &err)
 	if len(args) != 1 {

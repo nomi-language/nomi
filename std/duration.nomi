@@ -37,6 +37,7 @@ import {
     localize.{Localize, NumberParseError}
     maybe.Maybe.{self, None, Some}
     multiply.Multiply
+    remainder.Remainder
     results.Result.{self, Err, Ok}
     strings.String
     subtract.Subtract
@@ -203,7 +204,7 @@ impl Duration {
     pub fn clock(d: Duration, fraction_digits: Int = 0) -> String {
         Duration(ns) = d
         whole = Int.abs(ns / 1_000_000_000)
-        digits = fraction_digits |> Int.max(0) |> Int.min(9)
+        digits = Int.clamp(fraction_digits, 0, 9)
 
         fraction = if digits == 0 {
             ""
@@ -278,7 +279,7 @@ impl Duration {
         if String.length(text) == 0 { return Err(NumberParseError.Empty) }
 
         negative = String.take(text, 1) == "-"
-        #(hours, rest) = parts(text, if negative { 1 } else { 0 }, -1, 0, 0)?
+        (hours, rest) = parts(text, if negative { 1 } else { 0 }, -1, 0, 0)?
         magnitude = hours * 3_600_000_000_000 + rest
         in_range(if negative { -magnitude } else { magnitude })
     }
@@ -384,6 +385,18 @@ impl Divide<Int, Duration> for Duration {
     }
 }
 
+impl Remainder<Duration, Duration> for Duration {
+    /// What is left of `lhs` after as many whole `rhs` as fit, with `lhs`'s
+    /// sign: `elapsed % Duration.minutes(15)` is how far into the current
+    /// quarter hour `elapsed` is. Traps on a zero `rhs`.
+    //! assert Duration.minutes(40) % Duration.minutes(15) == Duration.minutes(10)
+    //! assert Duration.seconds(-7) % Duration.seconds(3) == Duration.seconds(-1)
+    //
+    fn remainder(Duration(ns), Duration(by)) -> Duration {
+        Duration(ns % by)
+    }
+}
+
 impl Display for Duration {
     /// Compact, human-readable rendering — decomposes into the largest units
     /// that fit (e.g. `1h30m`, `250ms`).
@@ -426,8 +439,8 @@ fn parts(
     after: Int,
     hours: Int,
     rest: Int,
-) -> Result<#(Int, Int), NumberParseError> {
-    if after >= 0 and at == String.length(text) { return Ok(#(hours, rest)) }
+) -> Result<(Int, Int), NumberParseError> {
+    if after >= 0 and at == String.length(text) { return Ok((hours, rest)) }
 
     digits = digits_end(text, at)
 
@@ -439,7 +452,7 @@ fn parts(
 
     name = String.slice(text, digits, unit_end)
 
-    Some(#(rank, size, below)) = unit(name) else {
+    Some((rank, size, below)) = unit(name) else {
         return Err(NumberParseError.Unexpected{at: digits, text: name})
     }
 
@@ -461,14 +474,14 @@ fn parts(
 // A unit `Display` writes: its rank, largest first, its length in
 // nanoseconds, and the count it stays below (0 for the hours, which have
 // no bound).
-fn unit(name: String) -> Maybe<#(Int, Int, Int)> {
+fn unit(name: String) -> Maybe<(Int, Int, Int)> {
     case name {
-        "h" -> Some(#(0, 3_600_000_000_000, 0))
-        "m" -> Some(#(1, 60_000_000_000, 60))
-        "s" -> Some(#(2, 1_000_000_000, 60))
-        "ms" -> Some(#(3, 1_000_000, 1000))
-        "µs" -> Some(#(4, 1_000, 1000))
-        "ns" -> Some(#(5, 1, 1000))
+        "h" -> Some((0, 3_600_000_000_000, 0))
+        "m" -> Some((1, 60_000_000_000, 60))
+        "s" -> Some((2, 1_000_000_000, 60))
+        "ms" -> Some((3, 1_000_000, 1000))
+        "µs" -> Some((4, 1_000, 1000))
+        "ns" -> Some((5, 1, 1000))
         _ -> None
     }
 }

@@ -34,7 +34,7 @@ fn main() {
     v = User.rename(u, "b")
     w = users.make() |> User.rename("c")
     f = users.make
-    io.inspect(#(v, w, f(), seed))
+    io.inspect((v, w, f(), seed))
 }
 
 once seed = users.make()

@@ -8,7 +8,7 @@ import (
 // A lambda's destructuring parameter beyond the two shapes irlambda.go
 // projects itself (a flat tuple of names, a wrapping distinct's `fn Dur(n) ->`):
 // `fn Point{x, y} ->`, `fn Box.Extent{wide, tall} ->`, `fn Wrapper.Only(n) ->`,
-// `fn Segment{from: Point{x, y: _}, to: _} ->` and `fn #(a, #(b, c)) ->`.
+// `fn Segment{from: Point{x, y: _}, to: _} ->` and `fn (a, (b, c)) ->`.
 //
 // These build exactly as a named function's destructuring parameter does:
 // `g.destructure` resolves the irrefutable pattern against the parameter's
@@ -57,6 +57,9 @@ func (g *gen) irParamPatternKind(p ast.Param) kind {
 			return k
 		}
 		return kindInvalid
+	}
+	if d := g.selfHeadDef(head); d != nil {
+		return named(d)
 	}
 	owner, member, ok := g.patternHead(head)
 	if !ok {

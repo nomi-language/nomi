@@ -77,7 +77,7 @@ func TestRtFuncs_HandlesAndSandboxes(t *testing.T) {
 	// beside them.
 	w = ok(disk, "fs_host.create", out, int64(1))
 	ok(disk, "io.Writer.write_text", w, "half")
-	call(disk, "fs_host.discard", w)
+	call(disk, "io.Writer.discard", w)
 	if data, _ := os.ReadFile(out); string(data) != "one\ntwo\n" {
 		t.Errorf("a discarded atomic write left %q", data)
 	}

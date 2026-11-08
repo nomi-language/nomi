@@ -52,10 +52,13 @@ cancelled task stops it.
 
 A handler is a plain function from a `Request` to a `Response`. A
 [`Router`](/reference/http/#struct-router) picks the handler for each
-request by a `Route`, a method and a path pattern:
-``Route`GET /users/{id}` `` matches a `GET` of `/users/7`, and
-`Request.path_value` reads what `{id}` matched. A request no route matches
-gets a 404, and one that matches only under another method a 405. Since a
+request by a `Route`, a method and a path pattern. A route's type says
+what its wildcards hold: `Route<#{id: Uuid}>` for `GET /posts/{id}`, and
+a plain `Route` (`Route<Unit>`) for a route with none. `Route.to_with` hands the handler the
+parameters, each wildcard parsed into its field's type, and `Route.to`
+takes a route with none. A request whose wildcard does not parse gets a
+404, as one no route matches does, and one that matches only under another
+method a 405. `Route.path_with` fills the parameters into a link. Since a
 handler is a function, a test calls it, or the router, with a request and
 no network:
 
@@ -65,25 +68,31 @@ import {
     std::http_testing
 }
 
-fn show(request: Request) -> Response {
-    id = Request.path_value(request, "id") |> Maybe.with_default("?")
-    Response{body: .Text("user ${id}")}
+fn show(_: Request, user: #{id: Int}) -> Response {
+    Response{body: .Text("user ${user.id}")}
 }
 
 fn main() {
-    router = Router.new([#(Route`GET /users/{id}`, show)])!
+    user: Route<#{id: Int}> = "GET /users/{id}"
+    router = Router.new([Route.to_with(user, show)])!
     found = Router.serve(router, http_testing.request(.Get, "/users/7"))
     dbg Response.text(found)
-    missing = Router.serve(router, http_testing.request(.Get, "/teams/1"))
-    dbg missing.status
+    dbg Router.serve(router, http_testing.request(.Get, "/users/ann")).status
+    dbg "${Route.path_with(user, #{id: 8})}"
 }
 ```
 <!-- expect
 dbg line 14: Response.text(found) = Ok("user 7")
-dbg line 16: missing.status = Status(404)
+dbg line 15: Router.serve(router, http_testing.request(.Get, "/users/ann")).status = Status(404)
+dbg line 16: "${Route.path_with(user, #{id: 8})}" = "/users/8"
 -->
 
-`http_testing.form_request(.Post, "/signup", [#("email", "ada@example.com")])`
+A route literal written with no type, as an argument with nothing to say
+what its parameters are, has a `String` field per wildcard:
+``Route`GET /users/{id}` `` is a `Route<#{id: String}>`.
+`Request.path_value` reads a wildcard's text from the request too.
+
+`http_testing.form_request(.Post, "/signup", [("email", "ada@example.com")])`
 builds a request that posts a form, as
 [Frontends](/frontends/#pages-rendered-on-the-server) does. An HTML form
 sends only `GET` and `POST`, so `Router.handler(router) |>
@@ -91,17 +100,22 @@ http.method_override()` routes a posted form with a `_method` field of
 `PUT`, `PATCH` or `DELETE` as that method.
 
 A route is checked when the program is checked, so a pattern Go would
-refuse is a compile error at the literal:
+refuse is a compile error at the literal, and so is a wildcard that is not
+one of the parameters' fields. So is a method other than the standard ones
+in capitals, such as `GETX` (`Route.with_method` routes WebDAV's
+`PROPFIND` and the like), and a brace outside a wildcard that is a whole
+segment, such as `/token}`:
 
 ```nomi-run error
 import std::http.Route
 
 fn main() {
-    dbg Route`GET /users/{id}/posts/{id}`
+    post: Route<#{post_id: Int}> = "GET /posts/{id}"
+    dbg post
 }
 ```
 <!-- expect
-main.nomi:4:9: typed literal Route`GET /users/{id}/posts/{id}` is invalid: pattern GET /users/{id}/posts/{id}: at offset 22: duplicate wildcard name "id"
+main.nomi:4:48: `Route` literal "GET /posts/{id}" is invalid: the pattern has `{id}`, but `#{post_id: Int}` has no field `id`
 -->
 
 `Router.new` still returns an `Err` for two routes that match the same
@@ -207,9 +221,11 @@ fn find_user(id: Int) -> Result<String, AppError> {
     }
 }
 
-fn show(request: Request) -> Result<Html, AppError> {
-    text = Request.path_value(request, "id") |> Maybe.with_default("")
-    id = String.to_int(text) |> Maybe.to_result(AppError.BadInput{reason: "not a number: ${text}"})?
+fn show(_: Request, user: #{id: String}) -> Result<Html, AppError> {
+    id =
+        String.to_int(user.id)
+        |> Maybe.to_result(AppError.BadInput{reason: "not a number: ${user.id}"})?
+
     name = find_user(id)?
     Ok(Html"<h1>${name}</h1>")
 }
@@ -219,7 +235,7 @@ fn health(Request) -> Response {
 }
 
 fn main() {
-    router = Router.new([#(Route`GET /health`, health), #(Route`GET /users/{id}`, show)])!
+    router = Router.new([Route.to("GET /health", health), Route.to_with("GET /users/{id}", show)])!
     answer = fn target: String -> Router.serve(router, http_testing.request(.Get, target))
     dbg Response.text(answer("/users/7"))
     dbg answer("/users/8").status
@@ -227,9 +243,9 @@ fn main() {
 }
 ```
 <!-- expect
-dbg line 55: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
-dbg line 56: answer("/users/8").status = Status(404)
-dbg line 57: Response.text(answer("/users/x")) = Ok("not a number: x\n")
+dbg line 57: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
+dbg line 58: answer("/users/8").status = Status(404)
+dbg line 59: Response.text(answer("/users/x")) = Ok("not a number: x\n")
 -->
 
 ## Serving
@@ -256,13 +272,12 @@ fn boot(_startup: Startup) -> Result<App, String> {
     Ok(App{web: Supervisor.new(max_running: 256)})
 }
 
-fn show(request: Request) -> Response {
-    id = Request.path_value(request, "id") |> Maybe.with_default("?")
-    Response{body: .Text("user ${id}")}
+fn show(_: Request, user: #{id: String}) -> Response {
+    Response{body: .Text("user ${user.id}")}
 }
 
 fn main() -> Result<Unit, http.Error> {
-    router = Router.new([#(Route`GET /users/{id}`, show)])?
+    router = Router.new([Route.to_with("GET /users/{id}", show)])?
     listener = http.listen(Server{address: ":8080"})?
     http.serve(listener, Router.handler(router), App.web)
     Ok(Unit)
@@ -355,8 +370,8 @@ fn stats(Request) -> Response {
 }
 
 fn main() {
-    admin = [#(Route`GET /admin/stats`, stats)] |> http.wrap_routes(require_admin)
-    routes = [#(Route`GET /dashboard`, require_user(dashboard))] + admin
+    admin = [Route.to("GET /admin/stats", stats)] |> http.wrap_routes(require_admin)
+    routes = [Route.to("GET /dashboard", require_user(dashboard))] + admin
     router = Router.new(routes)!
 
     app =
@@ -367,7 +382,7 @@ fn main() {
 
     get = fn token: String, path: String -> {
         request = http_testing.request(.Get, path)
-        app(#{..request, headers: Headers[#("Authorization", "Bearer ${token}")]})
+        app(#{..request, headers: Headers[("Authorization", "Bearer ${token}")]})
     }
 
     dbg Response.text(get("bob", "/dashboard"))
@@ -449,29 +464,37 @@ fn dashboard(Request, visit: Visit) -> Html {
 
 fn main() {
     routes = [
-        #(Route`POST /sign-in`, sign_in |> sessions.with_session(store)),
-        #(Route`POST /sign-out`, sign_out |> sessions.with_session(store)),
-        #(Route`GET /dashboard`, require_user(dashboard)),
+        Route.to(
+            "POST /sign-in",
+            sign_in
+            |> sessions.with_session(store),
+        ),
+        Route.to(
+            "POST /sign-out",
+            sign_out
+            |> sessions.with_session(store),
+        ),
+        Route.to("GET /dashboard", require_user(dashboard)),
     ]
 
     app = Router.handler(Router.new(routes)!) |> http.cross_origin_protection(CrossOrigin{})
-    signed_in = app(http_testing.form_request(.Post, "/sign-in", [#("user", "Ada")]))
+    signed_in = app(http_testing.form_request(.Post, "/sign-in", [("user", "Ada")]))
     cookie = List.head(Response.cookies(signed_in))!
     dbg Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie)))
     dbg app(http_testing.request(.Get, "/dashboard")).status
 
     forged = #{
         ..http_testing.form_request(.Post, "/sign-out", []),
-        headers: Headers[#("Sec-Fetch-Site", "cross-site")],
+        headers: Headers[("Sec-Fetch-Site", "cross-site")],
     }
 
     dbg app(Request.add_cookie(forged, cookie)).status
 }
 ```
 <!-- expect
-dbg line 55: Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
-dbg line 56: app(http_testing.request(.Get, "/dashboard")).status = Status(303)
-dbg line 63: app(Request.add_cookie(forged, cookie)).status = Status(403)
+dbg line 63: Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie))) = Ok("<h1>Hello, Ada</h1>")
+dbg line 64: app(http_testing.request(.Get, "/dashboard")).status = Status(303)
+dbg line 71: app(Request.add_cookie(forged, cookie)).status = Status(403)
 -->
 
 There is no CSRF token. `cross_origin_protection` refuses a `POST`, `PUT`,
@@ -527,14 +550,15 @@ fn main() {
     store = Memory.new(public_base: Url`/files/`)
     dbg "${save_avatar(store, 7, String.to_bytes("png"))!}"
 
-    router = Router.new([#(Route`GET /files/{key...}`, storage.handler(store))])!
+    files = storage.handler(store)
+    router = Router.new([Route.to_with("GET /files/{key...}", fn r, _ -> files(r))])!
     response = Router.serve(router, http_testing.request(.Get, "/files/avatars/7.png"))
     dbg Headers.get(response.headers, "Content-Type")
 }
 ```
 <!-- expect
 dbg line 17: "${save_avatar(store, 7, String.to_bytes("png"))!}" = "/files/avatars/7.png"
-dbg line 21: Headers.get(response.headers, "Content-Type") = Some("image/png")
+dbg line 22: Headers.get(response.headers, "Content-Type") = Some("image/png")
 -->
 
 A key is segments separated by `/`. A segment may hold spaces,

@@ -68,10 +68,10 @@ test "io.lines reads the capture's input after io.read_line" {
     run = io.capture("first\nsecond\nthird", fn -> {
         head = io.read_line()
         rest = io.lines() |> Result.collect()
-        #(head, rest)
+        (head, rest)
     })
 
-    assert run.value == #(Ok(Some("first")), Ok(["second", "third"]))
+    assert run.value == (Ok(Some("first")), Ok(["second", "third"]))
 }
 
 test "io.lines hands over each line before it reads the next" {

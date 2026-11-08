@@ -26,7 +26,7 @@ fn boot(startup: Startup) -> Result<#{context: Context}, String> { Ok(#{context:
 func TestUnusedParameterAcceptedForms(t *testing.T) {
 	for _, source := range []string{
 		`fn answer(value: Int) -> Int { value }`,
-		`fn answer(value: Int) -> Int { f = fn #(value, acc): #(Int, Int) = #(value, 1) -> value + acc; f() }`,
+		`fn answer(value: Int) -> Int { f = fn (value, acc): (Int, Int) = (value, 1) -> value + acc; f() }`,
 		`fn answer(value: Int) -> Int { f = fn value: Int = value -> value; f() }`,
 		`fn answer(_: Int, _reason: String) -> Int { 42 }`,
 		`fn answer(value: Int) -> Int { f = fn -> value; f() }`,

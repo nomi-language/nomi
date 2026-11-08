@@ -74,6 +74,9 @@ func hasMissingImpl(msgs []string, iface, typeName string) bool {
 // program was ACCEPTED with no impl of its own. An enum named `Zonk` was
 // correctly refused.
 //
+// Both enums hold a function, so neither has equality, and neither meets
+// Equatable without an impl (spec §5 *Equality bounds*).
+//
 // Both rows must produce the diagnostic. A row that stops producing one is
 // a regression whichever direction it moves in, so neither is written as
 // "expect no error".
@@ -82,6 +85,7 @@ func TestMissingImpl_TheOnlyVariableIsTheTypesName(t *testing.T) {
 
 pub enum %[1]s {
   Bad String
+  Run (Int) -> Int
 }
 
 fn mk(s: String) -> Result<Int, %[1]s> { Err(%[1]s.Bad(s)) }
@@ -143,6 +147,7 @@ func TestMissingImpl_StdlibsOwnDemandsAreNotBlamedOnTheUser(t *testing.T) {
 
 pub enum Error {
   Bad String
+  Run (Int) -> Int
 }
 
 fn mk(s: String) -> Result<Int, Error> { Err(Error.Bad(s)) }
@@ -274,17 +279,17 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // follow-on with a known mechanism, not an oversight.
 const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/BitwiseOr Byte/BitwiseXor " +
 	"Bytes/Add Chunks/Iter Cron/CheckedLiteral Date/Add Date/Subtract DateTime/Add " +
-	"DateTime/Subtract Decimal/Add Decimal/Multiply " +
-	"Decimal/Subtract Duration/Add Duration/Divide " +
-	"Duration/Multiply Duration/Subtract Float/Add Float/Divide " +
-	"Float/Multiply Float/Subtract Instant/Add Instant/Subtract " +
+	"DateTime/Subtract Decimal/Add Decimal/Divide Decimal/Multiply " +
+	"Decimal/Remainder Decimal/Subtract Duration/Add Duration/Divide " +
+	"Duration/Multiply Duration/Remainder Duration/Subtract Float/Add Float/Divide " +
+	"Float/Multiply Float/Remainder Float/Subtract Instant/Add Instant/Subtract " +
 	"Int/Add Int/BitwiseAnd Int/BitwiseNot Int/BitwiseOr " +
-	"Int/BitwiseXor Int/Divide Int/Multiply Int/ShiftLeft " +
+	"Int/BitwiseXor Int/Divide Int/Multiply Int/Parse Int/Remainder Int/ShiftLeft " +
 	"Int/ShiftRight Int/Subtract Lines/Iter List/Add Map/Add " +
 	"Money/Add Money/Multiply Money/Subtract NaiveDateTime/Add " +
 	"NaiveDateTime/Subtract OffsetDateTime/Add " +
-	"OffsetDateTime/Subtract RecordIter/Iter RowIter/Iter Set/Add Set/Subtract Statement/Add " +
-	"String/Add String/Contains Time/Add Time/Subtract TokenIter/Iter Toml/CheckedLiteral Url/CheckedLiteral Vector/Add " +
+	"OffsetDateTime/Subtract RecordIter/Iter Route/CheckedLiteral RowIter/Iter Set/Add Set/Subtract Statement/Add " +
+	"String/Add String/Contains String/Parse Time/Add Time/Subtract TokenIter/Iter Toml/CheckedLiteral Url/CheckedLiteral Uuid/Parse Vector/Add " +
 	"Walk/Iter"
 
 // A user type that shares a name with a std type implementing an operator

@@ -14,7 +14,13 @@
 //#     Response.redirect(request, "/", Status.see_other) |> sessions.write(next)
 //# }
 //#
-//# routes = [#(Route`POST /sign-in`, sign_in |> sessions.with_session(App.sessions))]
+//# routes = [
+//#     Route.to(
+//#         "POST /sign-in",
+//#         sign_in
+//#         |> sessions.with_session(App.sessions),
+//#     ),
+//# ]
 //# ```
 //#
 //# A response that writes nothing leaves the cookie as it is. A cookie
@@ -219,7 +225,7 @@ pub fn with_session<T>(handler: (Request, Session<T>) -> ToResponse, store: Cook
     Request
 ) -> Response where T: ToJson and FromJson {
     fn request -> {
-        #(session, stale) = read<T>(request, store)
+        (session, stale) = read<T>(request, store)
         response = ToResponse.to_response(handler(request, session))
 
         if writes(response, store.name) {
@@ -311,17 +317,17 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
 
 // The session `request` carries, and whether it carried a cookie of the
 // store's name that did not open or had expired.
-fn read<T>(request: Request, store: CookieStore) -> #(Session<T>, Bool) where T: FromJson {
+fn read<T>(request: Request, store: CookieStore) -> (Session<T>, Bool) where T: FromJson {
     at = now()
 
     case Request.cookie(request, store.name) {
         None ->
-            #(empty(store, at), False)
+            (empty(store, at), False)
 
         Some(cookie) ->
             case open(store, cookie.value, at) {
-                Some(session) -> #(session, False)
-                None -> #(empty(store, at), True)
+                Some(session) -> (session, False)
+                None -> (empty(store, at), True)
             }
     }
 }
@@ -387,8 +393,8 @@ fn strings_field(fields: Map<String, Json>, name: String) -> Maybe<List<String>>
     case Map.get(fields, name) {
         Some(Json.Arr(items)) ->
             Iter.reduce(items, Some([]), fn acc, item -> {
-                case #(acc, item) {
-                    #(Some(texts), Json.String(t)) -> Some(texts + [t])
+                case (acc, item) {
+                    (Some(texts), Json.String(t)) -> Some(texts + [t])
                     _ -> None
                 }
             })
@@ -415,8 +421,8 @@ fn writes(response: Response, name: String) -> Bool {
 fn replace_cookie(response: Response, cookie: Cookie) -> Response {
     Headers(fields) = response.headers
 
-    other = fn header: #(String, String) -> {
-        #(name, value) = header
+    other = fn header: (String, String) -> {
+        (name, value) = header
         name_of = Cookie.parse_set_cookie(value) |> Result.map(fn c -> c.name)
         Headers.canonical_key(name) != "Set-Cookie" or name_of != Ok(cookie.name)
     }

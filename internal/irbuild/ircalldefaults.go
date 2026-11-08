@@ -41,12 +41,16 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 			if p.Default == nil {
 				return false
 			}
-			restore := func() {}
-			if unit, foreign := bl.g.declaredIn[p.Default]; foreign {
-				restore = bl.g.lowerNamesFrom(unit)
+			var src ir.Temp
+			var k kind
+			var ok bool
+			if o, foreign := bl.g.ifaceParamDefaultOf(p.Default); foreign {
+				// Another file's interface function's default: its names
+				// are that file's (ifaceslotdefault.go).
+				src, k, ok = bl.ifaceSlotDefault(o, p, sig.params, args, i)
+			} else {
+				src, k, _, ok = bl.lowerWant(p.Default, sig.params[i])
 			}
-			src, k, _, ok := bl.lowerWant(p.Default, sig.params[i])
-			restore()
 			if !ok || k != sig.params[i] || !irCallOperandKind(k) {
 				return false
 			}
@@ -65,7 +69,7 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 // bindParamPattern binds the names destructuring parameter pattern pat
 // introduces from its argument arg, as the callee's prologue binds them for
 // its body, so a later parameter's default may read them
-// (`fn area(#(w, h): #(Int, Int), scale: Int = w)`). The pattern is
+// (`fn area((w, h): (Int, Int), scale: Int = w)`). The pattern is
 // irrefutable, so its mismatch edge is a NoMatch no value reaches.
 func (bl *irScalarBuilder) bindParamPattern(pat ast.Node, arg ir.Temp, k kind) bool {
 	if !irHeldValue(bl.f, arg, bl.sides) {

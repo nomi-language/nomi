@@ -12,7 +12,7 @@ pub fn total(basket: List<Int>) -> Int {
 
     full =
         groups
-        |> Iter.map(fn #(size, count) -> count * group_price(size))
+        |> Iter.map(fn (size, count) -> count * group_price(size))
         |> Iter.sum()
 
     full - swaps * saving
@@ -33,7 +33,7 @@ fn group_sizes(basket: List<Int>) -> Map<Int, Int> {
 
     Iter.zip(copies, next)
     |> Iter.with_index()
-    |> Iter.map(fn #(index, #(these, fewer)) -> #(index + 1, these - fewer))
+    |> Iter.map(fn (index, (these, fewer)) -> (index + 1, these - fewer))
     |> Iter.to_map()
 }
 

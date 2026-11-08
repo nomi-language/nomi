@@ -58,11 +58,12 @@ import {
 }
 
 fn main() -> Result<Unit, Error> {
-    sql.with_connection(sqlite.memory, fn db -> {
-        _ = try Conn.exec(db, Sql"CREATE TABLE t (x INTEGER)")
-        io.print("sqlite works")
-        Ok(Unit)
-    })
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
+
+    _ = try Conn.exec(db, Sql"CREATE TABLE t (x INTEGER)")
+    io.print("sqlite works")
+    Ok(Unit)
 }
 NOMI
   (cd "$tmp/app" && "$tmp/nomi" run main.nomi)

@@ -19,7 +19,7 @@ pub interface Src<T> {
 
 impl Src<T> {
     pub fn seven() -> Int { 7 }
-    pub fn twice<U>(x: U) -> #(U, U) { #(x, x) }
+    pub fn twice<U>(x: U) -> (U, U) { (x, x) }
 }
 
 pub interface Shape {
@@ -37,7 +37,7 @@ struct Box<T> {
 impl Box<T> {
     fn get(b: Box<T>) -> T { b.v }
     fn seven() -> Int { 7 }
-    fn twice<U>(x: U) -> #(U, U) { #(x, x) }
+    fn twice<U>(x: U) -> (U, U) { (x, x) }
     fn fourteen() -> Int { Box.seven() * 2 }
     fn bare_fourteen() -> Int { seven() + seven() }
     fn shown<U>(x: U) -> String where U: Display { "<${x}>" }
@@ -52,7 +52,7 @@ enum Tree<T> {
 
 impl Tree<T> {
     fn depth_limit() -> Int { 3 }
-    fn pair<U>(x: U) -> #(U, U) { #(x, x) }
+    fn pair<U>(x: U) -> (U, U) { (x, x) }
 }
 `
 
@@ -73,7 +73,7 @@ fn main() {
     io.inspect("a" |> Box.twice())
     f = Box.seven
     io.inspect(f())
-    g: (Int) -> #(Int, Int) = Box.twice
+    g: (Int) -> (Int, Int) = Box.twice
     io.inspect(g(3))
     io.inspect(Box.fourteen())
     io.inspect(Box.bare_fourteen())
@@ -85,20 +85,20 @@ fn main() {
 }
 `)
 	want := `7
-#(1, 1)
+(1, 1)
 1
 7
-#(1, 1)
-#("a", "a")
+(1, 1)
+("a", "a")
 7
-#(3, 3)
+(3, 3)
 14
 14
 "<5>"
 9
 8
 3
-#(True, True)
+(True, True)
 `
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
@@ -112,12 +112,12 @@ func TestOwnerFunctions_RunInTests(t *testing.T) {
 	p, err := vmhost.LoadSource(name, strings.TrimPrefix(ownerFunctionsSrc, "import std::io\n\n")+`
 test "src" {
     assert Src.seven() == 7
-    assert Src.twice(1) == #(1, 1)
+    assert Src.twice(1) == (1, 1)
 }
 
 test "box" {
     assert Box.seven() == 7
-    assert 2 |> Box.twice() == #(2, 2)
+    assert 2 |> Box.twice() == (2, 2)
     assert Box.fourteen() == 14
     assert Box.shown(5) == "<5>"
 }

@@ -61,7 +61,7 @@ import {
 //#
 //# Iter.reduce(xs, start, f) / Iter.each(xs, f) / Iter.find(xs, p)
 //#
-//# Iter.scan(xs, start, f) / Iter.map_reduce(xs, start, fn acc, x -> #(next, out))
+//# Iter.scan(xs, start, f) / Iter.map_reduce(xs, start, fn acc, x -> (next, out))
 //#
 //# Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 //#
@@ -97,9 +97,9 @@ import {
 //
 pub host type List<T>
 
-fn list_next<T>(list: List<T>) -> Maybe<#(T, List<T>)> {
+fn list_next<T>(list: List<T>) -> Maybe<(T, List<T>)> {
     case list {
-        [h, ..t] -> Some(#(h, t))
+        [h, ..t] -> Some((h, t))
         [] -> None
     }
 }
@@ -107,10 +107,10 @@ fn list_next<T>(list: List<T>) -> Maybe<#(T, List<T>)> {
 impl List<T> {
     /// Returns the next element and remaining list, or None if empty. Drives the
     /// `Iter` implementation for `List`.
-    //! assert List.next_item([1, 2, 3]) == Some(#(1, [2, 3]))
+    //! assert List.next_item([1, 2, 3]) == Some((1, [2, 3]))
     //! assert List.next_item([]) == None
     //
-    pub fn next_item<T>(list: List<T>) -> Maybe<#(T, List<T>)> {
+    pub fn next_item<T>(list: List<T>) -> Maybe<(T, List<T>)> {
         list_next(list)
     }
 
@@ -303,12 +303,12 @@ impl Comparable for List<T> where T: Comparable {
                     _ -> Less
                 }
 
-            .Some(#(ha, ta)) ->
+            .Some((ha, ta)) ->
                 case list_next(b) {
                     .None ->
                         Greater
 
-                    .Some(#(hb, tb)) ->
+                    .Some((hb, tb)) ->
                         case Comparable.compare(ha, hb) {
                             .Equal -> compare(ta, tb)
                             other -> other

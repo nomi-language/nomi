@@ -9,7 +9,7 @@ import (
 )
 
 // A wasip1 module reaches only the directories its runtime preopens. With
-// none, `fs.with_temp_dir` answers Unsupported, naming why; with `/tmp`
+// none, `fs.make_temp_dir` answers Unsupported, naming why; with `/tmp`
 // preopened it makes its directory there and removes it after.
 func TestBuildCommand_Wasip1TempDirNeedsAPreopenedDirectory(t *testing.T) {
 	if testing.Short() {
@@ -30,11 +30,15 @@ func TestBuildCommand_Wasip1TempDirNeedsAPreopenedDirectory(t *testing.T) {
 
 fn main() {
     io.print(fs.temp_dir())
-    made = fs.with_temp_dir(fn dir -> {
-        fs.write_text(path.join(dir, "x.txt"), "x")?
-        fs.read_text(path.join(dir, "x.txt"))
-    })
-    io.print(made)
+    io.print(scratch())
+}
+
+fn scratch() -> Result<String, io.Error> {
+    dir = fs.make_temp_dir()?
+    defer fs.remove_all_quietly(dir)
+
+    fs.write_text(path.join(dir, "x.txt"), "x")?
+    fs.read_text(path.join(dir, "x.txt"))
 }
 `)
 	mod := filepath.Join(t.TempDir(), "scratch.wasm")
@@ -45,7 +49,7 @@ fn main() {
 	script := filepath.Join(t.TempDir(), "wasi.mjs")
 	mustWrite(t, script, wasiNodeScript)
 	bare := runNode(t, env, dir, "", node, "--no-warnings", script, mod)
-	want := "/tmp\nErr(fs.with_temp_dir is not supported on wasip1/wasm with no preopened directory (TMPDIR, /tmp or the working directory))\n"
+	want := "/tmp\nErr(fs.make_temp_dir is not supported on wasip1/wasm with no preopened directory (TMPDIR, /tmp or the working directory))\n"
 	if bare.exit != 0 || bare.stdout != want {
 		t.Fatalf("with no preopens: exit %d\n%s\nwant stdout:\n%s", bare.exit, bare.transcript(), want)
 	}
@@ -63,7 +67,7 @@ fn main() {
 	}
 	if runtime.GOOS == "windows" {
 		// Under node:wasi on Windows the module's os.RemoveAll leaves the
-		// directory (CI saw it stay), which with_temp_dir does not report;
+		// directory (CI saw it stay), which remove_all_quietly does not report;
 		// uvwasi's directory listing on Windows is the suspected cause.
 		t.Skip("node:wasi on Windows leaves the module's temporary directory behind")
 	}

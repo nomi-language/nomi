@@ -90,6 +90,15 @@ func writePortableKind(b *strings.Builder, k kind) {
 			b.WriteString("<" + portableArgsKey(d.genericArgs) + ">")
 		}
 	case k.iface != nil:
+		if i, shared := stdIfaceOf(k.iface); shared {
+			// A process-wide std interface's decl is a node of this
+			// process's own (stdIfaceDefs), which writeDeclKey would spell
+			// by address: spelled by its spec, so a std bundle's lowering
+			// and this process's name `CheckedLiteral<Display, Url>`'s impl
+			// alike.
+			b.WriteString(":" + stdIfaceSpecs[i].module + "." + stdIfaceSpecs[i].nomi)
+			break
+		}
 		writeDeclKey(b, k.iface.decl)
 		if len(k.iface.instArgs) > 0 {
 			b.WriteString("<" + portableArgsKey(k.iface.instArgs) + ">")

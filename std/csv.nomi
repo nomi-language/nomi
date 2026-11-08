@@ -155,7 +155,7 @@ impl Row {
     //
     pub fn to_map(row: Row) -> Map<String, String> {
         Iter.zip(row.header, row.fields)
-        |> Iter.reduce(%{}, fn fields, #(name, value) -> {
+        |> Iter.reduce(%{}, fn fields, (name, value) -> {
             case Map.get(fields, name) {
                 Some(_) -> fields
                 None -> Map.put(fields, name, value)
@@ -379,7 +379,7 @@ pub fn encode(records: Iter<List<String>>, options: WriteOptions = WriteOptions{
 
 /// Writes `records` to `w` as `encode` writes them, a record at a time,
 /// and stops at the first write that fails.
-//! #(written, data) = Writer.collect(fn w -> write(w, [["a", "b,c"]]))
+//! (written, data) = Writer.collect(fn w -> write(w, [["a", "b,c"]]))
 //! assert written == Ok(Unit)
 //! assert Bytes.to_string(data) == Ok("a,\"b,c\"\n")
 //

@@ -27,7 +27,7 @@ fn block(line: String) -> Block {
     if Some(text) = String.strip_prefix(line, "* ") { return .Item(text) }
 
     case String.captures(line, Regex`^(#{1,6}) (.*)$`) {
-        Some(#(marks, text)) -> .Heading{level: String.length(marks), text}
+        Some((marks, text)) -> .Heading{level: String.length(marks), text}
         _ -> .Paragraph(line)
     }
 }

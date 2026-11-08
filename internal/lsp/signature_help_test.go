@@ -31,7 +31,7 @@ func TestSignatureHelp_NamedTupleLiteral(t *testing.T) {
 		}
 		return res
 	}
-	decls := "type Pair #(Int, String)\n\nfn main() {\n    "
+	decls := "type Pair (Int, String)\n\nfn main() {\n    "
 	res := help(decls + "_p = Pair(1, ‸)\n}\n")
 	if res == nil || len(res.Signatures) != 1 {
 		t.Fatalf("signature help = %#v, want one signature", res)

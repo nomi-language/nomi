@@ -410,14 +410,9 @@ currency.nomi:Error.to_string	ran
 decimal.nomi:Decimal.abs	ran
 decimal.nomi:Decimal.empty_product	ran
 decimal.nomi:Decimal.empty_sum	ran
-decimal.nomi:Decimal.format	ran
-decimal.nomi:Decimal.format_percent	ran
-decimal.nomi:Decimal.fraction_digits	ran
 decimal.nomi:Decimal.inspect	ran
 decimal.nomi:Decimal.is_zero	ran
 decimal.nomi:Decimal.lift	ran
-decimal.nomi:Decimal.max	ran
-decimal.nomi:Decimal.min	ran
 decimal.nomi:Decimal.negate	ran
 decimal.nomi:Decimal.parse_in	ran
 decimal.nomi:Decimal.parse_percent_in	ran
@@ -425,20 +420,6 @@ decimal.nomi:Decimal.sign	ran
 decimal.nomi:Decimal.step_by	ran
 decimal.nomi:RoundingMode.inspect	ran
 decimal.nomi:RoundingMode.to_string	ran
-decimal.nomi:decimal.Decimal.format arity 2	ran
-decimal.nomi:decimal.Decimal.format arity 3	ran
-decimal.nomi:decimal.Decimal.format arity 4	ran
-decimal.nomi:decimal.Decimal.format arity 5	ran
-decimal.nomi:decimal.Decimal.format default 3	ran
-decimal.nomi:decimal.Decimal.format default 4	ran
-decimal.nomi:decimal.Decimal.format default 5	ran
-decimal.nomi:decimal.Decimal.format default 6	ran
-decimal.nomi:decimal.Decimal.format_percent arity 2	ran
-decimal.nomi:decimal.Decimal.format_percent arity 3	ran
-decimal.nomi:decimal.Decimal.format_percent arity 4	ran
-decimal.nomi:decimal.Decimal.format_percent default 3	ran
-decimal.nomi:decimal.Decimal.format_percent default 4	ran
-decimal.nomi:decimal.Decimal.format_percent default 5	ran
 decimal.nomi:decimal.Decimal.parse_in arity 2	ran
 decimal.nomi:decimal.Decimal.parse_in default 3	ran
 decimal.nomi:decimal.Decimal.parse_percent_in arity 2	ran
@@ -446,6 +427,7 @@ decimal.nomi:decimal.Decimal.parse_percent_in default 3	ran
 duration.nomi:Duration.Add<Duration, Duration>.add	ran
 duration.nomi:Duration.Divide<Int, Duration>.divide	ran
 duration.nomi:Duration.Multiply<Int, Duration>.multiply	ran
+duration.nomi:Duration.Remainder<Duration, Duration>.remainder	ran
 duration.nomi:Duration.Subtract<Duration, Duration>.subtract	ran
 duration.nomi:Duration.as_hours	ran
 duration.nomi:Duration.as_micros	ran
@@ -453,7 +435,6 @@ duration.nomi:Duration.as_millis	ran
 duration.nomi:Duration.as_minutes	ran
 duration.nomi:Duration.as_nanos	ran
 duration.nomi:Duration.as_seconds	ran
-duration.nomi:Duration.clock	ran
 duration.nomi:Duration.compare	ran
 duration.nomi:Duration.empty_sum	ran
 duration.nomi:Duration.equal	ran
@@ -473,8 +454,6 @@ duration.nomi:Duration.seconds	ran
 duration.nomi:DurationWidth.equal	ran
 duration.nomi:DurationWidth.inspect	ran
 duration.nomi:digits_end	ran
-duration.nomi:duration.Duration.clock arity 1	ran
-duration.nomi:duration.Duration.clock default 2	ran
 duration.nomi:duration.Duration.format arity 2	ran
 duration.nomi:duration.Duration.format default 3	ran
 duration.nomi:fraction	ran
@@ -492,6 +471,7 @@ dynamic.nomi:Error.to_string	ran
 dynamic.nomi:PathSegment.inspect	ran
 dynamic.nomi:PathSegment.to_string	ran
 float.nomi:Float.abs	ran
+float.nomi:Float.clamp	ran
 float.nomi:Float.compare	ran
 float.nomi:Float.empty_product	ran
 float.nomi:Float.empty_sum	ran
@@ -553,6 +533,7 @@ instant.nomi:Instant.inspect	ran
 instant.nomi:Instant.is_before	ran
 instant.nomi:Instant.to_seconds	ran
 int.nomi:Int.Divide<NonZeroInt, Int>.divide	ran
+int.nomi:Int.Remainder<NonZeroInt, Int>.remainder	ran
 int.nomi:Int.abs	ran
 int.nomi:Int.compare	ran
 int.nomi:Int.empty_product	ran
@@ -563,8 +544,6 @@ int.nomi:Int.format	ran
 int.nomi:Int.from_digits	ran
 int.nomi:Int.hash	ran
 int.nomi:Int.inspect	ran
-int.nomi:Int.max	ran
-int.nomi:Int.min	ran
 int.nomi:Int.modulo	ran
 int.nomi:Int.next	ran
 int.nomi:Int.parse_in	ran
@@ -595,14 +574,18 @@ io.nomi:Error.to_string	ran
 io.nomi:File.close_quietly	ran
 io.nomi:File.inspect	ran
 io.nomi:File.read	ran
+io.nomi:File.release	ran
 io.nomi:Reader.close_quietly	ran
 io.nomi:Reader.inspect	ran
 io.nomi:Reader.read	ran
+io.nomi:Reader.release	ran
 io.nomi:Replayed.failure	ran
 io.nomi:Replayed.inspect	ran
 io.nomi:Writer.close_quietly	ran
+io.nomi:Writer.commit	ran
 io.nomi:Writer.from_fn	ran
 io.nomi:Writer.inspect	ran
+io.nomi:Writer.release	ran
 io.nomi:code_text	ran
 io.nomi:io.File.read arity 1	ran
 io.nomi:io.File.read default 2	ran
@@ -665,7 +648,6 @@ locale.nomi:Locale.region	ran
 locale.nomi:Locale.script	ran
 locale.nomi:Locale.to_string	ran
 locale.nomi:LocaleAttempt.inspect	ran
-localize.nomi:Decimal.localize	ran
 localize.nomi:Float.localize	ran
 localize.nomi:Int.localize	ran
 localize.nomi:NumberParseError.equal	ran

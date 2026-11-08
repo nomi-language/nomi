@@ -41,7 +41,7 @@ import (
 // Open of a directory is IsADirectory. Create in WriteReplaceAtomically
 // leaves the old file as it was until the writer closes; a writer that
 // also has an `Abort()` method is given up through it when the program
-// gives the write up (`fs.with_writer` whose body failed), and is closed
+// gives the write up (`Writer.discard` before a close), and is closed
 // otherwise. List is sorted by name and lists a symlink as one. Remove
 // removes a file, a symlink or an empty directory; RemoveAll removes a
 // tree, following no symlink, and a missing path is not an error. Stat

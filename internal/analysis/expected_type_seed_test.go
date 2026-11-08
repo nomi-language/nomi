@@ -8,9 +8,9 @@ import (
 // A generic call in a position with a known expected type solves its type
 // parameters from that type before checking its arguments, so a dot-leading
 // variant or an empty literal nested inside an argument is checked against
-// the concrete parameter type: `Iter.to_map([#(.North, .Cave)])` expected to
+// the concrete parameter type: `Iter.to_map([(.North, .Cave)])` expected to
 // be `Map<Direction, Place>` checks its list against
-// `Iter<#(Direction, Place)>`, and a collection literal checked against
+// `Iter<(Direction, Place)>`, and a collection literal checked against
 // `Iter<T>` checks each item against T.
 
 const seedEnums = `pub enum Direction {
@@ -28,7 +28,7 @@ func TestExpectedTypeSeed_StructField(t *testing.T) {
   exits: Map<Direction, Place>
 }
 fn demo() -> Room {
-  Room{exits: Iter.to_map([#(.North, .Cave), #(.East, .Hall)])}
+  Room{exits: Iter.to_map([(.North, .Cave), (.East, .Hall)])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -36,14 +36,14 @@ fn demo() -> Room {
 func TestExpectedTypeSeed_ArgumentOfNonGenericCallee(t *testing.T) {
 	src := seedEnums + `fn take(m: Map<Direction, Place>) -> Int { Map.size(m) }
 fn demo() -> Int {
-  take(Iter.to_map([#(.North, .Cave)]))
+  take(Iter.to_map([(.North, .Cave)]))
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_ReturnTail(t *testing.T) {
 	src := seedEnums + `fn exits() -> Map<Direction, Place> {
-  Iter.to_map([#(.North, .Cave)])
+  Iter.to_map([(.North, .Cave)])
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -51,16 +51,16 @@ func TestExpectedTypeSeed_ReturnTail(t *testing.T) {
 func TestExpectedTypeSeed_ReturnStatement(t *testing.T) {
 	src := seedEnums + `fn exits(early: Bool) -> Map<Direction, Place> {
   if early {
-    return Iter.to_map([#(.East, .Hall)])
+    return Iter.to_map([(.East, .Hall)])
   }
-  Iter.to_map([#(.North, .Cave)])
+  Iter.to_map([(.North, .Cave)])
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_AnnotatedBinding(t *testing.T) {
 	src := seedEnums + `fn demo() -> Int {
-  exits: Map<Direction, Place> = Iter.to_map([#(.North, .Cave)])
+  exits: Map<Direction, Place> = Iter.to_map([(.North, .Cave)])
   Map.size(exits)
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -68,21 +68,21 @@ func TestExpectedTypeSeed_AnnotatedBinding(t *testing.T) {
 
 func TestExpectedTypeSeed_ListElement(t *testing.T) {
 	src := seedEnums + `fn demo() -> List<Map<Direction, Place>> {
-  [Iter.to_map([#(.North, .Cave)]), Iter.to_map([#(.East, .Hall)])]
+  [Iter.to_map([(.North, .Cave)]), Iter.to_map([(.East, .Hall)])]
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_MapValue(t *testing.T) {
 	src := seedEnums + `fn demo() -> Map<String, Map<Direction, Place>> {
-  %{"hall" => Iter.to_map([#(.North, .Cave)])}
+  %{"hall" => Iter.to_map([(.North, .Cave)])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_TupleElement(t *testing.T) {
-	src := seedEnums + `fn demo() -> #(Map<Direction, Place>, Int) {
-  #(Iter.to_map([#(.North, .Cave)]), 1)
+	src := seedEnums + `fn demo() -> (Map<Direction, Place>, Int) {
+  (Iter.to_map([(.North, .Cave)]), 1)
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -90,8 +90,8 @@ func TestExpectedTypeSeed_TupleElement(t *testing.T) {
 func TestExpectedTypeSeed_CaseArm(t *testing.T) {
 	src := seedEnums + `fn exits(d: Direction) -> Map<Direction, Place> {
   case d {
-    .North -> Iter.to_map([#(.North, .Cave)])
-    .East -> Iter.to_map([#(.East, .Hall)])
+    .North -> Iter.to_map([(.North, .Cave)])
+    .East -> Iter.to_map([(.East, .Hall)])
   }
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -99,15 +99,15 @@ func TestExpectedTypeSeed_CaseArm(t *testing.T) {
 
 func TestExpectedTypeSeed_PipeStage(t *testing.T) {
 	src := seedEnums + `fn exits() -> Map<Direction, Place> {
-  [#(.North, .Cave)] |> Iter.to_map()
+  [(.North, .Cave)] |> Iter.to_map()
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_UserGenericFunction(t *testing.T) {
-	src := seedEnums + `fn pairs<K, V>(xs: List<#(K, V)>) -> Map<K, V> { Iter.to_map(xs) }
+	src := seedEnums + `fn pairs<K, V>(xs: List<(K, V)>) -> Map<K, V> { Iter.to_map(xs) }
 fn exits() -> Map<Direction, Place> {
-  pairs([#(.North, .Cave)])
+  pairs([(.North, .Cave)])
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -148,7 +148,7 @@ func TestExpectedTypeSeed_EmptyList_PipeStage(t *testing.T) {
 
 func TestExpectedTypeSeed_NoneArgument(t *testing.T) {
 	src := seedEnums + `fn demo() -> Map<String, Maybe<Direction>> {
-  Iter.to_map([#("a", None), #("b", Some(.East))])
+  Iter.to_map([("a", None), ("b", Some(.East))])
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -157,10 +157,10 @@ func TestExpectedTypeSeed_NoneArgument(t *testing.T) {
 // expected type solved.
 func TestExpectedTypeSeed_ArgumentMismatchStillReported(t *testing.T) {
 	src := seedEnums + `fn exits() -> Map<Direction, Place> {
-  Iter.to_map([#(.North, 5)])
+  Iter.to_map([(.North, 5)])
 }`
 	expectErrorContaining(t, checkWithStdlib(src),
-		"list element type mismatch: expected #(Direction, Place), got #(Direction, Int)")
+		"list element type mismatch: expected (Direction, Place), got (Direction, Int)")
 }
 
 // An expected type the call's result cannot have does not seed anything: the
@@ -168,7 +168,7 @@ func TestExpectedTypeSeed_ArgumentMismatchStillReported(t *testing.T) {
 // reported at the binding.
 func TestExpectedTypeSeed_UnrelatedExpectedTypeIsNotSeeded(t *testing.T) {
 	src := `fn demo() -> Int {
-  x: Int = Iter.to_map([#(1, "one")])
+  x: Int = Iter.to_map([(1, "one")])
   x
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "expected Int, got Map<Int, String>")
@@ -185,31 +185,31 @@ const seedPayloads = seedEnums + `pub enum Exit {
 
 func TestExpectedTypeSeed_IterParam_TupleItems(t *testing.T) {
 	src := seedEnums + `fn exits() -> Map<Direction, Place> {
-  Iter.to_map([#(.North, .Cave), #(.East, .Hall)])
+  Iter.to_map([(.North, .Cave), (.East, .Hall)])
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_IterParam_PipeHead(t *testing.T) {
 	src := seedEnums + `fn exits() -> Map<Direction, Place> {
-  [#(.North, .Cave), #(.East, .Hall)] |> Iter.to_map()
+  [(.North, .Cave), (.East, .Hall)] |> Iter.to_map()
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_IterParam_NestedPayload(t *testing.T) {
 	src := seedPayloads + `fn exits() -> Map<Direction, Maybe<Exit>> {
-  Iter.to_map([#(.North, Some(.Door(.Cave))), #(.East, None), #(.East, Some(.Gap))])
+  Iter.to_map([(.North, Some(.Door(.Cave))), (.East, None), (.East, Some(.Gap))])
 }
 fn piped() -> Map<Direction, Maybe<Exit>> {
-  [#(.North, Some(.Door(.Hall)))] |> Iter.to_map()
+  [(.North, Some(.Door(.Hall)))] |> Iter.to_map()
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_IterParam_VectorAndSetLiterals(t *testing.T) {
-	src := seedEnums + `fn v() -> Vector<#(Direction, Place)> {
-  Iter.to_vector(#[#(.North, .Cave)])
+	src := seedEnums + `fn v() -> Vector<(Direction, Place)> {
+  Iter.to_vector(#[(.North, .Cave)])
 }
 fn s() -> Set<Direction> {
   %[.North, .East] |> Iter.to_set()
@@ -231,10 +231,10 @@ func TestExpectedTypeSeed_IterParam_EmptyLiteral(t *testing.T) {
 // is not also reported against the call's own expected type.
 func TestExpectedTypeSeed_IterParam_ItemMismatch(t *testing.T) {
 	errs := checkWithStdlib(seedEnums + `fn exits() -> Map<Direction, Place> {
-  Iter.to_map([#(.North, 5)])
+  Iter.to_map([(.North, 5)])
 }`)
 	expectErrorContaining(t, errs,
-		"list element type mismatch: expected #(Direction, Place), got #(Direction, Int)")
+		"list element type mismatch: expected (Direction, Place), got (Direction, Int)")
 	for _, e := range errs {
 		if strings.Contains(e.Message, "resolves only to enum variants") {
 			t.Fatalf("a variant was checked against the call's expected type: %q", e.Message)
@@ -278,7 +278,7 @@ fn demo() -> Int {
   b: Maybe<List<Display>> = Some([1, "a"])
   c: Maybe<(Int) -> Int> = Some(ident)
   d: Maybe<(Int) -> Int> = Some(fn x -> x * 3)
-  _ = #(a, b, c, d)
+  _ = (a, b, c, d)
   1
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))

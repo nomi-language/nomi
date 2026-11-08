@@ -29,7 +29,7 @@ func TestDotVariant_GenericConstructorInAGenericResult(t *testing.T) {
 		"return":     "pub fn f<T>(x: T, ok: Bool) -> Result<T, E> {\n  if !ok {\n    return Err(.B)\n  }\n  Ok(x)\n}\n",
 		"arm":        "pub fn f<T>(x: T, n: Int) -> Result<T, E> {\n  case n {\n    0 -> Err(.A)\n    _ -> Ok(x)\n  }\n}\n",
 		"nested T":   "pub fn f<T>(_b: Box<T>) -> Result<Box<T>, E> {\n  Err(.A)\n}\n",
-		"two params": "pub fn f<T, U>(_x: T, _y: U) -> Result<#(T, U), E> {\n  Err(.B)\n}\n",
+		"two params": "pub fn f<T, U>(_x: T, _y: U) -> Result<(T, U), E> {\n  Err(.B)\n}\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(genericResultDecls + body + "\nfn main() {\n}\n")

@@ -435,7 +435,7 @@ func kindOfGoType(t reflect.Type) kind {
 		return k
 	}
 	// A NOMI TUPLE, whose Go representation is a flat anonymous struct over
-	// `F0`, `F1`, …: `#(Int, Int)` is `struct { F0 int64; F1 int64 }`.
+	// `F0`, `F1`, …: `(Int, Int)` is `struct { F0 int64; F1 int64 }`.
 	//
 	// THIS IS READING THE BUILDER'S OWN CONVENTION BACK, not inventing one: tuples
 	// are an interned tagTuple over flat F0/F1 fields (sharedcomp.go's
@@ -555,6 +555,10 @@ func listKindOfGoType(t reflect.Type) kind {
 
 // stdFunc is one stdlib function as a call site sees it.
 type stdFunc struct {
+	// ifaceDefault is the interface function a std interface default's
+	// template presents as decl, nil for any other function
+	// (stdifacedefault.go).
+	ifaceDefault *ast.InterfaceMethod
 	// tailRec marks a body that makes a tail call into a recursion cycle it
 	// belongs to. Its graph is retained for the VM and its Go is a stub. See
 	// irStdTailCycles.
@@ -2245,6 +2249,52 @@ func stdSignatureMatches(h hostFn, f *stdFunc) bool {
 	return true
 }
 
+// stdInferredParamKind is the kind of a stdlib parameter whose type comes
+// from its default (`parents = False`, `mode = WriteMode.Replace`): the
+// type the checker gave it, which the module's analysis records on the
+// parameter's symbol, read as a scalar or as a monomorphic declared type
+// resolved by its name through the anchors an annotation naming it would
+// be. Anything else is kindInvalid, and the function is refused.
+func stdInferredParamKind(p ast.Param, anchors stdAnchors) kind {
+	if anchors.fa == nil {
+		return kindInvalid
+	}
+	sym, found := anchors.fa.Definitions[analysis.Pos{Line: p.Line, Col: p.Col}]
+	if !found || sym.Kind != analysis.SymbolParam || sym.Name != p.Name || sym.Type == nil {
+		return kindInvalid
+	}
+	t := analysis.ResolveTypeVar(sym.Type)
+	switch t {
+	case analysis.TypeInt:
+		return kindInt
+	case analysis.TypeFloat:
+		return kindFloat
+	case analysis.TypeString:
+		return kindString
+	case analysis.TypeBool:
+		return kindBool
+	}
+	var name string
+	switch n := t.(type) {
+	case *analysis.EnumType:
+		if len(n.TypeArgs) == 0 {
+			name = n.Name
+		}
+	case *analysis.StructType:
+		if len(n.TypeArgs) == 0 {
+			name = n.Name
+		}
+	case *analysis.DistinctType:
+		if len(n.TypeArgs) == 0 {
+			name = n.Name
+		}
+	}
+	if name == "" {
+		return kindInvalid
+	}
+	return stdTypeKind(&ast.SimpleType{Name: name, Line: p.Line, Col: p.Col}, anchors)
+}
+
 // stdParamKind is a stdlib parameter's kind and the type name its pattern head
 // names, for the receiver test.
 //
@@ -2263,6 +2313,9 @@ func stdParamKind(p ast.Param, anchors stdAnchors) (kind, string) {
 		return stdTypeKind(p.TypeAnnotation, anchors), stdHeadTypeName(p.TypeAnnotation)
 	}
 	if p.Destructure == nil {
+		if p.Default != nil {
+			return stdInferredParamKind(p, anchors), ""
+		}
 		return kindInvalid, ""
 	}
 	var head ast.TypeExpr
@@ -2377,7 +2430,7 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		// constructor would collapse. The identity travels in the components.
 		return stdIfaceKind(i)
 	}
-	// A TUPLE — `random.between_state(...) -> #(Int, Int)`. Placed before the
+	// A TUPLE — `random.between_state(...) -> (Int, Int)`. Placed before the
 	// GenericType block because a tuple is spelled neither nominally nor
 	// generically: the parser gives it as an *ast.FuncType with a nil Return.
 	// Admitted on the List and Map arms' terms; see tupleSigKind.
@@ -2442,6 +2495,9 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 // declares, so it is not any generated package's type. A threaded map per
 // family would make each addition a five-signature edit.
 type stdAnchors struct {
+	// fa is the module's analysis, which records the type a parameter
+	// written `mode = WriteMode.Replace` takes from its default.
+	fa *analysis.FileAnalysis
 	// opaques indexes opaqueSpecs by Nomi name.
 	opaques map[string]int
 	// enums indexes stdEnumSpecs by Nomi name.
@@ -2526,6 +2582,7 @@ func (a stdAnchors) forSynthesized() stdAnchors {
 // stdStructValidated — so it needs nothing from here.
 func stdAnchorsOf(fa *analysis.FileAnalysis) stdAnchors {
 	a := stdBaseAnchors(fa)
+	a.fa = fa
 	_, a.structs = stdStructAnchors(fa)
 	_, a.ifaces = stdIfaceAnchorsWith(fa, a)
 	return a
@@ -2673,7 +2730,7 @@ func stdHeadTypeName(te ast.TypeExpr) string {
 //  2. FIELDS EXACTLY `F0`..`Fn-1`, IN ORDER. Any other name, any gap, or any
 //     reordering is some other struct. Checked positionally rather than as a
 //     set, because the tuple's component ORDER is its meaning.
-//  3. EVERY COMPONENT REPRESENTABLE. Recursive, so `#(Int, #(Float, Int))` works
+//  3. EVERY COMPONENT REPRESENTABLE. Recursive, so `(Int, (Float, Int))` works
 //     and a component this builder cannot represent refuses the whole tuple
 //     rather than producing a kind with a hole in it.
 //
@@ -3024,8 +3081,8 @@ func (g *gen) emitStdBody(f *stdFunc, fd *ast.FuncDef, pkg string) bool {
 // IS the declaring module's, so g.scopes[0] is the scope the programmer wrote
 // the default in and g.types resolves the names they wrote; the caller sees only
 // a function of the shorter arity. Nothing about the caller can change what
-// the default means, which is the property `portableDefault` has to CHECK for a
-// sibling file's interface default and this gets for free.
+// the default means, which is the property `defaultNamesAgree` has to
+// CHECK for a sibling file's parameter default and this gets for free.
 //
 // The fill itself is fillParamDefaults — the one implementation module `fn`
 // calls and impl-method calls already share — so "what does an omitted argument
@@ -3052,14 +3109,13 @@ func (g *gen) emitStdDefaultWrappers(f *stdFunc, fd *ast.FuncDef) {
 
 // --- call sites -----------------------------------------------------------
 
-// stdOperatorIfaces is the operator-to-interface mapping std declares. `%` is
-// absent because std declares no Modulo interface: `%` on a named type has
-// nothing to dispatch to and keeps refusing.
+// stdOperatorIfaces is the operator-to-interface mapping std declares.
 var stdOperatorIfaces = map[string]string{
 	"+":   "Add.add",
 	"-":   "Subtract.subtract",
 	"*":   "Multiply.multiply",
 	"/":   "Divide.divide",
+	"%":   "Remainder.remainder",
 	"&&&": "BitwiseAnd.bitwise_and",
 	"|||": "BitwiseOr.bitwise_or",
 	"^^^": "BitwiseXor.bitwise_xor",

@@ -18,8 +18,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// a score for each lower-case letter.
 pub fn transform(legacy: Map<Int, List<String>>) -> Map<String, Int> {
     legacy
-    |> Iter.flat_map(fn #(score, letters) -> {
-        Iter.map(letters, fn letter -> #(String.lowercase(letter), score))
+    |> Iter.flat_map(fn (score, letters) -> {
+        Iter.map(letters, fn letter -> (String.lowercase(letter), score))
     })
     |> Iter.to_map()
 }
@@ -95,6 +95,6 @@ test result: ok. 4 passed, 0 failed
 ## How it's written
 
 - The input is `Map<Int, List<String>>` and the output `Map<String, Int>`, the canonical shapes with the score as an `Int` rather than the JSON's string key.
-- One pipeline: `Iter.flat_map` over the map's `#(score, letters)` entries, then `Iter.to_map`. A `Map` iterates as key-value tuples, so the lambda destructures the entry in its parameter.
+- One pipeline: `Iter.flat_map` over the map's `(score, letters)` entries, then `Iter.to_map`. A `Map` iterates as key-value tuples, so the lambda destructures the entry in its parameter.
 - Letters stay `String`s, not `Codepoint`s, since they are text in the table.
 - Four plain tests, since the cases differ mostly in the size of their maps and read better as separate literals.

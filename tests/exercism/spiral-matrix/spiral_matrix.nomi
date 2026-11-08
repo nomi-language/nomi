@@ -6,7 +6,7 @@ pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>> {
     empty_row = Iter.repeat(0) |> Iter.take(size) |> Iter.to_vector()
     grid = Iter.repeat(empty_row) |> Iter.take(size) |> Iter.to_vector()
 
-    fill(grid, #(0, 0), #(0, 1), 1, size * size)
+    fill(grid, (0, 0), (0, 1), 1, size * size)
 }
 
 /// Writes `value` at `position`, then moves on along `heading`, turning
@@ -14,8 +14,8 @@ pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>> {
 /// `last` is written.
 fn fill(
     grid: Vector<Vector<Int>>,
-    position: #(Int, Int),
-    heading: #(Int, Int),
+    position: (Int, Int),
+    heading: (Int, Int),
     value: Int,
     last: Int,
 ) -> Vector<Vector<Int>> {
@@ -32,20 +32,20 @@ fn fill(
     fill(grid, step(position, heading), heading, value + 1, last)
 }
 
-fn step(#(row, column): #(Int, Int), #(dr, dc): #(Int, Int)) -> #(Int, Int) {
-    #(row + dr, column + dc)
+fn step((row, column): (Int, Int), (dr, dc): (Int, Int)) -> (Int, Int) {
+    (row + dr, column + dc)
 }
 
-fn turn(#(dr, dc): #(Int, Int)) -> #(Int, Int) {
-    #(dc, -dr)
+fn turn((dr, dc): (Int, Int)) -> (Int, Int) {
+    (dc, -dr)
 }
 
 /// Whether `position` is on the grid and not written yet.
-fn is_empty(grid: Vector<Vector<Int>>, position: #(Int, Int)) -> Bool {
+fn is_empty(grid: Vector<Vector<Int>>, position: (Int, Int)) -> Bool {
     cell_at(grid, position) == Some(0)
 }
 
-fn cell_at(grid: Vector<Vector<Int>>, #(row, column): #(Int, Int)) -> Maybe<Int> {
+fn cell_at(grid: Vector<Vector<Int>>, (row, column): (Int, Int)) -> Maybe<Int> {
     cells = Vector.get(grid, row)?
     Vector.get(cells, column)
 }
@@ -54,7 +54,7 @@ fn cell_at(grid: Vector<Vector<Int>>, #(row, column): #(Int, Int)) -> Maybe<Int>
 /// steps onto a square `is_empty` accepted.
 fn set_cell(
     grid: Vector<Vector<Int>>,
-    #(row, column): #(Int, Int),
+    (row, column): (Int, Int),
     value: Int,
 ) -> Vector<Vector<Int>> {
     cells = Vector.get(grid, row)! |> Vector.set(column, value)

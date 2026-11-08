@@ -58,8 +58,8 @@ import binary_search_tree.Tree
 
 test "data is inserted" {
     [
-        #("data is retained", [4], Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
-        #(
+        ("data is retained", [4], Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
+        (
             "smaller number at left node",
             [4, 2],
             .Node{
@@ -68,7 +68,7 @@ test "data is inserted" {
                 right: .Leaf,
             },
         ),
-        #(
+        (
             "same number at left node",
             [4, 4],
             .Node{
@@ -77,7 +77,7 @@ test "data is inserted" {
                 right: .Leaf,
             },
         ),
-        #(
+        (
             "greater number at right node",
             [4, 5],
             .Node{
@@ -86,7 +86,7 @@ test "data is inserted" {
                 right: .Node{left: .Leaf, value: 5, right: .Leaf},
             },
         ),
-        #("can create complex tree", [4, 2, 6, 1, 3, 5, 7], .Node{
+        ("can create complex tree", [4, 2, 6, 1, 3, 5, 7], .Node{
             left: .Node{
                 left: .Node{left: .Leaf, value: 1, right: .Leaf},
                 value: 2,
@@ -100,20 +100,20 @@ test "data is inserted" {
             },
         }),
     ]
-    |> subtests #(description, values, expected), description {
+    |> subtests (description, values, expected), description {
         assert Tree.from(values) == expected
     }
 }
 
 test "can sort data" {
     [
-        #("can sort single number", [2], [2]),
-        #("can sort if second number is smaller than first", [2, 1], [1, 2]),
-        #("can sort if second number is same as first", [2, 2], [2, 2]),
-        #("can sort if second number is greater than first", [2, 3], [2, 3]),
-        #("can sort complex tree", [2, 1, 3, 6, 7, 5], [1, 2, 3, 5, 6, 7]),
+        ("can sort single number", [2], [2]),
+        ("can sort if second number is smaller than first", [2, 1], [1, 2]),
+        ("can sort if second number is same as first", [2, 2], [2, 2]),
+        ("can sort if second number is greater than first", [2, 3], [2, 3]),
+        ("can sort complex tree", [2, 1, 3, 6, 7, 5], [1, 2, 3, 5, 6, 7]),
     ]
-    |> subtests #(description, values, expected), description {
+    |> subtests (description, values, expected), description {
         assert Tree.from(values) |> Tree.sorted() == expected
     }
 }

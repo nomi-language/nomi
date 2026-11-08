@@ -60,24 +60,24 @@ func TestIRStructEquality_ImplRecursesIntoItsOwnTypeFields(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 enum Tree {
   Leaf
-  Node#(Tree, Int)
+  Node(Tree, Int)
 }
 impl Equatable for Tree {
   fn equal(a: Tree, b: Tree) -> Bool {
-    case #(a, b) {
-      #(.Leaf, .Leaf) -> True
-      #(.Node(l, x), .Node(r, y)) -> x == y and l == r
+    case (a, b) {
+      (.Leaf, .Leaf) -> True
+      (.Node(l, x), .Node(r, y)) -> x == y and l == r
       _ -> False
     }
   }
 }
 impl Comparable for Tree {
   fn compare(a: Tree, b: Tree) -> Ordering {
-    case #(a, b) {
-      #(.Leaf, .Leaf) -> Ordering.Equal
-      #(.Leaf, _) -> Ordering.Less
-      #(_, .Leaf) -> Ordering.Greater
-      #(.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else if l > r { Ordering.Greater } else { Ordering.Equal }
+    case (a, b) {
+      (.Leaf, .Leaf) -> Ordering.Equal
+      (.Leaf, _) -> Ordering.Less
+      (_, .Leaf) -> Ordering.Greater
+      (.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else if l > r { Ordering.Greater } else { Ordering.Equal }
     }
   }
 }

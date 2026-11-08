@@ -58,13 +58,13 @@ test "fit scales down into the box keeping the shape" {
     picture = image.decode(fixture("gradient.png"))!
 
     [
-        #("wider than the box", 60, 60, 60, 40),
-        #("taller than the box", 100, 20, 30, 20),
-        #("a one-pixel box", 1, 1, 1, 1),
+        ("wider than the box", 60, 60, 60, 40),
+        ("taller than the box", 100, 20, 30, 20),
+        ("a one-pixel box", 1, 1, 1, 1),
     ]
-    |> subtests #(description, box_width, box_height, width, height), description {
+    |> subtests (description, box_width, box_height, width, height), description {
         fitted = Image.fit(picture, box_width, box_height)
-        assert #(Image.width(fitted), Image.height(fitted)) == #(width, height)
+        assert (Image.width(fitted), Image.height(fitted)) == (width, height)
         assert Image.format(fitted) == None
     }
 }
@@ -72,22 +72,22 @@ test "fit scales down into the box keeping the shape" {
 test "fit never scales up, and an image that fits is answered as it is" {
     picture = image.decode(fixture("gradient.png"))!
     same = Image.fit(picture, 800, 600)
-    assert #(Image.width(same), Image.height(same)) == #(120, 80)
+    assert (Image.width(same), Image.height(same)) == (120, 80)
     assert Image.format(same) == Some(Format.Png)
 }
 
 test "fill covers the box and crops to it exactly" {
     picture = image.decode(fixture("gradient.png"))!
     square = Image.fill(picture, 50, 50)
-    assert #(Image.width(square), Image.height(square)) == #(50, 50)
+    assert (Image.width(square), Image.height(square)) == (50, 50)
     tall = Image.fill(picture, 20, 90)
-    assert #(Image.width(tall), Image.height(tall)) == #(20, 90)
+    assert (Image.width(tall), Image.height(tall)) == (20, 90)
 }
 
 test "crop answers the rectangle it names" {
     picture = image.decode(fixture("gradient.png"))!
     part = Image.crop(picture, 10, 20, 30, 40)
-    assert #(Image.width(part), Image.height(part)) == #(30, 40)
+    assert (Image.width(part), Image.height(part)) == (30, 40)
 }
 
 test "encoded images decode back to the same size" {
@@ -110,7 +110,7 @@ test "a lower JPEG quality writes a smaller file" {
 
 // What a blog's upload does with each picture: the original, a medium
 // variant for posts and a thumbnail for listings, a WebP stored as a JPEG.
-fn variants(upload: Bytes) -> Result<List<#(String, Bytes)>, image.Error> {
+fn variants(upload: Bytes) -> Result<List<(String, Bytes)>, image.Error> {
     picture = image.decode(upload)?
 
     encode = fn variant: Image -> {
@@ -121,28 +121,28 @@ fn variants(upload: Bytes) -> Result<List<#(String, Bytes)>, image.Error> {
     }
 
     Ok([
-        #("original", encode(picture)),
-        #("medium", encode(Image.fit(picture, 800, 600))),
-        #("thumbnail", encode(Image.fit(picture, 300, 200))),
+        ("original", encode(picture)),
+        ("medium", encode(Image.fit(picture, 800, 600))),
+        ("thumbnail", encode(Image.fit(picture, 300, 200))),
     ])
 }
 
 test "an upload's variants are written as files that read back" {
-    written = fs.with_temp_dir(fn dir -> {
-        Iter.each(variants(fixture("gradient.webp"))!, fn #(size, data) -> {
-            fs.write("${dir}/${size}.jpg", data)!
-        })
+    dir = fs.make_temp_dir()!
+    defer fs.remove_all_quietly(dir)
 
-        Ok(
-            ["original", "medium", "thumbnail"]
-            |> Iter.map(fn size -> image.dimensions(fs.read("${dir}/${size}.jpg")!))
-            |> Iter.to_list()
-        )
+    Iter.each(variants(fixture("gradient.webp"))!, fn (size, data) -> {
+        fs.write("${dir}/${size}.jpg", data)!
     })
 
-    assert written == Ok([
-            Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
-            Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
-            Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
-        ])
+    written =
+        ["original", "medium", "thumbnail"]
+        |> Iter.map(fn size -> image.dimensions(fs.read("${dir}/${size}.jpg")!))
+        |> Iter.to_list()
+
+    assert written == [
+        Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
+        Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
+        Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
+    ]
 }

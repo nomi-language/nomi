@@ -7,7 +7,7 @@ import "testing"
 // formatter did while the parser dropped it, turned the mistake into an
 // unreachable statement that the checker could not see.
 func TestFormat_ContinueKeepsAWrittenValue(t *testing.T) {
-	src := "fn f(p: #(Int, Int)) -> #(Int, Int) {\n    continue #(1, 2)\n}\n"
+	src := "fn f(p: (Int, Int)) -> (Int, Int) {\n    continue (1, 2)\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got:\n%s\nwant:\n%s", got, src)

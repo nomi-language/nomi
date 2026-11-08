@@ -386,9 +386,9 @@ pub struct ClientHello {
 
 impl ClientHello {
     fn of_handle(handle: http_host.Handle) -> ClientHello {
-        #(name, protocols, versions, suites) = case http_host.hello_parts(handle) {
-            [n, p, v, c] -> #(List.head(n) |> Maybe.with_default(""), p, v, c)
-            _ -> #("", [], [], [])
+        (name, protocols, versions, suites) = case http_host.hello_parts(handle) {
+            [n, p, v, c] -> (List.head(n) |> Maybe.with_default(""), p, v, c)
+            _ -> ("", [], [], [])
         }
 
         ClientHello{
@@ -581,14 +581,14 @@ impl ConnectionState {
     /// certificate's info, the peer's certificates, then each verified
     /// chain.
     pub fn of_parts(parts: List<List<String>>) -> ConnectionState {
-        #(head, local, peers, chains) = case parts {
-            [h, l, p, ..c] -> #(h, l, p, c)
-            _ -> #([], [], [], [])
+        (head, local, peers, chains) = case parts {
+            [h, l, p, ..c] -> (h, l, p, c)
+            _ -> ([], [], [], [])
         }
 
-        #(version, complete, resumed, suite, curve, protocol, server_name) = case head {
-            [v, h, r, s, c, p, n] -> #(v, h, r, s, c, p, n)
-            _ -> #("12", "false", "false", "0", "", "", "")
+        (version, complete, resumed, suite, curve, protocol, server_name) = case head {
+            [v, h, r, s, c, p, n] -> (v, h, r, s, c, p, n)
+            _ -> ("12", "false", "false", "0", "", "", "")
         }
 
         id = String.to_int(suite) |> Maybe.with_default(0)

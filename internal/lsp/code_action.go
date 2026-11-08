@@ -41,7 +41,9 @@ import (
 //     no translation of, and in a catalog, marking a stale translation
 //     current and giving one the arms its locale needs (catalogs.go).
 //
-// and the actions over the requested range (code_action_refactor.go).
+// and the actions over the requested range (code_action_refactor.go), and
+// "Remove type annotation" and "Add type annotation" on a field or
+// parameter with a default (code_action_default_type.go).
 func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeActionParams) (any, error) {
 	uri := string(params.TextDocument.URI)
 	only := params.Context.Only
@@ -82,6 +84,7 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)
 	if kindAllowed(only, protocol.CodeActionKindRefactorRewrite) {
 		actions = append(actions, pluralFormActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range)...)
+		actions = append(actions, buildDefaultTypeActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range)...)
 	}
 	if kindAllowed(only, protocol.CodeActionKindSourceOrganizeImports) {
 		if a := buildOrganizeImportsAction(snap.Content, snap.Nodes, snap.Analysis, uri); a != nil {

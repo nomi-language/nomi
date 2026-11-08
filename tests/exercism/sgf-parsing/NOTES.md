@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/sgf-parsing.
 
 ## Choices
 
-- The parser is recursive descent over `String.to_codepoints`, one function per part of the grammar (`node`, `variations`, `read_properties`, `read_values`, `read_text`). Each answers what it read and the codepoints after it, `Result<#(T, List<Codepoint>), Error>`, and `?` passes a failure up. The delimiters are codepoint literals in list patterns, `[';', ..rest]` and `['\\', '\n', ..rest]` (style §20).
+- The parser is recursive descent over `String.to_codepoints`, one function per part of the grammar (`node`, `variations`, `read_properties`, `read_values`, `read_text`). Each answers what it read and the codepoints after it, `Result<(T, List<Codepoint>), Error>`, and `?` passes a failure up. The delimiters are codepoint literals in list patterns, `[';', ..rest]` and `['\\', '\n', ..rest]` (style §20).
 - A `;` after a node starts its one child, and `(` starts its variations. The node that ends a sequence reads the `)` that closes the sequence's tree, so `(;A[B];B[C])` needs no count of open parentheses.
 - A property's key is read as the run of letters, turned into a `String` at once, and checked with `String.is_upper`.
 - `Tree` is a struct

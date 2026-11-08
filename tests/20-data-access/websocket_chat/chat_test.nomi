@@ -16,17 +16,17 @@ group "a chat room" {
             bob_heard = http_testing.open_websocket(chat.join, "/chat", fn bob -> {
                 bob_joined = WebSocket.receive(bob)
                 _ = WebSocket.send_text(bob, "hello, room")
-                #(bob_joined, WebSocket.receive(bob))
+                (bob_joined, WebSocket.receive(bob))
             })
 
-            #(ann_joined, bob_heard, WebSocket.receive(ann))
+            (ann_joined, bob_heard, WebSocket.receive(ann))
         })
 
         joined = Ok(Some(Message.Text("joined")))
         said = Ok(Some(Message.Text("hello, room")))
-        assert Ok(#(ann_joined, Ok(bob_heard), ann_heard)) = heard
+        assert Ok((ann_joined, Ok(bob_heard), ann_heard)) = heard
         assert ann_joined == joined
-        assert bob_heard == #(joined, said)
+        assert bob_heard == (joined, said)
         assert ann_heard == said
     }
 

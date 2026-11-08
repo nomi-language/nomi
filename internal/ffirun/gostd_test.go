@@ -230,7 +230,7 @@ fn new_int(x: Int) -> Maybe<Int> go big.NewInt
 func TestStdBindings_AdaptersDeclareOnlyWhatTheyUse(t *testing.T) {
 	root, got := discoverStd(t, `gopkg "strings" as strs
 
-fn cut(s: String, sep: String) -> #(String, String, Bool) go strs.Cut
+fn cut(s: String, sep: String) -> (String, String, Bool) go strs.Cut
 `)
 	if err := validateDiscoveredGoBindings(root, got); err != nil {
 		t.Fatalf("validation: %v", err)
@@ -302,7 +302,7 @@ fn hex_encoder(w: Reader) -> Reader go hex.NewEncoder
 
 gopkg "io" as goio
 
-fn pipe() -> #(Writer, Writer) go goio.Pipe
+fn pipe() -> (Writer, Writer) go goio.Pipe
 `, `Maybe<a struct (Go PipeReader)>`},
 	} {
 		root, got := discoverStd(t, c.src)

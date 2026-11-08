@@ -69,10 +69,10 @@ fn has_two_equal(m: Maybe<Tri>) -> Bool {
     }
 }
 
-fn off_axis(p: #(Int, Int)) -> Int {
+fn off_axis(p: (Int, Int)) -> Int {
     case p {
-        #(0, x) or #(x, 0) -> x
-        #(x, y) -> x * y
+        (0, x) or (x, 0) -> x
+        (x, y) -> x * y
     }
 }
 
@@ -125,9 +125,9 @@ test "alternatives nested in a payload, a tuple, a field and a list" {
     assert has_two_equal(Some(Tri.Isosceles))
     refute has_two_equal(Some(Tri.Scalene))
     refute has_two_equal(None)
-    assert off_axis(#(0, 5)) == 5
-    assert off_axis(#(6, 0)) == 6
-    assert off_axis(#(2, 3)) == 6
+    assert off_axis((0, 5)) == 5
+    assert off_axis((6, 0)) == 6
+    assert off_axis((2, 3)) == 6
     assert reading(Reading{kind: Tri.Equilateral, n: 9}) == "equal sides 9"
     assert reading(Reading{kind: Tri.Scalene, n: 2}) == "small"
     assert reading(Reading{kind: Tri.Scalene, n: 7}) == "other"

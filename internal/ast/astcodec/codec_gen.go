@@ -27,735 +27,742 @@ func (e *Encoder) value(v any) {
 		} else if e.ptr(v) {
 			e.structAsPattern(v)
 		}
-	case *ast.Assertion:
+	case *ast.Ascription:
 		e.uint(3)
+		if v == nil {
+			e.uint(0)
+		} else if e.ptr(v) {
+			e.structAscription(v)
+		}
+	case *ast.Assertion:
+		e.uint(4)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structAssertion(v)
 		}
 	case *ast.AttachedTest:
-		e.uint(4)
+		e.uint(5)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structAttachedTest(v)
 		}
 	case *ast.Binary:
-		e.uint(5)
+		e.uint(6)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structBinary(v)
 		}
 	case *ast.Binding:
-		e.uint(6)
+		e.uint(7)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structBinding(v)
 		}
 	case *ast.BindingElse:
-		e.uint(7)
+		e.uint(8)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structBindingElse(v)
 		}
 	case *ast.Block:
-		e.uint(8)
+		e.uint(9)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structBlock(v)
 		}
 	case *ast.Break:
-		e.uint(9)
+		e.uint(10)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structBreak(v)
 		}
 	case *ast.Call:
-		e.uint(10)
+		e.uint(11)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structCall(v)
 		}
 	case *ast.Capture:
-		e.uint(11)
+		e.uint(12)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structCapture(v)
 		}
 	case *ast.Case:
-		e.uint(12)
+		e.uint(13)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structCase(v)
 		}
 	case *ast.CaseBranch:
-		e.uint(13)
+		e.uint(14)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structCaseBranch(v)
 		}
 	case *ast.CodepointLit:
-		e.uint(14)
+		e.uint(15)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structCodepointLit(v)
 		}
 	case *ast.ConcurrentBlock:
-		e.uint(15)
+		e.uint(16)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structConcurrentBlock(v)
 		}
 	case *ast.Continue:
-		e.uint(16)
+		e.uint(17)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structContinue(v)
 		}
 	case *ast.CurrentValue:
-		e.uint(17)
+		e.uint(18)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structCurrentValue(v)
 		}
 	case *ast.Dbg:
-		e.uint(18)
+		e.uint(19)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structDbg(v)
 		}
 	case *ast.DecimalLit:
-		e.uint(19)
+		e.uint(20)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structDecimalLit(v)
 		}
 	case *ast.Decorator:
-		e.uint(20)
+		e.uint(21)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structDecorator(v)
 		}
 	case *ast.Defer:
-		e.uint(21)
+		e.uint(22)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structDefer(v)
 		}
 	case *ast.DistinctDestructure:
-		e.uint(22)
+		e.uint(23)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structDistinctDestructure(v)
 		}
 	case *ast.DotVariant:
-		e.uint(23)
+		e.uint(24)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structDotVariant(v)
 		}
 	case *ast.DotVariantType:
-		e.uint(24)
+		e.uint(25)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structDotVariantType(v)
 		}
 	case *ast.EmbedDecl:
-		e.uint(25)
+		e.uint(26)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structEmbedDecl(v)
 		}
 	case *ast.EmbeddedFiles:
-		e.uint(26)
+		e.uint(27)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structEmbeddedFiles(v)
 		}
 	case *ast.EnumDef:
-		e.uint(27)
+		e.uint(28)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structEnumDef(v)
 		}
 	case *ast.EnumPattern:
-		e.uint(28)
+		e.uint(29)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structEnumPattern(v)
 		}
 	case *ast.EnumVariant:
-		e.uint(29)
+		e.uint(30)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structEnumVariant(v)
 		}
 	case *ast.ErrorNode:
-		e.uint(30)
+		e.uint(31)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structErrorNode(v)
 		}
 	case *ast.ExprStmt:
-		e.uint(31)
+		e.uint(32)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structExprStmt(v)
 		}
 	case *ast.ExternFunc:
-		e.uint(32)
+		e.uint(33)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structExternFunc(v)
 		}
 	case *ast.ExternPackage:
-		e.uint(33)
+		e.uint(34)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structExternPackage(v)
 		}
 	case *ast.ExternType:
-		e.uint(34)
+		e.uint(35)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structExternType(v)
 		}
 	case *ast.FieldAccess:
-		e.uint(35)
+		e.uint(36)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structFieldAccess(v)
 		}
 	case *ast.FieldAccessor:
-		e.uint(36)
+		e.uint(37)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structFieldAccessor(v)
 		}
 	case *ast.FilePath:
-		e.uint(37)
+		e.uint(38)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structFilePath(v)
 		}
 	case *ast.FloatLit:
-		e.uint(38)
+		e.uint(39)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structFloatLit(v)
 		}
 	case *ast.FuncDef:
-		e.uint(39)
+		e.uint(40)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structFuncDef(v)
 		}
 	case *ast.FuncType:
-		e.uint(40)
+		e.uint(41)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structFuncType(v)
 		}
 	case *ast.GenericType:
-		e.uint(41)
+		e.uint(42)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structGenericType(v)
 		}
 	case *ast.GroupedExpr:
-		e.uint(42)
+		e.uint(43)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structGroupedExpr(v)
 		}
 	case *ast.Ident:
-		e.uint(43)
+		e.uint(44)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structIdent(v)
 		}
 	case *ast.IdentPattern:
-		e.uint(44)
+		e.uint(45)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structIdentPattern(v)
 		}
 	case *ast.If:
-		e.uint(45)
+		e.uint(46)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structIf(v)
 		}
 	case *ast.ImplBlock:
-		e.uint(46)
+		e.uint(47)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structImplBlock(v)
 		}
 	case *ast.ImplConformance:
-		e.uint(47)
+		e.uint(48)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structImplConformance(v)
 		}
 	case *ast.ImportBlock:
-		e.uint(48)
+		e.uint(49)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structImportBlock(v)
 		}
 	case *ast.ImportStmt:
-		e.uint(49)
+		e.uint(50)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structImportStmt(v)
 		}
 	case *ast.IntLit:
-		e.uint(50)
+		e.uint(51)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structIntLit(v)
 		}
 	case *ast.InterfaceDef:
-		e.uint(51)
+		e.uint(52)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structInterfaceDef(v)
 		}
 	case *ast.InterfaceMethod:
-		e.uint(52)
+		e.uint(53)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structInterfaceMethod(v)
 		}
 	case *ast.Is:
-		e.uint(53)
+		e.uint(54)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structIs(v)
 		}
 	case *ast.KeywordDecl:
-		e.uint(54)
+		e.uint(55)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structKeywordDecl(v)
 		}
 	case *ast.Lambda:
-		e.uint(55)
+		e.uint(56)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structLambda(v)
 		}
 	case *ast.ListLit:
-		e.uint(56)
+		e.uint(57)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structListLit(v)
 		}
 	case *ast.ListPattern:
-		e.uint(57)
+		e.uint(58)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structListPattern(v)
 		}
 	case *ast.ListSpreadLit:
-		e.uint(58)
+		e.uint(59)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structListSpreadLit(v)
 		}
 	case *ast.MapLit:
-		e.uint(59)
+		e.uint(60)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structMapLit(v)
 		}
 	case *ast.MapPattern:
-		e.uint(60)
+		e.uint(61)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structMapPattern(v)
 		}
 	case *ast.NamedArg:
-		e.uint(61)
+		e.uint(62)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structNamedArg(v)
 		}
 	case *ast.OnceBinding:
-		e.uint(62)
+		e.uint(63)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structOnceBinding(v)
 		}
 	case *ast.OrPattern:
-		e.uint(63)
+		e.uint(64)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structOrPattern(v)
 		}
 	case *ast.PatternBinding:
-		e.uint(64)
+		e.uint(65)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structPatternBinding(v)
 		}
 	case *ast.PatternDestructure:
-		e.uint(65)
+		e.uint(66)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structPatternDestructure(v)
 		}
 	case *ast.Placeholder:
-		e.uint(66)
+		e.uint(67)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structPlaceholder(v)
 		}
 	case *ast.PlaceholderParam:
-		e.uint(67)
+		e.uint(68)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structPlaceholderParam(v)
 		}
 	case *ast.QualifiedType:
-		e.uint(68)
+		e.uint(69)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structQualifiedType(v)
 		}
 	case *ast.RangeLit:
-		e.uint(69)
+		e.uint(70)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structRangeLit(v)
 		}
 	case *ast.Return:
-		e.uint(70)
+		e.uint(71)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structReturn(v)
 		}
 	case *ast.SelfExpr:
-		e.uint(71)
+		e.uint(72)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSelfExpr(v)
 		}
 	case *ast.SelfType:
-		e.uint(72)
+		e.uint(73)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSelfType(v)
 		}
 	case *ast.SetLit:
-		e.uint(73)
+		e.uint(74)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSetLit(v)
 		}
 	case *ast.SetPattern:
-		e.uint(74)
+		e.uint(75)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSetPattern(v)
 		}
 	case *ast.SimpleType:
-		e.uint(75)
+		e.uint(76)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSimpleType(v)
 		}
 	case *ast.SpanCarrier:
-		e.uint(76)
+		e.uint(77)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSpanCarrier(v)
 		}
 	case ast.StringExpr:
-		e.uint(77)
+		e.uint(78)
 		e.structStringExpr(&v)
 	case *ast.StringExpr:
-		e.uint(78)
+		e.uint(79)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStringExpr(v)
 		}
 	case *ast.StringInterp:
-		e.uint(79)
+		e.uint(80)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStringInterp(v)
 		}
 	case *ast.StringLit:
-		e.uint(80)
+		e.uint(81)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStringLit(v)
 		}
 	case ast.StringText:
-		e.uint(81)
+		e.uint(82)
 		e.structStringText(&v)
 	case *ast.StringText:
-		e.uint(82)
+		e.uint(83)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStringText(v)
 		}
 	case *ast.StructDef:
-		e.uint(83)
+		e.uint(84)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructDef(v)
 		}
 	case *ast.StructDestructure:
-		e.uint(84)
+		e.uint(85)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructDestructure(v)
 		}
 	case *ast.StructField:
-		e.uint(85)
+		e.uint(86)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructField(v)
 		}
 	case *ast.StructLit:
-		e.uint(86)
+		e.uint(87)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructLit(v)
 		}
 	case *ast.StructPattern:
-		e.uint(87)
+		e.uint(88)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structStructPattern(v)
 		}
 	case *ast.Subtests:
-		e.uint(88)
+		e.uint(89)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structSubtests(v)
 		}
 	case *ast.TaggedString:
-		e.uint(89)
+		e.uint(90)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTaggedString(v)
 		}
 	case *ast.Tap:
-		e.uint(90)
+		e.uint(91)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTap(v)
 		}
 	case *ast.TestDecl:
-		e.uint(91)
+		e.uint(92)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTestDecl(v)
 		}
 	case *ast.Then:
-		e.uint(92)
+		e.uint(93)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structThen(v)
 		}
 	case *ast.Todo:
-		e.uint(93)
+		e.uint(94)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTodo(v)
 		}
 	case *ast.TriviaCarrier:
-		e.uint(94)
+		e.uint(95)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTriviaCarrier(v)
 		}
 	case *ast.TryOp:
-		e.uint(95)
+		e.uint(96)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTryOp(v)
 		}
 	case *ast.TupleDestructure:
-		e.uint(96)
+		e.uint(97)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTupleDestructure(v)
 		}
 	case *ast.TupleLit:
-		e.uint(97)
+		e.uint(98)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTupleLit(v)
 		}
 	case *ast.TuplePattern:
-		e.uint(98)
+		e.uint(99)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTuplePattern(v)
 		}
 	case *ast.TypeAlias:
-		e.uint(99)
+		e.uint(100)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTypeAlias(v)
 		}
 	case *ast.TypeDef:
-		e.uint(100)
+		e.uint(101)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTypeDef(v)
 		}
 	case *ast.TypeIdent:
-		e.uint(101)
+		e.uint(102)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structTypeIdent(v)
 		}
 	case *ast.Unary:
-		e.uint(102)
+		e.uint(103)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structUnary(v)
 		}
 	case *ast.Unreachable:
-		e.uint(103)
+		e.uint(104)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structUnreachable(v)
 		}
 	case *ast.Unwrap:
-		e.uint(104)
+		e.uint(105)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structUnwrap(v)
 		}
 	case *ast.VectorLit:
-		e.uint(105)
+		e.uint(106)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structVectorLit(v)
 		}
 	case *ast.VectorPattern:
-		e.uint(106)
+		e.uint(107)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structVectorPattern(v)
 		}
 	case *ast.WildcardPattern:
-		e.uint(107)
+		e.uint(108)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
 			e.structWildcardPattern(v)
 		}
 	case *ast.With:
-		e.uint(108)
+		e.uint(109)
 		if v == nil {
 			e.uint(0)
 		} else if e.ptr(v) {
@@ -797,6 +804,18 @@ func (d *Decoder) value() any {
 	case 3:
 		p, fresh := d.ptr()
 		if p != nil {
+			return p.(*ast.Ascription)
+		}
+		if !fresh {
+			return (*ast.Ascription)(nil)
+		}
+		x := new(ast.Ascription)
+		d.refs = append(d.refs, x)
+		d.structAscription(x)
+		return x
+	case 4:
+		p, fresh := d.ptr()
+		if p != nil {
 			return p.(*ast.Assertion)
 		}
 		if !fresh {
@@ -806,7 +825,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structAssertion(x)
 		return x
-	case 4:
+	case 5:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.AttachedTest)
@@ -818,7 +837,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structAttachedTest(x)
 		return x
-	case 5:
+	case 6:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Binary)
@@ -830,7 +849,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structBinary(x)
 		return x
-	case 6:
+	case 7:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Binding)
@@ -842,7 +861,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structBinding(x)
 		return x
-	case 7:
+	case 8:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.BindingElse)
@@ -854,7 +873,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structBindingElse(x)
 		return x
-	case 8:
+	case 9:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Block)
@@ -866,7 +885,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structBlock(x)
 		return x
-	case 9:
+	case 10:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Break)
@@ -878,7 +897,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structBreak(x)
 		return x
-	case 10:
+	case 11:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Call)
@@ -890,7 +909,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structCall(x)
 		return x
-	case 11:
+	case 12:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Capture)
@@ -902,7 +921,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structCapture(x)
 		return x
-	case 12:
+	case 13:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Case)
@@ -914,7 +933,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structCase(x)
 		return x
-	case 13:
+	case 14:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.CaseBranch)
@@ -926,7 +945,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structCaseBranch(x)
 		return x
-	case 14:
+	case 15:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.CodepointLit)
@@ -938,7 +957,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structCodepointLit(x)
 		return x
-	case 15:
+	case 16:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ConcurrentBlock)
@@ -950,7 +969,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structConcurrentBlock(x)
 		return x
-	case 16:
+	case 17:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Continue)
@@ -962,7 +981,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structContinue(x)
 		return x
-	case 17:
+	case 18:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.CurrentValue)
@@ -974,7 +993,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structCurrentValue(x)
 		return x
-	case 18:
+	case 19:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Dbg)
@@ -986,7 +1005,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structDbg(x)
 		return x
-	case 19:
+	case 20:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.DecimalLit)
@@ -998,7 +1017,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structDecimalLit(x)
 		return x
-	case 20:
+	case 21:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Decorator)
@@ -1010,7 +1029,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structDecorator(x)
 		return x
-	case 21:
+	case 22:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Defer)
@@ -1022,7 +1041,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structDefer(x)
 		return x
-	case 22:
+	case 23:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.DistinctDestructure)
@@ -1034,7 +1053,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structDistinctDestructure(x)
 		return x
-	case 23:
+	case 24:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.DotVariant)
@@ -1046,7 +1065,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structDotVariant(x)
 		return x
-	case 24:
+	case 25:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.DotVariantType)
@@ -1058,7 +1077,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structDotVariantType(x)
 		return x
-	case 25:
+	case 26:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.EmbedDecl)
@@ -1070,7 +1089,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structEmbedDecl(x)
 		return x
-	case 26:
+	case 27:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.EmbeddedFiles)
@@ -1082,7 +1101,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structEmbeddedFiles(x)
 		return x
-	case 27:
+	case 28:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.EnumDef)
@@ -1094,7 +1113,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structEnumDef(x)
 		return x
-	case 28:
+	case 29:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.EnumPattern)
@@ -1106,7 +1125,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structEnumPattern(x)
 		return x
-	case 29:
+	case 30:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.EnumVariant)
@@ -1118,7 +1137,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structEnumVariant(x)
 		return x
-	case 30:
+	case 31:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ErrorNode)
@@ -1130,7 +1149,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structErrorNode(x)
 		return x
-	case 31:
+	case 32:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ExprStmt)
@@ -1142,7 +1161,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structExprStmt(x)
 		return x
-	case 32:
+	case 33:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ExternFunc)
@@ -1154,7 +1173,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structExternFunc(x)
 		return x
-	case 33:
+	case 34:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ExternPackage)
@@ -1166,7 +1185,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structExternPackage(x)
 		return x
-	case 34:
+	case 35:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ExternType)
@@ -1178,7 +1197,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structExternType(x)
 		return x
-	case 35:
+	case 36:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.FieldAccess)
@@ -1190,7 +1209,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structFieldAccess(x)
 		return x
-	case 36:
+	case 37:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.FieldAccessor)
@@ -1202,7 +1221,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structFieldAccessor(x)
 		return x
-	case 37:
+	case 38:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.FilePath)
@@ -1214,7 +1233,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structFilePath(x)
 		return x
-	case 38:
+	case 39:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.FloatLit)
@@ -1226,7 +1245,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structFloatLit(x)
 		return x
-	case 39:
+	case 40:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.FuncDef)
@@ -1238,7 +1257,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structFuncDef(x)
 		return x
-	case 40:
+	case 41:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.FuncType)
@@ -1250,7 +1269,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structFuncType(x)
 		return x
-	case 41:
+	case 42:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.GenericType)
@@ -1262,7 +1281,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structGenericType(x)
 		return x
-	case 42:
+	case 43:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.GroupedExpr)
@@ -1274,7 +1293,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structGroupedExpr(x)
 		return x
-	case 43:
+	case 44:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Ident)
@@ -1286,7 +1305,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structIdent(x)
 		return x
-	case 44:
+	case 45:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.IdentPattern)
@@ -1298,7 +1317,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structIdentPattern(x)
 		return x
-	case 45:
+	case 46:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.If)
@@ -1310,7 +1329,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structIf(x)
 		return x
-	case 46:
+	case 47:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ImplBlock)
@@ -1322,7 +1341,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structImplBlock(x)
 		return x
-	case 47:
+	case 48:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ImplConformance)
@@ -1334,7 +1353,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structImplConformance(x)
 		return x
-	case 48:
+	case 49:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ImportBlock)
@@ -1346,7 +1365,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structImportBlock(x)
 		return x
-	case 49:
+	case 50:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ImportStmt)
@@ -1358,7 +1377,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structImportStmt(x)
 		return x
-	case 50:
+	case 51:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.IntLit)
@@ -1370,7 +1389,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structIntLit(x)
 		return x
-	case 51:
+	case 52:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.InterfaceDef)
@@ -1382,7 +1401,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structInterfaceDef(x)
 		return x
-	case 52:
+	case 53:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.InterfaceMethod)
@@ -1394,7 +1413,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structInterfaceMethod(x)
 		return x
-	case 53:
+	case 54:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Is)
@@ -1406,7 +1425,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structIs(x)
 		return x
-	case 54:
+	case 55:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.KeywordDecl)
@@ -1418,7 +1437,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structKeywordDecl(x)
 		return x
-	case 55:
+	case 56:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Lambda)
@@ -1430,7 +1449,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structLambda(x)
 		return x
-	case 56:
+	case 57:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ListLit)
@@ -1442,7 +1461,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structListLit(x)
 		return x
-	case 57:
+	case 58:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ListPattern)
@@ -1454,7 +1473,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structListPattern(x)
 		return x
-	case 58:
+	case 59:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.ListSpreadLit)
@@ -1466,7 +1485,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structListSpreadLit(x)
 		return x
-	case 59:
+	case 60:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.MapLit)
@@ -1478,7 +1497,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structMapLit(x)
 		return x
-	case 60:
+	case 61:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.MapPattern)
@@ -1490,7 +1509,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structMapPattern(x)
 		return x
-	case 61:
+	case 62:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.NamedArg)
@@ -1502,7 +1521,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structNamedArg(x)
 		return x
-	case 62:
+	case 63:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.OnceBinding)
@@ -1514,7 +1533,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structOnceBinding(x)
 		return x
-	case 63:
+	case 64:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.OrPattern)
@@ -1526,7 +1545,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structOrPattern(x)
 		return x
-	case 64:
+	case 65:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.PatternBinding)
@@ -1538,7 +1557,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structPatternBinding(x)
 		return x
-	case 65:
+	case 66:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.PatternDestructure)
@@ -1550,7 +1569,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structPatternDestructure(x)
 		return x
-	case 66:
+	case 67:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Placeholder)
@@ -1562,7 +1581,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structPlaceholder(x)
 		return x
-	case 67:
+	case 68:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.PlaceholderParam)
@@ -1574,7 +1593,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structPlaceholderParam(x)
 		return x
-	case 68:
+	case 69:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.QualifiedType)
@@ -1586,7 +1605,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structQualifiedType(x)
 		return x
-	case 69:
+	case 70:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.RangeLit)
@@ -1598,7 +1617,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structRangeLit(x)
 		return x
-	case 70:
+	case 71:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Return)
@@ -1610,7 +1629,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structReturn(x)
 		return x
-	case 71:
+	case 72:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SelfExpr)
@@ -1622,7 +1641,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSelfExpr(x)
 		return x
-	case 72:
+	case 73:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SelfType)
@@ -1634,7 +1653,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSelfType(x)
 		return x
-	case 73:
+	case 74:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SetLit)
@@ -1646,7 +1665,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSetLit(x)
 		return x
-	case 74:
+	case 75:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SetPattern)
@@ -1658,7 +1677,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSetPattern(x)
 		return x
-	case 75:
+	case 76:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SimpleType)
@@ -1670,7 +1689,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSimpleType(x)
 		return x
-	case 76:
+	case 77:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.SpanCarrier)
@@ -1682,11 +1701,11 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSpanCarrier(x)
 		return x
-	case 77:
+	case 78:
 		var x ast.StringExpr
 		d.structStringExpr(&x)
 		return x
-	case 78:
+	case 79:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StringExpr)
@@ -1698,7 +1717,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStringExpr(x)
 		return x
-	case 79:
+	case 80:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StringInterp)
@@ -1710,7 +1729,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStringInterp(x)
 		return x
-	case 80:
+	case 81:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StringLit)
@@ -1722,11 +1741,11 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStringLit(x)
 		return x
-	case 81:
+	case 82:
 		var x ast.StringText
 		d.structStringText(&x)
 		return x
-	case 82:
+	case 83:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StringText)
@@ -1738,7 +1757,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStringText(x)
 		return x
-	case 83:
+	case 84:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructDef)
@@ -1750,7 +1769,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructDef(x)
 		return x
-	case 84:
+	case 85:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructDestructure)
@@ -1762,7 +1781,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructDestructure(x)
 		return x
-	case 85:
+	case 86:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructField)
@@ -1774,7 +1793,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructField(x)
 		return x
-	case 86:
+	case 87:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructLit)
@@ -1786,7 +1805,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructLit(x)
 		return x
-	case 87:
+	case 88:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.StructPattern)
@@ -1798,7 +1817,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structStructPattern(x)
 		return x
-	case 88:
+	case 89:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Subtests)
@@ -1810,7 +1829,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structSubtests(x)
 		return x
-	case 89:
+	case 90:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TaggedString)
@@ -1822,7 +1841,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTaggedString(x)
 		return x
-	case 90:
+	case 91:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Tap)
@@ -1834,7 +1853,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTap(x)
 		return x
-	case 91:
+	case 92:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TestDecl)
@@ -1846,7 +1865,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTestDecl(x)
 		return x
-	case 92:
+	case 93:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Then)
@@ -1858,7 +1877,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structThen(x)
 		return x
-	case 93:
+	case 94:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Todo)
@@ -1870,7 +1889,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTodo(x)
 		return x
-	case 94:
+	case 95:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TriviaCarrier)
@@ -1882,7 +1901,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTriviaCarrier(x)
 		return x
-	case 95:
+	case 96:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TryOp)
@@ -1894,7 +1913,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTryOp(x)
 		return x
-	case 96:
+	case 97:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TupleDestructure)
@@ -1906,7 +1925,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTupleDestructure(x)
 		return x
-	case 97:
+	case 98:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TupleLit)
@@ -1918,7 +1937,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTupleLit(x)
 		return x
-	case 98:
+	case 99:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TuplePattern)
@@ -1930,7 +1949,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTuplePattern(x)
 		return x
-	case 99:
+	case 100:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TypeAlias)
@@ -1942,7 +1961,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTypeAlias(x)
 		return x
-	case 100:
+	case 101:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TypeDef)
@@ -1954,7 +1973,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTypeDef(x)
 		return x
-	case 101:
+	case 102:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.TypeIdent)
@@ -1966,7 +1985,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structTypeIdent(x)
 		return x
-	case 102:
+	case 103:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Unary)
@@ -1978,7 +1997,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structUnary(x)
 		return x
-	case 103:
+	case 104:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Unreachable)
@@ -1990,7 +2009,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structUnreachable(x)
 		return x
-	case 104:
+	case 105:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.Unwrap)
@@ -2002,7 +2021,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structUnwrap(x)
 		return x
-	case 105:
+	case 106:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.VectorLit)
@@ -2014,7 +2033,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structVectorLit(x)
 		return x
-	case 106:
+	case 107:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.VectorPattern)
@@ -2026,7 +2045,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structVectorPattern(x)
 		return x
-	case 107:
+	case 108:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.WildcardPattern)
@@ -2038,7 +2057,7 @@ func (d *Decoder) value() any {
 		d.refs = append(d.refs, x)
 		d.structWildcardPattern(x)
 		return x
-	case 108:
+	case 109:
 		p, fresh := d.ptr()
 		if p != nil {
 			return p.(*ast.With)
@@ -2110,6 +2129,28 @@ func (d *Decoder) structAsPattern(x *ast.AsPattern) {
 	x.Name = string(d.string())
 	x.NameLine = int(d.int())
 	x.NameCol = int(d.int())
+	x.Line = int(d.int())
+	x.Col = int(d.int())
+}
+
+func (e *Encoder) structAscription(x *ast.Ascription) {
+	e.structTriviaCarrier(&x.TriviaCarrier)
+	e.structSpanCarrier(&x.SpanCarrier)
+	e.value(x.Value)
+	e.value(x.Type)
+	e.int(int64(x.Line))
+	e.int(int64(x.Col))
+}
+
+func (d *Decoder) structAscription(x *ast.Ascription) {
+	d.structTriviaCarrier(&x.TriviaCarrier)
+	d.structSpanCarrier(&x.SpanCarrier)
+	if v1 := d.value(); v1 != nil {
+		x.Value = v1.(ast.Node)
+	}
+	if v2 := d.value(); v2 != nil {
+		x.Type = v2.(ast.TypeExpr)
+	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
@@ -5069,12 +5110,16 @@ func (e *Encoder) structStructLit(x *ast.StructLit) {
 	for i2 := range x.Fields {
 		e.structStructFieldVal(&x.Fields[i2])
 	}
+	e.len(x.Positional == nil, len(x.Positional))
+	for i5 := range x.Positional {
+		e.structStructFieldVal(&x.Positional[i5])
+	}
 	e.value(x.Spread)
 	e.int(int64(x.SpreadLine))
 	e.int(int64(x.SpreadCol))
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i6 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i6])
+	for i9 := range x.EndTrivia {
+		e.structTrivia(&x.EndTrivia[i9])
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -5092,15 +5137,21 @@ func (d *Decoder) structStructLit(x *ast.StructLit) {
 			d.structStructFieldVal(&x.Fields[i4])
 		}
 	}
-	if v5 := d.value(); v5 != nil {
-		x.Spread = v5.(ast.Node)
+	if n6 := d.len(); n6 >= 0 {
+		x.Positional = make([]ast.StructFieldVal, n6)
+		for i7 := range x.Positional {
+			d.structStructFieldVal(&x.Positional[i7])
+		}
+	}
+	if v8 := d.value(); v8 != nil {
+		x.Spread = v8.(ast.Node)
 	}
 	x.SpreadLine = int(d.int())
 	x.SpreadCol = int(d.int())
-	if n7 := d.len(); n7 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n7)
-		for i8 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i8])
+	if n10 := d.len(); n10 >= 0 {
+		x.EndTrivia = make([]ast.Trivia, n10)
+		for i11 := range x.EndTrivia {
+			d.structTrivia(&x.EndTrivia[i11])
 		}
 	}
 	x.Line = int(d.int())
@@ -6158,6 +6209,7 @@ func (e *Encoder) structStructFieldVal(x *ast.StructFieldVal) {
 	for i5 := range x.Trailing {
 		e.structTrivia(&x.Trailing[i5])
 	}
+	e.string(string(x.Source))
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
 }
@@ -6179,6 +6231,7 @@ func (d *Decoder) structStructFieldVal(x *ast.StructFieldVal) {
 			d.structTrivia(&x.Trailing[i7])
 		}
 	}
+	x.Source = string(d.string())
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
@@ -6227,6 +6280,7 @@ func (e *Encoder) structTypeParam(x *ast.TypeParam) {
 	for i1 := range x.Bounds {
 		e.value(x.Bounds[i1])
 	}
+	e.value(x.Default)
 	e.structItemComments(&x.Comments)
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -6241,6 +6295,9 @@ func (d *Decoder) structTypeParam(x *ast.TypeParam) {
 				x.Bounds[i3] = v4.(ast.TypeExpr)
 			}
 		}
+	}
+	if v5 := d.value(); v5 != nil {
+		x.Default = v5.(ast.TypeExpr)
 	}
 	d.structItemComments(&x.Comments)
 	x.Line = int(d.int())
@@ -6276,6 +6333,7 @@ func (d *Decoder) structWhereConstraint(x *ast.WhereConstraint) {
 var forms = []any{
 	(*ast.AnonStructType)(nil),
 	(*ast.AsPattern)(nil),
+	(*ast.Ascription)(nil),
 	(*ast.Assertion)(nil),
 	(*ast.AttachedTest)(nil),
 	(*ast.Binary)(nil),

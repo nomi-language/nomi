@@ -22,9 +22,9 @@ func TestInstImplAccessors_DefaultsTheCallerCannotNameFill(t *testing.T) {
 		t.Fatalf("the front end rejects this, so the test no longer checks the builder: %v", err)
 	}
 	want := "" +
-		"dbg line 24: #(a.size, Box.wait_seconds(a), a.handler(4)) = #(1, 300, 8)\n" +
-		"dbg line 26: #(b.size, Box.wait_seconds(b), b.handler(5)) = #(3, 300, 10)\n" +
-		"dbg line 28: #(c.size, Box.wait_seconds(c), c.handler(\"four\")) = #(2, 300, 4)\n" +
+		"dbg line 24: (a.size, Box.wait_seconds(a), a.handler(4)) = (1, 300, 8)\n" +
+		"dbg line 26: (b.size, Box.wait_seconds(b), b.handler(5)) = (3, 300, 10)\n" +
+		"dbg line 28: (c.size, Box.wait_seconds(c), c.handler(\"four\")) = (2, 300, 4)\n" +
 		"dbg line 29: Greeter.new(Cat{nick: \"Tom\"}).greeting = \"hello, Tom!\"\n" +
 		"dbg line 30: Greeter.new(Cat{nick: \"Tom\"}, punct: \"?\").greeting = \"hello, Tom?\"\n"
 	got := vmReference(path)

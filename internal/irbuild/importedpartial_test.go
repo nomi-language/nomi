@@ -32,7 +32,7 @@ fn main() {
     w = fn -> q(k)
     io.print(w())
 }
-`, "112\n103\n6\n13\nh:42\nh:1\n#(1, 1)\n#(1, 4)\n3z\n", map[string]string{"lib.nomi": `fn base() -> Int {
+`, "112\n103\n6\n13\nh:42\nh:1\n(1, 1)\n(1, 4)\n3z\n", map[string]string{"lib.nomi": `fn base() -> Int {
     40
 }
 
@@ -44,8 +44,8 @@ pub fn conn(host: String, port: Int = base() + 2) -> String {
     "${host}:${port}"
 }
 
-pub fn pair<A>(x: A, y: A = x) -> #(A, A) {
-    #(x, y)
+pub fn pair<A>(x: A, y: A = x) -> (A, A) {
+    (x, y)
 }
 
 pub fn plain(n: Int, s: String) -> String {

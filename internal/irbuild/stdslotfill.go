@@ -101,8 +101,17 @@ func callDefaultFill(f *stdFunc, slot int) bool {
 // here. A trailing default therefore gets both an accessor and its arity
 // wrapper; the wrapper is what a short positional call uses, and the accessor is
 // what a call that skips it by name uses.
+//
+// Only beside a body this module holds, as irStdArityRetain requires: a body
+// the shared lowering does not retain is built per program with its
+// accessors (stdInstances.build) under the same linkage names, so the shared
+// lowering defining some of them too would give a program two definitions
+// of one name.
 func (g *gen) emitStdSlotDefaults(f *stdFunc, fd *ast.FuncDef) {
 	if len(fd.Params) != len(f.params) {
+		return
+	}
+	if g.irMod == nil || g.irMod.FuncFor(g.irCalleeSym(fd, f.key)) == nil {
 		return
 	}
 	for i, p := range fd.Params {

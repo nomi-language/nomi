@@ -82,13 +82,13 @@ func TestCodepointLiteralPatternsNeedACatchAll(t *testing.T) {
 }
 
 func TestCodepointLiteralPatternsCheck(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`fn f(m: Maybe<Codepoint>, pair: #(Codepoint, Int)) -> Int {
+	_, errs := checkSourceWithStdlib(`fn f(m: Maybe<Codepoint>, pair: (Codepoint, Int)) -> Int {
   a = case m {
     Some('a') -> 1
     _ -> 2
   }
   b = case pair {
-    #('\n', n) -> n
+    ('\n', n) -> n
     _ -> 0
   }
   a + b

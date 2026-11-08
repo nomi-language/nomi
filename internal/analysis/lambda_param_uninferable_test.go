@@ -16,14 +16,14 @@ func TestLambdaParamUninferable_WhereNoTypeIsExpected(t *testing.T) {
 	errs := checkWithStdlib(`
 fn main() {
   f = fn x -> 1
-  v = #(fn y -> {
+  v = (fn y -> {
     _ = y
     1
-  }, 2).1
+  }, 2).second
   fs = [fn z -> 1]
-  ok1 = #(fn a: Int -> a + 1, 2).1
+  ok1 = (fn a: Int -> a + 1, 2).second
   ok2: (Int) -> Int = fn b -> b + 1
-  ok3 = #(fn c = 0 -> c + 1, 3).1
+  ok3 = (fn c = 0 -> c + 1, 3).second
   _ = f
   _ = v
   _ = fs
@@ -38,7 +38,7 @@ fn main() {
 	}
 	want := []string{
 		"3:10 cannot infer type for parameter x",
-		"4:12 cannot infer type for parameter y",
+		"4:11 cannot infer type for parameter y",
 		"8:12 cannot infer type for parameter z",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
@@ -69,19 +69,19 @@ fn is_leap(year: Int) -> Bool {
 // A call of such a lambda has no type. A tuple or an anonymous struct built
 // around the call has none either, so the parameter's error is the only one:
 // they used to stand a Unit in the call's place and add a mismatch over the
-// literal (`list element type mismatch: expected #(String, Int), got
-// #(String, Unit)`). Each position is in its own function, so one cascade
+// literal (`list element type mismatch: expected (String, Int), got
+// (String, Unit)`). Each position is in its own function, so one cascade
 // cannot hide another.
 func TestLambdaParamUninferable_NoMismatchOverACall(t *testing.T) {
 	errs := checkWithStdlib(`
-fn in_list(n: Int) -> List<#(String, Int)> {
+fn in_list(n: Int) -> List<(String, Int)> {
   twice = fn x -> x * 2
-  [#("a", twice(n))]
+  [("a", twice(n))]
 }
 
-fn in_tuple(n: Int) -> #(String, Int) {
+fn in_tuple(n: Int) -> (String, Int) {
   twice = fn x -> x * 2
-  #("a", twice(n))
+  ("a", twice(n))
 }
 
 fn in_record(n: Int) -> #{v: Int} {
@@ -125,9 +125,9 @@ fn returned(n: Int) -> Int {
 // a tuple of known items is still reported.
 func TestLambdaParamUninferable_AnnotatedCallsCheck(t *testing.T) {
 	errs := checkWithStdlib(`
-fn in_list(n: Int) -> List<#(String, Int)> {
+fn in_list(n: Int) -> List<(String, Int)> {
   twice = fn x: Int -> x * 2
-  [#("a", twice(n))]
+  [("a", twice(n))]
 }
 
 fn in_record(n: Int) -> #{v: Int} {
@@ -135,8 +135,8 @@ fn in_record(n: Int) -> #{v: Int} {
   #{v: twice(n)}
 }
 
-fn wrong(_n: Int) -> #(String, Int) {
-  #("a", "b")
+fn wrong(_n: Int) -> (String, Int) {
+  ("a", "b")
 }
 `)
 	var got []string

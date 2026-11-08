@@ -41,16 +41,16 @@ func TestProgramStd_AReferenceEditorRuns(t *testing.T) {
 }
 
 // A std module's reference editor calls the module's own functions through
-// its file alias, as a program does: `sql.with_connection(...)`, generic, in a
+// its file alias, as a program does: `sql.transaction(...)`, generic, in a
 // binding and in an assertion subject, and `sql.close_quietly(...)`, plain and
 // piped. Each lowers as the bare call does (irbuild's ownModuleCall).
 func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
 	body := "import std::sql_testing.Fake\n" +
 		"fake = Fake.new()\n" +
-		"count = sql.with_connection(fn -> Ok(fake), fn conn -> Conn.exec(conn, Sql\"DELETE FROM t\"))\n" +
+		"count = sql.transaction(fake, fn tx -> Conn.exec(tx, Sql\"DELETE FROM t\"))\n" +
 		"assert count == Ok(0)\n" +
 		"again = Fake.new()\n" +
-		"assert sql.with_connection(fn -> Ok(again), fn conn -> Conn.exec(conn, Sql\"DELETE FROM u\")) == Ok(0)\n" +
+		"assert sql.transaction(again, fn tx -> Conn.exec(tx, Sql\"DELETE FROM u\")) == Ok(0)\n" +
 		"other = Fake.new()\n" +
 		"sql.close_quietly(other)\n" +
 		"assert Fake.is_closed(other)\n" +
@@ -66,7 +66,7 @@ func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
 	if len(cases) != 1 || cases[0].Err != nil || len(cases[0].Blocked) > 0 {
 		t.Fatalf("cases %+v\n%s", cases, out.String())
 	}
-	if want := "[DELETE FROM t, CLOSE] [DELETE FROM u, CLOSE]\n"; cases[0].Output != want {
+	if want := "[BEGIN, DELETE FROM t, COMMIT] [BEGIN, DELETE FROM u, COMMIT]\n"; cases[0].Output != want {
 		t.Errorf("output %q, want %q", cases[0].Output, want)
 	}
 }
@@ -81,7 +81,8 @@ func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
 func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 	body := "import std::sql_testing.Fake\n" +
 		"fake = Fake.new()\n" +
-		"assert sql.with_connection(fn -> Ok(fake), fn conn -> Conn.exec(conn, Sql\"DELETE FROM t\")) == Ok(0)\n" +
+		"assert sql.transaction(fake, fn tx -> Conn.exec(tx, Sql\"DELETE FROM t\")) == Ok(0)\n" +
+		"sql.close_quietly(fake)\n" +
 		"assert Fake.is_closed(fake)\n" +
 		"io.print(\"${Fake.log(fake)}\")\n"
 	var out strings.Builder
@@ -92,7 +93,7 @@ func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 	if len(cases) != 1 || cases[0].Err != nil || len(cases[0].Blocked) > 0 {
 		t.Fatalf("cases %+v\n%s", cases, out.String())
 	}
-	if want := "[DELETE FROM t, CLOSE]\n"; cases[0].Output != want {
+	if want := "[BEGIN, DELETE FROM t, COMMIT, CLOSE]\n"; cases[0].Output != want {
 		t.Errorf("output %q, want %q", cases[0].Output, want)
 	}
 
@@ -105,10 +106,10 @@ func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 		if c.Err != nil || len(c.Blocked) > 0 {
 			t.Errorf("std/sql: %s: %v %v", c.Name, c.Err, c.Blocked)
 		}
-		sawPrompt = sawPrompt || strings.Contains(c.Name, "with_connection")
+		sawPrompt = sawPrompt || strings.Contains(c.Name, "close_quietly")
 	}
 	if !sawPrompt {
-		t.Errorf("std/sql has no with_connection prompt, which imports std/sql_testing")
+		t.Errorf("std/sql has no close_quietly prompt, which imports std/sql_testing")
 	}
 }
 

@@ -10,37 +10,37 @@ func TestFormat_SubtestsHeader(t *testing.T) {
 	cases := []struct{ name, src, want string }{
 		{
 			name: "a named header that fits",
-			src:  "test \"t\" {\n    subtests cases, #(description, year, expected), description {\n        assert year > 0\n    }\n}\n",
-			want: "test \"t\" {\n    subtests cases, #(description, year, expected), description {\n        assert year > 0\n    }\n}\n",
+			src:  "test \"t\" {\n    subtests cases, (description, year, expected), description {\n        assert year > 0\n    }\n}\n",
+			want: "test \"t\" {\n    subtests cases, (description, year, expected), description {\n        assert year > 0\n    }\n}\n",
 		},
 		{
 			name: "a built name",
-			src:  "test \"t\" {\n    subtests cases, #(a, b, sum),   \"${a} + ${b}\"   {\n        assert a + b == sum\n    }\n}\n",
-			want: "test \"t\" {\n    subtests cases, #(a, b, sum), \"${a} + ${b}\" {\n        assert a + b == sum\n    }\n}\n",
+			src:  "test \"t\" {\n    subtests cases, (a, b, sum),   \"${a} + ${b}\"   {\n        assert a + b == sum\n    }\n}\n",
+			want: "test \"t\" {\n    subtests cases, (a, b, sum), \"${a} + ${b}\" {\n        assert a + b == sum\n    }\n}\n",
 		},
 		{
 			name: "a long header breaks its tuple pattern",
-			src: "test \"t\" {\n    subtests cases, #(description, #(white_row, white_column), #(black_row, black_column), expected), description {\n" +
+			src: "test \"t\" {\n    subtests cases, (description, (white_row, white_column), (black_row, black_column), expected), description {\n" +
 				"        assert expected\n    }\n}\n",
-			want: "test \"t\" {\n    subtests cases, #(\n        description,\n        #(white_row, white_column),\n        #(black_row, black_column),\n" +
+			want: "test \"t\" {\n    subtests cases, (\n        description,\n        (white_row, white_column),\n        (black_row, black_column),\n" +
 				"        expected\n    ), description {\n        assert expected\n    }\n}\n",
 		},
 		{
 			name: "a long header without a name",
-			src: "test \"t\" {\n    subtests cases, #(_description, #(x, y), facing, instructions, #(to_x, to_y), to_facing, extra_column) {\n" +
+			src: "test \"t\" {\n    subtests cases, (_description, (x, y), facing, instructions, (to_x, to_y), to_facing, extra_column) {\n" +
 				"        assert x > 0\n    }\n}\n",
-			want: "test \"t\" {\n    subtests cases, #(\n        _description,\n        #(x, y),\n        facing,\n        instructions,\n        #(to_x, to_y),\n" +
+			want: "test \"t\" {\n    subtests cases, (\n        _description,\n        (x, y),\n        facing,\n        instructions,\n        (to_x, to_y),\n" +
 				"        to_facing,\n        extra_column\n    ) {\n        assert x > 0\n    }\n}\n",
 		},
 		{
 			name: "a piped table puts the stage on its own line",
-			src:  "test \"t\" {\n    [#(\"a\", 1), #(\"b\", 2)] |> subtests #(description, n), description { assert n > 0 }\n}\n",
-			want: "test \"t\" {\n    [#(\"a\", 1), #(\"b\", 2)]\n    |> subtests #(description, n), description {\n        assert n > 0\n    }\n}\n",
+			src:  "test \"t\" {\n    [(\"a\", 1), (\"b\", 2)] |> subtests (description, n), description { assert n > 0 }\n}\n",
+			want: "test \"t\" {\n    [(\"a\", 1), (\"b\", 2)]\n    |> subtests (description, n), description {\n        assert n > 0\n    }\n}\n",
 		},
 		{
 			name: "a piped table broken across lines",
-			src:  "test \"t\" {\n    [\n        #(\"a\", 1),\n    ]\n    |> subtests #(description, n), description {\n        assert n > 0\n    }\n}\n",
-			want: "test \"t\" {\n    [\n        #(\"a\", 1),\n    ]\n    |> subtests #(description, n), description {\n        assert n > 0\n    }\n}\n",
+			src:  "test \"t\" {\n    [\n        (\"a\", 1),\n    ]\n    |> subtests (description, n), description {\n        assert n > 0\n    }\n}\n",
+			want: "test \"t\" {\n    [\n        (\"a\", 1),\n    ]\n    |> subtests (description, n), description {\n        assert n > 0\n    }\n}\n",
 		},
 		{
 			name: "a pipeline building the rows is written a stage per line",

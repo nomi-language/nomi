@@ -17,25 +17,26 @@ import (
 
 // mf2TokenType is the legend's type for an MF2 token. A variable naming a
 // parameter of the declaration (a noun's `$count`) is a parameter, and
-// one a `.local` declares a variable.
+// one a `.local` declares a variable. A function, namespace and all
+// (`:nomi:noun`), is one function token: many colorschemes leave a
+// namespace unstyled. The catch-all key `*` is an enum member, as the
+// other keys are.
 func mf2TokenType(t mf2.Token, params map[string]bool) string {
 	switch t.Kind {
-	case mf2.TokenKeyword, mf2.TokenCatchAll:
+	case mf2.TokenKeyword:
 		return "keyword"
 	case mf2.TokenVariable:
 		if params[t.Name] {
 			return "parameter"
 		}
 		return "variable"
-	case mf2.TokenNamespace:
-		return "namespace"
 	case mf2.TokenFunction:
 		return "function"
 	case mf2.TokenOption, mf2.TokenAttribute:
 		return "property"
 	case mf2.TokenMarkup:
 		return "type"
-	case mf2.TokenName, mf2.TokenKey:
+	case mf2.TokenName, mf2.TokenKey, mf2.TokenCatchAll:
 		return "enumMember"
 	case mf2.TokenNumber:
 		return "number"

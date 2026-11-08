@@ -51,7 +51,7 @@ func TestParse_EnumVariant_TrailingComment(t *testing.T) {
 	}{
 		{"bare", "enum Op {\n    ToJson // note\n    FromJson\n}\n", []string{"// note", ""}},
 		{"bare last", "enum Op {\n    ToJson\n    FromJson // note\n}\n", []string{"", "// note"}},
-		{"type payload", "enum Op {\n    Add Int // a\n    Mul #(Int, Int) // m\n}\n", []string{"// a", "// m"}},
+		{"type payload", "enum Op {\n    Add Int // a\n    Mul (Int, Int) // m\n}\n", []string{"// a", "// m"}},
 		{"paren payload", "enum Op {\n    Add(Int) // a\n    Sub(Int)\n}\n", []string{"// a", ""}},
 		{"generic and function payloads", "enum Op<T> {\n    A Maybe<T> // a\n    B (T) -> T // b\n}\n", []string{"// a", "// b"}},
 		{"struct payload", "enum Shape {\n    Rect {w: Int, h: Int} // r\n    Circle {r: Int} // c\n}\n", []string{"// r", "// c"}},

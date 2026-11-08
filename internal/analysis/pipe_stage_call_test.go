@@ -76,7 +76,7 @@ func TestPipeStage_CallsLambdasAndKeywordsAreAccepted(t *testing.T) {
 		"x = 3 |> Box.make()",
 		"x = 3 |> then fn n -> n + 1",
 		"x = 3 |> then fn n -> { n |> double() }",
-		"x = #(3, 4) |> then fn #(a, b) -> a + b",
+		"x = (3, 4) |> then fn (a, b) -> a + b",
 		"x = 3 |> dbg",
 		"x = True |> if { 1 } else { 0 }",
 		"x = 3 |> case {\n    3 -> True\n    _ -> False\n  }",
@@ -100,7 +100,7 @@ func TestPipeStage_LambdaIsRejected(t *testing.T) {
 	}{
 		{"x = 3 |> fn n -> n + 1", "a lambda is not a pipe stage: write `then fn n -> ...`"},
 		{"x = 3 |> (fn n -> n + 1)", "a lambda is not a pipe stage: write `then fn n -> ...`"},
-		{"x = #(3, 4) |> fn #(a, b) -> a + b", "a lambda is not a pipe stage: write `then fn v -> ...`"},
+		{"x = (3, 4) |> fn (a, b) -> a + b", "a lambda is not a pipe stage: write `then fn v -> ...`"},
 		{"x = 3 |> fn n -> n + 1 |> double()", "a lambda is not a pipe stage: write `then fn n -> ...`"},
 	} {
 		src := pipeStageDecls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"

@@ -10,11 +10,8 @@ const (
 	TokenKeyword TokenKind = iota
 	// TokenVariable is `$name`, its `$` included.
 	TokenVariable
-	// TokenNamespace is a function's namespace with the colon before it:
-	// the `:nomi` of `:nomi:noun`.
-	TokenNamespace
-	// TokenFunction is a function's name with the colon before it:
-	// `:integer`, and the `:noun` of `:nomi:noun`.
+	// TokenFunction is a function's name with the colon before it and its
+	// namespace, if any: `:integer`, `:nomi:noun`.
 	TokenFunction
 	// TokenOption is an option's name: the `count` of `count=$n`.
 	TokenOption

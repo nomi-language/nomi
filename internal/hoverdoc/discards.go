@@ -9,7 +9,7 @@ import (
 // match may fail (a `case` arm, `if P = v`, a binding with `else`, `assert
 // P = v`), what it matches.
 //
-//	#(_, coins) = pair      `Int`, discarded
+//	(_, coins) = pair      `Int`, discarded
 //	_ = count()             `Int`, discarded
 //	fn _, x -> x            `Int`, discarded
 //	Some(_) -> 1            `String`, discarded: matches any `String`

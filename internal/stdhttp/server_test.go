@@ -168,7 +168,7 @@ import std::io.{self, Reader}
 fn posted(body: Reader) -> Request {
     #{
         ..http_testing.request(Method.Post, "/"),
-        headers: Headers[#("Content-Type", "application/x-www-form-urlencoded")],
+        headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
         body: Body.Stream(body),
     }
 }
@@ -188,7 +188,7 @@ fn main() {
 
     upload = #{
         ..http_testing.request(Method.Post, "/upload"),
-        headers: Headers[#("Content-Type", "multipart/form-data; boundary=b")],
+        headers: Headers[("Content-Type", "multipart/form-data; boundary=b")],
         body: Body.Stream(Reader.from_bytes(String.to_bytes(String.repeat("x", 33_554_433)))),
     }
 
@@ -231,7 +231,7 @@ fn main() {
     http_testing.with_server(echo, server: Server{max_body: Some(5)}, fn server -> {
         post = fn path: String, a: String -> {
             url = Url.resolve_text(server.url, path)!
-            r = Client.post_form(server.client, url, Query[#("a", a)])!
+            r = Client.post_form(server.client, url, Query[("a", a)])!
             io.print("${path} ${a}: ${Status.code(r.status)} ${Response.text(r)!}")
         }
 

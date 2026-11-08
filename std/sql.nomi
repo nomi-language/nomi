@@ -6,9 +6,10 @@
 //# `FromSql`, with NULL as `Maybe`'s `None`. A result row is a `Row`, read
 //# by column name or position. Failures are a `sql.Error`, which keeps a
 //# violated constraint's name. `sql.transaction` runs a body in a
-//# transaction, or in a savepoint when the connection already is one, and
-//# `sql.with_connection` runs a body on a connection it opens and closes;
-//# `sql.close_quietly` closes one in a `defer`.
+//# transaction, or in a savepoint when the connection already is one.
+//# A connection is closed with `defer sql.close_quietly(conn)` on the line
+//# after it is opened, and `Conn.close(conn)?` on the success path when a
+//# failed close should be reported.
 //#
 //# std holds no driver: drivers are modules of their own, such as the
 //# SQLite driver (`nomi add github.com/nomi-language/nomi/lib/sql/sqlite`,
@@ -36,6 +37,7 @@ import {
     lists.List
     literals.{Fragment, Literal}
     maybe.Maybe.{self, None, Some}
+    resources.Release
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
@@ -115,7 +117,7 @@ impl Display for Statement {
     fn to_string(statement: Statement) -> String {
         statement.parts
         |> Iter.with_index()
-        |> Iter.map(fn #(index, part) -> if index == 0 { part } else { "?${index}" + part })
+        |> Iter.map(fn (index, part) -> if index == 0 { part } else { "?${index}" + part })
         |> String.join()
     }
 }
@@ -140,12 +142,12 @@ impl Literal for Sql {
         // The fragments alternate Static, Dynamic, ..., Static, with an
         // empty Static between two slots and at either end, so each Static
         // is one part and there is one more part than parameters.
-        #(parts, params) = Iter.reduce(fragments, #([], []), fn acc, fragment -> {
-            #(parts, params) = acc
+        (parts, params) = Iter.reduce(fragments, ([], []), fn acc, fragment -> {
+            (parts, params) = acc
 
             case fragment {
-                .Static(s) -> #(parts + [s], params)
-                .Dynamic(value) -> #(parts, params + [ToSql.to_sql(value)])
+                .Static(s) -> (parts + [s], params)
+                .Dynamic(value) -> (parts, params + [ToSql.to_sql(value)])
             }
         })
 
@@ -191,7 +193,7 @@ impl Statement {
     pub fn join(statements: Iter<Statement>, separator: Statement) -> Statement {
         statements
         |> Iter.with_index()
-        |> Iter.reduce(Sql"", fn joined, #(index, statement) -> {
+        |> Iter.reduce(Sql"", fn joined, (index, statement) -> {
             if index == 0 {
                 joined + statement
             } else {
@@ -652,7 +654,7 @@ impl FromSql for List<T> where T: FromSql {
 /// statement that read it, which its errors name. It is opaque; a driver
 /// builds it with `Row.new`. A column is found by its name (the first of
 /// that name) or by its position from 0.
-//! row = Row.new("SELECT id, name FROM users", [#("id", Value.Int(7)), #("name", Value.Null)])
+//! row = Row.new("SELECT id, name FROM users", [("id", Value.Int(7)), ("name", Value.Null)])
 //! assert Row.columns(row) == ["id", "name"]
 //! id: Int = Row.get(row, "id")?
 //! assert id == 7
@@ -669,11 +671,11 @@ derive Equatable for Row
 impl Row {
     /// The row that `query` read, with each column's name and value in
     /// order.
-    pub fn new(query: String, cells: List<#(String, Value)>) -> Row {
+    pub fn new(query: String, cells: List<(String, Value)>) -> Row {
         Row{
             query,
-            columns: cells |> Iter.map(fn #(name, _) -> name) |> Iter.to_list(),
-            values: cells |> Iter.map(fn #(_, value) -> value) |> Iter.to_list(),
+            columns: cells |> Iter.map(fn (name, _) -> name) |> Iter.to_list(),
+            values: cells |> Iter.map(fn (_, value) -> value) |> Iter.to_list(),
         }
     }
 
@@ -694,22 +696,22 @@ impl Row {
 
     /// The value of the first column named `column`, or
     /// `Err(.MissingColumn)` when there is none.
-    //! row = Row.new("SELECT 1 AS n", [#("n", Value.Int(1))])
+    //! row = Row.new("SELECT 1 AS n", [("n", Value.Int(1))])
     //! assert Row.value(row, "n") == Ok(Value.Int(1))
     //! assert Row.value(row, "m") == Err(Error.MissingColumn{query: "SELECT 1 AS n", column: "m"})
     //
     pub fn value(row: Row, column: String) -> Result<Value, Error> {
-        found = Iter.zip(row.columns, row.values) |> Iter.find(fn #(name, _) -> name == column)
+        found = Iter.zip(row.columns, row.values) |> Iter.find(fn (name, _) -> name == column)
 
         case found {
-            Some(#(_, value)) -> Ok(value)
+            Some((_, value)) -> Ok(value)
             None -> Err(Error.MissingColumn{query: row.query, column})
         }
     }
 
     /// The value at `position`, counting from 0, or `Err(.ColumnPosition)` when
     /// the row has no column there.
-    //! row = Row.new("SELECT 1 AS n", [#("n", Value.Int(1))])
+    //! row = Row.new("SELECT 1 AS n", [("n", Value.Int(1))])
     //! assert Row.value_position(row, 0) == Ok(Value.Int(1))
     //!
     //! assert Row.value_position(row, 1)
@@ -737,7 +739,7 @@ impl Row {
     /// not a `Maybe` is `Err(.UnexpectedNull)`. `T` is inferred from the
     /// expected type (`n: Int = Row.get(row, "n")?`) or given
     /// (`Row.get<Int>(row, "n")`).
-    //! row = Row.new("SELECT n, t", [#("n", Value.Int(1)), #("t", Value.Null)])
+    //! row = Row.new("SELECT n, t", [("n", Value.Int(1)), ("t", Value.Null)])
     //! n: Int = Row.get(row, "n")?
     //! assert n == 1
     //!
@@ -923,11 +925,11 @@ impl Display for Error {
 }
 
 fn place(table: Maybe<String>, column: Maybe<String>) -> String {
-    case #(table, column) {
-        #(Some(t), Some(c)) -> " on `${t}.${c}`"
-        #(Some(t), None) -> " on table `${t}`"
-        #(None, Some(c)) -> " on column `${c}`"
-        #(None, None) -> ""
+    case (table, column) {
+        (Some(t), Some(c)) -> " on `${t}.${c}`"
+        (Some(t), None) -> " on table `${t}`"
+        (None, Some(c)) -> " on column `${c}`"
+        (None, None) -> ""
     }
 }
 
@@ -973,44 +975,26 @@ pub fn transaction<T>(conn: Conn, body: (Conn) -> Result<T, Error>) -> Result<T,
     Ok(value)
 }
 
-/// Open a connection with `open`, run `body` on it, and close it:
-/// after the body returns `Ok`, `Err` or traps, and on every other way
-/// out. The result is the body's, or the `Err` of an `open` or a
-/// `close` that failed after the body returned `Ok`.
-//! import std::sql_testing.Fake
-//!
-//! fake = Fake.new()
-//!
-//! count = with_connection(fn -> Ok(fake), fn conn -> {
-//!     Conn.exec(conn, Sql"DELETE FROM sessions WHERE expired")
-//! })
-//!
-//! assert count == Ok(0)
-//! assert Fake.is_closed(fake)
-//! assert Fake.log(fake) == ["DELETE FROM sessions WHERE expired", "CLOSE"]
-//
-pub fn with_connection<C, T>(
-    open: () -> Result<C, Error>,
-    body: (Conn) -> Result<T, Error>,
-) -> Result<T, Error> where C: Conn {
-    conn: Conn = open()?
-    // After the close on `Ok` this is a no-op (Conn's rules).
-    defer close_quietly(conn)
-    value = body(conn)?
-    Conn.close(conn)?
-    Ok(value)
-}
-
 /// Close `conn` and drop a failed close: `Conn.close` for a `defer`,
-/// which cannot return anything. Use it for a connection held past one
-/// body, such as one a test group's `setup` opens for each test and
-/// closes when the test ends. Nothing reports or records a close that
-/// fails, so when the code that uses the connection is one body, run it
-/// in `sql.with_connection`, which reports a failed close.
+/// which cannot return anything. Defer it on the line after the
+/// connection is opened, so the connection is closed however the function
+/// ends; end the success path with `Conn.close(conn)?` when a failed close
+/// should be reported, since a close after a close does nothing (Conn's
+/// rules).
 ///
-/// A `defer` call returns `Unit`, so it cannot report a failed close, and a
-/// `defer` in a group's `setup` runs when the test finishes.
-/// `with_connection`'s own `defer` is `close_quietly`.
+/// ```nomi
+/// fn purge(path: String) -> Result<Int, sql.Error> {
+///     conn = sqlite.open(path)?
+///     defer sql.close_quietly(conn)
+///
+///     count = Conn.exec(conn, Sql"DELETE FROM sessions WHERE expired")?
+///     Conn.close(conn)?
+///     Ok(count)
+/// }
+/// ```
+///
+/// In a test group's `setup` the deferred close runs when the test
+/// finishes:
 ///
 /// ```nomi
 /// group "sessions" {
@@ -1038,9 +1022,27 @@ pub fn with_connection<C, T>(
 //! assert Fake.is_closed(fake)
 //! close_quietly(fake)
 //! assert Fake.log(fake) == ["DELETE FROM t", "CLOSE"]
+//!
+//! fn purge(conn: Fake) -> Result<Int, Error> {
+//!     defer close_quietly(conn)
+//!     count = Conn.exec(conn, Sql"DELETE FROM sessions WHERE expired")?
+//!     Conn.close(conn)?
+//!     Ok(count)
+//! }
+//!
+//! purged = Fake.new()
+//!
+//! assert purge(purged) == Ok(0)
+//! assert Fake.log(purged) == ["DELETE FROM sessions WHERE expired", "CLOSE"]
 //
 pub fn close_quietly(conn: Conn) {
     _ = Conn.close(conn)
+}
+
+impl Release for Conn {
+    fn release(conn: Conn) {
+        close_quietly(conn)
+    }
 }
 
 // Rolls tx back when transaction leaves it, by a return, an `Err` or a trap.

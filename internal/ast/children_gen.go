@@ -17,6 +17,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfAsPattern(n, fn)
 		}
+	case *Ascription:
+		if n != nil {
+			childrenOfAscription(n, fn)
+		}
 	case *Assertion:
 		if n != nil {
 			childrenOfAssertion(n, fn)
@@ -358,6 +362,8 @@ func absent(n Node) bool {
 		return n == nil
 	case *AsPattern:
 		return n == nil
+	case *Ascription:
+		return n == nil
 	case *Assertion:
 		return n == nil
 	case *AttachedTest:
@@ -677,6 +683,15 @@ func childrenOfAnonStructType(x *AnonStructType, fn func(Node)) {
 func childrenOfAsPattern(x *AsPattern, fn func(Node)) {
 	if !absent(x.Pattern) {
 		fn(x.Pattern)
+	}
+}
+
+func childrenOfAscription(x *Ascription, fn func(Node)) {
+	if !absent(x.Value) {
+		fn(x.Value)
+	}
+	if !absent(x.Type) {
+		fn(x.Type)
 	}
 }
 
@@ -1486,6 +1501,9 @@ func childrenOfStructLit(x *StructLit, fn func(Node)) {
 	for i1 := range x.Fields {
 		childrenOfStructFieldVal(&x.Fields[i1], fn)
 	}
+	for i2 := range x.Positional {
+		childrenOfStructFieldVal(&x.Positional[i2], fn)
+	}
 	if !absent(x.Spread) {
 		fn(x.Spread)
 	}
@@ -1656,6 +1674,9 @@ func childrenOfTypeParam(x *TypeParam, fn func(Node)) {
 			fn(e1)
 		}
 	}
+	if !absent(x.Default) {
+		fn(x.Default)
+	}
 }
 
 func childrenOfTypeParamValue(x TypeParam, fn func(Node)) {
@@ -1663,6 +1684,9 @@ func childrenOfTypeParamValue(x TypeParam, fn func(Node)) {
 		if !absent(e1) {
 			fn(e1)
 		}
+	}
+	if !absent(x.Default) {
+		fn(x.Default)
 	}
 }
 
@@ -1748,6 +1772,7 @@ func childrenOfWith(x *With, fn func(Node)) {
 var generatedTypes = []any{
 	(*AnonStructType)(nil),
 	(*AsPattern)(nil),
+	(*Ascription)(nil),
 	(*Assertion)(nil),
 	(*AttachedTest)(nil),
 	(*Binary)(nil),

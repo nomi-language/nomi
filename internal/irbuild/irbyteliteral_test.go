@@ -45,8 +45,8 @@ fn main() {
   Some(0x81) -> "some"
   _ -> "none"
  })
- io.inspect(case #(b, 1) {
-  #(0x81, 1) -> "pair"
+ io.inspect(case (b, 1) {
+  (0x81, 1) -> "pair"
   _ -> "other"
  })
  io.inspect(bytes |> Iter.map(fn x -> x &&& 0x80) |> Iter.to_list())

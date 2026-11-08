@@ -12,8 +12,9 @@ import (
 )
 
 // faultProject is a project whose entry can demand an impl no file
-// supplies: fault declares its own `Error`, with no Equatable impl, which
-// a bare-name lookup would borrow from the stdlib's `Error`s. Only the
+// supplies: fault declares its own `Error`, with no Equatable impl and no
+// equality (it holds a function), which a bare-name lookup would borrow
+// from the stdlib's `Error`s. Only the
 // coherence check over every file's demands (FinalizeCoherence) reports it.
 func faultProject() incrementalProject {
 	return incrementalProject{name: "fault", entry: "main", texts: map[string]string{
@@ -28,6 +29,7 @@ fn main() {
 `,
 		"fault": `pub enum Error {
     Bad String
+    Run (Int) -> Int
 }
 
 pub fn mk(s: String) -> Result<Int, Error> {

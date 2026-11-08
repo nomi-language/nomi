@@ -134,6 +134,9 @@ func dumpFile(fa *FileAnalysis, errs []TypeError, root string, unused func(*Impl
 	for n, t := range fa.FieldAccessors {
 		lines = append(lines, fmt.Sprintf("accessor %s = %s", at(n), typ(t)))
 	}
+	for n, i := range fa.TupleItems {
+		lines = append(lines, fmt.Sprintf("tuple item %s = %d", at(n), i))
+	}
 	for p, length := range fa.Placeholders {
 		lines = append(lines, fmt.Sprintf("placeholder %d:%d length %d", p.Line, p.Col, length))
 	}

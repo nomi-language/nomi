@@ -61,13 +61,13 @@ func TestFormat_AuthorBreakAfterBracketKeepsALiteralBroken(t *testing.T) {
 		},
 		{
 			"tuple",
-			"fn main() {\n    t = #(\n        1, \"a\")\n}\n",
-			"fn main() {\n    t = #(\n        1,\n        \"a\",\n    )\n}\n",
+			"fn main() {\n    t = (\n        1, \"a\")\n}\n",
+			"fn main() {\n    t = (\n        1,\n        \"a\",\n    )\n}\n",
 		},
 		{
 			"tuple without the break",
-			"fn main() {\n    t = #(1,\n        \"a\")\n}\n",
-			"fn main() {\n    t = #(1, \"a\")\n}\n",
+			"fn main() {\n    t = (1,\n        \"a\")\n}\n",
+			"fn main() {\n    t = (1, \"a\")\n}\n",
 		},
 		{
 			"struct",

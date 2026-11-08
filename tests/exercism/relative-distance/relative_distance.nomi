@@ -39,12 +39,12 @@ fn search(
 /// and their siblings.
 fn relatives(family: Map<String, List<String>>) -> Map<String, Set<String>> {
     family
-    |> Iter.flat_map(fn #(parent, children) -> {
+    |> Iter.flat_map(fn (parent, children) -> {
         Iter.flat_map(children, fn child -> {
-            siblings = children |> Iter.filter(&(&1 != child)) |> Iter.map(&#(child, &1))
-            [#(parent, child), #(child, parent), ..siblings]
+            siblings = children |> Iter.filter(&(&1 != child)) |> Iter.map(&(child, &1))
+            [(parent, child), (child, parent), ..siblings]
         })
     })
-    |> Iter.group_by(.0)
-    |> Map.map_values(fn links -> links |> Iter.map(.1) |> Iter.to_set())
+    |> Iter.group_by(.first)
+    |> Map.map_values(fn links -> links |> Iter.map(.second) |> Iter.to_set())
 }

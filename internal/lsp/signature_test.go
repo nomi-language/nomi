@@ -52,9 +52,9 @@ func checkSignatureFile(t *testing.T, path string) {
 	// AttachStdlibProjectImpls — post-stdlib-globals-retirement, the
 	// single-file path needs an explicit stdlib ProjectImpls so the
 	// unifier sees Int/String/Map/etc.'s stdlib impls; without it
-	// generic inference through stdlib types breaks (e.g. a `#(k, v)`
+	// generic inference through stdlib types breaks (e.g. a `(k, v)`
 	// destructure on `Iter.reduce(..., %{}, ...)` where K and
-	// V are pinned by `Map.iter`'s `Iter<#(K, V)>` impl).
+	// V are pinned by `Map.iter`'s `Iter<(K, V)>` impl).
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
 	_ = analysis.BuildTypes(fa, nodes)
 	_ = analysis.CheckTypes(fa, nodes)

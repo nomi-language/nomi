@@ -11,7 +11,7 @@ func TestIRStructFieldOfCompositeDistinct_Runs(t *testing.T) {
 	}
 	const src = `import std::io
 
-type Pair #(Int, Int)
+type Pair (Int, Int)
 
 type Ns List<Int>
 
@@ -35,7 +35,7 @@ fn main() {
     io.inspect(Struct.update(h, #{p: Pair(5, 6)}))
     io.inspect(Map.get(%{h => 1}, h))
     {
-        type Local #(Int, Int)
+        type Local (Int, Int)
         {
             struct Holder {
                 v: Local

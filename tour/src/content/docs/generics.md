@@ -15,8 +15,8 @@ parameters. You don't usually write the types at the call. Nomi works them out
 from the arguments:
 
 ```nomi-run
-fn pair<T, U>(first: T, second: U) -> #(T, U) {
-    #(first, second)
+fn pair<T, U>(first: T, second: U) -> (T, U) {
+    (first, second)
 }
 
 fn main() {
@@ -25,7 +25,7 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 6: pair("age", 30) = #("age", 30)
+dbg line 6: pair("age", 30) = ("age", 30)
 -->
 
 In this call, `T` is `String` and `U` is `Int`. Another call can use
@@ -33,7 +33,7 @@ different types.
 
 ## Generic types
 
-Structs, enums, interfaces and distinct types (`type Tagged<T> #(String, T)`)
+Structs, enums, interfaces and distinct types (`type Tagged<T> (String, T)`)
 can have type parameters. A type alias can't.
 
 ```nomi-run
@@ -53,6 +53,10 @@ dbg line 7: box.value = 42
 
 Every `Box` holds one value, of type `T`. `Box<Int>` and `Box<String>` are
 different types, made from the same definition.
+
+A type parameter can have a default, which a type that leaves the argument
+out takes: std's `Route<P = Unit>` makes a plain `Route` a `Route<Unit>`, a
+route with no path parameters.
 
 ## Bounds with where
 

@@ -73,15 +73,10 @@ func NegFloat(a float64) float64 { return -a }
 
 // --- Float arithmetic ------------------------------------------------------
 
-// FloatModuloText is the fault `%` on Float reports. Exported for the reason
-// DecimalModuloText below is: a caller that needs the string rather
-// than the trap (internal/vm does) calls this instead of retyping it.
-func FloatModuloText(line int) string {
-	return fmt.Sprintf("line %d: modulo not supported on floats", line)
-}
-
-// FloatModuloError is FloatModuloText as the fault the VM returns.
-func FloatModuloError(line int) error { return positioned(line, FloatModuloText(line)) }
+// ModFloat is Nomi's `%` on Float: IEEE 754's fmod, a - b * trunc(a / b)
+// computed exactly, with a's sign. A zero b or an infinite a is NaN, and an
+// infinite b answers a. It never faults.
+func ModFloat(a, b float64) float64 { return math.Mod(a, b) }
 
 // --- Decimal arithmetic ----------------------------------------------------
 //
@@ -90,23 +85,19 @@ func FloatModuloError(line int) error { return positioned(line, FloatModuloText(
 // and a product's is the sum of them. There is deliberately no wrapping form
 // and no overflow check, which is why the type exists beside Int.
 //
-// There is no `/`. Whether an exact quotient terminates depends on the
-// divisor's value, so an operator that trapped on `10d / 3d` would pass tests
-// that divide by 2 and stop in production on 3. Division is `Decimal.divide`,
-// which names its rounding, or `Decimal.divide_exact` (decimalstd.go), which
-// answers None for a quotient that does not terminate.
+// `%` is exact too: a - b * trunc(a / b) at the larger scale (Decimal.Rem).
 //
-// ModDecimal carries the same `line int` as the Int family and for the same
-// reason: a fault blames the operator, so the caller passes the operator's
+// `/` rounds: a quotient keeps QuoDigits (34) significant digits, half-even,
+// and an exact one that fits keeps its smallest exact scale (Decimal.Quo).
+// `Decimal.divide` names a scale and a mode instead, and
+// `Decimal.divide_exact` (decimalstd.go) answers None for a quotient that
+// does not terminate.
+//
+// DivDecimal and ModDecimal carry the same `line int` as the Int family and
+// for the same reason: a fault blames the operator, so the caller passes the operator's
 // own line. Its fault text lives here once. `internal/vm`'s
 // `TestTrapText_OneHomePerText` derives every `line %d:` text this package
 // declares and fails if the VM spells one a second time.
-
-// DecimalModuloText is the fault `%` on Decimal reports. The checker rejects it,
-// so this is the runtime backstop, kept because it costs one function.
-func DecimalModuloText(line int) string {
-	return fmt.Sprintf("line %d: modulo is not defined on Decimal", line)
-}
 
 // AddDecimal is Nomi's `+` on Decimal. Exact; never fails.
 func AddDecimal(a, b Decimal) Decimal { return a.Add(b) }
@@ -117,6 +108,25 @@ func SubDecimal(a, b Decimal) Decimal { return a.Sub(b) }
 // MulDecimal is Nomi's `*` on Decimal. Exact; never fails.
 func MulDecimal(a, b Decimal) Decimal { return a.Mul(b) }
 
+// DivDecimal is Nomi's `/` on Decimal: the quotient rounded to 34 significant
+// digits (Decimal.Quo). A zero divisor traps with Int's `/` text.
+func DivDecimal(a, b Decimal, line int) Decimal {
+	q, err := a.Quo(b)
+	if err == errDecimalDivByZero {
+		trapAt(line, divByZeroText(line))
+	} else if err != nil {
+		trapAt(line, DecimalQuoTooLongText(line))
+	}
+	return q
+}
+
+// DecimalQuoTooLongText is the fault `/` on Decimal reports for a quotient
+// whose scale passes Decimal's (a dividend of about two billion fractional
+// digits).
+func DecimalQuoTooLongText(line int) string {
+	return fmt.Sprintf("line %d: the quotient has more digits than a Decimal holds", line)
+}
+
 // NegDecimal is Nomi's unary `-` on Decimal.
 //
 // Total, unlike Int's unary `-`, which is checked subtraction from zero so
@@ -126,10 +136,13 @@ func MulDecimal(a, b Decimal) Decimal { return a.Mul(b) }
 // latter would be correct too, and would allocate a zero to do it.
 func NegDecimal(v Decimal) Decimal { return v.Negate() }
 
-// ModDecimal is Nomi's `%` on Decimal, which is not defined: it always traps.
+// ModDecimal is Nomi's `%` on Decimal: exact (Decimal.Rem). A zero divisor
+// traps with Int's `%` text.
 func ModDecimal(a, b Decimal, line int) Decimal {
-	trapAt(line, DecimalModuloText(line))
-	return Decimal{}
+	if b.IsZero() {
+		trapAt(line, divByZeroText(line))
+	}
+	return a.Rem(b)
 }
 
 // EqDecimal is Nomi's `==` on Decimal, and it is scale-insensitive: `1.50d`

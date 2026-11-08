@@ -29,7 +29,7 @@ fn second(_: String, b: Int) -> Int {
 }
 
 fn main() {
-  #(_, coins) = #(1, [Coin.Penny])
+  (_, coins) = (1, [Coin.Penny])
   _ = count()
   a = case Some("a") {
     Some(_) -> 1
@@ -40,12 +40,12 @@ fn main() {
     _ -> 2
   }
   n = Iter.reduce(["a"], 0, fn total, _ -> total + 1)
-  r = Iter.reduce([1, 2], #(0, []), fn #(_, acc), x -> #(x, [x, ..acc]))
+  r = Iter.reduce([1, 2], (0, []), fn (_, acc), x -> (x, [x, ..acc]))
   d = case {
     c > 1 -> 1
     _ -> 2
   }
-  io.inspect(#(coins, a, n, r, d, second("a", 2)))
+  io.inspect((coins, a, n, r, d, second("a", 2)))
 }
 `
 	lib := std.Load()
@@ -63,7 +63,7 @@ fn main() {
 		want string
 	}{
 		{"a function parameter", "fn second(", 1, "`String`, discarded"},
-		{"a tuple element", "  #(_, coins)", 1, "`Int`, discarded"},
+		{"a tuple element", "  (_, coins)", 1, "`Int`, discarded"},
 		{"a binding", "  _ = count()", 1, "`Int`, discarded"},
 		{"a variant payload in a case arm", "    Some(_)", 1, "`String`, discarded: matches any `String`"},
 		{"a case arm's whole pattern", "    _ -> 2", 1, "`Coin`, discarded: matches any `Coin`"},
@@ -92,10 +92,10 @@ fn main() {
 				col += at + 1
 			}
 			pos := analysis.Pos{Line: line + 1, Col: col + 1}
-			if got := hoverdoc.At(fa, nodes, pos); got != c.want {
+			if got := hoverdoc.At(fa, nodes, src, pos); got != c.want {
 				t.Errorf("tour hover = %q, want %q", got, c.want)
 			}
-			if got, _, _, _ := hoverdoc.SyntaxAt(editor, editorNodes, pos); got != c.want {
+			if got := hoverdoc.At(editor, editorNodes, src, pos); got != c.want {
 				t.Errorf("editor hover = %q, want %q", got, c.want)
 			}
 		})
@@ -104,10 +104,10 @@ fn main() {
 	last := strings.LastIndex(src, "    _ -> 2")
 	pos := analysis.Pos{Line: strings.Count(src[:last], "\n") + 1, Col: 5}
 	const otherwise = "Otherwise: runs when no condition above holds."
-	if got := hoverdoc.At(fa, nodes, pos); got != otherwise {
+	if got := hoverdoc.At(fa, nodes, src, pos); got != otherwise {
 		t.Errorf("tour hover on the subjectless case's `_` = %q, want %q", got, otherwise)
 	}
-	if got, _, _, _ := hoverdoc.SyntaxAt(editor, editorNodes, pos); got != otherwise {
+	if got := hoverdoc.At(editor, editorNodes, src, pos); got != otherwise {
 		t.Errorf("editor hover on the subjectless case's `_` = %q, want %q", got, otherwise)
 	}
 }

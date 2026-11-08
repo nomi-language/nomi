@@ -40,20 +40,20 @@ test "a map spread goes first, between entries, last, or several times" {
     m = %{"a" => 1, "b" => 2}
     n = %{"c" => 3}
 
-    assert Iter.to_list(%{..m, "c" => 3}) == [#("a", 1), #("b", 2), #("c", 3)]
-    assert Iter.to_list(%{"x" => 0, ..m, "y" => 9}) == [#("x", 0), #("a", 1), #("b", 2), #("y", 9)]
-    assert Iter.to_list(%{"x" => 0, ..m}) == [#("x", 0), #("a", 1), #("b", 2)]
-    assert Iter.to_list(%{..m, ..n}) == [#("a", 1), #("b", 2), #("c", 3)]
+    assert Iter.to_list(%{..m, "c" => 3}) == [("a", 1), ("b", 2), ("c", 3)]
+    assert Iter.to_list(%{"x" => 0, ..m, "y" => 9}) == [("x", 0), ("a", 1), ("b", 2), ("y", 9)]
+    assert Iter.to_list(%{"x" => 0, ..m}) == [("x", 0), ("a", 1), ("b", 2)]
+    assert Iter.to_list(%{..m, ..n}) == [("a", 1), ("b", 2), ("c", 3)]
 }
 
 test "a repeated map key takes the later value and keeps the first place" {
     m = %{"a" => 1, "b" => 2}
     n = %{"b" => 20, "c" => 30}
 
-    assert Iter.to_list(%{..m, "b" => 0}) == [#("a", 1), #("b", 0)]
-    assert Iter.to_list(%{"b" => 0, ..m}) == [#("b", 2), #("a", 1)]
-    assert Iter.to_list(%{..m, ..n}) == [#("a", 1), #("b", 20), #("c", 30)]
-    assert Iter.to_list(%{..n, ..m}) == [#("b", 2), #("c", 30), #("a", 1)]
+    assert Iter.to_list(%{..m, "b" => 0}) == [("a", 1), ("b", 0)]
+    assert Iter.to_list(%{"b" => 0, ..m}) == [("b", 2), ("a", 1)]
+    assert Iter.to_list(%{..m, ..n}) == [("a", 1), ("b", 20), ("c", 30)]
+    assert Iter.to_list(%{..n, ..m}) == [("b", 2), ("c", 30), ("a", 1)]
 }
 
 struct Team {
@@ -78,9 +78,9 @@ test "a bare spread stands anywhere, and a map entry after spreads updates what 
     assert updated.members == ["Ada", "Bo", "Cy"]
 
     assert Iter.to_list(updated.scores) == [
-        #("bo", %{"q1" => 2}),
-        #("ada", %{"q2" => 7, "q3" => 9}),
-        #("cy", %{"q1" => 1}),
+        ("bo", %{"q1" => 2}),
+        ("ada", %{"q2" => 7, "q3" => 9}),
+        ("cy", %{"q1" => 1}),
     ]
 }
 

@@ -76,11 +76,11 @@ test "tasks started inside the run reach its sandbox" {
         concurrent {
             a = Task.spawn(fn -> fs.write_text("a.txt", "from a"))
             b = Task.spawn(fn -> fs.write_text("b.txt", "from b"))
-            #(Task.await(a), Task.await(b))
+            (Task.await(a), Task.await(b))
         }
     })
 
-    assert ran.value == #(Ok(Unit), Ok(Unit))
+    assert ran.value == (Ok(Unit), Ok(Unit))
 
     assert ran.files == %{
         "/work/a.txt" => String.to_bytes("from a"),
@@ -93,13 +93,13 @@ test "two tasks in two sandboxes do not see each other's files" {
         a = Task.spawn(fn -> fs_testing.run(Sandbox{}, fn -> fs.write_text("x.txt", "a")))
         b = Task.spawn(fn -> fs_testing.run(Sandbox{}, fn -> fs.write_text("x.txt", "b")))
 
-        #(
+        (
             fs_testing.text(Task.await(a), "/work/x.txt"),
             fs_testing.text(Task.await(b), "/work/x.txt"),
         )
     }
 
-    assert both == #(Some("a"), Some("b"))
+    assert both == (Some("a"), Some("b"))
 }
 
 test "a nested run takes over for its own call" {
@@ -108,10 +108,10 @@ test "a nested run takes over for its own call" {
             fs.read_text("who.txt")
         })
 
-        #(inner.value, fs.read_text("who.txt"))
+        (inner.value, fs.read_text("who.txt"))
     })
 
-    assert outer.value == #(Ok("inner"), Ok("outer"))
+    assert outer.value == (Ok("inner"), Ok("outer"))
 }
 
 test "a reader left open shows in open" {
@@ -120,23 +120,27 @@ test "a reader left open shows in open" {
     assert ran.open == ["/work/a.txt"]
 }
 
-test "with_writer streams a copy with a header" {
+test "a writer streams a copy with a header" {
     ran = fs_testing.run(Sandbox{files: %{"in.txt" => "body\n"}}, fn -> {
-        fs.with_reader("in.txt", fn r -> {
-            fs.with_writer(
-                "out.txt",
-                fn w -> {
-                    Writer.write_text(w, "# generated\n")?
-                    Reader.copy_to(r, w)
-                },
-                mode: .ReplaceAtomically,
-            )
-        })
+        prepend_header("in.txt", "out.txt")
     })
 
     assert ran.value == Ok(5)
     assert fs_testing.text(ran, "/work/out.txt") == Some("# generated\nbody\n")
     assert ran.open == []
+}
+
+fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
+    r = fs.open(input)?
+    defer Reader.close_quietly(r)
+
+    w = fs.create(output, mode: .ReplaceAtomically)?
+    defer Writer.discard(w)
+
+    Writer.write_text(w, "# generated\n")?
+    copied = Reader.copy_to(r, w)?
+    Writer.close(w)?
+    Ok(copied)
 }
 
 test "directories list sorted, and remove and rename act on them" {
@@ -147,10 +151,10 @@ test "directories list sorted, and remove and rename act on them" {
         before = fs.list("d")
         _ = fs.rename("d/a.txt", "d/e/a.txt")
         _ = fs.remove("d/b.txt")
-        #(before, fs.list("d"), fs.list("d/e"))
+        (before, fs.list("d"), fs.list("d/e"))
     })
 
-    assert ran.value == #(
+    assert ran.value == (
         Ok([
             Entry{path: "d/a.txt", name: "a.txt", kind: Kind.File},
             Entry{path: "d/b.txt", name: "b.txt", kind: Kind.File},
@@ -182,10 +186,10 @@ test "walk and glob find the files under a directory" {
             |> Iter.map(fn e -> Result.map(e, fn e -> e.path))
             |> Result.collect()
 
-        #(walked, fs.glob("src/**/*.nomi"), fs.glob("*/*.txt"))
+        (walked, fs.glob("src/**/*.nomi"), fs.glob("*/*.txt"))
     })
 
-    assert ran.value == #(
+    assert ran.value == (
         Ok(["src/back", "src/lib", "src/lib/a.nomi", "src/lib/notes.txt", "src/main.nomi"]),
         Ok(["src/lib/a.nomi", "src/main.nomi"]),
         Ok([]),
@@ -196,14 +200,14 @@ test "a task inside within is confined too" {
     ran = fs_testing.run(Sandbox{files: %{"site/a.txt" => "a", "secret.txt" => "s"}}, fn -> {
         fs.within("site", fn -> {
             concurrent {
-                t = Task.spawn(fn -> #(fs.read_text("a.txt"), fs.read_text("../secret.txt")))
+                t = Task.spawn(fn -> (fs.read_text("a.txt"), fs.read_text("../secret.txt")))
                 Ok(Task.await(t))
             }
         })
     })
 
     case ran.value {
-        Ok(#(inside, outside)) -> {
+        Ok((inside, outside)) -> {
             assert inside == Ok("a")
             assert Result.is_ok(outside) == False
         }

@@ -246,14 +246,17 @@ func (g *gen) irRetryWalkOnlyTestBodiesWith(setup func(testCaseDecl) func()) {
 func (g *gen) flushInstanceQueues() {
 	for {
 		impls, monos, methods, defaults := len(g.genericImplQueue), len(g.monoQueue), len(g.methodInstQueue), len(g.fieldDefaultQueue)
-		accessors := len(g.instImplAccessorQueue)
+		accessors, ifaceDefaults, slots := len(g.instImplAccessorQueue), len(g.ifaceDefaultQueue), len(g.ifaceSlotQueue)
 		g.flushMonoInstances()
 		g.flushGenericImpls()
 		g.flushMethodInsts()
+		g.flushIfaceDefaults()
 		g.flushFieldDefaults()
 		g.flushInstImplAccessors()
+		g.flushIfaceSlotDefaults()
 		if impls == len(g.genericImplQueue) && monos == len(g.monoQueue) && methods == len(g.methodInstQueue) &&
-			defaults == len(g.fieldDefaultQueue) && accessors == len(g.instImplAccessorQueue) {
+			defaults == len(g.fieldDefaultQueue) && accessors == len(g.instImplAccessorQueue) &&
+			ifaceDefaults == len(g.ifaceDefaultQueue) && slots == len(g.ifaceSlotQueue) {
 			break
 		}
 	}
@@ -284,6 +287,9 @@ func (g *gen) instancesPending() bool {
 		if !r.built {
 			return true
 		}
+	}
+	if g.ifaceDefaultsPending() || g.ifaceSlotDefaultsPending() {
+		return true
 	}
 	return g.instImplAccessorsPending()
 }

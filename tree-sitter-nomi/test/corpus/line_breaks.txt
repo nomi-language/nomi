@@ -25,8 +25,8 @@ A line starting with a paren is a new statement, not a call
 ================================================================================
 
 fn main() {
-    #(value, next) = step(state)
-    #(value, next)
+    (value, next) = step(state)
+    (value, next)
 }
 
 --------------------------------------------------------------------------------
@@ -117,7 +117,7 @@ A case arm ends at the line break before a tuple pattern
 fn main() {
     case n {
         1 -> f
-        #(x, y) -> b
+        (x, y) -> b
     }
 }
 

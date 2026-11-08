@@ -25,10 +25,14 @@ import (
 //
 // nodes are the file's syntax trees the analysis was built from, which the
 // hover on a literal's or pattern's punctuation and on a pipe's `|>`
-// reads (SyntaxAt).
-func At(fa *analysis.FileAnalysis, nodes []ast.Node, pos analysis.Pos) string {
+// reads (SyntaxAt), and content is the file's text, which the hover on a
+// keyword lexes (KeywordAt). A keyword answers first, as in the editor.
+func At(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos analysis.Pos) string {
 	if fa == nil {
 		return ""
+	}
+	if md, _, _, ok := KeywordAt(fa, nodes, content, pos); ok {
+		return md
 	}
 	if content, _, _, ok := SyntaxAt(fa, nodes, pos); ok {
 		return content
@@ -617,7 +621,7 @@ func displayValueTypeWithReceiver(t analysis.Type, receiver string) string {
 		for i, e := range v.Elems {
 			parts[i] = displayValueTypeWithReceiver(e, receiver)
 		}
-		return "#(" + strings.Join(parts, ", ") + ")"
+		return "(" + strings.Join(parts, ", ") + ")"
 	case *analysis.FuncType:
 		params := make([]string, len(v.Params))
 		for i, p := range v.Params {
@@ -677,6 +681,9 @@ func renderTypeParams(tps []ast.TypeParam) string {
 	parts := make([]string, len(tps))
 	for i, tp := range tps {
 		parts[i] = tp.Name
+		if tp.Default != nil {
+			parts[i] += " = " + tp.Default.TypeString()
+		}
 	}
 	return "<" + strings.Join(parts, ", ") + ">"
 }
@@ -946,6 +953,9 @@ func RenderFuncSigResolvedSelf(name string, typeParams []ast.TypeParam, params [
 		typeText := ""
 		if p.TypeAnnotation != nil {
 			typeText = renderTypeExprSelfAware(p.TypeAnnotation, typeAt(ft, i), receiver, receiverName)
+		} else if t := typeAt(ft, i); t != nil && p.Default != nil && p.Destructure == nil {
+			// `limit = 10`: the type the checker gave it from its default.
+			typeText = t.String()
 		}
 		b.WriteString(ParamSignature(p, typeText))
 		b.WriteString(renderDefault(p.Default))
@@ -1035,10 +1045,10 @@ func typeExprIsSelf(te ast.TypeExpr) bool {
 }
 
 // tupleOrParams writes a FuncType's rendered parts in parentheses: a tuple
-// type's as `#(A, B)`, a function type's parameters as `#(A, B)`.
+// type's as `(A, B)`, a function type's parameters as `(A, B)`.
 func tupleOrParams(tuple bool, parts []string) string {
 	if tuple {
-		return "#(" + strings.Join(parts, ", ") + ")"
+		return "(" + strings.Join(parts, ", ") + ")"
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
@@ -1125,7 +1135,7 @@ func renderParamPattern(n ast.Node) string {
 		}
 		return strings.Join(parts, " or ")
 	case *ast.EnumPattern:
-		// `Dur(x)`, `Wrapper.Only(n)`, `Foo(#(a, b))`. A flat tuple payload
+		// `Dur(x)`, `Wrapper.Only(n)`, `Foo((a, b))`. A flat tuple payload
 		// (`.Pos(a, b)`) renders its elements directly inside the `()` the
 		// enum supplies — renderParamPattern of a flat TuplePattern omits its
 		// own parens.
@@ -1169,7 +1179,7 @@ func renderParamPattern(n ast.Node) string {
 			// Caller (EnumPattern) supplies the surrounding parens.
 			return strings.Join(parts, ", ")
 		}
-		return "#(" + strings.Join(parts, ", ") + ")"
+		return "(" + strings.Join(parts, ", ") + ")"
 	default:
 		return ""
 	}
@@ -1622,6 +1632,10 @@ func docFromNode(node ast.Node) string {
 	case *ast.FuncDef:
 		return n.Doc
 	case *ast.ExternFunc:
+		return n.Doc
+	case *ast.InterfaceMethod:
+		// `Comparable.min(a, b)`, or `Int.min(a, b)` reaching the
+		// interface's default.
 		return n.Doc
 	default:
 		return ""

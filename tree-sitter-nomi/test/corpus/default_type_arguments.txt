@@ -1,0 +1,19 @@
+==========
+A type parameter with a default
+==========
+
+pub opaque type Route<P = Unit> String
+
+---
+
+(source_file
+  (type_definition
+    (pub)
+    (qualified_type_identifier
+      (type_identifier))
+    (type_parameters
+      (type_parameter
+        (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (type_identifier)))

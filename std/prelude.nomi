@@ -38,6 +38,8 @@ pub import {
     phrase.{Noun, Phrase}
     productable.Productable
     ranges.Range
+    remainder.Remainder
+    resources.{Commit, Release}
     results.{Infallible, Result}
     results.Result.{Err, Ok}
     sets.Set

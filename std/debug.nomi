@@ -33,7 +33,7 @@ import strings.String
 //# | `Maybe<T>` | `Some(Display(v))`, `None` | `Some(Debug(v))`, `None` |
 //# | `Result<T, E>` | `Ok(Display(v))`, `Err(Display(e))` | `Ok(Debug(v))`, `Err(Debug(e))` |
 //# | `Range<T>` | `Debug(start)..Debug(end)`, `Debug(start)..=Debug(end)`, `Debug(start)..` for unbounded integer ranges | identical |
-//# | Tuple `#(...)` | `#(Display(a), Display(b), ...)` | `#(Debug(a), Debug(b), ...)` |
+//# | Tuple `(...)` | `(Display(a), Display(b), ...)` | `(Debug(a), Debug(b), ...)` |
 //# | Anon struct `#{f: V, ...}` | `#{f: Display(v), ...}` | `#{f: Debug(v), ...}` |
 //#
 //# Tuples and anonymous structs are syntactic intrinsics with no named type

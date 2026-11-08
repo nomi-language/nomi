@@ -206,7 +206,7 @@ func TestHover_FuncNoReturnAnnotationUsesInferredType(t *testing.T) {
 }
 
 // A function with irrefutable destructuring params must render the source
-// patterns (`Dur(x)`, `Point{x, y}`, `#(a, b)`) in hover — not the internal
+// patterns (`Dur(x)`, `Point{x, y}`, `(a, b)`) in hover — not the internal
 // `__destr_<line>_<col>` placeholder used as a binding slot.
 func TestHover_FuncDestructureParams(t *testing.T) {
 	src := "type Dur Int\n" +
@@ -215,13 +215,13 @@ func TestHover_FuncDestructureParams(t *testing.T) {
 		"fn subtract(Dur(x), Dur(y)) -> Dur { Dur(x - y) }\n" +
 		"fn sum_point(Point{x, y}) -> Int { x + y }\n" +
 		"fn scale_point(#{x, y}: Point) -> Int { x * y }\n" +
-		"fn add_pair(#(a, b): #(Int, Int)) -> Int { a + b }\n" +
+		"fn add_pair((a, b): (Int, Int)) -> Int { a + b }\n" +
 		"fn unwrap(Wrapper.Only(n)) -> Int { n }"
 	wants := map[string]string{
 		"subtract":    "```nomi\nfn subtract(Dur(x), Dur(y)) -> Dur\n```",
 		"sum_point":   "```nomi\nfn sum_point(Point{x, y}) -> Int\n```",
 		"scale_point": "```nomi\nfn scale_point(#{x, y}: Point) -> Int\n```",
-		"add_pair":    "```nomi\nfn add_pair(#(a, b): #(Int, Int)) -> Int\n```",
+		"add_pair":    "```nomi\nfn add_pair((a, b): (Int, Int)) -> Int\n```",
 		"unwrap":      "```nomi\nfn unwrap(Wrapper.Only(n)) -> Int\n```",
 	}
 	for name, want := range wants {
@@ -838,8 +838,8 @@ group "config" {
 // render the pattern, not the `__destr_*` slot (the renderFuncSigFromType
 // path, distinct from the definition-hover RenderFuncSig path).
 func TestHover_DestructureParamCallSiteInstantiated(t *testing.T) {
-	src := "fn fst<T>(#(a, b): #(T, T)) -> T { a }\n" +
-		"fn main() { fst(#(1, 2)) }"
+	src := "fn fst<T>((a, b): (T, T)) -> T { a }\n" +
+		"fn main() { fst((1, 2)) }"
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -857,7 +857,7 @@ func TestHover_DestructureParamCallSiteInstantiated(t *testing.T) {
 		t.Fatal("expected reference to fst on line 2")
 	}
 	result := renderHover(callSym)
-	expected := "```nomi\nfn fst(#(a, b): #(Int, Int)) -> Int\n```"
+	expected := "```nomi\nfn fst((a, b): (Int, Int)) -> Int\n```"
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -1536,7 +1536,7 @@ impl Farewell for Person {
 func TestHover_DiscardBindersRenderTypeAtBindingSite(t *testing.T) {
 	input := `fn ignore(_param: Int) -> Int {
   _count = 5
-  #(_left, _right) = #(1, "a")
+  (_left, _right) = (1, "a")
   0
 }
 `
@@ -2503,7 +2503,7 @@ func TestHover_Assertion_TestBoundary(t *testing.T) {
 // type; an assertion in its body unwinds to the row.
 func TestHover_Subtests(t *testing.T) {
 	src := "test \"rows\" {\n" +
-		"  subtests [#(1, \"a\")], #(n, s) {\n" +
+		"  subtests [(1, \"a\")], (n, s) {\n" +
 		"    assert n > 0\n" +
 		"  }\n" +
 		"}"
@@ -2513,7 +2513,7 @@ func TestHover_Subtests(t *testing.T) {
 		t.Fatal("expected a symbol at the `subtests` keyword")
 	}
 	got := renderHover(sym)
-	want := "```nomi\nsubtests: List<#(Int, String)> -> Unit\n```\n\nRuns the body once for each row, a `#(Int, String)`, in order. A failed assertion ends its row and the next row runs. After the last row, if any row failed, returns `AssertionFailure` listing each failing row and unwinds to `test \"rows\"`."
+	want := "```nomi\nsubtests: List<(Int, String)> -> Unit\n```\n\nRuns the body once for each row, a `(Int, String)`, in order. A failed assertion ends its row and the next row runs. After the last row, if any row failed, returns `AssertionFailure` listing each failing row and unwinds to `test \"rows\"`."
 	if got != want {
 		t.Errorf("got:\n%s\n\nwant:\n%s", got, want)
 	}
@@ -3199,7 +3199,7 @@ func variantLitBindingCursor(t *testing.T, src string) protocol.Position {
 
 func TestHover_ThenKeyword(t *testing.T) {
 	got := hoverText(t, "then", "fn label(n: Int) -> String {\n  n\n  |> ▮then fn v -> Int.to_string(v + 1)\n}\n")
-	expected := "```nomi\nthen: Int -> String\n```\n\nApplies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it."
+	expected := "```nomi\nthen: Int -> String\n```\n\nApplies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it.\n\nMore in the [tour](https://nomi-lang.org/pipes/#the-then-stage)."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -3208,7 +3208,7 @@ func TestHover_ThenKeyword(t *testing.T) {
 // A `tap` stage's hover shows the piped type going in and coming out.
 func TestHover_TapKeyword(t *testing.T) {
 	got := hoverText(t, "tap", "import std::io\n\nfn label(n: Int) -> Int {\n  n\n  |> ▮tap fn v -> io.print(Int.to_string(v))\n}\n")
-	expected := "```nomi\ntap: Int -> Int\n```\n\nRuns the lambda on the piped value for its effect, then passes the value on unchanged. The lambda returns `Unit`. Its body ends at the next `|>`; braces keep a pipe inside it."
+	expected := "```nomi\ntap: Int -> Int\n```\n\nRuns the lambda on the piped value for its effect, then passes the value on unchanged. The lambda returns `Unit`. Its body ends at the next `|>`; braces keep a pipe inside it.\n\nMore in the [tour](https://nomi-lang.org/pipes/#the-tap-stage)."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}

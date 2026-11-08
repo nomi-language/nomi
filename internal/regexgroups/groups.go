@@ -1,7 +1,7 @@
 // Package regexgroups reads the capture groups of a regular expression in
 // Go's RE2 syntax, the syntax std/regex compiles: each group's name and
 // whether every match fills it. The checker builds the capture type of a
-// `Regex` literal from them (`Regex<#(String, Maybe<String>)>`), and
+// `Regex` literal from them (`Regex<(String, Maybe<String>)>`), and
 // anything else that shows a literal's groups reads the same answer here.
 package regexgroups
 

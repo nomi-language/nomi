@@ -23,7 +23,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `{ ...user, age: 41 }` | `#{..user, age: 41}` |
 | `{ kind: "circle"; r: number } \| ..` | `enum Shape { Circle {radius: Float} .. }` |
 | `switch (s.kind) { case "circle": .. }` | `case s { .Circle{radius} -> .. }`, which must cover every variant |
-| `[a, b]` as a pair, `Record<string, number>` | `#(a, b)`, `Map<String, Int>` written `%{"a" => 1}` |
+| `[a, b]` as a pair, `Record<string, number>` | `(a, b)`, `Map<String, Int>` written `%{"a" => 1}` |
 | `xs.filter(f).map(g)` | `xs \|> Iter.filter(f) \|> Iter.map(g) \|> Iter.to_list()` |
 | `async` / `await`, `Promise.all` | `Task.spawn` and `Task.await` inside `concurrent { .. }` |
 | `===` | `==`, which compares values structurally |

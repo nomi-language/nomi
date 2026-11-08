@@ -56,46 +56,46 @@ import atbash_cipher
 
 test "encode" {
     [
-        #("encode yes", "yes", "bvh"),
-        #("encode no", "no", "ml"),
-        #("encode OMG", "OMG", "lnt"),
-        #("encode spaces", "O M G", "lnt"),
-        #("encode mindblowingly", "mindblowingly", "nrmwy oldrm tob"),
-        #("encode numbers", "Testing,1 2 3, testing.", "gvhgr mt123 gvhgr mt"),
-        #("encode deep thought", "Truth is fiction.", "gifgs rhurx grlm"),
-        #(
+        ("encode yes", "yes", "bvh"),
+        ("encode no", "no", "ml"),
+        ("encode OMG", "OMG", "lnt"),
+        ("encode spaces", "O M G", "lnt"),
+        ("encode mindblowingly", "mindblowingly", "nrmwy oldrm tob"),
+        ("encode numbers", "Testing,1 2 3, testing.", "gvhgr mt123 gvhgr mt"),
+        ("encode deep thought", "Truth is fiction.", "gifgs rhurx grlm"),
+        (
             "encode all the letters",
             "The quick brown fox jumps over the lazy dog.",
             "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
         ),
     ]
-    |> subtests #(description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description {
         assert atbash_cipher.encode(phrase) == expected
     }
 }
 
 test "decode" {
     [
-        #("decode exercism", "vcvix rhn", "exercism"),
-        #(
+        ("decode exercism", "vcvix rhn", "exercism"),
+        (
             "decode a sentence",
             "zmlyh gzxov rhlug vmzhg vkkrm thglm v",
             "anobstacleisoftenasteppingstone",
         ),
-        #("decode numbers", "gvhgr mt123 gvhgr mt", "testing123testing"),
-        #(
+        ("decode numbers", "gvhgr mt123 gvhgr mt", "testing123testing"),
+        (
             "decode all the letters",
             "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
             "thequickbrownfoxjumpsoverthelazydog",
         ),
-        #("decode with too many spaces", "vc vix    r hn", "exercism"),
-        #(
+        ("decode with too many spaces", "vc vix    r hn", "exercism"),
+        (
             "decode with no spaces",
             "zmlyhgzxovrhlugvmzhgvkkrmthglmv",
             "anobstacleisoftenasteppingstone",
         ),
     ]
-    |> subtests #(description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description {
         assert atbash_cipher.decode(phrase) == expected
     }
 }

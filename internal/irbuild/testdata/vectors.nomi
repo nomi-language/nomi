@@ -77,7 +77,7 @@ fn at_or(v: Vector<Int>, i: Int) -> Int {
 
 fn head_or(v: Vector<Int>) -> Int {
     case Vector.next_item(v) {
-        Some(#(n, _)) -> n
+        Some((n, _)) -> n
         None -> -1
     }
 }
@@ -121,7 +121,7 @@ fn main() {
     io.print("next empty ${head_or(none_v)}")
 
     tail = case Vector.next_item(v) {
-        Some(#(_, rest)) -> rest
+        Some((_, rest)) -> rest
         None -> #[]
     }
 

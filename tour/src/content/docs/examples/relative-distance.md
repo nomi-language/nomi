@@ -52,14 +52,14 @@ fn search(
 /// and their siblings.
 fn relatives(family: Map<String, List<String>>) -> Map<String, Set<String>> {
     family
-    |> Iter.flat_map(fn #(parent, children) -> {
+    |> Iter.flat_map(fn (parent, children) -> {
         Iter.flat_map(children, fn child -> {
-            siblings = children |> Iter.filter(&(&1 != child)) |> Iter.map(&#(child, &1))
-            [#(parent, child), #(child, parent), ..siblings]
+            siblings = children |> Iter.filter(&(&1 != child)) |> Iter.map(&(child, &1))
+            [(parent, child), (child, parent), ..siblings]
         })
     })
-    |> Iter.group_by(.0)
-    |> Map.map_values(fn links -> links |> Iter.map(.1) |> Iter.to_set())
+    |> Iter.group_by(.first)
+    |> Map.map_values(fn links -> links |> Iter.map(.second) |> Iter.to_set())
 }
 
 // FILE: relative_distance_test.nomi
@@ -179,31 +179,31 @@ once split_family = %{
 
 test "degree of separation" {
     [
-        #(
+        (
             "Direct parent-child relation",
             %{"Vera" => ["Tomoko"], "Tomoko" => ["Aditi"]},
             "Vera",
             "Tomoko",
             Some(1),
         ),
-        #("Sibling relationship", %{"Dalia" => ["Olga", "Yassin"]}, "Olga", "Yassin", Some(1)),
-        #(
+        ("Sibling relationship", %{"Dalia" => ["Olga", "Yassin"]}, "Olga", "Yassin", Some(1)),
+        (
             "Two degrees of separation, grandchild",
             %{"Khadija" => ["Mateo"], "Mateo" => ["Rami"]},
             "Khadija",
             "Rami",
             Some(2),
         ),
-        #(
+        (
             "Unrelated individuals",
             %{"Priya" => ["Rami"], "Kaito" => ["Elif"]},
             "Priya",
             "Kaito",
             None,
         ),
-        #("Complex graph, cousins", family, "Dimitri", "Fabio", Some(9)),
-        #("Complex graph, no shortcut, far removed nephew", family, "Lucia", "Jun", Some(14)),
-        #(
+        ("Complex graph, cousins", family, "Dimitri", "Fabio", Some(9)),
+        ("Complex graph, no shortcut, far removed nephew", family, "Lucia", "Jun", Some(14)),
+        (
             "Complex graph, some shortcuts, cross-down and cross-up, cousins several times removed, with unrelated family tree",
             split_family,
             "Wyatt",
@@ -211,7 +211,7 @@ test "degree of separation" {
             Some(12),
         ),
     ]
-    |> subtests #(description, tree, from, to, expected), description {
+    |> subtests (description, tree, from, to, expected), description {
         assert relative_distance.degree_of_separation(tree, from, to) == expected
     }
 }
@@ -224,6 +224,6 @@ test result: ok. 7 passed, 0 failed
 ## How it's written
 
 - The family tree is the canonical data's shape, a `Map<String, List<String>>` from each parent to their children, and the answer is `Maybe<Int>`, with `None` for two people no steps join (the canonical `null`).
-- `relatives` turns the tree into each person's set of people one step away: every parent and child both ways, and every pair of children of one parent. Each link is a `#(person, relative)` pair; `Iter.group_by` on the person and `Map.map_values` to a set of relatives finish it. Siblings are linked directly, as the instructions ask, so a sibling is one step, not two through the parent.
+- `relatives` turns the tree into each person's set of people one step away: every parent and child both ways, and every pair of children of one parent. Each link is a `(person, relative)` pair; `Iter.group_by` on the person and `Map.map_values` to a set of relatives finish it. Siblings are linked directly, as the instructions ask, so a sibling is one step, not two through the parent.
 - The search is breadth first, a tail-recursive function over the frontier, the set of people seen and the distance, as in two-bucket. The first frontier holding the target is reached in the fewest steps, and a frontier that adds nobody new means no steps join them.
 - The seven canonical cases are one `subtests` table. The three complex cases use two large trees, written once each as a `once` above the test: the first two cases share one tree, and the last uses a variant of it with one branch cut off.

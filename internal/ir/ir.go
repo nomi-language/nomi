@@ -457,7 +457,7 @@ type Block struct {
 	// fault is the block control transfers to when an instruction here
 	// faults, and hasFault says whether there is one. Jump, Branch and Return
 	// are the whole terminator set and none of them is an exceptional edge,
-	// while Arith.Faults says twelve
+	// while Arith.Faults says several
 	// operator-and-domain combinations can fault at their own position. The
 	// VM must know where control goes. See fault.go, which holds the accessors
 	// and the argument for putting the edge on the BLOCK.

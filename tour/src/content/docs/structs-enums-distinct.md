@@ -53,7 +53,9 @@ dbg line 20: carol = User{name: "Carol", age: 28}
 
 You build a struct with `TypeName{field: value, ...}` and read a field with
 `.field`. A field can have a default value, like `age: Int = 0`. Then you can
-leave that field out when you build the struct.
+leave that field out when you build the struct. When the default says the
+type, the type can go: `age = 0` is an `Int` field. An empty list or `None`
+says no type, so `tags: List<String> = []` keeps it.
 
 You can often leave out the type name too, and write just `#{...}`: when the
 code around the literal already says which struct it needs, the literal
@@ -209,30 +211,32 @@ The same `..` works for a map's values and for list fields (`[t, ..]`), as the
 
 ```nomi-run
 fn main() {
-    pair = #("Ada", 37)
-    #(name, _) = pair
+    pair = ("Ada", 37)
+    (name, _) = pair
 
     dbg pair
     dbg name
-    dbg pair.1
+    dbg pair.second
 }
 
 ```
 <!-- expect
-dbg line 5: pair = #("Ada", 37)
+dbg line 5: pair = ("Ada", 37)
 dbg line 6: name = "Ada"
-dbg line 7: pair.1 = 37
+dbg line 7: pair.second = 37
 -->
 
 A tuple groups a fixed number of values by position instead of by name. You
-write one as `#(a, b)`, with at least two values, and its type the same way,
-`#(String, Int)`. Plain parentheses only group. You read a slot with `.0`,
-`.1` and so on, or take the tuple apart with a pattern like `#(name, _)`.
+write one as `(a, b)`, with at least two values, and its type the same way,
+`(String, Int)`. One value in parentheses is only grouped. You read an item by its
+ordinal, `.first`, `.second` and so on, counting from one as `&1` does, or
+take the tuple apart with a pattern like `(name, _)`. A named tuple,
+`type Pair (String, Int)`, reads its items the same way.
 
 Tuples suit small groupings used in one place, where the positions are
 obvious. When the values travel further, such as through a public function,
 give them names with a struct: a `User` with `name` and `score` fields says
-more than `#(String, Int)`.
+more than `(String, Int)`.
 
 ## Field accessors
 
@@ -263,14 +267,15 @@ dbg line 11:
 function is expected and the argument's type is already known. In a pipe, the
 type comes from the collection before it.
 
-`.address.city` reads a field of a field. A tuple slot works too:
-`Iter.map(pairs, .1)`. An accessor is only ever passed to a function. To read
+`.address.city` reads a field of a field. A tuple item works too:
+`Iter.map(pairs, .second)`. An accessor is only ever passed to a function. To read
 a field of a value you have, write `user.name`.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- Chains mix fields and slots: `.1.0` reads the first slot of the second.
+- Chains mix fields and items: `.second.first` reads the first item of the
+  second.
 - The record type must be known where the accessor stands. Where only a
   later argument would give it, annotate a binding:
   `f: (User) -> String = .name`.
@@ -327,7 +332,7 @@ A distinct type over a tuple or a collection is built the way its literal is,
 with the type's name right after the symbol:
 
 ```nomi-run
-type Pair #(Int, String)
+type Pair (Int, String)
 type Path Vector<Int>
 type Scores Map<String, Int>
 
@@ -353,7 +358,7 @@ dbg line 13: %Scores{"ada" => 3} = Scores(%{"ada" => 3})
 
 `Pair(1, "one")` builds a `Pair` from its two values, and the pattern
 `Pair(n, word)` takes it apart again. With one argument, `Pair` takes the
-whole tuple instead, `Pair(#(1, "one"))`, as any distinct type takes the one
+whole tuple instead, `Pair((1, "one"))`, as any distinct type takes the one
 value it wraps. A `Path` or `Scores` prints in its call form, the type's
 name around the collection it wraps.
 

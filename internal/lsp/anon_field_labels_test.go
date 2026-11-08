@@ -198,7 +198,8 @@ func TestAnonLiteralLabels_HoverAndDefinition(t *testing.T) {
 }
 
 // A literal with no declared anonymous type declares its own fields: its
-// labels reference nothing else.
+// labels reference nothing else, and a read of its value refers to them, not
+// to another record's field of the same name.
 func TestAnonLiteralLabels_UntypedLiteralDeclaresItsOwn(t *testing.T) {
 	src := `import std::io
 
@@ -209,7 +210,8 @@ fn main() {
 }
 `
 	own := at(t, src, 3, "x", 1)
-	if got := referencesAt(t, src, own); len(got) != 1 || got[0] != span(own, "x") {
-		t.Errorf("references from an untyped literal's label = %v, want only itself", got)
+	want := sorted(span(own, "x"), span(at(t, src, 5, "x", 1), "x"))
+	if got := referencesAt(t, src, own); strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("references from an untyped literal's label = %v, want %v", got, want)
 	}
 }

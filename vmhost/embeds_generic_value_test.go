@@ -97,11 +97,11 @@ fn main() {
   io.inspect(ok == Ok(s))
   io.inspect(bad == Err(s))
   io.inspect(Err(Circle{r: 2}) == rb)
-  t = #(1, c)
-  tw: #(Int, Shape) = t
+  t = (1, c)
+  tw: (Int, Shape) = t
   io.inspect(tw)
-  io.inspect(t == #(1, Shape.Dot))
-  io.inspect(#(1, s) == t)
+  io.inspect(t == (1, Shape.Dot))
+  io.inspect((1, s) == t)
   l = [c, Circle{r: 3}]
   lw: List<Shape> = l
   io.print(lw |> Iter.map(describe) |> String.join(", "))
@@ -164,7 +164,7 @@ False
 True
 False
 True
-#(1, Circle{r: 1})
+(1, Circle{r: 1})
 False
 True
 circle 1, circle 3
@@ -292,8 +292,8 @@ fn main() {
   io.inspect([s, Plain.Spot] != [c, c])
   cs = [c]
   io.inspect(cs == [Plain.Spot])
-  io.inspect(#(c, Plain.Spot) == #(s, Plain.Spot))
-  io.inspect(#(s, Plain.Spot) == #(Circle{r: 2}, Plain.Spot))
+  io.inspect((c, Plain.Spot) == (s, Plain.Spot))
+  io.inspect((s, Plain.Spot) == (Circle{r: 2}, Plain.Spot))
   m = Some(c)
   io.inspect(m == Some(Plain.Spot))
   io.inspect(Some(Plain.Spot) != m)

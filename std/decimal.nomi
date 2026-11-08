@@ -4,6 +4,7 @@ import {
     comparable.{Comparable, Ordering}
     debug.Debug
     display.Display
+    divide.Divide
     equatable.Equatable
     float.Float
     hashable.Hashable
@@ -13,6 +14,7 @@ import {
     maybe.Maybe.{self, None, Some}
     multiply.Multiply
     productable.Productable
+    remainder.Remainder
     results.Result.{self, Err, Ok}
     steppable.Steppable
     strings.String
@@ -24,10 +26,12 @@ import {
 //# conversions to/from `Int`/`Float`/`String`, explicit-rounding division and
 //# quantization (every rounding op names a `RoundingMode`), sign/scale/abs
 //# helpers, and the value-based (scale-insensitive) arithmetic/`Equatable`/`Comparable`/
-//# `Hashable` impls. `+ - *` and `Decimal.pow` are exact; only
-//# `Decimal.divide`, `Decimal.sqrt` and `Decimal.round` round. There is no `/`: `Decimal.divide` names its
-//# rounding, and `Decimal.divide_exact` returns `None` for a quotient that
-//# does not terminate.
+//# `Hashable` impls. `+ - *` and `Decimal.pow` are exact. `/` rounds a
+//# quotient that does not end to 34 significant digits, half-even, and keeps
+//# one that ends exact, with no trailing zeros (`10.00d / 4d` is `2.5d`).
+//# `Decimal.divide` rounds to a scale and mode you name, `Decimal.divide_exact`
+//# returns `None` for a quotient that does not end, and `Decimal.sqrt` and
+//# `Decimal.round` round as `Decimal.divide` does.
 //#
 //# `Decimal.format` and `Decimal.format_percent` write a decimal as a reader
 //# of a locale writes it, and `Decimal.parse_in` and
@@ -36,9 +40,9 @@ import {
 //# [parsing](/reference/int/#parsing-numbers-a-reader-wrote) numbers.
 
 /// Arbitrary-precision exact base-10 number. The third blessed numeric type
-/// alongside `Int` and `Float`: `+ - *` are always exact, there is no `/`
-/// (`Decimal.divide` and `Decimal.divide_exact` divide), and there is no
-/// implicit conversion to/from `Int` or `Float`. Literals carry
+/// alongside `Int` and `Float`: `+ - *` are always exact, `/` rounds to 34
+/// significant digits, and there is no implicit conversion to/from `Int` or
+/// `Float`. Literals carry
 /// a `d` suffix (`1.50d`); scale is significant for display (`1.50d` prints
 /// "1.50") but equality is scale-insensitive (`1.50d == 1.5d`).
 pub host type Decimal
@@ -62,10 +66,11 @@ impl Decimal {
     pub host fn to_float(d: Decimal) -> Float
 
     /// Divides `a` by `b` to exactly `scale` fractional digits, rounding the
-    /// quotient with `mode`. It always returns a value at the named scale;
-    /// `divide_exact` is the division that never rounds. Runtime error on a
-    /// zero `b`, or when `mode` is `Unnecessary` and the exact quotient does
-    /// not fit at `scale`.
+    /// quotient with `mode`. It always returns a value at the named scale.
+    /// Use it when the answer's places are fixed, as cents are; `a / b`
+    /// keeps 34 significant digits instead, and `divide_exact` never rounds.
+    /// Runtime error on a zero `b`, or when `mode` is `Unnecessary` and the
+    /// exact quotient does not fit at `scale`.
     //! assert Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven) == 3.33d
     //! assert Decimal.divide(10.00d, 4d, 2, RoundingMode.Down) == 2.50d
     //
@@ -97,14 +102,14 @@ impl Decimal {
     /// scale is `exp` times `d`'s, so `1.5d` squared is `2.25d` and `1.50d`
     /// squared `2.2500d`. `Decimal.pow(d, 0)` is `1d` for every `d`, `0d`
     /// included. A negative `exp` traps: its result is a quotient that may
-    /// not end, so write `Decimal.divide(1d, Decimal.pow(d, n), scale,
-    /// mode)`, which names its rounding. A result whose scale is past
+    /// not end, so write `1d / Decimal.pow(d, n)`, or `Decimal.divide` to
+    /// name the rounding. A result whose scale is past
     /// Decimal's (about two billion digits) traps too.
     //! assert Decimal.pow(1.5d, 2) == 2.25d
     //! assert Decimal.to_string(Decimal.pow(1.50d, 2)) == "2.2500"
     //! assert Decimal.pow(2d, 64) == 18446744073709551616d
     //! assert Decimal.pow(0d, 0) == 1d
-    //! assert Decimal.divide(1d, Decimal.pow(2d, 3), 3, RoundingMode.Unnecessary) == 0.125d
+    //! assert 1d / Decimal.pow(2d, 3) == 0.125d
     //
     pub host fn pow(d: Decimal, exp: Int) -> Decimal
 
@@ -172,20 +177,6 @@ impl Decimal {
         d == 0d
     }
 
-    /// Returns the lesser of `a` and `b` (by value; ties return `a`).
-    //! assert Decimal.min(1.50d, 2d) == 1.50d
-    //
-    pub fn min(a: Decimal, b: Decimal) -> Decimal {
-        if a <= b { a } else { b }
-    }
-
-    /// Returns the greater of `a` and `b` (by value; ties return `a`).
-    //! assert Decimal.max(1.50d, 2d) == 2d
-    //
-    pub fn max(a: Decimal, b: Decimal) -> Decimal {
-        if a >= b { a } else { b }
-    }
-
     /// `d` as a reader of `locale` writes it, with as many digits after the
     /// decimal point as its scale has, at least `min_fraction` and at most
     /// `max_fraction` (0 <= min_fraction <= max_fraction <= 100, else a
@@ -246,7 +237,9 @@ impl Decimal {
     }
 
     // `d` at its own scale held between min_fraction and max_fraction,
-    // rounded by mode.
+    // rounded by mode. Not `Int.clamp`: the bounds are checked after this,
+    // by decimal_format, whose trap names them as the caller wrote them, and
+    // a clamp would trap first on a min_fraction above max_fraction.
     fn fraction_digits(
         d: Decimal,
         min_fraction: Int,
@@ -367,6 +360,32 @@ impl Subtract<Decimal, Decimal> for Decimal {
 
 impl Multiply<Decimal, Decimal> for Decimal {
     host fn multiply(lhs: Decimal, rhs: Decimal) -> Decimal
+}
+
+impl Divide<Decimal, Decimal> for Decimal {
+    /// `lhs / rhs`: the quotient rounded half-even to 34 significant digits,
+    /// with no trailing zeros after the point. A quotient that ends within
+    /// 34 digits is exact. A zero `rhs` traps, as Int's `/` does.
+    //! assert Decimal.to_string(10.00d / 4d) == "2.5"
+    //! assert Decimal.to_string(10d / 3d) == "3.333333333333333333333333333333333"
+    //! assert Decimal.to_string(1d / 4d) == "0.25"
+    //! assert Decimal.scale(6.00d / 3d) == 0
+    //! assert Decimal.to_string(-2d / 3d) == "-0.6666666666666666666666666666666667"
+    //
+    host fn divide(lhs: Decimal, rhs: Decimal) -> Decimal
+}
+
+impl Remainder<Decimal, Decimal> for Decimal {
+    /// `lhs % rhs`: `lhs - rhs * q`, where `q` is the quotient truncated
+    /// toward zero. Exact, never rounds, and takes the sign of `lhs`; the
+    /// scale is the larger of the operands'. A zero `rhs` traps, as Int's
+    /// `%` does.
+    //! assert 10.5d % 3d == 1.5d
+    //! assert Decimal.to_string(7.25d % 0.5d) == "0.25"
+    //! assert -7.5d % 2d == -1.5d
+    //! assert Decimal.to_string(10d % 2.50d) == "0.00"
+    //
+    host fn remainder(lhs: Decimal, rhs: Decimal) -> Decimal
 }
 
 impl Productable for Decimal {

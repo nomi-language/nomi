@@ -80,21 +80,21 @@ test "a literal with a parameter is a construction of it" {
     swap: (Int, Int) -> Point = &Point{y: &1, x: &2}
     anon: (Int) -> Point = &#{x: &1, y: 7}
     box: (String) -> Box<String> = &Box{v: &1}
-    pair: (Int, String) -> #(Int, String) = &#(&1, &2)
+    pair: (Int, String) -> (Int, String) = &(&1, &2)
     twice: (Int) -> List<Int> = &[&1, &1]
     assert mk(5) == Point{x: 5, y: 0}
     assert mk(x: 6) == Point{x: 6, y: 0}
     assert swap(1, 2) == Point{x: 2, y: 1}
     assert anon(1) == Point{x: 1, y: 7}
     assert box("b") == Box{v: "b"}
-    assert pair(1, "a") == #(1, "a")
+    assert pair(1, "a") == (1, "a")
     assert twice(3) == [3, 3]
 
     assert ([1.5] |> Iter.map(&Shape.Circle{radius: &1}) |> Iter.to_list()) == [
         Shape.Circle{radius: 1.5},
     ]
 
-    assert ([1, 2] |> Iter.map(&#(&1, 0)) |> Iter.to_list()) == [#(1, 0), #(2, 0)]
+    assert ([1, 2] |> Iter.map(&(&1, 0)) |> Iter.to_list()) == [(1, 0), (2, 0)]
 }
 
 test "a field of function type takes one" {
@@ -109,8 +109,8 @@ test "the `&` marks the function's body" {
     assert Maybe.map(wrapped, fn f -> f(1)) == Some(2)
     wrap: (Int) -> Maybe<Int> = &Some(&1 + 1)
     assert wrap(1) == Some(2)
-    pair = #(&Int.max(&1, 0), 1)
-    assert pair.0(-3) == 0
+    pair = (&Int.max(&1, 0), 1)
+    assert pair.first(-3) == 0
 }
 
 test "a partial capture takes the callee's parameters" {

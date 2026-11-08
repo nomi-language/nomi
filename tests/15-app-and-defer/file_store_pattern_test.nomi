@@ -167,13 +167,13 @@ fn deserialize(content: String) -> Result<Map<Int, TodoTask>, String> {
 fn deserialize_one(line: String) -> Result<TodoTask, String> {
     case String.split(line, "\t") {
         [id_str, title, secs_str, status_str, pri_str] ->
-            case #(
+            case (
                 String.to_int(id_str),
                 String.to_int(secs_str),
                 parse_status(status_str),
                 parse_priority(pri_str),
             ) {
-                #(Some(id), Some(secs), Some(status), Some(priority)) -> Ok(TodoTask{
+                (Some(id), Some(secs), Some(status), Some(priority)) -> Ok(TodoTask{
                     id,
                     title,
                     created: Instant.from_seconds(secs),

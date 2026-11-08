@@ -65,7 +65,7 @@ func TestFuncParam_Wildcard(t *testing.T) {
 }
 
 func TestFuncParam_Tuple(t *testing.T) {
-	p := funcDefParam(t, "fn f(#(a, b): #(Int, Int)) -> Int { a + b }", 0)
+	p := funcDefParam(t, "fn f((a, b): (Int, Int)) -> Int { a + b }", 0)
 	tp, ok := p.Destructure.(*ast.TuplePattern)
 	if !ok {
 		t.Fatalf("expected *ast.TuplePattern, got %T", p.Destructure)
@@ -198,7 +198,7 @@ func TestLambdaParam_Distinct(t *testing.T) {
 }
 
 func TestLambdaParam_Tuple_StillWorks(t *testing.T) {
-	p := lambdaParam(t, "fn #(a, b) -> a", 0)
+	p := lambdaParam(t, "fn (a, b) -> a", 0)
 	if _, ok := p.Destructure.(*ast.TuplePattern); !ok {
 		t.Fatalf("expected *ast.TuplePattern, got %T", p.Destructure)
 	}

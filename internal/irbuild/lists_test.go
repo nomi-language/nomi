@@ -93,7 +93,7 @@ func TestIterToMap_PinnedText(t *testing.T) {
 		"one     %{1 => 10}",
 		"intkeys %{3 => c, 1 => a, 2 => b}",
 		"boolkey %{True => 1, False => 0}",
-		"tupkey  %{#(1, 2) => a, #(3, 4) => b}",
+		"tupkey  %{(1, 2) => a, (3, 4) => b}",
 		"listkey True",
 		"floatk  %{1.5 => a}",
 		"nankey  True",

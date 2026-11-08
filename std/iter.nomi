@@ -76,7 +76,7 @@
 //# can `break`.
 //#
 //# A `List`, `Vector` or `Set` yields its elements, a `List` and a `Vector`
-//# in order. A `Map<K, V>` yields `#(key, value)` pairs in insertion order, a
+//# in order. A `Map<K, V>` yields `(key, value)` pairs in insertion order, a
 //# `String` its grapheme clusters, and a `Maybe` its value when it is `Some`,
 //# so `Iter.flat_map(xs, f)` with an `f` that returns a `Maybe` keeps the
 //# `Some` values.
@@ -152,17 +152,17 @@
 //# starting value the same way, and so does `Iter.loop`, which has no
 //# source: `Iter.loop(0, step)`. `Iter.scan` is lazy and yields each state
 //# after the starting value, one per element; `Iter.map_reduce` is eager and
-//# returns the final state with the outputs in order, `#(start, [])` for an
+//# returns the final state with the outputs in order, `(start, [])` for an
 //# empty source.
 //#
 //# ## Element types
 //#
 //# `Iter.to_map` and `String.join` check their element types at compile
-//# time. A source whose element type is not a `#(K, V)` pair or a `String`
+//# time. A source whose element type is not a `(K, V)` pair or a `String`
 //# is a type error:
 //#
 //# ```nomi
-//# Iter.to_map([1, 2, 3]) // type error: Iter<#(K, V)> expected, got Iter<Int>
+//# Iter.to_map([1, 2, 3]) // type error: Iter<(K, V)> expected, got Iter<Int>
 //#
 //# String.join([1, 2, 3], ", ") // type error: Iter<String> expected, got Iter<Int>
 //# ```
@@ -344,33 +344,33 @@ impl Iter<T> {
 
     /// Maps each element with a state threaded through, and returns the final
     /// state with the outputs in order. The callback takes the state and an
-    /// element and returns `#(next_state, output)`, state first as in
+    /// element and returns `(next_state, output)`, state first as in
     /// `Iter.reduce`; the starting state is `from`, as in `Iter.reduce`. An
     /// empty source returns the starting state and no outputs. Consumes the
     /// whole iterator.
     ///
     /// In the callback, `continue` skips the element: no output, and the
-    /// state stays as it was. `break #(state, output)` keeps that state and
+    /// state stays as it was. `break (state, output)` keeps that state and
     /// output, then stops; a bare `break` stops with the state and outputs so
     /// far.
     //
     //! lines = ["a", "abc", "ab"]
     //!
-    //! #(width, rows) =
+    //! (width, rows) =
     //!     lines
     //!     |> Iter.reverse()
     //!     |> Iter.map_reduce(0, fn width, line -> {
     //!         width = Int.max(width, String.length(line))
-    //!         #(width, String.pad_end(line, width))
+    //!         (width, String.pad_end(line, width))
     //!     })
     //!
     //! assert rows == ["ab", "abc", "a  "]
     //! assert width == 3
     //!
     //! none: List<String> = []
-    //! assert Iter.map_reduce(none, 0, fn n, s -> #(n + 1, s)) == #(0, [])
+    //! assert Iter.map_reduce(none, 0, fn n, s -> (n + 1, s)) == (0, [])
     //
-    pub host fn map_reduce<T, U, A>(source: Iter<T>, from: A, f: (A, T) -> #(A, U)) -> #(A, List<U>)
+    pub host fn map_reduce<T, U, A>(source: Iter<T>, from: A, f: (A, T) -> (A, U)) -> (A, List<U>)
 
     /// Returns the first element matching the predicate, or None.
     //
@@ -483,8 +483,8 @@ impl Iter<T> {
     pub fn find_index<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<Int> {
         source
         |> Iter.with_index()
-        |> Iter.find(fn #(_, item) -> f(item))
-        |> Maybe.map(fn #(index, _) -> index)
+        |> Iter.find(fn (_, item) -> f(item))
+        |> Maybe.map(fn (index, _) -> index)
     }
 
     /// Consumes the iterator and returns its elements as a List sorted by the
@@ -643,39 +643,39 @@ impl Iter<T> {
         if index < 0 {
             None
         } else {
-            countdown = reduce(source, #(index, None), fn acc: #(Int, Maybe<T>), item -> {
-                #(remaining, _found) = acc
+            countdown = reduce(source, (index, None), fn acc: (Int, Maybe<T>), item -> {
+                (remaining, _found) = acc
 
                 if remaining == 0 {
-                    break #(0, Some(item))
+                    break (0, Some(item))
                 } else {
-                    #(remaining - 1, None)
+                    (remaining - 1, None)
                 }
             })
 
-            #(_exhausted, found) = countdown
+            (_exhausted, found) = countdown
             found
         }
     }
 
-    /// Splits the elements into #(matches, rest) by a predicate, preserving the
+    /// Splits the elements into (matches, rest) by a predicate, preserving the
     /// original order within each. Materializing.
     //
-    //! assert Iter.partition([1, 2, 3, 4], &(&1 > 2)) == #([3, 4], [1, 2])
+    //! assert Iter.partition([1, 2, 3, 4], &(&1 > 2)) == ([3, 4], [1, 2])
     //
-    pub fn partition<T>(source: Iter<T>, f: (T) -> Bool) -> #(List<T>, List<T>) {
-        state = reduce(source, #([], []), fn state, item -> {
-            #(ts, fs) = state
+    pub fn partition<T>(source: Iter<T>, f: (T) -> Bool) -> (List<T>, List<T>) {
+        state = reduce(source, ([], []), fn state, item -> {
+            (ts, fs) = state
 
             if f(item) {
-                #([item, ..ts], fs)
+                ([item, ..ts], fs)
             } else {
-                #(ts, [item, ..fs])
+                (ts, [item, ..fs])
             }
         })
 
-        #(ts, fs) = state
-        #(Iter.reverse(ts), Iter.reverse(fs))
+        (ts, fs) = state
+        (Iter.reverse(ts), Iter.reverse(fs))
     }
 
     /// Groups elements by a key function. Each group preserves the original order
@@ -764,10 +764,10 @@ impl Iter<T> {
     // ---------------------------------------------------------------------------
     /// Lazy: pairs each element of `source` with a zero-based index.
     //
-    //! assert ["a", "b", "c"] |> Iter.with_index() |> Iter.to_list() == [#(0, "a"), #(1, "b"), #(2, "c")]
+    //! assert ["a", "b", "c"] |> Iter.with_index() |> Iter.to_list() == [(0, "a"), (1, "b"), (2, "c")]
     //
-    pub fn with_index<T>(source: Iter<T>) -> Iter<#(Int, T)> {
-        Seq{run: fn yield: (#(Int, T)) -> Bool -> with_index_each(source, yield)}
+    pub fn with_index<T>(source: Iter<T>) -> Iter<(Int, T)> {
+        Seq{run: fn yield: ((Int, T)) -> Bool -> with_index_each(source, yield)}
     }
 
     /// Lazy: yields at most the first `n` elements of `source`. Useful for bounding
@@ -837,7 +837,7 @@ impl Iter<T> {
     pub fn intersperse<T>(source: Iter<T>, separator: T) -> Iter<T> {
         source
         |> Iter.with_index()
-        |> Iter.flat_map(fn #(index, item) -> {
+        |> Iter.flat_map(fn (index, item) -> {
             if index == 0 {
                 [item]
             } else {
@@ -849,18 +849,18 @@ impl Iter<T> {
     /// Lazy: pairs elements from two iterators. Stops when either exhausts,
     /// so it is infinite only when both are.
     //
-    //! assert Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() == [#(1, "a"), #(2, "b")]
-    //! assert Iter.zip(["a", "b"], Iter.from(0)) |> Iter.to_list() == [#("a", 0), #("b", 1)]
+    //! assert Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() == [(1, "a"), (2, "b")]
+    //! assert Iter.zip(["a", "b"], Iter.from(0)) |> Iter.to_list() == [("a", 0), ("b", 1)]
     //! assert Iter.zip(Iter.repeat("a"), Iter.from(0)) |> Iter.is_infinite()
     //
-    pub fn zip<T, U>(a: Iter<T>, b: Iter<U>) -> Iter<#(T, U)> {
+    pub fn zip<T, U>(a: Iter<T>, b: Iter<U>) -> Iter<(T, U)> {
         // The lone adapter a push protocol cannot express directly: two sources
         // must advance in lockstep, and only one of them can be the one driving.
         // `zip_each` therefore runs `b` as a pull cursor — Nomi's `iter.Pull`,
         // and like Go's it costs a coroutine plus a handoff per element. It is
         // paid on this path only, and only because it is the only way to keep
         // `zip` working when *either* side is infinite.
-        Seq{run: fn yield: (#(T, U)) -> Bool -> zip_each(a, b, yield)}
+        Seq{run: fn yield: ((T, U)) -> Bool -> zip_each(a, b, yield)}
     }
 
     /// Lazy: yields elements of `source` while `pred` returns true. In the callback,
@@ -1096,12 +1096,12 @@ impl Iter<T> {
         Seq{run: fn yield: (T) -> Bool -> iterate_each(seed, step, yield)}
     }
 
-    /// Consumes the iterator and materializes its #(K, V) pair elements into a Map.
+    /// Consumes the iterator and materializes its (K, V) pair elements into a Map.
     /// A later pair with a key already seen replaces the earlier value.
     //
-    //! assert Iter.to_map([#("a", 1), #("b", 2)]) == %{"a" => 1, "b" => 2}
+    //! assert Iter.to_map([("a", 1), ("b", 2)]) == %{"a" => 1, "b" => 2}
     //
-    pub host fn to_map<K, V>(source: Iter<#(K, V)>) -> Map<K, V>
+    pub host fn to_map<K, V>(source: Iter<(K, V)>) -> Map<K, V>
 
     /// Flattens an iterator of iterators into a single List, preserving order. Like
     /// `to_map`, its source has a specific element shape — the elements
@@ -1205,19 +1205,19 @@ impl Iter<T> {
     /// once per element.
     //
     //! assert Iter.min_by(["pear", "fig", "plum"], &String.length(&1)) == Some("fig")
-    //! assert Iter.min_by([#(1, "a"), #(0, "b"), #(0, "c")], fn #(n, _) -> n) == Some(#(0, "b"))
+    //! assert Iter.min_by([(1, "a"), (0, "b"), (0, "c")], fn (n, _) -> n) == Some((0, "b"))
     //
     pub fn min_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable {
-        best = reduce(source, None, fn acc: Maybe<#(T, K)>, item -> {
+        best = reduce(source, None, fn acc: Maybe<(T, K)>, item -> {
             k = key(item)
 
             case acc {
-                Some(#(_, least)) -> if k < least { Some(#(item, k)) } else { acc }
-                None -> Some(#(item, k))
+                Some((_, least)) -> if k < least { Some((item, k)) } else { acc }
+                None -> Some((item, k))
             }
         })
 
-        Maybe.map(best, fn #(item, _) -> item)
+        Maybe.map(best, fn (item, _) -> item)
     }
 
     /// Returns the element whose `key` is greatest, or `None` for an empty
@@ -1225,19 +1225,19 @@ impl Iter<T> {
     /// `key` once per element.
     //
     //! assert Iter.max_by(["pear", "fig", "plum"], &String.length(&1)) == Some("pear")
-    //! assert Iter.max_by([#(1, "a"), #(0, "b"), #(1, "c")], fn #(n, _) -> n) == Some(#(1, "a"))
+    //! assert Iter.max_by([(1, "a"), (0, "b"), (1, "c")], fn (n, _) -> n) == Some((1, "a"))
     //
     pub fn max_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable {
-        best = reduce(source, None, fn acc: Maybe<#(T, K)>, item -> {
+        best = reduce(source, None, fn acc: Maybe<(T, K)>, item -> {
             k = key(item)
 
             case acc {
-                Some(#(_, greatest)) -> if k > greatest { Some(#(item, k)) } else { acc }
-                None -> Some(#(item, k))
+                Some((_, greatest)) -> if k > greatest { Some((item, k)) } else { acc }
+                None -> Some((item, k))
             }
         })
 
-        Maybe.map(best, fn #(item, _) -> item)
+        Maybe.map(best, fn (item, _) -> item)
     }
 
     /// Adds the elements with `+`, left to right, starting from
@@ -1412,11 +1412,11 @@ host fn drop_while_each<T>(source: Iter<T>, pred: (T) -> Bool, yield: (T) -> Boo
 
 host fn flat_map_each<T, U>(source: Iter<T>, f: (T) -> Iter<U>, yield: (U) -> Bool) -> Bool
 
-host fn with_index_each<T>(source: Iter<T>, yield: (#(Int, T)) -> Bool) -> Bool
+host fn with_index_each<T>(source: Iter<T>, yield: ((Int, T)) -> Bool) -> Bool
 
 host fn cycle_each<T>(source: Iter<T>, yield: (T) -> Bool) -> Bool
 
-host fn zip_each<T, U>(left: Iter<T>, right: Iter<U>, yield: (#(T, U)) -> Bool) -> Bool
+host fn zip_each<T, U>(left: Iter<T>, right: Iter<U>, yield: ((T, U)) -> Bool) -> Bool
 
 host fn chunks_each<T>(source: Iter<T>, size: Int, yield: (List<T>) -> Bool) -> Bool
 
@@ -1435,7 +1435,7 @@ fn permutations_of<T>(left: List<T>) -> Iter<List<T>> {
     } else {
         left
         |> Iter.with_index()
-        |> Iter.flat_map(fn #(index, item) -> {
+        |> Iter.flat_map(fn (index, item) -> {
             List.remove_at(left, index)
             |> permutations_of()
             |> Iter.map(fn rest -> [item, ..rest])
@@ -1454,7 +1454,7 @@ fn combinations_of<T>(left: List<T>, k: Int) -> Iter<List<T>> {
         left
         |> Iter.with_index()
         |> Iter.take(Iter.count(left) - k + 1)
-        |> Iter.flat_map(fn #(index, item) -> {
+        |> Iter.flat_map(fn (index, item) -> {
             left
             |> Iter.drop(index + 1)
             |> Iter.to_list()

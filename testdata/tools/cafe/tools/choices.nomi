@@ -12,8 +12,8 @@ fn main() -> Result<Unit, String> {
     enums =
         String.split(text, "\n")
         |> Iter.with_index()
-        |> Iter.filter(fn #(_, line) -> String.trim(line) != "")
-        |> Iter.map(fn #(i, line) -> enum_of(i + 1, line))
+        |> Iter.filter(fn (_, line) -> String.trim(line) != "")
+        |> Iter.map(fn (i, line) -> enum_of(i + 1, line))
         |> Result.collect()
 
     body = String.join(enums?, "\n\n")
@@ -30,8 +30,8 @@ fn main() -> Result<Unit, String> {
 
 // The enum line `number` declares.
 fn enum_of(number: Int, line: String) -> Result<String, String> {
-    #(name, words) = case String.split(line, ":") |> Iter.to_list() {
-        [name, words] -> #(String.trim(name), String.words(words))
+    (name, words) = case String.split(line, ":") |> Iter.to_list() {
+        [name, words] -> (String.trim(name), String.words(words))
         _ -> return Err("enums.choices:${number}: write `Name: first second third`")
     }
 

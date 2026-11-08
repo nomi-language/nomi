@@ -306,7 +306,7 @@ func TestFormat_InterfaceHeaderImplBlock(t *testing.T) {
 // A generic receiver `impl Iface for Box<T> { ... }` block round-trips.
 func TestFormat_GenericImplBlock(t *testing.T) {
 	src := `impl iter for Box<T> {
-    fn next(_b: self) -> Maybe<#(T, Box<T>)> {
+    fn next(_b: self) -> Maybe<(T, Box<T>)> {
         .None
     }
 }
@@ -316,7 +316,7 @@ func TestFormat_GenericImplBlock(t *testing.T) {
 
 func TestFormat_ImplBlockWhereClause(t *testing.T) {
 	src := `impl iter for Box<T> where T: Display and Debug {
-    fn next(_b: self) -> Maybe<#(T, Box<T>)> {
+    fn next(_b: self) -> Maybe<(T, Box<T>)> {
         .None
     }
 }
@@ -378,7 +378,7 @@ func TestFormat_ConstrainedTypeBodyImpl(t *testing.T) {
 impl Display for Range<T>
 
 impl Iter for Range<T> where T: Discrete {
-    fn next(_r: Range<T>) -> Maybe<#(T, Range<T>)> {
+    fn next(_r: Range<T>) -> Maybe<(T, Range<T>)> {
         none
     }
 }

@@ -63,7 +63,7 @@ commas, and a body of more than one line goes in a `{ ... }` block. Write a
 parameter's type when nothing else tells the compiler what it is. When the
 lambda is passed to a function that expects a certain type, the type is
 inferred. In a list of lambdas, writing the type in one element is enough:
-`[#("a", fn n: Int -> n), #("b", fn n -> n * 2)]`.
+`[("a", fn n: Int -> n), ("b", fn n -> n * 2)]`.
 
 A lambda is a value. You can bind it to a name, pass it to a function, or
 return it from one.
@@ -210,11 +210,10 @@ dbg line 12: add(5, 2) = 7
 A parameter can have a default value. A caller can leave that argument out,
 or pass a value to replace the default.
 
-A named function still writes the type of a parameter with a default, as
-`greeting: String` does. Its parameter types are part of its signature,
-which code in other files relies on, so changing a default never changes
-the function's type. A lambda is checked where it stands, so it can leave
-the type off, as `y = 10` does, and the type comes from the default value.
+A parameter with a default can leave its type off when the default says
+it, as the lambda's `y = 10` does: `greeting = "Hello"` would make
+`greeting` a `String` too. An empty list or `None` says no type, so a
+parameter with one of those as its default keeps the type written.
 
 Passed to a function such as `Iter.map`, `greet` still fills `greeting` from
 its default: `["Ada", "Lin"] |> Iter.map(greet)` greets each name with
@@ -298,7 +297,7 @@ fn sum_point(Point{x, y}) -> Int {
     x + y
 }
 
-fn add_pair(#(a, b): #(Int, Int)) -> Int {
+fn add_pair((a, b): (Int, Int)) -> Int {
     a + b
 }
 
@@ -306,14 +305,14 @@ fn main() {
     Dur(diff) = subtract(Dur(10), Dur(3))
     dbg diff
     dbg sum_point(Point{x: 4, y: 5})
-    dbg add_pair(#(20, 22))
+    dbg add_pair((20, 22))
 }
 
 ```
 <!-- expect
 dbg line 22: diff = 7
 dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
-dbg line 24: add_pair(#(20, 22)) = 42
+dbg line 24: add_pair((20, 22)) = 42
 -->
 
 A parameter can be a pattern instead of a plain name. The pattern unpacks the
@@ -326,7 +325,7 @@ enums with one variant all qualify.
 
 When the pattern names a type, as `Dur(a)` and `Point{x, y}` do, you don't
 write the type again. A tuple or an anonymous struct pattern names no type,
-so it needs one, as in `#(a, b): #(Int, Int)`.
+so it needs one, as in `(a, b): (Int, Int)`.
 
 A type name with nothing after it is a pattern too. It names the type and
 binds nothing, so `fn health(Request) -> Response` takes a `Request` it
@@ -341,7 +340,7 @@ never reads.
   list, map, vector or set pattern.
 - A type name alone must name a type, not a variant: `fn f(None)` is
   `parameter 'None' needs a name`.
-- Lambdas take the same patterns: `fn #(_, n) -> n`.
+- Lambdas take the same patterns: `fn (_, n) -> n`.
 
 Spec: [Parameter Destructuring](/spec/functions-and-closures/#parameter-destructuring).
 

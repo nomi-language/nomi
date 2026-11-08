@@ -82,7 +82,7 @@ fn main() -> Result<Unit, String> {
 
     stale =
         Iter.zip(dbs, made)
-        |> Iter.map(fn #(db, generated) -> settle(db, generated, check))
+        |> Iter.map(fn (db, generated) -> settle(db, generated, check))
         |> Result.collect()
 
     changed = (stale?) |> Iter.flat_map(fn s -> s) |> Iter.to_list()
@@ -102,7 +102,7 @@ fn distinct(files: List<Generated>) -> Result<Unit, String> {
     twice =
         paths
         |> Iter.with_index()
-        |> Iter.find(fn #(i, p) -> {
+        |> Iter.find(fn (i, p) -> {
             Iter.contains(
                 paths
                 |> Iter.take(i),
@@ -111,7 +111,7 @@ fn distinct(files: List<Generated>) -> Result<Unit, String> {
         })
 
     case twice {
-        Some(#(_, p)) ->
+        Some((_, p)) ->
             Err(
                 "two of the module's files would be generated as ${p}: give each database its own `out` or `schema` in nomi.toml, and each query file its own name"
             )
@@ -259,19 +259,19 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
 
     digest = inputs.digest(migrations + query_inputs)
 
-    #(made, _) = Iter.reduce(files, #([], described), fn acc, file -> {
-        #(made, rest) = acc
+    (made, _) = Iter.reduce(files, ([], described), fn acc, file -> {
+        (made, rest) = acc
         count = Iter.count(file.queries)
         mine = rest |> Iter.take(count) |> Iter.to_list()
         left = rest |> Iter.drop(count) |> Iter.to_list()
-        #([#(file, codegen.queries_file(schema, file, mine, digest)), ..made], left)
+        ([(file, codegen.queries_file(schema, file, mine, digest)), ..made], left)
     })
 
     made = Iter.reverse(made)
 
     problems =
         made
-        |> Iter.flat_map(fn #(_, r) -> {
+        |> Iter.flat_map(fn (_, r) -> {
             case r {
                 Err(ps) -> ps
                 Ok(_) -> []
@@ -283,7 +283,7 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
 
     query_files =
         made
-        |> Iter.flat_map(fn #(file, r) -> {
+        |> Iter.flat_map(fn (file, r) -> {
             case r {
                 Ok(text) -> [Generated{path: databases.out_file(db, stem(file.path)), text}]
                 Err(_) -> []
@@ -291,7 +291,7 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
         })
         |> Iter.to_list()
 
-    pairs = migrations |> Iter.map(fn m -> #(m.path, m.text)) |> Iter.to_list()
+    pairs = migrations |> Iter.map(fn m -> (m.path, m.text)) |> Iter.to_list()
 
     Ok(
         [
@@ -338,7 +338,7 @@ fn sqlite_found(migrations: List<Input>, tokens: List<List<Token>>) -> Result<Fo
 
     queries =
         Iter.zip(tokens, found.statements)
-        |> Iter.map(fn #(toks, s) -> columns(toks, s))
+        |> Iter.map(fn (toks, s) -> columns(toks, s))
         |> Iter.to_list()
 
     Ok(Found{tables, queries})
@@ -382,7 +382,7 @@ fn postgres_found(
 
     queries =
         Iter.zip(names, found.statements)
-        |> Iter.map(fn #(name, s) -> postgres_columns(name, s))
+        |> Iter.map(fn (name, s) -> postgres_columns(name, s))
         |> Iter.to_list()
 
     Ok(Found{tables, queries})
@@ -542,7 +542,7 @@ fn decimal_warning(table: String, c: TableColumn) -> Maybe<String> {
                 "`${table}.${c.name}` is ${c.type_name} with no scale, so a value reads back at its shortest scale (12.5, not 12.50): declare DECIMAL(p, s)"
             )
 
-        Some(#(p, _)) when p > 15 ->
+        Some((p, _)) when p > 15 ->
             Some(
                 "`${table}.${c.name}` is ${c.type_name}, but SQLite stores a DECIMAL as a 64-bit float, exact to 15 digits, and the driver refuses a longer value: declare at most DECIMAL(15, s), or keep the amount as INTEGER minor units (cents)"
             )
@@ -567,7 +567,7 @@ fn line_of_byte(text: String, offset: Int) -> Int {
 
 /// The line, from 1, where token `index` of tokens starts in text.
 fn line_at(text: String, index: Int) -> Int {
-    #(line, _) = sqltext.position(text, index)
+    (line, _) = sqltext.position(text, index)
     line + 1
 }
 
@@ -654,7 +654,7 @@ fn enum_values(create: String) -> Map<String, List<String>> {
             values = read_values(words, i + 5, [])
 
             case values {
-                Some(vs) -> [#(unquote(at(2)), vs)]
+                Some(vs) -> [(unquote(at(2)), vs)]
                 None -> []
             }
         } else {
@@ -705,8 +705,8 @@ fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, Q
 
     nullable_tables =
         names
-        |> Iter.filter(fn #(_, a) -> Iter.contains(outer, a))
-        |> Iter.map(fn #(t, _) -> t)
+        |> Iter.filter(fn (_, a) -> Iter.contains(outer, a))
+        |> Iter.map(fn (t, _) -> t)
         |> Iter.to_list()
 
     all_outer = sqltext.is_right_or_full_join(tokens)
@@ -716,7 +716,7 @@ fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, Q
     Ok(
         s.columns
         |> Iter.with_index()
-        |> Iter.map(fn #(i, c) -> {
+        |> Iter.map(fn (i, c) -> {
             from_table = c.table != "" and c.origin != ""
             outer_joined = all_outer or Iter.contains(nullable_tables, c.table)
 

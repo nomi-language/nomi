@@ -1277,16 +1277,7 @@ func (m *Machine) arith(fr *frame, n *ir.Arith) error {
 			// none here.
 			fr.write(n.Dst(), a/b)
 		case ir.OpRem:
-			// FaultUndefined: `rt.ModFloat` always traps, and the checker
-			// rejects the construct, so this is the same backstop
-			// `rt.ModFloat` is — kept for the reason rt/arith.go gives for
-			// keeping it: a backstop costs one function.
-			//
-			// THE TEXT IS READ, NOT SPELLED. `rt.FloatModuloText` is the one
-			// home, and `rt.FloatModuloError` boxes it as the fault. Spelling the
-			// string here instead would be a second copy, and
-			// `TestTrapText_OneHomePerText` fails if one appears.
-			return rt.FloatModuloError(line)
+			fr.write(n.Dst(), rt.ModFloat(a, b))
 		}
 		return nil
 	}

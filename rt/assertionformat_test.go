@@ -31,14 +31,14 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		// header naming the row, then the count, and no header of its own.
 		name: "subtests",
 		failure: SubtestsFailure(4, "cases", 3, []SubtestFailure{{
-			Row: `#("abc", True)`,
+			Row: `("abc", True)`,
 			Failure: &AssertionFailure{Line: 5, Keyword: "assert", Expr: "is_ok(s) == want", Reason: "assertion failed",
 				Values: []AssertionValueContext{{Expr: "is_ok(s)", Value: "False"}, {Expr: "want", Value: "True"}}},
 		}, {
 			Row:     "2",
 			Failure: &AssertionFailure{Line: 6, Keyword: "refute", Expr: "False", Reason: "refutation failed"},
 		}}),
-		want: "subtest #(\"abc\", True): line 5: assertion failed\n" +
+		want: "subtest (\"abc\", True): line 5: assertion failed\n" +
 			"  assert is_ok(s) == want\n" +
 			"  values:\n" +
 			"    is_ok(s)\n" +

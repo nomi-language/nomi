@@ -22,7 +22,7 @@ pub enum Error {
 /// The game tree `encoded` writes.
 pub fn parse(encoded: String) -> Result<Tree, Error> {
     ['(', ..rest] = String.to_codepoints(encoded) else { return Err(.TreeMissing) }
-    #(tree, rest) = node(rest)?
+    (tree, rest) = node(rest)?
     if rest != [] { return Err(.Malformed) }
     Ok(tree)
 }
@@ -30,21 +30,21 @@ pub fn parse(encoded: String) -> Result<Tree, Error> {
 /// A node from its `;` on, with what follows it: another node is its one
 /// child, and parenthesized trees are its children. The node that ends a
 /// sequence reads the `)` that closes the sequence's tree.
-fn node(text: List<Codepoint>) -> Result<#(Tree, List<Codepoint>), Error> {
+fn node(text: List<Codepoint>) -> Result<(Tree, List<Codepoint>), Error> {
     [';', ..rest] = text else { return Err(.TreeWithNoNodes) }
-    #(properties, rest) = read_properties(rest, %{})?
+    (properties, rest) = read_properties(rest, %{})?
 
-    #(children, rest) = case rest {
+    (children, rest) = case rest {
         [';', ..] -> {
-            #(child, rest) = node(rest)?
-            #([child], rest)
+            (child, rest) = node(rest)?
+            ([child], rest)
         }
 
         _ ->
             variations(rest, [])?
     }
 
-    Ok(#(Tree{properties, children}, rest))
+    Ok((Tree{properties, children}, rest))
 }
 
 /// The parenthesized trees after a node, up to and including the `)` that
@@ -52,15 +52,15 @@ fn node(text: List<Codepoint>) -> Result<#(Tree, List<Codepoint>), Error> {
 fn variations(
     text: List<Codepoint>,
     found: List<Tree>,
-) -> Result<#(List<Tree>, List<Codepoint>), Error> {
+) -> Result<(List<Tree>, List<Codepoint>), Error> {
     case text {
         ['(', ..rest] -> {
-            #(tree, rest) = node(rest)?
+            (tree, rest) = node(rest)?
             variations(rest, found + [tree])
         }
 
         [')', ..rest] ->
-            Ok(#(found, rest))
+            Ok((found, rest))
 
         _ ->
             Err(.Malformed)
@@ -71,19 +71,19 @@ fn variations(
 fn read_properties(
     text: List<Codepoint>,
     found: Map<String, List<String>>,
-) -> Result<#(Map<String, List<String>>, List<Codepoint>), Error> {
+) -> Result<(Map<String, List<String>>, List<Codepoint>), Error> {
     key =
         text
         |> Iter.take_while(Codepoint.is_letter)
         |> Iter.to_list()
         |> String.from_codepoints()
 
-    if key == "" { return Ok(#(found, text)) }
+    if key == "" { return Ok((found, text)) }
 
     if not String.is_upper(key) { return Err(.PropertyMustBeUppercase) }
 
     rest = text |> Iter.drop_while(Codepoint.is_letter) |> Iter.to_list()
-    #(values, rest) = read_values(rest, [])?
+    (values, rest) = read_values(rest, [])?
 
     if values == [] { return Err(.PropertiesWithoutDelimiter) }
 
@@ -94,24 +94,24 @@ fn read_properties(
 fn read_values(
     text: List<Codepoint>,
     found: List<String>,
-) -> Result<#(List<String>, List<Codepoint>), Error> {
+) -> Result<(List<String>, List<Codepoint>), Error> {
     case text {
         ['[', ..rest] -> {
-            #(value, rest) = read_text(rest, "")?
+            (value, rest) = read_text(rest, "")?
             read_values(rest, found + [value])
         }
 
         _ ->
-            Ok(#(found, text))
+            Ok((found, text))
     }
 }
 
 /// One value's text, up to its closing `]`. A `\` keeps the character
 /// after it, except that a newline after it is removed; any whitespace
 /// other than a newline becomes a space.
-fn read_text(text: List<Codepoint>, value: String) -> Result<#(String, List<Codepoint>), Error> {
+fn read_text(text: List<Codepoint>, value: String) -> Result<(String, List<Codepoint>), Error> {
     case text {
-        [']', ..rest] -> Ok(#(value, rest))
+        [']', ..rest] -> Ok((value, rest))
         ['\\', '\n', ..rest] -> read_text(rest, value)
         ['\\', c, ..rest] or [c, ..rest] -> read_text(rest, value + plain(c))
         [] or ['\\'] -> Err(.Malformed)

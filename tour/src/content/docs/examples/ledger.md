@@ -50,10 +50,10 @@ impl Style {
         }
     }
 
-    fn headings(style: Style) -> #(String, String, String) {
+    fn headings(style: Style) -> (String, String, String) {
         case style {
-            .American -> #("Date", "Description", "Change")
-            .Dutch -> #("Datum", "Omschrijving", "Verandering")
+            .American -> ("Date", "Description", "Change")
+            .Dutch -> ("Datum", "Omschrijving", "Verandering")
         }
     }
 }
@@ -61,12 +61,12 @@ impl Style {
 /// The ledger's lines: a heading, then each entry by date, description and
 /// change, with amounts in `currency` written in `style`.
 pub fn format_entries(currency: Currency, style: Style, entries: List<Entry>) -> List<String> {
-    #(date, description, change) = Style.headings(style)
+    (date, description, change) = Style.headings(style)
     heading = row(date, description, String.pad_end(change, 13))
 
     lines =
         entries
-        |> Iter.sort_by(fn entry -> #(entry.date, entry.description, entry.cents))
+        |> Iter.sort_by(fn entry -> (entry.date, entry.description, entry.cents))
         |> Iter.map(&format_entry(currency, style, &1))
 
     [heading, ..lines]
@@ -119,8 +119,8 @@ import {
 }
 
 test "ledger" {
-    cases: List<#(String, Currency, Style, List<Entry>, List<String>)> = [
-        #(
+    cases: List<(String, Currency, Style, List<Entry>, List<String>)> = [
+        (
             "empty ledger",
             Currency`USD`,
             .American,
@@ -129,7 +129,7 @@ test "ledger" {
                 "Date       | Description               | Change       ",
             ],
         ),
-        #(
+        (
             "one entry",
             Currency`USD`,
             .American,
@@ -141,7 +141,7 @@ test "ledger" {
                 "01/01/2015 | Buy present               |      ($10.00)",
             ],
         ),
-        #(
+        (
             "credit and debit",
             Currency`USD`,
             .American,
@@ -155,7 +155,7 @@ test "ledger" {
                 "01/02/2015 | Get present               |       $10.00 ",
             ],
         ),
-        #(
+        (
             "multiple entries on same date ordered by description, as first written",
             Currency`USD`,
             .American,
@@ -169,7 +169,7 @@ test "ledger" {
                 "01/02/2015 | Get present               |       $10.00 ",
             ],
         ),
-        #(
+        (
             "final order tie breaker is change",
             Currency`USD`,
             .American,
@@ -185,7 +185,7 @@ test "ledger" {
                 "01/01/2015 | Something                 |        $0.01 ",
             ],
         ),
-        #(
+        (
             "overlong description is truncated",
             Currency`USD`,
             .American,
@@ -201,7 +201,7 @@ test "ledger" {
                 "01/01/2015 | Freude schoner Gotterf... |   ($1,234.56)",
             ],
         ),
-        #(
+        (
             "euros",
             Currency`EUR`,
             .American,
@@ -213,7 +213,7 @@ test "ledger" {
                 "01/01/2015 | Buy present               |      (€10.00)",
             ],
         ),
-        #(
+        (
             "Dutch locale",
             Currency`USD`,
             .Dutch,
@@ -225,7 +225,7 @@ test "ledger" {
                 "12-03-2015 | Buy present               |   $ 1.234,56 ",
             ],
         ),
-        #(
+        (
             "Dutch locale and euros",
             Currency`EUR`,
             .Dutch,
@@ -237,7 +237,7 @@ test "ledger" {
                 "12-03-2015 | Buy present               |   € 1.234,56 ",
             ],
         ),
-        #(
+        (
             "Dutch negative number with 3 digits before decimal point",
             Currency`USD`,
             .Dutch,
@@ -249,7 +249,7 @@ test "ledger" {
                 "12-03-2015 | Buy present               |    $ -123,45 ",
             ],
         ),
-        #(
+        (
             "American negative number with 3 digits before decimal point",
             Currency`USD`,
             .American,
@@ -261,7 +261,7 @@ test "ledger" {
                 "03/12/2015 | Buy present               |     ($123.45)",
             ],
         ),
-        #(
+        (
             "multiple entries on same date ordered by description",
             Currency`USD`,
             .American,
@@ -277,7 +277,7 @@ test "ledger" {
         ),
     ]
 
-    subtests cases, #(description, currency, style, entries, expected), description {
+    subtests cases, (description, currency, style, entries, expected), description {
         assert ledger.format_entries(currency, style, entries) == expected
     }
 }
@@ -295,6 +295,6 @@ test result: ok. 12 passed, 0 failed
 - An American negative amount is in parentheses, `($10.00)`, which is CLDR's accounting pattern for `en`: `Money.format` with `sign: .Accounting` writes it, and `Style.sign` picks it for American style only, since the canonical Dutch lines write `$ -123,45`.
 - One thing is the ledger's own and is done by hand: the Dutch amount's no-break space after the symbol becomes a plain space, which the canonical lines use.
 - An entry holds its change in cents, as the canonical input does, and the currency is the ledger's. The change becomes a `Money` only to be formatted.
-- The entries are sorted by one tuple key, `#(date, description, cents)` (style §37).
+- The entries are sorted by one tuple key, `(date, description, cents)` (style §37).
 - A row is its three columns padded and joined with `" | "`. The heading pads its last title on the right before the row pads it on the left, so the title sits at the left of its column and the amounts at the right.
 - The twelve canonical cases are one `subtests` table. Two canonical cases share the description "multiple entries on same date ordered by description"; the first of them, whose entries are on different dates, is named "..., as first written" so each row has its own name.

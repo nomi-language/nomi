@@ -10,9 +10,9 @@ import "testing"
 func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"last call argument": {
-			"fn f(line: Int) -> String {\n    text = Iter.reduce(divisors(), \"\", fn acc, #(divisor, word) -> if line % divisor == 0 { acc + word } else { acc })\n    text\n}\n",
+			"fn f(line: Int) -> String {\n    text = Iter.reduce(divisors(), \"\", fn acc, (divisor, word) -> if line % divisor == 0 { acc + word } else { acc })\n    text\n}\n",
 			"fn f(line: Int) -> String {\n" +
-				"    text = Iter.reduce(divisors(), \"\", fn acc, #(divisor, word) -> {\n" +
+				"    text = Iter.reduce(divisors(), \"\", fn acc, (divisor, word) -> {\n" +
 				"        if line % divisor == 0 { acc + word } else { acc }\n" +
 				"    })\n" +
 				"\n" +
@@ -21,13 +21,13 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 		},
 		"the old bare layout": {
 			"fn f(line: Int) -> String {\n" +
-				"    text = Iter.reduce(divisors(), \"\", fn acc, #(divisor, word) ->\n" +
+				"    text = Iter.reduce(divisors(), \"\", fn acc, (divisor, word) ->\n" +
 				"        if line % divisor == 0 { acc + word } else { acc }\n" +
 				"    )\n" +
 				"    text\n" +
 				"}\n",
 			"fn f(line: Int) -> String {\n" +
-				"    text = Iter.reduce(divisors(), \"\", fn acc, #(divisor, word) -> {\n" +
+				"    text = Iter.reduce(divisors(), \"\", fn acc, (divisor, word) -> {\n" +
 				"        if line % divisor == 0 { acc + word } else { acc }\n" +
 				"    })\n" +
 				"\n" +

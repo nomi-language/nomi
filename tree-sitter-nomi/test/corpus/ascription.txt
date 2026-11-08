@@ -1,0 +1,35 @@
+==========
+Type ascription
+==========
+
+fn main() {
+    tags = [] as List<String>
+    doubled = xs |> Iter.to_list() as List<Int>
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (ascription_expression
+          (list)
+          (generic_type
+            (type_identifier)
+            (type_identifier))))
+      (binding
+        (identifier)
+        (ascription_expression
+          (pipe_expression
+            (identifier)
+            (call_expression
+              (field_access
+                (type_identifier)
+                (identifier))))
+          (generic_type
+            (type_identifier)
+            (type_identifier)))))))

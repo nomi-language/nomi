@@ -57,7 +57,7 @@ fn main() {
 
     options = ConnectOptions{
         protocols: ["other", "chat"],
-        headers: Headers[#("Accept-Encoding", "gzip")],
+        headers: Headers[("Accept-Encoding", "gzip")],
         tls: ClientConfig{roots: Roots.Files(["CERT"]), server_name: Some("localhost")},
     }
 

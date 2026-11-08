@@ -17,7 +17,7 @@ struct Box {
 }
 
 interface Pairs {
-    fn pair<U>(b: self, u: U) -> #(self, U)
+    fn pair<U>(b: self, u: U) -> (self, U)
 
     fn second<U>(_b: self, u: U) -> U {
         u
@@ -25,8 +25,8 @@ interface Pairs {
 }
 
 impl Pairs for Box {
-    fn pair<U>(b: Box, u: U) -> #(Box, U) {
-        #(b, u)
+    fn pair<U>(b: Box, u: U) -> (Box, U) {
+        (b, u)
     }
 }
 

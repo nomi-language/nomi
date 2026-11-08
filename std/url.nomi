@@ -12,17 +12,18 @@
 //#
 //# users = Url.join_path(api, ["users", id])
 //#
-//# search = Url.with_query(users, Query[#("tab", "posts"), #("page", "2")])
+//# search = Url.with_query(users, Query[("tab", "posts"), ("page", "2")])
 //# ```
 //#
-//# In `Url"..."`, each `${...}` slot is escaped for where it stands, so data
-//# cannot change the URL's shape: a slot in the path is one segment, one in
-//# the query is one key or value, and one after `#` is the fragment. A slot
-//# in the scheme, user or host is a compile error, since no escaping makes
-//# it safe there; build that URL with `Url.parse`.
+//# In `Url"..."`, each `${...}` slot takes any `Display` value (a `String`,
+//# an `Int`, a `Uuid`, a type of your own) and escapes its text for where it
+//# stands, so data cannot change the URL's shape: a slot in the path is one
+//# segment, one in the query is one key or value, and one after `#` is the
+//# fragment. A slot in the scheme, user or host is a compile error, since no
+//# escaping makes it safe there; build that URL with `Url.parse`.
 //#
 //# ```nomi
-//# profile = Url"https://example.com/users/${name}?tab=${tab}"
+//# profile = Url"https://example.com/users/${id}/posts?page=${page}"
 //# ```
 //#
 //# A `Query` is a query string's pairs, in order, and a key may appear more
@@ -156,7 +157,7 @@ pub struct UrlError {
 derive Equatable for UrlError
 
 /// A query string's pairs, in order. A key may appear more than once.
-pub type Query List<#(String, String)>
+pub type Query List<(String, String)>
 
 derive Equatable for Query
 derive Hashable for Query
@@ -270,9 +271,9 @@ impl Url {
     //! import std::url.{Query, Url}
     //!
     //! assert Url.query_values(Url`https://example.com/?a=1&b=2&a=3`) == Query[
-    //!     #("a", "1"),
-    //!     #("b", "2"),
-    //!     #("a", "3"),
+    //!     ("a", "1"),
+    //!     ("b", "2"),
+    //!     ("a", "3"),
     //! ]
     //
     pub fn query_values(url: Url) -> Query {
@@ -283,7 +284,7 @@ impl Url {
     /// `Query.encode` writes it, the pairs in their order.
     //! import std::url.{Query, Url}
     //!
-    //! u = Url.with_query(Url`https://example.com/s`, Query[#("q", "tea & cake"), #("n", "2")])
+    //! u = Url.with_query(Url`https://example.com/s`, Query[("q", "tea & cake"), ("n", "2")])
     //! assert "${u}" == "https://example.com/s?q=tea+%26+cake&n=2"
     //
     pub fn with_query(url: Url, query: Query) -> Url {
@@ -357,7 +358,7 @@ impl Query {
     /// bad escape is an `Err`.
     //! import std::url.Query
     //!
-    //! assert Query.parse("q=tea+cake&n=2")! == Query[#("q", "tea cake"), #("n", "2")]
+    //! assert Query.parse("q=tea+cake&n=2")! == Query[("q", "tea cake"), ("n", "2")]
     //! assert Query.parse("a=1;b=2") |> Result.is_err()
     //
     pub fn parse(text: String) -> Result<Query, UrlError> {
@@ -370,7 +371,7 @@ impl Query {
     /// The first value of `key`.
     //! import std::url.Query
     //!
-    //! assert Query.get(Query[#("a", "1"), #("a", "2")], "a") == Some("1")
+    //! assert Query.get(Query[("a", "1"), ("a", "2")], "a") == Some("1")
     //! assert Query.get(Query[], "a") == None
     //
     pub fn get(query: Query, key: String) -> Maybe<String> {
@@ -380,34 +381,34 @@ impl Query {
     /// Every value of `key`, in order.
     pub fn values(query: Query, key: String) -> List<String> {
         Query(pairs) = query
-        pairs |> Iter.filter(fn #(k, _) -> k == key) |> Iter.map(fn #(_, v) -> v) |> Iter.to_list()
+        pairs |> Iter.filter(fn (k, _) -> k == key) |> Iter.map(fn (_, v) -> v) |> Iter.to_list()
     }
 
     /// Whether `key` has a value.
     pub fn has(query: Query, key: String) -> Bool {
         Query(pairs) = query
-        Iter.any(pairs, fn #(k, _) -> k == key)
+        Iter.any(pairs, fn (k, _) -> k == key)
     }
 
     /// The query with `key`'s values replaced by `value`, in the place of
     /// its first value, or added at the end.
     //! import std::url.Query
     //!
-    //! q = Query[#("a", "1"), #("b", "2"), #("a", "3")]
-    //! assert Query.set(q, "a", "9") == Query[#("a", "9"), #("b", "2")]
-    //! assert Query.set(q, "c", "4") == Query[#("a", "1"), #("b", "2"), #("a", "3"), #("c", "4")]
+    //! q = Query[("a", "1"), ("b", "2"), ("a", "3")]
+    //! assert Query.set(q, "a", "9") == Query[("a", "9"), ("b", "2")]
+    //! assert Query.set(q, "c", "4") == Query[("a", "1"), ("b", "2"), ("a", "3"), ("c", "4")]
     //
     pub fn set(query: Query, key: String, value: String) -> Query {
         if not Query.has(query, key) { return Query.add(query, key, value) }
         Query(pairs) = query
 
-        #(_, kept) = Iter.map_reduce(pairs, False, fn seen, #(k, v) -> {
-            if k != key { return #(seen, [#(k, v)]) }
+        (_, kept) = Iter.map_reduce(pairs, False, fn seen, (k, v) -> {
+            if k != key { return (seen, [(k, v)]) }
 
             if seen {
-                #(True, [])
+                (True, [])
             } else {
-                #(True, [#(k, value)])
+                (True, [(k, value)])
             }
         })
 
@@ -421,7 +422,7 @@ impl Query {
     /// The query with `value` added to `key`'s values, at the end.
     pub fn add(query: Query, key: String, value: String) -> Query {
         Query(pairs) = query
-        Query(pairs + [#(key, value)])
+        Query(pairs + [(key, value)])
     }
 
     /// The query without `key`.
@@ -430,7 +431,7 @@ impl Query {
 
         Query(
             pairs
-            |> Iter.filter(fn #(k, _) -> k != key)
+            |> Iter.filter(fn (k, _) -> k != key)
             |> Iter.to_list()
         )
     }
@@ -439,11 +440,11 @@ impl Query {
     /// `url.escape_query` does, in the pairs' order and joined with `&`.
     //! import std::url.Query
     //!
-    //! assert Query.encode(Query[#("b", "x y"), #("a", "1"), #("b", "&")]) == "b=x+y&a=1&b=%26"
+    //! assert Query.encode(Query[("b", "x y"), ("a", "1"), ("b", "&")]) == "b=x+y&a=1&b=%26"
     //
     pub fn encode(query: Query) -> String {
         Query(pairs) = query
-        pairs |> Iter.flat_map(fn #(k, v) -> [k, v]) |> Iter.to_list() |> url_host.query_encode()
+        pairs |> Iter.flat_map(fn (k, v) -> [k, v]) |> Iter.to_list() |> url_host.query_encode()
     }
 }
 
@@ -454,23 +455,46 @@ impl Display for Query {
     }
 }
 
-impl CheckedLiteral<String, Url> for Url {
+impl CheckedLiteral<Display, Url> for Url {
     /// A `Url` literal is a `Url` in every quote style, never a `Result`,
     /// and is checked when the program is checked: text that `Url.parse`
     /// would refuse is a compile error. ``Url`https://example.com/a` `` is
-    /// the URL `Url.parse` reads from its text. In `Url"..."`, each `${...}`
-    /// slot is escaped for where it stands: as one path segment in the path,
-    /// as a key or value in the query, and as the fragment after `#`. A slot
-    /// of `.` or `..` in the path is escaped too, so it cannot climb the path.
-    /// A slot in the scheme, user or host is a compile error, since no
+    /// the URL `Url.parse` reads from its text. In `Url"..."`, a `${...}`
+    /// slot takes any `Display` value, and its text is escaped for where it
+    /// stands: as one path segment in the path, as a key or value in the
+    /// query, and as the fragment after `#`. A slot of `.` or `..` in the
+    /// path is escaped too, so it cannot climb the path. A slot in the
+    /// scheme, user or host is a compile error whatever its type, since no
     /// escaping makes it safe there; build such a URL with `Url.parse`.
-    //! import std::url.Url
+    ///
+    /// A `Query` or a `Url` in a slot is its text, escaped like any other:
+    /// `?q=${query}` is one value, not the query's pairs, and `/${url}` one
+    /// segment. Add pairs with `Url.with_query` and segments with
+    /// `Url.join_path`.
+    //! import std::url.{Query, Url}
+    //! import std::uuid.Uuid
+    //! import std::display.Display
+    //! import std::literals_testing.build_each
     //!
     //! id = "a/b c"
     //! tab = "x&y"
     //! u = Url"https://example.com/users/${id}?tab=${tab}#${tab}"
     //! assert u.path == "/users/a/b c"
     //! assert "${u}" == "https://example.com/users/a%2Fb%20c?tab=x%26y#x&y"
+    //!
+    //! // A slot takes any Display value: its text is escaped as a String's.
+    //! user = Uuid.parse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")!
+    //! page = 2
+    //! p = Url"/admin/users/${user}/edit?page=${page}#${page}"
+    //! assert "${p}" == "/admin/users/6ba7b810-9dad-11d1-80b4-00c04fd430c8/edit?page=2#2"
+    //!
+    //! // A Query or a Url is its text too, one segment or one value.
+    //! q = Query[("a", "1"), ("b", "x y")]
+    //! s = Url"/s/${q}?q=${q}"
+    //! assert "${s}" == "/s/a=1&b=x+y?q=a%3D1%26b%3Dx%2By"
+    //! home = Url"https://example.com/"
+    //! g = Url"/go/${home}"
+    //! assert "${g}" == "/go/https:%2F%2Fexample.com%2F"
     //!
     //! // An empty slot is an empty segment, and cannot make a relative
     //! // URL name a host: `//b` would be the host `b`.
@@ -484,17 +508,30 @@ impl CheckedLiteral<String, Url> for Url {
     //! up = ".."
     //! f = Url"/files/${up}/secret"
     //! assert "${f}" == "/files/%2E%2E/secret"
+    //!
+    //! // check accepts these statics, so build takes every value.
+    //! statics = ["https://example.com/users/", "?tab=", ""]
+    //!
+    //! assert Ok(urls) = build_each<Display, Url>(
+    //!     statics,
+    //!     ["", "..", "a/b c", 7, user],
+    //!     Url.check,
+    //!     Url.build,
+    //! )
+    //!
+    //! assert Iter.all(urls, fn v -> v.host == "example.com")
+    //! assert Err(_) = build_each<Display, Url>(["https://", "/"], ["x"], Url.check, Url.build)
     //
     fn check(statics: List<String>) -> Result<Unit, LiteralError> {
         last = Iter.count(statics) - 1
 
         // Each slot stands where the statics before it leave the URL, so
         // the place of every slot is known from the statics alone.
-        #(_, refused) = Iter.reduce(Iter.with_index(statics), #(
+        (_, refused) = Iter.reduce(Iter.with_index(statics), (
             Place.InScheme,
             None,
-        ), fn acc, #(i, s) -> {
-            #(place, refused) = acc
+        ), fn acc, (i, s) -> {
+            (place, refused) = acc
             after = place_after(place, s)
 
             refused = case refused {
@@ -515,7 +552,7 @@ impl CheckedLiteral<String, Url> for Url {
                     }
             }
 
-            #(after, refused)
+            (after, refused)
         })
 
         // The rest of the text must be a URL whatever the slots hold, so it
@@ -532,13 +569,13 @@ impl CheckedLiteral<String, Url> for Url {
         }
     }
 
-    fn build(fragments: List<Fragment<String>>) -> Url {
-        #(_, text) = Iter.reduce(fragments, #(Place.InScheme, ""), fn acc, frag -> {
-            #(place, text) = acc
+    fn build(fragments: List<Fragment<Display>>) -> Url {
+        (_, text) = Iter.reduce(fragments, (Place.InScheme, ""), fn acc, frag -> {
+            (place, text) = acc
 
             case frag {
-                .Static(s) -> #(place_after(place, s), text + s)
-                .Dynamic(v) -> #(place, text + slot_text(place, v))
+                .Static(s) -> (place_after(place, s), text + s)
+                .Dynamic(v) -> (place, text + slot_text(place, Display.to_string(v)))
             }
         })
 
@@ -586,7 +623,7 @@ fn path_slot(value: String) -> String {
 // slashes, and an empty slot after a leading `/` writes exactly that
 // (`Url"/${x}/b"` with `x = ""`). WHATWG's URL serializer keeps such a path
 // a path by writing `/.` before it, and so does this.
-fn keep_path(fragments: List<Fragment<String>>, text: String) -> String {
+fn keep_path(fragments: List<Fragment<Display>>, text: String) -> String {
     first = case fragments {
         [.Static(s), ..] -> s
         _ -> ""
@@ -609,10 +646,10 @@ enum Place {
 }
 
 fn place_after(place: Place, text: String) -> Place {
-    #(after, _) =
+    (after, _) =
         String.to_codepoints(text)
-        |> Iter.reduce(#(place, ""), fn acc, cp -> {
-            #(p, seen) = acc
+        |> Iter.reduce((place, ""), fn acc, cp -> {
+            (p, seen) = acc
             seen = seen + Codepoint.to_string(cp)
             c = Codepoint.to_string(cp)
 
@@ -659,7 +696,7 @@ fn place_after(place: Place, text: String) -> Place {
                     p
             }
 
-            #(next, seen)
+            (next, seen)
         })
 
     after
@@ -669,9 +706,9 @@ fn query_from_text(text: String) -> Query {
     Query(pairs_of(url_host.query_pairs(text)))
 }
 
-fn pairs_of(flat: List<String>) -> List<#(String, String)> {
+fn pairs_of(flat: List<String>) -> List<(String, String)> {
     case flat {
-        [k, v, ..rest] -> [#(k, v), ..pairs_of(rest)]
+        [k, v, ..rest] -> [(k, v), ..pairs_of(rest)]
         _ -> []
     }
 }
@@ -686,12 +723,12 @@ fn flag(b: Bool) -> String {
 
 // A Url's parts, as rt/url.go reads them.
 fn to_parts(url: Url) -> List<String> {
-    #(has_user, user, has_password, password) = case url.user {
+    (has_user, user, has_password, password) = case url.user {
         Some(u) ->
-            #("1", u.name, flag(Maybe.is_some(u.password)), Maybe.with_default(u.password, ""))
+            ("1", u.name, flag(Maybe.is_some(u.password)), Maybe.with_default(u.password, ""))
 
         None ->
-            #("", "", "", "")
+            ("", "", "", "")
     }
 
     [

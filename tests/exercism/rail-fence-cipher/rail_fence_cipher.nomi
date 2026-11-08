@@ -5,8 +5,8 @@
 pub fn encode(message: String, rails: Int) -> String {
     message
     |> Iter.zip(zigzag(rails))
-    |> Iter.sort_by(.1)
-    |> Iter.map(.0)
+    |> Iter.sort_by(.second)
+    |> Iter.map(.first)
     |> String.join()
 }
 
@@ -15,13 +15,13 @@ pub fn decode(ciphertext: String, rails: Int) -> String {
     positions =
         0..String.length(ciphertext)
         |> Iter.zip(zigzag(rails))
-        |> Iter.sort_by(.1)
-        |> Iter.map(.0)
+        |> Iter.sort_by(.second)
+        |> Iter.map(.first)
 
     positions
     |> Iter.zip(ciphertext)
-    |> Iter.sort_by(.0)
-    |> Iter.map(.1)
+    |> Iter.sort_by(.first)
+    |> Iter.map(.second)
     |> String.join()
 }
 

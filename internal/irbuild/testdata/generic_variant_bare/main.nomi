@@ -45,9 +45,9 @@ fn main() {
     io.print("equal lists = ${boxes == [Box.Empty, Box.Full(2), Box.Empty]}")
     io.print("empty == full = ${Box.Empty == Box.Full(5)}")
     io.print("picked = ${filled(pick(True))}, ${filled(pick(False))}")
-    pair = #(Box.Empty, Box.Full("p"))
-    io.print(value_or_box(pair.0))
-    io.print("pair full = ${pair.1 == Box.Full("p")}")
+    pair = (Box.Empty, Box.Full("p"))
+    io.print(value_or_box(pair.first))
+    io.print("pair full = ${pair.second == Box.Full("p")}")
 
     io.print(value_or(Tree.Leaf, "none"))
     io.print(value_or(tree.Tree.Leaf, "qualified none"))

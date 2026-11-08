@@ -676,7 +676,7 @@ func (g *gen) resolveStruct(d *typeDef, t *ast.StructDef) {
 func (g *gen) resolveStructFields(d *typeDef, t *ast.StructDef, tps map[string]bool) {
 	defer changingTypes()()
 	for _, f := range t.Fields {
-		k := g.typeOf(f.TypeAnnotation)
+		k := g.fieldKind(f)
 		// kindInvalid: reports — records `non-scalar field type` on the declaration.
 		if k == kindInvalid {
 			if namesTypeParam(f.TypeAnnotation, tps) {
@@ -691,7 +691,7 @@ func (g *gen) resolveStructFields(d *typeDef, t *ast.StructDef, tps map[string]b
 			}
 			d.refusals = append(d.refusals, refusal{
 				construct: "non-scalar field type",
-				detail:    d.nomi + "." + f.Name + ": " + typeText(f.TypeAnnotation),
+				detail:    d.nomi + "." + f.Name + ": " + g.fieldTypeText(f),
 				probe:     []ast.Node{f.Default},
 			})
 			continue
@@ -829,7 +829,7 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 		case "struct":
 			bad := false
 			for _, f := range v.Fields {
-				k := g.typeOf(f.TypeAnnotation)
+				k := g.fieldKind(f)
 				// kindInvalid: reports — records `non-scalar variant payload` on the declaration.
 				if k == kindInvalid {
 					if namesTypeParam(f.TypeAnnotation, tps) {
@@ -841,7 +841,7 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 					}
 					d.refusals = append(d.refusals, refusal{
 						construct: "non-scalar variant payload",
-						detail:    d.nomi + "." + v.Name + "." + f.Name + ": " + typeText(f.TypeAnnotation),
+						detail:    d.nomi + "." + v.Name + "." + f.Name + ": " + g.fieldTypeText(f),
 						probe:     []ast.Node{f.Default},
 					})
 					bad = true
@@ -946,7 +946,7 @@ func (g *gen) resolveDistinctInner(d *typeDef, t *ast.TypeDef, tps map[string]bo
 	// kindInvalid: reports — records `non-scalar distinct inner type` on the declaration.
 	if k == kindInvalid {
 		if namesTypeParam(t.InnerTypeExpr, tps) {
-			// `type Tagged<T> #(String, T)`: refused as `generic type`
+			// `type Tagged<T> (String, T)`: refused as `generic type`
 			// already, as resolveStructFields says for a field.
 			return
 		}
@@ -1119,7 +1119,7 @@ func (g *gen) settleLowerable(order []*typeDef) {
 // Four forms name a lowerable type. *ast.SimpleType names a scalar, a declared
 // struct/enum/distinct, or an interface existential. *ast.FuncType names a
 // function type; the SAME node with a nil Return names a TUPLE type, because
-// `#(Int, String)` and `(Int) -> String` differ only in the arrow.
+// `(Int, String)` and `(Int) -> String` differ only in the arrow.
 // *ast.GenericType names `List<T>`. All three of the latter are STRUCTURAL —
 // their identity is interned (see composite.go), not declared.
 //
@@ -1136,6 +1136,10 @@ func (g *gen) settleLowerable(order []*typeDef) {
 // sigreason.go names WHICH of those it was, so a signature position reports the
 // type's own gap rather than the position's shape.
 func (g *gen) typeOf(te ast.TypeExpr) kind {
+	if k, isDefault := g.defaultArgKinds[te]; isDefault {
+		return k
+	}
+	te = g.withDefaultTypeArgs(te)
 	if g.stdSrc != nil {
 		// A std interface's signature (stdprogiface.go): its names are std's,
 		// resolved in the declaring module's scope as a std function's
@@ -1162,7 +1166,7 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 	}
 	if _, isSelf := te.(*ast.SelfType); isSelf {
 		// `self` names the implementor while an interface default is
-		// monomorphized for one (inheritDefaults, irImplLower); anywhere else
+		// lowered for one (irImplLower, emitIfaceDefault); anywhere else
 		// it is outside the subset, as structuralTypeOf would answer.
 		if ds := g.defaultSelf; ds != nil {
 			return ds.recv
@@ -1201,7 +1205,7 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		if k, isGenHost := g.stdGenHostTypeOf(gt); isGenHost {
 			return k
 		}
-		// `Regex<#(String)>` — a std host type whose type parameter is
+		// `Regex<(String)>` — a std host type whose type parameter is
 		// phantom: one leaf whatever the argument. See stdhost.go.
 		if k, isPhantom := g.phantomHostTypeOf(gt); isPhantom {
 			return k

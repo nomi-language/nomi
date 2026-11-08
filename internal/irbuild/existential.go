@@ -3,7 +3,6 @@ package irbuild
 import (
 	"strings"
 
-	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -436,6 +435,11 @@ func (g *gen) importIfaceMethods(d, src *ifaceDef) {
 			}
 		}
 		switch {
+		case !ok && sm.why == gapGenericIfaceFunc:
+			// A position naming the function's own type parameter has no
+			// kind until a call instantiates it (methodinst.go), which a
+			// generic default is withheld for in this file as in its own.
+			m.table = false
 		case !ok:
 			m.table, m.why = false, "non-scalar sibling file interface signature"
 		case !sm.table:
@@ -468,110 +472,7 @@ func (g *gen) ifaceNamed(name string) (*ifaceDef, bool) {
 	return g.foreignIface(name)
 }
 
-// --- a sibling file's interface DEFAULT --------------------------------------
-
-// portableDefault reports whether a sibling file's interface default can be
-// monomorphized HERE without changing what its body means.
-//
-// An interface default is not called across the boundary, it is COPIED: impl.go
-// lowers the body once per implementing type, with `self` bound to that type.
-// So the body's names resolve in the IMPLEMENTING file's scope, while the
-// programmer wrote them against the DECLARING file's. When the two files
-// resolve a name differently that is a silent wrong answer rather than a Go
-// compile error — the same hazard foreign.go refuses `sibling file field
-// default` for.
-//
-// Refusing every cross-file default would be too blunt: in
-// `15-app-and-defer/effects/log.nomi`, `Logger.info`'s whole body is
-// `Logger.log(value, "INFO", message)` — one module-level name, `Logger`,
-// which both files resolve to the same declaration.
-//
-// So the question asked is the precise one: does every name the body mentions
-// resolve to the SAME declaration from both files? Names are collected
-// reflectively and the set is deliberately a SUPERSET — it includes field
-// names, parameter names and locals, none of which are module-level — because
-// a name that resolves in neither scope agrees trivially, and a name that
-// resolves in only one is exactly the divergence being looked for. Over-
-// collecting can only over-refuse.
-func (g *gen) portableDefault(d *ifaceDef, m *ifaceMethod) bool {
-	if m == nil || m.decl == nil || d == nil || g.reg == nil {
-		return false
-	}
-	if d.unit < 0 || d.unit >= len(g.reg.gens) {
-		return false
-	}
-	owner := g.reg.gens[d.unit]
-	if owner == nil || owner.fa == nil || g.fa == nil {
-		return false
-	}
-	names := map[string]bool{}
-	walkNames(m.decl.Body, names, pickAnyName)
-	// A parameter's name is the parameter throughout the body in both files,
-	// whatever either binds at module scope: `fn format(scale: self)` in
-	// scale.nomi, copied into a file that imports `scale` and so binds the
-	// file qualifier `scale`, still reads the parameter.
-	for _, p := range m.decl.Params {
-		for name := range paramBoundNames(p) {
-			delete(names, name)
-		}
-	}
-	for i := range m.decl.Params {
-		walkNames(m.decl.Params[i].TypeAnnotation, names, pickAnyName)
-		// The DEFAULT expression too, since impl.go monomorphizes a default
-		// with defaulted parameters. It is Nomi written in the declaring file
-		// exactly as the body is, and it is copied by exactly the same route,
-		// so leaving it out of this walk would let `suffix: String = tag`
-		// resolve `tag` here while the programmer wrote it there.
-		walkNames(m.decl.Params[i].Default, names, pickAnyName)
-	}
-	for name := range names {
-		there, here := resolvedTypeSymbol(owner.fa, name), resolvedTypeSymbol(g.fa, name)
-		if valueOnce(there) && (here == nil || here.Kind == analysis.SymbolOnce) {
-			// The declaring file's own `once`: the lowered default reads
-			// that file's cell, whatever this file binds the name to
-			// (onceValue under namesFrom). A function-valued one could be
-			// called, which reads this file's binding, so it stays refused.
-			continue
-		}
-		if here == nil && there != nil && d.decl != nil && there.OwningInterface == d.decl.Name {
-			// A bare call of the interface's own function (`label(scale)`),
-			// which the declaring file binds and the copy reaches through the
-			// implementing block (sameImplName). A module-level name of this
-			// file would shadow it in the copy, so only an unbound one agrees.
-			continue
-		}
-		switch {
-		case there == nil && here == nil:
-			// A parameter, a local, a field label, or a name neither file has.
-			// Nothing for the two scopes to disagree about.
-		case here == nil && there.Kind == analysis.SymbolStruct:
-			// A struct the declaring file names and this one does not
-			// (a struct literal in a default argument the declaring file
-			// wrote, copied into a file that imports no such name). A literal's struct is the
-			// type the checker gave it in the declaring file, read from that
-			// file's analysis under namesFrom, so no name of this file can
-			// take its place.
-		case there == nil || here == nil:
-			return false
-		case there.Node != here.Node:
-			return false
-		}
-	}
-	return true
-}
-
-// valueOnce reports a symbol for a module-level `once` whose type is not a
-// function's.
-func valueOnce(sym *analysis.Symbol) bool {
-	if sym == nil || sym.Kind != analysis.SymbolOnce {
-		return false
-	}
-	if _, ok := sym.Node.(*ast.OnceBinding); !ok {
-		return false
-	}
-	_, fn := sym.Type.(*analysis.FuncType)
-	return !fn
-}
+// --- the names a default mentions -------------------------------------------
 
 // pickAnyName contributes every name a node mentions that a MODULE SCOPE could
 // resolve — an identifier, a type, a file qualifier.
@@ -742,23 +643,4 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 		return impl != nil && impl.lowerable && impl.iface != nil && impl.iface.decl == d.decl
 	}
 	return false
-}
-
-// paramBoundNames is every name parameter p binds: its name, or each name
-// its destructuring pattern binds.
-func paramBoundNames(p ast.Param) map[string]bool {
-	out := map[string]bool{}
-	if p.Destructure == nil {
-		if p.Name != "" {
-			out[p.Name] = true
-		}
-		return out
-	}
-	ast.Inspect(p.Destructure, func(n ast.Node) bool {
-		if id, ok := n.(*ast.Ident); ok {
-			out[id.Name] = true
-		}
-		return true
-	})
-	return out
 }

@@ -11,7 +11,7 @@ import (
 // A distinct type takes type parameters after its name, which its inner type
 // may name.
 func TestParseGenericDistinct(t *testing.T) {
-	nodes, err := Parse(lexer.Lex("type Tagged<T, U> #(T, U)\n"))
+	nodes, err := Parse(lexer.Lex("type Tagged<T, U> (T, U)\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

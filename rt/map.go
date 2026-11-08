@@ -16,7 +16,7 @@ import (
 // keyable, and they compare structurally with no user hook and no
 // `K: Hashable` bound in the signature of `Map.get`. The
 // corpus relies on it — 08-pattern-matching/map_patterns_test.nomi has
-// `%{#(1, 2) => "a"}` and `%{[1, 2] => "x"}`.
+// `%{(1, 2) => "a"}` and `%{[1, 2] => "x"}`.
 //
 // Go requires a map key to be `comparable`, and for the types where that is
 // satisfiable at all it is the wrong comparison: a `*List[T]` key is comparable
@@ -295,7 +295,7 @@ func mapCollect[K, V any](n *mapNode[K, V], out []mapEntry[K, V]) []mapEntry[K, 
 
 // MapKeys is `Map.keys`: the keys as a List, in insertion order.
 //
-// std/maps.nomi writes it as `Iter.map(m, fn #(k, _) -> k) |> Iter.to_list()`, and
+// std/maps.nomi writes it as `Iter.map(m, fn (k, _) -> k) |> Iter.to_list()`, and
 // this is not a second rule — it is the same rule with the intermediate
 // sequence removed. Both spellings bottom out in MapEntries, the single ordered
 // accessor this file's rendering and equality already go through, so there is

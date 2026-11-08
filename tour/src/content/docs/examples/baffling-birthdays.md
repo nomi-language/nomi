@@ -57,13 +57,13 @@ pub fn estimated_probability_of_shared_birthday(
 /// Whether a date in `birthdates` falls on a day of the year in `seen`, or
 /// on the day of an earlier date in `birthdates`. It stops at the first
 /// repeat.
-fn repeats(birthdates: List<Date>, seen: Set<#(Int, Int)>) -> Bool {
+fn repeats(birthdates: List<Date>, seen: Set<(Int, Int)>) -> Bool {
     case birthdates {
         [] ->
             False
 
         [date, ..rest] -> {
-            day = #(Date.month(date), Date.day(date))
+            day = (Date.month(date), Date.day(date))
 
             day in seen or repeats(rest, Set.insert(seen, day))
         }
@@ -86,49 +86,49 @@ import {
 
 /// The value `generator` draws from a fixed seed.
 fn draw<T>(generator: Generator<T>) -> T {
-    #(value, _seed) = Generator.step(generator, Seed.from_int(2024))
+    (value, _seed) = Generator.step(generator, Seed.from_int(2024))
     value
 }
 
 test "shared birthday" {
     [
-        #("one birthdate", [Date`2000-01-01`], False),
-        #(
+        ("one birthdate", [Date`2000-01-01`], False),
+        (
             "two birthdates with same year, month, and day",
             [Date`2000-01-01`, Date`2000-01-01`],
             True,
         ),
-        #(
+        (
             "two birthdates with same year and month, but different day",
             [Date`2012-05-09`, Date`2012-05-17`],
             False,
         ),
-        #(
+        (
             "two birthdates with same month and day, but different year",
             [Date`1999-10-23`, Date`1988-10-23`],
             True,
         ),
-        #(
+        (
             "two birthdates with same year, but different month and day",
             [Date`2007-12-19`, Date`2007-04-27`],
             False,
         ),
-        #(
+        (
             "two birthdates with different year, month, and day",
             [Date`1997-08-04`, Date`1963-11-23`],
             False,
         ),
-        #(
+        (
             "multiple birthdates without shared birthday",
             [Date`1966-07-29`, Date`1977-02-12`, Date`2001-12-25`, Date`1980-11-10`],
             False,
         ),
-        #(
+        (
             "multiple birthdates with one shared birthday",
             [Date`1966-07-29`, Date`1977-02-12`, Date`2001-07-29`, Date`1980-11-10`],
             True,
         ),
-        #(
+        (
             "multiple birthdates with more than one shared birthday",
             [
                 Date`1966-07-29`,
@@ -140,7 +140,7 @@ test "shared birthday" {
             True,
         ),
     ]
-    |> subtests #(description, birthdates, expected), description {
+    |> subtests (description, birthdates, expected), description {
         assert baffling_birthdays.has_shared_birthday(birthdates) == expected
     }
 }
@@ -170,12 +170,12 @@ group "random birthdates" {
 
 test "estimated probability of at least one shared birthday" {
     [
-        #("for one person", 1, 0.0),
-        #("among ten people", 10, 11.694818),
-        #("among twenty-three people", 23, 50.729723),
-        #("among seventy people", 70, 99.915958),
+        ("for one person", 1, 0.0),
+        ("among ten people", 10, 11.694818),
+        ("among twenty-three people", 23, 50.729723),
+        ("among seventy people", 70, 99.915958),
     ]
-    |> subtests #(description, group_size, expected), description {
+    |> subtests (description, group_size, expected), description {
         estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
 
         assert Float.equal_within(estimate, expected, 1.0)
@@ -194,7 +194,7 @@ test result: ok. 17 passed, 0 failed
 
 ## How it's written
 
-- Birthdates are `std/calendar` `Date`s, written in the tests as `` Date`2000-01-01` `` literals, which the compiler checks. `has_shared_birthday` walks the group with a set of the `#(month, day)` pairs it has seen and stops at the first repeat, so a large group is seldom read to the end.
+- Birthdates are `std/calendar` `Date`s, written in the tests as `` Date`2000-01-01` `` literals, which the compiler checks. `has_shared_birthday` walks the group with a set of the `(month, day)` pairs it has seen and stops at the first repeat, so a large group is seldom read to the end.
 - Randomness is `std/random`'s. `random_birthdates` and `estimated_probability_of_shared_birthday` answer `Generator`s, and the tests run them against one fixed `Seed`, so every run checks the same draws.
 - A birthdate is a uniformly random day of a year from 1900 to 2023 that `Date.is_leap_year` says has no 29 February. With no 29 February, every year has 365 days, so one `Generator.int` draw `n` below 365 times the number of years picks both: the year's 1 January is `new_years_days`'s entry `n / 365`, and the day is `n % 365` days after it. Every day of the year is equally likely, and each date costs one draw.
 - The estimate draws `trials` groups (10,000 by default), checks each with `has_shared_birthday`, and answers the percentage that share. The four estimate cases draw over a million dates, which takes seconds in a browser, so the page shows the recorded report and runs the example only when you press Run. The canonical expectations are the exact probabilities; the tests accept an estimate within one percentage point, which the canonical comments leave to the track.

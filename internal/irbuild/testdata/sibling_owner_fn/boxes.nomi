@@ -40,7 +40,7 @@ impl Shape<T> {
         1
     }
 
-    pub fn twice<U>(x: U) -> #(U, U) {
-        #(x, x)
+    pub fn twice<U>(x: U) -> (U, U) {
+        (x, x)
     }
 }

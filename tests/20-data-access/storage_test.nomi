@@ -30,8 +30,10 @@ test "the local store passes the conformance suite in a sandbox" {
 }
 
 test "the local store passes the conformance suite on disk" {
-    broken = fs.with_temp_dir(fn dir -> Ok(storage_testing.conformance(fn -> fresh_local(dir))))
-    assert broken == Ok([])
+    dir = fs.make_temp_dir()?
+    defer fs.remove_all_quietly(dir)
+
+    assert storage_testing.conformance(fn -> fresh_local(dir)) == []
 }
 
 test "the local store keeps a content type beside each object" {
@@ -73,10 +75,10 @@ test "keys a and a/b cannot both exist on the local store" {
     ran = fs_testing.run(Sandbox{}, fn -> {
         store = storage.local("files")
         _ = Store.put(store, "a", String.to_bytes("x"), "text/plain")
-        #(Store.put(store, "a/b", String.to_bytes("y"), "text/plain"), Store.get(store, "a/b"))
+        (Store.put(store, "a/b", String.to_bytes("y"), "text/plain"), Store.get(store, "a/b"))
     })
 
-    assert #(Err(.Backend{}), Err(.NotFound{key: "a/b"})) = ran.value
+    assert (Err(.Backend{}), Err(.NotFound{key: "a/b"})) = ran.value
 }
 
 test "a key cannot climb out of the root" {
@@ -100,7 +102,7 @@ fn serve(
     store: Store,
     method: Method,
     key: String,
-    headers: List<#(String, String)> = [],
+    headers: List<(String, String)> = [],
 ) -> Response {
     request = http_testing.request(method, "/files/${key}")
 
@@ -125,7 +127,7 @@ test "the handler serves an object with its stored type" {
 test "the handler answers a range, a HEAD and a conditional request" {
     store = Memory.new()
     _ = Store.put(store, "a.txt", String.to_bytes("hello"), "text/plain")
-    ranged = serve(store, Method.Get, "a.txt", headers: [#("Range", "bytes=1-3")])
+    ranged = serve(store, Method.Get, "a.txt", headers: [("Range", "bytes=1-3")])
     assert ranged.status == Status.partial_content
     assert Response.text(ranged) == Ok("ell")
     assert Headers.get(ranged.headers, "Content-Type") == Some("text/plain")
@@ -135,7 +137,7 @@ test "the handler answers a range, a HEAD and a conditional request" {
     assert Response.text(head) == Ok("")
 
     later = http.format_time(Instant.now() + Duration.hours(1))
-    unchanged = serve(store, Method.Get, "a.txt", headers: [#("If-Modified-Since", later)])
+    unchanged = serve(store, Method.Get, "a.txt", headers: [("If-Modified-Since", later)])
     assert unchanged.status == Status.not_modified
 }
 
@@ -180,7 +182,8 @@ test "the local store writes the characters a file name cannot hold as escapes" 
 
 test "a key's URL routes back to its object" {
     store = Memory.new(public_base: Url`http://app.test/files/`)
-    router = Router.new([#(Route`GET /files/{key...}`, storage.handler(store))])!
+    files = storage.handler(store)
+    router = Router.new([Route.to_with("GET /files/{key...}", fn r, _ -> files(r))])!
     keys = ["a(1) b.jpg", "50%25/#x?y.txt", "café/日本.png"]
 
     served =
@@ -189,11 +192,11 @@ test "a key's URL routes back to its object" {
             _ = Store.put(store, key, String.to_bytes(key), "text/plain")
             u = Store.url(store, key)!
             response = Router.serve(router, Request{method: Method.Get, url: u})
-            #(u.path, Response.text(response))
+            (u.path, Response.text(response))
         })
         |> Iter.to_list()
 
-    assert served == keys |> Iter.map(fn key -> #("/files/${key}", Ok(key))) |> Iter.to_list()
+    assert served == keys |> Iter.map(fn key -> ("/files/${key}", Ok(key))) |> Iter.to_list()
 }
 
 test "the local store lists keys as written, not as their file names" {
@@ -209,10 +212,10 @@ test "the local store lists keys as written, not as their file names" {
 
         all = storage.list_all(store)?
         folded = Store.list(store, storage.ListOptions{delimiter: "/"})?
-        Ok(#(all, folded))
+        Ok((all, folded))
     })
 
-    assert Ok(#(all, folded)) = ran.value
+    assert Ok((all, folded)) = ran.value
     assert all.objects |> Iter.map(fn e -> e.key) |> Iter.to_list() == Iter.sort(keys)
     assert all.objects |> Iter.map(fn e -> e.size) |> Iter.to_list() == [16, 9, 7, 16, 5]
     assert folded.prefixes == ["100%/", "dir/"]

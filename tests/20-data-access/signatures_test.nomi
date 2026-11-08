@@ -18,14 +18,14 @@ test "a signature verifies only its message under its key" {
             public = PrivateKey.public_key(key)
             signature = signatures.sign(key, message)
 
-            #(
+            (
                 signatures.verify(public, message, signature),
                 signatures.verify(public, tampered, signature),
             )
         })
         |> Iter.to_list()
 
-    assert results == [#(True, False), #(True, False), #(True, False)]
+    assert results == [(True, False), (True, False), (True, False)]
 }
 
 test "keys round trip through PEM and DER, and never print their bytes" {

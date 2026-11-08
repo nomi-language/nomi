@@ -92,6 +92,17 @@ func stripBodies(n ast.Node) {
 				return true
 			})
 			return false
+		case *ast.ImplBlock:
+			if isResourceImpl(m) {
+				// A Release or Commit impl's bodies stay: another file's
+				// release check reads the call each one makes, the type's
+				// usual release or commit (releaseFunctionOf).
+				ast.Inspect(m, func(d ast.Node) bool {
+					clearAttachedTests(d)
+					return true
+				})
+				return false
+			}
 		case *ast.FuncDef:
 			if m.Body != nil {
 				m.Body = signalBody(m.Body)
@@ -141,7 +152,7 @@ func clearAttachedTests(n ast.Node) {
 // is written does, so an interface written by another format is a miss.
 const (
 	interfaceMagic   = "NOMIIF"
-	interfaceVersion = 2
+	interfaceVersion = 3
 )
 
 // Encode writes fi as bytes.

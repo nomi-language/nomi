@@ -103,6 +103,13 @@ pub interface Literal<I, R> {
 ///   order, empty ones included. An `Err` is a compile error at the
 ///   character its `LiteralError` names. `check` may not have effects
 ///   (output, files, the clock, tasks, an application field).
+/// - `check_type` is what the compiler runs, in `check`'s place: the same
+///   statics, and a description of the literal's type: each of its type
+///   arguments as Nomi spells it, in order. A `Route<#{id: Uuid}>` literal
+///   gets `["#{id: Uuid}"]`, a `Url` one `[]`. The description is text,
+///   not the types themselves, which no value holds. Its default is `check(statics)`, so a type
+///   whose text need not agree with its type arguments writes only
+///   `check`.
 /// - `build` runs when the program runs and gets the fragments
 ///   `Literal.from_fragments` would get. It cannot fail: once `check`
 ///   accepts the text, every slot value must build. A `build` that traps
@@ -112,18 +119,26 @@ pub interface Literal<I, R> {
 /// A type implements `Literal` or `CheckedLiteral`, never both.
 ///
 /// ```nomi
-/// impl CheckedLiteral<String, Url> for Url {
+/// impl CheckedLiteral<Display, Url> for Url {
 ///     fn check(statics: List<String>) -> Result<Unit, LiteralError> {
 ///         ...
 ///     }
 ///
-///     fn build(fragments: List<Fragment<String>>) -> Url {
+///     fn build(fragments: List<Fragment<Display>>) -> Url {
 ///         ...
 ///     }
 /// }
 /// ```
 pub interface CheckedLiteral<I, T> {
     fn check(statics: List<String>) -> Result<Unit, LiteralError>
+
+    open fn check_type(
+        statics: List<String>,
+        arguments: List<String>,
+    ) -> Result<Unit, LiteralError> {
+        _ = arguments
+        check(statics)
+    }
     fn build(fragments: List<Fragment<I>>) -> T
 }
 
@@ -149,3 +164,4 @@ impl Display for LiteralError {
         error.message
     }
 }
+

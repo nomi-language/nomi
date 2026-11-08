@@ -37,9 +37,9 @@ func TestFunctionEquality_DerivesAndBoundsAreRejected(t *testing.T) {
 		{"bound met by a function", bound, "fn same<T>(a: T, b: T) -> Bool where T: Equatable {\n    a == b\n}\n\nfn main() {\n    g = fn x: Int -> x\n    _ = same(g, g)\n}\n",
 			"(Int) -> Int does not implement Equatable (required by `where T: Equatable`)",
 			"a function value has no equality"},
-		{"bound met by a tuple holding one", bound, "fn same<T>(a: T, b: T) -> Bool where T: Equatable {\n    a == b\n}\n\nfn main() {\n    g = fn x: Int -> x\n    _ = same(#(1, g), #(1, g))\n}\n",
-			"#(Int, (Int) -> Int) does not implement Equatable (required by `where T: Equatable`)",
-			"`#(Int, (Int) -> Int)` holds `(Int) -> Int`, and a function value has no equality"},
+		{"bound met by a tuple holding one", bound, "fn same<T>(a: T, b: T) -> Bool where T: Equatable {\n    a == b\n}\n\nfn main() {\n    g = fn x: Int -> x\n    _ = same((1, g), (1, g))\n}\n",
+			"(Int, (Int) -> Int) does not implement Equatable (required by `where T: Equatable`)",
+			"`(Int, (Int) -> Int)` holds `(Int) -> Int`, and a function value has no equality"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

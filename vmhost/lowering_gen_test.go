@@ -47,7 +47,7 @@ func (t *gt) String() string {
 	case "Result":
 		return "Result<" + t.args[0].String() + ", String>"
 	case "Tuple":
-		return "#(" + t.args[0].String() + ", " + t.args[1].String() + ")"
+		return "(" + t.args[0].String() + ", " + t.args[1].String() + ")"
 	case "Fn":
 		return "(" + t.args[0].String() + ") -> " + t.args[1].String()
 	}
@@ -317,7 +317,7 @@ func (g *gen) leaf(t *gt, sc []gvar) string {
 	case "Result":
 		return g.okOf(t.args[0], g.leaf(t.args[0], sc))
 	case "Tuple":
-		return "#(" + g.leaf(t.args[0], sc) + ", " + g.leaf(t.args[1], sc) + ")"
+		return "(" + g.leaf(t.args[0], sc) + ", " + g.leaf(t.args[1], sc) + ")"
 	case "Box":
 		return "Box{v: " + g.leaf(t.args[0], sc) + "}"
 	case "Opt":
@@ -386,14 +386,14 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 	switch v.t.k {
 	case "Tuple":
 		if v.t.args[0].eq(t) {
-			add(func() string { return n + ".0" },
+			add(func() string { return n + ".first" },
 				func() string {
 					as, read := g.asWhole()
-					return "{\n#(a, _)" + as + " = " + n + "\n" + read + "a\n}"
+					return "{\n(a, _)" + as + " = " + n + "\n" + read + "a\n}"
 				})
 		}
 		if v.t.args[1].eq(t) {
-			add(func() string { return n + ".1" })
+			add(func() string { return n + ".second" })
 		}
 	case "Box":
 		if v.t.args[0].eq(t) {
@@ -447,7 +447,7 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 		}
 	}
 	// A call through a function the value holds, read by a field chain
-	// (`n.0(x)`, `n.v.1(x)`, `n.1.0(x)`) rather than bound first.
+	// (`n.first(x)`, `n.v.second(x)`, `n.second.first(x)`) rather than bound first.
 	for _, p := range fnPaths(v.t, n, 3) {
 		if p.t.args[1].eq(t) {
 			p := p
@@ -502,9 +502,9 @@ func (g *gen) holdFn(cb string, ft *gt) (string, *gt) {
 		n := fmt.Sprint(g.aux.Intn(10))
 		switch g.aux.Intn(3) {
 		case 0:
-			holder, ht = "#("+holder+", "+n+")", of("Tuple", ht, tInt)
+			holder, ht = "("+holder+", "+n+")", of("Tuple", ht, tInt)
 		case 1:
-			holder, ht = "#("+n+", "+holder+")", of("Tuple", tInt, ht)
+			holder, ht = "("+n+", "+holder+")", of("Tuple", tInt, ht)
 		default:
 			holder, ht = "Box{v: "+holder+"}", of("Box", ht)
 		}
@@ -543,7 +543,7 @@ type fnPath struct {
 	t     *gt
 }
 
-// fnPaths are the chains of tuple indices and Box fields, at most depth
+// fnPaths are the chains of tuple items and Box fields, at most depth
 // long, from chain (of type t) to a function it holds.
 func fnPaths(t *gt, chain string, depth int) []fnPath {
 	if depth == 0 {
@@ -559,8 +559,8 @@ func fnPaths(t *gt, chain string, depth int) []fnPath {
 	}
 	switch t.k {
 	case "Tuple":
-		step("0", t.args[0])
-		step("1", t.args[1])
+		step("first", t.args[0])
+		step("second", t.args[1])
 	case "Box":
 		step("v", t.args[0])
 	}
@@ -688,8 +688,8 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 			body := g.use(t, gvar{x, u}, d, append(sc, gvar{x, u}))
 			return pipeHead(g.expr(u, d, sc)) + "\n|> then fn " + x + " -> " + body + g.tapStage()
 		},
-		func() string { return paren("#("+lit(t)+", "+lit(g.typ(1))+")") + ".0" },
-		func() string { return paren("#("+lit(g.typ(1))+", "+lit(t)+")") + ".1" },
+		func() string { return paren("("+lit(t)+", "+lit(g.typ(1))+")") + ".first" },
+		func() string { return paren("("+lit(g.typ(1))+", "+lit(t)+")") + ".second" },
 		func() string {
 			u := other()
 			f := g.fresh("f")
@@ -700,7 +700,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 			cb := g.callback(u, t, d, sc, held)
 			if held {
 				// The function held in tuples and boxes, and called
-				// through the chain that reads it (`f.v.0(x)`).
+				// through the chain that reads it (`f.v.first(x)`).
 				holder, ht := g.holdFn(cb, ft)
 				paths := fnPaths(ht, f, 4)
 				return "{\n" + f + ": " + ht.String() + " = " + holder + "\n" + paths[len(paths)-1].chain + "(" + g.expr(u, d, sc) + ")\n}"
@@ -851,7 +851,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 		add(func() string { return g.okOf(u, g.expr(u, d, sc)) },
 			func() string { return "pick(" + g.boolLit() + ", Err(\"bad\"), Ok(" + g.expr(u, d, sc) + "))" })
 	case "Tuple":
-		add(func() string { return "#(" + lit(t.args[0]) + ", " + lit(t.args[1]) + ")" })
+		add(func() string { return "(" + lit(t.args[0]) + ", " + lit(t.args[1]) + ")" })
 	case "Box":
 		u := t.args[0]
 		add(func() string { return "Box{v: " + lit(u) + "}" },
@@ -1120,7 +1120,7 @@ var genLeafInners = []struct {
 	{typ: "Duration", val: func(n int) string { return fmt.Sprintf("Duration.seconds(%d)", n) }},
 	{typ: "List<Decimal>", val: func(n int) string { return fmt.Sprintf("[%d.5d, 0.25d]", n) }},
 	{typ: "Maybe<Decimal>", val: func(n int) string { return fmt.Sprintf("Some(%d.5d)", n) }},
-	{typ: "#(Decimal, Bytes)", val: func(n int) string { return fmt.Sprintf("#(%d.5d, String.to_bytes(\"t\"))", n) }},
+	{typ: "(Decimal, Bytes)", val: func(n int) string { return fmt.Sprintf("(%d.5d, String.to_bytes(\"t\"))", n) }},
 	{typ: "Map<String, Decimal>", val: func(n int) string { return fmt.Sprintf("%%{\"k\" => %d.5d}", n) }},
 	{typ: "Set<Decimal>", val: func(n int) string { return fmt.Sprintf("%%[%d.5d]", n) }},
 	{typ: "Vector<Bytes>", val: func(n int) string { return fmt.Sprintf("#[String.to_bytes(\"v%d\")]", n) }},
@@ -1367,7 +1367,7 @@ func (g *gen) erasedBlock() string {
 		fmt.Fprintf(&out, "%s: Display = [%s, %s]\n", name("ev"), a(1), a(2))
 		out.WriteString(show(name("ev")))
 	case 10:
-		fmt.Fprintf(&out, "%s: #(Display, Int) = #(%s, %d)\n#(%s, %s) = %s\n", name("ev"), val(), r.Intn(10),
+		fmt.Fprintf(&out, "%s: (Display, Int) = (%s, %d)\n(%s, %s) = %s\n", name("ev"), val(), r.Intn(10),
 			name("ea"), name("eb"), name("ev"))
 		fmt.Fprintf(&out, "io.print(\"${Display.to_string(%s)} ${Int.to_string(%s)}\")\n", name("ea"), name("eb"))
 	case 11:
@@ -1375,7 +1375,7 @@ func (g *gen) erasedBlock() string {
 		fmt.Fprintf(&out, "io.print(Map.values(%s) |> Iter.map(Display.to_string) |> String.join(\",\"))\n", name("ev"))
 	case 12:
 		fmt.Fprintf(&out, "%s: Display = %s\n%s = [#{n: 1, d: %s}]\n", name("ed"), val(), name("ev"), name("ed"))
-		fmt.Fprintf(&out, "io.print(%s |> Iter.with_index() |> Iter.map(fn #(i, x) -> \"${Int.to_string(i)}:${Display.to_string(x.d)}\") |> String.join(\",\"))\n", name("ev"))
+		fmt.Fprintf(&out, "io.print(%s |> Iter.with_index() |> Iter.map(fn (i, x) -> \"${Int.to_string(i)}:${Display.to_string(x.d)}\") |> String.join(\",\"))\n", name("ev"))
 	case 0:
 		fmt.Fprintf(&out, "fn %s() -> Display {\n%s\n}\n", name("er"), val())
 		out.WriteString(show(name("er") + "()"))
@@ -1460,7 +1460,7 @@ func (g *gen) fixedKindBlock() string {
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("fo"))
 	case 5:
 		rhs := []string{"[]", fmt.Sprintf("[%d]", n)}[r.Intn(2)]
-		fmt.Fprintf(&out, "io.print(#(%d, []) == #(%d, %s))\n", n, n, rhs)
+		fmt.Fprintf(&out, "io.print((%d, []) == (%d, %s))\n", n, n, rhs)
 	case 6:
 		fmt.Fprintf(&out, "%s: Captured<List<Int>> = Captured{value: [], output: \"\", transcript: \"\"}\n", name("fk"))
 		fmt.Fprintf(&out, "io.inspect(%s.value)\n", name("fk"))
@@ -1470,7 +1470,7 @@ func (g *gen) fixedKindBlock() string {
 		fmt.Fprintf(&out, "io.print(Iter.count(%s))\n", name("fi"))
 	case 8:
 		embeds()
-		fmt.Fprintf(&out, "type %s #(Iter<%s>, Int)\n", name("Pair"), fig)
+		fmt.Fprintf(&out, "type %s (Iter<%s>, Int)\n", name("Pair"), fig)
 		fmt.Fprintf(&out, "%s(%s, %s) = %s([%s], %d)\n", name("Pair"), name("fi"), name("fq"), name("Pair"), fc, n)
 		fmt.Fprintf(&out, "io.print(Iter.count(%s) + %s)\n", name("fi"), name("fq"))
 	case 9:
@@ -1582,7 +1582,7 @@ func (g *gen) iterBlock() string {
 		case 0:
 			out.WriteString(apply(fmt.Sprintf("Iter.concat(%s, %s)", fs, fs)))
 		case 1:
-			fmt.Fprintf(&out, "io.inspect(Iter.zip([%d, %d], %s) |> Iter.map(fn #(n, f) -> f(n)) |> Iter.to_list())\n", a, b, fs)
+			fmt.Fprintf(&out, "io.inspect(Iter.zip([%d, %d], %s) |> Iter.map(fn (n, f) -> f(n)) |> Iter.to_list())\n", a, b, fs)
 		case 2:
 			fmt.Fprintf(&out, "io.inspect(Iter.chunks(%s, %d) |> Iter.map(fn c -> Iter.count(c)) |> Iter.to_list())\n", fs, 1+r.Intn(2))
 		case 3:
@@ -1681,31 +1681,31 @@ func (g *gen) patternBlock(inTest bool) string {
 	out.WriteString("{\n")
 	shape := r.Intn(10)
 	if shape < 4 {
-		fmt.Fprintf(&out, "type %s #(Int, String)\n", pair)
+		fmt.Fprintf(&out, "type %s (Int, String)\n", pair)
 	}
 	switch shape {
 	case 0:
-		fmt.Fprintf(&out, "%s = #(%s(%d, %s), %d)\n", name("pv"), pair, a, str, b)
-		fmt.Fprintf(&out, "io.inspect(case %s {\n#(%s(%d, \"a\"), _) -> 1\n#(%s(n, _), %d) -> n\n_ -> 0\n})\n",
+		fmt.Fprintf(&out, "%s = (%s(%d, %s), %d)\n", name("pv"), pair, a, str, b)
+		fmt.Fprintf(&out, "io.inspect(case %s {\n(%s(%d, \"a\"), _) -> 1\n(%s(n, _), %d) -> n\n_ -> 0\n})\n",
 			name("pv"), pair, r.Intn(4), pair, r.Intn(4))
 	case 1:
-		fmt.Fprintf(&out, "#(%s(%s, _), %s) = #(%s(%d, %s), %d)\n", pair, name("px"), name("py"), pair, a, str, b)
+		fmt.Fprintf(&out, "(%s(%s, _), %s) = (%s(%d, %s), %d)\n", pair, name("px"), name("py"), pair, a, str, b)
 		fmt.Fprintf(&out, "io.inspect(%s + %s)\n", name("px"), name("py"))
 	case 2:
-		fmt.Fprintf(&out, "fn %s(m: Maybe<#(%s, Int)>) -> Int {\nSome(#(%s(x, _), %d)) = m else { return -1 }\nx\n}\n",
+		fmt.Fprintf(&out, "fn %s(m: Maybe<(%s, Int)>) -> Int {\nSome((%s(x, _), %d)) = m else { return -1 }\nx\n}\n",
 			name("pf"), pair, pair, r.Intn(3))
-		fmt.Fprintf(&out, "io.inspect(%s(Some(#(%s(%d, %s), %d))))\nio.inspect(%s(None))\n",
+		fmt.Fprintf(&out, "io.inspect(%s(Some((%s(%d, %s), %d))))\nio.inspect(%s(None))\n",
 			name("pf"), pair, a, str, r.Intn(3), name("pf"))
 	case 3:
 		en := name("Pe")
-		fmt.Fprintf(&out, "enum %s {\nRec {p: %s}\nDist %s\nTp #(%s, Int)\nNope\n}\n", en, pair, pair, pair)
+		fmt.Fprintf(&out, "enum %s {\nRec {p: %s}\nDist %s\nTp (%s, Int)\nNope\n}\n", en, pair, pair, pair)
 		vals := []string{
 			fmt.Sprintf("%s.Rec{p: %s(%d, %s)}", en, pair, a, str),
 			fmt.Sprintf("%s.Dist(%s(%d, %s))", en, pair, a, str),
-			fmt.Sprintf("%s.Tp(#(%s(%d, %s), %d))", en, pair, a, str, b),
+			fmt.Sprintf("%s.Tp((%s(%d, %s), %d))", en, pair, a, str, b),
 			en + ".Nope",
 		}
-		fmt.Fprintf(&out, "%s = %s\nio.inspect(case %s {\n.Rec{p: %s(n, \"a\")} -> n\n.Dist(%s(n, _) as _w) -> n + 10\n.Tp(#(%s(n, _), m)) -> n + m\n_ -> 0\n})\n",
+		fmt.Fprintf(&out, "%s = %s\nio.inspect(case %s {\n.Rec{p: %s(n, \"a\")} -> n\n.Dist(%s(n, _) as _w) -> n + 10\n.Tp((%s(n, _), m)) -> n + m\n_ -> 0\n})\n",
 			name("pe"), vals[r.Intn(len(vals))], name("pe"), pair, pair, pair)
 	case 4:
 		stack := name("Stk")
@@ -1736,7 +1736,7 @@ func (g *gen) patternBlock(inTest bool) string {
 		fmt.Fprintf(&out, "%s = %s\n%s = %s.f\nio.inspect(%s(%s.k))\n", name("po"), vals[r.Intn(len(vals))], name("pg"), name("po"), name("pg"), name("po"))
 	case 8:
 		id, f, v := name("Pid"), name("pf"), name("pn")
-		fmt.Fprintf(&out, "type %s Int\n%s = fn x: Int -> x + %d\n%s = %d\nio.inspect(%s(%s))\n%s(%s) = %s(%s + 1)\n#(%s, %s) = #(fn x: Int -> x * 2, %s)\nio.inspect(%s(%s))\n",
+		fmt.Fprintf(&out, "type %s Int\n%s = fn x: Int -> x + %d\n%s = %d\nio.inspect(%s(%s))\n%s(%s) = %s(%s + 1)\n(%s, %s) = (fn x: Int -> x * 2, %s)\nio.inspect(%s(%s))\n",
 			id, f, a, v, b, f, v, id, v, id, v, f, v, v, f, v)
 	case 7:
 		subject := fmt.Sprintf(`"/p/%d"`, a)
@@ -1773,7 +1773,7 @@ func (g *gen) callBlock() string {
 	case 12:
 		// A capture: an operator, one parameter used twice, a filter's
 		// predicate and a tuple literal.
-		forms := []string{"Iter.map([1, %d], &(&1 * 2 + 1))", "Iter.map([1, %d], &(&1 * &1))", "Iter.filter([1, %d], &(&1 > 1))", "Iter.map([1, %d], &#(&1, 0))"}
+		forms := []string{"Iter.map([1, %d], &(&1 * 2 + 1))", "Iter.map([1, %d], &(&1 * &1))", "Iter.filter([1, %d], &(&1 > 1))", "Iter.map([1, %d], &(&1, 0))"}
 		fmt.Fprintf(&out, "io.inspect(%s |> Iter.to_list())\n", fmt.Sprintf(forms[r.Intn(len(forms))], n))
 	case 11:
 		// A partial that leaves a slot with a computed default unmentioned,
@@ -1819,10 +1819,10 @@ func (g *gen) callBlock() string {
 	case 5:
 		// A generic helper with a destructuring parameter and a default
 		// that reads its names, called with named arguments.
-		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<A, B>(#(a, b): #(A, B), keep: Bool = False, fallback: A = a) -> #(B, A) {\n"+
-			"if keep {\n#(b, fallback)\n} else {\n#(b, a)\n}\n}", name("csw")))
-		fmt.Fprintf(&out, "io.inspect(%s(keep: True, #(%d, \"x\")))\n", name("csw"), n)
-		fmt.Fprintf(&out, "io.inspect(%s(#(%d, %s), fallback: 9, keep: %s))\n", name("csw"), n, g.boolLitFrom(r), g.boolLitFrom(r))
+		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<A, B>((a, b): (A, B), keep: Bool = False, fallback: A = a) -> (B, A) {\n"+
+			"if keep {\n(b, fallback)\n} else {\n(b, a)\n}\n}", name("csw")))
+		fmt.Fprintf(&out, "io.inspect(%s(keep: True, (%d, \"x\")))\n", name("csw"), n)
+		fmt.Fprintf(&out, "io.inspect(%s((%d, %s), fallback: 9, keep: %s))\n", name("csw"), n, g.boolLitFrom(r), g.boolLitFrom(r))
 	case 0:
 		fmt.Fprintf(&out, "%s = concurrent {\n%s = Task.spawn(body: fn -> %d)\nTask.await(task: %s)\n}\n", name("ct"), name("tk"), n, name("tk"))
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
@@ -1954,8 +1954,8 @@ func (g *gen) leaveBlock() string {
 		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lt"), r.Intn(7)-1)
 	default:
 		// A nested fn's destructuring parameter.
-		fmt.Fprintf(&out, "fn %s(#(a, b): #(Int, String)) -> String {\n\"${b}${a + %d}\"\n}\n", name("ld"), n)
-		fmt.Fprintf(&out, "io.inspect(%s(#(%d, \"d\")))\n", name("ld"), r.Intn(9))
+		fmt.Fprintf(&out, "fn %s((a, b): (Int, String)) -> String {\n\"${b}${a + %d}\"\n}\n", name("ld"), n)
+		fmt.Fprintf(&out, "io.inspect(%s((%d, \"d\")))\n", name("ld"), r.Intn(9))
 	}
 	out.WriteString("}\n")
 	return out.String()
@@ -2001,7 +2001,7 @@ func (g *gen) holdBlock() string {
 		}
 		v := vals[r.Intn(len(vals))]
 		fmt.Fprintf(&out, "%s = %s\n", name("hv"), v)
-		fmt.Fprintf(&out, "%s = [#(%s, %d)]\n", name("hk"), name("hv"), n)
+		fmt.Fprintf(&out, "%s = [(%s, %d)]\n", name("hk"), name("hv"), n)
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("hk"))
 		fmt.Fprintf(&out, "io.inspect(%s == %s)\n", name("hv"), vals[r.Intn(len(vals))])
 		fmt.Fprintf(&out, "io.print(case %s {\n%s.Pinged(u) -> Debug.inspect(u)\n%s.Marked(m) -> Debug.inspect(m)\n_ -> \"other\"\n})\n",
@@ -2024,7 +2024,7 @@ func (g *gen) holdBlock() string {
 			break
 		}
 		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<T>(a: T, b: T) -> Bool where T: Equatable {\nEquatable.equal(a, b)\n}", name("heq")))
-		fmt.Fprintf(&out, "io.inspect(%s(#(%d, \"x\"), #(%d, \"x\")))\n", name("heq"), n, n+r.Intn(2))
+		fmt.Fprintf(&out, "io.inspect(%s((%d, \"x\"), (%d, \"x\")))\n", name("heq"), n, n+r.Intn(2))
 		fmt.Fprintf(&out, "io.inspect(Equatable.equal(#{a: %d}, #{a: %d}))\n", n, n+r.Intn(2))
 	default:
 		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = %d) -> Int {\na * 10 + b\n}\n", name("hd"), n)
@@ -2068,8 +2068,8 @@ func (g *gen) deferBlock() string {
 		if g.local {
 			break
 		}
-		g.helpers = append(g.helpers, fmt.Sprintf("enum %s {\nLeaf\nNode#(%s, Int)\n}\n\n"+
-			"impl Equatable for %s {\nfn equal(a: %s, b: %s) -> Bool {\ncase #(a, b) {\n#(.Leaf, .Leaf) -> True\n#(.Node(l, x), .Node(r, y)) -> x == y and l == r\n_ -> False\n}\n}\n}",
+		g.helpers = append(g.helpers, fmt.Sprintf("enum %s {\nLeaf\nNode(%s, Int)\n}\n\n"+
+			"impl Equatable for %s {\nfn equal(a: %s, b: %s) -> Bool {\ncase (a, b) {\n(.Leaf, .Leaf) -> True\n(.Node(l, x), .Node(r, y)) -> x == y and l == r\n_ -> False\n}\n}\n}",
 			name("Tr"), name("Tr"), name("Tr"), name("Tr"), name("Tr")))
 		leaf := name("Tr") + ".Leaf"
 		node := func(k int) string { return fmt.Sprintf("%s.Node(%s.Node(%s, %d), 1)", name("Tr"), name("Tr"), leaf, k) }

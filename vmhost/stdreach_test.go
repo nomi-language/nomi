@@ -71,16 +71,16 @@ impl Hashable for H {
 }
 
 enum E {
-  Pair #(Int, Int)
+  Pair (Int, Int)
 }
 
 derive Hashable for E
 
 fn main() {
-  io.print(Hashable.hash(#(1, 2)))
-  io.print(Hashable.hash(#(1, 2, 3)))
-  io.print(Hashable.hash(#(H{k: 2, note: "x"}, 3)))
-  io.print(Hashable.hash(E.Pair(#(1, 2))) == Hashable.hash(#(1, 2)))
+  io.print(Hashable.hash((1, 2)))
+  io.print(Hashable.hash((1, 2, 3)))
+  io.print(Hashable.hash((H{k: 2, note: "x"}, 3)))
+  io.print(Hashable.hash(E.Pair((1, 2))) == Hashable.hash((1, 2)))
 }
 `, "33\n1026\n62003\nTrue\n"},
 		{"a struct-shaped variant's positional binding is its record", `import std::io
@@ -114,7 +114,7 @@ impl Equatable for Tag {
 }
 
 fn main() {
-  io.print(#(Tag{name: "x", note: "1"}, 1) == #(Tag{name: "x", note: "2"}, 1))
+  io.print((Tag{name: "x", note: "1"}, 1) == (Tag{name: "x", note: "2"}, 1))
   io.print(Some(Tag{name: "x", note: "1"}) == Some(Tag{name: "x", note: "2"}))
   io.print([Tag{name: "x", note: "1"}] == [Tag{name: "x", note: "2"}])
 }

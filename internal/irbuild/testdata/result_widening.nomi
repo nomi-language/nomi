@@ -16,12 +16,12 @@ impl Named for Pt {
     }
 }
 
-fn pair() -> #(Int, Named) {
-    #(1, Pt{x: 5})
+fn pair() -> (Int, Named) {
+    (1, Pt{x: 5})
 }
 
-fn gen<A>(a: A) -> #(A, Named) {
-    #(a, Pt{x: 6})
+fn gen<A>(a: A) -> (A, Named) {
+    (a, Pt{x: 6})
 }
 
 fn named_list() -> List<Named> {
@@ -29,9 +29,9 @@ fn named_list() -> List<Named> {
 }
 
 fn main() {
-    #(n, named) = pair()
+    (n, named) = pair()
     io.print("${n} ${Named.name(named)}")
-    io.print(Named.name(gen("a").1))
+    io.print(Named.name(gen("a").second))
 
     io.print(
         named_list()

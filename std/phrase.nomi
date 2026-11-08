@@ -274,52 +274,52 @@ impl Localize for Noun {
 
 impl Equatable for Argument {
     fn equal(a: Argument, b: Argument) -> Bool {
-        case #(a, b) {
-            #(Argument.Integer(x), Argument.Integer(y)) ->
+        case (a, b) {
+            (Argument.Integer(x), Argument.Integer(y)) ->
                 x == y
 
-            #(Argument.Floating(x), Argument.Floating(y)) ->
+            (Argument.Floating(x), Argument.Floating(y)) ->
                 x == y
 
-            #(Argument.Exact(x), Argument.Exact(y)) ->
+            (Argument.Exact(x), Argument.Exact(y)) ->
                 x == y
 
-            #(Argument.Text(x), Argument.Text(y)) ->
+            (Argument.Text(x), Argument.Text(y)) ->
                 x == y
 
-            #(Argument.Variant(x), Argument.Variant(y)) ->
+            (Argument.Variant(x), Argument.Variant(y)) ->
                 x == y
 
-            #(Argument.Localized{shown: x, name: m, localize: _}, Argument.Localized{
+            (Argument.Localized{shown: x, name: m, localize: _}, Argument.Localized{
                 shown: y,
                 name: n,
                 localize: _,
             }) ->
                 x == y and m == n
 
-            #(Argument.Named(x), Argument.Named(y)) ->
+            (Argument.Named(x), Argument.Named(y)) ->
                 x == y
 
-            #(Argument.Items(x), Argument.Items(y)) ->
+            (Argument.Items(x), Argument.Items(y)) ->
                 x == y
 
-            #(Argument.Day(x), Argument.Day(y)) ->
+            (Argument.Day(x), Argument.Day(y)) ->
                 x == y
 
-            #(Argument.Clock(x), Argument.Clock(y)) ->
+            (Argument.Clock(x), Argument.Clock(y)) ->
                 x == y
 
-            #(Argument.Moment{key: x, shown: _, localize: _}, Argument.Moment{
+            (Argument.Moment{key: x, shown: _, localize: _}, Argument.Moment{
                 key: y,
                 shown: _,
                 localize: _,
             }) ->
                 x == y
 
-            #(Argument.Amount(x), Argument.Amount(y)) ->
+            (Argument.Amount(x), Argument.Amount(y)) ->
                 x == y
 
-            #(Argument.Nested(x), Argument.Nested(y)) ->
+            (Argument.Nested(x), Argument.Nested(y)) ->
                 x == y
 
             _ ->
@@ -417,7 +417,7 @@ impl Catalog {
     ///
     /// ```nomi
     /// fn refresh(text: String) -> Catalog {
-    ///     #(catalog, rejected) = Catalog.load(text, Locale`pl`)
+    ///     (catalog, rejected) = Catalog.load(text, Locale`pl`)
     ///     Iter.each(rejected, fn r -> io.print("${r.locale} ${r.key}: ${r.reason}"))
     ///     catalog
     /// }
@@ -426,10 +426,10 @@ impl Catalog {
     ///     cart.cart_items(3) |> Phrase.format(Locale`pl`, catalogs: [catalog])
     /// }
     /// ```
-    pub fn load(text: String, locale: Locale) -> #(Catalog, List<Rejected>) {
+    pub fn load(text: String, locale: Locale) -> (Catalog, List<Rejected>) {
         case phrase_format.load(text, locale) {
-            [entries, ..rest] -> #(Catalog{locale, entries}, rejections(rest, locale))
-            [] -> #(Catalog{locale, entries: ""}, [])
+            [entries, ..rest] -> (Catalog{locale, entries}, rejections(rest, locale))
+            [] -> (Catalog{locale, entries: ""}, [])
         }
     }
 

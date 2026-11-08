@@ -673,6 +673,52 @@ var appTypeEdits = []editStep{
 	restore("boot back", "main"),
 }
 
+// anonFieldsProject reads, in main, the fields of an anonymous struct an
+// unannotated `once` of routes builds. A read refers to the label in routes
+// (FieldDef.File and its position), so an edit to routes that moves a
+// label, with the once's type unchanged, must move what main holds too.
+func anonFieldsProject() incrementalProject {
+	return incrementalProject{name: "anonymous fields", entry: "main", texts: map[string]string{
+		"main": `import {
+    std::io
+    routes
+}
+
+fn main() {
+    io.print(routes.public.other)
+    #{home} = routes.public
+    io.print(home)
+    io.print("${routes.helper()}")
+}
+`,
+		"routes": `pub fn helper() -> Int {
+    1
+}
+
+pub once public = #{
+    home: "/",
+    other: "x",
+}
+
+fn local() -> String {
+    public.other
+}
+`,
+	}}
+}
+
+var anonFieldsEdits = []editStep{
+	replace("body only, positions shift", "routes", "    1\n", "    // One.\n\n    1\n"),
+	replace("body only, once value, a label moves after the edit", "routes", "    other: \"x\",\n", "    // The other.\n    other: \"x\",\n"),
+	replace("body only, main", "main", "io.print(home)", "io.print(home + \"!\")"),
+	replace("body only, once value, the labels move together", "routes", "pub once public = #{\n", "pub once public = #{\n\n"),
+	replace("once value, a label moves inside the edit", "routes", "\"/\",\n    // The other.\n    other: \"x\"", "\"/\", other: \"y\""),
+	replace("body only, main again", "main", "io.print(home + \"!\")", "io.print(home)"),
+	restore("routes back", "routes"),
+	replace("once value, a label renamed", "routes", "other: \"x\"", "another: \"x\""),
+	restore("routes back again", "routes"),
+}
+
 // signalProject is a project whose entry uses another file's functions as
 // iteration callbacks: keep as the callback itself, step as a loop's named
 // step with `from:`, and score called inside a callback's own code. Which of `break`
@@ -735,6 +781,9 @@ func TestIncrementalMatchesFull(t *testing.T) {
 	})
 	t.Run("signal", func(t *testing.T) {
 		runChecked(t, signalProject(), signalEdits, recheck)
+	})
+	t.Run("anonymous fields", func(t *testing.T) {
+		runChecked(t, anonFieldsProject(), anonFieldsEdits, recheck)
 	})
 	t.Run("phrases", func(t *testing.T) {
 		p := phrasesProject(t)

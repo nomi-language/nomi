@@ -13,12 +13,12 @@ A collection never changes. An operation that adds, removes or replaces
 something gives you a new collection, and the original stays as it was.
 Collections that work this way are called persistent.
 
-A collection literal starts with a symbol that says its shape. `#` marks the
-shapes you read by position: a vector `#[1, 2]`, and also a tuple `#(1, "a")`
-and a struct `#{x: 1}` ([Structs, Enums and Distinct
-Types](/structs-enums-distinct/)). `%` marks the shapes that find a value by
-hashing it: a map `%{"a" => 1}` and a set `%[1, 2]`. A list, the commonest
-collection, has no symbol: `[1, 2]`.
+A collection literal starts with a symbol that says its shape. `#` marks a
+vector `#[1, 2]`, and also an anonymous struct `#{x: 1}` ([Structs, Enums
+and Distinct Types](/structs-enums-distinct/)). `%` marks the shapes that
+find a value by hashing it: a map `%{"a" => 1}` and a set `%[1, 2]`. A list,
+the commonest collection, has no symbol: `[1, 2]`, and a tuple is its
+parentheses with a comma inside, `(1, "a")`.
 
 A type you build on a collection writes its name right after the symbol:
 `#Path[1, 2]` for `type Path Vector<Int>`, `%Tags["a"]` for

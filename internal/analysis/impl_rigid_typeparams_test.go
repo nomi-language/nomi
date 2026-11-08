@@ -28,7 +28,7 @@ const rigidMapperDecls = `interface Named {
 
 interface Mapper<T> {
     fn apply<U>(m: self, f: (T) -> U) -> List<U>
-    fn both<U, W>(m: self, f: (T) -> U, g: (T) -> W) -> #(List<U>, List<W>)
+    fn both<U, W>(m: self, f: (T) -> U, g: (T) -> W) -> (List<U>, List<W>)
     fn pick<U>(m: self, x: U, y: U) -> U where U: Equatable
 }
 
@@ -46,7 +46,7 @@ func mapperImpl(apply, both, pick string) string {
 
 const (
 	goodApply = "    fn apply<V>(b: Bag<T>, f: (T) -> V) -> List<V> {\n        b.items |> Iter.map(f) |> Iter.to_list()\n    }\n"
-	goodBoth  = "    fn both<X, Y>(b: Bag<T>, f: (T) -> X, g: (T) -> Y) -> #(List<X>, List<Y>) {\n        #(b.items |> Iter.map(f) |> Iter.to_list(), b.items |> Iter.map(g) |> Iter.to_list())\n    }\n"
+	goodBoth  = "    fn both<X, Y>(b: Bag<T>, f: (T) -> X, g: (T) -> Y) -> (List<X>, List<Y>) {\n        (b.items |> Iter.map(f) |> Iter.to_list(), b.items |> Iter.map(g) |> Iter.to_list())\n    }\n"
 	goodPick  = "    fn pick<U>(_b: Bag<T>, x: U, y: U) -> U where U: Equatable {\n        if x == y { x } else { y }\n    }\n"
 )
 
@@ -62,7 +62,7 @@ func TestImplRigidTypeParams_Rejected(t *testing.T) {
 		},
 		{
 			"parameter type names a concrete type where the interface has the impl's parameter",
-			rigidStoreDecls + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<T> {\n        Map.get(cache.items, key)\n    }\n\n    fn put(cache: Cache<T>, key: String, value: Int) -> Cache<T> {\n        _ = #(key, value)\n        cache\n    }\n}\n",
+			rigidStoreDecls + "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<T> {\n        Map.get(cache.items, key)\n    }\n\n    fn put(cache: Cache<T>, key: String, value: Int) -> Cache<T> {\n        _ = (key, value)\n        cache\n    }\n}\n",
 			[]string{"impl function 'put': parameter 3 has type Int, but interface 'Store' declares T"},
 		},
 		{
@@ -72,7 +72,7 @@ func TestImplRigidTypeParams_Rejected(t *testing.T) {
 		},
 		{
 			"nested generic with a concrete argument",
-			rigidStoreDecls + "impl Store<String, List<T>> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<List<Int>> {\n        _ = #(cache, key)\n        None\n    }\n\n    fn put(cache: Cache<T>, key: String, value: List<T>) -> Cache<T> {\n        _ = #(key, value)\n        cache\n    }\n}\n",
+			rigidStoreDecls + "impl Store<String, List<T>> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<List<Int>> {\n        _ = (cache, key)\n        None\n    }\n\n    fn put(cache: Cache<T>, key: String, value: List<T>) -> Cache<T> {\n        _ = (key, value)\n        cache\n    }\n}\n",
 			[]string{"impl function 'get': return type Maybe<List<Int>> does not match interface 'Store' return type Maybe<List<T>>"},
 		},
 		{
@@ -87,8 +87,8 @@ func TestImplRigidTypeParams_Rejected(t *testing.T) {
 		},
 		{
 			"two function-level parameters merged",
-			mapperImpl(goodApply, "    fn both<X>(b: Bag<T>, f: (T) -> X, g: (T) -> X) -> #(List<X>, List<X>) {\n        #(b.items |> Iter.map(f) |> Iter.to_list(), b.items |> Iter.map(g) |> Iter.to_list())\n    }\n", goodPick),
-			[]string{"impl function 'both': parameter 3 has type (T) -> X, but interface 'Mapper' declares (T) -> W", "impl function 'both': return type #(List<X>, List<X>) does not match interface 'Mapper' return type #(List<U>, List<W>)"},
+			mapperImpl(goodApply, "    fn both<X>(b: Bag<T>, f: (T) -> X, g: (T) -> X) -> (List<X>, List<X>) {\n        (b.items |> Iter.map(f) |> Iter.to_list(), b.items |> Iter.map(g) |> Iter.to_list())\n    }\n", goodPick),
+			[]string{"impl function 'both': parameter 3 has type (T) -> X, but interface 'Mapper' declares (T) -> W", "impl function 'both': return type (List<X>, List<X>) does not match interface 'Mapper' return type (List<U>, List<W>)"},
 		},
 		{
 			"where bound the interface function does not carry",
@@ -127,7 +127,7 @@ func TestImplRigidTypeParams_Accepted(t *testing.T) {
 		},
 		{
 			"nested generic over the impl's parameter",
-			rigidStoreDecls + "impl Store<String, List<T>> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<List<T>> {\n        _ = #(cache, key)\n        None\n    }\n\n    fn put(cache: Cache<T>, key: String, value: List<T>) -> Cache<T> {\n        _ = #(key, value)\n        cache\n    }\n}\n",
+			rigidStoreDecls + "impl Store<String, List<T>> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Maybe<List<T>> {\n        _ = (cache, key)\n        None\n    }\n\n    fn put(cache: Cache<T>, key: String, value: List<T>) -> Cache<T> {\n        _ = (key, value)\n        cache\n    }\n}\n",
 		},
 		{
 			"two impl parameters in place",
@@ -139,7 +139,7 @@ func TestImplRigidTypeParams_Accepted(t *testing.T) {
 		},
 		{
 			"function-level parameters renamed in swapped order",
-			mapperImpl(goodApply, "    fn both<Y, X>(b: Bag<T>, f: (T) -> X, g: (T) -> Y) -> #(List<X>, List<Y>) {\n        #(b.items |> Iter.map(f) |> Iter.to_list(), b.items |> Iter.map(g) |> Iter.to_list())\n    }\n", goodPick),
+			mapperImpl(goodApply, "    fn both<Y, X>(b: Bag<T>, f: (T) -> X, g: (T) -> Y) -> (List<X>, List<Y>) {\n        (b.items |> Iter.map(f) |> Iter.to_list(), b.items |> Iter.map(g) |> Iter.to_list())\n    }\n", goodPick),
 		},
 		{
 			"where bound on the impl's parameter, written on the block",

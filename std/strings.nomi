@@ -510,8 +510,8 @@ impl String {
     /// a list.
     //! import std::regex.Regex
     //!
-    //! assert String.captures("ann@home", Regex`(\w+)@(\w+)`) == Some(#("ann", "home"))
-    //! assert String.captures("b", Regex`(a)|(b)`) == Some(#(None, Some("b")))
+    //! assert String.captures("ann@home", Regex`(\w+)@(\w+)`) == Some(("ann", "home"))
+    //! assert String.captures("b", Regex`(a)|(b)`) == Some((None, Some("b")))
     //! assert String.captures("v12", Regex`v(\d+)`) == Some("12")
     //! date = Regex`(?P<year>\d{4})-(?P<month>\d\d)?`
     //! assert String.captures("2024-", date) == Some(#{year: "2024", month: None})
@@ -531,7 +531,7 @@ impl String {
     //! import std::regex.Regex
     //!
     //! pairs = String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`)
-    //! assert pairs == [#("a", "1"), #("b", "22")]
+    //! assert pairs == [("a", "1"), ("b", "22")]
     //! assert String.captures_all("none", Regex`(\d)`) == []
     //
     pub fn captures_all<C>(s: String, re: Regex<C>) -> List<C> {

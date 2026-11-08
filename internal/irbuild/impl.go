@@ -489,7 +489,7 @@ func (g *gen) resolveIface(d *ifaceDef) {
 				m.params = append(m.params, kindInvalid)
 				continue
 			}
-			// paramKind, so a destructuring parameter (`#(a, b): #(Int, Int)`,
+			// paramKind, so a destructuring parameter (`(a, b): (Int, Int)`,
 			// `Point{x, y}`) has the kind its annotation or pattern head names;
 			// a default body's prologue reads its names off that value.
 			m.params = append(m.params, g.paramKind(im.Params[j]))
@@ -571,6 +571,11 @@ func (g *gen) methodDispatchGap(d *ifaceDef, im *ast.InterfaceMethod, m *ifaceMe
 // table still exists. See dict.go and stdiface.go.
 const gapMultiSelf = "interface function with more than one self-typed parameter"
 
+// gapGenericIfaceFunc is an interface function with a type parameter of its
+// own, or a `where` subject nothing binds: withheld from each implementing
+// block and instantiated per call (methodinst.go).
+const gapGenericIfaceFunc = "generic interface function"
+
 // erasedReceiverGap names what stops an ERASED RECEIVER from selecting an
 // implementation of m, from m's resolved SHAPE alone.
 //
@@ -632,7 +637,7 @@ func (g *gen) methodSignatureGap(im *ast.InterfaceMethod, m *ifaceMethod) (strin
 		// its unbound `where` subjects: `fn pick<K>(…) where K: Comparable` has
 		// both, and two arms with one answer would each mask the other's
 		// absence. See ifaceinst.go.
-		return "generic interface function", true
+		return gapGenericIfaceFunc, true
 	case im.Extern:
 		return "host-backed interface function", true
 	case m.shape.resultNestedSelf():
@@ -1070,13 +1075,12 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 			continue
 		}
 		switch {
-		case p.TypeAnnotation == nil:
-			// A DEFAULTED parameter is no exception: paramKind's rule, that
-			// inferring a `fn` parameter's type from its default would be a
-			// second inference path inside a backend, holds here too.
+		case p.TypeAnnotation == nil && p.Default == nil:
 			return nil, implGap{why: "parameter without a declared type", detail: p.Name, whole: true}
 		}
-		k := g.typeOf(p.TypeAnnotation)
+		// paramKind: a parameter written `limit = 10` has the type the
+		// checker gave it from its default.
+		k := g.paramKind(*p)
 		// The TYPE's own reason, for the caller to reject — the same repoint funcDecl makes. See sigreason.go.
 		// kindInvalid: reports — typeRefusal names the gap the annotation carries.
 		if k == kindInvalid {
@@ -1098,7 +1102,7 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 		}
 	}
 	if d.iface != nil {
-		if m := d.iface.methods[fd.Name]; m == nil {
+		if m := d.iface.methods[fd.Name]; m == nil && !g.stdIfaceOverride(d.iface, fd.Name) {
 			return nil, implGap{why: "impl function not declared on the interface",
 				detail: d.ifaceName + "." + fd.Name, whole: true}
 		}
@@ -1106,8 +1110,11 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 	return it, implGap{}
 }
 
-// inheritDefaults gives the receiver one monomorphized copy of every interface
-// default the block did not override.
+// inheritDefaults gives the receiver one function for every interface
+// default the block did not override: the default's body, lowered for this
+// receiver in this file when the interface is declared here, and otherwise a
+// call of the declaring file's instance at the receiver (irImplLower,
+// ifacedefault.go), whose body that file lowers in its own scope.
 //
 // A default it CANNOT monomorphize is withheld from the block rather than
 // refusing it. Every refusal below is keyed to one `m`, so the block's other
@@ -1129,25 +1136,6 @@ func (g *gen) inheritDefaults(d *implDef) {
 		}
 		gap := implGap{detail: d.ifaceName + "." + m.name}
 		switch {
-		case d.iface.foreign != "" && !g.portableDefault(d.iface, m):
-			// A default's body is Nomi written in the DECLARING file and it is
-			// monomorphized, not called — so lowering it here resolves its
-			// names against THIS file's scope. When the two files resolve one
-			// of those names differently that is a silent wrong answer rather
-			// than a Go compile error, the hazard that has a field default or
-			// a parameter default reached from another file lowered in its
-			// declaring file's gen instead. portableDefault asks
-			// whether any name actually differs, rather than assuming one
-			// does; see existential.go.
-			//
-			// This row routinely stays WHOLE, which is `mayWithhold`'s
-			// condition doing its job: a portable-looking default has an
-			// ordinary signature, so its table is live and every other
-			// implementor binds into it. Withholding it here would leave THIS
-			// receiver with no entry in a table an erased call reaches, a
-			// run-time trap in place of a refusal.
-			gap.why = "sibling file interface default"
-			gap.detail = d.iface.foreign + "." + d.ifaceName + "." + m.name
 		case m.why != "" && !monomorphizedDefaultAnswers[m.why]:
 			// The erased-receiver rows and the rows about `self` in the
 			// signature do not apply to a MONOMORPHIZED default: the body is
@@ -1172,17 +1160,6 @@ func (g *gen) inheritDefaults(d *implDef) {
 			d.noteGap(m.name, gap)
 			continue
 		}
-		if d.iface.foreign != "" {
-			if g.declaredIn == nil {
-				g.declaredIn = map[ast.Node]int{}
-			}
-			g.declaredIn[body] = d.iface.unit
-			for _, p := range m.decl.Params {
-				if p.Default != nil {
-					g.declaredIn[p.Default] = d.iface.unit
-				}
-			}
-		}
 		it := &implItem{
 			impl:      d,
 			instKey:   g.substLinkKey(),
@@ -1195,11 +1172,9 @@ func (g *gen) inheritDefaults(d *implDef) {
 			inherited: true,
 			lowerable: true,
 			// params0 carries the interface's PARAMETER DEFAULTS as well as its
-			// types, so a call site that omits one fills it from here.
-			// portableDefault has already agreed, name by name, that a mirror's
-			// default expressions resolve identically from both files — which
-			// is what makes emitting one in THIS module's scope the same
-			// program the programmer wrote there.
+			// types, so a call site that omits one fills it from here, and
+			// one an interface of another file declares is filled under
+			// that file's names (ifaceslotdefault.go).
 		}
 		d.items[m.name] = it
 		d.order = append(d.order, it)
@@ -1221,7 +1196,7 @@ var monomorphizedDefaultAnswers = map[string]bool{
 
 // inheritedDefaultSig is default m's parameter and result kinds for
 // implementor d, with every `self` in its signature, bare or inside a
-// composite (`#(self, self)`, `List<self>`), read as d's receiver. ok is false
+// composite (`(self, self)`, `List<self>`), read as d's receiver. ok is false
 // when a kind is still outside the subset.
 func (g *gen) inheritedDefaultSig(d *implDef, m *ifaceMethod) ([]kind, kind, bool) {
 	prev := g.defaultSelf
@@ -1755,11 +1730,14 @@ func (g *gen) handWrittenNominalEquatable(k kind) bool {
 	return d != nil && !d.synth
 }
 
-// noEquatableImpl reports whether this builder can ESTABLISH that no
-// `impl Equatable` exists for k anywhere in the program.
+// noImplOf reports whether this builder can ESTABLISH that no `impl iface`
+// exists for k anywhere in the program, where iface is std's Equatable or
+// Hashable.
 //
-// Only asked of a struct-shaped type, and only to decide whether the
-// STRUCTURAL fallback is the right answer. It has to be positive rather than
+// Asked to decide whether the STRUCTURAL fallback is the right answer: for
+// `==` on a struct-shaped type, and for `Equatable.equal` and
+// `Hashable.hash` on a declared type that meets a bound by its equality
+// (spec §5 *Equality and Ordering Semantics*). It has to be positive rather than
 // "the lookup for a callable impl missed", because that lookup misses for two
 // opposite reasons: no impl at all, which is exactly when `==` is structural
 // equality, and an impl this builder cannot lower, which is when `==` CALLS
@@ -1768,7 +1746,7 @@ func (g *gen) handWrittenNominalEquatable(k kind) bool {
 //
 // Three sources. The FOREIGN arm leaves this gen and establishes the answer
 // program-wide off the declaration node the mirror carries; the reasoning, including why the OWNER'S FILE is the wrong scope to
-// ask, is in foreign.go's foreignNoEquatableImpl.
+// ask, is in foreign.go's foreignNoImpl.
 //
 // The std probe reads `byIface` BEFORE the `why`/signature filtering
 // stdlibImplOf applies, which is the whole point: a std impl that exists and
@@ -1780,7 +1758,7 @@ func (g *gen) handWrittenNominalEquatable(k kind) bool {
 // that has no impl, which over-refuses; it can never grant a structural
 // lowering to a type that has one. The error direction is the safe one and
 // that is deliberate.
-func (g *gen) noEquatableImpl(k kind) bool {
+func (g *gen) noImplOf(iface string, k kind) bool {
 	if k.def == nil {
 		return false
 	}
@@ -1788,13 +1766,45 @@ func (g *gen) noEquatableImpl(k kind) bool {
 		// A MIRROR holds none of the owner's impl table, and the answer is not
 		// in this gen at all. It is established program-wide, keyed on the
 		// declaration node the mirror carries verbatim. See foreign.go.
-		return g.foreignNoEquatableImpl(k.def)
+		return g.foreignNoImpl(iface, k.def)
 	}
-	if g.implsByIface["Equatable"][k] != nil {
+	if g.implsByIface[iface][k] != nil {
 		return false
 	}
-	if g.std != nil && len(g.std.byIface["Equatable.equal"][k]) > 0 {
+	if reg := g.programReg(); reg != nil && g.reg == nil && k.def.decl != nil && reg.byDecl[k.def.decl] != nil {
+		// A std instance's body at a type the program declares
+		// (`Maybe.hash<Point>`): this gen's tables are std's, and the
+		// program's impls, derived ones included, are in its own files.
+		return !reg.declaresImpl(iface, k.def.decl)
+	}
+	if g.std != nil && len(g.std.byIface[irStructuralIfaceMethod[iface]][k]) > 0 {
 		return false
 	}
 	return true
 }
+
+// programReg is the registry of the program this gen lowers for: its own,
+// or, for a std instance gen, which has none, its program's units' one.
+func (g *gen) programReg() *typeRegistry {
+	if g.reg != nil {
+		return g.reg
+	}
+	if s := g.stdInsts; s != nil {
+		for _, og := range s.program {
+			if og != nil && og.reg != nil {
+				return og.reg
+			}
+		}
+	}
+	return nil
+}
+
+// irStructuralIfaceMethod is the byIface key of the one method of each
+// interface a declared type may meet by its equality.
+var irStructuralIfaceMethod = map[string]string{
+	"Equatable": "Equatable.equal",
+	"Hashable":  "Hashable.hash",
+}
+
+// noEquatableImpl is noImplOf for Equatable.
+func (g *gen) noEquatableImpl(k kind) bool { return g.noImplOf("Equatable", k) }

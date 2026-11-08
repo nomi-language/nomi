@@ -207,10 +207,10 @@ import std::random.{Generator, Seed}
 
 test "the module-qualified spelling" {
   seed = random.Seed.from_int(7)
-  #(a, _) = random.Generator.step(random.Generator.bool(), seed)
-  #(b, _) = Generator.step(Generator.bool(), Seed.from_int(7))
+  (a, _) = random.Generator.step(random.Generator.bool(), seed)
+  (b, _) = Generator.step(Generator.bool(), Seed.from_int(7))
   assert a == b
-  #(n, _) = random.Generator.step(random.Generator.constant(3), seed)
+  (n, _) = random.Generator.step(random.Generator.constant(3), seed)
   assert n == 3
 }
 `
@@ -352,7 +352,7 @@ test "a failing one still reports the call's value" {
 // the body is retained. This isolates the std-side gate with a structural
 // value, which needs no impl lookup in the one-module std this harness builds.
 func TestNamedCallback_StdBodyInterpolatesAStructuralValue(t *testing.T) {
-	const body = "pub fn label(pair: #(Int, String)) -> String {\n  \"pair ${pair}\"\n}\n"
+	const body = "pub fn label(pair: (Int, String)) -> String {\n  \"pair ${pair}\"\n}\n"
 	var c irFuncRetentionCount
 	defer c.observe(t, irFromStd)()
 	lowerStdSourceOnly(t, body)

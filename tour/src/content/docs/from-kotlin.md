@@ -25,7 +25,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `throw`, `runCatching` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `fun String.shout() = ..`, `"a".shout()` | A plain function, `shout("a")`, or one in `impl` called through its type |
 | `list.map { it.name }` | `Iter.map(list, .name)` |
-| `Pair(a, b)`, `a to b` | `#(a, b)` |
+| `Pair(a, b)`, `a to b` | `(a, b)` |
 | `listOf(1, 2)`, `mapOf("a" to 1)` | `[1, 2]`, `%{"a" => 1}` |
 | `interface` with default methods | `interface`, with each implementation in `impl Interface for Type { .. }` |
 | `coroutineScope { launch { .. } }` | `concurrent { Task.spawn(fn -> ..) }` |

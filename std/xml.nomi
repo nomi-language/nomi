@@ -317,21 +317,21 @@ impl Display for Error {
 //!         column: 9,
 //!     })
 //
-pub fn decode(text: String, allow_doctype: Bool = False) -> Result<Element, Error> {
+pub fn decode(text: String, allow_doctype = False) -> Result<Element, Error> {
     read(Reader.from_text(text), allow_doctype: allow_doctype)
 }
 
 /// The root element of the document `data`, which must be UTF-8.
 //! assert decode_bytes(String.to_bytes("<a/>")) == Ok(Element.new("a"))
 //
-pub fn decode_bytes(data: Bytes, allow_doctype: Bool = False) -> Result<Element, Error> {
+pub fn decode_bytes(data: Bytes, allow_doctype = False) -> Result<Element, Error> {
     read(Reader.from_bytes(data), allow_doctype: allow_doctype)
 }
 
 /// The root element of the document `reader` holds, read to its end.
 //! assert read(Reader.from_text("<a>1</a>")) == Ok(Element.new("a", [Node.Text("1")]))
 //
-pub fn read(reader: Reader, allow_doctype: Bool = False) -> Result<Element, Error> {
+pub fn read(reader: Reader, allow_doctype = False) -> Result<Element, Error> {
     handle = xml_host.open(reader, allow_doctype)
     root = read_root(handle)?
     rest(handle)?
@@ -358,7 +358,7 @@ pub fn read(reader: Reader, allow_doctype: Bool = False) -> Result<Element, Erro
 //!         Token.End{name: Name{local: "a"}},
 //!     ])
 //
-pub fn tokens(reader: Reader, allow_doctype: Bool = False) -> Iter<Result<Token, Error>> {
+pub fn tokens(reader: Reader, allow_doctype = False) -> Iter<Result<Token, Error>> {
     TokenIter{tokens: xml_host.open(reader, allow_doctype)}
 }
 
@@ -589,7 +589,7 @@ pub fn encode(root: Element, options: WriteOptions = WriteOptions{}) -> Result<S
 }
 
 /// Writes the tree under `root` to `w` as `encode` writes it.
-//! #(written, data) = Writer.collect(fn w -> write(w, Element.new("a")))
+//! (written, data) = Writer.collect(fn w -> write(w, Element.new("a")))
 //! assert written == Ok(Unit)
 //! assert Bytes.to_string(data) == Ok("<a/>")
 //
@@ -726,21 +726,21 @@ fn element_text(
 
     scope = bind(declared, element.name.prefix, element.name.space)?
 
-    #(scope, attributes) = Iter.reduce(element.attributes, Ok(#(scope, [])), fn state, a -> {
+    (scope, attributes) = Iter.reduce(element.attributes, Ok((scope, [])), fn state, a -> {
         case state {
             Err(e) ->
                 break Err(e)
 
-            Ok(#(scope, written)) ->
+            Ok((scope, written)) ->
                 case attribute_text(scope, a) {
-                    Ok(#(scope, text)) -> Ok(#(scope, written + [text]))
+                    Ok((scope, text)) -> Ok((scope, written + [text]))
                     Err(e) -> break Err(e)
                 }
         }
     })?
 
     expanded =
-        element.attributes |> Iter.map(fn a -> #(a.name.space, a.name.local)) |> Iter.to_list()
+        element.attributes |> Iter.map(fn a -> (a.name.space, a.name.local)) |> Iter.to_list()
 
     if Iter.count(Iter.to_set(expanded)) != Iter.count(expanded) {
         return Err(Error.Invalid{message: "<${element.name}> has an attribute twice"})
@@ -806,7 +806,7 @@ fn element_text(
     Ok("${open}>${inner}</${element.name}>")
 }
 
-fn attribute_text(scope: Scope, attribute: Attribute) -> Result<#(Scope, String), Error> {
+fn attribute_text(scope: Scope, attribute: Attribute) -> Result<(Scope, String), Error> {
     name = attribute.name
     value = xml_host.escape_attribute(attribute.value)
 
@@ -819,7 +819,7 @@ fn attribute_text(scope: Scope, attribute: Attribute) -> Result<#(Scope, String)
             return Err(Error.Invalid{message: "${Debug.inspect(name.local)} is not an XML name"})
         }
 
-        Ok(#(scope, " ${name.local}=\"${value}\""))
+        Ok((scope, " ${name.local}=\"${value}\""))
     } else {
         prefix = attribute_prefix(scope, name)
         written = Name{local: name.local, space: name.space, prefix}
@@ -831,7 +831,7 @@ fn attribute_text(scope: Scope, attribute: Attribute) -> Result<#(Scope, String)
             bind(scope, prefix, name.space)?
         }
 
-        Ok(#(bound, " ${written}=\"${value}\""))
+        Ok((bound, " ${written}=\"${value}\""))
     }
 }
 

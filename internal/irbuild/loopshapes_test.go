@@ -48,7 +48,7 @@ fn main() {
         a + b
     })
     io.inspect(s)
-    d = Iter.loop(0, fn a, #(b, c) = #(1, 2) -> {
+    d = Iter.loop(0, fn a, (b, c) = (1, 2) -> {
         if a > 3 { break a }
         a + b + c
     })

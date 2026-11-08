@@ -1,0 +1,95 @@
+// A type of the program's own that implements Release and Commit. The checker
+// holds a function that acquires one to a deferred release, and a deferred
+// discard to a commit on each path that returns normally (spec §9 *Releasing
+// resources*).
+import std::io
+
+struct Draft {
+    name: String
+}
+
+impl Release for Draft {
+    fn release(d: Draft) {
+        Draft.discard(d)
+    }
+}
+
+impl Commit for Draft {
+    fn commit(d: Draft) -> Result<Unit, String> {
+        Draft.publish(d)
+    }
+}
+
+impl Draft {
+    fn open(name: String) -> Result<Draft, String> {
+        if name == "" { return Err("no name") }
+        io.print("open ${name}")
+        Ok(Draft{name})
+    }
+
+    fn discard(d: Draft) {
+        io.print("discard ${d.name}")
+    }
+
+    fn publish(d: Draft) -> Result<Unit, String> {
+        io.print("publish ${d.name}")
+        Ok(Unit)
+    }
+}
+
+fn save(name: String, fail: Bool) -> Result<Unit, String> {
+    d = Draft.open(name)?
+    defer Draft.discard(d)
+
+    if fail { return Err("failed") }
+    Draft.publish(d)?
+    Ok(Unit)
+}
+
+fn opened(name: String) -> Result<Draft, String> {
+    d = Draft.open(name)?
+    Ok(d)
+}
+
+test "the deferred discard runs however the function ends, after the publish" {
+    saved = io.capture("", fn -> save("a", False))
+    assert saved.value == Ok(Unit)
+    assert saved.output == "open a\npublish a\ndiscard a\n"
+
+    failed = io.capture("", fn -> save("b", True))
+    assert failed.value == Err("failed")
+    assert failed.output == "open b\ndiscard b\n"
+}
+
+test "a draft handed on is released by the caller" {
+    ran = io.capture("", fn -> {
+        d = opened("c")?
+        defer Draft.discard(d)
+        Draft.publish(d)
+    })
+
+    assert ran.value == Ok(Unit)
+    assert ran.output == "open c\npublish c\ndiscard c\n"
+}
+
+test "an open that fails acquires nothing" {
+    assert save("", False) == Err("no name")
+}
+
+// A call that returns a Draft outside a Result acquires one too, so the
+// caller defers its release.
+fn scratch(name: String) -> Draft {
+    io.print("open ${name}")
+    Draft{name}
+}
+
+test "a draft returned directly is released by the caller" {
+    ran = io.capture("", fn -> {
+        d = scratch("d")
+        defer Draft.discard(d)
+        Draft.publish(d)
+    })
+
+    assert ran.value == Ok(Unit)
+    assert ran.output == "open d\npublish d\ndiscard d\n"
+}

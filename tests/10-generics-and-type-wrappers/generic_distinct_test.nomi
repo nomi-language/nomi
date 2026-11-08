@@ -1,5 +1,5 @@
 // A distinct type may take type parameters, which its inner type names.
-type Tagged<T> #(String, T)
+type Tagged<T> (String, T)
 
 type Ids<T> List<T>
 
@@ -13,7 +13,7 @@ derive Equatable for Wrap
 derive Hashable for Wrap
 
 impl Tagged<T> {
-    fn tag(Tagged(#(t, _)): Tagged<T>) -> String {
+    fn tag(Tagged((t, _)): Tagged<T>) -> String {
         t
     }
 }
@@ -25,7 +25,7 @@ impl Display for Wrap<T> where T: Display {
     }
 }
 
-fn value<T>(Tagged(#(_, v)): Tagged<T>) -> T {
+fn value<T>(Tagged((_, v)): Tagged<T>) -> T {
     v
 }
 
@@ -34,7 +34,7 @@ fn first<D>(xs: List<D>) -> D where D: Distinct<Int> {
 }
 
 test "a generic distinct takes its type argument from what it wraps" {
-    a = Tagged(#("n", 1))
+    a = Tagged(("n", 1))
     b: Tagged<String> = Tagged("s", "x")
 
     assert Tagged.tag(a) == "n"

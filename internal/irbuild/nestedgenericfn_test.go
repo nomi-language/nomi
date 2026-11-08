@@ -34,8 +34,8 @@ fn main() {
     fn add_k<T>(x: T, f: (T) -> Int) -> Int {
         f(x) + k
     }
-    fn pair<A, B>(a: A, b: B) -> #(B, A) {
-        #(b, a)
+    fn pair<A, B>(a: A, b: B) -> (B, A) {
+        (b, a)
     }
     fn ok<T>(x: T) -> Result<T, String> {
         Ok(x)
@@ -67,7 +67,7 @@ fn main() {
     io.inspect(outer(Some(1)))
     fn count<T>(xs: List<T>, n: Int) -> Int {
         case List.next_item(xs) {
-            Some(#(_, rest)) -> count(rest, n + 1)
+            Some((_, rest)) -> count(rest, n + 1)
             None -> n
         }
     }
@@ -77,9 +77,9 @@ fn main() {
 `
 	const want = "13\n" +
 		"20\n" +
-		"#(\"x\", 1)\n" +
-		"#(\"y\", 3)\n" +
-		"[#(20, 1), #(20, 2)]\n" +
+		"(\"x\", 1)\n" +
+		"(\"y\", 3)\n" +
+		"[(20, 1), (20, 2)]\n" +
 		"[Ok(True)]\n" +
 		"Ok(Box{v: 1})\n" +
 		"Ok(Box{v: 2.5})\n" +

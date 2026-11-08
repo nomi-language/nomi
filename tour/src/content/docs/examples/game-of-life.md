@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: game_of_life.nomi
 //# Conway's Game of Life: one generation of a board of live and dead cells.
 
-once neighbours = [#(-1, -1), #(-1, 0), #(-1, 1), #(0, -1), #(0, 1), #(1, -1), #(1, 0), #(1, 1)]
+once neighbours = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
 /// The next generation of `board`, whose cells are `1` for live and `0`
 /// for dead, row by row: a live cell with two or three live
@@ -22,10 +22,10 @@ once neighbours = [#(-1, -1), #(-1, 0), #(-1, 1), #(0, -1), #(0, 1), #(1, -1), #
 pub fn tick(board: Vector<Vector<Int>>) -> Vector<Vector<Int>> {
     board
     |> Iter.with_index()
-    |> Iter.map(fn #(row, cells) -> {
+    |> Iter.map(fn (row, cells) -> {
         cells
         |> Iter.with_index()
-        |> Iter.map(fn #(column, cell) -> next_state(cell, live_neighbours(board, row, column)))
+        |> Iter.map(fn (column, cell) -> next_state(cell, live_neighbours(board, row, column)))
         |> Iter.to_vector()
     })
     |> Iter.to_vector()
@@ -33,7 +33,7 @@ pub fn tick(board: Vector<Vector<Int>>) -> Vector<Vector<Int>> {
 
 fn live_neighbours(board: Vector<Vector<Int>>, row: Int, column: Int) -> Int {
     neighbours
-    |> Iter.flat_map(fn #(dr, dc) -> cell_at(board, row + dr, column + dc))
+    |> Iter.flat_map(fn (dr, dc) -> cell_at(board, row + dr, column + dc))
     |> Iter.sum()
 }
 
@@ -44,8 +44,8 @@ fn cell_at(board: Vector<Vector<Int>>, row: Int, column: Int) -> Maybe<Int> {
 }
 
 fn next_state(cell: Int, live_neighbours: Int) -> Int {
-    case #(cell, live_neighbours) {
-        #(1, 2) or #(_, 3) -> 1
+    case (cell, live_neighbours) {
+        (1, 2) or (_, 3) -> 1
         _ -> 0
     }
 }
@@ -55,38 +55,38 @@ import game_of_life.tick
 
 test "tick" {
     [
-        #("empty matrix", #[], #[]),
-        #(
+        ("empty matrix", #[], #[]),
+        (
             "live cells with zero live neighbors die",
             #[#[0, 0, 0], #[0, 1, 0], #[0, 0, 0]],
             #[#[0, 0, 0], #[0, 0, 0], #[0, 0, 0]],
         ),
-        #(
+        (
             "live cells with only one live neighbor die",
             #[#[0, 0, 0], #[0, 1, 0], #[0, 1, 0]],
             #[#[0, 0, 0], #[0, 0, 0], #[0, 0, 0]],
         ),
-        #(
+        (
             "live cells with two live neighbors stay alive",
             #[#[1, 0, 1], #[1, 0, 1], #[1, 0, 1]],
             #[#[0, 0, 0], #[1, 0, 1], #[0, 0, 0]],
         ),
-        #(
+        (
             "live cells with three live neighbors stay alive",
             #[#[0, 1, 0], #[1, 0, 0], #[1, 1, 0]],
             #[#[0, 0, 0], #[1, 0, 0], #[1, 1, 0]],
         ),
-        #(
+        (
             "dead cells with three live neighbors become alive",
             #[#[1, 1, 0], #[0, 0, 0], #[1, 0, 0]],
             #[#[0, 0, 0], #[1, 1, 0], #[0, 0, 0]],
         ),
-        #(
+        (
             "live cells with four or more neighbors die",
             #[#[1, 1, 1], #[1, 1, 1], #[1, 1, 1]],
             #[#[1, 0, 1], #[0, 0, 0], #[1, 0, 1]],
         ),
-        #(
+        (
             "bigger matrix",
             #[
                 #[1, 1, 0, 1, 1, 0, 0, 0],
@@ -110,7 +110,7 @@ test "tick" {
             ],
         ),
     ]
-    |> subtests #(description, board, expected), description {
+    |> subtests (description, board, expected), description {
         assert tick(board) == expected
     }
 }
@@ -123,9 +123,9 @@ test result: ok. 8 passed, 0 failed
 ## How it's written
 
 - The board is `Vector<Vector<Int>>`, with cells as the canonical `0` and `1`. A `Bool` or a `Cell` enum would read better in the solution, but the test grids of `#[1, 0, 1]` read as the board; `next_state` is the only place that knows `1` means alive.
-- Neighbours are counted by indexed reads (`cell_at`), with an off-board neighbour read as `None`. A `Maybe` is an `Iter` of zero or one elements, so `Iter.flat_map` over the offsets drops the off-board ones before `Iter.sum`. A `Set<#(Int, Int)>` of live cells, as flower-field uses, was the other natural form; I chose the vector because the input already is one and `Vector.get`'s `None` is exactly "off the board".
+- Neighbours are counted by indexed reads (`cell_at`), with an off-board neighbour read as `None`. A `Maybe` is an `Iter` of zero or one elements, so `Iter.flat_map` over the offsets drops the off-board ones before `Iter.sum`. A `Set<(Int, Int)>` of live cells, as flower-field uses, was the other natural form; I chose the vector because the input already is one and `Vector.get`'s `None` is exactly "off the board".
 - The next generation is built by mapping over rows and cells with `Iter.with_index`, not by updating cells of a copy, so no indexed update is needed. This was the natural form, not a retreat from `Vector.set`.
 - The eight offsets are a `once` literal, as in flower-field.
-- `next_state` is one `case` on `#(cell, live_neighbours)` with the or-pattern `#(1, 2) or #(_, 3)`.
+- `next_state` is one `case` on `(cell, live_neighbours)` with the or-pattern `(1, 2) or (_, 3)`.
 - `Iter.sum` totals the neighbours (style §33).
-- The cases are one `subtests` table of `#(description, board, expected)` rows. The table is three compound levels deep, so `nomi fmt` breaks it one row per line; each row is too wide for one line and breaks into its three parts, and a 3x3 grid fits on one line inside it. The 8x8 grids are written one board row per line, which `nomi fmt` keeps because each breaks after its `#[`.
+- The cases are one `subtests` table of `(description, board, expected)` rows. The table is three compound levels deep, so `nomi fmt` breaks it one row per line; each row is too wide for one line and breaks into its three parts, and a 3x3 grid fits on one line inside it. The 8x8 grids are written one board row per line, which `nomi fmt` keeps because each breaks after its `#[`.

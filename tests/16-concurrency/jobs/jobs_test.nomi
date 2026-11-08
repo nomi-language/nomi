@@ -26,8 +26,8 @@ fn eventually(checks: Int = 500, holds: () -> Bool) -> Bool {
     eventually(checks: checks - 1, holds)
 }
 
-fn states() -> List<#(JobState, Int)> {
-    Inline.jobs(App.queue) |> Iter.map(fn job -> #(job.state, job.attempt)) |> Iter.to_list()
+fn states() -> List<(JobState, Int)> {
+    Inline.jobs(App.queue) |> Iter.map(fn job -> (job.state, job.attempt)) |> Iter.to_list()
 }
 
 group "a worker over an in-memory queue" {
@@ -51,7 +51,7 @@ group "a worker over an in-memory queue" {
         Worker.start(App.worker, handlers())
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Ada"})?
         _ = next_report()
-        assert eventually(fn -> states() == [#(JobState.Completed, 1)])
+        assert eventually(fn -> states() == [(JobState.Completed, 1)])
     }
 
     test "a retry waits its backoff with the attempt counted" {
@@ -60,7 +60,7 @@ group "a worker over an in-memory queue" {
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Oscar", mood: "grumpy"})?
 
         assert next_report() == "refused Oscar"
-        assert eventually(fn -> states() == [#(JobState.Available, 1)])
+        assert eventually(fn -> states() == [(JobState.Available, 1)])
         job = Iter.first(Inline.jobs(App.queue))!
         assert Iter.map(job.errors, &(&1.error)) |> Iter.to_list() == ["not today"]
         assert Instant.is_before(Instant.now() + jobs.backoff(1) - Duration.seconds(1), job.run_at)
@@ -77,7 +77,7 @@ group "a worker over an in-memory queue" {
         )?
 
         assert next_report() == "gave up on Eeyore"
-        assert eventually(fn -> states() == [#(JobState.Discarded, 1)])
+        assert eventually(fn -> states() == [(JobState.Discarded, 1)])
     }
 
     test "a trap is a retry that names the trap" {
@@ -91,7 +91,7 @@ group "a worker over an in-memory queue" {
         )?
 
         assert next_report() == "trapping Zero"
-        assert eventually(fn -> states() == [#(JobState.Available, 1)])
+        assert eventually(fn -> states() == [(JobState.Available, 1)])
         job = Iter.first(Inline.jobs(App.queue))!
 
         assert Iter.map(job.errors, &String.starts_with(&1.error, "trapped: "))
@@ -102,7 +102,7 @@ group "a worker over an in-memory queue" {
         Worker.start(App.worker, handlers())
         _ = jobs.enqueue(App.queue, Fake.new(), slow_job, Greeting{name: "Sloth"})?
         assert next_report() == "started Sloth"
-        assert eventually(fn -> states() == [#(JobState.Available, 1)])
+        assert eventually(fn -> states() == [(JobState.Available, 1)])
         job = Iter.first(Inline.jobs(App.queue))!
         assert Iter.map(job.errors, &(&1.error)) |> Iter.to_list() == ["timed out"]
     }

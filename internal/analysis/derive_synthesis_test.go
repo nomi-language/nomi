@@ -369,10 +369,10 @@ derive Equatable for Expired`
 // payload must be a *ast.TuplePattern with Flat == false. The flat form
 // (`Variant(a, b)`) is rejected by the analyzer's checkPattern with
 // "variant pattern '...': multi-binding is not supported"; canonical
-// form is the nested-tuple shape `Variant(#(a, b))`. Regression for
+// form is the nested-tuple shape `Variant((a, b))`. Regression for
 // the synthesizer originally emitting Flat: true.
 func TestDeriveEquatableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair { Both#(Int, Int); None }
+	src := `enum Pair { Both(Int, Int); None }
 derive Equatable for Pair`
 
 	fn := synthEqualsForSource(t, src, "Pair")
@@ -654,7 +654,7 @@ derive Hashable for Id`
 // variant patterns. The Hashable synthesizer reuses enumVariantPattern and must
 // inherit the canonical nested-tuple shape.
 func TestDeriveHashableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair { Both#(Int, Int); None }
+	src := `enum Pair { Both(Int, Int); None }
 derive Hashable for Pair`
 
 	fn := synthHashForSource(t, src, "Pair")
@@ -1005,7 +1005,7 @@ derive Comparable for Expired`
 // enumVariantPattern (same helper as Equatable / Hashable), so the
 // canonical nested-tuple shape is inherited — this test pins it.
 func TestDeriveComparableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair { Both#(Int, Int); None }
+	src := `enum Pair { Both(Int, Int); None }
 derive Comparable for Pair`
 
 	fn := synthCompareForSource(t, src, "Pair")
@@ -1326,7 +1326,7 @@ derive Debug for Expired`
 // must be a *ast.TuplePattern with Flat == false; the analyzer rejects
 // flat-form variant patterns.
 func TestDeriveDebugOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
-	src := `enum Pair { Both#(Int, Int); None }
+	src := `enum Pair { Both(Int, Int); None }
 derive Debug for Pair`
 
 	fn := synthDebugForSource(t, src, "Pair")

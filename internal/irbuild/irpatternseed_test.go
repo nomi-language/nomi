@@ -14,23 +14,23 @@ func TestIRPatternSeed_ReduceSignals(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
 fn main() {
-  skipped = Iter.reduce([1, 2, 3], #(0, []), fn #(n, xs), x -> {
+  skipped = Iter.reduce([1, 2, 3], (0, []), fn (n, xs), x -> {
     if x == 2 { continue }
-    #(n + x, xs + [x])
+    (n + x, xs + [x])
   })
   io.print(Debug.inspect(skipped))
-  stopped = Iter.reduce([1, 2, 3, 4], #(0, []), fn #(n, xs), x -> {
+  stopped = Iter.reduce([1, 2, 3, 4], (0, []), fn (n, xs), x -> {
     if x == 3 { break }
-    #(n + x, xs + [x])
+    (n + x, xs + [x])
   })
   io.print(Debug.inspect(stopped))
-  answered = Iter.reduce([1, 2, 3, 4], #(0, []), fn #(n, xs), x -> {
-    if x == 3 { break #(n * 100, xs) }
-    #(n + x, xs + [x])
+  answered = Iter.reduce([1, 2, 3, 4], (0, []), fn (n, xs), x -> {
+    if x == 3 { break (n * 100, xs) }
+    (n + x, xs + [x])
   })
   io.print(Debug.inspect(answered))
 }
-`, "#(4, [1, 3])\n#(3, [1, 2])\n#(300, [1, 2])\n")
+`, "(4, [1, 3])\n(3, [1, 2])\n(300, [1, 2])\n")
 }
 
 // scan and map_reduce: `continue` yields or adds nothing and keeps the state,
@@ -39,20 +39,20 @@ func TestIRPatternSeed_ScanAndMapReduceSignals(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
 fn main() {
-  states = Iter.scan([1, 2, 3, 4], #(0, 0), fn #(n, k), x -> {
+  states = Iter.scan([1, 2, 3, 4], (0, 0), fn (n, k), x -> {
     if x == 2 { continue }
     if x == 4 { break }
-    #(n + x, k + 1)
+    (n + x, k + 1)
   }) |> Iter.to_list()
   io.print(Debug.inspect(states))
-  outputs = Iter.map_reduce([1, 2, 3, 4], #(0, 0), fn #(n, k), x -> {
+  outputs = Iter.map_reduce([1, 2, 3, 4], (0, 0), fn (n, k), x -> {
     if x == 2 { continue }
     if x == 4 { break }
-    #(#(n + x, k + 1), x * 10)
+    ((n + x, k + 1), x * 10)
   })
   io.print(Debug.inspect(outputs))
 }
-`, "[#(1, 1), #(4, 2)]\n#(#(4, 2), [10, 30])\n")
+`, "[(1, 1), (4, 2)]\n((4, 2), [10, 30])\n")
 }
 
 // A struct pattern and a nested tuple pattern bind the seed the same way.
@@ -70,13 +70,13 @@ fn main() {
     Acc{total: total + x, items: items + [x]}
   })
   io.print(Debug.inspect(acc))
-  bounds = Iter.reduce([1, 2, 3], #(0, #(100, 0)), fn #(n, #(lo, hi)), x -> {
+  bounds = Iter.reduce([1, 2, 3], (0, (100, 0)), fn (n, (lo, hi)), x -> {
     if x == 2 { continue }
-    #(n + x, #(Int.min(lo, x), Int.max(hi, x)))
+    (n + x, (Int.min(lo, x), Int.max(hi, x)))
   })
   io.print(Debug.inspect(bounds))
 }
-`, "Acc{total: 4, items: [1, 3]}\n#(4, #(1, 3))\n")
+`, "Acc{total: 4, items: [1, 3]}\n(4, (1, 3))\n")
 }
 
 // A named function whose own accumulator parameter is a pattern, passed as
@@ -84,14 +84,14 @@ fn main() {
 func TestIRPatternSeed_NamedFunctionFrom(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-fn keep(#(n, xs): #(Int, List<Int>), x: Int) -> #(Int, List<Int>) {
+fn keep((n, xs): (Int, List<Int>), x: Int) -> (Int, List<Int>) {
   if x == 2 { continue }
-  #(n + x, xs + [x])
+  (n + x, xs + [x])
 }
 
 fn main() {
-  kept = Iter.reduce([1, 2, 3], #(0, []), keep)
+  kept = Iter.reduce([1, 2, 3], (0, []), keep)
   io.print(Debug.inspect(kept))
 }
-`, "#(4, [1, 3])\n")
+`, "(4, [1, 3])\n")
 }

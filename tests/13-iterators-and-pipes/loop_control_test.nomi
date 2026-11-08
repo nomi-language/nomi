@@ -6,14 +6,14 @@ test "loop advances state through callback return values" {
         break n
     })
 
-    #(_, steps) = loop(#(27, 0), fn state -> {
-        #(n, count) = state
+    (_, steps) = loop((27, 0), fn state -> {
+        (n, count) = state
         if n == 1 { break state }
 
         if n % 2 == 0 {
-            #(n / 2, count + 1)
+            (n / 2, count + 1)
         } else {
-            #(n * 3 + 1, count + 1)
+            (n * 3 + 1, count + 1)
         }
     })
 
@@ -31,14 +31,14 @@ test "loop break value returns the break value" {
         n - 1
     })
 
-    fib = loop(#(0, 1), fn state -> {
-        #(a, b) = state
-        if b > 100 { break #(a, b) }
-        #(b, a + b)
+    fib = loop((0, 1), fn state -> {
+        (a, b) = state
+        if b > 100 { break (a, b) }
+        (b, a + b)
     })
 
     assert countdown == 0
-    assert fib == #(89, 144)
+    assert fib == (89, 144)
 }
 
 test "a loop answers a break value computed from its state" {

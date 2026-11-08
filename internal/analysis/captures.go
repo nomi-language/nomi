@@ -769,6 +769,10 @@ func replaceHoles(n ast.Node, names map[ast.Node]string) ast.Node {
 		cp := *v
 		cp.Value = replaceHoles(v.Value, names)
 		return &cp
+	case *ast.Ascription:
+		cp := *v
+		cp.Value = replaceHoles(v.Value, names)
+		return &cp
 	case *ast.RangeLit:
 		cp := *v
 		cp.Start, cp.End = replaceHoles(v.Start, names), replaceHoles(v.End, names)

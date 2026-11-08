@@ -12,7 +12,7 @@ import {
 /// Where the literal's slots stand and whether its text is TOML with a
 /// stand-in for each slot: fragment -1 when it is, else the static the
 /// refusal is in, the code point offset there, and why.
-pub host fn check(statics: List<String>) -> #(Int, Int, String)
+pub host fn check(statics: List<String>) -> (Int, Int, String)
 
 /// The statics with each slot's TOML between them, written as a quoted key
 /// where the slot stands for a key.

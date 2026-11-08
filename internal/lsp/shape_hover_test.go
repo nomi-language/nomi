@@ -32,7 +32,7 @@ type Path Vector<Int>
 type Kvs Map<String, Int>
 
 /// Two of a kind.
-type Pair #(Int, Int)
+type Pair (Int, Int)
 
 `
 
@@ -124,9 +124,9 @@ func TestHover_CollectionLiteral(t *testing.T) {
 		{"the ] of %[", "fn main() {\n  s = %[\"a\"▮]\n  io.inspect(s)\n}\n", []string{"```nomi\nSet<String>\n```"}, nil},
 		{"#[", "fn main() {\n  v = #▮[1, 2]\n  io.inspect(v)\n}\n", []string{"```nomi\nVector<Int>\n```"}, nil},
 		{"%{", "fn main() {\n  m = ▮%{\"a\" => 1}\n  io.inspect(m)\n}\n", []string{"```nomi\nMap<String, Int>\n```"}, nil},
-		{"#(", "fn main() {\n  p = ▮#(1, \"a\")\n  io.inspect(p)\n}\n", []string{"```nomi\ntuple #(Int, String)\n```"}, nil},
-		{"the ) of #(", "fn main() {\n  p = #(1, \"a\"▮)\n  io.inspect(p)\n}\n", []string{"```nomi\ntuple #(Int, String)\n```"}, nil},
-		{"a binding of a tuple keeps its form", "fn main() {\n  ▮p = #(1, \"a\")\n  io.inspect(p)\n}\n", []string{"p: #(Int, String)"}, []string{"tuple"}},
+		{"(", "fn main() {\n  p = ▮(1, \"a\")\n  io.inspect(p)\n}\n", []string{"```nomi\ntuple (Int, String)\n```"}, nil},
+		{"the ) of (", "fn main() {\n  p = (1, \"a\"▮)\n  io.inspect(p)\n}\n", []string{"```nomi\ntuple (Int, String)\n```"}, nil},
+		{"a binding of a tuple keeps its form", "fn main() {\n  ▮p = (1, \"a\")\n  io.inspect(p)\n}\n", []string{"p: (Int, String)"}, []string{"tuple"}},
 		{"a multi-line map's closing brace", "fn main() {\n  m = %{\n    \"a\" => 1,\n    \"b\" => 2,\n  ▮}\n  io.inspect(m)\n}\n", []string{"```nomi\nMap<String, Int>\n```"}, nil},
 		{"a list", "fn main() {\n  xs = ▮[1, 2]\n  io.inspect(xs)\n}\n", []string{"```nomi\nList<Int>\n```"}, nil},
 		{"an element is unchanged", "fn main() {\n  m = %{\"a\" => ▮1}\n  io.inspect(m)\n}\n", nil, nil},
@@ -143,7 +143,7 @@ func TestHover_NamedCollectionLiteral(t *testing.T) {
 		{"the ] of %Tags[", "fn main() {\n  t = %Tags[\"a\"▮]\n  io.inspect(t)\n}\n", []string{"```nomi\nTags\n```", "a `Set<String>`"}, nil},
 		{"#Path[", "fn main() {\n  p = #Path▮[1, 2]\n  io.inspect(p)\n}\n", []string{"```nomi\nPath\n```", "a `Vector<Int>`", "A walk."}, nil},
 		{"%Kvs{", "fn main() {\n  k = ▮%Kvs{\"a\" => 1}\n  io.inspect(k)\n}\n", []string{"```nomi\nKvs\n```", "a `Map<String, Int>`", "Settings by name."}, nil},
-		{"Pair(", "fn main() {\n  p = ▮Pair(1, 2)\n  io.inspect(p)\n}\n", []string{"```nomi\ntype Pair #(Int, Int)\n```", "Two of a kind."}, nil},
+		{"Pair(", "fn main() {\n  p = ▮Pair(1, 2)\n  io.inspect(p)\n}\n", []string{"```nomi\ntype Pair (Int, Int)\n```", "Two of a kind."}, nil},
 	})
 }
 
@@ -173,7 +173,7 @@ func TestHover_ShapePatterns(t *testing.T) {
 		{"a struct pattern", "fn f(p: Point) -> Int {\n  case p {\n    ▮Point{x, y} -> x + y\n  }\n}\n", []string{"struct pattern: matches a `Point`; `x` is `Int`, `y` is `Int`"}, nil},
 		{"a struct pattern's closing brace on its own line", "fn f(p: Point) -> Int {\n  case p {\n    Point{\n      x,\n      y,\n    ▮} -> x + y\n  }\n}\n", []string{"struct pattern: matches a `Point`"}, nil},
 		{"a variant struct pattern", "fn f(s: Shape) -> Float {\n  case s {\n    .Circle▮{radius} -> radius\n    _ -> 0.0\n  }\n}\n", []string{"struct pattern: matches `Shape.Circle`; `radius` is `Float`"}, nil},
-		{"a tuple pattern", "fn f(p: #(Int, String)) -> Int {\n  case p {\n    ▮#(n, _) -> n\n  }\n}\n", []string{"tuple pattern: matches a `#(Int, String)`; `n` is `Int`"}, nil},
+		{"a tuple pattern", "fn f(p: (Int, String)) -> Int {\n  case p {\n    ▮(n, _) -> n\n  }\n}\n", []string{"tuple pattern: matches a `(Int, String)`; `n` is `Int`"}, nil},
 		{"a named set pattern", "fn f(t: Tags) -> Int {\n  case t {\n    ▮%Tags[\"a\", ..] -> 1\n    _ -> 0\n  }\n}\n", []string{"set pattern: matches a `Tags` containing `\"a\"`"}, nil},
 	})
 }

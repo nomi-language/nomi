@@ -101,7 +101,7 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"generic struct", "fn f() -> (String) -> Box<String> { &Box{v: &1} }\n", "(String) -> Box<String>"},
 		{"struct-shaped variant", "fn f() -> (Float) -> Shape { &Shape.Circle{radius: &1} }\n", "(Float) -> Shape"},
 		{"dot struct-shaped variant", "fn f() -> (Float) -> Shape { &.Circle{radius: &1} }\n", "(Float) -> Shape"},
-		{"tuple", "fn f() -> (Int) -> #(Int, Int) { &#(&1, 0) }\n", "(Int) -> #(Int, Int)"},
+		{"tuple", "fn f() -> (Int) -> (Int, Int) { &(&1, 0) }\n", "(Int) -> (Int, Int)"},
 		{"list", "fn f() -> (Int) -> List<Int> { &[&1, 0] }\n", "(Int) -> List<Int>"},
 		{"vector", "fn f() -> (Int) -> Vector<Int> { &#[&1] }\n", "(Int) -> Vector<Int>"},
 		{"set", "fn f() -> (Int) -> Set<Int> { &%[&1] }\n", "(Int) -> Set<Int>"},
@@ -133,7 +133,7 @@ func TestCapture_APartialNeedsNoExpectedType(t *testing.T) {
 		"no expected type":   "fn f() -> Int {\n    inc = &add(1, &1)\n    inc(2)\n}\n",
 		"called by name":     "fn f() -> Int {\n    inc = &add(&1, b: &2)\n    inc(b: 1, a: 2)\n}\n",
 		"called directly":    "fn f() -> Int { (&add(2, &1))(4) }\n",
-		"inside a tuple":     "fn f() -> Int {\n    t = #(&Int.max(&1, 0), 1)\n    t.0(-3)\n}\n",
+		"inside a tuple":     "fn f() -> Int {\n    t = (&Int.max(&1, 0), 1)\n    t.first(-3)\n}\n",
 		"a variant":          "fn f() -> Maybe<Int> {\n    wrap = &Some(&1)\n    wrap(1)\n}\n",
 		"partial of partial": "fn f() -> Int {\n    g = &add(&1, b: &2)\n    h = &g(1, b: &1)\n    h(2)\n}\n",
 	} {
@@ -251,7 +251,7 @@ func TestCapture_AParameterOutsideACapture(t *testing.T) {
 		{"an operator", "fn f() -> List<Int> { [1] |> Iter.map(&1 * 2 + 1) |> Iter.to_list() }\n", "write `&(&1 * 2 + 1)`"},
 		{"an operator in a call's argument", "fn f() -> Maybe<Int> { Some(&1 + 1) }\n", "write `&(&1 + 1)`"},
 		{"a struct literal", "fn f() -> (Int) -> Point { Point{x: &1, y: 0} }\n", "write `&Point{x: &1, y: 0}`"},
-		{"a tuple", "fn f() -> (Int) -> #(Int, Int) { #(&1, 0) }\n", "write `&#(&1, 0)`"},
+		{"a tuple", "fn f() -> (Int) -> (Int, Int) { (&1, 0) }\n", "write `&(&1, 0)`"},
 		{"a list", "fn f() -> (Int) -> List<Int> { [&1, 0] }\n", "write `&[&1, 0]`"},
 		{"a string", "fn f() -> List<String> { [1] |> Iter.map(\"id ${&1}\") |> Iter.to_list() }\n", "write `&\"id ${&1}\"`"},
 		{"parentheses", "fn f() -> (Int) -> Int { (&1) + 1 }\n", "write `&((&1) + 1)`"},
@@ -279,7 +279,7 @@ func TestCapture_AParameterOutsideACapture(t *testing.T) {
 // A capture's `&N`s are its parameters, so each has the type of the
 // parameter it names.
 func TestCapture_ParametersAreTyped(t *testing.T) {
-	fa, errs := checkSourceWithStdlib(captureDecls + "fn f() -> (Int, String) -> #(String, Int) { &#(&2, &1) }\n")
+	fa, errs := checkSourceWithStdlib(captureDecls + "fn f() -> (Int, String) -> (String, Int) { &(&2, &1) }\n")
 	expectNoStdlibErrors(t, errs)
 	var got []string
 	for n, ty := range fa.ExprTypes {

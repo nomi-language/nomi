@@ -23,13 +23,13 @@ test "a value holding an Iter has no equality" {
 
         fn main() {
           feed = Feed{items: [1]}
-          _same = #(1, feed) != #(1, feed)
+          _same = (1, feed) != (1, feed)
         }
         """
 
     assert reports(
         source,
-        "`!=` cannot compare `#(Int, Feed)`: it holds `Iter<Int>`, and an Iter has no equality",
+        "`!=` cannot compare `(Int, Feed)`: it holds `Iter<Int>`, and an Iter has no equality",
     )
 }
 

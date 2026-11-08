@@ -9,9 +9,9 @@ fn read(m: Maybe<Int>) -> Int { case m { Some(n) -> n None -> 0 } }
 fn main() {
   v = dbg get()
   io.print(read(v))
-  io.inspect(#(v, True))
+  io.inspect((v, True))
 }
-`, "get\ndbg line 5: get() = Some(42)\n42\n#(Some(42), True)\n")
+`, "get\ndbg line 5: get() = Some(42)\n42\n(Some(42), True)\n")
 }
 
 // A custom Debug impl on a user enum is called through its declaration; it

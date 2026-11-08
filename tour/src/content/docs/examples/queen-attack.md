@@ -57,12 +57,12 @@ group "Test creation of Queens with valid and invalid positions" {
 
     test "invalid positions" {
         [
-            #("queen must have positive row", -2, 2, Error.RowNotPositive),
-            #("queen must have row on board", 8, 4, .RowNotOnBoard),
-            #("queen must have positive column", 2, -2, .ColumnNotPositive),
-            #("queen must have column on board", 4, 8, .ColumnNotOnBoard),
+            ("queen must have positive row", -2, 2, Error.RowNotPositive),
+            ("queen must have row on board", 8, 4, .RowNotOnBoard),
+            ("queen must have positive column", 2, -2, .ColumnNotPositive),
+            ("queen must have column on board", 4, 8, .ColumnNotOnBoard),
         ]
-        |> subtests #(description, row, column, error), description {
+        |> subtests (description, row, column, error), description {
             assert Queen.new(row, column) == Err(error)
         }
     }
@@ -70,24 +70,24 @@ group "Test creation of Queens with valid and invalid positions" {
 
 test "Test the ability of one queen to attack another" {
     [
-        #("cannot attack", #(2, 4), #(6, 6), False),
-        #("can attack on same row", #(2, 4), #(2, 6), True),
-        #("can attack on same column", #(4, 5), #(2, 5), True),
-        #("can attack on first diagonal", #(2, 2), #(0, 4), True),
-        #("can attack on second diagonal", #(2, 2), #(3, 1), True),
-        #("can attack on third diagonal", #(2, 2), #(1, 1), True),
-        #("can attack on fourth diagonal", #(1, 7), #(0, 6), True),
-        #(
+        ("cannot attack", (2, 4), (6, 6), False),
+        ("can attack on same row", (2, 4), (2, 6), True),
+        ("can attack on same column", (4, 5), (2, 5), True),
+        ("can attack on first diagonal", (2, 2), (0, 4), True),
+        ("can attack on second diagonal", (2, 2), (3, 1), True),
+        ("can attack on third diagonal", (2, 2), (1, 1), True),
+        ("can attack on fourth diagonal", (1, 7), (0, 6), True),
+        (
             "cannot attack if falling diagonals are only the same when reflected across the longest falling diagonal",
-            #(4, 1),
-            #(2, 5),
+            (4, 1),
+            (2, 5),
             False,
         ),
     ]
-    |> subtests #(
+    |> subtests (
         description,
-        #(white_row, white_column),
-        #(black_row, black_column),
+        (white_row, white_column),
+        (black_row, black_column),
         expected
     ), description {
         assert Ok(white) = Queen.new(white_row, white_column)

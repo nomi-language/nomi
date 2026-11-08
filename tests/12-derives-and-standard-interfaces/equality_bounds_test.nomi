@@ -1,0 +1,117 @@
+// A `where T: Equatable` or `where T: Hashable` bound means the type has
+// equality, which a struct, enum or distinct type with no impl of its own
+// has (spec §5 *Equality bounds*).
+struct Point {
+    x: Int
+    y: Int
+}
+
+// Equal when the names match, ignoring case.
+struct Tag {
+    name: String
+}
+
+impl Equatable for Tag {
+    fn equal(a: Tag, b: Tag) -> Bool {
+        String.lowercase(a.name) == String.lowercase(b.name)
+    }
+}
+
+struct Labeled {
+    tag: Tag
+    n: Int
+}
+
+enum Shape {
+    Circle Int
+    Square Int
+}
+
+type Meters Int
+
+struct Box<T> {
+    value: T
+}
+
+struct Wrap {
+    p: Point
+}
+
+derive Equatable for Wrap
+derive Hashable for Wrap
+
+fn same<T>(a: T, b: T) -> Bool where T: Equatable {
+    a == b
+}
+
+fn equal<T>(a: T, b: T) -> Bool where T: Equatable {
+    Equatable.equal(a, b)
+}
+
+fn digest<T>(value: T) -> Int where T: Hashable {
+    Hashable.hash(value)
+}
+
+fn boxed<T>(a: T, b: T) -> Bool where T: Equatable {
+    same(Box{value: a}, Box{value: b})
+}
+
+test "a struct with no impl meets an Equatable bound" {
+    p = Point{x: 1, y: 2}
+    assert same(p, Point{x: 1, y: 2})
+    refute same(p, Point{x: 2, y: 2})
+    assert equal(p, Point{x: 1, y: 2})
+    refute equal(p, Point{x: 1, y: 3})
+    assert boxed(p, p)
+    assert equal(Some(p), Some(p))
+}
+
+test "std functions bounded by Equatable take it" {
+    p = Point{x: 1, y: 2}
+    q = Point{x: 0, y: 0}
+    assert p in [Point{x: 1, y: 2}]
+    refute q in [p]
+    assert p in #[p, q]
+    assert List.contains([q, p], p)
+    assert Iter.contains(Iter.map([p], fn v -> v), p)
+    assert List.starts_with([p, q], [p])
+    assert List.ends_with([p, q], [q])
+    assert List.remove([q, p, q], p) == [q, q]
+    chunks = [p, p, q] |> Iter.chunk_by(fn v -> v) |> Iter.to_list()
+    assert chunks == [[p, p], [q]]
+}
+
+test "an enum and a distinct type meet it too" {
+    assert equal(Shape.Circle(1), Shape.Circle(1))
+    refute equal(Shape.Circle(1), Shape.Square(1))
+    assert Shape.Square(2) in [Shape.Circle(1), Shape.Square(2)]
+    assert equal(Meters(3), Meters(3))
+    assert digest(Meters(3)) == digest(Meters(3))
+}
+
+test "a custom Equatable decides through the bound, at any depth" {
+    assert same(Tag{name: "A"}, Tag{name: "a"})
+    assert equal(Tag{name: "A"}, Tag{name: "a"})
+    assert Tag{name: "a"} in [Tag{name: "A"}]
+    assert equal(Labeled{tag: Tag{name: "A"}, n: 1}, Labeled{tag: Tag{name: "a"}, n: 1})
+    refute equal(Labeled{tag: Tag{name: "A"}, n: 1}, Labeled{tag: Tag{name: "a"}, n: 2})
+}
+
+test "a Hashable bound hashes equal values alike" {
+    p = Point{x: 1, y: 2}
+    assert digest(p) == digest(Point{x: 1, y: 2})
+    assert digest(Tag{name: "A"}) == digest(Tag{name: "a"})
+    assert digest(Labeled{tag: Tag{name: "A"}, n: 1}) == digest(Labeled{tag: Tag{name: "a"}, n: 1})
+    assert digest(Shape.Circle(1)) == digest(Shape.Circle(1))
+    assert digest([p]) == digest([p])
+    assert digest(Some(p)) == digest(Some(Point{x: 1, y: 2}))
+    assert digest(%[p]) == digest(%[p])
+    assert digest((1, p)) == digest((1, p))
+}
+
+test "a derive over a field with equality and no impl" {
+    p = Point{x: 1, y: 2}
+    assert Wrap{p} == Wrap{p}
+    refute Equatable.equal(Wrap{p}, Wrap{p: Point{x: 0, y: 0}})
+    assert Hashable.hash(Wrap{p}) == Hashable.hash(Wrap{p: Point{x: 1, y: 2}})
+}

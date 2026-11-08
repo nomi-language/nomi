@@ -18,11 +18,11 @@ once names = Iter.map(users, .name)
         (identifier)))))
 
 ==========
-Field accessor chain and tuple index
+Field accessor chain and tuple item
 ==========
 
 once cities = Iter.map(users, .address.city)
-once seconds = Iter.map(pairs, .1)
+once seconds = Iter.map(pairs, .second)
 
 ---
 
@@ -45,7 +45,7 @@ once seconds = Iter.map(pairs, .1)
         (identifier))
       (identifier)
       (field_accessor
-        (integer)))))
+        (identifier)))))
 
 ==========
 Field accessor in a pipe stage's arguments

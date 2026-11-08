@@ -51,6 +51,32 @@ func TestSession_EvaluatesInTheStoppedFrame(t *testing.T) {
 	h.check("eval")
 }
 
+// A tuple's children are named by the ordinals that read them, a named
+// tuple's too, and an item past the twentieth by its index. A watch of an
+// ordinal path is read from the frame with nothing compiled: its type is the
+// value's runtime type (`Tuple`), where a compiled expression's is its
+// static type (`(Int, String)`). `pair.0` is not Nomi, and the compiler
+// says so.
+func TestSession_TupleItemsByOrdinal(t *testing.T) {
+	h := newHarness(t)
+	h.start(false, runConfig("tuples.nomi"))
+	h.breakAt("tuples.nomi", 10)
+	h.configure()
+	thread := h.stopped()
+	top := h.stack(thread)[0]
+	h.children(h.eval(top, "watch", "pair"))
+	h.children(h.eval(top, "watch", "span"))
+	h.children(h.eval(top, "watch", "wide"))
+	h.children(h.eval(top, "watch", "nested.second"))
+	h.eval(top, "watch", "nested.second.first")
+	h.eval(top, "watch", "span.second")
+	h.eval(top, "watch", "pair.0")
+	h.do("continue", thread)
+	h.wait("terminated")
+	h.disconnect()
+	h.check("tuples")
+}
+
 // A condition true at one pass, a condition never true, a hit count, a
 // logpoint, a condition that does not compile, one that is not a Bool, and
 // one that traps when it runs.

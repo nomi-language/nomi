@@ -111,7 +111,7 @@ test "rows look up fields by column name" {
 }
 
 test "writing streams records to a writer" {
-    #(written, data) = Writer.collect(fn w -> {
+    (written, data) = Writer.collect(fn w -> {
         csv.write(w, Iter.map(1..=3, fn n -> ["${n}", "x${n}"]))
     })
 

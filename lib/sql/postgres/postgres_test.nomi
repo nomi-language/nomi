@@ -297,10 +297,10 @@ test "a forwarded listener is one arm of a select" {
         waited = until_waiting(listener)
         close_quietly(listener)
         Task.await(forwarder)
-        Ok(#(first, waited))
+        Ok((first, waited))
     }
 
-    assert got == Ok(#(Some(Ok(Notification{channel: "orders", payload: "order 8"})), True))
+    assert got == Ok((Some(Ok(Notification{channel: "orders", payload: "order 8"})), True))
 }
 
 test "closing a listener ends forward and closes its channel" {
@@ -314,10 +314,10 @@ test "closing a listener ends forward and closes its channel" {
         close_quietly(listener)
         // Returns only once forward has: nothing is left running.
         Task.await(forwarder)
-        #(Receiver.receive(notes.receiver), waited)
+        (Receiver.receive(notes.receiver), waited)
     }
 
-    assert after == #(None, True)
+    assert after == (None, True)
 }
 
 test "closing a listener ends forward while its channel is full" {
@@ -335,10 +335,10 @@ test "closing a listener ends forward while its channel is full" {
         held = until_received(listener, 2)
         close_quietly(listener)
         Task.await(forwarder)
-        Ok(#(held, Receiver.receive(notes.receiver), Receiver.receive(notes.receiver)))
+        Ok((held, Receiver.receive(notes.receiver), Receiver.receive(notes.receiver)))
     }
 
-    assert ended == Ok(#(True, Some(Ok(Notification{channel: "orders", payload: "one"})), None))
+    assert ended == Ok((True, Some(Ok(Notification{channel: "orders", payload: "one"})), None))
 }
 
 test "cancelling a task ends its wait on a listener, which still works" {
@@ -346,11 +346,11 @@ test "cancelling a task ends its wait on a listener, which still works" {
     listener = postgres.listen(url, "orders")?
     defer close_quietly(listener)
 
-    #(outcome, waited) = concurrent {
+    (outcome, waited) = concurrent {
         waiter = Task.spawn(fn -> Listener.wait(listener))
         waited = until_waiting(listener)
         Task.cancel(waiter)
-        #(Task.outcome(waiter), waited)
+        (Task.outcome(waiter), waited)
     }
 
     assert waited
@@ -396,11 +396,11 @@ test "cancelling a task stops its query on the server, and the connection still 
     watcher = postgres.connect(url)?
     defer sql.close_quietly(watcher)
 
-    #(outcome, started) = concurrent {
+    (outcome, started) = concurrent {
         sleeper = Task.spawn(fn -> Conn.query(db, Sql"SELECT pg_sleep(30)"))
         started = until_sleeping(watcher, 1)
         Task.cancel(sleeper)
-        #(Task.outcome(sleeper), started)
+        (Task.outcome(sleeper), started)
     }
 
     assert started == Ok(True)

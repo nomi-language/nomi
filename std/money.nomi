@@ -195,7 +195,7 @@ impl Money {
     //! assert Money.round(Money`0.125 EUR`, mode: RoundingMode.HalfUp) == Money`0.13 EUR`
     //! assert Money.round(Money`99.5 JPY`) == Money`100 JPY`
     //
-    pub fn round(money: Money, mode: RoundingMode = RoundingMode.HalfEven) -> Money {
+    pub fn round(money: Money, mode = RoundingMode.HalfEven) -> Money {
         digits = Currency.minor_digits(money.currency)
         Money{amount: Decimal.round(money.amount, digits, mode), currency: money.currency}
     }

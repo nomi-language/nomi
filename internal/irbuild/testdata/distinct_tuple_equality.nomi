@@ -7,10 +7,10 @@
 // comparison that skipped the impl prints a different line.
 import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
 // Equal when the Int parts match, whatever the labels.
-type Tag #(Int, String)
+type Tag (Int, String)
 
 impl Equatable for Tag {
     fn equal(a: Tag, b: Tag) -> Bool {
@@ -28,9 +28,9 @@ impl Hashable for Tag {
 }
 
 fn main() {
-    pairs = [Pair(#(1, "a")), Pair(2, "b")]
+    pairs = [Pair((1, "a")), Pair(2, "b")]
 
-    io.print("list-eq=${pairs == [Pair(1, "a"), Pair(#(2, "b"))]}")
+    io.print("list-eq=${pairs == [Pair(1, "a"), Pair((2, "b"))]}")
     io.print("list-ne=${pairs != [Pair(1, "a")]}")
     io.print("list-differs=${pairs == [Pair(1, "a"), Pair(2, "z")]}")
     io.print("nested-list=${[[Pair(1, "a")]] == [[Pair(1, "a")]]}")
@@ -46,7 +46,7 @@ fn main() {
     io.print("map-value=${%{"k" => Pair(1, "a")} == %{"k" => Pair(1, "b")}}")
     io.print("maybe=${Some(Pair(1, "a")) == Some(Pair(1, "a"))}")
     io.print("list-of-maybe=${[Some(Pair(1, "a"))] == [Some(Pair(1, "a"))]}")
-    io.print("tuple=${#(Pair(1, "a"), 2) == #(Pair(1, "a"), 2)}")
+    io.print("tuple=${(Pair(1, "a"), 2) == (Pair(1, "a"), 2)}")
 
     held: Maybe<Pair> = Some(Pair(3, "c"))
     io.print("maybe-debug=${Debug.inspect(held)}")

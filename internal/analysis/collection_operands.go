@@ -55,8 +55,8 @@ func collectionKind(t Type) string {
 // operators*): the other operand is checked first, and the literal is built
 // as that operand's type when the other is the same collection, as a
 // literal is where an annotation expects the collection (spec §5 *Type
-// argument conversion*). So `[#(Route`GET /`, home)] + routes` with
-// `routes: List<#(Route, Handler)>` is a `List<#(Route, Handler)>`, its
+// argument conversion*). So `[(Route`GET /`, home)] + routes` with
+// `routes: List<(Route<Unit>, Handler)>` is a `List<(Route<Unit>, Handler)>`, its
 // `home` converting as it is built, in either order. The two operands of a
 // `+` have one type, so the literal takes no type of its own the other
 // would then have to equal. ok is false when the operands are not of that

@@ -73,7 +73,7 @@ fn echo_upper(s: String) -> String go ffi.EchoUpper
 func TestFormat_EnumPayloadShapesRoundTrip(t *testing.T) {
 	src := `enum Shape {
     Circle Float
-    Position #(Int, Int)
+    Position (Int, Int)
     Rect {width: Float, height: Float}
     embeds Click
 }
@@ -214,7 +214,7 @@ pub fn label<T>(_c: Channel<T>) -> String {
     "channel"
 }
 
-host fn next<T>(s: Channel<T>) -> Maybe<#(T, Channel<T>)>
+host fn next<T>(s: Channel<T>) -> Maybe<(T, Channel<T>)>
 
 impl iter for Channel<T>
 

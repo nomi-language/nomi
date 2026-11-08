@@ -27,9 +27,9 @@ func TestSiblingOwnerFn_CallsReachTheDeclaringFile(t *testing.T) {
 		"[1, 1]\n" +
 		"count 3\n" +
 		"unit 1\n" +
-		"#(\"x\", \"x\")\n" +
+		"(\"x\", \"x\")\n" +
 		"qualified 7 1\n" +
-		"#(3, 3)\n"
+		"(3, 3)\n"
 	got := vmReference(fixture("sibling_owner_fn/main.nomi"))
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",

@@ -211,7 +211,7 @@ inference*; tour: [Bindings & Expressions](/bindings-and-expressions/#how-far-ty
 
 ```nomi
 once upto = 400
-once offsets = [#(-1, 0), #(1, 0), #(0, -1), #(0, 1)]
+once offsets = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 total = Iter.reduce(1..=upto, 0, fn sum, n -> sum + n)
 
@@ -223,6 +223,13 @@ literal (`[]`, `#[]`, `%[]`, `%{}`) or a `None` that no later use fixes: the
 checker rejects it with "type is not locally determined" until it has an
 annotation (`once routes: Map<String, Handler> = %{}`,
 `seen: Set<String> = %[]`).
+
+A struct field or a parameter with a default follows the same rule (spec §4
+*Field types from defaults*, §7 *Parameter types from defaults*): `misses =
+0`, ``home = Route`GET /admin/{$}` `` and `mode = WriteMode.Replace` need no
+type. Keep the type on a public field or parameter whose default is a call,
+such as `limit: Int = default_limit()`: a reader of the declaration then
+sees the type without looking up the function.
 
 ### 6. Thread one binding instead of inventing name ladders
 
@@ -252,7 +259,7 @@ that is never read still catches a step that throws one away.
 When a value is intentionally ignored, use a discard name (spec §2 *Discard
 names*): `_`, or `_name` when a label makes the ignored value clearer. The
 same holds inside a pattern: write
-`fn #(_word, count) -> count`, `Some(_) -> True` or `[first, ..]`, and leave a struct
+`fn (_word, count) -> count`, `Some(_) -> True` or `[first, ..]`, and leave a struct
 pattern's unneeded fields out (`.Suspended{reason}`) rather than binding them.
 
 A parameter the body ignores is written as its type alone when the type
@@ -345,8 +352,8 @@ Iter.to_set([1, 2, 3])
   too, so that its arguments line up with the parameters they replace:
   `search(Iter.to_list(next), Set.union(seen, next), moves + 1, sizes, goal)`.
 - A short nested call inside a literal stays nested:
-  `#(Reverse.of(Standing.points(s)), s.team)`, not
-  `#(Standing.points(s) |> Reverse.of(), s.team)`. A pipe reads well as a
+  `(Reverse.of(Standing.points(s)), s.team)`, not
+  `(Standing.points(s) |> Reverse.of(), s.team)`. A pipe reads well as a
   literal's whole field value, not as one short element among others.
 
 **Operators and fields:**
@@ -472,16 +479,17 @@ Keep the lambda when its body does more than read fields: a computation
 (`fn u -> u.age > 18`). Don't pipe into an accessor; read the field from the
 value: `user.name`, not `user |> .name`.
 
-A tuple's elements are read the same way, `.0` and `.1`, when the tuple was
-built a line or two above, where the reader can see what each part is:
+A tuple's items are read the same way, `.first` and `.second`, when the
+tuple was built a line or two above, where the reader can see what each part
+is:
 
 ```nomi
-message |> Iter.zip(zigzag(rails)) |> Iter.sort_by(.1) |> Iter.map(.0)
+message |> Iter.zip(zigzag(rails)) |> Iter.sort_by(.second) |> Iter.map(.first)
 ```
 
 When the tuple was built far from where it is read, such as in another
 function or a `once`, take it apart in the lambda instead, so the names say
-what the parts are: `Iter.map(roster, fn #(name, _grade) -> name)`.
+what the parts are: `Iter.map(roster, fn (name, _grade) -> name)`.
 
 ### 11. Pass a constructor, not `fn x -> Some(x)`
 
@@ -642,7 +650,7 @@ derive Hashable for Nucleotide
 derive Variants for Nucleotide
 
 fn no_counts() -> Map<Nucleotide, Int> {
-    Nucleotide.variants() |> Iter.map(&#(&1, 0)) |> Iter.to_map()
+    Nucleotide.variants() |> Iter.map(&(&1, 0)) |> Iter.to_map()
 }
 ```
 
@@ -725,16 +733,18 @@ parameter's type.
 
 ### 17. Use a tuple for a local pairing and a struct once it travels
 
-Use a tuple, `#(a, b)`, for a small, local pairing whose positions are
+Use a tuple, `(a, b)`, for a small, local pairing whose positions are
 obvious (spec §4 *Tuples*; tour:
 [Structs, Enums & Distinct Types](/structs-enums-distinct/#tuples)): a function returning two values, a map entry. Switch to an anonymous
 struct, `#{x: 1, y: 2}` (or a struct), once a slot is updated, or read by
 position far from where the tuple was built. A named field reads better than
-`.1`, and an anonymous struct takes a spread update, which a tuple does not.
+`.second`, and an anonymous struct takes a spread update, which a tuple does
+not. Past four items, use a struct: `.fifth` makes the reader count, and a
+field name says what the item is.
 
 ```nomi
-fn divide(x: Int, y: Int) -> #(Int, Int) {
-    #(x / y, x % y)
+fn divide(x: Int, y: Int) -> (Int, Int) {
+    (x / y, x % y)
 }
 
 fn step(point: #{x: Int, y: Int}) -> #{x: Int, y: Int} {
@@ -888,7 +898,7 @@ When only whether a value matches matters, write `value is Pattern` (spec §8
 not a `case` with a `True` arm and a `_ -> False` arm:
 
 ```nomi
-fn is_isosceles(sides: #(Float, Float, Float)) -> Bool {
+fn is_isosceles(sides: (Float, Float, Float)) -> Bool {
     kind(sides) is Some(.Equilateral or .Isosceles)
 }
 ```
@@ -1244,17 +1254,17 @@ grid is absent, so a neighbour needs no bounds check and no
 flowers =
     garden
     |> Iter.with_index()
-    |> Iter.flat_map(fn #(row, line) -> {
+    |> Iter.flat_map(fn (row, line) -> {
         line
         |> Iter.with_index()
-        |> Iter.filter(fn #(_column, square) -> square == "*")
-        |> Iter.map(fn #(column, _square) -> #(row, column))
+        |> Iter.filter(fn (_column, square) -> square == "*")
+        |> Iter.map(fn (column, _square) -> (row, column))
     })
     |> Iter.to_set()
 
 count =
     neighbours
-    |> Iter.filter(fn #(dr, dc) -> #(row + dr, column + dc) in flowers)
+    |> Iter.filter(fn (dr, dc) -> (row + dr, column + dc) in flowers)
     |> Iter.count()
 ```
 
@@ -1283,16 +1293,16 @@ threads a state from one element to the next is `Iter.map_reduce`:
 ```nomi
 balances = deposits |> Iter.scan(opening, fn balance, amount -> balance + amount)
 
-#(_width, rows) =
+(_width, rows) =
     lines
     |> Iter.reverse()
     |> Iter.map_reduce(0, fn width, line -> {
         width = Int.max(width, String.length(line))
-        #(width, String.pad_end(line, width))
+        (width, String.pad_end(line, width))
     })
 ```
 
-not an `Iter.reduce` whose accumulator is a `#(state, list)` pair that conses
+not an `Iter.reduce` whose accumulator is a `(state, list)` pair that conses
 each result and is reversed afterwards. Use `scan` when the outputs are the
 states themselves, and it stays lazy, so it can run over an unbounded source
 under a `take`. Use `map_reduce` when each element has its own output and
@@ -1329,12 +1339,12 @@ fn checksum(digits: List<Int>) -> Int {
     digits
     |> Iter.reverse()
     |> Iter.with_index()
-    |> Iter.map(fn #(i, d) -> if i % 2 == 1 { double(d) } else { d })
+    |> Iter.map(fn (i, d) -> if i % 2 == 1 { double(d) } else { d })
     |> Iter.sum()
 }
 ```
 
-not an `Iter.reduce` whose state is `#(total, index)`, or a parity flag
+not an `Iter.reduce` whose state is `(total, index)`, or a parity flag
 flipped at each step. The position comes from the element, and what remains
 is a plain map and a named fold (§33). The index counts from 0.
 
@@ -1418,7 +1428,7 @@ arithmetic:
 
 ```nomi
 // most points first, then by name
-table = Iter.sort_by(standings, fn s -> #(Reverse.of(s.points), s.team))
+table = Iter.sort_by(standings, fn s -> (Reverse.of(s.points), s.team))
 ```
 
 Don't chain stable sorts, `|> Iter.sort_by(.team)` and then
@@ -1603,15 +1613,15 @@ column:
 
 ```nomi
 test "parses ids" {
-    [#("42", Ok(42)), #("007", Ok(7)), #("nope", Err("expected a numeric id"))]
-    |> subtests #(text, expected) {
+    [("42", Ok(42)), ("007", Ok(7)), ("nope", Err("expected a numeric id"))]
+    |> subtests (text, expected) {
         assert parse_id(text) == expected
     }
 }
 ```
 
 Pipe a literal table used once. Bind the table to a name, and write
-`subtests cases, #(text, expected) { ... }`, when the test uses it again or
+`subtests cases, (text, expected) { ... }`, when the test uses it again or
 when it needs a type annotation.
 
 When the data alone does not say what a row checks, give each row a
@@ -1621,10 +1631,10 @@ it is:
 ```nomi
 test "leap years" {
     [
-        #("year divisible by 400 is leap year", 2000, True),
-        #("year divisible by 100, not divisible by 400 in common year", 1900, False),
+        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
     ]
-    |> subtests #(description, year, expected), description {
+    |> subtests (description, year, expected), description {
         assert is_leap_year(year) == expected
     }
 }
@@ -1640,10 +1650,10 @@ than annotating the table:
 
 ```nomi
 cases = [
-    #("single bit one to decimal", 2, [1], 10, Ok([1])),
-    #("input base is one", 1, [0], 10, Err(Error.InvalidInputBase)),
-    #("input base is zero", 0, [], 10, Err(.InvalidInputBase)),
-    #("negative digit", 2, [1, -1, 1, 0, 1, 0], 10, Err(.InvalidDigit)),
+    ("single bit one to decimal", 2, [1], 10, Ok([1])),
+    ("input base is one", 1, [0], 10, Err(Error.InvalidInputBase)),
+    ("input base is zero", 0, [], 10, Err(.InvalidInputBase)),
+    ("negative digit", 2, [1, -1, 1, 0, 1, 0], 10, Err(.InvalidDigit)),
 ]
 ```
 
@@ -1666,12 +1676,12 @@ table (§41), and the others build their expectations from it:
 
 ```nomi
 once verses = [
-    #(1, "On the first day of Christmas my true love gave to me: a Partridge."),
-    #(2, "On the second day of Christmas my true love gave to me: two Doves."),
+    (1, "On the first day of Christmas my true love gave to me: a Partridge."),
+    (2, "On the second day of Christmas my true love gave to me: two Doves."),
 ]
 
 test "each verse" {
-    subtests verses, #(number, expected) {
+    subtests verses, (number, expected) {
         assert recite(number, number) == [expected]
     }
 }
@@ -1679,7 +1689,7 @@ test "each verse" {
 test "two verses together" {
     expected =
         verses
-        |> Iter.map(fn #(_number, verse) -> verse)
+        |> Iter.map(fn (_number, verse) -> verse)
         |> Iter.to_list()
 
     assert recite(1, 2) == expected
@@ -1987,3 +1997,34 @@ tool`), such as sqlkit's `generate` (tour:
   file is not what the tool would write, for an automated check. A generated
   test that computes the inputs' checksum again and compares it with the
   header's makes a plain `nomi test` notice a forgotten run.
+
+### 51. Acquire a resource, then `defer` its release on the next line
+
+std offers no scoped `with_*` form that runs a function with a resource. A
+function acquires the resource, defers its release on the next line, and
+uses it in the same body, so the release runs however the function ends:
+by its last line, a `return`, a `?` or a trap. A writer's success path
+closes it with `?`, which commits the write and reports a failed close; the
+deferred `Writer.discard` throws the output away on every other way out.
+
+```nomi
+fn save(path: String, rows: List<String>) -> Result<Unit, io.Error> {
+    w = fs.create(path, mode: .ReplaceAtomically)?
+    defer Writer.discard(w)
+
+    Writer.write_lines(w, rows)?
+    Writer.close(w)?
+    Ok(Unit)
+}
+```
+
+The other pairs: `fs.open` and `Reader.close_quietly`, `fs.open_file` and
+`File.close_quietly`, `fs.make_temp_dir` and `fs.remove_all_quietly`,
+`process.spawn` and `Child.kill`, `http.stream` and `StreamedResponse.close`, and a
+driver's open and `sql.close_quietly`.
+
+The checker holds the rule for a type that implements `Release`, and the
+success path's close for one that implements `Commit` (spec §9 *Releasing
+resources*). A type of your own that holds something to give back
+implements `Release`, with the body of its `release` calling the function a
+caller defers.

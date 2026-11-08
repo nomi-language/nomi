@@ -565,7 +565,7 @@ impl Date {
     //! assert Date.format(d, Locale`de`, style: .Full) == "Dienstag, 20. Oktober 2026"
     //! assert Date.format(d, Locale`ja`, style: .Long) == "2026年10月20日"
     //
-    pub fn format(d: Date, locale: Locale, style: DateStyle = DateStyle.Medium) -> String {
+    pub fn format(d: Date, locale: Locale, style = DateStyle.Medium) -> String {
         civil_format_style(locale, Date.fields_of(d), "${DateStyle.name(style)}/-")
     }
 
@@ -828,7 +828,7 @@ impl Time {
     //! assert Time.format(t, Locale`de`) == "21:30"
     //! assert Time.format(t, Locale`fr`, style: .Medium) == "21:30:00"
     //
-    pub fn format(t: Time, locale: Locale, style: TimeStyle = TimeStyle.Short) -> String {
+    pub fn format(t: Time, locale: Locale, style = TimeStyle.Short) -> String {
         civil_format_style(locale, Time.fields_of(t), "-/${TimeStyle.name(style)}")
     }
 

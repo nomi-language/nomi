@@ -13,15 +13,15 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: raindrops.nomi
 //# Converts a number to raindrop sounds by its factors 3, 5 and 7.
 
-once sounds = [#(3, "Pling"), #(5, "Plang"), #(7, "Plong")]
+once sounds = [(3, "Pling"), (5, "Plang"), (7, "Plong")]
 
 /// The raindrop sounds for `number`'s factors 3, 5 and 7, or the number
 /// itself when it has none of them.
 pub fn convert(number: Int) -> String {
     drops =
         sounds
-        |> Iter.filter(fn #(factor, _sound) -> number % factor == 0)
-        |> Iter.map(fn #(_factor, sound) -> sound)
+        |> Iter.filter(fn (factor, _sound) -> number % factor == 0)
+        |> Iter.map(fn (_factor, sound) -> sound)
         |> String.join()
 
     if drops == "" { "${number}" } else { drops }
@@ -32,34 +32,34 @@ import raindrops.convert
 
 test "raindrop sounds" {
     [
-        #("the sound for 1 is 1", 1, "1"),
-        #("the sound for 3 is Pling", 3, "Pling"),
-        #("the sound for 5 is Plang", 5, "Plang"),
-        #("the sound for 7 is Plong", 7, "Plong"),
-        #("the sound for 6 is Pling as it has a factor 3", 6, "Pling"),
-        #(
+        ("the sound for 1 is 1", 1, "1"),
+        ("the sound for 3 is Pling", 3, "Pling"),
+        ("the sound for 5 is Plang", 5, "Plang"),
+        ("the sound for 7 is Plong", 7, "Plong"),
+        ("the sound for 6 is Pling as it has a factor 3", 6, "Pling"),
+        (
             "2 to the power 3 does not make a raindrop sound as 3 is the exponent not the base",
             8,
             "8",
         ),
-        #("the sound for 9 is Pling as it has a factor 3", 9, "Pling"),
-        #("the sound for 10 is Plang as it has a factor 5", 10, "Plang"),
-        #("the sound for 14 is Plong as it has a factor of 7", 14, "Plong"),
-        #("the sound for 15 is PlingPlang as it has factors 3 and 5", 15, "PlingPlang"),
-        #("the sound for 21 is PlingPlong as it has factors 3 and 7", 21, "PlingPlong"),
-        #("the sound for 25 is Plang as it has a factor 5", 25, "Plang"),
-        #("the sound for 27 is Pling as it has a factor 3", 27, "Pling"),
-        #("the sound for 35 is PlangPlong as it has factors 5 and 7", 35, "PlangPlong"),
-        #("the sound for 49 is Plong as it has a factor 7", 49, "Plong"),
-        #("the sound for 52 is 52", 52, "52"),
-        #(
+        ("the sound for 9 is Pling as it has a factor 3", 9, "Pling"),
+        ("the sound for 10 is Plang as it has a factor 5", 10, "Plang"),
+        ("the sound for 14 is Plong as it has a factor of 7", 14, "Plong"),
+        ("the sound for 15 is PlingPlang as it has factors 3 and 5", 15, "PlingPlang"),
+        ("the sound for 21 is PlingPlong as it has factors 3 and 7", 21, "PlingPlong"),
+        ("the sound for 25 is Plang as it has a factor 5", 25, "Plang"),
+        ("the sound for 27 is Pling as it has a factor 3", 27, "Pling"),
+        ("the sound for 35 is PlangPlong as it has factors 5 and 7", 35, "PlangPlong"),
+        ("the sound for 49 is Plong as it has a factor 7", 49, "Plong"),
+        ("the sound for 52 is 52", 52, "52"),
+        (
             "the sound for 105 is PlingPlangPlong as it has factors 3, 5 and 7",
             105,
             "PlingPlangPlong",
         ),
-        #("the sound for 3125 is Plang as it has a factor 5", 3125, "Plang"),
+        ("the sound for 3125 is Plang as it has a factor 5", 3125, "Plang"),
     ]
-    |> subtests #(description, number, expected), description {
+    |> subtests (description, number, expected), description {
         assert convert(number) == expected
     }
 }
@@ -81,5 +81,5 @@ test result: ok. 18 passed, 0 failed
   `Int.to_string(number)`; both are the same `Display` call.
 - The table is tuples, not structs: for a three-row local table a tuple is
   the right size. The filter and the map take each row apart in the lambda
-  (`fn #(factor, _sound) ->`, `fn #(_factor, sound) ->`) rather than reading
+  (`fn (factor, _sound) ->`, `fn (_factor, sound) ->`) rather than reading
   `.0` and `.1`, since the table is a `once` away from them (style §10).

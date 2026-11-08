@@ -83,7 +83,7 @@ impl Reactor {
         reactor: Reactor,
         name: String,
         value: Int,
-    ) -> Result<#(Reactor, Map<String, Int>), Error> {
+    ) -> Result<(Reactor, Map<String, Int>), Error> {
         if not name in reactor.values { return Err(.UnknownCell(name)) }
 
         if not name in reactor.inputs { return Err(.NotAnInput(name)) }
@@ -96,13 +96,13 @@ impl Reactor {
 
         fired =
             reactor.callbacks
-            |> Iter.filter(fn #(_, cell) -> {
+            |> Iter.filter(fn (_, cell) -> {
                 Map.get(values, cell)! != Map.get(reactor.values, cell)!
             })
-            |> Iter.map(fn #(callback, cell) -> #(callback, Map.get(values, cell)!))
+            |> Iter.map(fn (callback, cell) -> (callback, Map.get(values, cell)!))
             |> Iter.to_map()
 
-        Ok(#(#{..reactor, values}, fired))
+        Ok((#{..reactor, values}, fired))
     }
 
     /// `reactor` with the callback `callback` watching the cell `cell`.

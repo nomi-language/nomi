@@ -94,7 +94,8 @@ func (g *gen) ifaceTemplate(name string) *ast.InterfaceDef {
 // portableSignatures reports whether a sibling file's generic interface can
 // be instantiated here: its functions' signatures are resolved in this file,
 // so every name they mention must resolve to the same declaration in both
-// files, by portableDefault's rule.
+// files, the rule a default lowered at its call is held to
+// (defaultNamesAgree).
 func (g *gen) portableSignatures(d *ifaceDef) bool {
 	if g.reg == nil || d.unit < 0 || d.unit >= len(g.reg.gens) {
 		return false
@@ -158,8 +159,8 @@ func (g *gen) ifaceInstAt(tpl *ast.InterfaceDef, subst map[string]kind) *ifaceIn
 		unit:      -1,
 	}
 	if m := g.ifaces[tpl.Name]; m != nil && m.decl == tpl && m.foreign != "" {
-		// A sibling file's template: an inherited default is copied from
-		// that file, which inheritDefaults checks through these.
+		// A sibling file's template: an inherited default is lowered in
+		// that file (ifacedefault.go), which it reaches through these.
 		d.foreign, d.pkg, d.unit = m.foreign, m.pkg, m.unit
 	} else if o := g.templateOwner(tpl); o != nil {
 		d.foreign, d.pkg, d.unit = o.fileKey, o.pkg, o.unit

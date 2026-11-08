@@ -1278,7 +1278,7 @@ func (b *bound) fn71(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn74 adapts ffx.triple: triple(n: Int) -> #(Int, String, Bool)
+// fn74 adapts ffx.triple: triple(n: Int) -> (Int, String, Bool)
 func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.triple", &err)
 	if len(args) != 1 {
@@ -1296,7 +1296,7 @@ func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return tup, nil
 }
 
-// fn75 adapts ffx.triple_or_fail: triple_or_fail(n: Int) -> Result<#(Int, String), String>
+// fn75 adapts ffx.triple_or_fail: triple_or_fail(n: Int) -> Result<(Int, String), String>
 func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.triple_or_fail", &err)
 	if len(args) != 1 {

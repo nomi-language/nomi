@@ -19,7 +19,7 @@ import (
 // irOpWantExplicitPos is how many rt operations take the Nomi position as an
 // argument. The VM checks Int arithmetic itself and builds the fault from rt's
 // error constructors, so those are not among them.
-const irOpWantExplicitPos = 2
+const irOpWantExplicitPos = 3
 
 // irOpParse parses every non-test Go source in dir.
 func irOpParse(dir string) ([]*goast.File, *token.FileSet, error) {
@@ -54,7 +54,7 @@ func irOpParse(dir string) ([]*goast.File, *token.FileSet, error) {
 // concurrent scope, two phase flags) and no position, so there is no third
 // mechanism.
 var irOpExplicitPosition = []string{
-	"ModDecimal", "DeferBootAt",
+	"ModDecimal", "DivDecimal", "DeferBootAt",
 }
 
 // TestIRRtOperationsThatTakeAPosition checks that the rt functions taking a

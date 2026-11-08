@@ -255,7 +255,7 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
 			}
 		} else if want, holds := bl.g.irEmptyListsAtInt(lk); holds && lk == rk {
-			// `#(1, []) == #(1, [])`: the same, as `[] == []` is, for an
+			// `(1, []) == (1, [])`: the same, as `[] == []` is, for an
 			// empty list inside a tuple whose element type nothing fixed.
 			if lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, want); ok {
 				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
@@ -283,7 +283,7 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 		} else if irEmbeddedIn(lk, rk) {
 			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
 		} else if irExistentialKind(lk) && !irExistentialKind(rk) {
-			// `t == #(1, "a")` with `t: Equatable`: the concrete value is
+			// `t == (1, "a")` with `t: Equatable`: the concrete value is
 			// boxed as the interface value it is compared with, and the two
 			// compare by their run-time types below (spec §12 *Interface
 			// values*).

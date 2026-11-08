@@ -37,7 +37,7 @@ func TestParse_GroupedTypeIsTheType(t *testing.T) {
 
 	// A tuple and a function type keep their own parentheses inside a
 	// grouping pair.
-	def := parse(t, "type P (#(Int, String))\n")[0].(*ast.TypeDef)
+	def := parse(t, "type P ((Int, String))\n")[0].(*ast.TypeDef)
 	if ft, ok := def.InnerTypeExpr.(*ast.FuncType); !ok || ft.Return != nil || len(ft.Params) != 2 {
 		t.Fatalf("got %#v, want the tuple (Int, String)", def.InnerTypeExpr)
 	}
@@ -48,9 +48,9 @@ func TestParse_GroupedTypeIsTheType(t *testing.T) {
 	}
 }
 
-// `#(T,)` is not a 1-tuple type; the parser rejects it.
+// `(T,)` is not a 1-tuple type; the parser rejects it.
 func TestParse_OneElementTupleTypeIsRejected(t *testing.T) {
-	err := parseError(t, "fn f(x: #(Int,)) -> Int {\n    x\n}\n")
+	err := parseError(t, "fn f(x: (Int,)) -> Int {\n    x\n}\n")
 	if want := "a tuple type has at least two elements"; !strings.Contains(err.Error(), want) {
 		t.Fatalf("got %q, want it to say %q", err, want)
 	}

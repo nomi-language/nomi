@@ -84,7 +84,7 @@ test "an assertion's value is its subject" {
 }
 
 test "tuple destructuring in a test body" {
-  #(a, b) = #(3, 4)
+  (a, b) = (3, 4)
   assert a * b == 12
 }
 

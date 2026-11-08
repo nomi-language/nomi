@@ -18,7 +18,7 @@ group "user management" {
 
     test "add user" {
         api = RestApi.new(`{"users":[]}`)?
-        #(answer, _api) = RestApi.post(api, "/add", `{"user":"Adam"}`)?
+        (answer, _api) = RestApi.post(api, "/add", `{"user":"Adam"}`)?
         user: User = Json.decode_as(answer)?
 
         assert user == #{name: "Adam", owes: %{}, owed_by: %{}, balance: 0.0}
@@ -39,46 +39,46 @@ group "user management" {
 
 test "iou" {
     [
-        #(
+        (
             "both users have 0 balance",
             adam_and_bob,
             `{"lender":"Adam","borrower":"Bob","amount":3.0}`,
             `{"users":[{"name":"Adam","owes":{},"owed_by":{"Bob":3.0},"balance":3.0},{"name":"Bob","owes":{"Adam":3.0},"owed_by":{},"balance":-3.0}]}`,
         ),
-        #(
+        (
             "borrower has negative balance",
             bob_owes_chuck,
             `{"lender":"Adam","borrower":"Bob","amount":3.0}`,
             `{"users":[{"name":"Adam","owes":{},"owed_by":{"Bob":3.0},"balance":3.0},{"name":"Bob","owes":{"Adam":3.0,"Chuck":3.0},"owed_by":{},"balance":-6.0}]}`,
         ),
-        #(
+        (
             "lender has negative balance",
             bob_owes_chuck,
             `{"lender":"Bob","borrower":"Adam","amount":3.0}`,
             `{"users":[{"name":"Adam","owes":{"Bob":3.0},"owed_by":{},"balance":-3.0},{"name":"Bob","owes":{"Chuck":3.0},"owed_by":{"Adam":3.0},"balance":0.0}]}`,
         ),
-        #(
+        (
             "lender owes borrower",
             adam_owes_bob,
             `{"lender":"Adam","borrower":"Bob","amount":2.0}`,
             `{"users":[{"name":"Adam","owes":{"Bob":1.0},"owed_by":{},"balance":-1.0},{"name":"Bob","owes":{},"owed_by":{"Adam":1.0},"balance":1.0}]}`,
         ),
-        #(
+        (
             "lender owes borrower less than new loan",
             adam_owes_bob,
             `{"lender":"Adam","borrower":"Bob","amount":4.0}`,
             `{"users":[{"name":"Adam","owes":{},"owed_by":{"Bob":1.0},"balance":1.0},{"name":"Bob","owes":{"Adam":1.0},"owed_by":{},"balance":-1.0}]}`,
         ),
-        #(
+        (
             "lender owes borrower same as new loan",
             adam_owes_bob,
             `{"lender":"Adam","borrower":"Bob","amount":3.0}`,
             `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`,
         ),
     ]
-    |> subtests #(description, database, payload, expected), description {
+    |> subtests (description, database, payload, expected), description {
         assert Ok(api) = RestApi.new(database)
-        assert Ok(#(answer, _api)) = RestApi.post(api, "/iou", payload)
+        assert Ok((answer, _api)) = RestApi.post(api, "/iou", payload)
         assert Ok(wanted) = Json.decode_as<Users>(expected)
         assert Json.decode_as<Users>(answer) == Ok(wanted)
     }

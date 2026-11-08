@@ -42,6 +42,9 @@ type OnceTable struct {
 	// reads holds, for each unannotated binding the inference phase
 	// checked, the `once` bindings its value reads.
 	reads map[*ast.OnceBinding][]*ast.OnceBinding
+	// defaults are the fields and parameters whose type comes from their
+	// default (default_type.go), which the phase infers first.
+	defaults []*defaultSite
 }
 
 // onceSite is where a `once` is declared: its file, that file's nodes (a
@@ -112,6 +115,7 @@ func (t *OnceTable) infer() {
 		return
 	}
 	t.inferOnce.Do(func() {
+		t.inferDefaults()
 		pending := make([]*ast.OnceBinding, 0, len(t.sites))
 		for n := range t.sites {
 			if n.TypeAnnotation == nil && n.Value != nil {
@@ -189,7 +193,7 @@ func (t *OnceTable) reinfer(files map[*FileAnalysis]bool) bool {
 	}
 	t.inferred = true
 	for _, n := range pending {
-		if t.cycles[n] != nil || !sameOnceType(was[n], syms[n].Type) {
+		if t.cycles[n] != nil || !sameOnceType(was[n], syms[n].Type) || !sameLiteralFields(was[n], syms[n].Type) {
 			return true
 		}
 	}
@@ -242,6 +246,25 @@ func sameOnceType(a, b Type) bool {
 		return (a == nil || isNilType(a)) && (b == nil || isNilType(b))
 	}
 	return TypesEqual(a, b) && a.String() == b.String()
+}
+
+// sameLiteralFields reports whether the anonymous literals types a and b are
+// built from label their fields at the same places (FieldDef.File, Line and
+// Col). A file that reads a `once` refers to the labels its value's literal
+// declares, so a type the early cutoff keeps must hold the labels where they
+// now are. The kept type's labels were moved with the edit
+// (shiftDeclarations); one the edit itself rewrote no longer matches.
+func sameLiteralFields(a, b Type) bool {
+	labels := func(t Type) []FieldDef {
+		var out []FieldDef
+		moveAnonFields(t, map[Type]bool{}, func(f *FieldDef) {
+			if f.File != "" {
+				out = append(out, FieldDef{Name: f.Name, Line: f.Line, Col: f.Col, File: f.File})
+			}
+		})
+		return out
+	}
+	return slices.Equal(labels(a), labels(b))
 }
 
 // inferType checks an unannotated `once`'s value with a checker for its own

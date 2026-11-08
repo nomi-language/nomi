@@ -191,6 +191,11 @@ type Symbol struct {
 	DefinitionLine int
 	DefinitionCol  int
 	DefinitionSpan int
+	// Undeclared marks a field use of an anonymous struct whose declaration
+	// the checker does not know (a type built with no source positions, such
+	// as a regex's named groups): the symbol stands at the use for hover,
+	// and go-to-definition and rename have nothing to go to.
+	Undeclared bool
 	// TypeParamBounds holds the base names of a generic type parameter's
 	// interface bounds (`["Display"]` for `where T: Display`). Set on the
 	// type-param symbol in defineTypeParams; lets a `T.method` access record
@@ -219,7 +224,7 @@ type Symbol struct {
 	// enclosing expression is checked, so a reader reads it after checking.
 	VariantType Type
 	// ParamOf is the function, lambda or interface method whose DESTRUCTURED
-	// parameter introduced this binding (`fn #(word, count) -> count`), and nil for
+	// parameter introduced this binding (`fn (word, count) -> count`), and nil for
 	// every other symbol. The unused-binding check reports such a name as a
 	// parameter.
 	ParamOf ast.Node

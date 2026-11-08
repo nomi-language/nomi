@@ -37,11 +37,11 @@ fn main() {
 `,
 	"tuple": `enum Tree<T> {
   Leaf(T)
-  Node(#(Tree<T>, Tree<T>))
+  Node((Tree<T>, Tree<T>))
 }
 
 fn main() {
-  io.inspect(Tree.Node(#(Tree.Leaf(1), Tree.Leaf(2))))
+  io.inspect(Tree.Node((Tree.Leaf(1), Tree.Leaf(2))))
 }
 `,
 	"map": `enum Tree<T> {
@@ -370,7 +370,7 @@ derive Display for Chain<T>
 
 enum Pair<T> {
     One T
-    Both #(Pair<T>, Pair<T>)
+    Both (Pair<T>, Pair<T>)
 }
 
 derive Equatable for Pair<T>
@@ -431,8 +431,8 @@ fn build_chain(n: Int, acc: Chain<Int>) -> Chain<Int> {
 fn left(p: Pair<String>) -> String {
     case p {
         Pair.One(s) -> s
-        Pair.Both(#(Pair.One(s), _)) -> "left ${s}"
-        Pair.Both(#(l, _)) -> left(l)
+        Pair.Both((Pair.One(s), _)) -> "left ${s}"
+        Pair.Both((l, _)) -> left(l)
     }
 }
 
@@ -440,7 +440,7 @@ fn build_pair(n: Int, acc: Pair<String>) -> Pair<String> {
     if n == 0 {
         acc
     } else {
-        build_pair(n - 1, Pair.Both(#(acc, Pair.One("r"))))
+        build_pair(n - 1, Pair.Both((acc, Pair.One("r"))))
     }
 }
 
@@ -494,8 +494,8 @@ fn build_even(n: Int, acc: Even<String>) -> Even<String> {
     }
 }
 
-fn twice<T>(x: T) -> #(T, T) {
-    #(x, x)
+fn twice<T>(x: T) -> (T, T) {
+    (x, x)
 }
 
 fn main() {
@@ -522,7 +522,7 @@ fn main() {
         ) == build_chain(1000, Chain.End(0))}"
     )
 
-    p = Pair.Both(#(Pair.One("a"), Pair.Both(#(Pair.One("b"), Pair.One("c")))))
+    p = Pair.Both((Pair.One("a"), Pair.Both((Pair.One("b"), Pair.One("c")))))
     io.inspect(p)
     io.print("${p} ${left(p)} ${p == p} ${Set.size(%[p, Pair.One("a"), p])}")
 
@@ -607,9 +607,9 @@ fn main() {
 		"E([O(E([O(Zero(\"z\"))]))])",
 		"E([O(E([O(Zero(z))]))]) 4 True 2",
 		"deep 2000",
-		"#(Next(Some(Next(Some(End(1))))), Next(Some(Next(Some(End(1))))))",
-		"#(Both(One(\"a\"), Both(One(\"b\"), One(\"c\"))), Both(One(\"a\"), Both(One(\"b\"), One(\"c\"))))",
-		"#(Rose{value: 1, kids: [Rose{value: 2, kids: []}, Rose{value: 3, kids: [Rose{value: 4, kids: []}]}]}, Rose{value: 1, kids: [Rose{value: 2, kids: []}, Rose{value: 3, kids: [Rose{value: 4, kids: []}]}]})",
+		"(Next(Some(Next(Some(End(1))))), Next(Some(Next(Some(End(1))))))",
+		"(Both(One(\"a\"), Both(One(\"b\"), One(\"c\"))), Both(One(\"a\"), Both(One(\"b\"), One(\"c\"))))",
+		"(Rose{value: 1, kids: [Rose{value: 2, kids: []}, Rose{value: 3, kids: [Rose{value: 4, kids: []}]}]}, Rose{value: 1, kids: [Rose{value: 2, kids: []}, Rose{value: 3, kids: [Rose{value: 4, kids: []}]}]})",
 	}, "\n") + "\n"
 	if err != nil || out != want {
 		t.Fatalf("output %q, error %v; want %q", out, err, want)

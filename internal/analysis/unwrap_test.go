@@ -49,7 +49,7 @@ fn main() {
     f = u.nickname!
     g = maybe!
     h = (8 |> half())! + 1
-    _ = #(a, b, c, d, e, f, g, h)
+    _ = (a, b, c, d, e, f, g, h)
 }
 `
 	fa, errs := checkSourceWithStdlib(src)

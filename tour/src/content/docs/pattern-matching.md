@@ -48,8 +48,8 @@ the condition is true. `_` matches anything and names nothing.
 - Literal patterns never cover their type: no list of numbers or strings
   covers `Int` or `String`, so `label` needs its last arm.
 - Coverage works part by part. For a pair of `Maybe<Int>` values, arms for
-  `#(Some(x), _)` and `#(_, Some(y))` miss
-  `non-exhaustive case on #(Maybe<Int>, Maybe<Int>): missing #(None, None)`.
+  `(Some(x), _)` and `(_, Some(y))` miss
+  `non-exhaustive case on (Maybe<Int>, Maybe<Int>): missing (None, None)`.
 - A literal never converts: `3` doesn't match a `Float`. Write `3.0`.
 
 Spec: [Exhaustiveness checking](/spec/patterns/#exhaustiveness-checking),
@@ -89,7 +89,7 @@ dbg line 15: area(.Rectangle{width: 4.0, height: 5.0}) = 20.0
 `.Circle(r)` matches a circle and names its radius `r`.
 `.Rectangle{width, height}` matches a rectangle and names both fields.
 
-Tuples and structs work the same way: `#(a, b) -> ...` and
+Tuples and structs work the same way: `(a, b) -> ...` and
 `Point{x, y} -> ...`. A pattern is written the way the value is built.
 
 ### Lists, vectors and sets
@@ -482,7 +482,7 @@ fn main() {
     dbg total(["1", "2", "3"])
     dbg total(["1", "x", "y"])
 
-    #(numbers, errors) =
+    (numbers, errors) =
         ["1", "x", "y"]
         |> Iter.map(parse)
         |> Result.partition()
@@ -632,7 +632,7 @@ binds two, so its `else` must leave.
 - A fallback stands in for one variant's payload. A nested pattern such as
   `Ok(Some(x))` has no single payload, so its `else` must leave.
 - A pattern that always matches takes no `else`:
-  `#(x, y) = pair else { ... }` is `this pattern always matches; remove the else`.
+  `(x, y) = pair else { ... }` is `this pattern always matches; remove the else`.
 
 Spec: [Bindings with `else`](/spec/patterns/#bindings-with-else).
 

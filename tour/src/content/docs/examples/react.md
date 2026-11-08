@@ -96,7 +96,7 @@ impl Reactor {
         reactor: Reactor,
         name: String,
         value: Int,
-    ) -> Result<#(Reactor, Map<String, Int>), Error> {
+    ) -> Result<(Reactor, Map<String, Int>), Error> {
         if not name in reactor.values { return Err(.UnknownCell(name)) }
 
         if not name in reactor.inputs { return Err(.NotAnInput(name)) }
@@ -109,13 +109,13 @@ impl Reactor {
 
         fired =
             reactor.callbacks
-            |> Iter.filter(fn #(_, cell) -> {
+            |> Iter.filter(fn (_, cell) -> {
                 Map.get(values, cell)! != Map.get(reactor.values, cell)!
             })
-            |> Iter.map(fn #(callback, cell) -> #(callback, Map.get(values, cell)!))
+            |> Iter.map(fn (callback, cell) -> (callback, Map.get(values, cell)!))
             |> Iter.to_map()
 
-        Ok(#(#{..reactor, values}, fired))
+        Ok((#{..reactor, values}, fired))
     }
 
     /// `reactor` with the callback `callback` watching the cell `cell`.
@@ -156,18 +156,18 @@ import react.{Error, Reactor}
 /// One cell a case starts with: an input with its first value, or a compute
 /// cell with the cells it reads and its function of their values.
 enum Cell {
-    Input #(String, Int)
-    Compute #(String, List<String>, (Vector<Int>) -> Int)
+    Input (String, Int)
+    Compute (String, List<String>, (Vector<Int>) -> Int)
 }
 
 /// One canonical operation and what it should answer: a cell's value, an
 /// input set and the callbacks that fire with their values, a callback added
 /// or removed.
 enum Step {
-    Value #(String, Int)
-    Set #(String, Int, Map<String, Int>)
-    AddCallback #(String, String)
-    RemoveCallback #(String, String)
+    Value (String, Int)
+    Set (String, Int, Map<String, Int>)
+    AddCallback (String, String)
+    RemoveCallback (String, String)
 }
 
 derive Equatable for Step
@@ -176,8 +176,8 @@ derive Equatable for Step
 fn build(cells: List<Cell>) -> Result<Reactor, Error> {
     Iter.try_reduce(cells, Reactor.new(), fn reactor, cell -> {
         case cell {
-            .Input(#(name, value)) -> Reactor.input(reactor, name, value)
-            .Compute(#(name, inputs, compute)) -> Reactor.compute(reactor, name, inputs, compute)
+            .Input((name, value)) -> Reactor.input(reactor, name, value)
+            .Compute((name, inputs, compute)) -> Reactor.compute(reactor, name, inputs, compute)
         }
     })
 }
@@ -186,30 +186,30 @@ fn build(cells: List<Cell>) -> Result<Reactor, Error> {
 /// as they happened. A reactor that does what every step says answers the
 /// steps it was given.
 fn replay(reactor: Reactor, steps: List<Step>) -> Result<List<Step>, Error> {
-    #(_reactor, happened) =
+    (_reactor, happened) =
         steps
         |> Iter.map_reduce(reactor, fn reactor, step -> {
             case step {
-                .Value(#(cell, _)) ->
+                .Value((cell, _)) ->
                     case Reactor.value(reactor, cell) {
-                        Some(value) -> #(reactor, Ok(Step.Value(cell, value)))
-                        None -> #(reactor, Err(Error.UnknownCell(cell)))
+                        Some(value) -> (reactor, Ok(Step.Value(cell, value)))
+                        None -> (reactor, Err(Error.UnknownCell(cell)))
                     }
 
-                .Set(#(cell, value, _)) ->
+                .Set((cell, value, _)) ->
                     case Reactor.set_value(reactor, cell, value) {
-                        Ok(#(next, fired)) -> #(next, Ok(.Set(cell, value, fired)))
-                        Err(error) -> #(reactor, Err(error))
+                        Ok((next, fired)) -> (next, Ok(.Set(cell, value, fired)))
+                        Err(error) -> (reactor, Err(error))
                     }
 
-                .AddCallback(#(cell, callback)) ->
+                .AddCallback((cell, callback)) ->
                     case Reactor.add_callback(reactor, cell, callback) {
-                        Ok(next) -> #(next, Ok(.AddCallback(cell, callback)))
-                        Err(error) -> #(reactor, Err(error))
+                        Ok(next) -> (next, Ok(.AddCallback(cell, callback)))
+                        Err(error) -> (reactor, Err(error))
                     }
 
-                .RemoveCallback(#(cell, callback)) ->
-                    #(
+                .RemoveCallback((cell, callback)) ->
+                    (
                         Reactor.remove_callback(reactor, cell, callback),
                         Ok(.RemoveCallback(cell, callback)),
                     )
@@ -221,17 +221,17 @@ fn replay(reactor: Reactor, steps: List<Step>) -> Result<List<Step>, Error> {
 
 test "react" {
     [
-        #(
+        (
             "input cells have a value",
             [Cell.Input("input", 10)],
             [Step.Value("input", 10)],
         ),
-        #(
+        (
             "an input cell's value can be set",
             [.Input("input", 4)],
             [.Set("input", 20, %{}), .Value("input", 20)],
         ),
-        #(
+        (
             "compute cells calculate initial value",
             [
                 .Input("input", 1),
@@ -239,7 +239,7 @@ test "react" {
             ],
             [.Value("output", 2)],
         ),
-        #(
+        (
             "compute cells take inputs in the right order",
             [
                 .Input("one", 1),
@@ -250,7 +250,7 @@ test "react" {
             ],
             [.Value("output", 21)],
         ),
-        #(
+        (
             "compute cells update value when dependencies are changed",
             [
                 .Input("input", 1),
@@ -258,7 +258,7 @@ test "react" {
             ],
             [.Set("input", 3, %{}), .Value("output", 4)],
         ),
-        #(
+        (
             "compute cells can depend on other compute cells",
             [
                 .Input("input", 1),
@@ -270,7 +270,7 @@ test "react" {
             ],
             [.Value("output", 32), .Set("input", 3, %{}), .Value("output", 96)],
         ),
-        #(
+        (
             "compute cells fire callbacks",
             [
                 .Input("input", 1),
@@ -278,7 +278,7 @@ test "react" {
             ],
             [.AddCallback("output", "callback1"), .Set("input", 3, %{"callback1" => 4})],
         ),
-        #(
+        (
             "callback cells only fire on change",
             [
                 .Input("input", 1),
@@ -292,7 +292,7 @@ test "react" {
                 .Set("input", 4, %{"callback1" => 222}),
             ],
         ),
-        #(
+        (
             "callbacks do not report already reported values",
             [
                 .Input("input", 1),
@@ -304,7 +304,7 @@ test "react" {
                 .Set("input", 3, %{"callback1" => 4}),
             ],
         ),
-        #(
+        (
             "callbacks can fire from multiple cells",
             [
                 .Input("input", 1),
@@ -317,7 +317,7 @@ test "react" {
                 .Set("input", 10, %{"callback1" => 11, "callback2" => 9}),
             ],
         ),
-        #(
+        (
             "callbacks can be added and removed",
             [
                 .Input("input", 11),
@@ -332,7 +332,7 @@ test "react" {
                 .Set("input", 41, %{"callback2" => 42, "callback3" => 42}),
             ],
         ),
-        #(
+        (
             "removing a callback multiple times doesn't interfere with other callbacks",
             [
                 .Input("input", 1),
@@ -347,7 +347,7 @@ test "react" {
                 .Set("input", 2, %{"callback2" => 3}),
             ],
         ),
-        #(
+        (
             "callbacks should only be called once even if multiple dependencies change",
             [
                 .Input("input", 1),
@@ -360,7 +360,7 @@ test "react" {
             ],
             [.AddCallback("output", "callback1"), .Set("input", 4, %{"callback1" => 10})],
         ),
-        #(
+        (
             "callbacks should not be called if dependencies change but output value doesn't change",
             [
                 .Input("input", 1),
@@ -379,7 +379,7 @@ test "react" {
             ],
         ),
     ]
-    |> subtests #(description, cells, steps), description {
+    |> subtests (description, cells, steps), description {
         assert Ok(reactor) = build(cells)
 
         assert replay(reactor, steps) == Ok(steps)

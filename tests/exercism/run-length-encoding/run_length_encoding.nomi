@@ -25,7 +25,7 @@ fn encode_run(run: List<String>) -> String {
 pub fn decode(encoded: String) -> String {
     encoded
     |> String.captures_all(Regex`(\d*)(\D)`)
-    |> Iter.map(fn #(count, letter) -> {
+    |> Iter.map(fn (count, letter) -> {
         times = String.to_int(count) |> Maybe.with_default(1)
         String.repeat(letter, times)
     })

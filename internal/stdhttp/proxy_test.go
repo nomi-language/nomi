@@ -62,7 +62,7 @@ func TestReverseProxy_StreamsAndLogs(t *testing.T) {
 	defer backend.Close()
 	unblock := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { close(first) }))
 	defer unblock.Close()
-	got := run(t, strings.ReplaceAll(strings.ReplaceAll(`import std::http.{self, Client, Request, Response, ReverseProxy}
+	got := run(t, strings.ReplaceAll(strings.ReplaceAll(`import std::http.{self, Client, Request, Response, ReverseProxy, StreamedResponse}
 import std::http_testing
 import std::http_testing.TestServer
 import std::io.{self, Reader}
@@ -71,13 +71,14 @@ import std::url.Url
 fn main() {
     proxy = http.reverse_proxy(ReverseProxy.to(Url.parse("BACKEND")!))
     http_testing.with_server(proxy, fn server -> {
-        _ = Client.with_response(server.client, Request{url: server.url}, fn response -> {
-            body = http.Body.reader(response.body)
-            line = Reader.read_line(body)
-            io.print("first ${line}")
-            _ = http.get(Url.parse("UNBLOCK")!)
-            io.print("second ${Reader.read_line(body)}")
-        })
+        response = Client.stream(server.client, Request{url: server.url})!
+        defer StreamedResponse.close(response)
+
+        body = response.body
+        line = Reader.read_line(body)
+        io.print("first ${line}")
+        _ = http.get(Url.parse("UNBLOCK")!)
+        io.print("second ${Reader.read_line(body)}")
     })
 
     broken = http.reverse_proxy(#{..ReverseProxy.to(Url.parse("http://127.0.0.1:1")!), on_error_log: Some(fn text: String -> io.print("logged ${String.contains(text, "refused")}"))})

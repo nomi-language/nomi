@@ -148,7 +148,7 @@ impl Toml.Value {
             .Table(entries) -> {
                 pairs =
                     entries
-                    |> Iter.map(fn #(k, v) -> toml_host.quote(k) + " = " + Toml.Value.text(v))
+                    |> Iter.map(fn (k, v) -> toml_host.quote(k) + " = " + Toml.Value.text(v))
                     |> Iter.to_list()
 
                 "{" + String.join(pairs, ", ") + "}"
@@ -301,7 +301,7 @@ impl CheckedLiteral<ToToml, Toml> for Toml {
     //! assert Toml.text(Toml"${id} = true") == "\"42\" = true"
     //
     fn check(statics: List<String>) -> Result<Unit, LiteralError> {
-        #(fragment, offset, message) = toml_host.check(statics)
+        (fragment, offset, message) = toml_host.check(statics)
 
         if fragment < 0 {
             Ok(Unit)

@@ -19,7 +19,7 @@ fn unwrap(Dur(x): Dur) -> Int { x }`
 }
 
 func TestParamDestructure_Tuple_Annotated(t *testing.T) {
-	src := `fn add(#(a, b): #(Int, Int)) -> Int { a + b }`
+	src := `fn add((a, b): (Int, Int)) -> Int { a + b }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -47,7 +47,7 @@ fn open(Wrapper.Only(n)) -> Int { n }`
 
 func TestParamDestructure_NestedTupleOfDistinct(t *testing.T) {
 	src := `type Dur Int
-fn pair(#(Dur(a), n): #(Dur, Int)) -> Int { a + n }`
+fn pair((Dur(a), n): (Dur, Int)) -> Int { a + n }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -105,7 +105,7 @@ func TestParamDestructure_Reject_ListPattern(t *testing.T) {
 func TestParamDestructure_Reject_NestedRefutable(t *testing.T) {
 	// A tuple whose element is a refutable multi-variant enum variant.
 	src := `enum Opt { Some(Int); Nothing }
-fn f(#(.Some(x), n): #(Opt, Int)) -> Int { x + n }`
+fn f((.Some(x), n): (Opt, Int)) -> Int { x + n }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "refutable pattern in parameter")
 }
@@ -118,7 +118,7 @@ fn f(#(.Some(x), n): #(Opt, Int)) -> Int { x + n }`
 // so that regression can't slip back in.
 
 func TestParamDestructure_Reject_TupleNoAnnotation(t *testing.T) {
-	src := `fn f(#(a, b)) -> Int { a + b }`
+	src := `fn f((a, b)) -> Int { a + b }`
 	_, errs := checkSource(src)
 	expectErrorCount(t, errs, "needs a type annotation", 1)
 }

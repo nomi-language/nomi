@@ -32,50 +32,50 @@ fn run(account: Account, step: Step) -> Result<Unit, Error> {
 
 test "bank account" {
     [
-        #("Newly opened account has zero balance", [Step.Open], Ok(0)),
-        #("Single deposit", [.Open, .Deposit(100)], Ok(100)),
-        #("Multiple deposits", [.Open, .Deposit(100), .Deposit(50)], Ok(150)),
-        #("Withdraw once", [.Open, .Deposit(100), .Withdraw(75)], Ok(25)),
-        #("Withdraw twice", [.Open, .Deposit(100), .Withdraw(80), .Withdraw(20)], Ok(0)),
-        #(
+        ("Newly opened account has zero balance", [Step.Open], Ok(0)),
+        ("Single deposit", [.Open, .Deposit(100)], Ok(100)),
+        ("Multiple deposits", [.Open, .Deposit(100), .Deposit(50)], Ok(150)),
+        ("Withdraw once", [.Open, .Deposit(100), .Withdraw(75)], Ok(25)),
+        ("Withdraw twice", [.Open, .Deposit(100), .Withdraw(80), .Withdraw(20)], Ok(0)),
+        (
             "Can do multiple operations sequentially",
             [.Open, .Deposit(100), .Deposit(110), .Withdraw(200), .Deposit(60), .Withdraw(50)],
             Ok(20),
         ),
-        #("Cannot check balance of closed account", [.Open, .Close], Err(Error.AccountNotOpen)),
-        #(
+        ("Cannot check balance of closed account", [.Open, .Close], Err(Error.AccountNotOpen)),
+        (
             "Cannot deposit into closed account",
             [.Open, .Close, .Deposit(50)],
             Err(.AccountNotOpen),
         ),
-        #("Cannot deposit into unopened account", [.Deposit(50)], Err(.AccountNotOpen)),
-        #(
+        ("Cannot deposit into unopened account", [.Deposit(50)], Err(.AccountNotOpen)),
+        (
             "Cannot withdraw from closed account",
             [.Open, .Close, .Withdraw(50)],
             Err(.AccountNotOpen),
         ),
-        #("Cannot close an account that was not opened", [.Close], Err(.AccountNotOpen)),
-        #("Cannot open an already opened account", [.Open, .Open], Err(.AccountAlreadyOpen)),
-        #("Reopened account does not retain balance", [.Open, .Deposit(50), .Close, .Open], Ok(0)),
-        #(
+        ("Cannot close an account that was not opened", [.Close], Err(.AccountNotOpen)),
+        ("Cannot open an already opened account", [.Open, .Open], Err(.AccountAlreadyOpen)),
+        ("Reopened account does not retain balance", [.Open, .Deposit(50), .Close, .Open], Ok(0)),
+        (
             "Cannot withdraw more than deposited",
             [.Open, .Deposit(25), .Withdraw(50)],
             Err(.AmountAboveBalance),
         ),
-        #(
+        (
             "Cannot withdraw negative",
             [.Open, .Deposit(100), .Withdraw(-50)],
             Err(.AmountNotPositive),
         ),
-        #("Cannot deposit negative", [.Open, .Deposit(-50)], Err(.AmountNotPositive)),
+        ("Cannot deposit negative", [.Open, .Deposit(-50)], Err(.AmountNotPositive)),
     ]
-    |> subtests #(description, steps, expected), description {
+    |> subtests (description, steps, expected), description {
         assert replay(steps) == expected
     }
 }
 
 test "Can handle concurrent transactions" {
-    #(opened, transactions, balance) = bank_account.with_account(fn account -> {
+    (opened, transactions, balance) = bank_account.with_account(fn account -> {
         opened = Account.open(account)
 
         transactions = concurrent {
@@ -90,7 +90,7 @@ test "Can handle concurrent transactions" {
             |> Task.await_all()
         }
 
-        #(opened, transactions, Account.balance(account))
+        (opened, transactions, Account.balance(account))
     })
 
     assert opened == Ok(Unit)

@@ -48,8 +48,25 @@ func TestInspect_VariantsTuplesAndDistincts(t *testing.T) {
 		t.Errorf("Dot: %d children, %s", n.NumChildren(), n.Text())
 	}
 	pair := TupleDesc(SlotInt, SlotString).Make(int64(1), "a")
-	if got := childNames(Inspect(pair).Children(0, 5)); got != `0=1 1="a"` {
+	if got := childNames(Inspect(pair).Children(0, 5)); got != `first=1 second="a"` {
 		t.Errorf("tuple: %s", got)
+	}
+	ref, word := SlotRef, SlotInt
+	named := NewDistinctDesc("geo.Span", &ref).Make(pair)
+	if n := Inspect(named); n.NumChildren() != 2 || childNames(n.Children(0, 5)) != `first=1 second="a"` {
+		t.Errorf("named tuple: %d children, %s", n.NumChildren(), childNames(n.Children(0, 5)))
+	}
+	if got := childNames(Inspect(NewDistinctDesc("ids.Id", &word).Make(int64(7))).Children(0, 5)); got != "0=7" {
+		t.Errorf("distinct over an Int: %s", got)
+	}
+	slots := make([]SlotType, 21)
+	items := make([]any, 21)
+	for i := range slots {
+		slots[i], items[i] = SlotInt, int64(i+1)
+	}
+	wide := Inspect(TupleDesc(slots...).Make(items...)).Children(19, 2)
+	if got := childNames(wide); got != "twentieth=20 [20]=21" {
+		t.Errorf("past the twentieth: %s", got)
 	}
 }
 
@@ -89,7 +106,7 @@ func TestInspect_MapEntries(t *testing.T) {
 	var byPair Map[any, any]
 	byPair = MapPut(byPair, Hash, Equal, any(key), any("x"))
 	entry := Inspect(byPair).Children(0, 1)[0]
-	if entry.Name != "[0]" || childNames(entry.Value.Children(0, 2)) != `key=#(1, 2) value="x"` {
+	if entry.Name != "[0]" || childNames(entry.Value.Children(0, 2)) != `key=(1, 2) value="x"` {
 		t.Errorf("a tuple key: %s %s", entry.Name, childNames(entry.Value.Children(0, 2)))
 	}
 }

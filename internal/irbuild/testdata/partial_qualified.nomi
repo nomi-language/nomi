@@ -26,8 +26,8 @@ fn boot() -> Result<App, String> {
     Ok(App{console: Stdout{prefix: "app> "}, context: Context.root()})
 }
 
-fn pair<T>(a: T, b: T) -> #(T, T) {
-    #(a, b)
+fn pair<T>(a: T, b: T) -> (T, T) {
+    (a, b)
 }
 
 fn main() {
@@ -37,7 +37,7 @@ fn main() {
     write("c")
     Iter.each(["d"], &Stdout.write_line(c, &1))
     Iter.each(["e", "f"], &Console.write_line(App.console, &1))
-    with_one: (Int) -> #(Int, Int) = &pair(1, &1)
+    with_one: (Int) -> (Int, Int) = &pair(1, &1)
     io.print(Debug.inspect(with_one(2)))
 
     io.print(

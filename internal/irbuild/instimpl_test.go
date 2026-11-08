@@ -1,6 +1,25 @@
 package irbuild
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+// A process-wide std interface as a type argument is spelled by its spec,
+// not by its decl's address, so a std bundle written by one process names
+// `impl CheckedLiteral<Display, Url> for Url`'s functions as the process
+// that links it does.
+func TestPortableArgsKey_StdInterfaceIsSpelledByName(t *testing.T) {
+	for i, s := range stdIfaceSpecs {
+		key := portableArgsKey([]kind{stdIfaceKind(i)})
+		if strings.Contains(key, "0x") {
+			t.Errorf("%s: key %q holds an address", s.nomi, key)
+		}
+		if !strings.HasSuffix(key, s.module+"."+s.nomi) {
+			t.Errorf("%s: key %q does not name %s.%s", s.nomi, key, s.module, s.nomi)
+		}
+	}
+}
 
 // A receiver implementing one generic interface at several type arguments:
 // each call form reaches the impl the front end chose (instimpl.go).

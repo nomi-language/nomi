@@ -34,7 +34,7 @@ test "a fake answers each statement with the function it was given" {
         dialect: Dialect.Sqlite,
         answer: fn statement, _ -> {
             if statement.parts == ["SELECT name FROM users"] {
-                Ok([Row.new("${statement}", [#("name", Value.Text("Ada"))])])
+                Ok([Row.new("${statement}", [("name", Value.Text("Ada"))])])
             } else {
                 Err(
                     sql.Error.Constraint{
@@ -60,7 +60,7 @@ test "a fake answers each statement with the function it was given" {
 
 test "each_row stops when the callback answers False" {
     rows =
-        [1, 2, 3] |> Iter.map(fn n -> Row.new("SELECT n", [#("n", Value.Int(n))])) |> Iter.to_list()
+        [1, 2, 3] |> Iter.map(fn n -> Row.new("SELECT n", [("n", Value.Int(n))])) |> Iter.to_list()
 
     fake = Fake.new(answer: fn _, _ -> Ok(rows))
     seen: Channel<Int> = Channel.buffered(3)
@@ -152,10 +152,10 @@ test "a transaction inside a transaction is a savepoint" {
             })
         })
 
-        Ok(#(inner, failed))
+        Ok((inner, failed))
     })
 
-    assert answer == Ok(#(Ok("kept"), Err(sql.Error.Timeout)))
+    assert answer == Ok((Ok("kept"), Err(sql.Error.Timeout)))
 
     assert Fake.log(fake) == [
         "BEGIN",
@@ -370,9 +370,9 @@ test "the suite names the close rules a driver that never closes breaks" {
         "every operation after close is Closed",
         "closing a transaction closes its connection",
         "closing a connection ends its transaction",
-        "sql.with_connection closes on Ok",
-        "sql.with_connection closes on Err",
-        "sql.with_connection closes on a trap",
+        "a deferred sql.close_quietly closes on Ok",
+        "a deferred sql.close_quietly closes on Err",
+        "a deferred sql.close_quietly closes on a trap",
     ]
 
     assert Some(first) = Iter.first(failures)
@@ -445,34 +445,39 @@ test "a closed connection's transaction answers Closed" {
     assert Fake.log(fake) == ["CLOSE"]
 }
 
-test "sql.with_connection closes the connection on Ok and on Err" {
+// Holds conn as a function that opened it does: the close deferred first,
+// and an explicit close on the success path.
+fn add_then(conn: Fake, outcome: Result<Unit, sql.Error>) -> Result<Unit, sql.Error> {
+    defer sql.close_quietly(conn)
+
+    insert(conn, "Ada")?
+    outcome?
+    Conn.close(conn)
+}
+
+test "a deferred close_quietly closes the connection on Ok and on Err" {
     kept = Fake.new()
-    assert sql.with_connection(fn -> Ok(kept), fn conn -> insert(conn, "Ada")) == Ok(Unit)
+    assert add_then(kept, Ok(Unit)) == Ok(Unit)
     assert Fake.log(kept) == ["INSERT INTO users (name) VALUES (?1)", "CLOSE"]
 
     failed = Fake.new()
-
-    answer = sql.with_connection<Fake, Unit>(fn -> Ok(failed), fn conn -> {
-        insert(conn, "Ada")?
-        Err(sql.Error.Timeout)
-    })
-
-    assert answer == Err(sql.Error.Timeout)
+    assert add_then(failed, Err(sql.Error.Timeout)) == Err(sql.Error.Timeout)
     assert Fake.log(failed) == ["INSERT INTO users (name) VALUES (?1)", "CLOSE"]
 }
 
-test "sql.with_connection closes the connection when its body traps" {
+fn add_then_trap(conn: Fake) -> Result<Int, sql.Error> {
+    defer sql.close_quietly(conn)
+
+    insert(conn, "Ada")?
+    zero = Iter.count([])
+    Ok(1 / zero)
+}
+
+test "a deferred close_quietly closes the connection when the body traps" {
     fake = Fake.new()
 
     outcome = concurrent {
-        task = Task.spawn(fn -> {
-            sql.with_connection(fn -> Ok(fake), fn conn -> {
-                insert(conn, "Ada")?
-                zero = Iter.count([])
-                Ok(1 / zero)
-            })
-        })
-
+        task = Task.spawn(fn -> add_then_trap(fake))
         Task.outcome(task)
     }
 
@@ -480,18 +485,13 @@ test "sql.with_connection closes the connection when its body traps" {
     assert Fake.is_closed(fake)
 }
 
-test "sql.with_connection answers open's Err and runs no body" {
-    refused: Result<Fake, sql.Error> = Err(sql.Error.Connection{message: "refused"})
-    answer = sql.with_connection(fn -> refused, fn conn -> insert(conn, "Ada"))
-    assert answer == Err(sql.Error.Connection{message: "refused"})
-}
-
-test "a transaction inside sql.with_connection commits before the close" {
+test "a transaction commits before the deferred close" {
     fake = Fake.new()
 
-    answer = sql.with_connection(fn -> Ok(fake), fn conn -> {
-        sql.transaction(conn, fn tx -> insert(tx, "Ada"))
-    })
+    answer = {
+        defer sql.close_quietly(fake)
+        sql.transaction(fake, fn tx -> insert(tx, "Ada"))
+    }
 
     assert answer == Ok(Unit)
     assert Fake.log(fake) == ["BEGIN", "INSERT INTO users (name) VALUES (?1)", "COMMIT", "CLOSE"]

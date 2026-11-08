@@ -44,8 +44,8 @@ func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
 			&ast.StructDestructure{},
 		},
 		{
-			"fn main() {\n    #((a), _) = t\n}\n",
-			"fn main() {\n    #(a, _) = t\n}\n",
+			"fn main() {\n    ((a), _) = t\n}\n",
+			"fn main() {\n    (a, _) = t\n}\n",
 			&ast.TupleDestructure{},
 		},
 		{

@@ -305,24 +305,24 @@ pub fn nanos(d: Maybe<Duration>) -> Int {
 /// Two connections joined in memory, each end's writes the other's
 /// reads, with no buffer: Go's `net.Pipe`. For tests of code that talks
 /// over a connection.
-//! #(a, b) = net.pipe()
+//! (a, b) = net.pipe()
 //! _ = Connection.close(a)
 //! assert Connection.remote_address(b) == "pipe"
 //
-pub fn pipe() -> #(Connection, Connection) {
+pub fn pipe() -> (Connection, Connection) {
     case http_host.pipe() {
-        [a, b] -> #(Connection{handle: a}, Connection{handle: b})
+        [a, b] -> (Connection{handle: a}, Connection{handle: b})
         _ -> todo
     }
 }
 
 /// Splits `host:port` (or `[host]:port`) into its host and port: Go's
 /// `SplitHostPort`.
-//! assert net.split_host_port("[::1]:80") == Ok(#("::1", "80"))
+//! assert net.split_host_port("[::1]:80") == Ok(("::1", "80"))
 //
-pub fn split_host_port(address: String) -> Result<#(String, String), Error> {
+pub fn split_host_port(address: String) -> Result<(String, String), Error> {
     case (http_host.split_host_port(address) |> Result.map_err(Error.from_parts)?) {
-        [host, port] -> Ok(#(host, port))
+        [host, port] -> Ok((host, port))
         _ -> Err(Error.InvalidAddress{address, reason: "no host and port"})
     }
 }
@@ -421,10 +421,10 @@ pub fn lookup_srv(
     service: String,
     protocol: String,
     domain: String,
-) -> Result<#(String, List<Srv>), Error> {
+) -> Result<(String, List<Srv>), Error> {
     case lookup("srv", "${service} ${protocol} ${domain}")? {
-        [cname, ..rest] -> Ok(#(cname, srv_records(rest)))
-        [] -> Ok(#("", []))
+        [cname, ..rest] -> Ok((cname, srv_records(rest)))
+        [] -> Ok(("", []))
     }
 }
 

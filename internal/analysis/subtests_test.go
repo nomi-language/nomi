@@ -73,7 +73,7 @@ func TestSubtests_RejectedPlacementsAndExits(t *testing.T) {
 }`,
 			line: 3, col: 9,
 			msg:  "`subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case",
-			hint: "combine the two row lists into one, as in `subtests pairs, #(a, b) { ... }`, or write the inner rows as a test of their own",
+			hint: "combine the two row lists into one, as in `subtests pairs, (a, b) { ... }`, or write the inner rows as a test of their own",
 		},
 		{
 			name: "setup",
@@ -297,7 +297,7 @@ test "t" {
 func TestSubtests_AdmittedForms(t *testing.T) {
 	cases := []struct{ name, src string }{
 		{"test body over a list of tuples", `test "t" {
-    subtests [#("a", 1), #("bb", 2)], #(s, n) {
+    subtests [("a", 1), ("bb", 2)], (s, n) {
         assert String.length(s) == n
     }
 }`},
@@ -319,7 +319,7 @@ fn f(xs: List<Int>) -> Result<Unit, AssertionFailure> {
     subtests #[1, 2], n {
         assert n > 0
     }
-    subtests %{"a" => 1}, #(k, v) {
+    subtests %{"a" => 1}, (k, v) {
         assert k == "a" and v == 1
     }
     subtests [1, 2] |> Iter.map(fn n -> n * 2), n {
@@ -348,7 +348,7 @@ fn check_row(line: String, want: Bool) -> Result<Unit, AssertionFailure> {
 }
 
 test "t" {
-    subtests [#("abba", True), #("abc", False)], #(line, want) {
+    subtests [("abba", True), ("abc", False)], (line, want) {
         check_row(line, want)
     }
 }`},
@@ -386,29 +386,29 @@ test "t" {
     }
 }`},
 		{"a row named by a pattern binding the body never reads", `test "t" {
-    cases = [#("leap", 2000, True), #("common", 1900, False)]
-    subtests cases, #(description, year, expected), description {
+    cases = [("leap", 2000, True), ("common", 1900, False)]
+    subtests cases, (description, year, expected), description {
         assert (year % 400 == 0) == expected
     }
 }`},
 		{"a built name, and a name reading the enclosing test", `test "t" {
     prefix = "sum"
-    subtests [#(1, 2, 3)], #(a, b, sum), "${prefix}: ${a} + ${b}" {
+    subtests [(1, 2, 3)], (a, b, sum), "${prefix}: ${a} + ${b}" {
         assert a + b == sum
     }
 }`},
 		{"discarded columns with and without a name", `test "t" {
-    cases = [#("leap", 2000, True)]
-    subtests cases, #(_, year, expected) {
+    cases = [("leap", 2000, True)]
+    subtests cases, (_, year, expected) {
         assert (year % 400 == 0) == expected
     }
-    subtests cases, #(_description, year, expected) {
+    subtests cases, (_description, year, expected) {
         assert (year % 400 == 0) == expected
     }
-    subtests cases, #(description, _, expected), description {
+    subtests cases, (description, _, expected), description {
         assert expected
     }
-    subtests cases, #(_description, year, _), "${year}" {
+    subtests cases, (_description, year, _), "${year}" {
         assert year > 0
     }
 }`},

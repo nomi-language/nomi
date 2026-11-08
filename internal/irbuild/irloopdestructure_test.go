@@ -18,9 +18,9 @@ struct Walk {
 }
 
 fn factorial_loop(input: Int) -> Int {
-    #(_, acc) = Iter.loop(#(input, 1), fn #(n, acc): #(Int, Int) -> {
-        if n <= 1 { break #(n, acc) }
-        #(n - 1, n * acc)
+    (_, acc) = Iter.loop((input, 1), fn (n, acc): (Int, Int) -> {
+        if n <= 1 { break (n, acc) }
+        (n - 1, n * acc)
     })
     acc
 }
@@ -28,16 +28,16 @@ fn factorial_loop(input: Int) -> Int {
 fn main() {
     io.inspect(factorial_loop(5))
     // A bare break answers the state.
-    io.inspect(Iter.loop(#(0, 1), fn #(a, b) -> {
+    io.inspect(Iter.loop((0, 1), fn (a, b) -> {
         if a > 20 { break }
-        #(b, a + b)
+        (b, a + b)
     }))
     // Nested tuples, with a discarded part.
-    io.inspect(Iter.loop(#(#(0, 100), "x", 0), fn #(#(lo, hi), _, n) -> {
-        if hi - lo <= 1 { break #(#(lo, hi), "done", n) }
+    io.inspect(Iter.loop(((0, 100), "x", 0), fn ((lo, hi), _, n) -> {
+        if hi - lo <= 1 { break ((lo, hi), "done", n) }
         mid = (lo + hi) / 2
-        if mid * mid > 50 { return #(#(lo, mid), "low", n + 1) }
-        #(#(mid, hi), "high", n + 1)
+        if mid * mid > 50 { return ((lo, mid), "low", n + 1) }
+        ((mid, hi), "high", n + 1)
     }))
     // A named struct, and an anonymous pattern over it.
     io.inspect(Iter.loop(Point{x: 0, y: 10}, fn Point{x, y} -> {
@@ -56,13 +56,13 @@ fn main() {
         }
     }))
     // In a lambda, with a continue-free body ending in a case.
-    sum_to = fn limit: Int -> Iter.loop(#(0, 0), fn #(i, total) -> {
+    sum_to = fn limit: Int -> Iter.loop((0, 0), fn (i, total) -> {
         case i > limit {
             True -> break
-            False -> #(i + 1, total + i)
+            False -> (i + 1, total + i)
         }
     })
     io.inspect(sum_to(4))
 }
-`, "120\n#(21, 34)\n#(#(7, 8), \"done\", 7)\nPoint{x: 9, y: 7}\nPoint{x: 32, y: 101}\nWalk{at: Point{x: 3, y: 3}, steps: 3}\n#(5, 10)\n")
+`, "120\n(21, 34)\n((7, 8), \"done\", 7)\nPoint{x: 9, y: 7}\nPoint{x: 32, y: 101}\nWalk{at: Point{x: 3, y: 3}, steps: 3}\n(5, 10)\n")
 }

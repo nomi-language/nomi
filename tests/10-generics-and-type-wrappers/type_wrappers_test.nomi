@@ -1,8 +1,8 @@
 type Id Int
 type Expired
 type Kvs Map<String, Int>
-type Pair #(Int, String)
-type Triple #(Int, Int, Int)
+type Pair (Int, String)
+type Triple (Int, Int, Int)
 
 typealias Handler (String, String) -> Result<String, String>
 
@@ -60,7 +60,7 @@ test "map distinct wrappers support literal attach and destructuring" {
 
 test "tuple distinct wrappers support literal attach and destructuring" {
     p1 = Pair(1, "hello")
-    p2 = Pair(#(2, "world"))
+    p2 = Pair((2, "world"))
     t = Triple(1, 2, 3)
 
     flat = case p1 {
@@ -68,7 +68,7 @@ test "tuple distinct wrappers support literal attach and destructuring" {
     }
 
     nested = case p1 {
-        Pair(#(c, d)) -> "nested: ${c}, ${d}"
+        Pair((c, d)) -> "nested: ${c}, ${d}"
     }
 
     triple = case t {

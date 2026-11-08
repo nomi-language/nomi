@@ -84,8 +84,8 @@ func TestFieldAccessor_Accepted(t *testing.T) {
   g = apply(user(), .greet)
   g("hi")
 }`},
-		{"tuple index", `fn f(p: #(Int, String)) -> String {
-  apply(p, .1)
+		{"tuple index", `fn f(p: (Int, String)) -> String {
+  apply(p, .second)
 }`},
 		{"anonymous struct", `fn f(p: #{x: Int, y: Int}) -> Int {
   apply(p, .y)

@@ -33,7 +33,7 @@ type shapeTarget struct {
 // spelled is the literal as its head reads (`#Path[...]`), shape names the
 // shape in messages, form is the type the shape is written as (`Vector<T>`)
 // and fits reports whether a type has the shape. variants says whether a
-// variant may be named: a tuple-payload variant is a call, `.V(#(a, b))`.
+// variant may be named: a tuple-payload variant is a call, `.V((a, b))`.
 // ok is false after an error is reported.
 func (c *checker) resolveShapeTarget(te ast.TypeExpr, line, col int, spelled, shape, form string, fits func(Type) bool, variants bool) (shapeTarget, bool) {
 	name := te.TypeString()
@@ -55,7 +55,7 @@ func (c *checker) resolveShapeTarget(te ast.TypeExpr, line, col int, spelled, sh
 		}
 	} else if dvt, ok := te.(*ast.DotVariantType); ok {
 		c.addError(line, col, fmt.Sprintf(
-			"a variant takes its tuple as one value: write `.%s(#(...))`", dvt.Name))
+			"a variant takes its tuple as one value: write `.%s((...))`", dvt.Name))
 		return shapeTarget{}, false
 	}
 	named := c.reg.Lookup(name)
@@ -273,7 +273,7 @@ func (c *checker) checkSetPattern(n *ast.SetPattern, expectedTy Type) {
 }
 
 // LiteralSigil is the symbol a literal headed by the name of t starts with:
-// '#' for a distinct type over a tuple or vector; '%' for a distinct type
+// '#' for a distinct type over a vector; '%' for a distinct type
 // over a map or set; 0 for any other type, a struct's or an enum's
 // included, whose literal is its name alone (`Point{...}`).
 func LiteralSigil(t Type) byte {
@@ -281,7 +281,7 @@ func LiteralSigil(t Type) byte {
 	case *DistinctType:
 		inner := resolveTypeVar(t.Inner)
 		switch {
-		case isTupleType(inner), isVectorType(inner):
+		case isVectorType(inner):
 			return '#'
 		case isSetType(inner):
 			return '%'

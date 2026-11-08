@@ -16,7 +16,7 @@ fn encode_one(n: Int) -> List<Byte> {
 
     digits
     |> Iter.with_index()
-    |> Iter.map(fn #(i, digit) -> {
+    |> Iter.map(fn (i, digit) -> {
         byte = Int.to_byte(digit)!
         if i == last { byte } else { byte ||| 0x80 }
     })
@@ -26,15 +26,15 @@ fn encode_one(n: Int) -> List<Byte> {
 /// The numbers `bytes` encode, or an error when the last number's final byte
 /// is missing.
 pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String> {
-    #(pending, values) =
+    (pending, values) =
         bytes
         |> Iter.map_reduce(None, fn pending: Maybe<Int>, byte -> {
             value = Maybe.with_default(pending, 0) <<< 7 ||| Byte.to_int(byte &&& 0x7F)
 
             if byte &&& 0x80 == 0 {
-                #(None, Some(value))
+                (None, Some(value))
             } else {
-                #(Some(value), None)
+                (Some(value), None)
             }
         })
 

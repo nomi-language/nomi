@@ -68,7 +68,7 @@ import bottle_song
 
 test "single verse" {
     [
-        #(
+        (
             "first generic verse",
             10,
             1,
@@ -79,7 +79,7 @@ test "single verse" {
                 "There'll be nine green bottles hanging on the wall.",
             ],
         ),
-        #(
+        (
             "last generic verse",
             3,
             1,
@@ -90,7 +90,7 @@ test "single verse" {
                 "There'll be two green bottles hanging on the wall.",
             ],
         ),
-        #(
+        (
             "verse with 2 bottles",
             2,
             1,
@@ -101,7 +101,7 @@ test "single verse" {
                 "There'll be one green bottle hanging on the wall.",
             ],
         ),
-        #(
+        (
             "verse with 1 bottle",
             1,
             1,
@@ -113,14 +113,14 @@ test "single verse" {
             ],
         ),
     ]
-    |> subtests #(description, start_bottles, take_down, expected), description {
+    |> subtests (description, start_bottles, take_down, expected), description {
         assert bottle_song.recite(start_bottles, take_down) == expected
     }
 }
 
 test "multiple verses" {
     [
-        #(
+        (
             "first two verses",
             10,
             2,
@@ -136,7 +136,7 @@ test "multiple verses" {
                 "There'll be eight green bottles hanging on the wall.",
             ],
         ),
-        #(
+        (
             "last three verses",
             3,
             3,
@@ -157,7 +157,7 @@ test "multiple verses" {
                 "There'll be no green bottles hanging on the wall.",
             ],
         ),
-        #(
+        (
             "all verses",
             10,
             10,
@@ -214,7 +214,7 @@ test "multiple verses" {
             ],
         ),
     ]
-    |> subtests #(description, start_bottles, take_down, expected), description {
+    |> subtests (description, start_bottles, take_down, expected), description {
         assert bottle_song.recite(start_bottles, take_down) == expected
     }
 }

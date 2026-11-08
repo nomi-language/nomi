@@ -22,11 +22,11 @@ var declineReproducers = []struct{ name, src string }{
 	},
 	{
 		name: "gapAssertTupleCompositeDistinct",
-		src: `type Pair #(Int, String)
+		src: `type Pair (Int, String)
 
 test "assert a tuple pattern holding a tuple distinct" {
-    t = #(Pair(1, "a"), 2)
-    assert #(Pair(x, _), 2) = t
+    t = (Pair(1, "a"), 2)
+    assert (Pair(x, _), 2) = t
     assert x == 1
 }
 `,
@@ -35,15 +35,15 @@ test "assert a tuple pattern holding a tuple distinct" {
 		name: "gapBindingElseTupleCompositeDistinct",
 		src: `import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
-fn f(t: #(Pair, Int)) -> Int {
-    #(Pair(x, _), 2) = t else { return 0 }
+fn f(t: (Pair, Int)) -> Int {
+    (Pair(x, _), 2) = t else { return 0 }
     x
 }
 
 fn main() {
-    io.inspect(f(#(Pair(1, "a"), 2)))
+    io.inspect(f((Pair(1, "a"), 2)))
 }
 `,
 	},
@@ -51,15 +51,15 @@ fn main() {
 		name: "gapBindingTupleCompositeDistinct",
 		src: `import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
-fn f(t: #(Pair, Int)) -> Int {
-    #(Pair(x, _), y) = t
+fn f(t: (Pair, Int)) -> Int {
+    (Pair(x, _), y) = t
     x + y
 }
 
 fn main() {
-    io.inspect(f(#(Pair(1, "a"), 2)))
+    io.inspect(f((Pair(1, "a"), 2)))
 }
 `,
 	},
@@ -272,7 +272,7 @@ fn main() {
 		src: `import std::io
 
 fn main() {
-    m = Iter.to_map([#(1, fn x: Int -> x)])
+    m = Iter.to_map([(1, fn x: Int -> x)])
     io.inspect(Map.keys(m))
 }
 `,
@@ -397,11 +397,11 @@ enum Shape {
     Dot
 }
 
-type P #(Iter<Shape>, Int)
+type P (Iter<Shape>, Int)
 
 fn main() {
     c = Circle{r: 1}
-    q = P(#([c], 2))
+    q = P(([c], 2))
     P(it, n) = q
     io.print(Int.to_string(Iter.count(it) + n))
 }
@@ -411,11 +411,11 @@ fn main() {
 		name: "gapElseFallbackTupleCompositeDistinct",
 		src: `import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
-fn f(m: Maybe<#(Pair, Int)>) -> Int {
-    Some(#(Pair(x, _), y)) = m else {
-        #(Pair(0, ""), 0)
+fn f(m: Maybe<(Pair, Int)>) -> Int {
+    Some((Pair(x, _), y)) = m else {
+        (Pair(0, ""), 0)
     }
     x + y
 }
@@ -429,7 +429,7 @@ fn main() {
 		name: "gapEmbeddedStructFieldCompositeDistinct",
 		src: `import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
 struct Circle {
     p: Pair
@@ -804,7 +804,7 @@ fn main() {
         T.to_string(x)
     }
 
-    io.print(txt(#(1, "a")))
+    io.print(txt((1, "a")))
 }
 `,
 	},
@@ -1032,7 +1032,7 @@ fn main() {
 		name: "gapStructVariantFieldCompositeDistinct",
 		src: `import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
 enum E {
     Rec {p: Pair}
@@ -1235,7 +1235,7 @@ test "testing.check over a pipe whose stage holds a pipe" {
 fn main() {
     f = fn x: Int -> x
     io.inspect(f(1))
-    #(f, n) = #(fn x: Int -> x + 1, 1)
+    (f, n) = (fn x: Int -> x + 1, 1)
     io.inspect(f(n))
 }
 `,
@@ -1245,7 +1245,7 @@ fn main() {
 		src: `import std::io
 
 fn main() {
-    io.inspect(#(1, []) == #(1, [2]))
+    io.inspect((1, []) == (1, [2]))
 }
 `,
 	},
@@ -1253,17 +1253,17 @@ fn main() {
 		name: "gapTuplePatternCompositeDistinct",
 		src: `import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
-fn f(t: #(Pair, Int)) -> Int {
+fn f(t: (Pair, Int)) -> Int {
     case t {
-        #(Pair(1, _), 2) -> 1
+        (Pair(1, _), 2) -> 1
         _ -> 0
     }
 }
 
 fn main() {
-    io.inspect(f(#(Pair(1, "a"), 2)))
+    io.inspect(f((Pair(1, "a"), 2)))
 }
 `,
 	},
@@ -1324,7 +1324,7 @@ fn main() {
 		name: "gapVariantPayloadAsCompositeDistinct",
 		src: `import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
 enum E {
     Dist Pair
@@ -1347,22 +1347,22 @@ fn main() {
 		name: "gapVariantPayloadTupleCompositeDistinct",
 		src: `import std::io
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
 enum E {
-    TP #(Pair, Int)
+    TP (Pair, Int)
     Other
 }
 
 fn f(e: E) -> Int {
     case e {
-        .TP(#(Pair(a, _), _)) -> a
+        .TP((Pair(a, _), _)) -> a
         _ -> 0
     }
 }
 
 fn main() {
-    io.inspect(f(E.TP(#(Pair(1, "a"), 2))))
+    io.inspect(f(E.TP((Pair(1, "a"), 2))))
 }
 `,
 	},

@@ -25,10 +25,10 @@ typealias Handler (Int) -> Reply
 
 fn page(_n: Int) -> Page { Page{text: "p"} }
 
-fn routes() -> List<#(String, Handler)> { [#("a", page)] }
+fn routes() -> List<(String, Handler)> { [("a", page)] }
 
 fn main() {
-  mine = [#("b", page)]
+  mine = [("b", page)]
   _r = mine + routes()
 }
 `
@@ -45,8 +45,8 @@ func TestAnnotationHelpDiagnostic_ShowsTheAnnotationAndFixesIt(t *testing.T) {
 		t.Fatal("no analysis")
 	}
 	diags := buildPublishedDiagnostics(annotationURI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
-	want := "binary + type mismatch: List<#(String, (Int) -> Page)> vs List<#(String, (Int) -> Reply)>\n" +
-		"help: annotate the binding: `mine: List<#(String, Handler)> = ...`"
+	want := "binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>\n" +
+		"help: annotate the binding: `mine: List<(String, Handler)> = ...`"
 	if len(diags) != 1 || diags[0].Message != want {
 		var got []string
 		for _, d := range diags {
@@ -67,7 +67,7 @@ func TestAnnotationHelpDiagnostic_ShowsTheAnnotationAndFixesIt(t *testing.T) {
 	actions, _ := res.([]protocol.CodeAction)
 	var fix *protocol.CodeAction
 	for i, a := range actions {
-		if a.Title == "Annotate `mine` as `List<#(String, Handler)>`" {
+		if a.Title == "Annotate `mine` as `List<(String, Handler)>`" {
 			fix = &actions[i]
 		}
 	}
@@ -75,7 +75,7 @@ func TestAnnotationHelpDiagnostic_ShowsTheAnnotationAndFixesIt(t *testing.T) {
 		t.Fatalf("no annotation fix among %d actions", len(actions))
 	}
 	got := applyWorkspaceEdit(t, annotationSrc, *fix, annotationURI)
-	if !strings.Contains(got, "  mine: List<#(String, Handler)> = [#(\"b\", page)]\n") {
+	if !strings.Contains(got, "  mine: List<(String, Handler)> = [(\"b\", page)]\n") {
 		t.Fatalf("the fix wrote:\n%s", got)
 	}
 	s.docs.Open(annotationURI, got)

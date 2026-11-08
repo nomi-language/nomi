@@ -26,7 +26,7 @@ fn scale_point(#{x, y}: Point) -> Int {
     x * y
 }
 
-fn add_pair(#(a, b): #(Int, Int)) -> Int {
+fn add_pair((a, b): (Int, Int)) -> Int {
     a + b
 }
 
@@ -40,7 +40,7 @@ test "function parameters destructure irrefutable patterns" {
     assert diff == 7
     assert sum_point(Point{x: 4, y: 5}) == 9
     assert scale_point(Point{x: 6, y: 7}) == 42
-    assert add_pair(#(20, 22)) == 42
+    assert add_pair((20, 22)) == 42
     assert unwrap(Wrapper.Only(99)) == 99
 }
 

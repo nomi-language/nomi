@@ -144,8 +144,8 @@ pass it as `Dynamic` and decode it on the Nomi side
 | `time.Duration`, `time.Time` | `Duration`, `Instant` | |
 | `io.Reader`, `io.ReadCloser`, `io.Writer`, `io.WriteCloser` | `Reader`, `Writer` from `std::io` | A Go stream becomes a Nomi stream over it. A Nomi stream passed to Go is read or written through its own buffer. |
 | `*T` | `Maybe<T>` | A pointer to a Go type you bound with `opaque type` crosses as that opaque type instead. |
-| two or more return values | a Nomi tuple | `func(string, string) (string, string)` binds to `#(String, String)`. |
-| a trailing `error` | `Result<_, String>` | `#(T, error)` becomes `Result<T, String>`, and a lone `error` becomes `Result<Unit, String>`. The `Err` holds the Go error's message. |
+| two or more return values | a Nomi tuple | `func(string, string) (string, string)` binds to `(String, String)`. |
+| a trailing `error` | `Result<_, String>` | `(T, error)` becomes `Result<T, String>`, and a lone `error` becomes `Result<Unit, String>`. The `Err` holds the Go error's message. |
 | exported Go structs | Nomi `struct` | Exported Go fields match Nomi fields by name: `RawQuery` matches `raw_query`. The struct may come from another package your adapter imports, such as `model.User`, used directly or through an alias like `type User = model.User`. |
 | a Go type alias | the alias's target | `type ID = core.ID` crosses as whatever `core.ID` is. |
 | a `func(A) R` parameter | a Nomi function `(A) -> R` | Pass a lambda or a named function, and Go calls it. The Go function may return nothing (`(A) -> Unit`), one value, or a value and an `error` (`(A) -> Result<R, String>`). |

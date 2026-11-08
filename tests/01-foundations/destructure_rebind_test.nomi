@@ -12,7 +12,7 @@ test "a destructure can rebind a parameter or a function value" {
 
     f = fn x: Int -> x
     g = f
-    #(f, n) = #(fn x: Int -> x + 1, 1)
+    (f, n) = (fn x: Int -> x + 1, 1)
     assert f(n) == 2
     assert g(n) == 1
 }

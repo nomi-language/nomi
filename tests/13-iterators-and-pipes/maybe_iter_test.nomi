@@ -48,7 +48,7 @@ test "a Maybe enters an Iter position" {
     assert total(none) == 0
     assert counted(Some(4)) == 1
     assert Iter.concat(lines, reaction) |> Iter.to_list() == ["a", "b"]
-    assert Iter.zip([1, 2], Some("x")) |> Iter.to_list() == [#(1, "x")]
+    assert Iter.zip([1, 2], Some("x")) |> Iter.to_list() == [(1, "x")]
 }
 
 test "Maybe.map and Iter.map stay apart" {

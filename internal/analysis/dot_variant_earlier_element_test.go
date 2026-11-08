@@ -31,7 +31,7 @@ func TestDotVariant_EarlierElementSetsTheEnum(t *testing.T) {
 		"map keys":       "  m = %{N.A => 0, .C => 1}\n  _ = m",
 		"map values":     "  m = %{\"a\" => N.A, \"c\" => .C}\n  _ = m",
 		"list of maps":   "  ms = [%{N.A => 0}, %{.C => 1, .G => 2}]\n  _ = ms",
-		"list of tuples": "  ts = [#(N.A, 1), #(.C, 2)]\n  _ = ts",
+		"list of tuples": "  ts = [(N.A, 1), (.C, 2)]\n  _ = ts",
 		"payload":        "  ms = [Some(N.A), Some(.C)]\n  _ = ms",
 		"spread heads":   "  xs = [N.A, .C]\n  ys = [N.G, .A, ..xs]\n  _ = ys",
 		"nested list":    "  xs = [[N.A], [.C, .G]]\n  _ = xs",
@@ -75,10 +75,10 @@ func TestDotVariant_EarlierElementSetsTheEnumInASubtestsTable(t *testing.T) {
 		"fn counts(s: String) -> Result<Map<N, Int>, String> {\n  _ = s\n  Ok(%{N.A => 0, .C => 0})\n}\n\n" +
 		"test \"counts\" {\n" +
 		"  cases = [\n" +
-		"    #(\"empty\", \"\", Ok(%{N.A => 0, .C => 0})),\n" +
-		"    #(\"bad\", \"X\", Err(\"bad\")),\n" +
+		"    (\"empty\", \"\", Ok(%{N.A => 0, .C => 0})),\n" +
+		"    (\"bad\", \"X\", Err(\"bad\")),\n" +
 		"  ]\n" +
-		"  subtests cases, #(name, strand, expected), name {\n" +
+		"  subtests cases, (name, strand, expected), name {\n" +
 		"    assert counts(strand) == expected\n" +
 		"  }\n" +
 		"}\n"
@@ -172,8 +172,8 @@ func TestDotVariant_AnUnresolvedFirstRowIsReportedOnce(t *testing.T) {
 	want := ".Small requires a determinable enum type at this position; annotate the binding or qualify the variant\n" +
 		"help: qualify `Size.Small` in the literal's first element, and the bare variants at its place in the later elements take its enum"
 	cases := map[string]string{
-		"two rows":   "  cases = [#(.Small, [Color.Red]), #(.Large, [.Blue])]\n  _ = cases",
-		"three rows": "  cases = [\n    #(.Small, [Color.Red]),\n    #(.Large, [.Blue]),\n    #(.Small, [.Red, .Blue]),\n  ]\n  _ = cases",
+		"two rows":   "  cases = [(.Small, [Color.Red]), (.Large, [.Blue])]\n  _ = cases",
+		"three rows": "  cases = [\n    (.Small, [Color.Red]),\n    (.Large, [.Blue]),\n    (.Small, [.Red, .Blue]),\n  ]\n  _ = cases",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -191,11 +191,11 @@ func TestDotVariant_AnUnresolvedFirstRowIsReportedOnce(t *testing.T) {
 // A `subtests` table's rows are not reported as undetermined on top of it.
 func TestDotVariant_AnUnresolvedFirstRowOfASubtestsTableIsReportedOnce(t *testing.T) {
 	src := tableDecls + "test \"sizes\" {\n" +
-		"  cases = [\n    #(\"a\", .Small, [Color.Red]),\n    #(\"b\", .Large, [.Blue]),\n    #(\"c\", .Small, [.Red, .Blue]),\n  ]\n" +
-		"  subtests cases, #(name, size, colors), name {\n    assert size == Size.Small or colors == [Color.Red]\n  }\n}\n"
+		"  cases = [\n    (\"a\", .Small, [Color.Red]),\n    (\"b\", .Large, [.Blue]),\n    (\"c\", .Small, [.Red, .Blue]),\n  ]\n" +
+		"  subtests cases, (name, size, colors), name {\n    assert size == Size.Small or colors == [Color.Red]\n  }\n}\n"
 	got := frontEndErrors(t, src, frontend.Mode{Tests: true})
-	want := ":13:12: .Small requires a determinable enum type at this position; annotate the binding or qualify the variant\n" +
-		":13:12: help: qualify `Size.Small` in the literal's first element, and the bare variants at its place in the later elements take its enum"
+	want := ":13:11: .Small requires a determinable enum type at this position; annotate the binding or qualify the variant\n" +
+		":13:11: help: qualify `Size.Small` in the literal's first element, and the bare variants at its place in the later elements take its enum"
 	if len(got) != 2 || strings.Join(got, "\n") != want {
 		t.Fatalf("want the one error\n%s\ngot %d:\n%s", want, len(got), strings.Join(got, "\n"))
 	}
@@ -203,7 +203,7 @@ func TestDotVariant_AnUnresolvedFirstRowOfASubtestsTableIsReportedOnce(t *testin
 
 // Qualifying the first row's variant resolves every row.
 func TestDotVariant_AQualifiedFirstRowResolvesTheTable(t *testing.T) {
-	if got := checkTable(t, "  cases = [#(Size.Small, [Color.Red]), #(.Large, [.Blue])]\n  _ = cases"); len(got) != 0 {
+	if got := checkTable(t, "  cases = [(Size.Small, [Color.Red]), (.Large, [.Blue])]\n  _ = cases"); len(got) != 0 {
 		t.Fatalf("the checker rejects the table:\n%s", strings.Join(got, "\n"))
 	}
 }
@@ -211,7 +211,7 @@ func TestDotVariant_AQualifiedFirstRowResolvesTheTable(t *testing.T) {
 // A refusal against a type that is not an enum does not follow from an
 // earlier element's, and a later row still reports it.
 func TestDotVariant_AVariantAgainstANonEnumIsStillReported(t *testing.T) {
-	got := checkTable(t, "  cases = [#(.Small, 1), #(.Large, Int.abs(.Red))]\n  _ = cases")
+	got := checkTable(t, "  cases = [(.Small, 1), (.Large, Int.abs(.Red))]\n  _ = cases")
 	if len(got) != 2 || !strings.HasPrefix(got[0], ".Small requires a determinable enum type") ||
 		got[1] != ".Red resolves only to enum variants, but the expected type at this position is Int" {
 		t.Fatalf("want .Small's refusal and .Red's, got %d:\n%s", len(got), strings.Join(got, "\n"))
@@ -226,7 +226,7 @@ func TestStructLit_EarlierElementSetsTheStruct(t *testing.T) {
 		"list":           "  xs = [Key{a: 1, b: 2}, #{a: 3, b: 4}]\n  _ = xs",
 		"vector":         "  xs = #[Key{a: 1, b: 2}, #{a: 3, b: 4}]\n  _ = xs",
 		"map values":     "  m = %{\"k\" => Key{a: 1, b: 2}, \"j\" => #{a: 3, b: 4}}\n  _ = m",
-		"list of tuples": "  ts = [#(Key{a: 1, b: 2}, \"x\"), #(#{a: 3, b: 4}, \"y\")]\n  _ = ts",
+		"list of tuples": "  ts = [(Key{a: 1, b: 2}, \"x\"), (#{a: 3, b: 4}, \"y\")]\n  _ = ts",
 		"payload":        "  ms = [Some(Key{a: 1, b: 2}), Some(#{a: 3, b: 4})]\n  _ = ms",
 	}
 	for name, body := range cases {

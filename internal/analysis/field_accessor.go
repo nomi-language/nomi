@@ -98,13 +98,17 @@ func (c *checker) accessorParamKnown(param Type) bool {
 }
 
 // accessorReadable reports whether a field accessor can read from a value of
-// type t: a struct, an anonymous struct or a tuple (`.0`). An enum's fields
-// belong to its variants and are not read through an accessor, and an
-// interface value or a type parameter has no fields.
+// type t: a struct, an anonymous struct, or a tuple or named tuple
+// (`.first`). An enum's fields belong to its variants and are not read
+// through an accessor, and an interface value or a type parameter has no
+// fields.
 func accessorReadable(t Type) bool {
-	switch t.(type) {
+	switch v := t.(type) {
 	case *StructType, *AnonStructType, *TupleType:
 		return true
+	case *DistinctType:
+		_, isTuple := distinctInnerOf(v).(*TupleType)
+		return isTuple
 	}
 	return false
 }

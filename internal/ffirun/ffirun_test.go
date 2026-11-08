@@ -240,7 +240,7 @@ fn main() {
 
 // TestFFIRun_TupleReturnRoundTrip proves the FFI-routed path honours the
 // multi-return projection: N >= 2 non-error Go returns arrive as a Nomi
-// tuple, and a trailing error wraps that tuple in Result<#(A, B), String>.
+// tuple, and a trailing error wraps that tuple in Result<(A, B), String>.
 // The reshaping lives in the generated adapter, so this test is the check
 // that nothing in discovery/validate/codegen rejects the shape before it
 // gets there.
@@ -306,19 +306,19 @@ entry_points = ["main"]
 
 gopkg "taggedbinding" as tup
 
-fn divmod(a: Int, b: Int) -> #(Int, Int) go tup.DivMod
+fn divmod(a: Int, b: Int) -> (Int, Int) go tup.DivMod
 
-fn split_once(s: String, sep: String) -> Result<#(String, String), String> go tup.SplitOnce
+fn split_once(s: String, sep: String) -> Result<(String, String), String> go tup.SplitOnce
 
 fn main() {
-  #(q, r) = divmod(17, 5)
+  (q, r) = divmod(17, 5)
   io.print("${q},${r}")
   case split_once("a=b", "=") {
-    Ok(pair) -> io.print("${pair.0}|${pair.1}")
+    Ok(pair) -> io.print("${pair.first}|${pair.second}")
     Err(msg) -> io.print("err: ${msg}")
   }
   case split_once("ab", "=") {
-    Ok(pair) -> io.print("${pair.0}|${pair.1}")
+    Ok(pair) -> io.print("${pair.first}|${pair.second}")
     Err(msg) -> io.print("err: ${msg}")
   }
 }
@@ -1390,7 +1390,7 @@ fn shout(w: Writer, s: String) -> Result<Unit, String> go st.Shout
 fn tee(r: Reader, w: Writer) -> Reader go goio.TeeReader
 
 fn main() {
-    #(closed, packed) = Writer.collect(fn w -> {
+    (closed, packed) = Writer.collect(fn w -> {
         z = gzip(w)
         _ = Writer.write_text(z, "hello, gzip")
         Writer.close(z)
@@ -1398,7 +1398,10 @@ fn main() {
     io.inspect(closed)
 
     case gunzip(Reader.from_bytes(packed)) {
-        Ok(r) -> io.inspect(Reader.read_all_text(r))
+        Ok(r) -> {
+            defer Reader.close_quietly(r)
+            io.inspect(Reader.read_all_text(r))
+        }
         Err(e) -> io.print("gunzip: ${e}")
     }
 
@@ -1406,7 +1409,7 @@ fn main() {
     io.inspect(shout(io.stdout, "from go"))
     io.print("after")
 
-    #(_, copied) = Writer.collect(fn w -> Reader.read_all_text(tee(Reader.from_text("teed"), w)))
+    (_, copied) = Writer.collect(fn w -> Reader.read_all_text(tee(Reader.from_text("teed"), w)))
     io.inspect(copied == String.to_bytes("teed"))
 }
 `)

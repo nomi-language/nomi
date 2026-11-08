@@ -58,23 +58,32 @@ func (g *gen) literalHandlerDecl(t *ast.TaggedString) (*ast.FuncDef, bool) {
 	if g.fa == nil || g.fa.Program().ImplIndex == nil {
 		return nil, false
 	}
-	pos := analysis.Pos{Line: t.Line, Col: max(t.Col-len(t.Tag), 1)}
-	sym := g.srcFA().References[pos]
-	if sym == nil || sym.DispatchImpl == nil {
-		return nil, false
-	}
-	// A `host fn` handler is an *ast.ExternFunc and carries no resolved
-	// FuncType in ImplFuncTypes, so it declines here rather than being read
-	// through a nil. Nothing in the repo declares one; the type switch is the
-	// cost of not assuming that stays true.
-	fd, isFn := sym.DispatchImpl.(*ast.FuncDef)
-	if !isFn {
+	fd := g.literalDispatch(t)
+	if fd == nil {
 		return nil, false
 	}
 	if twin, ok := g.twins[fd].(*ast.FuncDef); ok {
 		return twin, true
 	}
 	return fd, true
+}
+
+// literalDispatch is the handler function the checker chose for t: the impl
+// function on its tag's reference, or for the twin of an untagged literal its
+// position reads as a checked literal, the `build` the position chose. A
+// `host fn` handler is an *ast.ExternFunc and carries no resolved FuncType in
+// ImplFuncTypes, so it answers nil rather than being read through a nil.
+func (g *gen) literalDispatch(t *ast.TaggedString) *ast.FuncDef {
+	if fd := g.srcFA().TargetLiteralBuilds[t]; fd != nil {
+		return fd
+	}
+	pos := analysis.Pos{Line: t.Line, Col: max(t.Col-len(t.Tag), 1)}
+	sym := g.srcFA().References[pos]
+	if sym == nil || sym.DispatchImpl == nil {
+		return nil
+	}
+	fd, _ := sym.DispatchImpl.(*ast.FuncDef)
+	return fd
 }
 
 // --- lowering ---------------------------------------------------------------
@@ -188,6 +197,11 @@ type literalTarget struct {
 	// sym is a sibling handler's retained body, interned in the declaring
 	// unit's table as qualSiblingImplPlan interns it; nil when unknown.
 	sym *ir.Symbol
+	// item is the instance's impl item for a handler of a generic type
+	// this file declares, and inst the std instance for a std one
+	// (genericLiteralImpl); nil otherwise.
+	item *implItem
+	inst *stdInst
 	// rivalled marks a receiver with MORE THAN ONE written provider of this
 	// method, program-wide. Carried on the target rather than asked at the
 	// refusal site because the count needs the method NAME, which only the
@@ -273,6 +287,10 @@ func (g *gen) literalImplFor(t *ast.TaggedString, fd *ast.FuncDef) (literalTarge
 			return literalTarget{}, false
 		}
 		return literalTarget{params: it.params, result: it.result, label: label, unit: -1, rivalled: rivalled}, true
+	}
+	if h, found := g.genericLiteralImpl(t, fd, label); found {
+		h.rivalled = rivalled
+		return h, true
 	}
 	if h, found := g.siblingLiteralImpl(t, fd, label); found {
 		h.rivalled = rivalled
@@ -461,4 +479,81 @@ func (g *gen) stdLiteralImpl(tag string, fd *ast.FuncDef, label string) (literal
 		return literalTarget{}, false
 	}
 	return literalTarget{params: f.params, result: f.result, label: label, std: f, unit: -1}, true
+}
+
+// genericLiteralImpl is the handler fd at the instance a literal of a generic
+// type is, `Route<#{id: Uuid}>` for `impl CheckedLiteral<String, Route<P>>
+// for Route<P>`: the instance's impl item when this file declares the type,
+// and an instance of the std template when std does. The instance is the
+// literal's type as the checker solved it.
+func (g *gen) genericLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label string) (literalTarget, bool) {
+	ty := g.srcFA().ExprTypes[t]
+	if ty == nil {
+		return literalTarget{}, false
+	}
+	k := g.project(ty)
+	if k.tag != tagNamed || k.def == nil {
+		return literalTarget{}, false
+	}
+	if k.def.genericOf != nil {
+		for _, d := range g.implsOf(k) {
+			if d == nil || d.decl == nil || !implBlockDeclares(d.decl, fd) {
+				continue
+			}
+			it := d.items[fd.Name]
+			if it == nil || !it.lowerable {
+				return literalTarget{}, false
+			}
+			return literalTarget{params: it.params, result: it.result, label: label, unit: -1, item: it}, true
+		}
+		// Another file's generic type (std/http's Route, lowered with the
+		// program): the impl its owner built for the instance.
+		src := k.def.instOrigin
+		if src == nil {
+			src = k.def
+		}
+		if owner, impl := g.instanceImplAnywhere(src, "CheckedLiteral", fd.Name); impl != nil && impl.lowerable && owner != g {
+			it := impl.items[fd.Name]
+			if it == nil || !it.lowerable {
+				return literalTarget{}, false
+			}
+			params := make([]kind, len(it.params))
+			for i, p := range it.params {
+				ip, ok := g.importKind(p)
+				if !ok {
+					return literalTarget{}, false
+				}
+				params[i] = ip
+			}
+			result, ok := g.importKind(it.result)
+			if !ok {
+				return literalTarget{}, false
+			}
+			name := impl.recv.nomi() + "." + it.name
+			return literalTarget{params: params, result: result, label: label, unit: -1, sym: owner.irCalleeSym(it, name)}, true
+		}
+	}
+	if g.std == nil || g.stdInsts == nil {
+		return literalTarget{}, false
+	}
+	f := stdSole(g.std.byType[t.Tag+"."+fd.Name])
+	if f == nil || !stdGenericTemplateUsable(f) {
+		return literalTarget{}, false
+	}
+	tps, ib := g.stdInsts.stdTemplateParams(f)
+	if len(tps) == 0 {
+		return literalTarget{}, false
+	}
+	args, ok := g.stdInstSolve(f, tps, ib, nil, kindInvalid, k)
+	if !ok {
+		return literalTarget{}, false
+	}
+	inst, why := g.stdInsts.instantiate(f, tps, args, nil, g)
+	if inst == nil {
+		if why != "" {
+			g.dc.note("a generic typed literal's handler: " + why)
+		}
+		return literalTarget{}, false
+	}
+	return literalTarget{params: inst.view.params, result: inst.view.result, label: label, std: f, inst: inst, unit: -1}, true
 }

@@ -36,7 +36,7 @@ import {
 //! assert base64.encode(String.to_bytes("f"), padded: False) == "Zg"
 //! assert base64.encode(String.to_bytes("foo"), padded: False) == "Zm9v"
 //
-pub fn encode(data: Bytes, padded: Bool = True) -> String {
+pub fn encode(data: Bytes, padded = True) -> String {
     standard(data, padded)
 }
 
@@ -63,7 +63,7 @@ pub host fn decode(text: String) -> Result<Bytes, String>
 //! assert base64.encode_url(String.to_bytes("f")) == "Zg=="
 //! assert base64.encode_url(Bytes.from_list([251, 255, 191, 102]), padded: False) == "-_-_Zg"
 //
-pub fn encode_url(data: Bytes, padded: Bool = True) -> String {
+pub fn encode_url(data: Bytes, padded = True) -> String {
     url_safe(data, padded)
 }
 

@@ -50,11 +50,11 @@ impl MeteredReader {
     pub fn read(
         meter: MeteredReader,
         max: Int = 65536,
-    ) -> Result<#(Maybe<Bytes>, MeteredReader), io.Error> {
+    ) -> Result<(Maybe<Bytes>, MeteredReader), io.Error> {
         data = Reader.read(meter.reader, max)?
         bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)
 
-        Ok(#(data, #{..meter, stats: Stats.add(meter.stats, bytes)}))
+        Ok((data, #{..meter, stats: Stats.add(meter.stats, bytes)}))
     }
 }
 
@@ -88,16 +88,16 @@ import {
 
 /// Reads `meter` to the end, `max` bytes at a time, and answers the bytes
 /// read and the meter after the last read.
-fn read_to_end(meter: MeteredReader, max: Int) -> Result<#(Bytes, MeteredReader), io.Error> {
-    #(data, meter) = MeteredReader.read(meter, max)?
+fn read_to_end(meter: MeteredReader, max: Int) -> Result<(Bytes, MeteredReader), io.Error> {
+    (data, meter) = MeteredReader.read(meter, max)?
 
     case data {
         None ->
-            Ok(#(Bytes.from_list([]), meter))
+            Ok((Bytes.from_list([]), meter))
 
         Some(bytes) -> {
-            #(rest, meter) = read_to_end(meter, max)?
-            Ok(#(bytes + rest, meter))
+            (rest, meter) = read_to_end(meter, max)?
+            Ok((bytes + rest, meter))
         }
     }
 }
@@ -112,7 +112,7 @@ test "a new meter has counted nothing" {
 
 test "reads count their bytes and themselves" {
     meter = Reader.from_text("hello world") |> MeteredReader.new()
-    #(data, meter) = read_to_end(meter, 4)?
+    (data, meter) = read_to_end(meter, 4)?
 
     assert data == String.to_bytes("hello world")
     assert meter.stats == Stats{bytes: 11, operations: 4}
@@ -120,7 +120,7 @@ test "reads count their bytes and themselves" {
 
 test "one read takes what fits, and the next finds the end" {
     meter = Reader.from_text("hello world") |> MeteredReader.new()
-    #(data, meter) = read_to_end(meter, 1024)?
+    (data, meter) = read_to_end(meter, 1024)?
 
     assert data == String.to_bytes("hello world")
     assert meter.stats == Stats{bytes: 11, operations: 2}
@@ -128,7 +128,7 @@ test "one read takes what fits, and the next finds the end" {
 
 test "reading an empty stream is one operation and no bytes" {
     meter = Reader.from_text("") |> MeteredReader.new()
-    #(data, meter) = MeteredReader.read(meter)?
+    (data, meter) = MeteredReader.read(meter)?
 
     assert data == None
     assert meter.stats == Stats{bytes: 0, operations: 1}
@@ -155,8 +155,8 @@ test "writes count their bytes and themselves" {
 
 test "earlier meters keep their own counts" {
     first = Reader.from_text("abcdef") |> MeteredReader.new()
-    #(_, second) = MeteredReader.read(first, 2)?
-    #(_, third) = MeteredReader.read(second, 2)?
+    (_, second) = MeteredReader.read(first, 2)?
+    (_, third) = MeteredReader.read(second, 2)?
 
     assert first.stats == Stats{bytes: 0, operations: 0}
     assert second.stats == Stats{bytes: 2, operations: 1}
@@ -179,5 +179,5 @@ test result: ok. 7 passed, 0 failed
 - Adapted: the exercise asks for a wrapper object around a file or a network connection that keeps running totals as it is used. Nomi values cannot change, so a meter is a value that pairs the stream with its `Stats` so far, and each `read` or `write` answers the meter after it; the caller threads it as it would thread any state. The stream underneath is std/io's `Reader` or `Writer`, which already moves on as it is read or written; std has no network connection, so files and sockets are both whatever `Reader` and `Writer` stand for.
 - `Stats` is a struct of `bytes` and `operations` that both default to 0, and `MeteredReader` and `MeteredWriter` hold a stream and their `Stats`. Every read counts as an operation, the one that finds the end of the stream too, since it is a call the platform served; an error is passed up as the stream's `io.Error` and counts nothing.
 - A meter is an ordinary value, so an earlier meter keeps the counts it had: the last test reads twice and checks all three meters.
-- The meter is a value the caller threads, so it is not itself a `Reader`: code that reads through `Reader.read_all_text` cannot be handed a `MeteredReader` and be counted, because that function's reading loop is its own and a count needs a loop to ride in. Where the reading loop is the caller's, the count is a fold: `Reader.chunks(r) |> Iter.try_reduce(#(0, 0), fn #(total, reads), chunk -> Ok(#(total + Bytes.length(chunk?), reads + 1)))`. This port threads a meter because the exercise reads and writes one call at a time.
+- The meter is a value the caller threads, so it is not itself a `Reader`: code that reads through `Reader.read_all_text` cannot be handed a `MeteredReader` and be counted, because that function's reading loop is its own and a count needs a loop to ride in. Where the reading loop is the caller's, the count is a fold: `Reader.chunks(r) |> Iter.try_reduce((0, 0), fn (total, reads), chunk -> Ok((total + Bytes.length(chunk?), reads + 1)))`. This port threads a meter because the exercise reads and writes one call at a time.
 - The exercise has no canonical data. The tests follow the other tracks' in spirit: reads and writes count bytes and operations, the data passes through unchanged, an error passes through. Reads go over `Reader.from_text`, writes to `io.stdout` inside `io.capture`, and the failing read over `Reader.from_fn`.

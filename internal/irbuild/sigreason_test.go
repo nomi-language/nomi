@@ -59,7 +59,7 @@ fn every(
   _f: List<Int>,
   _g: List<Point>,
   _h: Map<String, Int>,
-  _i: #(Int, String),
+  _i: (Int, String),
   _j: (Int) -> String,
   _k: Maybe<Int>,
   _l: Result<Int, String>,

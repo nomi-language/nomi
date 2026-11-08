@@ -104,7 +104,7 @@ test "the values row for the same opaque value shows the payload" {
 
 test "dbg over containers and prelude instances" {
     _list = dbg [Rev{zeta: 1, alpha: 2}]
-    _pair = dbg #(1, "two")
+    _pair = dbg (1, "two")
     _some = dbg Some(42)
     _none: Maybe<Int> = dbg None
     _rec = dbg #{a: 1, a0: 2}

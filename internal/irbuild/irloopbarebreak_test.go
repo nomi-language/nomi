@@ -141,14 +141,14 @@ fn parse_amount(s: String) -> Result<Int, String> {
 }
 
 fn open(inputs: List<String>) -> Account {
-    #(_, account) = Iter.loop(#(inputs, Account{}), fn state -> {
-        #(rest, account) = state
+    (_, account) = Iter.loop((inputs, Account{}), fn state -> {
+        (rest, account) = state
         Some(input) = List.head(rest) else { break }
         case parse_amount(input) {
-            Ok(amount) -> break #(rest, #{..account, balance: amount})
+            Ok(amount) -> break (rest, #{..account, balance: amount})
             Err(msg) -> {
                 io.print(msg)
-                #(Iter.drop(rest, 1) |> Iter.to_list(), #{..account, name: "${account.name}!"})
+                (Iter.drop(rest, 1) |> Iter.to_list(), #{..account, name: "${account.name}!"})
             }
         }
     })

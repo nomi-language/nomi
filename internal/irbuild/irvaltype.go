@@ -182,9 +182,13 @@ func (g *gen) irNamedValType(k kind) *ir.ValType {
 	case d.instOrigin != nil:
 		// A mirror of another file's instance carries no arguments of its
 		// own; its values are that instance's, keyed as the owner keys them.
+		im := g.mirrorImporter(d)
+		if im == nil {
+			return nil
+		}
 		args = make([]kind, len(d.instOrigin.genericArgs))
 		for i, a := range d.instOrigin.genericArgs {
-			ik, ok := g.importKind(a)
+			ik, ok := im.importKind(a)
 			if !ok {
 				return nil
 			}
@@ -284,4 +288,23 @@ func (g *gen) irAddParam(f *ir.Func, sym *ir.Symbol, k kind) ir.Temp {
 	t := f.AddParam(sym, irParamShape(k))
 	g.irTypeTemp(f, t, k)
 	return t
+}
+
+// mirrorImporter is the gen d, a mirror of another file's generic instance,
+// imports its arguments through: g itself, or, for a std instance gen
+// (`Maybe.hash<Box<Point>>` over another file's Box), which holds no
+// registry to import through, the program's unit that interned the mirror.
+// Nil when no unit did.
+func (g *gen) mirrorImporter(d *typeDef) *gen {
+	if g.reg != nil {
+		return g
+	}
+	if s := g.stdInsts; s != nil {
+		for _, og := range s.program {
+			if og != nil && og.reg != nil && og.foreignInstDefs[d.instOrigin] == d {
+				return og
+			}
+		}
+	}
+	return nil
 }

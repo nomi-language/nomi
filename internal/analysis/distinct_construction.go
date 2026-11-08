@@ -65,7 +65,7 @@ func (c *checker) checkDistinctCtorCall(n *ast.Call, dt *DistinctType) Type {
 
 // freshDistinct is a generic distinct's declaration instantiated with a fresh
 // type variable per type parameter, which the constructor's argument (and
-// the type the construction is expected to have) then solve: `Tagged(#("n",
+// the type the construction is expected to have) then solve: `Tagged(("n",
 // 1))` is a `Tagged<Int>`. A non-generic or already instantiated one is
 // itself.
 func (c *checker) freshDistinct(dt *DistinctType) *DistinctType {
@@ -104,7 +104,7 @@ func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy
 	}
 	c.checkOpaqueConstructor(call.Func, dt)
 	// A tuple-distinct takes the piped tuple whole, as a variant over a
-	// tuple does: `#(1, 2) |> Pair()`. The flat form is a prefix call only.
+	// tuple does: `(1, 2) |> Pair()`. The flat form is a prefix call only.
 	if len(call.Args) != 0 {
 		c.checkArgs(call.Args)
 		c.addError(line, col, fmt.Sprintf(

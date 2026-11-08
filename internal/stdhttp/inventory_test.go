@@ -289,7 +289,7 @@ func typeName(e ast.TypeExpr) string {
 var (
 	firstCode   = regexp.MustCompile("`([^`]+)`")
 	implForm    = regexp.MustCompile(`^(\w+) for ([\w.]+)`)
-	literalForm = regexp.MustCompile(`^#([A-Z]\w*)\{\.\.\., (\w+):`)
+	literalForm = regexp.MustCompile(`^([A-Z]\w*)\{\.\.\., (\w+):`)
 	dottedName  = regexp.MustCompile(`^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*`)
 )
 

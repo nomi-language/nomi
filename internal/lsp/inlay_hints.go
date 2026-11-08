@@ -97,10 +97,12 @@ func (r hintRequest) run(fa *analysis.FileAnalysis, nodes []ast.Node) *hintColle
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case *ast.FuncDef:
+			c.hintParams(n.Params)
 			c.walkFuncBody(n)
 		case *ast.ImplBlock:
 			for _, item := range n.Items {
 				if fn, ok := item.(*ast.FuncDef); ok {
+					c.hintParams(fn.Params)
 					c.walkFuncBody(fn)
 				}
 			}
@@ -109,6 +111,12 @@ func (r hintRequest) run(fa *analysis.FileAnalysis, nodes []ast.Node) *hintColle
 			c.walkNode(n.Value)
 		case *ast.TestDecl:
 			c.walkNode(n)
+		case *ast.StructDef:
+			c.hintFields(n.Fields)
+		case *ast.EnumDef:
+			for _, v := range n.Variants {
+				c.hintFields(v.Fields)
+			}
 		}
 	}
 	var out []InlayHint
@@ -301,6 +309,9 @@ func (c *hintCollector) walkNode(node ast.Node) {
 	case *ast.Is:
 		c.walkNode(n.Value)
 
+	case *ast.Ascription:
+		c.walkNode(n.Value)
+
 	case *ast.Return:
 		c.walkNode(n.Value)
 
@@ -381,6 +392,36 @@ func (c *hintCollector) hintBinding(n *ast.Binding) {
 	}
 	// Position after the binding name.
 	c.addTypeHint(n.Line, n.Col+len(n.Name), sym.Type.String())
+}
+
+// hintFields shows the type of each field whose type comes from its
+// default (`misses = 0` shows `misses: Int = 0`), after the field's name.
+func (c *hintCollector) hintFields(fields []ast.StructField) {
+	for _, f := range fields {
+		if f.TypeAnnotation != nil || f.Default == nil {
+			continue
+		}
+		sym, ok := c.fa.Definitions[analysis.Pos{Line: f.Line, Col: f.Col}]
+		if !ok || sym.Kind != analysis.SymbolField || sym.Type == nil {
+			continue
+		}
+		c.addTypeHint(f.Line, f.Col+len(f.Name), sym.Type.String())
+	}
+}
+
+// hintParams shows the type of each parameter whose type comes from its
+// default (`limit = 10` shows `limit: Int = 10`), after its name.
+func (c *hintCollector) hintParams(params []ast.Param) {
+	for _, p := range params {
+		if p.TypeAnnotation != nil || p.Default == nil || p.Destructure != nil || p.TypeOnly {
+			continue
+		}
+		sym, ok := c.fa.Definitions[analysis.Pos{Line: p.Line, Col: p.Col}]
+		if !ok || sym.Kind != analysis.SymbolParam || sym.Type == nil {
+			continue
+		}
+		c.addTypeHint(p.Line, p.Col+len(p.Name), sym.Type.String())
+	}
 }
 
 // hintCall emits parameter name hints for positional arguments and recurses into args.
@@ -504,6 +545,8 @@ func nodePosition(node ast.Node) (int, int) {
 	case *ast.Unary:
 		return n.Line, n.Col
 	case *ast.Is:
+		return nodePosition(n.Value)
+	case *ast.Ascription:
 		return nodePosition(n.Value)
 	case *ast.Binary:
 		return n.Line, n.Col

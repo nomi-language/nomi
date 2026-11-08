@@ -46,7 +46,7 @@ fn wrap<T>(x: T) -> List<T> { [x] }
 // Generic function with tuple return
 func TestCheck_GenericBodyTupleReturn(t *testing.T) {
 	_, errs := checkSource(`
-fn dup<T>(x: T) -> #(T, T) { #(x, x) }
+fn dup<T>(x: T) -> (T, T) { (x, x) }
 `)
 	expectNoErrors(t, errs)
 }

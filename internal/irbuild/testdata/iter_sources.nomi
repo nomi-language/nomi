@@ -32,7 +32,7 @@ fn main() {
         |> Iter.drop(1)
         |> Iter.with_index()
         |> Iter.map(fn pair -> {
-            #(i, c) = pair
+            (i, c) = pair
             "${i}${c}"
         })
         |> Iter.to_list()
@@ -51,7 +51,7 @@ fn main() {
     rendered =
         scores
         |> Iter.map(fn pair -> {
-            #(k, v) = pair
+            (k, v) = pair
             "${k}=${v}"
         })
         |> Iter.to_list()
@@ -174,7 +174,7 @@ fn main() {
         |> Iter.drop(2)
         |> Iter.with_index()
         |> Iter.map(fn pair -> {
-            #(i, n) = pair
+            (i, n) = pair
             i + n
         })
         |> Iter.take(4)
@@ -191,7 +191,7 @@ fn main() {
         |> Iter.flat_map(fn x -> [x, x * 10])
         |> Iter.with_index()
         |> Iter.map(fn pair -> {
-            #(i, n) = pair
+            (i, n) = pair
             note("inner", i * 1000 + n)
         })
         |> Iter.take(3)

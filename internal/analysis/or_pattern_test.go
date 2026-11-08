@@ -72,9 +72,9 @@ func TestOrPattern_Accepts(t *testing.T) {
         "yes" or "y" -> 1
         _ -> 0
     }
-    h = case #(n, n) {
-        #(0, x) or #(x, 0) -> x
-        #(x, _) -> x
+    h = case (n, n) {
+        (0, x) or (x, 0) -> x
+        (x, _) -> x
     }
     a + Int.to_float(b + d + e + f + g + h)
 }
@@ -156,12 +156,12 @@ func TestOrPattern_Errors(t *testing.T) {
         .N(v) or .S(v) -> case v { _ -> 0 }
     }
 }`, "30:21: `v` is an Int in `.N(v)` but a String in `.S(v)`; a name an `or` pattern binds has one type in every alternative"},
-		"a name twice in a later alternative": {`fn f(p: #(Int, Int)) -> Int {
+		"a name twice in a later alternative": {`fn f(p: (Int, Int)) -> Int {
     case p {
-        #(0, a) or #(a, a) -> a
+        (0, a) or (a, a) -> a
         _ -> 0
     }
-}`, "30:25: `a` is bound twice in one pattern; give each binding its own name"},
+}`, "30:23: `a` is bound twice in one pattern; give each binding its own name"},
 		"alternatives that miss a variant": {`fn f(c: Color) -> Int {
     case c {
         .Red or .Green -> 1

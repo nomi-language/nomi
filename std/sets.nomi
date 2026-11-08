@@ -94,7 +94,7 @@ impl Iter for Set<T> {
     /// push loop and drops the `present` half of each entry.
     fn each_while(s: Set<T>, yield: (T) -> Bool) -> Bool {
         Iter.each_while(s.items, fn entry -> {
-            #(elem, _present) = entry
+            (elem, _present) = entry
             yield(elem)
         })
     }

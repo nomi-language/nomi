@@ -198,8 +198,8 @@ func TestStructCallForm_StillRefusesNonRecordArguments(t *testing.T) {
 		},
 		{
 			"tuple argument",
-			nonLitP + "\nfn rec() -> #(Int, String) { #(1, \"x\") }\n\nfn f() -> P { P(rec()) }\n",
-			"P expects an anonymous struct literal #{...} matching its fields, got #(Int, String)",
+			nonLitP + "\nfn rec() -> (Int, String) { (1, \"x\") }\n\nfn f() -> P { P(rec()) }\n",
+			"P expects an anonymous struct literal #{...} matching its fields, got (Int, String)",
 		},
 		{
 			"two arguments",

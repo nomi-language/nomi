@@ -299,23 +299,23 @@ impl WebSocket {
 //!     })
 //! }
 //!
-//! offered = Headers[#("Sec-WebSocket-Protocol", "chat.v1, chat.v2")]
+//! offered = Headers[("Sec-WebSocket-Protocol", "chat.v1, chat.v2")]
 //!
 //! got = http_testing.open_websocket(chat, "/chat", offered, fn ws -> {
-//!     #(WebSocket.protocol(ws), WebSocket.receive(ws), WebSocket.receive(ws))
+//!     (WebSocket.protocol(ws), WebSocket.receive(ws), WebSocket.receive(ws))
 //! })
 //!
 //! assert Ok(seen) = got
-//! assert seen == #(Some("chat.v2"), Ok(Some(websocket.Message.Text("welcome"))), Ok(None))
+//! assert seen == (Some("chat.v2"), Ok(Some(websocket.Message.Text("welcome"))), Ok(None))
 //!
 //! plain = chat(http_testing.request(Method.Get, "/chat"))
 //! assert plain.status == Status.upgrade_required
 //!
-//! elsewhere = Headers[#("Origin", "https://evil.example")]
+//! elsewhere = Headers[("Origin", "https://evil.example")]
 //! assert Err(refused) = http_testing.open_websocket(chat, "/chat", elsewhere, fn _ -> Unit)
 //! assert refused.status == Status.forbidden
 //!
-//! own = Headers[#("Origin", "http://example.com")]
+//! own = Headers[("Origin", "http://example.com")]
 //! assert http_testing.open_websocket(chat, "/chat", own, fn _ -> Unit) |> Result.is_ok()
 //
 pub fn accept(
@@ -327,18 +327,18 @@ pub fn accept(
         Err(refused) ->
             refused
 
-        Ok(#(key, protocol)) -> {
+        Ok((key, protocol)) -> {
             chosen = case protocol {
-                Some(p) -> [#("Sec-WebSocket-Protocol", p)]
+                Some(p) -> [("Sec-WebSocket-Protocol", p)]
                 None -> []
             }
 
             Headers(extra) = options.headers
 
             required = [
-                #("Upgrade", "websocket"),
-                #("Connection", "Upgrade"),
-                #("Sec-WebSocket-Accept", http_host.ws_accept_key(key)),
+                ("Upgrade", "websocket"),
+                ("Connection", "Upgrade"),
+                ("Sec-WebSocket-Accept", http_host.ws_accept_key(key)),
             ]
 
             headers = Headers(required + chosen + extra)
@@ -368,7 +368,7 @@ pub fn accept(
 //!
 //! r = http_testing.request(Method.Get, "/")
 //! refute websocket.is_upgrade(r)
-//! assert websocket.is_upgrade(#{..r, headers: Headers[#("Upgrade", "WebSocket")]})
+//! assert websocket.is_upgrade(#{..r, headers: Headers[("Upgrade", "WebSocket")]})
 //
 pub fn is_upgrade(request: Request) -> Bool {
     tokens(request.headers, "Upgrade") |> Iter.any(fn t -> String.lowercase(t) == "websocket")
@@ -434,7 +434,7 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
     }
 
     Headers(pairs) = options.headers
-    flat = Iter.reduce(pairs, [], fn acc: List<String>, #(k, v) -> acc + [k, v])
+    flat = Iter.reduce(pairs, [], fn acc: List<String>, (k, v) -> acc + [k, v])
 
     handle =
         http_host.ws_connect(
@@ -462,11 +462,11 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
 fn handshake(
     request: Request,
     options: AcceptOptions,
-) -> Result<#(String, Maybe<String>), Response> {
+) -> Result<(String, Maybe<String>), Response> {
     if request.method != Method.Get {
         refused =
             Response.error(Status.method_not_allowed, "a WebSocket handshake is a GET")
-            |> Response.with_headers(Headers[#("Allow", "GET")])
+            |> Response.with_headers(Headers[("Allow", "GET")])
 
         return Err(refused)
     }
@@ -478,7 +478,7 @@ fn handshake(
     if not is_upgrade(request) or not upgrading {
         refused =
             Response.error(Status.upgrade_required, "this resource is a WebSocket")
-            |> Response.with_headers(Headers[#("Upgrade", "websocket"), #("Connection", "Upgrade")])
+            |> Response.with_headers(Headers[("Upgrade", "websocket"), ("Connection", "Upgrade")])
 
         return Err(refused)
     }
@@ -486,7 +486,7 @@ fn handshake(
     if Headers.get(request.headers, "Sec-WebSocket-Version") != Some("13") {
         refused =
             Response.error(Status.upgrade_required, "only WebSocket version 13 is spoken")
-            |> Response.with_headers(Headers[#("Sec-WebSocket-Version", "13")])
+            |> Response.with_headers(Headers[("Sec-WebSocket-Version", "13")])
 
         return Err(refused)
     }
@@ -503,7 +503,7 @@ fn handshake(
 
     offered = tokens(request.headers, "Sec-WebSocket-Protocol")
     chosen = Iter.find(options.protocols, fn p -> List.contains(offered, p))
-    Ok(#(key, chosen))
+    Ok((key, chosen))
 }
 
 /// Whether a browser's `Origin` is the request's own host or an allowed

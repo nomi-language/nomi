@@ -19,7 +19,7 @@ fn checksum(digits: List<Int>) -> Int {
     digits
     |> Iter.reverse()
     |> Iter.with_index()
-    |> Iter.map(fn #(i, d) -> if i % 2 == 1 { double(d) } else { d })
+    |> Iter.map(fn (i, d) -> if i % 2 == 1 { double(d) } else { d })
     |> Iter.sum()
 }
 

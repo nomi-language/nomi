@@ -5,8 +5,8 @@ import {
 }
 
 test "ledger" {
-    cases: List<#(String, Currency, Style, List<Entry>, List<String>)> = [
-        #(
+    cases: List<(String, Currency, Style, List<Entry>, List<String>)> = [
+        (
             "empty ledger",
             Currency`USD`,
             .American,
@@ -15,7 +15,7 @@ test "ledger" {
                 "Date       | Description               | Change       ",
             ],
         ),
-        #(
+        (
             "one entry",
             Currency`USD`,
             .American,
@@ -27,7 +27,7 @@ test "ledger" {
                 "01/01/2015 | Buy present               |      ($10.00)",
             ],
         ),
-        #(
+        (
             "credit and debit",
             Currency`USD`,
             .American,
@@ -41,7 +41,7 @@ test "ledger" {
                 "01/02/2015 | Get present               |       $10.00 ",
             ],
         ),
-        #(
+        (
             "multiple entries on same date ordered by description, as first written",
             Currency`USD`,
             .American,
@@ -55,7 +55,7 @@ test "ledger" {
                 "01/02/2015 | Get present               |       $10.00 ",
             ],
         ),
-        #(
+        (
             "final order tie breaker is change",
             Currency`USD`,
             .American,
@@ -71,7 +71,7 @@ test "ledger" {
                 "01/01/2015 | Something                 |        $0.01 ",
             ],
         ),
-        #(
+        (
             "overlong description is truncated",
             Currency`USD`,
             .American,
@@ -87,7 +87,7 @@ test "ledger" {
                 "01/01/2015 | Freude schoner Gotterf... |   ($1,234.56)",
             ],
         ),
-        #(
+        (
             "euros",
             Currency`EUR`,
             .American,
@@ -99,7 +99,7 @@ test "ledger" {
                 "01/01/2015 | Buy present               |      (€10.00)",
             ],
         ),
-        #(
+        (
             "Dutch locale",
             Currency`USD`,
             .Dutch,
@@ -111,7 +111,7 @@ test "ledger" {
                 "12-03-2015 | Buy present               |   $ 1.234,56 ",
             ],
         ),
-        #(
+        (
             "Dutch locale and euros",
             Currency`EUR`,
             .Dutch,
@@ -123,7 +123,7 @@ test "ledger" {
                 "12-03-2015 | Buy present               |   € 1.234,56 ",
             ],
         ),
-        #(
+        (
             "Dutch negative number with 3 digits before decimal point",
             Currency`USD`,
             .Dutch,
@@ -135,7 +135,7 @@ test "ledger" {
                 "12-03-2015 | Buy present               |    $ -123,45 ",
             ],
         ),
-        #(
+        (
             "American negative number with 3 digits before decimal point",
             Currency`USD`,
             .American,
@@ -147,7 +147,7 @@ test "ledger" {
                 "03/12/2015 | Buy present               |     ($123.45)",
             ],
         ),
-        #(
+        (
             "multiple entries on same date ordered by description",
             Currency`USD`,
             .American,
@@ -163,7 +163,7 @@ test "ledger" {
         ),
     ]
 
-    subtests cases, #(description, currency, style, entries, expected), description {
+    subtests cases, (description, currency, style, entries, expected), description {
         assert ledger.format_entries(currency, style, entries) == expected
     }
 }

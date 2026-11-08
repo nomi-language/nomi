@@ -180,7 +180,7 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 		steps []editStep
 	}
 	order := orderIncremental()
-	seqs := []sequence{{order, orderEdits}, {layeredProject(), layeredEdits}, {rateProject(), rateEdits}}
+	seqs := []sequence{{order, orderEdits}, {layeredProject(), layeredEdits}, {rateProject(), rateEdits}, {anonFieldsProject(), anonFieldsEdits}}
 	for _, key := range sortedTextKeys(order) {
 		seqs = append(seqs, sequence{order, genericEdits(key, order.texts[key])})
 	}

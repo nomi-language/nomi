@@ -33,7 +33,7 @@ fn points(xs: Iter<Point>) -> String {
     Debug.inspect(xs)
 }
 
-fn entries(xs: Iter<#(String, Point)>) -> String {
+fn entries(xs: Iter<(String, Point)>) -> String {
     Debug.inspect(xs)
 }
 

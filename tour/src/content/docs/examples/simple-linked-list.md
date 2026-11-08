@@ -40,10 +40,10 @@ impl LinkedList<T> {
 
     /// The value at the head of `list` and the list after it, or
     /// `EmptyList`.
-    pub fn pop(list: LinkedList<T>) -> Result<#(T, LinkedList<T>), Error> {
+    pub fn pop(list: LinkedList<T>) -> Result<(T, LinkedList<T>), Error> {
         case list {
             .Empty -> Err(.EmptyList)
-            .Node{value, next} -> Ok(#(value, next))
+            .Node{value, next} -> Ok((value, next))
         }
     }
 
@@ -95,35 +95,35 @@ derive Equatable for Step
 /// answers the steps as they happened. A list that does what every step
 /// says answers the steps it was given.
 fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
-    #(_list, happened) =
+    (_list, happened) =
         steps
         |> Iter.map_reduce(LinkedList.from(values), fn list, step -> {
             case step {
                 .Count(_) ->
-                    #(list, Step.Count(Iter.count(list)))
+                    (list, Step.Count(Iter.count(list)))
 
                 .Pop(_) or .PopFails -> {
                     case LinkedList.pop(list) {
-                        Ok(#(value, rest)) -> #(rest, .Pop(value))
-                        Err(_) -> #(list, .PopFails)
+                        Ok((value, rest)) -> (rest, .Pop(value))
+                        Err(_) -> (list, .PopFails)
                     }
                 }
 
                 .Push(value) ->
-                    #(LinkedList.push(list, value), .Push(value))
+                    (LinkedList.push(list, value), .Push(value))
 
                 .Peek(_) or .PeekFails -> {
                     case LinkedList.peek(list) {
-                        Ok(value) -> #(list, .Peek(value))
-                        Err(_) -> #(list, .PeekFails)
+                        Ok(value) -> (list, .Peek(value))
+                        Err(_) -> (list, .PeekFails)
                     }
                 }
 
                 .ToList(_) ->
-                    #(list, .ToList(Iter.to_list(list)))
+                    (list, .ToList(Iter.to_list(list)))
 
                 .Reverse ->
-                    #(LinkedList.reverse(list), .Reverse)
+                    (LinkedList.reverse(list), .Reverse)
             }
         })
 
@@ -132,88 +132,88 @@ fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
 
 test "count" {
     [
-        #("Empty list has length of zero", [], [Step.Count(0)]),
-        #("Singleton list has length of one", [1], [.Count(1)]),
-        #("Non-empty list has correct length", [1, 2, 3], [.Count(3)]),
+        ("Empty list has length of zero", [], [Step.Count(0)]),
+        ("Singleton list has length of one", [1], [.Count(1)]),
+        ("Non-empty list has correct length", [1, 2, 3], [.Count(3)]),
     ]
-    |> subtests #(description, values, steps), description {
+    |> subtests (description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "pop" {
     [
-        #("Pop from empty list is an error", [], [Step.PopFails]),
-        #("Can pop from singleton list", [1], [.Pop(1)]),
-        #("Can pop from non-empty list", [1, 2], [.Pop(2)]),
-        #("Can pop multiple items", [1, 2], [.Pop(2), .Pop(1)]),
-        #("Pop updates the count", [1, 2], [.Count(2), .Pop(2), .Count(1), .Pop(1), .Count(0)]),
+        ("Pop from empty list is an error", [], [Step.PopFails]),
+        ("Can pop from singleton list", [1], [.Pop(1)]),
+        ("Can pop from non-empty list", [1, 2], [.Pop(2)]),
+        ("Can pop multiple items", [1, 2], [.Pop(2), .Pop(1)]),
+        ("Pop updates the count", [1, 2], [.Count(2), .Pop(2), .Count(1), .Pop(1), .Count(0)]),
     ]
-    |> subtests #(description, values, steps), description {
+    |> subtests (description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "push" {
     [
-        #("Can push to an empty list", [], [Step.Push(1)]),
-        #("Can push to a non-empty list", [1, 2], [.Push(3)]),
-        #("Push updates count", [1, 2], [.Push(3), .Count(3)]),
-        #(
+        ("Can push to an empty list", [], [Step.Push(1)]),
+        ("Can push to a non-empty list", [1, 2], [.Push(3)]),
+        ("Push updates count", [1, 2], [.Push(3), .Count(3)]),
+        (
             "Push and pop",
             [],
             [.Push(1), .Push(2), .Pop(2), .Push(3), .Count(2), .Pop(3), .Pop(1), .Count(0)],
         ),
     ]
-    |> subtests #(description, values, steps), description {
+    |> subtests (description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "peek" {
     [
-        #("Peek on empty list is an error", [], [Step.PeekFails]),
-        #("Can peek on singleton list", [1], [.Peek(1)]),
-        #("Can peek on non-empty list", [1, 2], [.Peek(2)]),
-        #("Peek does not change the count", [1, 2], [.Peek(2), .Count(2)]),
-        #(
+        ("Peek on empty list is an error", [], [Step.PeekFails]),
+        ("Can peek on singleton list", [1], [.Peek(1)]),
+        ("Can peek on non-empty list", [1, 2], [.Peek(2)]),
+        ("Peek does not change the count", [1, 2], [.Peek(2), .Count(2)]),
+        (
             "Can peek after a pop and push",
             [],
             [.Push(1), .Push(2), .Peek(2), .Pop(2), .Peek(1), .Push(3), .Peek(3)],
         ),
     ]
-    |> subtests #(description, values, steps), description {
+    |> subtests (description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "toList LIFO" {
     [
-        #("Empty linked list to list is empty", [], [Step.ToList([])]),
-        #("To list with multiple values", [1, 2, 3], [.ToList([3, 2, 1])]),
-        #(
+        ("Empty linked list to list is empty", [], [Step.ToList([])]),
+        ("To list with multiple values", [1, 2, 3], [.ToList([3, 2, 1])]),
+        (
             "To list after a pop",
             [],
             [.Push(1), .Push(2), .Push(3), .Pop(3), .Push(4), .ToList([4, 2, 1])],
         ),
     ]
-    |> subtests #(description, values, steps), description {
+    |> subtests (description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "reverse" {
     [
-        #("Reversed empty list has same values", [], [Step.Reverse, .ToList([])]),
-        #("Reversed singleton list is same list", [1], [.Reverse, .ToList([1])]),
-        #(
+        ("Reversed empty list has same values", [], [Step.Reverse, .ToList([])]),
+        ("Reversed singleton list is same list", [1], [.Reverse, .ToList([1])]),
+        (
             "Reversed non-empty list is reversed",
             [1, 2, 3],
             [.Reverse, .Count(3), .Pop(1), .Pop(2), .Pop(3)],
         ),
-        #("Double reverse", [1, 2, 3], [.Reverse, .Reverse, .Pop(3), .Pop(2), .Pop(1)]),
+        ("Double reverse", [1, 2, 3], [.Reverse, .Reverse, .Pop(3), .Pop(2), .Pop(1)]),
     ]
-    |> subtests #(description, values, steps), description {
+    |> subtests (description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }

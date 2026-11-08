@@ -65,3 +65,32 @@ test "a slot in a query keeps its host and path" {
 
     assert bad == []
 }
+
+// A slot takes any Display value, and its text is escaped as a String of
+// that text is, so a type of the program's own cannot change the shape.
+struct Slug {
+    text: String
+}
+
+impl Display for Slug {
+    fn to_string(slug: Slug) -> String {
+        slug.text
+    }
+}
+
+test "a Display slot is escaped as its text is" {
+    bad = breaks(fn v -> {
+        slug = Slug{text: v}
+        u = Url"https://api.example.com/p/${slug}/end?q=${slug}#${slug}"
+        s = Url"https://api.example.com/p/${v}/end?q=${v}#${v}"
+        u == s and u.host == "api.example.com" and not climbs(u)
+    })
+
+    assert bad == []
+}
+
+test "an Int slot is its digits in each place" {
+    id = -42
+    u = Url"/items/${id}?id=${id}#${id}"
+    assert "${u}" == "/items/-42?id=-42#-42"
+}

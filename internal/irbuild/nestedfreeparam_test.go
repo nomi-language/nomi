@@ -30,7 +30,7 @@ fn flat<T>(m: Maybe<Maybe<T>>) -> Maybe<T> {
   }
 }
 
-fn pair<T>(m: Maybe<#(T, Int)>) -> Maybe<#(T, Int)> {
+fn pair<T>(m: Maybe<(T, Int)>) -> Maybe<(T, Int)> {
   m
 }
 

@@ -60,10 +60,10 @@ impl Vector<T> {
 
     /// Returns the next element and remaining vector, or None if empty. Drives the
     /// `Iter` implementation for `Vector`.
-    //! assert Vector.next_item(#[1, 2]) == Some(#(1, #[2]))
+    //! assert Vector.next_item(#[1, 2]) == Some((1, #[2]))
     //! assert Vector.next_item(#[]) == None
     //
-    pub host fn next_item<T>(vector: Vector<T>) -> Maybe<#(T, Vector<T>)>
+    pub host fn next_item<T>(vector: Vector<T>) -> Maybe<(T, Vector<T>)>
 }
 
 impl Iter for Vector<T> {
@@ -156,12 +156,12 @@ impl Comparable for Vector<T> where T: Comparable {
                     _ -> Less
                 }
 
-            Some(#(ha, ta)) ->
+            Some((ha, ta)) ->
                 case Vector.next_item(b) {
                     None ->
                         Greater
 
-                    Some(#(hb, tb)) ->
+                    Some((hb, tb)) ->
                         case Comparable.compare(ha, hb) {
                             Equal -> compare(ta, tb)
                             other -> other

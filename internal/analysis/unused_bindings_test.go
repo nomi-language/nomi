@@ -129,7 +129,7 @@ fn demo() -> String {
 func TestUnusedBinding_WildcardPatternIsIgnored(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
 fn main() {
-  #(_, value) = #(1, 2)
+  (_, value) = (1, 2)
   dbg value
 }
 `)
@@ -194,7 +194,7 @@ func TestUnusedBinding_DestructuredParameterNeverRead(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"lambda tuple", `
 fn main() {
-  _ = Iter.map([#("a", 1)], fn #(word, count) -> count) |> Iter.to_list()
+  _ = Iter.map([("a", 1)], fn (word, count) -> count) |> Iter.to_list()
 }
 `, "parameter 'word' is never read"},
 		{"lambda struct", `
@@ -207,11 +207,11 @@ fn main() {
 }
 `, "parameter 'y' is never read"},
 		{"fn tuple", `
-fn first(#(a, b): #(Int, Int)) -> Int {
+fn first((a, b): (Int, Int)) -> Int {
   a
 }
 fn main() {
-  _ = first(#(1, 2))
+  _ = first((1, 2))
 }
 `, "parameter 'b' is never read"},
 	} {
@@ -279,15 +279,15 @@ struct P {
   x: Int
   y: Int
 }
-fn f(m: Maybe<Int>, xs: List<Int>, p: #(Int, Int)) -> Int {
-  _ = Iter.map([#("a", 1)], fn #(_word, count) -> count) |> Iter.to_list()
+fn f(m: Maybe<Int>, xs: List<Int>, p: (Int, Int)) -> Int {
+  _ = Iter.map([("a", 1)], fn (_word, count) -> count) |> Iter.to_list()
   _ = Iter.map([P{x: 1, y: 2}], fn #{x} -> x) |> Iter.to_list()
   _ = case xs {
     [_, .._rest] -> 1
     [] -> 0
   }
   _ = case p {
-    #(a, b) when a > b -> 1
+    (a, b) when a > b -> 1
     _ -> 0
   }
   case m {

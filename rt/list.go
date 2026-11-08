@@ -39,7 +39,7 @@ package rt
 // Go anonymous struct — `struct { F0 int64; F1 string }`. The builder's kind
 // for a tuple is one per shape, Go's own structural type identity makes two spellings of one
 // shape the same type, and there is no runtime support to write: construction
-// is a composite literal, `pair.0` is `.F0`, and equality is field-wise `==`.
+// is a composite literal, `pair.first` is `.F0`, and equality is field-wise `==`.
 // A uniform `Tuple` box would have cost an interface per element and thrown the
 // element types away.
 

@@ -115,10 +115,10 @@ func TestNoMatch_TheTrapIsAnInstructionThatFaults(t *testing.T) {
 			"String table prints as the empty string, which reads like no fault",
 			got, "nomatch")
 	}
-	// The three pre-existing bits still print, because adding a fourth to the
+	// The pre-existing bits still print, because adding a fourth to the
 	// table is where a table-driven String silently loses a row.
-	if got := (ir.FaultDivByZero | ir.FaultUndefined).String(); got != "div0|undefined" {
-		t.Errorf("existing bits print %q, want %q", got, "div0|undefined")
+	if got := (ir.FaultDivByZero | ir.FaultShiftCount).String(); got != "div0|shiftcount" {
+		t.Errorf("existing bits print %q, want %q", got, "div0|shiftcount")
 	}
 }
 

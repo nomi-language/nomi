@@ -37,21 +37,21 @@ fn wrap(h: Handler) -> Handler {
     fn n -> h(n * 10)
 }
 
-fn routes() -> List<#(String, Handler)> {
-    [#("a", page)] |> Iter.map(fn #(name, h) -> #(name, wrap(h))) |> Iter.to_list()
+fn routes() -> List<(String, Handler)> {
+    [("a", page)] |> Iter.map(fn (name, h) -> (name, wrap(h))) |> Iter.to_list()
 }
 
-fn served(rs: Iter<#(String, Handler)>) -> List<String> {
-    rs |> Iter.map(fn #(name, h) -> "${name}: ${Reply.body(h(1))}") |> Iter.to_list()
+fn served(rs: Iter<(String, Handler)>) -> List<String> {
+    rs |> Iter.map(fn (name, h) -> "${name}: ${Reply.body(h(1))}") |> Iter.to_list()
 }
 
 fn main() {
-    io.inspect(served([#("b", page)] + routes()))
-    io.inspect(served(routes() + [#("b", page)]))
-    io.inspect(served([#("b", page), ..routes()]))
-    io.inspect(served([..routes(), #("b", page)]))
-    vs: Vector<#(String, Handler)> = #[#("a", wrap(page))]
-    io.inspect(served(#[#("b", page)] + vs))
+    io.inspect(served([("b", page)] + routes()))
+    io.inspect(served(routes() + [("b", page)]))
+    io.inspect(served([("b", page), ..routes()]))
+    io.inspect(served([..routes(), ("b", page)]))
+    vs: Vector<(String, Handler)> = #[("a", wrap(page))]
+    io.inspect(served(#[("b", page)] + vs))
     ms: Map<String, Handler> = %{"a" => wrap(page)}
     joined = %{"b" => page} + ms
     io.inspect(served(joined))

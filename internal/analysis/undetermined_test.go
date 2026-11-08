@@ -41,7 +41,7 @@ func TestUndeterminedTypeArgs_Rejected(t *testing.T) {
 		{"values over an empty list", "dbg Maybe.values([])",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<Maybe<T>> = []` with T filled in", 20},
 		{"to_map over an empty list", "dbg Iter.to_map([])",
-			"the element type of `[]` is not determined: annotate it, as in `xs: List<#(K, V)> = []` with K and V filled in", 19},
+			"the element type of `[]` is not determined: annotate it, as in `xs: List<(K, V)> = []` with K and V filled in", 19},
 		{"flatten over an empty list", "dbg Iter.flatten([])",
 			"the element type of `[]` is not determined", 20},
 		{"an empty vector literal", "dbg Maybe.values(#[])",
@@ -92,7 +92,7 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 	bodies := []string{
 		"dbg []",
 		"dbg [[]]",
-		"dbg #([], 1)",
+		"dbg ([], 1)",
 		"dbg %[]",
 		"dbg None",
 		"dbg Ok(1)",
@@ -146,8 +146,8 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 // once every body is checked.
 func TestUndeterminedTypeArgs_FixedByALaterUse(t *testing.T) {
 	src := `fn main() {
-  r = #(Maybe.values([None]), 1)
-  s: #(List<Int>, Int) = r
+  r = (Maybe.values([None]), 1)
+  s: (List<Int>, Int) = r
   dbg s
   Unit
 }

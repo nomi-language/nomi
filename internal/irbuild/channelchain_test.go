@@ -55,7 +55,7 @@ fn main() {
 
 // A struct field, an enum variant's field and a task handle in a field may
 // hold a channel or task of a structural composite (`Map<String, Int>`,
-// `List<Int>`, `#(Int, List<String>)`): the composite's parts end, so the
+// `List<Int>`, `(Int, List<String>)`): the composite's parts end, so the
 // field's check does too. The handle reads back through the field and
 // sends, receives, selects and awaits through it.
 func TestIRHandleOfCompositeInAField_Runs(t *testing.T) {
@@ -78,7 +78,7 @@ struct Halves {
 }
 
 struct Pair {
-    ch: Channel<#(Int, List<String>)>
+    ch: Channel<(Int, List<String>)>
 }
 
 struct Job {
@@ -107,8 +107,8 @@ fn main() {
     _ = Sender.send(h.out, [1, 2, 3])
     io.print("halves ${Receiver.receive(h.inbound) == Some([1, 2, 3])}")
     p = Pair{ch: Channel.buffered(1)}
-    _ = Sender.send(p.ch.sender, #(7, ["x"]))
-    io.print("pair ${Receiver.receive(p.ch.receiver) == Some(#(7, ["x"]))}")
+    _ = Sender.send(p.ch.sender, (7, ["x"]))
+    io.print("pair ${Receiver.receive(p.ch.receiver) == Some((7, ["x"]))}")
     rows = Channel.buffered<List<Int>>(1)
     case (Msg.Put{rows}) {
         Msg.Put{rows: r} -> {

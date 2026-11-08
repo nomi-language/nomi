@@ -99,7 +99,7 @@ fn main() {
 // A Map whose values are Maps is an iteration source like any other map.
 func TestIRIterBody_NestedMapSourceRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() { io.inspect(Iter.to_list(Iter.map(%{1 => %{2 => 3}}, fn p -> p.0 + 1))) }
+fn main() { io.inspect(Iter.to_list(Iter.map(%{1 => %{2 => 3}}, fn p -> p.first + 1))) }
 `, "[2]\n")
 }
 

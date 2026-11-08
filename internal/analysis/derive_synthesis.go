@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/format"
 )
 
 // deriveSupportedList lists the interfaces `derive` can synthesize, in the
@@ -1262,7 +1263,7 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 	case "positional":
 		// DataTypeExpr is either a single type or a FuncType (tuple) for
 		// arity ≥ 2. Single → one ident binding. Tuple → nested tuple
-		// pattern with one ident per arg: `Variant(#(a0, a1, ...))`.
+		// pattern with one ident per arg: `Variant((a0, a1, ...))`.
 		if ft, isTuple := v.DataTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
 			patterns := make([]ast.Node, len(ft.Params))
 			for i := range ft.Params {
@@ -1432,7 +1433,7 @@ func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 			Col:      col,
 		},
 	}
-	// Tuple inner type → element-wise equality on `.0`, `.1`, ...
+	// Tuple inner type → element-wise equality on `.first`, `.second`, ...
 	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
 		// Note: a 1-arity FuncType with Return == nil shouldn't occur from
 		// the parser (`type Name (Int)` is grouped, not a tuple), but if
@@ -1441,8 +1442,8 @@ func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		parts := make([]ast.Node, len(ft.Params))
 		for i := range ft.Params {
 			parts[i] = equatableEqualsCall(
-				fieldAccess(identExpr("av", line, col), strconv.Itoa(i), line, col),
-				fieldAccess(identExpr("bv", line, col), strconv.Itoa(i), line, col),
+				fieldAccess(identExpr("av", line, col), tupleItemName(i), line, col),
+				fieldAccess(identExpr("bv", line, col), tupleItemName(i), line, col),
 				line, col,
 			)
 		}
@@ -1796,10 +1797,18 @@ func exprStmt(e ast.Node, line, col int) *ast.ExprStmt {
 	return &ast.ExprStmt{Expr: e, Line: line, Col: col}
 }
 
+// tupleItemName is the ordinal name a derived body reads a named tuple's
+// item i by (`inner.first`). A tuple wider than the ordinals go has no name
+// for its later items, and a derive over one reports the missing field.
+func tupleItemName(i int) string {
+	name, _ := ast.TupleOrdinal(i)
+	return name
+}
+
 // fieldAccess returns `*ast.FieldAccess{Object: obj, Field: name, ...}`,
 // matching the postfix-DOT shape the parser produces for `expr.field`.
-// Used to build both `a.x` (struct fields) and `av.0` (tuple element by
-// numeric index).
+// Used to build both `a.x` (struct fields) and `av.first` (tuple item by
+// ordinal name).
 func fieldAccess(obj ast.Node, fieldName string, line, col int) *ast.FieldAccess {
 	return &ast.FieldAccess{
 		Object: obj,
@@ -2066,7 +2075,8 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 // not Wrapper's synthesizer.
 func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
 	var errs []TypeError
-	report := func(componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr) {
+	var report func(componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr)
+	report = func(componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr) {
 		if te == nil {
 			return
 		}
@@ -2078,6 +2088,15 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 				Message: fmt.Sprintf("no impl of `%s` for `%s` (required via `derive %s for %s`, field `%s`)",
 					ifaceName, fn.TypeString(), ifaceName, typeName, fieldName),
 			}.WithHint(fmt.Sprintf("a function value has no equality; write an `impl %s for %s` that leaves the field out", ifaceName, typeName)))
+			return
+		}
+		if parts, ok := structuralDeriveParts(te, ifaceName); ok {
+			// A tuple or anonymous struct implements the interface when
+			// each part does (spec §12 *Tuples, anonymous structs and
+			// functions*), so the derived body's demand is each part's.
+			for _, p := range parts {
+				report(componentDesc, fieldName, fieldPos, p)
+			}
 			return
 		}
 		baseName := TypeExprBaseName(te)
@@ -2135,6 +2154,15 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 		// AttachStdlibProjectImpls), so no graceful-degradation branch
 		// is needed here — if we got past that guard, FinalizeCoherence
 		// is the diagnostic owner.
+		if deriveComponentHasEquality(fa, impls, baseName, ifaceName) {
+			// A declared type with equality and no impl of its own meets
+			// Equatable and Hashable by it, as a bound does
+			// (structural_bounds.go); its type arguments still must.
+			for _, ta := range typeArgs(te) {
+				errs = append(errs, recordDeriveTypeArg(fa, impls, ifaceName, ta, ctx, typeParamSet)...)
+			}
+			return
+		}
 		rec := Recording{
 			Pos:        fieldPos,
 			Kind:       RecordingKindDeriveSynth,
@@ -2158,6 +2186,10 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 	switch t := typeNode.(type) {
 	case *ast.StructDef:
 		for _, f := range t.Fields {
+			if f.TypeAnnotation == nil {
+				errs = append(errs, untypedFieldDerive(fa, f, typeName, ifaceName)...)
+				continue
+			}
 			report(fmt.Sprintf("field '%s'", f.Name), f.Name, Pos{File: fa.FilePath, Line: f.Line, Col: f.Col}, f.TypeAnnotation)
 		}
 	case *ast.EnumDef:
@@ -2179,6 +2211,10 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 				}
 			case "struct":
 				for _, f := range v.Fields {
+					if f.TypeAnnotation == nil {
+						errs = append(errs, untypedFieldDerive(fa, f, typeName, ifaceName)...)
+						continue
+					}
 					report(fmt.Sprintf("variant '%s' field '%s'", v.Name, f.Name), v.Name+"."+f.Name, Pos{File: fa.FilePath, Line: f.Line, Col: f.Col}, f.TypeAnnotation)
 				}
 			case "embedded":
@@ -2203,6 +2239,48 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 		}
 	}
 	return errs
+}
+
+// untypedFieldDerive is the error at a field whose type comes from its
+// default (`misses = 0`) under a derive that names each field's type: a
+// derived from_json decodes a field by calling its type's from_json, which
+// it writes from the annotation. The other derives read the fields' values
+// only, and their bodies are checked as written ones are.
+func untypedFieldDerive(fa *FileAnalysis, f ast.StructField, typeName, ifaceName string) []TypeError {
+	if ifaceName != "FromJson" || f.Default == nil {
+		return nil
+	}
+	return []TypeError{TypeError{
+		Line: f.Line, Col: f.Col, File: fa.FilePath,
+		Message: fmt.Sprintf("`derive FromJson for %s` needs field '%s' to have a written type", typeName, f.Name),
+	}.WithHint(fmt.Sprintf("write its type: `%s: T = %s`", f.Name, format.RenderNode(f.Default)))}
+}
+
+// structuralDeriveParts answers the parts of te when te is a tuple or
+// anonymous struct type that implements ifaceName when each part does: a
+// tuple for Equatable, Hashable, Comparable and Display, an anonymous
+// struct for all of them but Comparable, which it cannot implement.
+func structuralDeriveParts(te ast.TypeExpr, ifaceName string) ([]ast.TypeExpr, bool) {
+	switch t := te.(type) {
+	case *ast.FuncType:
+		if t.Return != nil {
+			return nil, false
+		}
+		switch ifaceName {
+		case "Equatable", "Hashable", "Comparable", "Display":
+			return t.Params, true
+		}
+	case *ast.AnonStructType:
+		switch ifaceName {
+		case "Equatable", "Hashable", "Display":
+			parts := make([]ast.TypeExpr, len(t.Fields))
+			for i, f := range t.Fields {
+				parts[i] = f.TypeAnnotation
+			}
+			return parts, true
+		}
+	}
+	return nil, false
 }
 
 // noEqualityIface is the derivable interfaces whose derived body compares
@@ -2278,6 +2356,13 @@ func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName st
 		// Existential at the inner position — runtime resolves.
 		return nil
 	}
+	if deriveComponentHasEquality(fa, impls, baseName, ifaceName) {
+		var errs []TypeError
+		for _, ta := range typeArgs(te) {
+			errs = append(errs, recordDeriveTypeArg(fa, impls, ifaceName, ta, ctx, typeParamSet)...)
+		}
+		return errs
+	}
 	rec := Recording{
 		Pos:        ctx.FieldPos,
 		Kind:       RecordingKindDeriveSynth,
@@ -2294,6 +2379,107 @@ func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName st
 		}
 	}
 	return errs
+}
+
+// deriveComponentHasEquality reports whether baseName, a derive's component
+// type, meets ifaceName (Equatable or Hashable) by its equality, as a bound
+// does (structuralEqualityConformance): a struct, enum or distinct type the
+// file can name, with no impl of the interface, whose components all have
+// equality. Types are not resolved when derives are checked, so this reads
+// the declarations: a component has equality when it is no function type,
+// no Iter and no host type without an `impl Equatable`, at any depth.
+func deriveComponentHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, baseName, ifaceName string) bool {
+	if ifaceName != "Equatable" && ifaceName != "Hashable" || hasInterfaceImpl(fa, impls, baseName, ifaceName) {
+		return false
+	}
+	return deriveDeclHasEquality(fa, impls, baseName, map[string]bool{})
+}
+
+// deriveDeclHasEquality reports whether the declaration baseName names has
+// equality: its own `impl Equatable`, or components that all have it.
+func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, baseName string, seen map[string]bool) bool {
+	if hasInterfaceImpl(fa, impls, baseName, "Equatable") || seen[baseName] {
+		return true
+	}
+	seen[baseName] = true
+	if fa == nil || fa.ModuleScope == nil {
+		return false
+	}
+	sym := fa.ModuleScope.Lookup(baseName)
+	if sym == nil {
+		return false
+	}
+	if sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	params := map[string]bool{}
+	var parts []ast.TypeExpr
+	switch d := sym.Node.(type) {
+	case *ast.StructDef:
+		for _, tp := range d.TypeParams {
+			params[tp.Name] = true
+		}
+		for _, f := range d.Fields {
+			parts = append(parts, f.TypeAnnotation)
+		}
+	case *ast.EnumDef:
+		for _, tp := range d.TypeParams {
+			params[tp.Name] = true
+		}
+		for _, v := range d.Variants {
+			parts = append(parts, v.DataTypeExpr, v.EmbeddedTypeExpr)
+			for _, f := range v.Fields {
+				parts = append(parts, f.TypeAnnotation)
+			}
+		}
+	case *ast.TypeDef:
+		for _, tp := range d.TypeParams {
+			params[tp.Name] = true
+		}
+		parts = append(parts, d.InnerTypeExpr)
+	default:
+		// A host type, whose equality only its own impl gives, or a name
+		// that is no declared type.
+		return false
+	}
+	for _, te := range parts {
+		if !deriveTypeHasEquality(fa, impls, te, params, seen) {
+			return false
+		}
+	}
+	return true
+}
+
+// deriveTypeHasEquality reports whether te, a component type written in a
+// declaration whose type parameters are params, has equality.
+func deriveTypeHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, te ast.TypeExpr, params map[string]bool, seen map[string]bool) bool {
+	if te == nil {
+		return true
+	}
+	if functionTypeIn(te) != nil {
+		return false
+	}
+	if parts, ok := structuralDeriveParts(te, "Equatable"); ok {
+		for _, p := range parts {
+			if !deriveTypeHasEquality(fa, impls, p, params, seen) {
+				return false
+			}
+		}
+		return true
+	}
+	baseName := TypeExprBaseName(te)
+	if baseName == "" || params[baseName] {
+		return true
+	}
+	for _, ta := range typeArgs(te) {
+		if !deriveTypeHasEquality(fa, impls, ta, params, seen) {
+			return false
+		}
+	}
+	if isInterfaceTypeName(fa, baseName) {
+		return baseName != "Iter"
+	}
+	return deriveDeclHasEquality(fa, impls, baseName, seen)
 }
 
 // deriveComponentOrigin is the build key of the file that declares the
@@ -2576,7 +2762,7 @@ func hashableVariantBody(v ast.EnumVariant, index int, line, col int) ast.Node {
 // hashableDistinctStmts handles `type Name InnerType` and zero-sized
 // `type Name`. Zero-sized → body is the IntLit `0`. For tuple inner: unwrap
 // then mix the component hashes via tuple-element field access on the
-// unwrapped binding (`inner.0`, `inner.1`, ...). For non-tuple inner:
+// unwrapped binding (`inner.first`, `inner.second`, ...). For non-tuple inner:
 // unwrap then delegate to `Hashable.hash(inner)` on the unwrapped value.
 func hashableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 	if t.InnerTypeExpr == nil {
@@ -2595,7 +2781,7 @@ func hashableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		parts := make([]ast.Node, len(ft.Params))
 		for i := range ft.Params {
 			parts[i] = hashableHashCall(
-				fieldAccess(identExpr("inner", line, col), strconv.Itoa(i), line, col),
+				fieldAccess(identExpr("inner", line, col), tupleItemName(i), line, col),
 				line, col,
 			)
 		}
@@ -2704,7 +2890,7 @@ func intLit(n int64, line, col int) *ast.IntLit {
 //     all variants j > i. Variant declaration order determines the total
 //     order — same convention as Hashable's variant index.
 //   - Distinct type: zero-sized → `Equal`; tuple inner → unwrap into `av` /
-//     `bv` and lexicographic-compare on `.0`, `.1`, ...; primitive / generic
+//     `bv` and lexicographic-compare on `.first`, `.second`, ...; primitive / generic
 //     / qualified inner → unwrap and delegate to `Comparable.compare`.
 //
 // Position info on every synthesized node points at the type decl's line/col
@@ -2971,7 +3157,7 @@ func comparableVariantPayload(v ast.EnumVariant, line, col int) ast.Node {
 
 // comparableDistinctStmts handles `type Name InnerType` and zero-sized
 // `type Name`. Zero-sized → body is the bare `Equal` ident. For tuple inner:
-// unwrap into `av` / `bv`, then lex-compare on `.0`, `.1`, ... For non-tuple
+// unwrap into `av` / `bv`, then lex-compare on `.first`, `.second`, ... For non-tuple
 // inner: unwrap then delegate to `Comparable.compare(av, bv)`.
 func comparableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 	if t.InnerTypeExpr == nil {
@@ -2997,8 +3183,8 @@ func comparableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		pairs := make([]exprPair, len(ft.Params))
 		for i := range ft.Params {
 			pairs[i] = exprPair{
-				left:  fieldAccess(identExpr("av", line, col), strconv.Itoa(i), line, col),
-				right: fieldAccess(identExpr("bv", line, col), strconv.Itoa(i), line, col),
+				left:  fieldAccess(identExpr("av", line, col), tupleItemName(i), line, col),
+				right: fieldAccess(identExpr("bv", line, col), tupleItemName(i), line, col),
 			}
 		}
 		stmts = append(stmts, exprStmt(lexCompare(pairs, line, col), line, col))
@@ -3106,7 +3292,7 @@ func synthesizeDeriveDisplay(typeNode ast.Node, site synthSite) []ast.Node {
 //     the value level, so its output is the embedded value's output
 //     unwrapped.
 //   - Distinct primitive:  `"TypeName(<iface(inner)>)"`
-//   - Distinct tuple:      `"TypeName(<iface(inner.0)>, <iface(inner.1)>, ...)"`
+//   - Distinct tuple:      `"TypeName(<iface(inner.first)>, <iface(inner.second)>, ...)"`
 //   - Distinct zero-sized: bare static `"TypeName"`
 //
 // The body uses string-interpolation AST (`*ast.StringInterp` /
@@ -3261,7 +3447,7 @@ func stringifyVariantBody(iface string, v ast.EnumVariant, wrapping map[string]b
 
 // stringifyDistinctStmts handles `type Name InnerType` and the zero-sized
 // `type Name`. Zero-sized → static `"TypeName"`. For tuple inner: unwrap
-// into `inner` then render `TypeName(<iface inner.0>, <iface inner.1>, ...)`.
+// into `inner` then render `TypeName(<iface inner.first>, <iface inner.second>, ...)`.
 // For non-tuple inner: unwrap then render `TypeName(<iface inner>)`.
 func stringifyDistinctStmts(iface string, t *ast.TypeDef, line, col int) []ast.Node {
 	if t.InnerTypeExpr == nil {
@@ -3279,7 +3465,7 @@ func stringifyDistinctStmts(iface string, t *ast.TypeDef, line, col int) []ast.N
 	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
 		exprs := make([]ast.Node, len(ft.Params))
 		for i := range ft.Params {
-			exprs[i] = fieldAccess(identExpr("inner", line, col), strconv.Itoa(i), line, col)
+			exprs[i] = fieldAccess(identExpr("inner", line, col), tupleItemName(i), line, col)
 		}
 		// `Pair(1, "x")`: the call that builds it.
 		stmts = append(stmts, exprStmt(stringifyTupleLikeBody(iface, t.Name, exprs, line, col), line, col))
@@ -3506,7 +3692,7 @@ func toJsonDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
 		items := make([]ast.Node, len(ft.Params))
 		for i := range ft.Params {
-			items[i] = toJsonCall(fieldAccess(identExpr("inner", line, col), strconv.Itoa(i), line, col), line, col)
+			items[i] = toJsonCall(fieldAccess(identExpr("inner", line, col), tupleItemName(i), line, col), line, col)
 		}
 		stmts = append(stmts, exprStmt(jsonArr(items, line, col), line, col))
 		return stmts
@@ -3810,6 +3996,12 @@ func fromJsonStructFieldsExpr(fields []ast.StructField, build func([]ast.StructF
 		return okCall(build(decoded), line, col)
 	}
 	field := fields[idx]
+	if field.TypeAnnotation == nil {
+		// A field whose type comes from its default is refused at the
+		// field (untypedFieldDerive); the body leaves it to its default
+		// rather than name a type it does not have.
+		return fromJsonStructFieldsExpr(fields, build, opts, idx+1, decoded, line, col)
+	}
 	key := jsonFieldName(field.Name, opts)
 	jvName := "__json_" + field.Name
 	valueName := "__value_" + field.Name

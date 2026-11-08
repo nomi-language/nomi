@@ -19,7 +19,7 @@ pub fn recite(pieces: List<String>) -> List<String> {
     [first, ..] = pieces else { return [] }
 
     Iter.zip(pieces, Iter.drop(pieces, 1))
-    |> Iter.map(fn #(wanted, lost) -> "For want of a ${wanted} the ${lost} was lost.")
+    |> Iter.map(fn (wanted, lost) -> "For want of a ${wanted} the ${lost} was lost.")
     |> Iter.concat(["And all for the want of a ${first}."])
     |> Iter.to_list()
 }

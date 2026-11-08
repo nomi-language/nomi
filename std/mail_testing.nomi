@@ -204,8 +204,8 @@ impl SmtpServer {
 //!
 //! credentials = Some(Credentials{username: "u", password: "p"})
 //!
-//! #(sent, received) = with_smtp_server(starttls: True, credentials: credentials, fn server -> {
-//!     #(Mailer.send(mail.smtp(SmtpServer.config(server)), message), SmtpServer.received(server))
+//! (sent, received) = with_smtp_server(starttls: True, credentials: credentials, fn server -> {
+//!     (Mailer.send(mail.smtp(SmtpServer.config(server)), message), SmtpServer.received(server))
 //! })
 //!
 //! assert sent == Ok(Unit)
@@ -226,18 +226,18 @@ pub fn with_smtp_server<T>(
     body: (SmtpServer) -> T,
 ) -> T {
     listener = net.listen("127.0.0.1:0")!
-    #(host, port) = net.split_host_port(Listener.address(listener))!
+    (host, port) = net.split_host_port(Listener.address(listener))!
 
-    #(server_tls, client_tls) = if starttls {
-        #(cert, key) = case http_host.test_certificate() {
-            [c, k] -> #(c, k)
-            _ -> #("", "")
+    (server_tls, client_tls) = if starttls {
+        (cert, key) = case http_host.test_certificate() {
+            [c, k] -> (c, k)
+            _ -> ("", "")
         }
 
         certificate = Certificate.from_pem(cert, key)!
-        #(Some(ServerConfig{certificates: [certificate]}), ClientConfig{roots: Roots.Pem(cert)})
+        (Some(ServerConfig{certificates: [certificate]}), ClientConfig{roots: Roots.Pem(cert)})
     } else {
-        #(None, ClientConfig{})
+        (None, ClientConfig{})
     }
 
     state: Channel<State> = Channel.buffered(1)
@@ -352,7 +352,7 @@ fn converse(peer: Peer, rules: Rules) {
             ok =
                 offers
                 |> Iter.with_index()
-                |> Iter.all(fn #(i, offer) -> {
+                |> Iter.all(fn (i, offer) -> {
                     reply(
                         peer,
                         if i == lines - 1 {
@@ -520,7 +520,7 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer> {
             |> Maybe.flat_map(decode)
             |> Maybe.flat_map(fn text -> {
                 case String.split(text, "\u{0}") {
-                    [_, user, password] -> Some(#(user, password))
+                    [_, user, password] -> Some((user, password))
                     _ -> None
                 }
             })
@@ -532,8 +532,8 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer> {
             _ = reply(peer, "334 UGFzc3dvcmQ6")
             password = read(peer) |> Maybe.flat_map(decode)
 
-            case #(user, password) {
-                #(Some(u), Some(p)) -> Some(#(u, p))
+            case (user, password) {
+                (Some(u), Some(p)) -> Some((u, p))
                 _ -> None
             }
         }
@@ -542,12 +542,12 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer> {
             None
     }
 
-    case #(rules.credentials, pair) {
-        #(Some(expected), Some(#(user, password))) when expected.username == user
+    case (rules.credentials, pair) {
+        (Some(expected), Some((user, password))) when expected.username == user
             and expected.password == password ->
             answer(#{..peer, username: Some(user)}, "235 authenticated")
 
-        #(None, _) ->
+        (None, _) ->
             answer(peer, "502 AUTH is not offered")
 
         _ ->
@@ -620,7 +620,7 @@ impl Display for Broken {
 //
 pub fn conformance(open: () -> Opened) -> List<Broken> {
     checks()
-    |> Iter.flat_map(fn #(rule, check) -> {
+    |> Iter.flat_map(fn (rule, check) -> {
         case check(open()) {
             Ok(_) -> []
             Err(message) -> [Broken{rule, message}]
@@ -634,7 +634,7 @@ pub fn conformance(open: () -> Opened) -> List<Broken> {
 //! assert Iter.contains(rules(), "bcc is in no header")
 //
 pub fn rules() -> List<String> {
-    checks() |> Iter.map(fn #(rule, _) -> rule) |> Iter.to_list()
+    checks() |> Iter.map(fn (rule, _) -> rule) |> Iter.to_list()
 }
 
 fn address(email: String) -> Address {
@@ -686,9 +686,9 @@ fn head_of(data: String) -> List<String> {
     String.split(data, "\r\n\r\n") |> List.head() |> Maybe.with_default("") |> String.split("\r\n")
 }
 
-fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
+fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
     [
-        #(
+        (
             "a message reaches every recipient once",
             fn o -> {
                 send(o, #{
@@ -705,7 +705,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "bcc is in no header",
             fn o -> {
                 send(o, #{..base(), bcc: [address("hidden@example.com")]})?
@@ -717,7 +717,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "the envelope sender is the From address",
             fn o -> {
                 send(o, base())?
@@ -725,31 +725,31 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 expect(r.from == "sender@example.com", "the envelope sender is ${r.from}")
             },
         ),
-        #(
+        (
             "a message with no recipient is refused",
             fn o -> refused(o, #{..base(), to: []}, "a message with no recipient"),
         ),
-        #(
+        (
             "a message with no body is refused",
             fn o -> refused(o, #{..base(), text: None}, "a message with no body"),
         ),
-        #(
+        (
             "a reserved header is refused",
             fn o -> {
-                refused(o, #{..base(), headers: [#("Subject", "again")]}, "a second Subject header")
+                refused(o, #{..base(), headers: [("Subject", "again")]}, "a second Subject header")
             },
         ),
-        #(
+        (
             "a header value with a line break is refused",
             fn o -> {
                 refused(
                     o,
-                    #{..base(), headers: [#("X-Note", "a\r\nBcc: evil@example.com")]},
+                    #{..base(), headers: [("X-Note", "a\r\nBcc: evil@example.com")]},
                     "a header value with a line break",
                 )
             },
         ),
-        #(
+        (
             "a subject with a line break adds no header",
             fn o -> {
                 send(o, #{..base(), subject: "hi\r\nBcc: evil@example.com"})?
@@ -763,7 +763,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a non-ASCII message arrives as 7-bit CRLF text",
             fn o -> {
                 send(o, #{..base(), subject: "Grüße 🎉", text: Some("Grüße\naus Köln")})?
@@ -791,7 +791,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 expect(String.contains(r.data, "=?utf-8?b?"), "the subject is not encoded")
             },
         ),
-        #(
+        (
             "a line that starts with a dot arrives intact",
             fn o -> {
                 send(o, #{..base(), text: Some("before\n.hidden\n..two\n.")})?
@@ -806,7 +806,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "text and HTML arrive as multipart/alternative",
             fn o -> {
                 send(o, #{..base(), html: Some(Html"<p>Hello.</p>")})?
@@ -820,21 +820,21 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "extra headers arrive in order",
             fn o -> {
-                send(o, #{..base(), headers: [#("X-First", "1"), #("X-Second", "2")]})?
+                send(o, #{..base(), headers: [("X-First", "1"), ("X-Second", "2")]})?
                 head = head_of(one(o)?.data)
                 first = Iter.find_index(head, &(&1 == "X-First: 1"))
                 second = Iter.find_index(head, &(&1 == "X-Second: 2"))
 
-                case #(first, second) {
-                    #(Some(a), Some(b)) when a < b -> Ok(Unit)
+                case (first, second) {
+                    (Some(a), Some(b)) when a < b -> Ok(Unit)
                     _ -> Err("the headers arrived as ${head}")
                 }
             },
         ),
-        #(
+        (
             "an attachment arrives",
             fn o -> {
                 data = String.to_bytes("one,two\n")

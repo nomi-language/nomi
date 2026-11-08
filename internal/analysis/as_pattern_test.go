@@ -60,9 +60,9 @@ func TestAsPattern_NameHasTheTypeOfItsPosition(t *testing.T) {
     }
 }
 
-fn nested(xs: List<#(Maybe<Int>, String)>, m: Map<String, Kind>, l: Line) -> Int {
+fn nested(xs: List<(Maybe<Int>, String)>, m: Map<String, Kind>, l: Line) -> Int {
     a = case xs {
-        [#(Some(_) as first, label), ..] as all -> Iter.count(all) + Maybe.with_default(first, 0) + String.length(label)
+        [(Some(_) as first, label), ..] as all -> Iter.count(all) + Maybe.with_default(first, 0) + String.length(label)
         _ -> 0
     }
     b = case m {
@@ -80,21 +80,21 @@ fn param(#{start, end} as tx: Tx) -> Int {
     start + end + tx.start
 }
 
-fn statements(m: Maybe<Int>, pair: #(Int, Int)) -> Int {
-    #(x, y) as both = pair
+fn statements(m: Maybe<Int>, pair: (Int, Int)) -> Int {
+    (x, y) as both = pair
     Some(n) as found = m else { return 0 }
     r: Result<Int, String> = Ok(n)
     total = if Ok(v) as res = r { v + ok_count(res) } else { 0 }
-    sums = [#(1, 2)] |> Iter.map(fn #(p, q) as whole_pair -> p + q + whole_pair.0) |> Iter.to_list()
-    x + y + both.0 + n + total + Iter.count(sums) + Maybe.with_default(found, 0)
+    sums = [(1, 2)] |> Iter.map(fn (p, q) as whole_pair -> p + q + whole_pair.first) |> Iter.to_list()
+    x + y + both.first + n + total + Iter.count(sums) + Maybe.with_default(found, 0)
 }
 `
 	got := asNameTypes(t, src)
 	for name, want := range map[string]string{
 		"deposit": "Tx", "whole": "Result<Tx, String>", "first": "Maybe<Int>",
-		"all": "List<#(Maybe<Int>, String)>", "kind": "Kind", "src": "Tx", "tx": "Tx",
-		"both": "#(Int, Int)", "found": "Maybe<Int>", "res": "Result<Int, String>",
-		"whole_pair": "#(Int, Int)",
+		"all": "List<(Maybe<Int>, String)>", "kind": "Kind", "src": "Tx", "tx": "Tx",
+		"both": "(Int, Int)", "found": "Maybe<Int>", "res": "Result<Int, String>",
+		"whole_pair": "(Int, Int)",
 	} {
 		if got[name] != want {
 			t.Errorf("%s: type %q, want %q", name, got[name], want)
@@ -135,12 +135,12 @@ func TestAsPattern_RefutabilityIsThePatterns(t *testing.T) {
 		"parameter": {`fn f(Some(n) as whole: Maybe<Int>) -> Int {
     n + Maybe.with_default(whole, 0)
 }`, "refutable pattern in parameter; bind the parameter and use a `case` in the body"},
-		"if over an irrefutable pattern": {`fn f(pair: #(Int, Int)) -> Int {
-    if #(a, b) as p = pair { a + b + p.0 } else { 0 }
-}`, "this pattern always matches a value of type #(Int, Int), so the `if` has nothing to test; bind it on its own line with `pattern = value`"},
-		"else after an irrefutable pattern": {`fn f(pair: #(Int, Int)) -> Int {
-    #(a, b) as p = pair else { return 0 }
-    a + b + p.0
+		"if over an irrefutable pattern": {`fn f(pair: (Int, Int)) -> Int {
+    if (a, b) as p = pair { a + b + p.first } else { 0 }
+}`, "this pattern always matches a value of type (Int, Int), so the `if` has nothing to test; bind it on its own line with `pattern = value`"},
+		"else after an irrefutable pattern": {`fn f(pair: (Int, Int)) -> Int {
+    (a, b) as p = pair else { return 0 }
+    a + b + p.first
 }`, "this pattern always matches; remove the else"},
 		"a fallback for the whole value": {`fn f(m: Maybe<Int>) -> Int {
     Some(n) as whole = m else { 0 }
@@ -157,13 +157,13 @@ func TestAsPattern_RefutabilityIsThePatterns(t *testing.T) {
 // A fallback may stand in for a payload whose pattern carries an `as`: the
 // name binds the fallback, as the pattern's other names do.
 func TestAsPattern_FallbackBindsTheNameInsideThePayload(t *testing.T) {
-	got := asNameTypes(t, asDecls+`fn f(r: Result<#(Int, Int), String>) -> Int {
-    Ok(#(w, h) as size) = r else { #(0, 0) }
-    w + h + size.0
+	got := asNameTypes(t, asDecls+`fn f(r: Result<(Int, Int), String>) -> Int {
+    Ok((w, h) as size) = r else { (0, 0) }
+    w + h + size.first
 }
 `)
-	if got["size"] != "#(Int, Int)" {
-		t.Errorf("size: type %q, want #(Int, Int)", got["size"])
+	if got["size"] != "(Int, Int)" {
+		t.Errorf("size: type %q, want (Int, Int)", got["size"])
 	}
 }
 

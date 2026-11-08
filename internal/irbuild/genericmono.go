@@ -16,7 +16,7 @@ import (
 // type-parameter positions are `any`, the concrete type argument bound at the
 // call and the boxed answer asserted back there. That is complete for a
 // declaration whose every type-parameter mention is a BARE `T`, and it is
-// refused the moment one is not — `List<T>`, `Maybe<T>`, `Half<T>`, `#(T, Int)`,
+// refused the moment one is not — `List<T>`, `Maybe<T>`, `Half<T>`, `(T, Int)`,
 // `(A) -> B`. generic.go's header states the reason: the box would be at the
 // wrong DEPTH, because the body builds a `*rt.List[any]` while the caller wants
 // a `*rt.List[int64]`, so an assertion would fail at run time rather than refuse
@@ -201,13 +201,18 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	}
 	// Every parameter must be annotated: an unannotated one reports at
 	// funcDecl's own clause, so claiming the declaration here would lower
-	// past a refusal. An annotated destructuring parameter (`#(a, b): #(A, B)`)
+	// past a refusal. An annotated destructuring parameter (`(a, b): (A, B)`)
 	// is a slot of its annotation's type whose names the instance's prologue
 	// binds, as funcDecl binds a non-generic function's. A default is
 	// evaluated at the call against the instance's signature, as for any
 	// `fn`.
 	mentioned := make(map[string]bool, len(tpl.params))
 	for _, p := range fd.Params {
+		if p.TypeAnnotation == nil && p.Default != nil && p.Destructure == nil {
+			// `n = 2`: its type comes from its default, which names no type
+			// parameter of the function (paramKind reads it).
+			continue
+		}
 		if p.TypeAnnotation == nil {
 			return nil
 		}
@@ -686,7 +691,7 @@ func (g *gen) resolveMonoInstance(tpl *monoTemplate, args []kind, name string) (
 	}
 	bad := false
 	for i, p := range tpl.decl.Params {
-		sig.params[i] = g.typeOf(p.TypeAnnotation)
+		sig.params[i] = g.paramKind(p)
 		// The refusal below names the whole instantiation ONCE, rather than one
 		// key per parameter position of a signature the program never wrote.
 		// kindInvalid: propagates — `generic instantiation` names the whole instantiation below.
@@ -903,7 +908,7 @@ func irUnsolvedType(t analysis.Type) bool {
 }
 
 // irStdIterElem is the element a std collection implements `Iter` at: a
-// List's, Vector's or Set's element, a Map's `#(key, value)` pair, and a
+// List's, Vector's or Set's element, a Map's `(key, value)` pair, and a
 // Range's element.
 func irStdIterElem(g *gen, k kind) (kind, bool) {
 	switch {

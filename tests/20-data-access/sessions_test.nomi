@@ -42,9 +42,21 @@ fn home(Request, session: Session<Visit>) -> Response {
 // cross-origin protection.
 fn app(kept: CookieStore) -> (Request) -> Response {
     routes = [
-        #(Route`GET /`, home |> sessions.with_session(kept)),
-        #(Route`POST /sign-in`, sign_in |> sessions.with_session(kept)),
-        #(Route`POST /sign-out`, sign_out |> sessions.with_session(kept)),
+        Route.to(
+            "GET /",
+            home
+            |> sessions.with_session(kept),
+        ),
+        Route.to(
+            "POST /sign-in",
+            sign_in
+            |> sessions.with_session(kept),
+        ),
+        Route.to(
+            "POST /sign-out",
+            sign_out
+            |> sessions.with_session(kept),
+        ),
     ]
 
     Router.new(routes)!
@@ -65,7 +77,7 @@ fn get(after: Response) -> Request {
 }
 
 fn signed_in(kept: CookieStore, user: String) -> Response {
-    app(kept)(http_testing.form_request(Method.Post, "/sign-in", [#("user", user)]))
+    app(kept)(http_testing.form_request(Method.Post, "/sign-in", [("user", user)]))
 }
 
 test "a session written by one request is read by the next" {
@@ -186,8 +198,8 @@ test "a session too large for a cookie is a 500" {
 
 test "a cross-site post never reaches the session" {
     forged = #{
-        ..http_testing.form_request(Method.Post, "/sign-in", [#("user", "mallory")]),
-        headers: Headers[#("Sec-Fetch-Site", "cross-site")],
+        ..http_testing.form_request(Method.Post, "/sign-in", [("user", "mallory")]),
+        headers: Headers[("Sec-Fetch-Site", "cross-site")],
     }
 
     r = app(store)(forged)

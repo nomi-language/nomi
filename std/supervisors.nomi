@@ -345,7 +345,7 @@ impl Supervisor {
     /// aborts the work that exceeds it. Use the deadline to put a ceiling
     /// on a whole region; use this to ask one question and get an answer
     /// back either way.
-    pub fn flush(supervisor: Supervisor, bound: Wait = Wait.Forever) -> FlushOutcome {
+    pub fn flush(supervisor: Supervisor, bound = Wait.Forever) -> FlushOutcome {
         Supervisor.flush_bounded(supervisor, bound)
     }
 

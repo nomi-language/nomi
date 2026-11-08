@@ -37,26 +37,26 @@ import grains
 group "returns the number of grains on the square" {
     test "counts the grains" {
         [
-            #("grains on square 1", 1, 1),
-            #("grains on square 2", 2, 2),
-            #("grains on square 3", 3, 4),
-            #("grains on square 4", 4, 8),
-            #("grains on square 16", 16, 32768),
-            #("grains on square 32", 32, 2147483648),
-            #("grains on square 64", 64, 9223372036854775808),
+            ("grains on square 1", 1, 1),
+            ("grains on square 2", 2, 2),
+            ("grains on square 3", 3, 4),
+            ("grains on square 4", 4, 8),
+            ("grains on square 16", 16, 32768),
+            ("grains on square 32", 32, 2147483648),
+            ("grains on square 64", 64, 9223372036854775808),
         ]
-        |> subtests #(description, square, expected), description {
+        |> subtests (description, square, expected), description {
             assert grains.square(square) == Ok(expected)
         }
     }
 
     test "rejects squares off the board" {
         [
-            #("square 0 is invalid", 0),
-            #("negative square is invalid", -1),
-            #("square greater than 64 is invalid", 65),
+            ("square 0 is invalid", 0),
+            ("negative square is invalid", -1),
+            ("square greater than 64 is invalid", 65),
         ]
-        |> subtests #(description, square), description {
+        |> subtests (description, square), description {
             assert grains.square(square) == Err("square must be between 1 and 64")
         }
     }

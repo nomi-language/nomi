@@ -159,8 +159,8 @@ func (m unifyMode) declNested() unifyMode {
 }
 
 // field is the mode for a tuple's elements and a record's fields: a value
-// built in place widens element by element, `#(1, Pt{x: 5})` returned as a
-// `#(Int, Named)`. Under a type argument they stay that argument's mode.
+// built in place widens element by element, `(1, Pt{x: 5})` returned as a
+// `(Int, Named)`. Under a type argument they stay that argument's mode.
 func (m unifyMode) field() unifyMode {
 	switch m {
 	case unifyStrict, unifyAssignIn:
@@ -574,7 +574,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 // This binds *any* generic interface's type parameters from a concrete
 // receiver — `Iter<T>` against `List<Int>` binds `T → Int` exactly like
 // before (its template's single arg `T` solves from `next`'s declared
-// `Maybe<#(T, self)>` shape), and so does a user `Chooser<T>` whose default
+// `Maybe<(T, self)>` shape), and so does a user `Chooser<T>` whose default
 // returns bare `T`. Non-generic interfaces (no type args) and pairs with no
 // recorded template fall through to accepting the conformance without binding
 // — the same permissive fallback as the prior "unknown element" path.
@@ -614,7 +614,7 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	// A tuple, an anonymous struct or a function has no impls of its own
 	// (structural_bounds.go).
 	if implements, decided := structuralConformance(concrete, iface, func(p Type) bool {
-		return containsTypeVar(p) || typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, nil)
+		return containsTypeVar(p) || partMeetsInterfaceValue(p, iface, impls, implTypeArgs)
 	}); decided {
 		if implements {
 			return nil
@@ -787,6 +787,11 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 		}
 	}
 	if implements, decided := structuralConformance(concrete, iface, func(p Type) bool {
+		return typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, seen)
+	}); decided {
+		return implements
+	}
+	if implements, decided := structuralEqualityConformance(concrete, iface, implementedIn(impls), func(p Type) bool {
 		return typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, seen)
 	}); decided {
 		return implements
@@ -1478,9 +1483,9 @@ func isBoolVariantPair(a, b Type) bool {
 // sides have types have and next, the two being equal up to `embeds`: the
 // side whose type takes the other's values. A Circle enters a Shape and a
 // Shape may hold another variant, so Circle beside Shape joins to Shape, at
-// the top or nested (`#(1, circle)` beside `#(2, shape)` is an `#(Int, Shape)`).
-// ok is false when neither side takes the other's values (`#(Circle, Shape)`
-// beside `#(Shape, Circle)`); the answer is then have.
+// the top or nested (`(1, circle)` beside `(2, shape)` is an `(Int, Shape)`).
+// ok is false when neither side takes the other's values (`(Circle, Shape)`
+// beside `(Shape, Circle)`); the answer is then have.
 func embedsJoin(have, next Type) (Type, bool) {
 	if TypeAssignable(have, next) {
 		return have, true

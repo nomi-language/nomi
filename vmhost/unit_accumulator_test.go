@@ -26,7 +26,7 @@ fn main() {
     }))
     io.inspect(Iter.reduce([1, 2, 3], Unit, fn u, n -> if n == 2 { break } else { u }))
     io.inspect(Iter.scan([1, 2], Unit, fn u, _ -> u) |> Iter.to_list())
-    io.inspect(Iter.map_reduce([1, 2], Unit, fn u, n -> #(u, n * 10)))
+    io.inspect(Iter.map_reduce([1, 2], Unit, fn u, n -> (u, n * 10)))
     io.inspect(Iter.loop(Unit, fn u -> { break u }))
     io.inspect(Iter.repeat(Unit) |> Iter.take(2) |> Iter.to_list())
     io.inspect(Iter.iterate(Unit, fn u -> u) |> Iter.take(3) |> Iter.to_list())
@@ -41,7 +41,7 @@ saw 2
 Unit
 Unit
 [Unit, Unit]
-#(Unit, [10, 20])
+(Unit, [10, 20])
 Unit
 [Unit, Unit]
 [Unit, Unit, Unit]

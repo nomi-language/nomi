@@ -33,19 +33,19 @@ import armstrong_numbers
 
 test "recognizes Armstrong numbers" {
     [
-        #("Zero is an Armstrong number", 0, True),
-        #("Single-digit numbers are Armstrong numbers", 5, True),
-        #("There are no two-digit Armstrong numbers", 10, False),
-        #("Three-digit number that is an Armstrong number", 153, True),
-        #("Three-digit number that is not an Armstrong number", 100, False),
-        #("Four-digit number that is an Armstrong number", 9474, True),
-        #("Four-digit number that is not an Armstrong number", 9475, False),
-        #("Seven-digit number that is an Armstrong number", 9926315, True),
-        #("Seven-digit number that is not an Armstrong number", 9926314, False),
-        #("Armstrong number containing seven zeroes", 186709961001538790100634132976990, True),
-        #("The largest and last Armstrong number", 115132219018763992565095597973971522401, True),
+        ("Zero is an Armstrong number", 0, True),
+        ("Single-digit numbers are Armstrong numbers", 5, True),
+        ("There are no two-digit Armstrong numbers", 10, False),
+        ("Three-digit number that is an Armstrong number", 153, True),
+        ("Three-digit number that is not an Armstrong number", 100, False),
+        ("Four-digit number that is an Armstrong number", 9474, True),
+        ("Four-digit number that is not an Armstrong number", 9475, False),
+        ("Seven-digit number that is an Armstrong number", 9926315, True),
+        ("Seven-digit number that is not an Armstrong number", 9926314, False),
+        ("Armstrong number containing seven zeroes", 186709961001538790100634132976990, True),
+        ("The largest and last Armstrong number", 115132219018763992565095597973971522401, True),
     ]
-    |> subtests #(description, number, expected), description {
+    |> subtests (description, number, expected), description {
         assert armstrong_numbers.is_armstrong(number) == expected
     }
 }

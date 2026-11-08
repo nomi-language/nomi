@@ -63,9 +63,9 @@ test "ordering operators require Comparable for named structs" {
 }
 
 test "ordering operators order tuples by element and reject anonymous structs" {
-    assert #(1, 2) < #(1, 3)
-    assert #(2, "a") > #(1, "z")
-    assert Comparable.compare(#(1, "a"), #(1, "a")) == Ordering.Equal
+    assert (1, 2) < (1, 3)
+    assert (2, "a") > (1, "z")
+    assert Comparable.compare((1, "a"), (1, "a")) == Ordering.Equal
 
     tuple_diagnostics = compiler.check(
         """
@@ -74,7 +74,7 @@ test "ordering operators order tuples by element and reject anonymous structs" {
           }
 
           fn main() {
-            a = #(1, Point{x: 2})
+            a = (1, Point{x: 2})
             _ = a < a
           }
         """

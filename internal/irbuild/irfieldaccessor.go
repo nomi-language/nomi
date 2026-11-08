@@ -1,14 +1,12 @@
 package irbuild
 
 import (
-	"strconv"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
 // fieldAccessor lowers the field accessor `.name` (or `.address.city`, or
-// `.0`) to a closure of one parameter that reads the field chain off it and
+// `.first`) to a closure of one parameter that reads the field chain off it and
 // returns the last field. It captures nothing.
 //
 // The parameter's type is the one the checker read the accessor from
@@ -39,12 +37,11 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 	cur := bl.g.irAddParam(f, ir.NewSymbol("arg0"), pk)
 	k := pk
 	for _, seg := range t.Path {
-		if index, err := strconv.Atoi(seg.Name); err == nil {
-			if !irRetainedTupleKind(k) || index < 0 || index >= len(k.comp.parts) {
+		if index, ordinal := ast.TupleOrdinalIndex(seg.Name); ordinal && irTupleOrNamedTuple(k) {
+			var ok bool
+			if cur, k, ok = child.tupleItem(seg, cur, k, index); !ok {
 				return no()
 			}
-			part := k.comp.parts[index]
-			cur, k = child.tupleProjection(seg, cur, index, part), part
 			continue
 		}
 		var ok bool

@@ -77,8 +77,8 @@ group "the shop" {
         assert shop.total_of_all_orders(db)? == 5d
         counts = queries.order_counts(db)?
 
-        assert counts |> Iter.map(fn c -> #(c.email, c.orders)) |> Iter.to_list() == [
-            #("ada@example.com", 1),
+        assert counts |> Iter.map(fn c -> (c.email, c.orders)) |> Iter.to_list() == [
+            ("ada@example.com", 1),
         ]
     }
 
@@ -100,9 +100,9 @@ group "the shop" {
         latest = queries.insert_order(db, ada, 4d)?
         counts = queries.order_counts(db)?
 
-        assert counts |> Iter.map(fn c -> #(c.email, c.last_order, c.orders)) |> Iter.to_list() == [
-            #("ada@example.com", Some(latest), 2),
-            #("grace@example.com", None, 0),
+        assert counts |> Iter.map(fn c -> (c.email, c.last_order, c.orders)) |> Iter.to_list() == [
+            ("ada@example.com", Some(latest), 2),
+            ("grace@example.com", None, 0),
         ]
     }
 

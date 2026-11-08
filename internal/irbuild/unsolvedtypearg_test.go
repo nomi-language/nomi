@@ -121,12 +121,12 @@ fn main() {
     io.print(tag(E.Y("y")))
     io.print(tag(E.Z))
     io.inspect(E.X(1))
-    io.inspect(#(E.Z, 1))
+    io.inspect((E.Z, 1))
     io.inspect(Empty)
     io.inspect(shapes.Holder.Empty)
     io.inspect(Tag{n: 3})
 }
-`, "L{a: 1}\nTrue\nFalse\n[L{a: 1}, R{b: \"s\"}]\ny\nz\nX(1)\n#(Z, 1)\nEmpty\nEmpty\nTag{n: 3}\n", map[string]string{"shapes.nomi": `pub enum Holder<T> {
+`, "L{a: 1}\nTrue\nFalse\n[L{a: 1}, R{b: \"s\"}]\ny\nz\nX(1)\n(Z, 1)\nEmpty\nEmpty\nTag{n: 3}\n", map[string]string{"shapes.nomi": `pub enum Holder<T> {
     Of T
     Empty
 }

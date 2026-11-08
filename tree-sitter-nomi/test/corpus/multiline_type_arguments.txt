@@ -152,11 +152,11 @@ Multi-line type parameters and tuple return type
 fn pair<
     A, // a
     B
->(a: A, b: B) -> #(
+>(a: A, b: B) -> (
     A, // first
     B
 ) where A: Display {
-    #(a, b)
+    (a, b)
 }
 
 --------------------------------------------------------------------------------
@@ -271,7 +271,7 @@ type Distinct Map<
     Int
 >
 
-type Pair #(
+type Pair (
     Int, // left
     String
 )

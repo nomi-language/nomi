@@ -291,7 +291,7 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 		return ""
 	}
 	line := args[1].Int()
-	return hoverdoc.At(fa, nodes, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())})
+	return hoverdoc.At(fa, nodes, src, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())})
 }
 
 // lastProgram is the analysis of the last multi-file source nomiHoverIn or

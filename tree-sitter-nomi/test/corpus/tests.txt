@@ -95,9 +95,9 @@ Setup expression bound by a tuple pattern and a name
 
 group "env" {
   boot boot(Startup{env: %{}, args: []})
-  setup #(Env{mode: "test"}, 2)
+  setup (Env{mode: "test"}, 2)
 
-  test "tuple", #(env, n) {
+  test "tuple", (env, n) {
     assert n == 2
   }
 

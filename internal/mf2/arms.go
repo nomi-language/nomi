@@ -17,8 +17,11 @@ type SelectorKeys struct {
 	// plural selector, numbers): the locale's categories, or the variants.
 	Known []string
 	// Plural reports a plural or ordinal selector, whose numeric keys
-	// match exactly and are always allowed.
-	Plural bool
+	// match exactly and are always allowed; Ordinal one that selects by
+	// the ordinal rules (`select=ordinal`), and Integers one whose operand
+	// is always a whole number, so Needed holds only the categories some
+	// whole number is in.
+	Plural, Ordinal, Integers bool
 	// Gender reports a `:nomi:gender` selector, whose Known keys are the
 	// language's genders and Needed ones those the program's nouns have
 	// (Locale.NounGenders).
@@ -75,11 +78,12 @@ func selectorKeysIn(b binding, loc Locale) SelectorKeys {
 		if f.Name == "nomi:list" && b.param.Kind != KindList {
 			return SelectorKeys{}
 		}
-		rules, needed, _, ok := pluralKeys(f, b.param, loc)
+		rules, needed, kind, ok := pluralKeys(f, b.param, loc)
 		if !ok {
 			return SelectorKeys{}
 		}
-		return SelectorKeys{Needed: needed, Known: rules.CategoryNames(), Plural: true}
+		integers := f.Name == "integer" || f.Name == "nomi:list" || b.param.Kind == KindInt
+		return SelectorKeys{Needed: needed, Known: rules.CategoryNames(), Plural: true, Ordinal: kind == "ordinal", Integers: integers}
 	case "string":
 		if b.param.Kind != KindEnum {
 			return SelectorKeys{}

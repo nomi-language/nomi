@@ -25,17 +25,17 @@ import leap.is_leap_year
 
 test "leap years" {
     [
-        #("year not divisible by 4 in common year", 2015, False),
-        #("year divisible by 2, not divisible by 4 in common year", 1970, False),
-        #("year divisible by 4, not divisible by 100 in leap year", 1996, True),
-        #("year divisible by 4 and 5 is still a leap year", 1960, True),
-        #("year divisible by 100, not divisible by 400 in common year", 2100, False),
-        #("year divisible by 100 but not by 3 is still not a leap year", 1900, False),
-        #("year divisible by 400 is leap year", 2000, True),
-        #("year divisible by 400 but not by 125 is still a leap year", 2400, True),
-        #("year divisible by 200, not divisible by 400 in common year", 1800, False),
+        ("year not divisible by 4 in common year", 2015, False),
+        ("year divisible by 2, not divisible by 4 in common year", 1970, False),
+        ("year divisible by 4, not divisible by 100 in leap year", 1996, True),
+        ("year divisible by 4 and 5 is still a leap year", 1960, True),
+        ("year divisible by 100, not divisible by 400 in common year", 2100, False),
+        ("year divisible by 100 but not by 3 is still not a leap year", 1900, False),
+        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 400 but not by 125 is still a leap year", 2400, True),
+        ("year divisible by 200, not divisible by 400 in common year", 1800, False),
     ]
-    |> subtests #(description, year, expected), description {
+    |> subtests (description, year, expected), description {
         assert is_leap_year(year) == expected
     }
 }
@@ -54,6 +54,6 @@ test result: ok. 9 passed, 0 failed
 - The function is `is_leap_year`: a predicate of a state takes `is_`
   (style §4), and std's own is named the same.
 - The cases are one `subtests` table. Each row's first column is the
-  canonical description, which names the row (`subtests cases, #(description,
+  canonical description, which names the row (`subtests cases, (description,
   year, expected), description`), so a failed row's report
   shows which case it was.

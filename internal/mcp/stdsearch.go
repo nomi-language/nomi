@@ -211,12 +211,13 @@ func (t *typeNode) isVar() bool {
 func parseType(s string) *typeNode {
 	s = strings.TrimSpace(s)
 	switch {
-	case strings.HasPrefix(s, "#("):
-		return &typeNode{name: "#", args: parseList(s[2 : len(s)-1])}
 	case strings.HasPrefix(s, "("):
 		if arrow := topArrow(s); arrow >= 0 {
 			params := parseList(trimParens(strings.TrimSpace(s[:arrow])))
 			return &typeNode{name: "->", args: append(params, parseType(s[arrow+2:]))}
+		}
+		if items := parseList(trimParens(s)); len(items) >= 2 {
+			return &typeNode{name: "#", args: items}
 		}
 		return parseType(trimParens(s))
 	}
@@ -498,7 +499,7 @@ func substitute(t *typeNode, binding map[string]*typeNode) *typeNode {
 
 // implRel is one impl: its receiver as written and the interface type it
 // implements, with the interface's type arguments in the receiver's terms
-// (`List<T>` implements `Iter<T>`, `Map<K, V>` implements `Iter<#(K, V)>`).
+// (`List<T>` implements `Iter<T>`, `Map<K, V>` implements `Iter<(K, V)>`).
 type implRel struct {
 	recv, iface *typeNode
 }

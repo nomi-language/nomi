@@ -51,8 +51,8 @@ fn id<T>(a: T) -> T {
 	}{
 		{"std host fn through its type, too few", "Decimal.round(1d)",
 			"expected 3 arguments, got 1", "+1:7-+1:24"},
-		{"std host fn through its type, two short", "Decimal.divide(1d, 3d)",
-			"expected 4 arguments, got 2", "+1:7-+1:29"},
+		{"std host fn through its type, two short", "Decimal.sqrt(1d)",
+			"expected 3 arguments, got 1", "+1:7-+1:23"},
 		{"std host fn through its type, too many", `String.trim("a", "b")`,
 			"expected 1 arguments, got 2", "+1:24-+1:27"},
 		{"std Nomi-bodied fn through its type, too many", "List.head([1], 2, 3)",

@@ -198,7 +198,7 @@ type OffsetDateTime struct {
 // `Int`-taking adapter function, which is the shape std/calendar uses for
 // `Add<Weeks, Date>`. Two rungs cannot collide on one Go signature
 // (`Add<Hours, DateTime>` and `Add<Minutes, DateTime>` would both be
-// `#(DateTime, int64) DateTime`), because a Nomi body is lowered rather than
+// `(DateTime, int64) DateTime`), because a Nomi body is lowered rather than
 // dispatched through stdPick.
 //
 // # The width is int64 and TestOpaqueGoWidthMatchesTheDeclaredInner checks it

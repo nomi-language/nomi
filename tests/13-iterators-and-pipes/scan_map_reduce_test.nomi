@@ -74,18 +74,18 @@ test "scan supports break and continue" {
 }
 
 test "map_reduce answers the final state and the outputs" {
-    #(total, labels) =
+    (total, labels) =
         ["a", "bb", "c"]
         |> Iter.map_reduce(0, fn offset, word -> {
-            #(offset + String.length(word), "${offset}:${word}")
+            (offset + String.length(word), "${offset}:${word}")
         })
 
-    #(width, rows) =
+    (width, rows) =
         ["a", "abc", "ab"]
         |> Iter.reverse()
         |> Iter.map_reduce(0, fn width, line -> {
             width = Int.max(width, String.length(line))
-            #(width, String.pad_end(line, width))
+            (width, String.pad_end(line, width))
         })
 
     assert labels == ["0:a", "1:bb", "3:c"]
@@ -97,29 +97,29 @@ test "map_reduce answers the final state and the outputs" {
 test "map_reduce over an empty source answers the seed and no outputs" {
     none: List<String> = []
 
-    assert Iter.map_reduce(none, 7, fn count, s -> #(count + 1, s)) == #(7, [])
+    assert Iter.map_reduce(none, 7, fn count, s -> (count + 1, s)) == (7, [])
 }
 
 test "map_reduce supports break and continue" {
-    #(sum, kept) =
+    (sum, kept) =
         [1, -2, 3, -4, 5]
         |> Iter.map_reduce(0, fn total, x -> {
             if x < 0 { continue }
-            #(total + x, x * 10)
+            (total + x, x * 10)
         })
 
-    #(last, until_big) =
+    (last, until_big) =
         [10, 20, 30, 40]
         |> Iter.map_reduce(0, fn total, x -> {
-            if total + x > 50 { break #(-1, x) }
-            #(total + x, x)
+            if total + x > 50 { break (-1, x) }
+            (total + x, x)
         })
 
-    #(so_far, before) =
+    (so_far, before) =
         [10, 20, 30, 40]
         |> Iter.map_reduce(0, fn total, x -> {
             if total + x > 50 { break }
-            #(total + x, x)
+            (total + x, x)
         })
 
     assert kept == [10, 30, 50]

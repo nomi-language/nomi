@@ -16,6 +16,7 @@ import {
     maybe.Maybe
     multiply.Multiply
     productable.Productable
+    remainder.Remainder
     results.Result.{self, Err, Ok}
     strings.String
     subtract.Subtract
@@ -139,7 +140,7 @@ impl Float {
     //! assert Float.round(2.675, 2, RoundingMode.HalfUp) == 2.67
     //! assert Float.round(-0.4) == 0.0
     //
-    pub fn round(x: Float, scale: Int = 0, mode: RoundingMode = RoundingMode.HalfEven) -> Float {
+    pub fn round(x: Float, scale: Int = 0, mode = RoundingMode.HalfEven) -> Float {
         float_round(x, scale, mode)
     }
 
@@ -207,44 +208,6 @@ impl Float {
             x < 0.0 -> -1
             x > 0.0 -> 1
             _ -> 0
-        }
-    }
-
-    /// Returns the lesser of `a` and `b`: NaN if either is NaN, and `-0.0` as
-    /// the lesser of the two zeros (IEEE 754-2019 `minimum`). Other ties return
-    /// `a`.
-    //! assert Float.min(1.5, -2.0) == -2.0
-    //! assert Float.to_string(Float.min(0.0, -0.0)) == "-0.0"
-    //! assert Float.is_nan(Float.min(Float.nan(), 1.0))
-    //
-    pub fn min(a: Float, b: Float) -> Float {
-        case {
-            Float.is_nan(a) -> a
-            Float.is_nan(b) -> b
-            a < b -> a
-            a > b -> b
-            // Equal, so either the same value or the two zeros.
-            float_bits(b) < 0 -> b
-            _ -> a
-        }
-    }
-
-    /// Returns the greater of `a` and `b`: NaN if either is NaN, and `0.0` as
-    /// the greater of the two zeros (IEEE 754-2019 `maximum`). Other ties
-    /// return `a`.
-    //! assert Float.max(1.5, -2.0) == 1.5
-    //! assert Float.to_string(Float.max(-0.0, 0.0)) == "0.0"
-    //! assert Float.is_nan(Float.max(1.0, Float.nan()))
-    //
-    pub fn max(a: Float, b: Float) -> Float {
-        case {
-            Float.is_nan(a) -> a
-            Float.is_nan(b) -> b
-            a > b -> a
-            a < b -> b
-            // Equal, so either the same value or the two zeros.
-            float_bits(a) < 0 -> b
-            _ -> a
         }
     }
 
@@ -437,6 +400,9 @@ host fn float_bits(x: Float) -> Int
 /// `Float.equal_within` makes before it compares.
 host fn require_tolerance(tolerance: Float) -> Unit
 
+// Traps when `Float.clamp`'s bounds are NaN or backwards.
+host fn require_clamp_bounds(low: Float, high: Float) -> Unit
+
 impl Display for Float {
     /// Returns the canonical string form of `x`, matching the runtime
     /// stringifier used by `io.print` and string interpolation. NaN renders as
@@ -483,6 +449,20 @@ impl Productable for Float {
 
 impl Divide<Float, Float> for Float {
     host fn divide(lhs: Float, rhs: Float) -> Float
+}
+
+impl Remainder<Float, Float> for Float {
+    /// `lhs % rhs`: IEEE 754's `fmod`, `lhs - rhs * trunc(lhs / rhs)` computed
+    /// exactly, so it takes the sign of `lhs` and never traps. A zero `rhs`
+    /// or an infinite `lhs` gives NaN, and an infinite `rhs` gives `lhs`.
+    //! assert 7.5 % 2.0 == 1.5
+    //! assert -7.5 % 2.0 == -1.5
+    //! assert 7.5 % -2.0 == 1.5
+    //! assert Float.is_nan(1.0 % 0.0)
+    //! assert Float.is_nan(Float.positive_infinity() % 2.0)
+    //! assert 3.0 % Float.positive_infinity() == 3.0
+    //
+    host fn remainder(lhs: Float, rhs: Float) -> Float
 }
 
 impl Debug for Float {
@@ -550,6 +530,71 @@ impl Comparable for Float {
             a < b -> Less
             a == b -> Equal
             _ -> Greater
+        }
+    }
+
+    /// The lesser of `a` and `b`: NaN if either is NaN, and `-0.0` as the
+    /// lesser of the two zeros (IEEE 754-2019 `minimum`). Other ties return
+    /// `a`. It overrides `Comparable.min`, which by `compare` would put NaN
+    /// above every number.
+    //! assert Float.min(1.5, -2.0) == -2.0
+    //! assert Float.to_string(Float.min(0.0, -0.0)) == "-0.0"
+    //! assert Float.is_nan(Float.min(Float.nan(), 1.0))
+    //! assert Float.is_nan(Comparable.min(1.0, Float.nan()))
+    //
+    fn min(a: Float, b: Float) -> Float {
+        case {
+            Float.is_nan(a) -> a
+            Float.is_nan(b) -> b
+            a < b -> a
+            a > b -> b
+            // Equal, so either the same value or the two zeros.
+            float_bits(b) < 0 -> b
+            _ -> a
+        }
+    }
+
+    /// The greater of `a` and `b`: NaN if either is NaN, and `0.0` as the
+    /// greater of the two zeros (IEEE 754-2019 `maximum`). Other ties return
+    /// `a`. It overrides `Comparable.max`.
+    //! assert Float.max(1.5, -2.0) == 1.5
+    //! assert Float.to_string(Float.max(-0.0, 0.0)) == "0.0"
+    //! assert Float.is_nan(Float.max(1.0, Float.nan()))
+    //
+    fn max(a: Float, b: Float) -> Float {
+        case {
+            Float.is_nan(a) -> a
+            Float.is_nan(b) -> b
+            a > b -> a
+            a < b -> b
+            // Equal, so either the same value or the two zeros.
+            float_bits(a) < 0 -> b
+            _ -> a
+        }
+    }
+
+    /// `value` held to `low..high`, both ends included. A NaN `value` stays
+    /// NaN, as every IEEE operation on one does; `compare` would put it above
+    /// `high` and return `high`, a number nobody asked for. A NaN bound is no
+    /// range at all and a `low` greater than `high` is one written
+    /// backwards, so both trap, naming the bounds: `Comparable.clamp: low
+    /// 2.0 is greater than high 1.0`, `Comparable.clamp: low NaN is not a
+    /// number`. Within the range the value comes back
+    /// as it is, so `-0.0` held to `0.0..1.0` stays `-0.0`.
+    //! assert Float.clamp(1.5, 0.0, 1.0) == 1.0
+    //! assert Float.clamp(-0.5, 0.0, 1.0) == 0.0
+    //! assert Float.clamp(0.25, 0.0, 1.0) == 0.25
+    //! assert Float.is_nan(Float.clamp(Float.nan(), 0.0, 1.0))
+    //! assert Float.clamp(Float.positive_infinity(), 0.0, 1.0) == 1.0
+    //
+    fn clamp(value: Float, low: Float, high: Float) -> Float {
+        require_clamp_bounds(low, high)
+
+        case {
+            Float.is_nan(value) -> value
+            value < low -> low
+            value > high -> high
+            _ -> value
         }
     }
 }

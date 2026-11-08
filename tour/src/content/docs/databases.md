@@ -48,16 +48,17 @@ import {
 }
 
 fn main() -> Result<Unit, Error> {
-    sql.with_connection(sqlite.memory, fn db -> {
-        _ = Conn.exec(db, Sql"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)")?
-        _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"buy milk"})")?
-        _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"call Ada"})")?
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
 
-        rows = Conn.query(db, Sql"SELECT id, body FROM notes ORDER BY id")?
-        lines = rows |> Iter.map(note_line) |> Result.collect()?
-        Iter.each(lines, io.print)
-        Ok(Unit)
-    })
+    _ = Conn.exec(db, Sql"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)")?
+    _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"buy milk"})")?
+    _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"call Ada"})")?
+
+    rows = Conn.query(db, Sql"SELECT id, body FROM notes ORDER BY id")?
+    lines = rows |> Iter.map(note_line) |> Result.collect()?
+    Iter.each(lines, io.print)
+    Ok(Unit)
 }
 
 // One note as a line of text.
@@ -73,9 +74,9 @@ fn note_line(row: Row) -> Result<String, Error> {
 -->
 
 - `sqlite.memory` opens a new, empty database in memory, and
-  `sqlite.open("notes.db")` opens a file. `sql.with_connection` opens the
-  database, runs the function with the connection as `db`, and closes it
-  however the function ends.
+  `sqlite.open("notes.db")` opens a file. `defer sql.close_quietly(db)` on
+  the next line closes it however `main` ends. For a file, end the success
+  path with `Conn.close(db)?` to hear about a close that fails.
 - A `Conn` is a connection. It comes from [`std::sql`](/reference/sql/),
   which holds the types every database library shares. `Conn.exec` runs a
   statement that changes data and returns how many rows it changed.
@@ -207,27 +208,28 @@ fn transfer(db: Conn, from: String, to: String, amount: Int) -> Result<Unit, Err
 }
 
 fn main() -> Result<Unit, Error> {
-    sql.with_connection(sqlite.memory, fn db -> {
-        _ = Conn.exec(
-            db,
-            Sql"""
-            CREATE TABLE accounts (
-                name TEXT PRIMARY KEY,
-                balance INTEGER NOT NULL CHECK (balance >= 0)
-            )
-            """,
-        )?
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
 
-        _ = Conn.exec(db, Sql"INSERT INTO accounts VALUES ('ada', 50), ('bob', 0)")?
+    _ = Conn.exec(
+        db,
+        Sql"""
+        CREATE TABLE accounts (
+            name TEXT PRIMARY KEY,
+            balance INTEGER NOT NULL CHECK (balance >= 0)
+        )
+        """,
+    )?
 
-        dbg transfer(db, "ada", "bob", 30)
-        dbg transfer(db, "ada", "bob", 30)
+    _ = Conn.exec(db, Sql"INSERT INTO accounts VALUES ('ada', 50), ('bob', 0)")?
 
-        rows = Conn.query(db, Sql"SELECT name, balance FROM accounts ORDER BY name")?
-        lines = rows |> Iter.map(balance_line) |> Result.collect()?
-        Iter.each(lines, io.print)
-        Ok(Unit)
-    })
+    dbg transfer(db, "ada", "bob", 30)
+    dbg transfer(db, "ada", "bob", 30)
+
+    rows = Conn.query(db, Sql"SELECT name, balance FROM accounts ORDER BY name")?
+    lines = rows |> Iter.map(balance_line) |> Result.collect()?
+    Iter.each(lines, io.print)
+    Ok(Unit)
 }
 
 // One account and its balance as a line of text.
@@ -238,8 +240,8 @@ fn balance_line(row: Row) -> Result<String, Error> {
 }
 ```
 <!-- expect
-dbg line 33: transfer(db, "ada", "bob", 30) = Ok(Unit)
-dbg line 34: transfer(db, "ada", "bob", 30) = Err(Constraint{kind: Check, name: "accounts_balance_check", table: Some("accounts"), column: Some("balance")})
+dbg line 35: transfer(db, "ada", "bob", 30) = Ok(Unit)
+dbg line 36: transfer(db, "ada", "bob", 30) = Err(Constraint{kind: Check, name: "accounts_balance_check", table: Some("accounts"), column: Some("balance")})
 ada: 20
 bob: 30
 -->
@@ -431,34 +433,35 @@ import {
 }
 
 fn main() -> Result<Unit, Error> {
-    sql.with_connection(sqlite.memory, fn db -> {
-        sqlkit.migrate(db, schema.migrations)?
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
 
-        user_id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
-        order_id = queries.insert_order(db, user_id, 12.50d)?
-        changed = queries.set_status(db, order_id, .Paid)?
-        io.print("order ${order_id} is paid (${changed.rows} row changed)")
+    sqlkit.migrate(db, schema.migrations)?
 
-        Some(user) = queries.user_by_email(db, "ada@example.com")? else {
-            None -> {
-                io.print("no user with that email")
-                return Ok(Unit)
-            }
+    user_id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
+    order_id = queries.insert_order(db, user_id, 12.50d)?
+    changed = queries.set_status(db, order_id, .Paid)?
+    io.print("order ${order_id} is paid (${changed.rows} row changed)")
+
+    Some(user) = queries.user_by_email(db, "ada@example.com")? else {
+        None -> {
+            io.print("no user with that email")
+            return Ok(Unit)
         }
+    }
 
-        name = user.name |> Maybe.with_default("no name")
-        io.print("user ${user.id}: ${user.email} (${name})")
+    name = user.name |> Maybe.with_default("no name")
+    io.print("user ${user.id}: ${user.email} (${name})")
 
-        _ = queries.insert_user(db, "grace@example.com", None)?
-        counts = queries.order_counts(db)?
+    _ = queries.insert_user(db, "grace@example.com", None)?
+    counts = queries.order_counts(db)?
 
-        Iter.each(counts, fn c -> {
-            last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")
-            io.print("${c.email}: orders ${c.orders}, last order ${last}")
-        })
-
-        Ok(Unit)
+    Iter.each(counts, fn c -> {
+        last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")
+        io.print("${c.email}: orders ${c.orders}, last order ${last}")
     })
+
+    Ok(Unit)
 }
 
 // FILE: shop_test.nomi

@@ -53,7 +53,7 @@ func (p *Parser) confusedStmt() error {
 		if n1.Line != t.Line || n1.Type == token.EOF || n1.Type == token.NEWLINE || n1.Type == token.IDENT && n2.Type != token.DOT {
 			return ParseError{Line: t.Line, Col: t.Col,
 				Message: "a Nomi comment starts with `//`, not `#`",
-				Hints:   []string{"`#` starts a vector, struct or tuple literal: `#[1, 2]`, `#{x: 1}`, `#(a, b)`"},
+				Hints:   []string{"`#` starts a vector or struct literal: `#[1, 2]`, `#{x: 1}`"},
 				Fix:     Replace("Write `//`", t.Line, t.Col, t.Line, t.Col+1, "//")}
 		}
 	}
@@ -148,7 +148,7 @@ func (p *Parser) confusedOperand() error {
 		}
 		if p.commaListOnLine(0) {
 			return ParseError{Line: t.Line, Col: t.Col,
-				Message: "a plain `{` opens a block: a tuple is `#(a, b)`, and a set is `%[a, b]`",
+				Message: "a plain `{` opens a block: a tuple is `(a, b)`, and a set is `%[a, b]`",
 				Hints:   []string{"a list is `[a, b]`, a vector `#[a, b]`"}}
 		}
 	case token.PERCENT:
@@ -306,7 +306,7 @@ func (p *Parser) confusedCapture() error {
 	if first.Lexeme == "&1" && end >= 3 && (end-1)%2 == 0 {
 		for i := 2; i <= end; i += 2 {
 			dot, name := p.peekAt(i), p.peekAt(i+1)
-			if dot.Type != token.DOT || (name.Type != token.IDENT && name.Type != token.INT) {
+			if dot.Type != token.DOT || name.Type != token.IDENT {
 				accessor = ""
 				break
 			}

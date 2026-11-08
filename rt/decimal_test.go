@@ -2,6 +2,7 @@ package rt
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 )
 
@@ -643,4 +644,40 @@ func TestSignAbsNegateIsZero(t *testing.T) {
 			t.Errorf("IsZero(%s) = %v, want %v", tt.in, got, tt.isZero)
 		}
 	}
+}
+
+// TestDecimalQuo holds `/`'s rule: 34 significant digits half-even, never
+// rounding left of the point, trailing fractional zeros removed.
+func TestDecimalQuo(t *testing.T) {
+	big40 := "1" + strings.Repeat("0", 40)
+	for _, tt := range []struct{ a, b, want string }{
+		{"10", "3", "3.333333333333333333333333333333333"},
+		{"10.00", "4", "2.5"},
+		{"1", "4", "0.25"},
+		{"6", "3", "2"},
+		{"6.00", "3", "2"},
+		{"0.00", "5", "0"},
+		{"-10", "3", "-3.333333333333333333333333333333333"},
+		{"2", "-3", "-0.6666666666666666666666666666666667"},
+		{"-1", "-8", "0.125"},
+		{"1", "7", "0.1428571428571428571428571428571429"},
+		{"9.99", "0.001", "9990"},
+		{big40, "3", strings.Repeat("3", 40)},
+		{"1", "3" + strings.Repeat("0", 39), "0." + strings.Repeat("0", 39) + strings.Repeat("3", 34)},
+	} {
+		got, err := mustParse(t, tt.a).Quo(mustParse(t, tt.b))
+		if err != nil || got.Display() != tt.want {
+			t.Errorf("%s / %s = %s (%v), want %s", tt.a, tt.b, got.Display(), err, tt.want)
+		}
+	}
+}
+
+func TestDivDecimalByZeroIsTheIntText(t *testing.T) {
+	defer func() {
+		e, ok := recover().(*Error)
+		if !ok || e.Error() != divByZeroText(4) {
+			t.Errorf("DivDecimal(1, 0) trapped with %#v, want %q", e, divByZeroText(4))
+		}
+	}()
+	DivDecimal(mustParse(t, "1"), mustParse(t, "0"), 4)
 }

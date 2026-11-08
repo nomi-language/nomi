@@ -118,32 +118,32 @@ fn play(word: String, guesses: List<Codepoint>) -> Result<Game, Error> {
 
 test "guess" {
     [
-        #(
+        (
             "Initially 9 failures are allowed and no letters are guessed",
             [],
             State.Ongoing,
             "____",
             9,
         ),
-        #(
+        (
             "After 10 failures the game is over",
             ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
             .Lose,
             "____",
             0,
         ),
-        #(
+        (
             "Losing with several correct guesses",
             ['t', 'o', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
             .Lose,
             "_oot",
             0,
         ),
-        #("Feeding a correct letter removes underscores", ['t'], .Ongoing, "___t", 9),
-        #("Feeding a correct letter twice counts as a failure", ['t', 't'], .Ongoing, "___t", 8),
-        #("Guessing a repeated letter reveals all instances", ['t', 't', 'o'], .Ongoing, "_oot", 8),
-        #("Getting all the letters right makes for a win", ['t', 't', 'o', 'l'], .Win, "loot", 8),
-        #(
+        ("Feeding a correct letter removes underscores", ['t'], .Ongoing, "___t", 9),
+        ("Feeding a correct letter twice counts as a failure", ['t', 't'], .Ongoing, "___t", 8),
+        ("Guessing a repeated letter reveals all instances", ['t', 't', 'o'], .Ongoing, "_oot", 8),
+        ("Getting all the letters right makes for a win", ['t', 't', 'o', 'l'], .Win, "loot", 8),
+        (
             "Winning on the last guess is still a win",
             ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 't', 'o', 'l'],
             .Win,
@@ -151,7 +151,7 @@ test "guess" {
             0,
         ),
     ]
-    |> subtests #(description, guesses, state, masked_word, remaining_failures), description {
+    |> subtests (description, guesses, state, masked_word, remaining_failures), description {
         assert Ok(game) = play("loot", guesses)
         assert Game.state(game) == state
         assert Game.masked_word(game) == masked_word
@@ -161,18 +161,18 @@ test "guess" {
 
 test "guessing after the game is over" {
     [
-        #(
+        (
             "Guessing after a lose is error",
             ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'],
             "cannot guess after the game is lost",
         ),
-        #(
+        (
             "Guessing after a win is error",
             ['t', 'o', 'l', 'l'],
             "cannot guess after the game is won",
         ),
     ]
-    |> subtests #(description, guesses, message), description {
+    |> subtests (description, guesses, message), description {
         assert Err(error) = play("loot", guesses)
         assert "${error}" == message
     }

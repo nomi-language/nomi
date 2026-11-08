@@ -26,7 +26,7 @@ func TestUseCapture_RewritesAOneStepLambda(t *testing.T) {
 		{"call", "", "letters = %[\"a\"]\nhit = Iter.filter([\"a\", \"b\"], fn l -> ‸Set.contains(letters, l)) |> Iter.to_list()\ndbg hit", "hit = Iter.filter([\"a\", \"b\"], &Set.contains(letters, &1)) |> Iter.to_list()"},
 		{"struct", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x: x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &Point{x: &1, y: 0}) |> Iter.to_list()"},
 		{"punned field", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &Point{x: &1, y: 0}) |> Iter.to_list()"},
-		{"tuple", "", "ps = Iter.map([1, 2], ‸fn x -> #(x, 0)) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &#(&1, 0)) |> Iter.to_list()"},
+		{"tuple", "", "ps = Iter.map([1, 2], ‸fn x -> (x, 0)) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &(&1, 0)) |> Iter.to_list()"},
 		{"negation", "", "ns = Iter.map([1, 2], ‸fn x -> -x) |> Iter.to_list()\ndbg ns", "ns = Iter.map([1, 2], &(-&1)) |> Iter.to_list()"},
 		{"two parameters", "", "add: (Int, Int) -> Int = ‸fn a, b -> a + b\ndbg add(1, 2)", "add: (Int, Int) -> Int = &(&1 + &2)"},
 		{"named argument", "", "s = Iter.map([1, 2], ‸fn n -> Int.to_string(n)) |> String.join(\",\")\ndbg s", "s = Iter.map([1, 2], &Int.to_string(&1)) |> String.join(\",\")"},
@@ -88,8 +88,8 @@ func TestUseCapture_RewritesAFieldRead(t *testing.T) {
 		{"a chain", studentDecls, studentsLine + "ns = Iter.map(ss, ‸fn s -> String.length(s.address.city)) |> Iter.to_list()\ndbg ns", "ns = Iter.map(ss, &String.length(&1.address.city)) |> Iter.to_list()"},
 		{"a List where an Iter is declared", studentDecls, studentsLine + "ns = Iter.map(ss, ‸fn s -> Iter.count(s.marks)) |> Iter.to_list()\ndbg ns", "ns = Iter.map(ss, &Iter.count(&1.marks)) |> Iter.to_list()"},
 		{"a struct field", pointDecl, "ps = Iter.map([Point{x: 1, y: 2}], ‸fn p -> Point{x: p.y, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([Point{x: 1, y: 2}], &Point{x: &1.y, y: 0}) |> Iter.to_list()"},
-		{"a tuple", pointDecl, "ps = Iter.map([Point{x: 1, y: 2}], ‸fn p -> #(p.x, 0)) |> Iter.to_list()\ndbg ps", "ps = Iter.map([Point{x: 1, y: 2}], &#(&1.x, 0)) |> Iter.to_list()"},
-		{"a tuple element", "", "xs = Iter.filter([#(1, 2), #(3, 4)], ‸fn t -> t.0 > 1) |> Iter.to_list()\ndbg xs", "xs = Iter.filter([#(1, 2), #(3, 4)], &(&1.0 > 1)) |> Iter.to_list()"},
+		{"a tuple", pointDecl, "ps = Iter.map([Point{x: 1, y: 2}], ‸fn p -> (p.x, 0)) |> Iter.to_list()\ndbg ps", "ps = Iter.map([Point{x: 1, y: 2}], &(&1.x, 0)) |> Iter.to_list()"},
+		{"a tuple element", "", "xs = Iter.filter([(1, 2), (3, 4)], ‸fn t -> t.first > 1) |> Iter.to_list()\ndbg xs", "xs = Iter.filter([(1, 2), (3, 4)], &(&1.first > 1)) |> Iter.to_list()"},
 		{"a negation", pointDecl, "ns = Iter.map([Point{x: 1, y: 2}], ‸fn p -> -p.x) |> Iter.to_list()\ndbg ns", "ns = Iter.map([Point{x: 1, y: 2}], &(-&1.x)) |> Iter.to_list()"},
 		{"a then stage", pointDecl, "dbg Point{x: 1, y: 2} |> then ‸fn p -> Int.abs(p.x)", "|> then &Int.abs(&1.x)"},
 	} {
@@ -150,7 +150,7 @@ func TestUseCapture_KeepsALambdaTheRuleKeeps(t *testing.T) {
 		name, decls, body string
 		allowed           []string
 	}{
-		{"pattern", "", "xs = Iter.map([#(1, 2)], ‸fn #(_, v) -> v) |> Iter.to_list()\ndbg xs", nil},
+		{"pattern", "", "xs = Iter.map([(1, 2)], ‸fn (_, v) -> v) |> Iter.to_list()\ndbg xs", nil},
 		{"a bare field read", pointDecl, "xs = Iter.map([Point{x: 1, y: 2}], ‸fn p -> p.x) |> Iter.to_list()\ndbg xs", nil},
 		{"a field read out of order", pointDecl, "sub: (Point, Point) -> Int = ‸fn a, b -> b.x - a.x\ndbg sub(Point{x: 1, y: 0}, Point{x: 2, y: 0})", nil},
 		{"a field read piped", pointDecl, "xs = Iter.map([Point{x: 1, y: 2}], ‸fn p -> p.x |> Int.abs()) |> Iter.to_list()\ndbg xs", nil},

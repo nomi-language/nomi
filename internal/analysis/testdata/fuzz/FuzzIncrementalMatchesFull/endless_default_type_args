@@ -1,0 +1,4 @@
+go test fuzz v1
+uint(0)
+uint(0)
+string("import std::io\n\nstruct Box<T = Box> {\n    item: Maybe<T>\n}\n\nstruct Nest<T = List<Nest>> {\n    item: Maybe<T>\n}\n\nstruct A<T = B> {\n    item: Maybe<T>\n}\n\nstruct B<U = A> {\n    item: Maybe<U>\n}\n\nstruct Ok<T = List<Ok<Int>>> {\n    item: Maybe<T>\n}\n\nfn f(b: Box, n: Nest, a: A, o: Ok) -> Box {\n    _ = n\n    _ = a\n    _ = o\n    b\n}\n\nfn main() {\n    io.print(\"x\")\n}\n")

@@ -26,8 +26,8 @@ test "a then stage's braced body holds its own pipe" {
 
 test "a then stage destructures its parameter" {
     sum =
-        #(3, 4)
-        |> then fn #(a, b) -> a + b
+        (3, 4)
+        |> then fn (a, b) -> a + b
 
     assert sum == 7
 }

@@ -143,6 +143,7 @@ var operIfaceSpecs = []operIfaceSpec{
 	{module: "std/subtract", nomi: "Subtract", method: "subtract", op: "-"},
 	{module: "std/multiply", nomi: "Multiply", method: "multiply", op: "*"},
 	{module: "std/divide", nomi: "Divide", method: "divide", op: "/"},
+	{module: "std/remainder", nomi: "Remainder", method: "remainder", op: "%"},
 	{module: "std/steppable", nomi: "Steppable", method: "step_by", maybeSelf: true},
 	{module: "std/bitwise", nomi: "BitwiseAnd", method: "bitwise_and", op: "&&&"},
 	{module: "std/bitwise", nomi: "BitwiseOr", method: "bitwise_or", op: "|||"},

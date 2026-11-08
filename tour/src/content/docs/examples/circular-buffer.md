@@ -56,9 +56,9 @@ impl Buffer<T> {
     }
 
     /// The oldest item and the buffer without it, or `Empty`.
-    pub fn read(buffer: Buffer<T>) -> Result<#(T, Buffer<T>), Error> {
+    pub fn read(buffer: Buffer<T>) -> Result<(T, Buffer<T>), Error> {
         case buffer.items {
-            [oldest, ..rest] -> Ok(#(oldest, #{..buffer, items: rest}))
+            [oldest, ..rest] -> Ok((oldest, #{..buffer, items: rest}))
             [] -> Err(.Empty)
         }
     }
@@ -93,27 +93,27 @@ derive Equatable for Step
 /// answers the steps as they happened. A run that does what every step says
 /// answers the steps it was given.
 fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
-    #(_buffer, happened) =
+    (_buffer, happened) =
         steps
         |> Iter.map_reduce(Buffer.new(capacity), fn buffer, step -> {
             case step {
                 .Write(item) or .WriteFails(item) ->
                     case Buffer.write(buffer, item) {
-                        Ok(written) -> #(written, Step.Write(item))
-                        Err(_) -> #(buffer, .WriteFails(item))
+                        Ok(written) -> (written, Step.Write(item))
+                        Err(_) -> (buffer, .WriteFails(item))
                     }
 
                 .Read(_) or .ReadFails ->
                     case Buffer.read(buffer) {
-                        Ok(#(item, rest)) -> #(rest, .Read(item))
-                        Err(_) -> #(buffer, .ReadFails)
+                        Ok((item, rest)) -> (rest, .Read(item))
+                        Err(_) -> (buffer, .ReadFails)
                     }
 
                 .Clear ->
-                    #(Buffer.clear(buffer), .Clear)
+                    (Buffer.clear(buffer), .Clear)
 
                 .Overwrite(item) ->
-                    #(Buffer.overwrite(buffer, item), .Overwrite(item))
+                    (Buffer.overwrite(buffer, item), .Overwrite(item))
             }
         })
 
@@ -122,39 +122,39 @@ fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
 
 test "circular buffer" {
     [
-        #("reading empty buffer should fail", 1, [Step.ReadFails]),
-        #("can read an item just written", 1, [.Write(1), .Read(1)]),
-        #("each item may only be read once", 1, [.Write(1), .Read(1), .ReadFails]),
-        #(
+        ("reading empty buffer should fail", 1, [Step.ReadFails]),
+        ("can read an item just written", 1, [.Write(1), .Read(1)]),
+        ("each item may only be read once", 1, [.Write(1), .Read(1), .ReadFails]),
+        (
             "items are read in the order they are written",
             2,
             [.Write(1), .Write(2), .Read(1), .Read(2)],
         ),
-        #("full buffer can't be written to", 1, [.Write(1), .WriteFails(2)]),
-        #(
+        ("full buffer can't be written to", 1, [.Write(1), .WriteFails(2)]),
+        (
             "a read frees up capacity for another write",
             1,
             [.Write(1), .Read(1), .Write(2), .Read(2)],
         ),
-        #(
+        (
             "read position is maintained even across multiple writes",
             3,
             [.Write(1), .Write(2), .Read(1), .Write(3), .Read(2), .Read(3)],
         ),
-        #("items cleared out of buffer can't be read", 1, [.Write(1), .Clear, .ReadFails]),
-        #("clear frees up capacity for another write", 1, [.Write(1), .Clear, .Write(2), .Read(2)]),
-        #("clear does nothing on empty buffer", 1, [.Clear, .Write(1), .Read(1)]),
-        #(
+        ("items cleared out of buffer can't be read", 1, [.Write(1), .Clear, .ReadFails]),
+        ("clear frees up capacity for another write", 1, [.Write(1), .Clear, .Write(2), .Read(2)]),
+        ("clear does nothing on empty buffer", 1, [.Clear, .Write(1), .Read(1)]),
+        (
             "overwrite acts like write on non-full buffer",
             2,
             [.Write(1), .Overwrite(2), .Read(1), .Read(2)],
         ),
-        #(
+        (
             "overwrite replaces the oldest item on full buffer",
             2,
             [.Write(1), .Write(2), .Overwrite(3), .Read(2), .Read(3)],
         ),
-        #(
+        (
             "overwrite replaces the oldest item remaining in buffer following a read",
             3,
             [
@@ -169,7 +169,7 @@ test "circular buffer" {
                 .Read(5),
             ],
         ),
-        #(
+        (
             "initial clear does not affect wrapping around",
             2,
             [
@@ -184,7 +184,7 @@ test "circular buffer" {
             ],
         ),
     ]
-    |> subtests #(description, capacity, steps), description {
+    |> subtests (description, capacity, steps), description {
         assert replay(capacity, steps) == steps
     }
 }
@@ -196,7 +196,7 @@ test result: ok. 14 passed, 0 failed
 
 ## How it's written
 
-- `Buffer<T>` is a value, an opaque struct of its capacity and its items oldest first. Each operation answers the buffer after it: `write` a `Result<Buffer<T>, Error>`, `read` a `Result<#(T, Buffer<T>), Error>` with the item and the rest, and `clear` and `overwrite` a `Buffer<T>`, since they cannot fail. There is no array and no read or write position to wrap around: the items are a `List`, and the ring is what the operations promise, not how the items are stored.
+- `Buffer<T>` is a value, an opaque struct of its capacity and its items oldest first. Each operation answers the buffer after it: `write` a `Result<Buffer<T>, Error>`, `read` a `Result<(T, Buffer<T>), Error>` with the item and the rest, and `clear` and `overwrite` a `Buffer<T>`, since they cannot fail. There is no array and no read or write position to wrap around: the items are a `List`, and the ring is what the operations promise, not how the items are stored.
 - The errors are an `Error` enum, `Full` and `Empty`.
 - The operations are functions of `impl Buffer<T>`, called `Buffer.write(buffer, 1)` after `import circular_buffer.Buffer`. Each names the block's `T` in its signature and declares no type parameter of its own, so a call takes `T` from its buffer, or, for `Buffer.new(capacity)`, from the type the result is expected to have. `is_full` is private to the block.
 - The canonical cases are lists of operations, each with whether it should succeed. The test file turns each into a `Step` (`Write(1)`, `WriteFails(2)`, `Read(1)`, `ReadFails`, `Clear`, `Overwrite(3)`), and `replay` runs the steps on a buffer and answers the steps as they happened. A buffer that behaves answers the steps it was given, so each row asserts `replay(capacity, steps) == steps`, and a failure shows the list with the step that went another way.

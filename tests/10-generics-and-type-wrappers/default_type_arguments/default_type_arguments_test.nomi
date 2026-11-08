@@ -1,0 +1,78 @@
+// A type parameter may have a default (spec §4 *Default type arguments*):
+// a use in a type position that leaves the argument out takes it, so
+// `Tagged<Int>` is `Tagged<Int, String>` and `Outcome` is
+// `Outcome<String>`. A bare name there means the default, not a type to
+// infer.
+import {
+    std::compiler.{self, Diagnostic}
+    std::http.Route
+    shapes.{Labelled, Outcome, Tagged}
+}
+
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+    Iter.any(diagnostics, fn diagnostic -> text in diagnostic.message)
+}
+
+fn label(t: Tagged<Int>) -> String {
+    "${t.tag}: ${t.value}"
+}
+
+fn reason(o: Outcome) -> String {
+    case o {
+        .Done -> "done"
+        .Failed(e) -> e
+    }
+}
+
+fn first(l: Labelled) -> Int {
+    Labelled(n, _) = l
+    n
+}
+
+struct Admin {
+    home: Route = "GET /admin/{$}"
+}
+
+test "a left-out type argument takes its default" {
+    assert label(Tagged{value: 1, tag: "n"}) == "n: 1"
+    assert reason(.Failed("boom")) == "boom"
+    assert reason(.Done) == "done"
+    assert first(Labelled((3, "x"))) == 3
+    full: Tagged<Int, String> = Tagged{value: 2, tag: "t"}
+    assert label(full) == "t: 2"
+}
+
+test "a bare Route is a Route<Unit>" {
+    admin = Admin{}
+    assert "${admin.home}" == "GET /admin/{$}"
+}
+
+test "a bare name means the default, not a type to infer" {
+    diagnostics = compiler.check(
+        """
+        struct Tagged<T, Tag = String> {
+            value: T
+            tag: Tag
+        }
+
+        fn label(t: Tagged<Int>) -> String {
+            t.tag
+        }
+
+        fn main() {
+            _ = label(Tagged{value: 1, tag: 2})
+        }
+        """
+    )
+
+    assert has_diagnostic(diagnostics, "expected Tagged<Int>, got Tagged<Int, Int>")
+}
+
+test "a default must follow the parameters without one" {
+    diagnostics = compiler.check("struct Pair<A = Int, B> {\n    a: A\n    b: B\n}\n")
+
+    assert has_diagnostic(
+        diagnostics,
+        "type parameter `B` has no default, so it can't follow `A`, which has one",
+    )
+}

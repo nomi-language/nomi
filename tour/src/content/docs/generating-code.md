@@ -103,8 +103,8 @@ fn main() -> Result<Unit, String> {
     enums =
         String.split(text, "\n")
         |> Iter.with_index()
-        |> Iter.filter(fn #(_, line) -> String.trim(line) != "")
-        |> Iter.map(fn #(i, line) -> enum_of(i + 1, line))
+        |> Iter.filter(fn (_, line) -> String.trim(line) != "")
+        |> Iter.map(fn (i, line) -> enum_of(i + 1, line))
         |> Result.collect()?
 
     body = String.join(enums, "\n\n")
@@ -121,8 +121,8 @@ fn main() -> Result<Unit, String> {
 
 // The enum line `number` declares.
 fn enum_of(number: Int, line: String) -> Result<String, String> {
-    #(name, words) = case String.split(line, ":") |> Iter.to_list() {
-        [name, words] -> #(String.trim(name), String.words(words))
+    (name, words) = case String.split(line, ":") |> Iter.to_list() {
+        [name, words] -> (String.trim(name), String.words(words))
         _ -> return Err("enums.choices:${number}: write `Name: first second third`")
     }
 
@@ -407,8 +407,8 @@ fn main() -> Result<Unit, String> {
         }
         """
 
-    changed = stale([#("tables.nomi", tables_file), #("tables_test.nomi", test_file)])
-    names = changed |> Iter.map(fn #(path, _) -> path) |> String.join(", ")
+    changed = stale([("tables.nomi", tables_file), ("tables_test.nomi", test_file)])
+    names = changed |> Iter.map(fn (path, _) -> path) |> String.join(", ")
 
     if Iter.is_empty(changed) {
         io.print("up to date")
@@ -424,16 +424,16 @@ fn main() -> Result<Unit, String> {
 
 // The files whose text on disk differs, each with the final newline a
 // triple-quoted string leaves out.
-fn stale(files: List<#(String, String)>) -> List<#(String, String)> {
+fn stale(files: List<(String, String)>) -> List<(String, String)> {
     files
-    |> Iter.map(fn #(path, text) -> #(path, text + "\n"))
-    |> Iter.filter(fn #(path, text) -> fs.read_text(path) != Ok(text))
+    |> Iter.map(fn (path, text) -> (path, text + "\n"))
+    |> Iter.filter(fn (path, text) -> fs.read_text(path) != Ok(text))
     |> Iter.to_list()
 }
 
-fn write_all(files: List<#(String, String)>) -> Result<Unit, String> {
+fn write_all(files: List<(String, String)>) -> Result<Unit, String> {
     files
-    |> Iter.map(fn #(path, text) -> {
+    |> Iter.map(fn (path, text) -> {
         fs.write_text(path, text) |> Result.map_err(fn e -> "${path}: ${e}")
     })
     |> Result.collect()
@@ -445,10 +445,10 @@ fn table(path: String) -> Result<String, String> {
     text = fs.read_text(path) |> Result.map_err(fn e -> "${path}: ${e}")?
     lines = String.lines(text) |> Iter.filter(fn l -> l != "") |> Iter.to_list()
 
-    #(key, value, rows) = case lines {
+    (key, value, rows) = case lines {
         [first, ..rows] ->
             case String.split(first, ",") |> Iter.map(field) |> Iter.to_list() {
-                [Some(k), Some(v)] -> #(k, v, rows)
+                [Some(k), Some(v)] -> (k, v, rows)
                 _ -> return Err("${path}:1: the header is `key: Type,value: Type`")
             }
 
@@ -456,8 +456,8 @@ fn table(path: String) -> Result<String, String> {
             return Err("${path}: the file is empty; its first line is `key: Type,value: Type`")
     }
 
-    #(key_name, key_type) = key
-    #(value_name, value_type) = value
+    (key_name, key_type) = key
+    (value_name, value_type) = value
 
     name =
         String.split(path, "/")
@@ -468,7 +468,7 @@ fn table(path: String) -> Result<String, String> {
     arms =
         rows
         |> Iter.with_index()
-        |> Iter.map(fn #(i, row) -> {
+        |> Iter.map(fn (i, row) -> {
             case String.split(row, ",") |> Iter.to_list() {
                 [k, v] -> Ok("        ${cell(k, key_type)} -> Some(${cell(v, value_type)})")
                 _ -> Err("${path}:${i + 2}: a row is a key, a comma and a value")
@@ -492,9 +492,9 @@ fn table(path: String) -> Result<String, String> {
 }
 
 // A header cell `name: Type`, as the name and the type.
-fn field(cell: String) -> Maybe<#(String, String)> {
+fn field(cell: String) -> Maybe<(String, String)> {
     case String.split(cell, ":") |> Iter.map(String.trim) |> Iter.to_list() {
-        [name, type_name] when name != "" and type_name != "" -> Some(#(name, type_name))
+        [name, type_name] when name != "" and type_name != "" -> Some((name, type_name))
         _ -> None
     }
 }

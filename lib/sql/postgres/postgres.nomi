@@ -98,7 +98,7 @@ fn each_row_raw(
     f: (RawRow) -> Bool,
 ) -> Failure go goside.EachRow
 
-fn begin_raw(h: Handle) -> #(Handle, Failure) go goside.Begin
+fn begin_raw(h: Handle) -> (Handle, Failure) go goside.Begin
 
 fn commit_raw(h: Handle) -> Failure go goside.Commit
 
@@ -326,7 +326,7 @@ impl Conn for PgConn {
     }
 
     fn begin(conn: PgConn) -> Result<Conn, sql.Error> {
-        #(handle, failure) = begin_raw(conn.handle)
+        (handle, failure) = begin_raw(conn.handle)
         failed(failure)?
         Ok(PgConn{handle})
     }
@@ -391,7 +391,7 @@ fn present(text: String) -> Maybe<String> {
 fn cells(statement: Statement) -> Result<List<Cell>, sql.Error> {
     statement.params
     |> Iter.with_index()
-    |> Iter.map(fn #(position, value) -> to_cell(position + 1, value))
+    |> Iter.map(fn (position, value) -> to_cell(position + 1, value))
     |> Result.collect()
 }
 

@@ -77,9 +77,9 @@ fn numbered(text: String) -> Maybe<Description> {
     month = String.strip_suffix(text, "M") |> Maybe.flat_map(String.to_int)
     quarter = String.strip_prefix(text, "Q") |> Maybe.flat_map(String.to_int)
 
-    case #(month, quarter) {
-        #(Some(n), _) when n in 1..=12 -> Some(.Month(n))
-        #(_, Some(n)) when n in 1..=4 -> Some(.Quarter(n))
+    case (month, quarter) {
+        (Some(n), _) when n in 1..=12 -> Some(.Month(n))
+        (_, Some(n)) when n in 1..=4 -> Some(.Quarter(n))
         _ -> None
     }
 }

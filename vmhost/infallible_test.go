@@ -84,7 +84,7 @@ func TestInfallible_AValueHoldingATodoStopsAtTheTodo(t *testing.T) {
 		name, expr string
 	}{
 		{"list", "[todo]"},
-		{"tuple", "#(todo, 1)"},
+		{"tuple", "(todo, 1)"},
 		{"variant", "Some(todo)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -1,0 +1,92 @@
+import std::compiler
+
+struct Version {
+    major: Int
+    minor: Int
+}
+
+derive Comparable for Version
+
+// Ordered by key alone, so two entries with one key tie.
+struct Entry {
+    key: Int
+    label: String
+}
+
+impl Comparable for Entry {
+    fn compare(a: Entry, b: Entry) -> Ordering {
+        Int.compare(a.key, b.key)
+    }
+}
+
+fn bounded<T>(value: T, low: T, high: T) -> T where T: Comparable {
+    Comparable.clamp(value, low, high)
+}
+
+test "a derived Comparable has min, max and clamp" {
+    old = Version{major: 1, minor: 4}
+    new = Version{major: 2, minor: 0}
+    assert Version.min(new, old) == old
+    assert Version.max(old, new) == new
+    assert Version.clamp(Version{major: 3, minor: 1}, old, new) == new
+    assert Comparable.min(old, new) == old
+}
+
+test "a tie returns the first argument" {
+    first = Entry{key: 1, label: "first"}
+    second = Entry{key: 1, label: "second"}
+    assert Entry.min(first, second).label == "first"
+    assert Entry.max(first, second).label == "first"
+    assert Entry.clamp(first, second, second).label == "first"
+    assert Float.to_string(Float.min(0.0, -0.0)) == "-0.0"
+}
+
+test "clamp through a generic bound" {
+    assert bounded(15, 0, 10) == 10
+    assert bounded("m", "a", "k") == "k"
+
+    assert bounded(
+        Version{major: 0, minor: 9},
+        Version{major: 1, minor: 0},
+        Version{major: 2, minor: 0},
+    ) == Version{major: 1, minor: 0}
+}
+
+test "a NaN value stays NaN, a NaN bound traps" {
+    assert Float.is_nan(Float.clamp(Float.nan(), 0.0, 1.0))
+
+    result =
+        """
+        fn main() {
+          _ = Float.clamp(0.5, Float.nan(), 1.0)
+        }
+        """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert "Comparable.clamp: low NaN is not a number" in message
+}
+
+test "clamp with low above high traps, naming both bounds" {
+    result =
+        """
+        fn main() {
+          _ = Int.clamp(5, 10, 1)
+        }
+        """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert "Comparable.clamp: low 10 is greater than high 1" in message
+
+    text =
+        """
+        fn main() {
+          _ = String.clamp("b", "z", "a")
+        }
+        """
+        |> compiler.run()
+
+    assert Err(said) = text
+    assert "Comparable.clamp: low \"z\" is greater than high \"a\"" in said
+}

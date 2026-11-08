@@ -61,6 +61,9 @@ func renameTarget(dm *analysis.DocumentManager, doc *analysis.DocSnapshot, pos a
 	if target.Resolved != nil {
 		target = target.Resolved
 	}
+	if target.Undeclared {
+		return nil, protocol.Range{}, fmt.Errorf("'%s' is a field of a record whose declaration is not known; rename it where the record is built", target.Name)
+	}
 	if target.Kind == analysis.SymbolModule && isImportPathSegment(doc.Nodes, target.Pos) {
 		return nil, protocol.Range{}, fmt.Errorf("'%s' is part of an import path; rename the file to change it", target.Name)
 	}

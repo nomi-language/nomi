@@ -12,9 +12,9 @@ fn is_palindrome(s: String) -> Bool {
 }
 
 test "two of four rows fail" {
-    cases = [#("abba", True), #("abc", True), #("ab", True), #("x", True)]
+    cases = [("abba", True), ("abc", True), ("ab", True), ("x", True)]
 
-    subtests cases, #(line, known_palindrome) {
+    subtests cases, (line, known_palindrome) {
         assert is_palindrome(line) == known_palindrome
     }
 }

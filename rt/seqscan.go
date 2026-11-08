@@ -5,7 +5,7 @@ package rt
 // it belongs to the call rather than the source.
 //
 // A signalling callback answers rt's adapter outcome (seqctladapt.go), not
-// reduce's `#(acc, keepGoing)`, because both functions emit per element and
+// reduce's `(acc, keepGoing)`, because both functions emit per element and
 // `continue` must emit nothing:
 //
 //	Ctl          scan                             map_reduce

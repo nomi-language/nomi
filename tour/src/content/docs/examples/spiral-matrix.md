@@ -19,7 +19,7 @@ pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>> {
     empty_row = Iter.repeat(0) |> Iter.take(size) |> Iter.to_vector()
     grid = Iter.repeat(empty_row) |> Iter.take(size) |> Iter.to_vector()
 
-    fill(grid, #(0, 0), #(0, 1), 1, size * size)
+    fill(grid, (0, 0), (0, 1), 1, size * size)
 }
 
 /// Writes `value` at `position`, then moves on along `heading`, turning
@@ -27,8 +27,8 @@ pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>> {
 /// `last` is written.
 fn fill(
     grid: Vector<Vector<Int>>,
-    position: #(Int, Int),
-    heading: #(Int, Int),
+    position: (Int, Int),
+    heading: (Int, Int),
     value: Int,
     last: Int,
 ) -> Vector<Vector<Int>> {
@@ -45,20 +45,20 @@ fn fill(
     fill(grid, step(position, heading), heading, value + 1, last)
 }
 
-fn step(#(row, column): #(Int, Int), #(dr, dc): #(Int, Int)) -> #(Int, Int) {
-    #(row + dr, column + dc)
+fn step((row, column): (Int, Int), (dr, dc): (Int, Int)) -> (Int, Int) {
+    (row + dr, column + dc)
 }
 
-fn turn(#(dr, dc): #(Int, Int)) -> #(Int, Int) {
-    #(dc, -dr)
+fn turn((dr, dc): (Int, Int)) -> (Int, Int) {
+    (dc, -dr)
 }
 
 /// Whether `position` is on the grid and not written yet.
-fn is_empty(grid: Vector<Vector<Int>>, position: #(Int, Int)) -> Bool {
+fn is_empty(grid: Vector<Vector<Int>>, position: (Int, Int)) -> Bool {
     cell_at(grid, position) == Some(0)
 }
 
-fn cell_at(grid: Vector<Vector<Int>>, #(row, column): #(Int, Int)) -> Maybe<Int> {
+fn cell_at(grid: Vector<Vector<Int>>, (row, column): (Int, Int)) -> Maybe<Int> {
     cells = Vector.get(grid, row)?
     Vector.get(cells, column)
 }
@@ -67,7 +67,7 @@ fn cell_at(grid: Vector<Vector<Int>>, #(row, column): #(Int, Int)) -> Maybe<Int>
 /// steps onto a square `is_empty` accepted.
 fn set_cell(
     grid: Vector<Vector<Int>>,
-    #(row, column): #(Int, Int),
+    (row, column): (Int, Int),
     value: Int,
 ) -> Vector<Vector<Int>> {
     cells = Vector.get(grid, row)! |> Vector.set(column, value)
@@ -79,11 +79,11 @@ import spiral_matrix.spiral_matrix
 
 test "spiral_matrix" {
     [
-        #("empty spiral", 0, #[]),
-        #("trivial spiral", 1, #[#[1]]),
-        #("spiral of size 2", 2, #[#[1, 2], #[4, 3]]),
-        #("spiral of size 3", 3, #[#[1, 2, 3], #[8, 9, 4], #[7, 6, 5]]),
-        #(
+        ("empty spiral", 0, #[]),
+        ("trivial spiral", 1, #[#[1]]),
+        ("spiral of size 2", 2, #[#[1, 2], #[4, 3]]),
+        ("spiral of size 3", 3, #[#[1, 2, 3], #[8, 9, 4], #[7, 6, 5]]),
+        (
             "spiral of size 4",
             4,
             #[
@@ -93,7 +93,7 @@ test "spiral_matrix" {
                 #[10, 9, 8, 7],
             ],
         ),
-        #(
+        (
             "spiral of size 5",
             5,
             #[
@@ -105,7 +105,7 @@ test "spiral_matrix" {
             ],
         ),
     ]
-    |> subtests #(description, size, expected), description {
+    |> subtests (description, size, expected), description {
         assert spiral_matrix(size) == expected
     }
 }
@@ -117,9 +117,9 @@ test result: ok. 6 passed, 0 failed
 
 ## How it's written
 
-- The grid is `Vector<Vector<Int>>`, filled by walking the spiral and writing one cell at a time. This is the algorithm the problem describes, and it needs indexed reads (is the next square free?) and indexed updates. A closed form per cell (which ring, which side) or a `Map<#(Int, Int), Int>` of the walk turned into rows were the alternatives; the walk is the more direct form of the problem's description.
+- The grid is `Vector<Vector<Int>>`, filled by walking the spiral and writing one cell at a time. This is the algorithm the problem describes, and it needs indexed reads (is the next square free?) and indexed updates. A closed form per cell (which ring, which side) or a `Map<(Int, Int), Int>` of the walk turned into rows were the alternatives; the walk is the more direct form of the problem's description.
 
 - `0` marks an unwritten square, so "free" is `cell_at(grid, position) == Some(0)`, which is `False` both off the grid and on a written square. One comparison does both checks.
-- The walk is a tail-recursive `fn fill` with the position and heading as tuples; turning clockwise is `#(dr, dc) -> #(dc, -dr)`. It stops after writing `size * size`, so size 0 needs no special case.
+- The walk is a tail-recursive `fn fill` with the position and heading as tuples; turning clockwise is `(dr, dc) -> (dc, -dr)`. It stops after writing `size * size`, so size 0 needs no special case.
 - `set_cell` returns the new grid. It reads the row with `Vector.get(...)!` and writes with `Vector.set`, both of which trap on an index outside the vector; `fill` only steps onto a square `is_empty` accepted, so the position is always on the grid.
-- The cases are one `subtests` table of `#(description, size, expected)` rows. The 4x4 and 5x5 grids are written one grid row per line, which `nomi fmt` keeps because each breaks after its `#[`.
+- The cases are one `subtests` table of `(description, size, expected)` rows. The 4x4 and 5x5 grids are written one grid row per line, which `nomi fmt` keeps because each breaks after its `#[`.

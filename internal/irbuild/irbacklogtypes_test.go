@@ -50,9 +50,9 @@ fn add(x: Int, y: Int) -> Int {
   x + y
 }
 
-fn first_of(m: Maybe<#(Int, String)>) -> Int {
+fn first_of(m: Maybe<(Int, String)>) -> Int {
   case m {
-    Some(#(n, _)) -> n
+    Some((n, _)) -> n
     None -> 0
   }
 }
@@ -85,10 +85,10 @@ test "prelude predicates" {
 test "nested prelude payloads and tuple payload patterns" {
   assert unwrap(Some(Ok(9))) == 9
   assert unwrap(Some(Err("e"))) == -1
-  assert first_of(Some(#(4, "a"))) == 4
-  deep = Some(Some(#(7, "deep")))
+  assert first_of(Some((4, "a"))) == 4
+  deep = Some(Some((7, "deep")))
   got = case deep {
-    Some(Some(#(_, s))) -> s
+    Some(Some((_, s))) -> s
     _ -> "miss"
   }
   assert got == "deep"
@@ -135,7 +135,7 @@ test "a filter callback breaks from a tail if" {
 }
 
 test "sets of tuples, lists of maps and branch bindings" {
-  ts = %[#(1, 2), #(3, 4), #(1, 1 + 1)]
+  ts = %[(1, 2), (3, 4), (1, 1 + 1)]
   assert Set.size(ts) == 2
   buckets: List<Map<String, Int>> = []
   assert Iter.count(buckets) == 0

@@ -72,7 +72,7 @@ test "equal integer bounds make a constant draw" {
         import std::random.{Generator, Seed}
 
         fn main() {
-          #(n, _) = Generator.step(Generator.int(4, 4), Seed.from_int(9))
+          (n, _) = Generator.step(Generator.int(4, 4), Seed.from_int(9))
           io.print(n)
         }
         """

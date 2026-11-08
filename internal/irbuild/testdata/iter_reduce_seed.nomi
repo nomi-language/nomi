@@ -38,7 +38,7 @@ fn main() {
     // one prints the 9.
     io.print("${Iter.reduce([1, 2, 3], [9], fn acc, x -> [x, ..acc])}")
 
-    // A DESTRUCTURING first parameter carries a seed too (`fn #(a, b) = #(0, 0),
+    // A DESTRUCTURING first parameter carries a seed too (`fn (a, b) = (0, 0),
     // x ->`), so the claim is on the parameter's DEFAULT and not on it having a
     // plain name. fn_destructure_shapes.nomi exercises that seed.
     //

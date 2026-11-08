@@ -8,7 +8,7 @@ pub fn is_valid(isbn: String) -> Bool {
         isbn
         |> String.replace("-", "")
         |> Iter.with_index()
-        |> Iter.map(fn #(i, character) -> value(character, is_check: i == 9))
+        |> Iter.map(fn (i, character) -> value(character, is_check: i == 9))
         |> Maybe.collect()
 
     case values {
@@ -29,6 +29,6 @@ fn value(character: String, is_check: Bool) -> Maybe<Int> {
 fn checksum(values: List<Int>) -> Int {
     values
     |> Iter.with_index()
-    |> Iter.map(fn #(i, v) -> v * (10 - i))
+    |> Iter.map(fn (i, v) -> v * (10 - i))
     |> Iter.sum()
 }

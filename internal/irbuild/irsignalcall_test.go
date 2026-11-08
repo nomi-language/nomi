@@ -76,10 +76,10 @@ fn add(acc: Int, x: Int) -> Int {
   acc + x
 }
 
-fn emit(s: Int, x: Int) -> #(Int, Int) {
+fn emit(s: Int, x: Int) -> (Int, Int) {
   if x == 2 { continue }
   if x == 4 { break }
-  #(s + x, x * 10)
+  (s + x, x * 10)
 }
 
 fn tick(n: Int) -> Int {
@@ -113,7 +113,7 @@ fn main() {
   io.print(Debug.inspect(Iter.loop(1, odd_steps)))
   io.print(Debug.inspect(Iter.loop(f: tick, from: 2)))
 }
-`, "400\n14\n4\n4\n4\n[1, 4, 400]\n#(4, [10, 30])\n50\n3\n13\n50\n")
+`, "400\n14\n4\n4\n4\n[1, 4, 400]\n(4, [10, 30])\n50\n3\n13\n50\n")
 }
 
 // `from:` with a callback that is not an iter-sensitive function: an ordinary
@@ -136,7 +136,7 @@ fn main() {
     acc + x
   })))
   io.print(Debug.inspect(Iter.scan([1, 2, 3], 1, plus) |> Iter.to_list()))
-  io.print(Debug.inspect(Iter.map_reduce(["a", "bb"], 0, fn n, s -> #(n + 1, s + s))))
+  io.print(Debug.inspect(Iter.map_reduce(["a", "bb"], 0, fn n, s -> (n + 1, s + s))))
   io.print(Debug.inspect(Iter.loop(1, fn n -> {
     if n > 4 { break n }
     n + 2
@@ -146,7 +146,7 @@ fn main() {
   empty: List<Int> = []
   io.print(Debug.inspect(Iter.reduce(empty, 7, plus)))
 }
-`, "6\n106\n123\n40\n[2, 4, 7]\n#(2, [\"aa\", \"bbbb\"])\n5\n4\n4\n7\n")
+`, "6\n106\n123\n40\n[2, 4, 7]\n(2, [\"aa\", \"bbbb\"])\n5\n4\n4\n7\n")
 }
 
 // A loop over a function value that cannot signal never ends, and lowers as
@@ -203,9 +203,9 @@ struct Acc {
   items: List<Int>
 }
 
-fn keep(acc: #(Int, List<Int>), x: Int) -> #(Int, List<Int>) {
+fn keep(acc: (Int, List<Int>), x: Int) -> (Int, List<Int>) {
   if x == 2 { continue }
-  #(acc.0 + x, acc.1 + [x])
+  (acc.first + x, acc.second + [x])
 }
 
 fn add(acc: Acc, x: Int) -> Acc {
@@ -215,14 +215,14 @@ fn add(acc: Acc, x: Int) -> Acc {
 }
 
 fn main() {
-  a = Iter.reduce([1, 2, 3], #(0, []), keep)
+  a = Iter.reduce([1, 2, 3], (0, []), keep)
   io.print(Debug.inspect(a))
   b = Iter.reduce([1, 2, 3, 4, 5], Acc{total: 0, items: []}, add)
   io.print(Debug.inspect(b))
-  c = Iter.reduce([1, 2, 3], #(0, []), fn #(n, xs), x -> #(n + x, xs + [x]))
+  c = Iter.reduce([1, 2, 3], (0, []), fn (n, xs), x -> (n + x, xs + [x]))
   io.print(Debug.inspect(c))
 }
-`, "#(4, [1, 3])\nAcc{total: 4, items: [1, 3]}\n#(6, [1, 2, 3])\n")
+`, "(4, [1, 3])\nAcc{total: 4, items: [1, 3]}\n(6, [1, 2, 3])\n")
 }
 
 // A `defer` in the function runs as it leaves, whatever it leaves with, as

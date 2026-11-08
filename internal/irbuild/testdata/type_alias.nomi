@@ -12,7 +12,7 @@ import std::io
 // other shows up as a difference between two adjacent lines.
 typealias Count Int
 typealias Handler (String, String) -> Result<String, String>
-typealias Pairs List<#(Int, String)>
+typealias Pairs List<(Int, String)>
 typealias Row #{name: String, size: Int}
 typealias Answer Maybe<Int>
 
@@ -51,7 +51,7 @@ fn main() {
     io.print("alias-and-direct-agree=${Bool.to_string(aliased == direct)}")
     io.print("aliased=${Debug.inspect(aliased)}")
 
-    io.print("total=${total([#(1, "a"), #(2, "b")])}")
+    io.print("total=${total([(1, "a"), (2, "b")])}")
     io.print("row=${label(#{name: "disk", size: 3})}")
     io.print("some=${unwrap_or(Some(7), 0)}")
     io.print("none=${unwrap_or(None, 9)}")

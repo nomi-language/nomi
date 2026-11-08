@@ -211,11 +211,11 @@ fn handle_order(id: Int) -> Response {
     priced = concurrent {
         validation = Task.spawn(fn -> validate(id))
         pricing = Task.spawn(fn -> price(id))
-        Ok(#(Task.await(validation)?, Task.await(pricing)?))
+        Ok((Task.await(validation)?, Task.await(pricing)?))
     }
 
     resp = case priced {
-        Ok(#(v, p)) -> build_response(id, v, p)
+        Ok((v, p)) -> build_response(id, v, p)
         Err(e) -> error_response(id, e)
     }
 

@@ -80,14 +80,15 @@ func TestIRHoleCall_ASolvedTypeIsNeverAHole(t *testing.T) {
 }
 
 // And the front end is the other wall: a program whose T the checker SOLVES to
-// a type with no Hashable impl never reaches the builder, so nothing it
-// solved can become an unreachable fault.
+// a type that does not meet Hashable never reaches the builder, so nothing it
+// solved can become an unreachable fault. A type with equality meets it with
+// no impl (spec §5 *Equality bounds*), so the type here is a function's.
 func TestIRHoleCall_ASolvedTypeWithNoImplIsRejected(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import std::io
 
 fn main() {
-  x: Maybe<Ordering> = None
+  x: Maybe<(Int) -> Int> = None
   io.print(Maybe.hash(x))
 }
 `
@@ -96,17 +97,16 @@ fn main() {
 	}
 	_, err := Analyze(path)
 	if err == nil {
-		t.Fatal("the front end now ADMITS a Hashable call on Ordering, so a checker-solved " +
+		t.Fatal("the front end now ADMITS a Hashable call on a function type, so a checker-solved " +
 			"type with no impl can reach the builder: holeBoundCall must still decline it")
 	}
 	// The derived `impl Hashable for Maybe<T>` carries `where T: Hashable`,
 	// and the bound check at the call names it.
-	if !strings.Contains(err.Error(), "Ordering does not implement Hashable (required by `where T: Hashable`)") {
+	if !strings.Contains(err.Error(), "(Int) -> Int does not implement Hashable (required by `where T: Hashable`)") {
 		t.Fatalf("rejected for another reason, so the wall is not the one this test names: %v", err)
 	}
-	// It points at the call, and, since neither `Ordering` nor `Hashable` is the
-	// program's to extend, says only std can add the impl.
-	if !strings.Contains(err.Error(), "main.nomi:5:12:") || !strings.Contains(err.Error(), "only std can implement `Hashable` for `Ordering`") {
+	// It points at the call, and says why a function cannot meet it.
+	if !strings.Contains(err.Error(), "main.nomi:5:12:") || !strings.Contains(err.Error(), "a function value has no equality") {
 		t.Fatalf("the bound error lost its position or its help: %v", err)
 	}
 }

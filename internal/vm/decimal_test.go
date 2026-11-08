@@ -43,17 +43,26 @@ func TestDecimal_OperandAndLiteralBoundaries(t *testing.T) {
 	}
 }
 
-func TestDecimal_ModuloBackstopIsRuntimeFault(t *testing.T) {
+// Decimal `%` is exact, and a zero divisor is Int's division-by-zero fault
+// at the operator's line.
+func TestDecimal_RemainderAndItsZeroDivisor(t *testing.T) {
 	pos := ir.At("decimal.nomi", 19, 1)
 	f := ir.NewFunc(pos, "remainder")
 	a, b, out := f.NewTemp(), f.NewTemp(), f.NewTemp()
 	fr := testFrame(f, nil)
-	fr.write(a, decimalLit(t, "2d"))
-	fr.write(b, decimalLit(t, "1d"))
+	fr.write(a, decimalLit(t, "10.5d"))
+	fr.write(b, decimalLit(t, "3d"))
 	n := ir.NewArith(pos, out, ir.OpRem, ir.DecimalArith(), a, b)
+	if err := new(Machine).arith(fr, n); err != nil {
+		t.Fatalf("10.5d %% 3d: %v", err)
+	}
+	if got, _ := fr.read(out); got.(rt.Decimal).Display() != "1.5" {
+		t.Fatalf("10.5d %% 3d = %v, want 1.5", got)
+	}
+	fr.write(b, decimalLit(t, "0.0d"))
 	err := new(Machine).arith(fr, n)
 	var fault *Fault
-	if !errors.As(err, &fault) || err.Error() != rt.DecimalModuloText(19) {
-		t.Fatalf("modulo fault: %v", err)
+	if !errors.As(err, &fault) || err.Error() != rt.DivByZeroError(19).Error() {
+		t.Fatalf("remainder by zero: %v", err)
 	}
 }

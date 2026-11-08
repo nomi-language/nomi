@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 693
-declared-cases 3947
+records 707
+declared-cases 4000
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -312,22 +312,23 @@ T test result: ok. 6 passed, 0 failed
 T
 C 02-testing/fs_disk_test.nomi
 E 0
-N 8
-H 326fc6875f551a235fcf967d37ff32b4d03e12093ab6831dfab1b246c540a869
+N 9
+H 3e41e6ca326cd4cce5df400dc8743d4da83e02d7690d42766a1528b46e361ec2
 T ok <root>/tests/02-testing/fs_disk_test.nomi :: the disk keeps the rules the sandbox models
 T ok <root>/tests/02-testing/fs_disk_test.nomi :: a temporary directory is gone afterwards
 T ok <root>/tests/02-testing/fs_disk_test.nomi :: each write mode
 T ok <root>/tests/02-testing/fs_disk_test.nomi :: a writer buffers until it closes, and a reader reads it back
+T ok <root>/tests/02-testing/fs_disk_test.nomi :: a discarded atomic writer leaves the old file and nothing beside it
 T ok <root>/tests/02-testing/fs_disk_test.nomi :: a listing is sorted and names each entry's kind
 T ok <root>/tests/02-testing/fs_disk_test.nomi :: metadata answers the size, and copy and rename move contents
 T ok <root>/tests/02-testing/fs_disk_test.nomi :: errors name the path the program passed
 T ok <root>/tests/02-testing/fs_disk_test.nomi :: symlinks, modes, a File and within on the disk
-T test result: ok. 8 passed, 0 failed
+T test result: ok. 9 passed, 0 failed
 T
 C 02-testing/fs_sandbox_test.nomi
 E 0
 N 16
-H 31d62bfe021c1d29cb32ce5cdfe577ae0c698039d56f90416a2edaf608c5bb8c
+H 859201bdc6d9c76c4d2e614efbcc28b9565f599df2c1c0fcd0fc72114861baf3
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: sorts the lines into the output file
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a missing input is NotFound
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a full disk leaves the old output in place
@@ -336,7 +337,7 @@ T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: tasks started inside the ru
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: two tasks in two sandboxes do not see each other's files
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a nested run takes over for its own call
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a reader left open shows in open
-T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: with_writer streams a copy with a header
+T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a writer streams a copy with a header
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: directories list sorted, and remove and rename act on them
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: the sandbox's rules are the disk's
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: WriteMode is a value
@@ -366,7 +367,7 @@ T
 C 02-testing/process_fake_test.nomi
 E 0
 N 10
-H 63cf44552856b24a260b5e1028f82056ad839f9f631e504fdbdd226d4f35d5b4
+H 7fdb80f7f368eab11fbbed58673a4f6fdf5cef6588c8d08743a89b7d062b0f6f
 T ok <root>/tests/02-testing/process_fake_test.nomi :: the fake answers the command and records it
 T ok <root>/tests/02-testing/process_fake_test.nomi :: an answer for other arguments does not match
 T ok <root>/tests/02-testing/process_fake_test.nomi :: a non-zero exit is a status, not an error
@@ -374,7 +375,7 @@ T ok <root>/tests/02-testing/process_fake_test.nomi :: an answer with an error f
 T ok <root>/tests/02-testing/process_fake_test.nomi :: the call records the directory, the environment and the input
 T ok <root>/tests/02-testing/process_fake_test.nomi :: a reader as input is read to its end
 T ok <root>/tests/02-testing/process_fake_test.nomi :: run writes the answer's output to the program's own
-T ok <root>/tests/02-testing/process_fake_test.nomi :: with_spawned streams the answer and records what the body wrote
+T ok <root>/tests/02-testing/process_fake_test.nomi :: spawn streams the answer and records what the caller wrote
 T ok <root>/tests/02-testing/process_fake_test.nomi :: tasks started inside the run reach its fake
 T ok <root>/tests/02-testing/process_fake_test.nomi :: a nested run takes over for its own call
 T test result: ok. 10 passed, 0 failed
@@ -611,8 +612,8 @@ T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/decimals_test.nomi
 E 0
-N 13
-H 66ceecb2bde5dc3d200a2bfb11c6b31172d0e9c09f75f81e4484cc81da783dc9
+N 18
+H ddfde736587742708fe12fba91b9398df0f644e320604986d172993cf9d444cc
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal literals preserve display scale
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal operators are exact
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal rounding and shaping functions are explicit
@@ -622,11 +623,16 @@ T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal ran
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal set and map keys are scale insensitive
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal arithmetic supports money-shaped totals
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal arithmetic rejects mixed numeric types
-T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal has no division operator
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division rounds to 34 significant digits
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: an exact decimal quotient keeps its smallest scale
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division keeps every integer digit of a large quotient
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division counts significant digits from the first non-zero one
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division by zero is a runtime error
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division takes no Int operand
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact keeps the quotient's scale when it terminates
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact is None when the quotient does not terminate
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact by zero is a runtime error
-T test result: ok. 13 passed, 0 failed
+T test result: ok. 18 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/test_helpers.nomi
 E 1
@@ -1181,6 +1187,23 @@ T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_t
 T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_test.nomi :: correct defaults still construct, dispatch and solve through a type parameter
 T test result: ok. 5 passed, 0 failed
 T
+C 07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi
+E 0
+N 4
+H b8daf0aa0a13f4018291c2703179189c6d88bfb6176f6c3fddaa3822212266b7
+T ok <root>/tests/07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi :: a field takes its default's type
+T ok <root>/tests/07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi :: a record variant's field takes its default's type
+T ok <root>/tests/07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi :: another file reads a field's inferred type
+T ok <root>/tests/07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi :: a default whose type needs an expected type is refused
+T test result: ok. 4 passed, 0 failed
+T
+C 07-structs-and-enums/field_types_from_defaults/models.nomi
+E 1
+N 0
+H 31d1d0cf014651f4a0e81680971cc2af8f363314682b92546592d2adf4f15171
+T --- stderr ---
+T nomi run: <root>/tests/07-structs-and-enums/field_types_from_defaults/models.nomi declares no `fn main`, so there is no program to run
+T
 C 07-structs-and-enums/nested_update/nested_update_test.nomi
 E 0
 N 23
@@ -1647,6 +1670,25 @@ H 2421b6cdb73e0ba29369f3f2a2ece45a32a632c6699d585ecca077fa4c9e8602
 T --- stderr ---
 T nomi run: <root>/tests/09-functions-and-control-flow/parameter_destructuring/test_helpers.nomi declares no `fn main`, so there is no program to run
 T
+C 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi
+E 0
+N 6
+H f3b8b97afc7e994b4e74b36075d0b42940fa7b7f33c58f9bcf7672374de8c0b9
+T ok <root>/tests/09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi :: a generic function's parameter takes its default's type
+T ok <root>/tests/09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi :: a parameter takes its default's type
+T ok <root>/tests/09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi :: a default may read an earlier parameter
+T ok <root>/tests/09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi :: an interface's default function takes the rule too
+T ok <root>/tests/09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi :: a lambda's parameter takes its default's type
+T ok <root>/tests/09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi :: a default whose type needs an expected type is refused
+T test result: ok. 6 passed, 0 failed
+T
+C 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi
+E 1
+N 0
+H f0ef8fd81b79d9db8f115365666b70f9412c0f26673bb02f2520c001142bccd4
+T --- stderr ---
+T nomi run: <root>/tests/09-functions-and-control-flow/parameter_types_from_defaults/search.nomi declares no `fn main`, so there is no program to run
+T
 C 09-functions-and-control-flow/tail_calls_test.nomi
 E 0
 N 5
@@ -1683,6 +1725,23 @@ H 4eedaa746d02362d160584f27a3efcd0ea8b04e45bffc775dd78a4f98cb736a4
 T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface bounds constrain generic functions
 T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface-bound aliases name reusable bound conjunctions
 T test result: ok. 2 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi
+E 0
+N 4
+H f046c15dbf87854cc988ada084c8925f9c3e078f1c0a2731e1c68b703e9f1406
+T ok <root>/tests/10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi :: a left-out type argument takes its default
+T ok <root>/tests/10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi :: a bare Route is a Route<Unit>
+T ok <root>/tests/10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi :: a bare name means the default, not a type to infer
+T ok <root>/tests/10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi :: a default must follow the parameters without one
+T test result: ok. 4 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/default_type_arguments/shapes.nomi
+E 1
+N 0
+H 70b0a7568063f30acad972c0f2e7b0dc87fcad8f9b86a306542496a0aaa4f4fe
+T --- stderr ---
+T nomi run: <root>/tests/10-generics-and-type-wrappers/default_type_arguments/shapes.nomi declares no `fn main`, so there is no program to run
 T
 C 10-generics-and-type-wrappers/embedded_variants_test.nomi
 E 0
@@ -1852,6 +1911,17 @@ T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/std_interface_boxes
 T ok <root>/tests/11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi :: containers held as Debug are boxed too
 T test result: ok. 4 passed, 0 failed
 T
+C 11-interfaces-and-impls/comparable_defaults_test.nomi
+E 0
+N 5
+H 9675471c0d2393fb44e1561fc760736310bfe2274f608498a4e96878ffa6811b
+T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: a derived Comparable has min, max and clamp
+T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: a tie returns the first argument
+T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: clamp through a generic bound
+T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: a NaN value stays NaN, a NaN bound traps
+T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: clamp with low above high traps, naming both bounds
+T test result: ok. 5 passed, 0 failed
+T
 C 11-interfaces-and-impls/container_impls/container_impls_test.nomi
 E 0
 N 9
@@ -1914,6 +1984,29 @@ N 0
 H 90e32620e9cab1095fca9af2288b3fdc0aec17f875fd01662cf29153c5f541fc
 T --- stderr ---
 T nomi run: <root>/tests/11-interfaces-and-impls/cross_file_impls/things.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/defaults_through_the_type/defaults_through_the_type_test.nomi
+E 0
+N 3
+H f3cc0b7f0722da8f766bbb0ca9e22f53cb547692bf152a6a359072e932a2b040
+T ok <root>/tests/11-interfaces-and-impls/defaults_through_the_type/defaults_through_the_type_test.nomi :: a struct reaches its inherited defaults
+T ok <root>/tests/11-interfaces-and-impls/defaults_through_the_type/defaults_through_the_type_test.nomi :: a distinct type reaches a default and its own override
+T ok <root>/tests/11-interfaces-and-impls/defaults_through_the_type/defaults_through_the_type_test.nomi :: a named tuple and an enum reach their inherited defaults
+T test result: ok. 3 passed, 0 failed
+T
+C 11-interfaces-and-impls/defaults_through_the_type/shape.nomi
+E 1
+N 0
+H 6dc1ec7060f89ee8e1c85e8d3418042598e764f008defaa7b8d4c78fb1a658a2
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/defaults_through_the_type/shape.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/defaults_through_the_type/shapes.nomi
+E 1
+N 0
+H c7581b3a249068aad013e7c1364f739be27b4433c6fecb9a96bd7cb5bffcafb0
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/defaults_through_the_type/shapes.nomi declares no `fn main`, so there is no program to run
 T
 C 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi
 E 0
@@ -2113,6 +2206,20 @@ T ok <root>/tests/11-interfaces-and-impls/multiple_instantiations_test.nomi :: a
 T ok <root>/tests/11-interfaces-and-impls/multiple_instantiations_test.nomi :: a generic impl beside a concrete one overlaps
 T test result: ok. 6 passed, 0 failed
 T
+C 11-interfaces-and-impls/remainder_test.nomi
+E 0
+N 8
+H ec6f8976623593a6512c8a3593a7e1691b7b1d0617fb4d8f97a03bd9d7990fcb
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Int remainder takes the sign of the left operand
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Int remainder by a NonZeroInt cannot trap
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Float remainder is IEEE fmod
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Decimal remainder is exact at the larger scale
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Duration remainder is how far into the interval
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: a type of its own implements Remainder
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: a remainder by zero traps
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: a type without a Remainder impl is refused at the operator
+T test result: ok. 8 passed, 0 failed
+T
 C 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi
 E 0
 N 3
@@ -2285,6 +2392,18 @@ T ok <root>/tests/12-derives-and-standard-interfaces/display_debug_test.nomi :: 
 T ok <root>/tests/12-derives-and-standard-interfaces/display_debug_test.nomi :: Display renders standard enum and structured values
 T ok <root>/tests/12-derives-and-standard-interfaces/display_debug_test.nomi :: extern singleton Debug routes through embedded Bool values
 T test result: ok. 4 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/equality_bounds_test.nomi
+E 0
+N 6
+H a58eb4b484b73e28ffac98835ca21e5b6714cd7f83ae49597382929a3e82c38d
+T ok <root>/tests/12-derives-and-standard-interfaces/equality_bounds_test.nomi :: a struct with no impl meets an Equatable bound
+T ok <root>/tests/12-derives-and-standard-interfaces/equality_bounds_test.nomi :: std functions bounded by Equatable take it
+T ok <root>/tests/12-derives-and-standard-interfaces/equality_bounds_test.nomi :: an enum and a distinct type meet it too
+T ok <root>/tests/12-derives-and-standard-interfaces/equality_bounds_test.nomi :: a custom Equatable decides through the bound, at any depth
+T ok <root>/tests/12-derives-and-standard-interfaces/equality_bounds_test.nomi :: a Hashable bound hashes equal values alike
+T ok <root>/tests/12-derives-and-standard-interfaces/equality_bounds_test.nomi :: a derive over a field with equality and no impl
+T test result: ok. 6 passed, 0 failed
 T
 C 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi
 E 0
@@ -3421,6 +3540,16 @@ T ok <root>/tests/15-app-and-defer/os_env_boot_only_test.nomi :: startup environ
 T ok <root>/tests/15-app-and-defer/os_env_boot_only_test.nomi :: startup has no ambient instance
 T test result: ok. 2 passed, 0 failed
 T
+C 15-app-and-defer/release_test.nomi
+E 0
+N 4
+H b4db56b8b01fbbeedfc2e5e47b2c49f99102277a489828218c8f5f80c8d21e8f
+T ok <root>/tests/15-app-and-defer/release_test.nomi :: the deferred discard runs however the function ends, after the publish
+T ok <root>/tests/15-app-and-defer/release_test.nomi :: a draft handed on is released by the caller
+T ok <root>/tests/15-app-and-defer/release_test.nomi :: an open that fails acquires nothing
+T ok <root>/tests/15-app-and-defer/release_test.nomi :: a draft returned directly is released by the caller
+T test result: ok. 4 passed, 0 failed
+T
 C 15-app-and-defer/supervisor_boot_only_test.nomi
 E 0
 N 6
@@ -3635,6 +3764,18 @@ T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: a program's own ty
 T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: a program's own type cannot write TOML text
 T test result: ok. 9 passed, 0 failed
 T
+C 17-typed-literals/type_ascription/type_ascription_test.nomi
+E 0
+N 6
+H 74b52832b5c615353fe6c8f4c8528d588c9ab8d4afa256053b6f782455d320ff
+T ok <root>/tests/17-typed-literals/type_ascription/type_ascription_test.nomi :: an ascription types an anonymous struct's fields
+T ok <root>/tests/17-typed-literals/type_ascription/type_ascription_test.nomi :: an ascription types an empty collection and None
+T ok <root>/tests/17-typed-literals/type_ascription/type_ascription_test.nomi :: an ascription admits what an annotation admits
+T ok <root>/tests/17-typed-literals/type_ascription/type_ascription_test.nomi :: an ascription types a whole pipeline
+T ok <root>/tests/17-typed-literals/type_ascription/type_ascription_test.nomi :: an ascription converts nothing
+T ok <root>/tests/17-typed-literals/type_ascription/type_ascription_test.nomi :: two ascriptions in a row are refused
+T test result: ok. 6 passed, 0 failed
+T
 C 17-typed-literals/typed_literals/html_tags.nomi
 E 1
 N 0
@@ -3678,12 +3819,14 @@ T test result: ok. 7 passed, 0 failed
 T
 C 17-typed-literals/url_slots_test.nomi
 E 0
-N 3
-H b4dcdad2b350d0499648ea267e6e4fe680335cf1c188f2357ab9f45ed28bcd7b
+N 5
+H 996fc412d5f715ae991fc98d2ef946569d304ad55d705cfe8b81127f456fe8dd
 T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a slot in an absolute URL's path keeps its host and cannot climb
 T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a slot in a relative URL's path cannot make it name a host
 T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a slot in a query keeps its host and path
-T test result: ok. 3 passed, 0 failed
+T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a Display slot is escaped as its text is
+T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: an Int slot is its digits in each place
+T test result: ok. 5 passed, 0 failed
 T
 C 18-ffi-and-dynamic/callback_ffi_app/ffi.nomi
 E 1
@@ -4272,8 +4415,8 @@ T test result: ok. 16 passed, 0 failed
 T
 C 20-data-access/transactions_test.nomi
 E 0
-N 23
-H 533ec70af8a7697ff4cef2e013f1c3cb774f9bfe26646e054e6e479602691488
+N 22
+H 3a6b0954bb6d0971f7fb1f5232f7bb54b5f0bce2936378cd68d94b3ac0d099a7
 T ok <root>/tests/20-data-access/transactions_test.nomi :: the fake records every statement and answers with no rows
 T ok <root>/tests/20-data-access/transactions_test.nomi :: a fake answers each statement with the function it was given
 T ok <root>/tests/20-data-access/transactions_test.nomi :: each_row stops when the callback answers False
@@ -4291,13 +4434,12 @@ T ok <root>/tests/20-data-access/transactions_test.nomi :: the suite names the c
 T ok <root>/tests/20-data-access/transactions_test.nomi :: close ends every transaction, refuses everything after, and a second close is a no-op
 T ok <root>/tests/20-data-access/transactions_test.nomi :: closing a transaction closes its connection
 T ok <root>/tests/20-data-access/transactions_test.nomi :: a closed connection's transaction answers Closed
-T ok <root>/tests/20-data-access/transactions_test.nomi :: sql.with_connection closes the connection on Ok and on Err
-T ok <root>/tests/20-data-access/transactions_test.nomi :: sql.with_connection closes the connection when its body traps
-T ok <root>/tests/20-data-access/transactions_test.nomi :: sql.with_connection answers open's Err and runs no body
-T ok <root>/tests/20-data-access/transactions_test.nomi :: a transaction inside sql.with_connection commits before the close
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a deferred close_quietly closes the connection on Ok and on Err
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a deferred close_quietly closes the connection when the body traps
+T ok <root>/tests/20-data-access/transactions_test.nomi :: a transaction commits before the deferred close
 T ok <root>/tests/20-data-access/transactions_test.nomi :: a connection setup opens and a defer closes / the connection is open while the test runs
 T ok <root>/tests/20-data-access/transactions_test.nomi :: a connection setup opens and a defer closes / each test has its own connection
-T test result: ok. 23 passed, 0 failed
+T test result: ok. 22 passed, 0 failed
 T
 C 20-data-access/uuid_test.nomi
 E 0

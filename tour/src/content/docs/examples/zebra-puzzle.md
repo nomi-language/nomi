@@ -35,7 +35,7 @@ pub struct Solution {
 
 /// The houses of the five values of one attribute, in the order the
 /// attribute lists them.
-typealias Order #(Int, Int, Int, Int, Int)
+typealias Order (Int, Int, Int, Int, Int)
 
 /// Every way to put five values in five houses.
 once orders: List<Order> =
@@ -43,7 +43,7 @@ once orders: List<Order> =
     |> Iter.permutations()
     |> Iter.map(fn houses -> {
         [a, b, c, d, e] = houses else { unreachable "a permutation of five houses has five" }
-        #(a, b, c, d, e)
+        (a, b, c, d, e)
     })
     |> Iter.to_list()
 
@@ -63,7 +63,7 @@ pub fn owns_zebra() -> Nationality {
 fn solve() -> Solution {
     solutions =
         orders
-        |> Iter.filter(fn #(_red, green, ivory, _yellow, _blue) -> green == ivory + 1)
+        |> Iter.filter(fn (_red, green, ivory, _yellow, _blue) -> green == ivory + 1)
         |> Iter.flat_map(add_nations)
         |> Iter.flat_map(add_drinks)
         |> Iter.flat_map(add_hobbies)
@@ -77,61 +77,61 @@ fn solve() -> Solution {
 
 /// Each way to add the nationalities to `colors` that fits statements 2,
 /// 10 and 15.
-fn add_nations(colors: Order) -> List<#(Order, Order)> {
-    #(red, _green, _ivory, _yellow, blue) = colors
+fn add_nations(colors: Order) -> List<(Order, Order)> {
+    (red, _green, _ivory, _yellow, blue) = colors
 
     orders
-    |> Iter.filter(fn #(english, _spaniard, _ukrainian, norwegian, _japanese) -> {
+    |> Iter.filter(fn (english, _spaniard, _ukrainian, norwegian, _japanese) -> {
         english == red and norwegian == 0 and is_next_to(norwegian, blue)
     })
-    |> Iter.map(&#(colors, &1))
+    |> Iter.map(&(colors, &1))
     |> Iter.to_list()
 }
 
 /// Each way to add the drinks that fits statements 4, 5 and 9.
-fn add_drinks(#(colors, nations): #(Order, Order)) -> List<#(Order, Order, Order)> {
-    #(_red, green, _ivory, _yellow, _blue) = colors
-    #(_english, _spaniard, ukrainian, _norwegian, _japanese) = nations
+fn add_drinks((colors, nations): (Order, Order)) -> List<(Order, Order, Order)> {
+    (_red, green, _ivory, _yellow, _blue) = colors
+    (_english, _spaniard, ukrainian, _norwegian, _japanese) = nations
 
     orders
-    |> Iter.filter(fn #(coffee, tea, milk, _orange_juice, _water) -> {
+    |> Iter.filter(fn (coffee, tea, milk, _orange_juice, _water) -> {
         coffee == green and tea == ukrainian and milk == 2
     })
-    |> Iter.map(&#(colors, nations, &1))
+    |> Iter.map(&(colors, nations, &1))
     |> Iter.to_list()
 }
 
 /// Each way to add the hobbies that fits statements 8, 13 and 14.
 fn add_hobbies(
-    #(colors, nations, drinks): #(Order, Order, Order),
-) -> List<#(Order, Order, Order, Order)> {
-    #(_red, _green, _ivory, yellow, _blue) = colors
-    #(_english, _spaniard, _ukrainian, _norwegian, japanese) = nations
-    #(_coffee, _tea, _milk, orange_juice, _water) = drinks
+    (colors, nations, drinks): (Order, Order, Order),
+) -> List<(Order, Order, Order, Order)> {
+    (_red, _green, _ivory, yellow, _blue) = colors
+    (_english, _spaniard, _ukrainian, _norwegian, japanese) = nations
+    (_coffee, _tea, _milk, orange_juice, _water) = drinks
 
     orders
-    |> Iter.filter(fn #(_dancing, painting, _reading, football, chess) -> {
+    |> Iter.filter(fn (_dancing, painting, _reading, football, chess) -> {
         painting == yellow and football == orange_juice and chess == japanese
     })
-    |> Iter.map(&#(colors, nations, drinks, &1))
+    |> Iter.map(&(colors, nations, drinks, &1))
     |> Iter.to_list()
 }
 
 /// The answers for each way to add the pets that fits statements 3, 7, 11
 /// and 12.
-fn add_pets(#(_colors, nations, drinks, hobbies): #(Order, Order, Order, Order)) -> List<Solution> {
-    #(_english, spaniard, _ukrainian, _norwegian, _japanese) = nations
-    #(_coffee, _tea, _milk, _orange_juice, water) = drinks
-    #(dancing, painting, reading, _football, _chess) = hobbies
+fn add_pets((_colors, nations, drinks, hobbies): (Order, Order, Order, Order)) -> List<Solution> {
+    (_english, spaniard, _ukrainian, _norwegian, _japanese) = nations
+    (_coffee, _tea, _milk, _orange_juice, water) = drinks
+    (dancing, painting, reading, _football, _chess) = hobbies
 
     orders
-    |> Iter.filter(fn #(dog, snail, fox, horse, _zebra) -> {
+    |> Iter.filter(fn (dog, snail, fox, horse, _zebra) -> {
         dog == spaniard
             and snail == dancing
             and is_next_to(reading, fox)
             and is_next_to(painting, horse)
     })
-    |> Iter.map(fn #(_dog, _snail, _fox, _horse, zebra) -> {
+    |> Iter.map(fn (_dog, _snail, _fox, _horse, zebra) -> {
         Solution{drinks_water: resident(nations, water), owns_zebra: resident(nations, zebra)}
     })
     |> Iter.to_list()
@@ -139,7 +139,7 @@ fn add_pets(#(_colors, nations, drinks, hobbies): #(Order, Order, Order, Order))
 
 /// The nationality of whoever lives in `house`.
 fn resident(nations: Order, house: Int) -> Nationality {
-    #(english, spaniard, ukrainian, norwegian, japanese) = nations
+    (english, spaniard, ukrainian, norwegian, japanese) = nations
 
     case {
         house == english -> .Englishman
@@ -175,9 +175,9 @@ test result: ok. 2 passed, 0 failed
 ## How it's written
 
 - The two answers are a `Nationality` enum, and `drinks_water` and `owns_zebra` read them from one `solve`, as the canonical data's two properties ask.
-- Each attribute is an `Order`, a five-tuple of houses named with a `typealias`: an order of the colors says where the red, green, ivory, yellow and blue houses are. Tuple patterns name each value's house where a statement uses it (`#(red, _green, _ivory, _yellow, blue)`), so each statement reads as a comparison of houses: `english == red`, `is_next_to(reading, fox)`.
+- Each attribute is an `Order`, a five-tuple of houses named with a `typealias`: an order of the colors says where the red, green, ivory, yellow and blue houses are. Tuple patterns name each value's house where a statement uses it (`(red, _green, _ivory, _yellow, blue)`), so each statement reads as a comparison of houses: `english == red`, `is_next_to(reading, fox)`.
 - The search adds one attribute at a time: the color orders that fit statement 6, then `add_nations`, `add_drinks`, `add_hobbies` and `add_pets`, each a `flat_map` stage answering every way to extend what came before that fits the statements about the attributes it can now see. Ordering the stages by which statements become checkable prunes the 120⁵ combinations to a few thousand.
-- Each stage carries what came before as a tuple of orders, `#(colors, nations, drinks)`, and takes it apart in its parameter pattern.
+- Each stage carries what came before as a tuple of orders, `(colors, nations, drinks)`, and takes it apart in its parameter pattern.
 - The puzzle has one solution, so `solve` takes the list of solutions apart with `[solution]`, and anything else is an `unreachable` that says so.
 - `orders` is a `once` of the 120 permutations of the five houses, computed once and shared by every stage. They come from std's `Iter.permutations`.
 - `resident` finds the nationality in a house with a `case` of conditions, one arm per nationality (style §27).

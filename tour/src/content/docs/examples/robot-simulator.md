@@ -105,26 +105,26 @@ group "Create robot" {
 }
 
 test "Rotating clockwise" {
-    cases: List<#(String, Robot, String, Robot)> = [
-        #(
+    cases: List<(String, Robot, String, Robot)> = [
+        (
             "changes north to east",
             #{position: #{x: 0, y: 0}, direction: .North},
             "R",
             #{position: #{x: 0, y: 0}, direction: .East},
         ),
-        #(
+        (
             "changes east to south",
             #{position: #{x: 0, y: 0}, direction: .East},
             "R",
             #{position: #{x: 0, y: 0}, direction: .South},
         ),
-        #(
+        (
             "changes south to west",
             #{position: #{x: 0, y: 0}, direction: .South},
             "R",
             #{position: #{x: 0, y: 0}, direction: .West},
         ),
-        #(
+        (
             "changes west to north",
             #{position: #{x: 0, y: 0}, direction: .West},
             "R",
@@ -132,32 +132,32 @@ test "Rotating clockwise" {
         ),
     ]
 
-    subtests cases, #(description, robot, instructions, expected), description {
+    subtests cases, (description, robot, instructions, expected), description {
         assert Robot.move(robot, instructions) == Ok(expected)
     }
 }
 
 test "Rotating counter-clockwise" {
-    cases: List<#(String, Robot, String, Robot)> = [
-        #(
+    cases: List<(String, Robot, String, Robot)> = [
+        (
             "changes north to west",
             #{position: #{x: 0, y: 0}, direction: .North},
             "L",
             #{position: #{x: 0, y: 0}, direction: .West},
         ),
-        #(
+        (
             "changes west to south",
             #{position: #{x: 0, y: 0}, direction: .West},
             "L",
             #{position: #{x: 0, y: 0}, direction: .South},
         ),
-        #(
+        (
             "changes south to east",
             #{position: #{x: 0, y: 0}, direction: .South},
             "L",
             #{position: #{x: 0, y: 0}, direction: .East},
         ),
-        #(
+        (
             "changes east to north",
             #{position: #{x: 0, y: 0}, direction: .East},
             "L",
@@ -165,32 +165,32 @@ test "Rotating counter-clockwise" {
         ),
     ]
 
-    subtests cases, #(description, robot, instructions, expected), description {
+    subtests cases, (description, robot, instructions, expected), description {
         assert Robot.move(robot, instructions) == Ok(expected)
     }
 }
 
 test "Moving forward one" {
-    cases: List<#(String, Robot, String, Robot)> = [
-        #(
+    cases: List<(String, Robot, String, Robot)> = [
+        (
             "facing north increments Y",
             #{position: #{x: 0, y: 0}, direction: .North},
             "A",
             #{position: #{x: 0, y: 1}, direction: .North},
         ),
-        #(
+        (
             "facing south decrements Y",
             #{position: #{x: 0, y: 0}, direction: .South},
             "A",
             #{position: #{x: 0, y: -1}, direction: .South},
         ),
-        #(
+        (
             "facing east increments X",
             #{position: #{x: 0, y: 0}, direction: .East},
             "A",
             #{position: #{x: 1, y: 0}, direction: .East},
         ),
-        #(
+        (
             "facing west decrements X",
             #{position: #{x: 0, y: 0}, direction: .West},
             "A",
@@ -198,32 +198,32 @@ test "Moving forward one" {
         ),
     ]
 
-    subtests cases, #(description, robot, instructions, expected), description {
+    subtests cases, (description, robot, instructions, expected), description {
         assert Robot.move(robot, instructions) == Ok(expected)
     }
 }
 
 test "Follow series of instructions" {
-    cases: List<#(String, Robot, String, Robot)> = [
-        #(
+    cases: List<(String, Robot, String, Robot)> = [
+        (
             "moving east and north from README",
             #{position: #{x: 7, y: 3}, direction: .North},
             "RAALAL",
             #{position: #{x: 9, y: 4}, direction: .West},
         ),
-        #(
+        (
             "moving west and north",
             #{position: #{x: 0, y: 0}, direction: .North},
             "LAAARALA",
             #{position: #{x: -4, y: 1}, direction: .West},
         ),
-        #(
+        (
             "moving west and south",
             #{position: #{x: 2, y: -7}, direction: .East},
             "RRAAAAALA",
             #{position: #{x: -3, y: -8}, direction: .South},
         ),
-        #(
+        (
             "moving east and north",
             #{position: #{x: 8, y: 4}, direction: .South},
             "LAAARRRALLLL",
@@ -231,7 +231,7 @@ test "Follow series of instructions" {
         ),
     ]
 
-    subtests cases, #(description, robot, instructions, expected), description {
+    subtests cases, (description, robot, instructions, expected), description {
         assert Robot.move(robot, instructions) == Ok(expected)
     }
 }
@@ -253,4 +253,4 @@ test result: ok. 18 passed, 0 failed
 - `Robot.move` answers `Result<Robot, Error>` and stops at an unknown letter. The canonical data has no such case; the alternative was to ignore unknown letters.
 - `move` is `Iter.try_reduce(instructions, robot, step)`: it folds the instruction string and stops at the first letter `step` refuses.
 - Updates use spreads (`#{..robot, direction: ...}`) and target-typed struct literals (`#{x, y: y + 1}` as a `Position`).
-- Test rows are `#(description, robot, instructions, expected)` with each `Robot` a target-typed struct literal, so the body is one assertion. A row is too wide for one line, so `nomi fmt` writes its four parts one per line, each robot on one line.
+- Test rows are `(description, robot, instructions, expected)` with each `Robot` a target-typed struct literal, so the body is one assertion. A row is too wide for one line, so `nomi fmt` writes its four parts one per line, each robot on one line.

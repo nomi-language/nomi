@@ -104,15 +104,13 @@ fn body(helper: String) {
     env = process.output(Command{program: helper, args: ["nomi-process-helper", "env", "NOMI_X"], env: %{"NOMI_X" => "set"}})?
     io.print("env: ${Bytes.to_string(env.stdout)!}")
 
-    streamed = process.with_spawned(Command{program: helper, args: ["nomi-process-helper", "upper", "2"]}, fn child -> {
-        _ = Writer.write_text(Child.stdin(child), "abc")
-        status = Child.wait(child)?
-        text = Reader.read_all_text(Child.stdout(child))?
-        Ok("${text} ${status}")
-    })?
+    child = process.spawn(Command{program: helper, args: ["nomi-process-helper", "upper", "2"]})?
+    defer Child.kill(child)
 
-    spawned = streamed?
-    io.print("spawned: ${spawned}")
+    _ = Writer.write_text(Child.stdin(child), "abc")
+    status = Child.wait(child)?
+    text = Reader.read_all_text(Child.stdout(child))?
+    io.print("spawned: ${text} ${status}")
 
     case process.output(Command{program: "nomi-no-such-program"}) {
         Ok(_) -> io.print("missing: started")
@@ -181,22 +179,24 @@ fn main() -> Result<Unit, Error> {
 	}
 }
 
-// TestWithSpawnedKillsWhatItStarted: a body that returns while its program
-// still runs does not wait for it; the program is killed.
-func TestWithSpawnedKillsWhatItStarted(t *testing.T) {
+// TestDeferredKillKillsWhatSpawnStarted: a function that returns while its
+// program still runs does not wait for it; the deferred kill kills it.
+func TestDeferredKillKillsWhatSpawnStarted(t *testing.T) {
 	src := fmt.Sprintf(`import {
     std::io.Error
-    std::process.{self, Command}
+    std::process.{self, Child, Command}
 }
 
 fn main() -> Result<Unit, Error> {
-    process.with_spawned(Command{program: %q, args: ["nomi-process-helper", "sleep"]}, fn _ -> Unit)
+    child = process.spawn(Command{program: %q, args: ["nomi-process-helper", "sleep"]})?
+    defer Child.kill(child)
+    Ok(Unit)
 }
 `, helperPath(t))
 	start := time.Now()
 	run(t, src)
 	if d := time.Since(start); d > 30*time.Second {
-		t.Fatalf("with_spawned took %v: it waited for the program instead of killing it", d)
+		t.Fatalf("the run took %v: it waited for the program instead of killing it", d)
 	}
 }
 
@@ -246,19 +246,19 @@ fn main() -> Result<Unit, Error> {
 	}
 }
 
-// TestWithSpawnedKillsWhenTheBodyTraps: a body that traps while its
-// program runs does not leave the program running; the trap is the run's
-// failure.
-func TestWithSpawnedKillsWhenTheBodyTraps(t *testing.T) {
+// TestDeferredKillKillsWhenTheFunctionTraps: a function that traps while
+// its program runs does not leave the program running; the trap is the
+// run's failure.
+func TestDeferredKillKillsWhenTheFunctionTraps(t *testing.T) {
 	src := fmt.Sprintf(`import {
     std::io.Error
-    std::process.{self, Command}
+    std::process.{self, Child, Command}
 }
 
 fn main() -> Result<Unit, Error> {
-    process.with_spawned(Command{program: %q, args: ["nomi-process-helper", "sleep"]}, fn _ -> {
-        unreachable "stop here"
-    })
+    child = process.spawn(Command{program: %q, args: ["nomi-process-helper", "sleep"]})?
+    defer Child.kill(child)
+    unreachable "stop here"
 }
 `, helperPath(t))
 	p, err := vmhost.LoadSource("main.nomi", src, vmhost.WithErrorOutput(io.Discard))

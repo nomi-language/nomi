@@ -193,7 +193,7 @@ T
 C dbg_surfaces.nomi
 E 1
 N 9
-H 4a913319ba00192e409579a4bf5479ecff8b5ef3460fa15a7c5bcf0e6629698d
+H 2bed84f0aa3ef3e21bba2e17661ea665f0be4b013d006c125a156ca32732d50b
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg renders a struct in declaration order
 T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same struct sorts it
@@ -220,7 +220,7 @@ T       m
 T         = Meters(7)
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg over containers and prelude instances
 T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
-T   dbg line 107: #(1, "two") = #(1, "two")
+T   dbg line 107: (1, "two") = (1, "two")
 T   dbg line 108: Some(42) = Some(42)
 T   dbg line 109: None = None
 T   dbg line 110: #{a: 1, a0: 2} = #{a: 1, a0: 2}
@@ -1146,9 +1146,9 @@ T
 C subtests_report.nomi
 E 1
 N 14
-H c625adb23db252ba2f24ffa7a9b6ab494b3d440339c8b30066bdaf854dc8305b
+H 8a7ad4d20cee5e0da8849cdceb314c6c629d7f0a1661ab45b51bd8088f6d306d
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: two of four rows fail
-T   subtest #("abc", True): line 18: assertion failed
+T   subtest ("abc", True): line 18: assertion failed
 T     assert is_palindrome(line) == known_palindrome
 T     values:
 T       line
@@ -1157,7 +1157,7 @@ T       is_palindrome(line)
 T         = False
 T       known_palindrome
 T         = True
-T   subtest #("ab", True): line 18: assertion failed
+T   subtest ("ab", True): line 18: assertion failed
 T     assert is_palindrome(line) == known_palindrome
 T     values:
 T       line
@@ -1396,7 +1396,7 @@ T
 C tests_operands.nomi
 E 1
 N 21
-H 5cafd4b3c53f1f3db0c4088d739031833190fe7d6204f484d472827c832d08d1
+H 4542d91d7cd54f85ae048a385249ada3fb311fe55811aa38853ed4d637c0d261
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a list of Int
 T   line 103: assertion failed
 T     assert no_list(xs)
@@ -1426,7 +1426,7 @@ T   line 123: assertion failed
 T     assert no_pair(p)
 T     values:
 T       p
-T         = #(1, "two")
+T         = (1, "two")
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a map
 T   line 128: assertion failed
 T     assert no_map(m)

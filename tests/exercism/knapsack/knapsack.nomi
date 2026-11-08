@@ -24,7 +24,7 @@ pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int {
 fn consider(best: Vector<Int>, item: Item) -> Vector<Int> {
     best
     |> Iter.with_index()
-    |> Iter.map(fn #(capacity, without) -> {
+    |> Iter.map(fn (capacity, without) -> {
         if capacity < item.weight {
             without
         } else {

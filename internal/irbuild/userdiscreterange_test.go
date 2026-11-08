@@ -47,8 +47,8 @@ fn total(xs: Iter<Id>) -> Int {
     Iter.count(xs)
 }
 
-fn laps(xs: Iter<Lap>) -> #(Int, Maybe<Int>) {
-    #(Iter.count(xs), Iter.known_count(xs))
+fn laps(xs: Iter<Lap>) -> (Int, Maybe<Int>) {
+    (Iter.count(xs), Iter.known_count(xs))
 }
 
 fn main() {
@@ -71,7 +71,7 @@ fn main() {
 		"[Lap(1), Lap(2), Lap(3), Lap(4), Lap(5)]\n" +
 		"2\n" +
 		"None\n" +
-		"#(3, None)\n"
+		"(3, None)\n"
 	irRunSource(t, src, want)
 }
 

@@ -1,8 +1,9 @@
 //# An HTTP client and server. A `Request` is a value; `http.fetch`
 //# sends it with the ambient client and reads the whole response, and
-//# `http.with_response` gives a body the response with its body still
-//# streaming. A status is never an error: a 404 is a `Response` whose
-//# `status` a program checks with `Status.is_success`.
+//# `http.stream` returns a `StreamedResponse`, its body still arriving,
+//# for `defer StreamedResponse.close(response)` to close. A status is never
+//# an error: a 404 is a `Response` whose `status` a program checks with
+//# `Status.is_success`.
 //#
 //# ```nomi
 //# response = http.get(Url`https://api.example.com/users`)?
@@ -56,12 +57,14 @@ import {
     iter.Iter
     json.Json
     lists.List
-    literals.{Fragment, Literal}
+    literals.{CheckedLiteral, Fragment, Literal, LiteralError}
     log.{self, Logger}
     maps.Map
     maybe.Maybe.{self, None, Some}
     net
+    parse.{self, ParseFields}
     path
+    resources.Release
     results.Result.{self, Err, Ok}
     strings.String
     supervisors.Supervisor
@@ -293,7 +296,7 @@ impl Display for Status {
 
 /// Header fields in order. A name may appear more than once, and names
 /// compare without case.
-pub type Headers List<#(String, String)>
+pub type Headers List<(String, String)>
 
 derive Equatable for Headers
 
@@ -312,7 +315,7 @@ impl Headers {
     /// The first value of `name`.
     //! import std::http.Headers
     //!
-    //! h = Headers[#("Accept", "text/html"), #("accept", "*/*")]
+    //! h = Headers[("Accept", "text/html"), ("accept", "*/*")]
     //! assert Headers.get(h, "ACCEPT") == Some("text/html")
     //! assert Headers.values(h, "accept") == ["text/html", "*/*"]
     //
@@ -326,8 +329,8 @@ impl Headers {
         key = Headers.canonical_key(name)
 
         fields
-        |> Iter.filter(fn #(k, _) -> Headers.canonical_key(k) == key)
-        |> Iter.map(fn #(_, v) -> v)
+        |> Iter.filter(fn (k, _) -> Headers.canonical_key(k) == key)
+        |> Iter.map(fn (_, v) -> v)
         |> Iter.to_list()
     }
 
@@ -340,21 +343,21 @@ impl Headers {
     /// its first value, or added at the end.
     //! import std::http.Headers
     //!
-    //! h = Headers[#("A", "1"), #("B", "2"), #("a", "3")]
-    //! assert Headers.set(h, "a", "9") == Headers[#("A", "9"), #("B", "2")]
+    //! h = Headers[("A", "1"), ("B", "2"), ("a", "3")]
+    //! assert Headers.set(h, "a", "9") == Headers[("A", "9"), ("B", "2")]
     //
     pub fn set(headers: Headers, name: String, value: String) -> Headers {
         if not Headers.has(headers, name) { return Headers.add(headers, name, value) }
         Headers(fields) = headers
         key = Headers.canonical_key(name)
 
-        #(_, kept) = Iter.map_reduce(fields, False, fn seen, #(k, v) -> {
-            if Headers.canonical_key(k) != key { return #(seen, [#(k, v)]) }
+        (_, kept) = Iter.map_reduce(fields, False, fn seen, (k, v) -> {
+            if Headers.canonical_key(k) != key { return (seen, [(k, v)]) }
 
             if seen {
-                #(True, [])
+                (True, [])
             } else {
-                #(True, [#(k, value)])
+                (True, [(k, value)])
             }
         })
 
@@ -368,7 +371,7 @@ impl Headers {
     /// The fields with `value` added to `name`'s, at the end.
     pub fn add(headers: Headers, name: String, value: String) -> Headers {
         Headers(fields) = headers
-        Headers(fields + [#(name, value)])
+        Headers(fields + [(name, value)])
     }
 
     /// The fields without `name`.
@@ -378,7 +381,7 @@ impl Headers {
 
         Headers(
             fields
-            |> Iter.filter(fn #(k, _) -> Headers.canonical_key(k) != key)
+            |> Iter.filter(fn (k, _) -> Headers.canonical_key(k) != key)
             |> Iter.to_list()
         )
     }
@@ -390,10 +393,10 @@ impl Headers {
     //! import std::http.Headers
     //! import std::io.Writer
     //!
-    //! #(_, written) = Writer.collect(fn w -> Headers.write_to(Headers[#("b", "2"), #("A", "1")], w))
+    //! (_, written) = Writer.collect(fn w -> Headers.write_to(Headers[("b", "2"), ("A", "1")], w))
     //! assert Bytes.to_string(written) == Ok("A: 1\r\nB: 2\r\n")
     //!
-    //! #(_, folded) = Writer.collect(fn w -> Headers.write_to(Headers[#("X", " a\r\nb ")], w))
+    //! (_, folded) = Writer.collect(fn w -> Headers.write_to(Headers[("X", " a\r\nb ")], w))
     //! assert Bytes.to_string(folded) == Ok("X: a  b\r\n")
     //
     pub fn write_to(
@@ -424,7 +427,7 @@ pub enum Body {
     /// A `multipart/form-data` form; sent with its `Content-Type` and
     /// boundary unless the request sets one.
     Multipart List<FormPart>
-    /// A stream, read once. `with_response`'s response body is one.
+    /// A stream, read once: a request's body as a server receives it.
     Stream Reader
     /// A response body a function writes as the client reads it, for
     /// streaming and server-sent events: what it writes is sent each time
@@ -525,7 +528,7 @@ impl FormPart {
 
             .Raw{headers, content} -> {
                 Headers(pairs) = headers
-                texts = pairs |> Iter.flat_map(fn #(k, v) -> [k, v]) |> Iter.to_list()
+                texts = pairs |> Iter.flat_map(fn (k, v) -> [k, v]) |> Iter.to_list()
                 [..(["r", "${Iter.count(pairs)}", ..texts] |> Iter.map(String.to_bytes)), content]
             }
         }
@@ -570,7 +573,7 @@ fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm {
                 |> Iter.chunks(2)
                 |> Iter.flat_map(fn kv -> {
                     case kv {
-                        [k, v] -> [#(k, v)]
+                        [k, v] -> [(k, v)]
                         _ -> []
                     }
                 })
@@ -624,7 +627,7 @@ once max_multipart_body = 33_554_432
 fn read_capped(body: Body, max: Int, limit: Maybe<Int>) -> Result<Bytes, Error> {
     case body {
         .Stream(r) -> {
-            #(copied, data) = Writer.collect(fn w -> copy_capped(r, w, max + 1))
+            (copied, data) = Writer.collect(fn w -> copy_capped(r, w, max + 1))
             got = Bytes.length(data)
 
             case copied {
@@ -754,8 +757,8 @@ impl Request {
     //! import std::http_testing
     //! import std::url.Query
     //!
-    //! r = http_testing.form_request(Method.Post, "/?b=2", [#("a", "1")])
-    //! assert Request.form(r) == Ok(Query[#("a", "1"), #("b", "2")])
+    //! r = http_testing.form_request(Method.Post, "/?b=2", [("a", "1")])
+    //! assert Request.form(r) == Ok(Query[("a", "1"), ("b", "2")])
     //
     pub fn form(request: Request) -> Result<Query, Error> {
         Query(posted) = Request.post_form(request)?
@@ -774,7 +777,7 @@ impl Request {
     //! posted = fn size: Int -> {
     //!     #{
     //!         ..http_testing.request(Method.Post, "/"),
-    //!         headers: Headers[#("Content-Type", "application/x-www-form-urlencoded")],
+    //!         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
     //!         body: Body.Stream(Reader.from_text("a=${String.repeat("x", size - 2)}")),
     //!     }
     //! }
@@ -823,7 +826,7 @@ impl Request {
     /// The multipart form the body holds, as Go's
     /// `Request.ParseMultipartForm`. The whole form is read into memory,
     /// so a body past 32 MB, or past the request's `body_limit` when it
-    /// has one, is `Error.BodyTooLarge`; `with_parts` streams a larger
+    /// has one, is `Error.BodyTooLarge`; `parts` streams a larger
     /// one. It reads the body.
     //! import std::http.{Body, FormPart, Method, Request}
     //! import std::http_testing
@@ -838,7 +841,7 @@ impl Request {
     //!
     //!     #{
     //!         ..http_testing.request(Method.Post, "/upload"),
-    //!         headers: Headers[#("Content-Type", encoded.content_type)],
+    //!         headers: Headers[("Content-Type", encoded.content_type)],
     //!         body: Body.Stream(Reader.from_bytes(encoded.body)),
     //!     }
     //! }
@@ -873,7 +876,7 @@ impl Request {
     //!
     //! request = #{
     //!     ..http_testing.request(Method.Post, "/upload"),
-    //!     headers: Headers[#("Content-Type", FormPart.encode(parts).content_type)],
+    //!     headers: Headers[("Content-Type", FormPart.encode(parts).content_type)],
     //!     body: Body.Multipart(parts),
     //! }
     //!
@@ -973,16 +976,16 @@ impl Request {
     //! import std::url.Url
     //!
     //! r = Request.with_basic_auth(Request{url: Url`https://example.com`}, "ann", "pw")
-    //! assert Request.basic_auth(r) == Some(#("ann", "pw"))
+    //! assert Request.basic_auth(r) == Some(("ann", "pw"))
     //!
-    //! lower = #{..r, headers: Headers[#("Authorization", "basic YW5uOnB3")]}
-    //! assert Request.basic_auth(lower) == Some(#("ann", "pw"))
+    //! lower = #{..r, headers: Headers[("Authorization", "basic YW5uOnB3")]}
+    //! assert Request.basic_auth(lower) == Some(("ann", "pw"))
     //
-    pub fn basic_auth(request: Request) -> Maybe<#(String, String)> {
+    pub fn basic_auth(request: Request) -> Maybe<(String, String)> {
         authorization = Headers.get(request.headers, "Authorization") |> Maybe.with_default("")
 
         case http_host.basic_auth(authorization) {
-            [user, password] -> Some(#(user, password))
+            [user, password] -> Some((user, password))
             _ -> None
         }
     }
@@ -1026,11 +1029,11 @@ impl Request {
         message =
             http_host.wire_read_request(r) |> Result.map_err(fn reason -> Error.Protocol{reason})?
 
-        #(head, headers, trailers, encoding) = wire_parts_of(message)
+        (head, headers, trailers, encoding) = wire_parts_of(message)
 
-        #(method, target, major, minor, host, length, close) = case head {
-            [m, t, a, b, h, n, c, _] -> #(m, t, a, b, h, n, c)
-            _ -> #("GET", "/", "1", "1", "", "-1", "false")
+        (method, target, major, minor, host, length, close) = case head {
+            [m, t, a, b, h, n, c, _] -> (m, t, a, b, h, n, c)
+            _ -> ("GET", "/", "1", "1", "", "-1", "false")
         }
 
         url =
@@ -1057,7 +1060,7 @@ impl Request {
 
     /// Writes the request to `w` as a client sends it: Go's `Request.Write`,
     /// or with `proxy` its `WriteProxy`, which names the whole URL.
-    pub fn write_to(request: Request, w: Writer, proxy: Bool = False) -> Result<Unit, Error> {
+    pub fn write_to(request: Request, w: Writer, proxy = False) -> Result<Unit, Error> {
         _ = wire_request(if proxy { 1 } else { 0 }, request, w)?
         Ok(Unit)
     }
@@ -1071,24 +1074,21 @@ impl Request {
     //! dumped = Request.dump(Request{method: Method.Get, url: Url.parse("http://x/a")!})!
     //! assert String.starts_with(dumped, "GET /a HTTP/1.1")
     //
-    pub fn dump(request: Request, body: Bool = True) -> Result<String, Error> {
+    pub fn dump(request: Request, body = True) -> Result<String, Error> {
         wire_request(if body { 2 } else { 3 }, request, io.stderr)
     }
 
     /// The request as text, as a client sends it: httputil's
     /// `DumpRequestOut`.
-    pub fn dump_outgoing(request: Request, body: Bool = True) -> Result<String, Error> {
+    pub fn dump_outgoing(request: Request, body = True) -> Result<String, Error> {
         wire_request(if body { 4 } else { 5 }, request, io.stderr)
     }
 
-    /// Runs `body` over the parts of the request's multipart body as they
-    /// arrive, each read in turn: Go's `Request.MultipartReader`, for a
-    /// body too large to read whole (`multipart_form`). An `Err` when the
-    /// request is not multipart.
-    pub fn with_parts<T>(
-        request: Request,
-        body: (Iter<Result<Part, Error>>) -> T,
-    ) -> Result<T, Error> {
+    /// The parts of the request's multipart body, read as the iterator
+    /// runs, each in turn: Go's `Request.MultipartReader`, for a body too
+    /// large to read whole (`multipart_form`). An `Err` when the request
+    /// is not multipart.
+    pub fn parts(request: Request) -> Result<Iter<Result<Part, Error>>, Error> {
         content_type = Headers.get(request.headers, "Content-Type") |> Maybe.with_default("")
 
         boundary =
@@ -1099,7 +1099,7 @@ impl Request {
 
         case boundary {
             Some(b) when String.starts_with(content_type, "multipart/") ->
-                Ok(body(multipart_parts(Body.reader(request.body), b)))
+                Ok(multipart_parts(Body.reader(request.body), b))
 
             _ ->
                 Err(Error.Form{reason: "request Content-Type isn't multipart/form-data"})
@@ -1154,11 +1154,11 @@ impl Response {
             http_host.wire_read_response(r, Method.text(request.method))
             |> Result.map_err(fn reason -> Error.Protocol{reason})?
 
-        #(head, headers, trailers, encoding) = wire_parts_of(message)
+        (head, headers, trailers, encoding) = wire_parts_of(message)
 
-        #(major, minor, length, close, status) = case head {
-            [_, _, a, b, _, n, c, s] -> #(a, b, n, c, s)
-            _ -> #("1", "1", "-1", "false", "200")
+        (major, minor, length, close, status) = case head {
+            [_, _, a, b, _, n, c, s] -> (a, b, n, c, s)
+            _ -> ("1", "1", "-1", "false", "200")
         }
 
         Ok(Response{
@@ -1184,7 +1184,7 @@ impl Response {
     //! import std::http.{Body, Response}
     //! import std::io.Writer
     //!
-    //! #(_, wire) = Writer.collect(fn w -> Response.write_to(Response{body: Body.Text("hi")}, w))
+    //! (_, wire) = Writer.collect(fn w -> Response.write_to(Response{body: Body.Text("hi")}, w))
     //! assert String.starts_with(Bytes.to_string(wire)!, "HTTP/1.1 200 OK")
     //
     pub fn write_to(response: Response, w: Writer) -> Result<Unit, Error> {
@@ -1194,7 +1194,7 @@ impl Response {
 
     /// The response as text: httputil's `DumpResponse`. Without `body`, the
     /// body is left out.
-    pub fn dump(response: Response, body: Bool = True) -> Result<String, Error> {
+    pub fn dump(response: Response, body = True) -> Result<String, Error> {
         wire_response(if body { 1 } else { 2 }, response, io.stderr)
     }
 
@@ -1242,7 +1242,7 @@ impl Response {
     //! import std::io.Writer
     //!
     //! page = Html.text("a < b")
-    //! #(_, wire) = Writer.collect(fn w -> Response.write_to(Response.html(page), w))
+    //! (_, wire) = Writer.collect(fn w -> Response.write_to(Response.html(page), w))
     //! sent = Bytes.to_string(wire)!
     //! assert String.contains(sent, "Content-Type: text/html; charset=utf-8")
     //! assert String.contains(sent, "Content-Length: 8")
@@ -1311,7 +1311,7 @@ impl Response {
     //! assert r.status == Status.partial_content
     //! assert Response.text(r) == Ok("el")
     //!
-    //! tagged = Headers[#("ETag", "\"v1\"")]
+    //! tagged = Headers[("ETag", "\"v1\"")]
     //! again = #{..request, headers: Headers.set(request.headers, "If-None-Match", "\"v1\"")}
     //!
     //! assert Response.content(again, "f.txt", None, String.to_bytes("hello"), headers: tagged).status
@@ -1345,7 +1345,7 @@ impl Response {
     //! import std::html.Html
     //! import std::http.Response
     //!
-    //! r = Response.with_headers(Html"<p>hi</p>", Headers[#("Cache-Control", "no-store")])
+    //! r = Response.with_headers(Html"<p>hi</p>", Headers[("Cache-Control", "no-store")])
     //! assert Headers.get(r.headers, "Cache-Control") == Some("no-store")
     //! assert Response.text(r) == Ok("<p>hi</p>")
     //
@@ -1353,7 +1353,7 @@ impl Response {
         response = ToResponse.to_response(value)
         Headers(pairs) = headers
 
-        set = Iter.reduce(pairs, response.headers, fn acc, #(name, text) -> {
+        set = Iter.reduce(pairs, response.headers, fn acc, (name, text) -> {
             Headers.set(acc, name, text)
         })
 
@@ -1365,8 +1365,8 @@ impl Response {
     //! import std::http.Response
     //!
     //! r = Response.with_default_headers(
-    //!     Response{headers: Headers[#("X-Frame-Options", "SAMEORIGIN")]},
-    //!     Headers[#("X-Frame-Options", "DENY"), #("Referrer-Policy", "no-referrer")],
+    //!     Response{headers: Headers[("X-Frame-Options", "SAMEORIGIN")]},
+    //!     Headers[("X-Frame-Options", "DENY"), ("Referrer-Policy", "no-referrer")],
     //! )
     //!
     //! assert Headers.get(r.headers, "X-Frame-Options") == Some("SAMEORIGIN")
@@ -1376,7 +1376,7 @@ impl Response {
         response = ToResponse.to_response(value)
         Headers(pairs) = headers
 
-        added = Iter.reduce(pairs, response.headers, fn acc, #(name, text) -> {
+        added = Iter.reduce(pairs, response.headers, fn acc, (name, text) -> {
             if Headers.has(response.headers, name) {
                 acc
             } else {
@@ -1439,23 +1439,18 @@ impl Response {
 /// implementation: a handler that returns text says which kind with
 /// `Body.Text`, `Response.error` or a content type of its own.
 //! import std::html.Html
-//! import std::http.{self, Body, Method, Request, Response, Route, Router, Status}
+//! import std::http.{self, Body, Method, Response, Route, Router, Status}
 //! import std::http_testing
 //!
 //! router = Router.new([
-//!     #(Route`GET /plain`, fn _ -> Response{body: Body.Text("plain")}),
-//!     #(Route`GET /page`, fn _ -> Html"<p>page</p>"),
-//!     #(
-//!         Route`GET /items/{id}`,
-//!         fn r: Request -> {
-//!             id = Request.path_value(r, "id") |> Maybe.flat_map(String.to_int)
-//!
-//!             case id {
-//!                 Some(n) -> Ok(Response{body: Body.Text("item ${n}")})
-//!                 None -> Err(Response.error(Status.bad_request, "not a number"))
-//!             }
-//!         },
-//!     ),
+//!     Route.to("GET /plain", fn _ -> Response{body: Body.Text("plain")}),
+//!     Route.to("GET /page", fn _ -> Html"<p>page</p>"),
+//!     Route.to_with("GET /items/{id}", fn _, p -> {
+//!         case String.to_int(p.id) {
+//!             Some(n) -> Ok(Response{body: Body.Text("item ${n}")})
+//!             None -> Err(Response.error(Status.bad_request, "not a number"))
+//!         }
+//!     }),
 //! ])!
 //!
 //! answer = fn target: String -> Router.serve(router, http_testing.request(Method.Get, target))
@@ -1522,8 +1517,8 @@ pub enum Error {
     Body {error: io.Error}
     /// A server could not listen on `address`.
     Listen {address: String, reason: String}
-    /// A router pattern Go's `ServeMux` refuses, or one that conflicts
-    /// with an earlier pattern.
+    /// A router pattern that breaks `Route`'s rules or that Go's
+    /// `ServeMux` refuses, or one that conflicts with an earlier pattern.
     Pattern {pattern: String, reason: String}
     /// The target has no network.
     Unsupported {reason: String}
@@ -1761,6 +1756,50 @@ impl Transport {
     pub once default = Transport{}
 }
 
+/// A response whose body is still arriving: what `http.stream` and
+/// `Client.stream` return. It holds its connection until its body is
+/// closed, so `defer StreamedResponse.close(response)` follows it (spec §9
+/// *Releasing resources*). `http.fetch`'s `Response` holds its body whole.
+pub struct StreamedResponse {
+    status: Status
+    headers: Headers
+    /// The body, read as it arrives.
+    body: Reader
+    protocol: Protocol
+    /// The URL the last request went to, after any redirects.
+    url: Maybe<Url>
+    content_length: Maybe<Int>
+    /// What the TLS handshake of the connection agreed on; `None` over
+    /// plain HTTP.
+    tls: Maybe<tls.ConnectionState>
+}
+
+impl StreamedResponse {
+    /// Closes the body, so its connection is released.
+    pub fn close(response: StreamedResponse) -> Unit {
+        Reader.close_quietly(response.body)
+    }
+
+    /// `response` with its body read as a stream.
+    fn of(response: Response) -> StreamedResponse {
+        StreamedResponse{
+            status: response.status,
+            headers: response.headers,
+            body: Body.reader(response.body),
+            protocol: response.protocol,
+            url: response.url,
+            content_length: response.content_length,
+            tls: response.tls,
+        }
+    }
+}
+
+impl Release for StreamedResponse {
+    fn release(response: StreamedResponse) {
+        StreamedResponse.close(response)
+    }
+}
+
 /// A client's options.
 pub struct ClientOptions {
     /// The longest a request may take, its body included.
@@ -1770,7 +1809,7 @@ pub struct ClientOptions {
     /// Replaces the transport: every request goes to this function.
     round_trip: Maybe<(Request) -> Result<Response, Error>> = None
     /// `fetch` refuses a body past this many bytes (`Error.BodyTooLarge`);
-    /// `with_response` streams any size.
+    /// `stream` streams any size.
     max_body: Maybe<Int> = Some(67_108_864)
     /// Where the client keeps cookies: it sends a jar's cookies with each
     /// request and stores those each response sets. `None` keeps none.
@@ -1793,10 +1832,10 @@ impl Client {
     pub fn new(options: ClientOptions = ClientOptions{}) -> Client {
         t = options.transport
 
-        #(proxy, proxy_url) = case t.proxy {
-            .FromEnvironment -> #(0, "")
-            .Direct -> #(1, "")
-            .Fixed(u) -> #(2, "${u}")
+        (proxy, proxy_url) = case t.proxy {
+            .FromEnvironment -> (0, "")
+            .Direct -> (1, "")
+            .Fixed(u) -> (2, "${u}")
         }
 
         handle = http_host.new_client(
@@ -1870,20 +1909,32 @@ impl Client {
         Ok(response_of(exchange, Body.Bytes(http_host.body_bytes(exchange))))
     }
 
-    /// Sends `request` and gives `body` the response, with a `Body.Stream`
-    /// body that is closed when `body` returns, traps or is cancelled.
-    pub fn with_response<T>(
-        client: Client,
-        request: Request,
-        body: (Response) -> T,
-    ) -> Result<T, Error> {
+    /// Sends `request` and returns the response with its body still
+    /// arriving, read as it arrives, of any size. Defer
+    /// `StreamedResponse.close` on the next line, so the body is closed
+    /// however the function ends. A faked or round-tripped response's body
+    /// is read from memory.
+    pub fn stream(client: Client, request: Request) -> Result<StreamedResponse, Error> {
         faked: Maybe<Result<Response, Error>> = http_host.answered(request)
-        if Some(answer) = faked { return answer |> Result.map(body) }
+        if Some(answer) = faked { return Result.map(answer, StreamedResponse.of) }
         Client{handle, options} = client
-        if Some(round_trip) = options.round_trip { return round_trip(request) |> Result.map(body) }
+
+        if Some(round_trip) = options.round_trip {
+            return Result.map(round_trip(request), StreamedResponse.of)
+        }
+
         exchange = send_following(handle, request, True, None, options.redirects, [])?
-        defer http_host.close_body(exchange)
-        Ok(body(response_of(exchange, Body.Stream(http_host.body_reader(exchange)))))
+        head = response_of(exchange, Body.Empty)
+
+        Ok(StreamedResponse{
+            status: head.status,
+            headers: head.headers,
+            body: http_host.body_reader(exchange),
+            protocol: head.protocol,
+            url: head.url,
+            content_length: head.content_length,
+            tls: head.tls,
+        })
     }
 
     /// A `GET` of `url`.
@@ -1924,10 +1975,33 @@ pub fn fetch(request: Request) -> Result<Response, Error> {
     Client.fetch(default_client(), request)
 }
 
-/// Sends `request` with the default client and gives `body` the streaming
-/// response.
-pub fn with_response<T>(request: Request, body: (Response) -> T) -> Result<T, Error> {
-    Client.with_response(default_client(), request, body)
+/// Sends `request` with the default client and returns the response with
+/// its body still arriving, as `Client.stream` does. Defer
+/// `StreamedResponse.close` on the next line.
+///
+/// ```nomi
+/// response = http.stream(Request{url})?
+///
+/// defer StreamedResponse.close(response)
+/// ```
+//! import std::http.{Body, Request, Response, StreamedResponse}
+//! import std::http_testing
+//! import std::url.Url
+//!
+//! fn first_line(url: Url) -> Result<Maybe<String>, Error> {
+//!     response = stream(Request{url})?
+//!     defer StreamedResponse.close(response)
+//!     Reader.read_line(response.body) |> Result.map_err(fn e -> Error.Body{error: e})
+//! }
+//!
+//! ran = http_testing.run(fn _ -> Ok(Response{body: Body.Text("one\ntwo\n")}), fn -> {
+//!     first_line(Url`https://example.com/log`)
+//! })
+//!
+//! assert ran.value == Ok(Some("one"))
+//
+pub fn stream(request: Request) -> Result<StreamedResponse, Error> {
+    Client.stream(default_client(), request)
 }
 
 /// A `GET` of `url` with the default client.
@@ -1956,7 +2030,7 @@ fn nanos(d: Maybe<Duration>) -> Int {
 
 fn flat(headers: Headers) -> List<String> {
     Headers(fields) = headers
-    fields |> Iter.flat_map(fn #(k, v) -> [k, v]) |> Iter.to_list()
+    fields |> Iter.flat_map(fn (k, v) -> [k, v]) |> Iter.to_list()
 }
 
 fn send(
@@ -1967,18 +2041,18 @@ fn send(
 ) -> Result<http_host.Exchange, Error> {
     headers = typed(request.headers, request.body)
 
-    #(kind, data, input) = case request.body {
+    (kind, data, input) = case request.body {
         .Empty ->
-            #(0, String.to_bytes(""), Reader.from_bytes(String.to_bytes("")))
+            (0, String.to_bytes(""), Reader.from_bytes(String.to_bytes("")))
 
         .Stream(r) ->
-            #(2, String.to_bytes(""), r)
+            (2, String.to_bytes(""), r)
 
         .Produce(_) ->
             return Err(Error.InvalidRequest{reason: "a request body cannot be Body.Produce"})
 
         other ->
-            #(1, Body.bytes_of(other), Reader.from_bytes(String.to_bytes("")))
+            (1, Body.bytes_of(other), Reader.from_bytes(String.to_bytes("")))
     }
 
     http_host.send(
@@ -2028,9 +2102,9 @@ fn typed(headers: Headers, body: Body) -> Headers {
     }
 }
 
-fn pairs(flat: List<String>) -> List<#(String, String)> {
+fn pairs(flat: List<String>) -> List<(String, String)> {
     case flat {
-        [k, v, ..rest] -> [#(k, v), ..pairs(rest)]
+        [k, v, ..rest] -> [(k, v), ..pairs(rest)]
         _ -> []
     }
 }
@@ -2090,8 +2164,8 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
     code = Status.code(response.status)
     method = request.method
 
-    #(next_method, keeps_body) = if code == 301 or code == 302 {
-        #(
+    (next_method, keeps_body) = if code == 301 or code == 302 {
+        (
             if method == Method.Post {
                 Method.Get
             } else {
@@ -2100,7 +2174,7 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
             False,
         )
     } else if code == 303 {
-        #(
+        (
             if method == Method.Get or method == Method.Head {
                 method
             } else {
@@ -2109,7 +2183,7 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
             False,
         )
     } else if code == 307 or code == 308 {
-        #(method, True)
+        (method, True)
     } else {
         return Ok(None)
     }
@@ -2145,9 +2219,9 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
 }
 
 fn response_of(exchange: http_host.Exchange, body: Body) -> Response {
-    #(major, minor) = case http_host.protocol(exchange) {
-        [a, b] -> #(a, b)
-        _ -> #(1, 1)
+    (major, minor) = case http_host.protocol(exchange) {
+        [a, b] -> (a, b)
+        _ -> (1, 1)
     }
 
     length = http_host.content_length(exchange)
@@ -2387,9 +2461,9 @@ fn answer(listener: Listener, incoming: http_host.Incoming, handler: Handler) ->
 }
 
 fn request_of(incoming: http_host.Incoming, context: Context) -> Request {
-    #(major, minor) = case http_host.in_protocol(incoming) {
-        [a, b] -> #(a, b)
-        _ -> #(1, 1)
+    (major, minor) = case http_host.in_protocol(incoming) {
+        [a, b] -> (a, b)
+        _ -> (1, 1)
     }
 
     length = http_host.in_content_length(incoming)
@@ -2432,7 +2506,7 @@ fn respond(incoming: http_host.Incoming, response: Response) -> Unit {
     case response.body {
         .Produce(produce) -> {
             Headers(trailers) = response.trailers
-            names = trailers |> Iter.map(fn #(k, _) -> k) |> Iter.to_list()
+            names = trailers |> Iter.map(fn (k, _) -> k) |> Iter.to_list()
 
             writer = http_host.produce(
                 incoming,
@@ -2502,38 +2576,574 @@ fn length_of(response: Response) -> Int {
 /// A pattern a `Router` routes by, as Go's `ServeMux` reads it:
 /// `[METHOD ][HOST]/PATH`, where a path segment `{name}` matches one
 /// segment, a last `{name...}` the rest of the path, and `{$}` only the
-/// end. ``Route`GET /users/{id}` `` is checked when the program is
-/// checked, so a pattern Go refuses is a compile error at the literal. A
-/// pattern built at run time goes through `Route.parse`.
+/// end. A pattern with no method matches every method.
+///
+/// `P` is the route's path parameters: an anonymous struct with a field
+/// per wildcard, `Route<#{id: Uuid}>` for `GET /posts/{id}`, or `Unit` for
+/// a route with none, which is the default: a `Route` is a `Route<Unit>`. A
+/// field's type implements `Parse` and `Display`, and a `{rest...}` field
+/// is a `String`. A literal with no expected type has
+/// a `String` field per wildcard, so ``Route`GET /users/{id}` `` is a
+/// `Route<#{id: String}>`; a typed one names its fields' types:
+/// `post: Route<#{id: Uuid}> = "GET /posts/{id}"`. `Route.to_with` hands a
+/// handler the parsed parameters and `Route.path_with` fills them into a
+/// link. The parameters are a type only: a `Route` holds its text.
+///
+/// Two rules are stricter than Go's. The method is one of `Method`'s
+/// named variants, written in capitals as on the wire (`GET`, `HEAD`,
+/// `POST`, `PUT`, `PATCH`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`), so a
+/// misspelled `GETX` is an error rather than a route no request reaches;
+/// `Route.with_method` takes any other. A `{` or `}` appears only in a
+/// wildcard that is a whole segment, so `/token}` is an error rather than
+/// a literal segment; a path that needs a brace percent-encodes it
+/// (`%7B`, `%7D`).
+///
+/// A `Route` literal is checked when the program is checked, so a pattern
+/// that breaks these rules, that Go refuses, or whose wildcards are not
+/// `P`'s fields is a compile error at the literal. A pattern built at run
+/// time goes through `Route.parse`.
 //! assert "${Route`GET /users/{id}`}" == "GET /users/{id}"
-//! assert Route.parse("GET /a/{x}/{x}") |> Result.is_err()
-//! assert Route.parse("/files/{rest...}/more") |> Result.is_err()
+//! assert Route.parse<Unit>("GET /a/{x}/{x}") |> Result.is_err()
+//! assert Route.parse<#{rest: String}>("/files/{rest...}/more") |> Result.is_err()
+//! assert Route.parse<Unit>("GETX /complete-profile/token}") |> Result.is_err()
+//! assert Route.parse<Unit>("/a/%7Bliteral%7D") |> Result.is_ok()
 //
-pub opaque type Route String
+pub opaque type Route<P = Unit> String
 
 derive Equatable for Route
 derive Hashable for Route
 
-impl Route {
-    /// The route `text` names, or `Error.Pattern` with Go's reason when
-    /// its `ServeMux` refuses it.
+impl Route<P> {
+    /// The route `text` names, or `Error.Pattern` with the reason when
+    /// it breaks `Route`'s rules, Go's `ServeMux` refuses it, or its
+    /// wildcards are not `P`'s fields. The method, when there is one, is a
+    /// standard one in capitals; a near miss names the method it is close
+    /// to.
     //! assert Route.parse("POST /orders") == Ok(Route`POST /orders`)
-    //! assert Err(Error.Pattern{reason}) = Route.parse("GET users")
+    //! assert Err(Error.Pattern{reason}) = Route.parse<Unit>("GET users")
     //! assert String.contains(reason, "/")
+    //!
+    //! assert Route.parse<Unit>("GETX /complete-profile") == Err(Error.Pattern{
+    //!         pattern: "GETX /complete-profile",
+    //!         reason: "unknown method `GETX`; did you mean `GET`?",
+    //!     })
+    //!
+    //! assert Err(Error.Pattern{reason: lower}) = Route.parse<Unit>("get /orders")
+    //! assert lower == "unknown method `get`; did you mean `GET`?"
+    //!
+    //! assert Err(Error.Pattern{reason: webdav}) = Route.parse<Unit>("PROPFIND /files")
+    //! assert webdav == "unknown method `PROPFIND`; a route's method is GET, HEAD, POST, PUT, PATCH, DELETE, CONNECT, OPTIONS or TRACE, and `Route.with_method` takes any other"
+    //!
+    //! assert Err(Error.Pattern{reason: closing}) = Route.parse<Unit>("GET /complete-profile/token}")
+    //! assert closing == "a `}` outside a wildcard; a wildcard is a whole segment, `{name}`"
+    //!
+    //! assert Err(Error.Pattern{reason: opening}) = Route.parse<Unit>("/files/v{n}")
+    //! assert opening == "a `{` outside a wildcard; a wildcard is a whole segment, `{name}`"
+    //!
+    //! assert Route.parse<#{id: Int}>("GET /items/{id}") |> Result.is_ok()
+    //! assert Err(Error.Pattern{reason: fields}) = Route.parse<#{id: Int}>("GET /items/{key}")
+    //! assert fields == "the pattern's wildcards are {key}, and the parameters' fields are id"
     //
-    pub fn parse(text: String) -> Result<Route, Error> {
-        reason = http_host.check_pattern(text)
+    pub fn parse<P>(text: String) -> Result<Route<P>, Error> where P: ParseFields {
+        case pattern_reason(text) {
+            Some(reason) -> Err(Error.Pattern{pattern: text, reason})
+            None -> fields_rule(text, P.field_names())
+        }
+    }
 
-        if reason == "" {
-            Ok(Route(text))
+    /// The route of `method` on `path` (`[HOST]/PATH`), for a method a
+    /// `Route` literal does not take: one `Method.Other` holds, such as
+    /// WebDAV's `PROPFIND`. A standard method is written in the literal,
+    /// ``Route`GET /files` ``. The path keeps the literal's rule for
+    /// braces, the method is a token Go accepts, with no space, and the
+    /// wildcards are `P`'s fields, as `Route.parse` holds them.
+    //! import std::http.{Body, Method, Request, Response, Route, Router}
+    //! import std::http_testing
+    //!
+    //! propfind = Route.with_method<#{name: String}>(Method.Other("PROPFIND"), "/files/{name}")!
+    //! assert "${propfind}" == "PROPFIND /files/{name}"
+    //!
+    //! router = Router.new([Route.to_with(propfind, fn _, p -> Response{body: Body.Text(p.name)})])!
+    //!
+    //! answer = Router.serve(router, http_testing.request(Method.Other("PROPFIND"), "/files/a.txt"))
+    //! assert Response.text(answer) == Ok("a.txt")
+    //!
+    //! assert Route.with_method<Unit>(Method.Get, "/a") == Ok(Route`GET /a`)
+    //! assert Route.with_method<Unit>(Method.Other(""), "/a") |> Result.is_err()
+    //! assert Route.with_method<Unit>(Method.Other("PROP FIND"), "/a") |> Result.is_err()
+    //! assert Route.with_method<Unit>(Method.Other("PROPFIND"), "/a}") |> Result.is_err()
+    //
+    pub fn with_method<P>(
+        method: Method,
+        path: String,
+    ) -> Result<Route<P>, Error> where P: ParseFields {
+        name = Method.text(method)
+        text = "${name} ${path}"
+
+        if name == "" {
+            Err(Error.Pattern{pattern: text, reason: "the method is empty"})
+        } else if String.contains(name, " ") or String.contains(name, "\t") {
+            Err(Error.Pattern{pattern: text, reason: "the method `${name}` has a space"})
         } else {
-            Err(Error.Pattern{pattern: text, reason})
+            case brace_or_mux_reason(text) {
+                Some(reason) -> Err(Error.Pattern{pattern: text, reason})
+                None -> fields_rule(text, P.field_names())
+            }
+        }
+    }
+
+    /// The path a route with no parameters matches, for a link: the
+    /// pattern without its method or host, and a `{$}` dropped. A route
+    /// with parameters fills them with `Route.path_with`.
+    //! assert "${Route.path(Route`GET /about`)}" == "/about"
+    //! assert "${Route.path(Route`GET example.com/docs/{$}`)}" == "/docs/"
+    //
+    pub fn path(route: Route) -> Url {
+        Route.path_with(route, Unit)
+    }
+
+    /// The path the route matches with `params` in its wildcards, for a
+    /// link: each field's `Display` text escaped as one path segment, a
+    /// `{rest...}` field's text escaped segment by segment, and the
+    /// pattern's method and host left out.
+    //! users = Route`GET /users/{name}/posts/{rest...}`
+    //! link = Route.path_with(users, #{name: "ann b", rest: "2024/a?b"})
+    //! assert "${link}" == "/users/ann%20b/posts/2024/a%3Fb"
+    //
+    pub fn path_with<P>(route: Route<P>, params: P) -> Url where P: ParseFields {
+        Route(text) = route
+        values = parse.write_fields(params) |> Iter.to_map()
+        path = route_path(text)
+
+        filled =
+            String.split(path, "/")
+            |> Iter.map(fn segment -> {
+                case wildcard_of(segment) {
+                    Some((name, True)) ->
+                        Map.get(values, name)
+                        |> Maybe.with_default("")
+                        |> String.split("/")
+                        |> Iter.map(url.escape_path_segment)
+                        |> String.join("/")
+
+                    Some((name, False)) ->
+                        Map.get(values, name) |> Maybe.with_default("") |> url.escape_path_segment()
+
+                    None ->
+                        if segment == "{$}" { "" } else { segment }
+                }
+            })
+
+        Url.parse(String.join(Iter.to_list(filled), "/"))!
+    }
+
+    /// The router entry that sends a request the route matches to
+    /// `handler`, for a route with no parameters. A route with parameters
+    /// hands them to its handler with `Route.to_with`.
+    pub fn to(route: Route, handler: Handler) -> Entry {
+        Route(pattern) = route
+        Entry{pattern, serve: fn request -> Some(ToResponse.to_response(handler(request)))}
+    }
+
+    /// The router entry that sends a request the route matches to
+    /// `handler`, with its path parameters read into `P`, each wildcard's
+    /// text by its field's `Parse`. A request whose wildcard text does not
+    /// parse gets `404`, as if no route matched: `GET /posts/{id}` with an
+    /// `id: Int` does not match `/posts/latest`.
+    //! import std::http.{Body, Method, Response, Route, Router, Status}
+    //! import std::http_testing
+    //!
+    //! item: Route<#{id: Int}> = "GET /items/{id}"
+    //!
+    //! router = Router.new(
+    //!     [Route.to_with(item, fn _, p -> Response{body: Body.Text("item ${p.id + 1}")})]
+    //! )!
+    //!
+    //! answer = fn target: String -> Router.serve(router, http_testing.request(Method.Get, target))
+    //! assert Response.text(answer("/items/7")) == Ok("item 8")
+    //! assert answer("/items/x").status == Status.not_found
+    //
+    pub fn to_with<P>(
+        route: Route<P>,
+        handler: (Request, P) -> ToResponse,
+    ) -> Entry where P: ParseFields {
+        Route(pattern) = route
+
+        Entry{
+            pattern,
+            serve: fn request -> {
+                params = parse.read_fields<P>(request.path_values)
+                Maybe.map(params, fn p -> ToResponse.to_response(handler(request, p)))
+            },
         }
     }
 }
 
-impl Literal for Route {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Route, Error> {
+/// A route and the handler it sends requests to, for `Router.new`:
+/// `Route.to` and `Route.to_with` make one. It leaves out the route's
+/// parameters type, so routes with different parameters fit one list.
+pub opaque struct Entry {
+    pattern: String
+    serve: (Request) -> Maybe<Response>
+}
+
+impl Display for Entry {
+    fn to_string(entry: Entry) -> String {
+        entry.pattern
+    }
+}
+
+/// The methods a `Route` literal takes, `Method`'s named variants.
+fn route_methods() -> List<String> {
+    ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "CONNECT", "OPTIONS", "TRACE"]
+}
+
+/// Why `text`'s method is not one a `Route` takes, when it has one. Go
+/// splits the method off at the first space or tab; a first word with a
+/// `/` in it is no method, and Go's own check names it.
+fn method_rule(text: String) -> Maybe<String> {
+    spaced = String.replace(text, "\t", " ")
+    word = String.split(spaced, " ") |> List.head() |> Maybe.with_default("")
+
+    if not String.contains(spaced, " ") or word == "" or String.contains(word, "/") {
+        None
+    } else if Iter.any(route_methods(), &(&1 == word)) {
+        None
+    } else {
+        upper = String.uppercase(word)
+
+        guess = if Iter.any(route_methods(), &(&1 == upper)) {
+            Some(upper)
+        } else {
+            Iter.find(route_methods(), &one_edit_apart(upper, &1))
+        }
+
+        case guess {
+            Some(m) ->
+                Some("unknown method `${word}`; did you mean `${m}`?")
+
+            None ->
+                Some(
+                    "unknown method `${word}`; a route's method is GET, HEAD, POST, PUT, PATCH, DELETE, CONNECT, OPTIONS or TRACE, and `Route.with_method` takes any other"
+                )
+        }
+    }
+}
+
+/// Whether one insertion, deletion or substitution turns `a` into `b`.
+fn one_edit_apart(a: String, b: String) -> Bool {
+    la = String.length(a)
+    lb = String.length(b)
+
+    if la == lb {
+        differ =
+            0..la |> Iter.filter(fn i -> String.slice(a, i, i + 1) != String.slice(b, i, i + 1))
+
+        Iter.count(differ) == 1
+    } else if la == lb + 1 {
+        Iter.any(0..la, fn i -> String.take(a, i) + String.drop(a, i + 1) == b)
+    } else if lb == la + 1 {
+        one_edit_apart(b, a)
+    } else {
+        False
+    }
+}
+
+/// Why `text` has a brace outside a wildcard, when it does: a `{` or
+/// `}` before the path, or in a segment that is not `{...}` as a whole.
+fn brace_rule(text: String) -> Maybe<String> {
+    case String.split(text, "/") {
+        [prefix, ..segments] ->
+            case brace_in_segment(prefix, False) {
+                Some(reason) -> Some(reason)
+                None -> Iter.find_map(segments, &brace_in_segment(&1, True))
+            }
+
+        [] ->
+            None
+    }
+}
+
+/// The reason `segment` has a stray brace, when it does. Only a path
+/// segment (`in_path`) may be a wildcard.
+fn brace_in_segment(segment: String, in_path: Bool) -> Maybe<String> {
+    opening = String.find_all(segment, "{") |> Iter.count()
+    closing = String.find_all(segment, "}") |> Iter.count()
+    wildcard = in_path and String.starts_with(segment, "{") and String.ends_with(segment, "}")
+
+    if opening == 0 and closing == 0 or wildcard and opening == 1 and closing == 1 {
+        None
+    } else if opening > 1 or opening == 1 and not (in_path and String.starts_with(segment, "{")) {
+        Some(stray_brace("{"))
+    } else if closing > 0 {
+        Some(stray_brace("}"))
+    } else {
+        Some(stray_brace("{"))
+    }
+}
+
+fn stray_brace(brace: String) -> String {
+    "a `${brace}` outside a wildcard; a wildcard is a whole segment, `{name}`"
+}
+
+/// Why `text` is not a route pattern, by `Route`'s rules and then Go's,
+/// when it is not one.
+fn pattern_reason(text: String) -> Maybe<String> {
+    case method_rule(text) {
+        Some(reason) -> Some(reason)
+        None -> brace_or_mux_reason(text)
+    }
+}
+
+/// Why `text`'s braces break `Route`'s rule, or else why Go refuses it.
+fn brace_or_mux_reason(text: String) -> Maybe<String> {
+    case brace_rule(text) {
+        Some(reason) -> Some(reason)
+        None -> mux_reason(text)
+    }
+}
+
+/// Go's reason its `ServeMux` refuses `text`, when it does.
+fn mux_reason(text: String) -> Maybe<String> {
+    case http_host.check_pattern(text) {
+        "" -> None
+        reason -> Some(reason)
+    }
+}
+
+/// The route `text` names when its wildcards are `names`, the parameters'
+/// fields; `Error.Pattern` otherwise.
+fn fields_rule<P>(text: String, names: List<String>) -> Result<Route<P>, Error> {
+    wildcards = route_wildcards(text) |> Iter.map(fn (name, _, _) -> name) |> Iter.to_list()
+
+    if Iter.sort(wildcards) == Iter.sort(names) {
+        Ok(Route(text))
+    } else {
+        have = wildcards |> Iter.map(fn n -> "{${n}}") |> Iter.to_list()
+
+        reason = case (have, names) {
+            ([], _) ->
+                "the pattern has no wildcards, and the parameters' fields are ${String.join(names, ", ")}"
+
+            (_, []) ->
+                "the pattern's wildcards are ${String.join(have, ", ")}, and the parameters have no fields"
+
+            _ ->
+                "the pattern's wildcards are ${String.join(have, ", ")}, and the parameters' fields are ${String.join(names, ", ")}"
+        }
+
+        Err(Error.Pattern{pattern: text, reason})
+    }
+}
+
+/// The path of a route pattern: what follows its method and its host.
+fn route_path(text: String) -> String {
+    spaced = String.replace(text, "\t", " ")
+
+    after_method = case String.split(spaced, " ") {
+        [word, ..rest] when rest != [] and not String.contains(word, "/") ->
+            String.join(rest, " ") |> String.trim()
+
+        _ ->
+            spaced
+    }
+
+    case String.split(after_method, "/") {
+        [_, ..segments] -> "/" + String.join(segments, "/")
+        [] -> after_method
+    }
+}
+
+/// A path segment's wildcard name, and whether it is a `{name...}` one,
+/// when the segment is a wildcard; `{$}` is none.
+fn wildcard_of(segment: String) -> Maybe<(String, Bool)> {
+    if not String.starts_with(segment, "{")
+        or not String.ends_with(segment, "}")
+        or segment == "{$}" {
+        None
+    } else {
+        inner = String.slice(segment, 1, String.length(segment) - 1)
+
+        case String.strip_suffix(inner, "...") {
+            Some(name) -> Some((name, True))
+            None -> Some((inner, False))
+        }
+    }
+}
+
+/// Each wildcard of the pattern `text`: its name, whether it takes the
+/// rest of the path, and the code point offset of its `{`.
+fn route_wildcards(text: String) -> List<(String, Bool, Int)> {
+    path = route_path(text)
+    start = String.length(text) - String.length(path)
+
+    (_, found) = Iter.reduce(String.split(path, "/"), (start, []), fn acc, segment -> {
+        (at, found) = acc
+
+        found = case wildcard_of(segment) {
+            Some((name, rest)) -> [..found, (name, rest, at)]
+            None -> found
+        }
+
+        (at + String.length(segment) + 1, found)
+    })
+
+    found
+}
+
+/// The fields of the anonymous struct `spelling` names, each its name and
+/// its type's spelling, as a checked literal's `check_type` gets them:
+/// `#{id: Uuid, tags: Map<String, Int>}`. `Some([])` for `Unit`, and
+/// `None` for any other type.
+fn param_fields(spelling: String) -> Maybe<List<(String, String)>> {
+    if spelling == "Unit" { return Some([]) }
+
+    if not String.starts_with(spelling, "#{") or not String.ends_with(spelling, "}") { return None }
+
+    body = String.slice(spelling, 2, String.length(spelling) - 1)
+
+    (parts, last, _) = Iter.reduce(String.to_codepoints(body), ([], "", 0), fn acc, cp -> {
+        (parts, current, depth) = acc
+        c = Codepoint.to_string(cp)
+
+        case c {
+            "<" or "(" or "{" -> (parts, current + c, depth + 1)
+            ">" or ")" or "}" -> (parts, current + c, depth - 1)
+            "," when depth == 0 -> ([..parts, current], "", depth)
+            _ -> (parts, current + c, depth)
+        }
+    })
+
+    [..parts, last]
+    |> Iter.map(fn part -> {
+        case String.split(part, ":") {
+            [name, ..rest] when rest != [] ->
+                Some((String.trim(name), String.trim(String.join(rest, ":"))))
+
+            _ ->
+                None
+        }
+    })
+    |> Maybe.collect()
+}
+
+/// Why the pattern `text` does not fit the parameters spelled `params`:
+/// a wildcard with no field, a field with no wildcard, a `{rest...}`
+/// field that is not a `String`, or parameters that are not `Unit` or an
+/// anonymous struct. The error names the wildcard's `{`, or the literal.
+fn params_error(text: String, params: String) -> Maybe<LiteralError> {
+    case param_fields(params) {
+        None ->
+            Some(LiteralError{
+                fragment: 0,
+                offset: 0,
+                message: "a route's parameters are `Unit` or an anonymous struct with a field per wildcard, not `${params}`",
+            })
+
+        Some(fields) -> {
+            wildcards = route_wildcards(text)
+
+            missing = Iter.find_map(wildcards, fn (name, rest, at) -> {
+                case Iter.find(fields, fn (f, _) -> f == name) {
+                    None when params == "Unit" ->
+                        Some(LiteralError{
+                            fragment: 0,
+                            offset: at,
+                            message: "the pattern has `{${name}}`, and a `Route` has no parameters; a route with them goes to `Route.path_with` or `Route.to_with`",
+                        })
+
+                    None ->
+                        Some(
+                            LiteralError{
+                                fragment: 0,
+                                offset: at,
+                                message: "the pattern has `{${name}}`, but `${params}` has no field `${name}`",
+                            }
+                        )
+
+                    Some((_, ty)) when rest and ty != "String" ->
+                        Some(LiteralError{
+                            fragment: 0,
+                            offset: at,
+                            message: "`{${name}...}` matches the rest of the path, so its field is a `String`, not `${ty}`",
+                        })
+
+                    Some(_) ->
+                        None
+                }
+            })
+
+            case missing {
+                Some(e) ->
+                    Some(e)
+
+                None ->
+                    Iter.find_map(fields, fn (f, _) -> {
+                        if Iter.any(wildcards, fn (name, _, _) -> name == f) {
+                            None
+                        } else {
+                            Some(
+                                LiteralError{
+                                    fragment: 0,
+                                    offset: 0,
+                                    message: "`${params}` has a field `${f}`, but the pattern has no `{${f}}`",
+                                }
+                            )
+                        }
+                    })
+            }
+        }
+    }
+}
+
+impl CheckedLiteral<String, Route<P>> for Route<P> {
+    fn check(statics: List<String>) -> Result<Unit, LiteralError> {
+        case statics {
+            [text] ->
+                case pattern_reason(text) {
+                    Some(reason) ->
+                        Err(
+                            LiteralError{
+                                fragment: 0,
+                                offset: 0,
+                                message: "pattern ${text}: ${reason}",
+                            }
+                        )
+
+                    None ->
+                        Ok(Unit)
+                }
+
+            [first, ..] ->
+                Err(
+                    LiteralError{
+                        fragment: 0,
+                        offset: String.length(first),
+                        message: "a route takes no slots; build one at run time with `Route.parse`",
+                    }
+                )
+
+            [] ->
+                Ok(Unit)
+        }
+    }
+
+    fn check_type(statics: List<String>, arguments: List<String>) -> Result<Unit, LiteralError> {
+        check(statics)?
+
+        case (statics, arguments) {
+            ([text], [params]) ->
+                case params_error(text, params) {
+                    Some(e) -> Err(e)
+                    None -> Ok(Unit)
+                }
+
+            _ ->
+                Ok(Unit)
+        }
+    }
+
+    fn build(fragments: List<Fragment<String>>) -> Route<P> {
         text = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
@@ -2541,12 +3151,12 @@ impl Literal for Route {
             }
         })
 
-        Route.parse(text)
+        Route(text)
     }
 }
 
-impl Display for Route {
-    fn to_string(route: Route) -> String {
+impl Display for Route<P> {
+    fn to_string(route: Route<P>) -> String {
         Route(text) = route
         text
     }
@@ -2563,17 +3173,17 @@ impl Display for Route {
 //! import std::http_testing
 //!
 //! router = Router.new([
-//!     #(
-//!         Route`GET /users/{id}`,
-//!         fn r -> Response{body: Body.Text("user ${Request.path_value(r, "id")!}")},
-//!     ),
-//!     #(Route`/files/{path...}`, fn r -> Response{body: Body.Text(Request.path_value(r, "path")!)}),
+//!     Route.to_with("GET /users/{id}", fn _, p -> Response{body: Body.Text("user ${p.id}")}),
+//!     Route.to("/files/", fn r -> Response{body: Body.Text(r.url.path)}),
+//!     Route.to_with("/raw/{path...}", fn r, _ -> Response{
+//!         body: Body.Text(Request.path_value(r, "path")!),
+//!     }),
 //! ])!
 //!
 //! user = Router.serve(router, http_testing.request(Method.Get, "/users/7"))
 //! assert Response.text(user) == Ok("user 7")
 //!
-//! assert Response.text(Router.serve(router, http_testing.request(Method.Get, "/files/a/b.txt")))
+//! assert Response.text(Router.serve(router, http_testing.request(Method.Get, "/raw/a/b.txt")))
 //!     == Ok("a/b.txt")
 //!
 //! assert Router.serve(router, http_testing.request(Method.Post, "/users/7")).status
@@ -2583,43 +3193,42 @@ impl Display for Route {
 //
 pub struct Router {
     mux: http_host.Mux
-    handlers: List<Handler>
+    handlers: List<(Request) -> Maybe<Response>>
 }
 
 impl Router {
-    /// A router over `routes`, each a pattern and its handler, in order.
-    /// A pattern that conflicts with an earlier one, matching the same
-    /// requests with neither more specific, is `Error.Pattern`, where Go's
-    /// `Handle` panics. Each pattern on its own was checked when it became
-    /// a `Route`.
+    /// A router over `routes`, each a route and its handler from
+    /// `Route.to` or `Route.to_with`, in order. A pattern that conflicts
+    /// with an earlier one, matching the same requests with neither more
+    /// specific, is `Error.Pattern`, where Go's `Handle` panics. Each
+    /// pattern on its own was checked when it became a `Route`.
     //! import std::http.{Error, Response, Route, Router}
     //!
-    //! conflict = Router.new([#(Route`/a/{x}`, fn _ -> Response{}), #(Route`/a/{y}`, fn _ -> Response{})])
+    //! conflict = Router.new(
+    //!     [Route.to_with("/a/{x}", fn _, _ -> Response{}), Route.to_with("/a/{y}", fn _, _ -> Response{})]
+    //! )
+    //!
     //! assert Result.is_err(conflict)
     //
-    pub fn new(routes: List<#(Route, Handler)>) -> Result<Router, Error> {
-        patterns = routes |> Iter.map(fn #(p, _) -> "${p}") |> Iter.to_list()
+    pub fn new(routes: List<Entry>) -> Result<Router, Error> {
+        patterns = routes |> Iter.map(fn e -> e.pattern) |> Iter.to_list()
         mux = http_host.new_mux(patterns) |> Result.map_err(Error.from_parts)?
-        Ok(Router{mux, handlers: routes |> Iter.map(fn #(_, h) -> h) |> Iter.to_list()})
+        Ok(Router{mux, handlers: routes |> Iter.map(fn e -> e.serve) |> Iter.to_list()})
     }
 
-    /// The handler for `request` and the pattern that matched it, or
-    /// `None` when no pattern matches, as Go's `ServeMux.Handler`.
-    pub fn find(router: Router, request: Request) -> Maybe<#(Handler, String)> {
+    /// The pattern that matches `request`, or `None` when none does, as
+    /// Go's `ServeMux.Handler` finds it.
+    pub fn find(router: Router, request: Request) -> Maybe<String> {
         case Router.route(router, request) {
-            ["match", index, pattern, ..] ->
-                String.to_int(index)
-                |> Maybe.flat_map(fn i -> Iter.get(router.handlers, i))
-                |> Maybe.map(fn h -> #(h, pattern))
-
-            _ ->
-                None
+            ["match", _, pattern, ..] -> Some(pattern)
+            _ -> None
         }
     }
 
     /// Serves `request` with the handler of the pattern that matches it,
     /// with `request.pattern` and its path values set, or with what the
-    /// router sends itself: a redirect, a 405 or a 404.
+    /// router sends itself: a redirect, a 405 or a 404. A route whose
+    /// parameters do not parse from the request's path is a 404 too.
     pub fn serve(router: Router, request: Request) -> Response {
         case Router.route(router, request) {
             ["match", index, pattern, ..values] -> {
@@ -2632,9 +3241,9 @@ impl Router {
                     path_values: pairs(values) |> Iter.to_map(),
                 }
 
-                case handler {
-                    Some(h) -> ToResponse.to_response(h(found))
-                    None -> Response{status: Status.not_found}
+                case handler |> Maybe.flat_map(fn h -> h(found)) {
+                    Some(response) -> response
+                    None -> Response.not_found()
                 }
             }
 
@@ -2718,8 +3327,8 @@ pub fn strip_prefix(handler: Handler, prefix: String) -> (Request) -> Response {
             None -> Some(None)
         }
 
-        case #(String.strip_prefix(request.url.path, prefix), raw) {
-            #(Some(rest), Some(raw_path)) ->
+        case (String.strip_prefix(request.url.path, prefix), raw) {
+            (Some(rest), Some(raw_path)) ->
                 ToResponse.to_response(
                     handler(#{..request, url: #{..request.url, path: rest, raw_path}})
                 )
@@ -2884,7 +3493,8 @@ impl Display for Origin {
 pub struct CrossOrigin {
     /// Origins whose requests pass.
     trusted_origins: List<Origin> = []
-    /// `Router` patterns whose requests pass unchecked.
+    /// `Router` patterns whose requests pass unchecked. A pattern ending
+    /// in `/` matches every path under it.
     bypass_patterns: List<Route> = []
     /// The handler a refused request goes to; `None` returns `403
     /// Forbidden`.
@@ -2906,7 +3516,7 @@ impl CrossOrigin {
     //!
     //! from = fn site: String -> #{
     //!     ..post,
-    //!     headers: Headers[#("Sec-Fetch-Site", site), #("Origin", "https://evil.example")],
+    //!     headers: Headers[("Sec-Fetch-Site", site), ("Origin", "https://evil.example")],
     //! }
     //!
     //! assert CrossOrigin.check(CrossOrigin{}, from("same-origin")) == Ok(Unit)
@@ -2915,7 +3525,7 @@ impl CrossOrigin {
     //! trusting = CrossOrigin{trusted_origins: [Origin`https://evil.example`]}
     //! assert CrossOrigin.check(trusting, from("cross-site")) == Ok(Unit)
     //!
-    //! no_origin = #{..post, headers: Headers[#("Sec-Fetch-Site", ""), #("Origin", "")]}
+    //! no_origin = #{..post, headers: Headers[("Sec-Fetch-Site", ""), ("Origin", "")]}
     //! assert CrossOrigin.check(CrossOrigin{}, no_origin) == Ok(Unit)
     //
     pub fn check(options: CrossOrigin, request: Request) -> Result<Unit, Error> {
@@ -2938,11 +3548,11 @@ impl CrossOrigin {
 //! import std::http_testing
 //!
 //! pay = fn _: Request -> Response{body: Body.Text("paid")}
-//! app = pay |> http.cross_origin_protection(CrossOrigin{bypass_patterns: [Route`POST /hooks/`]})
+//! app = pay |> http.cross_origin_protection(CrossOrigin{bypass_patterns: ["POST /hooks/"]})
 //!
 //! post = fn path: String -> #{
 //!     ..http_testing.request(Method.Post, path),
-//!     headers: Headers[#("Sec-Fetch-Site", "cross-site")],
+//!     headers: Headers[("Sec-Fetch-Site", "cross-site")],
 //! }
 //!
 //! assert app(post("/pay")).status == Status.forbidden
@@ -2953,7 +3563,7 @@ pub fn cross_origin_protection(handler: Handler, options: CrossOrigin) -> (Reque
     // router refuses, and a router of one pattern refuses nothing.
     bypass =
         options.bypass_patterns
-        |> Iter.map(fn route -> Router.new([#(route, not_found)]))
+        |> Iter.map(fn route -> Router.new([Route.to(route, not_found)]))
         |> Iter.to_list()
 
     fn request -> {
@@ -3014,8 +3624,8 @@ pub fn limit_body(handler: Handler, max: Int) -> (Request) -> Response {
 //! home = fn _: Request -> Response{body: Body.Text("home")}
 //! users = fn _: Request -> Response{body: Body.Text("users")}
 //!
-//! admin = [#(Route`GET /admin/users`, users)]
-//! routes = [#(Route`GET /`, home)] + http.wrap_routes(admin, require_token)
+//! admin = [Route.to("GET /admin/users", users)]
+//! routes = [Route.to("GET /", home)] + http.wrap_routes(admin, require_token)
 //! router = Router.new(routes)!
 //!
 //! assert Router.serve(router, http_testing.request(Method.Get, "/")).status == Status.ok
@@ -3023,11 +3633,20 @@ pub fn limit_body(handler: Handler, max: Int) -> (Request) -> Response {
 //! assert Router.serve(router, http_testing.request(Method.Get, "/admin/users")).status
 //!     == Status.unauthorized
 //
-pub fn wrap_routes(
-    routes: List<#(Route, Handler)>,
-    wrap: (Handler) -> Handler,
-) -> List<#(Route, Handler)> {
-    routes |> Iter.map(fn #(route, handler) -> #(route, wrap(handler))) |> Iter.to_list()
+pub fn wrap_routes(routes: List<Entry>, wrap: (Handler) -> Handler) -> List<Entry> {
+    routes
+    |> Iter.map(fn e -> Entry{pattern: e.pattern, serve: wrap_serve(e.serve, wrap)})
+    |> Iter.to_list()
+}
+
+/// An entry's `serve` with `wrap` around it. A request whose parameters
+/// do not parse reaches the wrapped handler as a `404`.
+fn wrap_serve(serve: (Request) -> Maybe<Response>, wrap: (Handler) -> Handler) -> (
+    Request
+) -> Maybe<Response> {
+    inner: Handler = fn request -> Maybe.with_default(serve(request), Response.not_found())
+    wrapped = wrap(inner)
+    fn request -> Some(ToResponse.to_response(wrapped(request)))
 }
 
 /// Which cross-origin requests `cors` lets a browser make, and what it
@@ -3087,7 +3706,7 @@ pub struct Cors {
 //!
 //! from = fn method: Method, origin: String -> #{
 //!     ..http_testing.request(method, "/api/items"),
-//!     headers: Headers[#("Origin", origin)],
+//!     headers: Headers[("Origin", origin)],
 //! }
 //!
 //! ok = app(from(Method.Get, "https://app.example.com"))
@@ -3127,7 +3746,7 @@ pub fn cors(handler: Handler, options: Cors) -> (Request) -> Response {
 
         if preflight {
             vary = Headers[
-                #("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"),
+                ("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"),
             ]
 
             if not allowed { return Response{status: Status.no_content, headers: vary} }
@@ -3207,7 +3826,7 @@ fn set_listed(headers: Headers, name: String, values: List<String>) -> Headers {
 //! got = log_testing.run(fn logger -> {
 //!     app = hello |> http.log_requests(logger) |> http.request_id()
 //!     request = http_testing.request(Method.Post, "/items?x=1")
-//!     app(#{..request, headers: Headers[#("X-Request-Id", "req-7")]})
+//!     app(#{..request, headers: Headers[("X-Request-Id", "req-7")]})
 //! })
 //!
 //! record = List.head(got.records)!
@@ -3292,7 +3911,7 @@ pub struct SecurityHeaders {
 //!
 //! page = fn r: Request -> {
 //!     if r.url.path == "/embed" {
-//!         Response{headers: Headers[#("X-Frame-Options", "SAMEORIGIN")]}
+//!         Response{headers: Headers[("X-Frame-Options", "SAMEORIGIN")]}
 //!     } else {
 //!         Response{body: Body.Text("page")}
 //!     }
@@ -3324,14 +3943,14 @@ pub fn security_headers(handler: Handler, options: SecurityHeaders = SecurityHea
 ) -> Response {
     named = [
         if options.nosniff {
-            Some(#("X-Content-Type-Options", "nosniff"))
+            Some(("X-Content-Type-Options", "nosniff"))
         } else {
             None
         },
-        options.referrer_policy |> Maybe.map(fn v -> #("Referrer-Policy", v)),
-        options.frame_options |> Maybe.map(fn v -> #("X-Frame-Options", v)),
-        options.strict_transport_security |> Maybe.map(fn v -> #("Strict-Transport-Security", v)),
-        options.content_security_policy |> Maybe.map(fn v -> #("Content-Security-Policy", v)),
+        options.referrer_policy |> Maybe.map(fn v -> ("Referrer-Policy", v)),
+        options.frame_options |> Maybe.map(fn v -> ("X-Frame-Options", v)),
+        options.strict_transport_security |> Maybe.map(fn v -> ("Strict-Transport-Security", v)),
+        options.content_security_policy |> Maybe.map(fn v -> ("Content-Security-Policy", v)),
     ]
 
     defaults = Headers(
@@ -3365,7 +3984,7 @@ pub fn security_headers(handler: Handler, options: SecurityHeaders = SecurityHea
 //!
 //! given = fn id: String -> #{
 //!     ..http_testing.request(Method.Get, "/"),
-//!     headers: Headers[#("X-Request-Id", id)],
+//!     headers: Headers[("X-Request-Id", id)],
 //! }
 //!
 //! assert Headers.get(app(given("abc-123")).headers, "X-Request-Id") == Some("abc-123")
@@ -3395,7 +4014,7 @@ pub fn request_id(
         case id {
             Some(text) -> {
                 tagged = #{..request, headers: Headers.set(request.headers, header, text)}
-                Response.with_headers(handler(tagged), Headers[#(header, text)])
+                Response.with_headers(handler(tagged), Headers[(header, text)])
             }
 
             None ->
@@ -3458,7 +4077,7 @@ pub struct Compress {
 //!
 //! asking = fn accept: String -> {
 //!     r = http_testing.request(Method.Get, "/")
-//!     #{..r, headers: Headers[#("Accept-Encoding", accept)]}
+//!     #{..r, headers: Headers[("Accept-Encoding", accept)]}
 //! }
 //!
 //! zipped = app(asking("gzip, br"))
@@ -3660,7 +4279,7 @@ fn vary_on(headers: Headers, name: String) -> Headers {
 //!     user_ok and password_ok
 //! }
 //!
-//! hello = fn r: Request -> Response{body: Body.Text("hello ${Request.basic_auth(r)!.0}")}
+//! hello = fn r: Request -> Response{body: Body.Text("hello ${Request.basic_auth(r)!.first}")}
 //! app = hello |> http.basic_auth("admin", admin_only)
 //! visit = http_testing.request(Method.Get, "/admin")
 //!
@@ -3681,13 +4300,13 @@ pub fn basic_auth(handler: Handler, realm: String, check: (String, String) -> Bo
 
     fn request -> {
         case Request.basic_auth(request) {
-            Some(#(user, password)) when check(user, password) ->
+            Some((user, password)) when check(user, password) ->
                 ToResponse.to_response(handler(request))
 
             _ ->
                 Response.with_headers(
                     Response.error(Status.unauthorized, "401 Unauthorized"),
-                    Headers[#("WWW-Authenticate", challenge)],
+                    Headers[("WWW-Authenticate", challenge)],
                 )
         }
     }
@@ -3710,26 +4329,25 @@ pub fn basic_auth(handler: Handler, realm: String, check: (String, String) -> Bo
 //! import std::http_testing
 //!
 //! router = Router.new([
-//!     #(Route`POST /posts`, fn _ -> Response{body: Body.Text("created")}),
-//!     #(
-//!         Route`PATCH /posts/{id}`,
-//!         fn r: Request -> Response{body: Body.Text("titled ${Request.form_value(r, "title")!}")},
-//!     ),
-//!     #(Route`DELETE /posts/{id}`, fn _ -> Response{body: Body.Text("deleted")}),
+//!     Route.to("POST /posts", fn _ -> Response{body: Body.Text("created")}),
+//!     Route.to_with("PATCH /posts/{id}", fn r, _ -> Response{
+//!         body: Body.Text("titled ${Request.form_value(r, "title")!}"),
+//!     }),
+//!     Route.to_with("DELETE /posts/{id}", fn _, _ -> Response{body: Body.Text("deleted")}),
 //! ])!
 //!
 //! app = Router.handler(router) |> http.method_override()
 //!
-//! form = fn target: String, fields: List<#(String, String)> -> {
+//! form = fn target: String, fields: List<(String, String)> -> {
 //!     http_testing.form_request(Method.Post, target, fields)
 //! }
 //!
-//! assert Response.text(app(form("/posts/7", [#("_method", "delete")]))) == Ok("deleted")
+//! assert Response.text(app(form("/posts/7", [("_method", "delete")]))) == Ok("deleted")
 //!
-//! assert Response.text(app(form("/posts/7", [#("_method", "PATCH"), #("title", "Hi")])))
+//! assert Response.text(app(form("/posts/7", [("_method", "PATCH"), ("title", "Hi")])))
 //!     == Ok("titled Hi")
 //!
-//! assert Response.text(app(form("/posts", [#("_method", "CONNECT")]))) == Ok("created")
+//! assert Response.text(app(form("/posts", [("_method", "CONNECT")]))) == Ok("created")
 //
 pub fn method_override(handler: Handler) -> (Request) -> Response {
     fn request -> {
@@ -3790,7 +4408,7 @@ pub fn method_override(handler: Handler) -> (Request) -> Response {
 //! site = %{"site/about.html" => "<p>about</p>", "site/blog/index.html" => "<p>blog</p>"}
 //!
 //! ran = fs_testing.run(Sandbox{files: site}, fn -> {
-//!     #(
+//!     (
 //!         get("/about", "site/about"),
 //!         get("/about.html", "site/about.html"),
 //!         get("/blog", "site/blog"),
@@ -3798,7 +4416,7 @@ pub fn method_override(handler: Handler) -> (Request) -> Response {
 //!     )
 //! })
 //!
-//! #(about, named, blog, missing) = ran.value
+//! (about, named, blog, missing) = ran.value
 //! assert Response.text(about) == Ok("<p>about</p>")
 //! assert Headers.get(about.headers, "Content-Type") == Some("text/html; charset=utf-8")
 //! assert Response.text(named) == Ok("<p>about</p>")
@@ -3828,7 +4446,7 @@ pub fn serve_file(request: Request, file: String) -> Response {
 
         Err(e) ->
             case disk_page(asked, file) {
-                Some(#(page, meta)) -> disk_file(request, page, meta)
+                Some((page, meta)) -> disk_file(request, page, meta)
                 None -> failed(e)
             }
     }
@@ -3853,14 +4471,14 @@ fn html_page(asked: String, file: String) -> Maybe<String> {
 }
 
 /// `html_page` on disk, with its metadata, when it is a file there.
-fn disk_page(asked: String, file: String) -> Maybe<#(String, fs.Metadata)> {
+fn disk_page(asked: String, file: String) -> Maybe<(String, fs.Metadata)> {
     html_page(asked, file)
     |> Maybe.flat_map(fn page -> {
         case fs.metadata(page) {
             Ok(meta) ->
                 case meta.kind {
                     fs.Kind.Directory -> None
-                    _ -> Some(#(page, meta))
+                    _ -> Some((page, meta))
                 }
 
             Err(_) ->
@@ -3907,14 +4525,14 @@ fn embedded_page(asked: String, files: Files, file: String) -> Maybe<String> {
 //! page = #{..page, headers: Headers.set(page.headers, "Accept", "text/html")}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"site/index.html" => "<div id=root></div>"}}, fn -> {
-//!     #(site(page), site(http_testing.request(Method.Get, "/app.js")))
+//!     (site(page), site(http_testing.request(Method.Get, "/app.js")))
 //! })
 //!
-//! #(shell, script) = ran.value
+//! (shell, script) = ran.value
 //! assert Response.text(shell) == Ok("<div id=root></div>")
 //! assert script.status == Status.not_found
 //
-pub fn file_server(root: String, single_page: Bool = False) -> (Request) -> Response {
+pub fn file_server(root: String, single_page = False) -> (Request) -> Response {
     fn request -> {
         file = path.join(root, path.clean(rooted(request.url.path)))
 
@@ -3964,9 +4582,9 @@ pub fn file_server(root: String, single_page: Bool = False) -> (Request) -> Resp
 //! import std::http_testing
 //!
 //! files = Files.from_bytes([
-//!     #("index.html", String.to_bytes("<p>home</p>")),
-//!     #("assets/app-3f9a1b2c.js", String.to_bytes("go()")),
-//!     #("assets/app-3f9a1b2c.js.gz", String.to_bytes("zipped")),
+//!     ("index.html", String.to_bytes("<p>home</p>")),
+//!     ("assets/app-3f9a1b2c.js", String.to_bytes("go()")),
+//!     ("assets/app-3f9a1b2c.js.gz", String.to_bytes("zipped")),
 //! ])
 //!
 //! get = http_testing.request(Method.Get, "/assets/app-3f9a1b2c.js")
@@ -3991,8 +4609,8 @@ pub fn file_server(root: String, single_page: Bool = False) -> (Request) -> Resp
 //! assert serve_embedded(again, files, ".").status == Status.not_modified
 //!
 //! pages = Files.from_bytes([
-//!     #("about.html", String.to_bytes("<p>about</p>")),
-//!     #("about.html.br", String.to_bytes("squeezed")),
+//!     ("about.html", String.to_bytes("<p>about</p>")),
+//!     ("about.html.br", String.to_bytes("squeezed")),
 //! ])
 //!
 //! about = serve_embedded(http_testing.request(Method.Get, "/about"), pages, "about")
@@ -4086,8 +4704,8 @@ pub fn serve_embedded(
 //!
 //! app = file_server_embedded(
 //!     Files.from_bytes([
-//!         #("index.html", String.to_bytes("<div id=root></div>")),
-//!         #("assets/app-3f9a1b2c.js", String.to_bytes("go()")),
+//!         ("index.html", String.to_bytes("<div id=root></div>")),
+//!         ("assets/app-3f9a1b2c.js", String.to_bytes("go()")),
 //!     ]),
 //!     single_page: True,
 //!     immutable: ["assets/**"],
@@ -4102,8 +4720,8 @@ pub fn serve_embedded(
 //!
 //! exported = file_server_embedded(
 //!     Files.from_bytes([
-//!         #("index.html", String.to_bytes("<p>home</p>")),
-//!         #("about.html", String.to_bytes("<p>about</p>")),
+//!         ("index.html", String.to_bytes("<p>home</p>")),
+//!         ("about.html", String.to_bytes("<p>about</p>")),
 //!     ]),
 //!     single_page: True,
 //! )
@@ -4197,17 +4815,17 @@ fn embedded_file(
     immutable: List<String>,
 ) -> Response {
     siblings =
-        [#("br", "${file}.br"), #("gzip", "${file}.gz")]
-        |> Iter.filter(fn #(_, sibling) -> Files.exists(files, sibling))
+        [("br", "${file}.br"), ("gzip", "${file}.gz")]
+        |> Iter.filter(fn (_, sibling) -> Files.exists(files, sibling))
         |> Iter.to_list()
 
     codings = accepted_codings(request)
 
-    #(sent, coding) =
+    (sent, coding) =
         siblings
-        |> Iter.find(fn #(c, _) -> Iter.contains(codings, c))
-        |> Maybe.map(fn #(coding, sibling) -> #(sibling, Some(coding)))
-        |> Maybe.with_default(#(file, None))
+        |> Iter.find(fn (c, _) -> Iter.contains(codings, c))
+        |> Maybe.map(fn (coding, sibling) -> (sibling, Some(coding)))
+        |> Maybe.with_default((file, None))
 
     cache = if Iter.any(immutable, fn pattern -> immutable_match(pattern, file)) {
         "public, max-age=31536000, immutable"
@@ -4222,16 +4840,16 @@ fn embedded_file(
             vary = if Iter.is_empty(siblings) {
                 []
             } else {
-                [#("Vary", "Accept-Encoding")]
+                [("Vary", "Accept-Encoding")]
             }
 
             encoding = case coding {
-                Some(c) -> [#("Content-Encoding", c)]
+                Some(c) -> [("Content-Encoding", c)]
                 None -> []
             }
 
             headers = Headers(
-                Iter.flatten([[#("ETag", "\"${sum}\""), #("Cache-Control", cache)], vary, encoding])
+                Iter.flatten([[("ETag", "\"${sum}\""), ("Cache-Control", cache)], vary, encoding])
             )
 
             Response.content(request, path.base(file), None, data, headers: headers)
@@ -4619,10 +5237,10 @@ impl ProxyRequest {
         out = proxy.outgoing
         incoming_url = out.url
 
-        query = case #(target.query, incoming_url.query) {
-            #(Some(a), Some(b)) when a != "" and b != "" -> Some("${a}&${b}")
-            #(Some(a), _) when a != "" -> Some(a)
-            #(_, b) -> b
+        query = case (target.query, incoming_url.query) {
+            (Some(a), Some(b)) when a != "" and b != "" -> Some("${a}&${b}")
+            (Some(a), _) when a != "" -> Some(a)
+            (_, b) -> b
         }
 
         url = #{
@@ -4645,7 +5263,7 @@ impl ProxyRequest {
 
         client =
             net.split_host_port(incoming.remote_address)
-            |> Result.map(fn #(host, _) -> host)
+            |> Result.map(fn (host, _) -> host)
             |> Result.with_default(incoming.remote_address)
 
         prior = Headers.values(incoming.headers, "X-Forwarded-For")
@@ -4669,9 +5287,9 @@ impl ProxyRequest {
 }
 
 fn join_paths(a: String, b: String) -> String {
-    case #(String.ends_with(a, "/"), String.starts_with(b, "/")) {
-        #(True, True) -> a + String.drop(b, 1)
-        #(False, False) -> "${a}/${b}"
+    case (String.ends_with(a, "/"), String.starts_with(b, "/")) {
+        (True, True) -> a + String.drop(b, 1)
+        (False, False) -> "${a}/${b}"
         _ -> a + b
     }
 }
@@ -4969,10 +5587,10 @@ impl TraceEvent {
 
 fn wire_parts_of(
     message: http_host.Handle,
-) -> #(List<String>, List<String>, List<String>, List<String>) {
+) -> (List<String>, List<String>, List<String>, List<String>) {
     case http_host.wire_parts(message) {
-        [head, headers, trailers, encoding] -> #(head, headers, trailers, encoding)
-        _ -> #([], [], [], [])
+        [head, headers, trailers, encoding] -> (head, headers, trailers, encoding)
+        _ -> ([], [], [], [])
     }
 }
 

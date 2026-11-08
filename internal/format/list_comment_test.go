@@ -110,7 +110,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"tuple", `fn main() {
-    x = #(
+    x = (
         // the first
         1,
         2, // the second
@@ -195,7 +195,7 @@ var listCommentCases = []struct {
 `},
 	{"tuple pattern", `fn main() {
     y = case xs {
-        #(
+        (
             // the first
             a, // the first's
             b // the second
@@ -246,7 +246,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"enum payloads", `enum E {
-    Pair #(
+    Pair (
         // the first
         Int,
         Int // the second
@@ -275,15 +275,15 @@ var listCommentCases = []struct {
 }
 `},
 	{"tuple type", `fn main() {
-    f: #(
+    f: (
         // the first
         Int,
         Int // the second
-    ) = #(1, 2)
+    ) = (1, 2)
 }
 `},
 	{"tuple destructure", `fn main() {
-    #(
+    (
         // the first
         a, // the first's
         _,
@@ -316,7 +316,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"case subject tuple", `fn main() {
-    x = case #(
+    x = case (
         a, // the first
         b,
     ) {
@@ -382,8 +382,8 @@ func TestListComment_BreaksAListWrittenFlat(t *testing.T) {
 			"x = f(\n    a: 1, // the first\n    b: 2,\n)\n",
 		},
 		{
-			"x = #(1, 2 // the second\n)\n",
-			"x = #(\n    1,\n    2, // the second\n)\n",
+			"x = (1, 2 // the second\n)\n",
+			"x = (\n    1,\n    2, // the second\n)\n",
 		},
 		{
 			// A comment after a lambda parameter's comma keeps the
@@ -451,8 +451,8 @@ func TestListComment_AtTheBrackets(t *testing.T) {
 		},
 		{
 			"closing a tuple",
-			"fn main() {\n    t = #(1, 2 // why\n    )\n    _ = t\n}\n",
-			"fn main() {\n    t = #(\n        1,\n        2, // why\n    )\n\n    _ = t\n}\n",
+			"fn main() {\n    t = (1, 2 // why\n    )\n    _ = t\n}\n",
+			"fn main() {\n    t = (\n        1,\n        2, // why\n    )\n\n    _ = t\n}\n",
 		},
 		{
 			"an interface function's parameters",
@@ -502,8 +502,8 @@ func TestListComment_KeepsMeaningOnFoundLayouts(t *testing.T) {
 			"fn long_sleep(\n    // b12\n) -> Result<\n    Int, // a13\n    String\n> {\n    // t14\n    1\n}\n",
 		},
 		{
-			"fn main() {\n    #(sized,\n// b12\n_) = pair\n}\n",
-			"fn main() {\n    #(\n        sized,\n        // b12\n        _\n    ) = pair\n}\n",
+			"fn main() {\n    (sized,\n// b12\n_) = pair\n}\n",
+			"fn main() {\n    (\n        sized,\n        // b12\n        _\n    ) = pair\n}\n",
 		},
 		{
 			"fn main() {\n    io.print(\n        ( // a4\n   fetch.waits())\n        |> Iter.to_list()\n    )\n}\n",
@@ -536,8 +536,8 @@ func TestListComment_KeepsMeaningOnFoundLayouts(t *testing.T) {
 			// A struct spread's comments, two comments after one item,
 			// and comments in parentheses around a parameter, a
 			// destructured name, a `with` value and a variant's payload.
-			"fn main() {\n    also_same = #{.. // c1\n           user, address: #{..user.address, city: \"NYC\"}}\n    f = fn ( // a23\n     _acc1) = 1, e2 -> e2\n    #(numbers, (\n    // b10\n  errors)) = pair\n    with App.clock = ( // a9\nFakeClock{at: 1})\n    y = case xs {\n        .Dynamic( // a3\n         v) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n   // b1\n             value: self // c2\n            , // a3\n\tstyle: String) -> String // t4\n}\n",
-			"fn main() {\n    also_same = #{\n        ..user, // c1\n        address: #{..user.address, city: \"NYC\"},\n    }\n\n    f = fn\n        // a23\n        _acc1 = 1,\n        e2\n    -> e2\n\n    #(\n        numbers,\n        // b10\n        errors\n    ) = pair\n\n    with App.clock = (\n        // a9\n        FakeClock{at: 1}\n    )\n\n    y = case xs {\n        .Dynamic(\n            // a3\n            v\n        ) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n        // b1\n        value: self, // c2\n        // a3\n        style: String,\n    ) -> String // t4\n}\n",
+			"fn main() {\n    also_same = #{.. // c1\n           user, address: #{..user.address, city: \"NYC\"}}\n    f = fn ( // a23\n     _acc1) = 1, e2 -> e2\n    (numbers, (\n    // b10\n  errors)) = pair\n    with App.clock = ( // a9\nFakeClock{at: 1})\n    y = case xs {\n        .Dynamic( // a3\n         v) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n   // b1\n             value: self // c2\n            , // a3\n\tstyle: String) -> String // t4\n}\n",
+			"fn main() {\n    also_same = #{\n        ..user, // c1\n        address: #{..user.address, city: \"NYC\"},\n    }\n\n    f = fn\n        // a23\n        _acc1 = 1,\n        e2\n    -> e2\n\n    (\n        numbers,\n        // b10\n        errors\n    ) = pair\n\n    with App.clock = (\n        // a9\n        FakeClock{at: 1}\n    )\n\n    y = case xs {\n        .Dynamic(\n            // a3\n            v\n        ) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n        // b1\n        value: self, // c2\n        // a3\n        style: String,\n    ) -> String // t4\n}\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

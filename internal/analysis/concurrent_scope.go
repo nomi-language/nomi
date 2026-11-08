@@ -288,6 +288,8 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 		s.walkBody(owner, node.Right, inConcurrent)
 	case *ast.Is:
 		s.walkBody(owner, node.Value, inConcurrent)
+	case *ast.Ascription:
+		s.walkBody(owner, node.Value, inConcurrent)
 	case *ast.Binding:
 		s.walkBody(owner, node.Value, inConcurrent)
 	case *ast.TupleDestructure:
@@ -599,6 +601,8 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 		case *ast.Unary:
 			walk(node.Right, enclosing, inConcurrent)
 		case *ast.Is:
+			walk(node.Value, enclosing, inConcurrent)
+		case *ast.Ascription:
 			walk(node.Value, enclosing, inConcurrent)
 		case *ast.Binding:
 			walk(node.Value, enclosing, inConcurrent)

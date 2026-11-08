@@ -252,7 +252,7 @@ type FuncType struct {
 	TriviaCarrier
 	SpanCarrier
 	Params []TypeExpr
-	Return TypeExpr // nil for tuple types like #(Int, String)
+	Return TypeExpr // nil for tuple types like (Int, String)
 	Line   int
 	Col    int
 }
@@ -262,9 +262,6 @@ func (n *FuncType) LineNum() int   { return n.Line }
 func (*FuncType) typeExpr()        {}
 func (n *FuncType) TypeString() string {
 	s := "("
-	if n.Return == nil {
-		s = "#("
-	}
 	for i, p := range n.Params {
 		if i > 0 {
 			s += ", "
@@ -757,7 +754,7 @@ type MapLit struct {
 func (*MapLit) NodeType() string { return "MapLit" }
 func (n *MapLit) LineNum() int   { return n.Line }
 
-// TupleLit is a tuple literal, `#(a, b)`. A distinct type over a tuple is
+// TupleLit is a tuple literal, `(a, b)`. A distinct type over a tuple is
 // built by a call, `Pair(1, "x")`. Line and Col are the `#`.
 type TupleLit struct {
 	TriviaCarrier
@@ -832,6 +829,21 @@ type Is struct {
 
 func (*Is) NodeType() string { return "Is" }
 func (n *Is) LineNum() int   { return n.Line }
+
+// Ascription is `value as Type`: Value checked with Type as its expected
+// type, as `x: Type = value` checks it. It converts nothing. Line and Col
+// are the `as` keyword's.
+type Ascription struct {
+	TriviaCarrier
+	SpanCarrier
+	Value Node
+	Type  TypeExpr
+	Line  int
+	Col   int
+}
+
+func (*Ascription) NodeType() string { return "Ascription" }
+func (n *Ascription) LineNum() int   { return n.Line }
 
 type Binary struct {
 	TriviaCarrier
@@ -1210,7 +1222,7 @@ func (n *DotVariant) LineNum() int   { return n.Line }
 
 // FieldAccessor is the field accessor shorthand `.name`: a function that
 // reads field `name` from its one argument. A chain `.address.city` reads
-// each field in turn, and a tuple index reads an element (`.0`). Path holds
+// each field in turn, and an ordinal reads a tuple item (`.first`). Path holds
 // the segments in order, each at its own position.
 //
 // It stands only where a function is expected. The analyzer types it from
@@ -1328,6 +1340,10 @@ type StructField struct {
 type TypeParam struct {
 	Name   string
 	Bounds []TypeExpr
+	// Default is the type a use that leaves the argument out takes
+	// (`Route<P = Unit>`), or nil. Only a type declaration's parameters
+	// may have one (spec §4 *Default type arguments*).
+	Default TypeExpr
 	// Comments holds the comments around the type parameter in its list.
 	Comments ItemComments
 	Line     int
@@ -1391,8 +1407,12 @@ type StructFieldVal struct {
 	// Trailing holds a `// comment` on the line the field or its comma
 	// ends on (`a: 1, // note`). The formatter keeps it after the comma.
 	Trailing []Trivia
-	Line     int // position of the field name token (0 if unknown)
-	Col      int
+	// Source is a positional element's text as written (StructLit's
+	// Positional), for the error that writes it under its field's name;
+	// empty when it runs over several lines, and on a named field.
+	Source string
+	Line   int // position of the field name token, or of a positional element's first token (0 if unknown)
+	Col    int
 }
 
 type StructLit struct {
@@ -1400,6 +1420,12 @@ type StructLit struct {
 	SpanCarrier
 	TypeName TypeExpr
 	Fields   []StructFieldVal
+	// Positional holds the elements of a named literal written without a
+	// field name, `Student{&1.first, &1.second}`, each with an empty Name,
+	// its Source and the position of its first token. Nomi does not build a struct by
+	// position, so the checker reports any as an error that writes the
+	// named form; the parser keeps them so it can.
+	Positional []StructFieldVal
 	// Spread holds the head expression of a struct-update literal,
 	// `#{..base, field: value}` — the `base`. Nil for every other struct
 	// literal. It is only ever set on the anonymous form (TypeName == nil):
@@ -1523,7 +1549,7 @@ type TypeDef struct {
 	Name          string
 	Public        bool
 	Opaque        bool // true for `pub opaque type Name InnerType` — name exported, construction surface module-private. See spec §4, *Opaque distinct types*.
-	// TypeParams holds `<T, ...>` after the name (`type Tagged<T> #(String, T)`),
+	// TypeParams holds `<T, ...>` after the name (`type Tagged<T> (String, T)`),
 	// which the inner type may name; empty for a non-generic distinct.
 	TypeParams    []TypeParam
 	InnerTypeExpr TypeExpr // structured inner type, nil for zero-sized
@@ -1880,7 +1906,7 @@ func (n *InterfaceDef) LineNum() int   { return n.Line }
 //     form:
 //
 //     impl Display for Money { fn to_string(m: Money) -> String { ... } }
-//     impl<T> Iter for Box<T> { fn next(b: Box<T>) -> Maybe<#(T, Box<T>)> { ... } }
+//     impl<T> Iter for Box<T> { fn next(b: Box<T>) -> Maybe<(T, Box<T>)> { ... } }
 //
 //     The interface is named once before `for`; methods inside are plain
 //     `fn` / `host fn` because the header names the single interface.
@@ -2385,7 +2411,7 @@ type EmbedPattern struct {
 // EmbeddedFiles is the value of the `once` an `embed` declaration expands
 // into: every file its patterns matched, by its path from the module
 // root, in path order, with where its contents are. Its type is
-// `List<#(String, Int, Int)>`, each file's path, handle and size, which
+// `List<(String, Int, Int)>`, each file's path, handle and size, which
 // std::embed's private constructor makes a `Files` of. It is never written
 // in source. Line and Col are the declaration's name's position in the
 // synthesized band.
@@ -2589,7 +2615,7 @@ func (*ExternFunc) isImplMethodDecl() {}
 //	}
 //
 //	impl Iter for List<T> {
-//	  host fn next(s: List<T>) -> Maybe<#(T, List<T>)>
+//	  host fn next(s: List<T>) -> Maybe<(T, List<T>)>
 //	}
 //
 // A bodiless declaration (`pub host type Unit`) is unchanged.
@@ -2833,7 +2859,7 @@ func (n *Placeholder) LineNum() int   { return n.Line }
 
 // Capture is a function written as `&` and its body (spec §7, *Captures*):
 // a call (`&Int.max(&1, 0)`), a parenthesized expression (`&(&1 > 2)`) or a
-// literal (`&Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1]`). Each `&N` in Body
+// literal (`&Point{x: &1, y: 0}`, `&(&1, 0)`, `&[&1]`). Each `&N` in Body
 // (a PlaceholderParam, or a Placeholder in a partial capture) is the
 // function's parameter N. A call of the function evaluates Body with the
 // parameters filled, as the equivalent lambda would. Line and Col are the
@@ -3101,10 +3127,10 @@ type StructPattern struct {
 func (*StructPattern) NodeType() string { return "StructPattern" }
 func (n *StructPattern) LineNum() int   { return n.Line }
 
-// TuplePattern matches a tuple value in a case branch: #(pattern, pattern, ...)
+// TuplePattern matches a tuple value in a case branch: (pattern, pattern, ...)
 //
 // Flat is true when the parser read the comma list of a payload written
-// without the tuple's own `#(...)`: `.Pos(a, b)` takes apart a variant whose
+// without the tuple's own `(...)`: `.Pos(a, b)` takes apart a variant whose
 // payload is a tuple, as `.Pos(1, 2)` builds one, and `Pair(a, b)` a
 // distinct type over a tuple, as `Pair(1, "x")` builds one. The patterns sit
 // directly inside the variant's or type's parentheses.

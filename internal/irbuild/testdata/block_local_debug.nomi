@@ -10,7 +10,7 @@ import std::io
 
 fn main() {
     type Token String
-    type Coord #(Int, Int)
+    type Coord (Int, Int)
     type Items List<Int>
 
     struct Pt {

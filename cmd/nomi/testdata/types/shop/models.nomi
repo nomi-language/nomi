@@ -28,7 +28,7 @@ pub enum Role {
     Admin
     Member {since: Date}
     Guest String
-    Pair #(Int, String)
+    Pair (Int, String)
 }
 
 derive ToJson for Role

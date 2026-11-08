@@ -26,7 +26,8 @@ var nomiBin string
 // `nomi` with every call to `planted_decline` declined by the IR builder
 // (irbuild.PlantDeclineForTest), so a test about how `nomi run`, `nomi test`
 // and `nomi check` report a blocked program needs no real lowering gap.
-// withPlantedDecline sets it.
+// withPlantedDecline sets it to 1. Any other value is the callee whose calls
+// decline instead (withPlantedDeclineOf).
 const plantedEnv = "NOMI_TEST_RUN_AS_NOMI_WITH_PLANTED_DECLINE"
 
 // plantedReason is the builder's reason for a planted decline.
@@ -36,8 +37,11 @@ const plantedReason = "a planted decline"
 var testBin string
 
 func TestMain(m *testing.M) {
-	if os.Getenv(plantedEnv) != "" {
-		irbuild.PlantDeclineForTest("planted_decline", plantedReason)
+	if callee := os.Getenv(plantedEnv); callee != "" {
+		if callee == "1" {
+			callee = "planted_decline"
+		}
+		irbuild.PlantDeclineForTest(callee, plantedReason)
 		main()
 		os.Exit(0)
 	}
@@ -110,7 +114,17 @@ func noManagedGoEnv(dir string) []string {
 // withPlantedDecline makes nomiBin this test binary run as `nomi` with a
 // planted decline (plantedEnv) until t ends.
 func withPlantedDecline(t *testing.T) {
-	t.Setenv(plantedEnv, "1")
+	withPlantedDeclineOf(t, "1")
+}
+
+// withPlantedDeclineOf is withPlantedDecline with every call to callee
+// declined, a function std itself calls: the child keeps no std bundle,
+// so it lowers std with the plant in place.
+func withPlantedDeclineOf(t *testing.T, callee string) {
+	t.Setenv(plantedEnv, callee)
+	if callee != "1" {
+		t.Setenv("NOMI_ARTIFACT_CACHE", "off")
+	}
 	bin := nomiBin
 	nomiBin = testBin
 	t.Cleanup(func() { nomiBin = bin })
@@ -1164,9 +1178,9 @@ func TestTestCommand_RunsGroups(t *testing.T) {
 }
 
 group "sibling" {
-  setup #(2, 3)
+  setup (2, 3)
 
-  test "setup is bound by a tuple pattern", #(base, extra) {
+  test "setup is bound by a tuple pattern", (base, extra) {
     assert base + extra == 5
   }
 }

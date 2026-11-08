@@ -10,14 +10,14 @@ import (
 )
 
 // Tuple-state default with first-line destructure should type-check WITHOUT
-// an explicit annotation. `#(0, [])` should be typed as `#(Int, List<TypeVar>)`
+// an explicit annotation. `(0, [])` should be typed as `(Int, List<TypeVar>)`
 // — concrete enough to destructure, with the empty-list element type a fresh
 // inference variable that body unifications can solve.
 func TestCheckTupleStateDestructureNoAnnotation(t *testing.T) {
-	src := `fn f(xs: List<Int>) -> #(Int, List<Int>) {
-  Iter.reduce(xs, #(0, []), fn state, item -> {
-    #(count, acc) = state
-    if count >= 2 { break #(count, acc) } else { #(count + 1, [item, ..acc]) }
+	src := `fn f(xs: List<Int>) -> (Int, List<Int>) {
+  Iter.reduce(xs, (0, []), fn state, item -> {
+    (count, acc) = state
+    if count >= 2 { break (count, acc) } else { (count + 1, [item, ..acc]) }
   })
 }`
 	_, errs := checkSourceWithStdlib(src)
@@ -93,7 +93,7 @@ func TestCheckBinding_AnnotationDrivesInference(t *testing.T) {
 	// no-op.
 	mismatch := `import std::maps: Map
 fn main() {
-  m: Map<String, Int> = Iter.to_map([#("a", "b")])
+  m: Map<String, Int> = Iter.to_map([("a", "b")])
 }`
 	_, mismatchErrs := checkSourceWithStdlib(mismatch)
 	if len(mismatchErrs) == 0 {
@@ -197,8 +197,8 @@ func findBindingSymbol(t *testing.T, fa *analysis.FileAnalysis, name string) *an
 // an annotation. The body's `Map.put(...)` references constrain K and V
 // once unification has a real placeholder to bind.
 func TestCheckMapAccumulatorNoAnnotation(t *testing.T) {
-	src := `fn f(pairs: List<#(String, Int)>) -> Map<String, Int> {
-  Iter.reduce(pairs, %{}, fn acc, #(k, v) -> Map.put(acc, k, v))
+	src := `fn f(pairs: List<(String, Int)>) -> Map<String, Int> {
+  Iter.reduce(pairs, %{}, fn acc, (k, v) -> Map.put(acc, k, v))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
@@ -560,12 +560,12 @@ fn f() -> Int {
 }
 
 // Nested enum patterns with tuple destructure should type-check cleanly:
-// `Some(#(n, s))` must bind `n: Int` and `s: String` against `Maybe<#(Int, String)>`.
+// `Some((n, s))` must bind `n: Int` and `s: String` against `Maybe<(Int, String)>`.
 func TestCheckerAcceptsNestedEnumPatternTupleDestructure(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f(x: Maybe<#(Int, String)>) -> String {
+fn f(x: Maybe<(Int, String)>) -> String {
     case x {
-        Some(#(n, s)) -> s
+        Some((n, s)) -> s
         None -> ""
     }
 }
@@ -604,7 +604,7 @@ fn f(x: Maybe<Int>) -> String {
 
 // Removed: TestMapOnHashmapDoesNotCorruptCallType
 //
-// This test asserted that Iter.map coerced Map<K, V> to List<#(K, V)> when
+// This test asserted that Iter.map coerced Map<K, V> to List<(K, V)> when
 // inferring its generic param, and that a failing second call site didn't
 // corrupt the first call's resolved CallType. With pure-Nomi iter.* retired
 // in Phase C, lists.map takes List<T> strictly — there is no map-to-list
@@ -775,7 +775,7 @@ func TestCheckerRejectsOwnerCollectionConversions(t *testing.T) {
 		{"Vector.to_list", "fn f() -> List<Int> {\n    Vector.to_list(#[1])\n}\n", "type 'Vector' has no member 'to_list'"},
 		{"Vector.from_list", "fn f() -> Vector<Int> {\n    Vector.from_list([1])\n}\n", "type 'Vector' has no member 'from_list'"},
 		{"Set.from_list", "fn f() -> Set<Int> {\n    Set.from_list([1])\n}\n", "type 'Set' has no member 'from_list'"},
-		{"Map.from_list", "fn f() -> Map<String, Int> {\n    Map.from_list([#(\"a\", 1)])\n}\n", "type 'Map' has no member 'from_list'"},
+		{"Map.from_list", "fn f() -> Map<String, Int> {\n    Map.from_list([(\"a\", 1)])\n}\n", "type 'Map' has no member 'from_list'"},
 		{"String.graphemes", "fn f() -> List<String> {\n    String.graphemes(\"ab\")\n}\n", "type 'String' has no member 'graphemes'"},
 		{"piped Set.from_list", "fn f() -> Set<Int> {\n    [1] |> Set.from_list()\n}\n", "type 'Set' has no member 'from_list'"},
 	}
@@ -798,7 +798,7 @@ func TestCheckerRejectsOwnerCollectionConversions(t *testing.T) {
 func TestCheckerAcceptsIterToMapOnValidPairs(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn f() -> Map<String, Int> {
-    Iter.to_map([#("a", 1), #("b", 2)])
+    Iter.to_map([("a", 1), ("b", 2)])
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -947,15 +947,19 @@ fn from_bindings(a: Int, b: Int) -> Range<Int> { a..b }
 	expectNoStdlibErrors(t, errs)
 }
 
+// A Range is an Iter only where its element is Discrete, so a Range<String>
+// is one error, String's missing Discrete, not also the Range's missing Iter.
 func TestNonIntRangeDoesNotMaterializeToList(t *testing.T) {
-	_, errs := checkSourceWithStdlib(`
+	fa, errs := checkSourceWithStdlib(`
 fn f() -> List<String> { Iter.to_list("a".."z") }
 `)
+	errs = append(errs, analysis.FinalizeCoherence(fa)...)
 	if len(errs) == 0 {
 		t.Fatalf("expected Range<String> to fail Iter materialization")
 	}
-	if !strings.Contains(errs[0].Message, "does not implement Iter") {
-		t.Fatalf("expected Iter error, got: %v", errs)
+	const want = "no impl of `Discrete` for `String` (required via interface-typed param/field)"
+	if len(errs) != 1 || errs[0].Message != want {
+		t.Fatalf("want the one error %q, got: %v", want, errs)
 	}
 }
 
@@ -983,7 +987,7 @@ func TestMapKeysValuesToListInfer(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn ks(m: Map<String, Int>) -> List<String> { Map.keys(m) }
 fn vs(m: Map<String, Int>) -> List<Int> { Map.values(m) }
-fn es(m: Map<String, Int>) -> List<#(String, Int)> { Iter.to_list(m) }
+fn es(m: Map<String, Int>) -> List<(String, Int)> { Iter.to_list(m) }
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -994,7 +998,7 @@ func TestListMapFilterZipInfer(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn m() -> List<Int> { Iter.map([1, 2, 3], fn x -> x * 2) |> Iter.to_list() }
 fn f() -> List<Int> { Iter.filter([1, 2, 3], fn x -> x > 1) |> Iter.to_list() }
-fn z() -> List<#(Int, String)> { Iter.zip([1, 2], ["a", "b"]) |> Iter.to_list() }
+fn z() -> List<(Int, String)> { Iter.zip([1, 2], ["a", "b"]) |> Iter.to_list() }
 `)
 	expectNoStdlibErrors(t, errs)
 }
@@ -1011,20 +1015,20 @@ fn f() -> Map<Int, List<Int>> { Iter.group_by([1, 2, 3], fn it -> it % 2) }
 }
 
 // TestListZipTypeInfers — Iter.zip |> Iter.to_list() infers its element type.
-// The public return type is Iter<#(T, U)>, so the element type should flow
+// The public return type is Iter<(T, U)>, so the element type should flow
 // through without exposing the private ZipIter wrapper.
 func TestListZipTypeInfers(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f() -> List<#(Int, String)> { Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() }
+fn f() -> List<(Int, String)> { Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() }
 `)
 	expectNoStdlibErrors(t, errs)
 }
 
 // TestIterToListOnZipIter — Iter.to_list on Iter.zip's Iter return must
-// type-check to List<#(Int, Int)>.
+// type-check to List<(Int, Int)>.
 func TestIterToListOnZipIter(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn f() -> List<#(Int, Int)> {
+fn f() -> List<(Int, Int)> {
     Iter.to_list(Iter.zip(Iter.from(0), [10, 11]))
 }
 `)

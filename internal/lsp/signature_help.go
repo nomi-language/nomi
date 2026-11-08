@@ -138,13 +138,17 @@ func buildSignatureInfo(sym *analysis.Symbol) (string, []protocol.ParameterInfor
 		return "", nil, ""
 	}
 
-	sig := hoverdoc.RenderFuncSig(sym.Name, typeParams, params, ret)
+	sig := hoverdoc.RenderFuncSigResolvedSelf(sym.Name, typeParams, params, ret, sym.Type, nil, "")
 
 	var paramInfos []protocol.ParameterInformation
-	for _, p := range params {
+	ft, _ := sym.Type.(*analysis.FuncType)
+	for i, p := range params {
 		typeText := ""
 		if p.TypeAnnotation != nil {
 			typeText = p.TypeAnnotation.TypeString()
+		} else if ft != nil && i < len(ft.Params) && ft.Params[i] != nil && p.Default != nil && p.Destructure == nil {
+			// `limit = 10`: the type the checker gave it from its default.
+			typeText = ft.Params[i].String()
 		}
 		paramInfos = append(paramInfos, protocol.ParameterInformation{
 			Label: hoverdoc.ParamSignature(p, typeText),

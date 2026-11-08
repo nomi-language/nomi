@@ -32,7 +32,7 @@ fn main() {
     io.print(if first(True) { "yes" } else { "no" })
     io.print("${first(2.5)}")
     io.print("${first([1, 2, 3])}")
-    io.print("${first(#(4, "five"))}")
+    io.print("${first((4, "five"))}")
     io.print("${first(Point{x: 1, y: 2}).x}")
     io.print("${first(first(11))}")
 

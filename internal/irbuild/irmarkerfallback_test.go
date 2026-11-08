@@ -62,8 +62,8 @@ fn main() {
     [s, State.Missing] |> Iter.each(fn x -> io.print(describe(x)))
     b: Box<Ready> = Box.Full(Ready)
     u: Box<Unit> = Box.Full(Unit)
-    io.inspect(#(b, u))
+    io.inspect((b, u))
 }
 `
-	irRunSource(t, src, "Present(Ready)\npresent Ready\nmissing\n#(Full(Ready), Full(Unit))\n")
+	irRunSource(t, src, "Present(Ready)\npresent Ready\nmissing\n(Full(Ready), Full(Unit))\n")
 }

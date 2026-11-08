@@ -15,7 +15,8 @@ import (
 // parameter's default, and where the parameter types came from: the
 // parameter of the call it is passed to, the piped value of a `then` or
 // `tap` stage, the expected type, or the annotation. A declaration's `fn`
-// shows what its name shows.
+// shows what its name shows. KeywordAt adds the keyword's link to both, and
+// the declaration's text.
 
 // capture claims the `&` of a capture (`&(&1 > 2)`, `&Int.max(&1, 0)`),
 // which shows the function's type and where its parameter types came from,

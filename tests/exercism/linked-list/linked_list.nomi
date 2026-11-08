@@ -30,14 +30,14 @@ impl LinkedList<T> {
 
     /// The last value of `list` and the list without it, or `None` when it is
     /// empty.
-    pub fn pop(list: LinkedList<T>) -> Maybe<#(T, LinkedList<T>)> {
+    pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
         case list.back {
             [last, ..back] ->
-                Some(#(last, #{..list, back}))
+                Some((last, #{..list, back}))
 
             [] -> {
                 case Iter.reverse(list.front) {
-                    [last, ..back] -> Some(#(last, LinkedList{front: [], back}))
+                    [last, ..back] -> Some((last, LinkedList{front: [], back}))
                     [] -> None
                 }
             }
@@ -46,14 +46,14 @@ impl LinkedList<T> {
 
     /// The first value of `list` and the list without it, or `None` when it
     /// is empty.
-    pub fn shift(list: LinkedList<T>) -> Maybe<#(T, LinkedList<T>)> {
+    pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
         case list.front {
             [first, ..front] ->
-                Some(#(first, #{..list, front}))
+                Some((first, #{..list, front}))
 
             [] -> {
                 case Iter.reverse(list.back) {
-                    [first, ..front] -> Some(#(first, LinkedList{front, back: []}))
+                    [first, ..front] -> Some((first, LinkedList{front, back: []}))
                     [] -> None
                 }
             }

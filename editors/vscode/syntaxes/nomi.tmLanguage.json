@@ -497,9 +497,9 @@
     "punctuation": {
       "patterns": [
         {
-          "comment": "`#` starts an anonymous struct, a tuple or a vector literal: `#{`, `#(`, `#[`, or a named vector with its type right after it, `#Path[`, `#.Items[`. A named struct or tuple has no `#`: `Point{x: 1}`, `Pair(1, \"x\")`.",
+          "comment": "`#` starts an anonymous struct or a vector literal: `#{`, `#[`, or a named vector with its type right after it, `#Path[`, `#.Items[`. A tuple, `(1, \"x\")`, and a named struct or tuple have no `#`: `Point{x: 1}`, `Pair(1, \"x\")`.",
           "name": "punctuation.section.nomi",
-          "match": "#(?=[{(\\[.A-Z]|[a-z_][A-Za-z0-9_]*(?:::[a-z_][A-Za-z0-9_]*)*\\.[A-Z])"
+          "match": "#(?=[{\\[.A-Z]|[a-z_][A-Za-z0-9_]*(?:::[a-z_][A-Za-z0-9_]*)*\\.[A-Z])"
         },
         {
           "name": "punctuation.separator.nomi",

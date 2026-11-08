@@ -99,13 +99,13 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw {
 fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool {
     counts_agree =
         [
-            #(clues.pieces, jigsaw.pieces),
-            #(clues.border, jigsaw.border),
-            #(clues.inside, jigsaw.inside),
-            #(clues.rows, jigsaw.rows),
-            #(clues.columns, jigsaw.columns),
+            (clues.pieces, jigsaw.pieces),
+            (clues.border, jigsaw.border),
+            (clues.inside, jigsaw.inside),
+            (clues.rows, jigsaw.rows),
+            (clues.columns, jigsaw.columns),
         ]
-        |> Iter.all(fn #(known, actual) -> agrees(known, actual))
+        |> Iter.all(fn (known, actual) -> agrees(known, actual))
 
     ratio_agrees = Iter.all(clues.aspect_ratio, &Float.equal_within(&1, jigsaw.aspect_ratio, 1e-9))
 
@@ -203,8 +203,8 @@ fn nearest(x: Float) -> Maybe<Int> {
 import piecing_it_together.{Clues, Jigsaw, jigsaw_data}
 
 test "jigsaw data" {
-    cases: List<#(String, Clues, Jigsaw)> = [
-        #(
+    cases: List<(String, Clues, Jigsaw)> = [
+        (
             "1000 pieces puzzle with 1.6 aspect ratio",
             #{pieces: Some(1000), aspect_ratio: Some(1.6)},
             #{
@@ -217,7 +217,7 @@ test "jigsaw data" {
                 format: .Landscape,
             },
         ),
-        #(
+        (
             "square puzzle with 32 rows",
             #{rows: Some(32), format: Some(.Square)},
             #{
@@ -230,7 +230,7 @@ test "jigsaw data" {
                 format: .Square,
             },
         ),
-        #(
+        (
             "400 pieces square puzzle with only inside pieces and aspect ratio",
             #{inside: Some(324), aspect_ratio: Some(1.0)},
             #{
@@ -243,7 +243,7 @@ test "jigsaw data" {
                 format: .Square,
             },
         ),
-        #(
+        (
             "1500 pieces landscape puzzle with 30 rows and 1.6 aspect ratio",
             #{rows: Some(30), aspect_ratio: Some(1.6666666666666667)},
             #{
@@ -256,7 +256,7 @@ test "jigsaw data" {
                 format: .Landscape,
             },
         ),
-        #(
+        (
             "300 pieces portrait puzzle with 70 border pieces",
             #{pieces: Some(300), border: Some(70), format: Some(.Portrait)},
             #{
@@ -271,7 +271,7 @@ test "jigsaw data" {
         ),
     ]
 
-    subtests cases, #(description, clues, expected), description {
+    subtests cases, (description, clues, expected), description {
         assert jigsaw_data(clues) == Ok(expected)
     }
 }

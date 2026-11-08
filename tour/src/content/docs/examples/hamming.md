@@ -21,7 +21,7 @@ pub fn distance(strand1: String, strand2: String) -> Result<Int, String> {
     }
 
     Iter.zip(strand1, strand2)
-    |> Iter.filter(fn #(a, b) -> a != b)
+    |> Iter.filter(fn (a, b) -> a != b)
     |> Iter.count()
     |> Ok()
 }
@@ -31,17 +31,17 @@ import hamming.distance
 
 test "hamming distance" {
     [
-        #("empty strands", "", "", Ok(0)),
-        #("single letter identical strands", "A", "A", Ok(0)),
-        #("single letter different strands", "G", "T", Ok(1)),
-        #("long identical strands", "GGACTGAAATCTG", "GGACTGAAATCTG", Ok(0)),
-        #("long different strands", "GGACGGATTCTG", "AGGACGGATTCT", Ok(9)),
-        #("disallow first strand longer", "AATG", "AAA", Err("strands must be of equal length")),
-        #("disallow second strand longer", "ATA", "AGTG", Err("strands must be of equal length")),
-        #("disallow empty first strand", "", "G", Err("strands must be of equal length")),
-        #("disallow empty second strand", "G", "", Err("strands must be of equal length")),
+        ("empty strands", "", "", Ok(0)),
+        ("single letter identical strands", "A", "A", Ok(0)),
+        ("single letter different strands", "G", "T", Ok(1)),
+        ("long identical strands", "GGACTGAAATCTG", "GGACTGAAATCTG", Ok(0)),
+        ("long different strands", "GGACGGATTCTG", "AGGACGGATTCT", Ok(9)),
+        ("disallow first strand longer", "AATG", "AAA", Err("strands must be of equal length")),
+        ("disallow second strand longer", "ATA", "AGTG", Err("strands must be of equal length")),
+        ("disallow empty first strand", "", "G", Err("strands must be of equal length")),
+        ("disallow empty second strand", "G", "", Err("strands must be of equal length")),
     ]
-    |> subtests #(description, strand1, strand2, expected), description {
+    |> subtests (description, strand1, strand2, expected), description {
         assert distance(strand1, strand2) == expected
     }
 }

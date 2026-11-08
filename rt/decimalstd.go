@@ -133,11 +133,11 @@ func decimalFault(fn string, err error) { Trap(fn + ": " + err.Error()) }
 
 // DecimalPow is `Decimal.pow`: d multiplied by itself exp times, exactly,
 // at scale exp times d's (1d at scale 0 for exp 0). A negative exponent
-// traps, since its answer is a quotient that may not terminate and that
-// `Decimal.divide` rounds by a named mode; so does a scale past Decimal's.
+// traps, since its answer is a quotient that may not terminate, which `/`
+// or `Decimal.divide` rounds; so does a scale past Decimal's.
 func DecimalPow(d Decimal, exp int64) Decimal {
 	if exp < 0 {
-		Trap(fmt.Sprintf("Decimal.pow: negative exponent %d: divide 1d by the power with Decimal.divide, which names a scale and a rounding mode", exp))
+		Trap(fmt.Sprintf("Decimal.pow: negative exponent %d: divide 1d by the power with `/`, or with Decimal.divide to name a scale and a rounding mode", exp))
 	}
 	// Past 2^31 the scale overflows unless it is 0, and the digits run past
 	// what memory holds unless the mantissa is 0 or ±1.

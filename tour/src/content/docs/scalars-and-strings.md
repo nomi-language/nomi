@@ -71,7 +71,8 @@ the operation.
 - The number types never mix. `1 + 2.0` is
   `binary + type mismatch: Int vs Float`; convert with `Int.to_float` or
   `Float.to_int`, which is `None` for NaN and the infinities.
-- `Float` has no `%`.
+- `%` works on `Float` and `Decimal` too, with the dividend's sign:
+  `-7.5 % 2.0` is `-1.5`, and `1.0 % 0.0` is NaN.
 
 Spec: [Integer division and remainder](/spec/expressions/#integer-division-and-remainder),
 [Integer arithmetic is exact](/spec/expressions/#integer-arithmetic-is-exact),
@@ -153,11 +154,12 @@ Spec: [Float Special Values](/spec/types/#float-special-values),
 exactly. Use it when a rounding error would be a bug, as with money. A
 decimal literal ends in `d`.
 
-`Decimal` has `+`, `-` and `*` but no `/`, since 10 divided by 3 never ends
-in base 10. `Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven)` rounds to the
-number of digits and the rounding you name (import
-`std::decimal.RoundingMode` to name one), and `Decimal.divide_exact(10d, 4d)`
-returns `Some(2.5d)`, or `None` when the quotient never ends.
+`Decimal`'s `+`, `-` and `*` are exact. `/` keeps 34 significant digits,
+rounded half-even, so `10d / 3d` is `3.333333333333333333333333333333333d`,
+and a quotient that ends is exact with no trailing zeros: `10.00d / 4d` is
+`2.5d`. To round to a number of places, name them and the rounding:
+`Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven)` is `3.33d` (import
+`std::decimal.RoundingMode` to name one).
 
 ## String interpolation and concatenation
 
@@ -507,7 +509,7 @@ take a [`Matcher`](/reference/matcher/) for the text to look for: a plain
 `String` or a `Regex`. `String.find` returns the first match and
 `String.find_all` every one. `String.captures` returns the text each group in
 parentheses matched, shaped by the literal's type: `date` below is a
-`Regex<#(String, String, String)>`, a group a match can skip is a
+`Regex<(String, String, String)>`, a group a match can skip is a
 `Maybe<String>`, and named groups (`(?P<year>\d{4})`) make a struct. With a
 `Regex`, `String.replace` reads `$1`, `$2` in the replacement as the groups'
 text (`$$` is a literal `$`):
@@ -538,7 +540,7 @@ fn main() -> Result<Unit, String> {
 dbg line 7: String.contains(text, date) = True
 dbg line 8: String.find(text, Regex`\d+`) = Some("1042")
 dbg line 9: String.find_all(text, date) = ["2026-10-25", "2026-10-26"]
-dbg line 10: String.captures(text, date) = Some(#("2026", "10", "25"))
+dbg line 10: String.captures(text, date) = Some(("2026", "10", "25"))
 dbg line 11: String.split("a, b,c ,  d", Regex`\s*,\s*`) = ["a", "b", "c", "d"]
 dbg line 12: String.replace(text, Regex`\d{3,4} `, "# ") = "Order # shipped 2026-10-25, order # on 2026-10-26"
 dbg line 13: String.replace(text, date, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"

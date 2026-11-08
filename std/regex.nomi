@@ -7,7 +7,7 @@
 //# A `Regex<C>` names its capture groups: `C` is what `String.captures`
 //# gives for a match. A literal's `C` comes from its pattern, a tuple of
 //# `String` and `Maybe<String>` groups (``Regex`(\d+)-(\w+)?` `` is a
-//# `Regex<#(String, Maybe<String>)>`), an anonymous struct when every group
+//# `Regex<(String, Maybe<String>)>`), an anonymous struct when every group
 //# is named, one group's type alone, or `Unit` for none; a regex compiled
 //# while the program runs is a `Regex<List<Maybe<String>>>`.
 //# A `Regex` is a `Matcher`, so String's search functions take one in place of
@@ -41,8 +41,8 @@
 //#   ``Regex`(?P<year>\d{4})-(?P<month>\d\d)?` `` is a
 //#   `Regex<#{year: String, month: Maybe<String>}>`.
 //# - Otherwise several groups are a tuple in order (``Regex`(\d+)-(\w+)?` ``
-//#   is a `Regex<#(String, Maybe<String>)>`, and ``Regex`(a)|(b)` `` a
-//#   `Regex<#(Maybe<String>, Maybe<String>)>`), one group is its type alone,
+//#   is a `Regex<(String, Maybe<String>)>`, and ``Regex`(a)|(b)` `` a
+//#   `Regex<(Maybe<String>, Maybe<String>)>`), one group is its type alone,
 //#   since Nomi has no one-element tuple (``Regex`v(\d+)` `` is a
 //#   `Regex<String>`), and a pattern with no group is a `Regex<Unit>`, whose
 //#   `String.captures` is `Some(Unit)` for a match.
@@ -86,7 +86,7 @@ import {
 /// A `Regex` is a `Matcher`: test, find, collect and split with the String
 /// functions. `C` is what `String.captures` gives for a match; a literal's
 /// comes from its pattern, so ``Regex`(\w+)@(\w+)?` `` is a
-/// `Regex<#(String, Maybe<String>)>`, and the functions that do not read
+/// `Regex<(String, Maybe<String>)>`, and the functions that do not read
 /// groups take a `Regex` of any `C`.
 //! import std::unit.Unit
 //!
@@ -95,16 +95,16 @@ import {
 //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
 //! assert String.find("order 66, aisle 7", Regex`\d+`) == Maybe.Some("66")
 //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
-//! assert String.captures("ann@home", Regex`(\w+)@(\w+)?`) == Maybe.Some(#("ann", Maybe.Some("home")))
+//! assert String.captures("ann@home", Regex`(\w+)@(\w+)?`) == Maybe.Some(("ann", Maybe.Some("home")))
 //!
 //! pair = Regex`(\w+)@(\w+)?`
-//! assert String.captures("ann@", pair) == Maybe.Some(#("ann", Maybe.None))
+//! assert String.captures("ann@", pair) == Maybe.Some(("ann", Maybe.None))
 //! assert String.captures("none", pair) == Maybe.None
 //!
 //! #{year, month} = String.captures("2024-05", Regex`(?P<year>\d{4})-(?P<month>\d\d)`)!
 //! assert year + month == "202405"
 //!
-//! assert String.captures_all("a=1 b=2", Regex`(\w)=(\d)`) == [#("a", "1"), #("b", "2")]
+//! assert String.captures_all("a=1 b=2", Regex`(\w)=(\d)`) == [("a", "1"), ("b", "2")]
 //! assert String.captures("aa", Regex`(a*)`) == Maybe.Some("aa")
 //! assert String.captures("x", Regex`x`) == Maybe.Some(Unit)
 //! digits: Regex<Unit> = Regex`\d+`

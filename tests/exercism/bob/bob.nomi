@@ -7,10 +7,10 @@ pub fn response(remark: String) -> String {
     remark = String.trim(remark)
     if remark == "" { return "Fine. Be that way!" }
 
-    case #(String.ends_with(remark, "?"), String.is_upper(remark)) {
-        #(True, True) -> "Calm down, I know what I'm doing!"
-        #(True, False) -> "Sure."
-        #(False, True) -> "Whoa, chill out!"
-        #(False, False) -> "Whatever."
+    case (String.ends_with(remark, "?"), String.is_upper(remark)) {
+        (True, True) -> "Calm down, I know what I'm doing!"
+        (True, False) -> "Sure."
+        (False, True) -> "Whoa, chill out!"
+        (False, False) -> "Whatever."
     }
 }

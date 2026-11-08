@@ -94,15 +94,11 @@ func (b *bound) fn243(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn584(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn586(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn590(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn591(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn592(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -110,15 +106,11 @@ func (b *bound) fn593(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn599(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn595(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
 func (b *bound) fn601(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn602(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -190,7 +182,11 @@ func (b *bound) fn619(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn626(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn620(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
+func (b *bound) fn621(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -198,19 +194,19 @@ func (b *bound) fn628(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn629(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
 func (b *bound) fn630(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn635(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn631(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn636(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn632(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
+func (b *bound) fn637(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -218,11 +214,7 @@ func (b *bound) fn638(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn648(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn649(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn640(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -234,11 +226,15 @@ func (b *bound) fn651(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn656(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn652(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn660(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn653(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
+func (b *bound) fn658(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -246,19 +242,15 @@ func (b *bound) fn662(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn663(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
 func (b *bound) fn664(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn666(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn665(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn667(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn666(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -314,11 +306,11 @@ func (b *bound) fn680(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn683(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn681(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn684(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn682(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -326,7 +318,11 @@ func (b *bound) fn685(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn688(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn686(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
+func (b *bound) fn687(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -334,15 +330,11 @@ func (b *bound) fn690(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn691(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn692(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn694(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn695(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn693(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -354,15 +346,15 @@ func (b *bound) fn697(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
+func (b *bound) fn698(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
 func (b *bound) fn699(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn702(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn703(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn701(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -410,11 +402,11 @@ func (b *bound) fn714(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn719(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn715(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn720(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn716(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -430,15 +422,15 @@ func (b *bound) fn723(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
+func (b *bound) fn724(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
 func (b *bound) fn725(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
 func (b *bound) fn727(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn728(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -450,11 +442,11 @@ func (b *bound) fn730(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn734(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn731(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn735(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn732(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -462,15 +454,15 @@ func (b *bound) fn736(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn740(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn737(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn744(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn738(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn745(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn742(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -486,11 +478,11 @@ func (b *bound) fn748(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn752(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn749(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn753(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn750(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -514,11 +506,11 @@ func (b *bound) fn758(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn762(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn759(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn763(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn760(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -570,11 +562,11 @@ func (b *bound) fn775(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn779(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn776(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn780(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn777(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -602,19 +594,19 @@ func (b *bound) fn786(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn791(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn787(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn792(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn788(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
+func (b *bound) fn793(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
 func (b *bound) fn794(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	return nil, errNoNetwork
-}
-
-func (b *bound) fn795(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -626,11 +618,11 @@ func (b *bound) fn797(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn799(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn798(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn800(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn799(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -642,11 +634,15 @@ func (b *bound) fn802(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn805(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn803(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
-func (b *bound) fn806(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *bound) fn804(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
+func (b *bound) fn807(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }
 
@@ -659,5 +655,9 @@ func (b *bound) fn810(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 }
 
 func (b *bound) fn812(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	return nil, errNoNetwork
+}
+
+func (b *bound) fn814(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return nil, errNoNetwork
 }

@@ -15,7 +15,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // does not solve is left as it was.
 //
 // It walks the whole value, since a dot may sit inside a tuple, list or
-// record the slot's type reaches through (`Pos.Node(#(.Leaf, 4))`). A nested
+// record the slot's type reaches through (`Pos.Node((.Leaf, 4))`). A nested
 // construction re-records its own dots first, so only a type that still
 // holds one of this construction's parameters changes.
 func (c *checker) resolveDotVariantTypes(value ast.Node, subs map[*TypeParam_]Type) {

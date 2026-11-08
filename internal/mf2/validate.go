@@ -454,25 +454,31 @@ func typePhrase(p Param) string {
 	return article + " `" + p.Type + "`"
 }
 
-func (v *validator) option(fn string, o Option) {
-	allowed := numberOptions
+// allowedOptions are the options the function fn takes.
+func allowedOptions(fn string) map[string]bool {
 	switch fn {
 	case "integer":
-		allowed = integerOptions
+		return integerOptions
 	case "nomi:noun":
-		allowed = nounOptions
+		return nounOptions
 	case "currency":
-		allowed = currencyOptions
+		return currencyOptions
 	case "date", "time":
-		allowed = styleOptions
+		return styleOptions
 	case "datetime":
-		allowed = map[string]bool{}
+		allowed := map[string]bool{}
 		for name := range DateTimeOptions {
 			allowed[name] = true
 		}
+		return allowed
 	case "string", "nomi:gender", "nomi:list", "nomi:weekday":
-		allowed = nil
+		return nil
 	}
+	return numberOptions
+}
+
+func (v *validator) option(fn string, o Option) {
+	allowed := allowedOptions(fn)
 	if !allowed[o.Name] {
 		var names []string
 		for n := range allowed {

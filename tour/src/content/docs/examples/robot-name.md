@@ -53,22 +53,22 @@ impl Factory {
 
     /// A new robot with a name no robot of this factory has had, or
     /// `NamesExhausted` when every name has been given.
-    pub fn build(factory: Factory) -> Result<#(Robot, Factory), Error> {
+    pub fn build(factory: Factory) -> Result<(Robot, Factory), Error> {
         if Set.size(factory.given) == name_count { return Err(.NamesExhausted) }
 
-        #(name, seed) = Generator.step(names(), factory.seed)
+        (name, seed) = Generator.step(names(), factory.seed)
 
         if name in factory.given {
             Factory.build(#{..factory, seed})
         } else {
-            Ok(#(Robot{name}, Factory{seed, given: Set.insert(factory.given, name)}))
+            Ok((Robot{name}, Factory{seed, given: Set.insert(factory.given, name)}))
         }
     }
 
     /// `robot` reset to its factory settings: wiped, and named again with a
     /// name no robot of this factory has had. The old name is not given
     /// again.
-    pub fn reset(factory: Factory, _robot: Robot) -> Result<#(Robot, Factory), Error> {
+    pub fn reset(factory: Factory, _robot: Robot) -> Result<(Robot, Factory), Error> {
         Factory.build(factory)
     }
 }
@@ -106,11 +106,11 @@ fn is_well_formed(name: String) -> Bool {
 
 /// The names of `count` robots from `factory`, in the order it built them.
 fn names(factory: Factory, count: Int) -> List<String> {
-    #(_factory, names) =
+    (_factory, names) =
         1..=count
         |> Iter.map_reduce(factory, fn factory, _n -> {
-            #(robot, next) = Factory.build(factory)!
-            #(next, Robot.name(robot))
+            (robot, next) = Factory.build(factory)!
+            (next, Robot.name(robot))
         })
 
     names
@@ -120,24 +120,24 @@ group "robot name" {
     setup Seed.from_int(42) |> Factory.new()
 
     test "has a name", factory {
-        assert Ok(#(robot, _factory)) = Factory.build(factory)
+        assert Ok((robot, _factory)) = Factory.build(factory)
         assert is_well_formed(Robot.name(robot))
     }
 
     test "name is the same each time", factory {
-        assert Ok(#(robot, _factory)) = Factory.build(factory)
+        assert Ok((robot, _factory)) = Factory.build(factory)
         assert Robot.name(robot) == Robot.name(robot)
     }
 
     test "different robots have different names", factory {
-        assert Ok(#(first, factory)) = Factory.build(factory)
-        assert Ok(#(second, _factory)) = Factory.build(factory)
+        assert Ok((first, factory)) = Factory.build(factory)
+        assert Ok((second, _factory)) = Factory.build(factory)
         assert Robot.name(first) != Robot.name(second)
     }
 
     test "reset changes the name to a new well-formed one", factory {
-        assert Ok(#(robot, factory)) = Factory.build(factory)
-        assert Ok(#(reset, _factory)) = Factory.reset(factory, robot)
+        assert Ok((robot, factory)) = Factory.build(factory)
+        assert Ok((reset, _factory)) = Factory.reset(factory, robot)
         assert Robot.name(reset) != Robot.name(robot)
         assert is_well_formed(Robot.name(reset))
     }

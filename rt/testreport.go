@@ -443,7 +443,7 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 // writeSubtestsReport renders a `subtests` statement's failure: each failing
 // row's own report, its header naming the row, then the count line.
 //
-//	subtest #("abc", True): line 9: assertion failed
+//	subtest ("abc", True): line 9: assertion failed
 //	  assert is_palindrome(line) == known_palindrome
 //	  ...
 //	2 of 5 subtests failed

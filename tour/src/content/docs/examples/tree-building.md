@@ -52,7 +52,7 @@ pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error> {
     ids_in_order =
         sorted
         |> Iter.with_index()
-        |> Iter.all(fn #(index, record) -> record.id == index)
+        |> Iter.all(fn (index, record) -> record.id == index)
 
     if not ids_in_order { return Err(.InvalidRecord) }
 
@@ -88,25 +88,25 @@ fn leaf(id: Int) -> Node {
 }
 
 test "build tree" {
-    cases: List<#(String, List<Record>, Maybe<Node>)> = [
-        #("empty list", [], None),
-        #("single record", [#{id: 0, parent: 0}], Some(leaf(0))),
-        #(
+    cases: List<(String, List<Record>, Maybe<Node>)> = [
+        ("empty list", [], None),
+        ("single record", [#{id: 0, parent: 0}], Some(leaf(0))),
+        (
             "three records in order",
             [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 2, parent: 0}],
             Some(#{id: 0, children: [leaf(1), leaf(2)]}),
         ),
-        #(
+        (
             "three records in reverse order",
             [#{id: 2, parent: 0}, #{id: 1, parent: 0}, #{id: 0, parent: 0}],
             Some(#{id: 0, children: [leaf(1), leaf(2)]}),
         ),
-        #(
+        (
             "more than two children",
             [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 2, parent: 0}, #{id: 3, parent: 0}],
             Some(#{id: 0, children: [leaf(1), leaf(2), leaf(3)]}),
         ),
-        #(
+        (
             "binary tree",
             [
                 #{id: 5, parent: 1},
@@ -125,7 +125,7 @@ test "build tree" {
                 ],
             }),
         ),
-        #(
+        (
             "unbalanced tree",
             [
                 #{id: 5, parent: 2},
@@ -146,44 +146,44 @@ test "build tree" {
         ),
     ]
 
-    subtests cases, #(description, records, expected), description {
+    subtests cases, (description, records, expected), description {
         assert tree_building.build_tree(records) == Ok(expected)
     }
 }
 
 test "invalid records" {
-    cases: List<#(String, List<Record>, String)> = [
-        #(
+    cases: List<(String, List<Record>, String)> = [
+        (
             "one root node and has parent",
             [#{id: 0, parent: 1}],
             "node parent_id should be smaller than its record_id",
         ),
-        #(
+        (
             "root node has parent",
             [#{id: 0, parent: 1}, #{id: 1, parent: 0}],
             "node parent_id should be smaller than its record_id",
         ),
-        #(
+        (
             "no root node",
             [#{id: 1, parent: 0}, #{id: 2, parent: 0}],
             "record id is invalid or out of order",
         ),
-        #(
+        (
             "duplicate node",
             [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 1, parent: 0}],
             "record id is invalid or out of order",
         ),
-        #(
+        (
             "duplicate root",
             [#{id: 0, parent: 0}, #{id: 0, parent: 0}],
             "record id is invalid or out of order",
         ),
-        #(
+        (
             "non-continuous",
             [#{id: 2, parent: 0}, #{id: 4, parent: 2}, #{id: 1, parent: 0}, #{id: 0, parent: 0}],
             "record id is invalid or out of order",
         ),
-        #(
+        (
             "cycle directly",
             [
                 #{id: 5, parent: 2},
@@ -196,7 +196,7 @@ test "invalid records" {
             ],
             "record id is invalid or out of order",
         ),
-        #(
+        (
             "cycle indirectly",
             [
                 #{id: 5, parent: 2},
@@ -209,14 +209,14 @@ test "invalid records" {
             ],
             "record id is invalid or out of order",
         ),
-        #(
+        (
             "higher id parent of lower id",
             [#{id: 0, parent: 0}, #{id: 2, parent: 0}, #{id: 1, parent: 2}],
             "record id is invalid or out of order",
         ),
     ]
 
-    subtests cases, #(description, records, message), description {
+    subtests cases, (description, records, message), description {
         assert Err(error) = tree_building.build_tree(records)
         assert "${error}" == message
     }

@@ -171,8 +171,8 @@ fn short_fail() -> Result<Int, String> {
   Err("boom")
 }
 
-fn pair_of() -> #(Int, String) {
-  #(1, "one")
+fn pair_of() -> (Int, String) {
+  (1, "one")
 }
 
 group "sibling cancellation under a virtual clock" {
@@ -207,7 +207,7 @@ group "sibling cancellation under a virtual clock" {
 
   test "a tuple pattern binds both parts" {
     pair = pair_of()
-    assert #(n, word) = pair
+    assert (n, word) = pair
     assert n == 1
     assert word == "one"
   }

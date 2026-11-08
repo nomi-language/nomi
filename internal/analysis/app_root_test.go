@@ -19,7 +19,7 @@ func TestScopedValuesRejectInvalidBootSignatures(t *testing.T) {
 		"(context: Context) -> MyApp":                   bootSignatureMsg,
 		"(startup: Startup, context: Context) -> MyApp": bootSignatureMsg,
 		"<T>() -> MyApp":                                bootSignatureMsg,
-		"(startup: Startup) -> #(Context, MyApp)":       "boot must return `Result<App, E>`",
+		"(startup: Startup) -> (Context, MyApp)":        "boot must return `Result<App, E>`",
 	} {
 		expectErrorT(t, buildProjectForDefaultConfig("\nstruct MyApp { port: Int }\nfn boot"+signature+" { MyApp{port: 3} }\nfn main() {}"), want)
 	}

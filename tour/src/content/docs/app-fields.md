@@ -258,9 +258,9 @@ Opening something can fail. When it returns a `Result`, open it with `?`
 and then defer the cleanup:
 
 ```nomi
-notes = fs.create("notes.txt")?
+notes = fs.open("notes.txt")?
 
-defer Writer.close_quietly(notes)
+defer Reader.close_quietly(notes)
 ```
 
 If opening fails, the `?` returns before the `defer` line runs, so there is
@@ -273,7 +273,7 @@ nothing to close. Calls deferred earlier in the block still run.
 - The function and its arguments are evaluated on the `defer` line, with
   the app fields in force there. Only the call waits.
 - The deferred call must return `Unit`, so it can't report a failure. A
-  cleanup that can fail handles it inside, as `Writer.close_quietly` does.
+  cleanup that can fail handles it inside, as `Reader.close_quietly` does.
 - Every way out of the block runs it: the end, `return`, `break`,
   `continue`, a `?` and a trap. A deferred call that traps doesn't stop the
   others or hide the failure that ended the block.

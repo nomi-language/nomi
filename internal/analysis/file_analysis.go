@@ -199,7 +199,7 @@ type FileBodies struct {
 	// (refreshReceiverMembers). Nil until the first record.
 	receiverMembers map[*Symbol]*Symbol
 	// LambdaPatternTypes maps a lambda's destructuring parameter, keyed by
-	// its pattern node (`#(_, v)` in `fn #(_, v) -> v`), to the type the checker
+	// its pattern node (`(_, v)` in `fn (_, v) -> v`), to the type the checker
 	// gave the whole parameter. The parameter has no name and so no symbol
 	// in Definitions, and a wildcard part binds nothing, so the names the
 	// pattern introduces cannot always say what the parameter is. Nil until
@@ -236,11 +236,21 @@ type FileBodies struct {
 	// the first record.
 	ExprTypes     map[ast.Node]Type
 	ExpectedTypes map[ast.Node]Type
+	// RedundantAscriptions holds each `value as Type` whose value has that
+	// type without it (ascription.go), which the editor marks as
+	// unnecessary. Nil until the first record.
+	RedundantAscriptions map[*ast.Ascription]bool
 	// CheckedLiterals holds each typed literal whose tag implements
 	// CheckedLiteral (spec §18 *Checked literals*): its type is build's
 	// result in every quote style, and its check runs when the program is
 	// checked. Nil until the first record.
 	CheckedLiterals map[*ast.TaggedString]bool
+	// TargetLiterals maps each untagged string literal written where a type
+	// with a CheckedLiteral impl is expected to the typed literal it is read
+	// as (target_literal.go), and TargetLiteralBuilds maps that twin to the
+	// impl's `build`, which the position chose. Nil until the first record.
+	TargetLiterals      map[ast.Node]*ast.TaggedString
+	TargetLiteralBuilds map[*ast.TaggedString]*ast.FuncDef
 	// PatternTypes maps each list, vector, set, map, struct and tuple
 	// pattern, and each `_` pattern, the checker checked to the type of the
 	// value it matches. The editor's hover reads it to say what a pattern
@@ -280,6 +290,10 @@ type FileBodies struct {
 	// accessor as a one-parameter closure over that type. Nil until the
 	// first record.
 	FieldAccessors map[*ast.FieldAccessor]Type
+	// TupleItems maps each field access that reads a tuple's item by its
+	// ordinal name (`pair.first`, a named tuple's `p.second`) to the item's
+	// zero-based index. A struct field named `first` is not in it.
+	TupleItems map[*ast.FieldAccess]int
 	// Placeholders holds each capture parameter `&N` the checker met, by
 	// position, with its length in bytes: the semantic tokens color it as a
 	// parameter. Nil until the first record.

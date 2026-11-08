@@ -30,7 +30,7 @@ import std::io
 //     Position is a fourth fact and needs a third entry to be visible at all,
 //     so `positioned` below has one.
 //
-//   - THE TOP-LEVEL KEY against a NESTED one. `#(Decimal, String)` and
+//   - THE TOP-LEVEL KEY against a NESTED one. `(Decimal, String)` and
 //     `List<Decimal>` reach the Decimal hasher through the tuple fold and the
 //     list walk instead of directly. A fix that answered only for a bare
 //     Decimal key passes every row above and fails these two.
@@ -85,10 +85,10 @@ fn main() {
     io.print("zeros get = ${found(zeros, 0.000d)}")
 
     // A NESTED Decimal: the tuple fold and the list walk.
-    pairs = %{#(1.50d, "eur") => 1, #(2d, "usd") => 2}
+    pairs = %{(1.50d, "eur") => 1, (2d, "usd") => 2}
     io.print("tuple key = ${Map.size(pairs)}")
-    io.print("tuple get = ${found_int(pairs, #(1.5d, "eur"))}")
-    io.print("tuple miss = ${found_int(pairs, #(1.5d, "usd"))}")
+    io.print("tuple get = ${found_int(pairs, (1.5d, "eur"))}")
+    io.print("tuple miss = ${found_int(pairs, (1.5d, "usd"))}")
 
     lists = %{[1.50d, 2d] => 1}
     io.print("list get = ${found_list(lists, [1.5d, 2.00d])}")
@@ -113,7 +113,7 @@ fn found(m: Map<Decimal, String>, k: Decimal) -> String {
     }
 }
 
-fn found_int(m: Map<#(Decimal, String), Int>, k: #(Decimal, String)) -> String {
+fn found_int(m: Map<(Decimal, String), Int>, k: (Decimal, String)) -> String {
     case Map.get(m, k) {
         Some(v) -> "Some(${v})"
         None -> "None"

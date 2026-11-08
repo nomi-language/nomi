@@ -475,6 +475,8 @@ func (bl *irScalarBuilder) declineReason(n ast.Node) string {
 		return "a type name in value position: " + t.Name
 	case *ast.Is:
 		return "an `is` test's value or pattern"
+	case *ast.Ascription:
+		return "an `as` ascription's value or type"
 	case *ast.Unary:
 		if t.Op != "-" && t.Op != "not" {
 			return "the unary operator `" + t.Op + "`"

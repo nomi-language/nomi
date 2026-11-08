@@ -30,6 +30,19 @@ func TestCheckedLiteral_UrlRefusesUnescapableSlots(t *testing.T) {
 			t.Errorf("%s: at %d:%d, want 9:%d", c.line, ds[0].Line, ds[0].Col, c.col)
 		}
 	}
+	// A slot takes any Display value, and the place refuses it whatever its
+	// type: an Int, and a type of the program's own.
+	for _, c := range []struct{ name, decl, value string }{
+		{"an Int", "", "8080"},
+		{"a user type", "struct Host {\n    name: String\n}\n\nimpl Display for Host {\n    fn to_string(h: Host) -> String {\n        h.name\n    }\n}\n\n", `Host{name: "evil.org"}`},
+	} {
+		src := "import {\n    std::io\n    std::url.Url\n}\n\n" + c.decl + "fn main() {\n    v = " + c.value + "\n    io.print(\"${v}\")\n    _ = Url\"https://${v}/greet\"\n}\n"
+		ds := literalDiagnostics(t, src)
+		want := "typed literal Url\"https://${v}/greet\" is invalid: a slot in the scheme, user or host cannot be escaped"
+		if len(ds) != 1 || ds[0].Message != want {
+			t.Errorf("%s in the host: %v, want one error %q", c.name, ds, want)
+		}
+	}
 	src := "import std::url.Url\n\nfn main() {\n    _ = Url`https://exa mple.com/`\n}\n"
 	ds := literalDiagnostics(t, src)
 	if len(ds) != 1 || !strings.HasPrefix(ds[0].Message, "typed literal Url`https://exa mple.com/` is invalid: ") || ds[0].Col != 9 {

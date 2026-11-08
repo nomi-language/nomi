@@ -205,11 +205,11 @@ func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 // the one tuple they take: the flat call `Pair(1, "x")` is a call form, not a
 // second parameter list.
 func TestConstructorValue_TupleTakesTheTuple(t *testing.T) {
-	decls := "type Pair #(Int, String)\n\nenum Shape {\n  Seg #(Int, Int)\n}\n\n"
+	decls := "type Pair (Int, String)\n\nenum Shape {\n  Seg (Int, Int)\n}\n\n"
 	for _, stmt := range []string{
-		`x = Iter.map([#(1, "a")], Pair) |> Iter.to_list()`,
-		`x = Iter.map([#(1, 2)], Shape.Seg) |> Iter.to_list()`,
-		"f: (#(Int, String)) -> Pair = Pair\n  x = f(#(1, \"a\"))",
+		`x = Iter.map([(1, "a")], Pair) |> Iter.to_list()`,
+		`x = Iter.map([(1, 2)], Shape.Seg) |> Iter.to_list()`,
+		"f: ((Int, String)) -> Pair = Pair\n  x = f((1, \"a\"))",
 	} {
 		src := decls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
 		_, errs := checkSourceWithStdlib(src)

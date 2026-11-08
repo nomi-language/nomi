@@ -73,10 +73,10 @@ fn main() {
 
     io.print("seed from closure scope: ${seeded}")
 
-    pair = Iter.loop(#(0, 1), fn state -> {
-        #(a, b) = state
-        if b > 50 { break #(a, b) }
-        #(b, a + b)
+    pair = Iter.loop((0, 1), fn state -> {
+        (a, b) = state
+        if b > 50 { break (a, b) }
+        (b, a + b)
     })
 
     io.print("fib pair: ${pair}")

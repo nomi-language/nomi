@@ -1759,6 +1759,188 @@ func detectInherentImplNameClashes(
 	return errs
 }
 
+// implFileBlocks is one file of the build and its top-level impl blocks, for
+// the checks that need what an impl leaves unwritten.
+type implFileBlocks struct {
+	key    string
+	fa     *FileAnalysis
+	blocks []*ast.ImplBlock
+}
+
+// inheritedDefault is one default function an interface impl does not write,
+// so the receiver gets the interface's: `least` for `impl Ord2 for Odd` when
+// Ord2 declares `open fn least` and the block has no `fn least`.
+type inheritedDefault struct {
+	receiver string // the receiver's base name, as InherentMethodRecord.Receiver
+	origin   string // the receiver type's declaring build key
+	block    *ast.ImplBlock
+	iface    string // the interface as the header writes it: `Ord2`, `Add<Int, Box>`
+	open     bool
+}
+
+// detectInherentDefaultClashes reports each type's own (inherent) function
+// whose name is a default function the type gets from an interface it
+// implements without writing that function. `Type.name(...)` names both, as
+// it does for a function the impl writes (detectInherentImplNameClashes), and
+// a call reached neither: `Odd.least(a, b)` beside `impl Ord2 for Odd` was
+// accepted and refused when it ran. The error is at the inherent function's
+// name, once per function, naming the first interface by its header. An open
+// default is overridden by writing it in the impl; a final one cannot be, so
+// the only fix is another name. A derived impl is not written by hand, so
+// there too the fix is another name.
+func detectInherentDefaultClashes(
+	inherents []InherentMethodRecord,
+	files []implFileBlocks,
+	primitives map[string]string,
+	pathOf func(key string) string,
+) []TypeError {
+	if len(inherents) == 0 || len(files) == 0 {
+		return nil
+	}
+	byMethod := map[string][]inheritedDefault{}
+	for _, f := range files {
+		for _, blk := range f.blocks {
+			if blk.Interface == nil {
+				continue
+			}
+			iface := implBlockInterfaceType(f.fa, blk.Interface)
+			if iface == nil {
+				continue
+			}
+			recv := TypeExprBaseName(blk.Receiver)
+			if recv == "" {
+				continue
+			}
+			var origin string
+			resolved := false
+			for _, m := range iface.Methods {
+				if !m.HasDefault && !m.Extern {
+					continue
+				}
+				if implBlockWrites(blk, m.Name) {
+					continue
+				}
+				if !resolved {
+					origin = implReceiverOrigin(f.fa, implBlockReceiverQualifier(blk), typeNameHead(recv), primitives)
+					resolved = true
+				}
+				if origin == "" || origin == OriginUnresolved {
+					break
+				}
+				byMethod[m.Name] = append(byMethod[m.Name], inheritedDefault{
+					receiver: recv,
+					origin:   origin,
+					block:    blk,
+					iface:    blk.Interface.TypeString(),
+					open:     m.Open,
+				})
+			}
+		}
+	}
+	if len(byMethod) == 0 {
+		return nil
+	}
+	recs := make([]InherentMethodRecord, len(inherents))
+	copy(recs, inherents)
+	sort.SliceStable(recs, func(i, j int) bool {
+		if recs[i].Module != recs[j].Module {
+			return recs[i].Module < recs[j].Module
+		}
+		if recs[i].Fn.Line != recs[j].Fn.Line {
+			return recs[i].Fn.Line < recs[j].Fn.Line
+		}
+		return recs[i].Fn.Col < recs[j].Fn.Col
+	})
+	var errs []TypeError
+	for _, rec := range recs {
+		if rec.Fn == nil || rec.Receiver == "" || rec.Method == "" || rec.ReceiverOrigin == OriginUnresolved {
+			continue
+		}
+		cands := byMethod[rec.Method]
+		var hit *inheritedDefault
+		for i := range cands {
+			if cands[i].receiver == rec.Receiver && cands[i].origin == rec.ReceiverOrigin {
+				if hit == nil || cands[i].iface < hit.iface {
+					hit = &cands[i]
+				}
+			}
+		}
+		if hit == nil {
+			continue
+		}
+		errs = append(errs, TypeError{
+			Line:    rec.Fn.Line,
+			Col:     rec.Fn.Col,
+			Message: inheritedDefaultClashMessage(rec.Receiver, rec.Method, *hit),
+			File:    fileAt(pathOf, rec.Module),
+		})
+	}
+	return errs
+}
+
+func inheritedDefaultClashMessage(recv, method string, d inheritedDefault) string {
+	head := fmt.Sprintf(
+		"`%s.%s` shadows the default `%s` that `%s` gives `%s`, and Nomi does not overload, so a call `%s.%s(...)` would name both; ",
+		recv, method, method, d.iface, recv, recv, method)
+	switch {
+	case !d.open:
+		return head + fmt.Sprintf("`%s`'s `%s` is final and cannot be overridden, so give this function another name", d.iface, method)
+	case d.block.SynthOriginLine > 0:
+		return head + fmt.Sprintf("the derived impl cannot override it, so give this function another name, or replace the derive with `impl %s for %s` and write `fn %s` there", d.iface, d.block.Receiver.TypeString(), method)
+	default:
+		return head + fmt.Sprintf("to override the default, write `fn %s` in `impl %s for %s` instead", method, d.iface, d.block.Receiver.TypeString())
+	}
+}
+
+// implBlockWrites reports whether blk writes a function named name, as a
+// `fn` or a `host fn`.
+func implBlockWrites(blk *ast.ImplBlock, name string) bool {
+	for _, item := range blk.Items {
+		if n, _, _ := implItemNameAndPos(item); n == name {
+			return true
+		}
+	}
+	return false
+}
+
+// implBlockReceiverQualifier is the module an impl header qualifies its
+// receiver with (`users` in `impl Html for users.User`), as the builder
+// records it in ImplBlockReceiverModule; "" when it names the type bare.
+func implBlockReceiverQualifier(blk *ast.ImplBlock) string {
+	if q, ok := blk.Receiver.(*ast.QualifiedType); ok && !ast.IsPublic(q.Module) {
+		return q.Module
+	}
+	return ""
+}
+
+// implBlockInterfaceType is the interface an impl header names, resolved in
+// the impl's file: through the module a header qualifies it with
+// (`impl json.ToJson for User`), else by name.
+func implBlockInterfaceType(fa *FileAnalysis, te ast.TypeExpr) *InterfaceType {
+	if fa == nil || fa.ModuleScope == nil {
+		return nil
+	}
+	if q, ok := te.(*ast.QualifiedType); ok && !ast.IsPublic(q.Module) {
+		mod := fa.ModuleScope.Lookup(q.Module)
+		for mod != nil && mod.Resolved != nil {
+			mod = mod.Resolved
+		}
+		if mod == nil || mod.Kind != SymbolModule || mod.ModuleScope == nil {
+			return nil
+		}
+		sym := mod.ModuleScope.Lookup(TypeExprBaseName(q.Member))
+		for sym != nil && sym.Resolved != nil {
+			sym = sym.Resolved
+		}
+		if sym == nil {
+			return nil
+		}
+		it, _ := sym.Type.(*InterfaceType)
+		return it
+	}
+	return lookupInterfaceType(fa, nil, TypeExprBaseName(te))
+}
+
 func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord, pathOf func(key string) string) []TypeError {
 	byKey := map[string][]InherentImplBlockRecord{}
 	for _, rec := range blocks {

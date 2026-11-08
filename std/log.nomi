@@ -165,11 +165,11 @@ impl Logger {
     /// an empty one, is quoted.
     //! import std::io.Writer
     //!
-    //! #(_, out) = Writer.collect(fn w -> info(Logger.text(w), "hi", [int("n", 2)]))
+    //! (_, out) = Writer.collect(fn w -> info(Logger.text(w), "hi", [int("n", 2)]))
     //! line = Bytes.to_string(out)!
     //! assert String.ends_with(line, " level=INFO msg=hi n=2\n")
     //
-    pub fn text(writer: Writer = io.stderr, min: Level = Level.Info) -> Logger {
+    pub fn text(writer: Writer = io.stderr, min = Level.Info) -> Logger {
         Logger{sink: Sink.Text(writer), min, fields: []}
     }
 
@@ -178,11 +178,11 @@ impl Logger {
     /// placed","order":42}`, its fields after `msg` in order.
     //! import std::io.Writer
     //!
-    //! #(_, out) = Writer.collect(fn w -> warn(Logger.json(w), "slow", [bool("cached", False)]))
+    //! (_, out) = Writer.collect(fn w -> warn(Logger.json(w), "slow", [bool("cached", False)]))
     //! line = Bytes.to_string(out)!
     //! assert String.ends_with(line, "\"level\":\"WARN\",\"msg\":\"slow\",\"cached\":false}\n")
     //
-    pub fn json(writer: Writer = io.stderr, min: Level = Level.Info) -> Logger {
+    pub fn json(writer: Writer = io.stderr, min = Level.Info) -> Logger {
         Logger{sink: Sink.Json(writer), min, fields: []}
     }
 

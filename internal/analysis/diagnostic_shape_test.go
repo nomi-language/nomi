@@ -168,7 +168,7 @@ func TestDiagnosticShape_NoFollowOnMismatch(t *testing.T) {
 	for _, src := range []string{
 		"fn d() -> Maybe<(Int) -> Int> {\n  Some(fn x: Int -> x + nope)\n}\n",
 		"fn d() -> (Int) -> Int {\n  fn _n: Int -> _\n}\n",
-		"fn d() -> #(Int, Int) {\n  #(1, _)\n}\n",
+		"fn d() -> (Int, Int) {\n  (1, _)\n}\n",
 	} {
 		_, errs := checkSourceWithStdlib(src)
 		if len(errs) != 1 {
@@ -190,7 +190,7 @@ func TestDiagnosticShape_UndeterminedLambdaParameter(t *testing.T) {
 	for _, tc := range []struct{ src, at string }{
 		{"fn d() -> Int {\n  f = fn x -> x\n  f(2)\n}\n", "2:10"},
 		{"fn d() -> Int {\n  f: ((Int) -> Int) -> Int = fn g -> g(1)\n  f(case Some(fn x -> x) {\n    Some(h) -> h\n    None -> fn y -> y\n  })\n}\n", "3:18"},
-		{"fn d() -> Int {\n  #(fn x -> x, 2).1\n}\n", "2:8"},
+		{"fn d() -> Int {\n  (fn x -> x, 2).second\n}\n", "2:7"},
 	} {
 		_, errs := checkSourceWithStdlib(tc.src)
 		var all []string

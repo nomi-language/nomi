@@ -22,7 +22,7 @@ fn read_id(text: String) -> Result<Uuid, uuid.Error> {
 }
 
 fn pick() -> Result<Generator<String>, random.Error> {
-    Generator.weighted(#(0.0, "never"), [])
+    Generator.weighted((0.0, "never"), [])
 }
 
 fn main() {

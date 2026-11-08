@@ -388,6 +388,9 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.codepointLiteral(t)
 
 	case *ast.StringLit:
+		if twin := bl.g.srcFA().TargetLiterals[t]; twin != nil {
+			return bl.taggedLiteral(twin)
+		}
 		// The parser supplies decoded text for every string spelling; both
 		// consumers use the same constant node and value. A message's
 		// compiled texts are written with its parameters' resolved types,
@@ -467,10 +470,25 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return v, k, mobile, ok
 
 	case *ast.StringInterp:
+		if twin := bl.g.srcFA().TargetLiterals[t]; twin != nil {
+			// A literal its position reads as a checked literal
+			// (analysis/target_literal.go) is that typed literal.
+			return bl.taggedLiteral(twin)
+		}
 		return bl.interp(t)
 
 	case *ast.Is:
 		return bl.isTest(t)
+
+	case *ast.Ascription:
+		if want := bl.g.typeOf(t.Type); irExistentialKind(want) {
+			// `Post{...} as Named`: the VM's existential is the concrete
+			// value, and the position that reads it erases it as it would
+			// the bare value (an argument, an annotated binding).
+			return bl.lower(t.Value)
+		}
+		v, k, ok := bl.annotatedValue(t.Value, t.Type)
+		return v, k, false, ok
 
 	case *ast.Unary:
 		if t.Op != "-" && t.Op != "not" && t.Op != "~~~" {
@@ -562,7 +580,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 				return v, k, mobile, true
 			}
 		}
-		if index, ok := irTupleIndex(t); ok {
+		if index, ok := bl.g.srcFA().TupleItems[t]; ok {
 			return bl.tupleRead(t, index)
 		}
 		if _, typeOwner := t.Object.(*ast.TypeIdent); typeOwner {
@@ -1201,6 +1219,13 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// A local name shadowing a function is a call THROUGH A VALUE, which
 		// is `CalleeIndirect` and a different resolution.
 		return no()
+	}
+	if !hasNamed {
+		// `compare(b, a)` in a std interface default being instantiated:
+		// the interface's own function at the receiver.
+		if v, k, mobile, ok, handled := bl.stdIfaceOwnCall(t, callee); handled {
+			return v, k, mobile, ok
+		}
 	}
 	if f := bl.g.stdlibSibling(callee.Name); f != nil {
 		if !hasNamed && !bl.inTest && irScalarHost(f) {
@@ -2092,7 +2117,7 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 	}
 	switch st := n.(type) {
 	case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.PatternBinding:
-		// A destructuring binding ending a block, `#(_, _) = pair`: the value
+		// A destructuring binding ending a block, `(_, _) = pair`: the value
 		// is evaluated and matched, and the block answers Unit, as it does
 		// after any binding statement.
 		line, col := nodePos(st)
@@ -2122,11 +2147,6 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	case plan != nil:
 		// A body with a tail plan is `tail`'s shape, not this one.
 		g.dc.note("a tail plan")
-		return nil, false
-	case sig.dicts != 0:
-		// A bounded generic takes dictionaries, and a type parameter has no
-		// representation in this IR at all.
-		g.dc.note("a bounded generic's dictionaries")
 		return nil, false
 	case !sh.patternOK:
 		// A destructuring parameter that did not lower leaves the prologue
@@ -3161,7 +3181,14 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		v, k, _, ok := bl.lower(b.Value)
 		return v, k, ok
 	}
-	want := bl.g.typeOf(b.TypeAnnotation)
+	return bl.annotatedValue(b.Value, b.TypeAnnotation)
+}
+
+// annotatedValue lowers value checked against the written type te: an
+// annotated binding's initializer, or the value of `value as Type`, which
+// the checker checks as that binding's.
+func (bl *irScalarBuilder) annotatedValue(value ast.Node, te ast.TypeExpr) (ir.Temp, kind, bool) {
+	want := bl.g.typeOf(te)
 	// A local interface's existential (`widened: Clock = FakeClock{...}`)
 	// holds the concrete value, as an interface-typed field does.
 	existential := irExistentialKind(want)
@@ -3169,7 +3196,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		bl.g.dc.note("a binding annotation outside the retained value domain: " + want.nomi())
 		return ir.NoTemp, kindInvalid, false
 	}
-	if list, isList := b.Value.(*ast.ListLit); isList && irAnnotatedNominalList(list, want) {
+	if list, isList := value.(*ast.ListLit); isList && irAnnotatedNominalList(list, want) {
 		v, k, _, ok := bl.listMakeOf(list, list.Items, nil, want.comp.parts[0])
 		return v, k, ok
 	}
@@ -3178,11 +3205,11 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		// it unchanged at the interface's kind, the checker's type for the
 		// name: a record or tuple built from it (`#{d: d}`) then has the
 		// kind the checker gives it.
-		v, k, _, ok := bl.lowerTypedOperand(b.Value, want)
+		v, k, _, ok := bl.lowerTypedOperand(value, want)
 		if ok && k != want && bl.g.irBoxedErasure(want, k) {
 			// A value whose runtime type does not name its impl enters
 			// boxed with the type it has here (irboxed.go).
-			return bl.eraseBoxed(b.Value, v, want, k), want, true
+			return bl.eraseBoxed(value, v, want, k), want, true
 		}
 		if ok && k != want && !bl.g.irErases(want, k) {
 			bl.g.dc.note("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
@@ -3192,7 +3219,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		}
 		return v, want, true
 	}
-	v, k, _, ok := bl.lowerWant(b.Value, want)
+	v, k, _, ok := bl.lowerWant(value, want)
 	return v, k, ok
 }
 

@@ -53,8 +53,8 @@ fn full_house(dice: List<Int>) -> Int {
 fn four_of_a_kind(dice: List<Int>) -> Int {
     dice
     |> Iter.frequencies()
-    |> Iter.find(fn #(_face, count) -> count >= 4)
-    |> Maybe.map(fn #(face, _count) -> 4 * face)
+    |> Iter.find(fn (_face, count) -> count >= 4)
+    |> Maybe.map(fn (face, _count) -> 4 * face)
     |> Maybe.with_default(0)
 }
 

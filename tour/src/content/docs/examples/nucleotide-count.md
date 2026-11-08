@@ -48,7 +48,7 @@ pub fn counts(strand: String) -> Result<Map<Nucleotide, Int>, String> {
 
     none =
         Nucleotide.variants()
-        |> Iter.map(&#(&1, 0))
+        |> Iter.map(&(&1, 0))
         |> Iter.to_map()
 
     Ok(%{..none, ..Iter.frequencies(nucleotides)})
@@ -59,25 +59,25 @@ import nucleotide_count.{self, Nucleotide}
 
 test "nucleotide counts" {
     [
-        #("empty strand", "", Ok(%{Nucleotide.A => 0, .C => 0, .G => 0, .T => 0})),
-        #(
+        ("empty strand", "", Ok(%{Nucleotide.A => 0, .C => 0, .G => 0, .T => 0})),
+        (
             "can count one nucleotide in single-character input",
             "G",
             Ok(%{.A => 0, .C => 0, .G => 1, .T => 0}),
         ),
-        #(
+        (
             "strand with repeated nucleotide",
             "GGGGGGG",
             Ok(%{.A => 0, .C => 0, .G => 7, .T => 0}),
         ),
-        #(
+        (
             "strand with multiple nucleotides",
             "AGCTTTTCATTCTGACTGCAACGGGCAATATGTCTCTGTGTGGATTAAAAAAAGAGTGTCTGATAGCAGC",
             Ok(%{.A => 20, .C => 12, .G => 17, .T => 21}),
         ),
-        #("strand with invalid nucleotides", "AGXXACT", Err("Invalid nucleotide in strand")),
+        ("strand with invalid nucleotides", "AGXXACT", Err("Invalid nucleotide in strand")),
     ]
-    |> subtests #(description, strand, expected), description {
+    |> subtests (description, strand, expected), description {
         assert nucleotide_count.counts(strand) == expected
     }
 }
@@ -94,4 +94,4 @@ test result: ok. 5 passed, 0 failed
 - Parsing and counting are separate steps: `Iter.map(Nucleotide.parse)` then `Result.collect()?`, then `Iter.frequencies`, spread over the zero map: `%{..none, ..Iter.frequencies(nucleotides)}`.
 - The five cases are one `subtests` table named by the description column, since each checks `counts(strand) == expected`; the error case is a row whose expected value is an `Err`.
 - Only the first row's map qualifies its first key, `%{Nucleotide.A => 0, .C => 0, .G => 0, .T => 0}`, and every key after it is bare: nothing outside the `subtests` table gives the rows their type, and that first key sets the enum for the keys after it and for the rows below it.
-- The zero map pairs each nucleotide with 0 through `Iter.map(&#(&1, 0))`: a capture of the tuple literal is the function that builds it, which says the pairing without naming the nucleotide in a lambda.
+- The zero map pairs each nucleotide with 0 through `Iter.map(&(&1, 0))`: a capture of the tuple literal is the function that builds it, which says the pairing without naming the nucleotide in a lambda.

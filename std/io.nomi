@@ -62,7 +62,9 @@
 //# - An operation on a closed stream, a second close included, is
 //#   `Closed`. Closing a standard stream does nothing.
 //# - `Reader.close_quietly` and `Writer.close_quietly` close and drop the
-//#   result, the form for a `defer`.
+//#   result, the form for a `defer`. `Writer.discard` gives a writer up
+//#   instead, so a `ReplaceAtomically` file write that fails leaves the old
+//#   file; defer it and `Writer.close` on the success path.
 //# - A stream the program no longer holds is closed when its memory is
 //#   reclaimed, and what a writer the program never closed has buffered is
 //#   flushed when the program ends (a `Writer.from_fn` writer's is
@@ -79,6 +81,7 @@ import {
     int.Int
     iter.Iter
     maybe.Maybe.{self, None, Some}
+    resources.{Commit, Release}
     results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
@@ -341,10 +344,10 @@ pub host fn read_line() -> Result<Maybe<String>, Error>
 /// ```
 //! run = capture("one\ntwo\n", fn -> {
 //!     first = read_line()
-//!     #(first, Result.collect(lines()))
+//!     (first, Result.collect(lines()))
 //! })
 //!
-//! assert run.value == #(Result.Ok(Some("one")), Result.Ok(["two"]))
+//! assert run.value == (Result.Ok(Some("one")), Result.Ok(["two"]))
 //
 pub fn lines() -> Iter<Result<String, Error>> {
     Reader.lines(stdin)
@@ -655,6 +658,12 @@ impl Reader {
     pub host fn from_text_chunks(chunks: Iter<String>) -> Reader
 }
 
+impl Release for Reader {
+    fn release(r: Reader) {
+        Reader.close_quietly(r)
+    }
+}
+
 /// Up to max bytes from r, for `Reader.read`.
 host fn read_up_to(r: Reader, max: Int) -> Result<Maybe<Bytes>, Error>
 
@@ -732,12 +741,14 @@ impl Writer {
     //
     pub host fn close(w: Writer) -> Result<Unit, Error>
 
-    /// Closes the stream and ignores the outcome: the form for a `defer` on
-    /// a writer kept past one body. Prefer `fs.with_writer`, which closes
-    /// and reports a failed close.
+    /// Closes the stream and ignores the outcome. A close commits what was
+    /// written, so this is for a writer whose partial output is fine to
+    /// keep: a log, a stream, a file not written with `ReplaceAtomically`.
+    /// A file write that should leave the old file when it fails defers
+    /// `Writer.discard` instead.
     ///
     /// ```nomi
-    /// w = fs.create("out.txt")?
+    /// w = fs.create("trace.log", mode: .Append)?
     ///
     /// defer Writer.close_quietly(w)
     /// ```
@@ -750,6 +761,45 @@ impl Writer {
         _ = close(w)
     }
 
+    /// Gives up a writer still open. A `ReplaceAtomically` writer from
+    /// `fs.create` drops its temporary file and leaves the old file as it
+    /// was; any other writer is closed, and a `Writer.from_fn` writer drops
+    /// what it holds. A closed writer is left alone, so `discard` after a
+    /// `close` does nothing.
+    ///
+    /// A writer must be closed with `Writer.close(w)?` on the success path:
+    /// the close commits the write and reports a failed close. Defer the
+    /// discard on the line after the writer is made, and it throws the
+    /// output away when the function leaves any other way, by an `Err` or a
+    /// trap.
+    ///
+    /// ```nomi
+    /// fn save(path: String, rows: List<String>) -> Result<Unit, io.Error> {
+    ///     w = fs.create(path, mode: .ReplaceAtomically)?
+    ///     defer Writer.discard(w)
+    ///
+    ///     Writer.write_lines(w, rows)?
+    ///     Writer.close(w)?
+    ///     Ok(Unit)
+    /// }
+    /// ```
+    //! (_, data) = Writer.collect(fn w -> {
+    //!     _ = Writer.write_text(w, "kept")
+    //!     _ = Writer.close(w)
+    //!     Writer.discard(w)
+    //! })
+    //!
+    //! assert Bytes.to_string(data) == Result.Ok("kept")
+    //!
+    //! (late, _) = Writer.collect(fn w -> {
+    //!     Writer.discard(w)
+    //!     Writer.write_text(w, "x")
+    //! })
+    //!
+    //! assert late == Result.Err(Error.Closed)
+    //
+    pub host fn discard(w: Writer) -> Unit
+
     /// Writes each chunk in order and stops at the first failure, which it
     /// returns. A chunk is pulled when the one before it is written, so the
     /// sequence may be long.
@@ -757,7 +807,7 @@ impl Writer {
     /// ```nomi
     /// Writer.write_all(w, [header, body])?
     /// ```
-    //! #(written, data) = Writer.collect(fn w -> {
+    //! (written, data) = Writer.collect(fn w -> {
     //!     Writer.write_all(w, [String.to_bytes("ab"), String.to_bytes("c")])
     //! })
     //!
@@ -780,7 +830,7 @@ impl Writer {
     /// ```nomi
     /// Writer.write_lines(io.stdout, ["pear", "apple"])?
     /// ```
-    //! #(_, data) = Writer.collect(fn w -> {
+    //! (_, data) = Writer.collect(fn w -> {
     //!     Writer.write_lines(
     //!         w,
     //!         Iter.from(1)
@@ -822,7 +872,7 @@ impl Writer {
     /// ```nomi
     /// w = Writer.from_fn(fn chunk -> Channel.send(sender, chunk))
     /// ```
-    //! #(_, data) = Writer.collect(fn sink -> {
+    //! (_, data) = Writer.collect(fn sink -> {
     //!     upper = Writer.from_fn(fn chunk -> {
     //!         text = Bytes.to_string(chunk) |> Result.with_default("")
     //!         Writer.write_text(sink, String.uppercase(text))
@@ -853,9 +903,9 @@ impl Writer {
     /// `Bytes.to_string` reads the bytes as text.
     ///
     /// ```nomi
-    /// #(_, data) = Writer.collect(fn w -> Writer.print(w, "hi"))
+    /// (_, data) = Writer.collect(fn w -> Writer.print(w, "hi"))
     /// ```
-    //! #(value, data) = Writer.collect(fn w -> {
+    //! (value, data) = Writer.collect(fn w -> {
     //!     _ = Writer.print(w, "one")
     //!     _ = Writer.write(w, String.to_bytes("two"))
     //!     42
@@ -864,14 +914,26 @@ impl Writer {
     //! assert value == 42
     //! assert Bytes.to_string(data) == Result.Ok("one\ntwo")
     //!
-    //! #(kept, _) = Writer.collect(fn w -> w)
+    //! (kept, _) = Writer.collect(fn w -> w)
     //! assert Writer.write_text(kept, "late") == Result.Err(Error.Closed)
     //
-    pub fn collect<T>(body: (Writer) -> T) -> #(T, Bytes) {
+    pub fn collect<T>(body: (Writer) -> T) -> (T, Bytes) {
         w = memory_writer()
         value = body(w)
         _ = close(w)
-        #(value, collected(w))
+        (value, collected(w))
+    }
+}
+
+impl Release for Writer {
+    fn release(w: Writer) {
+        Writer.discard(w)
+    }
+}
+
+impl Commit for Writer {
+    fn commit(w: Writer) -> Result<Unit, Error> {
+        Writer.close(w)
     }
 }
 
@@ -959,12 +1021,20 @@ impl File {
     pub host fn truncate(f: File, size: Int) -> Result<Unit, Error>
 
     /// Closes the file. A second close is `Closed`, as is every call on a
-    /// closed file. `fs.with_file` closes it for you.
+    /// closed file. A write reaches the file as it is made, so nothing is
+    /// lost by a deferred `File.close_quietly`; end the success path with
+    /// `File.close(f)?` when a failed close should be reported.
     pub host fn close(f: File) -> Result<Unit, Error>
 
     /// Closes the file and ignores the outcome: the form for a `defer`.
     pub fn close_quietly(f: File) -> Unit {
         _ = close(f)
+    }
+}
+
+impl Release for File {
+    fn release(f: File) {
+        File.close_quietly(f)
     }
 }
 

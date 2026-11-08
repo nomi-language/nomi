@@ -1111,6 +1111,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	onces := NewOnceTable()
 	for _, fb := range all {
 		onces.Index(fb.fa, fb.nodes)
+		onces.IndexDefaults(fb.fa, fb.nodes)
 	}
 
 	// Coherence: reject duplicate (interface, type) impls. The dispatch
@@ -1185,6 +1186,23 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// functions, which `Type.name(...)` would never reach.
 		programErrs = append(
 			programErrs, detectInherentImplNameClashes(inherentImpls, ifaceImpls, ifaceImplFiles, implBlockReceivers, implBlockInterfaceKeys, filesByKey, clashPrimitives, pathOf)...,
+		)
+		// A type's own function named as a default one of its interfaces
+		// gives it and its impl leaves unwritten.
+		implFiles := make([]implFileBlocks, 0, len(all))
+		for _, fb := range all {
+			var blocks []*ast.ImplBlock
+			for _, n := range withoutRefusedSynthImpls(fb.fa, fb.nodes) {
+				if blk, ok := n.(*ast.ImplBlock); ok && blk.Interface != nil {
+					blocks = append(blocks, blk)
+				}
+			}
+			if len(blocks) > 0 {
+				implFiles = append(implFiles, implFileBlocks{key: fb.key, fa: fb.fa, blocks: blocks})
+			}
+		}
+		programErrs = append(
+			programErrs, detectInherentDefaultClashes(inherentImpls, implFiles, clashPrimitives, pathOf)...,
 		)
 		// Synthesized inherent-block collisions with the same receiver/signature
 		// in one file.

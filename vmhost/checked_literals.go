@@ -50,6 +50,10 @@ func (p *Program) checkCheckedLiteral(m *vm.Machine, site irbuild.LiteralSite, e
 		return d, true, nil
 	}
 	label := literalLabel(site.Text)
+	if site.Type != "" {
+		// An untagged literal its position reads as a checked literal.
+		label = "`" + site.Type + "` literal " + strings.TrimPrefix(label, "typed literal ")
+	}
 	if effects := m.Effects(f); len(effects) > 0 {
 		if effectful[site.Check] {
 			return d, false, nil

@@ -22,7 +22,7 @@ fn main() {
     True -> 1..=3
     False -> %[9, 8]
   }
-  _ = #(Iter.count(a), Iter.count(b), total(if up { #[1, 2] } else { [1] }), in_order(1..3, up))
+  _ = (Iter.count(a), Iter.count(b), total(if up { #[1, 2] } else { [1] }), in_order(1..3, up))
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -58,7 +58,7 @@ fn main() {
     True -> 1..=3
     False -> [9, 8]
   } |> Iter.map(fn x -> x * 2) |> Iter.to_list()
-  _ = #(n, xs)
+  _ = (n, xs)
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -137,7 +137,7 @@ fn main() {
   }
   a = describe(if up { Circle{r: 1.0} } else { Square{s: 2.0} })
   b = if up { Circle{r: 1.0} } else { Square{s: 2.0} } |> describe()
-  _ = #(s, u, d, h, a, b, pick(False))
+  _ = (s, u, d, h, a, b, pick(False))
 }
 `)
 	expectNoStdlibErrors(t, errs)

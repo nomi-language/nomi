@@ -43,15 +43,34 @@ fn main() {
 `, "left\nright\n3.75\na\nb\nTrue\n-3.75d\n")
 }
 
-// A zero divisor of `Decimal.divide_exact` traps with Int's `/` text at the
-// call's line.
+// `/` on Decimal rounds to 34 significant digits and keeps an exact
+// quotient's smallest scale, through the operator, `Divide.divide` and
+// `Decimal.divide` with two arguments.
+func TestIRDecimal_Division(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+fn quotient(a: Decimal, b: Decimal) -> Decimal { a / b }
+fn half<T>(x: T, two: T) -> T where T: Divide<T, T> { x / two }
+fn main() {
+  io.inspect(quotient(10d, 3d))
+  io.inspect(quotient(10.00d, 4d))
+  io.inspect(Divide.divide(1d, 4d))
+  io.inspect(Decimal.divide(6d, 3d))
+  io.inspect(half(-7d, 2d))
+}
+`, "3.333333333333333333333333333333333d\n2.5d\n0.25d\n2d\n-3.5d\n")
+}
+
+// A zero divisor of `/`, `Divide.divide` and `Decimal.divide_exact` traps
+// with Int's `/` text at the operator's or the call's line.
 func TestIRDecimal_DivisionFaults(t *testing.T) {
-	for _, tc := range []struct{ divisor, want string }{
-		{"0d", "line 3: division by zero"},
+	for _, tc := range []struct{ name, call, want string }{
+		{"divide_exact", "Decimal.divide_exact(n, 0d) |> Maybe.with_default(0d)", "line 3: division by zero"},
+		{"operator", "n / 0d", "line 3: division by zero"},
+		{"Divide.divide", "Divide.divide(n, 0.00d)", "line 3: division by zero"},
 	} {
-		t.Run(tc.divisor, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "main.nomi")
-			src := "fn divide() -> Maybe<Decimal> {\n  n = 1d\n  Decimal.divide_exact(n, " + tc.divisor + ")\n}\nfn main() { _ = divide() }\n"
+			src := "fn divide() -> Decimal {\n  n = 1d\n  " + tc.call + "\n}\nfn main() { _ = divide() }\n"
 			if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 				t.Fatal(err)
 			}

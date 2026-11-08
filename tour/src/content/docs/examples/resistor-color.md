@@ -58,11 +58,11 @@ import {
 
 test "Color codes" {
     [
-        #("Black", Color.Black, 0),
-        #("White", .White, 9),
-        #("Orange", .Orange, 3),
+        ("Black", Color.Black, 0),
+        ("White", .White, 9),
+        ("Orange", .Orange, 3),
     ]
-    |> subtests #(description, color, expected), description {
+    |> subtests (description, color, expected), description {
         assert resistor_color.color_code(color) == expected
     }
 }

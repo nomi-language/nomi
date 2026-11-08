@@ -71,7 +71,7 @@ import {
 
 test "meetup" {
     [
-        #(
+        (
             "when teenth Monday is the 13th, the first day of the teenth week",
             2013,
             5,
@@ -79,7 +79,7 @@ test "meetup" {
             Weekday.Monday,
             Date`2013-05-13`,
         ),
-        #(
+        (
             "when teenth Monday is the 19th, the last day of the teenth week",
             2013,
             8,
@@ -87,7 +87,7 @@ test "meetup" {
             .Monday,
             Date`2013-08-19`,
         ),
-        #(
+        (
             "when teenth Monday is some day in the middle of the teenth week",
             2013,
             9,
@@ -95,7 +95,7 @@ test "meetup" {
             .Monday,
             Date`2013-09-16`,
         ),
-        #(
+        (
             "when teenth Tuesday is the 19th, the last day of the teenth week",
             2013,
             3,
@@ -103,7 +103,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-03-19`,
         ),
-        #(
+        (
             "when teenth Tuesday is some day in the middle of the teenth week",
             2013,
             4,
@@ -111,7 +111,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-04-16`,
         ),
-        #(
+        (
             "when teenth Tuesday is the 13th, the first day of the teenth week",
             2013,
             8,
@@ -119,7 +119,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-08-13`,
         ),
-        #(
+        (
             "when teenth Wednesday is some day in the middle of the teenth week",
             2013,
             1,
@@ -127,7 +127,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-01-16`,
         ),
-        #(
+        (
             "when teenth Wednesday is the 13th, the first day of the teenth week",
             2013,
             2,
@@ -135,7 +135,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-02-13`,
         ),
-        #(
+        (
             "when teenth Wednesday is the 19th, the last day of the teenth week",
             2013,
             6,
@@ -143,7 +143,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-06-19`,
         ),
-        #(
+        (
             "when teenth Thursday is some day in the middle of the teenth week",
             2013,
             5,
@@ -151,7 +151,7 @@ test "meetup" {
             .Thursday,
             Date`2013-05-16`,
         ),
-        #(
+        (
             "when teenth Thursday is the 13th, the first day of the teenth week",
             2013,
             6,
@@ -159,7 +159,7 @@ test "meetup" {
             .Thursday,
             Date`2013-06-13`,
         ),
-        #(
+        (
             "when teenth Thursday is the 19th, the last day of the teenth week",
             2013,
             9,
@@ -167,7 +167,7 @@ test "meetup" {
             .Thursday,
             Date`2013-09-19`,
         ),
-        #(
+        (
             "when teenth Friday is the 19th, the last day of the teenth week",
             2013,
             4,
@@ -175,7 +175,7 @@ test "meetup" {
             .Friday,
             Date`2013-04-19`,
         ),
-        #(
+        (
             "when teenth Friday is some day in the middle of the teenth week",
             2013,
             8,
@@ -183,7 +183,7 @@ test "meetup" {
             .Friday,
             Date`2013-08-16`,
         ),
-        #(
+        (
             "when teenth Friday is the 13th, the first day of the teenth week",
             2013,
             9,
@@ -191,7 +191,7 @@ test "meetup" {
             .Friday,
             Date`2013-09-13`,
         ),
-        #(
+        (
             "when teenth Saturday is some day in the middle of the teenth week",
             2013,
             2,
@@ -199,7 +199,7 @@ test "meetup" {
             .Saturday,
             Date`2013-02-16`,
         ),
-        #(
+        (
             "when teenth Saturday is the 13th, the first day of the teenth week",
             2013,
             4,
@@ -207,7 +207,7 @@ test "meetup" {
             .Saturday,
             Date`2013-04-13`,
         ),
-        #(
+        (
             "when teenth Saturday is the 19th, the last day of the teenth week",
             2013,
             10,
@@ -215,7 +215,7 @@ test "meetup" {
             .Saturday,
             Date`2013-10-19`,
         ),
-        #(
+        (
             "when teenth Sunday is the 19th, the last day of the teenth week",
             2013,
             5,
@@ -223,7 +223,7 @@ test "meetup" {
             .Sunday,
             Date`2013-05-19`,
         ),
-        #(
+        (
             "when teenth Sunday is some day in the middle of the teenth week",
             2013,
             6,
@@ -231,7 +231,7 @@ test "meetup" {
             .Sunday,
             Date`2013-06-16`,
         ),
-        #(
+        (
             "when teenth Sunday is the 13th, the first day of the teenth week",
             2013,
             10,
@@ -239,7 +239,7 @@ test "meetup" {
             .Sunday,
             Date`2013-10-13`,
         ),
-        #(
+        (
             "when first Monday is some day in the middle of the first week",
             2013,
             3,
@@ -247,7 +247,7 @@ test "meetup" {
             .Monday,
             Date`2013-03-04`,
         ),
-        #(
+        (
             "when first Monday is the 1st, the first day of the first week",
             2013,
             4,
@@ -255,7 +255,7 @@ test "meetup" {
             .Monday,
             Date`2013-04-01`,
         ),
-        #(
+        (
             "when first Tuesday is the 7th, the last day of the first week",
             2013,
             5,
@@ -263,7 +263,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-05-07`,
         ),
-        #(
+        (
             "when first Tuesday is some day in the middle of the first week",
             2013,
             6,
@@ -271,7 +271,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-06-04`,
         ),
-        #(
+        (
             "when first Wednesday is some day in the middle of the first week",
             2013,
             7,
@@ -279,7 +279,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-07-03`,
         ),
-        #(
+        (
             "when first Wednesday is the 7th, the last day of the first week",
             2013,
             8,
@@ -287,7 +287,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-08-07`,
         ),
-        #(
+        (
             "when first Thursday is some day in the middle of the first week",
             2013,
             9,
@@ -295,7 +295,7 @@ test "meetup" {
             .Thursday,
             Date`2013-09-05`,
         ),
-        #(
+        (
             "when first Thursday is another day in the middle of the first week",
             2013,
             10,
@@ -303,7 +303,7 @@ test "meetup" {
             .Thursday,
             Date`2013-10-03`,
         ),
-        #(
+        (
             "when first Friday is the 1st, the first day of the first week",
             2013,
             11,
@@ -311,7 +311,7 @@ test "meetup" {
             .Friday,
             Date`2013-11-01`,
         ),
-        #(
+        (
             "when first Friday is some day in the middle of the first week",
             2013,
             12,
@@ -319,7 +319,7 @@ test "meetup" {
             .Friday,
             Date`2013-12-06`,
         ),
-        #(
+        (
             "when first Saturday is some day in the middle of the first week",
             2013,
             1,
@@ -327,7 +327,7 @@ test "meetup" {
             .Saturday,
             Date`2013-01-05`,
         ),
-        #(
+        (
             "when first Saturday is another day in the middle of the first week",
             2013,
             2,
@@ -335,7 +335,7 @@ test "meetup" {
             .Saturday,
             Date`2013-02-02`,
         ),
-        #(
+        (
             "when first Sunday is some day in the middle of the first week",
             2013,
             3,
@@ -343,7 +343,7 @@ test "meetup" {
             .Sunday,
             Date`2013-03-03`,
         ),
-        #(
+        (
             "when first Sunday is the 7th, the last day of the first week",
             2013,
             4,
@@ -351,7 +351,7 @@ test "meetup" {
             .Sunday,
             Date`2013-04-07`,
         ),
-        #(
+        (
             "when second Monday is some day in the middle of the second week",
             2013,
             3,
@@ -359,7 +359,7 @@ test "meetup" {
             .Monday,
             Date`2013-03-11`,
         ),
-        #(
+        (
             "when second Monday is the 8th, the first day of the second week",
             2013,
             4,
@@ -367,7 +367,7 @@ test "meetup" {
             .Monday,
             Date`2013-04-08`,
         ),
-        #(
+        (
             "when second Tuesday is the 14th, the last day of the second week",
             2013,
             5,
@@ -375,7 +375,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-05-14`,
         ),
-        #(
+        (
             "when second Tuesday is some day in the middle of the second week",
             2013,
             6,
@@ -383,7 +383,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-06-11`,
         ),
-        #(
+        (
             "when second Wednesday is some day in the middle of the second week",
             2013,
             7,
@@ -391,7 +391,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-07-10`,
         ),
-        #(
+        (
             "when second Wednesday is the 14th, the last day of the second week",
             2013,
             8,
@@ -399,7 +399,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-08-14`,
         ),
-        #(
+        (
             "when second Thursday is some day in the middle of the second week",
             2013,
             9,
@@ -407,7 +407,7 @@ test "meetup" {
             .Thursday,
             Date`2013-09-12`,
         ),
-        #(
+        (
             "when second Thursday is another day in the middle of the second week",
             2013,
             10,
@@ -415,7 +415,7 @@ test "meetup" {
             .Thursday,
             Date`2013-10-10`,
         ),
-        #(
+        (
             "when second Friday is the 8th, the first day of the second week",
             2013,
             11,
@@ -423,7 +423,7 @@ test "meetup" {
             .Friday,
             Date`2013-11-08`,
         ),
-        #(
+        (
             "when second Friday is some day in the middle of the second week",
             2013,
             12,
@@ -431,7 +431,7 @@ test "meetup" {
             .Friday,
             Date`2013-12-13`,
         ),
-        #(
+        (
             "when second Saturday is some day in the middle of the second week",
             2013,
             1,
@@ -439,7 +439,7 @@ test "meetup" {
             .Saturday,
             Date`2013-01-12`,
         ),
-        #(
+        (
             "when second Saturday is another day in the middle of the second week",
             2013,
             2,
@@ -447,7 +447,7 @@ test "meetup" {
             .Saturday,
             Date`2013-02-09`,
         ),
-        #(
+        (
             "when second Sunday is some day in the middle of the second week",
             2013,
             3,
@@ -455,7 +455,7 @@ test "meetup" {
             .Sunday,
             Date`2013-03-10`,
         ),
-        #(
+        (
             "when second Sunday is the 14th, the last day of the second week",
             2013,
             4,
@@ -463,7 +463,7 @@ test "meetup" {
             .Sunday,
             Date`2013-04-14`,
         ),
-        #(
+        (
             "when third Monday is some day in the middle of the third week",
             2013,
             3,
@@ -471,7 +471,7 @@ test "meetup" {
             .Monday,
             Date`2013-03-18`,
         ),
-        #(
+        (
             "when third Monday is the 15th, the first day of the third week",
             2013,
             4,
@@ -479,7 +479,7 @@ test "meetup" {
             .Monday,
             Date`2013-04-15`,
         ),
-        #(
+        (
             "when third Tuesday is the 21st, the last day of the third week",
             2013,
             5,
@@ -487,7 +487,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-05-21`,
         ),
-        #(
+        (
             "when third Tuesday is some day in the middle of the third week",
             2013,
             6,
@@ -495,7 +495,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-06-18`,
         ),
-        #(
+        (
             "when third Wednesday is some day in the middle of the third week",
             2013,
             7,
@@ -503,7 +503,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-07-17`,
         ),
-        #(
+        (
             "when third Wednesday is the 21st, the last day of the third week",
             2013,
             8,
@@ -511,7 +511,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-08-21`,
         ),
-        #(
+        (
             "when third Thursday is some day in the middle of the third week",
             2013,
             9,
@@ -519,7 +519,7 @@ test "meetup" {
             .Thursday,
             Date`2013-09-19`,
         ),
-        #(
+        (
             "when third Thursday is another day in the middle of the third week",
             2013,
             10,
@@ -527,7 +527,7 @@ test "meetup" {
             .Thursday,
             Date`2013-10-17`,
         ),
-        #(
+        (
             "when third Friday is the 15th, the first day of the third week",
             2013,
             11,
@@ -535,7 +535,7 @@ test "meetup" {
             .Friday,
             Date`2013-11-15`,
         ),
-        #(
+        (
             "when third Friday is some day in the middle of the third week",
             2013,
             12,
@@ -543,7 +543,7 @@ test "meetup" {
             .Friday,
             Date`2013-12-20`,
         ),
-        #(
+        (
             "when third Saturday is some day in the middle of the third week",
             2013,
             1,
@@ -551,7 +551,7 @@ test "meetup" {
             .Saturday,
             Date`2013-01-19`,
         ),
-        #(
+        (
             "when third Saturday is another day in the middle of the third week",
             2013,
             2,
@@ -559,7 +559,7 @@ test "meetup" {
             .Saturday,
             Date`2013-02-16`,
         ),
-        #(
+        (
             "when third Sunday is some day in the middle of the third week",
             2013,
             3,
@@ -567,7 +567,7 @@ test "meetup" {
             .Sunday,
             Date`2013-03-17`,
         ),
-        #(
+        (
             "when third Sunday is the 21st, the last day of the third week",
             2013,
             4,
@@ -575,7 +575,7 @@ test "meetup" {
             .Sunday,
             Date`2013-04-21`,
         ),
-        #(
+        (
             "when fourth Monday is some day in the middle of the fourth week",
             2013,
             3,
@@ -583,7 +583,7 @@ test "meetup" {
             .Monday,
             Date`2013-03-25`,
         ),
-        #(
+        (
             "when fourth Monday is the 22nd, the first day of the fourth week",
             2013,
             4,
@@ -591,7 +591,7 @@ test "meetup" {
             .Monday,
             Date`2013-04-22`,
         ),
-        #(
+        (
             "when fourth Tuesday is the 28th, the last day of the fourth week",
             2013,
             5,
@@ -599,7 +599,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-05-28`,
         ),
-        #(
+        (
             "when fourth Tuesday is some day in the middle of the fourth week",
             2013,
             6,
@@ -607,7 +607,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-06-25`,
         ),
-        #(
+        (
             "when fourth Wednesday is some day in the middle of the fourth week",
             2013,
             7,
@@ -615,7 +615,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-07-24`,
         ),
-        #(
+        (
             "when fourth Wednesday is the 28th, the last day of the fourth week",
             2013,
             8,
@@ -623,7 +623,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-08-28`,
         ),
-        #(
+        (
             "when fourth Thursday is some day in the middle of the fourth week",
             2013,
             9,
@@ -631,7 +631,7 @@ test "meetup" {
             .Thursday,
             Date`2013-09-26`,
         ),
-        #(
+        (
             "when fourth Thursday is another day in the middle of the fourth week",
             2013,
             10,
@@ -639,7 +639,7 @@ test "meetup" {
             .Thursday,
             Date`2013-10-24`,
         ),
-        #(
+        (
             "when fourth Friday is the 22nd, the first day of the fourth week",
             2013,
             11,
@@ -647,7 +647,7 @@ test "meetup" {
             .Friday,
             Date`2013-11-22`,
         ),
-        #(
+        (
             "when fourth Friday is some day in the middle of the fourth week",
             2013,
             12,
@@ -655,7 +655,7 @@ test "meetup" {
             .Friday,
             Date`2013-12-27`,
         ),
-        #(
+        (
             "when fourth Saturday is some day in the middle of the fourth week",
             2013,
             1,
@@ -663,7 +663,7 @@ test "meetup" {
             .Saturday,
             Date`2013-01-26`,
         ),
-        #(
+        (
             "when fourth Saturday is another day in the middle of the fourth week",
             2013,
             2,
@@ -671,7 +671,7 @@ test "meetup" {
             .Saturday,
             Date`2013-02-23`,
         ),
-        #(
+        (
             "when fourth Sunday is some day in the middle of the fourth week",
             2013,
             3,
@@ -679,7 +679,7 @@ test "meetup" {
             .Sunday,
             Date`2013-03-24`,
         ),
-        #(
+        (
             "when fourth Sunday is the 28th, the last day of the fourth week",
             2013,
             4,
@@ -687,10 +687,10 @@ test "meetup" {
             .Sunday,
             Date`2013-04-28`,
         ),
-        #("last Monday in a month with four Mondays", 2013, 3, .Last, .Monday, Date`2013-03-25`),
-        #("last Monday in a month with five Mondays", 2013, 4, .Last, .Monday, Date`2013-04-29`),
-        #("last Tuesday in a month with four Tuesdays", 2013, 5, .Last, .Tuesday, Date`2013-05-28`),
-        #(
+        ("last Monday in a month with four Mondays", 2013, 3, .Last, .Monday, Date`2013-03-25`),
+        ("last Monday in a month with five Mondays", 2013, 4, .Last, .Monday, Date`2013-04-29`),
+        ("last Tuesday in a month with four Tuesdays", 2013, 5, .Last, .Tuesday, Date`2013-05-28`),
+        (
             "last Tuesday in another month with four Tuesdays",
             2013,
             6,
@@ -698,7 +698,7 @@ test "meetup" {
             .Tuesday,
             Date`2013-06-25`,
         ),
-        #(
+        (
             "last Wednesday in a month with five Wednesdays",
             2013,
             7,
@@ -706,7 +706,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-07-31`,
         ),
-        #(
+        (
             "last Wednesday in a month with four Wednesdays",
             2013,
             8,
@@ -714,7 +714,7 @@ test "meetup" {
             .Wednesday,
             Date`2013-08-28`,
         ),
-        #(
+        (
             "last Thursday in a month with four Thursdays",
             2013,
             9,
@@ -722,7 +722,7 @@ test "meetup" {
             .Thursday,
             Date`2013-09-26`,
         ),
-        #(
+        (
             "last Thursday in a month with five Thursdays",
             2013,
             10,
@@ -730,9 +730,9 @@ test "meetup" {
             .Thursday,
             Date`2013-10-31`,
         ),
-        #("last Friday in a month with five Fridays", 2013, 11, .Last, .Friday, Date`2013-11-29`),
-        #("last Friday in a month with four Fridays", 2013, 12, .Last, .Friday, Date`2013-12-27`),
-        #(
+        ("last Friday in a month with five Fridays", 2013, 11, .Last, .Friday, Date`2013-11-29`),
+        ("last Friday in a month with four Fridays", 2013, 12, .Last, .Friday, Date`2013-12-27`),
+        (
             "last Saturday in a month with four Saturdays",
             2013,
             1,
@@ -740,7 +740,7 @@ test "meetup" {
             .Saturday,
             Date`2013-01-26`,
         ),
-        #(
+        (
             "last Saturday in another month with four Saturdays",
             2013,
             2,
@@ -748,9 +748,9 @@ test "meetup" {
             .Saturday,
             Date`2013-02-23`,
         ),
-        #("last Sunday in a month with five Sundays", 2013, 3, .Last, .Sunday, Date`2013-03-31`),
-        #("last Sunday in a month with four Sundays", 2013, 4, .Last, .Sunday, Date`2013-04-28`),
-        #(
+        ("last Sunday in a month with five Sundays", 2013, 3, .Last, .Sunday, Date`2013-03-31`),
+        ("last Sunday in a month with four Sundays", 2013, 4, .Last, .Sunday, Date`2013-04-28`),
+        (
             "when last Wednesday in February in a leap year is the 29th",
             2012,
             2,
@@ -758,7 +758,7 @@ test "meetup" {
             .Wednesday,
             Date`2012-02-29`,
         ),
-        #(
+        (
             "last Wednesday in December that is also the last day of the year",
             2014,
             12,
@@ -766,7 +766,7 @@ test "meetup" {
             .Wednesday,
             Date`2014-12-31`,
         ),
-        #(
+        (
             "when last Sunday in February in a non-leap year is not the 29th",
             2015,
             2,
@@ -774,7 +774,7 @@ test "meetup" {
             .Sunday,
             Date`2015-02-22`,
         ),
-        #(
+        (
             "when first Friday is the 7th, the last day of the first week",
             2012,
             12,
@@ -783,7 +783,7 @@ test "meetup" {
             Date`2012-12-07`,
         ),
     ]
-    |> subtests #(description, year, month, week, weekday, expected), description {
+    |> subtests (description, year, month, week, weekday, expected), description {
         assert meetup.meetup(year, month, week, weekday) == expected
     }
 }

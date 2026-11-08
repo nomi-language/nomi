@@ -77,7 +77,7 @@ func sigNamesTypeParam(params []ast.Param, ret ast.TypeExpr, tp map[string]bool)
 //
 // Every composite form is walked rather than only the head, because the mis-keyed
 // population is dominated by CONTAINERS over a parameter — `List<T>`,
-// `Map<K, V>`, `(T) -> Bool`, `(#(K, V)) -> Bool` — and a head-only test would
+// `Map<K, V>`, `(T) -> Bool`, `((K, V)) -> Bool` — and a head-only test would
 // have caught none of them.
 func typeNamesAny(te ast.TypeExpr, tp map[string]bool) bool {
 	return typeNamesAnyOutside(te, tp, nil)

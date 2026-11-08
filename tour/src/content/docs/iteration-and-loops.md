@@ -30,9 +30,9 @@ fn main() {
     dbg countdown
 
     // Tuple state: the first Fibonacci pair whose second number is over 100.
-    #(a, b) = Iter.loop(#(0, 1), fn #(x, y) -> {
-        if y > 100 { break #(x, y) }
-        #(y, x + y)
+    (a, b) = Iter.loop((0, 1), fn (x, y) -> {
+        if y > 100 { break (x, y) }
+        (y, x + y)
     })
 
     dbg a
@@ -118,7 +118,7 @@ dbg line 7: running = [3, 4, 8, 9, 14]
 The starting value itself is not in the output, so there is one total per
 element. When each element should produce its own result while a value is
 carried along, use [`Iter.map_reduce`](/reference/iter/#itermap_reduce). Its
-function returns `#(next_state, result)`, the state first as it takes it, and
+function returns `(next_state, result)`, the state first as it takes it, and
 the call gives back the final state and the list of results.
 
 ## `break` and `continue` in iter callbacks

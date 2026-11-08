@@ -63,7 +63,7 @@ func (d *implDef) withheldMember(method string) (withheldMember, bool) {
 		return w, false
 	}
 	gap, withheld := d.gaps[method]
-	if !withheld || (gap.why != "generic impl function" && gap.why != "generic interface function" && gap.why != "expansive impl function") {
+	if !withheld || (gap.why != "generic impl function" && gap.why != gapGenericIfaceFunc && gap.why != "expansive impl function") {
 		return w, false
 	}
 	if d.decl != nil {
@@ -221,7 +221,7 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here [
 			inherited: true,
 			lowerable: true,
 		}
-		// A `self` inside a parameter or result type (`#(self, U)`) is the
+		// A `self` inside a parameter or result type (`(self, U)`) is the
 		// implementor, as in inheritedDefaultSig.
 		prevSelf := g.defaultSelf
 		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
@@ -231,8 +231,8 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here [
 			k := kindInvalid
 			if w.shape.selfTyped(i) {
 				k = d.recv
-			} else if p.TypeAnnotation != nil {
-				k = g.typeOf(p.TypeAnnotation)
+			} else if p.TypeAnnotation != nil || p.Default != nil {
+				k = g.paramKind(p)
 			}
 			if !irCallableValueKind(k) {
 				return nil

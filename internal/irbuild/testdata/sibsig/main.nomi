@@ -56,5 +56,5 @@ fn main() {
     io.print("c == d = ${Bool.to_string(same_coord(beta.at(1.5, 1.0), beta.at(2.5, 1.0)))}")
 
     t = beta.pair(beta.at(1.5, 2.5))
-    io.print("tuple  = ${t.1}")
+    io.print("tuple  = ${t.second}")
 }

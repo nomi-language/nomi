@@ -80,9 +80,9 @@ fn signup(request: Request) -> Response {
 }
 
 fn main() {
-    router = Router.new([#(Route`GET /signup`, show_signup), #(Route`POST /signup`, signup)])!
+    router = Router.new([Route.to("GET /signup", show_signup), Route.to("POST /signup", signup)])!
     app = Router.handler(router) |> http.cross_origin_protection(CrossOrigin{})
-    post = fn email: String -> app(http_testing.form_request(.Post, "/signup", [#("email", email)]))
+    post = fn email: String -> app(http_testing.form_request(.Post, "/signup", [("email", email)]))
 
     dbg post("ada@example.com").status
     bad = post("<ada>")
@@ -286,7 +286,7 @@ fn main() -> Result<Unit, http.Error> {
         immutable: ["assets/**"],
     )
 
-    routes = [#(Route`GET /api/todos`, api.list_todos), #(Route`/`, frontend)]
+    routes = [Route.to("GET /api/todos", api.list_todos), Route.to("/", frontend)]
     listener = http.listen(Server{address: ":8080"})?
     http.serve(listener, Router.handler(Router.new(routes)?), App.server)
     Ok(Unit)

@@ -223,10 +223,10 @@ pub fn write_text(
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"in.txt" => "pear\r\napple"}}, fn -> {
 //!     each = lines("in.txt")
-//!     #(Result.collect(each), Iter.first(each), Result.collect(lines("none.txt")))
+//!     (Result.collect(each), Iter.first(each), Result.collect(lines("none.txt")))
 //! })
 //!
-//! assert ran.value == #(
+//! assert ran.value == (
 //!     Ok(["pear", "apple"]),
 //!     Some(Ok("pear")),
 //!     Err(Error.NotFound{path: "none.txt"}),
@@ -268,10 +268,7 @@ impl Iter<Result<String, Error>> for Lines {
 
             Ok(r) -> {
                 defer Reader.close_quietly(r)
-                // Bound rather than returned, so the call is not a tail
-                // call, which would run the deferred close first.
-                more = Iter.each_while(Reader.lines(r), yield)
-                more
+                Iter.each_while(Reader.lines(r), yield)
             }
         }
     }
@@ -290,15 +287,14 @@ impl Iter<Result<Bytes, Error>> for Chunks {
 
             Ok(r) -> {
                 defer Reader.close_quietly(r)
-                more = Iter.each_while(Reader.chunks(r, size: chunks.size), yield)
-                more
+                Iter.each_while(Reader.chunks(r, size: chunks.size), yield)
             }
         }
     }
 }
 
-/// A reader over the file at `path`. Close it when done; `fs.with_reader`
-/// does that for you.
+/// A reader over the file at `path`. Defer `Reader.close_quietly` on the
+/// next line, so the file is closed however the function ends.
 ///
 /// ```nomi
 /// r = fs.open("notes.txt")?
@@ -307,14 +303,16 @@ impl Iter<Result<Bytes, Error>> for Chunks {
 /// ```
 //! import std::fs_testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "one\ntwo\n"}}, fn -> {
-//!     r = open("a.txt")?
-//!     first = Reader.read_line(r)
-//!     _ = Reader.close(r)
-//!     first
-//! })
+//! fn first_line(path: String) -> Result<Maybe<String>, Error> {
+//!     r = open(path)?
+//!     defer Reader.close_quietly(r)
+//!     Reader.read_line(r)
+//! }
+//!
+//! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "one\ntwo\n"}}, fn -> first_line("a.txt"))
 //!
 //! assert ran.value == Ok(Some("one"))
+//! assert ran.open == []
 //
 pub fn open(path: String) -> Result<Reader, Error> {
     fs_host.open(path)
@@ -322,91 +320,64 @@ pub fn open(path: String) -> Result<Reader, Error> {
 
 /// A writer over the file at `path`, which `mode` treats as `fs.write`
 /// does. What is written is buffered until `Writer.flush` or
-/// `Writer.close`; close it, or use `fs.with_writer`, which closes it and
-/// reports a failed close.
+/// `Writer.close`.
+///
+/// Defer `Writer.discard` on the next line, and end the success path with
+/// `Writer.close(w)?`, which commits the write and reports a failed close.
+/// When the function leaves any other way, an `Err` or a trap, the deferred
+/// discard throws the output away: with `ReplaceAtomically` the old file is
+/// left as it was. A discard after the close does nothing.
 ///
 /// ```nomi
-/// w = fs.create("out.txt", mode: .New)?
-/// ```
-//! import std::fs_testing.{self, Sandbox}
-//!
-//! ran = fs_testing.run(Sandbox{}, fn -> {
-//!     w = create("out.txt")?
-//!     _ = Writer.print(w, "hello")
-//!     Writer.close(w)
-//! })
-//!
-//! assert ran.value == Ok(Unit)
-//! assert fs_testing.text(ran, "/work/out.txt") == Some("hello\n")
-//
-pub fn create(path: String, mode: WriteMode = WriteMode.Replace) -> Result<Writer, Error> {
-    fs_host.create(path, mode_code(mode))
-}
-
-/// Opens `path`, runs `body` with the reader, and closes it on every exit:
-/// an `Ok`, an `Err` and a trap alike.
+/// fn save(path: String, rows: List<String>) -> Result<Unit, io.Error> {
+///     w = fs.create(path, mode: .ReplaceAtomically)?
+///     defer Writer.discard(w)
 ///
-/// ```nomi
-/// first = fs.with_reader("names.txt", fn r -> Reader.read_line(r))?
-/// ```
-//! import std::fs_testing.{self, Sandbox}
-//!
-//! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "x\n"}}, fn -> {
-//!     with_reader("a.txt", fn r -> Reader.read_all_text(r))
-//! })
-//!
-//! assert ran.value == Ok("x\n")
-//! assert ran.open == []
-//
-pub fn with_reader<T>(path: String, body: (Reader) -> Result<T, Error>) -> Result<T, Error> {
-    r = open(path)?
-    defer Reader.close_quietly(r)
-    // Bound rather than returned: a tail call would run the deferred close
-    // before body.
-    value = body(r)
-    value
-}
-
-/// Creates `path`, runs `body` with the writer, and on an `Ok` flushes and
-/// closes it and reports a failed close. On an `Err` or a trap it gives the
-/// write up, so with `ReplaceAtomically` the old file is untouched. `body`
-/// is the last parameter, so a lambda written last routes to it whether or
-/// not `mode` is named before it ([Functions and
-/// closures](/spec/functions-and-closures/)).
-///
-/// ```nomi
-/// fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
-///     fs.with_reader(input, fn r -> {
-///         fs.with_writer(output, mode: .ReplaceAtomically, fn w -> {
-///             Writer.write_text(w, "# generated\n")?
-///             Reader.copy_to(r, w)
-///         })
-///     })
+///     Writer.write_lines(w, rows)?
+///     Writer.close(w)?
+///     Ok(Unit)
 /// }
 /// ```
 //! import std::fs_testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{files: %{"out.txt" => "old"}}, fn -> {
-//!     with_writer<Unit>("out.txt", mode: WriteMode.ReplaceAtomically, fn w -> {
-//!         Writer.write_text(w, "half")?
-//!         Err(Error.TimedOut)
-//!     })
+//! fn save(path: String, rows: List<String>, fail: Bool) -> Result<Unit, Error> {
+//!     w = create(path, mode: WriteMode.ReplaceAtomically)?
+//!     defer Writer.discard(w)
+//!     Writer.write_lines(w, rows)?
+//!     if fail { return Err(Error.TimedOut) }
+//!     Writer.close(w)?
+//!     Ok(Unit)
+//! }
+//!
+//! saved = fs_testing.run(Sandbox{files: %{"out.txt" => "old\n"}}, fn -> {
+//!     save("out.txt", ["new"], False)
 //! })
 //!
-//! assert ran.value == Err(Error.TimedOut)
-//! assert fs_testing.text(ran, "/work/out.txt") == Some("old")
-//! assert ran.open == []
+//! assert saved.value == Ok(Unit)
+//! assert fs_testing.text(saved, "/work/out.txt") == Some("new\n")
+//!
+//! failed = fs_testing.run(Sandbox{files: %{"out.txt" => "old\n"}}, fn -> {
+//!     save("out.txt", ["new"], True)
+//! })
+//!
+//! assert failed.value == Err(Error.TimedOut)
+//! assert fs_testing.text(failed, "/work/out.txt") == Some("old\n")
+//! assert failed.open == []
+//!
+//! appended = fs_testing.run(Sandbox{files: %{"log.txt" => "a\n"}}, fn -> {
+//!     w = create("log.txt", mode: WriteMode.Append)?
+//!     defer Writer.discard(w)
+//!     _ = Writer.write_text(w, "b\n")
+//!     Writer.discard(w)
+//!     Writer.close(w)
+//! })
+//!
+//! assert appended.value == Err(Error.Closed)
+//! assert fs_testing.text(appended, "/work/log.txt") == Some("a\nb\n")
+//! assert appended.open == []
 //
-pub fn with_writer<T>(
-    path: String,
-    mode: WriteMode = WriteMode.Replace,
-    body: (Writer) -> Result<T, Error>,
-) -> Result<T, Error> {
-    w = create(path, mode)?
-    defer fs_host.discard(w)
-    value = body(w)?
-    Writer.close(w)?
-    Ok(value)
+pub fn create(path: String, mode = WriteMode.Replace) -> Result<Writer, Error> {
+    fs_host.create(path, mode_code(mode))
 }
 
 /// How `fs.open_file` opens a file.
@@ -423,13 +394,19 @@ pub enum Access {
 derive Equatable for Access
 
 /// A `File` on `path` for reads and writes at a position (`io.File`):
-/// `File.read_at`, `File.write_at`, `File.seek`. Close it when done;
-/// `fs.with_file` does that for you.
+/// `File.read_at`, `File.write_at`, `File.seek`. A write reaches the file
+/// as it is made, so there is nothing to give up: defer `File.close_quietly`
+/// on the next line, and end the success path with `File.close(f)?` when a
+/// failed close should be reported.
 ///
 /// ```nomi
-/// f = fs.open_file("index.db", access: .ReadWrite)?
+/// fn patch_header(db: String, header: Bytes) -> Result<Unit, io.Error> {
+///     f = fs.open_file(db, access: .ReadWrite)?
+///     defer File.close_quietly(f)
 ///
-/// defer File.close_quietly(f)
+///     File.write_at(f, 0, header)?
+///     File.close(f)
+/// }
 /// ```
 //! import std::fs_testing.{self, Sandbox}
 //!
@@ -454,11 +431,11 @@ derive Equatable for Access
 //!     File.seek(f, 0)?
 //!     whole = File.read(f)?
 //!     File.truncate(f, 3)?
-//!     Ok(#(head, tail, at, size, whole))
+//!     Ok((head, tail, at, size, whole))
 //! })
 //!
 //! assert edited.value == Ok(
-//!     #(
+//!     (
 //!         Some(String.to_bytes("ab")),
 //!         Some(String.to_bytes("ef")),
 //!         4,
@@ -471,12 +448,26 @@ derive Equatable for Access
 //! assert edited.open == []
 //!
 //! read_only = fs_testing.run(Sandbox{files: %{"a.txt" => "a"}}, fn -> {
-//!     with_file("a.txt", fn f -> File.write(f, String.to_bytes("b")))
+//!     f = open_file("a.txt")?
+//!     defer File.close_quietly(f)
+//!     File.write(f, String.to_bytes("b"))
 //! })
 //!
 //! assert read_only.value == Err(Error.PermissionDenied{path: "a.txt"})
+//! assert read_only.open == []
+//!
+//! patched = fs_testing.run(Sandbox{files: %{"db" => "v1-data"}}, fn -> {
+//!     f = open_file("db", access: Access.ReadWrite)?
+//!     defer File.close_quietly(f)
+//!     File.write_at(f, 0, String.to_bytes("v2"))?
+//!     File.close(f)
+//! })
+//!
+//! assert patched.value == Ok(Unit)
+//! assert fs_testing.text(patched, "/work/db") == Some("v2-data")
+//! assert patched.open == []
 //
-pub fn open_file(path: String, access: Access = Access.Read) -> Result<File, Error> {
+pub fn open_file(path: String, access = Access.Read) -> Result<File, Error> {
     code = case access {
         Access.Read -> 0
         Access.ReadWrite -> 1
@@ -484,37 +475,6 @@ pub fn open_file(path: String, access: Access = Access.Read) -> Result<File, Err
     }
 
     fs_host.open_file(path, code)
-}
-
-/// Opens `path` as `fs.open_file` does, runs `body` with the file, and
-/// closes it on every exit. A failed close after an `Ok` body is the
-/// result.
-///
-/// ```nomi
-/// fn patch_header(db: String, header: Bytes) -> Result<Unit, io.Error> {
-///     fs.with_file(db, fn f -> File.write_at(f, 0, header), access: .ReadWrite)
-/// }
-/// ```
-//! import std::fs_testing.{self, Sandbox}
-//!
-//! ran = fs_testing.run(Sandbox{files: %{"db" => "v1-data"}}, fn -> {
-//!     with_file("db", fn f -> File.write_at(f, 0, String.to_bytes("v2")), access: Access.ReadWrite)
-//! })
-//!
-//! assert ran.value == Ok(Unit)
-//! assert fs_testing.text(ran, "/work/db") == Some("v2-data")
-//! assert ran.open == []
-//
-pub fn with_file<T>(
-    path: String,
-    access: Access = Access.Read,
-    body: (File) -> Result<T, Error>,
-) -> Result<T, Error> {
-    f = open_file(path, access)?
-    defer File.close_quietly(f)
-    value = body(f)?
-    File.close(f)?
-    Ok(value)
 }
 
 /// Runs `body` with every std::fs call in it, and in the tasks it starts,
@@ -527,7 +487,7 @@ pub fn with_file<T>(
 /// the operating system's file system each name is resolved under the
 /// directory as it is opened, so a symlink changed during the call cannot
 /// lead out either. `fs.current_dir()` returns `dir` made absolute.
-/// `fs.with_temp_dir` is `Unsupported {operation: "fs.with_temp_dir",
+/// `fs.make_temp_dir` is `Unsupported {operation: "fs.make_temp_dir",
 /// target: "fs.within"}`, since its directory is elsewhere. A `within`
 /// inside another confines the call further. A `dir` that is not a
 /// directory is `NotFound` or `NotADirectory`.
@@ -537,9 +497,9 @@ pub fn with_file<T>(
 /// disk it is Go's `os.Root`; in memory, the same rules.
 ///
 /// ```nomi
-/// fn extract(dest: String, entries: List<#(String, Bytes)>) -> Result<Unit, io.Error> {
+/// fn extract(dest: String, entries: List<(String, Bytes)>) -> Result<Unit, io.Error> {
 ///     fs.within(dest, fn -> {
-///         Iter.each(entries, fn #(name, data) -> fs.write(name, data))
+///         Iter.each(entries, fn (name, data) -> fs.write(name, data))
 ///         Ok(Unit)
 ///     })
 /// }
@@ -617,15 +577,15 @@ fn decoded(dir: String, coded: String) -> Result<Entry, Error> {
             Err(Error.InvalidPath{path: joined(name), reason: "the name is not UTF-8"})
 
         None -> {
-            #(kind, name) = case #(
+            (kind, name) = case (
                 String.strip_prefix(coded, "f"),
                 String.strip_prefix(coded, "d"),
                 String.strip_prefix(coded, "l"),
             ) {
-                #(Some(name), _, _) -> #(Kind.File, name)
-                #(_, Some(name), _) -> #(Kind.Directory, name)
-                #(_, _, Some(name)) -> #(Kind.Symlink, name)
-                _ -> #(Kind.Other, String.strip_prefix(coded, "o") |> Maybe.with_default(coded))
+                (Some(name), _, _) -> (Kind.File, name)
+                (_, Some(name), _) -> (Kind.Directory, name)
+                (_, _, Some(name)) -> (Kind.Symlink, name)
+                _ -> (Kind.Other, String.strip_prefix(coded, "o") |> Maybe.with_default(coded))
             }
 
             Ok(Entry{path: joined(name), name, kind})
@@ -754,11 +714,11 @@ fn walk_entries(
 //
 pub fn glob(pattern: String) -> Result<List<String>, Error> {
     names = String.split(pattern, "/") |> Iter.to_list()
-    #(fixed, rest) = glob_split(names, [])
+    (fixed, rest) = glob_split(names, [])
 
-    base = case #(fixed, String.starts_with(pattern, "/")) {
-        #([], _) -> ""
-        #([""], True) -> "/"
+    base = case (fixed, String.starts_with(pattern, "/")) {
+        ([], _) -> ""
+        ([""], True) -> "/"
         _ -> String.join(fixed, "/")
     }
 
@@ -792,14 +752,14 @@ pub fn glob(pattern: String) -> Result<List<String>, Error> {
 
 /// The leading names of a pattern with no wildcard, and the names from the
 /// first that has one.
-fn glob_split(names: List<String>, fixed: List<String>) -> #(List<String>, List<String>) {
+fn glob_split(names: List<String>, fixed: List<String>) -> (List<String>, List<String>) {
     case names {
         [] ->
-            #(fixed, [])
+            (fixed, [])
 
         [name, ..rest] ->
             if is_wild(name) {
-                #(fixed, names)
+                (fixed, names)
             } else {
                 glob_split(rest, fixed + [name])
             }
@@ -851,7 +811,7 @@ fn walk_matches(w: Walk, base: String, pattern: String) -> Result<List<String>, 
 //!     Err(Error.AlreadyExists{path: "a"}),
 //! ]
 //
-pub fn create_dir(path: String, parents: Bool = False) -> Result<Unit, Error> {
+pub fn create_dir(path: String, parents = False) -> Result<Unit, Error> {
     fs_host.create_dir(path, parents)
 }
 
@@ -898,6 +858,22 @@ pub fn remove_all(path: String) -> Result<Unit, Error> {
     fs_host.remove_all(path)
 }
 
+/// Removes `path` and everything under it, as `fs.remove_all` does, and
+/// ignores the outcome: the form for a `defer` after `fs.make_temp_dir`.
+///
+/// ```nomi
+/// defer fs.remove_all_quietly(dir)
+/// ```
+//! import std::fs_testing.{self, Sandbox}
+//!
+//! ran = fs_testing.run(Sandbox{files: %{"build/a.o" => ""}}, fn -> remove_all_quietly("build"))
+//!
+//! assert ran.files == %{}
+//
+pub fn remove_all_quietly(path: String) -> Unit {
+    _ = fs_host.remove_all(path)
+}
+
 /// Moves `from` to `to`, replacing a file at `to`. A symlink at `from` is
 /// moved, rather than what it points to.
 ///
@@ -942,10 +918,10 @@ pub fn copy(from: String, to: String) -> Result<Unit, Error> {
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "four"}}, fn -> {
 //!     m = metadata("a.txt")?
-//!     Ok(#(m.kind, m.size))
+//!     Ok((m.kind, m.size))
 //! })
 //!
-//! assert ran.value == Ok(#(Kind.File, 4))
+//! assert ran.value == Ok((Kind.File, 4))
 //
 pub fn metadata(path: String) -> Result<Metadata, Error> {
     fields = fs_host.metadata(path)?
@@ -964,10 +940,10 @@ pub fn metadata(path: String) -> Result<Metadata, Error> {
 //! ran = fs_testing.run(Sandbox{files: %{"a.txt" => "four"}, links: %{"b" => "a.txt"}}, fn -> {
 //!     followed = metadata("b")?
 //!     link = link_metadata("b")?
-//!     Ok(#(followed.kind, followed.size, link.kind, link.size))
+//!     Ok((followed.kind, followed.size, link.kind, link.size))
 //! })
 //!
-//! assert ran.value == Ok(#(Kind.File, 4, Kind.Symlink, 5))
+//! assert ran.value == Ok((Kind.File, 4, Kind.Symlink, 5))
 //
 pub fn link_metadata(path: String) -> Result<Metadata, Error> {
     fields = fs_host.link_metadata(path)?
@@ -996,10 +972,10 @@ fn metadata_of(path: String, fields: List<Int>) -> Result<Metadata, Error> {
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"releases/v2/app" => "v2"}}, fn -> {
 //!     create_symlink("current", target: "releases/v2")?
-//!     Ok(#(read_text("current/app"), create_symlink("current", target: "x")))
+//!     Ok((read_text("current/app"), create_symlink("current", target: "x")))
 //! })
 //!
-//! assert ran.value == Ok(#(Ok("v2"), Err(Error.AlreadyExists{path: "current"})))
+//! assert ran.value == Ok((Ok("v2"), Err(Error.AlreadyExists{path: "current"})))
 //
 pub fn create_symlink(path: String, target: String) -> Result<Unit, Error> {
     fs_host.create_symlink(path, target)
@@ -1096,39 +1072,37 @@ pub fn temp_dir() -> String {
     fs_host.temp_dir()
 }
 
-/// Makes a fresh directory under `fs.temp_dir()`, runs `body` with its
-/// path, then removes it and everything in it, on every exit. It is how a
-/// test exercises the real file system; a named temporary file is
+/// Makes a fresh directory under `fs.temp_dir()` and returns its path.
+/// Defer `fs.remove_all_quietly` on the next line, so the directory and
+/// everything in it is removed however the function ends. It is how a test
+/// exercises the real file system; a named temporary file is
 /// `fs.create(path.join(dir, "x"), mode: .New)` inside it. In a wasip1
 /// module whose runtime preopened none of those directories it returns
-/// `Err(io.Error.Unsupported{operation: "fs.with_temp_dir", target:
+/// `Err(io.Error.Unsupported{operation: "fs.make_temp_dir", target:
 /// "wasip1/wasm with no preopened directory (TMPDIR, /tmp or the working
-/// directory)"})` and does not call `body`.
+/// directory)"})`.
 ///
 /// ```nomi
-/// fs.with_temp_dir(fn dir -> fs.write_text(path.join(dir, "x.txt"), "x"))
+/// dir = fs.make_temp_dir()?
+///
+/// defer fs.remove_all_quietly(dir)
 /// ```
 //! import std::fs_testing.{self, Sandbox}
 //!
-//! ran = fs_testing.run(Sandbox{}, fn -> {
-//!     with_temp_dir(fn dir -> {
-//!         write_text("${dir}/x.txt", "x")?
-//!         read_text("${dir}/x.txt")
-//!     })
-//! })
+//! fn scratch() -> Result<String, Error> {
+//!     dir = make_temp_dir()?
+//!     defer remove_all_quietly(dir)
+//!     write_text("${dir}/x.txt", "x")?
+//!     read_text("${dir}/x.txt")
+//! }
+//!
+//! ran = fs_testing.run(Sandbox{}, scratch)
 //!
 //! assert ran.value == Ok("x")
 //! assert ran.files == %{}
 //
-pub fn with_temp_dir<T>(body: (String) -> Result<T, Error>) -> Result<T, Error> {
-    dir = fs_host.make_temp_dir()?
-    defer remove_quietly(dir)
-    value = body(dir)
-    value
-}
-
-fn remove_quietly(dir: String) -> Unit {
-    _ = fs_host.remove_all(dir)
+pub fn make_temp_dir() -> Result<String, Error> {
+    fs_host.make_temp_dir()
 }
 
 /// The directory relative paths are resolved against: the program's

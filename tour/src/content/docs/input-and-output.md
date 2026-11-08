@@ -24,14 +24,14 @@ fn main() {
     io.write("no newline, ")
     io.write("so this continues the line\n")
     io.inspect(#{name: "Ada", langs: ["en", "fr"]})
-    io.print(#(1, "x"))
+    io.print((1, "x"))
 }
 ```
 <!-- expect
 hello
 no newline, so this continues the line
 #{langs: ["en", "fr"], name: "Ada"}
-#(1, x)
+(1, x)
 -->
 
 `io.print` and `io.write` take any value whose type has `Display`, and
@@ -235,9 +235,10 @@ WebAssembly.
 
 Two other functions run a command. `process.run` lets the program write
 straight to your program's own output and returns only its status, as a
-build step would. `process.with_spawned(command, fn child -> ...)` runs a
-body while the program runs, writing to its input and reading its output as
-it goes. When the body ends, a program still running is killed.
+build step would. `process.spawn(command)` starts the program and returns
+it as a `Child`, whose input you write and whose output you read as it
+goes. `defer Child.kill(child)` on the next line kills it if it is still
+running when the function ends.
 
 [HTTP](/http/) covers sending requests and serving them.
 

@@ -8,7 +8,7 @@ pub fn distance(strand1: String, strand2: String) -> Result<Int, String> {
     }
 
     Iter.zip(strand1, strand2)
-    |> Iter.filter(fn #(a, b) -> a != b)
+    |> Iter.filter(fn (a, b) -> a != b)
     |> Iter.count()
     |> Ok()
 }

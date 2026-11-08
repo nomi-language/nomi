@@ -52,7 +52,7 @@ Where clause on impl block
 ================================================================================
 
 impl Iter for Range<T> where T: Discrete {
-  fn next(r: Range<T>) -> Maybe<#(T, Range<T>)> {
+  fn next(r: Range<T>) -> Maybe<(T, Range<T>)> {
     None
   }
 }

@@ -20,7 +20,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `xs.len()`, `s.trim()` | `Iter.count(xs)`, `String.trim(s)`: there are no method calls. |
 | `v.iter().map(f).collect()` | `xs \|> Iter.map(f) \|> Iter.to_list()` |
 | `match x { A => .. }` | `case x { A -> .. }`, with guards written `when` |
-| `Point { x: 1 }`, `(1, "a")` | `Point{x: 1}`, `#(1, "a")` |
+| `Point { x: 1 }`, `(1, "a")` | `Point{x: 1}`; a tuple is `(1, "a")` as in Rust |
 | `vec![1, 2]`, `HashMap` | `[1, 2]` (a list) or `#[1, 2]` (a vector), `%{"a" => 1}` |
 | `Option<T>`, `.unwrap()` | `Maybe<T>`, a postfix `!` |
 | `c.then(\|\| x)`; `if c { x }` needs `x: ()` | `if c { x }` is a `Maybe`: `Some(x)` or `None`. With a `Unit` branch it is a statement. |
@@ -28,6 +28,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied |
 | `Shape::new()`, `Shape::Circle { radius: 1 }` | `Shape.new()`, `Shape.Circle{radius: 1}` or `.Circle{radius: 1}` |
 | `format!("{x}")` | `"${x}"` |
+| `x as f64` | `Int.to_float(x)`. Nomi's `x as T` is no cast: it only states a type the value already fits (`[] as List<String>`) |
 | `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |
 | `tokio::spawn` | `Task.spawn` inside a `concurrent { .. }` block |
 | `#[test] fn t()` | `test "name" { assert .. }` |

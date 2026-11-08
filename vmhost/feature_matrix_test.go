@@ -228,7 +228,7 @@ var mxFeatures = []mxFeature{
 	{name: "map", typ: "Map<String, Int>", expr: `%{"a" => 1}`, want: `%{"a" => 1}`},
 	{name: "map spread", typ: "Map<String, Int>", expr: `%{..%{"a" => 1}, "b" => 2}`, want: `%{"a" => 1, "b" => 2}`},
 	{name: "empty map", typ: "Map<String, Int>", expr: "%{}", want: "%{}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
-	{name: "tuple", typ: "#(Int, String)", expr: `#(1, "a")`, want: `#(1, "a")`},
+	{name: "tuple", typ: "(Int, String)", expr: `(1, "a")`, want: `(1, "a")`},
 	{name: "record", typ: "#{a: Int, b: String}", expr: `#{a: 1, b: "x"}`, want: `#{a: 1, b: "x"}`},
 	{name: "range", typ: "Range<Int>", expr: "1..4", want: "1..4"},
 	{name: "not", typ: "Bool", expr: `not 1 == 2 and not ([1] |> Iter.is_empty())`, want: "True"},
@@ -392,12 +392,12 @@ var mxFeatures = []mxFeature{
 	{name: "iter reduce", typ: "Int", expr: "[1, 2, 3] |> Iter.reduce(0, fn acc, n -> acc + n)", want: "6"},
 	{name: "iter scan", typ: "Iter<Int>", expr: "[3, 1, 4] |> Iter.scan(0, fn total, n -> total + n)",
 		obs: "Debug.inspect(Iter.to_list($v))", want: "[3, 4, 8]", tags: tagIter},
-	{name: "iter map_reduce", typ: "#(Int, List<String>)", expr: `["a", "bb"] |> Iter.map_reduce(0, fn at, s -> #(at + 1, "${at}${s}"))`,
-		want: `#(2, ["0a", "1bb"])`},
+	{name: "iter map_reduce", typ: "(Int, List<String>)", expr: `["a", "bb"] |> Iter.map_reduce(0, fn at, s -> (at + 1, "${at}${s}"))`,
+		want: `(2, ["0a", "1bb"])`},
 	// A seed bound by a pattern, which `continue` keeps whole.
-	{name: "iter reduce pattern seed", typ: "#(Int, List<Int>)",
-		expr: "[1, 2, 3] |> Iter.reduce(#(0, []), fn #(n, xs), x -> {\n    if x == 2 { continue }\n    #(n + x, xs + [x])\n})",
-		want: "#(4, [1, 3])", tags: tagNested},
+	{name: "iter reduce pattern seed", typ: "(Int, List<Int>)",
+		expr: "[1, 2, 3] |> Iter.reduce((0, []), fn (n, xs), x -> {\n    if x == 2 { continue }\n    (n + x, xs + [x])\n})",
+		want: "(4, [1, 3])", tags: tagNested},
 	// A fold's starting value given by name, with a named function.
 	{name: "iter reduce from", typ: "Int", expr: "[1, 2, 3] |> Iter.reduce(10, Int.add)", want: "16"},
 	// An iter-sensitive helper is the callback itself: its `continue` skips
@@ -447,7 +447,7 @@ var mxFeatures = []mxFeature{
 		typ: "Line", expr: "#{..line0(), a: #{.., x: 5}}", want: "Line{a: Point{x: 5, y: 2}, b: Point{x: 1, y: 2}}"},
 
 	// Patterns.
-	{name: "tuple pattern", typ: "String", expr: "case #(1, \"a\") {\n    #(n, s) -> \"${n}${s}\"\n}", want: `"1a"`, tags: tagNested},
+	{name: "tuple pattern", typ: "String", expr: "case (1, \"a\") {\n    (n, s) -> \"${n}${s}\"\n}", want: `"1a"`, tags: tagNested},
 	{name: "list pattern", typ: "Int", expr: "case [1, 2, 3] {\n    [h, ..t] -> h + Iter.count(t)\n    [] -> 0\n}", want: "3",
 		tags: tagNested},
 	{name: "struct pattern", decls: mxPoint, typ: "Int", expr: "case (Point{x: 1, y: 5}) {\n    Point{x, y} -> x + y\n}",
@@ -473,7 +473,7 @@ var mxFeatures = []mxFeature{
 	{name: "or pattern", decls: mxShape, typ: "String",
 		expr: "case (Shape.Rect{w: 2, h: 3}) {\n    .Circle(_) or .Dot -> \"round\"\n    .Rect{w: n} or .Rect{h: n} when n > 5 -> \"wide\"\n    .Rect{w: 1 or 2 as n} -> \"${n}\"\n    _ -> \"other\"\n}",
 		want: `"2"`, tags: tagNested},
-	{name: "or parameter pattern", typ: "Int", expr: "{\n    f = fn #(0, n) or #(n, _): #(Int, Int) -> n * 2\n    f(#(0, 4)) + f(#(3, 1))\n}",
+	{name: "or parameter pattern", typ: "Int", expr: "{\n    f = fn (0, n) or (n, _): (Int, Int) -> n * 2\n    f((0, 4)) + f((3, 1))\n}",
 		want: "14", tags: tagNested},
 	{name: "distinct pattern", decls: "type Meters Int", typ: "Int", expr: "case Meters(4) {\n    Meters(n) -> n\n}",
 		want: "4", tags: tagNested},
@@ -481,7 +481,7 @@ var mxFeatures = []mxFeature{
 		tags: tagNested},
 	{name: "binding else", typ: "Int", expr: "{\n    Some(n) = Some(9) else { 0 }\n    n\n}", want: "9", tags: tagNested},
 	{name: "pattern if", typ: "Int", expr: "if Some(n) = Some(4) { n } else { 0 }", want: "4"},
-	{name: "parameter pattern", typ: "Int", expr: "{\n    f = fn #(a, b): #(Int, Int) -> a * b\n    f(#(3, 4))\n}", want: "12",
+	{name: "parameter pattern", typ: "Int", expr: "{\n    f = fn (a, b): (Int, Int) -> a * b\n    f((3, 4))\n}", want: "12",
 		tags: tagNested},
 
 	// Calls.
@@ -650,8 +650,8 @@ var mxWraps = []*mxContext{
 		b.expr = fmt.Sprintf("ident%d(%s)", n, b.expr)
 	}),
 	wrapCtx("generic function body", true, mxGives, func(b *mxBuild, n int) {
-		b.decls = append(b.decls, fmt.Sprintf("fn gen%d<A>(a: A) -> #(A, %s) {\n    #(a, %s)\n}", n, b.typ, mxIndentTail(b.expr)))
-		b.expr = fmt.Sprintf("gen%d(0).1", n)
+		b.decls = append(b.decls, fmt.Sprintf("fn gen%d<A>(a: A) -> (A, %s) {\n    (a, %s)\n}", n, b.typ, mxIndentTail(b.expr)))
+		b.expr = fmt.Sprintf("gen%d(0).second", n)
 	}),
 	wrapCtx("interface default", false, mxGives, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("interface Make%d {\n    fn tag%d(x: self) -> Int\n\n    fn make%d(_x: self) -> %s {\n%s\n    }\n}", n, n, n, b.typ, mxIndent(mxIndent(b.expr))),
@@ -708,7 +708,7 @@ var mxWraps = []*mxContext{
 			b.expr, n, n)
 	}),
 	wrapCtx("tuple element", true, mxFlows, func(b *mxBuild, n int) {
-		b.expr = fmt.Sprintf("#(%d, %s).1", n, b.expr)
+		b.expr = fmt.Sprintf("(%d, %s).second", n, b.expr)
 	}),
 	wrapCtx("maybe payload", true, mxFlows, func(b *mxBuild, n int) {
 		b.expr = fmt.Sprintf("case Some(%s) {\n    Some(p%d) -> p%d\n    None -> todo\n}", b.expr, n, n)

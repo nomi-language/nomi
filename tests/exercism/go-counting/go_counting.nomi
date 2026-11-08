@@ -1,9 +1,9 @@
 //# Territory on a Go board: the empty intersections a player's stones
 //# enclose. A board is rows of `B` (black), `W` (white) and ` ` (empty),
-//# and a point is `#(x, y)`, its column and row.
+//# and a point is `(x, y)`, its column and row.
 
-/// A point on the board, `#(x, y)`.
-pub typealias Point #(Int, Int)
+/// A point on the board, `(x, y)`.
+pub typealias Point (Int, Int)
 
 /// Who a territory belongs to.
 pub enum Owner {
@@ -28,16 +28,16 @@ pub struct Territories {
     neither: Set<Point>
 }
 
-once directions = [#(0, -1), #(-1, 0), #(1, 0), #(0, 1)]
+once directions = [(0, -1), (-1, 0), (1, 0), (0, 1)]
 
-/// The territory holding the point `#(x, y)`. A point with a stone on it
+/// The territory holding the point `(x, y)`. A point with a stone on it
 /// lies in no territory, and answers an empty one owned by neither.
 pub fn territory(board: List<String>, x: Int, y: Int) -> Result<Territory, String> {
     points = read(board)
 
-    case Map.get(points, #(x, y)) {
+    case Map.get(points, (x, y)) {
         None -> Err("Invalid coordinate")
-        Some(" ") -> Ok(fill(points, #(x, y)))
+        Some(" ") -> Ok(fill(points, (x, y)))
         Some(_) -> Ok(#{owner: .Neither, points: %[]})
     }
 }
@@ -48,8 +48,8 @@ pub fn territories(board: List<String>) -> Territories {
     empty: Territories = #{black: %[], white: %[], neither: %[]}
 
     points
-    |> Iter.filter(fn #(_point, stone) -> stone == " ")
-    |> Iter.reduce(empty, fn found, #(point, _stone) -> {
+    |> Iter.filter(fn (_point, stone) -> stone == " ")
+    |> Iter.reduce(empty, fn found, (point, _stone) -> {
         if is_claimed(found, point) {
             found
         } else {
@@ -62,8 +62,8 @@ pub fn territories(board: List<String>) -> Territories {
 fn read(board: List<String>) -> Map<Point, String> {
     board
     |> Iter.with_index()
-    |> Iter.flat_map(fn #(y, row) -> {
-        row |> Iter.with_index() |> Iter.map(fn #(x, stone) -> #(#(x, y), stone))
+    |> Iter.flat_map(fn (y, row) -> {
+        row |> Iter.with_index() |> Iter.map(fn (x, stone) -> ((x, y), stone))
     })
     |> Iter.to_map()
 }
@@ -71,7 +71,7 @@ fn read(board: List<String>) -> Map<Point, String> {
 /// The territory of the empty point `start`: every empty point connected
 /// to it, owned by the one colour of stone they touch, if there is one.
 fn fill(points: Map<Point, String>, start: Point) -> Territory {
-    #(area, borders) = spread(points, [start], %[start], %[])
+    (area, borders) = spread(points, [start], %[start], %[])
 
     owner = case Iter.to_list(borders) {
         ["B"] -> Owner.Black
@@ -89,19 +89,19 @@ fn spread(
     frontier: List<Point>,
     area: Set<Point>,
     borders: Set<String>,
-) -> #(Set<Point>, Set<String>) {
+) -> (Set<Point>, Set<String>) {
     case frontier {
         [] ->
-            #(area, borders)
+            (area, borders)
 
-        [#(x, y), ..rest] -> {
+        [(x, y), ..rest] -> {
             around =
                 directions
-                |> Iter.map(fn #(dx, dy) -> #(x + dx, y + dy))
+                |> Iter.map(fn (dx, dy) -> (x + dx, y + dy))
                 |> Iter.filter(&(&1 in points))
                 |> Iter.to_list()
 
-            #(empty, stones) = Iter.partition(around, fn point -> {
+            (empty, stones) = Iter.partition(around, fn point -> {
                 Map.get(points, point) == Some(" ")
             })
 

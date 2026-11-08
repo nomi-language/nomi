@@ -150,11 +150,11 @@ same for `Bytes`, a piece at a time.
 
 ## Streams
 
-A file you read or write a piece at a time is a stream. `fs.with_reader`
-opens a file as a [`Reader`](/reference/io/#type-reader), runs a function with
-it, and closes it however the function ends. `fs.with_writer` does the same
-with a `Writer`. `Reader.copy_to` copies everything left in a reader into a
-writer:
+A file you read or write a piece at a time is a stream. `fs.open` opens a
+file as a [`Reader`](/reference/io/#type-reader) and `fs.create` as a
+`Writer`. Each is closed by a `defer` on the next line, so it is closed
+however the function ends. `Reader.copy_to` copies everything left in a
+reader into a writer:
 
 ```nomi-run
 // FILE: main.nomi
@@ -164,12 +164,16 @@ import {
 }
 
 fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
-    fs.with_reader(input, fn r -> {
-        fs.with_writer(output, mode: .ReplaceAtomically, fn w -> {
-            Writer.write_text(w, "name,price\n")?
-            Reader.copy_to(r, w)
-        })
-    })
+    r = fs.open(input)?
+    defer Reader.close_quietly(r)
+
+    w = fs.create(output, mode: .ReplaceAtomically)?
+    defer Writer.discard(w)
+
+    Writer.write_text(w, "name,price\n")?
+    copied = Reader.copy_to(r, w)?
+    Writer.close(w)?
+    Ok(copied)
 }
 
 fn main() -> Result<Unit, io.Error> {
@@ -192,19 +196,28 @@ pear,4
 
 A writer over a file keeps what you write in memory and sends it to the
 file in large pieces, so writing to a disk can fail late, when the writer
-closes. That is why `Writer.close` returns a `Result`, and why
-`fs.with_writer` closes the writer itself and returns a failed close as its
-error. When its function returns an `Err` instead, `with_writer` gives the
-write up, and with `.ReplaceAtomically` the old file stays as it was.
+closes. That is why `Writer.close` returns a `Result`, and why the success
+path ends with `Writer.close(w)?`: the close commits the write and reports
+a failed close. A `defer` cannot return an error, so the deferred
+`Writer.discard(w)` only gives the write up when the function leaves any
+other way, by an `Err` or a trap, and with `.ReplaceAtomically` the old
+file stays as it was. A discard after the close does nothing. A reader has
+nothing to commit, so `Reader.close_quietly` closes it and ignores a failed
+close.
 
-A stream you hold past one function closes with `Reader.close` or
-`Writer.close`. A `defer` cannot return an error, so close a stream from a
-`defer` with `defer Reader.close_quietly(r)`, which ignores a failed close.
+The compiler checks both halves. Leave out a `defer`, and the error is
+`` `r` is never released; write `defer Reader.close_quietly(r)` after it,
+or return it ``; return `Ok` without the close, and it is `` `w` is
+discarded here: this path returns without `Writer.close(w)?` ``. A
+reader dropped unread, `_ = fs.open(path)?`, is an error too. The
+editor's quick fix writes the missing lines
+([Releasing resources](/spec/statements-and-control-flow/#releasing-resources)).
 
 A stream goes from the start of a file to its end. For reading and
 writing anywhere in a file, such as a record in the middle of a database
-file, `fs.with_file` opens it as an [`io.File`](/reference/io/#type-file), whose
+file, `fs.open_file` opens it as an [`io.File`](/reference/io/#type-file), whose
 `File.read_at`, `File.write_at` and `File.seek` take a position in bytes.
+Close it with `defer File.close_quietly(f)`.
 
 Standard input is a stream too. `io.stdin` is a `Reader`, so a function
 that takes a `Reader` reads standard input, a file or text alike.
@@ -441,8 +454,9 @@ the files still open when the function returned, so `assert ran.open ==
 []` catches a reader you forgot to close. Tasks the function starts use the
 same sandbox.
 
-For code whose behavior depends on the real disk, `fs.with_temp_dir` makes
-a fresh directory, runs a function with its path and removes it afterwards.
+For code whose behavior depends on the real disk, `fs.make_temp_dir` makes
+a fresh directory, and `defer fs.remove_all_quietly(dir)` on the next line
+removes it and everything in it when the function or test ends.
 
 ## Files in the browser
 

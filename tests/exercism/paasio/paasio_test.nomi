@@ -5,16 +5,16 @@ import {
 
 /// Reads `meter` to the end, `max` bytes at a time, and answers the bytes
 /// read and the meter after the last read.
-fn read_to_end(meter: MeteredReader, max: Int) -> Result<#(Bytes, MeteredReader), io.Error> {
-    #(data, meter) = MeteredReader.read(meter, max)?
+fn read_to_end(meter: MeteredReader, max: Int) -> Result<(Bytes, MeteredReader), io.Error> {
+    (data, meter) = MeteredReader.read(meter, max)?
 
     case data {
         None ->
-            Ok(#(Bytes.from_list([]), meter))
+            Ok((Bytes.from_list([]), meter))
 
         Some(bytes) -> {
-            #(rest, meter) = read_to_end(meter, max)?
-            Ok(#(bytes + rest, meter))
+            (rest, meter) = read_to_end(meter, max)?
+            Ok((bytes + rest, meter))
         }
     }
 }
@@ -29,7 +29,7 @@ test "a new meter has counted nothing" {
 
 test "reads count their bytes and themselves" {
     meter = Reader.from_text("hello world") |> MeteredReader.new()
-    #(data, meter) = read_to_end(meter, 4)?
+    (data, meter) = read_to_end(meter, 4)?
 
     assert data == String.to_bytes("hello world")
     assert meter.stats == Stats{bytes: 11, operations: 4}
@@ -37,7 +37,7 @@ test "reads count their bytes and themselves" {
 
 test "one read takes what fits, and the next finds the end" {
     meter = Reader.from_text("hello world") |> MeteredReader.new()
-    #(data, meter) = read_to_end(meter, 1024)?
+    (data, meter) = read_to_end(meter, 1024)?
 
     assert data == String.to_bytes("hello world")
     assert meter.stats == Stats{bytes: 11, operations: 2}
@@ -45,7 +45,7 @@ test "one read takes what fits, and the next finds the end" {
 
 test "reading an empty stream is one operation and no bytes" {
     meter = Reader.from_text("") |> MeteredReader.new()
-    #(data, meter) = MeteredReader.read(meter)?
+    (data, meter) = MeteredReader.read(meter)?
 
     assert data == None
     assert meter.stats == Stats{bytes: 0, operations: 1}
@@ -72,8 +72,8 @@ test "writes count their bytes and themselves" {
 
 test "earlier meters keep their own counts" {
     first = Reader.from_text("abcdef") |> MeteredReader.new()
-    #(_, second) = MeteredReader.read(first, 2)?
-    #(_, third) = MeteredReader.read(second, 2)?
+    (_, second) = MeteredReader.read(first, 2)?
+    (_, third) = MeteredReader.read(second, 2)?
 
     assert first.stats == Stats{bytes: 0, operations: 0}
     assert second.stats == Stats{bytes: 2, operations: 1}

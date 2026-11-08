@@ -1,12 +1,12 @@
 //# A wrapper that reverses a value's order, for sorting one key of a tuple
-//# key descending: `#(Reverse.of(r.points), r.name)`.
+//# key descending: `(Reverse.of(r.points), r.name)`.
 
 import comparable.{Comparable, Ordering}
 
 /// A value whose order is the reverse of its type's: `Reverse.of(a) <
 /// Reverse.of(b)` exactly when `b < a`. It sorts one key of a tuple key
 /// descending while the others stay ascending, for any `Comparable` type,
-/// strings and dates included: `#(Reverse.of(r.points), r.name)` orders by
+/// strings and dates included: `(Reverse.of(r.points), r.name)` orders by
 /// points, highest first, then by name. As a `max_by` or `min_by` key it
 /// turns one into the other.
 ///
@@ -18,9 +18,9 @@ import comparable.{Comparable, Ordering}
 //!
 //! assert Reverse.of(1) > Reverse.of(2)
 //!
-//! rows = [#("cy", "ann"), #("bob", "zed"), #("ann", "ann")]
-//! by_owner = Iter.sort_by(rows, fn #(name, owner) -> #(Reverse.of(owner), name))
-//! assert by_owner == [#("bob", "zed"), #("ann", "ann"), #("cy", "ann")]
+//! rows = [("cy", "ann"), ("bob", "zed"), ("ann", "ann")]
+//! by_owner = Iter.sort_by(rows, fn (name, owner) -> (Reverse.of(owner), name))
+//! assert by_owner == [("bob", "zed"), ("ann", "ann"), ("cy", "ann")]
 //!
 //! assert Iter.max_by(["bb", "a", "ccc"], fn s -> Reverse.of(s)) == Some("a")
 //

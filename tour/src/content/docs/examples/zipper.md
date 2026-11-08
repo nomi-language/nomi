@@ -149,10 +149,10 @@ fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>> {
 }
 
 test "the tree after the operations" {
-    cases: List<#(String, List<Operation>, Tree<Int>)> = [
-        #("data is retained", [], initial_tree()),
-        #("tree from deep focus", [.Left, .Right], initial_tree()),
-        #(
+    cases: List<(String, List<Operation>, Tree<Int>)> = [
+        ("data is retained", [], initial_tree()),
+        ("tree from deep focus", [.Left, .Right], initial_tree()),
+        (
             "set_value",
             [.Left, .SetValue(5)],
             #{
@@ -161,7 +161,7 @@ test "the tree after the operations" {
                 right: Some(leaf(4)),
             },
         ),
-        #(
+        (
             "set_value after traversing up",
             [.Left, .Right, .Up, .SetValue(5)],
             #{
@@ -170,7 +170,7 @@ test "the tree after the operations" {
                 right: Some(leaf(4)),
             },
         ),
-        #(
+        (
             "set_left with leaf",
             [.Left, .SetLeft(Some(leaf(5)))],
             #{
@@ -179,12 +179,12 @@ test "the tree after the operations" {
                 right: Some(leaf(4)),
             },
         ),
-        #(
+        (
             "set_right with null",
             [.Left, .SetRight(None)],
             #{value: 1, left: Some(leaf(2)), right: Some(leaf(4))},
         ),
-        #(
+        (
             "set_right with subtree",
             [.SetRight(Some(#{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
             #{
@@ -193,7 +193,7 @@ test "the tree after the operations" {
                 right: Some(#{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
             },
         ),
-        #(
+        (
             "set_value on deep focus",
             [.Left, .Right, .SetValue(5)],
             #{
@@ -204,28 +204,28 @@ test "the tree after the operations" {
         ),
     ]
 
-    subtests cases, #(description, operations, expected), description {
+    subtests cases, (description, operations, expected), description {
         assert follow(operations) |> Maybe.map(Zipper.to_tree) == Some(expected)
     }
 }
 
 test "the value at the focus" {
     [
-        #("left, right and value", [Operation.Left, .Right], 3),
-        #("left, right, and up", [.Left, .Up, .Right, .Up, .Left, .Right], 3),
-        #("test ability to descend multiple levels and return", [.Left, .Right, .Up, .Up], 1),
+        ("left, right and value", [Operation.Left, .Right], 3),
+        ("left, right, and up", [.Left, .Up, .Right, .Up, .Left, .Right], 3),
+        ("test ability to descend multiple levels and return", [.Left, .Right, .Up, .Up], 1),
     ]
-    |> subtests #(description, operations, expected), description {
+    |> subtests (description, operations, expected), description {
         assert follow(operations) |> Maybe.map(Zipper.value) == Some(expected)
     }
 }
 
 test "no node to move to" {
     [
-        #("dead end", [Operation.Left, .Left]),
-        #("traversing up from top", [.Up]),
+        ("dead end", [Operation.Left, .Left]),
+        ("traversing up from top", [.Up]),
     ]
-    |> subtests #(description, operations), description {
+    |> subtests (description, operations), description {
         assert follow(operations) == None
     }
 }

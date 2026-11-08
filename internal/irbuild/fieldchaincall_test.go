@@ -19,25 +19,25 @@ struct Q {
 }
 
 struct P {
-    t: #((Int) -> Int, Int)
+    t: ((Int) -> Int, Int)
     q: Q
-    qs: #(Int, #(Q, Int))
+    qs: (Int, (Q, Int))
 }
 
 fn make() -> P {
-    P{t: #(fn x -> x * 10, 2), q: Q{f: fn x -> x - 1}, qs: #(0, #(Q{f: fn x -> x * x}, 3))}
+    P{t: (fn x -> x * 10, 2), q: Q{f: fn x -> x - 1}, qs: (0, (Q{f: fn x -> x * x}, 3))}
 }
 
 fn main() {
-    p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}, qs: #(0, #(Q{f: fn x -> x + 7}, 3))}
-    io.inspect(p.t.0(8))
+    p = P{t: (fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}, qs: (0, (Q{f: fn x -> x + 7}, 3))}
+    io.inspect(p.t.first(8))
     io.inspect(p.q.f(8))
-    io.inspect((p.qs.1).0.f(8))
-    io.inspect(make().t.0(8))
-    io.inspect((make().qs.1).0.f(5))
-    io.inspect(8 |> p.t.0())
-    pair = #(p, 4)
-    io.inspect(pair.0.q.f(pair.1))
+    io.inspect((p.qs.second).first.f(8))
+    io.inspect(make().t.first(8))
+    io.inspect((make().qs.second).first.f(5))
+    io.inspect(8 |> p.t.first())
+    pair = (p, 4)
+    io.inspect(pair.first.q.f(pair.second))
 }
 `
 	const want = "9\n108\n15\n80\n25\n9\n104\n"
@@ -55,18 +55,18 @@ func TestIRFieldChainCall_AssertionRows(t *testing.T) {
 }
 
 struct P {
-    t: #((Int) -> Int, Int)
+    t: ((Int) -> Int, Int)
     q: Q
 }
 
 test "passes" {
-    p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
-    assert p.t.0(8) == 9
-    assert p.q.f(p.t.0(1)) == 102
+    p = P{t: (fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
+    assert p.t.first(8) == 9
+    assert p.q.f(p.t.first(1)) == 102
 }
 
 test "fails" {
-    p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
+    p = P{t: (fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
     assert p.q.f(2) == 3
 }
 `

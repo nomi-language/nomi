@@ -6,7 +6,7 @@ import "testing"
 // `Result.with_default`'s first argument) takes its open type arguments from
 // that call, not from the enclosing function's return type, which says
 // nothing about a value that is not returned. In a function returning
-// `Result<Int, String>`, the `Err` here is a `Result<#(String, Bool), String>`.
+// `Result<Int, String>`, the `Err` here is a `Result<(String, Bool), String>`.
 func TestReturnInfer_AnArgumentTakesItsCallsType(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
@@ -16,15 +16,15 @@ fn ok<T>(x: T) -> Result<T, String> {
 
 fn under_try() -> Result<Int, String> {
     t = ok({
-        f: (#(String, Bool)) -> Int = fn x -> x.0 |> String.length()
-        f(Result.with_default(Err("no"), #("bc", True)))
+        f: ((String, Bool)) -> Int = fn x -> x.first |> String.length()
+        f(Result.with_default(Err("no"), ("bc", True)))
     })?
     Ok(t)
 }
 
 fn bound() -> Result<Int, String> {
-    v = Result.with_default(Err("no"), #("abc", True))
-    Ok(String.length(v.0))
+    v = Result.with_default(Err("no"), ("abc", True))
+    Ok(String.length(v.first))
 }
 
 fn tail() -> Result<Int, String> {

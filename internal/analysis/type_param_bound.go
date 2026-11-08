@@ -123,7 +123,7 @@ func (c *checker) typeParamBoundOwner(tp *TypeParam_, ifaceName string) (string,
 	}
 	names := make([]string, len(fn.Params))
 	for i, p := range fn.Params {
-		names[i] = p.Name
+		names[i] = paramHead(p)
 	}
 	head := "fn " + fn.Name
 	if len(fn.TypeParams) > 0 {

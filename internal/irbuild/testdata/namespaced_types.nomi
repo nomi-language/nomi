@@ -106,7 +106,7 @@ pub fn total_retries(cs: List<Probe.Config>) -> Int {
     Iter.reduce(cs, 0, fn acc, c -> acc + retries_of(c))
 }
 
-pub fn widen(_pair: #(Probe.Config, Int)) -> Probe.Config {
+pub fn widen(_pair: (Probe.Config, Int)) -> Probe.Config {
     Probe.Config{retries: 0}
 }
 
@@ -117,5 +117,5 @@ fn main() {
     io.print("tuned = ${retries_of(tune(base, 3))}")
     io.print("chained = ${retries_of(tune(tune(base, 3), 5))}")
     io.print("total = ${total_retries([base, tune(base, 4), Probe.Config{retries: 9}])}")
-    io.print("widened = ${retries_of(widen(#(base, 1)))}")
+    io.print("widened = ${retries_of(widen((base, 1)))}")
 }

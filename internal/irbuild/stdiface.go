@@ -159,10 +159,11 @@ type stdIfaceParamSpec struct {
 // NOT listed, each for a reason this mechanism cannot paper over:
 // `Add`/`Subtract`/`Multiply`/`Divide`/`Iter`/`Literal`/`Steppable` are
 // GENERIC; `App` declares a FIELD and no functions; `Struct`'s only method is a
-// `host fn`; `Discrete` and `Iter` carry Nomi-bodied defaults whose bodies would
-// have to be monomorphized in a module that cannot see the declaring file's
-// scope; `FromJson` nests `self` INSIDE its return type. Each keeps refusing
-// under `stdlib interface`.
+// `host fn`; `Discrete`'s `next` answers `Maybe<self>`, a self nested in
+// the result, as `FromJson` nests `self` INSIDE its return type. Each keeps
+// refusing under `stdlib interface`. A Nomi-bodied default is no reason to
+// leave a row out: it takes no slot (matches) and is lowered in its
+// declaring module per receiver (stdifacedefault.go).
 //
 // The `FromJson` obstacle is the NESTED self, not self appearing only in the
 // return. A method with ZERO self-typed parameters and a BARE `self` return is
@@ -495,9 +496,10 @@ func stdImporterOf(fa *analysis.FileAnalysis, sym *analysis.Symbol) string {
 //
 // Everything checked here decides REPRESENTATION, and the check is an AGREEMENT
 // between std's declaration and the CANONICAL one the shared def was built
-// from — so a std edit that adds a method, reorders parameters, moves the self
-// position, changes a result type, adds a default body or makes a method
-// host-backed produces NO anchor, and every mention then refuses under
+// from — so a std edit that adds a required or host-backed method, reorders
+// parameters, moves the self position, changes a result type, gives a row's
+// method a body or makes it host-backed produces NO anchor, and every
+// mention then refuses under
 // `stdlib interface` instead of lowering against a table whose Go type no
 // longer describes it.
 //
@@ -514,15 +516,59 @@ func (s *stdIfaceSpec) matches(decl *ast.InterfaceDef, anchors stdAnchors) bool 
 		// A generic interface needs the dictionary a generic type needs, which
 		// is the refusal declareIfaces already records for a declared one.
 		return false
-	case len(decl.Methods) != len(s.methods):
+	}
+	// A Nomi-bodied default is no row of the table: it is lowered in the
+	// declaring module's own scope, once per implementor, and reached as a
+	// function of that implementor (stdifacedefault.go). So the functions
+	// the spec describes are the declaration's others, in order; a default
+	// takes no table slot and leaves the anchor as it was.
+	var required []*ast.InterfaceMethod
+	for i := range decl.Methods {
+		im := &decl.Methods[i]
+		if stdIfaceNomiDefault(im) {
+			continue
+		}
+		required = append(required, im)
+	}
+	if len(required) != len(s.methods) {
 		return false
 	}
 	for i := range s.methods {
-		if !s.methods[i].matches(&decl.Methods[i], anchors) {
+		if !s.methods[i].matches(required[i], anchors) {
 			return false
 		}
 	}
 	return true
+}
+
+// stdIfaceOverride reports whether name is an `open` Nomi-bodied default
+// of the std interface whose shared def d is, as this module's anchor
+// reached its declaration: an impl writing it overrides the default, which
+// is no slot of d's table (stdifacedefault.go), so the function is the
+// impl's own and every route that finds a written impl function finds it.
+func (g *gen) stdIfaceOverride(d *ifaceDef, name string) bool {
+	i, shared := stdIfaceOf(d)
+	if !shared {
+		return false
+	}
+	g.loadStdIfaces()
+	decl := g.stdIfaceDecls[i]
+	if decl == nil {
+		return false
+	}
+	for j := range decl.Methods {
+		if im := &decl.Methods[j]; im.Name == name {
+			return im.Open && stdIfaceNomiDefault(im)
+		}
+	}
+	return false
+}
+
+// stdIfaceNomiDefault reports an interface function with a Nomi body, open
+// or final: one lowered in its declaring module rather than dispatched
+// through a table.
+func stdIfaceNomiDefault(im *ast.InterfaceMethod) bool {
+	return im.Body != nil && !im.Extern
 }
 
 func (ms *stdIfaceMethodSpec) matches(im *ast.InterfaceMethod, anchors stdAnchors) bool {
@@ -530,14 +576,11 @@ func (ms *stdIfaceMethodSpec) matches(im *ast.InterfaceMethod, anchors stdAnchor
 	case im.Name != ms.name:
 		return false
 	case im.Open, im.Extern, im.Body != nil:
-		// A DEFAULT — Nomi-bodied or host-backed — is monomorphized into each
-		// implementing block by inheritDefaults, which resolves the body's
-		// names in the IMPLEMENTING module's scope. For a stdlib interface that
-		// scope is never the declaring one, so a default is exactly the
-		// silent-wrong-answer hazard existential.go refuses
-		// `sibling file interface default` for — and with no `portableDefault`
-		// question available to ask, because the declaring file is not a unit
-		// of this program. No anchor.
+		// A row's function is one every impl writes, which the table
+		// dispatches. A HOST-backed default has no Nomi body to lower in
+		// the declaring module, and no impl writes it, so no table slot can
+		// hold it: no anchor. A Nomi-bodied default never reaches here; it
+		// is no row (stdIfaceSpec.matches).
 		return false
 	case len(im.TypeParams) > 0, len(im.WhereClauses) > 0:
 		return false
@@ -615,7 +658,12 @@ func (g *gen) loadStdIfaces() {
 		return
 	}
 	g.stdIfacesLoaded = true
-	_, g.stdIfaceByName = stdIfaceAnchors(g.fa)
+	var byDecl map[*ast.InterfaceDef]int
+	byDecl, g.stdIfaceByName = stdIfaceAnchors(g.fa)
+	g.stdIfaceDecls = make(map[int]*ast.InterfaceDef, len(byDecl))
+	for decl, i := range byDecl {
+		g.stdIfaceDecls[i] = decl
+	}
 	g.structIfaceOK = structIfaceAnchored(g.fa)
 }
 

@@ -160,7 +160,7 @@ func TestMapNonComparableKey(t *testing.T) {
 }
 
 // TestMapTupleKey covers the other shape the corpus already uses —
-// 08-pattern-matching/map_patterns_test.nomi's `%{#(1, 2) => "a"}`. A tuple lowers
+// 08-pattern-matching/map_patterns_test.nomi's `%{(1, 2) => "a"}`. A tuple lowers
 // to an anonymous Go struct, so this key IS Go-comparable and correct under Go's
 // `==`; the point of the test is that the structural path agrees.
 func TestMapTupleKey(t *testing.T) {
@@ -381,7 +381,7 @@ func TestMapMerge(t *testing.T) {
 }
 
 // TestMapOfLastWriteWinsKeepingPosition pins the rule
-// `%{k => 1, j => 9}` with `k == j` and `Iter.to_map([#("a", 1), #("b", 2), #("a", 9)])`
+// `%{k => 1, j => 9}` with `k == j` and `Iter.to_map([("a", 1), ("b", 2), ("a", 9)])`
 // both depend on. `nomi run` prints `%{a => 9, b => 2}` for the latter.
 func TestMapOfLastWriteWinsKeepingPosition(t *testing.T) {
 	h, eq := stringKeys()

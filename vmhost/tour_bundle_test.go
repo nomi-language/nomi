@@ -583,7 +583,8 @@ func TestTourWasmReportsAFailedMain(t *testing.T) {
 // multi-file tour block, as run-worker.js does (nomiHoverIn): the call
 // `cart.cart_count(n)` in main.nomi answers the message's signature and
 // doc comment from cart.nomi, which only an analysis of the whole program
-// can resolve, and the declaration in cart.nomi answers in its own tab.
+// can resolve, and the declaration in cart.nomi answers in its own tab. A
+// lambda's `fn` answers with its keyword hover.
 func TestTourWasmHoversAcrossTabs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; loads a 25MB wasm under node; -short")
@@ -645,13 +646,21 @@ func TestTourWasmHoversAcrossTabs(t *testing.T) {
 	}
 	callLine, callCol := at("main.nomi", "cart_count")
 	declLine, declCol := at("cart.nomi", "cart_count")
+	fnLine, fnCol := at("main.nomi", "fn n ->")
 	answers := runUnderNode(t, node, []probe{
 		{Name: "call", Source: source, Hover: hover{"main.nomi", callLine, callCol}},
 		{Name: "declaration", Source: source, Hover: hover{"cart.nomi", declLine, declCol}},
 		{Name: "manifest", Source: source, Hover: hover{"nomi.toml", 1, 2}},
+		{Name: "keyword", Source: source, Hover: hover{"main.nomi", fnLine, fnCol}},
 	})
-	if len(answers) != 3 {
-		t.Fatalf("staged wasm answered %d of 3 hovers", len(answers))
+	if len(answers) != 4 {
+		t.Fatalf("staged wasm answered %d of 4 hovers", len(answers))
+	}
+	// A keyword answers as in the editor (hoverdoc.KeywordAt): the lambda's
+	// type and the keyword's link.
+	if got := answers[3]; !strings.Contains(got.Output, "fn n: Int -> Unit") || !strings.Contains(got.Output, "/functions-and-lambdas/#lambdas") {
+		t.Errorf("hover on a lambda's fn answered %q (error %q); want its type and the tour's link. Fix: %s",
+			got.Output, got.Error, rebuildInstruction)
 	}
 	for _, a := range answers[:2] {
 		if !strings.Contains(a.Output, "cart_count(count: Int)") || !strings.Contains(a.Output, "The cart badge") {

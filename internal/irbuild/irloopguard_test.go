@@ -25,14 +25,14 @@ fn small(n: Int) -> Bool {
 }
 
 fn newton(n: Float) -> Float {
-    #(_, guess) = Iter.loop(#(n / 2.0, 0.0), fn state -> {
-        #(guess, prev) = state
+    (_, guess) = Iter.loop((n / 2.0, 0.0), fn state -> {
+        (guess, prev) = state
         diff = guess - prev
         if diff > -0.0001 and diff < 0.0001 {
             break state
         }
         next = (guess + n / guess) / 2.0
-        #(next, guess)
+        (next, guess)
     })
     guess
 }

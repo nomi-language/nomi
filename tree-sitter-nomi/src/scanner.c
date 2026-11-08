@@ -454,7 +454,7 @@ static bool scan_subtests_keyword(TSLexer *lexer) {
 // The contextual keyword `subtests` as a pipe stage, at the lookahead after
 // a `|>`. As in the Go parser (atSubtestsStage), the word is the keyword only
 // when, after a space, a pattern starts on its line: `rows |> subtests
-// #(input, want) { ... }`. `x |> subtests(y)` or a bare `x |> subtests` leave
+// (input, want) { ... }`. `x |> subtests(y)` or a bare `x |> subtests` leave
 // it an identifier. The token ends after the word.
 static bool scan_subtests_stage_keyword(TSLexer *lexer) {
     if (!at_word(lexer, "subtests")) return false;

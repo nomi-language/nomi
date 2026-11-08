@@ -71,7 +71,7 @@ fn first<T>(xs: List<T>) -> Maybe<T> {
     List.head(xs)
 }
 
-fn pick(_u: User, _c: Color, _t: #(Int, String), _cp: Codepoint, _d: Decimal, _f: Float, _b: Bool, _s: String) -> Maybe<Int> {
+fn pick(_u: User, _c: Color, _t: (Int, String), _cp: Codepoint, _d: Decimal, _f: Float, _b: Bool, _s: String) -> Maybe<Int> {
     None
 }
 
@@ -81,7 +81,7 @@ fn main() {
     }
     f = local
     m = %{"a" => 1}
-    _ = #(f(1), m, helper.twice(1))
+    _ = (f(1), m, helper.twice(1))
     io.print("%BODY%")
 }
 `
@@ -159,8 +159,8 @@ func TestUnwrap_FailureTrapText(t *testing.T) {
 		{`    io.print("${"abc" |> String.to_int()!}")`, "`\"abc\" |> String.to_int()` found nothing"},
 		{`    io.print("${User{name: "a", nickname: None}.nickname!}")`, "`User{name: \"a\", nickname: None}.nickname` found nothing"},
 		{`    io.print("${(9 |> half())! + 1}")`, "`(9 |> half())` failed: 9 is odd"},
-		{`    io.print("${pick(User{name: "a", nickname: None}, .Red, #(1, "x"), 'q', 1.50d, 2.5, True, "a long string")!}")`,
-			"`pick(User{name: \"a\", nickname: None}, .Red, #(1, \"x\"), 'q', ...` found nothing"},
+		{`    io.print("${pick(User{name: "a", nickname: None}, .Red, (1, "x"), 'q', 1.50d, 2.5, True, "a long string")!}")`,
+			"`pick(User{name: \"a\", nickname: None}, .Red, (1, \"x\"), 'q', 1...` found nothing"},
 	}
 	for _, tc := range cases {
 		out, errText := runBang(t, tc.body)

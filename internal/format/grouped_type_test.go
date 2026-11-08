@@ -31,8 +31,8 @@ func TestFormat_GroupedType(t *testing.T) {
 		},
 		{
 			"a tuple payload in an extra pair",
-			"enum S {\n    Pair((#(Int, String)))\n}\n",
-			"enum S {\n    Pair #(Int, String)\n}\n",
+			"enum S {\n    Pair(((Int, String)))\n}\n",
+			"enum S {\n    Pair (Int, String)\n}\n",
 		},
 		{
 			"a function payload in an extra pair",
@@ -61,8 +61,8 @@ func TestFormat_GroupedType(t *testing.T) {
 		},
 		{
 			"a tuple and its elements",
-			"fn f(t: (#(Int, (String)))) -> Int {\n    0\n}\n",
-			"fn f(t: #(Int, String)) -> Int {\n    0\n}\n",
+			"fn f(t: ((Int, (String)))) -> Int {\n    0\n}\n",
+			"fn f(t: (Int, String)) -> Int {\n    0\n}\n",
 		},
 		{
 			"a function type, its parameter and its result",

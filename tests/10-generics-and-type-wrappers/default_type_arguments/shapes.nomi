@@ -1,0 +1,12 @@
+// Declarations with default type arguments, used from another file.
+pub struct Tagged<T, Tag = String> {
+    value: T
+    tag: Tag
+}
+
+pub enum Outcome<E = String> {
+    Done
+    Failed E
+}
+
+pub type Labelled<L = String> (Int, L)

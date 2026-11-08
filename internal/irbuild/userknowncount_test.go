@@ -53,6 +53,6 @@ fn main() {
 		"counted\nSome(7)\n" +
 		"[2, 3]\n" +
 		"None\n" +
-		"[#(5, 1), #(6, 2)]\n"
+		"[(5, 1), (6, 2)]\n"
 	irRunSource(t, src, want)
 }

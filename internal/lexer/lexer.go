@@ -3,6 +3,7 @@ package lexer
 import (
 	"github.com/nomi-language/nomi/internal/strlit"
 	"github.com/nomi-language/nomi/internal/token"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -1069,6 +1070,33 @@ var keywords = map[string]token.TokenType{
 	// keeps working elsewhere. `field` is an ordinary identifier; the
 	// parser names it only to explain that an interface or a type body
 	// declares no `field` items.
+}
+
+// contextualWords are the words that are keywords only where their
+// construct stands and ordinary names elsewhere (spec §2 *Keywords*). The
+// lexer gives each an IDENT; the parser recognizes it by lexeme in its
+// construct. `TestContextualWordsAreListed` (internal/parser) holds this
+// list to the lexemes the parser compares against.
+var contextualWords = []string{
+	"boot", "clock", "concurrent", "derive", "embed", "embeds", "go",
+	"gopkg", "group", "host", "noun", "open", "phrase", "setup", "subtests",
+}
+
+// ReservedWords returns the reserved words, which the lexer turns into
+// keyword tokens and which cannot name anything, sorted.
+func ReservedWords() []string {
+	words := make([]string, 0, len(keywords))
+	for w := range keywords {
+		words = append(words, w)
+	}
+	sort.Strings(words)
+	return words
+}
+
+// ContextualWords returns the words that are keywords only where their
+// construct stands, sorted.
+func ContextualWords() []string {
+	return append([]string(nil), contextualWords...)
 }
 
 func (l *lexer) scanIdentifier() {

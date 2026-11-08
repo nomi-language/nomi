@@ -53,6 +53,13 @@ type Program struct {
 	// declineDetails are the same declines with the file and position each
 	// was taken at, which Unsupported reports them by.
 	declineDetails []*irbuild.Decline
+	// stdModule is the stdlib module ("timer") whose cases this program
+	// holds (LoadStdlib), or "" for any other program. A blocker in one is
+	// followed into the std body that declined (stdBlocker).
+	stdModule string
+	// stdDeclines are the declines of each stdlib module's bodies, by
+	// module, lowered when a blocker first needs them (stdDecline).
+	stdDeclines map[string][]*irbuild.Decline
 	// sources are the texts of the program's in-memory files by module path,
 	// which a diagnostic quotes its source line from (a file on disk is read).
 	sources map[string]string

@@ -33,12 +33,12 @@ import collatz_conjecture
 
 test "counts the steps" {
     [
-        #("zero steps for one", 1, 0),
-        #("divide if even", 16, 4),
-        #("even and odd steps", 12, 9),
-        #("large number of even and odd steps", 1000000, 152),
+        ("zero steps for one", 1, 0),
+        ("divide if even", 16, 4),
+        ("even and odd steps", 12, 9),
+        ("large number of even and odd steps", 1000000, 152),
     ]
-    |> subtests #(description, number, expected), description {
+    |> subtests (description, number, expected), description {
         assert collatz_conjecture.steps(number) == Ok(expected)
     }
 }

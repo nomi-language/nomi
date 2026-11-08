@@ -53,10 +53,10 @@ func TestIfPattern_IrrefutableIsRejected(t *testing.T) {
     if _ = n { return 1 }
     0
 }`, "13:8", "Int", ""},
-		"a tuple of names": {`fn f(p: #(Int, Int)) -> Int {
-    if #(a, b) = p { return a + b }
+		"a tuple of names": {`fn f(p: (Int, Int)) -> Int {
+    if (a, b) = p { return a + b }
     0
-}`, "13:8", "#(Int, Int)", ""},
+}`, "13:8", "(Int, Int)", ""},
 		"a distinct type": {`fn f(w: Meters) -> Int {
     if Meters(m) = w { return m }
     0
@@ -103,8 +103,8 @@ func TestIfPattern_RefutableIsAccepted(t *testing.T) {
     if Some(v) = m { return v }
     0
 }`,
-		"a tuple with a variant": `fn f(p: #(Int, Maybe<Int>)) -> Int {
-    if #(a, Some(b)) = p { return a + b }
+		"a tuple with a variant": `fn f(p: (Int, Maybe<Int>)) -> Int {
+    if (a, Some(b)) = p { return a + b }
     0
 }`,
 		"a literal": `fn f(n: Int) -> Int {

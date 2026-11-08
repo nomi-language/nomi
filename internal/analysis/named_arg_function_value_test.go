@@ -151,7 +151,7 @@ func TestNamedArgThroughFunctionValue_DeclaredCalleesKeepNames(t *testing.T) {
   e: String = (&c(port: &1, host: "h"))(9)
   holder = Holder{f: connect}
   g: String = holder.f("h", 1)
-  _ = #(a, b, d, e, g)
+  _ = (a, b, d, e, g)
 }
 `)
 	expectNoStdlibErrors(t, errs)

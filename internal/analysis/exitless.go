@@ -1,6 +1,10 @@
 package analysis
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // exitlessSite is an expression that no function encloses: a `once`
 // initializer, a parameter's default, or a field's default. Each is evaluated
@@ -26,9 +30,9 @@ func onceExitless(name string) *exitlessSite {
 	}
 }
 
-func paramDefaultExitless(param string) *exitlessSite {
+func paramDefaultExitless(param ast.Param) *exitlessSite {
 	return &exitlessSite{
-		what: fmt.Sprintf("the default of parameter '%s'", param),
+		what: "the default of " + paramLabel(param),
 		why:  "a default has no function to return from",
 		hint: "handle the Result or Maybe inside the default with `case`, or compute the value inside the function",
 	}

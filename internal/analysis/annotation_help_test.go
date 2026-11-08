@@ -40,7 +40,7 @@ fn note(_n: Int) -> Note { Note{text: "n"} }
 
 fn other(_s: String) -> Page { Page{text: "o"} }
 
-fn routes() -> List<#(String, Handler)> { [#("a", page)] }
+fn routes() -> List<(String, Handler)> { [("a", page)] }
 `
 
 // annotationHelpSource is a program of decls and a function run whose
@@ -87,35 +87,35 @@ type annotationHelpCase struct {
 // check (spec §5 *Assignability*).
 var annotationHelpCases = map[string]annotationHelpCase{
 	"two typed operands of +": {annotationHelpDecls, "_c: Bool",
-		`mine = [#("b", page)]
+		`mine = [("b", page)]
   r = mine + routes()`,
-		"binary + type mismatch: List<#(String, (Int) -> Page)> vs List<#(String, (Int) -> Reply)>\n" +
-			"help: annotate the binding: `mine: List<#(String, Handler)> = ...`"},
+		"binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>\n" +
+			"help: annotate the binding: `mine: List<(String, Handler)> = ...`"},
 	"two typed spreads": {annotationHelpDecls, "_c: Bool",
-		`mine = [#("b", page)]
+		`mine = [("b", page)]
   r = [..mine, ..routes()]`,
-		"list spread element type mismatch: #(String, (Int) -> Page) vs #(String, (Int) -> Reply)\n" +
-			"help: annotate the binding: `mine: List<#(String, Handler)> = ...`"},
+		"list spread element type mismatch: (String, (Int) -> Page) vs (String, (Int) -> Reply)\n" +
+			"help: annotate the binding: `mine: List<(String, Handler)> = ...`"},
 	"a spread into an expected list": {annotationHelpDecls, "_c: Bool",
-		`mine = [#("b", page)]
-  r: List<#(String, Handler)> = [..mine, ..routes()]`,
-		"list spread element type mismatch: #(String, (Int) -> Reply) vs #(String, (Int) -> Page)\n" +
-			"help: annotate the binding: `mine: List<#(String, Handler)> = ...`"},
+		`mine = [("b", page)]
+  r: List<(String, Handler)> = [..mine, ..routes()]`,
+		"list spread element type mismatch: (String, (Int) -> Reply) vs (String, (Int) -> Page)\n" +
+			"help: annotate the binding: `mine: List<(String, Handler)> = ...`"},
 	"elements of an unannotated list": {annotationHelpDecls, "_c: Bool",
-		`all = [#("a", page), #("b", note)]`,
-		"list element type mismatch: expected #(String, (Int) -> Page), got #(String, (Int) -> Note)\n" +
-			"help: annotate the binding: `all: List<#(String, Handler)> = ...`"},
+		`all = [("a", page), ("b", note)]`,
+		"list element type mismatch: expected (String, (Int) -> Page), got (String, (Int) -> Note)\n" +
+			"help: annotate the binding: `all: List<(String, Handler)> = ...`"},
 	"if branches": {annotationHelpDecls, "c: Bool",
-		`xs = if c { [#("a", page)] } else { routes() }`,
-		"if/else branch type mismatch: then is List<#(String, (Int) -> Page)>, else is List<#(String, (Int) -> Reply)>\n" +
-			"help: annotate the binding: `xs: List<#(String, Handler)> = ...`"},
+		`xs = if c { [("a", page)] } else { routes() }`,
+		"if/else branch type mismatch: then is List<(String, (Int) -> Page)>, else is List<(String, (Int) -> Reply)>\n" +
+			"help: annotate the binding: `xs: List<(String, Handler)> = ...`"},
 	"case branches": {annotationHelpDecls, "c: Bool",
 		`xs = case c {
-    True -> [#("a", page)]
-    False -> [#("b", note)]
+    True -> [("a", page)]
+    False -> [("b", note)]
   }`,
-		"case branch type mismatch: expected List<#(String, (Int) -> Page)>, got List<#(String, (Int) -> Note)>\n" +
-			"help: annotate the binding: `xs: List<#(String, Handler)> = ...`"},
+		"case branch type mismatch: expected List<(String, (Int) -> Page)>, got List<(String, (Int) -> Note)>\n" +
+			"help: annotate the binding: `xs: List<(String, Handler)> = ...`"},
 	// With no alias that fits, the type is one side's, when the other
 	// converts to it.
 	"one side's type": {strings.NewReplacer("typealias Handler (Int) -> Reply", "", "Handler", "(Int) -> Reply").Replace(annotationHelpDecls) +
@@ -126,21 +126,21 @@ var annotationHelpCases = map[string]annotationHelpCase{
 			"help: annotate the binding: `mine: List<(Int) -> Reply> = ...`"},
 	// Two aliases fit; the one the function's signature names is the one.
 	"the alias the signature names": {annotationHelpDecls + "\ntypealias Responder (Int) -> Reply\n", "_c: Bool, _r: Responder",
-		`mine = [#("b", page)]
+		`mine = [("b", page)]
   r = mine + routes()`,
-		"binary + type mismatch: List<#(String, (Int) -> Page)> vs List<#(String, (Int) -> Reply)>\n" +
-			"help: annotate the binding: `mine: List<#(String, Responder)> = ...`"},
+		"binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>\n" +
+			"help: annotate the binding: `mine: List<(String, Responder)> = ...`"},
 	// An alias a module the file imports declares is written qualified.
 	"a qualified alias": {`import std::http
 import std::html.{Html}
 
 fn home(_r: http.Request) -> Html { todo }
 
-fn routes() -> List<#(http.Route, http.Handler)> { todo }
-`, "route: http.Route",
-		"mine = [#(route, home)]\n  r = mine + routes()",
-		"binary + type mismatch: List<#(Route, (Request) -> Html)> vs List<#(Route, (Request) -> ToResponse)>\n" +
-			"help: annotate the binding: `mine: List<#(http.Route, http.Handler)> = ...`"},
+fn routes() -> List<(http.Route<Unit>, http.Handler)> { todo }
+`, "route: http.Route<Unit>",
+		"mine = [(route, home)]\n  r = mine + routes()",
+		"binary + type mismatch: List<(Route, (Request) -> Html)> vs List<(Route, (Request) -> ToResponse)>\n" +
+			"help: annotate the binding: `mine: List<(http.Route<Unit>, http.Handler)> = ...`"},
 }
 
 func TestAnnotationHelp_NamesTheAnnotation(t *testing.T) {
@@ -183,18 +183,18 @@ func TestAnnotationHelp_TheAnnotationChecks(t *testing.T) {
 func TestAnnotationHelp_NoneWithoutOneCommonType(t *testing.T) {
 	for name, tc := range map[string]annotationHelpCase{
 		"a narrowing parameter": {annotationHelpDecls, "_c: Bool",
-			`mine = [#("b", other)]
+			`mine = [("b", other)]
   r = mine + routes()`,
-			"binary + type mismatch: List<#(String, (String) -> Page)> vs List<#(String, (Int) -> Reply)>"},
+			"binary + type mismatch: List<(String, (String) -> Page)> vs List<(String, (Int) -> Reply)>"},
 		"unrelated elements": {annotationHelpDecls, "_c: Bool",
 			`a = [1]
   b = ["x"]
   r = a + b`,
 			"binary + type mismatch: List<Int> vs List<String>"},
 		"two aliases, neither named": {annotationHelpDecls + "\ntypealias Responder (Int) -> Reply\n", "_c: Bool",
-			`mine = [#("b", page)]
+			`mine = [("b", page)]
   r = mine + routes()`,
-			"binary + type mismatch: List<#(String, (Int) -> Page)> vs List<#(String, (Int) -> Reply)>"},
+			"binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>"},
 		// Branches join as a type written for them only when it is an
 		// interface or a collection, so an annotation of a function type
 		// would not make these check.

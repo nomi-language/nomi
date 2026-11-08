@@ -16,13 +16,13 @@ func TestPartialApplication_TypeSolvedByALaterUse(t *testing.T) {
 		{
 			name: "inherent function with a default",
 			body: "    f = &Box.pad(&1, noted(7))\n    io.inspect(f(\"a\"))\n    io.inspect(f(\"b\"))\n" +
-				"    g: (Int) -> #(Int, Int) = &Box.pad(&1)\n    io.inspect(g(3))\n",
-			want: "made 7\n#(\"a\", 7)\nmade 7\n#(\"b\", 7)\n#(3, 2)\n",
+				"    g: (Int) -> (Int, Int) = &Box.pad(&1)\n    io.inspect(g(3))\n",
+			want: "made 7\n(\"a\", 7)\nmade 7\n(\"b\", 7)\n(3, 2)\n",
 		},
 		{
 			name: "same-file generic function with a default",
 			body: "    k = &pad(&1, noted(4))\n    io.inspect(k(True))\n    io.inspect(k(False))\n",
-			want: "made 4\n#(True, 4)\nmade 4\n#(False, 4)\n",
+			want: "made 4\n(True, 4)\nmade 4\n(False, 4)\n",
 		},
 		{
 			name: "Map.get",
@@ -53,13 +53,13 @@ struct Box {
 }
 
 impl Box {
-    fn pad<T>(x: T, n: Int = 2) -> #(T, Int) {
-        #(x, n)
+    fn pad<T>(x: T, n: Int = 2) -> (T, Int) {
+        (x, n)
     }
 }
 
-fn pad<T>(x: T, n: Int = 2) -> #(T, Int) {
-    #(x, n)
+fn pad<T>(x: T, n: Int = 2) -> (T, Int) {
+    (x, n)
 }
 
 fn noted(n: Int) -> Int {

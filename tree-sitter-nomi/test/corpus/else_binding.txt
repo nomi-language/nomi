@@ -7,7 +7,7 @@ fn main() {
     return Err("none")
   }
   Some(e) = m else { "none" }
-  Ok(#(w, h)) = parse(text) else { #(80, 24) }
+  Ok((w, h)) = parse(text) else { (80, 24) }
   [first, ..rest] = xs else { return 0 }
   .Valid(r) = c else { #{addr: "none", score: 0} }
   %{"a" => a} = m else { return 0 }

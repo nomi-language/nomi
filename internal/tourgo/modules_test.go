@@ -17,14 +17,15 @@ const firstQuery = `import {
 }
 
 fn main() -> Result<Unit, Error> {
-    sql.with_connection(sqlite.memory, fn db -> {
-        _ = Conn.exec(db, Sql"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)")?
-        _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"buy milk"})")?
-        rows = Conn.query(db, Sql"SELECT id, body FROM notes ORDER BY id")?
-        lines = (rows |> Iter.map(note_line) |> Result.collect())?
-        Iter.each(lines, io.print)
-        Ok(Unit)
-    })
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
+
+    _ = Conn.exec(db, Sql"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)")?
+    _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"buy milk"})")?
+    rows = Conn.query(db, Sql"SELECT id, body FROM notes ORDER BY id")?
+    lines = (rows |> Iter.map(note_line) |> Result.collect())?
+    Iter.each(lines, io.print)
+    Ok(Unit)
 }
 
 fn note_line(row: Row) -> Result<String, Error> {

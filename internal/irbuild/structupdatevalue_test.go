@@ -36,8 +36,8 @@ fn main() {
     io.inspect(Struct.update(updates: older(), original: base()))
     both = #{age: 2, name: "c"}
     io.inspect(Struct.update(original: u, updates: both))
-    p = #(1, #{tags: ["x", "y"]})
-    io.inspect(Struct.update(u, p.1))
+    p = (1, #{tags: ["x", "y"]})
+    io.inspect(Struct.update(u, p.second))
     cleared: #{tags: List<String>} = #{tags: []}
     io.inspect(Struct.update(u, cleared))
 }

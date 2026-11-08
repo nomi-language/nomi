@@ -16,7 +16,7 @@ fn lookup<K>(m: Map<K, String>, key: K) -> String {
 }
 
 test "maps can use structurally keyable values" {
-    tuple_keyed = %{#(1, 2) => "a", #(3, 4) => "b"}
+    tuple_keyed = %{(1, 2) => "a", (3, 4) => "b"}
 
     list_keyed =
         %{}
@@ -30,14 +30,14 @@ test "maps can use structurally keyable values" {
         %{}
         |> Map.put(-0.0, "z")
 
-    assert lookup(tuple_keyed, #(3, 4)) == "b"
+    assert lookup(tuple_keyed, (3, 4)) == "b"
     assert lookup(list_keyed, [1, 2, 3]) == "lst"
     assert lookup(nan_keyed, Float.nan()) == "n"
     assert lookup(zero_keyed, 0.0) == "z"
 }
 
 test "map literals support composite expression keys" {
-    points = %{#(1, 2) => "a", #(3, 4) => "b"}
+    points = %{(1, 2) => "a", (3, 4) => "b"}
     colors = %{Color.Red => "r", Color.Green => "g"}
     flags = %{True => "yes", False => "no"}
     lists = %{[1, 2] => "x", [3] => "y"}
@@ -46,7 +46,7 @@ test "map literals support composite expression keys" {
     base = 1
     numbers = %{base + 1 => "computed"}
 
-    assert lookup(points, #(3, 4)) == "b"
+    assert lookup(points, (3, 4)) == "b"
     assert lookup(colors, Color.Red) == "r"
     assert lookup(flags, False) == "no"
     assert lookup(lists, [1, 2]) == "x"
@@ -59,7 +59,7 @@ test "map patterns match composite expression keys" {
     flags = %{True => "yes", False => "no"}
     colors = %{Color.Red => "r", Color.Green => "g"}
     options = %{Some(2) => "two", Some(3) => "three"}
-    points = %{#(1, 2) => "a", #(3, 4) => "b"}
+    points = %{(1, 2) => "a", (3, 4) => "b"}
     lists = %{[1, 2] => "x", [3] => "y"}
     struct_keyed = %{Point{x: 1, y: 2} => "p"}
     ids = %{Id(5) => "five"}
@@ -82,7 +82,7 @@ test "map patterns match composite expression keys" {
     }
 
     by_tuple = case points {
-        %{#(3, 4) => v} -> v
+        %{(3, 4) => v} -> v
         _ -> "?"
     }
 
@@ -124,13 +124,13 @@ test "map patterns match composite expression keys" {
 
 test "an asserted map pattern binds composite expression keys" {
     flags = %{True => "yes", False => "no"}
-    points = %{#(1, 2) => "a", #(3, 4) => "b"}
+    points = %{(1, 2) => "a", (3, 4) => "b"}
     ids = %{Id(5) => "five"}
     numbers = %{2 => "computed"}
     shift = 1
 
     assert %{True => bound_bool} = flags
-    assert %{#(3, 4) => bound_tuple} = points
+    assert %{(3, 4) => bound_tuple} = points
     assert %{Id(5) => bound_id} = ids
     assert %{shift + 1 => bound_computed} = numbers
 

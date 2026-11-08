@@ -55,12 +55,12 @@ fn main() {
         if Iter.count(acc) == 1 { break acc }
         if Iter.count(acc) > 3 { [] } else { [2, ..acc] }
     })
-    io.inspect(#(a, b, c))
-    io.print(#(1, []) == #(1, [2]))
-    io.print(#(1, []) == #(1, []))
+    io.inspect((a, b, c))
+    io.print((1, []) == (1, [2]))
+    io.print((1, []) == (1, []))
     k: Captured<List<Int>> = Captured{value: [], output: "", errors: "", transcript: ""}
     io.inspect(k.value)
 }
 `
-	irRunSource(t, src, "[[], [-1], [0, 0]]\n[]\n[]\n[]\n[[1, 1], [2]]\n#([], [1, 1, 1], [2])\nFalse\nTrue\n[]\n")
+	irRunSource(t, src, "[[], [-1], [0, 0]]\n[]\n[]\n[]\n[[1, 1], [2]]\n([], [1, 1, 1], [2])\nFalse\nTrue\n[]\n")
 }

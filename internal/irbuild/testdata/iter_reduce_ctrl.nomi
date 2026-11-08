@@ -4,7 +4,7 @@ import std::io
 // push protocol where a Nomi `break` really has to become a value, because the
 // callback is driven by the source's own `each_while` and there is no enclosing
 // loop for a `break` to target. The encoding is a second return value,
-// `#(acc, keepGoing)`; see rt/seqctl.go.
+// `(acc, keepGoing)`; see rt/seqctl.go.
 //
 // The four shapes are lifted from tests/13-iterators-and-pipes/
 // control_flow_test.nomi, which is where the corpus exercises them, and each

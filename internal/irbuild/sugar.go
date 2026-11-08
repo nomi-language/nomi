@@ -70,9 +70,13 @@ func (g *gen) paramKind(p ast.Param) kind {
 		return g.typeOf(p.TypeAnnotation)
 	}
 	if p.Destructure == nil {
-		// No annotation and no pattern: a `fn` parameter must declare its type,
-		// and a defaulted one is no exception here — inferring it from the
-		// default would be a second inference path inside a backend.
+		// No annotation and no pattern: a parameter written `limit = 10`
+		// has the type the checker gave it from its default, on its
+		// symbol (inferredParamKind); any other has none.
+		if p.Default != nil {
+			_, k := g.inferredParamKind(p)
+			return k
+		}
 		return kindInvalid
 	}
 	// The self-typing rule: a pattern whose head NAMES a type is its own
@@ -86,6 +90,9 @@ func (g *gen) paramKind(p ast.Param) kind {
 	}
 	if head == nil {
 		return kindInvalid
+	}
+	if d := g.selfHeadDef(head); d != nil {
+		return named(d)
 	}
 	owner, member, ok := g.patternHead(head)
 	if !ok {

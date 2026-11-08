@@ -8,13 +8,14 @@ import (
 // A call whose bound check fails reports the missing impl once, at the
 // call. `List.contains` reaches Equatable both through its bound and
 // through `impl Contains for List<T> where T: Equatable`, whose demand used
-// to report the same missing impl a second time.
+// to report the same missing impl a second time. Point holds a function, so
+// it has no equality to meet the bound with.
 func TestMissingImpl_AFailedBoundReportsOnce(t *testing.T) {
-	src := "struct Point {\n    x: Int\n    y: Int\n}\n\nfn main() {\n" +
-		"    dbg List.contains([Point{x: 1, y: 2}], Point{x: 1, y: 2})\n}\n"
+	src := "struct Point {\n    x: Int\n    f: (Int) -> Int\n}\n\nfn main() {\n" +
+		"    dbg List.contains([Point{x: 1, f: fn v -> v}], Point{x: 1, f: fn v -> v})\n}\n"
 	rejects(t, src,
 		"main.nomi:7:9: Point does not implement Equatable (required by `where T: Equatable`)",
-		"add `derive Equatable` to `Point`")
+		"`Point` holds `(Int) -> Int`, and a function value has no equality")
 	err := checkEntry(t, src)
 	var diags []string
 	for _, line := range strings.Split(strings.TrimSpace(err.Error()), "\n") {
@@ -27,14 +28,34 @@ func TestMissingImpl_AFailedBoundReportsOnce(t *testing.T) {
 	}
 }
 
-// `x in c` over a collection with no Contains impl says so at the
-// collection, naming the test, and the missing impl names the operator.
+// `x in c` over a collection with no Contains impl says so once, at the
+// collection, naming the test, with the help to write the impl. An
+// element that misses the bound of the collection's impl is one error
+// too, the element's, naming the `in`: one that holds a function, since
+// any other has equality, which meets the bound.
 func TestMissingImpl_AMembershipTestNamesIn(t *testing.T) {
-	src := "struct Bag {\n    items: List<Int>\n}\n\nfn main() {\n    dbg 1 in Bag{items: [1]}\n}\n"
-	rejects(t, src,
-		"main.nomi:6:14: the collection `in` looks in: Bag does not implement Contains",
-		"main.nomi:6:14: no impl of `Contains` for `Bag` (required via operator `in`)",
-		"write an `impl Contains for Bag` block")
+	for _, tc := range []struct {
+		src, want, help string
+	}{
+		{"struct Bag {\n    items: List<Int>\n}\n\nfn main() {\n    dbg 1 in Bag{items: [1]}\n}\n",
+			"main.nomi:6:14: the collection `in` looks in: Bag does not implement Contains",
+			"write an `impl Contains<T> for Bag` block"},
+		{"struct P {\n    f: (Int) -> Int\n}\n\nfn main() {\n    p = P{f: fn v -> v}\n    dbg p in [p]\n}\n",
+			"main.nomi:7:14: no impl of `Equatable` for `P` (required via membership test `in`)",
+			"`P` holds a function, an Iter or a handle to running state, which has no equality"},
+	} {
+		rejects(t, tc.src, tc.want, tc.help)
+		err := checkEntry(t, tc.src)
+		var diags []string
+		for _, line := range strings.Split(strings.TrimSpace(err.Error()), "\n") {
+			if !strings.Contains(line, ": help: ") {
+				diags = append(diags, line)
+			}
+		}
+		if len(diags) != 1 {
+			t.Errorf("want one diagnostic, got %d:\n%s", len(diags), err)
+		}
+	}
 }
 
 // A demand no bound check covers (an ordering operator) still reports the

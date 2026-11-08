@@ -92,10 +92,10 @@ fn closer(cs: List<Codepoint>) -> String {
     }
 }
 
-fn pair(t: #(Int, Int)) -> Int {
+fn pair(t: (Int, Int)) -> Int {
     case t {
-        #(0, x) or #(x, 0) -> x
-        #(a, b) -> a * b
+        (0, x) or (x, 0) -> x
+        (a, b) -> a * b
     }
 }
 
@@ -150,7 +150,7 @@ fn param(.L(n) or .R(n): Two) -> Int {
     n + 1
 }
 
-fn tup(#(x, 0) or #(_, x): #(Int, Int)) -> Int {
+fn tup((x, 0) or (_, x): (Int, Int)) -> Int {
     x
 }
 
@@ -185,9 +185,9 @@ fn main() {
     io.print(closer([']', 'a']))
     io.print(closer(['a']))
     io.print(closer(['a', 'b']))
-    io.print(pair(#(0, 7)))
-    io.print(pair(#(8, 0)))
-    io.print(pair(#(2, 3)))
+    io.print(pair((0, 7)))
+    io.print(pair((8, 0)))
+    io.print(pair((2, 3)))
     io.print(field(P{kind: Tri.Isosceles, n: 5}))
     io.print(field(P{kind: Tri.Scalene, n: 2}))
     io.print(field(P{kind: Tri.Scalene, n: 9}))
@@ -202,8 +202,8 @@ fn main() {
     io.print(iff(Ev.C("q")))
     io.print(plain(Two.R(4)))
     io.print(param(Two.L(1)))
-    io.print(tup(#(5, 0)))
-    io.print(tup(#(5, 6)))
+    io.print(tup((5, 0)))
+    io.print(tup((5, 6)))
     f = fn .L(n) or .R(n): Two -> n * 2
     io.print(f(Two.R(21)))
     io.print("${[Two.L(1), Two.R(2)] |> Iter.map(fn .L(n) or .R(n) -> n) |> Iter.to_list()}")

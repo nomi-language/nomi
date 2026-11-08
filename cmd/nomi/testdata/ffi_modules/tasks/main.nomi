@@ -55,7 +55,7 @@ fn main() -> Result<Unit, String> {
 /// they were.
 fn step(command: Command, tasks: Map<Int, Task>) -> Map<Int, Task> {
     case commands.run(command, tasks, App.store, App.clock) {
-        Ok(#(tasks, lines)) -> {
+        Ok((tasks, lines)) -> {
             Iter.each(lines, &Console.write_line(App.console, &1))
             tasks
         }

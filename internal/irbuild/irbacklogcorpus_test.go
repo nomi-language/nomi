@@ -13,7 +13,7 @@ import "testing"
 func TestIRBacklogCorpus_MixedShapesRunOnTheVM(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
-type Coord #(Int, Int)
+type Coord (Int, Int)
 
 type Kvs Map<String, Int>
 
@@ -69,7 +69,7 @@ fn main() {
   c = Coord(3, 4)
   io.inspect(c)
   io.inspect(c == Coord(3, 4))
-  io.inspect(c == Coord(#(3, 5)))
+  io.inspect(c == Coord((3, 5)))
   k = %Kvs{"a" => 1}
   io.inspect(k)
   cb = Callback(fn s -> s + "!")

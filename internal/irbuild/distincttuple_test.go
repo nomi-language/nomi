@@ -45,7 +45,7 @@ func writeTemp(t *testing.T, src string) string {
 // a backstop and this test says so at that moment rather than passing quietly.
 func TestDistinctTuple_ArityIsTheFrontEndsJobForADistinctToo(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entry_test.nomi")
-	src := "type Coord #(Int, Int)\n\ntest \"t\" {\n  assert Debug.inspect(Coord(1, 2, 3)) == \"x\"\n}\n"
+	src := "type Coord (Int, Int)\n\ntest \"t\" {\n  assert Debug.inspect(Coord(1, 2, 3)) == \"x\"\n}\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestDistinctTuple_ArityIsTheFrontEndsJobForADistinctToo(t *testing.T) {
 			"builder's `call arity` arm is reachable from source and must be exercised " +
 			"directly rather than left as a backstop")
 	}
-	if !strings.Contains(err.Error(), "Coord wraps #(Int, Int), a tuple of 2 elements; got 3") {
+	if !strings.Contains(err.Error(), "Coord wraps (Int, Int), a tuple of 2 elements; got 3") {
 
 		t.Fatalf("the front end still rejects this, but with different words, so the "+
 			"claim above needs re-reading: %v", err)

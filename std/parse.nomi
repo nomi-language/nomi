@@ -1,0 +1,114 @@
+//# Reading values from text. `Parse` is the interface of a type read from
+//# one text, such as a path segment: `Int.parse("42")`,
+//# `Uuid.parse(text)`. A type of the program's own implements it to be read
+//# the same way; a distinct type over one of these reads its inner type:
+//#
+//# ```nomi
+//# import {
+//#     std::parse.Parse
+//#     std::uuid.{self, Uuid}
+//# }
+//#
+//# type UserId Uuid
+//#
+//# impl Parse<uuid.Error> for UserId {
+//#     fn parse(text: String) -> Result<UserId, uuid.Error> {
+//#         Uuid.parse(text) |> Result.map(UserId)
+//#     }
+//# }
+//# ```
+//#
+//# `ParseFields` reads several named texts at once, into `Unit` or into an
+//# anonymous struct whose fields each implement `Parse` and `Display`, as
+//# std::http's typed routes read their path parameters.
+
+import {
+    int.Int
+    iter.Iter
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    results.Infallible
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+}
+
+/// A type read from one text. `E` is why a text is not one, chosen by the
+/// impl: `String` reads every text and cannot fail, so its `E` is
+/// `Infallible`.
+//! assert Int.parse("42") == Ok(42)
+//! assert Int.parse("4x") == Err("`4x` is not a whole number")
+//! assert String.parse("a b") == Ok("a b")
+//
+pub interface Parse<E> {
+    fn parse(text: String) -> Result<self, E>
+}
+
+impl Parse<Infallible> for String {
+    fn parse(text: String) -> Result<String, Infallible> {
+        Ok(text)
+    }
+}
+
+impl Parse<String> for Int {
+    /// A whole number in decimal, as `String.to_int` reads one.
+    fn parse(text: String) -> Result<Int, String> {
+        case String.to_int(text) {
+            Some(n) -> Ok(n)
+            None -> Err("`${text}` is not a whole number")
+        }
+    }
+}
+
+/// Several named texts read at once: `Unit`, which has none, or an
+/// anonymous struct whose fields each implement `Parse` and `Display`,
+/// such as `#{id: Uuid, page: Int}`. The compiler supplies an anonymous
+/// struct's functions; no other type implements it. Each list is in the
+/// order `field_names` gives, which is the fields' names in order.
+/// `read_fields` and `write_fields` are the functions to call.
+pub interface ParseFields {
+    /// The names of the fields.
+    fn field_names() -> List<String>
+    /// The value whose fields are read from `texts`, one per field, each
+    /// with its type's `parse`, or `None` when one does not parse.
+    fn parse_fields(texts: List<String>) -> Maybe<self>
+    /// Each field's `Display` text.
+    fn field_texts(fields: self) -> List<String>
+}
+
+impl ParseFields for Unit {
+    fn field_names() -> List<String> {
+        []
+    }
+
+    fn parse_fields(_texts: List<String>) -> Maybe<Unit> {
+        Some(Unit)
+    }
+
+    fn field_texts(_fields: Unit) -> List<String> {
+        []
+    }
+}
+
+/// The `P` whose fields are read from `texts` by name, or `None` when a
+/// field's text is missing or does not parse.
+//! texts = %{"id" => "7", "name" => "ann"}
+//! assert read_fields(texts) == Some(#{id: 7, name: "ann"})
+//! assert read_fields<#{id: Int}>(%{"id" => "x"}) == None
+//! assert read_fields<#{id: Int}>(%{"name" => "x"}) == None
+//
+pub fn read_fields<P>(texts: Map<String, String>) -> Maybe<P> where P: ParseFields {
+    P.field_names()
+    |> Iter.map(fn name -> Map.get(texts, name))
+    |> Maybe.collect()
+    |> Maybe.flat_map(fn values -> P.parse_fields(values))
+}
+
+/// Each field of `fields` with its name and its `Display` text, in name
+/// order.
+//! assert write_fields(#{id: 7, name: "ann"}) == [("id", "7"), ("name", "ann")]
+//
+pub fn write_fields<P>(fields: P) -> List<(String, String)> where P: ParseFields {
+    Iter.zip(P.field_names(), P.field_texts(fields)) |> Iter.to_list()
+}

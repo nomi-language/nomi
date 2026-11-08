@@ -99,8 +99,20 @@ func (p *Program) Unsupported() error {
 // the lowering declined, in source order.
 func (p *Program) declineDiagnostics(names []string) frontend.Diagnostics {
 	var ds frontend.Diagnostics
+	type site struct {
+		path      string
+		line, col int
+		message   string
+	}
+	seen := map[site]bool{}
 	for _, name := range names {
-		ds = append(ds, p.unsupportedDiagnostic(name))
+		d := p.unsupportedDiagnostic(name)
+		// Two blockers that lead to one std body (stdBlocker) are one
+		// diagnostic.
+		if k := (site{d.Path, d.Line, d.Col, d.Message}); !seen[k] {
+			seen[k] = true
+			ds = append(ds, d)
+		}
 	}
 	sort.SliceStable(ds, func(i, j int) bool {
 		if ds[i].Path != ds[j].Path {
@@ -152,6 +164,12 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 		}
 		d = od
 	}
+	if inner, fn := p.stdBlocker(d); inner != nil {
+		// A stdlib module's case stopped at a call to a std function that
+		// did not lower: the construct is that function's own.
+		d, what = inner, "`fn "+fn+"`"
+		debugReason += "; [" + inner.Fn + "] " + inner.Reason
+	}
 	path, line, col := "", 0, 0
 	// derived is a body Nomi wrote for a `derive` or the universal Debug,
 	// placed at the declaration that asked for it rather than at a node.
@@ -185,6 +203,11 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 		construct = "this pattern"
 	} else if line > 0 && !derived {
 		mod := p.modulePath(path)
+		if mod == nil {
+			// A decline in a stdlib file: a program-std module's body, or
+			// one a stdlib module's case led to (stdBlocker).
+			mod = stdModuleAt(path)
+		}
 		if n := nodeAt(mod, line, col); n != nil {
 			construct = describeConstruct(n)
 			if fd, ok := n.(*ast.FuncDef); ok && !nestedFunc(mod, fd) {
@@ -499,21 +522,7 @@ func nodeAt(mod *irbuild.Module, line, col int) ast.Node {
 	if mod == nil {
 		return nil
 	}
-	var found ast.Node
-	for _, top := range mod.Nodes {
-		analysis.WalkNodes(top, func(n ast.Node) {
-			if found != nil {
-				return
-			}
-			if l, c := nodeStart(n); l == line && c == col {
-				found = n
-			}
-		})
-		if found != nil {
-			return found
-		}
-	}
-	return nil
+	return nodeAtIn(mod.Nodes, line, col)
 }
 
 // nodeStart is a node's own line and column, for the kinds a lowering stops

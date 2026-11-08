@@ -163,18 +163,18 @@ func TestPipeHints_Nested(t *testing.T) {
 
 // A generic stage shows its solved type arguments.
 func TestPipeHints_Generic(t *testing.T) {
-	src := `fn pair<A, B>(a: A, b: B) -> #(A, B) {
-    #(a, b)
+	src := `fn pair<A, B>(a: A, b: B) -> (A, B) {
+    (a, b)
 }
 
-fn tagged(xs: List<Int>) -> List<#(Int, String)> {
+fn tagged(xs: List<Int>) -> List<(Int, String)> {
     xs
     |> Iter.map(fn x -> pair(x, Int.to_string(x)))
     |> Iter.to_list()
 }
 `
 	wantPipeHints(t, src,
-		"7:51 Iter<#(Int, String)>",
+		"7:51 Iter<(Int, String)>",
 	)
 }
 
@@ -228,9 +228,9 @@ func TestPipeHints_OneLine(t *testing.T) {
 
 // A long type is cut, and the whole one is the tooltip.
 func TestPipeHints_LongTypeIsShortened(t *testing.T) {
-	src := `fn f(xs: List<Int>) -> List<#(#(Int, Int), #(Int, Int), #(Int, Int))> {
+	src := `fn f(xs: List<Int>) -> List<((Int, Int), (Int, Int), (Int, Int))> {
     ys = xs
-    |> Iter.map(fn x -> #(#(x, x), #(x, x), #(x, x)))
+    |> Iter.map(fn x -> ((x, x), (x, x), (x, x)))
     |> Iter.to_list()
     ys
 }
@@ -240,7 +240,7 @@ func TestPipeHints_LongTypeIsShortened(t *testing.T) {
 		t.Fatalf("want 2 hints, got %+v", hints)
 	}
 	h := hints[1]
-	full := "List<#(#(Int, Int), #(Int, Int), #(Int, Int))>"
+	full := "List<((Int, Int), (Int, Int), (Int, Int))>"
 	if h.Tooltip != full {
 		t.Errorf("tooltip %q, want %q", h.Tooltip, full)
 	}

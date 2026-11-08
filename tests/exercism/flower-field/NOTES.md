@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/flower-field.
 
 ## Choices
 
-- The garden stays `List<String>` in and out. Flowers are collected once into a `Set<#(Int, Int)>` of coordinates, so counting neighbours is eight set lookups and there is no grid indexing or bounds check.
+- The garden stays `List<String>` in and out. Flowers are collected once into a `Set<(Int, Int)>` of coordinates, so counting neighbours is eight set lookups and there is no grid indexing or bounds check.
 - Rows are iterated as strings of graphemes (`Iter` over `String`), comparing squares with `"*"`, not as codepoints; style §20 keeps text in strings.
 - The eight offsets are a `once` literal rather than generated from `-1..=1` twice with the centre removed.
 - Each canonical case is its own `test`, with the garden bound to `garden` before the assertion.

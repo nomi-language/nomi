@@ -8,7 +8,7 @@ pub fn short(s: Status) -> String {
         ticket.Status.Open -> "O"
         ticket.Status.Assigned(name) -> "A:${name}"
         ticket.Status.Blocked(_) -> "B"
-        ticket.Status.Paired(#(a, _)) -> "P${a}"
+        ticket.Status.Paired((a, _)) -> "P${a}"
         ticket.Status.Noted(_) -> "N"
         ticket.Status.Closed{days} when days > 30 -> "C (old)"
         ticket.Status.Closed{} -> "C"

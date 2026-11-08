@@ -23,10 +23,10 @@ fn first(m: Maybe<Codepoint>) -> String {
     }
 }
 
-fn pair(p: #(Codepoint, Int)) -> String {
+fn pair(p: (Codepoint, Int)) -> String {
     case p {
-        #('-', n) -> "minus ${n}"
-        #(_, n) -> "other ${n}"
+        ('-', n) -> "minus ${n}"
+        (_, n) -> "other ${n}"
     }
 }
 
@@ -49,8 +49,8 @@ fn main() {
     io.print(first(Some('x')))
     io.print(first(Some('y')))
     io.print(first(None))
-    io.print(pair(#('-', 3)))
-    io.print(pair(#('+', 4)))
+    io.print(pair(('-', 3)))
+    io.print(pair(('+', 4)))
 
     io.print(
         'a'..='e'

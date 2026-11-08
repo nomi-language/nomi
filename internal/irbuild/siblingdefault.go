@@ -201,7 +201,12 @@ func (bl *irScalarBuilder) namedSiblingImplFill(t *ast.Call, fa *ast.FieldAccess
 // that reaches one is reported BLOCKED under the accessor's name, at the
 // default.
 func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, fn string, slot int) {
-	name := fileSlotName(fn, slot)
+	g.irSlotAccessorRetain(fd, sig, g.irFileSlotSym(callee, fn, slot), fileSlotName(fn, slot), slot)
+}
+
+// irSlotAccessorRetain builds sym, named name, as the accessor for slot of
+// fd: irFileSlotRetain's body, for any accessor symbol (ifaceslotdefault.go).
+func (g *gen) irSlotAccessorRetain(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, name string, slot int) {
 	g.irDeclineOpen(name)
 	defer g.dc.atNode(fd.Params[slot].Default)
 	for _, k := range sig.params[:slot+1] {
@@ -221,7 +226,7 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, f
 	short := *fd
 	short.Params = fd.Params[:slot]
 	isig := irFuncSig{result: sig.params[slot], decl: fd, name: name, origin: irFromModule}
-	sh := g.irFuncShellWithCallee(&short, isig, params, g.irFileSlotSym(callee, fn, slot))
+	sh := g.irFuncShellWithCallee(&short, isig, params, sym)
 	if sh == nil {
 		g.dc.note("no function shell")
 		return

@@ -59,8 +59,8 @@ test "a struct field takes any source" {
 }
 
 test "an Iter is a tuple part and a record field" {
-    pair = #(1, [1, 2] |> Iter.map(&(&1 * 10)))
-    #(_, tens) = pair
+    pair = (1, [1, 2] |> Iter.map(&(&1 * 10)))
+    (_, tens) = pair
     record = #{label: "r", items: [3] |> Iter.map(&(&1 + 1))}
 
     assert Iter.to_list(tens) == [10, 20]

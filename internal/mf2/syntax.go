@@ -565,14 +565,10 @@ func (p *parser) function() Function {
 	p.pos++ // :
 	name := p.name()
 	if p.at(":") {
-		p.emit(TokenNamespace, start, p.pos)
-		colon := p.pos
 		p.pos++
 		name += ":" + p.name()
-		p.emit(TokenFunction, colon, p.pos)
-	} else {
-		p.emit(TokenFunction, start, p.pos)
 	}
+	p.emit(TokenFunction, start, p.pos)
 	f := Function{Name: name}
 	for {
 		save := p.pos

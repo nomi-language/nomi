@@ -71,7 +71,7 @@ impl RestApi {
 
         Ok(
             RestApi{
-                users: database.users |> Iter.map(fn user -> #(user.name, user)) |> Iter.to_map(),
+                users: database.users |> Iter.map(fn user -> (user.name, user)) |> Iter.to_map(),
             }
         )
     }
@@ -98,7 +98,7 @@ impl RestApi {
     /// Returns a `POST` of `payload` to `url`, and the tracker after it.
     /// `/add` adds a user and returns it; `/iou` records a loan and returns
     /// the lender and the borrower, by name.
-    pub fn post(api: RestApi, url: String, payload: String) -> Result<#(String, RestApi), Error> {
+    pub fn post(api: RestApi, url: String, payload: String) -> Result<(String, RestApi), Error> {
         case url {
             "/add" -> {
                 request: NewUser = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
@@ -106,7 +106,7 @@ impl RestApi {
                 if request.user in api.users { return Err(.UserExists(request.user)) }
 
                 user = User{name: request.user}
-                Ok(#(Json.encode_as(user), RestApi{users: Map.put(api.users, user.name, user)}))
+                Ok((Json.encode_as(user), RestApi{users: Map.put(api.users, user.name, user)}))
             }
 
             "/iou" -> {
@@ -121,7 +121,7 @@ impl RestApi {
                     api.users |> Map.put(lender.name, lender) |> Map.put(borrower.name, borrower)
 
                 answer = Users{users: Iter.sort_by([lender, borrower], .name)}
-                Ok(#(Json.encode_as(answer), RestApi{users}))
+                Ok((Json.encode_as(answer), RestApi{users}))
             }
 
             _ ->

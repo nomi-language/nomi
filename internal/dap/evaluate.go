@@ -12,13 +12,15 @@ package dap
 //     hover never runs one.
 //   - Every evaluation runs under a step budget and a deadline, so one that
 //     loops forever is stopped and reported.
-//   - A variable, or a field path on one (`p.x`, `pair.0`), is read from the
-//     frame directly, with nothing compiled.
+//   - A variable, or a field path on one (`p.x`, `pair.first`,
+//     `nested.second.first`), is read from the frame directly, with nothing
+//     compiled. Each step is a name the program could write: a field, or a
+//     tuple's ordinal. Anything else (`pair.0`, an index) goes to the
+//     compiler, which accepts or rejects it as Nomi does.
 
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -96,16 +98,16 @@ func (sess *session) evalIn(scope *vm.Scope, expr string, allowEffects bool) (an
 	return v, e.Type, nil
 }
 
-// readPath reads a variable, or a field path on one, from scope.
+// readPath reads a variable, or a path of field and tuple ordinal names on
+// one, from scope. It follows the variable tree's children by name
+// (rt.Inspect), which names a struct's fields and a tuple's items as the
+// program reads them.
 func readPath(scope *vm.Scope, expr string) (any, string, bool) {
 	parts := strings.Split(strings.TrimSpace(expr), ".")
 	for _, p := range parts {
-		if !isName(p) && !isIndex(p) {
+		if !isName(p) {
 			return nil, "", false
 		}
-	}
-	if !isName(parts[0]) {
-		return nil, "", false
 	}
 	v, ok := scope.Var(parts[0])
 	if !ok {
@@ -116,6 +118,11 @@ func readPath(scope *vm.Scope, expr string) (any, string, bool) {
 	}
 	node := rt.Inspect(v.Value)
 	for _, p := range parts[1:] {
+		if node.Type() == "Map" {
+			// A Map's children are its entries, named by key (`true`
+			// for a Bool key), which no field read reaches.
+			return nil, "", false
+		}
 		found := false
 		for _, c := range node.Children(0, node.NumChildren()) {
 			if c.Name == p {
@@ -144,11 +151,6 @@ func isName(s string) bool {
 		}
 	}
 	return true
-}
-
-func isIndex(s string) bool {
-	_, err := strconv.Atoi(s)
-	return err == nil && s != "" && s[0] != '-' && s[0] != '+'
 }
 
 // evalError words an evaluation's failure for the client.

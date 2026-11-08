@@ -222,7 +222,7 @@ test "a tree that cannot be written is refused" {
 }
 
 test "writing goes to a writer with a declaration" {
-    #(written, data) = Writer.collect(fn w -> {
+    (written, data) = Writer.collect(fn w -> {
         xml.write(w, Element.new("a", [Node.Text("é")]), WriteOptions{declaration: True})
     })
 

@@ -14,15 +14,15 @@ pub fn saddle_points(matrix: Vector<Vector<Int>>) -> List<Position> {
 
     matrix
     |> Iter.with_index()
-    |> Iter.flat_map(fn #(row, heights) -> {
+    |> Iter.flat_map(fn (row, heights) -> {
         tallest = Iter.max(heights)
 
         heights
         |> Iter.with_index()
-        |> Iter.filter(fn #(column, height) -> {
+        |> Iter.filter(fn (column, height) -> {
             Some(height) == tallest and Vector.get(minima, column)! == height
         })
-        |> Iter.map(fn #(column, _height) -> Position{row: row + 1, column: column + 1})
+        |> Iter.map(fn (column, _height) -> Position{row: row + 1, column: column + 1})
     })
     |> Iter.to_list()
 }

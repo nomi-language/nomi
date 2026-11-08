@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
-records 81
-declared-cases 934
+records 82
+declared-cases 943
 failing 0
 C actors
 E 0
@@ -243,7 +243,7 @@ T ok Error.to_string (impl Display for Error)
 C decimal
 E 0
 N 23
-H efd1bb84190840a3ccbb3776c4630e5ae6ce3a61f35992f75377156c599db549
+H a16bc7782deb9267369d582a0f58be032b31b5276539d624538085cc7513bb72
 T ok Decimal.to_int
 T ok Decimal.to_float
 T ok Decimal.divide
@@ -257,20 +257,20 @@ T ok Decimal.abs
 T ok Decimal.negate
 T ok Decimal.sign
 T ok Decimal.is_zero
-T ok Decimal.min
-T ok Decimal.max
 T ok Decimal.format
 T ok Decimal.format_percent
 T ok Decimal.parse_in
 T ok Decimal.parse_percent_in
 T ok Decimal.to_string (impl Display for Decimal)
 T ok Decimal.empty_sum (impl Summable for Decimal)
+T ok Decimal.divide Divide<Decimal, Decimal> (impl Divide<Decimal, Decimal> for Decimal)
+T ok Decimal.remainder (impl Remainder<Decimal, Decimal> for Decimal)
 T ok Decimal.empty_product (impl Productable for Decimal)
 T ok Decimal.step_by (impl Steppable for Decimal)
 C duration
 E 0
-N 24
-H 7c0eb3847feb51e280a20328c399abc87f29f727b7fa37dc92880da320fa3517
+N 25
+H 65a8c3ba58676dee066933e14df276630e13e38c83d5a4e814ecfc6ad7f2ed80
 T ok Duration.nanoseconds
 T ok Duration.microseconds
 T ok Duration.milliseconds
@@ -293,6 +293,7 @@ T ok Duration.empty_sum (impl Summable for Duration)
 T ok Duration.subtract (impl Subtract<Duration, Duration> for Duration)
 T ok Duration.multiply (impl Multiply<Int, Duration> for Duration)
 T ok Duration.divide (impl Divide<Int, Duration> for Duration)
+T ok Duration.remainder (impl Remainder<Duration, Duration> for Duration)
 T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C embed
@@ -311,8 +312,8 @@ T ok Files.paths
 T ok Files.sub
 C float
 E 0
-N 37
-H 5469ca179cc08c356fbce0347f5820c1d803aa7466666244a0a6f77259c2f6eb
+N 39
+H 0ffc70623efce9f14a6c2277e6d4e1add7c10b2944d55bb2da107c724244c507
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -330,8 +331,6 @@ T ok Float.trunc
 T ok Float.abs
 T ok Float.equal_within
 T ok Float.sign
-T ok Float.min
-T ok Float.max
 T ok Float.pow
 T ok Float.sqrt
 T ok Float.exp
@@ -349,11 +348,15 @@ T ok Float.parse_percent_in
 T ok Float.to_string (impl Display for Float)
 T ok Float.empty_sum (impl Summable for Float)
 T ok Float.empty_product (impl Productable for Float)
+T ok Float.remainder (impl Remainder<Float, Float> for Float)
 T ok Float.inspect (impl Debug for Float)
+T ok Float.min (impl Comparable for Float)
+T ok Float.max (impl Comparable for Float)
+T ok Float.clamp (impl Comparable for Float)
 C fs
 E 0
-N 31
-H ee0e710c3e0c93bba03f449e168bd9676f31efb5c1019275c61b4d1d27b61ce0
+N 29
+H 250fb432cb8927f8c8c70576c7c018603ccb9c44d712872df14bef9941d79ce4
 T ok enum WriteMode
 T ok fs.read
 T ok fs.read_text
@@ -363,10 +366,7 @@ T ok fs.lines
 T ok fs.chunks
 T ok fs.open
 T ok fs.create
-T ok fs.with_reader
-T ok fs.with_writer
 T ok fs.open_file
-T ok fs.with_file
 T ok fs.within
 T ok fs.list
 T ok fs.walk
@@ -374,6 +374,7 @@ T ok fs.glob
 T ok fs.create_dir
 T ok fs.remove
 T ok fs.remove_all
+T ok fs.remove_all_quietly
 T ok fs.rename
 T ok fs.copy
 T ok fs.metadata
@@ -383,7 +384,7 @@ T ok fs.read_link
 T ok fs.set_mode
 T ok fs.exists
 T ok fs.temp_dir
-T ok fs.with_temp_dir
+T ok fs.make_temp_dir
 T ok fs.current_dir
 C fs_testing
 E 0
@@ -431,8 +432,8 @@ T ok Html.concat
 T ok Html.each
 C http
 E 0
-N 66
-H ef191754f01df65b47d4494a5880177ad7f16195874543a55273c88caa94631d
+N 71
+H ac31f293c632981344db1efb5f3d837e73dd5935c9aaede4476c3c43af0c3162
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -466,8 +467,13 @@ T ok Response.with_headers
 T ok Response.with_default_headers
 T ok interface ToResponse
 T ok Protocols.to_string (impl Display for Protocols)
+T ok http.stream
 T ok type Route
 T ok Route.parse
+T ok Route.with_method
+T ok Route.path
+T ok Route.path_with
+T ok Route.to_with
 T ok struct Router
 T ok Router.new
 T ok http.strip_prefix
@@ -526,7 +532,7 @@ T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Durati
 C int
 E 0
 N 38
-H 74fd8df1728ee36d9d4838c5a7ec7b74b4599c93ad1f29dfa508c2bfb698124f
+H d337659529738c64a6b918a4d55020536a2b238cb2c717be91934a2eb761f75c
 T ok type Int
 T ok Int.to_non_zero
 T ok Int.to_positive
@@ -543,8 +549,6 @@ T ok Int.modulo
 T ok Int.floor_div
 T ok Int.abs
 T ok Int.sign
-T ok Int.min
-T ok Int.max
 T ok Int.pow
 T ok Int.sqrt
 T ok Int.gcd
@@ -557,6 +561,8 @@ T ok Int.to_string (impl Display for Int)
 T ok Int.empty_sum (impl Summable for Int)
 T ok Int.empty_product (impl Productable for Int)
 T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
+T ok Int.remainder Remainder<Int, Int> (impl Remainder<Int, Int> for Int)
+T ok Int.remainder Remainder<NonZeroInt, Int> (impl Remainder<NonZeroInt, Int> for Int)
 T ok Int.bitwise_and (impl BitwiseAnd<Int, Int> for Int)
 T ok Int.bitwise_or (impl BitwiseOr<Int, Int> for Int)
 T ok Int.bitwise_xor (impl BitwiseXor<Int, Int> for Int)
@@ -567,8 +573,8 @@ T ok Int.inspect (impl Debug for Int)
 T ok PositiveInt.to_non_zero
 C io
 E 0
-N 32
-H c4576dfd846eec0a0e6262050d5536df68d6ae994cb97ca36d10b7f6169007c8
+N 33
+H 188b11157f30009659a536dd3ad16fc176935f37f0ca40a5ff35c08780fc75be
 T ok enum Error
 T ok io.eprint
 T ok io.ewrite
@@ -594,6 +600,7 @@ T ok Writer.print
 T ok Writer.flush
 T ok Writer.close
 T ok Writer.close_quietly
+T ok Writer.discard
 T ok Writer.write_all
 T ok Writer.write_lines
 T ok Writer.from_fn
@@ -872,6 +879,13 @@ T ok net.split_host_port
 T ok net.join_host_port
 T ok net.lookup_host [not run in the browser: connect]
 T ok net.lookup_port [not run in the browser: connect]
+C parse
+E 0
+N 3
+H f92b271749703bd34b38c0898ebe850bfd1b3b3b4c685eaf5ab7552547e61852
+T ok interface Parse
+T ok parse.read_fields
+T ok parse.write_fields
 C passwords
 E 0
 N 6
@@ -908,7 +922,7 @@ T ok PluralCategory.ordinals
 C process
 E 0
 N 8
-H dc612ebcb153c35b5cf28e3aabad8f94e687015c07ec18f3b0bcf4a16309fca2
+H a41908e48a5e6da07ea2206a89d75e071f2a665dba2f48d6a01dc23ab915262a
 T ok struct Exit
 T ok struct Command
 T ok Status.is_success
@@ -916,7 +930,7 @@ T ok Status.code
 T ok Status.to_string (impl Display for Status)
 T ok process.output
 T ok process.run
-T ok process.with_spawned
+T ok process.spawn
 C process_testing
 E 0
 N 2
@@ -1021,8 +1035,8 @@ T ok signatures.verify
 T ok signatures.verify_with
 C sql
 E 0
-N 21
-H 8a6549095ca73923e2ef2ea46cf13185f07f20f484815e97cd0583b55d7a0a9b
+N 20
+H da0d0131579c36a5506b23570c6f30a1c013a72146d72def2d719e21c7b0c53a
 T ok struct Statement
 T ok Statement.join
 T ok Statement.list
@@ -1042,7 +1056,6 @@ T ok Row.value_position
 T ok Row.get
 T ok Dialect.to_string (impl Display for Dialect)
 T ok Error.to_string (impl Display for Error)
-T ok sql.with_connection
 T ok sql.close_quietly
 C sql_testing
 E 0
@@ -1183,7 +1196,7 @@ T ok type Unit
 C url
 E 0
 N 24
-H 909b4e93784651a54ebf8ace4c3a4fd25cc23528e50d5c27e94e24e4c3e268cd
+H cb7f87914be9904573fc7414dd39a8083dd4ccf9e2f3b33988f9d6624a3afa9c
 T ok url.escape_query
 T ok url.unescape_query
 T ok url.escape_path_segment
@@ -1203,7 +1216,7 @@ T ok Url.resolve
 T ok Url.resolve_text
 T ok Url.join_path
 T ok Url.to_string (impl Display for Url)
-T ok Url.check (impl CheckedLiteral<String, Url> for Url)
+T ok Url.check (impl CheckedLiteral<Display, Url> for Url)
 T ok Query.parse
 T ok Query.get
 T ok Query.set
@@ -1211,15 +1224,15 @@ T ok Query.encode
 C uuid
 E 0
 N 11
-H 324e5d8e7d8d895337d1b35d0fa1715436feecf0c9d8cef092fb359f83e47ac0
+H e42465ed62eb3153ac69ab9ec53019095519aa58c126afd8cbd828c7dd6b4a39
 T ok struct Uuid
-T ok Uuid.parse
 T ok Uuid.nil
 T ok Uuid.from_bytes
 T ok Uuid.to_bytes
 T ok Uuid.version
 T ok Uuid.v4
 T ok Uuid.v7
+T ok Uuid.parse (impl Parse<Error> for Uuid)
 T ok Uuid.compare (impl Comparable for Uuid)
 T ok Uuid.to_json (impl ToJson for Uuid)
 T ok Uuid.from_json (impl FromJson for Uuid)

@@ -64,9 +64,9 @@ fn main() {
 }
 
 // A Map whose values are Maps is an iteration source like any other map: the
-// VM iterates its `#(K, V)` pairs, and the reduction reads each key.
+// VM iterates its `(K, V)` pairs, and the reduction reads each key.
 func TestIRReduceBody_NestedMapSourceRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn main() { io.print(Iter.reduce(%{1 => %{2 => 3}}, 10, fn acc, p -> acc + p.0)) }
+fn main() { io.print(Iter.reduce(%{1 => %{2 => 3}}, 10, fn acc, p -> acc + p.first)) }
 `, "11\n")
 }

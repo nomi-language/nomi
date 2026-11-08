@@ -24,7 +24,7 @@ func TestDebugText_RendersAChannelAndItsHalves(t *testing.T) {
 		{"a half", testHalf{}, "<channel>"},
 		{"a channel", ch, want},
 		{"a list of channels", ConsCell[any, List[any]](ch, nil), "[" + want + "]"},
-		{"a tuple holding a channel", TupleDesc(SlotRef, SlotInt).Make(ch, int64(1)), "#(" + want + ", 1)"},
+		{"a tuple holding a channel", TupleDesc(SlotRef, SlotInt).Make(ch, int64(1)), "(" + want + ", 1)"},
 	}
 	for _, c := range cases {
 		got, err := DebugText(c.v, nil)

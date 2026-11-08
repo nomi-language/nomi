@@ -365,11 +365,11 @@ func importPathString(n *ast.ImportStmt) string {
 }
 
 // ownModuleCall answers the bare call a file's call to one of its own
-// functions through its own file alias is: `sql.with_connection(...)` inside
+// functions through its own file alias is: `sql.transaction(...)` inside
 // std/sql, in a body, a `//!` prompt or a reference editor (only a std file
 // may name itself; the checker rejects the spelling elsewhere). The checker
 // binds the alias to the file's own module scope, and the function is one
-// this gen declares, so the call lowers as `with_connection(...)` does,
+// this gen declares, so the call lowers as `transaction(...)` does,
 // generic or not. The copy's callee stands at the field's position, where the checker
 // recorded the reference and its instantiated signature; a piped call stays
 // the piped call. A function the cached std lowering holds as a sibling

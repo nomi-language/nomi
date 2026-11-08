@@ -519,7 +519,7 @@ const (
 	htmlTextWrapperHelp    = "a `Maybe` or a `Result` would show as `Some(...)` or `Ok(...)`: unwrap it; a `Maybe` of a `ToHtml` value shows its value, and `None` nothing"
 	htmlTextCollectionHelp = "a collection would show as its `Display` form, `[a, b]`: render its elements with `Html.each`, or join them into a `String`"
 	htmlNestedMaybeHelp    = "a `Maybe` writes its value or nothing, and the inner `Maybe` would show as `Some(...)`: flatten it with `Maybe.flatten`"
-	htmlTextTupleHelp      = "a tuple would show as `#(a, b)`: put each part in a slot of its own"
+	htmlTextTupleHelp      = "a tuple would show as `(a, b)`: put each part in a slot of its own"
 )
 
 // htmlArticle is articleFor, with `Html` read as "an HTML", and `Url` and

@@ -97,9 +97,9 @@ func TestOwnerFunctionsAreBuiltWithoutAnInstance(t *testing.T) {
 		"impl Box<T> {\n" +
 		"  fn get(b: Box<T>) -> T {\n    b.v\n  }\n\n" +
 		"  fn seven() -> Int {\n    7\n  }\n\n" +
-		"  fn twice<T>(x: T) -> #(T, T) {\n    #(x, x)\n  }\n" +
+		"  fn twice<T>(x: T) -> (T, T) {\n    (x, x)\n  }\n" +
 		"}\n\n" +
-		"fn f() -> Int {\n  Box.seven() + Box.twice(1).0\n}\n"
+		"fn f() -> Int {\n  Box.seven() + Box.twice(1).first\n}\n"
 	g := lowerableGen(t, src)
 	if n := len(g.genericInstOrder); n != 0 {
 		t.Fatalf("built %d instances of Box, want none: no call names one", n)

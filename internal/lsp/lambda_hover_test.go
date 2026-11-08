@@ -37,6 +37,10 @@ func runFnHoverCases(t *testing.T, cases []fnHoverCase) {
 	}
 }
 
+// lambdaLink ends the hover of a lambda's `fn`, which the keyword adds
+// below the lambda's type; its `->` answers with the type alone.
+const lambdaLink = "\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#lambdas)."
+
 const mapLambda = "```nomi\nfn n: Int -> List<Int>\n```\n\nFills `Maybe.map`'s `f: (T) -> U`, which gives its parameter types."
 
 func TestHover_LambdaFnAndArrow(t *testing.T) {
@@ -46,7 +50,7 @@ func TestHover_LambdaFnAndArrow(t *testing.T) {
 fn main() {
   io.inspect(Maybe.map(Some(1), ▮fn n -> [n]))
 }
-`, mapLambda},
+`, mapLambda + lambdaLink},
 		{"its ->", `import std::io
 
 fn main() {
@@ -59,7 +63,7 @@ fn main() {
   f = ▮fn a: Int, b: Int -> a * b
   io.inspect(f(2, 3))
 }
-`, "```nomi\nfn a: Int, b: Int -> Int\n```\n\nParameter types from the annotation."},
+`, "```nomi\nfn a: Int, b: Int -> Int\n```\n\nParameter types from the annotation." + lambdaLink},
 		{"annotated parameters of an argument", `import std::io
 
 fn main() {
@@ -71,14 +75,14 @@ fn main() {
 fn main() {
   io.inspect(Iter.reduce([1, 2], 0, ▮fn total, x -> total + x))
 }
-`, "```nomi\nfn total: Int, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types."},
+`, "```nomi\nfn total: Int, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types." + lambdaLink},
 		{"zero parameters", `import std::io
 
 fn main() {
   f = ▮fn -> 42
   io.inspect(f())
 }
-`, "```nomi\nfn -> Int\n```"},
+`, "```nomi\nfn -> Int\n```" + lambdaLink},
 		{"the -> of zero parameters", `import std::io
 
 fn main() {
@@ -89,10 +93,10 @@ fn main() {
 		{"a pattern parameter", `import std::io
 
 fn main() {
-  pairs = [#(1, 2)] |> Iter.map(▮fn #(a, b) -> a + b) |> Iter.to_list()
+  pairs = [(1, 2)] |> Iter.map(▮fn (a, b) -> a + b) |> Iter.to_list()
   io.inspect(pairs)
 }
-`, "```nomi\nfn #(a, b): #(Int, Int) -> Int\n```\n\nFills `Iter.map`'s `f: (T) -> U`, which gives its parameter types."},
+`, "```nomi\nfn (a, b): (Int, Int) -> Int\n```\n\nFills `Iter.map`'s `f: (T) -> U`, which gives its parameter types." + lambdaLink},
 		{"a block body", `import std::io
 
 fn main() {
@@ -110,7 +114,7 @@ fn main() {
   |> then ▮fn v -> v + 1
   io.inspect(n)
 }
-`, "```nomi\nfn v: Int -> Int\n```\n\nThe `then` stage's lambda; its parameter is the piped value."},
+`, "```nomi\nfn v: Int -> Int\n```\n\nThe `then` stage's lambda; its parameter is the piped value." + lambdaLink},
 		{"a tap stage's lambda", `import std::io
 
 fn main() {
@@ -125,12 +129,16 @@ fn main() {
   f: (Int) -> Int = ▮fn n -> n + 1
   io.inspect(f(1))
 }
-`, "```nomi\nfn n: Int -> Int\n```\n\nParameter types from the expected type `(Int) -> Int`."},
+`, "```nomi\nfn n: Int -> Int\n```\n\nParameter types from the expected type `(Int) -> Int`." + lambdaLink},
 	})
 }
 
 // A declaration's `fn` answers as its name does, at the top level and
-// nested in a body.
+// nested in a body, and adds what the keyword declares and its link.
+// declarationFnKeyword is what a declaration's `fn` adds below its name's
+// hover.
+const declarationFnKeyword = "\n\n---\n\nDeclares a function. Every parameter has a type, the result type is written unless it is `Unit`, and the body's last expression is the result.\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#defining-a-function)."
+
 func TestHover_DeclarationFnKeyword(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"a top-level function", `import std::io
@@ -171,10 +179,11 @@ fn main() {
 			if name != tc.want {
 				t.Fatalf("hover on the name = %q, want %q", name, tc.want)
 			}
+			want := name + declarationFnKeyword
 			for offset := 0; offset < 2; offset++ {
 				got, rng := hoverAt(t, src, protocol.Position{Line: uint32(pos.Line - 1), Character: uint32(pos.Col - 1 + offset)})
-				if got != name {
-					t.Errorf("hover on character %d of `fn` = %q, want the name's %q", offset+1, got, name)
+				if got != want {
+					t.Errorf("hover on character %d of `fn` = %q, want the name's hover and the keyword's %q", offset+1, got, want)
 				}
 				if rng == nil || rng.Start.Character != uint32(pos.Col-1) || rng.End.Character != uint32(pos.Col+1) {
 					t.Errorf("hover range = %+v, want the `fn`", rng)
@@ -227,7 +236,7 @@ fn main() {
 func TestHover_LambdaParamTypedByAListSibling(t *testing.T) {
 	src := "struct Day { n: Int }\n\n" +
 		"fn main() {\n" +
-		"  xs = [#(\"a\", fn d: Day -> d.n), #(\"b\", fn d -> d.n + 1)]\n" +
+		"  xs = [(\"a\", fn d: Day -> d.n), (\"b\", fn d -> d.n + 1)]\n" +
 		"  _ = xs\n" +
 		"}\n"
 	col := strings.LastIndex(strings.Split(src, "\n")[3], "fn d") + 3

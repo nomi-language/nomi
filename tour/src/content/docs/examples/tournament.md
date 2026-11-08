@@ -79,11 +79,11 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
 
     standings =
         results
-        |> Iter.group_by(fn #(team, _outcome) -> team)
-        |> Iter.map(fn #(team, rows) -> {
-            standing(team, Iter.map(rows, fn #(_team, outcome) -> outcome))
+        |> Iter.group_by(fn (team, _outcome) -> team)
+        |> Iter.map(fn (team, rows) -> {
+            standing(team, Iter.map(rows, fn (_team, outcome) -> outcome))
         })
-        |> Iter.sort_by(fn s -> #(s |> Standing.points() |> Reverse.of(), s.team))
+        |> Iter.sort_by(fn s -> (s |> Standing.points() |> Reverse.of(), s.team))
 
     table = Iter.map(standings, fn s -> {
         numbers = [Standing.played(s), s.won, s.drawn, s.lost, Standing.points(s)]
@@ -94,12 +94,12 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
 }
 
 /// The outcome of the match in `row` for each of its two teams.
-fn parse_row(row: String) -> Result<List<#(String, Outcome)>, Error> {
+fn parse_row(row: String) -> Result<List<(String, Outcome)>, Error> {
     [home, away, word] = String.split(row, ";") else { return Err(.InvalidRow(row)) }
 
     Some(outcome) = Outcome.parse(word) else { return Err(.InvalidRow(row)) }
 
-    Ok([#(home, outcome), #(away, Outcome.reverse(outcome))])
+    Ok([(home, outcome), (away, Outcome.reverse(outcome))])
 }
 
 fn standing(team: String, outcomes: Iter<Outcome>) -> Standing {
@@ -328,8 +328,8 @@ test result: ok. 13 passed, 0 failed
 
 - `tally` takes the rows as a `List<String>` and returns the table's lines, as the canonical data gives them.
 - `tally` returns a `Result`, with `Error.InvalidRow` carrying a row that is not `home;away;outcome` or whose outcome is not `win`, `draw` or `loss`. The canonical data has no malformed rows; the test file adds a case, marked as not canonical.
-- `parse_row` turns each match into its outcome for both teams, `#(home, outcome)` and `#(away, Outcome.reverse(outcome))`, so the rest of the tally never looks at which team was at home.
+- `parse_row` turns each match into its outcome for both teams, `(home, outcome)` and `(away, Outcome.reverse(outcome))`, so the rest of the tally never looks at which team was at home.
 - The standings are `Iter.group_by` on the team, then a `Standing` per team with its wins, draws and losses counted. Matches played and points are functions of those three, not fields.
-- The table is one `Iter.sort_by` whose key is the tuple `#(Reverse.of(points), team)`. Tuples compare element by element, so the points decide and the name breaks a tie; `Reverse.of` puts the most points first.
+- The table is one `Iter.sort_by` whose key is the tuple `(Reverse.of(points), team)`. Tuples compare element by element, so the points decide and the name breaks a tie; `Reverse.of` puts the most points first.
 - A row of the table and the header are the same `line` function over the team's name and five cells, so the column widths are written once.
 - Each canonical case is its own `test` with `rows` and `table` bindings: the tables are several lines each, and a `subtests` row holding two lists of strings would hide which list is which.

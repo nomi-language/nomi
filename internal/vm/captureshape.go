@@ -17,7 +17,7 @@ import (
 //	L               the groups as they are: List<Maybe<String>>
 //	U               Unit: a pattern with no group
 //	S, M            the one group: its text, or its Maybe
-//	T<parts>        a tuple, one S or M per group: `TSM` is #(String, Maybe<String>)
+//	T<parts>        a tuple, one S or M per group: `TSM` is (String, Maybe<String>)
 //	R<name:part,…>  an anonymous struct: `Rmonth:M,year:S`, a field per
 //	                group, named by the group
 //

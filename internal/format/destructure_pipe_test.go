@@ -13,8 +13,8 @@ func TestFormat_DestructurePipeBindingBreaksLikeAPlainBinding(t *testing.T) {
 		target string
 	}{
 		{"plain", "pair"},
-		{"tuple", "#(first, rest)"},
-		{"tuple with a wildcard", "#(first, _)"},
+		{"tuple", "(first, rest)"},
+		{"tuple with a wildcard", "(first, _)"},
 		{"struct", "#{first, rest}"},
 		{"map", `%{"first" => first}`},
 		{"distinct", "Pair(pair)"},
@@ -49,13 +49,13 @@ func TestFormat_DestructurePipeBindingThatFits(t *testing.T) {
 	}{
 		{
 			name: "fits on one line",
-			in:   "fn f(words: List<String>) -> Int {\n    #(first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
-			want: "fn f(words: List<String>) -> Int {\n    #(first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
+			in:   "fn f(words: List<String>) -> Int {\n    (first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
+			want: "fn f(words: List<String>) -> Int {\n    (first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
 		},
 		{
 			name: "fits after the =",
-			in:   "fn f(words: List<String>) -> Int {\n    #(first_word_of_the_line, every_remaining_word) = words |> Iter.to_list() |> split_first_word_of_each_line()\n    1\n}\n",
-			want: "fn f(words: List<String>) -> Int {\n    #(first_word_of_the_line, every_remaining_word) =\n        words |> Iter.to_list() |> split_first_word_of_each_line()\n\n    1\n}\n",
+			in:   "fn f(words: List<String>) -> Int {\n    (first_word_of_the_line, every_remaining_word) = words |> Iter.to_list() |> split_first_word_of_each_line()\n    1\n}\n",
+			want: "fn f(words: List<String>) -> Int {\n    (first_word_of_the_line, every_remaining_word) =\n        words |> Iter.to_list() |> split_first_word_of_each_line()\n\n    1\n}\n",
 		},
 	}
 	for _, c := range cases {

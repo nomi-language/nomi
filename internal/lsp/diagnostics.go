@@ -325,6 +325,13 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 	if snap.Open {
 		diags = append(diags, s.lowering.diagnostics(snap.URI)...)
 	}
+	if hints := redundantAscriptionDiagnostics(snap.Analysis, snap.Nodes); len(hints) > 0 {
+		lines := newLineIndex(snap.Content)
+		for _, d := range hints {
+			d.Range = lines.utf16Range(d.Range)
+			diags = append(diags, d)
+		}
+	}
 	if d, ok := stdSyntaxDiagnostic(s.std); ok {
 		diags = append([]protocol.Diagnostic{d}, diags...)
 	}
@@ -555,4 +562,39 @@ func widenParseErrors(tokens func() []token.Token, diags []protocol.Diagnostic) 
 	for i, e := range analysis.CompleteSpansFrom(tokens, points) {
 		diags[i].Range = errorRange(e.Line, e.Col, e.EndLine, e.EndCol)
 	}
+}
+
+// redundantAscriptionDiagnostics marks each `value as Type` of nodes whose
+// value has the type without it (analysis.FileAnalysis.RedundantAscriptions)
+// as unnecessary: a hint, not an error, since the program means the same.
+// The range is `as Type`.
+func redundantAscriptionDiagnostics(fa *analysis.FileAnalysis, nodes []ast.Node) []protocol.Diagnostic {
+	if fa == nil || len(fa.RedundantAscriptions) == 0 {
+		return nil
+	}
+	var diags []protocol.Diagnostic
+	severity := protocol.DiagnosticSeverityHint
+	source := "nomi"
+	code := "redundant-ascription"
+	for _, node := range nodes {
+		ast.Inspect(node, func(n ast.Node) bool {
+			a, ok := n.(*ast.Ascription)
+			if !ok || !fa.RedundantAscriptions[a] || a.Line <= 0 {
+				return true
+			}
+			text := a.Type.TypeString()
+			start := protocol.Position{Line: uint32(a.Line - 1), Character: uint32(a.Col - 1)}
+			end := protocol.Position{Line: start.Line, Character: start.Character + uint32(len("as ")+len(text))}
+			diags = append(diags, protocol.Diagnostic{
+				Range:    protocol.Range{Start: start, End: end},
+				Severity: &severity,
+				Source:   &source,
+				Code:     &protocol.IntegerOrString{Value: code},
+				Tags:     []protocol.DiagnosticTag{protocol.DiagnosticTagUnnecessary},
+				Message:  fmt.Sprintf("`as %s` is redundant: the value already has type `%s`", text, text),
+			})
+			return true
+		})
+	}
+	return diags
 }

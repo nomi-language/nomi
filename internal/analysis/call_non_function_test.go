@@ -19,7 +19,7 @@ type Handler (Int) -> Int
 fn main() {
   _ = 1()
   _ = ""()
-  pair = #(1, 2)
+  pair = (1, 2)
   _ = pair(3)
   _ = [1](0)
   p = P{a: 1}
@@ -43,7 +43,7 @@ enum Wrap {
 	want := []string{
 		"9:7 `Int` is not a function",
 		"10:7 `String` is not a function",
-		"12:7 `#(Int, Int)` is not a function",
+		"12:7 `(Int, Int)` is not a function",
 		"13:7 `List<Int>` is not a function",
 		"15:7 `P` is not a function",
 	}

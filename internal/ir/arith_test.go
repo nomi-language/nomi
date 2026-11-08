@@ -55,7 +55,7 @@ func arithCases() []arithCase {
 		{ir.OpMul, flt, "Float *", ir.ShapeFloatNative, 0},
 		{ir.OpNeg, flt, "Float neg", ir.ShapeFloatNative, 0},
 		{ir.OpDiv, flt, "Float /", ir.ShapeFloatDiv, 0},
-		{ir.OpRem, flt, "Float %", ir.ShapeFloatMod, ir.FaultUndefined},
+		{ir.OpRem, flt, "Float %", ir.ShapeFloatMod, 0},
 
 		// Decimal. Exact, so `+ - *` and unary `-` never fail; `/` and `%` are
 		// undefined.
@@ -63,8 +63,8 @@ func arithCases() []arithCase {
 		{ir.OpSub, dec, "Decimal -", ir.ShapeDecimal, 0},
 		{ir.OpMul, dec, "Decimal *", ir.ShapeDecimal, 0},
 		{ir.OpNeg, dec, "Decimal neg", ir.ShapeDecimal, 0},
-		{ir.OpDiv, dec, "Decimal /", ir.ShapeDecimal, ir.FaultUndefined},
-		{ir.OpRem, dec, "Decimal %", ir.ShapeDecimal, ir.FaultUndefined},
+		{ir.OpDiv, dec, "Decimal /", ir.ShapeDecimal, ir.FaultDivByZero},
+		{ir.OpRem, dec, "Decimal %", ir.ShapeDecimal, ir.FaultDivByZero},
 	}
 }
 

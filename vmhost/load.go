@@ -439,8 +439,8 @@ func Check(path string, opts ...Option) error {
 // The module is the file as it is on disk. When the file is byte-identical to
 // the module embedded in this binary, the cases are built against the
 // process's cached stdlib lowering (irbuild.GenerateStdlibTestIR), after the
-// errors the shared analysis recorded for it are reported as a fresh check
-// would report them (frontend.StdlibModuleErrors). When it is
+// errors the shared analysis recorded, in this module or any other, are
+// reported as `nomi check` reports them (frontend.StdlibErrors). When it is
 // not, the file is checked, the module's own bodies are lowered from it, and
 // the cases call those (irbuild.GenerateEditedStdlibTestIR), so an edited
 // prompt and an edited body are both what the run tests. Every other stdlib
@@ -457,7 +457,7 @@ func LoadStdlib(path string) (*Program, error) {
 		return nil, err
 	}
 	if embedded, ok := std.ReadFile(module); ok && string(embedded) == string(src) {
-		if err := frontend.StdlibModuleErrors(module); err != nil {
+		if err := frontend.StdlibErrors(); err != nil {
 			return nil, err
 		}
 		return loadStdlib(module, nil, nil, irbuild.GenerateStdlibTestIR)
@@ -489,7 +489,7 @@ func LoadEmbeddedStdlib(module string) (*Program, error) {
 	if _, ok := std.ReadFile(module); !ok {
 		return nil, fmt.Errorf("unknown stdlib module %q", module)
 	}
-	if err := frontend.StdlibModuleErrors(module); err != nil {
+	if err := frontend.StdlibErrors(); err != nil {
 		return nil, err
 	}
 	return loadStdlib(module, nil, nil, irbuild.GenerateStdlibTestIR)
@@ -598,6 +598,7 @@ func loadStdlib(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
 	}
 	p := newProgram(prog, res, declines, newConfig(nil))
 	p.declineDetails = details
+	p.stdModule = module
 	if err := p.checkLiterals(); err != nil {
 		return nil, err
 	}

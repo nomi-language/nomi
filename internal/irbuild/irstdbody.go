@@ -27,10 +27,6 @@ import "github.com/nomi-language/nomi/internal/ast"
 //   - `decl` is the declaration a callee `*ir.Symbol` is interned on.
 //     `ir.Table.Symbol` panics on a nil token rather than comparing printed
 //     names, so identity has to come from the node.
-//   - `dicts` is how many dictionary parameters the declaration takes. A
-//     bounded generic has a type parameter, which has no representation in
-//     this IR at all, so a non-zero count declines. It is a count and
-//     not the seam itself because that is the only question asked of it.
 //   - `name` is what `irFuncObserved` reports this body as, and it is NOT
 //     `fd.Name` for the std side. `add` is the declared name of eleven
 //     distinct stdlib functions; `stdFunc.key` is the module-qualified
@@ -62,7 +58,6 @@ type irFuncSig struct {
 	elseless *irElseless
 	result   kind
 	decl     *ast.FuncDef
-	dicts    int
 	name     string
 	origin   irFuncOrigin
 }
@@ -80,25 +75,19 @@ const (
 	irFromImpl
 )
 
-// irFuncSigOf is `funcDecl`'s producer.
+// irFuncSigOf is `funcDecl`'s producer. A bounded generic's erased body never
+// reaches it: funcDecl lowers only its instances.
 func irFuncSigOf(fd *ast.FuncDef, sig *fnSig) irFuncSig {
-	dicts := 0
-	if sig.dict != nil {
-		dicts = len(sig.dict.params)
-	}
-	return irFuncSig{result: sig.result, decl: sig.decl,
-		dicts: dicts, name: fd.Name, origin: irFromModule}
+	return irFuncSig{result: sig.result, decl: sig.decl, name: fd.Name, origin: irFromModule}
 }
 
 // irStdFuncSig is `emitStdFunc`'s producer.
 //
-// `dicts` is zero and that is a fact about the population rather than an
-// omission: `collectStdCandidates` refuses a generic stdlib declaration by
-// name — `stdlib generic function` — before a body is ever tried, so a
-// candidate reaching `emitStdFunc` has no type parameters and no dictionary.
-// The one exception is a monomorphic INSTANCE (stdinstance.go), whose type
-// arguments are already substituted to concrete kinds by the time the body is
-// lowered, so it has none either.
+// A candidate reaching `emitStdFunc` has no type parameters:
+// `collectStdCandidates` refuses a generic stdlib declaration by name —
+// `stdlib generic function` — before a body is ever tried. The one exception
+// is a monomorphic INSTANCE (stdinstance.go), whose type arguments are already
+// substituted to concrete kinds by the time the body is lowered.
 func irStdFuncSig(f *stdFunc, fd *ast.FuncDef) irFuncSig {
 	return irFuncSig{result: f.result, decl: fd, name: f.key, origin: irFromStd}
 }

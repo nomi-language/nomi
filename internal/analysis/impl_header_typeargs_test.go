@@ -49,7 +49,7 @@ func TestImplHeaderTypeArgs_ConformanceChecksRun(t *testing.T) {
 			want:  []string{"impl function 'get': parameter 2 has type Int, but interface 'Store' declares String"},
 		},
 		"return type": {
-			block: "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Int {\n        _ = #(cache, key)\n        1\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        Cache{items: Map.put(cache.items, key, value)}\n    }\n}\n",
+			block: "impl Store<String, T> for Cache<T> {\n    fn get(cache: Cache<T>, key: String) -> Int {\n        _ = (cache, key)\n        1\n    }\n\n    fn put(cache: Cache<T>, key: String, value: T) -> Cache<T> {\n        Cache{items: Map.put(cache.items, key, value)}\n    }\n}\n",
 			want:  []string{"impl function 'get': return type Int does not match interface 'Store' return type Maybe<T>"},
 		},
 		"parameter count": {

@@ -7,7 +7,7 @@ import (
 )
 
 var tokenKindNames = map[mf2.TokenKind]string{
-	mf2.TokenKeyword: "keyword", mf2.TokenVariable: "variable", mf2.TokenNamespace: "namespace", mf2.TokenFunction: "function",
+	mf2.TokenKeyword: "keyword", mf2.TokenVariable: "variable", mf2.TokenFunction: "function",
 	mf2.TokenOption: "option", mf2.TokenAttribute: "attribute", mf2.TokenMarkup: "markup", mf2.TokenName: "name",
 	mf2.TokenNumber: "number", mf2.TokenQuoted: "quoted", mf2.TokenKey: "key", mf2.TokenCatchAll: "catchall",
 	mf2.TokenQuote: "quote", mf2.TokenBrace: "brace", mf2.TokenOperator: "operator",
@@ -29,7 +29,7 @@ func TestTokens(t *testing.T) {
 			"keyword .input\nbrace {\nvariable $count\nfunction :integer\nbrace }\nkeyword .match\nvariable $count\n" +
 				"key one\nquote {{\nbrace {\nvariable $count\nbrace }\nquote }}\ncatchall *\nquote {{\nquote }}"},
 		{"a namespace and options", "Your {$product :nomi:noun case=genitive count=$n}",
-			"brace {\nvariable $product\nnamespace :nomi\nfunction :noun\noption case\noperator =\nname genitive\noption count\noperator =\nvariable $n\nbrace }"},
+			"brace {\nvariable $product\nfunction :nomi:noun\noption case\noperator =\nname genitive\noption count\noperator =\nvariable $n\nbrace }"},
 		{"literals", ".local $x = {|a b| :number minimumFractionDigits=2} {{{$x} {#b/}}}",
 			"keyword .local\nvariable $x\noperator =\nbrace {\nquoted |a b|\nfunction :number\noption minimumFractionDigits\noperator =\nnumber 2\nbrace }\n" +
 				"quote {{\nbrace {\nvariable $x\nbrace }\nbrace {\nmarkup #b\noperator /\nbrace }\nquote }}"},
@@ -96,5 +96,29 @@ func TestAddPluralForms(t *testing.T) {
 	}
 	if got := mf2.PluralCandidates("{$count} by {$who}", sig); len(got) != 1 || got[0] != "count" {
 		t.Errorf("mf2.PluralCandidates = %v, want [count]", got)
+	}
+}
+
+func TestPluralExamples(t *testing.T) {
+	en := locale("en", "English", false)
+	pl := locale("pl", "Polish", false)
+	for _, c := range []struct {
+		loc      mf2.Locale
+		category string
+		integers bool
+		want     string
+	}{
+		{en, "one", true, "1"},
+		{en, "other", true, "0, 2, 3, 4, …"},
+		{pl, "few", true, "2–4, 22–24, 32–34, …"},
+		{pl, "many", true, "0, 5–21, 25–31, …"},
+		{pl, "other", true, ""},
+	} {
+		if got := mf2.PluralExamples(c.loc.Cardinal, c.category, c.integers); got != c.want {
+			t.Errorf("%s %s: got %q, want %q", c.loc.Tag, c.category, got, c.want)
+		}
+	}
+	if got := mf2.PluralExamples(pl.Cardinal, "other", false); got == "" {
+		t.Errorf("pl other with fractions: none")
 	}
 }

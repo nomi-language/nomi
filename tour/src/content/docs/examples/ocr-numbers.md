@@ -70,7 +70,7 @@ import ocr_numbers.{self, Error}
 
 test "convert" {
     [
-        #(
+        (
             "Recognizes 0",
             [
                 " _ ",
@@ -80,7 +80,7 @@ test "convert" {
             ],
             Ok("0"),
         ),
-        #(
+        (
             "Recognizes 1",
             [
                 "   ",
@@ -90,7 +90,7 @@ test "convert" {
             ],
             Ok("1"),
         ),
-        #(
+        (
             "Unreadable but correctly sized inputs return ?",
             [
                 "   ",
@@ -100,7 +100,7 @@ test "convert" {
             ],
             Ok("?"),
         ),
-        #(
+        (
             "Input with a number of lines that is not a multiple of four raises an error",
             [
                 " _ ",
@@ -109,7 +109,7 @@ test "convert" {
             ],
             Err(Error.LinesNotMultipleOfFour),
         ),
-        #(
+        (
             "Input with a number of columns that is not a multiple of three raises an error",
             [
                 "    ",
@@ -119,7 +119,7 @@ test "convert" {
             ],
             Err(.ColumnsNotMultipleOfThree),
         ),
-        #(
+        (
             "Recognizes 110101100",
             [
                 "       _     _        _  _ ",
@@ -129,7 +129,7 @@ test "convert" {
             ],
             Ok("110101100"),
         ),
-        #(
+        (
             "Garbled numbers in a string are replaced with ?",
             [
                 "       _     _           _ ",
@@ -139,7 +139,7 @@ test "convert" {
             ],
             Ok("11?10?1?0"),
         ),
-        #(
+        (
             "Recognizes 2",
             [
                 " _ ",
@@ -149,7 +149,7 @@ test "convert" {
             ],
             Ok("2"),
         ),
-        #(
+        (
             "Recognizes 3",
             [
                 " _ ",
@@ -159,7 +159,7 @@ test "convert" {
             ],
             Ok("3"),
         ),
-        #(
+        (
             "Recognizes 4",
             [
                 "   ",
@@ -169,7 +169,7 @@ test "convert" {
             ],
             Ok("4"),
         ),
-        #(
+        (
             "Recognizes 5",
             [
                 " _ ",
@@ -179,7 +179,7 @@ test "convert" {
             ],
             Ok("5"),
         ),
-        #(
+        (
             "Recognizes 6",
             [
                 " _ ",
@@ -189,7 +189,7 @@ test "convert" {
             ],
             Ok("6"),
         ),
-        #(
+        (
             "Recognizes 7",
             [
                 " _ ",
@@ -199,7 +199,7 @@ test "convert" {
             ],
             Ok("7"),
         ),
-        #(
+        (
             "Recognizes 8",
             [
                 " _ ",
@@ -209,7 +209,7 @@ test "convert" {
             ],
             Ok("8"),
         ),
-        #(
+        (
             "Recognizes 9",
             [
                 " _ ",
@@ -219,7 +219,7 @@ test "convert" {
             ],
             Ok("9"),
         ),
-        #(
+        (
             "Recognizes string of decimal numbers",
             [
                 "    _  _     _  _  _  _  _  _ ",
@@ -229,7 +229,7 @@ test "convert" {
             ],
             Ok("1234567890"),
         ),
-        #(
+        (
             "Numbers separated by empty lines are recognized. Lines are joined by commas.",
             [
                 "    _  _ ",
@@ -248,7 +248,7 @@ test "convert" {
             Ok("123,456,789"),
         ),
     ]
-    |> subtests #(description, rows, expected), description {
+    |> subtests (description, rows, expected), description {
         assert ocr_numbers.convert(rows) == expected
     }
 }

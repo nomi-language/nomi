@@ -13,9 +13,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: pythagorean_triplet.nomi
 //# The Pythagorean triplets whose sides sum to a given number.
 
-/// Every Pythagorean triplet `#(a, b, c)`, with `a < b < c`, whose sides sum
+/// Every Pythagorean triplet `(a, b, c)`, with `a < b < c`, whose sides sum
 /// to `n`, smallest `a` first.
-pub fn triplets_with_sum(n: Int) -> List<#(Int, Int, Int)> {
+pub fn triplets_with_sum(n: Int) -> List<(Int, Int, Int)> {
     1..n / 3
     |> Iter.map(&triplet(n, &1))
     |> Maybe.values()
@@ -24,13 +24,13 @@ pub fn triplets_with_sum(n: Int) -> List<#(Int, Int, Int)> {
 /// The triplet summing to `n` whose shortest side is `a`, if there is one.
 /// With `c = n - a - b`, `a² + b² = c²` gives `b = (n² - 2na) / (2(n - a))`,
 /// so `b` is whole or there is no such triplet.
-fn triplet(n: Int, a: Int) -> Maybe<#(Int, Int, Int)> {
+fn triplet(n: Int, a: Int) -> Maybe<(Int, Int, Int)> {
     top = n * n - 2 * n * a
     bottom = 2 * (n - a)
     b = top / bottom
 
     if top % bottom == 0 and a < b {
-        Some(#(a, b, n - a - b))
+        Some((a, b, n - a - b))
     } else {
         None
     }
@@ -41,38 +41,38 @@ import pythagorean_triplet
 
 test "triplets with sum" {
     [
-        #("triplets whose sum is 12", 12, [#(3, 4, 5)]),
-        #("triplets whose sum is 108", 108, [#(27, 36, 45)]),
-        #("triplets whose sum is 1000", 1000, [#(200, 375, 425)]),
-        #("no matching triplets for 1001", 1001, []),
-        #("returns all matching triplets", 90, [#(9, 40, 41), #(15, 36, 39)]),
-        #(
+        ("triplets whose sum is 12", 12, [(3, 4, 5)]),
+        ("triplets whose sum is 108", 108, [(27, 36, 45)]),
+        ("triplets whose sum is 1000", 1000, [(200, 375, 425)]),
+        ("no matching triplets for 1001", 1001, []),
+        ("returns all matching triplets", 90, [(9, 40, 41), (15, 36, 39)]),
+        (
             "several matching triplets",
             840,
             [
-                #(40, 399, 401),
-                #(56, 390, 394),
-                #(105, 360, 375),
-                #(120, 350, 370),
-                #(140, 336, 364),
-                #(168, 315, 357),
-                #(210, 280, 350),
-                #(240, 252, 348),
+                (40, 399, 401),
+                (56, 390, 394),
+                (105, 360, 375),
+                (120, 350, 370),
+                (140, 336, 364),
+                (168, 315, 357),
+                (210, 280, 350),
+                (240, 252, 348),
             ],
         ),
-        #(
+        (
             "triplets for large number",
             30000,
             [
-                #(1200, 14375, 14425),
-                #(1875, 14000, 14125),
-                #(5000, 12000, 13000),
-                #(6000, 11250, 12750),
-                #(7500, 10000, 12500),
+                (1200, 14375, 14425),
+                (1875, 14000, 14125),
+                (5000, 12000, 13000),
+                (6000, 11250, 12750),
+                (7500, 10000, 12500),
             ],
         ),
     ]
-    |> subtests #(description, n, expected), description {
+    |> subtests (description, n, expected), description {
         assert pythagorean_triplet.triplets_with_sum(n) == expected
     }
 }
@@ -84,7 +84,7 @@ test result: ok. 7 passed, 0 failed
 
 ## How it's written
 
-- A triplet is a tuple, `#(a, b, c)`, and the answer a `List` of them, smallest `a` first, as the canonical data lists them. The three sides are read together and never apart, so a struct would only name them.
+- A triplet is a tuple, `(a, b, c)`, and the answer a `List` of them, smallest `a` first, as the canonical data lists them. The three sides are read together and never apart, so a struct would only name them.
 - The search runs over `a` alone. With `c = n - a - b`, the equation solves to `b = (n² - 2na) / (2(n - a))`, so each `a` has at most one triplet, and it exists when that division is exact and `a < b`. That is one pass of `n / 3` steps, which keeps the largest case (`n = 30000`) to 10,000 divisions instead of a nested loop over `a` and `b`.
 - `triplet` answers a `Maybe` per `a`, and `Maybe.values` keeps the ones that exist. The derivation sits in `triplet`'s doc comment, so the arithmetic is explained where it is written.
 - The seven canonical cases are one `subtests` table named by the description column.

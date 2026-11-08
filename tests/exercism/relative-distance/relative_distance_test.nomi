@@ -114,31 +114,31 @@ once split_family = %{
 
 test "degree of separation" {
     [
-        #(
+        (
             "Direct parent-child relation",
             %{"Vera" => ["Tomoko"], "Tomoko" => ["Aditi"]},
             "Vera",
             "Tomoko",
             Some(1),
         ),
-        #("Sibling relationship", %{"Dalia" => ["Olga", "Yassin"]}, "Olga", "Yassin", Some(1)),
-        #(
+        ("Sibling relationship", %{"Dalia" => ["Olga", "Yassin"]}, "Olga", "Yassin", Some(1)),
+        (
             "Two degrees of separation, grandchild",
             %{"Khadija" => ["Mateo"], "Mateo" => ["Rami"]},
             "Khadija",
             "Rami",
             Some(2),
         ),
-        #(
+        (
             "Unrelated individuals",
             %{"Priya" => ["Rami"], "Kaito" => ["Elif"]},
             "Priya",
             "Kaito",
             None,
         ),
-        #("Complex graph, cousins", family, "Dimitri", "Fabio", Some(9)),
-        #("Complex graph, no shortcut, far removed nephew", family, "Lucia", "Jun", Some(14)),
-        #(
+        ("Complex graph, cousins", family, "Dimitri", "Fabio", Some(9)),
+        ("Complex graph, no shortcut, far removed nephew", family, "Lucia", "Jun", Some(14)),
+        (
             "Complex graph, some shortcuts, cross-down and cross-up, cousins several times removed, with unrelated family tree",
             split_family,
             "Wyatt",
@@ -146,7 +146,7 @@ test "degree of separation" {
             Some(12),
         ),
     ]
-    |> subtests #(description, tree, from, to, expected), description {
+    |> subtests (description, tree, from, to, expected), description {
         assert relative_distance.degree_of_separation(tree, from, to) == expected
     }
 }

@@ -33,6 +33,12 @@ func isStdDistinct(iface *InterfaceType) bool {
 // distinctInnerOf is the type a distinct type wraps, with its own type
 // arguments applied, or nil for a zero-sized one.
 func distinctInnerOf(dt *DistinctType) Type {
+	return DistinctInner(dt)
+}
+
+// DistinctInner is the type dt wraps, with a generic distinct's type
+// arguments substituted; nil for a zero-sized one.
+func DistinctInner(dt *DistinctType) Type {
 	if dt == nil || dt.Inner == nil {
 		return nil
 	}

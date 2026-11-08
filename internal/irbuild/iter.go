@@ -388,7 +388,7 @@ func (g *gen) iterOwns(owner string) bool {
 //     { note(…) } else { 0 }, x| …)` evaluates the source ahead of the seed on
 //     its own.
 //  3. A DESTRUCTURING first parameter carries a seed too:
-//     `fn #(a, b) = #(0, 0), x -> …` runs, so the claim is on the parameter's
+//     `fn (a, b) = (0, 0), x -> …` runs, so the claim is on the parameter's
 //     default and not on it having a plain name.
 
 // --- the std-source guard ----------------------------------------------------

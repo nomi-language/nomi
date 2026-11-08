@@ -87,18 +87,18 @@ import {
 
 test "label" {
     [
-        #("Orange and orange and black", [Color.Orange, .Orange, .Black], 33, Magnitude.Ohms),
-        #("Blue and grey and brown", [.Blue, .Grey, .Brown], 680, .Ohms),
-        #("Red and black and red", [.Red, .Black, .Red], 2, .Kiloohms),
-        #("Green and brown and orange", [.Green, .Brown, .Orange], 51, .Kiloohms),
-        #("Yellow and violet and yellow", [.Yellow, .Violet, .Yellow], 470, .Kiloohms),
-        #("Blue and violet and blue", [.Blue, .Violet, .Blue], 67, .Megaohms),
-        #("Minimum possible value", [.Black, .Black, .Black], 0, .Ohms),
-        #("Maximum possible value", [.White, .White, .White], 99, .Gigaohms),
-        #("First two colors make an invalid octal number", [.Black, .Grey, .Black], 8, .Ohms),
-        #("Ignore extra colors", [.Blue, .Green, .Yellow, .Orange], 650, .Kiloohms),
+        ("Orange and orange and black", [Color.Orange, .Orange, .Black], 33, Magnitude.Ohms),
+        ("Blue and grey and brown", [.Blue, .Grey, .Brown], 680, .Ohms),
+        ("Red and black and red", [.Red, .Black, .Red], 2, .Kiloohms),
+        ("Green and brown and orange", [.Green, .Brown, .Orange], 51, .Kiloohms),
+        ("Yellow and violet and yellow", [.Yellow, .Violet, .Yellow], 470, .Kiloohms),
+        ("Blue and violet and blue", [.Blue, .Violet, .Blue], 67, .Megaohms),
+        ("Minimum possible value", [.Black, .Black, .Black], 0, .Ohms),
+        ("Maximum possible value", [.White, .White, .White], 99, .Gigaohms),
+        ("First two colors make an invalid octal number", [.Black, .Grey, .Black], 8, .Ohms),
+        ("Ignore extra colors", [.Blue, .Green, .Yellow, .Orange], 650, .Kiloohms),
     ]
-    |> subtests #(description, bands, value, unit), description {
+    |> subtests (description, bands, value, unit), description {
         assert resistor_color_trio.label(bands) == Some(Resistance{value, unit})
     }
 }

@@ -208,6 +208,14 @@ func (bl *irScalarBuilder) stdShortCallPlan(t *ast.Call, owner, method, module s
 	if f == nil || f.decl == nil {
 		return nil, irQualArgs{}, false
 	}
+	return bl.stdShortCallPlanFor(t, f)
+}
+
+// stdShortCallPlanFor is stdShortCallPlan's plan against f, whose full body,
+// arity wrappers and default accessors are the ones its canonical function
+// records: the cached lowering's, or a per-program instance's view
+// (stdUnretainedShortCall).
+func (bl *irScalarBuilder) stdShortCallPlanFor(t *ast.Call, f *stdFunc) (*irQualPlan, irQualArgs, bool) {
 	canon := f
 	if f.canon != nil {
 		canon = f.canon
@@ -327,10 +335,109 @@ func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module strin
 	}
 	plan, args, ok := bl.stdShortCallPlan(t, owner, method, module)
 	if !ok {
+		if v, k, mobile, lowered, handled := bl.stdUnretainedShortCall(t, owner, method, module); handled {
+			return v, k, mobile, lowered, true
+		}
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
 	v, k, mobile, ok := bl.qualEmit(t, args, plan)
 	return v, k, mobile, ok, true
+}
+
+// stdUnretainedShortCall lowers a call that writes a prefix of a defaulted
+// std function's parameters, or names some of them, when the cache retained
+// neither the function nor its arity wrappers because its body reaches a
+// call a program builds for itself (stdUnretainedMonoBody: a generic
+// sibling, a std interface default). The program builds the body as an
+// instance, as a full call to it does, and the call passes every
+// parameter: the written arguments in their slots, and each omitted one's
+// default, which must be a literal (irClosedLiteral), as it lowers the same
+// in any file. Arguments are lowered in the order written, so a named one
+// must be written in its slot's order. handled is false when the function
+// is not such a body.
+func (bl *irScalarBuilder) stdUnretainedShortCall(t *ast.Call, owner, method, module string) (ir.Temp, kind, bool, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
+	s := bl.g.stdInsts
+	if s == nil {
+		return no()
+	}
+	var f *stdFunc
+	for _, c := range bl.g.stdShortCandidates(owner, method, module) {
+		if c.lowerable() {
+			if f != nil {
+				return no()
+			}
+			f = c
+		}
+	}
+	if f == nil || f.decl == nil || len(f.decl.Params) != len(f.params) || !s.stdUnretainedMonoBody(f) {
+		return no()
+	}
+	plan, planned := argSlotPlan(t.Args, f.params, stdParamNames(f))
+	if !planned {
+		return no()
+	}
+	full := make([]ast.Node, len(f.params))
+	last := -1
+	for i, a := range t.Args {
+		slot := plan.slots[i]
+		if slot <= last {
+			return no()
+		}
+		last = slot
+		full[slot] = argExpr(a)
+	}
+	for slot, a := range full {
+		if a != nil {
+			continue
+		}
+		if d := f.decl.Params[slot].Default; d != nil && irClosedLiteral(d) {
+			full[slot] = d
+			continue
+		}
+		return bl.stdUnretainedDefaultedCall(t, f)
+	}
+	call := *t
+	call.Args = full
+	if bl.qualRecord != t {
+		return bl.stdInstCallAt(&call, f, kindInvalid)
+	}
+	// In an assertion subject the rows are the written operands, which are
+	// the call's first slots only when none is named past a gap.
+	if last != len(t.Args)-1 {
+		return no()
+	}
+	bl.qualRecord = &call
+	v, k, mobile, lowered, handled := bl.stdInstCallAt(&call, f, kindInvalid)
+	bl.qualRecord = t
+	if bl.qualRecordSeen {
+		n := len(t.Args)
+		r := bl.qualRecordArgs
+		bl.qualRecordArgs = irQualArgs{temps: r.temps[:n], kinds: r.kinds[:n], mobile: r.mobile[:n], ok: r.ok}
+	}
+	return v, k, mobile, lowered, handled
+}
+
+// stdUnretainedDefaultedCall lowers a short call to f, a body a program
+// builds for itself (stdUnretainedMonoBody), that leaves out a parameter
+// whose default is no literal: `Decimal.format(d, locale)`, whose
+// `max_fraction` defaults to `Int.max(Decimal.scale(d), min_fraction)`. Such a
+// default is Nomi of f's module, so it is lowered there: the instance's gen
+// builds f's arity wrappers and default accessors beside its body, as the
+// cached lowering builds a retained function's (stdInstances.build), and the
+// call is planned against them as stdShortCallPlan plans a retained one.
+func (bl *irScalarBuilder) stdUnretainedDefaultedCall(t *ast.Call, f *stdFunc) (ir.Temp, kind, bool, bool, bool) {
+	inst, why := bl.g.stdInsts.instantiate(f, nil, nil, nil, bl.g)
+	if inst == nil {
+		bl.g.dc.note(why)
+		return ir.NoTemp, kindInvalid, false, false, true
+	}
+	plan, args, ok := bl.stdShortCallPlanFor(t, inst.view)
+	if !ok {
+		return ir.NoTemp, kindInvalid, false, false, true
+	}
+	v, k, mobile, lowered := bl.qualEmit(t, args, plan)
+	return v, k, mobile, lowered, true
 }
 
 // stdShortCallLeavesAHole reports that a call stdShortCallShape accepts

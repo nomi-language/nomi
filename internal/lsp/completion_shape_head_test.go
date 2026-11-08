@@ -14,7 +14,7 @@ enum Shape {
     Dot
 }
 
-type Pair #(Int, Int)
+type Pair (Int, Int)
 type Path Vector<Int>
 type Ids List<Int>
 type Tags Set<String>
@@ -23,18 +23,18 @@ type Meters Float
 
 `
 
-// A name right after a literal's `#` offers the types built on a tuple or a
-// vector (a struct is built by its name, with no `#`), and after `%` those
-// built on the hashed ones, however the request comes.
+// A name right after a literal's `#` offers the types built on a vector (a
+// struct and a named tuple are built by their names, with no `#`), and after
+// `%` those built on the hashed ones, however the request comes.
 func TestCompletion_ShapeHeadOffersTheTypesOfItsShapes(t *testing.T) {
 	tests := []struct {
 		name, src, trigger string
 		want, not          []string
 	}{
 		{"hash typed", "fn f() -> Int {\n    _p = #‸\n    0\n}\n", "#",
-			[]string{"Pair", "Path"}, []string{"Point", "Shape", "Tags", "Kvs", "Ids", "Meters", "f"}},
+			[]string{"Path"}, []string{"Pair", "Point", "Shape", "Tags", "Kvs", "Ids", "Meters", "f"}},
 		{"hash with a prefix", "fn f() -> Int {\n    _p = #P‸\n    0\n}\n", "",
-			[]string{"Pair", "Path"}, []string{"Point", "Tags", "Kvs"}},
+			[]string{"Path"}, []string{"Pair", "Point", "Tags", "Kvs"}},
 		{"percent typed", "fn f() -> Int {\n    _p = %‸\n    0\n}\n", "%",
 			[]string{"Tags", "Kvs"}, []string{"Point", "Shape", "Pair", "Path", "Ids", "Meters", "f"}},
 		{"percent as an argument", "fn g(t: Tags) -> Tags {\n    t\n}\n\nfn f() -> Tags {\n    g(%‸)\n}\n", "%",

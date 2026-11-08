@@ -9,14 +9,14 @@ import (
 // the expression map-*pattern* key support. The Go parser used to detect a map
 // literal with a single-token heuristic (string/int/float/decimal/ident key
 // followed by `=>`), which couldn't see tuple/variant/list/struct/computed
-// keys, so `%{#(1, 2) => "v"}` was misparsed as a block and choked on `=>`.
+// keys, so `%{(1, 2) => "v"}` was misparsed as a block and choked on `=>`.
 // Detection now speculatively parses the key expression and peeks for `=>`,
 // so any keyable expression works as a literal key — exactly like the value
 // layer (which already keys on composites) and the tree-sitter grammar (which
 // already parses them).
 
 func TestMapLiteral_TupleKey(t *testing.T) {
-	expr := parseExpr(t, `%{#(1, 2) => "v"}`)
+	expr := parseExpr(t, `%{(1, 2) => "v"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -97,7 +97,7 @@ func TestMapLiteral_ComputedKey(t *testing.T) {
 }
 
 func TestMapLiteral_TypePrefixed_TupleKey(t *testing.T) {
-	expr := parseExpr(t, `%Kvs{#(1, 2) => "v"}`)
+	expr := parseExpr(t, `%Kvs{(1, 2) => "v"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)
@@ -116,7 +116,7 @@ func TestMapLiteral_TypePrefixed_TupleKey(t *testing.T) {
 // case <composite-keyed map literal> { branches } — the case-scrutinee
 // detection site. The map literal is the case *value*, not ad-hoc conditionals.
 func TestMapLiteral_CaseScrutinee_TupleKey(t *testing.T) {
-	expr := parseExpr(t, `case %{#(1, 2) => "v"} { _ -> 1 }`)
+	expr := parseExpr(t, `case %{(1, 2) => "v"} { _ -> 1 }`)
 	c, ok := expr.(*ast.Case)
 	if !ok {
 		t.Fatalf("expected *ast.Case, got %T", expr)

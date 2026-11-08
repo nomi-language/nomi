@@ -101,11 +101,11 @@ test "two schedulers stepping one schedule at once store each tick once" {
             first = jobs.enqueue_due(queue, hourly(), now)
             stored = Iter.last(Inline.jobs(queue))!
             second = Queue.record_tick(queue, "hourly", now, Some(again(stored)))
-            #(first, second)
+            (first, second)
         })
         |> Iter.to_list()
 
-    assert Iter.all(answers, fn #(first, second) -> {
+    assert Iter.all(answers, fn (first, second) -> {
         first is Ok(Some(Enqueued{duplicate: False}))
             and second is Ok(Some(Enqueued{duplicate: True}))
     })

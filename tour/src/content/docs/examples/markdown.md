@@ -40,7 +40,7 @@ fn block(line: String) -> Block {
     if Some(text) = String.strip_prefix(line, "* ") { return .Item(text) }
 
     case String.captures(line, Regex`^(#{1,6}) (.*)$`) {
-        Some(#(marks, text)) -> .Heading{level: String.length(marks), text}
+        Some((marks, text)) -> .Heading{level: String.length(marks), text}
         _ -> .Paragraph(line)
     }
 }
@@ -77,61 +77,61 @@ import markdown
 
 test "markdown" {
     [
-        #(
+        (
             "parses normal text as a paragraph",
             "This will be a paragraph",
             "<p>This will be a paragraph</p>",
         ),
-        #("parsing italics", "_This will be italic_", "<p><em>This will be italic</em></p>"),
-        #(
+        ("parsing italics", "_This will be italic_", "<p><em>This will be italic</em></p>"),
+        (
             "parsing bold text",
             "__This will be bold__",
             "<p><strong>This will be bold</strong></p>",
         ),
-        #(
+        (
             "mixed normal, italics and bold text",
             "This will _be_ __mixed__",
             "<p>This will <em>be</em> <strong>mixed</strong></p>",
         ),
-        #("with h1 header level", "# This will be an h1", "<h1>This will be an h1</h1>"),
-        #("with h2 header level", "## This will be an h2", "<h2>This will be an h2</h2>"),
-        #("with h3 header level", "### This will be an h3", "<h3>This will be an h3</h3>"),
-        #("with h4 header level", "#### This will be an h4", "<h4>This will be an h4</h4>"),
-        #("with h5 header level", "##### This will be an h5", "<h5>This will be an h5</h5>"),
-        #("with h6 header level", "###### This will be an h6", "<h6>This will be an h6</h6>"),
-        #(
+        ("with h1 header level", "# This will be an h1", "<h1>This will be an h1</h1>"),
+        ("with h2 header level", "## This will be an h2", "<h2>This will be an h2</h2>"),
+        ("with h3 header level", "### This will be an h3", "<h3>This will be an h3</h3>"),
+        ("with h4 header level", "#### This will be an h4", "<h4>This will be an h4</h4>"),
+        ("with h5 header level", "##### This will be an h5", "<h5>This will be an h5</h5>"),
+        ("with h6 header level", "###### This will be an h6", "<h6>This will be an h6</h6>"),
+        (
             "h7 header level is a paragraph",
             "####### This will not be an h7",
             "<p>####### This will not be an h7</p>",
         ),
-        #("unordered lists", "* Item 1\n* Item 2", "<ul><li>Item 1</li><li>Item 2</li></ul>"),
-        #(
+        ("unordered lists", "* Item 1\n* Item 2", "<ul><li>Item 1</li><li>Item 2</li></ul>"),
+        (
             "With a little bit of everything",
             "# Header!\n* __Bold Item__\n* _Italic Item_",
             "<h1>Header!</h1><ul><li><strong>Bold Item</strong></li><li><em>Italic Item</em></li></ul>",
         ),
-        #(
+        (
             "with markdown symbols in the header text that should not be interpreted",
             "# This is a header with # and * in the text",
             "<h1>This is a header with # and * in the text</h1>",
         ),
-        #(
+        (
             "with markdown symbols in the list item text that should not be interpreted",
             "* Item 1 with a # in the text\n* Item 2 with * in the text",
             "<ul><li>Item 1 with a # in the text</li><li>Item 2 with * in the text</li></ul>",
         ),
-        #(
+        (
             "with markdown symbols in the paragraph text that should not be interpreted",
             "This is a paragraph with # and * in the text",
             "<p>This is a paragraph with # and * in the text</p>",
         ),
-        #(
+        (
             "unordered lists close properly with preceding and following lines",
             "# Start a list\n* Item 1\n* Item 2\nEnd a list",
             "<h1>Start a list</h1><ul><li>Item 1</li><li>Item 2</li></ul><p>End a list</p>",
         ),
     ]
-    |> subtests #(description, text, expected), description {
+    |> subtests (description, text, expected), description {
         assert markdown.parse(text) == expected
     }
 }
@@ -146,6 +146,6 @@ test result: ok. 17 passed, 0 failed
 - The exercise is a refactoring one: tracks ship a confusing parser to clean up. There is no Nomi stub to start from, so this is the solution written directly, against the canonical cases.
 - Parsing and rendering are separate. Each line becomes a private `Block` (`Heading`, `Item`, `Paragraph`), and `render` writes one block's HTML. Lists are the only structure wider than a line, so they are found between the two: `Iter.chunk_by(&(&1 is .Item(_)))` groups the blocks into runs by whether each is an item, and a run that starts with an item is wrapped in `<ul>`.
 - `render_run` matches `[.Item(_), ..]` and leaves everything else to `_`, so the empty run `chunk_by` never yields needs no arm of its own.
-- A heading is ``Regex`^(#{1,6}) (.*)$` ``, so seven `#`s fall through to a paragraph with no level check. The literal's type makes a match's groups a `#(String, String)`, so the heading arm destructures them, and the `_` arm is the line that is not a heading.
+- A heading is ``Regex`^(#{1,6}) (.*)$` ``, so seven `#`s fall through to a paragraph with no level check. The literal's type makes a match's groups a `(String, String)`, so the heading arm destructures them, and the `_` arm is the line that is not a heading.
 - Bold and italic are two `String.replace` pipe stages over the text, each a `Regex` with a lazy group that the replacement names as `$1`, bold first so that `__` is not read as two italic marks.
 - The canonical cases are one `subtests` table. The canonical data replaces "with h7 header level", which expected the line back unchanged, with "h7 header level is a paragraph" (`reimplements`); the table holds only the replacement.

@@ -281,6 +281,10 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 		frame[tp] = args[i]
 	}
 	g.genericSubst = append(g.genericSubst, frame)
+	if f.why == stdIfaceDefaultWhy && (len(args) != 1 || !g.bindStdIfaceDefaultSelf(f, args[0])) {
+		// A default's every `self` is the receiver it is instantiated at.
+		return nil, "a stdlib interface default whose interface its module does not declare: " + f.key
+	}
 	inst := &stdInst{f: f, fd: f.decl, tps: tps, args: args, holes: holes, gen: g, depth: depth}
 	g.stdInstCur = inst
 	view := *f
@@ -339,6 +343,15 @@ func (s *stdInstances) build(inst *stdInst) string {
 	defer func() { s.building = prev }()
 	g.emitStdFunc(inst.view, inst.fd)
 	if g.irMod != nil && g.irMod.FuncFor(inst.sym) != nil {
+		if len(inst.tps) == 0 && inst.f.ifaceDefault == nil && irDefaultsNotAllLiteral(inst.fd) {
+			// A monomorphic body built per program whose defaults are not
+			// all literals: its arity wrappers and default accessors, built
+			// here in its own module's scope, where those defaults resolve
+			// (stdUnretainedDefaultedCall).
+			inst.view.irBody = g.irMod.FuncFor(inst.sym)
+			g.emitStdDefaultWrappers(inst.view, inst.fd)
+			g.emitStdSlotDefaults(inst.view, inst.fd)
+		}
 		return ""
 	}
 	why := g.stdUnlowered[g.stdInstName]
@@ -463,7 +476,8 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc, visiting map[*stdFunc]boo
 				if ti, isType := callee.Object.(*ast.TypeIdent); isType && callee.Field != nil &&
 					(stdModuleGenericTemplate(v, ti.Name, callee.Field.Name) != nil ||
 						s.unretainedMono(stdModuleMonoFunc(v, ti.Name, callee.Field.Name), visiting) ||
-						s.otherModuleTemplate(f.module, ti.Name, callee.Field.Name, visiting)) {
+						s.otherModuleTemplate(f.module, ti.Name, callee.Field.Name, visiting) ||
+						s.namesStdIfaceDefault(v.fa, callee)) {
 					found = true
 					return
 				}
@@ -707,7 +721,7 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 			// kindInvalid: sentinel — no receiver kind selects this member.
 			if !ok && self != kindInvalid {
 				// A receiver built with a type argument nothing determined
-				// (`#(1, Ok(f)).1`, whose error type is the Unit the
+				// (`(1, Ok(f)).second`, whose error type is the Unit the
 				// constructor read the hole as): the receiver's own kind
 				// is the instance, Unit included.
 				args, ok = bl.g.stdInstSolveHoled(f, tps, ib, params, result, self, true)
@@ -787,6 +801,18 @@ func irClosedDefaults(fd *ast.FuncDef, args []ast.Node) []ast.Node {
 		out = append(out, p.Default)
 	}
 	return out
+}
+
+// irDefaultsNotAllLiteral reports a parameter of fd whose default is not a
+// literal (irClosedLiteral), which a call that leaves it out cannot fill in
+// the caller's file.
+func irDefaultsNotAllLiteral(fd *ast.FuncDef) bool {
+	for _, p := range fd.Params {
+		if p.Default != nil && !irClosedLiteral(p.Default) {
+			return true
+		}
+	}
+	return false
 }
 
 // irKindsUnprojected reports a projected parameter list with a position that
@@ -1054,6 +1080,10 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	fa, qualified := t.Func.(*ast.FieldAccess)
 	if !qualified || fa.Field == nil {
 		return no()
+	}
+	if v, rk, mobile, ok, handled := bl.parseFieldsCall(t, k, method); handled {
+		// `P.parse_fields(texts)` at an anonymous struct (irparsefields.go).
+		return v, rk, mobile, ok, true
 	}
 	if _, std := stdNamedRecv(k); std {
 		// `T.from_sql(v)` at a `Date`: a program's impl for a std type,

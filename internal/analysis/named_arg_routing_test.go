@@ -33,7 +33,7 @@ fn main() {
   d: List<Int> = spread(x: 4, xs: [5])
   e: Int = g(1, y: 2)
   f: Int = 1 |> g(y: 2)
-  _ = #(a, b, c, d, e, f)
+  _ = (a, b, c, d, e, f)
 }
 `)
 	expectNoStdlibErrors(t, errs)

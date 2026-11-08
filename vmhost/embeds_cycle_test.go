@@ -61,7 +61,7 @@ fn main() {
 `,
 	"tuple": `struct Circle {
   r: Int
-  pair: #(Int, Maybe<Shape>)
+  pair: (Int, Maybe<Shape>)
 }
 
 enum Shape {
@@ -70,7 +70,7 @@ enum Shape {
 }
 
 fn main() {
-  s: Shape = Circle{r: 2, pair: #(1, Some(Shape.Dot))}
+  s: Shape = Circle{r: 2, pair: (1, Some(Shape.Dot))}
   io.inspect(s)
 }
 `,
@@ -137,7 +137,7 @@ fn main() {
 `,
 	"tuple without embeds": `struct Node {
   r: Int
-  pair: #(Int, Maybe<Tree>)
+  pair: (Int, Maybe<Tree>)
 }
 
 enum Tree {
@@ -146,7 +146,7 @@ enum Tree {
 }
 
 fn main() {
-  io.inspect(Tree.N(Node{r: 2, pair: #(1, Some(Tree.Leaf))}))
+  io.inspect(Tree.N(Node{r: 2, pair: (1, Some(Tree.Leaf))}))
 }
 `,
 }
@@ -158,11 +158,11 @@ func TestCheck_EmbeddedStructReachingItsEnumBackLowers(t *testing.T) {
 		"direct":               "Circle{r: 2, inner: Some(Circle{r: 1, inner: Some(Dot)})}\n",
 		"list":                 "Circle{r: 2, kids: [Dot, Circle{r: 1, kids: []}]}\n",
 		"map value":            "Circle{r: 2, kids: %{\"a\" => Dot}}\n",
-		"tuple":                "Circle{r: 2, pair: #(1, Some(Dot))}\n",
+		"tuple":                "Circle{r: 2, pair: (1, Some(Dot))}\n",
 		"two steps":            "Circle{r: 2, b: Box{inner: Some(Dot)}}\n",
 		"distinct":             "Wrapped(Circle{r: 2, inner: Some(Dot)})\n",
 		"mutual":               "Circle{r: 2, other: Some(Apple{w: 3, other: Some(Dot)})}\n",
-		"tuple without embeds": "N(Node{r: 2, pair: #(1, Some(Leaf))})\n",
+		"tuple without embeds": "N(Node{r: 2, pair: (1, Some(Leaf))})\n",
 	}
 	for name, body := range embedCycleShapes {
 		t.Run(name, func(t *testing.T) {

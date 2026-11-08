@@ -285,8 +285,8 @@ pub fn param(not_found: Int) -> Int {
   not_found
 }
 
-pub fn destructure(pair: #(Int, Int)) -> Int {
-  #(not_found, other) = pair
+pub fn destructure(pair: (Int, Int)) -> Int {
+  (not_found, other) = pair
   not_found + other
 }
 `,

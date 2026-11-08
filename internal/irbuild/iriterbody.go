@@ -124,7 +124,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	}
 	vecElem, isVector := vectorElem(sk)
 	isVector = isVector && (irRetainedVectorKind(sk) || irCallableValueKind(vecElem))
-	// A Map pushes `#(K, V)` pairs and a Set its members.
+	// A Map pushes `(K, V)` pairs and a Set its members.
 	isMap := sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk)
 	setMember, isSet := setElem(sk)
 	isSet = isSet && sk != kindEmptySet && irRetainedSetKind(sk)
@@ -254,7 +254,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		}
 	}
 	if method == "map_reduce" {
-		// `(A, T) -> #(A, U)`, answering `#(A, List<U>)`.
+		// `(A, T) -> (A, U)`, answering `(A, List<U>)`.
 		fk := args.kinds[1]
 		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem {
 			return no()
@@ -576,7 +576,7 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 	seedTemp := ir.NoTemp
 	if isLambda {
 		// The accumulator's kind as the callback's first parameter takes
-		// it, so a pattern parameter (`fn #(n, xs), x ->`) takes its starting
+		// it, so a pattern parameter (`fn (n, xs), x ->`) takes its starting
 		// value whole at the kind its `continue` answers.
 		if seedTemp, ok = lowerSeed(from, bl.g.lambdaParamKind(lam.Params[0])); !ok {
 			return no()
@@ -1202,7 +1202,7 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 	if member, isMaybe := maybeIterElem(sk); isMaybe {
 		return view(ir.IterOverMaybe, member)
 	}
-	// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `#(K, V)`
+	// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `(K, V)`
 	// pairs, a Range its elements and a user source what its `each_while`
 	// does, viewed as an Iter call's first operand is (seqView).
 	var elem kind
@@ -1234,7 +1234,7 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 	return ir.NoTemp, kindInvalid, false
 }
 
-// mapView views a Map as its `#(K, V)` pairs. Go takes a minted tuple
+// mapView views a Map as its `(K, V)` pairs. Go takes a minted tuple
 // constructor; the VM builds the tuple itself.
 func (bl *irScalarBuilder) mapView(at ast.Node, src ir.Temp, m, pair kind) ir.Temp {
 	n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), ir.IterView, ir.IterOverMap, src)

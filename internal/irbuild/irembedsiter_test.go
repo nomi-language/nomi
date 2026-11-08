@@ -22,7 +22,7 @@ enum Shape {
     Dot
 }
 
-type P #(Iter<Shape>, Int)
+type P (Iter<Shape>, Int)
 
 struct H {
     it: Iter<Shape> = [Circle{r: 1}]

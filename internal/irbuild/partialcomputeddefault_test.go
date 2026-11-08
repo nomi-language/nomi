@@ -26,12 +26,12 @@ fn conn(host: String, port: Int = base() + 1) -> String {
     "${host}:${port}"
 }
 
-fn span(a: Int, b: Int = a * 2, c: Int = a + b) -> #(Int, Int, Int) {
-    #(a, b, c)
+fn span(a: Int, b: Int = a * 2, c: Int = a + b) -> (Int, Int, Int) {
+    (a, b, c)
 }
 
-fn pair<A>(x: A, y: A = x) -> #(A, A) {
-    #(x, y)
+fn pair<A>(x: A, y: A = x) -> (A, A) {
+    (x, y)
 }
 
 struct Box {
@@ -75,7 +75,7 @@ fn main() {
     io.print(l(1))
     io.inspect(n)
 }
-`, "h:3\nbase\nh:11\n99\nbase\nx:11\ny:5\n#(4, 8, 12)\n#(4, 1, 5)\n#(3, 6, 7)\n#(1, 1)\nBox{v: 3}\n14\n6\n14\n"+
+`, "h:3\nbase\nh:11\n99\nbase\nx:11\ny:5\n(4, 8, 12)\n(4, 1, 5)\n(3, 6, 7)\n(1, 1)\nBox{v: 3}\n14\n6\n14\n"+
 		"lib base\nl:42\nl:1\n100\n", map[string]string{"lib.nomi": `import std::io
 
 fn base() -> Int {
@@ -91,7 +91,7 @@ pub fn dial(host: String, port: Int = base() + 2) -> String {
 
 // A partial whose open slot's computed default reads a slot left open by a
 // placeholder written after it, `span(b: _, _)`: the partial's parameters
-// are its placeholders in written order, `#(b, a)`, and a call omitting b
+// are its placeholders in written order, `(b, a)`, and a call omitting b
 // fills it after a, as the callee does. So do a partial of that partial,
 // a closure calling it, a three-slot callee whose placeholders are written
 // in reverse, and a lambda callee.
@@ -101,12 +101,12 @@ func TestPartialComputedDefault_ALaterPlaceholderFillsFirst(t *testing.T) {
 	}
 	verifyLambdaProgram(t, `import std::io
 
-fn span(a: Int, b: Int = a * 2) -> #(Int, Int) {
-    #(a, b)
+fn span(a: Int, b: Int = a * 2) -> (Int, Int) {
+    (a, b)
 }
 
-fn three(a: Int, b: Int = a + 1, c: Int = a + b) -> #(Int, Int, Int) {
-    #(a, b, c)
+fn three(a: Int, b: Int = a + 1, c: Int = a + b) -> (Int, Int, Int) {
+    (a, b, c)
 }
 
 fn main() {
@@ -127,7 +127,7 @@ fn main() {
     io.inspect(q(x: 4))
     io.inspect(q(0, 4))
 }
-`, "#(2, 1)\n#(5, 10)\n#(7, 3)\n#(7, 14)\n#(9, 18)\n#(1, 2, 3)\n#(1, 10, 11)\n#(1, 2, 100)\n45\n40\n")
+`, "(2, 1)\n(5, 10)\n(7, 3)\n(7, 14)\n(9, 18)\n(1, 2, 3)\n(1, 10, 11)\n(1, 2, 100)\n45\n40\n")
 }
 
 // A partial over a std function whose open slot's default is not a literal

@@ -313,7 +313,7 @@ func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, wants []kind, base ir.T
 	var items [2][]ast.Node
 	var kinds [2][]kind
 	// A key or value type holding an embedded type's enum below its top
-	// (`Map<Int, #(Int, Shape)>`) is each entry's context (literalParts).
+	// (`Map<Int, (Int, Shape)>`) is each entry's context (literalParts).
 	if wants == nil {
 		wants = bl.literalParts(t, tagMap)
 	}

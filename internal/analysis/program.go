@@ -3,6 +3,7 @@ package analysis
 import (
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -309,6 +310,7 @@ func (fa *FileAnalysis) Program() *Program {
 func standaloneProgram(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, stdlibScopes map[string]*Scope, contextType Type, loaded map[string]*FileAnalysis) *Program {
 	onces := NewOnceTable()
 	onces.Index(fa, nodes)
+	onces.IndexDefaults(fa, nodes)
 	files := map[string]*FileAnalysis{"": fa}
 	users := []*FileAnalysis{fa}
 	for key, file := range loaded {
@@ -365,4 +367,144 @@ func implTablesOf(fa *FileAnalysis, own *implTables, owned map[*FileAnalysis]boo
 	}
 	tables := fileImplTables(fa)
 	return &tables
+}
+
+// unimportedInterface finds the declaration of iface, an interface an impl
+// for typeName implements, when fa need not name the interface, and answers
+// it with the file whose scope names it. method, when not "", is a function
+// the declaration must declare. The impl's written functions say where the
+// interface was declared: a `fn`'s ImplIfaceOrigin, or a `host fn`'s home
+// file, which names it. The impl's receiver must be typeName's declaration
+// as fa reads it (sameReceiver). An impl that writes no function at all
+// leaves no such record, and its interface is then not found here.
+func (fa *FileAnalysis) unimportedInterface(typeName, iface, method string) (*InterfaceType, *FileAnalysis) {
+	if fa == nil {
+		return nil, nil
+	}
+	p := fa.Program()
+	idx := p.ImplIndex
+	if idx == nil {
+		return nil, nil
+	}
+	entry := p.entryOrigin()
+	caller := qualifyReceiver(fa, typeName, nil, entry)
+	tried := map[string]bool{}
+	declaredIn := func(origin string) (*InterfaceType, *FileAnalysis) {
+		if origin == "" || origin == OriginUnresolved || tried[origin] {
+			return nil, nil
+		}
+		tried[origin] = true
+		home := p.File(origin)
+		if home == nil && origin == entry {
+			home = p.File("")
+		}
+		it := lookupInterfaceType(home, nil, iface)
+		if it == nil || (method != "" && interfaceMethodFuncType(it, method) == nil) {
+			return nil, nil
+		}
+		return it, home
+	}
+	for _, m := range sortedKeys(idx.IfaceMethodImpls[iface]) {
+		for _, fn := range idx.IfaceMethodImpls[iface][m] {
+			if fn == nil || idx.ReceiverOf(fn) != typeName || !fa.sameReceiver(typeName, caller, idx.QualifiedReceiver[fn]) {
+				continue
+			}
+			if it, home := declaredIn(idx.ImplIfaceOrigin[fn]); it != nil {
+				return it, home
+			}
+		}
+	}
+	// An impl whose written functions are all `host fn`s (std's `impl
+	// Comparable for Int`), which ImplIfaceOrigin does not record.
+	homes := map[string]bool{}
+	for _, m := range sortedKeys(idx.IfaceMethodImplExterns[iface]) {
+		for _, ext := range idx.IfaceMethodImplExterns[iface][m] {
+			if ext == nil || idx.ImplBlockReceiverExtern[ext] != typeName {
+				continue
+			}
+			key := idx.ImplExternFiles[ext]
+			if homes[key] {
+				continue
+			}
+			homes[key] = true
+			home := p.File(key)
+			if home == nil || !fa.sameReceiver(typeName, caller, qualifyReceiver(home, typeName, nil, entry)) {
+				continue
+			}
+			if it, decl := declaredIn(declaringOriginOfInterface(home, iface)); it != nil {
+				return it, decl
+			}
+		}
+	}
+	return nil, nil
+}
+
+// sameReceiver reports whether an impl whose receiver its home file
+// qualifies as impl is for typeName as fa qualifies it, caller. A built-in
+// type is one type wherever it is named, and a file that imports it may
+// leave it unqualified, so it matches its declaring module's qualified
+// spelling. An impl with no qualified receiver recorded matches by name.
+func (fa *FileAnalysis) sameReceiver(typeName, caller, impl string) bool {
+	if impl == "" || impl == caller {
+		return true
+	}
+	if caller != typeName || fa.ModuleScope == nil {
+		return false
+	}
+	sym := fa.ModuleScope.Lookup(typeNameHead(typeName))
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil {
+		return false
+	}
+	_, builtin := sym.Type.(*PrimitiveType)
+	return builtin && strings.HasSuffix(impl, receiverOriginSep+typeName)
+}
+
+// TypeDefaultFunctions answers the default functions typeName inherits from
+// the interfaces it implements, by name, each the interface's own function:
+// what `Type.name(...)` reaches when the type's impl leaves the default
+// unwritten (spec §12 *Item kinds*). The interface need not be
+// one fa names. A name two of its interfaces declare is left out, since
+// `Type.name` is then ambiguous. A default the type's impl overrides is
+// answered too; the type's own function, from its type-method tables, is
+// laid over it by the caller.
+func (fa *FileAnalysis) TypeDefaultFunctions(typeName string) map[string]*Symbol {
+	out := map[string]*Symbol{}
+	if fa == nil {
+		return out
+	}
+	seen := map[string]bool{}
+	declared := map[string]int{}
+	for _, ifaces := range fa.implsOf(typeName) {
+		for iface := range ifaces {
+			if seen[iface] {
+				continue
+			}
+			seen[iface] = true
+			it, home := lookupInterfaceType(fa, nil, iface), fa
+			if it == nil {
+				it, home = fa.unimportedInterface(typeName, iface, "")
+			}
+			if it == nil {
+				continue
+			}
+			for _, m := range it.Methods {
+				declared[m.Name]++
+				if !m.HasDefault {
+					continue
+				}
+				if sym := interfaceMemberIn(home, iface, m.Name); sym != nil {
+					out[m.Name] = sym
+				}
+			}
+		}
+	}
+	for name := range out {
+		if declared[name] > 1 {
+			delete(out, name)
+		}
+	}
+	return out
 }

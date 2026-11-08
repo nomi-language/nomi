@@ -3,7 +3,7 @@ An assertion whose subject starts like a pattern is a comparison
 ================================================================================
 
 test "t" {
-    assert #(1, 2) == #(1, 2)
+    assert (1, 2) == (1, 2)
     assert [1, ..[2]] == [1, 2]
     assert Some(1) == Some(1)
     assert "ab" + "c" == "abc"

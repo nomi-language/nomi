@@ -5,8 +5,8 @@ import {
 
 /// The first letter of each word, upper case. An attached test pipes its
 /// table into `subtests` as a test body does.
-//! [#("Ruby on Rails", "ROR"), #("PHP: Hypertext Preprocessor", "PHP")]
-//! |> subtests #(phrase, expected) {
+//! [("Ruby on Rails", "ROR"), ("PHP: Hypertext Preprocessor", "PHP")]
+//! |> subtests (phrase, expected) {
 //!     assert abbreviate(phrase) == expected
 //! }
 fn abbreviate(phrase: String) -> String {
@@ -20,28 +20,28 @@ fn abbreviate(phrase: String) -> String {
 
 test "a literal table piped into subtests" {
     [
-        #("basic", "Portable Network Graphics", "PNG"),
-        #("lowercase words", "Ruby on Rails", "ROR"),
+        ("basic", "Portable Network Graphics", "PNG"),
+        ("lowercase words", "Ruby on Rails", "ROR"),
     ]
-    |> subtests #(description, phrase, expected), description {
+    |> subtests (description, phrase, expected), description {
         assert abbreviate(phrase) == expected
     }
 }
 
 test "a bound table piped into subtests" {
-    cases = [#("abba", True), #("abc", False)]
+    cases = [("abba", True), ("abc", False)]
 
     cases
-    |> subtests #(line, known) {
+    |> subtests (line, known) {
         assert (String.reverse(line) == line) == known
     }
 }
 
 test "rows built by a pipeline" {
     1..=3
-    |> Iter.map(fn n -> #(n, n * n))
+    |> Iter.map(fn n -> (n, n * n))
     |> Iter.to_list()
-    |> subtests #(n, square) {
+    |> subtests (n, square) {
         assert square / n == n
     }
 }

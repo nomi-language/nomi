@@ -13,8 +13,8 @@ func TestFieldAccessor_Parses(t *testing.T) {
 	}{
 		{".name", []string{"name"}},
 		{".address.city", []string{"address", "city"}},
-		{".0", []string{"0"}},
-		{".pair.1", []string{"pair", "1"}},
+		{".first", []string{"first"}},
+		{".pair.second", []string{"pair", "second"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {

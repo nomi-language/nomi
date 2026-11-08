@@ -41,11 +41,11 @@ fn two() -> Int {
 }
 
 fn main() {
-    t: Equatable = #(1, "a")
-    dbg t == #(1, "a")
-    dbg #(1, "a") == t
-    dbg t != #(1, "b")
-    dbg t == #(1, "b")
+    t: Equatable = (1, "a")
+    dbg t == (1, "a")
+    dbg (1, "a") == t
+    dbg t != (1, "b")
+    dbg t == (1, "b")
     a: Equatable = #{name: "n", n: 2}
     dbg a == #{name: "n", n: 2}
     dbg #{name: "n", n: 3} != a
@@ -60,8 +60,8 @@ fn main() {
     dbg s == "s"
     dbg "t" == s
     dbg s == 3
-    h: Hashable = #(1, "a")
-    dbg h == #(1, "a")
+    h: Hashable = (1, "a")
+    dbg h == (1, "a")
     dbg 5 == h
     hp: Hashable = Point{x: 1, y: 2}
     dbg hp == Point{x: 1, y: 2}
@@ -82,10 +82,10 @@ fn main() {
 	if _, err := Analyze(path); err != nil {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 	}
-	const want = `dbg line 25: t == #(1, "a") = True
-dbg line 26: #(1, "a") == t = True
-dbg line 27: t != #(1, "b") = True
-dbg line 28: t == #(1, "b") = False
+	const want = `dbg line 25: t == (1, "a") = True
+dbg line 26: (1, "a") == t = True
+dbg line 27: t != (1, "b") = True
+dbg line 28: t == (1, "b") = False
 dbg line 30: a == #{name: "n", n: 2} = True
 dbg line 31: #{name: "n", n: 3} != a = True
 dbg line 33: p == Point{x: 1, y: two()} = True
@@ -96,7 +96,7 @@ dbg line 38: i != 3 = False
 dbg line 40: s == "s" = True
 dbg line 41: "t" == s = False
 dbg line 42: s == 3 = False
-dbg line 44: h == #(1, "a") = True
+dbg line 44: h == (1, "a") = True
 dbg line 45: 5 == h = False
 dbg line 47: hp == Point{x: 1, y: 2} = True
 dbg line 49: "x" == hs = True

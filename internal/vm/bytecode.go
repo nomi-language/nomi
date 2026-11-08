@@ -91,7 +91,7 @@ const (
 	opMulF          // dst | a | b
 	opDivF          // dst | a | b
 	opNegF          // dst | a
-	opRemF          // dst | a | b        always faults
+	opRemF          // dst | a | b        IEEE fmod
 	opCmpI          // dst | a | b | cond
 	opCmpF          // dst | a | b | cond
 	opEqS           // dst | a | b | negate

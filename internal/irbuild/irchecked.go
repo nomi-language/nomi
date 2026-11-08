@@ -2,8 +2,8 @@ package irbuild
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -26,24 +26,30 @@ import (
 // checkedLiteralKey is a checked literal's check cell's identity.
 type checkedLiteralKey struct{ t *ast.TaggedString }
 
-// checkedLiteralCheck is the `check` of the CheckedLiteral impl whose `build`
-// is t's handler, or nil.
+// checkedLiteralCheck is the function the compiler runs to check t: the
+// `check_type` of the CheckedLiteral impl whose `build` is t's handler when
+// the impl writes one, and its `check` otherwise, which is what the
+// interface's default `check_type` calls. Nil when there is neither.
 func (g *gen) checkedLiteralCheck(t *ast.TaggedString) *ast.FuncDef {
+	if fd := g.checkedLiteralImplFunc(t, "check_type"); fd != nil {
+		return fd
+	}
+	return g.checkedLiteralImplFunc(t, "check")
+}
+
+// checkedLiteralImplFunc is the function named method of the CheckedLiteral
+// impl whose `build` is t's handler, or nil.
+func (g *gen) checkedLiteralImplFunc(t *ast.TaggedString, method string) *ast.FuncDef {
 	if g.fa == nil || g.fa.Program().ImplIndex == nil {
 		return nil
 	}
-	pos := analysis.Pos{Line: t.Line, Col: max(t.Col-len(t.Tag), 1)}
-	sym := g.srcFA().References[pos]
-	if sym == nil {
-		return nil
-	}
-	build, isFn := sym.DispatchImpl.(*ast.FuncDef)
-	if !isFn {
+	build := g.literalDispatch(t)
+	if build == nil {
 		return nil
 	}
 	idx := g.fa.Program().ImplIndex
 	recv, q := idx.ReceiverOf(build), idx.QualifiedReceiver[build]
-	for _, fn := range idx.IfaceMethodImpls["CheckedLiteral"]["check"] {
+	for _, fn := range idx.IfaceMethodImpls["CheckedLiteral"][method] {
 		if fn == nil || idx.ReceiverOf(fn) != recv || idx.QualifiedReceiver[fn] != q {
 			continue
 		}
@@ -90,7 +96,12 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 		return false
 	}
 	k := h.result
-	if !irCheckedLiteralKind(k) || len(h.params) != 1 || !irListTransportKind(h.params[0]) {
+	typed := fd.Name == "check_type"
+	arity := 1
+	if typed {
+		arity = 2
+	}
+	if !irCheckedLiteralKind(k) || len(h.params) != arity || !irListTransportKind(h.params[0]) || typed && !irListTransportKind(h.params[1]) {
 		g.dc.note("a checked literal's check outside the retained domain: " + k.nomi())
 		return false
 	}
@@ -136,7 +147,23 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 	list := ir.NewMakeList(at, f.NewTemp(), items, ir.NoTemp)
 	cb.b.Append(list)
 	cb.side(list.Dst(), irScalarSide{k: h.params[0]})
-	call := ir.NewCall(at, f.NewTemp(), ir.OrdinaryCall, callee, list.Dst())
+	operands := []ir.Temp{list.Dst()}
+	if typed {
+		// check_type's second operand: the literal's type arguments, each
+		// as Nomi spells it.
+		var spellings []ir.Temp
+		for _, a := range g.checkedLiteralArgs(t) {
+			c := ir.NewString(at, f.NewTemp(), a)
+			cb.b.Append(c)
+			cb.side(c.Dst(), irScalarSide{k: kindString})
+			spellings = append(spellings, c.Dst())
+		}
+		args := ir.NewMakeList(at, f.NewTemp(), spellings, ir.NoTemp)
+		cb.b.Append(args)
+		cb.side(args.Dst(), irScalarSide{k: h.params[1]})
+		operands = append(operands, args.Dst())
+	}
+	call := ir.NewCall(at, f.NewTemp(), ir.OrdinaryCall, callee, operands...)
 	cb.b.Append(call)
 	cb.side(call.Dst(), irScalarSide{k: k})
 	cb.resultCopy(t, call.Dst())
@@ -152,7 +179,7 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 		Line: t.Line, Col: tagCol, Text: renderNode(t), Cell: cell,
 		Render:  g.literalRender(t, name, k.def.preludeArgs[1]),
 		Checked: true, Tag: t.Tag, Statics: statics, Slots: slots,
-		Check: fd, CheckName: t.Tag + ".check",
+		Check: fd, CheckName: t.Tag + "." + fd.Name,
 	}
 	if h.std == nil && h.unit < 0 {
 		// The impl is in this file, so its check can be reported there.
@@ -167,6 +194,67 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 	if !t.Span.IsZero() {
 		site.EndLine, site.EndCol = t.Span.EndLine, t.Span.EndCol
 	}
+	if g.srcFA().TargetLiteralBuilds[t] != nil {
+		// Written with no tag: the quote is at the literal's position, and
+		// a diagnostic shows the literal as it was written.
+		site.Tag, site.Type, site.Text = "", t.Tag, site.Text[len(t.Tag):]
+	}
 	g.literalSites = append(g.literalSites, site)
 	return true
+}
+
+// checkedLiteralArgs is the spelling of each type argument of t's type, as
+// the checker solved it and this instance binds it.
+func (g *gen) checkedLiteralArgs(t *ast.TaggedString) []string {
+	ty := g.srcFA().ExprTypes[t]
+	if ty == nil {
+		return nil
+	}
+	k := g.project(ty)
+	if k.tag != tagNamed || k.def == nil {
+		return nil
+	}
+	d := k.def
+	if len(d.genericArgs) == 0 && d.instOrigin != nil {
+		// A mirror of another file's instance carries its arguments on
+		// the instance it mirrors.
+		d = d.instOrigin
+	}
+	out := make([]string, len(d.genericArgs))
+	for i, a := range d.genericArgs {
+		out[i] = kindSpelling(a)
+	}
+	return out
+}
+
+// kindSpelling is k as Nomi writes the type: a named type with its
+// arguments, `Maybe<Int>`, and a structural one as it is spelled.
+func kindSpelling(k kind) string {
+	if k.tag != tagNamed || k.def == nil {
+		return k.nomi()
+	}
+	d := k.def
+	var args []kind
+	switch {
+	case len(d.genericArgs) > 0:
+		args = d.genericArgs
+	case len(d.preludeArgs) > 0:
+		args = d.preludeArgs
+	case len(d.genStructArgs) > 0:
+		args = d.genStructArgs
+	case len(d.genHostArgs) > 0:
+		args = d.genHostArgs
+	}
+	name := d.nomi
+	if i := strings.IndexByte(name, '<'); i >= 0 {
+		return name
+	}
+	if len(args) == 0 {
+		return name
+	}
+	parts := make([]string, len(args))
+	for i, a := range args {
+		parts[i] = kindSpelling(a)
+	}
+	return name + "<" + strings.Join(parts, ", ") + ">"
 }

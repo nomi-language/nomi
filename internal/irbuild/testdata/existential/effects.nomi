@@ -8,13 +8,13 @@
 pub interface Logger {
     fn log(value: self, message: String) -> String
 
-    // A DEFAULT, and the reason it is here: a default is monomorphized into the
-    // implementing package rather than called across the boundary, so its body's
-    // names resolve in the implementing FILE's scope. This body mentions exactly
-    // one module-level name, `Logger`, and both files resolve it to this
-    // declaration — which is what makes copying it faithful rather than merely
-    // convenient. A body that mentioned a name the two files disagreed about
-    // would be refused as `sibling file interface default`.
+    // A DEFAULT, and the reason it is here: a default is lowered in this file
+    // once per implementing type, and each implementing file's block calls
+    // that instance, so its body's names resolve in THIS file's scope
+    // whatever the implementing file binds. `Logger.log` is the
+    // implementing block's own function at the receiver, so a block that
+    // overrides `twice` or `log` is the one called, and the table entry for
+    // `twice` is the block's.
     open fn twice(value: self, message: String) -> String {
         "${Logger.log(value, message)}/${Logger.log(value, message)}"
     }

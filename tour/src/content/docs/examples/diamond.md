@@ -23,7 +23,7 @@ pub fn rows(widest: Codepoint) -> List<String> {
     top =
         letters
         |> Iter.with_index()
-        |> Iter.map(fn #(i, letter) -> row(letter, i, size))
+        |> Iter.map(fn (i, letter) -> row(letter, i, size))
         |> Iter.to_list()
 
     bottom = top |> Iter.reverse() |> Iter.drop(1)

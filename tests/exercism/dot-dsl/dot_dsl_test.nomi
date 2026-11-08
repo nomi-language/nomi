@@ -5,7 +5,7 @@ import {
 
 test "parse" {
     [
-        #(
+        (
             "empty graph",
             """
             graph {
@@ -13,7 +13,7 @@ test "parse" {
             """,
             Graph{nodes: %{}, edges: %{}, attrs: %{}},
         ),
-        #(
+        (
             "graph with one node",
             """
             graph {
@@ -26,7 +26,7 @@ test "parse" {
                 attrs: %{},
             },
         ),
-        #(
+        (
             "graph with one node with attribute",
             """
             graph {
@@ -39,7 +39,7 @@ test "parse" {
                 attrs: %{},
             },
         ),
-        #(
+        (
             "graph with one edge",
             """
             graph {
@@ -48,11 +48,11 @@ test "parse" {
             """,
             #{
                 nodes: %{"a" => %{}, "b" => %{}},
-                edges: %{#("a", "b") => %{}},
+                edges: %{("a", "b") => %{}},
                 attrs: %{},
             },
         ),
-        #(
+        (
             "graph with one attribute",
             """
             graph {
@@ -61,7 +61,7 @@ test "parse" {
             """,
             #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
         ),
-        #(
+        (
             "graph with comments",
             """
             graph {
@@ -72,7 +72,7 @@ test "parse" {
             """,
             #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
         ),
-        #(
+        (
             "graph with nodes, edges, and attributes",
             """
             graph {
@@ -91,7 +91,7 @@ test "parse" {
                     "b" => %{"label" => .Text("Beta!")},
                     "c" => %{},
                 },
-                edges: %{#("a", "b") => %{"color" => .Text("blue")}, #("b", "c") => %{}},
+                edges: %{("a", "b") => %{"color" => .Text("blue")}, ("b", "c") => %{}},
                 attrs: %{
                     "foo" => .Number(1),
                     "title" => .Text("Testing Attrs"),
@@ -99,7 +99,7 @@ test "parse" {
                 },
             },
         ),
-        #(
+        (
             "multiple edges on one line",
             """
             graph {
@@ -109,14 +109,14 @@ test "parse" {
             #{
                 nodes: %{"a" => %{}, "b" => %{}, "c" => %{}, "d" => %{}},
                 edges: %{
-                    #("a", "b") => %{"style" => .Text("dotted")},
-                    #("b", "c") => %{"style" => .Text("dotted")},
-                    #("c", "d") => %{"style" => .Text("dotted")},
+                    ("a", "b") => %{"style" => .Text("dotted")},
+                    ("b", "c") => %{"style" => .Text("dotted")},
+                    ("c", "d") => %{"style" => .Text("dotted")},
                 },
                 attrs: %{},
             },
         ),
-        #(
+        (
             "only 1 edge between nodes",
             """
             graph {
@@ -127,19 +127,19 @@ test "parse" {
             """,
             #{
                 nodes: %{"a" => %{}, "b" => %{}},
-                edges: %{#("a", "b") => %{"color" => .Text("blue")}},
+                edges: %{("a", "b") => %{"color" => .Text("blue")}},
                 attrs: %{},
             },
         ),
     ]
-    |> subtests #(description, text, expected), description {
+    |> subtests (description, text, expected), description {
         assert dot_dsl.parse(text) == Ok(expected)
     }
 }
 
 test "parse errors" {
     [
-        #(
+        (
             "malformed input",
             """
             graphical {
@@ -147,7 +147,7 @@ test "parse errors" {
             """,
             "invalid graph",
         ),
-        #(
+        (
             "malformed edge",
             """
             graph {
@@ -156,7 +156,7 @@ test "parse errors" {
             """,
             "invalid edge",
         ),
-        #(
+        (
             "malformed edge 2",
             """
             graph {
@@ -165,8 +165,8 @@ test "parse errors" {
             """,
             "invalid edge",
         ),
-        #("invalid edge type", "graph {\n    a == b;\n} ", "invalid edge"),
-        #(
+        ("invalid edge type", "graph {\n    a == b;\n} ", "invalid edge"),
+        (
             "multiple edges missing a node",
             """
             graph {
@@ -175,7 +175,7 @@ test "parse errors" {
             """,
             "invalid edge",
         ),
-        #(
+        (
             "multiple edges missing a connector",
             """
             graph {
@@ -184,7 +184,7 @@ test "parse errors" {
             """,
             "invalid edge",
         ),
-        #(
+        (
             "empty attribute",
             """
             graph {
@@ -193,7 +193,7 @@ test "parse errors" {
             """,
             "invalid attribute",
         ),
-        #(
+        (
             "malformed attribute",
             """
             graph {
@@ -202,7 +202,7 @@ test "parse errors" {
             """,
             "invalid attribute",
         ),
-        #(
+        (
             "empty attribute name",
             """
             graph {
@@ -211,7 +211,7 @@ test "parse errors" {
             """,
             "invalid attribute",
         ),
-        #(
+        (
             "non-alphanumeric node name",
             """
             graph {
@@ -221,7 +221,7 @@ test "parse errors" {
             "node name must be alphanumeric",
         ),
     ]
-    |> subtests #(description, text, expected), description {
+    |> subtests (description, text, expected), description {
         assert Err(error) = dot_dsl.parse(text)
         assert "${error}" == expected
     }

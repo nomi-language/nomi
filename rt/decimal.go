@@ -3,6 +3,7 @@ package rt
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 )
@@ -439,7 +440,7 @@ func (v Decimal) Round(scale int32, mode RoundingMode) (Decimal, error) {
 // Decimal.divide.
 func (v Decimal) DivRound(b Decimal, scale int32, mode RoundingMode) (Decimal, error) {
 	if b.IsZero() {
-		return Decimal{}, errors.New("decimal: division by zero")
+		return Decimal{}, errDecimalDivByZero
 	}
 	// Compute the quotient scaled to `scale` fractional digits in one division.
 	// value(a)/value(b) at scale s = round( a.Mantissa·10^(s - a.Scale + b.Scale)
@@ -470,6 +471,83 @@ func (v Decimal) DivRound(b Decimal, scale int32, mode RoundingMode) (Decimal, e
 	}
 	q = applyRounding(q, r, den, resultSign, mode)
 	return Decimal{Mantissa: q, Scale: scale}, nil
+}
+
+// Rem is a - b * trunc(a / b), exactly: the remainder of the division that
+// truncates toward zero, with a's sign, at the larger of the two scales
+// (10.5 rem 3 is 1.5, 10 rem 2.50 is 0.00). The caller checks b for zero.
+func (v Decimal) Rem(b Decimal) Decimal {
+	am, bm, scale := alignScales(v, b)
+	return Decimal{Mantissa: am.Rem(am, bm), Scale: scale}
+}
+
+// QuoDigits is how many significant digits `/` keeps of a quotient that does
+// not end within them: IEEE 754 decimal128's precision, Java's
+// MathContext.DECIMAL128.
+const QuoDigits = 34
+
+// Quo is Nomi's `/` on Decimal: a / b rounded half-even to QuoDigits
+// significant digits, never rounding to the left of the decimal point, with
+// trailing fractional zeros removed. The scale is therefore the smallest one
+// at which the rounded quotient is exact, and never negative: 10.00 / 4 is
+// 2.5, 6 / 3 is 2, 10 / 3 is 3.333333333333333333333333333333333 (34
+// digits), and 10^40 / 3 is the 40-digit integer, every digit of it right.
+//
+// A zero divisor answers errDecimalDivByZero, which the caller reports as its
+// own division by zero. A quotient whose scale would pass int32 (a dividend
+// of about two billion fractional digits) is an error too.
+func (v Decimal) Quo(b Decimal) (Decimal, error) {
+	if b.IsZero() {
+		return Decimal{}, errDecimalDivByZero
+	}
+	if v.IsZero() {
+		return Decimal{Mantissa: big.NewInt(0)}, nil
+	}
+	// |v| / |b| as integers n / d.
+	n := new(big.Int).Abs(v.MantissaOrZero())
+	d := new(big.Int).Abs(b.MantissaOrZero())
+	if k := b.Scale - v.Scale; k > 0 {
+		n.Mul(n, pow10(k))
+	} else if k < 0 {
+		d.Mul(d, pow10(-k))
+	}
+	// e is the power of ten of the quotient's leading digit: digit counts
+	// give it or one more, and one comparison settles which.
+	e := int64(decimalDigits(n)) - int64(decimalDigits(d))
+	lhs, rhs := n, d
+	if e >= 0 {
+		rhs = new(big.Int).Mul(d, pow10(int32(e)))
+	} else {
+		lhs = new(big.Int).Mul(n, pow10(int32(-e)))
+	}
+	if lhs.Cmp(rhs) < 0 {
+		e--
+	}
+	scale := max(0, QuoDigits-1-e)
+	if scale > math.MaxInt32 {
+		return Decimal{}, fmt.Errorf("the quotient of %s by %s has more digits than a Decimal holds", v.Display(), b.Display())
+	}
+	q, err := v.DivRound(b, int32(scale), RoundHalfEven)
+	if err != nil {
+		return Decimal{}, err
+	}
+	return q.Normalize(), nil
+}
+
+var errDecimalDivByZero = errors.New("decimal: division by zero")
+
+// decimalDigits is the number of decimal digits of |n|, n non-zero.
+func decimalDigits(n *big.Int) int {
+	// bitlen-1 bits guarantee at least floor((bitlen-1)·log10 2)+1 digits;
+	// the loop corrects the estimate by at most one step.
+	digits := int(float64(n.BitLen()-1)*math.Log10(2)) + 1
+	for digits > 1 && n.CmpAbs(pow10(int32(digits-1))) < 0 {
+		digits--
+	}
+	for n.CmpAbs(pow10(int32(digits))) >= 0 {
+		digits++
+	}
+	return digits
 }
 
 // applyRounding adjusts a truncated-toward-zero quotient q (with remainder r

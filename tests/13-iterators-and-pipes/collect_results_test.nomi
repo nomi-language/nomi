@@ -72,7 +72,7 @@ test "Result.collect under `?`" {
 }
 
 test "Result.partition keeps input order on both sides" {
-    #(numbers, errors) =
+    (numbers, errors) =
         ["1", "x", "2", "", "3"]
         |> Iter.map(&parse(&1))
         |> Result.partition()
@@ -80,7 +80,7 @@ test "Result.partition keeps input order on both sides" {
     assert numbers == [1, 2, 3]
     assert errors == [ParseError.NotANumber("x"), ParseError.Blank]
 
-    #(oks, messages) = #["4", "z"] |> Iter.map(&parse_message(&1)) |> Result.partition()
+    (oks, messages) = #["4", "z"] |> Iter.map(&parse_message(&1)) |> Result.partition()
 
     assert oks == [4]
     assert messages == ["bad: z"]

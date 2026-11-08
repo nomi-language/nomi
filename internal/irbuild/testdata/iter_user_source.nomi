@@ -43,7 +43,7 @@ import std::io
 // builder resolves it to the impl block's own member.
 enum Tree {
     Leaf
-    Node #(Tree, Int, Tree)
+    Node (Tree, Int, Tree)
 }
 
 impl Iter for Tree {

@@ -322,7 +322,7 @@ func Release(fs rt.FileSystem) rt.Unit {
 // TempDir is `fs.temp_dir`.
 func TempDir(fr *rt.Frame) string { return backendOf(fr).TempDir() }
 
-// MakeTempDir is std/fs_host's `make_temp_dir`, which `fs.with_temp_dir`
+// MakeTempDir is std/fs_host's `make_temp_dir`, which `fs.make_temp_dir`
 // calls: a fresh directory under the temporary directory.
 func MakeTempDir(fr *rt.Frame) rt.Result[string, rt.IOError] {
 	dir, e := backendOf(fr).MakeTempDir()

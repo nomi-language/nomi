@@ -56,7 +56,7 @@ test "maps iterate as key value tuples" {
     mapped =
         %{"x" => 10, "y" => 20}
         |> Iter.map(fn pair -> {
-            #(_, v) = pair
+            (_, v) = pair
             v * 2
         })
         |> Iter.to_list()

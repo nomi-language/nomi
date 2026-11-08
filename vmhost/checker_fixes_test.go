@@ -20,8 +20,8 @@ var checkerFixPrograms = []struct {
 		src: `import std::io
 
 fn heads<T>(a: Vector<T>, b: Vector<T>) -> Int {
-    case #(Vector.next_item(a), Vector.next_item(b)) {
-        #(Some(#(x, _)), Some(#(y, _))) -> {
+    case (Vector.next_item(a), Vector.next_item(b)) {
+        (Some((x, _)), Some((y, _))) -> {
             keep = fn v: T -> v
             _ = keep(x)
             _ = keep(y)

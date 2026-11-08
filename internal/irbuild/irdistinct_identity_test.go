@@ -210,7 +210,7 @@ func TestIRDistinct_WhichShapesAreRetained(t *testing.T) {
 		{"over String", "type Tag String", "fn f(s: String) -> Tag {\n  Tag(s)\n}\n", true},
 		{"a marker", "type Expired", "fn f() -> Expired {\n  Expired\n}\n", true},
 		// A composite inner is retained through irCompositeDistinct.
-		{"tuple inner", "type Pair #(Int, Int)", "fn f(p: Pair) -> Pair {\n  p\n}\n", true},
+		{"tuple inner", "type Pair (Int, Int)", "fn f(p: Pair) -> Pair {\n  p\n}\n", true},
 		{"list inner", "type Ns List<Int>", "fn f(p: Ns) -> Ns {\n  p\n}\n", true},
 		{"a list of functions inner", "type Fs List<(Int) -> Int>", "fn f(p: Fs) -> Fs {\n  p\n}\n", true},
 		{"an enum inner", "type Wrapped Maybe<Int>", "fn f(p: Wrapped) -> Wrapped {\n  p\n}\n", true},

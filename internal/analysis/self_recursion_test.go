@@ -344,14 +344,14 @@ func TestRecursiveProtocol_FieldsAndOtherValuesAreAccepted(t *testing.T) {
 
 enum Tree {
     Leaf
-    Node#(Tree, Int)
+    Node(Tree, Int)
 }
 
 impl Equatable for Tree {
     fn equal(a: Tree, b: Tree) -> Bool {
-        case #(a, b) {
-            #(.Leaf, .Leaf) -> True
-            #(.Node(l, x), .Node(r, y)) -> x == y and l == r
+        case (a, b) {
+            (.Leaf, .Leaf) -> True
+            (.Node(l, x), .Node(r, y)) -> x == y and l == r
             _ -> False
         }
     }
@@ -359,8 +359,8 @@ impl Equatable for Tree {
 
 impl Comparable for Tree {
     fn compare(a: Tree, b: Tree) -> Ordering {
-        case #(a, b) {
-            #(.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else { Comparable.compare(l, r) }
+        case (a, b) {
+            (.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else { Comparable.compare(l, r) }
             _ -> Ordering.Equal
         }
     }

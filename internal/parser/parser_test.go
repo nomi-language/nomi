@@ -570,11 +570,11 @@ func TestUnmatchedParen(t *testing.T) {
 }
 
 // Spec §4 *Tuples* and §4 *Built-in Types*: "No single-element tuples —
-// `(x)` is just grouping." The trailing-comma form `#(x,)` was silently
+// `(x)` is just grouping." The trailing-comma form `(x,)` was silently
 // constructing a 1-tuple value at runtime even though the type form
-// `#(T,)` doesn't parse — value-side acceptance was a bug.
+// `(T,)` doesn't parse — value-side acceptance was a bug.
 func TestParseRejectsSingleElementTuple(t *testing.T) {
-	tokens := lexer.Lex("#(42,)")
+	tokens := lexer.Lex("(42,)")
 	_, err := Parse(tokens)
 	if err == nil {
 		t.Fatal("expected parse error for single-element tuple '(42,)'")
@@ -1605,8 +1605,8 @@ func TestLambdaWithDefault(t *testing.T) {
 }
 
 func TestLambdaTupleDestructureWithDefault(t *testing.T) {
-	// fn #(a, b) = #(0, 1) -> a + b — destructure pattern with default value.
-	expr := parseExpr(t, "fn #(a, b) = #(0, 1) -> a + b")
+	// fn (a, b) = (0, 1) -> a + b — destructure pattern with default value.
+	expr := parseExpr(t, "fn (a, b) = (0, 1) -> a + b")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1683,8 +1683,8 @@ func TestLambdaWildcardParam(t *testing.T) {
 }
 
 func TestLambdaTupleDestructureParam(t *testing.T) {
-	// fn #(a, b) -> a + b
-	expr := parseExpr(t, "fn #(a, b) -> a + b")
+	// fn (a, b) -> a + b
+	expr := parseExpr(t, "fn (a, b) -> a + b")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1712,8 +1712,8 @@ func TestLambdaTupleDestructureParam(t *testing.T) {
 }
 
 func TestLambdaTupleDestructureWithWildcard(t *testing.T) {
-	// fn #(_, v) -> v
-	expr := parseExpr(t, "fn #(_, v) -> v")
+	// fn (_, v) -> v
+	expr := parseExpr(t, "fn (_, v) -> v")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1741,8 +1741,8 @@ func TestLambdaTupleDestructureWithWildcard(t *testing.T) {
 }
 
 func TestLambdaTupleDestructureMultiParams(t *testing.T) {
-	// fn #(a, b), c -> a + b + c
-	expr := parseExpr(t, "fn #(a, b), c -> a + b + c")
+	// fn (a, b), c -> a + b + c
+	expr := parseExpr(t, "fn (a, b), c -> a + b + c")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -2441,7 +2441,7 @@ func TestCaseBoolMatch(t *testing.T) {
 }
 
 func TestParseTupleFieldAccess(t *testing.T) {
-	tokens := lexer.Lex("pair.0")
+	tokens := lexer.Lex("pair.first")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -2451,13 +2451,13 @@ func TestParseTupleFieldAccess(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected FieldAccess, got %T", stmt.Expr)
 	}
-	if fa.Field.Name != "0" {
-		t.Errorf("expected field '0', got '%s'", fa.Field.Name)
+	if fa.Field.Name != "first" {
+		t.Errorf("expected field 'first', got '%s'", fa.Field.Name)
 	}
 }
 
 func TestParseTupleLiteral(t *testing.T) {
-	tokens := lexer.Lex(`#(1, "hello")`)
+	tokens := lexer.Lex(`(1, "hello")`)
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -2491,7 +2491,7 @@ func TestParseGroupingNotTuple(t *testing.T) {
 }
 
 func TestParseTupleThreeElements(t *testing.T) {
-	tokens := lexer.Lex(`#(1, 2, 3)`)
+	tokens := lexer.Lex(`(1, 2, 3)`)
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -3184,7 +3184,7 @@ func TestCaseNamedStructPatternNegativeInt(t *testing.T) {
 
 // Map-distinct call-form pattern: `Kvs(%{"a" => v})` parses as an
 // EnumPattern wrapping an anonymous MapPattern (TypeName=nil). Mirrors
-// `Pair(#(a, b))` for tuple-distinct patterns. The literal-attach form
+// `Pair((a, b))` for tuple-distinct patterns. The literal-attach form
 // `%Kvs{"a" => v}` (a MapPattern with TypeName=Kvs) is unaffected.
 func TestParser_MapPattern_CallForm(t *testing.T) {
 	expr := parseExpr(t, `case kv {
@@ -4645,7 +4645,7 @@ func TestParser_Variant_PayloadTypeExpr_Primitive(t *testing.T) {
 // TestParser_Variant_PayloadTypeExpr_Tuple verifies the new syntax
 // for tuple payloads: `| Position (Int, Int)`.
 func TestParser_Variant_PayloadTypeExpr_Tuple(t *testing.T) {
-	src := "enum Token { Position #(Int, Int) }"
+	src := "enum Token { Position (Int, Int) }"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	if len(ed.Variants) != 1 {
@@ -4751,11 +4751,11 @@ func TestParser_Variant_OldParenForm_StillParses(t *testing.T) {
 }
 
 // TestParser_Variant_OldDoubleParens_StillParses documents that the
-// legacy double-paren tuple-payload form `| Position(#(Int, Int))` still
+// legacy double-paren tuple-payload form `| Position((Int, Int))` still
 // parses — under the unified type-expression rule, the outer parens
 // collapse (no 1-tuples) and the AST matches the new `| Position (Int, Int)`.
 func TestParser_Variant_OldDoubleParens_StillParses(t *testing.T) {
-	src := "enum Token { Position(#(Int, Int)) }"
+	src := "enum Token { Position((Int, Int)) }"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -4767,10 +4767,10 @@ func TestParser_Variant_OldDoubleParens_StillParses(t *testing.T) {
 
 // TestParser_Variant_OldMultiArgParens_NowParses verifies what was
 // previously rejected as "multi-positional" now parses as a tuple-typed
-// payload (the unified type-expression rule reads `#(Int, Int)` as a
+// payload (the unified type-expression rule reads `(Int, Int)` as a
 // tuple type).
 func TestParser_Variant_OldMultiArgParens_NowParses(t *testing.T) {
-	src := "enum Token { Position#(Int, Int) }"
+	src := "enum Token { Position(Int, Int) }"
 	nodes := parse(t, src)
 	ed := nodes[0].(*ast.EnumDef)
 	v := ed.Variants[0]
@@ -5572,7 +5572,7 @@ func TestParseRawTaggedTriple(t *testing.T) {
 // tuple-form FuncType (Return == nil) whose second element is an
 // AnonStructType with two StructField entries, no defaults.
 func TestParser_AnonStructTypeInTuple(t *testing.T) {
-	nodes := parse(t, "type Tagged #(String, #{name: String, age: Int})\n")
+	nodes := parse(t, "type Tagged (String, #{name: String, age: Int})\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -6654,7 +6654,7 @@ impl Comparable for Money {
 // `impl Iter for Box<T> { ... }` — receiver generics are named by the receiver.
 func TestParseImplBlock_Generic(t *testing.T) {
 	src := `impl Iter for Box<T> {
-  fn next(_b: self) -> Maybe<#(T, self)> { None }
+  fn next(_b: self) -> Maybe<(T, self)> { None }
 }`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)
@@ -6674,7 +6674,7 @@ func TestParseImplBlock_Generic(t *testing.T) {
 
 func TestParseImplBlock_WhereClause(t *testing.T) {
 	src := `impl iter for Box<T> where T: Display and Debug {
-  fn next(_b: self) -> Maybe<#(T, self)> { None }
+  fn next(_b: self) -> Maybe<(T, self)> { None }
 }`
 	nodes := parse(t, src)
 	blk, ok := nodes[0].(*ast.ImplBlock)

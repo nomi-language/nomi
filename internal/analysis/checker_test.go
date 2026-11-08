@@ -920,8 +920,8 @@ fn demo() -> List<Int> { wrap(42) }
 
 func TestCheck_GenericTwoParams(t *testing.T) {
 	_, errs := checkSource(`
-fn pair<A, B>(a: A, b: B) -> #(A, B) { #(a, b) }
-fn demo() -> #(Int, String) { pair(1, "hello") }
+fn pair<A, B>(a: A, b: B) -> (A, B) { (a, b) }
+fn demo() -> (Int, String) { pair(1, "hello") }
 `)
 	expectNoErrors(t, errs)
 }
@@ -985,8 +985,8 @@ fn demo() -> Int { identity(42) }`
 }
 
 func TestGenericCallSite_MultiParam(t *testing.T) {
-	src := `fn pair<A, B>(a: A, b: B) -> #(A, B) { #(a, b) }
-fn demo() -> #(Int, String) { pair(1, "hello") }`
+	src := `fn pair<A, B>(a: A, b: B) -> (A, B) { (a, b) }
+fn demo() -> (Int, String) { pair(1, "hello") }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
 
@@ -1334,7 +1334,7 @@ func TestCheckPatternTupleNilExpectedTy(t *testing.T) {
 
 func TestCheckTupleDestructureValid(t *testing.T) {
 	src := `fn main() {
-  #(x, y) = #(1, "hello")
+  (x, y) = (1, "hello")
 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -1372,7 +1372,7 @@ func TestCheckTupleDestructureValid(t *testing.T) {
 
 func TestCheckTupleDestructureNotTuple(t *testing.T) {
 	src := `fn main() {
-  #(x, y) = 42
+  (x, y) = 42
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "tuple destructure requires a tuple type")
@@ -1380,7 +1380,7 @@ func TestCheckTupleDestructureNotTuple(t *testing.T) {
 
 func TestCheckTupleDestructureArityMismatch(t *testing.T) {
 	src := `fn main() {
-  #(x, y, z) = #(1, "hello")
+  (x, y, z) = (1, "hello")
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "3 bindings but tuple has 2 elements")
@@ -2291,7 +2291,7 @@ func TestCheckDistinctDestructureNotDistinct(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheck_TupleDistinct_LiteralAttach_OK(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn main() {
   p = Pair(1, "x")
 }`
@@ -2300,16 +2300,16 @@ fn main() {
 }
 
 func TestCheck_TupleDistinct_CallForm_StillOK(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn main() {
-  p = Pair(#(1, "x"))
+  p = Pair((1, "x"))
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestCheck_TupleDistinct_LiteralAttach_TypeMismatch(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn main() {
   p = Pair("x", 1)
 }`
@@ -2318,31 +2318,31 @@ fn main() {
 }
 
 func TestCheck_TupleDistinct_LiteralAttach_TooFewArgs(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn main() {
   p = Pair(1)
 }`
 	_, errs := checkSource(src)
-	expectError(t, errs, "Pair wraps #(Int, String), got Int")
+	expectError(t, errs, "Pair wraps (Int, String), got Int")
 }
 
 func TestCheck_TupleDistinct_LiteralAttach_TooManyArgs(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn main() {
   p = Pair(1, "x", 99)
 }`
 	_, errs := checkSource(src)
-	expectError(t, errs, "Pair wraps #(Int, String), a tuple of 2 elements; got 3")
+	expectError(t, errs, "Pair wraps (Int, String), a tuple of 2 elements; got 3")
 }
 
-// Pair(#(1, 2)) — the user passed exactly one tuple argument (call-form),
+// Pair((1, 2)) — the user passed exactly one tuple argument (call-form),
 // but the inner element types don't match. The error must point at the
 // element-type mismatch, NOT at arity ("takes 2 arguments, got 1" would be
 // misleading because the user did pass a single argument).
 func TestCheck_TupleDistinct_CallForm_WrongInnerType(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn main() {
-  p = Pair(#(1, 2))
+  p = Pair((1, 2))
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2363,7 +2363,7 @@ fn main() {
 // ---------------------------------------------------------------------------
 
 func TestCheck_TupleDistinct_FlatDestructure_OK(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn demo() -> Int {
   p = Pair(1, "x")
   case p {
@@ -2380,7 +2380,7 @@ fn demo() -> Int {
 // Note: 1-pattern `Pair(a)` is NOT an arity error — it binds the entire
 // inner tuple to `a` (the payload-binding fast path).
 func TestCheck_TupleDistinct_FlatDestructure_WrongArity(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn main() {
   p = Pair(1, "x")
   case p {
@@ -2397,11 +2397,11 @@ fn main() {
 }
 
 func TestCheck_TupleDistinct_NestedDestructure_StillOK(t *testing.T) {
-	src := `type Pair #(Int, String)
+	src := `type Pair (Int, String)
 fn demo() -> Int {
   p = Pair(1, "x")
   case p {
-    Pair(#(a, b)) -> a
+    Pair((a, b)) -> a
   }
 }`
 	_, errs := checkSource(src)
@@ -2485,7 +2485,7 @@ fn demo() -> Int {
 	expectNoErrors(t, errs)
 }
 
-// Call-form pattern: `Kvs(%{"a" => v})` parallels `Pair(#(a, b))` for
+// Call-form pattern: `Kvs(%{"a" => v})` parallels `Pair((a, b))` for
 // tuple-distinct. The EnumPattern unwraps the DistinctVal and the inner
 // MapPattern matches the underlying map without complaint.
 func TestCheck_MapDistinct_NestedPattern_OK(t *testing.T) {
@@ -2520,7 +2520,7 @@ fn demo() -> Int {
 
 // ---------------------------------------------------------------------------
 // Nominal struct call-form: Foo(#{a: 1, b: "x"}) coerces an anon-struct
-// argument into the nominal struct. Parallels Pair(#(1, "x")) for tuple-distinct
+// argument into the nominal struct. Parallels Pair((1, "x")) for tuple-distinct
 // and Kvs(some_map) for map-distinct. Scope is constructor-only — broader
 // anon-struct -> nominal-struct coercion is intentionally out of scope.
 // ---------------------------------------------------------------------------
@@ -2694,9 +2694,9 @@ fn main() {
 
 func TestCheckCaseTuplePatternInference(t *testing.T) {
 	src := `fn demo() -> Int {
-  val = #(1, "hello")
+  val = (1, "hello")
   case val {
-    #(x, y) -> x
+    (x, y) -> x
   }
 }`
 	fa, errs := checkSource(src)
@@ -4079,7 +4079,7 @@ func TestNaming_TopLevelOnceScreamingSnake_Rejected(t *testing.T) {
 // --- Destructure bindings ---
 
 func TestNaming_TupleDestructureMixedCase_Rejected(t *testing.T) {
-	src := `fn f() -> Int { #(myVar, y) = #(1, 2)
+	src := `fn f() -> Int { (myVar, y) = (1, 2)
 myVar + y }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
@@ -4281,7 +4281,7 @@ fn area(s: Shape) -> Float {
 // A variant with several positional types, `Rect(Float, Float)`, is a
 // tuple-payload variant, not a "multi-positional" error.
 func TestMultiPositionalVariant_DeclarationParsesAsTuple(t *testing.T) {
-	src := `enum Shape { Rect#(Float, Float); Empty }`
+	src := `enum Shape { Rect(Float, Float); Empty }`
 	tokens := lexer.Lex(src)
 	nodes, parseErrs := parser.ParseWithRecovery(tokens)
 	if len(parseErrs) > 0 {
@@ -4300,10 +4300,10 @@ func TestMultiPositionalVariant_DeclarationParsesAsTuple(t *testing.T) {
 // Variant tuple-payload literal-attach construction: `Shape.Rect(3.0, 5.0)`
 // is now accepted as a flat-form constructor for the tuple payload, parallel
 // to the tuple-distinct literal-attach `Pair(1, "x")`. The call-form
-// `Shape.Rect(#(3.0, 5.0))` continues to work (see
+// `Shape.Rect((3.0, 5.0))` continues to work (see
 // TestTuplePayloadVariant_ExplicitFormWorks).
 func TestVariantTuplePayload_FlatConstruction_OK(t *testing.T) {
-	src := `enum Shape { Rect #(Float, Float); Empty }
+	src := `enum Shape { Rect (Float, Float); Empty }
 fn make() -> Shape { Shape.Rect(3.0, 5.0) }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -4321,9 +4321,9 @@ fn make() -> Shape { Shape.Rect(3.0, 5.0) }`
 // Variant tuple-payload literal-attach pattern: `Shape.Rect(w, h)` is now
 // accepted as a flat-form destructure for the tuple payload, parallel to
 // `Pair(a, b)` for tuple-distinct types. The explicit form
-// `Shape.Rect(#(w, h))` continues to work.
+// `Shape.Rect((w, h))` continues to work.
 func TestVariantTuplePayload_FlatPattern_OK(t *testing.T) {
-	src := `enum Shape { Rect #(Float, Float); Empty }
+	src := `enum Shape { Rect (Float, Float); Empty }
 fn area(s: Shape) -> Float {
   case s {
     Shape.Rect(w, h) -> w * h
@@ -4353,14 +4353,14 @@ fn area(s: Shape) -> Float {
 
 // The explicit form still works.
 func TestTuplePayloadVariant_ExplicitFormWorks(t *testing.T) {
-	src := `enum Shape { Rect #(Float, Float); Empty }
+	src := `enum Shape { Rect (Float, Float); Empty }
 fn area(s: Shape) -> Float {
   case s {
-    Shape.Rect(#(w, h)) -> w * h
+    Shape.Rect((w, h)) -> w * h
     Shape.Empty -> 0.0
   }
 }
-fn make() -> Shape { Shape.Rect(#(3.0, 5.0)) }`
+fn make() -> Shape { Shape.Rect((3.0, 5.0)) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -4369,9 +4369,9 @@ fn make() -> Shape { Shape.Rect(#(3.0, 5.0)) }`
 // against a tuple-2 payload) reports a single arity error. After variant
 // literal-attach landed, the old "multi-binding is not supported" diagnostic
 // retired and the inner tuple-pattern check is the sole arity gate — both
-// for the legacy `(#(a, b))` form and for the flat `#(a, b)` shorthand.
+// for the legacy `((a, b))` form and for the flat `(a, b)` shorthand.
 func TestCheck_VariantTuplePayload_FlatPattern_WrongArity(t *testing.T) {
-	src := `enum Shape { Rect #(Float, Float); Empty }
+	src := `enum Shape { Rect (Float, Float); Empty }
 fn area(s: Shape) -> Float {
   case s {
     Shape.Rect(w, h, extra) -> w * h
@@ -4435,7 +4435,7 @@ func TestVariant_BareValuePos_Call_Error(t *testing.T) {
 	// rule; this test pins that the diagnostic shape matches the new
 	// flat-form rule's wording, so the rule reads uniformly across
 	// shapes.
-	src := `enum E { Pos #(Int, Int) }
+	src := `enum E { Pos (Int, Int) }
 fn main() {
   bad = Pos(10, 20)
 }`
@@ -4835,14 +4835,14 @@ fn demo() -> String {
 // TestChecker_AnonStructInTuple_FieldOrderIgnored pins that nested anon
 // struct shapes inside a tuple type compare order-insensitively too.
 func TestChecker_AnonStructInTuple_FieldOrderIgnored(t *testing.T) {
-	src := `fn f(p: #(Int, #{x: Int, y: Int})) -> Int {
+	src := `fn f(p: (Int, #{x: Int, y: Int})) -> Int {
   case p {
-    #(n, _) -> n
+    (n, _) -> n
   }
 }
 
 fn demo() -> Int {
-  f(#(42, #{y: 2, x: 1}))
+  f((42, #{y: 2, x: 1}))
 }
 `
 	_, errs := checkSource(src)
@@ -5171,21 +5171,18 @@ func TestCheckFileQualifierIsNotAValue(t *testing.T) {
 }
 
 // A file is not a value whether it declares members or none: an empty file
-// still has a scope, so its name used alone, `ffi.0` (a tuple element) and
-// `ffi.x` (a member it lacks) are each an error at the checker. Before, an
-// empty file's import bound no scope, `ffi.0` checked clean with no type, and
-// the IR builder declined `ffi`.
+// still has a scope, so its name used alone, `ffi.first` (a tuple's item
+// name) and `ffi.x` (a member it lacks) are each an error at the checker.
 func TestCheckFileIsNotAValueEvenWhenEmpty(t *testing.T) {
 	for _, file := range []string{"", "pub fn four() -> Int {\n  4\n}\n"} {
 		modules := map[string]string{"ffi": file}
 		for _, tc := range []struct{ body, want string }{
-			{"  _ = ffi.0", "`ffi` is a file, not a value, so `ffi.0` has no element to read"},
-			{"  _ = ffi.0 == 1", "`ffi` is a file, not a value, so `ffi.0` has no element to read"},
-			{"  _ = f(ffi.1)", "`ffi` is a file, not a value, so `ffi.1` has no element to read"},
+			{"  _ = ffi.first", "file 'ffi' has no member 'first'"},
+			{"  _ = f(ffi.second)", "file 'ffi' has no member 'second'"},
 			{"  _ = ffi.zz", "file 'ffi' has no member 'zz'"},
 			{"  _ = ffi", "`ffi` is a file, not a value"},
 			{"  _ = f(ffi)", "`ffi` is a file, not a value"},
-			{"  _ = #(ffi, 1)", "`ffi` is a file, not a value"},
+			{"  _ = (ffi, 1)", "`ffi` is a file, not a value"},
 		} {
 			src := "import ffi\n\nfn f(x: Int) -> Bool {\n  x > 0\n}\n\nfn main() {\n" + tc.body + "\n}\n"
 			_, errs := checkSourceWithModules(t, src, modules)
@@ -5313,7 +5310,7 @@ func TestCheckDeclaredParamNamed(t *testing.T) {
 	// one against an expected type.
 	_, errs := checkSource("gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(s: String) -> String go ffi.EchoUpper\n")
 	expectNoErrors(t, errs)
-	_, errs = checkSource("fn apply(f: (#(Int, Int)) -> Int) -> Int {\n  f(#(1, 2))\n}\n\nfn main() {\n  _ = apply(fn #(a, b) -> a + b)\n  _ = apply(fn _pair -> 0)\n}\n")
+	_, errs = checkSource("fn apply(f: ((Int, Int)) -> Int) -> Int {\n  f((1, 2))\n}\n\nfn main() {\n  _ = apply(fn (a, b) -> a + b)\n  _ = apply(fn _pair -> 0)\n}\n")
 	expectNoErrors(t, errs)
 }
 

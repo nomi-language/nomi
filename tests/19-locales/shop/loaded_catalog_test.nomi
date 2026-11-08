@@ -24,7 +24,7 @@ fn cart_items(arms: String) -> String {
 }
 
 fn reasons(text: String, locale: Locale) -> List<String> {
-    #(_, rejected) = Catalog.load(text, locale)
+    (_, rejected) = Catalog.load(text, locale)
     rejected |> Iter.map(fn r -> "${r.key}: ${r.reason}") |> Iter.to_list()
 }
 
@@ -35,7 +35,7 @@ test "a loaded translation comes before the compiled one" {
         "one {{{$count} rzecz}}\nfew {{{$count} rzeczy}}\nmany {{{$count} rzeczy}}\n* {{{$count} rzeczy}}"
     )
 
-    #(catalog, rejected) = Catalog.load(text, pl)
+    (catalog, rejected) = Catalog.load(text, pl)
     assert rejected == []
     assert Catalog.locale(catalog) == pl
     assert cart.cart_items(3) |> Phrase.format(pl, catalogs: [catalog]) == "3 rzeczy"
@@ -60,12 +60,12 @@ test "a loaded translation comes before the compiled one" {
 test "the first catalog that translates a phrase gives its text" {
     pl = Locale`pl`
 
-    #(first, _) = Catalog.load(
+    (first, _) = Catalog.load(
         cart_items("one {{jedna}}\nfew {{kilka}}\nmany {{wiele}}\n* {{trochę}}"),
         pl,
     )
 
-    #(second, _) = Catalog.load(cart_items("one {{1}}\nfew {{2}}\nmany {{5}}\n* {{?}}"), pl)
+    (second, _) = Catalog.load(cart_items("one {{1}}\nfew {{2}}\nmany {{5}}\n* {{?}}"), pl)
     assert cart.cart_items(3) |> Phrase.format(pl, catalogs: [first, second]) == "kilka"
     assert cart.cart_items(3) |> Phrase.format(pl, catalogs: [second, first]) == "2"
 }
@@ -74,7 +74,7 @@ test "a rejected entry is never used: the phrase keeps its compiled text" {
     pl = Locale`pl`
 
     // An English-shaped Polish translation.
-    #(catalog, rejected) = Catalog.load(
+    (catalog, rejected) = Catalog.load(
         cart_items("one {{{$count} rzecz}}\n* {{{$count} rzeczy}}"),
         pl,
     )
@@ -213,7 +213,7 @@ test "a noun's entry is checked as the compiler checks it" {
         "order.book: `genetive` is not a case in Polish, nor a key of a noun's entry",
     ]
 
-    #(catalog, rejected) = Catalog.load(
+    (catalog, rejected) = Catalog.load(
         book + "\ngender = \"feminine\"\nnominative = '''tomik'''\ngenitive = '''tomików'''\n",
         pl,
     )

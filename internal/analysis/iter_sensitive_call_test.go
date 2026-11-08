@@ -40,9 +40,9 @@ fn skip(x: Int) -> Int {
     x
 }
 
-fn emit(s: Int, x: Int) -> #(Int, Int) {
+fn emit(s: Int, x: Int) -> (Int, Int) {
     if x < 0 { continue }
-    #(s + x, x)
+    (s + x, x)
 }
 
 fn big(x: Int) -> Bool {
@@ -55,9 +55,9 @@ fn step(n: Int) -> Int {
     n + 1
 }
 
-fn add(acc: #(Int, List<Int>), x: Int) -> #(Int, List<Int>) {
+fn add(acc: (Int, List<Int>), x: Int) -> (Int, List<Int>) {
     if x < 0 { continue }
-    #(acc.0 + x, acc.1 + [x])
+    (acc.first + x, acc.second + [x])
 }
 
 struct Acc {
@@ -107,7 +107,7 @@ fn main() {
     _ = Iter.scan([1, 2], 0, keep) |> Iter.to_list()
     _ = Iter.map_reduce([1, 2], 0, emit)
     _ = Iter.loop(0, step)
-    _ = Iter.reduce([1, 2], #(0, []), add)
+    _ = Iter.reduce([1, 2], (0, []), add)
     _ = Iter.reduce([1, 2], Acc{total: 0, items: []}, add_acc)
     _ = Map.map_values(%{"a" => 1}, skip)
 }
@@ -139,7 +139,7 @@ func TestIterSensitiveCall_RejectsEveryCall(t *testing.T) {
 		{"the whole body of a scan lambda", "_ = Iter.scan([1], 0, fn acc, x -> keep(acc, x)) |> Iter.to_list()", "keep", cont, "Iter.scan(xs, <start>, keep)", true},
 		{"the whole body of a map_reduce lambda", "_ = Iter.map_reduce([1], 0, fn s, x -> emit(s, x))", "emit", cont, "Iter.map_reduce(xs, <start>, emit)", true},
 		{"the whole body of a loop lambda", "_ = Iter.loop(0, fn n -> step(n))", "step", "`break`", "Iter.loop(<start>, step)", true},
-		{"a pattern parameter rebuilt", "_ = Iter.reduce([1], #(0, []), fn #(n, xs), x -> add(#(n, xs), x))", "add", cont, "Iter.reduce(xs, <start>, add)", true},
+		{"a pattern parameter rebuilt", "_ = Iter.reduce([1], (0, []), fn (n, xs), x -> add((n, xs), x))", "add", cont, "Iter.reduce(xs, <start>, add)", true},
 		{"a binding then the call", "_ = Iter.reduce([1], 0, fn acc, x -> {\n        y = x * 10\n        keep(acc, y)\n    })", "keep", cont, reduceKeep, true},
 		{"an if arm", "_ = Iter.reduce([1], 0, fn acc, x -> if x > 1 { keep(acc, x) } else { acc })", "keep", cont, reduceKeep, true},
 		{"a case arm", "_ = Iter.map([1], fn x -> case x {\n        1 -> skip(x)\n        _ -> 0\n    }) |> Iter.to_list()", "skip", both, mapSkip, true},

@@ -59,7 +59,7 @@ func TestAssertionAsValue_IsRejected(t *testing.T) {
 		{"call argument", "assert id(assert x)", "assert", 13, ""},
 		{"call statement", "id(assert x)", "assert", 6, ""},
 		{"list element", "xs = [assert x]\n  assert xs == [True]", "assert", 9, ""},
-		{"tuple element", "t = #(assert x, 1)\n  assert t == #(True, 1)", "assert", 9, ""},
+		{"tuple element", "t = (assert x, 1)\n  assert t == (True, 1)", "assert", 8, ""},
 		{"variant payload", "m = Some(refute not x)\n  assert m", "refute", 12, ""},
 		{"parenthesized binding value", "ok = (assert x)\n  assert ok", "assert", 9, ""},
 		{"if condition", "assert if assert x { True } else { False }", "assert", 13, ""},

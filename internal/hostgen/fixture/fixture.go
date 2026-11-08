@@ -59,8 +59,8 @@ pub host fn octets(b: Bytes) -> Bytes
 pub host fn flip(b: Byte) -> Byte
 pub host fn shout(s: String) -> String
 pub host fn negate(b: Bool) -> Bool
-pub host fn triple(n: Int) -> #(Int, String, Bool)
-pub host fn triple_or_fail(n: Int) -> Result<#(Int, String), String>
+pub host fn triple(n: Int) -> (Int, String, Bool)
+pub host fn triple_or_fail(n: Int) -> Result<(Int, String), String>
 pub host fn nothing() -> Unit
 pub host fn nothing_or_fail(fail: Bool) -> Result<Unit, String>
 pub host fn points(n: Int) -> List<Point>

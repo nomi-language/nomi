@@ -27,17 +27,17 @@ pub fn count(lines: List<String>) -> Int {
     corners =
         grid
         |> Iter.with_index()
-        |> Iter.flat_map(fn #(row, line) -> {
+        |> Iter.flat_map(fn (row, line) -> {
             line
             |> Iter.with_index()
-            |> Iter.filter(fn #(_, symbol) -> symbol == "+")
-            |> Iter.map(fn #(column, _) -> #(row, column))
+            |> Iter.filter(fn (_, symbol) -> symbol == "+")
+            |> Iter.map(fn (column, _) -> (row, column))
         })
         |> Iter.to_list()
 
     corners
-    |> Iter.flat_map(fn top_left -> Iter.map(corners, &#(top_left, &1)))
-    |> Iter.filter(fn #(top_left, bottom_right) -> is_rectangle(grid, top_left, bottom_right))
+    |> Iter.flat_map(fn top_left -> Iter.map(corners, &(top_left, &1)))
+    |> Iter.filter(fn (top_left, bottom_right) -> is_rectangle(grid, top_left, bottom_right))
     |> Iter.count()
 }
 
@@ -46,12 +46,12 @@ pub fn count(lines: List<String>) -> Int {
 /// every side whole.
 fn is_rectangle(
     grid: Vector<Vector<String>>,
-    #(top, left): #(Int, Int),
-    #(bottom, right): #(Int, Int),
+    (top, left): (Int, Int),
+    (bottom, right): (Int, Int),
 ) -> Bool {
     bottom > top
         and right > left
-        and Iter.all([#(top, right), #(bottom, left)], fn #(row, column) -> {
+        and Iter.all([(top, right), (bottom, left)], fn (row, column) -> {
             symbol_at(grid, row, column) == Some("+")
         })
         and Iter.all([top, bottom], &is_line_across(grid, &1, left, right))
@@ -79,10 +79,10 @@ import rectangles
 
 test "rectangles" {
     [
-        #("no rows", [], 0),
-        #("no columns", [""], 0),
-        #("no rectangles", [" "], 0),
-        #(
+        ("no rows", [], 0),
+        ("no columns", [""], 0),
+        ("no rectangles", [" "], 0),
+        (
             "one rectangle",
             [
                 "+-+",
@@ -91,7 +91,7 @@ test "rectangles" {
             ],
             1,
         ),
-        #(
+        (
             "two rectangles without shared parts",
             [
                 "  +-+",
@@ -102,7 +102,7 @@ test "rectangles" {
             ],
             2,
         ),
-        #(
+        (
             "five rectangles with shared parts",
             [
                 "  +-+",
@@ -113,7 +113,7 @@ test "rectangles" {
             ],
             5,
         ),
-        #(
+        (
             "rectangle of height 1 is counted",
             [
                 "+--+",
@@ -121,7 +121,7 @@ test "rectangles" {
             ],
             1,
         ),
-        #(
+        (
             "rectangle of width 1 is counted",
             [
                 "++",
@@ -130,7 +130,7 @@ test "rectangles" {
             ],
             1,
         ),
-        #(
+        (
             "1x1 square is counted",
             [
                 "++",
@@ -138,7 +138,7 @@ test "rectangles" {
             ],
             1,
         ),
-        #(
+        (
             "only complete rectangles are counted",
             [
                 "  +-+",
@@ -149,7 +149,7 @@ test "rectangles" {
             ],
             1,
         ),
-        #(
+        (
             "rectangles can be of different sizes",
             [
                 "+------+----+",
@@ -160,7 +160,7 @@ test "rectangles" {
             ],
             3,
         ),
-        #(
+        (
             "corner is required for a rectangle to be complete",
             [
                 "+------+----+",
@@ -171,7 +171,7 @@ test "rectangles" {
             ],
             2,
         ),
-        #(
+        (
             "large input with many rectangles",
             [
                 "+---+--+----+",
@@ -185,7 +185,7 @@ test "rectangles" {
             ],
             60,
         ),
-        #(
+        (
             "rectangles must have four sides",
             [
                 "+-+ +-+",
@@ -199,7 +199,7 @@ test "rectangles" {
             5,
         ),
     ]
-    |> subtests #(description, lines, expected), description {
+    |> subtests (description, lines, expected), description {
         assert rectangles.count(lines) == expected
     }
 }

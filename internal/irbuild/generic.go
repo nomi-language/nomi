@@ -63,7 +63,7 @@ import (
 // # What stays refused here, and why
 //
 //   - A type parameter mentioned anywhere but bare: `List<T>`, `Maybe<T>`,
-//     `Pair<A, B>`, `#(T, Int)`, `(A) -> C`. The box would be at the wrong
+//     `Pair<A, B>`, `(T, Int)`, `(A) -> C`. The box would be at the wrong
 //     DEPTH — the body builds a `*rt.List[any]` and the caller wants a
 //     `*rt.List[int64]`, so an assertion would fail at run time rather than
 //     refuse at compile time.

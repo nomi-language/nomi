@@ -11,8 +11,8 @@ fn g(users: List<User>) -> List<String> {
     Iter.map(users, .address.city) |> Iter.to_list()
 }
 
-fn h(pairs: List<#(Int, String)>) -> List<String> {
-    pairs |> Iter.map(.1) |> Iter.to_list()
+fn h(pairs: List<(Int, String)>) -> List<String> {
+    pairs |> Iter.map(.second) |> Iter.to_list()
 }
 
 fn name_of() -> (User) -> String {

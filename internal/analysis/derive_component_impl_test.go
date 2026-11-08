@@ -39,13 +39,16 @@ func deriveDiag(errs []analysis.TypeError, msg string) (analysis.TypeError, bool
 // A derive over a field or payload of a std type that has no impl of the
 // interface is refused at the derive, and the help says that only std can
 // write that impl: the program can neither derive nor implement it there.
-// `Json.ShapeError` has a `Display`, so Display is not among them.
+// `Json.ShapeError` has a `Display`, so Display is not among them, and it has
+// equality, which meets Equatable and Hashable with no impl (spec §5
+// *Equality bounds*), so those derives are accepted.
 func TestDeriveOverAStdComponentWithoutTheImplIsRefused(t *testing.T) {
 	for _, iface := range componentCheckedDerives {
 		if iface == "Display" {
 			continue
 		}
 		t.Run(iface, func(t *testing.T) {
+			byEquality := iface == "Equatable" || iface == "Hashable"
 			src := deriveImports(iface) + fmt.Sprintf(`enum E {
   Shape Json.ShapeError
   Empty
@@ -60,6 +63,12 @@ struct S {
 derive %[1]s for S
 `, iface)
 			fa := buildWithStdlibForDerive(src)
+			if byEquality {
+				if len(fa.TypeErrors) != 0 {
+					t.Fatalf("a derive over a std component with equality is refused:\n  %s", errMsgs(fa.TypeErrors))
+				}
+				return
+			}
 			help := fmt.Sprintf("only std can implement `%[1]s` for `Json.ShapeError`; wrap it in a type of your own that implements `%[1]s`", iface)
 			for _, via := range []string{"`derive " + iface + " for E`, field `Shape`", "`derive " + iface + " for S`, field `shape`"} {
 				msg := fmt.Sprintf("no impl of `%s` for `Json.ShapeError` (required via %s)", iface, via)
@@ -94,7 +103,8 @@ func hasRelated(errs []analysis.TypeError, msg string) bool {
 }
 
 // A derive over a component of the program's own type keeps the help to
-// derive or implement the interface on that type.
+// derive or implement the interface on that type. Inner has equality, so
+// Equatable and Hashable need no impl of it and are accepted.
 func TestDeriveOverAnOwnComponentWithoutTheImplSaysToDeriveIt(t *testing.T) {
 	for _, iface := range componentCheckedDerives {
 		t.Run(iface, func(t *testing.T) {
@@ -114,6 +124,12 @@ fn shape() -> Maybe<Json> {
 }
 `, iface)
 			fa := buildWithStdlibForDerive(src)
+			if iface == "Equatable" || iface == "Hashable" {
+				if len(fa.TypeErrors) != 0 {
+					t.Fatalf("a derive over a component with equality is refused:\n  %s", errMsgs(fa.TypeErrors))
+				}
+				return
+			}
 			msg := fmt.Sprintf("no impl of `%s` for `Inner` (required via `derive %s for E`, field `A`)", iface, iface)
 			e, ok := deriveDiag(fa.TypeErrors, msg)
 			if !ok {
@@ -150,7 +166,8 @@ func buildStdFileForDerive(t *testing.T, name, src string) []analysis.TypeError 
 // `derive Equatable for JwtError` over a `Claims Json.ShapeError` payload
 // passed the front end, and its derived bodies (`Hashable`, `Comparable`,
 // `ToJson`) were declined by the builder. The component here is a struct
-// of the same file with no impls at all, so every interface applies.
+// of the same file with no impls at all, so every interface applies but
+// Equatable and Hashable, which its equality meets.
 func TestStdDeriveOverAComponentWithoutTheImplIsRefused(t *testing.T) {
 	for _, iface := range componentCheckedDerives {
 		t.Run(iface, func(t *testing.T) {
@@ -166,6 +183,12 @@ pub enum JwtError {
 derive %s for JwtError
 `, iface)
 			errs := buildStdFileForDerive(t, "jwtgap", src)
+			if iface == "Equatable" || iface == "Hashable" {
+				if len(errs) != 0 {
+					t.Fatalf("a std derive over a component with equality is refused:\n  %s", errMsgs(errs))
+				}
+				return
+			}
 			msg := fmt.Sprintf("no impl of `%s` for `Shape` (required via `derive %s for JwtError`, field `Claims`)", iface, iface)
 			e, ok := deriveDiag(errs, msg)
 			if !ok {
@@ -207,11 +230,11 @@ pub struct Report {
   shapes: List<Json.ShapeError>
 }
 
-derive Hashable for Report
+derive Comparable for Report
 `
 	errs := buildStdFileForDerive(t, "reportgap", src)
-	msg := "no impl of `Hashable` for `Json.ShapeError` (required via `derive Hashable for Report`, field `shapes`)"
+	msg := "no impl of `Comparable` for `Json.ShapeError` (required via `derive Comparable for Report`, field `shapes`)"
 	if _, ok := deriveDiag(errs, msg); !ok {
-		t.Fatalf("a std derive over a List of a component with no `Hashable` is admitted: want %q, got:\n  %s", msg, errMsgs(errs))
+		t.Fatalf("a std derive over a List of a component with no `Comparable` is admitted: want %q, got:\n  %s", msg, errMsgs(errs))
 	}
 }

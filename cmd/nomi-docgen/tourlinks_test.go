@@ -32,71 +32,9 @@ var tourGenerated = map[string]bool{"spec": true, "writing": true, "tooling": tr
 // an `id` attribute on it. The generated pages come from the generators'
 // own code, so a renamed heading or page fails here before the site breaks.
 func TestTourLinksResolve(t *testing.T) {
-	anchors := map[string]map[string]bool{} // "/spec/x/" -> its ids
-	addSite := func(site string, pages map[string]string, ids func(string) map[string]bool) {
-		for name, text := range pages {
-			if !strings.HasSuffix(name, ".md") {
-				continue
-			}
-			page := site + strings.TrimSuffix(name, ".md") + "/"
-			if name == "index.md" {
-				page = site
-			}
-			anchors[page] = ids(text)
-		}
-	}
-	spec, _, err := specPages(specPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	addSite(specSite, spec, pageAnchors)
-	style, _, err := stylePages(stylePath, specPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	addSite(styleSite, style, pageAnchors)
-	tooling, _, err := toolingPages(toolingPath, specPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	addSite(toolingSite, tooling, pageAnchors)
-	addSite("/reference/", referencePages(), referenceAnchors)
-
-	chapters := map[string]string{} // path from tourDocs -> text
-	err = filepath.WalkDir(tourDocs, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(tourDocs, path)
-		if err != nil {
-			return err
-		}
-		rel = filepath.ToSlash(rel)
-		if d.IsDir() {
-			if tourGenerated[rel] {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if tourGenerated[rel] {
-			return nil
-		}
-		if !strings.HasSuffix(rel, ".md") {
-			return nil
-		}
-		text, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		chapters[rel] = string(text)
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	anchors, chapters := siteAnchors(t)
 	rels := make([]string, 0, len(chapters))
-	for rel, text := range chapters {
-		anchors[chapterPage(rel)] = pageAnchors(text)
+	for rel := range chapters {
 		rels = append(rels, rel)
 	}
 	sort.Strings(rels)
@@ -152,6 +90,80 @@ func TestTourLinksResolve(t *testing.T) {
 	if checked["reference"] < 100 || checked["pipes"] < 20 {
 		t.Errorf("checked %d links into the reference and %d into Pipes; the tour holds more", checked["reference"], checked["pipes"])
 	}
+}
+
+// siteAnchors are the site's pages, each with its ids: the pages the
+// generators would write and the tour chapters, keyed by their path on the
+// site (`/spec/x/`). chapters are the chapters' texts, keyed by their path
+// under tourDocs.
+func siteAnchors(t *testing.T) (anchors map[string]map[string]bool, chapters map[string]string) {
+	t.Helper()
+	anchors = map[string]map[string]bool{} // "/spec/x/" -> its ids
+	addSite := func(site string, pages map[string]string, ids func(string) map[string]bool) {
+		for name, text := range pages {
+			if !strings.HasSuffix(name, ".md") {
+				continue
+			}
+			page := site + strings.TrimSuffix(name, ".md") + "/"
+			if name == "index.md" {
+				page = site
+			}
+			anchors[page] = ids(text)
+		}
+	}
+	spec, _, err := specPages(specPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addSite(specSite, spec, pageAnchors)
+	style, _, err := stylePages(stylePath, specPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addSite(styleSite, style, pageAnchors)
+	tooling, _, err := toolingPages(toolingPath, specPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addSite(toolingSite, tooling, pageAnchors)
+	addSite("/reference/", referencePages(), referenceAnchors)
+
+	chapters = map[string]string{} // path from tourDocs -> text
+	err = filepath.WalkDir(tourDocs, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(tourDocs, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if d.IsDir() {
+			if tourGenerated[rel] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if tourGenerated[rel] {
+			return nil
+		}
+		if !strings.HasSuffix(rel, ".md") {
+			return nil
+		}
+		text, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		chapters[rel] = string(text)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rel, text := range chapters {
+		anchors[chapterPage(rel)] = pageAnchors(text)
+	}
+	return anchors, chapters
 }
 
 // examplesFilters answers the values each of the examples table's filters

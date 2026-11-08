@@ -1938,6 +1938,11 @@ func (b *builder) defineTypeParams(typeParams []ast.TypeParam, parent *Scope) *S
 			}
 			b.walkTypeExpr(bound, child)
 		}
+		// A default (`Route<P = Unit>`) names types of the declaration's
+		// scope, never a type parameter, and a name it uses uses its import.
+		if tp.Default != nil {
+			b.walkTypeExpr(tp.Default, parent)
+		}
 	}
 	return child
 }
@@ -4733,6 +4738,11 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.Unary:
 		b.walkNode(n.Right, scope)
 
+	case *ast.Ascription:
+		b.walkNode(n.Value, scope)
+		b.walkTypeExpr(n.Type, scope)
+		b.recordImportedTypeRefs(n.Type, scope)
+
 	case *ast.Is:
 		// The pattern is read in a scope of its own, as a `case` arm's is;
 		// a name it binds is the checker's error, and reaches nothing.
@@ -5530,7 +5540,7 @@ func (b *builder) definePattern(node ast.Node, scope *Scope) {
 }
 
 // definePatternRoot binds a whole pattern's names (definePatternOwned) and
-// reports a name it binds twice: `#(a, a)` and `Some(n) as n` would leave the
+// reports a name it binds twice: `(a, a)` and `Some(n) as n` would leave the
 // first binding unreachable.
 func (b *builder) definePatternRoot(node ast.Node, scope *Scope, owner ast.Node) {
 	b.definePatternOwned(node, scope, owner)

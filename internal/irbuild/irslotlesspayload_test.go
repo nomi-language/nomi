@@ -43,7 +43,7 @@ fn main() {
     io.inspect(Kind.Tagged{m: Mark, n: 3} == Kind.Tagged{m: Mark, n: 4})
     io.inspect(Hashable.hash(Kind.Pinged(Unit)) == Hashable.hash(Kind.Pinged(Unit)))
     io.inspect(Set.size(%[Kind.Marked(Mark), Kind.Marked(Mark), Kind.Pinged(Unit)]))
-    pairs = [#(Kind.Pinged(Unit), "a"), #(Kind.Plain, "b")]
+    pairs = [(Kind.Pinged(Unit), "a"), (Kind.Plain, "b")]
     io.inspect(pairs)
     f = Kind.Pinged
     io.inspect(f(Unit))
@@ -54,6 +54,6 @@ fn main() {
 	irRunSource(t, src, "[Plain, Marked(Mark), Tagged{m: Mark, n: 3}, Pinged(Unit)]\n"+
 		"plain\nmarked Mark\ntagged Mark 3\npinged Unit\n"+
 		"True\nFalse\nTrue\n2\n"+
-		"[#(Pinged(Unit), \"a\"), #(Plain, \"b\")]\n"+
+		"[(Pinged(Unit), \"a\"), (Plain, \"b\")]\n"+
 		"Pinged(Unit)\nMarked(Mark)\n")
 }

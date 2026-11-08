@@ -16,8 +16,8 @@ func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 		"  a: Regex<Unit> = Regex`\\d+`\n" +
 		"  b: Result<Regex<Unit>, String> = Regex\"\\\\d+\"\n" +
 		"  c: Result<Regex<List<Maybe<String>>>, String> = Regex\"${w}\\\\d\"\n" +
-		"  case #(b, c) {\n" +
-		"    #(Ok(x), Ok(_)) -> [a, x]\n" +
+		"  case (b, c) {\n" +
+		"    (Ok(x), Ok(_)) -> [a, x]\n" +
 		"    _ -> [a]\n" +
 		"  }\n" +
 		"}\n"

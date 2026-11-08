@@ -39,7 +39,7 @@ func TestListPatternRest_TailsFollowIt(t *testing.T) {
 		"[first, .., last]":        {1, 1, true},
 		"[first, ..mid, last]":     {1, 1, false},
 		"[a, b, .._mid, y, z]":     {2, 2, false},
-		"[..init, #(k, _)]":        {0, 1, false},
+		"[..init, (k, _)]":         {0, 1, false},
 		"[\"a\", ..rest, Some(z)]": {1, 1, false},
 	} {
 		lp, ok := caseArmPattern(t, arm).(*ast.ListPattern)

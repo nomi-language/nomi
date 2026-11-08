@@ -31,7 +31,7 @@ fn main() {
     io.inspect(count_all([]))
     io.inspect(Maybe.is_some(first([])))
     f: (Int) -> Int = fn x -> x + 1
-    held = #(1, Ok(f)).1
+    held = (1, Ok(f)).second
     io.inspect(held)
 }
 `
@@ -67,7 +67,7 @@ fn main() {
     io.inspect(%{} |> Map.size())
     io.inspect(Map.keys(%{}) |> Iter.to_list())
     io.inspect([%{}])
-    io.inspect(#(%{}, 1))
+    io.inspect((%{}, 1))
     io.inspect(%{} == %{})
     io.inspect(%[] != %[])
     io.inspect(#[] == #[])
@@ -98,7 +98,7 @@ fn main() {
 		"0\n" +
 		"[]\n" +
 		"[%{}]\n" +
-		"#(%{}, 1)\n" +
+		"(%{}, 1)\n" +
 		"True\n" +
 		"False\n" +
 		"True\n" +
@@ -171,7 +171,7 @@ fn main() {
     io.inspect(Iter.zip([1], %{1 => 2}) |> Iter.to_list())
     io.inspect(Iter.zip([1, 2], 5..9) |> Iter.to_list())
     io.inspect(Iter.zip(["a", "b"], Countdown{from: 3}) |> Iter.to_list())
-    io.inspect(Iter.concat([#(1, 2)], %{3 => 4}) |> Iter.to_list())
+    io.inspect(Iter.concat([(1, 2)], %{3 => 4}) |> Iter.to_list())
     io.inspect(Iter.concat([9], Countdown{from: 2}) |> Iter.to_list())
 }
 `
@@ -179,10 +179,10 @@ fn main() {
 		"True\n" +
 		"[]\n" +
 		"0\n" +
-		"[#(1, #(1, 2))]\n" +
-		"[#(1, 5), #(2, 6)]\n" +
-		"[#(\"a\", 3), #(\"b\", 2)]\n" +
-		"[#(1, 2), #(3, 4)]\n" +
+		"[(1, (1, 2))]\n" +
+		"[(1, 5), (2, 6)]\n" +
+		"[(\"a\", 3), (\"b\", 2)]\n" +
+		"[(1, 2), (3, 4)]\n" +
 		"[9, 2, 1]\n"
 	irRunSource(t, src, want)
 }

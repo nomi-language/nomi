@@ -27,10 +27,10 @@ derive Equatable for Value
 
 /// A graph: its nodes and edges, each with its attributes, and the graph's
 /// own attributes. An edge is keyed by its two nodes in order, so `b -- a`
-/// is the edge `#("a", "b")`.
+/// is the edge `("a", "b")`.
 pub struct Graph {
     nodes: Map<String, Map<String, Value>>
-    edges: Map<#(String, String), Map<String, Value>>
+    edges: Map<(String, String), Map<String, Value>>
     attrs: Map<String, Value>
 }
 
@@ -90,16 +90,16 @@ fn is_comment(line: String) -> Bool {
 fn statement(line: String) -> Result<Statement, Error> {
     Some(line) = String.strip_suffix(line, ";") else { return Err(.InvalidGraph) }
 
-    #(subject, attributes) = case String.split(line, "[") {
+    (subject, attributes) = case String.split(line, "[") {
         [subject] ->
-            #(subject, %{})
+            (subject, %{})
 
         [subject, list] -> {
             Some(inner) = list |> String.trim() |> String.strip_suffix("]") else {
                 return Err(.InvalidAttribute)
             }
 
-            #(subject, attributes_in(inner)?)
+            (subject, attributes_in(inner)?)
         }
 
         _ ->
@@ -127,7 +127,7 @@ fn attributes_in(list: String) -> Result<Map<String, Value>, Error> {
     String.split(list, ",")
     |> Iter.map(fn pair -> {
         case pair |> String.trim() |> String.split("=") {
-            [name, value] when name != "" and value != "" -> Ok(#(name, value_of(value)))
+            [name, value] when name != "" and value != "" -> Ok((name, value_of(value)))
             _ -> Err(Error.InvalidAttribute)
         }
     })
@@ -141,26 +141,26 @@ fn attributes_in(list: String) -> Result<Map<String, Value>, Error> {
 fn value_of(text: String) -> Value {
     quoted = String.strip_prefix(text, "\"") |> Maybe.flat_map(&String.strip_suffix(&1, "\""))
 
-    case #(quoted, String.to_int(text), text) {
-        #(Some(inner), _, _) -> .Text(inner)
-        #(_, Some(number), _) -> .Number(number)
-        #(_, _, "true") -> .Flag(True)
-        #(_, _, "false") -> .Flag(False)
+    case (quoted, String.to_int(text), text) {
+        (Some(inner), _, _) -> .Text(inner)
+        (_, Some(number), _) -> .Number(number)
+        (_, _, "true") -> .Flag(True)
+        (_, _, "false") -> .Flag(False)
         _ -> .Text(text)
     }
 }
 
 /// The nodes of a chain of edges, `a -- b -- c`, written as words.
 fn edge_names(words: List<String>) -> Result<List<String>, Error> {
-    #(names, links) =
+    (names, links) =
         words
         |> Iter.with_index()
-        |> Iter.partition(fn #(index, _word) -> index % 2 == 0)
+        |> Iter.partition(fn (index, _word) -> index % 2 == 0)
 
-    names = names |> Iter.map(.1) |> Iter.to_list()
+    names = names |> Iter.map(.second) |> Iter.to_list()
 
     valid = Iter.count(names) == Iter.count(links) + 1
-        and Iter.all(links, fn #(_index, word) -> word == "--")
+        and Iter.all(links, fn (_index, word) -> word == "--")
         and Iter.all(names, is_alphanumeric)
 
     if valid { Ok(names) } else { Err(.InvalidEdge) }
@@ -191,7 +191,7 @@ fn add(graph: Graph, statement: Statement) -> Graph {
                 |> Iter.reduce(graph.edges, fn edges, pair -> {
                     [a, b] = Iter.sort(pair) else { unreachable "a window of two holds two names" }
 
-                    with_attributes(edges, #(a, b), attributes)
+                    with_attributes(edges, (a, b), attributes)
                 })
 
             #{..graph, nodes, edges}
@@ -217,7 +217,7 @@ import {
 
 test "parse" {
     [
-        #(
+        (
             "empty graph",
             """
             graph {
@@ -225,7 +225,7 @@ test "parse" {
             """,
             Graph{nodes: %{}, edges: %{}, attrs: %{}},
         ),
-        #(
+        (
             "graph with one node",
             """
             graph {
@@ -238,7 +238,7 @@ test "parse" {
                 attrs: %{},
             },
         ),
-        #(
+        (
             "graph with one node with attribute",
             """
             graph {
@@ -251,7 +251,7 @@ test "parse" {
                 attrs: %{},
             },
         ),
-        #(
+        (
             "graph with one edge",
             """
             graph {
@@ -260,11 +260,11 @@ test "parse" {
             """,
             #{
                 nodes: %{"a" => %{}, "b" => %{}},
-                edges: %{#("a", "b") => %{}},
+                edges: %{("a", "b") => %{}},
                 attrs: %{},
             },
         ),
-        #(
+        (
             "graph with one attribute",
             """
             graph {
@@ -273,7 +273,7 @@ test "parse" {
             """,
             #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
         ),
-        #(
+        (
             "graph with comments",
             """
             graph {
@@ -284,7 +284,7 @@ test "parse" {
             """,
             #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
         ),
-        #(
+        (
             "graph with nodes, edges, and attributes",
             """
             graph {
@@ -303,7 +303,7 @@ test "parse" {
                     "b" => %{"label" => .Text("Beta!")},
                     "c" => %{},
                 },
-                edges: %{#("a", "b") => %{"color" => .Text("blue")}, #("b", "c") => %{}},
+                edges: %{("a", "b") => %{"color" => .Text("blue")}, ("b", "c") => %{}},
                 attrs: %{
                     "foo" => .Number(1),
                     "title" => .Text("Testing Attrs"),
@@ -311,7 +311,7 @@ test "parse" {
                 },
             },
         ),
-        #(
+        (
             "multiple edges on one line",
             """
             graph {
@@ -321,14 +321,14 @@ test "parse" {
             #{
                 nodes: %{"a" => %{}, "b" => %{}, "c" => %{}, "d" => %{}},
                 edges: %{
-                    #("a", "b") => %{"style" => .Text("dotted")},
-                    #("b", "c") => %{"style" => .Text("dotted")},
-                    #("c", "d") => %{"style" => .Text("dotted")},
+                    ("a", "b") => %{"style" => .Text("dotted")},
+                    ("b", "c") => %{"style" => .Text("dotted")},
+                    ("c", "d") => %{"style" => .Text("dotted")},
                 },
                 attrs: %{},
             },
         ),
-        #(
+        (
             "only 1 edge between nodes",
             """
             graph {
@@ -339,19 +339,19 @@ test "parse" {
             """,
             #{
                 nodes: %{"a" => %{}, "b" => %{}},
-                edges: %{#("a", "b") => %{"color" => .Text("blue")}},
+                edges: %{("a", "b") => %{"color" => .Text("blue")}},
                 attrs: %{},
             },
         ),
     ]
-    |> subtests #(description, text, expected), description {
+    |> subtests (description, text, expected), description {
         assert dot_dsl.parse(text) == Ok(expected)
     }
 }
 
 test "parse errors" {
     [
-        #(
+        (
             "malformed input",
             """
             graphical {
@@ -359,7 +359,7 @@ test "parse errors" {
             """,
             "invalid graph",
         ),
-        #(
+        (
             "malformed edge",
             """
             graph {
@@ -368,7 +368,7 @@ test "parse errors" {
             """,
             "invalid edge",
         ),
-        #(
+        (
             "malformed edge 2",
             """
             graph {
@@ -377,8 +377,8 @@ test "parse errors" {
             """,
             "invalid edge",
         ),
-        #("invalid edge type", "graph {\n    a == b;\n} ", "invalid edge"),
-        #(
+        ("invalid edge type", "graph {\n    a == b;\n} ", "invalid edge"),
+        (
             "multiple edges missing a node",
             """
             graph {
@@ -387,7 +387,7 @@ test "parse errors" {
             """,
             "invalid edge",
         ),
-        #(
+        (
             "multiple edges missing a connector",
             """
             graph {
@@ -396,7 +396,7 @@ test "parse errors" {
             """,
             "invalid edge",
         ),
-        #(
+        (
             "empty attribute",
             """
             graph {
@@ -405,7 +405,7 @@ test "parse errors" {
             """,
             "invalid attribute",
         ),
-        #(
+        (
             "malformed attribute",
             """
             graph {
@@ -414,7 +414,7 @@ test "parse errors" {
             """,
             "invalid attribute",
         ),
-        #(
+        (
             "empty attribute name",
             """
             graph {
@@ -423,7 +423,7 @@ test "parse errors" {
             """,
             "invalid attribute",
         ),
-        #(
+        (
             "non-alphanumeric node name",
             """
             graph {
@@ -433,7 +433,7 @@ test "parse errors" {
             "node name must be alphanumeric",
         ),
     ]
-    |> subtests #(description, text, expected), description {
+    |> subtests (description, text, expected), description {
         assert Err(error) = dot_dsl.parse(text)
         assert "${error}" == expected
     }
@@ -448,7 +448,7 @@ test result: ok. 19 passed, 0 failed
 ## How it's written
 
 - Adapted: the description asks for an internal DSL, graph-building code written in the host language. The canonical data instead parses DOT text, and this port does that: `parse` reads the text into a `Graph` value. An internal DSL in Nomi would be plain constructor calls on immutable values, which leaves nothing for the canonical cases to check.
-- A `Graph` is three maps: nodes by name, edges by their two node names in order (`#("a", "b")` for `b -- a`, so an edge given twice either way round is one edge), and the graph's own attributes. Attributes are a `Map<String, Value>`, written out: a `typealias` of a named type would only hide it.
+- A `Graph` is three maps: nodes by name, edges by their two node names in order (`("a", "b")` for `b -- a`, so an edge given twice either way round is one edge), and the graph's own attributes. Attributes are a `Map<String, Value>`, written out: a `typealias` of a named type would only hide it.
 - An attribute's `Value` is an enum of `Number`, `Flag` and `Text`, since the canonical attributes mix `1`, `true` and `"Testing Attrs"`. `value_of` tries them in order with one `case` over a tuple: quoted text, a whole number, `true` or `false`, then unquoted text (`color=green`).
 - `parse` keeps the lines that are not empty or comments and takes them apart with `["graph {", ..body, "}"] = lines else { ... }`, so a text without both braces is `InvalidGraph`.
 - Each line between the braces is one statement, read by `statement` into a private `Statement` enum: graph attributes, a node, or a chain of edges. The words of its subject decide which: none, one, or `a -- b -- ...`, checked by `edge_names` as names at even positions and `--` between them. `Result.collect` stops at the first bad line, and `add` folds the statements into the graph. Attributes given again for the same node, edge or graph are merged, the later value winning.

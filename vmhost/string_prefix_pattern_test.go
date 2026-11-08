@@ -60,9 +60,9 @@ fn payload(m: Maybe<String>) -> String {
   }
 }
 
-fn tuple(t: #(String, Int)) -> String {
+fn tuple(t: (String, Int)) -> String {
   case t {
-    #("k:" + key, n) -> "${key}=${n}"
+    ("k:" + key, n) -> "${key}=${n}"
     _ -> "tuple miss"
   }
 }
@@ -118,8 +118,8 @@ fn main() {
   io.print(payload(Some("héllo wörld")))
   io.print(payload(Some("hello")))
   io.print(payload(None))
-  io.print(tuple(#("k:id", 3)))
-  io.print(tuple(#("id", 3)))
+  io.print(tuple(("k:id", 3)))
+  io.print(tuple(("id", 3)))
   io.print(map_value(%{"auth" => "Bearer abc"}))
   io.print(map_value(%{"auth" => "Basic abc"}))
   io.print(field(Req{path: "/v1/items", n: 2}))

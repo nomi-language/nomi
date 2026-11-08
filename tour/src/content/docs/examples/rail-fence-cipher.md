@@ -18,8 +18,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 pub fn encode(message: String, rails: Int) -> String {
     message
     |> Iter.zip(zigzag(rails))
-    |> Iter.sort_by(.1)
-    |> Iter.map(.0)
+    |> Iter.sort_by(.second)
+    |> Iter.map(.first)
     |> String.join()
 }
 
@@ -28,13 +28,13 @@ pub fn decode(ciphertext: String, rails: Int) -> String {
     positions =
         0..String.length(ciphertext)
         |> Iter.zip(zigzag(rails))
-        |> Iter.sort_by(.1)
-        |> Iter.map(.0)
+        |> Iter.sort_by(.second)
+        |> Iter.map(.first)
 
     positions
     |> Iter.zip(ciphertext)
-    |> Iter.sort_by(.0)
-    |> Iter.map(.1)
+    |> Iter.sort_by(.first)
+    |> Iter.map(.second)
     |> String.join()
 }
 
@@ -53,27 +53,27 @@ import rail_fence_cipher
 
 test "encode" {
     [
-        #("encode with two rails", "XOXOXOXOXOXOXOXOXO", 2, "XXXXXXXXXOOOOOOOOO"),
-        #("encode with three rails", "WEAREDISCOVEREDFLEEATONCE", 3, "WECRLTEERDSOEEFEAOCAIVDEN"),
-        #("encode with ending in the middle", "EXERCISES", 4, "ESXIEECSR"),
+        ("encode with two rails", "XOXOXOXOXOXOXOXOXO", 2, "XXXXXXXXXOOOOOOOOO"),
+        ("encode with three rails", "WEAREDISCOVEREDFLEEATONCE", 3, "WECRLTEERDSOEEFEAOCAIVDEN"),
+        ("encode with ending in the middle", "EXERCISES", 4, "ESXIEECSR"),
     ]
-    |> subtests #(description, message, rails, expected), description {
+    |> subtests (description, message, rails, expected), description {
         assert rail_fence_cipher.encode(message, rails) == expected
     }
 }
 
 test "decode" {
     [
-        #("decode with three rails", "TEITELHDVLSNHDTISEIIEA", 3, "THEDEVILISINTHEDETAILS"),
-        #("decode with five rails", "EIEXMSMESAORIWSCE", 5, "EXERCISMISAWESOME"),
-        #(
+        ("decode with three rails", "TEITELHDVLSNHDTISEIIEA", 3, "THEDEVILISINTHEDETAILS"),
+        ("decode with five rails", "EIEXMSMESAORIWSCE", 5, "EXERCISMISAWESOME"),
+        (
             "decode with six rails",
             "133714114238148966225439541018335470986172518171757571896261",
             6,
             "112358132134558914423337761098715972584418167651094617711286",
         ),
     ]
-    |> subtests #(description, ciphertext, rails, expected), description {
+    |> subtests (description, ciphertext, rails, expected), description {
         assert rail_fence_cipher.decode(ciphertext, rails) == expected
     }
 }

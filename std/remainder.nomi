@@ -1,0 +1,23 @@
+/// Protocol for the `%` operator.
+///
+/// `Remainder.remainder(lhs, rhs)` returns the result of `lhs % rhs`. The
+/// left-hand type is the implementor (`self`); the interface type parameters
+/// describe the right-hand operand and the output type, as for `Divide`.
+///
+/// `%` is the remainder of `/`'s truncating division, so it takes the sign of
+/// the left operand: `-7 % 3 == -1` and `7 % -3 == 1`, and `(a / b) * b + a %
+/// b == a` for `Int`. `Int.modulo` is the floored form, which takes the
+/// divisor's sign.
+///
+/// ```nomi
+/// pub type Minutes Int
+///
+/// impl Remainder<Minutes, Minutes> for Minutes {
+///     fn remainder(lhs: Minutes, rhs: Minutes) -> Minutes {
+///         ...
+///     }
+/// }
+/// ```
+pub interface Remainder<Rhs, Out> {
+    fn remainder(lhs: self, rhs: Rhs) -> Out
+}

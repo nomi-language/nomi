@@ -114,13 +114,13 @@ once cousins = Tree{
 
 test "Reroot a tree so that its root is the specified node." {
     [
-        #(
+        (
             "Results in the same tree if the input tree is a singleton",
             singleton,
             "x",
             Some(singleton),
         ),
-        #(
+        (
             "Can reroot a tree with a parent and one sibling",
             #{
                 label: "parent",
@@ -137,7 +137,7 @@ test "Reroot a tree so that its root is the specified node." {
                 ],
             }),
         ),
-        #(
+        (
             "Can reroot a tree with a parent and many siblings",
             parent_and_siblings,
             "x",
@@ -151,7 +151,7 @@ test "Reroot a tree so that its root is the specified node." {
                 ],
             }),
         ),
-        #(
+        (
             "Can reroot a tree with new root deeply nested in tree",
             #{
                 label: "level-0",
@@ -193,7 +193,7 @@ test "Reroot a tree so that its root is the specified node." {
                 ],
             }),
         ),
-        #(
+        (
             "Moves children of the new root to same level as former parent",
             #{
                 label: "parent",
@@ -210,7 +210,7 @@ test "Reroot a tree so that its root is the specified node." {
                 children: [#{label: "kid-0"}, #{label: "kid-1"}, #{label: "parent"}],
             }),
         ),
-        #(
+        (
             "Can reroot a complex tree with cousins",
             cousins,
             "x",
@@ -238,10 +238,10 @@ test "Reroot a tree so that its root is the specified node." {
                 ],
             }),
         ),
-        #("Errors if target does not exist in a singleton tree", singleton, "nonexistent", None),
-        #("Errors if target does not exist in a large tree", parent_with_kids, "nonexistent", None),
+        ("Errors if target does not exist in a singleton tree", singleton, "nonexistent", None),
+        ("Errors if target does not exist in a large tree", parent_with_kids, "nonexistent", None),
     ]
-    |> subtests #(description, tree, from, expected), description {
+    |> subtests (description, tree, from, expected), description {
         rerooted = Tree.from_pov(tree, from) |> Maybe.map(in_label_order)
         assert rerooted == Maybe.map(expected, in_label_order)
     }
@@ -249,7 +249,7 @@ test "Reroot a tree so that its root is the specified node." {
 
 test "Given two nodes, find the path between them" {
     [
-        #(
+        (
             "Can find path to parent",
             Tree{
                 label: "parent",
@@ -259,15 +259,15 @@ test "Given two nodes, find the path between them" {
             "parent",
             Some(["x", "parent"]),
         ),
-        #("Can find path to sibling", parent_and_siblings, "x", "b", Some(["x", "parent", "b"])),
-        #(
+        ("Can find path to sibling", parent_and_siblings, "x", "b", Some(["x", "parent", "b"])),
+        (
             "Can find path to cousin",
             cousins,
             "x",
             "cousin-1",
             Some(["x", "parent", "grandparent", "uncle", "cousin-1"]),
         ),
-        #(
+        (
             "Can find path not involving root",
             #{
                 label: "grandparent",
@@ -282,17 +282,17 @@ test "Given two nodes, find the path between them" {
             "sibling-1",
             Some(["x", "parent", "sibling-1"]),
         ),
-        #(
+        (
             "Can find path from nodes other than x",
             parent_and_siblings,
             "a",
             "c",
             Some(["a", "parent", "c"]),
         ),
-        #("Errors if destination does not exist", parent_with_kids, "x", "nonexistent", None),
-        #("Errors if source does not exist", parent_with_kids, "nonexistent", "x", None),
+        ("Errors if destination does not exist", parent_with_kids, "x", "nonexistent", None),
+        ("Errors if source does not exist", parent_with_kids, "nonexistent", "x", None),
     ]
-    |> subtests #(description, tree, from, to, expected), description {
+    |> subtests (description, tree, from, to, expected), description {
         assert Tree.path_to(tree, from, to) == expected
     }
 }

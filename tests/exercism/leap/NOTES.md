@@ -15,7 +15,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/leap.
 - The function is `is_leap_year`: a predicate of a state takes `is_`
   (style §4), and std's own is named the same.
 - The cases are one `subtests` table. Each row's first column is the
-  canonical description, which names the row (`subtests cases, #(description,
+  canonical description, which names the row (`subtests cases, (description,
   year, expected), description`), so a failed row's report
   shows which case it was.
 

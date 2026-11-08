@@ -3,7 +3,7 @@ enum JV {
     Num Int
     Obj Map<String, JV>
     Arr List<JV>
-    Pos #(Int, Int)
+    Pos (Int, Int)
 }
 
 test "variant payloads can attach map list and tuple literals" {
@@ -12,7 +12,7 @@ test "variant payloads can attach map list and tuple literals" {
     arr_flat = JV.Arr[JV.Num(1), JV.Num(2), JV.Num(3)]
     arr_call = JV.Arr([JV.Num(4), JV.Num(5)])
     pos_flat = JV.Pos(10, 20)
-    pos_call = JV.Pos(#(30, 40))
+    pos_call = JV.Pos((30, 40))
 
     assert obj_flat
         |> Debug.inspect()
@@ -44,7 +44,7 @@ test "variant literal-attach patterns destructure payloads" {
     obj_call = JV.Obj(%{"b" => JV.Num(2)})
     arr_flat = JV.Arr[JV.Num(1), JV.Num(2), JV.Num(3)]
     pos_flat = JV.Pos(10, 20)
-    pos_call = JV.Pos(#(30, 40))
+    pos_call = JV.Pos((30, 40))
 
     flat_obj = case obj_flat {
         %.Obj{"a" => .Num(n)} -> "flat-obj: a=${n}"
@@ -72,7 +72,7 @@ test "variant literal-attach patterns destructure payloads" {
     }
 
     call_pos = case pos_call {
-        .Pos(#(x, y)) -> "call-pos: ${x}, ${y}"
+        .Pos((x, y)) -> "call-pos: ${x}, ${y}"
         _ -> "no match"
     }
 

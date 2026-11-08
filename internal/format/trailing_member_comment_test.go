@@ -9,7 +9,7 @@ func TestFormat_EnumVariant_TrailingComment(t *testing.T) {
 	for name, src := range map[string]string{
 		"bare":           "enum Op {\n    ToJson // note\n    FromJson\n}\n",
 		"bare last":      "enum Op {\n    ToJson\n    FromJson // note\n}\n",
-		"type payload":   "enum Op {\n    Add Int // a\n    Mul #(Int, Int) // m\n}\n",
+		"type payload":   "enum Op {\n    Add Int // a\n    Mul (Int, Int) // m\n}\n",
 		"generic":        "enum Op<T> {\n    A Maybe<T> // a\n    B (T) -> T // b\n}\n",
 		"struct payload": "enum Shape {\n    Rect {w: Int, h: Int} // r\n    Circle {r: Int} // c\n}\n",
 		"embeds":         "enum E {\n    A // a\n    embeds P // p\n}\n",

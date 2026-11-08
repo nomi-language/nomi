@@ -20,7 +20,7 @@ import (
 // siblings), a read above the declaration in its own file, and an owner-level
 // `once` read through its owner (`Limits.top`). A bare read then passed
 // anything, and a read inside a composite gave Unit or an unsolved T:
-// `#(n, help)` was `#(Int, Unit)`, `Float.pi` was "type 'Float' has no
+// `(n, help)` was `(Int, Unit)`, `Float.pi` was "type 'Float' has no
 // member 'pi'", and iterating a `once` list of enum variants gave
 // "expected Direction, got T". A read now checks the declaration on demand.
 
@@ -103,7 +103,7 @@ pub once directions = [Direction.North, Direction.South]
 
 pub once doubled = help |> Iter.map(fn s -> s + s) |> Iter.to_list()
 
-pub once pairs = [#(Limits.next, help)]
+pub once pairs = [(Limits.next, help)]
 `
 
 const onceMain = `import {
@@ -115,8 +115,8 @@ struct Box {
     items: List<String>
 }
 
-fn tuple(n: Int) -> #(Int, List<String>) {
-    #(n, help)
+fn tuple(n: Int) -> (Int, List<String>) {
+    (n, help)
 }
 
 fn listed() -> List<List<String>> {
@@ -135,10 +135,10 @@ fn argument() -> Int {
     count(help)
 }
 
-fn arm(b: Bool) -> #(Int, List<String>) {
+fn arm(b: Bool) -> (Int, List<String>) {
     case b {
-        True -> #(1, help)
-        False -> #(0, lib.help)
+        True -> (1, help)
+        False -> (0, lib.help)
     }
 }
 
@@ -157,18 +157,18 @@ fn names() -> List<String> {
     directions |> Iter.map(name) |> Iter.to_list()
 }
 
-fn chained() -> #(List<String>, Int, Int, List<#(Int, List<String>)>) {
-    #(doubled, Limits.top, Limits.next, pairs)
+fn chained() -> (List<String>, Int, Int, List<(Int, List<String>)>) {
+    (doubled, Limits.top, Limits.next, pairs)
 }
 
-fn later() -> #(Int, List<String>) {
+fn later() -> (Int, List<String>) {
     local
 }
 
-once local = #(Limits.top, help)
+once local = (Limits.top, help)
 
 fn main() {
-    _ = #(tuple(1), listed(), boxed(), argument(), arm(True), keyed(), names(), chained(), later())
+    _ = (tuple(1), listed(), boxed(), argument(), arm(True), keyed(), names(), chained(), later())
 }
 `
 
@@ -212,8 +212,8 @@ fn main() {
 func TestOnceType_FileQualifiedReadIsTyped(t *testing.T) {
 	src := `import lib
 
-fn first() -> #(Int, List<String>) {
-    #(1, lib.doubled)
+fn first() -> (Int, List<String>) {
+    (1, lib.doubled)
 }
 
 fn main() {

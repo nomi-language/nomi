@@ -66,10 +66,10 @@ fn start_of(l: Line) -> Int {
     }
 }
 
-fn tuple_arm(p: #(Maybe<Int>, String)) -> String {
+fn tuple_arm(p: (Maybe<Int>, String)) -> String {
     case p {
-        #(Some(_) as m, label) -> "${label} ${Maybe.with_default(m, 0)}"
-        #(None, label) as whole -> "${label} none ${whole.1}"
+        (Some(_) as m, label) -> "${label} ${Maybe.with_default(m, 0)}"
+        (None, label) as whole -> "${label} none ${whole.second}"
     }
 }
 
@@ -77,15 +77,15 @@ fn param(#{start, end} as tx: Tx) -> Int {
     start + end + tx.start
 }
 
-fn binding(m: Maybe<Int>, pair: #(Int, Int)) -> String {
-    #(x, y) as both = pair
+fn binding(m: Maybe<Int>, pair: (Int, Int)) -> String {
+    (x, y) as both = pair
     Some(n) as found = m else { return "none" }
-    "${x} ${y} ${both.0} ${n} ${Maybe.with_default(found, 0)}"
+    "${x} ${y} ${both.first} ${n} ${Maybe.with_default(found, 0)}"
 }
 
-fn fallback(r: Result<#(Int, Int), String>) -> Int {
-    Ok(#(w, h) as size) = r else { #(10, 20) }
-    w + h + size.0
+fn fallback(r: Result<(Int, Int), String>) -> Int {
+    Ok((w, h) as size) = r else { (10, 20) }
+    w + h + size.first
 }
 
 fn if_pattern(r: Result<Int, String>) -> String {
@@ -105,16 +105,16 @@ fn main() {
     io.print(entry(%{"k" => 1, "j" => 2}))
     io.print(entry(%{"k" => 2}))
     io.print(start_of(Line{from: Tx{kind: .Withdrawal, start: 7, end: 8}, to: Tx{kind: .Deposit, start: 0, end: 0}}))
-    io.print(tuple_arm(#(Some(3), "three")))
-    io.print(tuple_arm(#(None, "nothing")))
+    io.print(tuple_arm((Some(3), "three")))
+    io.print(tuple_arm((None, "nothing")))
     io.print(param(Tx{kind: .Deposit, start: 2, end: 3}))
-    io.print(binding(Some(5), #(1, 2)))
-    io.print(binding(None, #(1, 2)))
-    io.print(fallback(Ok(#(1, 2))))
+    io.print(binding(Some(5), (1, 2)))
+    io.print(binding(None, (1, 2)))
+    io.print(fallback(Ok((1, 2))))
     io.print(fallback(Err("no")))
     io.print(if_pattern(Ok(9)))
     io.print(if_pattern(Err("e")))
-    sums = [#(1, 2), #(3, 4)] |> Iter.map(fn #(a, b) as p -> a + b + p.0) |> Iter.to_list()
+    sums = [(1, 2), (3, 4)] |> Iter.map(fn (a, b) as p -> a + b + p.first) |> Iter.to_list()
     io.print("${sums}")
 }
 `)
@@ -163,13 +163,13 @@ test "assert fails on a mismatch" {
 
 group "setup" {
     setup {
-        #(1, "one")
+        (1, "one")
     }
 
-    test "binds the whole setup value", #(n, word) as pair {
+    test "binds the whole setup value", (n, word) as pair {
         assert n == 1
         assert word == "one"
-        assert pair.1 == "one"
+        assert pair.second == "one"
     }
 }
 `)
@@ -228,8 +228,8 @@ test "binding with else" {
 }
 
 test "lambda parameter" {
-    pairs = [#(#{a: 1, b: 2}, 3), #(#{a: 4, b: 5}, 6)]
-    sums = pairs |> Iter.map(fn #(#{a: x, b} as whole, c) -> x + b + c + whole.a) |> Iter.to_list()
+    pairs = [(#{a: 1, b: 2}, 3), (#{a: 4, b: 5}, 6)]
+    sums = pairs |> Iter.map(fn (#{a: x, b} as whole, c) -> x + b + c + whole.a) |> Iter.to_list()
     assert sums == [7, 19]
 }
 
@@ -237,7 +237,7 @@ test "struct field and tuple" {
     h = Holder{r: #{a: 1, b: 2}}
     assert Holder{r: #{a: x, b}} = h
     assert Holder{r: #{a: 1, b: y} as whole} = h
-    assert #(#{a: p, b: q} as rec, c) = #(whole, 3)
+    assert (#{a: p, b: q} as rec, c) = (whole, 3)
     assert x + b + y + p + q + c + rec.a == 12
 }
 

@@ -14,7 +14,7 @@ func TestStructFields_NoCommaIsRejected(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"renamed pattern field", "x = case r {\n    #{err: a b} -> 0\n}\n", "line 2, col 14: expected `,` or `}` after the field `err`"},
 		{"punned pattern fields", "x = case p {\n    Point{x y} -> 0\n}\n", "line 2, col 13: expected `,` or `}` after the field `x`"},
-		{"nested pattern field", "x = case p {\n    Point{x: #(a, b) y} -> 0\n}\n", "line 2, col 22: expected `,` or `}` after the field `x`"},
+		{"nested pattern field", "x = case p {\n    Point{x: (a, b) y} -> 0\n}\n", "line 2, col 21: expected `,` or `}` after the field `x`"},
 		{"pattern fields on two lines", "x = case p {\n    Point{\n        x\n        y\n    } -> 0\n}\n", "line 4, col 9: expected `,` or `}` after the field `x`"},
 		{"destructure", "#{a b} = p\n", "line 1, col 5: expected `,` or `}` after the field `a`"},
 		{"renamed destructure field", "#{x: c y} = p\n", "line 1, col 8: expected `,` or `}` after the field `x`"},

@@ -13,12 +13,12 @@ func TestContinueValue_IsRejectedWithTheWorkingForm(t *testing.T) {
 		"To carry a new value forward, make it the callback's result: write it as the last expression, without continue " +
 		"(in Iter.loop that result is the next state)"
 	for _, body := range []string{
-		`r = Iter.loop(#(0, 0), fn p -> {
-    #(i, s) = p
+		`r = Iter.loop((0, 0), fn p -> {
+    (i, s) = p
     if i >= 5 {
       break p
     }
-    continue #(i + 1, s + i)
+    continue (i + 1, s + i)
   })
   _ = r`,
 		`r = [1, 2] |> Iter.reduce(0, fn acc, x -> {

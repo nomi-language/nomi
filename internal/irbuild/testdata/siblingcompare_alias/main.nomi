@@ -34,7 +34,7 @@ fn main() {
 
     io.print(Set.size(s))
     io.print(Set.contains(s, Tier{level: 1, name: "z"}))
-    m = [#(t1, "one"), #(t2, "two")] |> Iter.to_map()
+    m = [(t1, "one"), (t2, "two")] |> Iter.to_map()
 
     io.print(Map.contains(m, Tier{level: 1, name: "z"}))
 

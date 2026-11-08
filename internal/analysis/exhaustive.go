@@ -315,7 +315,7 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 				if allWild(s) {
 					return "_"
 				}
-				return "#(" + strings.Join(s, ", ") + ")"
+				return "(" + strings.Join(s, ", ") + ")"
 			},
 		}}
 	case *StructType:

@@ -1,0 +1,66 @@
+// A parameter with a default may leave out its type when the default's
+// type is known from the expression alone (spec §7 *Parameter types from
+// defaults*): `limit = 10` is an `Int` parameter. A default whose type
+// only an expected type tells is an error at the parameter.
+import {
+    std::compiler.{self, Diagnostic}
+    search.{Mode, Page, search, write}
+}
+
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+    Iter.any(diagnostics, fn diagnostic -> text in diagnostic.message)
+}
+
+fn greet(name = "world", times = 1) -> String {
+    String.repeat("hello ${name} ", times) |> String.trim()
+}
+
+interface Shout {
+    fn word(value: self) -> String
+
+    fn shout(value: self, marks = "!") -> String {
+        "${Shout.word(value)}${marks}"
+    }
+}
+
+impl Shout for Page {
+    fn word(page: Page) -> String {
+        "page ${page.size}"
+    }
+}
+
+fn pair<T>(x: T, n = 2) -> (T, Int) {
+    (x, n)
+}
+
+test "a generic function's parameter takes its default's type" {
+    assert pair("a") == ("a", 2)
+    assert pair(1.5, n: 3) == (1.5, 3)
+}
+
+test "a parameter takes its default's type" {
+    assert greet() == "hello world"
+    assert greet("nomi", times: 2) == "hello nomi hello nomi"
+    assert search("nomi") == "nomi 10 0"
+    assert search("nomi", offset: 20) == "nomi 10 20"
+    assert write("a.txt") == "replace a.txt"
+    assert write("a.txt", mode: Mode.Append) == "append a.txt"
+}
+
+test "a default may read an earlier parameter" {
+    assert Page.window(Page{size: 3}) == "page 6"
+}
+
+test "an interface's default function takes the rule too" {
+    assert Shout.shout(Page{size: 1}) == "page 1!"
+}
+
+test "a lambda's parameter takes its default's type" {
+    add = fn a: Int, b = 1 -> a + b
+    assert add(1) == 2
+}
+
+test "a default whose type needs an expected type is refused" {
+    diagnostics = compiler.check("fn f(since = None) -> Int {\n    1\n}\n")
+    assert has_diagnostic(diagnostics, "can't tell this parameter's type from `None`")
+}

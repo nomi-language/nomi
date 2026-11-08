@@ -7,7 +7,7 @@ package rt
 // the callback is driven by the source's own `each_while`, so there is no Go
 // loop for a Go `break` to target — and every word of it applies here. What is
 // different is that a reduce callback has an accumulator to answer with, so two
-// register returns `#(acc, keepGoing)` say everything: `continue` and a bare
+// register returns `(acc, keepGoing)` say everything: `continue` and a bare
 // `break` both answer the accumulator unchanged and differ only in the bool.
 //
 // An adapter has no accumulator. `continue` in a `map` callback must produce no
@@ -23,7 +23,7 @@ package rt
 //	CtlStop    `break`                produce nothing, stop the source
 //
 // Four states rather than a struct or an error for the same reason seqctl.go
-// gives for two: `#(V, Ctl)` is two registers, so
+// gives for two: `(V, Ctl)` is two registers, so
 // TestSeqAdapterCtlAllocatesNothingPerElement can pin the allocation count as
 // independent of the element count, and internal/irbuild widens only the callbacks
 // whose bodies can actually signal (internal/irbuild/ctrlflow.go's ctrlSignalIn).

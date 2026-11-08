@@ -42,7 +42,7 @@ func TestCompletion_StructPatternOffersUnwrittenFields(t *testing.T) {
 		{"embedded struct variant", "fn f(s: Shape) -> Int {\n    case s {\n        .Circle{‸} -> 1\n        _ -> 0\n    }\n}\n", []string{"radius"}},
 		{"nested in a variant payload", "fn f(m: Maybe<Point>) -> Int {\n    case m {\n        .Some(Point{x, ‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"y", "z"}},
 		{"anonymous, nested in a generic payload", "fn f(m: Maybe<Point>) -> Int {\n    case m {\n        .Some(#{‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"x", "y", "z"}},
-		{"in a tuple", "fn f(t: #(Point, Int)) -> Int {\n    case t {\n        #(#{y, ‸}, _) -> 1\n    }\n}\n", []string{"x", "z"}},
+		{"in a tuple", "fn f(t: (Point, Int)) -> Int {\n    case t {\n        (#{y, ‸}, _) -> 1\n    }\n}\n", []string{"x", "z"}},
 		{"destructuring binding", "fn f(p: Point) -> Int {\n    Point{x, ‸} = p\n    x\n}\n", []string{"y", "z"}},
 		{"anonymous destructuring binding", "fn f(p: Point) -> Int {\n    #{‸} = p\n    1\n}\n", []string{"x", "y", "z"}},
 		{"binding with else", "fn f(s: Shape) -> Float {\n    .Rect{‸} = s else {\n        return 0.0\n    }\n    1.0\n}\n", []string{"w", "h"}},

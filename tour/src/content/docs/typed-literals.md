@@ -226,12 +226,20 @@ cannot fail. So the literal is the value, not a `Result`, whichever quotes
 it uses.
 
 `Url` works this way. `Url"https://api.example.com/greet/${name}"` is a
-`Url`, with `name` escaped as a path segment, and `Url"https://${host}/"`
+`Url`, with `name` escaped as a path segment. A slot takes any `Display`
+value, so an `Int` or a `Uuid` id goes in as it is. `Url"https://${host}/"`
 is a compile error at the slot, since no escaping makes a value safe as a
 host. `Toml` does too: in `Toml"name = ${name}"` the slot is written as the
 value's TOML, so a `String` is quoted and escaped, and a slot inside a TOML
 string is a compile error. Spec:
 [Checked literals](/spec/typed-literals-and-keyword-declarations/#checked-literals).
+
+Where the type is already known, as a dot-variant's enum is, the tag can
+be left out. `u: Url = "https://example.com/${id}"` and
+`http.get("https://example.com/")` are `Url` literals, checked the same
+way. Only a literal converts: a `String` value where a `Url` is expected
+is still an error. Spec:
+[Literals typed by their position](/spec/typed-literals-and-keyword-declarations/#literals-typed-by-their-position).
 
 std::html's `Html`, which [HTTP](/http/) uses for pages, is not the `Html`
 this page declares. The compiler checks its literals itself, as HTML

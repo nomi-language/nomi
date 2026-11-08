@@ -1,0 +1,13 @@
+// Shape declares a final default and an open one. The types implementing
+// it live in shapes.nomi, and the test file imports the types alone.
+pub interface Shape {
+    fn area(s: self) -> Int
+
+    fn describe(s: self) -> String {
+        "area ${area(s)}"
+    }
+
+    open fn doubled(s: self) -> Int {
+        2 * area(s)
+    }
+}

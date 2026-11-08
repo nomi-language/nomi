@@ -178,6 +178,9 @@ func (g *gen) patternParamKind(p ast.Param, at ast.Node) (kind, bool) {
 		g.probePattern(p.Destructure)
 		return kindInvalid, false
 	}
+	if d := g.selfHeadDef(head); d != nil {
+		return named(d), true
+	}
 	owner, member, ok := g.patternHead(head)
 	if !ok {
 		g.reject("destructuring parameter", "pattern head "+typeText(head), at)

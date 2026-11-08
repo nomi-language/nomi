@@ -1,5 +1,5 @@
-//# lib/storage/s3 against a real S3-protocol server. `with_minio` starts a
-//# MinIO for a body, and `checks` runs what this project checks against
+//# lib/storage/s3 against a real S3-protocol server. `start` starts a
+//# MinIO and `stop` stops it, and `checks` runs what this project checks against
 //# any server: std::storage_testing's conformance suite, presigned URLs
 //# fetched with no credentials, and a public object read with none.
 
@@ -9,7 +9,7 @@ import {
     std::http.{self, Body, Headers, Method, Request, Response, Status}
     std::instant.Instant
     std::net
-    std::process.{self, Command}
+    std::process.{self, Child, Command}
     std::storage.Store
     std::storage_testing
     std::timer
@@ -17,15 +17,35 @@ import {
     s3.{self, Config, Credentials}
 }
 
-/// Run `body` with a config for the bucket `nomi-test` on a MinIO server
-/// started on a free port over a temporary directory. The server stops
-/// when `body` returns.
-pub fn with_minio<T>(body: (Config) -> T) -> Result<T, String> {
+/// A MinIO server `start` started, and a config for its bucket.
+pub struct Minio {
+    /// A config for the bucket `nomi-test`.
+    config: Config
+    child: Child
+    data: String
+}
+
+/// Starts a MinIO server on a free port over a temporary directory, waits
+/// for it to answer, and makes the bucket `nomi-test`. Defer `stop` on the
+/// next line.
+///
+/// ```nomi
+/// server = minio.start()!
+/// defer minio.stop(server)
+/// ```
+pub fn start() -> Result<Minio, String> {
     port = free_port()?
     address = "127.0.0.1:${port}"
+    endpoint = Url.parse("http://${address}") |> Result.map_err(fn e -> "${e}")?
+
+    config = Config{
+        endpoint,
+        bucket: "nomi-test",
+        credentials: Credentials{access_key: "nomi-test", secret_key: "nomi-test-secret"},
+    }
+
     data = "${fs.temp_dir()}/nomi-minio-${port}"
     fs.create_dir(data, parents: True) |> Result.map_err(fn e -> "${e}")?
-    defer remove_quietly(data)
 
     command = Command{
         program: "minio",
@@ -33,25 +53,39 @@ pub fn with_minio<T>(body: (Config) -> T) -> Result<T, String> {
         env: %{"MINIO_ROOT_USER" => "nomi-test", "MINIO_ROOT_PASSWORD" => "nomi-test-secret"},
     }
 
-    ran = process.with_spawned(command, fn _child -> {
-        endpoint = Url.parse("http://${address}") |> Result.map_err(fn e -> "${e}")?
-        wait_live(endpoint, 100)?
+    child = case process.spawn(command) {
+        Ok(child) ->
+            child
 
-        config = Config{
-            endpoint,
-            bucket: "nomi-test",
-            credentials: Credentials{access_key: "nomi-test", secret_key: "nomi-test-secret"},
+        Err(e) -> {
+            fs.remove_all_quietly(data)
+            return Err("starting minio: ${e}")
         }
+    }
 
-        create_bucket(config)?
-        Ok(body(config))
-    })
+    server = Minio{config, child, data}
 
-    ran |> Result.map_err(fn e -> "starting minio: ${e}")?
+    case wait_live(endpoint, 100) |> Result.flat_map(fn _ -> create_bucket(config)) {
+        Ok(_) ->
+            Ok(server)
+
+        Err(e) -> {
+            stop(server)
+            Err(e)
+        }
+    }
 }
 
-fn remove_quietly(dir: String) {
-    _ = fs.remove_all(dir)
+/// Kills the server and removes its directory.
+pub fn stop(server: Minio) -> Unit {
+    Child.kill(server.child)
+    fs.remove_all_quietly(server.data)
+}
+
+impl Release for Minio {
+    fn release(server: Minio) {
+        stop(server)
+    }
 }
 
 // A port nothing listens on: one the system picked for a listener that is
@@ -60,7 +94,7 @@ fn free_port() -> Result<String, String> {
     listener = net.listen("127.0.0.1:0") |> Result.map_err(fn e -> "${e}")?
     address = net.Listener.address(listener)
     net.Listener.close(listener)
-    #(_, port) = net.split_host_port(address) |> Result.map_err(fn e -> "${e}")?
+    (_, port) = net.split_host_port(address) |> Result.map_err(fn e -> "${e}")?
     Ok(port)
 }
 
@@ -134,9 +168,9 @@ pub fn checks(config: Config, public: Bool = True) -> List<String> {
 
     others =
         [
-            #("a presigned GET reads with no credentials", fn -> presigned_get(config)),
-            #("a presigned PUT writes with no credentials", fn -> presigned_put(config)),
-            #(
+            ("a presigned GET reads with no credentials", fn -> presigned_get(config)),
+            ("a presigned PUT writes with no credentials", fn -> presigned_put(config)),
+            (
                 "a public object reads with no credentials",
                 fn -> {
                     if public {
@@ -147,7 +181,7 @@ pub fn checks(config: Config, public: Bool = True) -> List<String> {
                 },
             ),
         ]
-        |> Iter.flat_map(fn #(name, check) -> {
+        |> Iter.flat_map(fn (name, check) -> {
             case check() {
                 Ok(_) -> []
                 Err(message) -> ["${name}: ${message}"]
@@ -196,7 +230,7 @@ fn presigned_put(config: Config) -> Result<Unit, String> {
             Request{
                 method: Method.Put,
                 url,
-                headers: Headers[#("Content-Type", "text/plain")],
+                headers: Headers[("Content-Type", "text/plain")],
                 body: Body.Text("uploaded"),
             }
         )

@@ -111,7 +111,7 @@ func TestStringLiteral_InsideContainers(t *testing.T) {
 		t.Errorf("map row %s", got)
 	}
 	tuple := TupleDesc(SlotString, SlotString).Make("a\nb", `${c}`)
-	if got, err := DebugText(tuple, nil); err != nil || got != `#("a\nb", "\${c}")` {
+	if got, err := DebugText(tuple, nil); err != nil || got != `("a\nb", "\${c}")` {
 		t.Errorf("tuple debug %s %v", got, err)
 	}
 	if got := Inspect(list).Text(); got != `["x\ny", "t\tab"]` {

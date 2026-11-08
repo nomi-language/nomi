@@ -187,13 +187,13 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		}
 		for i, p := range fd.Params {
 			if temps[i] == ir.NoTemp {
-				if p.TypeAnnotation == nil {
+				if p.TypeAnnotation == nil && p.Default == nil {
 					return no()
 				}
 				if checked != nil {
 					kinds[i] = bl.g.projectFilledHoles(checked.Params[i])
 				} else {
-					kinds[i] = bl.g.typeOf(p.TypeAnnotation)
+					kinds[i] = bl.g.paramKind(p)
 				}
 				if !irCallOperandKind(kinds[i]) {
 					return no()
@@ -328,7 +328,17 @@ func (bl *irScalarBuilder) siblingIfaceGapDefaults(t *ast.Call, im *ast.Interfac
 	}
 	decl, isIface := sym.Node.(*ast.InterfaceDef)
 	if !isIface {
-		return nil, false
+		// `Square.describe(sq, times: 2)`, a default Square's block in
+		// another file inherits: the interface is the one declaring im.
+		for _, p := range im.Params {
+			if o, found := bl.g.ifaceParamDefault(p.Default); found && o.im == im {
+				decl, isIface = o.iface, true
+				break
+			}
+		}
+		if !isIface {
+			return nil, false
+		}
 	}
 	declares := false
 	for i := range decl.Methods {
@@ -347,7 +357,11 @@ func (bl *irScalarBuilder) siblingIfaceGapDefaults(t *ast.Call, im *ast.Interfac
 			slots = append(slots, i)
 		}
 	}
-	if !bl.siblingDefaultsAgree(chosen.fn, owning, slots) {
+	// An inherited default's parameter defaults are the interface's, which
+	// callDefaults fills under their declaring file's names
+	// (ifaceslotdefault.go); an impl function's own lower here when their
+	// names agree.
+	if _, inherited := bl.g.ifaceParamDefault(chosen.fn.params0[slots[0]].Default); !inherited && !bl.siblingDefaultsAgree(chosen.fn, owning, slots) {
 		return nil, false
 	}
 	return &fnSig{decl: &ast.FuncDef{Name: im.Name, Params: chosen.fn.params0}, params: params}, true

@@ -1,5 +1,7 @@
 package analysis
 
+import "github.com/nomi-language/nomi/internal/ast"
+
 // An instance of a generic struct, enum or interface (`Result<Int, String>`)
 // is a copy of its declaration's type with TypeArgs filled in. The copy
 // carries the declaration's body: an enum's Variants, a struct's Fields, an
@@ -20,6 +22,10 @@ package analysis
 // The shell and every recorded instance point at it; a built declaration and
 // a completed instance have none.
 type unbuiltDecl struct {
+	// params are the declaration's type parameters as written, which say
+	// how many arguments a use may leave to defaults before the
+	// declaration is built (default_type_args.go).
+	params    []ast.TypeParam
 	instances []Type
 	// onBuilt runs when the declaration is built (whenBuilt).
 	onBuilt []func()
@@ -48,6 +54,7 @@ func enumBuilt(et *EnumType) {
 			inst.Variants = et.Variants
 			inst.TypeParams = et.TypeParams
 			inst.TypeParamDefs = et.TypeParamDefs
+			inst.TypeArgs = completeDefaultArgs(inst.TypeArgs, et.TypeParamDefs)
 			inst.unbuilt = nil
 		}
 	}
@@ -65,6 +72,7 @@ func structBuilt(st *StructType) {
 			inst.Fields = st.Fields
 			inst.TypeParams = st.TypeParams
 			inst.TypeParamDefs = st.TypeParamDefs
+			inst.TypeArgs = completeDefaultArgs(inst.TypeArgs, st.TypeParamDefs)
 			inst.unbuilt = nil
 		}
 	}
@@ -83,6 +91,7 @@ func interfaceBuilt(it *InterfaceType) {
 			inst.TypeParams = it.TypeParams
 			inst.TypeParamDefs = it.TypeParamDefs
 			inst.SelfParam = it.SelfParam
+			inst.TypeArgs = completeDefaultArgs(inst.TypeArgs, it.TypeParamDefs)
 			inst.unbuilt = nil
 		}
 	}
@@ -121,6 +130,7 @@ func distinctBuilt(dt *DistinctType) {
 			inst.Inner = dt.Inner
 			inst.TypeParams = dt.TypeParams
 			inst.TypeParamDefs = dt.TypeParamDefs
+			inst.TypeArgs = completeDefaultArgs(inst.TypeArgs, dt.TypeParamDefs)
 			inst.unbuilt = nil
 		}
 	}

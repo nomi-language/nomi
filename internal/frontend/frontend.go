@@ -960,29 +960,27 @@ func (c *Checker) CheckStdlibTest(moduleKey, src string, line int) (test *ast.Te
 	return test, fa, restore, true, nil
 }
 
-// StdlibModuleErrors answers the diagnostics the process's one analysis of
-// the stdlib (std.Shared) recorded for module ("regex" or "std/regex"), or nil
-// when it recorded none. That analysis keeps every `//!` prompt and checks it
-// in its module's scope, as CheckStdlibSource does, so a run of the embedded
-// module's cases built from it reports what a fresh check of the same source
-// would. Without this, `nomi test std/<module>.nomi` lowered prompts the
-// checker had rejected, and the builder resolved a name such as a bare
-// `False` that the module never imported.
-//
-// A syntax error anywhere in the embedded stdlib is answered first and alone,
-// for every module: the shared analysis read that file only as far as
-// recovery could, and what it says about any module follows from that.
-func StdlibModuleErrors(module string) error {
-	name := strings.TrimSuffix(strings.TrimPrefix(module, "std/"), ".nomi")
-	if len(std.Shared().SyntaxErrors) > 0 {
-		return stdDefectDiagnostics(std.Shared())
+// StdlibErrors answers the diagnostics the process's one analysis of the
+// stdlib (std.Shared) recorded, as a program's check reports them: every
+// syntax error first and alone, else every module's check errors, each with
+// the hint that the file is the stdlib built into this nomi. nil when the
+// stdlib analyzed cleanly. That analysis keeps every `//!` prompt and checks
+// it in its module's scope, as CheckStdlibSource does, so a run of an
+// embedded module's cases built from it reports what `nomi check` on the
+// module reports. Without this, `nomi test std/<module>.nomi` lowered
+// prompts the checker had rejected, and the builder resolved a name such as
+// a bare `False` that the module never imported; and an error in a module
+// the cases reach (a body of std/duration.nomi that a std/timer.nomi case
+// calls) made the case BLOCKED, since the body did not lower, rather than
+// failing the file with the error.
+func StdlibErrors() error { return stdlibErrors(std.Shared()) }
+
+// stdlibErrors is StdlibErrors for lib.
+func stdlibErrors(lib *std.StdLib) error {
+	if ds := stdDefectDiagnostics(lib); ds != nil {
+		return ds
 	}
-	errs := std.Shared().Errors[name]
-	if len(errs) == 0 {
-		return nil
-	}
-	path := "std/" + name + ".nomi"
-	return typeDiagnostics(path, fileSource(path), errs)
+	return nil
 }
 
 func (c *Checker) prepareStdlib(src string, mode Mode) ([]ast.Node, error) {

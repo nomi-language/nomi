@@ -662,14 +662,14 @@ func TestFormat_Pipe_BindingRHS_SinglePipeStaysInline(t *testing.T) {
 
 func TestFormat_Pipe_CallArgPipeStacks(t *testing.T) {
 	src := `test "render" {
-    assert Token.Bag([#("a", 1)] |> Iter.to_map())
+    assert Token.Bag([("a", 1)] |> Iter.to_map())
         |> Debug.inspect()
         |> String.equal("Bag")
 }
 `
 	want := `test "render" {
     assert Token.Bag(
-        [#("a", 1)]
+        [("a", 1)]
         |> Iter.to_map()
     )
         |> Debug.inspect()
@@ -755,10 +755,10 @@ func TestFormat_Lambda_TypedParamWithDefault(t *testing.T) {
 }
 
 func TestFormat_Lambda_DestructureWithDefault(t *testing.T) {
-	// `#(a, b) = #(0, 1)` — destructure pattern carrying a default value.
+	// `(a, b) = (0, 1)` — destructure pattern carrying a default value.
 	// The default must round-trip; previously emitLambdaParam returned
 	// early on the destructure branch and dropped it.
-	src := "f = fn #(a, b) = #(0, 1) -> a + b\n"
+	src := "f = fn (a, b) = (0, 1) -> a + b\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -977,11 +977,11 @@ func TestFormat_Case_NestedPattern(t *testing.T) {
 
 func TestFormat_Case_VariantWithTuplePattern(t *testing.T) {
 	// Tuple-payload variants destructure their tuple explicitly:
-	// `Some(#(n, s))` is one variant pattern wrapping a tuple pattern.
+	// `Some((n, s))` is one variant pattern wrapping a tuple pattern.
 	// The old multi-arg sugar (`Some(n, s)` for a tuple-payload Some)
 	// has been removed — the explicit form is the only one accepted.
 	src := `x = case pair_opt {
-    Some(#(n, s)) -> s
+    Some((n, s)) -> s
     None -> ""
 }
 `
@@ -1270,15 +1270,15 @@ func TestFormat_Map_LongBreaks(t *testing.T) {
 }
 
 func TestFormat_Tuple(t *testing.T) {
-	got, _ := Format("x = #(1, 2)\n")
-	if got != "x = #(1, 2)\n" {
+	got, _ := Format("x = (1, 2)\n")
+	if got != "x = (1, 2)\n" {
 		t.Errorf("got %q", got)
 	}
 }
 
 func TestFormat_Tuple_Three(t *testing.T) {
-	got, _ := Format(`x = #(1, "a", True)` + "\n")
-	if got != `x = #(1, "a", True)`+"\n" {
+	got, _ := Format(`x = (1, "a", True)` + "\n")
+	if got != `x = (1, "a", True)`+"\n" {
 		t.Errorf("got %q", got)
 	}
 }
@@ -2043,7 +2043,7 @@ func TestFormat_TestSetupBlankLineDoesNotKeepBraces(t *testing.T) {
 		{"\"\"\n\n", bare(`""`)},
 		{"\n\n\"\"", bare(`""`)},
 		{"(f(1))\n\n", bare("f(1)")},
-		{"#(1, 2)\n\n", bare("#(1, 2)")},
+		{"(1, 2)\n\n", bare("(1, 2)")},
 		{"{ \"\" }\n\n", bare(`""`)},
 		{"\"\"\n\n// c\n", "group \"g\" {\n    setup {\n        \"\"\n\n        // c\n    }\n\n    test \"t\" {\n        assert\n    }\n}\n"},
 	} {
@@ -2086,17 +2086,17 @@ func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
 // A test binds its group's setup value with any irrefutable pattern.
 func TestFormat_TestTuplePattern(t *testing.T) {
 	src := `group "fixture" {
-    setup #(1,   "ready")
+    setup (1,   "ready")
 
-    test "reads setup", #(n,  child) {
+    test "reads setup", (n,  child) {
         assert child == "ready"
     }
 }
 `
 	want := `group "fixture" {
-    setup #(1, "ready")
+    setup (1, "ready")
 
-    test "reads setup", #(n, child) {
+    test "reads setup", (n, child) {
         assert child == "ready"
     }
 }
@@ -2630,8 +2630,8 @@ func TestFormat_Variant_NoParens(t *testing.T) {
 // TestFormat_Variant_TuplePayload verifies a tuple payload is emitted
 // with one set of parens (not the legacy double-paren form).
 func TestFormat_Variant_TuplePayload(t *testing.T) {
-	src := "enum T { Position(#(Int, Int)) }"
-	want := "enum T {\n    Position #(Int, Int)\n}\n"
+	src := "enum T { Position((Int, Int)) }"
+	want := "enum T {\n    Position (Int, Int)\n}\n"
 	got, _ := Format(src)
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -2712,7 +2712,7 @@ func TestFormat_Interface(t *testing.T) {
 
 func TestFormat_Interface_Generic(t *testing.T) {
 	src := `interface Iter<T> {
-  next(collection: self): Maybe<#(T, self)>
+  next(collection: self): Maybe<(T, self)>
 }
 `
 	got, _ := Format(src)
@@ -2816,7 +2816,7 @@ func TestFormat_DistinctType_Pub(t *testing.T) {
 
 func TestFormat_ConsecutiveBodylessTypesCanStayTight(t *testing.T) {
 	src := `pub type Email String
-pub type Coord #(Int, Int)
+pub type Coord (Int, Int)
 pub type Handler (String, String) -> Result<String, String>
 pub type Expired
 pub opaque type Counter Int
@@ -2829,7 +2829,7 @@ pub opaque type Counter Int
 
 func TestFormat_ConsecutiveBodylessTypesPreserveGroupingBlank(t *testing.T) {
 	src := `pub type Email String
-pub type Coord #(Int, Int)
+pub type Coord (Int, Int)
 
 pub type Expired
 `
@@ -2957,16 +2957,16 @@ func TestFormat_FieldAccess_Chained(t *testing.T) {
 	}
 }
 
-func TestFormat_TupleIndex_Zero(t *testing.T) {
-	got, _ := Format("x = pair.0\n")
-	if got != "x = pair.0\n" {
+func TestFormat_TupleItem_First(t *testing.T) {
+	got, _ := Format("x = pair.first\n")
+	if got != "x = pair.first\n" {
 		t.Errorf("got %q", got)
 	}
 }
 
-func TestFormat_TupleIndex_One(t *testing.T) {
-	got, _ := Format("x = pair.1\n")
-	if got != "x = pair.1\n" {
+func TestFormat_TupleItem_Second(t *testing.T) {
+	got, _ := Format("x = pair.second\n")
+	if got != "x = pair.second\n" {
 		t.Errorf("got %q", got)
 	}
 }
@@ -4152,11 +4152,11 @@ import std::maps: Map
 
 func TestFormat_TupleDestructure(t *testing.T) {
 	src := `fn main() {
-  #(name, age) = get_user()
+  (name, age) = get_user()
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, "#(name, age) = get_user()") {
+	if !strings.Contains(got, "(name, age) = get_user()") {
 		t.Errorf("tuple destructure not emitted correctly, got:\n%s", got)
 	}
 }
@@ -4164,11 +4164,11 @@ func TestFormat_TupleDestructure(t *testing.T) {
 func TestFormat_TupleDestructure_Wildcard(t *testing.T) {
 	// Wildcard bindings in a tuple destructure round-trip as "_".
 	src := `fn main() {
-  #(_, v) = pair
+  (_, v) = pair
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, "#(_, v) = pair") {
+	if !strings.Contains(got, "(_, v) = pair") {
 		t.Errorf("wildcard tuple destructure not emitted correctly, got:\n%s", got)
 	}
 }
@@ -5013,7 +5013,7 @@ func TestFormat_OpaqueOnStructPrivatePreserved(t *testing.T) {
 // distinct-tuple type. The formatter delegates to TypeString(), so this
 // pins the canonical shape `#{name: String, age: Int}`.
 func TestFormat_AnonStructType_TupleDistinct(t *testing.T) {
-	src := "type Tagged #(String, #{name: String, age: Int})\n"
+	src := "type Tagged (String, #{name: String, age: Int})\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -5067,8 +5067,8 @@ func TestFormat_AnonStructType_ShortFnParam_StaysFlat(t *testing.T) {
 // Mirrors Prettier's `Promise<#{...}>` behaviour — outer container stays
 // inline, inner anon struct flows multi-line inside it.
 func TestFormat_AnonStructType_NestedInTuple_Breaks(t *testing.T) {
-	src := "pub type MyTuple #(String, #{status: Int, message: String, retryable: Bool, a_long_field: String, another_field: Int})\n"
-	want := `pub type MyTuple #(String, #{
+	src := "pub type MyTuple (String, #{status: Int, message: String, retryable: Bool, a_long_field: String, another_field: Int})\n"
+	want := `pub type MyTuple (String, #{
     status: Int,
     message: String,
     retryable: Bool,
@@ -5132,7 +5132,7 @@ func TestFormat_AnonStructType_NestedInFuncType_Breaks(t *testing.T) {
 // canonical flat output.
 func TestFormat_TypeExpr_SimpleRoundTrip(t *testing.T) {
 	cases := []string{
-		"type Pair #(Int, String)\n",
+		"type Pair (Int, String)\n",
 		"typealias Handler (String, String) -> Result<String, String>\n",
 		"fn f(_xs: List<Int>) -> Int {\n    0\n}\n",
 		"fn f(_m: Map<String, Int>) -> Int {\n    0\n}\n",
@@ -5904,4 +5904,71 @@ func strconvI(i int) string {
 		i /= 10
 	}
 	return string(out)
+}
+
+// A struct literal's values with no field names are an error the checker
+// reports; the formatter, which runs without it, keeps them.
+func TestFormat_PositionalStructLitKeepsItsValues(t *testing.T) {
+	src := "fn A() {\n    s = Student{name, &1.second, f(x) + 1}\n}\n"
+	got, err := Format(src)
+	if err != nil || got != src {
+		t.Fatalf("Format = %q, %v; want it unchanged", got, err)
+	}
+	if err := SameMeaning(src, got); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// An `and` chain whose last operand ends in a literal too long for a line
+// of its own stays on its line and breaks inside the literal. Broken before
+// `and`, the literal kept its line break after `{` and a second format
+// joined the chain.
+func TestFormat_BooleanChainEndingInABrokenLiteralIsIdempotent(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{
+			"fn A() {\n    assert aaaaaaaaaaaaaaaaaaaa and bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb == Enqueued{cccccccccccccccccccccccccccccccccccccccc: 1}\n}\n",
+			"fn A() {\n    assert aaaaaaaaaaaaaaaaaaaa and bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb == Enqueued{\n        cccccccccccccccccccccccccccccccccccccccc: 1,\n    }\n}\n",
+		},
+		{
+			"fn A() {\n    assert aaaaaaaaaaaaaaaaaaaa is .Point and not aaaaaaaaaaaaaaaaaaaa is .Square{side_rather_long_rather_long_rather_long_rather_long: _}\n}\n",
+			"fn A() {\n    assert aaaaaaaaaaaaaaaaaaaa is .Point and not aaaaaaaaaaaaaaaaaaaa is .Square{\n        side_rather_long_rather_long_rather_long_rather_long: _,\n    }\n}\n",
+		},
+		// The literal fits on a line of its own: the chain breaks before
+		// `and`, and the literal stays flat.
+		{
+			"fn A() {\n    assert aaaaaaaaaaaaaaaaaaaa and bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb == Enqueued{cccccccccccccccccccccc: 1}\n}\n",
+			"fn A() {\n    assert aaaaaaaaaaaaaaaaaaaa\n        and bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb == Enqueued{cccccccccccccccccccccc: 1}\n}\n",
+		},
+	} {
+		got, err := Format(tc.src)
+		if err != nil || got != tc.want {
+			t.Fatalf("Format(%q) = %q, %v; want %q", tc.src, got, err, tc.want)
+		}
+		if again, err := Format(got); err != nil || again != got {
+			t.Fatalf("Format is not idempotent on %q: %q, %v", got, again, err)
+		}
+	}
+}
+
+// A parenthesized name in a struct literal is a value with no field name;
+// written bare it would pun a field of that name. The formatter keeps one
+// pair of parentheses around it.
+func TestFormat_PositionalStructLitKeepsParensAroundAName(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{"fn A() {\n    u = User{name, (age)}\n}\n", "fn A() {\n    u = User{name, (age)}\n}\n"},
+		{"fn A() {\n    u = User{((age))}\n}\n", "fn A() {\n    u = User{(age)}\n}\n"},
+		// A value over several lines has no Source; joined, it has one.
+		{"fn A() {\n    u = User{(\n        age)}\n}\n", "fn A() {\n    u = User{(age)}\n}\n"},
+	} {
+		got, err := Format(tc.src)
+		if err != nil || got != tc.want {
+			t.Fatalf("Format(%q) = %q, %v; want %q", tc.src, got, err, tc.want)
+		}
+		if err := SameMeaning(tc.src, got); err != nil {
+			t.Fatal(err)
+		}
+		if again, err := Format(got); err != nil || again != got {
+			t.Fatalf("Format is not idempotent on %q: %q, %v", got, again, err)
+		}
+	}
 }

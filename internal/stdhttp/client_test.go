@@ -100,7 +100,7 @@ import std::url.{Query, Url}
 
 fn main() -> Result<Unit, http.Error> {
     base = Url.parse("BASE")!
-    r = http.fetch(Request{url: Url.join_path(base, ["hello"]) |> Url.with_query(Query[#("name", "ann")]), headers: Headers[#("User-Agent", "nomi-test")]})?
+    r = http.fetch(Request{url: Url.join_path(base, ["hello"]) |> Url.with_query(Query[("name", "ann")]), headers: Headers[("User-Agent", "nomi-test")]})?
     io.print(Status.line(r.status))
     io.print(Response.text(r)?)
     io.print(Headers.get(r.headers, "x-seen-agent") |> Maybe.with_default("-"))
@@ -108,7 +108,7 @@ fn main() -> Result<Unit, http.Error> {
     io.print("${r.protocol}")
     p = http.post(Url.join_path(base, ["echo"]), Body.Json(Json.String("hi")))?
     io.print(Response.text(p)?)
-    f = http.post_form(Url.join_path(base, ["echo"]), Query[#("a", "1 2")])?
+    f = http.post_form(Url.join_path(base, ["echo"]), Query[("a", "1 2")])?
     io.print(Response.text(f)?)
     m = http.get(Url.join_path(base, ["missing"]))?
     io.print("${m.status} ${Status.is_client_error(m.status)}")
@@ -123,7 +123,7 @@ fn main() -> Result<Unit, http.Error> {
 
 // Redirects are followed up to the client's limit, or not at all; a
 // client's timeout and its max_body answer errors; a refused connection is
-// Connect; with_response streams the body.
+// Connect; Client.stream streams the body.
 func TestClient_OptionsAndErrors(t *testing.T) {
 	s := server(t)
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -134,7 +134,7 @@ func TestClient_OptionsAndErrors(t *testing.T) {
 	l.Close()
 	got := run(t, strings.ReplaceAll(strings.ReplaceAll(`import std::duration.Duration
 import std::http
-import std::http.{Client, ClientOptions, Error, Redirects, Request, Response}
+import std::http.{Client, ClientOptions, Error, Redirects, Request, Response, StreamedResponse}
 import std::io
 import std::url.Url
 
@@ -168,12 +168,13 @@ fn main() {
     small = Client.new(ClientOptions{max_body: Some(10)})
     io.print(failure(Client.get(small, Url.join_path(base, ["big"]))))
     io.print(failure(http.get(Url.parse("CLOSED")!)))
-    n = Client.with_response(small, Request{url: Url.join_path(base, ["big"])}, fn r -> Response.bytes(r) |> Result.map(Bytes.length))!
-    io.print("streamed ${n!}")
+    streamed = Client.stream(small, Request{url: Url.join_path(base, ["big"])})!
+    defer StreamedResponse.close(streamed)
+    io.print("streamed ${io.Reader.read_all(streamed.body) |> Result.map(Bytes.length)}")
     Client.close_idle(never)
 }
 `, "BASE", s.URL), "CLOSED", closed))
-	want := "200 OK hello moved Some(/hello)\n302 Found Some(/hello)\ntoo many 4\ntimeout True\ntoo large 10\nconnect\nstreamed 100\n"
+	want := "200 OK hello moved Some(/hello)\n302 Found Some(/hello)\ntoo many 4\ntimeout True\ntoo large 10\nconnect\nstreamed Ok(100)\n"
 	if got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}

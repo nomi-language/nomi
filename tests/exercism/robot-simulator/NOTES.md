@@ -13,7 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/robot-simulator.
 - `Robot.move` answers `Result<Robot, Error>` and stops at an unknown letter. The canonical data has no such case; the alternative was to ignore unknown letters.
 - `move` is `Iter.try_reduce(instructions, robot, step)`: it folds the instruction string and stops at the first letter `step` refuses.
 - Updates use spreads (`#{..robot, direction: ...}`) and target-typed struct literals (`#{x, y: y + 1}` as a `Position`).
-- Test rows are `#(description, robot, instructions, expected)` with each `Robot` a target-typed struct literal, so the body is one assertion. A row is too wide for one line, so `nomi fmt` writes its four parts one per line, each robot on one line.
+- Test rows are `(description, robot, instructions, expected)` with each `Robot` a target-typed struct literal, so the body is one assertion. A row is too wide for one line, so `nomi fmt` writes its four parts one per line, each robot on one line.
 
 ## Friction
 

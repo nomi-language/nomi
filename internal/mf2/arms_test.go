@@ -69,7 +69,7 @@ func TestSelectorsNameTheKeysEachSelectorTakes(t *testing.T) {
 	}
 	got := mf2.Selectors(m, shopSig, locale("pl", "Polish", false))
 	want := []mf2.SelectorKeys{
-		{Name: "count", Needed: []string{"one", "few", "many"}, Known: []string{"one", "few", "many", "other"}, Plural: true},
+		{Name: "count", Needed: []string{"one", "few", "many"}, Known: []string{"one", "few", "many", "other"}, Plural: true, Integers: true},
 		{Name: "status", Needed: []string{"Pending", "Shipped", "Delivered"}, Known: []string{"Pending", "Shipped", "Delivered"}},
 	}
 	if !reflect.DeepEqual(got, want) {

@@ -246,7 +246,7 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 		}
 		return &irBoxPlan{typ: g.irImplTypeSym(have)}
 	}
-	if _, std := stdNamedRecv(have); std {
+	if _, std := stdNamedRecv(have); std || irStdGenericInstance(have) {
 		if _, _, container := stdRecvParts(have); !container {
 			return g.irStdNamedBoxPlan(d, have)
 		}

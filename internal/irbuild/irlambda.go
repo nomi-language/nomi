@@ -38,7 +38,7 @@ type irLambdaGroup struct {
 	// slot in this order (before). A partial capture's lambda takes its
 	// `&N`s in written order but fills them in the callee's order, since a
 	// callee's default reads the callee's earlier parameters:
-	// `&span(b: &1, &2)` over `fn span(a: Int, b: Int = a * 2)` is `#(b, a)`,
+	// `&span(b: &1, &2)` over `fn span(a: Int, b: Int = a * 2)` is `(b, a)`,
 	// and b's supplier takes a.
 	order []int
 }
@@ -107,7 +107,7 @@ func (g *gen) lambdaParamKind(p ast.Param) kind {
 		}
 		return g.irParamPatternKind(p)
 	case tuple:
-		// `fn #(k, v) ->`, `fn #(_, v) ->`, `fn #(a, #(b, _)) ->`: the type the checker
+		// `fn (k, v) ->`, `fn (_, v) ->`, `fn (a, (b, _)) ->`: the type the checker
 		// recorded for the whole pattern.
 		return g.irParamPatternKind(p)
 	}
@@ -807,6 +807,9 @@ func (g *gen) irPatternHeadKind(pattern ast.Node) kind {
 	ep, ok := pattern.(*ast.EnumPattern)
 	if !ok {
 		return kindInvalid
+	}
+	if d := g.selfHeadDef(ep.Variant); d != nil {
+		return named(d)
 	}
 	owner, member, ok := g.patternHead(ep.Variant)
 

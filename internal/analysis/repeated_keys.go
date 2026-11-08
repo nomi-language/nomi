@@ -173,7 +173,7 @@ func (c *checker) constKey(n ast.Node) (canon, display string, ok bool) {
 			}
 			canons[i], displays[i] = ic, id
 		}
-		return "t(" + strings.Join(canons, ",") + ")", "#(" + strings.Join(displays, ", ") + ")", true
+		return "t(" + strings.Join(canons, ",") + ")", "(" + strings.Join(displays, ", ") + ")", true
 	case *ast.TypeIdent, *ast.FieldAccess, *ast.DotVariant:
 		// `True` and `False` are std's host types that Bool embeds.
 		if id, isIdent := v.(*ast.TypeIdent); isIdent && c.namesBoolSingleton(id) {

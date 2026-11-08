@@ -44,6 +44,15 @@ func (c *checker) noEqualityMessage(t Type, op string) string {
 
 // noEqualityPart answers the first part of t with no equality.
 func (c *checker) noEqualityPart(t Type, seen map[Type]bool) (Type, bool) {
+	return noEqualityPartWith(t, c.hasEquatableImpl, seen)
+}
+
+// noEqualityPartWith answers the first part of t with no equality, where
+// hasImpl reports whether a declared type carries its own `impl Equatable`.
+// It is the one definition of what `==` accepts, which the checker's
+// operators and the free conformance checks of bounds share
+// (structural_bounds.go).
+func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Type, bool) {
 	t = resolveTypeVar(t)
 	if t == nil || seen[t] {
 		return nil, false
@@ -51,6 +60,22 @@ func (c *checker) noEqualityPart(t Type, seen map[Type]bool) (Type, bool) {
 	seen[t] = true
 	if isStdHandleType(t) {
 		return t, true
+	}
+	among := func(ts []Type) (Type, bool) {
+		for _, t := range ts {
+			if part, ok := noEqualityPartWith(t, hasImpl, seen); ok {
+				return part, true
+			}
+		}
+		return nil, false
+	}
+	amongFields := func(fs []FieldDef) (Type, bool) {
+		for _, f := range fs {
+			if part, ok := noEqualityPartWith(f.Type, hasImpl, seen); ok {
+				return part, true
+			}
+		}
+		return nil, false
 	}
 	switch ty := t.(type) {
 	case *FuncType:
@@ -61,63 +86,45 @@ func (c *checker) noEqualityPart(t Type, seen map[Type]bool) (Type, bool) {
 		}
 		return nil, false
 	case *TupleType:
-		return c.noEqualityAmong(ty.Elems, seen)
+		return among(ty.Elems)
 	case *ListType:
-		return c.noEqualityPart(ty.Elem, seen)
+		return noEqualityPartWith(ty.Elem, hasImpl, seen)
 	case *MapType:
-		return c.noEqualityAmong([]Type{ty.Key, ty.Val}, seen)
+		return among([]Type{ty.Key, ty.Val})
 	case *AnonStructType:
-		return c.noEqualityAmongFields(ty.Fields, seen)
+		return amongFields(ty.Fields)
 	case *StructType:
 		// A type argument first: a generic type's equality, std's
 		// `Maybe<T>` and `List<T>` among them, compares its elements.
-		if part, ok := c.noEqualityAmong(ty.TypeArgs, seen); ok {
+		if part, ok := among(ty.TypeArgs); ok {
 			return part, true
 		}
-		if c.hasEquatableImpl(ty) {
+		if hasImpl(ty) {
 			return nil, false
 		}
-		return c.noEqualityAmongFields(ty.Fields, seen)
+		return amongFields(ty.Fields)
 	case *EnumType:
 		// A type argument first: a generic type's equality, std's
 		// `Maybe<T>` and `List<T>` among them, compares its elements.
-		if part, ok := c.noEqualityAmong(ty.TypeArgs, seen); ok {
+		if part, ok := among(ty.TypeArgs); ok {
 			return part, true
 		}
-		if c.hasEquatableImpl(ty) {
+		if hasImpl(ty) {
 			return nil, false
 		}
 		for _, v := range ty.Variants {
-			if part, ok := c.noEqualityPart(v.DataType, seen); ok {
+			if part, ok := noEqualityPartWith(v.DataType, hasImpl, seen); ok {
 				return part, true
 			}
-			if part, ok := c.noEqualityAmongFields(v.Fields, seen); ok {
+			if part, ok := amongFields(v.Fields); ok {
 				return part, true
 			}
 		}
 	case *DistinctType:
-		if c.hasEquatableImpl(ty) {
+		if hasImpl(ty) {
 			return nil, false
 		}
-		return c.noEqualityPart(ty.Inner, seen)
-	}
-	return nil, false
-}
-
-func (c *checker) noEqualityAmong(ts []Type, seen map[Type]bool) (Type, bool) {
-	for _, t := range ts {
-		if part, ok := c.noEqualityPart(t, seen); ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-func (c *checker) noEqualityAmongFields(fs []FieldDef, seen map[Type]bool) (Type, bool) {
-	for _, f := range fs {
-		if part, ok := c.noEqualityPart(f.Type, seen); ok {
-			return part, true
-		}
+		return noEqualityPartWith(ty.Inner, hasImpl, seen)
 	}
 	return nil, false
 }

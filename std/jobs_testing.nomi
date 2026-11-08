@@ -386,8 +386,8 @@ fn holds(stored: StoredJob, key: String) -> Bool {
 }
 
 // Highest priority first, then due first, then enqueued first.
-fn claim_order(job: StoredJob) -> #(Int, Int, Int) {
-    #(0 - job.priority, Instant.as_nanos(job.run_at), id_of(job.id))
+fn claim_order(job: StoredJob) -> (Int, Int, Int) {
+    (0 - job.priority, Instant.as_nanos(job.run_at), id_of(job.id))
 }
 
 /// One job `run_queued` ran: its id, kind and arguments, and what its
@@ -527,8 +527,8 @@ pub fn conformance(
     open: () -> Result<Opened, sql.Error>,
 ) -> List<Broken> {
     checks()
-    |> Iter.filter(fn #(rule, _) -> transactional or not Iter.contains(rolled_back_rules(), rule))
-    |> Iter.flat_map(fn #(rule, check) -> {
+    |> Iter.filter(fn (rule, _) -> transactional or not Iter.contains(rolled_back_rules(), rule))
+    |> Iter.flat_map(fn (rule, check) -> {
         outcome = case open() {
             Ok(opened) -> check(opened)
             Err(e) -> Err("cannot open a queue: ${e}")
@@ -547,7 +547,7 @@ pub fn conformance(
 //! assert Iter.contains(rules(), "two claims never take one job")
 //
 pub fn rules() -> List<String> {
-    checks() |> Iter.map(fn #(rule, _) -> rule) |> Iter.to_list()
+    checks() |> Iter.map(fn (rule, _) -> rule) |> Iter.to_list()
 }
 
 fn rolled_back_rule() -> String {
@@ -676,9 +676,9 @@ fn expire(o: Opened) -> Result<Int, String> {
     Queue.rescue(o.queue) |> Result.map_err(fn e -> "rescue: ${e}")
 }
 
-fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
+fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
     [
-        #(
+        (
             "a committed enqueue is claimable",
             fn o -> {
                 committed = sql.transaction(o.conn, fn tx -> jobs.enqueue(o.queue, tx, job(), 7))
@@ -708,7 +708,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             rolled_back_rule(),
             fn o -> {
                 rolled: Result<Unit, sql.Error> = sql.transaction(o.conn, fn tx -> {
@@ -720,14 +720,14 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 claims_none(o, "w1", "the enqueue was rolled back")
             },
         ),
-        #(
+        (
             "a job due later is not claimed",
             fn o -> {
                 _ = put_job(o, 1, run_at: Some(Instant.now() + Duration.hours(1)))?
                 claims_none(o, "w1", "the job is due in an hour")
             },
         ),
-        #(
+        (
             "jobs are claimed oldest first",
             fn o -> {
                 later = put_job(o, 1)?
@@ -741,7 +741,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "two claims never take one job",
             fn o -> {
                 a = put_job(o, 1)?
@@ -758,7 +758,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 claims_none(o, "w3", "both jobs are running")
             },
         ),
-        #(
+        (
             "two tasks claiming at once never take one job",
             fn o -> {
                 Iter.each(1..=10, fn n -> {
@@ -768,10 +768,10 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 ids = concurrent {
                     first = Task.spawn(fn -> claim(o, "w1", limit: 6))
                     second = Task.spawn(fn -> claim(o, "w2", limit: 6))
-                    #(Task.await(first), Task.await(second))
+                    (Task.await(first), Task.await(second))
                 }
 
-                #(one, two) = ids
+                (one, two) = ids
                 got = one? + two?
                 distinct = got |> Iter.map(&(&1.id)) |> Iter.to_set()
 
@@ -783,7 +783,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a completed job is not claimed again",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -797,7 +797,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 claims_none(o, "w1", "the job completed")
             },
         ),
-        #(
+        (
             "a retried job comes back with its attempt counted",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -811,7 +811,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a retry due later is not claimed",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -827,7 +827,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 claims_none(o, "w1", "the retry is due in an hour")
             },
         ),
-        #(
+        (
             "a snoozed job comes back without counting the attempt",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -837,7 +837,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 expect(again.attempt == 1, "attempt ${again.attempt} after a snooze, not 1")
             },
         ),
-        #(
+        (
             "a discarded job is never claimed",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -846,7 +846,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 claims_none(o, "w1", "the job was discarded")
             },
         ),
-        #(
+        (
             "a worker that does not hold a job cannot settle or renew it",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -867,7 +867,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 claims_none(o, "w3", "w1 still holds the job")
             },
         ),
-        #(
+        (
             "an expired lease is rescued",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -882,7 +882,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a late settle after a rescue changes nothing",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -898,7 +898,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 expect(settle(o, "w2", second, .Completed)?, "w2 could not settle the job it holds")
             },
         ),
-        #(
+        (
             "a rescue on the last attempt discards the job",
             fn o -> {
                 _ =
@@ -915,7 +915,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 claims_none(o, "w2", "the job used its one attempt")
             },
         ),
-        #(
+        (
             "release frees only its own worker's jobs",
             fn o -> {
                 _ = put_job(o, 1)?
@@ -932,7 +932,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "the queue and kind filters hold",
             fn o -> {
                 _ =
@@ -971,7 +971,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a higher priority is claimed first",
             fn o -> {
                 low = put_job(o, 1, run_at: Some(Instant.now() - Duration.minutes(1)))?
@@ -985,7 +985,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a duplicate unique enqueue stores nothing and answers the job it matched",
             fn o -> {
                 first = put_unique(o, 1, "k")?
@@ -1007,7 +1007,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a live unique key is held while the job runs and freed when it completes",
             fn o -> {
                 first = put_unique(o, 1, "k")?
@@ -1023,7 +1023,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a kept unique key stays held after the job is discarded",
             fn o -> {
                 _ = put_unique(o, 1, "k", across: .Kept)?
@@ -1037,16 +1037,16 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "two unique enqueues at once store one job",
             fn o -> {
                 both = concurrent {
                     first = Task.spawn(fn -> put_unique(o, 1, "k"))
                     second = Task.spawn(fn -> put_unique(o, 2, "k"))
-                    #(Task.await(first), Task.await(second))
+                    (Task.await(first), Task.await(second))
                 }
 
-                #(one, two) = both
+                (one, two) = both
                 a = one?
                 b = two?
 
@@ -1056,7 +1056,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             rolled_back_unique_rule(),
             fn o -> {
                 rolled: Result<Unit, sql.Error> = sql.transaction(o.conn, fn tx -> {
@@ -1069,7 +1069,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 expect(not again.duplicate, "a rolled-back enqueue held its unique key")
             },
         ),
-        #(
+        (
             "a tick is recorded and its job stored once",
             fn o -> {
                 expect(last_tick(o, "s")? == None, "a schedule with no tick recorded answered one")?
@@ -1077,8 +1077,8 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 first = record(o, "s", tick, Some(tick_job(tick)))?
                 second = record(o, "s", tick, Some(tick_job(tick)))?
 
-                case #(first, second) {
-                    #(Some(a), Some(b)) ->
+                case (first, second) {
+                    (Some(a), Some(b)) ->
                         expect(
                             not a.duplicate and b == Enqueued{id: a.id, duplicate: True},
                             "the second record_tick of one tick did not answer the first one's job as a duplicate",
@@ -1099,7 +1099,7 @@ fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "an earlier tick does not replace a later one",
             fn o -> {
                 later = a_tick()

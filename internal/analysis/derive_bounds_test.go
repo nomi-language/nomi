@@ -94,16 +94,17 @@ func errMsgs(errs []analysis.TypeError) string {
 
 // TestDeriveEquatableOnFieldWithoutImplErrors pins spec §12 *Derive*'s field-type requirement: a
 // `@derive Equatable struct Wrapper { id: User }` where `User` has no
-// Equatable impl errors at the derive declaration, naming the field and the
-// missing interface. Without this check the failure surfaces deep in
-// runtime dispatch with an unhelpful synth-band position.
+// Equatable impl and no equality (it holds a function) errors at the
+// derive declaration, naming the field and the missing interface. Without
+// this check the failure surfaces deep in runtime dispatch with an
+// unhelpful synth-band position.
 //
 // CheckDeriveBounds records the derive-gap into ImplManifest and
 // defers the diagnostic to DetectMissingImpls (via FinalizeCoherence)
 // — the richer message names the interface, the receiver type, and
 // the offending field via DeriveCtx provenance.
 func TestDeriveEquatableOnFieldWithoutImplErrors(t *testing.T) {
-	src := `struct User { id: Int }
+	src := `struct User { id: Int, f: (Int) -> Int }
 
 struct Wrapper {
   id: User
@@ -119,12 +120,98 @@ derive Equatable for Wrapper`
 	}
 }
 
+// A field whose type has equality and no impl of its own meets a derived
+// Equatable or Hashable, as it meets a bound (spec §5 *Equality bounds*): a
+// struct, an enum payload, a distinct type's inner type, a container of
+// one and a generic type over one.
+func TestDeriveOverAFieldWithEqualityIsAccepted(t *testing.T) {
+	const decls = `struct User { id: Int }
+
+enum Kind {
+  A User
+  B
+}
+
+type Id User
+
+struct Box<T> { v: T }
+`
+	for _, iface := range []string{"Equatable", "Hashable"} {
+		for _, field := range []string{"User", "Kind", "Id", "List<User>", "Box<User>", "Maybe<Kind>", "(Int, User)"} {
+			src := decls + "\nstruct W {\n  f: " + field + "\n}\nderive " + iface + " for W\n"
+			fa := buildWithStdlibForDerive(src)
+			if len(fa.TypeErrors) != 0 {
+				t.Errorf("derive %s over %s: the front end rejects this:\n  %s", iface, field, errMsgs(fa.TypeErrors))
+			}
+		}
+	}
+}
+
+// A field of a tuple or anonymous struct type implements Equatable,
+// Hashable and Display only when each part does (and Comparable, for a
+// tuple), so a derive checks each part, as it checks a field of type P or
+// List<P>. A Map key or Set element needs no impl (spec §5 *Hashing and
+// keys*), so `%{p => 1}` beside the derive is no error. For Equatable and
+// Hashable a part of a declared type meets the interface by its equality
+// (spec §5 *Equality bounds*), so only a P holding a function is refused.
+func TestDeriveChecksEachPartOfATupleOrAnonymousStructField(t *testing.T) {
+	const plain = "struct P {\n    x: Int\n}\n\n"
+	const holdsFn = "struct P {\n    f: (Int) -> Int\n}\n\n"
+	for _, tc := range []struct {
+		iface, field string
+		ok           bool
+	}{
+		{"Hashable", "(Int, P)", false},
+		{"Equatable", "(Int, P)", false},
+		{"Comparable", "(Int, P)", false},
+		{"Display", "(Int, P)", false},
+		{"Hashable", "#{a: Int, p: P}", false},
+		{"Equatable", "#{a: Int, p: (P, Int)}", false},
+		{"Hashable", "(Int, String)", true},
+		{"Equatable", "#{a: Int, b: (String, Int)}", true},
+	} {
+		p, keys := plain, "\nfn keys(p: P) -> Map<P, Int> {\n    %{p => 1}\n}\n"
+		help := "add `derive " + tc.iface + "` to `P` or write an `impl " + tc.iface + " for P` block"
+		byEquality := tc.iface == "Equatable" || tc.iface == "Hashable"
+		if byEquality && !tc.ok {
+			p, keys = holdsFn, ""
+			help = "`P` holds a function, an Iter or a handle to running state, which has no equality; write an `impl " + tc.iface + " for P` block that leaves it out"
+		}
+		src := p + "struct W {\n    f: " + tc.field + "\n}\n\nderive " + tc.iface + " for W\n" + keys
+		fa := buildWithStdlibForDerive(src)
+		if tc.ok {
+			if len(fa.TypeErrors) != 0 {
+				t.Errorf("derive %s over %s: unexpected errors:\n  %s", tc.iface, tc.field, errMsgs(fa.TypeErrors))
+			}
+			continue
+		}
+		if byEquality {
+			// The same derive over a P with equality is accepted.
+			if accepted := buildWithStdlibForDerive(plain + "struct W {\n    f: " + tc.field + "\n}\n\nderive " + tc.iface + " for W\n"); len(accepted.TypeErrors) != 0 {
+				t.Errorf("derive %s over %s of a P with equality: unexpected errors:\n  %s", tc.iface, tc.field, errMsgs(accepted.TypeErrors))
+			}
+		}
+		want := "no impl of `" + tc.iface + "` for `P` (required via `derive " + tc.iface + " for W`, field `f`)\nhelp: " + help
+		if len(fa.TypeErrors) == 0 {
+			t.Errorf("derive %s over %s: the front end accepts this; want %q", tc.iface, tc.field, want)
+			continue
+		}
+		if len(fa.TypeErrors) != 1 || diagText(fa.TypeErrors[0]) != want {
+			t.Errorf("derive %s over %s: want the one error %q, got:\n  %s", tc.iface, tc.field, want, errMsgs(fa.TypeErrors))
+			continue
+		}
+		if e := fa.TypeErrors[0]; e.Line != 6 || e.Col != 5 {
+			t.Errorf("derive %s over %s: the error is at %d:%d, want the field at 6:5", tc.iface, tc.field, e.Line, e.Col)
+		}
+	}
+}
+
 // TestDeriveOnEnumPayloadWithoutImplErrors pins the enum-payload variant:
 // `@derive Equatable enum E { V(NoImpl) }` reports the missing impl on
 // the variant payload's type. The DeriveCtx FieldName carries the
 // variant name so the user knows which variant to fix.
 func TestDeriveOnEnumPayloadWithoutImplErrors(t *testing.T) {
-	src := `struct NoImpl { x: Int }
+	src := `struct NoImpl { x: Int, f: (Int) -> Int }
 
 enum E {
   V NoImpl
@@ -148,7 +235,7 @@ derive Equatable for E`
 // Equatable impl errors at the derive declaration, naming the inner type
 // via DeriveCtx provenance on the missing-impl diagnostic.
 func TestDeriveOnDistinctInnerWithoutImplErrors(t *testing.T) {
-	src := `struct NoImpl { x: Int }
+	src := `struct NoImpl { x: Int, f: (Int) -> Int }
 
 type W NoImpl
 derive Equatable for W`

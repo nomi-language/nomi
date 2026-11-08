@@ -11,7 +11,7 @@ import (
 // { ... }`) puts the owner's type parameters in scope, but a function of the
 // block is generic over one only when its signature names it. A function
 // whose signature names no block parameter (`fn seven() -> Int`, `fn
-// twice<U>(x: U) -> #(U, U)`, or `fn find<T>(...)`, whose own `T` shadows the
+// twice<U>(x: U) -> (U, U)`, or `fn find<T>(...)`, whose own `T` shadows the
 // block's) is compiled once, without that parameter. Its body therefore
 // cannot name it: no call determines it.
 //

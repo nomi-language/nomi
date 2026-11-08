@@ -15,7 +15,7 @@ fn board_size(cells: shapes.Board) -> Int {
 
 // An imported alias whose target names `Cell`, which this file never imports.
 fn weight(cells: Board) -> Int {
-    Iter.reduce(cells, 0, fn sum: Int, #(x, y) -> sum + x * y)
+    Iter.reduce(cells, 0, fn sum: Int, (x, y) -> sum + x * y)
 }
 
 // A qualified alias over a struct the declaring file owns.
@@ -24,7 +24,7 @@ fn total_x(points: shapes.Points) -> Int {
 }
 
 fn main() {
-    cells = %[#(1, 2), #(3, 4)]
+    cells = %[(1, 2), (3, 4)]
     io.print(flat_size(cells))
     io.print(board_size(cells))
     io.print(weight(cells))

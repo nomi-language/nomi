@@ -49,9 +49,7 @@ fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) ->
 //! assert types.of("DECIMAL(12, 2)") |> Maybe.map(fn f -> f.nomi) == Some("Decimal")
 //! assert types.of("DATE") |> Maybe.map(fn f -> f.nomi) == Some("Date")
 //!
-//! assert types.of("UUID[]") |> Maybe.map(fn f -> #(f.reader, f.nomi)) == Some(
-//!     #("value", "List<Uuid>")
-//! )
+//! assert types.of("UUID[]") |> Maybe.map(fn f -> (f.reader, f.nomi)) == Some(("value", "List<Uuid>"))
 //!
 //! assert types.of("") == None
 //
@@ -135,15 +133,15 @@ pub fn of(declared: String) -> Maybe<Family> {
 //! assert types.scale("INTEGER") == None
 //
 pub fn scale(declared: String) -> Maybe<Int> {
-    precision_and_scale(declared) |> Maybe.map(fn #(_, s) -> s)
+    precision_and_scale(declared) |> Maybe.map(fn (_, s) -> s)
 }
 
 /// The precision and scale of a declared `DECIMAL(p, s)` or `NUMERIC(p, s)`
 /// type (`DECIMAL(p)` has scale 0), or `None`.
-//! assert types.precision_and_scale("DECIMAL(12, 2)") == Some(#(12, 2))
+//! assert types.precision_and_scale("DECIMAL(12, 2)") == Some((12, 2))
 //! assert types.precision_and_scale("NUMERIC") == None
 //
-pub fn precision_and_scale(declared: String) -> Maybe<#(Int, Int)> {
+pub fn precision_and_scale(declared: String) -> Maybe<(Int, Int)> {
     upper = declared |> String.uppercase() |> String.trim()
 
     case String.split(upper, "(") {
@@ -156,8 +154,8 @@ pub fn precision_and_scale(declared: String) -> Maybe<#(Int, Int)> {
                 |> Iter.to_list()
 
             case numbers {
-                [Some(p)] -> Some(#(p, 0))
-                [Some(p), Some(s)] -> Some(#(p, s))
+                [Some(p)] -> Some((p, 0))
+                [Some(p), Some(s)] -> Some((p, s))
                 _ -> None
             }
         }

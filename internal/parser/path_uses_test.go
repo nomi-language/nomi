@@ -27,7 +27,7 @@ fn show(u: admin::users.Row) -> String {
 fn main() {
     import jobs
 
-    _ = #(admin::users.index([]), store::posts.Post{id: 1}, jobs::mail.send())
+    _ = (admin::users.index([]), store::posts.Post{id: 1}, jobs::mail.send())
 }
 
 fn other() {

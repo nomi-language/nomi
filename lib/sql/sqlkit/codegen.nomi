@@ -67,7 +67,7 @@ fn problem_at(query: Query, line: Int, col: Int, message: String, hints: List<St
 }
 
 fn at_token(query: Query, token: Token, message: String, hints: List<String>) -> Problem {
-    #(line, col) = queryfile.place(query, token.start)
+    (line, col) = queryfile.place(query, token.start)
     problem_at(query, line, col, message, hints)
 }
 
@@ -90,15 +90,15 @@ pub fn header(sources: String, digest: String) -> String {
 
 // text as `//` comment lines of at most 76 characters of text each.
 fn wrap(text: String) -> String {
-    #(lines, last) = Iter.reduce(String.split(text, " "), #([], ""), fn acc, word -> {
-        #(lines, line) = acc
+    (lines, last) = Iter.reduce(String.split(text, " "), ([], ""), fn acc, word -> {
+        (lines, line) = acc
 
         if line == "" {
-            #(lines, word)
+            (lines, word)
         } else if String.length(line) + 1 + String.length(word) > 76 {
-            #([line, ..lines], word)
+            ([line, ..lines], word)
         } else {
-            #(lines, "${line} ${word}")
+            (lines, "${line} ${word}")
         }
     })
 
@@ -170,8 +170,8 @@ pub fn import_block(imports: Map<String, Set<String>>) -> String {
     }
 }
 
-fn imports_of(entries: List<#(String, String)>) -> Map<String, Set<String>> {
-    Iter.reduce(entries, %{}, fn acc: Map<String, Set<String>>, #(path, name) -> {
+fn imports_of(entries: List<(String, String)>) -> Map<String, Set<String>> {
+    Iter.reduce(entries, %{}, fn acc: Map<String, Set<String>>, (path, name) -> {
         names = Map.get(acc, path) |> Maybe.with_default(%[])
         Map.put(acc, path, Set.insert(names, name))
     })
@@ -179,11 +179,11 @@ fn imports_of(entries: List<#(String, String)>) -> Map<String, Set<String>> {
 
 /// The module path and the names an import entry as written imports:
 /// `shop.Report`, `std::calendar.{Date, Time}`, `shop` (the module).
-//! assert codegen.entry("shop.Report") == #("shop", ["Report"])
-//! assert codegen.entry("std::calendar.{Date, Time}") == #("std::calendar", ["Date", "Time"])
-//! assert codegen.entry("shop") == #("shop", ["self"])
+//! assert codegen.entry("shop.Report") == ("shop", ["Report"])
+//! assert codegen.entry("std::calendar.{Date, Time}") == ("std::calendar", ["Date", "Time"])
+//! assert codegen.entry("shop") == ("shop", ["self"])
 //
-pub fn entry(text: String) -> #(String, List<String>) {
+pub fn entry(text: String) -> (String, List<String>) {
     segments = String.split(text, "::") |> Iter.to_list()
     last = Iter.last(segments) |> Maybe.with_default("")
 
@@ -195,7 +195,7 @@ pub fn entry(text: String) -> #(String, List<String>) {
 
     case String.split(last, ".") |> Iter.to_list() {
         [module] ->
-            #(dir + module, ["self"])
+            (dir + module, ["self"])
 
         [module, ..rest] -> {
             items = String.join(rest, ".") |> sqltext.cut_prefix("{") |> sqltext.cut_suffix("}")
@@ -206,11 +206,11 @@ pub fn entry(text: String) -> #(String, List<String>) {
                 |> Iter.filter(fn n -> n != "")
                 |> Iter.to_list()
 
-            #(dir + module, names)
+            (dir + module, names)
         }
 
         [] ->
-            #(text, ["self"])
+            (text, ["self"])
     }
 }
 
@@ -218,7 +218,7 @@ pub fn entry(text: String) -> #(String, List<String>) {
 /// The schema of db's tables: each table's row struct, or what is wrong
 /// with the names `[sqlkit.database.<name>.tables]` gives.
 pub fn schema(db: Database, tables: List<Table>, module: String) -> Result<Schema, List<Problem>> {
-    names = tables |> Iter.map(fn t -> #(t.name, row_name(db, t.name))) |> Iter.to_list()
+    names = tables |> Iter.map(fn t -> (t.name, row_name(db, t.name))) |> Iter.to_list()
     section = "[sqlkit.database.${db.name}.tables]"
 
     toml = fn message: String, hints: List<String> -> {
@@ -267,11 +267,11 @@ pub fn schema(db: Database, tables: List<Table>, module: String) -> Result<Schem
     clashes =
         names
         |> Iter.with_index()
-        |> Iter.flat_map(fn #(i, #(table, row)) -> {
-            earlier = names |> Iter.take(i) |> Iter.find(fn #(_, r) -> r == row)
+        |> Iter.flat_map(fn (i, (table, row)) -> {
+            earlier = names |> Iter.take(i) |> Iter.find(fn (_, r) -> r == row)
 
             case earlier {
-                Some(#(other, _)) ->
+                Some((other, _)) ->
                     [
                         toml(
                             "the tables `${other}` and `${table}` both have the row struct `${row}`",
@@ -320,7 +320,7 @@ fn is_enum_column(c: TableColumn) -> Bool {
 }
 
 /// The schema file: the row structs, the enums and the migrations.
-pub fn schema_file(s: Schema, migrations: List<#(String, String)>, digest: String) -> String {
+pub fn schema_file(s: Schema, migrations: List<(String, String)>, digest: String) -> String {
     columns = s.tables |> Iter.flat_map(fn t -> t.columns) |> Iter.to_list()
     any_enum = Iter.any(columns, is_enum_column)
 
@@ -335,11 +335,11 @@ pub fn schema_file(s: Schema, migrations: List<#(String, String)>, digest: Strin
         |> Iter.flat_map(fn f -> {
             // The names a family's type mentions that its module declares:
             // `Uuid` of `List<Uuid>`.
-            case f |> Maybe.flat_map(fn x -> x.module |> Maybe.map(fn m -> #(m, x.nomi))) {
-                Some(#(m, nomi)) ->
+            case f |> Maybe.flat_map(fn x -> x.module |> Maybe.map(fn m -> (m, x.nomi))) {
+                Some((m, nomi)) ->
                     type_names(nomi)
                     |> Iter.reject(&Iter.contains(prelude, &1))
-                    |> Iter.map(fn n -> #(m, n))
+                    |> Iter.map(fn n -> (m, n))
                     |> Iter.to_list()
 
                 None ->
@@ -351,11 +351,11 @@ pub fn schema_file(s: Schema, migrations: List<#(String, String)>, digest: Strin
     sql_value = Iter.any(plain, fn f -> f == None)
 
     base = if any_enum {
-        [#("sqlkit", "self"), #("sqlkit::runtime", "self"), #("std::sql", "self")]
+        [("sqlkit", "self"), ("sqlkit::runtime", "self"), ("std::sql", "self")]
     } else if sql_value {
-        [#("sqlkit", "self"), #("std::sql", "self")]
+        [("sqlkit", "self"), ("std::sql", "self")]
     } else {
-        [#("sqlkit", "self")]
+        [("sqlkit", "self")]
     }
 
     structs = s.tables |> Iter.map(fn t -> table_source(s, t)) |> String.join()
@@ -369,7 +369,7 @@ pub fn schema_file(s: Schema, migrations: List<#(String, String)>, digest: Strin
         })
         |> String.join()
 
-    list = migrations |> Iter.map(fn #(path, text) -> migration_source(path, text)) |> String.join()
+    list = migrations |> Iter.map(fn (path, text) -> migration_source(path, text)) |> String.join()
 
     header(migrations_source(s.db), digest) + import_block(
         imports_of(base + family_imports)
@@ -446,21 +446,21 @@ pub fn queries_file(
     explicit =
         file.imports
         |> Iter.flat_map(fn e -> {
-            #(path, names) = entry(e)
-            names |> Iter.map(fn n -> #(path, n))
+            (path, names) = entry(e)
+            names |> Iter.map(fn n -> (path, n))
         })
         |> Iter.to_list()
 
     imported =
         explicit
-        |> Iter.filter(fn #(_, n) -> n != "self")
-        |> Iter.map(fn #(path, n) -> #(used_as(n), #(path, n)))
+        |> Iter.filter(fn (_, n) -> n != "self")
+        |> Iter.map(fn (path, n) -> (used_as(n), (path, n)))
         |> Iter.to_map()
 
     modules =
         explicit
-        |> Iter.filter(fn #(_, n) -> n == "self")
-        |> Iter.map(fn #(path, _) -> #(last_segment(path), path))
+        |> Iter.filter(fn (_, n) -> n == "self")
+        |> Iter.map(fn (path, _) -> (last_segment(path), path))
         |> Iter.to_map()
 
     resolver = Resolver{
@@ -475,7 +475,7 @@ pub fn queries_file(
 
     results =
         Iter.zip(file.queries, described)
-        |> Iter.map(fn #(q, d) -> function(s, resolver, q, d))
+        |> Iter.map(fn (q, d) -> function(s, resolver, q, d))
         |> Iter.to_list()
 
     problems =
@@ -503,7 +503,7 @@ pub fn queries_file(
     // An `-- import:` no signature uses is left out, since an unused
     // import is an error.
     needs = made |> Iter.flat_map(fn m -> m.imports) |> Iter.to_list()
-    base = [#("std::sql", "self"), #("sqlkit::runtime", "self")]
+    base = [("std::sql", "self"), ("sqlkit::runtime", "self")]
     imports = imports_of(base + needs)
     functions = made |> Iter.map(fn m -> "\n" + m.text) |> String.join()
 
@@ -521,8 +521,8 @@ pub fn queries_file(
 struct Resolver {
     // Each type the file imports, by the name it is used as, with the
     // module path and the name as the import entry writes it: `Post` from
-    // `-- import: models.{Post}` is `#("models", "Post")`.
-    imported: Map<String, #(String, String)>
+    // `-- import: models.{Post}` is `("models", "Post")`.
+    imported: Map<String, (String, String)>
 
     // Each module the file imports itself, by its last segment.
     modules: Map<String, String>
@@ -557,7 +557,7 @@ pub fn last_segment(path: String) -> String {
 /// A generated function and the imports it needs.
 struct Made {
     text: String
-    imports: List<#(String, String)>
+    imports: List<(String, String)>
 }
 
 // The names the prelude gives every file.
@@ -604,7 +604,7 @@ pub fn type_names(text: String) -> List<String> {
 
     solid
     |> Iter.with_index()
-    |> Iter.flat_map(fn #(i, t) -> {
+    |> Iter.flat_map(fn (i, t) -> {
         before = if i == 0 {
             ""
         } else {
@@ -624,15 +624,15 @@ pub fn type_names(text: String) -> List<String> {
 }
 
 /// The qualified type names a type as written names, each as its module's
-/// name and the type's: `Maybe<schema.Post>` names `#("schema", "Post")`.
+/// name and the type's: `Maybe<schema.Post>` names `("schema", "Post")`.
 //! assert codegen.qualified_names("Map<sql.Value, List<schema.Post>>") == [
-//!     #("sql", "Value"),
-//!     #("schema", "Post"),
+//!     ("sql", "Value"),
+//!     ("schema", "Post"),
 //! ]
 //!
 //! assert codegen.qualified_names("Post") == []
 //
-pub fn qualified_names(text: String) -> List<#(String, String)> {
+pub fn qualified_names(text: String) -> List<(String, String)> {
     solid =
         sqltext.tokens(text)
         |> Iter.filter(fn t -> t.kind != sqltext.Kind.Space)
@@ -640,13 +640,13 @@ pub fn qualified_names(text: String) -> List<#(String, String)> {
 
     solid
     |> Iter.with_index()
-    |> Iter.flat_map(fn #(i, t) -> {
+    |> Iter.flat_map(fn (i, t) -> {
         module = text_at(solid, i - 2)
 
         if text_at(solid, i - 1) == "."
             and t.kind == sqltext.Kind.Word
             and sqltext.is_name(module) {
-            [#(module, t.text)]
+            [(module, t.text)]
         } else {
             []
         }
@@ -664,7 +664,7 @@ fn text_at(tokens: Vector<Token>, i: Int) -> String {
 // The imports the types in `text` need, or what is wrong with the first
 // type nothing gives, as a message and its hints. A name the file imports
 // is the imported type, before a type of the schema of that name.
-fn resolve(r: Resolver, text: String) -> Result<List<#(String, String)>, #(String, List<String>)> {
+fn resolve(r: Resolver, text: String) -> Result<List<(String, String)>, (String, List<String>)> {
     bare =
         type_names(text)
         |> Iter.reject(&Iter.contains(prelude, &1))
@@ -675,15 +675,15 @@ fn resolve(r: Resolver, text: String) -> Result<List<#(String, String)>, #(Strin
 
                 None ->
                     if Iter.contains(r.schema, n) {
-                        Ok(#(r.schema_module, n))
+                        Ok((r.schema_module, n))
                     } else {
                         case Map.get(std_types, n) {
                             Some(m) ->
-                                Ok(#(m, n))
+                                Ok((m, n))
 
                             None ->
                                 Err(
-                                    #(
+                                    (
                                         "`${n}` is not a type of the schema, the prelude or std",
                                         [
                                             "import it at the top of the file: `-- import: path::to::file.${n}`",
@@ -695,7 +695,7 @@ fn resolve(r: Resolver, text: String) -> Result<List<#(String, String)>, #(Strin
             }
         })
 
-    qualified = qualified_names(text) |> Iter.map(fn #(m, n) -> qualified_import(r, m, n))
+    qualified = qualified_names(text) |> Iter.map(fn (m, n) -> qualified_import(r, m, n))
     bare |> Iter.concat(qualified) |> Result.collect()
 }
 
@@ -705,12 +705,12 @@ fn qualified_import(
     r: Resolver,
     module: String,
     name: String,
-) -> Result<#(String, String), #(String, List<String>)> {
+) -> Result<(String, String), (String, List<String>)> {
     if module == r.qualifier {
-        if Iter.contains(r.schema, name) { return Ok(#(r.schema_module, "self")) }
+        if Iter.contains(r.schema, name) { return Ok((r.schema_module, "self")) }
 
         return Err(
-            #(
+            (
                 "`${module}.${name}` is not a type of the schema",
                 [
                     "the schema's types are each table's row struct and each `CHECK (column IN (...))` enum: ${r.schema
@@ -721,15 +721,15 @@ fn qualified_import(
         )
     }
 
-    case #(Map.get(r.modules, module), module) {
-        #(Some(path), _) ->
-            Ok(#(path, "self"))
+    case (Map.get(r.modules, module), module) {
+        (Some(path), _) ->
+            Ok((path, "self"))
 
-        #(None, "sql") ->
-            Ok(#("std::sql", "self"))
+        (None, "sql") ->
+            Ok(("std::sql", "self"))
 
-        #(None, "sqlkit") ->
-            Ok(#("sqlkit", "self"))
+        (None, "sqlkit") ->
+            Ok(("sqlkit", "self"))
 
         _ -> {
             hint = if Iter.contains(r.schema, name) {
@@ -738,7 +738,7 @@ fn qualified_import(
                 "import it at the top of the file: `-- import: path::to::${module}`"
             }
 
-            Err(#("`${module}` in `${module}.${name}` is not a module the file imports", [hint]))
+            Err(("`${module}` in `${module}.${name}` is not a module the file imports", [hint]))
         }
     }
 }
@@ -747,11 +747,11 @@ fn qualified_import(
 /// or std that an import of the file shadows qualified by its module, and
 /// the imports it needs: with `Instant` imported from elsewhere, std's is
 /// `instant.Instant`.
-fn generated(r: Resolver, text: String) -> #(String, List<#(String, String)>) {
+fn generated(r: Resolver, text: String) -> (String, List<(String, String)>) {
     solid = sqltext.tokens(text) |> Iter.to_vector()
 
-    #(parts, imports) = Iter.reduce(Iter.with_index(solid), #([], []), fn acc, #(i, t) -> {
-        #(parts, imports) = acc
+    (parts, imports) = Iter.reduce(Iter.with_index(solid), ([], []), fn acc, (i, t) -> {
+        (parts, imports) = acc
 
         module = if Iter.contains(r.schema, t.text) {
             Some(r.schema_module)
@@ -762,21 +762,21 @@ fn generated(r: Resolver, text: String) -> #(String, List<#(String, String)>) {
         case module {
             Some(m) when t.kind == sqltext.Kind.Word and text_at(solid, i - 1) != "." ->
                 if Maybe.is_none(Map.get(r.imported, t.text)) {
-                    #([t.text, ..parts], [#(m, t.text), ..imports])
+                    ([t.text, ..parts], [(m, t.text), ..imports])
                 } else {
-                    #(["${last_segment(m)}.${t.text}", ..parts], [#(m, "self"), ..imports])
+                    (["${last_segment(m)}.${t.text}", ..parts], [(m, "self"), ..imports])
                 }
 
             _ ->
-                #([t.text, ..parts], imports)
+                ([t.text, ..parts], imports)
         }
     })
 
-    #(parts |> Iter.reverse() |> String.join(), imports)
+    (parts |> Iter.reverse() |> String.join(), imports)
 }
 
-fn unresolved(q: Query, col: Int, found: #(String, List<String>)) -> Problem {
-    at_annotation(q, col, found.0, found.1)
+fn unresolved(q: Query, col: Int, found: (String, List<String>)) -> Problem {
+    at_annotation(q, col, found.first, found.second)
 }
 
 // The function a query generates, or what is wrong with it.
@@ -790,7 +790,7 @@ fn function(
     markers = sqltext.markers(tokens)
     marker_problems = check_markers(q, markers, sqltext.interpolations(tokens))
 
-    #(shape, row) = case shape_of(r, q) {
+    (shape, row) = case shape_of(r, q) {
         Ok(found) -> found
         Err(p) -> return Err([p, ..marker_problems])
     }
@@ -851,12 +851,12 @@ fn function(
         Err(p) -> return Err([p])
     }
 
-    #(fields, field_imports, problems) = fields_of(s, r, q, tokens, columns, row == None)
+    (fields, field_imports, problems) = fields_of(s, r, q, tokens, columns, row == None)
 
     if not Iter.is_empty(problems) { return Err(problems) }
 
-    case #(row, fields) {
-        #(Some(t), [only]) when scalar -> {
+    case (row, fields) {
+        (Some(t), [only]) when scalar -> {
             case nullability_problem(q, final_shape, t, only) {
                 Some(p) ->
                     return Err([p])
@@ -869,7 +869,7 @@ fn function(
     }
 
     shape_imports = if final_shape is (.Stream or .Changed) {
-        [#("sqlkit", "self")]
+        [("sqlkit", "self")]
     } else {
         []
     }
@@ -904,13 +904,13 @@ fn function(
 fn shadowing(r: Resolver, row: Maybe<String>) -> String {
     case row {
         Some(name) ->
-            case #(
+            case (
                 Map.get(r.imported, name),
                 Map.keys(r.rows)
                 |> Iter.sort()
                 |> Iter.find(fn t -> Map.get(r.rows, t) == Some(name)),
             ) {
-                #(Some(#(path, entry_name)), Some(table)) -> {
+                (Some((path, entry_name)), Some(table)) -> {
                     imported =
                         String.split(entry_name, " as ")
                         |> Iter.first()
@@ -998,26 +998,26 @@ fn interpolated_name(text: String) -> String {
 }
 
 /// The shape the declared result type names, and its row type.
-fn shape_of(r: Resolver, q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
+fn shape_of(r: Resolver, q: Query) -> Result<(Shape, Maybe<String>), Problem> {
     case q.result {
         None ->
-            Ok(#(Shape.Many, None))
+            Ok((Shape.Many, None))
 
         Some(text) -> {
-            if text == "Unit" { return Ok(#(Shape.Ignored, None)) }
+            if text == "Unit" { return Ok((Shape.Ignored, None)) }
 
-            if text == "Changed" or text == "sqlkit.Changed" { return Ok(#(Shape.Changed, None)) }
+            if text == "Changed" or text == "sqlkit.Changed" { return Ok((Shape.Changed, None)) }
 
-            #(shape, inner, wrapper) = if is_wrapped(text, "Maybe") {
-                #(Shape.Optional, unwrap(text, "Maybe"), "Maybe")
+            (shape, inner, wrapper) = if is_wrapped(text, "Maybe") {
+                (Shape.Optional, unwrap(text, "Maybe"), "Maybe")
             } else if is_wrapped(text, "List") {
-                #(Shape.Many, unwrap(text, "List"), "List")
+                (Shape.Many, unwrap(text, "List"), "List")
             } else if is_wrapped(text, "Rows") {
-                #(Shape.Stream, unwrap(text, "Rows"), "Rows")
+                (Shape.Stream, unwrap(text, "Rows"), "Rows")
             } else if Iter.contains(["Maybe", "List", "Rows"], text) {
-                #(Shape.One, "", text)
+                (Shape.One, "", text)
             } else {
-                #(Shape.One, text, "")
+                (Shape.One, text, "")
             }
 
             if inner == "" {
@@ -1055,7 +1055,7 @@ fn shape_of(r: Resolver, q: Query) -> Result<#(Shape, Maybe<String>), Problem> {
                 )
             }
 
-            Ok(#(shape, Some(inner)))
+            Ok((shape, Some(inner)))
         }
     }
 }
@@ -1167,8 +1167,8 @@ fn described_shape(
     rows_hint = "name their type, `-> List<MyRow>`, or leave the result type out to read them as anonymous structs"
     result_col = if q.result == None { 1 } else { q.result_col }
 
-    case #(shape, row, Iter.is_empty(columns)) {
-        #(.Many, None, True) ->
+    case (shape, row, Iter.is_empty(columns)) {
+        (.Many, None, True) ->
             Err(
                 at_annotation(
                     q,
@@ -1178,7 +1178,7 @@ fn described_shape(
                 )
             )
 
-        #(.Ignored, _, False) ->
+        (.Ignored, _, False) ->
             Err(
                 at_annotation(
                     q,
@@ -1188,7 +1188,7 @@ fn described_shape(
                 )
             )
 
-        #(.Changed, _, False) ->
+        (.Changed, _, False) ->
             Err(
                 at_annotation(
                     q,
@@ -1198,7 +1198,7 @@ fn described_shape(
                 )
             )
 
-        #(.One, Some("Int"), True) ->
+        (.One, Some("Int"), True) ->
             Err(
                 at_annotation(
                     q,
@@ -1208,7 +1208,7 @@ fn described_shape(
                 )
             )
 
-        #(_, Some(_), True) ->
+        (_, Some(_), True) ->
             Err(
                 at_annotation(
                     q,
@@ -1218,7 +1218,7 @@ fn described_shape(
                 )
             )
 
-        #(_, Some(t), False) when scalar and Iter.count(columns) != 1 ->
+        (_, Some(t), False) when scalar and Iter.count(columns) != 1 ->
             Err(
                 at_annotation(
                     q,
@@ -1232,7 +1232,7 @@ fn described_shape(
                 )
             )
 
-        #(found, _, _) ->
+        (found, _, _) ->
             Ok(found)
     }
 }
@@ -1246,18 +1246,18 @@ fn fields_of(
     tokens: List<Token>,
     columns: List<Column>,
     anonymous: Bool,
-) -> #(List<Field>, List<#(String, String)>, List<Problem>) {
+) -> (List<Field>, List<(String, String)>, List<Problem>) {
     items = sqltext.select_items(tokens) |> Iter.to_vector()
     overrides = sqltext.overrides(tokens)
     one_item_per_column = Vector.length(items) == Iter.count(columns)
 
-    #(fields, imports, problems, _) = Iter.reduce(Iter.with_index(columns), #(
+    (fields, imports, problems, _) = Iter.reduce(Iter.with_index(columns), (
         [],
         [],
         [],
         [],
-    ), fn acc, #(position, column) -> {
-        #(fields, imports, problems, seen) = acc
+    ), fn acc, (position, column) -> {
+        (fields, imports, problems, seen) = acc
 
         at = fn message: String, hints: List<String> -> {
             item = if one_item_per_column {
@@ -1280,7 +1280,7 @@ fn fields_of(
                 ["name it with `AS`: `${column.name} AS \"total\"`"],
             )
 
-            return #(fields, imports, [problem, ..problems], seen)
+            return (fields, imports, [problem, ..problems], seen)
         }
 
         if Iter.contains(seen, column.name) {
@@ -1289,12 +1289,12 @@ fn fields_of(
                 ["rename one with `AS`"],
             )
 
-            return #(fields, imports, [problem, ..problems], seen)
+            return (fields, imports, [problem, ..problems], seen)
         }
 
-        #(field, needs, problem) = field_of(s, r, q, column, position, override, anonymous, at)
+        (field, needs, problem) = field_of(s, r, q, column, position, override, anonymous, at)
 
-        #(
+        (
             [field, ..fields],
             needs + imports,
             sqltext.listed(problem) + problems,
@@ -1302,7 +1302,7 @@ fn fields_of(
         )
     })
 
-    #(Iter.reverse(fields), imports, Iter.reverse(problems))
+    (Iter.reverse(fields), imports, Iter.reverse(problems))
 }
 
 fn field_of(
@@ -1314,7 +1314,7 @@ fn field_of(
     override: Maybe<Override>,
     anonymous: Bool,
     at: (String, List<String>) -> Problem,
-) -> #(Field, List<#(String, String)>, Maybe<Problem>) {
+) -> (Field, List<(String, String)>, Maybe<Problem>) {
     nullable = override |> Maybe.flat_map(fn o -> o.nullable) |> Maybe.with_default(column.nullable)
     type_override = override |> Maybe.flat_map(fn o -> o.type_text)
     enum_name = enum_of(s, column)
@@ -1327,28 +1327,28 @@ fn field_of(
 
     scale = types.scale(column.type_name)
 
-    #(reader, args) = case #(type_override, family, scale) {
-        #(Some(_), _, _) -> #("value", "")
-        #(None, Some(f), Some(n)) when f.reader == "numeric" -> #("numeric_scaled", ", ${n}")
-        #(None, Some(f), _) -> #(f.reader, "")
-        #(None, None, _) -> #("value", "")
+    (reader, args) = case (type_override, family, scale) {
+        (Some(_), _, _) -> ("value", "")
+        (None, Some(f), Some(n)) when f.reader == "numeric" -> ("numeric_scaled", ", ${n}")
+        (None, Some(f), _) -> (f.reader, "")
+        (None, None, _) -> ("value", "")
     }
 
     // A type sqlkit picks is qualified where an import shadows it.
-    chosen = case #(enum_name, family) {
-        #(Some(e), _) -> Some(e)
-        #(None, Some(f)) -> Some(f.nomi)
-        #(None, None) -> None
+    chosen = case (enum_name, family) {
+        (Some(e), _) -> Some(e)
+        (None, Some(f)) -> Some(f.nomi)
+        (None, None) -> None
     }
 
-    #(written, written_imports) = case chosen {
+    (written, written_imports) = case chosen {
         Some(t) -> {
-            #(text, imports) = generated(r, t)
-            #(Some(text), imports)
+            (text, imports) = generated(r, t)
+            (Some(text), imports)
         }
 
         None ->
-            #(None, [])
+            (None, [])
     }
 
     type_text = case type_override {
@@ -1359,10 +1359,10 @@ fn field_of(
     field = Field{name: column.name, position, reader, args, type_text, nullable}
 
     // Only an anonymous row names a column's type in the generated code.
-    if not anonymous { return #(field, [], None) }
+    if not anonymous { return (field, [], None) }
 
-    case #(type_override, type_text) {
-        #(_, None) -> {
+    case (type_override, type_text) {
+        (_, None) -> {
             problem = at(
                 "SQLite reports no type for the column `${column.name}` of `${q.name}`: it is an expression",
                 [
@@ -1370,17 +1370,17 @@ fn field_of(
                 ],
             )
 
-            #(field, [], Some(problem))
+            (field, [], Some(problem))
         }
 
-        #(Some(t), _) ->
+        (Some(t), _) ->
             case resolve(r, t) {
-                Ok(needs) -> #(field, needs, None)
-                Err(found) -> #(field, [], Some(at(found.0, found.1)))
+                Ok(needs) -> (field, needs, None)
+                Err(found) -> (field, [], Some(at(found.first, found.second)))
             }
 
-        #(None, Some(_)) ->
-            #(field, written_imports, None)
+        (None, Some(_)) ->
+            (field, written_imports, None)
     }
 }
 
@@ -1613,9 +1613,9 @@ fn result_close(shape: Shape) -> String {
 fn field_line(field: Field, name: String, anonymous: Bool) -> String {
     suffix = if field.nullable { "_null" } else { "" }
 
-    type_args = case #(anonymous, field.type_text, field.reader) {
-        #(True, Some(t), _) -> "<${t}>"
-        #(False, Some(t), "value") -> "<${t}>"
+    type_args = case (anonymous, field.type_text, field.reader) {
+        (True, Some(t), _) -> "<${t}>"
+        (False, Some(t), "value") -> "<${t}>"
         _ -> ""
     }
 

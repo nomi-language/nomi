@@ -58,8 +58,10 @@ type LiteralSite struct {
 	// and an Err is a LiteralError naming a static and an offset into it.
 	Checked bool
 	// Tag is the literal's tag, so the opening quote is len(Tag) columns
-	// past Col.
-	Tag string
+	// past Col. It is empty for an untagged literal its position reads as a
+	// checked literal (analysis/target_literal.go), whose type is Type.
+	Tag  string
+	Type string
 	// Statics is a checked literal's static text, as check got it.
 	Statics []string
 	// Slots holds the position of each slot's expression, in order.

@@ -163,12 +163,12 @@ test "return inside iter callbacks is lambda scoped" {
 test "reduce with a pattern seed supports continue" {
     kept =
         [1, 2, 3]
-        |> Iter.reduce(#(0, []), fn #(n, xs), x -> {
+        |> Iter.reduce((0, []), fn (n, xs), x -> {
             if x == 2 { continue }
-            #(n + x, xs + [x])
+            (n + x, xs + [x])
         })
 
-    assert kept == #(4, [1, 3])
+    assert kept == (4, [1, 3])
 }
 
 fn checked_score(n: Int) -> Int {

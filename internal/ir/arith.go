@@ -21,7 +21,7 @@ package ir
 // THE SIX OPERATIONS, AND WHY THEY ARE NOT SIX OPCODES. Nomi's primitive
 // `a + b` has six shapes: exact `rt.Int<Op>(a, b)`, wrapping (the low 64 bits
 // of the exact answer), Go's own `a Op b` for Float, `rt.DivFloat(a, b)`,
-// `rt.ModFloat(a, b, line)` and `rt.<Op>Decimal(...)`. All six are
+// `rt.ModFloat(a, b)` and `rt.<Op>Decimal(...)`. All six are
 // recoverable here — Shape returns one of exactly six values — and NOT ONE of
 // them is stored. They are a function of three fields. Storing the shape would
 // be storing one consumer's selection in the representation.
@@ -157,10 +157,6 @@ type Faults uint8
 const (
 	// FaultDivByZero: the divisor is zero.
 	FaultDivByZero Faults = 1 << iota
-	// FaultUndefined: the operation has no answer in this domain at all.
-	// Nomi's `%` on Float and on Decimal is this — `rt.ModFloat` and
-	// `rt.ModDecimal` always trap.
-	FaultUndefined
 	// FaultNoMatch: no arm of a `case` matched its scrutinee. See
 	// nomatch.go. It is in this set rather than in a set of its own because
 	// `Faulting` asks one question — what are the ways this instruction can
@@ -190,7 +186,7 @@ func (f Faults) String() string {
 	for _, k := range [...]struct {
 		bit  Faults
 		name string
-	}{{FaultDivByZero, "div0"}, {FaultUndefined, "undefined"},
+	}{{FaultDivByZero, "div0"},
 		{FaultNoMatch, "nomatch"}, {FaultTodo, "todo"}, {FaultUnreachable, "unreachable"},
 		{FaultShiftCount, "shiftcount"}} {
 		if f.Has(k.bit) {
@@ -217,7 +213,7 @@ const (
 	ShapeFloatNative
 	// ShapeFloatDiv is `rt.DivFloat(a, b)`.
 	ShapeFloatDiv
-	// ShapeFloatMod is `rt.ModFloat(a, b, line)`.
+	// ShapeFloatMod is `rt.ModFloat(a, b)`, IEEE 754's fmod.
 	ShapeFloatMod
 	// ShapeDecimal is `rt.<Op>Decimal(...)`.
 	ShapeDecimal
@@ -359,11 +355,11 @@ func (a *Arith) Rhs() Temp { return a.rhs }
 //   - Int `/` and `%` fault on a zero divisor only.
 //   - Float `+ - * /` and unary `-` never fault. IEEE has an answer for every
 //     input including a zero divisor, and `rt.DivFloat` is Go's own `/`.
-//   - Float `%` is undefined: the checker rejects it, and `rt.ModFloat`
-//     always traps.
-//   - Decimal `+ - *` and unary `-` are exact and never fail. `/` and `%` are
-//     undefined: the checker rejects both, `rt.ModDecimal` always traps, and
-//     the VM refuses a Decimal `/`.
+//   - Float `%` is IEEE 754's fmod (`rt.ModFloat`), NaN for a zero divisor,
+//     and never faults either.
+//   - Decimal `+ - *` and unary `-` are exact and never fail. `/` rounds to
+//     34 significant digits and `%` is exact; both fault on a zero divisor
+//     only.
 func (a *Arith) Faults() Faults {
 	switch a.dom {
 	case DomainInt:
@@ -374,14 +370,9 @@ func (a *Arith) Faults() Faults {
 			return FaultShiftCount
 		}
 		return 0
-	case DomainFloat:
-		if a.op == OpRem {
-			return FaultUndefined
-		}
-		return 0
 	case DomainDecimal:
 		if a.op == OpDiv || a.op == OpRem {
-			return FaultUndefined
+			return FaultDivByZero
 		}
 		return 0
 	}

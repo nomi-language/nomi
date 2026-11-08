@@ -16,6 +16,13 @@ var explanations = map[string]string{
 		"(`Maybe`, `Result`, `List`, `Iter`, ...). Remove it.",
 	"unused-binding": "A binding or parameter is never read. Remove it, or name it with a leading `_` " +
 		"(`_ = f()`, `_unused`) to say the value is ignored on purpose.",
+	"unreleased-resource": "A resource the function acquires (a file reader or writer, a spawned process, a connection, " +
+		"or a value of a type implementing `Release`) is never released and not handed on. Write `defer` with its release " +
+		"right after the binding (`defer Reader.close_quietly(r)`), or return it or store it where its owner releases it.",
+	"discarded-resource": "A call acquires a resource and the value is dropped (bound to `_` or left unused), so nothing " +
+		"can release it. Bind it to a name and `defer` its release, or do not acquire it.",
+	"uncommitted-resource": "A writer's discard is deferred, and a path returns normally without committing it, so the " +
+		"deferred discard throws the output away. Call `Writer.close(w)?` before each success return; error exits need nothing.",
 	"once-shadow": "A name in a pattern names a `once` in scope. A pattern name always binds a new name, " +
 		"so it matches every value instead of comparing with the `once`. Bind another name and compare in a guard " +
 		"(`x when x == limit ->`), or rename the binding if no comparison was meant.",

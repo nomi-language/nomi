@@ -1386,7 +1386,7 @@ A program that reaches a function the compiler cannot compile yet fails before i
 
 - `nomi run` prints an error at the code the compiler stopped at, with its source line and any hint, such as ``this call to `skip_odd` is not supported yet, so `fn evens` cannot run``, and exits 1. The last hint of every such error says the gap is in Nomi, not the program, and links the issue tracker.
 - `nomi check` compiles the program the same way without running it and reports the same errors for everything `main` or a test reaches.
-- `nomi test` runs every case it can and reports each case it cannot as `BLOCKED <file> :: <case> <path>:<line>:<col>: <message>`, with any hint indented on the line below. It appends `, K blocked` to its summary when K is not zero, and exits nonzero when anything failed or was blocked.
+- `nomi test` runs every case it can and reports each case it cannot as `BLOCKED <file> :: <case> <path>:<line>:<col>: <message>`, with any hint indented on the line below. The location is the code the compiler stopped at, in the file that holds it: a module the test imports, or, for a standard library module's cases, the stdlib file whose function the case reaches. It appends `, K blocked` to its summary when K is not zero, and exits nonzero when anything failed or was blocked. A program the checker rejects is never blocked: `nomi test` fails the file with the errors `nomi check` reports, including an error in another standard library module that a stdlib module's cases reach.
 - A run stopped by something else (a Go crossing nothing binds, or a VM limit) prints `BLOCKED <file> [<function>] <reason>` lines instead.
 
 Setting `NOMI_DEBUG_LOWERING=1` adds the compiler's own reason to each of these errors as a hint.
@@ -1420,13 +1420,17 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 
 - Opinionated formatter: `nomi fmt [-w|-l|-d] <paths>`
 - Check without running: `nomi check`, which also reports, at its source, any code the program reaches that type-checks but cannot be compiled to run yet
-- Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions). It reports each `todo` and `dbg` as a warning. Its quick fixes include:
+- Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions). It reports each `todo` and `dbg` as a warning. Hover on a keyword shows the construct it starts, what it does there and a link to the page that teaches it, following the place it stands in: `as` in an import or a pattern, `case` as an expression or a pipe stage, the function a `return` leaves, the iteration a `break` leaves, what a `pub` publishes. Its quick fixes include:
   - append `()` to a pipe stage that names a function without calling it;
   - insert `then` before a lambda written as a pipe stage;
   - insert `|> Display.to_string()` before a stage that takes a `String` when the piped value implements `Display`;
   - add braces around a `case` arm whose body continues on the next line;
   - put `|> Iter.take(todo)` before a terminal stage over an infinite iterator;
+  - write a tuple read by number by its ordinal, `t.0` as `t.first`;
+  - name a struct literal's values written without field names, in declaration order;
   - write missing functions, fields and `case` arms, each filled with `todo`, so the result checks.
+
+  Its refactors include "Remove type annotation" on a field or parameter whose default already has the written type (`limit: Int = 10` becomes `limit = 10`), and "Add type annotation", which writes the type a default gives (`limit = 10` becomes `limit: Int = 10`). Neither is offered as a fix or run by fix-all.
 - Debugger: `nomi dap`; see [Debugging](#debugging).
 - Coding agents: `nomi mcp`; see [Coding agents](#coding-agents-nomi-mcp).
 
@@ -1511,7 +1515,10 @@ test `--line` would select, as `nomi run` and `nomi test` run them.
 - **Inspecting.** The call stack shows a callback under the operation that
   called it (`main`, then `Iter.map`, then the lambda) and marks a frame a
   tail call replaced. Each frame's locals appear by their Nomi names, as a
-  tree whose lists page. A **Pipeline** scope shows each stage of the `|>`
+  tree whose lists page. A struct's children are its fields, and a tuple's
+  or a named tuple's are its items by the names that read them, `first`,
+  `second` and on to `twentieth`; an item past the twentieth, which has no
+  name, shows as `[20]`, its index counted from zero. A **Pipeline** scope shows each stage of the `|>`
   chain the frame is in, and inside `io.capture` or `io.replay` a
   **Captured output** scope shows what the code printed into the capture.
 - **Evaluating.** Watches, hovers and the debug console evaluate Nomi in the
@@ -1535,7 +1542,9 @@ Hover on an `embed` declaration's name, or on a use of it, shows its patterns, h
 
 The language server reports a catalog's errors in the catalog file, open or not, and rechecks when a catalog changes. Go to definition on a call of a phrase lands on its declaration, and go to implementations lists its catalog entries. Hover on a phrase shows its signature, its doc comment and its text in the source locale and in each listed and partial locale, naming the locale whose text a locale with no current translation shows. In a catalog it completes the file's phrase names in a table's header, the phrase's parameters after `$`, and a variant's keys: the plural categories the locale's rules select for the selector, the enum's variants, or the genders the module's nouns have; in a noun's entry, its `gender` and cases, the language's genders as its `gender`, and the cases after `case=`. Hover on a noun shows its gender and forms in each locale, and go to implementations lists its catalog entries. Its quick fixes add a listed locale's missing translation (the source text as `source`, and as `text` with every arm the locale needs), mark a stale translation current as `nomi phrases accept` does, add the plural, enum or gender arms a translation lacks, and add each form a noun lacks that the locale's phrases ask for, a copy of its nominative. An editor attaches the server to the TOML files under `[i18n].catalogs`; the server serves no other TOML file.
 
-The server colors the MessageFormat 2 in a `phrase` or `noun` body and in a catalog's `source`, `text` and form strings with semantic tokens, since no editor ships an MF2 grammar: `.input`, `.local`, `.match` and `*` as keywords, `$count` as a parameter (a `.local` as a variable), `:integer` and `:nomi:noun` as functions with `:nomi` as a namespace, `count=` and `case=` as properties, keys and name literals such as `one` and `genitive` as enum members, and the braces `{{`, `}}`, `{` and `}` as operators. The text between them keeps the string color. A body with a syntax error is colored up to the error. VS Code and Neovim show the tokens with no setting. Zed shows them only with semantic tokens on, `"languages": { "Nomi": { "semantic_tokens": "combined" } }` in its settings, and for catalogs the same under `"TOML"`. Helix does not read semantic tokens, so a body there stays one string.
+The server colors the MessageFormat 2 in a `phrase` or `noun` body and in a catalog's `source`, `text` and form strings with semantic tokens, since no editor ships an MF2 grammar: `.input`, `.local` and `.match` as keywords, `$count` as a parameter (a `.local` as a variable), `:integer` and the whole of `:nomi:noun` as functions, `count=` and `case=` as properties, keys such as `one` and `*` and name literals such as `genitive` as enum members, and the braces `{{`, `}}`, `{` and `}` as operators. The text between them keeps the string color. A body with a syntax error is colored up to the error. VS Code and Neovim show the tokens with no setting. Zed shows them only with semantic tokens on, `"languages": { "Nomi": { "semantic_tokens": "combined" } }` in its settings, and for catalogs the same under `"TOML"`. Helix does not read semantic tokens, so a body there stays one string.
+
+Hover works inside that MessageFormat 2 too, in a body and in a catalog alike. A `$name` shows the parameter with its type and comment, a noun's `$count` what passes it, and a `.local` the expression it names. A function such as `:integer` or `:nomi:noun` shows what it writes, the types it takes, how it selects under `.match` and its options, and an option such as `case=` what it does, with the cases of the text's locale. A variant key shows its plural category in the text's locale (the source locale in a body, the catalog's in a catalog) with example numbers, `few` in Polish being 2–4, 22–24, 32–34, …; an exact key such as `0` matches only that number; a gender key names the gender; and `*` lists the categories or genders it covers that no arm names. `.input`, `.local` and `.match` show one line each.
 
 On a `phrase` whose text has no `.match`, the refactor "Add plural forms for `$count`" is offered for each `Int` parameter, and on a `noun` for its `$count`. It rewrites the text to select on the parameter, with an arm for each plural category the source locale's rules give a whole number and the catch-all, each holding the old text for you to edit:
 

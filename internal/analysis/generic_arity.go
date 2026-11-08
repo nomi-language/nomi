@@ -40,18 +40,27 @@ func arityMessage(name string, want, got int) string {
 // already instantiated is not a violation.
 func checkGenericArity(t Type, line, col int) *TypeError {
 	name, want, got, isGeneric := declaredArity(t)
-	if !isGeneric || want == got {
+	if !isGeneric || want == got || takesDefaultArgs(t, got) {
 		return nil
 	}
-	return &TypeError{Line: line, Col: col, Message: arityMessage(name, want, got)}
+	_, required, _ := typeParamShape(t)
+	return &TypeError{Line: line, Col: col, Message: arityRangeMessage(name, required, want, got)}
 }
 
 // checkGenericArityArgs is the same decision for a reference that DID supply
 // arguments — `Box<Int, Int>` against a one-parameter declaration.
 func checkGenericArityArgs(t Type, got, line, col int) *TypeError {
 	name, want, _, isGeneric := declaredArity(t)
-	if !isGeneric || want == got {
+	if !isGeneric || want == got || takesDefaultArgs(t, got) {
 		return nil
 	}
-	return &TypeError{Line: line, Col: col, Message: arityMessage(name, want, got)}
+	_, required, _ := typeParamShape(t)
+	return &TypeError{Line: line, Col: col, Message: arityRangeMessage(name, required, want, got)}
+}
+
+// hasTypeArgs reports whether t is an instance: a nominal type with type
+// arguments.
+func hasTypeArgs(t Type) bool {
+	_, _, got, _ := declaredArity(t)
+	return got > 0
 }

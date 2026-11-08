@@ -64,6 +64,7 @@ var programStdModules = map[string]bool{
 	"money":            true,
 	"net":              true,
 	"passwords":        true,
+	"parse":            true,
 	"path":             true,
 	"process":          true,
 	"process_testing":  true,
@@ -231,8 +232,55 @@ func importedStdModules(nodes []ast.Node, inStd bool) []string {
 			return true
 		})
 	}
+	if !inStd {
+		// A program's file names the prelude's names with no import
+		// statement in its nodes: `fn show(p: Phrase)` reaches std/phrase
+		// as an import of `Phrase` would.
+		if named == nil {
+			named = namesIn(nodes)
+		}
+		for name, module := range preludeListedNames() {
+			if named[name] && !slices.Contains(out, module) {
+				out = append(out, module)
+			}
+		}
+	}
 	return out
 }
+
+// preludeListedNames is each name the prelude re-exports from a listed std
+// module (`Phrase` from phrase), by name.
+var preludeListedNames = perStd(func() map[string]string {
+	out := map[string]string{}
+	add := func(s *ast.ImportStmt) {
+		n := s.FileSegments
+		if n <= 0 || n > len(s.ModulePath) {
+			n = len(s.ModulePath)
+		}
+		segs := make([]string, 0, n)
+		for _, seg := range s.ModulePath[:n] {
+			segs = append(segs, strings.Split(ast.ImportNodeName(seg), "/")...)
+		}
+		module := strings.Join(segs, "/")
+		if !isProgramStd(module) {
+			return
+		}
+		for _, name := range s.Names {
+			out[ast.ImportNodeName(name)] = module
+		}
+	}
+	for _, n := range std.Shared().Nodes["prelude"] {
+		switch s := n.(type) {
+		case *ast.ImportStmt:
+			add(s)
+		case *ast.ImportBlock:
+			for _, e := range s.Entries {
+				add(e)
+			}
+		}
+	}
+	return out
+})
 
 // generateProgramStdTestIR builds the `//!` cases of a listed std module (`nomi
 // test std/uuid.nomi`, a reference editor) as a test file's cases are built:

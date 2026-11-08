@@ -113,9 +113,9 @@ fn main() {
     io.print("list key = ${from_list}")
 
     // A TUPLE key.
-    by_pair = %{#(1, 2) => "p", #(3, 4) => "q"}
+    by_pair = %{(1, 2) => "p", (3, 4) => "q"}
 
-    %{#(3, 4) => from_pair} = by_pair else { return }
+    %{(3, 4) => from_pair} = by_pair else { return }
 
     io.print("pair key = ${from_pair}")
 

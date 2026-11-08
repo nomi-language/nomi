@@ -38,7 +38,7 @@ struct Info {
 
 fn probe_raw(data: Bytes) -> Info go goside.Probe
 
-fn decode_raw(data: Bytes, max_pixels: Int) -> #(Handle, Failure) go goside.Decode
+fn decode_raw(data: Bytes, max_pixels: Int) -> (Handle, Failure) go goside.Decode
 
 fn width_raw(h: Handle) -> Int go goside.Width
 
@@ -145,7 +145,7 @@ pub fn dimensions(data: Bytes) -> Result<Dimensions, Error> {
 /// pixel is decoded. The default, 50 million, is an 8,660 by 5,773 photo,
 /// which decodes into about 200 MB.
 pub fn decode(data: Bytes, max_pixels: Int = 50_000_000) -> Result<Image, Error> {
-    #(handle, failure) = decode_raw(data, max_pixels)
+    (handle, failure) = decode_raw(data, max_pixels)
     if failure.kind != 0 { return Err(error_of(failure)) }
     Ok(Image{handle, format: format_of(format_raw(handle))})
 }

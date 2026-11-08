@@ -20,6 +20,7 @@ import {
     maybe.Maybe.{self, None, Some}
     multiply.Multiply
     productable.Productable
+    remainder.Remainder
     results.Result.{self, Err, Ok}
     steppable.Steppable
     strings.String
@@ -275,22 +276,6 @@ impl Int {
         }
     }
 
-    /// Returns the lesser of `a` and `b` (ties return `a`).
-    //! assert Int.min(3, -2) == -2
-    //! assert Int.min(-Int.pow(10, 30), 1) == -Int.pow(10, 30)
-    //
-    pub fn min(a: Int, b: Int) -> Int {
-        if a <= b { a } else { b }
-    }
-
-    /// Returns the greater of `a` and `b` (ties return `a`).
-    //! assert Int.max(3, -2) == 3
-    //! assert Int.max(Int.pow(10, 30), 1) == Int.pow(10, 30)
-    //
-    pub fn max(a: Int, b: Int) -> Int {
-        if a >= b { a } else { b }
-    }
-
     /// `n` multiplied by itself `exp` times, exact; `Int.pow(n, 0)` is `1`
     /// for every `n`, `0` included. A negative `exp` traps: its result is a
     /// fraction, which is `Float.pow`'s.
@@ -382,7 +367,7 @@ impl Int {
     //! assert Int.format(7, Locale`en`, True, 3) == "007"
     //! assert Int.format(Int.pow(10, 21), Locale`de`) == "1.000.000.000.000.000.000.000"
     //
-    pub fn format(n: Int, locale: Locale, grouping: Bool = True, min_digits: Int = 1) -> String {
+    pub fn format(n: Int, locale: Locale, grouping = True, min_digits: Int = 1) -> String {
         int_format(locale, n, grouping, min_digits)
     }
 
@@ -482,6 +467,31 @@ impl Divide<NonZeroInt, Int> for Int {
     fn divide(lhs: Int, rhs: NonZeroInt) -> Int {
         NonZeroInt(n) = rhs
         lhs / n
+    }
+}
+
+impl Remainder<Int, Int> for Int {
+    /// `lhs % rhs`: the remainder of `/`'s division, which truncates toward
+    /// zero, so it takes the sign of `lhs`. `(a / b) * b + a % b == a`.
+    /// `Int.modulo` takes the divisor's sign instead. Traps on a zero `rhs`.
+    //! assert 7 % 3 == 1
+    //! assert -7 % 3 == -1
+    //! assert 7 % -3 == 1
+    //! assert Int.remainder(-7, -3) == -1
+    //
+    host fn remainder(lhs: Int, rhs: Int) -> Int
+}
+
+impl Remainder<NonZeroInt, Int> for Int {
+    /// The remainder by a divisor that cannot be zero, so it cannot trap.
+    /// Takes the sign of `lhs`, as `%` does.
+    //! nz = Int.to_non_zero(3)?
+    //! assert Int.remainder(-10, nz) == -1
+    //! assert 10 % nz == 1
+    //
+    fn remainder(lhs: Int, rhs: NonZeroInt) -> Int {
+        NonZeroInt(n) = rhs
+        lhs % n
     }
 }
 

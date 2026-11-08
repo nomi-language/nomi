@@ -20,9 +20,9 @@ fn main() {
     m = users.maybe()
     p = Point{x: 1}
     xs = [p]
-    pair = #(p, u)
+    pair = (p, u)
     f = make_point
-    io.inspect(#(u.name, p.x, xs, m, pair, f(), make_point()))
+    io.inspect((u.name, p.x, xs, m, pair, f(), make_point()))
 }
 
 fn make_point() -> Point { Point{x: 2} }

@@ -51,7 +51,7 @@ test "literals, string prefixes and nesting" {
     order = Order{id: 1, state: State.Shipped(4)}
     assert order is Order{state: .Shipped(_)}
     refute order is Order{state: .Open}
-    assert #(1, "a") is #(_, "a")
+    assert (1, "a") is (_, "a")
 }
 
 test "collection patterns" {

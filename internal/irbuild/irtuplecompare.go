@@ -9,7 +9,7 @@ import (
 // (spec §Comparable on tuples, internal/analysis/comparable_structural.go):
 // it compares lexicographically, the first elements by their own type's
 // `Comparable.compare`, and the next pair only when those are Equal. So
-// `#(1, "b") < #(2, "a")`, and a later element's compare never runs once an
+// `(1, "b") < (2, "a")`, and a later element's compare never runs once an
 // earlier one decides.
 //
 // Three routes reach it: `Comparable.compare(a, b)` on two tuples
@@ -29,6 +29,13 @@ func (bl *irScalarBuilder) tupleCompareCall(t *ast.Call) (v ir.Temp, k kind, mob
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	ft := bl.g.checkedCallSignature(t)
+	if ft == nil {
+		// `compare(b, a)` in a std interface default instantiated at a
+		// tuple: the checker records no signature for the interface's own
+		// function called bare, and each operand is a `self` value, which
+		// projects to the receiver (projectDefaultSelf).
+		ft = bl.g.checkedArgSignature(t)
+	}
 	if ft == nil || len(ft.Params) != 2 || bl.g.project(ft.Params[0]).tag != tagTuple {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}

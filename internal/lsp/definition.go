@@ -62,7 +62,18 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 		}
 		return nil, nil
 	}
+	// A field of an anonymous struct whose declaration the checker does
+	// not know stands at the use; the use is not its definition.
+	if sym.Undeclared {
+		return nil, nil
+	}
 	_, tokenStart, _, tokenOK := doc.Analysis.TokenAt(pos)
+
+	// A punned pattern field (`#{home} = routes.public`) defines the
+	// binding it names: its definition is the field it reads.
+	if field := doc.Analysis.PunnedFieldLabels[tokenStart]; tokenOK && field != nil && doc.Analysis.DefinitionAt(tokenStart) == sym {
+		return s.toUTF16Location(s.definitionLocationForSymbol(uri, field, field)), nil
+	}
 
 	// Interface-qualified call (`Display.to_string(x)`) with a statically
 	// concrete receiver: the checker recorded the concrete impl this call

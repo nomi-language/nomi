@@ -6,7 +6,7 @@ import (
 )
 
 // embeddedFiles lowers the files an `embed` declaration holds (spec §18
-// *Embedded files*): a `List<#(String, Int, Int)>` of each file's path,
+// *Embedded files*): a `List<(String, Int, Int)>` of each file's path,
 // handle and size, every one a constant, which std/embed's private
 // constructor makes the declaration's `Files` of. The handle is an
 // ir.ConstEmbedded, which names where the contents are and carries none of

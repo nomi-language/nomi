@@ -3,26 +3,26 @@ import kindergarten_garden.{Garden, Plant, Student}
 group "partial garden" {
     test "plants" {
         [
-            #(
+            (
                 "garden with single student",
                 "RC\nGG",
                 Student.Alice,
                 [Plant.Radishes, .Clover, .Grass, .Grass],
             ),
-            #(
+            (
                 "different garden with single student",
                 "VC\nRC",
                 .Alice,
                 [.Violets, .Clover, .Radishes, .Clover],
             ),
-            #(
+            (
                 "garden with two students",
                 "VVCG\nVVRC",
                 .Bob,
                 [.Clover, .Grass, .Radishes, .Clover],
             ),
         ]
-        |> subtests #(description, diagram, student, expected), description {
+        |> subtests (description, diagram, student, expected), description {
             assert Some(garden) = Garden.parse(diagram)
 
             assert Garden.plants(garden, student) == expected
@@ -33,10 +33,10 @@ group "partial garden" {
         garden = Garden.parse("VVCCGG\nVVCCGG")?
 
         [
-            #("second student's garden", Student.Bob, [Plant.Clover, .Clover, .Clover, .Clover]),
-            #("third student's garden", .Charlie, [.Grass, .Grass, .Grass, .Grass]),
+            ("second student's garden", Student.Bob, [Plant.Clover, .Clover, .Clover, .Clover]),
+            ("third student's garden", .Charlie, [.Grass, .Grass, .Grass, .Grass]),
         ]
-        |> subtests #(description, student, expected), description {
+        |> subtests (description, student, expected), description {
             assert Garden.plants(garden, student) == expected
         }
     }
@@ -46,28 +46,28 @@ test "full garden" {
     garden = Garden.parse("VRCGVVRVCGGCCGVRGCVCGCGV\nVRCCCGCRRGVCGCRVVCVGCGCV")?
 
     [
-        #(
+        (
             "for Alice, first student's garden",
             Student.Alice,
             [Plant.Violets, .Radishes, .Violets, .Radishes],
         ),
-        #("for Bob, second student's garden", .Bob, [.Clover, .Grass, .Clover, .Clover]),
-        #("for Charlie", .Charlie, [.Violets, .Violets, .Clover, .Grass]),
-        #("for David", .David, [.Radishes, .Violets, .Clover, .Radishes]),
-        #("for Eve", .Eve, [.Clover, .Grass, .Radishes, .Grass]),
-        #("for Fred", .Fred, [.Grass, .Clover, .Violets, .Clover]),
-        #("for Ginny", .Ginny, [.Clover, .Grass, .Grass, .Clover]),
-        #("for Harriet", .Harriet, [.Violets, .Radishes, .Radishes, .Violets]),
-        #("for Ileana", .Ileana, [.Grass, .Clover, .Violets, .Clover]),
-        #("for Joseph", .Joseph, [.Violets, .Clover, .Violets, .Grass]),
-        #(
+        ("for Bob, second student's garden", .Bob, [.Clover, .Grass, .Clover, .Clover]),
+        ("for Charlie", .Charlie, [.Violets, .Violets, .Clover, .Grass]),
+        ("for David", .David, [.Radishes, .Violets, .Clover, .Radishes]),
+        ("for Eve", .Eve, [.Clover, .Grass, .Radishes, .Grass]),
+        ("for Fred", .Fred, [.Grass, .Clover, .Violets, .Clover]),
+        ("for Ginny", .Ginny, [.Clover, .Grass, .Grass, .Clover]),
+        ("for Harriet", .Harriet, [.Violets, .Radishes, .Radishes, .Violets]),
+        ("for Ileana", .Ileana, [.Grass, .Clover, .Violets, .Clover]),
+        ("for Joseph", .Joseph, [.Violets, .Clover, .Violets, .Grass]),
+        (
             "for Kincaid, second to last student's garden",
             .Kincaid,
             [.Grass, .Clover, .Clover, .Grass],
         ),
-        #("for Larry, last student's garden", .Larry, [.Grass, .Violets, .Clover, .Violets]),
+        ("for Larry, last student's garden", .Larry, [.Grass, .Violets, .Clover, .Violets]),
     ]
-    |> subtests #(description, student, expected), description {
+    |> subtests (description, student, expected), description {
         assert Garden.plants(garden, student) == expected
     }
 }

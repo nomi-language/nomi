@@ -274,8 +274,8 @@ fn main() {
         text: Some("Grüße,\n.hidden\nline with a trailing space \n${String.repeat("x", 120)}\n"),
         html: Some(Html"<p>Hello ${"Zoë & co"}</p>"),
         headers: [
-            #("List-Unsubscribe", "<https://example.com/unsubscribe/abc>, <mailto:unsubscribe+abc@example.com>"),
-            #("List-Unsubscribe-Post", "List-Unsubscribe=One-Click"),
+            ("List-Unsubscribe", "<https://example.com/unsubscribe/abc>, <mailto:unsubscribe+abc@example.com>"),
+            ("List-Unsubscribe-Post", "List-Unsubscribe=One-Click"),
         ],
         attachments: [
             Attachment{filename: "résumé.pdf", content_type: "application/pdf", data: String.to_bytes("%PDF-1.4 fake")},

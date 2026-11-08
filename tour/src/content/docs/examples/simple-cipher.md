@@ -36,14 +36,14 @@ impl Cipher {
 
     /// A cipher with a random key of 100 lowercase letters drawn from
     /// `seed`, and the seed to draw from next.
-    pub fn random(seed: Seed) -> #(Cipher, Seed) {
-        #(letters, next) =
+    pub fn random(seed: Seed) -> (Cipher, Seed) {
+        (letters, next) =
             Generator.int(0, letter_count - 1)
             |> Generator.map(&Vector.get(alphabet, &1)!)
             |> Generator.list(random_key_length)
             |> Generator.step(seed)
 
-        #(Cipher{key: String.from_codepoints(letters)}, next)
+        (Cipher{key: String.from_codepoints(letters)}, next)
     }
 
     /// The cipher's key.
@@ -75,7 +75,7 @@ fn shift(cipher: Cipher, text: String, direction: Int) -> String {
     text
     |> String.to_codepoints()
     |> Iter.zip(key)
-    |> Iter.map(fn #(letter, by) -> {
+    |> Iter.map(fn (letter, by) -> {
         moved = number(letter) + direction * number(by)
         Vector.get(alphabet, Int.modulo(moved, letter_count))!
     })
@@ -96,7 +96,7 @@ import {
 
 group "random key cipher" {
     setup {
-        #(cipher, _seed) = Seed.from_int(2026) |> Cipher.random()
+        (cipher, _seed) = Seed.from_int(2026) |> Cipher.random()
         cipher
     }
 
@@ -129,23 +129,23 @@ group "random key cipher" {
 
 test "substitution cipher encodes" {
     [
-        #("Can encode", "abcdefghij", "aaaaaaaaaa", "abcdefghij"),
-        #("Can double shift encode", "iamapandabear", "iamapandabear", "qayaeaagaciai"),
-        #("Can wrap on encode", "abcdefghij", "zzzzzzzzzz", "zabcdefghi"),
-        #("Can encode messages longer than the key", "abc", "iamapandabear", "iboaqcnecbfcr"),
+        ("Can encode", "abcdefghij", "aaaaaaaaaa", "abcdefghij"),
+        ("Can double shift encode", "iamapandabear", "iamapandabear", "qayaeaagaciai"),
+        ("Can wrap on encode", "abcdefghij", "zzzzzzzzzz", "zabcdefghi"),
+        ("Can encode messages longer than the key", "abc", "iamapandabear", "iboaqcnecbfcr"),
     ]
-    |> subtests #(description, key, plaintext, expected), description {
+    |> subtests (description, key, plaintext, expected), description {
         assert Cipher.new(key) |> Cipher.encode(plaintext) == expected
     }
 }
 
 test "substitution cipher decodes" {
     [
-        #("Can decode", "abcdefghij", "abcdefghij", "aaaaaaaaaa"),
-        #("Can wrap on decode", "abcdefghij", "zabcdefghi", "zzzzzzzzzz"),
-        #("Can decode messages longer than the key", "abc", "iboaqcnecbfcr", "iamapandabear"),
+        ("Can decode", "abcdefghij", "abcdefghij", "aaaaaaaaaa"),
+        ("Can wrap on decode", "abcdefghij", "zabcdefghi", "zzzzzzzzzz"),
+        ("Can decode messages longer than the key", "abc", "iboaqcnecbfcr", "iamapandabear"),
     ]
-    |> subtests #(description, key, ciphertext, expected), description {
+    |> subtests (description, key, ciphertext, expected), description {
         assert Cipher.new(key) |> Cipher.decode(ciphertext) == expected
     }
 }

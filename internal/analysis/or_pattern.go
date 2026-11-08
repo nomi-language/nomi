@@ -239,7 +239,7 @@ func patternText(n ast.Node) string {
 		b.WriteString("}")
 		return b.String()
 	case *ast.TuplePattern:
-		return "#(" + patternListText(p.Patterns) + ")"
+		return "(" + patternListText(p.Patterns) + ")"
 	case *ast.VectorPattern:
 		parts := make([]string, 0, len(p.Heads)+len(p.Tails)+1)
 		for _, h := range p.Heads {

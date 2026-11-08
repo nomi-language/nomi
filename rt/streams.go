@@ -570,9 +570,9 @@ func WriterClose(fr *Frame, w Writer) Result[Unit, IOError] {
 	return Ok[Unit, IOError](Unit{})
 }
 
-// WriterDiscard is std/io's private `discard`, which std/fs's `with_writer`
-// defers: a writer still open when its body ends without an Ok is given up,
-// so an atomic write leaves the old file as it was. A closed writer, and a
+// WriterDiscard is `Writer.discard`, which a function that makes a writer
+// defers: a writer still open when the function ends without closing it is
+// given up, so an atomic write leaves the old file as it was. A closed writer, and a
 // standard stream, is left alone.
 func WriterDiscard(w Writer) Unit {
 	if w.stream == streamHandle {

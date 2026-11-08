@@ -88,25 +88,21 @@ fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label
     zeros = digit(multiplier)?
     percent = tolerance_of(tolerance)?
     ohms = number * Int.pow(10, zeros)
-    #(value, unit) = in_largest_unit(ohms)
+    (value, unit) = in_largest_unit(ohms)
     Some(#{value, unit, tolerance: Some(percent)})
 }
 
 /// The units above ohms, largest first, with how many ohms each is.
-once units = [#(1_000_000_000, Magnitude.Gigaohms), #(1_000_000, .Megaohms), #(1000, .Kiloohms)]
+once units = [(1_000_000_000, Magnitude.Gigaohms), (1_000_000, .Megaohms), (1000, .Kiloohms)]
 
 /// `ohms` in the largest unit it reaches at least one of.
-fn in_largest_unit(ohms: Int) -> #(Decimal, Magnitude) {
-    #(size, unit) =
+fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude) {
+    (size, unit) =
         units
-        |> Iter.find(fn #(size, _unit) -> ohms >= size)
-        |> Maybe.with_default(#(1, .Ohms))
+        |> Iter.find(fn (size, _unit) -> ohms >= size)
+        |> Maybe.with_default((1, .Ohms))
 
-    Some(value) = Decimal.divide_exact(Int.to_decimal(ohms), Int.to_decimal(size)) else {
-        unreachable "a whole number divided by a power of ten is exact"
-    }
-
-    #(Decimal.normalize(value), unit)
+    (Int.to_decimal(ohms) / Int.to_decimal(size), unit)
 }
 
 fn digit(color: Color) -> Maybe<Int> {

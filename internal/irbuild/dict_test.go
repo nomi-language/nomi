@@ -77,3 +77,54 @@ func TestDict_AnAliasedTypeImportDispatchesToItsImpl(t *testing.T) {
 		t.Errorf("golden record differs from the VM (exit %d):\n%s", golden.exit, golden.stdout)
 	}
 }
+
+// A bounded generic lowers only as instances. Its erased body has no IR, and
+// funcDecl does not attempt one, so the program records no decline for it
+// (std/parse's `read_fields` is lowered with every listed module that
+// imports it, and TestProgramStdModulesQualify fails on any decline).
+func TestDict_TheErasedBodyIsNotLoweredOrDeclined(t *testing.T) {
+	p, err := AnalyzeSource("loud.nomi", `interface Shout {
+    fn shout(v: self) -> String
+}
+
+impl Shout for Int {
+    fn shout(v: Int) -> String {
+        "${v}!"
+    }
+}
+
+fn loud<T>(x: T) -> String where T: Shout {
+    T.shout(x)
+}
+
+fn main() {
+    _ = loud(1)
+}
+`)
+	if err != nil {
+		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
+	}
+	if fd := firstFuncDef(p, "loud"); fd == nil {
+		t.Fatal("no FuncDef for loud")
+	}
+	declined := map[string]string{}
+	p.Declines = DeclineHooks{Observed: func(fn, reason string) { declined[fn] = reason }}
+	res, _, err := GenerateIR(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for fn, reason := range declined {
+		t.Errorf("%s is declined: %s", fn, reason)
+	}
+	instances := 0
+	for _, m := range res.IR {
+		for _, f := range m.Funcs() {
+			if strings.Contains(f.Sym().Name(), "loud") {
+				instances++
+			}
+		}
+	}
+	if instances == 0 {
+		t.Errorf("no function named for loud is retained; the call's instance is missing")
+	}
+}

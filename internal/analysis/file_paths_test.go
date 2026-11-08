@@ -113,7 +113,7 @@ fn main() {
     e = db::notifications.count() + jobs::notifications.count()
     f = jobs::notifications.EmailArgs{to: "x"}
     u: admin::users.UserDetail = admin::users.UserDetail{name: "ada"}
-    _ = #(id(a), id(b), id(c), d, e, f.to, admin::users.render(u), admin::reports::daily.total())
+    _ = (id(a), id(b), id(c), d, e, f.to, admin::users.render(u), admin::reports::daily.total())
 }
 `)
 }
@@ -126,7 +126,7 @@ func TestDirectoryImport_AliasAndBlock(t *testing.T) {
 fn main() {
     import db
 
-    _ = #(a::reports::daily.total(), db::notifications.count())
+    _ = (a::reports::daily.total(), db::notifications.count())
 }
 `)
 	rejects(t, `fn other() -> Int {
@@ -136,7 +136,7 @@ fn main() {
 fn main() {
     import db
 
-    _ = #(db::notifications.count(), other())
+    _ = (db::notifications.count(), other())
 }
 `,
 		"2:5: `db::notifications` is not imported; import the file (`import db::notifications`) and write `notifications.count`, or import its directory (`import db`) and keep `db::notifications.count`")
@@ -179,7 +179,7 @@ func TestDirectoryImport_AFileWinsOverADirectoryOfItsName(t *testing.T) {
 }
 
 fn main() {
-    _ = #(pages.title(), app::pages::about.text())
+    _ = (pages.title(), app::pages::about.text())
 }
 `)
 	rejects(t, `import pages
@@ -219,7 +219,7 @@ func TestDirectoryImport_TheNameIsNotAFile(t *testing.T) {
 fn main() {
     _ = admin.users
     x = admin
-    _ = #(x, admin::users.render(admin::users.UserDetail{name: ""}))
+    _ = (x, admin::users.render(admin::users.UserDetail{name: ""}))
 }
 `,
 		"4:9: `admin` is a directory, not a file; reach a file in it with `::`, as in `admin::users.name`",
@@ -276,7 +276,7 @@ fn show(admin: Int) -> Int {
 }
 
 fn main() {
-    _ = #(show(1), admin::reports::daily.total())
+    _ = (show(1), admin::reports::daily.total())
 }
 `,
 		"4:13: `admin` here is the parameter on line 3, not the directory views::admin; rename the parameter, or import the directory under another name with `as`")
@@ -291,11 +291,11 @@ func TestShortName_AFileImportBindsOnlyItsShortName(t *testing.T) {
 }
 
 fn main() {
-    _ = #(schema.post(1), db::schema.post(2), views::admin::users.render(views::admin::users.UserDetail{name: ""}))
+    _ = (schema.post(1), db::schema.post(2), views::admin::users.render(views::admin::users.UserDetail{name: ""}))
     _ = views::nosuch.f()
 }
 `,
-		"7:27: `db::schema` is not a name in this file: `import db::schema` binds the file as `schema`; write `schema.post`, or import its directory (`import db`) and keep `db::schema.post`",
+		"7:26: `db::schema` is not a name in this file: `import db::schema` binds the file as `schema`; write `schema.post`, or import its directory (`import db`) and keep `db::schema.post`",
 		"8:9: `views::nosuch` names no file: views has no nosuch.nomi; views holds the directory `views::admin`")
 	rejects(t, `import views::admin
 

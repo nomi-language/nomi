@@ -119,10 +119,10 @@ fn demo() -> Int {
 // tuple containing a Task value. The tuple value escapes when the
 // block returns it.
 func TestTaskLifetime_BlockTailTupleWithTask_Errors(t *testing.T) {
-	src := `fn spawn_pair() -> #(Int, Task<Int>) {
+	src := `fn spawn_pair() -> (Int, Task<Int>) {
   concurrent {
     t = Task.spawn(fn -> 42)
-    #(1, t)
+    (1, t)
   }
 }
 fn demo() -> Int {

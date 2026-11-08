@@ -25,8 +25,8 @@ func TestIntLiteralOfAnySize(t *testing.T) {
 		{"binary", "fn f() -> Int {\n    0b11111111111111111111111111111111111111111111111111111111111111111\n}",
 			"36893488147419103231", true},
 		{"case arm", "fn f(n: Int) -> Int {\n    case n {\n        99999999999999999999 -> 1\n        _ -> 0\n    }\n}", "99999999999999999999", true},
-		{"nested pattern", "fn f(p: #(Int, Int)) -> Int {\n    case p {\n        #(_, 99999999999999999999) -> 1\n        _ -> 0\n    }\n}", "99999999999999999999", true},
-		{"negative pattern", "fn f(p: #(Int, Int)) -> Int {\n    case p {\n        #(_, -9223372036854775808) -> 1\n        _ -> 0\n    }\n}", "-9223372036854775808", false},
+		{"nested pattern", "fn f(p: (Int, Int)) -> Int {\n    case p {\n        (_, 99999999999999999999) -> 1\n        _ -> 0\n    }\n}", "99999999999999999999", true},
+		{"negative pattern", "fn f(p: (Int, Int)) -> Int {\n    case p {\n        (_, -9223372036854775808) -> 1\n        _ -> 0\n    }\n}", "-9223372036854775808", false},
 		{"negative pattern past int64", "fn f(n: Int) -> Int {\n    case n {\n        -9223372036854775809 -> 1\n        _ -> 0\n    }\n}", "-9223372036854775809", true},
 	}
 	for _, tc := range cases {

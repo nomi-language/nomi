@@ -39,12 +39,12 @@ fn empty_hash() -> String {
 test "the GET object example signs as AWS's documentation does" {
     request = Request{
         url: Url`https://examplebucket.s3.amazonaws.com/test.txt`,
-        headers: Headers[#("Range", "bytes=0-9")],
+        headers: Headers[("Range", "bytes=0-9")],
     }
 
     signed = s3.sign(request, example_credentials(), "us-east-1", example_time())
 
-    #(names, canonical) = s3.canonical_request(
+    (names, canonical) = s3.canonical_request(
         unsigned(signed),
         Url.query_values(request.url),
         empty_hash(),
@@ -93,15 +93,15 @@ test "the PUT object example signs a key with a dollar and a body" {
         method: Method.Put,
         url: Url.join_path(Url`https://examplebucket.s3.amazonaws.com/`, ["test$file.text"]),
         headers: Headers[
-            #("Date", "Fri, 24 May 2013 00:00:00 GMT"),
-            #("x-amz-storage-class", "REDUCED_REDUNDANCY"),
+            ("Date", "Fri, 24 May 2013 00:00:00 GMT"),
+            ("x-amz-storage-class", "REDUCED_REDUNDANCY"),
         ],
         body: Body.Text("Welcome to Amazon S3."),
     }
 
     signed = s3.sign(request, example_credentials(), "us-east-1", example_time())
 
-    #(_, canonical) = s3.canonical_request(
+    (_, canonical) = s3.canonical_request(
         unsigned(signed),
         Url.query_values(request.url),
         body_hash,
@@ -158,7 +158,7 @@ test "URI encoding keeps unreserved characters and writes the rest as uppercase 
 }
 
 test "the canonical query sorts by name and then value" {
-    assert s3.canonical_query(Query[#("b", "2"), #("a", "x y"), #("a", "1"), #("a-b", "")])
+    assert s3.canonical_query(Query[("b", "2"), ("a", "x y"), ("a", "1"), ("a-b", "")])
         == "a=1&a=x%20y&a-b=&b=2"
 }
 
@@ -211,7 +211,7 @@ test "the signed host keeps the endpoint's port" {
     ran = http_testing.run(ok_answer, fn -> Store.delete(store_of(config()), "a.txt"))
     assert [request] = ran.requests
 
-    #(_, canonical) = s3.canonical_request(
+    (_, canonical) = s3.canonical_request(
         unsigned(request),
         Url.query_values(request.url),
         empty_hash(),
@@ -261,8 +261,8 @@ test "get reads the type, size and date from the response" {
         Ok(
             Response{
                 headers: Headers[
-                    #("Content-Type", "image/png"),
-                    #("Last-Modified", "Fri, 24 May 2013 00:00:00 GMT"),
+                    ("Content-Type", "image/png"),
+                    ("Last-Modified", "Fri, 24 May 2013 00:00:00 GMT"),
                 ],
                 body: Body.Bytes(String.to_bytes("png!")),
             }
@@ -304,13 +304,13 @@ fn answering(status: Int, body: Body = Body.Empty) -> (Request) -> Result<Respon
 
 test "S3's errors map to storage errors" {
     [
-        #(
+        (
             404,
             error_body("NoSuchKey", "The specified key does not exist."),
             storage.Error.NotFound{key: "a.txt"},
         ),
-        #(404, Body.Empty, storage.Error.NotFound{key: "a.txt"}),
-        #(
+        (404, Body.Empty, storage.Error.NotFound{key: "a.txt"}),
+        (
             404,
             error_body("NoSuchBucket", "The specified bucket does not exist"),
             storage.Error.Backend{
@@ -318,15 +318,15 @@ test "S3's errors map to storage errors" {
                 message: "The specified bucket does not exist",
             },
         ),
-        #(
+        (
             403,
             error_body("SignatureDoesNotMatch", "The signature &amp; the key &lt;differ&gt;."),
             storage.Error.Denied{
                 message: "SignatureDoesNotMatch: The signature & the key <differ>.",
             },
         ),
-        #(403, Body.Empty, storage.Error.Denied{message: "HTTP 403"}),
-        #(
+        (403, Body.Empty, storage.Error.Denied{message: "HTTP 403"}),
+        (
             400,
             Body.Text(
                 "<Error><Code>AuthorizationHeaderMalformed</Code><Message>The region is wrong</Message><Region>eu-west-1</Region></Error>"
@@ -336,13 +336,13 @@ test "S3's errors map to storage errors" {
                 message: "The region is wrong (the server wants the region eu-west-1)",
             },
         ),
-        #(
+        (
             409,
             Body.Text("not xml at all"),
             storage.Error.Backend{code: "HTTP 409", message: "not xml at all"},
         ),
     ]
-    |> subtests #(status, body, want), "${status} ${want}" {
+    |> subtests (status, body, want), "${status} ${want}" {
         ran = http_testing.run(answering(status, body: body), fn -> {
             Store.get(store_of(config()), "a.txt")
         })
@@ -354,10 +354,10 @@ test "S3's errors map to storage errors" {
 test "a missing object is None to info and Ok to delete" {
     ran = http_testing.run(answering(404), fn -> {
         store = store_of(config())
-        #(Store.info(store, "a.txt"), Store.delete(store, "a.txt"))
+        (Store.info(store, "a.txt"), Store.delete(store, "a.txt"))
     })
 
-    assert ran.value == #(Ok(None), Ok(Unit))
+    assert ran.value == (Ok(None), Ok(Unit))
 }
 
 test "a missing bucket is not a missing object to delete" {
@@ -536,8 +536,8 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
                 |> Result.map(fn object -> {
                     Response{
                         headers: Headers[
-                            #("Content-Type", object.info.content_type),
-                            #("Last-Modified", http.format_time(object.info.modified)),
+                            ("Content-Type", object.info.content_type),
+                            ("Last-Modified", http.format_time(object.info.modified)),
                         ],
                         body: Body.Bytes(object.data),
                     }
@@ -548,8 +548,8 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
                 |> Result.map(fn object -> {
                     Response{
                         headers: Headers[
-                            #("Content-Type", object.info.content_type),
-                            #("Content-Length", "${object.info.size}"),
+                            ("Content-Type", object.info.content_type),
+                            ("Content-Length", "${object.info.size}"),
                         ],
                     }
                 })
@@ -637,7 +637,7 @@ fn list_response(memory: Memory, bucket: String, query: Query) -> Response {
     }
 
     Response{
-        headers: Headers[#("Content-Type", "application/xml")],
+        headers: Headers[("Content-Type", "application/xml")],
         body: Body.Text(xml.encode(root, xml.WriteOptions{declaration: True})!),
     }
 }
@@ -687,11 +687,11 @@ test "a listing sends ListObjectsV2 with its options and reads the page" {
     assert request.url.path == "/photos"
 
     assert Url.query_values(request.url) == Query([
-            #("continuation-token", "t+1/="),
-            #("delimiter", "/"),
-            #("list-type", "2"),
-            #("max-keys", "2"),
-            #("prefix", "posts/"),
+            ("continuation-token", "t+1/="),
+            ("delimiter", "/"),
+            ("list-type", "2"),
+            ("max-keys", "2"),
+            ("prefix", "posts/"),
         ])
 
     assert Headers.get(request.headers, "Authorization") is Some(_)
@@ -728,7 +728,7 @@ test "a key is sent and signed with each byte outside A-Z a-z 0-9 - _ . ~ escape
     assert request.url.raw_path == Some(escaped)
     assert "${request.url}" == "http://localhost:9000${escaped}"
 
-    #(_, canonical) = s3.canonical_request(
+    (_, canonical) = s3.canonical_request(
         unsigned(request),
         Url.query_values(request.url),
         hash.sha256_hex(data),

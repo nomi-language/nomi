@@ -57,7 +57,7 @@ fn main() {
   u: String = e()
   three = &connect(&1, port: &2, timeout: &3)
   m: (Int, Int) -> String = &three(timeout: &1, host: "h", &2)
-  _ = #(s, t, u, m)
+  _ = (s, t, u, m)
 }
 `)
 	expectNoStdlibErrors(t, errs)

@@ -25,6 +25,11 @@ func (g *gen) irImplLower(d *implDef, it *implItem, plan *tailPlan, params []kin
 	if fd == nil {
 		return kindInvalid, false
 	}
+	if it.inherited && d.iface != nil && d.iface.foreign != "" {
+		// Another file's default is lowered there, in its own scope; this
+		// block's function calls it (ifacedefault.go).
+		return g.irImplForwardDefault(d, it, fd, params)
+	}
 	name := d.ownerName() + "." + it.name
 	sig := irFuncSig{result: it.result, decl: fd, name: name, origin: irFromImpl}
 	sh := g.irFuncShellWithCallee(fd, sig, params, g.irCalleeSym(it, name))
@@ -32,9 +37,6 @@ func (g *gen) irImplLower(d *implDef, it *implItem, plan *tailPlan, params []kin
 		return g.irImplHostLower(d, ef, sh, it.result)
 	}
 	if it.inherited {
-		if unit, foreign := g.declaredIn[it.body]; foreign {
-			defer g.lowerNamesFrom(unit)()
-		}
 		prev := g.defaultSelf
 		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
 		defer func() { g.defaultSelf = prev }()

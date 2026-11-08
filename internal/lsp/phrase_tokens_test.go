@@ -42,13 +42,13 @@ func TestSemanticTokens_PhraseBodies(t *testing.T) {
 				"2:5 .input keyword\n2:12 { operator\n2:13 $count parameter\n2:20 :integer function\n2:28 } operator\n" +
 				"3:5 .match keyword\n3:12 $count parameter\n" +
 				"4:5 one enumMember\n4:9 {{ operator\n4:11 { operator\n4:12 $count parameter\n4:18 } operator\n4:24 }} operator\n" +
-				"5:5 * keyword\n5:7 {{ operator\n5:9 { operator\n5:10 $count parameter\n5:16 } operator\n5:23 }} operator"},
+				"5:5 * enumMember\n5:7 {{ operator\n5:9 { operator\n5:10 $count parameter\n5:16 } operator\n5:23 }} operator"},
 		{"a noun and a phrase taking it", "pub noun book `.input {$count :integer} .match $count one {{book}} * {{books}}`\n\npub phrase sold(product: Noun) `{$product :nomi:noun case=nominative count=2} sold`\n",
 			"1:10 book variable\n1:16 .input keyword\n1:23 { operator\n1:24 $count parameter\n1:31 :integer function\n1:39 } operator\n" +
 				"1:41 .match keyword\n1:48 $count parameter\n1:55 one enumMember\n1:59 {{ operator\n1:65 }} operator\n" +
-				"1:68 * keyword\n1:70 {{ operator\n1:77 }} operator\n" +
+				"1:68 * enumMember\n1:70 {{ operator\n1:77 }} operator\n" +
 				"3:12 sold function\n3:17 product parameter\n3:26 Noun struct\n" +
-				"3:33 { operator\n3:34 $product parameter\n3:43 :nomi namespace\n3:48 :noun function\n" +
+				"3:33 { operator\n3:34 $product parameter\n3:43 :nomi:noun function\n" +
 				"3:54 case property\n3:58 = operator\n3:59 nominative enumMember\n3:70 count property\n3:75 = operator\n3:76 2 number\n3:77 } operator"},
 		{"a syntax error keeps what parsed", "pub phrase broken(count: Int) `{$count :integer} {oops`\n",
 			"1:12 broken function\n1:19 count parameter\n1:26 Int type\n1:32 { operator\n1:33 $count parameter\n1:40 :integer function\n1:48 } operator\n1:50 { operator\n1:51 oops enumMember"},

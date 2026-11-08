@@ -215,12 +215,15 @@ func arithmeticNote(op string, t analysis.Type) string {
 		return "Exact at any size: never overflows."
 	case analysis.TypeFloat:
 		if op == "%" {
-			return "Remainder: takes the dividend's sign."
+			return "IEEE 754 fmod: takes the dividend's sign; NaN for a zero divisor."
 		}
 		return "IEEE 754: never traps."
 	case analysis.TypeDecimal:
-		if op == "/" {
-			return "Decimal has no `/`; use `Decimal.divide` to round or `Decimal.divide_exact`."
+		switch op {
+		case "/":
+			return "Rounds half-even to 34 significant digits; `Decimal.divide` names a scale. Traps on division by zero."
+		case "%":
+			return "Remainder: exact, takes the dividend's sign. Traps on division by zero."
 		}
 		return "Exact: never rounds."
 	case analysis.TypeString:
@@ -237,7 +240,7 @@ func arithmeticNote(op string, t analysis.Type) string {
 // operatorBounds are the interfaces through which an operator on a type
 // parameter dispatches.
 var operatorBounds = map[string]string{
-	"+": "Add", "-": "Subtract", "*": "Multiply", "/": "Divide",
+	"+": "Add", "-": "Subtract", "*": "Multiply", "/": "Divide", "%": "Remainder",
 	"&&&": "BitwiseAnd", "|||": "BitwiseOr", "^^^": "BitwiseXor", "<<<": "ShiftLeft", ">>>": "ShiftRight",
 	"<": "Comparable", "<=": "Comparable", ">": "Comparable", ">=": "Comparable",
 }

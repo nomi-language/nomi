@@ -33,7 +33,7 @@ func replExpect(t *testing.T, script, wantOut string, wantErrs ...string) {
 }
 
 func TestReplVM_BindingsCarryBetweenInputs(t *testing.T) {
-	replExpect(t, "x = 5\nx + 1\n#(a, b) = #(x, \"two\")\nb\na * 2\n[1, 2, 3]\n",
+	replExpect(t, "x = 5\nx + 1\n(a, b) = (x, \"two\")\nb\na * 2\n[1, 2, 3]\n",
 		"6\n\"two\"\n10\n[1, 2, 3]\n")
 }
 

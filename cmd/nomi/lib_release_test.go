@@ -222,14 +222,15 @@ fn main() -> Result<Unit, Error> {
     small = Image.fit(photo, 60, 60)
     io.print("logo ${Image.width(small)} by ${Image.height(small)}")
 
-    sql.with_connection(sqlite.memory, fn db -> {
-        sqlkit.migrate(db, schema.migrations)?
-        user_id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
-        order_id = queries.insert_order(db, user_id, 12.50d)?
-        changed = queries.set_status(db, order_id, .Paid)?
-        io.print("order ${order_id} is paid (${changed.rows} row changed)")
-        Ok(Unit)
-    })
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
+
+    sqlkit.migrate(db, schema.migrations)?
+    user_id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
+    order_id = queries.insert_order(db, user_id, 12.50d)?
+    changed = queries.set_status(db, order_id, .Paid)?
+    io.print("order ${order_id} is paid (${changed.rows} row changed)")
+    Ok(Unit)
 }
 `
 

@@ -184,14 +184,16 @@ These words are reserved and cannot name anything:
 `return`, `self`, `struct`, `tap`, `test`, `then`, `todo`, `type`,
 `typealias`, `unreachable`, `when`, `where`, `with`.
 
-`when` has no construct, and neither has `extern`. `extern fn` is the error
+`when` stands only before an arm's guard (§10 *Guards*). `extern` has no
+construct: `extern fn` is the error
 ``runtime-provided declarations use `host fn`, not `extern fn` ``, and
 `extern` anywhere else is
 `` unexpected 'extern'; runtime-provided declarations use `host`, and Go package handles use `gopkg` ``.
 
 These words have a meaning only where their construct stands, and are
 ordinary names elsewhere: `host` (§19), `open` (§12), `embeds` (§4),
-`phrase`, `noun` and `embed` (§18), and `group`, `clock`, `boot` and `setup` (§17).
+`phrase`, `noun` and `embed` (§18), `concurrent` (§16), and `group`,
+`clock`, `boot`, `setup` and `subtests` (§17).
 
 `derive`, `gopkg` and `go` may name a parameter or a binding, but a
 statement that begins with one of them always starts that declaration. So
@@ -215,7 +217,7 @@ even inside `fn f(derive: Int)`.
 | `..` `..=` | ranges (§3); `..` is also a spread and a rest pattern |
 | `.` | field access, `.Variant`, field accessor |
 | `::` | joins the segments of a file's path, with no space around it (§14) |
-| `#` | starts a vector, struct or tuple literal (§3) |
+| `#` | starts a vector or anonymous struct literal (§3) |
 | `&` | a capture, and `&1`, `&2`, ... its parameters (§7) |
 | `,` `:` `;` | separators |
 | `(` `)` `[` `]` `{` `}` | brackets |
@@ -507,9 +509,10 @@ Taught in [Collections](/collections/).
 A named struct is built by its name, with the `{` against it: `Point{x: 1}`,
 as a variant (`Some(1)`) or a distinct type (`UserId(5)`) is built by its
 name. A named tuple, a distinct type over a tuple, is built by its name
-with the elements as arguments: `Pair(1, "x")`. Every other literal of a built-in shape except a list starts with that
-shape's symbol: `#` for the indexed and product shapes (an anonymous struct,
-a tuple, a vector) and `%` for the hashed ones (map, set). A type built on
+with the elements as arguments: `Pair(1, "x")`. A tuple is its parentheses
+with a comma inside, `(1, "x")` (§4 *Tuples*). Every other literal of a
+built-in shape except a list starts with that shape's symbol: `#` for an
+anonymous struct and a vector and `%` for the hashed shapes (map, set). A type built on
 one of those shapes writes its name right after the symbol. The shape comes
 from the tokens, never from what the name declares: a name with a `{` on its
 line opens a struct literal, `%Name{` a map literal.
@@ -517,12 +520,18 @@ line opens a struct literal, `%Name{` a map literal.
 | Shape | Unnamed | Named | Pattern |
 |---|---|---|---|
 | struct | `#{x: 1}` | `Point{x: 1}`, `geo.Point{x: 1}`, `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` | `#{x, y}`, `Point{x, y}`, `.Circle{radius}` |
-| tuple | `#(a, b)` | `Pair(1, "x")` | `#(a, b)`, `Pair(a, b)` |
+| tuple | `(a, b)` | `Pair(1, "x")` | `(a, b)`, `Pair(a, b)` |
 | vector | `#[1, 2]`, `#[]` | `#Path[1, 2]`, `#.Items[1, 2]` | `#[first, ..rest]`, `#[.., last]`, `#Path[a, ..]` |
 | list | `[1, 2]`, `[]` | `Ids[1, 2]`, `.Items[1, 2]` | `[first, ..rest]`, `[a, b]` |
 | map | `%{"k" => v}`, `%{}` | `%Kvs{"k" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` | `%{"k" => v}`, `%Kvs{"k" => v}` |
 | set | `%[1, 2]`, `%[]` | `%Tags["a"]` | `%["admin", ..rest]`, `%[1, 2]` |
 
+- A struct literal names every value it gives. A value with no name is an
+  error, never a field by position, so reordering a struct's fields cannot
+  swap two values of one type: `Student{&1.first, &1.second}` is
+  `` a struct literal names its fields; write `Student{name: &1.first, score: &1.second}` ``,
+  whose fix writes the names in declaration order. When the values do not
+  fit the fields, the error counts them and names the fields instead.
 - A named literal always builds the type it names, never the underlying
   shape: `Ids[1, 2]` is an `Ids` even where a `List<Int>` is expected, where
   it is a type mismatch. A name that names no type is an error.
@@ -549,7 +558,7 @@ line opens a struct literal, `%Name{` a map literal.
 - Map keys are expressions: `%{key => 1}` reads the binding `key`, and a
   string key is quoted.
 - Types are written without a symbol, except a tuple's and an anonymous
-  struct's: `Vector<T>`, `Set<T>`, `Map<K, V>`, `#(Int, Int)`, `#{x: Int}`.
+  struct's: `Vector<T>`, `Set<T>`, `Map<K, V>`, `(Int, Int)`, `#{x: Int}`.
 
 An empty literal takes its element types from the expected type. With none,
 its binding needs an annotation (§5 *Locally-determined bindings and
@@ -593,8 +602,8 @@ A list literal with no expected type takes its element type from its first
 spread whose value has a type of its own (not a literal, and not a form that
 takes its type from its position), and its elements are built as that type,
 as they are under an annotation (§5 *Type argument conversion*): with
-`routes: List<#(Route, Handler)>`, ``[#(Route`GET /`, home), ..routes]`` is a
-`List<#(Route, Handler)>` though `home` is a `(Request) -> Response`.
+`routes: List<(Route, Handler)>`, ``[(Route`GET /`, home), ..routes]`` is a
+`List<(Route, Handler)>` though `home` is a `(Request) -> Response`.
 
 A map spread is a map. Each spread must be a `Map<K, V>`
 (``map spread `..` requires a map, got Point``), all of one type
@@ -652,7 +661,7 @@ compile time:
 - a variant with no payload (`None`, `Direction.North`, `.North`), or a
   variant constructor applied to constants (`Some(1)`), when the enum has no
   `impl Equatable` of its own, written or derived, and std declares none;
-- a tuple of constants (`#(1, "a")`).
+- a tuple of constants (`(1, "a")`).
 
 Any other key, a variable, a call, a struct or a value of a type with its own
 `impl Equatable`, is never compared at compile time. The same rule holds for
@@ -796,10 +805,10 @@ and `Float`.
   (`1.50d * 1.5d == 2.250d`). Rounding happens only in functions that name a
   `RoundingMode` ([std::decimal](/reference/decimal/)). There is no global
   precision or rounding context.
-- `Decimal` has no `/`, since whether an exact quotient exists depends on
-  the divisor's value (`10d` by `4d` is `2.50d`; `10d` by `3d` has none).
-  `a / b` with a `Decimal` operand is the error
-  ``Decimal has no `/`: write `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)` for a quotient that must terminate``.
+- `/` rounds a quotient that does not end to 34 significant digits,
+  half-even (`10d / 3d` is `3.333333333333333333333333333333333d`), and an
+  exact quotient keeps its smallest scale (`10.00d / 4d` is `2.5d`). §8
+  *Decimal arithmetic* gives the rule.
 - `Decimal` has no NaN and no infinities. Division by zero traps, as for
   `Int`.
 - The scale shows in display (`1.50d` prints `1.50`) but not in equality:
@@ -892,7 +901,7 @@ value.
   (§3 *Range literals*). It is opaque: its parts are reached through
   [std::ranges](/reference/ranges/). It implements `Iter<T>` when `T`
   implements `Discrete`.
-- `#(A, B, ...)` is a tuple and `#{name: A, ...}` an anonymous struct
+- `(A, B, ...)` is a tuple and `#{name: A, ...}` an anonymous struct
   (below).
 - `(A, B) -> C` is a function type (§7).
 
@@ -905,28 +914,56 @@ The functions over each type are in the standard library reference:
 
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#tuples).
 
-A tuple is written `#(a, b, ...)`: fixed-size, positional, of mixed types,
-with at least two items. Its type is written the same way, `#(Int, String)`,
-and so is its pattern. `t.0`, `t.1`, ... read its items. A tuple type is
-structural: two tuples of the same item types have the same type.
+A tuple is written `(a, b, ...)`: fixed-size, positional, of mixed types,
+with at least two items. Its type is written the same way, `(Int, String)`,
+and so is its pattern. Its items are read by ordinal name, counting from
+one as captures do: `t.first`, `t.second`, `t.third`, ... up to
+`t.twentieth`. A tuple type is structural: two tuples of the same item types
+have the same type.
 
 ```nomi
-fn divide(x: Int, y: Int) -> #(Int, Int) {
-    #(x / y, x % y)
+fn divide(x: Int, y: Int) -> (Int, Int) {
+    (x / y, x % y)
 }
 
 fn main() {
-    #(q, r) = divide(10, 3)
-    dbg #(q, r) // #(3, 1)
-    dbg divide(7, 2).1 // 1
+    (q, r) = divide(10, 3)
+    dbg (q, r) // (3, 1)
+    dbg divide(7, 2).second // 1
 }
 ```
 
-`#(1)` is
+A named tuple, a distinct type over a tuple (§4 *Distinct Types Over
+Tuples and Maps*), reads its items the same way: `Pair(1, "x").first` is
+`1`. Only a tuple has ordinal names; a struct's field called `first` is an
+ordinary field.
+
+Items are never read by number. `t.0` is the error
+`` tuple items are read by ordinal name, not by number: write `t.first` ``,
+whose fix writes the ordinal, and `t.1.0` is the same error for
+`t.second.first`. An item past the twentieth has no name: `t.20` is
+`` tuple items are read by ordinal name, `.first` to `.twentieth`, and item 21 has none ``,
+and such an item is bound by a pattern (`(a, b, ...)`). A tuple that wide
+is better written as a struct. An ordinal past a tuple's last item is
+`` (Int, Int) has 2 items, so it has no `third`; its last is `second` ``.
+
+A comma at the top level of parentheses makes a tuple. Without one,
+parentheses only group, in an expression, a pattern and a type: `(x)` is
+`x`, and `((Int))` is `Int`. `(1,)` is
 `` a tuple has at least two elements; `(x)` is grouping. Use a struct or distinct type if you need a wrapper ``,
-and `#()` is an error too; the empty value is `Unit`. Parentheses only group,
-in an expression, a pattern and a type: `(x)` is `x`, `((Int))` is `Int`, and
-`(1, 2)` is a parse error.
+and `()` is
+`` `()` is no value: a tuple has at least two elements, and the empty value is `Unit` ``.
+A trailing comma is allowed after a tuple's last item, as in a list.
+
+A tuple passed as a call's one argument is written in its own parentheses,
+`f((a, b))`. In a type, `(A, B) -> C` is a function of two parameters, and a
+function that takes one tuple is `((A, B)) -> C`: a `->` after the `)` makes
+the parentheses a parameter list. `() -> C` takes no parameters; there is no
+empty tuple.
+
+A tuple has no `#`, which an anonymous struct `#{...}` and a vector `#[...]`
+start with: `#(1, 2)`, as a value, a pattern or a type, is
+`` a tuple is written without `#`: `(a, b)` ``, whose fix drops the `#`.
 
 #### Anonymous Structs
 
@@ -1012,6 +1049,45 @@ A default has no function to exit, so a `?`, `return`, `break`, `continue`
 or assertion written directly in it is an error at that token:
 `` `?` cannot be used in the default of field 'port' of Config: a default has no function to return from ``.
 An exit inside a lambda the default builds belongs to the lambda.
+
+#### Field types from defaults
+
+A field with a default may leave out its type: `misses = 0` is an `Int`
+field. Its type is the default's, checked with no expected type, so it is
+known when nothing in the default is left open: a literal, a typed literal
+with its tag (``Route`GET /admin/{$}` `` is a `Route<Unit>`), a struct
+literal or a constructor call, a call (a function's declared result), a
+non-empty collection literal, an operator over such values, or a read of a
+`once` or of another field whose type is known. An untagged string literal
+is a `String`, even where the field is meant to hold a checked literal.
+
+```nomi
+struct Game {
+    word: String
+    misses = 0
+    guessed: Set<String> = %[]
+}
+
+fn main() {
+    game = Game{word: "nomi"}
+    dbg game.misses + 1 // 1
+}
+```
+
+A default whose type only an expected type tells (`[]`, `%[]`, `%{}`, `#[]`,
+`None`, a `.Variant`, or a generic call nothing fixes the type arguments of)
+is an error at the field, with help that writes the annotation:
+`` can't tell this field's type from `%[]` ``, with
+``write `guessed: Set<_> = %[]`, with the type for each `_` ``. A default
+that reads its own field's type, directly or through other such fields, is
+`` can't tell this field's type from `Bad{}.loop`: it depends on a type that comes from this default ``.
+
+The inferred type is part of the struct's interface, as a written one is:
+another file reads it, and a public struct's field may not take a private
+type from its default (`public struct field exposes private type Secret`).
+`derive FromJson` decodes each field by its written type, so it refuses a
+field without one:
+`` `derive FromJson for Cfg` needs field 'port' to have a written type ``.
 
 A struct-shaped variant's fields take defaults the same way. A positional
 payload and a bare variant cannot: `Circle Float = 3.14` is
@@ -1261,7 +1337,7 @@ struct Circle {
 enum Shape {
     embeds Circle
     Rectangle {width: Float, height: Float}
-    Segment #(Int, Int)
+    Segment (Int, Int)
     Point
 }
 ```
@@ -1273,7 +1349,7 @@ A variant is one of four kinds:
 - A **bare variant**, a name alone: `Point`, `None`.
 - A **single-payload variant**: a name and one type expression, with no
   parentheses, as a distinct type's declaration writes it: `Some T`,
-  `Milliseconds Int`, `Segment #(Int, Int)`, `Computation (Int) -> Int`.
+  `Milliseconds Int`, `Segment (Int, Int)`, `Computation (Int) -> Int`.
   Several values go in a tuple, a struct or a struct variant;
   `Rectangle Float, Float` is a parse error.
 - A **struct variant**: a name and named fields in braces, with optional
@@ -1379,7 +1455,7 @@ map's keys and values are two positions. So `[Color.Red, .Green]` is a
 whole type is what a later one is checked against, so the rule reaches into
 nested literals: `[Some(Color.Red), Some(.Green)]` resolves. An element whose
 type is still open sets nothing and blocks nothing. A tuple's items are separate
-positions, so `#(Color.Red, .Green)` gives `.Green` nothing.
+positions, so `(Color.Red, .Green)` gives `.Green` nothing.
 
 A `case` or `if` with no expected type does the same for its arms: each arm
 after the first is checked against the type the earlier arms give. A
@@ -1392,7 +1468,7 @@ diverging arm (`todo`, `return`) gives nothing.
 | `palette: List<Color> = [.Red, .Green]` | yes: the annotation |
 | `palette = [Color.Red, .Green]` | yes: the earlier element |
 | `c: Color = id(.Red)` with generic `id` | yes: the annotation pins `T` |
-| `exits: Map<Direction, Place> = [#(.North, .Cave)] \|> Iter.to_map()` | yes: the pipe's head is checked against the pinned parameter |
+| `exits: Map<Direction, Place> = [(.North, .Cave)] \|> Iter.to_map()` | yes: the pipe's head is checked against the pinned parameter |
 | `Ok(.Quit)` in a function returning `Result<Input, String>` | yes: `Ok`'s payload is pinned from the return |
 | `c == .Red`, `size < .Large` | yes: the other operand |
 | `c = .Red` | no: no expected type |
@@ -1475,8 +1551,8 @@ the way from the enum to the embedded type (§10).
 Where the two meet with no direction (the branches of an `if` or `case`, the
 elements of an unannotated literal, two arguments of one type parameter),
 the result is the enum, inside tuples, records and collections too. When
-neither side takes the other's values, as `#(circle, shape)` beside
-`#(shape, circle)`, they do not join and the literal is an error. `==`
+neither side takes the other's values, as `(circle, shape)` beside
+`(shape, circle)`, they do not join and the literal is an error. `==`
 compares a `Circle` with a `Shape` as two `Shape`s, at any depth: with
 `s: Shape = c`, `Some(c) == Some(s)` and `[c, c] == [s, s]` compare two
 `Maybe<Shape>` and two `List<Shape>` values and are `True`, and
@@ -1551,7 +1627,7 @@ Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#distinct-ty
 A `type` declaration makes a new nominal type, distinct from every other
 type, its representation included. What follows the name decides its kind:
 
-- a tuple type (`type Pair #(Int, String)`), at least two items;
+- a tuple type (`type Pair (Int, String)`), at least two items;
 - a generic type (`type Kvs Map<String, Int>`, `type Ids List<Int>`);
 - a single type name (`type Id Int`, `type Origin Point`, `type Twice Meters`);
 - a function type (`type Handler (Request) -> Response`);
@@ -1561,9 +1637,9 @@ A `type` declaration has no body. `type Wrap (Int)` is `type Wrap Int`,
 since parentheses only group.
 
 A distinct type may take type parameters after its name, which its inner
-type names: `type Tagged<T> #(String, T)`, `type Ids<T> List<T>`. Its call
+type names: `type Tagged<T> (String, T)`, `type Ids<T> List<T>`. Its call
 form solves them from the value it wraps, as a generic struct's literal
-does: `Tagged(#("n", 1))` is a `Tagged<Int>`. A zero-sized type takes none:
+does: `Tagged(("n", 1))` is a `Tagged<Int>`. A zero-sized type takes none:
 `type Marker<T>` is
 ``zero-sized `type Marker` takes no type parameters: it has no value for them to describe``.
 
@@ -1598,9 +1674,9 @@ fn main() {
 The call form takes the one value the type wraps, prefix or piped, checked
 against the wrapped type: `Id("42")` is
 `Id wraps Int, so Id(...) takes an Int; got String`. A distinct over a tuple
-takes its tuple, `Pair(#(1, "x"))`, or the tuple's elements,
+takes its tuple, `Pair((1, "x"))`, or the tuple's elements,
 `Pair(1, "x")`. Any other number of arguments is
-`Pair wraps #(Int, String), a tuple of 2 elements; got 3`, and
+`Pair wraps (Int, String), a tuple of 2 elements; got 3`, and
 `1 |> Pair("x")` is
 `Pair takes the piped value as its only argument, got 1 more`.
 
@@ -1647,7 +1723,7 @@ none.
 | Declaration | Named literal | Call form |
 |---|---|---|
 | `type Id Int` | none | `Id(42)` |
-| `type Pair #(Int, String)` | `Pair(1, "x")` | `Pair(#(1, "x"))` |
+| `type Pair (Int, String)` | `Pair(1, "x")` | `Pair((1, "x"))` |
 | `type Ids List<Int>` | `Ids[1, 2]` | `Ids(xs)` |
 | `type Path Vector<Int>` | `#Path[1, 2]` | `Path(v)` |
 | `type Tags Set<String>` | `%Tags["a", "b"]` | `Tags(s)` |
@@ -1657,7 +1733,10 @@ none.
 
 The named literal checks each element: `Pair("x", 1)` is
 `element 1 of Pair: expected Int, got String`, and `Pair(1)` is
-`Pair wraps #(Int, String), got Int`. Patterns mirror construction (§10).
+`Pair wraps (Int, String), got Int`. Patterns mirror construction (§10).
+A named tuple reads its items by ordinal name, as its tuple does:
+`Pair(1, "x").second` is `"x"`, and `Iter.map(pairs, .first)` reads each
+pair's first item.
 
 #### Opaque distinct types
 
@@ -1675,7 +1754,7 @@ functions. These are rejected:
 |---|---|
 | `PositiveInt(5)`, `Date{...}`, `Status.Active` (construction) | rejected |
 | `PositiveInt(n) = p`, a `case` on its variants (destructuring) | rejected |
-| `d.year` (field access) | rejected |
+| `d.year`, a named tuple's `p.first` (field and item access) | rejected |
 | `Struct.update(d, #{year: 1})`, `#{..d, year: 1}` (a patch naming a field) | rejected |
 
 Inside the defining file every form works. An opaque enum's variants are
@@ -1749,6 +1828,63 @@ parameters, in angle brackets after its name: `struct Pair<A, B>`,
 same way (`List<String>`, `Result<User, String>`); a call usually infers
 them (§5). A `where` clause bounds a type parameter by interfaces (§12
 *Bounds and dispatch in generic code*).
+
+#### Default type arguments
+
+A struct, enum, distinct type, host type or interface may give a type
+parameter a default type, written after `=`: `pub opaque type Route<P = Unit> String`.
+A use that leaves the argument out takes the default, so `Route` is
+`Route<Unit>`, and `Pair<Int>` is `Pair<Int, String>` for
+`struct Pair<A, B = String>`.
+
+```nomi
+struct Tagged<T, Tag = String> {
+    value: T
+    tag: Tag
+}
+
+fn label(t: Tagged<Int>) -> String {
+    "${t.tag}: ${t.value}"
+}
+
+fn main() {
+    dbg label(Tagged{value: 1, tag: "n"}) // "n: 1"
+}
+```
+
+The rules:
+
+- The parameters with a default come after every one without:
+  `struct Pair<A = Int, B>` is
+  `` type parameter `B` has no default, so it can't follow `A`, which has one ``.
+- A default names no type parameter, its own declaration's or another's:
+  `` a type parameter's default can't name a type parameter (`A`) ``. It is
+  resolved where the declaration is, so it may name a type the file using
+  the declaration does not import.
+- A default may name its own declaration only with every argument
+  written. `struct Box<T = List<Box<Int>>>` is fine, since `Box<Int>` takes
+  no default. `struct Box<T = Box>` would expand forever (`Box<Box<Box<…>>>`)
+  and is an error at the default:
+  `` `Box`'s default for `T` names `Box` itself, which would never end; write the argument where `Box` is used ``.
+  The same holds for a cycle through another declaration's default
+  (`struct A<T = B>` and `struct B<U = A>`), reported at one default on it:
+  `` `B`'s default for `U` names `A`, whose default names `B` again, which would never end; write the argument where `A` is used ``.
+- A function's type parameters take none, since a call infers them:
+  `` a function's type parameter can't have a default; a call infers `T` ``.
+- A default fills a type position only: an annotation, a parameter or result
+  type, a field's type, a type argument. There, `Route` with no arguments is
+  `Route<Unit>`, never a type to infer: `fn to(route: Route)` takes only a
+  `Route<Unit>`, while a generic function's own type parameter is still
+  inferred at each call. Where a type name stands for the declaration rather
+  than a use of it (an `impl` or `derive` header, a struct literal's or a
+  pattern's head), it keeps its parameters open as before, and they are
+  solved from the values.
+- A use with too few arguments for the parameters without a default is
+  `` `Pair` expects 1 to 2 type arguments, got 0 ``.
+
+A type prints with its trailing default arguments left out, in hover and in
+error messages: a `Route<Unit>` prints as `Route`, and a
+`Tagged<Int, String>` as `Tagged<Int>`.
 
 A function's type parameters are solved at each call from its arguments and
 the type its result is expected to have. So each must appear in a
@@ -1843,7 +1979,7 @@ A value of type `S` may stand where type `T` is expected when:
 There is no other implicit conversion (*No Implicit Conversion*).
 
 A tuple's elements and a record's fields convert as the value does:
-`#(1, p)` is a `#(Int, Named)` when `p`'s type implements `Named`. `Iter`
+`(1, p)` is a `(Int, Named)` when `p`'s type implements `Named`. `Iter`
 takes its element by the same rule as the top, since an `Iter` only hands
 its elements out: a `List<Int>` passes where an `Iter<Display>` is
 expected, and a `List<List<Int>>` where a `List<Iter<Int>>` is.
@@ -1856,8 +1992,8 @@ type meets an enum that embeds it, or when both are function types that fit.
 A type argument inside a function type is compared exactly, except an
 `Iter`'s element, which fits by this rule since an `Iter` only hands its
 elements out. The rule holds at every position a function value flows into,
-a tuple's element and a record's field among them: `#("a", f)` is a
-`#(String, (Int) -> Display)` when `f` is an `(Int) -> Int`.
+a tuple's element and a record's field among them: `("a", f)` is a
+`(String, (Int) -> Display)` when `f` is an `(Int) -> Int`.
 
 ```nomi
 fn shown(x: Display) -> String {
@@ -1917,8 +2053,8 @@ A type `S` converts as it is to `T` when:
 So a `List<Int>` is a `List<Display>`, a `Map<String, Pt>` a
 `Map<String, Named>` when `Pt` implements `Named`, a
 `List<(Display) -> String>` a `List<(Int) -> String>`, and an app's
-`List<#(Route, (Request) -> Response)>` a
-`List<#(Route, (Request) -> ToResponse)>`. The conversion does nothing at
+`List<(Route, (Request) -> Response)>` a
+`List<(Route, (Request) -> ToResponse)>`. The conversion does nothing at
 run time: the value is the one it was, whatever its length.
 
 ```nomi
@@ -2068,7 +2204,7 @@ once the file is checked. `Ok(z) = Maybe.to_result(None, "none") else { return }
 is
 ``the type of 'z' is not determined: nothing fixes the type the pattern binds it to — annotate the matched value (`v: T = …`) or give a call a type argument (`f<T>(…)`)``,
 unless the `else` fallback or a later use of `z` fixes it. A name whose type
-only contains an unknown part, as `a` in `#(a, b) = #(None, 1)`, is
+only contains an unknown part, as `a` in `(a, b) = (None, 1)`, is
 accepted.
 
 #### Determined type arguments
@@ -2104,6 +2240,13 @@ explicit type arguments (`Result.collect<Int, String>([])`).
 
 #### Lambda parameter types
 
+A lambda parameter with a default and no annotation takes its default's
+type, by the rule for a function's parameter (§7 *Parameter types from
+defaults*): `add = fn a: Int, b = 1 -> a + b` needs no other annotation.
+Where the lambda's position also expects a function type, the two must
+agree: passed where a `(Int) -> Int` is expected, `fn x = "a" -> 1` is
+`default value for parameter 'x' is String, expected Int`.
+
 A lambda parameter with no annotation and no default takes its type from the
 function type its position expects: a parameter's type at a call, a
 function-typed annotation, a declared return type, or a generic parameter the
@@ -2115,9 +2258,9 @@ expected type, the elements share one type, so a parameter annotated in one
 element types the unannotated parameter at the same place in the others,
 before or after it. A place is the lambda's position inside the element,
 through tuples, records and nested collection literals: in
-`[#("a", fn d: Date -> f(d)), #("b", fn d -> g(d))]` the second `d` is a
+`[("a", fn d: Date -> f(d)), ("b", fn d -> g(d))]` the second `d` is a
 `Date`. An earlier element that is a function value rather than a lambda
-(`#("a", month_name)`) types the places of the elements after it. Elements
+(`("a", month_name)`) types the places of the elements after it. Elements
 that annotate different types at one place are an element type mismatch.
 
 Anywhere else no function type is expected, it is `cannot infer type for
@@ -2125,6 +2268,51 @@ parameter x`, whose help says a later use does not type it. That covers an
 unannotated binding (`f = fn x -> x`), a tuple element, a collection literal
 whose elements type nothing at the parameter's place, and the argument of a
 generic constructor with no expected type (`h = Some(fn x -> x)`).
+
+### Type ascription
+
+`value as Type` checks `value` with `Type` as its expected type, exactly as
+`x: Type = value` does, and is a `Type`. It gives a type where no
+annotation can stand: a field of an anonymous struct literal, an argument,
+a list element. An untagged literal takes the type its position gives it
+(§18 *Literals typed by their position*), and so do an empty collection and
+`None`:
+
+```nomi
+import {
+    std::http.Route
+    std::uuid.Uuid
+}
+
+once admin = #{
+    home: Route`GET /admin/{$}`,
+    user: `GET /admin/users/{id}` as Route<#{id: Uuid}>,
+    tags: [] as List<String>,
+}
+
+fn main() {
+    dbg admin.tags + ["new"] // ["new"]
+    dbg None as Maybe<Int> // None
+}
+```
+
+`as` converts nothing (*No Implicit Conversion*). It admits what
+assignability admits (§5 *Assignability*): a value as an interface it
+implements, an embedded type as its enum, a collection under type-argument
+conversion. Anything else is the annotation's error at the value: with
+`x: Int`, `x as Float` is `type mismatch: expected Float, got Int`, with
+the help `` `as` doesn't convert a value; write `Int.to_float(x)` ``. The
+help names the converting function for the scalar pairs a cast in another
+language covers (`Float.to_int`, `String.to_int`, `String.to_float`,
+`Int.to_string` and the like).
+
+`as` binds like `|>` (§8 *Operators and precedence*). Two in a row,
+`a as T as U`, are
+`` `as` can't follow another `as`: an expression has one ascribed type ``.
+An `as` whose value has the type without it changes nothing and is no
+error. Where the value is a name, a field read or a number literal
+(`x as Int` with `x: Int`), the language server marks the `as`
+unnecessary.
 
 ### No Implicit Conversion
 
@@ -2178,10 +2366,44 @@ A value that holds one, in a field, a tuple or record part, an element or a
 payload, has no equality either:
 `` `==` cannot compare `Feed`: it holds `Iter<Int>`, and an Iter has no equality; materialize it with `Iter.to_list` to compare its elements ``.
 A struct or enum with its own `impl Equatable` compares through it instead.
-The same holds for a `where T: Equatable`, `Hashable` or `Comparable` bound:
-a function, or a value with no impl of its own that holds one, does not meet it
-(`` (Int) -> Int does not implement Equatable (required by `where T:
-Equatable`) ``).
+
+#### Equality bounds
+
+A `where T: Equatable` bound means that `T` has equality: it accepts exactly
+the types `==` accepts. A type with a hand-written or derived `impl Equatable`
+meets it through that impl. A struct, enum or distinct type with no impl of
+its own meets it by its structural equality, and `==` and `Equatable.equal`
+on it in the body compare it as `==` does outside, through any nested type's
+own impl. A function, an `Iter`, a handle, and a value with no impl of its own
+that holds one do not meet it (`` (Int) -> Int does not implement Equatable
+(required by `where T: Equatable`) ``, and for a struct `Op` holding a
+function, `` Op does not implement Equatable (required by `where T:
+Equatable`) `` with the help `` `Op` holds `(Int) -> Int`, and a function
+value has no equality ``).
+
+```nomi
+struct Point {
+    x: Int
+    y: Int
+}
+
+fn same<T>(a: T, b: T) -> Bool where T: Equatable {
+    a == b
+}
+
+fn main() {
+    p = Point{x: 1, y: 2}
+    dbg same(p, Point{x: 1, y: 2}) // True
+    dbg p in [p] // True
+    dbg List.starts_with([p, p], [p]) // True
+}
+```
+
+So `p in [q]`, `List.contains`, `Iter.contains`, `List.starts_with` and
+the other std functions bounded by `Equatable` take `Point` with no
+`derive Equatable`. A `where T: Hashable` bound follows the same rule
+(*Hashing and keys*). `Comparable` does not: ordering needs a declared
+impl (*Ordering requires a declared `Comparable`*).
 
 #### Custom equality via `impl Equatable`
 
@@ -2206,9 +2428,20 @@ through it at any depth. The bucket comes from the type's hand-written
 whose `Hashable` is not hashes by its type alone, so all its keys share a
 bucket. Every other value hashes structurally, as a derived `Hashable` does
 (§12 *Derive*): a tuple mixes its slots in order, so
-`Hashable.hash(#(1, 2)) == 33`, and an anonymous record its fields in name
-order, so `#{b: 2, a: 1}` hashes as `#(1, 2)` does. Map equality and hashing
+`Hashable.hash((1, 2)) == 33`, and an anonymous record its fields in name
+order, so `#{b: 2, a: 1}` hashes as `(1, 2)` does. Map equality and hashing
 ignore order. An `impl Hashable` must give equal values equal hashes.
+
+A key or element needs equality, not an impl: `%{p => 1}`, `%[p]`,
+`Iter.to_set` and `Iter.group_by` take a struct `P` with no `Equatable` or
+`Hashable` of its own, as `p == p` does. A `where T: Hashable` bound accepts
+what a key accepts: a type with an `impl Hashable` hashes through it, and any
+other type with equality meets the bound and hashes in the body as its keys
+do, so `Hashable.hash(a) == Hashable.hash(b)` whenever `a == b`. A derive
+asks the same of each field: `derive Hashable for W` over a field of type
+`P`, `List<P>` or `(Int, P)` is accepted, and over a `P` that holds a
+function is ``no impl of `Hashable` for `P` (required via `derive Hashable
+for W`, field `f`)`` (§12 *Derive*).
 
 #### Ordering requires a declared `Comparable`
 
@@ -2228,9 +2461,21 @@ natural order implement `Comparable`: `Int`, `Float`, `Decimal`, `String`,
 `Bool`, `Duration` and the calendar types. `List<T>` and `Vector<T>` are
 `Comparable`, lexicographically, when `T` is. `Map` and `Set` are not.
 
+`Comparable` also gives every implementing type `min`, `max` and `clamp`,
+open defaults written over `compare`: `Int.min(a, b)`, `Date.clamp(day,
+first, last)`, `Version.max(a, b)` on a derived impl, or `Comparable.min(a,
+b)` in a function generic over `T: Comparable`. A tie returns the first
+argument. `clamp(value, low, high)` holds `value` to `low..high`, both ends
+included, and a `low` greater than `high` traps, naming both bounds as
+`Debug` writes them: `Comparable.clamp: low 10 is greater than high 1`.
+`Float` overrides all three: `min` and `max` are IEEE 754-2019's `minimum`
+and `maximum` (NaN if either operand is NaN, and `-0.0` below `0.0`), and
+`clamp` keeps a NaN value NaN and traps on a NaN bound (`Comparable.clamp:
+low NaN is not a number`).
+
 A tuple is `Comparable` when every element is: the first elements decide
 unless they are `Equal`, then the second, and so on, and an element after
-the deciding one is never compared. `#(1, "b") < #(2, "a")`. Ordering a
+the deciding one is never compared. `(1, "b") < (2, "a")`. Ordering a
 tuple with a non-`Comparable` element is a compile error naming the element
 type. An anonymous struct is never `Comparable`, since nothing declares it:
 ``no impl of `Comparable` for `#{x: Int}` (required via ordering operator `<`); anonymous struct types cannot implement `Comparable` ``.
@@ -2275,7 +2520,7 @@ optional annotation follows a plain name: `count: Int = parse(s)?` (§5).
 ```nomi
 fn main() {
     x = 5
-    #(a, b) = #(1, 2)
+    (a, b) = (1, 2)
     dbg x + a + b // 8
 }
 ```
@@ -2284,7 +2529,7 @@ Every name a binding, a parameter or a pattern introduces must be read. That
 includes a destructured parameter's names, the names a `case` arm, an
 `else` arm, an `if` condition or a test's setup binding introduces, and
 parameters in every body (`boot` and interface defaults included). An
-unread one is an error: `fn f(#(word, count): ...)` that reads only `count`
+unread one is an error: `fn f((word, count): ...)` that reads only `count`
 is `parameter 'word' is never read`. A value kept on purpose is bound to a
 discard name (§2 *Discard names*). A struct pattern leaves out a field it
 does not need (`.Suspended{reason}`). An impl function that must keep a
@@ -2522,6 +2767,36 @@ argument out is `expected 2 arguments, got 1`, whose help is
 capture has none either: after `once ping = &connect(&1, port: &2)`,
 `ping("a")` is `expected 2 arguments, got 1`.
 
+#### Parameter types from defaults
+
+A parameter with a default may leave out its type when the default alone
+tells it, by the rule for fields (§4 *Field types from defaults*): `limit =
+10` is an `Int` parameter, and `mode = WriteMode.Replace` a `WriteMode`.
+This holds for a `fn`, a generic one included, a function in an `impl`
+block or a type's namespace, an interface's default function, a `host fn`
+and a lambda (§5 *Lambda parameter types*). A default that reads an
+earlier parameter takes its type from it (`fn window(page: Page, offset =
+page.size * 2)`).
+
+```nomi
+fn search(query: String, limit = 10, offset = 0) -> String {
+    "${query} ${limit} ${offset}"
+}
+
+fn main() {
+    dbg search("nomi") // "nomi 10 0"
+    dbg search("nomi", offset: 20) // "nomi 10 20"
+}
+```
+
+A default whose type only an expected type tells is the field rule's
+error, `` can't tell this parameter's type from `None` ``, with
+``write `since: Maybe<_> = None`, with the type for each `_` ``. The
+inferred type is the function's signature for every caller, in every file,
+and hover, signature help and the reference show it. A public function's
+parameter may not take a private type from its default
+(`function parameter exposes private type Secret`).
+
 #### Parameter Destructuring
 
 Taught in [Functions & Lambdas](/functions-and-lambdas/#destructuring-parameters).
@@ -2539,13 +2814,13 @@ fn sum(Point{x, y}) -> Int {
     x + y
 }
 
-fn add_pair(#(a, b): #(Int, Int)) -> Int {
+fn add_pair((a, b): (Int, Int)) -> Int {
     a + b
 }
 
 fn main() {
     dbg sum(Point{x: 1, y: 2}) // 3
-    dbg add_pair(#(3, 4)) // 7
+    dbg add_pair((3, 4)) // 7
 }
 ```
 
@@ -2683,14 +2958,18 @@ function's are, without parentheses: names, annotations, defaults and
 irrefutable patterns, separated by commas. A lambda with none writes nothing
 between `fn` and `->`. The first `->` that is not inside a parameter's
 annotation ends the parameters, so `fn f: (Int) -> Int -> f(1)` takes `f`.
-There is no implicit parameter.
+An annotation in parentheses is a function type when what follows its result
+type ends a parameter (`,`, `->` or `=`); otherwise the `->` ends the
+parameters, so `fn p: (Int, Int) -> p.first` takes a tuple `p`. A lambda that
+takes one tuple apart writes the tuple pattern as its parameter,
+`fn (name, score) -> ...`. There is no implicit parameter.
 
 ```nomi
 fn main() {
     double = fn x: Int -> x * 2
     dbg double(4) // 8
     dbg Iter.reduce([1, 2, 3], 0, fn total, x -> total + x) // 6
-    dbg Iter.map([#("a", 1)], fn #(_, n) -> n) |> Iter.to_list() // [1]
+    dbg Iter.map([("a", 1)], fn (_, n) -> n) |> Iter.to_list() // [1]
     dbg (fn -> 7)() // 7
 }
 ```
@@ -2720,7 +2999,7 @@ body, which is one of:
 
 - a call: `&Int.max(&1, 0)`, `&Some(&1 + 1)`, `&f(&2, &1)`;
 - a parenthesized expression: `&(&1 > 2)`, `&(&1 * 2 + 1)`, `&(not &1)`;
-- a literal or construction: `&Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1, 0]`,
+- a literal or construction: `&Point{x: &1, y: 0}`, `&(&1, 0)`, `&[&1, 0]`,
   and a string literal of any form, typed literals among them:
   `&"id ${&1}"` is `fn x -> "id ${x}"`, and `&Sql"id = ${&1}"` is
   `fn x -> Sql"id = ${x}"`.
@@ -2871,12 +3150,12 @@ builds.
 ```nomi
 enum Shape {
     Circle Float
-    Segment #(Int, Int)
+    Segment (Int, Int)
 }
 
 fn main() {
     dbg Iter.map([1.0], Shape.Circle) |> Iter.to_list() // [Circle(1.0)]
-    dbg Iter.map([#(1, 2)], Shape.Segment) |> Iter.to_list() // [Segment(1, 2)]
+    dbg Iter.map([(1, 2)], Shape.Segment) |> Iter.to_list() // [Segment(1, 2)]
     somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
     dbg somes // [Some(1), Some(2)]
 }
@@ -2888,10 +3167,10 @@ fn main() {
   it from, `f = Some` is
   `cannot infer type parameter T of generic constructor 'Some' used as a value: ...`.
 - A variant over a tuple takes the tuple: `Shape.Segment` is a
-  `(#(Int, Int)) -> Shape`. Its flat call is a call form of the one tuple,
+  `((Int, Int)) -> Shape`. Its flat call is a call form of the one tuple,
   and a partial capture leaves one element open
   (`&Shape.Segment(&1, 0)` is an `(Int) -> Shape`). A distinct over a tuple
-  is the same: `Pair` is a `(#(Int, String)) -> Pair`, and `Pair(1, "x")`
+  is the same: `Pair` is a `((Int, String)) -> Pair`, and `Pair(1, "x")`
   builds one from the elements.
 - A bare variant is a value, not a function: `Shape.Point` is a `Shape`.
 - A struct and a struct-shaped variant are not function values:
@@ -2908,9 +3187,9 @@ fn main() {
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#field-accessors).
 
 `.name` is a function that reads field `name` from its argument. A chain
-`.address.city` reads one field after another, and a tuple index reads an
-item (`.0`, `.1.0`). A lowercase name after the dot is a field; a
-capitalized one is a `.Variant`.
+`.address.city` reads one field after another, and an ordinal reads a
+tuple's item (`.first`, `.second.first`, §4 *Tuples*). A lowercase name
+after the dot is a field; a capitalized one is a `.Variant`.
 
 ```nomi
 struct User {
@@ -3197,9 +3476,9 @@ fn main() {
 ### Operators and precedence
 
 The operator set is fixed. A program cannot define an operator or change a
-precedence. The arithmetic operators `+`, `-`, `*` and `/` and the bitwise
-operators dispatch through std interfaces (*Operators through interfaces*);
-`%` works only on `Int`.
+precedence. The arithmetic operators `+`, `-`, `*`, `/` and `%` and the
+bitwise operators dispatch through std interfaces (*Operators through
+interfaces*).
 
 Precedence, from loosest to tightest:
 
@@ -3210,7 +3489,7 @@ Precedence, from loosest to tightest:
 | 3 | prefix `not` |
 | 4 | `==` `!=` `is` `in` |
 | 5 | `<` `>` `<=` `>=` |
-| 6 | `\|>` |
+| 6 | `\|>` `as` |
 | 7 | `..` `..=` |
 | 8 | `+` `-` `\|\|\|` `^^^` |
 | 9 | `*` `/` `%` `&&&` `<<<` `>>>` |
@@ -3225,6 +3504,10 @@ Precedence, from loosest to tightest:
   *Membership: `Contains`*).
 - Prefix `not` takes everything to its right that binds at least as tightly as
   `==` (*Logical operators*).
+- `as` takes a type, not an expression, on its right, and ascribes
+  everything to its left at its level, so `xs |> Iter.to_list() as
+  List<Int>` ascribes the pipeline and `a == b as T` is `a == (b as T)`. It
+  does not chain (§5 *Type ascription*).
 
 Other operator tokens: `?` and `!` (postfix, §11 *Propagating with `?`*, §11
 *Unwrapping with `!`*), `=` (binding, §6), `.` (field access and
@@ -3236,10 +3519,10 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
 
 `+`, `-`, `*`, `/` and `%`, and prefix `-`.
 
-- `Int`, `Float` and `Decimal` have `+`, `-`, `*` and prefix `-` over two
-  operands of one type. `Int` and `Float` have `/`. `Int` alone has `%`:
-  `a % b` on two Floats is ``modulo is not defined on Float; `%` takes two
-  Int operands``, at the `%`.
+- `Int`, `Float` and `Decimal` have `+`, `-`, `*`, `/`, `%` and prefix `-`
+  over two operands of one type. `%` is the remainder of `/`'s truncating
+  division and takes the sign of the left operand (*Integer division and
+  remainder*).
 
 - The numeric types never mix. `1 + 2.0`, `1 + 1.50d`, `1 < 2.0` and `1 ==
   1.0` are compile errors (`binary + type mismatch: Int vs Float`, `equality
@@ -3255,11 +3538,11 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
   `m + %{k => v}`.
 - A collection literal operand beside an operand of the same collection is
   built as that operand's type, on either side, as a literal is under an
-  annotation (§5 *Type argument conversion*): with `routes: List<#(Route,
-  Handler)>`, ``[#(Route`GET /`, home)] + routes`` is a `List<#(Route,
+  annotation (§5 *Type argument conversion*): with `routes: List<(Route,
+  Handler)>`, ``[(Route`GET /`, home)] + routes`` is a `List<(Route,
   Handler)>` though `home` is a `(Request) -> Response`. Two operands that
   each have a type of their own must have one type: with ``mine =
-  [#(Route`GET /`, home)]``, `mine + routes` is `binary + type mismatch`.
+  [(Route`GET /`, home)]``, `mine + routes` is `binary + type mismatch`.
 
 #### Integer arithmetic is exact
 
@@ -3307,9 +3590,11 @@ sign of the dividend, so `(a / b) * b + (a % b) == a`: `-7 / 3 == -2` and `-7
 
 - `/` and `%` trap on a zero divisor: `line N: division by zero` (§11
   *Traps, `Maybe` and `Result`*).
-- `/` with a `NonZeroInt` on the right uses std's `Divide<NonZeroInt, Int>`
-  impl, which cannot trap.
-- `Float` has no `%`.
+- `/` and `%` with a `NonZeroInt` on the right use std's `Divide<NonZeroInt,
+  Int>` and `Remainder<NonZeroInt, Int>` impls, which cannot trap.
+- `Float`'s `%` is IEEE 754's fmod: `a - b * trunc(a / b)` computed exactly,
+  with the sign of `a` (`-7.5 % 2.0 == -1.5`). It never traps: a zero divisor
+  or an infinite dividend gives NaN, and an infinite divisor gives `a`.
 
 Floored division and modulo, powers, roots and digits are functions in
 [std::int](/reference/int/).
@@ -3318,21 +3603,41 @@ Floored division and modulo, powers, roots and digits are functions in
 
 Taught in [Scalars and Strings](/scalars-and-strings/#exact-arithmetic-with-decimal).
 
-`Decimal` (§4 *Primitive Types*) has `+`, `-`, `*`, the comparisons and
-equality. `+`, `-` and `*` never round. The scale grows as needed: `1.50d +
+`Decimal` (§4 *Primitive Types*) has `+`, `-`, `*`, `/`, `%`, the comparisons
+and equality. `+`, `-` and `*` never round. The scale grows as needed: `1.50d +
 1.5d == 3.00d` and `1.50d * 1.5d == 2.250d`.
 
-`Decimal` has no `/` and no `%`. Whether a quotient terminates in base 10
-depends on the divisor's value, so an operator would work on `10.00d / 4d` and
-fail on `10d / 3d`.
+`/` rounds. A quotient is kept to 34 significant digits, rounded half-even,
+which is IEEE 754 decimal128's precision (Java's `MathContext.DECIMAL128`):
+enough for any amount of money and any rate applied to it.
 
-- `a / b` with a `Decimal` on either side, and `Divide.divide` on decimals, is
-  a compile error at the operator: ``Decimal has no `/`: write
-  `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)`
-  for a quotient that must terminate``.
-- [std::decimal](/reference/decimal/)'s `Decimal.divide` rounds to a scale
-  and `RoundingMode`, and `Decimal.divide_exact` returns `None` for a
-  quotient that does not terminate.
+- The digits are counted from the quotient's first non-zero digit, so
+  `1d / 3000d` keeps 34 threes after `0.000`.
+- A quotient is never rounded left of the decimal point: one whose whole part
+  has more than 34 digits keeps all of them, at scale 0.
+- The result has no trailing zeros after the point. A quotient that ends
+  within its 34 digits is therefore exact, at the smallest scale that holds
+  it, whatever the operands' scales: `10.00d / 4d` is `2.5d`, `1d / 4d` is
+  `0.25d` and `6.00d / 3d` is `2d`. `Decimal.scale` reads that scale (`1`,
+  `2` and `0`) and `Decimal.to_string` prints it (`"2.5"`, `"0.25"`, `"2"`).
+- A quotient that does not end has all 34 digits: `10d / 3d` is
+  `3.333333333333333333333333333333333d` and `2d / -3d` is
+  `-0.6666666666666666666666666666666667d`.
+- A zero divisor traps as `Int`'s `/` does: `line N: division by zero`.
+- `Divide.divide(a, b)` and `Decimal.divide(a, b)` are the same operation,
+  and `Decimal` meets a `Divide<Decimal, Decimal>` bound.
+- `/` takes two `Decimal`s, as `*` does: `1d / 3` is ``binary / type
+  mismatch: Decimal vs Int``.
+
+[std::decimal](/reference/decimal/)'s `Decimal.divide(a, b, scale, mode)`
+rounds to a scale and `RoundingMode` you name, for an answer whose digits are
+fixed (cents, a rate to four places). `Decimal.divide_exact` returns `None`
+for a quotient that does not end.
+
+`%` is exact: `a - b * q`, where `q` is the quotient truncated toward zero.
+It takes the sign of `a`, never rounds, and has the larger of the two scales:
+`10.5d % 3d == 1.5d`, `7.25d % 0.5d` is `0.25d`, `-7.5d % 2d == -1.5d` and
+`10d % 2.50d` is `0.00d`. A zero divisor traps as `Int`'s does.
 
 Equality and comparison are by value and ignore scale: `1.50d == 1.5d` is
 `True`. Scale is kept for display: `Decimal.scale(1.50d) == 2` and
@@ -3342,8 +3647,9 @@ Equality and comparison are by value and ignore scale: `1.50d == 1.5d` is
 
 Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#operators-that-dispatch).
 
-`+`, `-`, `*` and `/` are the prelude interfaces `Add<Rhs, Out>`,
-`Subtract<Rhs, Out>`, `Multiply<Rhs, Out>` and `Divide<Rhs, Out>`. The left
+`+`, `-`, `*`, `/` and `%` are the prelude interfaces `Add<Rhs, Out>`,
+`Subtract<Rhs, Out>`, `Multiply<Rhs, Out>`, `Divide<Rhs, Out>` and
+`Remainder<Rhs, Out>`. The left
 operand is the implementing type. The type arguments name the right operand's
 type and the result's:
 
@@ -3374,7 +3680,9 @@ fn main() {
   right operand's type (§12 *Several instantiations for one type*): `Instant -
   Duration` is an `Instant` and `Instant - Instant` a `Duration`.
 - std implements arithmetic for `Int`, `Float` and `Decimal`, and `Add` for
-  `String` and `Bytes`.
+  `String` and `Bytes`. `Duration` has `Remainder<Duration, Duration>`:
+  `elapsed % Duration.minutes(15)` is how far into the current quarter hour
+  `elapsed` is.
 - Generic code that uses an operator names the bound: `where T: Add<Step,
   Out>`.
 - An operator impl may be generic over the receiver's type parameters. Its
@@ -3384,7 +3692,8 @@ fn main() {
   expects Set<Int>, got Int`.
 - An operand type with no impl is an error at the operator that names the
   interface: ``no impl of `BitwiseAnd` for `Float` (required via bitwise and
-  operator `&&&`)``.
+  operator `&&&`)``, and for a `type Score Int` with no `Remainder`, ``no impl
+  of `Remainder` for `Score` (required via remainder operator `%`)``.
 
 **Summable.** A type whose `+` takes two of its values and returns one may
 implement the prelude interface `Summable`. `empty_sum()` is the sum of no
@@ -3627,6 +3936,14 @@ fn main() {
   impl does not take is `` the value `in` looks for: expected Int, got String
   `` for `"a" in [1, 2]`, and `1 in %{"a" => 1}` is `` the value `in` looks
   for: expected String, got Int ``.
+- `List` and `Vector` implement `Contains` where their element is
+  `Equatable`, which every type with equality is (§5 *Equality bounds*):
+  `p in [p]` and `p in #[p]` take a struct `P` with no impl of its own, as
+  `p in %[p]` and `p in %{p => 1}` do. An element type with no equality is
+  one error, the element's, at the collection: `o in [o]` for a struct `Op`
+  holding a function is ``no impl of `Equatable` for `Op` (required via
+  membership test `in`)``. A program's impl with a bound on its element is
+  reported the same way.
 - Elements compare as `==` does, so Float equality is reflexive here (§5
   *Equality*): a `NaN` element is found by `NaN`.
 
@@ -3645,8 +3962,9 @@ fn main() {
 
 Taught in [Structs, Enums and Distinct Types](/structs-enums-distinct/#structs).
 
-`value.field` reads a struct's or an anonymous struct's field, and `value.0`,
-`value.1`, ... a tuple's element. Access chains: `user.address.city`.
+`value.field` reads a struct's or an anonymous struct's field, and
+`value.first`, `value.second`, ... a tuple's item (§4 *Tuples*). Access
+chains: `user.address.city`.
 
 - A value of interface type or of type-parameter type has no fields (§14
   *Member access is fail-loud*).
@@ -3753,8 +4071,8 @@ fn main() {
     dbg 10 |> then &divide(100, &1) // 10
     dbg 3 |> then &add(&1, b: &1) // 6
 
-    dbg #(1, 2)
-    |> then fn #(a, b) -> a + b // 3
+    dbg (1, 2)
+    |> then fn (a, b) -> a + b // 3
 }
 ```
 
@@ -4174,6 +4492,122 @@ fn main() {
 }
 ```
 
+### Releasing resources
+
+Taught in [Files](/files/#streams).
+
+A type that holds something outside the program (a file, a process, a
+connection) implements the prelude interface `Release`, and a type whose
+release throws away work done with the value also implements `Commit<E>`:
+
+```nomi
+pub interface Release {
+    fn release(value: self) -> Unit
+}
+
+pub interface Commit<E> {
+    fn commit(value: self) -> Result<Unit, E>
+}
+```
+
+The body of an impl's `release` or `commit` is one call, which names the
+type's usual release or commit: `impl Release for Writer` calls
+`Writer.discard(w)`, and `impl Commit for Writer` calls
+`Writer.close(w)`. In std, `Reader` releases with `Reader.close_quietly`,
+`Writer` with `Writer.discard` and commits with `Writer.close`, `File` with
+`File.close_quietly`, `Child` with `Child.kill`, `http.StreamedResponse`
+(what `http.stream` returns) with `StreamedResponse.close`, and `sql.Conn`
+with `sql.close_quietly`. A type of the program's own may implement either.
+
+**An acquisition must be released.** An acquisition is a call whose result is
+a value of a Release type, or a `Result` with one in its `Ok`, and which
+names no value of a Release type outside a lambda. Opening can fail
+(`fs.open`, `fs.create`, `process.spawn`, `http.stream`, a database
+driver's `open`) or not (`postgres.pool`, a program's `fn lock() -> Lock`).
+A call given a Release value returns a view of it that its own release
+covers: a transaction's `Conn` from `Conn.begin(conn)`, a child's
+`Child.stdout(child)`. Two calls that return a Release value directly are
+no acquisition:
+
+- a constructor of a variant or distinct type (`Handle(raw)`), which builds
+  the value from parts the body already holds;
+- a call returning a `Reader` or a `Writer`. std makes them over memory
+  (`Reader.from_text(s)`) and borrows them from values of no Release type
+  (`Body.reader(body)`, `Connection.reader(conn)`), none of which the caller
+  releases, so only a `Result` holding one acquires it.
+
+A Release value that is not a call's, such as `io.stdout`, a parameter or a
+struct literal, is no acquisition either.
+
+A name a body binds to an acquired value (`w = fs.create(path)?`, an
+`Ok(r)` arm of a `case` over one, `Ok(r) = fs.open(path) else { ... }`) is
+released or handed on in that body:
+
+- **released**: a `defer` among the statements after the binding, in the
+  block the binding is in (or the arm's block), calls a function that takes
+  it: `defer Writer.discard(w)`, `defer Child.kill(child)`, the type's
+  `release`;
+- **handed on**: it is returned, or is the value of its block; it is an
+  element of a list, set, vector, map, tuple or struct literal, or the
+  argument of a variant or distinct type's constructor (`Ok(r)`,
+  `Body.Stream(r)`), wherever that value goes; or another name is bound to
+  it.
+
+An acquisition whose value is dropped is the error `` the `Reader` this
+acquires is never released; bind it and write `defer
+Reader.close_quietly(reader)` after it ``: one bound to `_`
+(`_ = fs.open(path)?`), and one that is the last expression of a body whose
+value nothing takes, a test's or a callback's whose result is `Unit` (the
+function `Iter.each` calls). Any other statement whose value is not `Unit`
+is already an error.
+
+Passing it to a call is a use, not a hand-on: the check reads one body and
+does not follow the value into the callee, so a function that releases a
+parameter does not release its caller's acquisition. A body is a function's,
+a lambda's or a test's, each checked on its own. A name that is neither is
+the error `` `r` is never released; write `defer Reader.close_quietly(r)`
+after it, or return it ``, at the binding, which names the type's usual
+release. A `defer` inside an `if` releases on one path only, so it does not
+count.
+
+**A deferred discard needs a commit on every normal return.** When the
+deferred call is a Commit type's usual release (`Writer.discard`, which drops
+a `ReplaceAtomically` writer's temporary file), every path from the `defer`
+that returns normally calls the commit, or the release itself, which discards
+on purpose, before it returns. A normal return is a `return` or a block's
+last expression that is not `Err(...)` or `None`, and the end of a function
+whose result is `Unit`; the end of the block the `defer` is in, when that
+block is not the body's last, discards too. A path that leaves by `?`,
+`return Err(...)`, `unreachable` or a trap needs no commit, and neither does a
+commit inside a lambda on the path, which counts as made. A path without one
+is the error `` `w` is discarded here: this path returns without
+`Writer.close(w)?` `` at that return, written with `!` in a body whose result
+is neither a `Result` nor a `Maybe`. A deferred release that commits as it
+releases (`Writer.close_quietly`, `File.close_quietly`) needs nothing more; a
+failed close is then dropped, so the success path writes `Writer.close(w)?`
+when it must report one.
+
+```nomi
+fn save(path: String, rows: List<String>) -> Result<Unit, io.Error> {
+    w = fs.create(path, mode: .ReplaceAtomically)?
+    defer Writer.discard(w)
+
+    Writer.write_lines(w, rows)?
+
+    if rows == [] {
+        return Ok(Unit) // `w` is discarded here: this path returns without `Writer.close(w)?`
+    }
+
+    Writer.close(w)?
+    Ok(Unit)
+}
+```
+
+The editor's quick fix for an unreleased name writes the `defer` after the
+binding and, for a Commit type, the commit before each return that lacks
+it; the one for a dropped acquisition first binds it to a name; the one for
+a missing commit writes the commit.
+
 ### `break` and `continue`
 
 Taught in [Iteration and Loops](/iteration-and-loops/#break-and-continue-in-iter-callbacks).
@@ -4380,7 +4814,7 @@ fn main() {
 
 ### Tuple patterns
 
-`#(p1, p2, ...)` matches a tuple of that many elements, each against its
+`(p1, p2, ...)` matches a tuple of that many elements, each against its
 pattern.
 
 ### Distinct Type Destructuring
@@ -4388,10 +4822,10 @@ pattern.
 A distinct type's value is matched in the form it is built: `Id(n)` for a
 distinct over a scalar, and for one over a tuple, map, vector or set either the
 named literal pattern (`Pair(a, b)`, `%Kvs{...}`, `#Path[...]`, `%Tags[...]`)
-or the call form (`Pair(#(a, b))`, `Kvs(%{...})`).
+or the call form (`Pair((a, b))`, `Kvs(%{...})`).
 
 ```nomi
-type Pair #(Int, String)
+type Pair (Int, String)
 
 fn show(p: Pair) -> String {
     case p {
@@ -4400,7 +4834,7 @@ fn show(p: Pair) -> String {
 }
 
 fn first(p: Pair) -> Int {
-    Pair(#(a, _)) = p
+    Pair((a, _)) = p
     a
 }
 
@@ -4651,7 +5085,7 @@ fn main() {
 - Alternatives are tried left to right, and the first that matches binds the
   names.
 - `or` nests inside any pattern that holds subpatterns: a payload
-  (`Some(.Equilateral or .Isosceles)`), a tuple element (`#(0, x) or #(x,
+  (`Some(.Equilateral or .Isosceles)`), a tuple element (`(0, x) or (x,
   0)`), a struct field, a list or vector element (`[')' or ']' as c, ..rest]`)
   and a map value. Alternatives may be literals (`1 or 2 or 3`, `"yes" or
   "y"`).
@@ -4716,7 +5150,7 @@ fn main() {
 - In a binding with `else`, an `as` around the whole pattern rules out a
   fallback, since there is no value to bind it to: `Some(n) as m = find() else
   { 0 }` is the no-single-payload error. An `as` inside the payload is allowed:
-  `Ok(#(w, h) as size) = r else { #(80, 24) }`.
+  `Ok((w, h) as size) = r else { (80, 24) }`.
 
 ### Exhaustiveness checking
 
@@ -4744,10 +5178,10 @@ component by component:
 - A subject-less `case` needs a `_` arm (§8 *`case`*).
 
 When the compiler can name a missing value it does: `non-exhaustive case on
-Shape: missing Rect`, `non-exhaustive case on #(Maybe<Int>, Maybe<Int>):
-missing #(None, None)`, `non-exhaustive case on List<Int>: missing [_, _,
+Shape: missing Rect`, `non-exhaustive case on (Maybe<Int>, Maybe<Int>):
+missing (None, None)`, `non-exhaustive case on List<Int>: missing [_, _,
 ..]`, `non-exhaustive case on Vector<Int>: missing #[_, _, ..]`. When only a
-value no list of literals can cover is missing, as in `case #(n, n) { #(0, 0)
+value no list of literals can cover is missing, as in `case (n, n) { (0, 0)
 -> "zero" }`, the error is ``non-exhaustive case: add a `_` arm``.
 
 ### Type Narrowing
@@ -4845,7 +5279,7 @@ fn main() {
   payload, `Variant(inner)` or `.Variant{fields}`, whose inner pattern always
   matches. The fallback has the payload's type (for a struct-shaped variant,
   the anonymous struct of its fields), and the inner pattern binds from it as
-  it would from a match: `Ok(#(w, h)) = r else { #(80, 24) }` binds `w` to 80.
+  it would from a match: `Ok((w, h)) = r else { (80, 24) }` binds `w` to 80.
   A fallback of another type is `the fallback stands in for Some's payload of
   type String, got Int`.
 - A pattern with no single payload (a list, vector, map or set pattern, a
@@ -4853,7 +5287,7 @@ fn main() {
   refutable part) requires every path to leave. A path that produces a value is
   the error ``this pattern has no single payload a fallback could stand in for;
   every path through `else` must return, break or continue``.
-- A pattern that always matches takes no `else`: `#(x, y) = pair else { ... }`
+- A pattern that always matches takes no `else`: `(x, y) = pair else { ... }`
   is `this pattern always matches; remove the else`. A single-variant enum's
   pattern always matches: for `enum Only { One Int }`, `Only.One(p) = only`
   needs no `else`, and over a struct-shaped variant, `Rec.Fields(r) = rec` binds
@@ -5223,6 +5657,12 @@ interface Display {
 - A default is reachable interface-qualified (`Iter.known_count(xs)`) and
   type-qualified on an implementor (`List.known_count(xs)`). Both name one
   function, selected by the type bound to `self`.
+- A default an implementor inherits is the implementor's member exactly as a
+  function its impl writes is. `Square.describe(sq)` needs no import of the
+  interface, as `Square.area(sq)` needs none, wherever the interface and the
+  impl are declared. An import of the interface that only such a call would
+  use is unused, and so an error. The interface-qualified call
+  `Shape.describe(sq)` names the interface and needs it in scope.
 - A default's body calls the interface's other functions bare.
 - A Nomi-bodied default may give its trailing parameters default values
   (`fn announce(value: self, loud: Bool = False) -> String { ... }`). A required
@@ -5312,7 +5752,7 @@ interface Scale {
   function``. Outside an interface it is ``function 'f': `where self` is only
   allowed on an interface's default function``.
 - A default's signature may name `self` anywhere: in its result (`fn grown(x:
-  self) -> self`), in a composite (`-> #(self, self)`, `List<self>`), or with
+  self) -> self`), in a composite (`-> (self, self)`, `List<self>`), or with
   no `self` parameter at all (`fn zero() -> self`). An interface-qualified call
   of a function with no `self` parameter inside the interface's own default
   runs the implementor's function.
@@ -5553,13 +5993,25 @@ fn main() {
 - `Dog.speak(rex)` is the error `type 'Dog' impl 'Performer' and 'Speaker',
   which each declare 'speak' — type-qualified 'Dog.speak(...)' is ambiguous;
   qualify by interface, e.g. 'Performer.speak(...)'`. This holds wherever the
-  impls are, a third file included.
+  impls are, a third file included, and for defaults the type inherits as for
+  functions its impls write: two interfaces that each give `Dog` a default
+  `speak` make `Dog.speak(rex)` ambiguous, whether or not the calling file
+  imports either.
 - A type's own function may not share a name with a function its interface
   impls write, in any file or order, since Nomi does not overload. Beside `impl
   Multiply<Int, Box> for Box`, an inherent `fn multiply` is the error ``
   `Box.multiply` is already `Multiply<Int, Box>`'s `multiply` for `Box`, and
   Nomi does not overload, so a call `Box.multiply(...)` would name both; give
   this function another name `` at the inherent function's name.
+- The same holds for a default the type gets from an interface whose impl
+  does not write it. Beside `impl Ord2 for Odd`, where `Ord2` declares `open fn
+  least`, an inherent `fn least` is the error `` `Odd.least` shadows the
+  default `least` that `Ord2` gives `Odd`, and Nomi does not overload, so a
+  call `Odd.least(...)` would name both; to override the default, write `fn
+  least` in `impl Ord2 for Odd` instead ``. For a final default the error ends
+  `` `Ord2`'s `least` is final and cannot be overridden, so give this function
+  another name ``, and for a derived impl it says to rename the function or
+  replace the derive with a written impl.
 - `Display` and `Debug` name their functions `to_string` and `inspect`, so a
   type implements both without a collision.
 
@@ -5590,7 +6042,10 @@ supply their own types (*Interface values*).
 
 Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#interface-bounded-generics).
 
-`where T: Iface` requires every type argument for `T` to implement `Iface`. Several
+`where T: Iface` requires every type argument for `T` to implement `Iface`.
+For `Equatable` and `Hashable` that means having equality: a declared type
+with no impl of its own meets either bound when `==` accepts it (§5
+*Equality bounds*). Several
 bounds join with `and`: `where T: Showable and Tagged`. There is no `or`. A
 generic header introduces names only; constraints go in the `where` clause,
 after a function's result or after a type declaration's parameter list. Every
@@ -5657,8 +6112,8 @@ can write:
   1)` is ``Int does not implement Matcher (required by `where M: Matcher`)``
   with the help ``only std can implement `Matcher` for `Int`; `Codepoint`,
   `Regex` and `String` implement it``;
-- otherwise, to wrap the type: ``only std can implement `Hashable` for
-  `Ordering`; wrap it in a type of your own that implements `Hashable` ``.
+- otherwise, to wrap the type: ``only std can implement `Comparable` for
+  `Ordering`; wrap it in a type of your own that implements `Comparable` ``.
 
 **Tuples, anonymous structs and functions.** No impl can be written for a
 tuple, an anonymous struct or a function type, so none of them implements
@@ -5667,21 +6122,25 @@ an interface the program declares. What each implements of std's:
 - A tuple implements `Equatable`, `Hashable`, `Comparable` and `Display`
   when every element does, and `Debug`.
 - An anonymous struct implements `Struct` and `Debug`, and `Equatable`,
-  `Hashable` and `Display` when every field does.
+  `Hashable` and `Display` when every field does. It implements std::parse's
+  `ParseFields`, which reads named texts into its fields and writes them
+  back, when every field implements `Parse` and `Display`.
 - A function implements only `Debug`.
 
-One rule decides both a bound and an interface-typed position (*Interface
+The same rule decides a bound and an interface-typed position (*Interface
 values*): a parameter, a field, a list element, or a map key of type
-`Hashable`. So a `where T: Hashable` bound takes `#(1, "a")` and
-`[#(1, 2)]`, and refuses `#(1, p)` for a `p: P` that is not `Hashable`:
-``#(Int, P) does not implement Hashable (required by `where T: Hashable`)``,
-with help that begins `` `#(Int, P)` is Hashable when each element is, and
-`P` is not ``. A `where T: Shape` bound refuses `#(1, 2)` with the help
-``no impl can be written for a tuple, which implements only Equatable,
+`Hashable`. So a `where T: Hashable` bound takes `(1, "a")` and
+`[(1, 2)]`, and refuses `(1, f)` for a function `f`:
+``(Int, (Int) -> Int) does not implement Hashable (required by `where T:
+Hashable`)``. One difference: an interface value holds an implementor, so a
+position of type `Equatable` or `Hashable` takes a declared type `P` only
+when `P` has an impl, where a bound takes any `P` with equality.
+`fn f(h: Hashable)` called with `(1, p)` for a `p: P` with no impl is ``
+argument 1: expected Hashable, got (Int, P) ``, with help that begins ``
+`(Int, P)` is Hashable when each element is, and `P` is not ``. A `where T:
+Shape` bound refuses `(1, 2)` with the help ``no impl can be written for a tuple, which implements only Equatable,
 Hashable, Comparable and Display, each when every element does; declare a
-struct of your own that implements `Shape` ``. An interface-typed parameter
-refuses the same values with the same help: `fn f(h: Hashable)` called with
-`#(1, p)` is `` argument 1: expected Hashable, got #(Int, P) ``.
+struct of your own that implements `Shape` ``.
 
 A tuple held as an interface value behaves as the tuple does: its
 `Hashable.hash` is the tuple's own hash, two equal tuples are `==`, and
@@ -5900,7 +6359,7 @@ a `Scale` value can be used at are `Scale`, `Debug`, `Equatable` and
   Semantics*), and hash by its hand-written `impl Hashable` when it has one.
   The same holds for values held as `Display` or `Debug`, and for `==` and
   `!=` between an interface value and a value of a concrete type, on either
-  side: `t == #(1, "a")` for a `t: Equatable` compares as if the tuple were
+  side: `t == (1, "a")` for a `t: Equatable` compares as if the tuple were
   held as an `Equatable` too.
 - So an interface value satisfies an `Equatable` or `Hashable` bound with that
   meaning (`List.contains(scales, s)`, `Iter.to_set`, `derive Equatable` over a
@@ -6041,14 +6500,20 @@ fn main() {
   code uses (`Ordering`, `True`, the recursive calls, `Map.get` in `derive
   FromJson`) need none.
 - **Fields.** Each field's type must implement the interface, checked at the
-  derive: ``no impl of `Equatable` for `User` (required via `derive Equatable
+  derive: ``no impl of `Display` for `User` (required via `derive Display
   for Wrapper`, field `id`)``, with the help to derive or implement it on
-  `User`. A variant's payload is checked the same way, named by its variant.
+  `User`. For `Equatable` and `Hashable` a field's type implements the
+  interface when it meets the bound (§5 *Equality bounds*): a struct `P`
+  with no impl of its own is accepted when it has equality. A variant's payload is checked the same way, named by its variant.
   When the field's type is a std type, which a program cannot derive or
   implement an interface for, the help says so: ``only std can implement
   `Equatable` for `Json.ShapeError`; wrap it in a type of your own that
   implements `Equatable` ``. Every derivable interface but `Debug`, which
-  every type has, is checked. An interface-typed field is not checked there,
+  every type has, is checked. A field of a tuple or anonymous struct type
+  is checked part by part, since it implements `Equatable`, `Hashable`,
+  `Display` (and, for a tuple, `Comparable`) when each part does:
+  `f: (Int, P)` is ``no impl of `Hashable` for `P` (required via `derive
+  Hashable for W`, field `f`)``. An interface-typed field is not checked there,
   since its concrete type is known only at run time. A function has no
   equality, so a field that is or holds one cannot take a derived
   `Equatable`, `Hashable` or `Comparable`: ``no impl of `Equatable` for `(Int)
@@ -6086,7 +6551,7 @@ fn main() {
   interface applied to the part): a struct as `T{f1: D(v1), ...}` (`T{}`
   when empty); a bare variant as its name; a positional variant as `V(D(p0),
   ...)`, with one part per element of a payload declared as a tuple
-  (`Node(Leaf(1), Leaf(2))`) and one part otherwise (`Some(#(1, 2))`); a
+  (`Node(Leaf(1), Leaf(2))`) and one part otherwise (`Some((1, 2))`); a
   struct-payload variant as `V{f: D(v), ...}`; an `embeds` variant as the
   embedded value's rendering; a distinct primitive as `T(D(inner))`; a distinct
   tuple as `T(D(a), D(b))`; a distinct map, vector or set in the call form
@@ -6176,7 +6641,7 @@ interface Iter<T> {
   `Map`, `String`, `Bytes`, `Maybe`, range, or a type with an `impl Iter`) and
   keeps its own `known_count` there.
 
-`Map<K, V>` is an `Iter<#(K, V)>`, `String` an `Iter<String>` of grapheme
+`Map<K, V>` is an `Iter<(K, V)>`, `String` an `Iter<String>` of grapheme
 clusters, and `Maybe<T>` an `Iter<T>` of zero or one element. A range is an
 `Iter` when its element type is `Discrete` (§3 *Range literals*). What each std
 source yields is in [std::iter](/reference/iter/).
@@ -6377,7 +6842,7 @@ it.
 | `drop_while` | the drop decision: `break False` emits this element and ends | drops it | ends with nothing more |
 | `flat_map` | this element's expansion, emitted | no output | stops |
 | `scan` | the new state, yielded | yields nothing, keeps the state | ends without yielding |
-| `map_reduce` | `#(next_state, output)`, kept | no output, keeps the state | the state and outputs so far |
+| `map_reduce` | `(next_state, output)`, kept | no output, keeps the state | the state and outputs so far |
 | `Map.map_values`, `Map.map_keys` | the entry's new value or key | leaves the entry out | the entries made so far |
 | `Iter.loop` | the loop's value | the same state again | the state this round started with |
 
@@ -6749,7 +7214,7 @@ pub import {
 `x.y` and `T.y` must name a member the static type guarantees. A missing member is a compile error where it is written, never a run-time trap. The one exception is a value whose type is still being inferred; the check waits until inference resolves it.
 
 - **A value of a concrete type.** `p.z` must name a field the type declares: `struct 'Point' has no field 'z'`. A function of the type is not a field: where `impl HasName for Person` declares `fn name`, `p.name` is `struct 'Person' has no field 'name'`, whose hint names the call `Person.name(p)` or `HasName.name(p)`. A value with no fields at all is the same error, `() -> Int has no field 'x'`.
-- **A tuple** is indexed by position: `pair.0`, `pair.1`. Indices chain left to right, so `nested.1.0` is `(nested.1).0`. An index is decimal digits with no leading zero: `pair.01` is the error ``tuple index "01" must be written in decimal digits with no leading zero, as in `t.0` or `t.10` ``.
+- **A tuple** and a named tuple read their items by ordinal name: `pair.first`, `pair.second`. Reads chain left to right, so `nested.second.first` is `(nested.second).first`. An ordinal past the last item is an error that names the last (§4 *Tuples*), and `pair.0` is the error that writes `pair.first`.
 - **A value of interface type** has no fields, since an interface declares functions only: `interface 'Struct' has no field 'x'`. A required value is read through a function requirement (§12 *Requiring a Value*), qualified by the interface: `n.name` is `interface 'HasName' has no field 'name'` even when `HasName` declares `fn name`.
 - **A value of type-parameter type** has no fields, bounded or not: ``type parameter `T` has no field 'name'``. Call the bound's function, `T.name(x)`.
 - **A type qualifier** must name a real member: an inherent or interface function, a `once`, or a variant. `List.empty()` is `type 'List' has no member 'empty'`, and `Maybe.Bogus` is `type 'Maybe' has no member 'Bogus'`. `empty` or `new` on `Map`, `Set` or `Vector` adds a hint naming the empty literal (`write the empty map as %{}`). Members of imported types are checked the same way.
@@ -7062,7 +7527,7 @@ concurrent {
         Err(_) -> default_order // handled here; nothing is cancelled
     }
 
-    Ok(#(u, o))
+    Ok((u, o))
 }
 ```
 
@@ -7308,7 +7773,7 @@ group "configured sender" {
 
 **`setup`.** `setup expr`, or `setup { ... }` with statements before its final value, produces the value the group's tests receive. A setup whose last line is a statement, such as a `with` line, produces `Unit`; one whose last line is `assert x` produces what `ok = assert x` binds. `return value` in a setup ends the setup with that value, and the setup's type is the type its final value and every `return` agree on. A `with` line in `setup` stays in force for the body of the test it serves, so `setup` is where a group installs fakes. A `?` or a failed assertion in `setup` fails the test it serves with the same report it would give in the body, and the body does not run.
 
-A test binds the setup's value with a pattern after its name: a name (`test "loads rows", db`), a tuple (`#(left, right)`) or a record (`#{name}`). A test with no pattern ignores the value. The pattern must match every value of the setup's type: `a test's pattern must match every setup value; bind it with a name or an irrefutable pattern and match it in the body`. Bindings inside `setup` do not reach the tests.
+A test binds the setup's value with a pattern after its name: a name (`test "loads rows", db`), a tuple (`(left, right)`) or a record (`#{name}`). A test with no pattern ignores the value. The pattern must match every value of the setup's type: `a test's pattern must match every setup value; bind it with a name or an irrefutable pattern and match it in the body`. Bindings inside `setup` do not reach the tests.
 
 ```nomi
 group "store" {
@@ -7403,13 +7868,13 @@ A failed assertion's report shows the assertion and, under `values:`, each opera
 
 Taught in [Testing](/testing/#subtests).
 
-`subtests rows, pattern { body }` runs a test's body once per row of a table, in order, with `pattern` bound to the row. `rows` is anything `Iter` accepts: a `List`, `Vector`, `Set`, `Range` or `Iter`, or a `Map`, whose rows are its `#(key, value)` pairs.
+`subtests rows, pattern { body }` runs a test's body once per row of a table, in order, with `pattern` bound to the row. `rows` is anything `Iter` accepts: a `List`, `Vector`, `Set`, `Range` or `Iter`, or a `Map`, whose rows are its `(key, value)` pairs.
 
 ```nomi
 test "determines palindromes" {
-    cases = [#("abba", True), #("abc", False), #("x", True)]
+    cases = [("abba", True), ("abc", False), ("x", True)]
 
-    subtests cases, #(line, known_palindrome) {
+    subtests cases, (line, known_palindrome) {
         assert is_palindrome(line) == known_palindrome
     }
 }
@@ -7419,8 +7884,8 @@ The rows may also be piped into the statement: `rows |> subtests pattern, name {
 
 ```nomi
 test "doubles" {
-    [#(1, 2), #(2, 4), #(3, 6)]
-    |> subtests #(n, doubled) {
+    [(1, 2), (2, 4), (3, 6)]
+    |> subtests (n, doubled) {
         assert n * 2 == doubled
     }
 }
@@ -7444,11 +7909,11 @@ The rules:
 ```nomi
 test "leap years" {
     cases = [
-        #("year divisible by 400 is leap year", 2000, True),
-        #("year divisible by 100, not divisible by 400 in common year", 1900, False),
+        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
     ]
 
-    subtests cases, #(description, year, expected), description {
+    subtests cases, (description, year, expected), description {
         assert is_leap_year(year) == expected
     }
 }
@@ -7458,7 +7923,7 @@ test "leap years" {
 
 ```text
 FAIL palindrome_test.nomi :: determines palindromes
-  subtest #("abc", True): line 5: assertion failed
+  subtest ("abc", True): line 5: assertion failed
     assert is_palindrome(line) == known_palindrome
     values:
       line
@@ -7611,6 +8076,14 @@ A type may implement `CheckedLiteral<I, T>` from std::literals instead of `Liter
 ```nomi
 pub interface CheckedLiteral<I, T> {
     fn check(statics: List<String>) -> Result<Unit, LiteralError>
+
+    open fn check_type(
+        statics: List<String>,
+        arguments: List<String>,
+    ) -> Result<Unit, LiteralError> {
+        _ = arguments
+        check(statics)
+    }
     fn build(fragments: List<Fragment<I>>) -> T
 }
 ```
@@ -7618,12 +8091,15 @@ pub interface CheckedLiteral<I, T> {
 Its literals are checked literals. A checked literal's type is `T` in every quote style, with or without slots; it is never a `Result`:
 
 - `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a raw literal's handler: a `check` that reaches an effect is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, and one that does not finish within the step limit is an error at the literal.
+- What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<#{id: Uuid}>` literal gets `["#{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
+- A generic type's impl, `impl CheckedLiteral<String, Route<P>> for Route<P>`, gives each literal fresh type arguments, which the expected type solves as it solves a generic call's.
+- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open, ``Route`GET /users/{id}` `` is a `Route<#{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `#{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
 - An `Err(LiteralError{fragment, offset, message})` is a compile error carrying `message` at the character `offset` code points into static `fragment`, counted in the text as `check` received it. An offset at a static's end points at the `${` of the slot after it; fragment 0 and offset 0 point at the literal.
 - `build` runs when the program runs, gets the fragments `from_fragments` would get, and cannot fail: once `check` accepts the text, every slot value must build. A `build` that traps anyway traps where it runs.
 
 A type implements `Literal` or `CheckedLiteral`, not both: ``type `Twice` implements both `Literal` and `CheckedLiteral`; a typed literal has one handler``. The orphan rule below applies to both.
 
-std::url's `Url` is a checked literal. A slot in its path, query or fragment is escaped for where it stands, and a slot in its scheme, user or host is a compile error at the slot: ``typed literal Url"https://${host}/greet" is invalid: a slot in the scheme, user or host cannot be escaped``.
+std::url's `Url` is a checked literal, and its slot interface is `Display`: a slot's value is its `Display` text, escaped for where it stands, as one segment in the path, one key or value in the query, or the fragment. A `.` or `..` in the path is escaped too. A `Query` or a `Url` in a slot is its text like any other value, one segment or one value; `Url.with_query` and `Url.join_path` add pairs and segments. A slot in its scheme, user or host is a compile error at the slot, whatever its type: ``typed literal Url"https://${host}/greet" is invalid: a slot in the scheme, user or host cannot be escaped``.
 
 ```nomi
 import {
@@ -7653,6 +8129,43 @@ fn main() {
 ```
 
 A `?` or `!` on a checked literal is the ordinary error for a value that is not a `Result`, and a `?`'s hint says the literal is already its type: `` a `Url` literal is checked when the program is checked, so this one is already a Url: remove the `?` ``. std::literals_testing's `build_each` runs a type's `check` and then its `build` over test values, so a library's tests can hold `build` to its contract.
+
+#### Literals typed by their position
+
+A string literal with no tag, written where the expected type is a type with a `CheckedLiteral` impl, is that type's checked literal, as if the type's name were written before it. It is the rule a dot-variant follows (§4 *Variant Resolution*): the expected type the checker's outside-in walk finds names the type, and the literal is read as that type's. So an annotated binding, an argument, a struct field, a returned value, a list element and a `case` or `if` arm in one of those all give it.
+
+```nomi
+import {
+    std::io
+    std::url.Url
+}
+
+struct Link {
+    label: String
+    to: Url
+}
+
+fn home() -> Url {
+    "https://example.com/"
+}
+
+fn main() {
+    name = "ann b"
+    profile: Url = "https://example.com/users/${name}"
+    links = [Link{label: "home", to: home()}, Link{label: "me", to: profile}]
+
+    io.print(
+        links
+        |> Iter.map(fn l -> "${l.label}: ${l.to}")
+        |> Iter.to_list()
+    )
+}
+```
+
+- The literal is checked as the tagged one is: its slots take the impl's slot type, `check` runs when the program is checked, and a refusal is an error at the place it names, labelled with the type: ``a `Url` literal "https://${host}/a" is invalid: a slot in the scheme, user or host cannot be escaped``.
+- Only a literal converts. A `String` value where a `Url` is expected is the ordinary mismatch, `` argument 1: expected Url, got String ``.
+- With no expected type, or one with no `CheckedLiteral` impl, the literal is a `String`, as always. A `Literal` impl does not make a literal typed by its position, since such a literal is its handler's result, usually a `Result` built when the program runs.
+- The literal keeps the form it was written in; `nomi fmt` does not add or remove a tag.
 
 #### Coherence
 
@@ -8042,7 +8555,7 @@ A binding's Nomi types project to Go types:
 - **Dynamic.** A Go empty interface holds the value the `Dynamic` wraps. A `Dynamic` from `Json.to_dynamic` holds what `encoding/json` decodes to: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`. `rt.Dynamic` from `github.com/nomi-language/nomi/rt` is the `Dynamic` itself. Nothing else takes a `Dynamic`; declare the type the Go value has.
 - **Aliases.** A Go type alias (`type ID = core.ID`) projects as its target.
 - **Enums.** A declared Nomi `enum` has no projection. The only enums that cross are `Result`, `Maybe` and `Bool`, as a trailing Go `error`, `*T` and `bool`, matched by the std type's identity: a same-named type of another module is rejected.
-- **Results.** The Go signature decides the result. With `N` results that are not `error`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`. A trailing `error` wraps that in `Result<_, String>`: `error` alone is `Result<Unit, String>`, `(T, error)` is `Result<T, String>`, and `(A, B, error)` is `Result<#(A, B), String>`.
+- **Results.** The Go signature decides the result. With `N` results that are not `error`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `(A, B, ...)`. A trailing `error` wraps that in `Result<_, String>`: `error` alone is `Result<Unit, String>`, `(T, error)` is `Result<T, String>`, and `(A, B, error)` is `Result<(A, B), String>`.
 - **Tuples** project in result position only, since Go has no tuple type to take as a parameter. A Go struct against a Nomi struct of the same shape carries several values both ways.
 - **Distinct types.** A distinct type, opaque or not, crosses as its inner type, at every depth: `type Id Int` as `int64` or any Go integer width an `Int` takes, `type Ids List<Int>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int` as `int64`. The value Go returns is wrapped in the declared type again. So `Duration` and `Instant`, both `opaque type ... Int` in std, may also fill an `int64` slot. A marker type (`type Expired`) holds no value and has no projection.
 

@@ -109,8 +109,8 @@ func TestPatternBindingElse_EachFormChecks(t *testing.T) {
 // The fallback stands in for the payload, and the inner pattern binds from it
 // as it does on a match: the names have the payload's component types.
 func TestPatternBindingElse_FallbackTypesTheInnerPattern(t *testing.T) {
-	src := elseDecls + `fn size(r: Result<#(Int, String), String>) -> String {
-    Ok(#(width, unit)) = r else { #(80, "cols") }
+	src := elseDecls + `fn size(r: Result<(Int, String), String>) -> String {
+    Ok((width, unit)) = r else { (80, "cols") }
     "${width}${unit}"
 }
 
@@ -177,14 +177,14 @@ func TestPatternBindingElse_Errors(t *testing.T) {
     }
     score
 }`, "19:23: non-exhaustive `else` on Check: missing Invalid"},
-		"irrefutable pattern with else": {`fn f(p: #(Int, Int)) -> Int {
-    #(x, y) = p else { return 0 }
+		"irrefutable pattern with else": {`fn f(p: (Int, Int)) -> Int {
+    (x, y) = p else { return 0 }
     x + y
-}`, "19:17: this pattern always matches; remove the else"},
-		"refutable pattern without else": {`fn f(r: Result<#(Int, Int), String>) -> Int {
-    Ok(#(w, h)) = r
+}`, "19:16: this pattern always matches; remove the else"},
+		"refutable pattern without else": {`fn f(r: Result<(Int, Int), String>) -> Int {
+    Ok((w, h)) = r
     w * h
-}`, "19:5: this pattern can fail to match a value of type Result<#(Int, Int), String>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
+}`, "19:5: this pattern can fail to match a value of type Result<(Int, Int), String>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"},
 		"variant destructure without else": {`fn f(m: Maybe<Int>) -> Int {
     Some(n) = m
     n
@@ -207,12 +207,12 @@ func TestPatternBindingElse_Errors(t *testing.T) {
 // else, which runs because the pattern did not match.
 func TestPatternBindingElse_Scope(t *testing.T) {
 	errs := elseErrors(t, elseDecls+`
-fn f(p: #(Maybe<Int>, Int)) -> Int {
-    #(Some(a), b) = p else { return b }
+fn f(p: (Maybe<Int>, Int)) -> Int {
+    (Some(a), b) = p else { return b }
     a + b
 }
 `)
-	want := "19:37: undefined variable 'b'"
+	want := "19:36: undefined variable 'b'"
 	if len(errs) != 1 || errs[0] != want {
 		t.Errorf("want only %q, got:\n%s", want, strings.Join(errs, "\n"))
 	}

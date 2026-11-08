@@ -154,13 +154,13 @@ fn main() {
   outcomes = concurrent {
     a = Task.spawn(fn -> roomy())
     b = Task.spawn(fn -> tight())
-    #(Task.outcome(a), Task.outcome(b))
+    (Task.outcome(a), Task.outcome(b))
   }
   dbg outcomes
   dbg App.label
   Unit
 }
-`, "dbg line 38: outcomes = #(Completed(7), Cancelled)\ndbg line 39: App.label = \"app\"\n"},
+`, "dbg line 38: outcomes = (Completed(7), Cancelled)\ndbg line 39: App.label = \"app\"\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

@@ -272,7 +272,7 @@ func writeQualifiedType(sb *strings.Builder, t Type, qualify func(name, origin s
 			writeQualifiedType(sb, v.Return, qualify, entry)
 		}
 	case *TupleType:
-		sb.WriteString("#(")
+		sb.WriteString("(")
 		list(v.Elems)
 		sb.WriteString(")")
 	case *ListType:

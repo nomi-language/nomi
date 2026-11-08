@@ -75,9 +75,9 @@ test "codepoint literals match inside variant and tuple patterns" {
         None -> "empty"
     }
 
-    signed = case #('-', 3) {
-        #('-', n) -> -n
-        #(_, n) -> n
+    signed = case ('-', 3) {
+        ('-', n) -> -n
+        (_, n) -> n
     }
 
     assert found == "x first"

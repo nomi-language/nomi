@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 384
+records 383
 declared-cases 0
 failing 87
 C assert_subject_test.nomi@8cbc70b189c27641
@@ -305,147 +305,6 @@ T    |
 T 36 |   assert find_in(parent, Tag) == Some(#Tag{name: "a"})
 T    |                                       ^^^^
 T
-C control_test.nomi@0d68ed32cf529d12
-E 1
-N 0
-H 8cd3c8d26fa8fed6393ed8aab75ab0af4bd8bb46dea56191de249c21e21e3b46
-S -- control_test.nomi 996 --
-S import {
-S   std::io
-S   std::literals.{Fragment, Literal}
-S }
-S
-S struct Upper {
-S   text: String
-S }
-S
-S impl Literal for Upper {
-S   fn from_fragments(fragments: List<Fragment<String>>) -> Upper {
-S     text = Iter.reduce(fragments, "", fn acc, frag ->
-S       case frag {
-S         .Static(s) -> acc + String.uppercase(s)
-S         .Dynamic(v) -> acc + v
-S       }
-S     )
-S     Upper{text}
-S   }
-S }
-S
-S test "a tuple" {
-S   pair = #(1, "one")
-S   assert pair.0 == 1
-S   assert pair.1 == "uno"
-S }
-S
-S test "a map" {
-S   m = %{"a" => 1, "b" => 2}
-S   assert Map.size(Map.put(m, "c", 3)) == 3
-S   assert Map.size(m) == 3
-S }
-S
-S test "a set and a vector" {
-S   s = %[1, 2, 1 + 1]
-S   v = #[1, 2, 3]
-S   assert Set.size(s) == 2
-S   assert Vector.length(v) == 4
-S }
-S
-S test "a decimal" {
-S   assert 1.10d + 2.20d == 3.30d
-S   assert 1.5d == 2.5d
-S }
-S
-S test "a List host call in a case arm" {
-S   case [1, 2] {
-S     [] -> assert False
-S     [_, ..t] -> assert List.head(t) == Some(3)
-S   }
-S }
-S
-S test "a tagged literal" {
-S   u = Upper"abc"
-S   io.print(u.text)
-S   assert u.text == "abc"
-S }
-S
-S
-T FAIL <dir>/control_test.nomi :: a tuple
-T   line 25: assertion failed
-T     assert pair.1 == "uno"
-T     values:
-T       pair.1
-T         = "one"
-T FAIL <dir>/control_test.nomi :: a map
-T   line 31: assertion failed
-T     assert Map.size(m) == 3
-T     values:
-T       m
-T         = %{"a" => 1, "b" => 2}
-T       Map.size(m)
-T         = 2
-T FAIL <dir>/control_test.nomi :: a set and a vector
-T   line 38: assertion failed
-T     assert Vector.length(v) == 4
-T     values:
-T       v
-T         = #[1, 2, 3]
-T       Vector.length(v)
-T         = 3
-T FAIL <dir>/control_test.nomi :: a decimal
-T   line 43: assertion failed
-T     assert 1.5d == 2.5d
-T FAIL <dir>/control_test.nomi :: a List host call in a case arm
-T   line 49: assertion failed
-T     assert List.head(t) == Some(3)
-T     values:
-T       t
-T         = [2]
-T       List.head(t)
-T         = Some(2)
-T FAIL <dir>/control_test.nomi :: a tagged literal
-T   ABC
-T   line 56: assertion failed
-T     assert u.text == "abc"
-T     values:
-T       u.text
-T         = "ABC"
-T test result: FAILED. 0 passed, 6 failed
-T
-C control_test.nomi@0db447c6ee4b0156
-E 1
-N 0
-H d66a4c1d39effa9f635416c8fd81f8ceb1fa4e156958b81f27cedfa5f1dff2e6
-S -- control_test.nomi 325 --
-S struct Q {
-S     f: (Int) -> Int
-S }
-S
-S struct P {
-S     t: #((Int) -> Int, Int)
-S     q: Q
-S }
-S
-S test "passes" {
-S     p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
-S     assert p.t.0(8) == 9
-S     assert p.q.f(p.t.0(1)) == 102
-S }
-S
-S test "fails" {
-S     p = P{t: #(fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
-S     assert p.q.f(2) == 3
-S }
-S
-S
-T ok <dir>/control_test.nomi :: passes
-T FAIL <dir>/control_test.nomi :: fails
-T   line 18: assertion failed
-T     assert p.q.f(2) == 3
-T     values:
-T       p.q.f(2)
-T         = 102
-T test result: FAILED. 1 passed, 1 failed
-T
 C control_test.nomi@192a1ce3e0f5678a
 E 1
 N 0
@@ -606,45 +465,6 @@ T   --> <dir>/control_test.nomi:32:19
 T    |
 T 32 |   assert announce(#User{name: "Bob"}) == "announce(user:Bob)"
 T    |                   ^^^^^
-T
-C control_test.nomi@25f19a513409f68e
-E 1
-N 0
-H afbe826d6d555dc677bc570b2e1991b93e0d82c5308df00327e6f56bc17341a2
-S -- control_test.nomi 329 --
-S struct Q {
-S     f: (Int) -> Int
-S }
-S
-S struct P {
-S     t: #((Int) -> Int, Int)
-S     q: Q
-S }
-S
-S test "passes" {
-S     p = #P{t: #(fn x -> x + 1, 1), q: #Q{f: fn x -> x + 100}}
-S     assert p.t.0(8) == 9
-S     assert p.q.f(p.t.0(1)) == 102
-S }
-S
-S test "fails" {
-S     p = #P{t: #(fn x -> x + 1, 1), q: #Q{f: fn x -> x + 100}}
-S     assert p.q.f(2) == 3
-S }
-S
-S
-T --- stderr ---
-T error: expected '[' after `#P`
-T   --> <dir>/control_test.nomi:11:9
-T    |
-T 11 |     p = #P{t: #(fn x -> x + 1, 1), q: #Q{f: fn x -> x + 100}}
-T    |         ^^
-T
-T error: expected '[' after `#P`
-T   --> <dir>/control_test.nomi:17:9
-T    |
-T 17 |     p = #P{t: #(fn x -> x + 1, 1), q: #Q{f: fn x -> x + 100}}
-T    |         ^^
 T
 C control_test.nomi@27ef3a0b892d4054
 E 0
@@ -1263,6 +1083,27 @@ S
 T ok <dir>/control_test.nomi :: aliased owners
 T test result: ok. 1 passed, 0 failed
 T
+C control_test.nomi@8b7d3826a16338b3
+E 0
+N 0
+H 2cb340a5d991d4b76e18723a466de83ebaeb51122860479317e690b99b517cf4
+S -- control_test.nomi 358 --
+S import std::random
+S import std::random.{Generator, Seed}
+S
+S test "the module-qualified spelling" {
+S   seed = random.Seed.from_int(7)
+S   (a, _) = random.Generator.step(random.Generator.bool(), seed)
+S   (b, _) = Generator.step(Generator.bool(), Seed.from_int(7))
+S   assert a == b
+S   (n, _) = random.Generator.step(random.Generator.constant(3), seed)
+S   assert n == 3
+S }
+S
+S
+T ok <dir>/control_test.nomi :: the module-qualified spelling
+T test result: ok. 1 passed, 0 failed
+T
 C control_test.nomi@8df1eba0bbd0e76d
 E 1
 N 0
@@ -1314,27 +1155,6 @@ T     values:
 T       with_default(None, 2)
 T         = 2
 T test result: FAILED. 0 passed, 1 failed
-T
-C control_test.nomi@99bc21c3fa51c06e
-E 0
-N 0
-H 2cb340a5d991d4b76e18723a466de83ebaeb51122860479317e690b99b517cf4
-S -- control_test.nomi 361 --
-S import std::random
-S import std::random.{Generator, Seed}
-S
-S test "the module-qualified spelling" {
-S   seed = random.Seed.from_int(7)
-S   #(a, _) = random.Generator.step(random.Generator.bool(), seed)
-S   #(b, _) = Generator.step(Generator.bool(), Seed.from_int(7))
-S   assert a == b
-S   #(n, _) = random.Generator.step(random.Generator.constant(3), seed)
-S   assert n == 3
-S }
-S
-S
-T ok <dir>/control_test.nomi :: the module-qualified spelling
-T test result: ok. 1 passed, 0 failed
 T
 C control_test.nomi@9d74aabb47aadfbb
 E 1
@@ -1837,6 +1657,41 @@ T ok <dir>/control_test.nomi :: a subject's operand that leaves
 T   operand left
 T test result: FAILED. 3 passed, 1 failed
 T
+C control_test.nomi@cae73b72989e32f3
+E 1
+N 0
+H d66a4c1d39effa9f635416c8fd81f8ceb1fa4e156958b81f27cedfa5f1dff2e6
+S -- control_test.nomi 330 --
+S struct Q {
+S     f: (Int) -> Int
+S }
+S
+S struct P {
+S     t: ((Int) -> Int, Int)
+S     q: Q
+S }
+S
+S test "passes" {
+S     p = P{t: (fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
+S     assert p.t.first(8) == 9
+S     assert p.q.f(p.t.first(1)) == 102
+S }
+S
+S test "fails" {
+S     p = P{t: (fn x -> x + 1, 1), q: Q{f: fn x -> x + 100}}
+S     assert p.q.f(2) == 3
+S }
+S
+S
+T ok <dir>/control_test.nomi :: passes
+T FAIL <dir>/control_test.nomi :: fails
+T   line 18: assertion failed
+T     assert p.q.f(2) == 3
+T     values:
+T       p.q.f(2)
+T         = 102
+T test result: FAILED. 1 passed, 1 failed
+T
 C control_test.nomi@d72e12e1f871756a
 E 1
 N 0
@@ -1924,6 +1779,112 @@ T         = Range{end: Some(5), inclusive: True, start: 1}
 T       Iter.count(r)
 T         = 5
 T test result: FAILED. 0 passed, 2 failed
+T
+C control_test.nomi@e92c5146e6248329
+E 1
+N 0
+H 1aed467f71cf9da94b48c2f50277ffa670359058ffa5f8891bbe0a70d0e188c6
+S -- control_test.nomi 1004 --
+S import {
+S   std::io
+S   std::literals.{Fragment, Literal}
+S }
+S
+S struct Upper {
+S   text: String
+S }
+S
+S impl Literal for Upper {
+S   fn from_fragments(fragments: List<Fragment<String>>) -> Upper {
+S     text = Iter.reduce(fragments, "", fn acc, frag ->
+S       case frag {
+S         .Static(s) -> acc + String.uppercase(s)
+S         .Dynamic(v) -> acc + v
+S       }
+S     )
+S     Upper{text}
+S   }
+S }
+S
+S test "a tuple" {
+S   pair = (1, "one")
+S   assert pair.first == 1
+S   assert pair.second == "uno"
+S }
+S
+S test "a map" {
+S   m = %{"a" => 1, "b" => 2}
+S   assert Map.size(Map.put(m, "c", 3)) == 3
+S   assert Map.size(m) == 3
+S }
+S
+S test "a set and a vector" {
+S   s = %[1, 2, 1 + 1]
+S   v = #[1, 2, 3]
+S   assert Set.size(s) == 2
+S   assert Vector.length(v) == 4
+S }
+S
+S test "a decimal" {
+S   assert 1.10d + 2.20d == 3.30d
+S   assert 1.5d == 2.5d
+S }
+S
+S test "a List host call in a case arm" {
+S   case [1, 2] {
+S     [] -> assert False
+S     [_, ..t] -> assert List.head(t) == Some(3)
+S   }
+S }
+S
+S test "a tagged literal" {
+S   u = Upper"abc"
+S   io.print(u.text)
+S   assert u.text == "abc"
+S }
+S
+S
+T FAIL <dir>/control_test.nomi :: a tuple
+T   line 25: assertion failed
+T     assert pair.second == "uno"
+T     values:
+T       pair.second
+T         = "one"
+T FAIL <dir>/control_test.nomi :: a map
+T   line 31: assertion failed
+T     assert Map.size(m) == 3
+T     values:
+T       m
+T         = %{"a" => 1, "b" => 2}
+T       Map.size(m)
+T         = 2
+T FAIL <dir>/control_test.nomi :: a set and a vector
+T   line 38: assertion failed
+T     assert Vector.length(v) == 4
+T     values:
+T       v
+T         = #[1, 2, 3]
+T       Vector.length(v)
+T         = 3
+T FAIL <dir>/control_test.nomi :: a decimal
+T   line 43: assertion failed
+T     assert 1.5d == 2.5d
+T FAIL <dir>/control_test.nomi :: a List host call in a case arm
+T   line 49: assertion failed
+T     assert List.head(t) == Some(3)
+T     values:
+T       t
+T         = [2]
+T       List.head(t)
+T         = Some(2)
+T FAIL <dir>/control_test.nomi :: a tagged literal
+T   ABC
+T   line 56: assertion failed
+T     assert u.text == "abc"
+T     values:
+T       u.text
+T         = "ABC"
+T test result: FAILED. 0 passed, 6 failed
 T
 C control_test.nomi@f5d6099dd830e022
 E 1
@@ -2276,6 +2237,118 @@ T  --> <dir>/group_test.nomi:7:6
 T   |
 T 7 |   Ok(#App{context: Context.root(), label: "booted"})
 T   |      ^^^^
+T
+C group_test.nomi@7145c3c01c252963
+E 0
+N 0
+H e8994ff90edd03de4b314b360c40e4b743f9aba4b4910c4f8d4b3eb54324ef10
+S -- group_test.nomi 1254 --
+S import std::io
+S
+S fn main() {}
+S
+S group "plain return" {
+S   setup {
+S     x = 1
+S     return x + 1
+S   }
+S
+S   test "binds the returned value", v {
+S     assert v == 2
+S   }
+S }
+S
+S group "early return" {
+S   setup {
+S     flag = True
+S     if flag {
+S       io.print("early")
+S       return "early"
+S     }
+S     io.print("late")
+S     "late"
+S   }
+S
+S   test "binds the early value", v {
+S     io.print("body sees ${v}")
+S     assert v == "early"
+S   }
+S }
+S
+S group "falls past an early return" {
+S   setup {
+S     flag = False
+S     if flag {
+S       return (1, "one")
+S     }
+S     (2, "two")
+S   }
+S
+S   test "binds the tail value", (n, s) {
+S     assert n == 2
+S     assert s == "two"
+S   }
+S }
+S
+S group "return in a case arm" {
+S   setup {
+S     case Some(3) {
+S       Some(n) -> return n * 10
+S       None -> {}
+S     }
+S     0
+S   }
+S
+S   test "binds the arm's value", v {
+S     assert v == 30
+S   }
+S }
+S
+S group "return from a block" {
+S   setup {
+S     {
+S       defer io.print("block closed")
+S       io.print("in block")
+S       return 7
+S     }
+S   }
+S
+S   test "runs the block's defer first", v {
+S     io.print("body")
+S     assert v == 7
+S   }
+S }
+S
+S group "bare return in a Unit setup" {
+S   setup {
+S     io.print("before")
+S     if True {
+S       return
+S     }
+S     io.print("never")
+S   }
+S
+S   test "runs the body" {
+S     io.print("body after a bare return")
+S     assert True
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: plain return / binds the returned value
+T ok <dir>/group_test.nomi :: early return / binds the early value
+T   early
+T   body sees early
+T ok <dir>/group_test.nomi :: falls past an early return / binds the tail value
+T ok <dir>/group_test.nomi :: return in a case arm / binds the arm's value
+T ok <dir>/group_test.nomi :: return from a block / runs the block's defer first
+T   in block
+T   block closed
+T   body
+T ok <dir>/group_test.nomi :: bare return in a Unit setup / runs the body
+T   before
+T   body after a bare return
+T test result: ok. 6 passed, 0 failed
 T
 C group_test.nomi@7151abe373597728
 E 0
@@ -3234,118 +3307,6 @@ T   |                  ^^^
 T   = help: declare `-> Result<App, String>`, or another error type, and wrap the value boot returns in `Ok(...)`
 T test result: FAILED. 0 passed, 1 failed
 T
-C group_test.nomi@ec152ed22a6cd66e
-E 0
-N 0
-H e8994ff90edd03de4b314b360c40e4b743f9aba4b4910c4f8d4b3eb54324ef10
-S -- group_test.nomi 1257 --
-S import std::io
-S
-S fn main() {}
-S
-S group "plain return" {
-S   setup {
-S     x = 1
-S     return x + 1
-S   }
-S
-S   test "binds the returned value", v {
-S     assert v == 2
-S   }
-S }
-S
-S group "early return" {
-S   setup {
-S     flag = True
-S     if flag {
-S       io.print("early")
-S       return "early"
-S     }
-S     io.print("late")
-S     "late"
-S   }
-S
-S   test "binds the early value", v {
-S     io.print("body sees ${v}")
-S     assert v == "early"
-S   }
-S }
-S
-S group "falls past an early return" {
-S   setup {
-S     flag = False
-S     if flag {
-S       return #(1, "one")
-S     }
-S     #(2, "two")
-S   }
-S
-S   test "binds the tail value", #(n, s) {
-S     assert n == 2
-S     assert s == "two"
-S   }
-S }
-S
-S group "return in a case arm" {
-S   setup {
-S     case Some(3) {
-S       Some(n) -> return n * 10
-S       None -> {}
-S     }
-S     0
-S   }
-S
-S   test "binds the arm's value", v {
-S     assert v == 30
-S   }
-S }
-S
-S group "return from a block" {
-S   setup {
-S     {
-S       defer io.print("block closed")
-S       io.print("in block")
-S       return 7
-S     }
-S   }
-S
-S   test "runs the block's defer first", v {
-S     io.print("body")
-S     assert v == 7
-S   }
-S }
-S
-S group "bare return in a Unit setup" {
-S   setup {
-S     io.print("before")
-S     if True {
-S       return
-S     }
-S     io.print("never")
-S   }
-S
-S   test "runs the body" {
-S     io.print("body after a bare return")
-S     assert True
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: plain return / binds the returned value
-T ok <dir>/group_test.nomi :: early return / binds the early value
-T   early
-T   body sees early
-T ok <dir>/group_test.nomi :: falls past an early return / binds the tail value
-T ok <dir>/group_test.nomi :: return in a case arm / binds the arm's value
-T ok <dir>/group_test.nomi :: return from a block / runs the block's defer first
-T   in block
-T   block closed
-T   body
-T ok <dir>/group_test.nomi :: bare return in a Unit setup / runs the body
-T   before
-T   body after a bare return
-T test result: ok. 6 passed, 0 failed
-T
 C internal/irbuild/testdata/anon_recursive.nomi@29e78859094b0e3f
 E 0
 N 0
@@ -3609,10 +3570,10 @@ T twice via alias and qualified agree: True
 T has = True
 T qualified label = Grace
 T
-C internal/irbuild/testdata/binding_else.nomi@5e968f33f2e3d433
+C internal/irbuild/testdata/binding_else.nomi@be7348399e58977e
 E 0
 N 0
-H 72171d0aa936d32324eccb5a4375ac5b35124dd80bc030f6131555bdfa898a51
+H ddb3a7f32adc053740915d334b839cf4976f2100a1297d100472d9d8bf3c0ceb
 T Ok(a@b)
 T Err(user 2 has no email)
 T Ok(ada)
@@ -3648,8 +3609,8 @@ T Ok(2)
 T Ok(10)
 T Err(b)
 T [10, 0, 30]
-T #(200, 100)
-T #(200, 100)
+T (200, 100)
+T (200, 100)
 T 6
 T
 C internal/irbuild/testdata/block_local_types.nomi@c839289acce5f30d
@@ -4310,10 +4271,10 @@ T dbg line 83: "first\nsecond\tthird" = "first\nsecond\tthird"
 T h=first
 T second	third
 T
-C internal/irbuild/testdata/dbg_surfaces.nomi@5ad8c2177512c0fc
+C internal/irbuild/testdata/dbg_surfaces.nomi@20d20181c501be60
 E 1
 N 0
-H 2c0ab6d2f06ca33aa3a07b696cd54d94e8d65001bb956877023fcec56d34e842
+H aaad34e2e70bc0c9a3c3ec94acb8ddf40bf9fdcf54bc1d377269e2c0b9ac7673
 T ok <dir>/dbg_surfaces.nomi :: dbg renders a struct in declaration order
 T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
 T FAIL <dir>/dbg_surfaces.nomi :: the values row for the same struct sorts it
@@ -4340,7 +4301,7 @@ T       m
 T         = Meters(7)
 T ok <dir>/dbg_surfaces.nomi :: dbg over containers and prelude instances
 T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
-T   dbg line 107: #(1, "two") = #(1, "two")
+T   dbg line 107: (1, "two") = (1, "two")
 T   dbg line 108: Some(42) = Some(42)
 T   dbg line 109: None = None
 T   dbg line 110: #{a: 1, a0: 2} = #{a: 1, a0: 2}
@@ -4367,10 +4328,10 @@ T met: completed 2
 T plain: completed 2
 T after: completed 2
 T
-C internal/irbuild/testdata/debug_containers.nomi@8aa20edd7134faa6
+C internal/irbuild/testdata/debug_containers.nomi@cf06395894e96cf4
 E 0
 N 0
-H b9630e52c8558549e7e7df19130a5e69c0733b9d6a2e34eeb789e9f19365387e
+H 4892b11d68b1c92fbd3c4bfdc82584786e20b0e5b915e426f7c5445322d5ca40
 T [1, 2, 3]
 T ["a", "b"]
 T [1.5, 2.0]
@@ -4379,9 +4340,9 @@ T [Pt{zz: 1, a: 2}, Pt{zz: 3, a: 4}]
 T [TAG#7, TAG#8]
 T [[1, 2], [3]]
 T [[Pt{zz: 5, a: 6}]]
-T #(1, "x")
-T #(Pt{zz: 9, a: 8}, 5.5)
-T [#(1, "x"), #(2, "y")]
+T (1, "x")
+T (Pt{zz: 9, a: 8}, 5.5)
+T [(1, "x"), (2, "y")]
 T []
 T Some(42)
 T None
@@ -4546,7 +4507,7 @@ T       right
 T         = 2.25
 T test result: FAILED. 13 passed, 1 failed
 T
-C internal/irbuild/testdata/decimal_keys.nomi@c4d69b4a98249d6c
+C internal/irbuild/testdata/decimal_keys.nomi@a5552e12a4f72cf1
 E 0
 N 0
 H 6f1c371fdf7b87c4937c30b3dd4d54fa7022d512689cf5c2b415f855faf4c3b2
@@ -4738,7 +4699,7 @@ T distinct diff: True
 T duration eq: True
 T duration ne: True
 T
-C internal/irbuild/testdata/distinct_tuple_and_container.nomi@b9e69be1c534f908
+C internal/irbuild/testdata/distinct_tuple_and_container.nomi@e9fe15eea78d2754
 E 0
 N 0
 H 35b8f90c684e16f865ba2881a21cf279cbaec56591582e64725dcdd851d78200
@@ -4837,7 +4798,7 @@ T FAIL <dir>/enum_field_read_trap.nomi :: a bare variant carries nothing
 T   line 66: cannot access field 'height' on variant 'Point'
 T test result: FAILED. 0 passed, 5 failed
 T
-C internal/irbuild/testdata/enum_tuple.nomi@65b3d703fb24124c
+C internal/irbuild/testdata/enum_tuple.nomi@7377ee7a4b3e7d23
 E 0
 N 0
 H 20523c7be67fd400f21e0ce829e8075af77f61b4545642fd444cf2b5e2fc87b5
@@ -4959,7 +4920,7 @@ T       d
 T         = Dog{name: "Bo"}
 T test result: FAILED. 0 passed, 6 failed
 T
-C internal/irbuild/testdata/existential/main.nomi@2db238fd59db8c57
+C internal/irbuild/testdata/existential/main.nomi@5f7d731cf3e0f0fc
 E 0
 N 0
 H 2d6a4ddf0a25a9e1d325fda377b01e332bfbe965e83cf802ba6ecefb9a78d5cd
@@ -4970,7 +4931,7 @@ T [T] again
 T P: twice/P: twice
 T [T] twice/[T] twice
 T
-C internal/irbuild/testdata/expected_type_seed.nomi@acbd012a8f345778
+C internal/irbuild/testdata/expected_type_seed.nomi@f37b026318d6fa36
 E 0
 N 0
 H 9fb3c3f801625b1df842b8d2712604f71e09a2aec48009a4eb0944f930c8ddd1
@@ -5023,10 +4984,10 @@ T plus = 42
 T twice = 42
 T weighted = 35
 T
-C internal/irbuild/testdata/fn_destructure_shapes.nomi@b49fc18dd662b833
+C internal/irbuild/testdata/fn_destructure_shapes.nomi@d926bf95912d5196
 E 0
 N 0
-H 592425ec8f97a0ed95d946716f869974c2f271fc8bc5c1a0f5baa2413f24ac21
+H 43c21f38fa7d6c3e2371478e70d98ada256539b982c125d1e7ab59605f9be8c7
 T typed = 407
 T anon = 407
 T only_x = 9
@@ -5043,7 +5004,7 @@ T tuple_of_dur = 34
 T between = 2313
 T lambda_anon = [102, 304]
 T lambda_tuple = [9, 17]
-T seeded = #(3, 0)
+T seeded = (3, 0)
 T
 C internal/irbuild/testdata/fn_destructure_variant.nomi@4dcf93d551b8e505
 E 0
@@ -5168,16 +5129,16 @@ T contains value  = True
 T reversed         = False
 T fns[0](6)        = 12
 T
-C internal/irbuild/testdata/generic_bare.nomi@4159cfba1f73c526
+C internal/irbuild/testdata/generic_bare.nomi@8ef6b9f64dbbdcbb
 E 0
 N 0
-H 647f240b3eb46dcfcdd3ca6ce8d38846b53a89aa759727b6778ca57a27d2431c
+H 06edf8dc7d7ade9714a3cc3f3c7a890442530a96d270eee04472196623155aef
 T 7
 T value
 T yes
 T 2.5
 T [1, 2, 3]
-T #(4, five)
+T (4, five)
 T 1
 T 11
 T 1
@@ -5197,16 +5158,16 @@ T 42
 T forty-two
 T 7
 T
-C internal/irbuild/testdata/generic_loop_break.nomi@dc5eb538a833b82b
+C internal/irbuild/testdata/generic_loop_break.nomi@28de24e5529666c2
 E 0
 N 0
-H 178fefdb8cc14f817f047e4b0c8ace9a131bc1fe49eaf3429dd120aa9dd43790
+H f365749f99998edea89bdd0a571da3a5b632430f782052348339015b271a3cc9
 T 7
 T value
-T #(1, 2)
+T (1, 2)
 T 42
 T
-C internal/irbuild/testdata/generic_mono.nomi@de2ad530bb5b8fff
+C internal/irbuild/testdata/generic_mono.nomi@b7e3f81f582fed19
 E 0
 N 0
 H 0850432a0191514baf539f69b5828bf4f1dfbdefb55706de50672f32d5f9c1ca
@@ -5219,10 +5180,10 @@ T ok <dir>/generic_mono.nomi :: a tuple return keeps the element type at each in
 T ok <dir>/generic_mono.nomi :: the same instantiation reached twice is one function
 T test result: ok. 7 passed, 0 failed
 T
-C internal/irbuild/testdata/generic_receiver_debug.nomi@98ae328e3aca46a5
+C internal/irbuild/testdata/generic_receiver_debug.nomi@8fcfc96615e7f32f
 E 0
 N 0
-H 67b6a41c28592c9b9ac60be390418e1217c290d70328ed835f5622d156ddbd26
+H 85d6146b556dca326b48873c65e15cc90fc40300a295ce6367a482097b1412a9
 T #[1, 2, 3]
 T #["Ada", "Grace"]
 T #[Ada, Grace]
@@ -5239,7 +5200,7 @@ T Errored("boom")
 T Panicked("aiee")
 T [Completed(1), Completed(2)]
 T #[Cancelled]
-T #(2, 1)
+T (2, 1)
 T "v4"
 T 42
 T #[Pt{zz: 1, a: 2}]
@@ -5289,7 +5250,7 @@ T       Twin{item: 1}
 T         = Twin{item: 1}
 T test result: FAILED. 2 passed, 5 failed
 T
-C internal/irbuild/testdata/generic_variant_bare/main.nomi@ccbf75177701498c
+C internal/irbuild/testdata/generic_variant_bare/main.nomi@cffbbe14b38c636d
 E 0
 N 0
 H d69d433f0016650b9615ffb5ff816c37cfa21aeeeabf9398ec2847cb1459a539
@@ -5579,10 +5540,10 @@ T ok <dir>/io_files.nomi :: a write whose parent is not a directory reports NotA
 T ok <dir>/io_files.nomi :: io.Error values compare by variant and payload
 T test result: ok. 7 passed, 0 failed
 T
-C internal/irbuild/testdata/io_inspect_surfaces.nomi@029d006747a81be6
+C internal/irbuild/testdata/io_inspect_surfaces.nomi@660825e416c3794f
 E 0
 N 0
-H 08415444b1d0d1f71164e16c6594f5eea4e6b165b604c6290f5537750b33c8fd
+H b63ea208bdeb9f0bcb6fc769a19e45c834d92c63561024d52cf905683605260a
 T "hi"
 T hi
 T 42
@@ -5591,7 +5552,7 @@ T Rev{zeta: 1, alpha: 2}
 T CUSTOM-DEBUG
 T <opaque Meters>
 T [Rev{zeta: 1, alpha: 2}]
-T #(1, "two")
+T (1, "two")
 T Some(42)
 T None
 T #{a: 1, a0: 2}
@@ -5623,16 +5584,16 @@ T map return is the element: [10, 20, 300, 40, 50]
 T nested fn early returns: 185
 T done
 T
-C internal/irbuild/testdata/iter_loop.nomi@7c7cb87b7eec725d
+C internal/irbuild/testdata/iter_loop.nomi@5f024724b25dcabc
 E 0
 N 0
-H d757b5feaf1b780f8bb4a5d07234a2a5cf1f76d050a9a6f45f2be4a42cb983de
+H 6b6242afa045bf6e7ab263c57f3df3c621211cbb302a6cc62f45859cba0c7a01
 T break value: 3
 T return advances: 3
 T bare break terminated
 T stateless loop ran
 T seed from closure scope: 9
-T fib pair: #(34, 55)
+T fib pair: (34, 55)
 T captured per iteration: 40
 T count 1
 T count 1
@@ -5704,7 +5665,7 @@ T evaluating 5
 T evaluating 4
 T [4]
 T
-C internal/irbuild/testdata/iter_reduce_ctrl.nomi@8fdb4a7b19847e1d
+C internal/irbuild/testdata/iter_reduce_ctrl.nomi@aef7c430584b2165
 E 0
 N 0
 H 7e9dd3a4afcb7278bcbd40934d68c5b4ea002dc14122357c3d1610f18b233a4d
@@ -5716,7 +5677,7 @@ T return advances the accumulator: 3
 T break before the element keeps the fold so far: 9
 T done
 T
-C internal/irbuild/testdata/iter_reduce_seed.nomi@c16bd9696cae8069
+C internal/irbuild/testdata/iter_reduce_seed.nomi@d94c12a73ecc4403
 E 0
 N 0
 H ce1f3b13bc640f2c2f1d4b4ec17deba3679802ea091be7507f456fb5c83b0b87
@@ -5738,15 +5699,15 @@ T   src 2
 T   seed 100
 T 103
 T
-C internal/irbuild/testdata/iter_sources.nomi@d9d96c17748eaec0
+C internal/irbuild/testdata/iter_sources.nomi@a035cdf8d58d0e81
 E 0
 N 0
-H 35f663d3c65de434531405dd4050686f5ae2c928b57b01ede8a8f5769fbccaf1
+H 285081a4d3cc774ee97a0daddd0f23768896ace7c5f530874da19f3ea631c7a1
 T [h, é, l, l, o]
 T 5
 T [0b, 1c, 2d, 3e]
 T []
-T [#(b, 2), #(a, 1), #(c, 3)]
+T [(b, 2), (a, 1), (c, 3)]
 T 3
 T [b=2, a=1, c=3]
 T Some(3)
@@ -5780,7 +5741,7 @@ T [bb, cc, a]
 T [3, 2, 1]
 T hello
 T [1, 2, 3, 4, 5]
-T #([3, 4], [1, 2])
+T ([3, 4], [1, 2])
 T [1, 2, 3]
 T [6, 4, 2]
 T [3, 5, 7, 9]
@@ -5790,8 +5751,8 @@ T inner 1010
 T outer 2
 T inner 2002
 T [1, 1010, 2002]
-T [[#(0, 2), #(1, 3)], [#(2, 4), #(3, 5)]]
-T [[#(0, 2), #(1, 3)], [#(2, 4), #(3, 5)]]
+T [[(0, 2), (1, 3)], [(2, 4), (3, 5)]]
+T [[(0, 2), (1, 3)], [(2, 4), (3, 5)]]
 T [1, 2, 1]
 T [1, 2, 1]
 T
@@ -5857,10 +5818,10 @@ T [1, 2, 3]
 T [3, 1]
 T [3, 1]
 T
-C internal/irbuild/testdata/iter_to_map.nomi@63326ff1dc1afb14
+C internal/irbuild/testdata/iter_to_map.nomi@da1a030de7e91220
 E 0
 N 0
-H fe8d88233f8605c66c95bebfa931123d9d470a526d8480b0c34a5df77b3cb4ef
+H af19ac7d206d176c720bbeaed46e1b7b985532be732d6c13c0197d75cf5b70c9
 T pairs   %{a => 1, b => 2}
 T dup     %{x => 9}
 T dup3    %{x => 9, y => 2}
@@ -5868,7 +5829,7 @@ T order   %{z => 1, a => 2, m => 3}
 T one     %{1 => 10}
 T intkeys %{3 => c, 1 => a, 2 => b}
 T boolkey %{True => 1, False => 0}
-T tupkey  %{#(1, 2) => a, #(3, 4) => b}
+T tupkey  %{(1, 2) => a, (3, 4) => b}
 T listkey True
 T floatk  %{1.5 => a}
 T nankey  True
@@ -5895,7 +5856,7 @@ T a
 T b
 T 2
 T
-C internal/irbuild/testdata/iter_user_source.nomi@fe182d0b548991e1
+C internal/irbuild/testdata/iter_user_source.nomi@42ca1bab2cc8936d
 E 0
 N 0
 H 969bd65fead316ddb746753295eb207253d4fd93bc0ce4fd0a3e55b14089217c
@@ -5959,7 +5920,7 @@ T plus = 42
 T twice = 42
 T offset = 105
 T
-C internal/irbuild/testdata/lambda_inferred.nomi@015a10e2e388bc37
+C internal/irbuild/testdata/lambda_inferred.nomi@3bfd6e79fa9606e5
 E 0
 N 0
 H 635a7087319c897f55f234325a2a0c089bf9ede7e83e4f970005e73b85c586f3
@@ -6023,13 +5984,13 @@ T 75 12 0 .
 T 75 12 0 .
 T 0 .
 T
-C internal/irbuild/testdata/list_equal_agreement.nomi@c928a8bea1b448fd
+C internal/irbuild/testdata/list_equal_agreement.nomi@df7973b401376bb5
 E 0
 N 0
 H 73a1fd45efde8f8e3333d3db01a0af1986dcf2b3e7230e8fa9279c58c5ca003a
 T all rows agree
 T
-C internal/irbuild/testdata/list_methods.nomi@900cb81b6c6a4574
+C internal/irbuild/testdata/list_methods.nomi@dd3ac4c13574ca3b
 E 0
 N 0
 H 573a3cbb7a6dbf96f5eade918d5f86a090f044a0b0ccfeb410e7ea14460b7b21
@@ -6165,7 +6126,7 @@ T later arm still matches:
 T   eval k
 T   answer = second arm yes
 T
-C internal/irbuild/testdata/map_patterns.nomi@1b14ea4d83624aae
+C internal/irbuild/testdata/map_patterns.nomi@727ecb148e8cf19c
 E 0
 N 0
 H 395cfbc151d553d8ef14c3df153b505394979fe213f986a22ac14c66d20c346f
@@ -6200,7 +6161,7 @@ T distinct call = b=2
 T distinct bare = bare a=1
 T distinct bare miss = bare miss
 T
-C internal/irbuild/testdata/map_surface.nomi@ff5777198ead54cb
+C internal/irbuild/testdata/map_surface.nomi@2d2991ea2c762b74
 E 0
 N 0
 H f6ae051d1e2563adf8570561c742c007a17f9a446629837ef7b6d4187ca2bd7f
@@ -6248,7 +6209,7 @@ T get Id(1) = Some(two)
 T get Id(2) = Some(two)
 T get Id(3) = Some(two)
 T
-C internal/irbuild/testdata/maps.nomi@1a1a85ff70cf19e4
+C internal/irbuild/testdata/maps.nomi@7e4c3ce3d8b18232
 E 0
 N 0
 H 655576e2ed8ad0202788828bab077dcc9dff256306cd1fdc9b8568303b9e837b
@@ -6355,7 +6316,7 @@ T ok <dir>/named_type_arith.nomi :: std/duration's package is pulled in transiti
 T   shifted = 105
 T test result: ok. 5 passed, 0 failed
 T
-C internal/irbuild/testdata/namespaced_types.nomi@7e2d401f9b30781d
+C internal/irbuild/testdata/namespaced_types.nomi@45dc11d20c279e3b
 E 0
 N 0
 H b42115fe08e2be67da82efc87142f40b9e2a2ef78f98cf3039cf9ec23c0faeda
@@ -7003,7 +6964,7 @@ T before
 T 0
 T after
 T
-C internal/irbuild/testdata/result_widening.nomi@d61cfd4a32161ca9
+C internal/irbuild/testdata/result_widening.nomi@46202429231981c6
 E 0
 N 0
 H 5a1de0867ae3f850e25811d8e6790fbde61043404c33c16dc71cecbc65bd55b8
@@ -7071,10 +7032,10 @@ T 7
 T 1,a
 T 9
 T
-C internal/irbuild/testdata/sets.nomi@0ca194a1919f7254
+C internal/irbuild/testdata/sets.nomi@a8868cc29166bd48
 E 0
 N 0
-H 92594ba64d4666d7f272ad8bf660a286db600e9049b96d036fac50ffba818458
+H 5c595f1756bbb1c559c067b091005bae6ddd1e708f8cb5915f5bc6d5b8180028
 T order = [3, 1, 2]
 T size = 3
 T count = 3
@@ -7100,12 +7061,12 @@ T subset = True
 T not_subset = False
 T list_to_set = [5, 6]
 T tuple_size = 2
-T tuple_order = [#(1, 2), #(3, 4)]
+T tuple_order = [(1, 2), (3, 4)]
 T mapped = [30, 10, 20]
 T to_set = [1, 0]
 T reduced = 6
 T
-C internal/irbuild/testdata/sibeq/main.nomi@0a2eaa0ad58ad84c
+C internal/irbuild/testdata/sibeq/main.nomi@c2f1d74f88a5c894
 E 0
 N 0
 H 895ebd34648844b94ffa793ae9f3beb4ea1958a370f27620618cb02ed53d6ddf
@@ -7177,7 +7138,7 @@ N 0
 H f7401952233607f55e3f63f88395e92d5f7290dd57a43a4ac5638ccb5cd2de78
 T go = 0
 T
-C internal/irbuild/testdata/sibling_enum_case/app/main.nomi@cdc33195ab05a412
+C internal/irbuild/testdata/sibling_enum_case/app/main.nomi@9835d934a9c8f3b3
 E 0
 N 0
 H e801fb034e89ff78eb75e7045e3ef67c4c25ffeb80e1519938f327f3604d1279
@@ -7222,7 +7183,7 @@ T label = a..z
 T label bare = m..n
 T equal = True
 T
-C internal/irbuild/testdata/siblingcompare_alias/main.nomi@21e77c240c658fb4
+C internal/irbuild/testdata/siblingcompare_alias/main.nomi@f7b09417a282985b
 E 0
 N 0
 H a20f020d90886f35c197a1d254bddab5172e280c4f14dc5d27f3c81417656fcb
@@ -7276,7 +7237,7 @@ N 0
 H 10159baf262b43a92d95db59dae1f72c645127301661e0a3ce4e38b295a97c58
 T 7
 T
-C internal/irbuild/testdata/sibsig/main.nomi@ab4660073f223011
+C internal/irbuild/testdata/sibsig/main.nomi@6824af61c72a686b
 E 0
 N 0
 H 4ba26f738837ee409183b7cdb7bb9bd70c8ff22e1fb9a4a2c1a522c6f17af274
@@ -7905,7 +7866,7 @@ T       double(3)
 T         = 6
 T test result: FAILED. 0 passed, 1 failed
 T
-C internal/irbuild/testdata/tests_group.nomi@0783e43bc22bc273
+C internal/irbuild/testdata/tests_group.nomi@d04196a2537c826a
 E 0
 N 0
 H 2dcd1622d08a6dd0c1b0d02cf6a213ac40f6443439f0868d73b06877c254f9b2
@@ -8018,10 +7979,10 @@ T     assert 1 == 2
 T ok <dir>/tests_mixed.nomi :: third still runs
 T test result: FAILED. 2 passed, 1 failed
 T
-C internal/irbuild/testdata/tests_operands.nomi@955f134c11f9690e
+C internal/irbuild/testdata/tests_operands.nomi@6709439607651298
 E 1
 N 0
-H 0585df152b5b25eccc13f32e889923ac2eb177d400303b155f43b55d4f19aa7c
+H 650839b482868d5d17a8072249eac3edb583bd808a90867e2f932790f3952612
 T FAIL <dir>/tests_operands.nomi :: a list of Int
 T   line 103: assertion failed
 T     assert no_list(xs)
@@ -8051,7 +8012,7 @@ T   line 123: assertion failed
 T     assert no_pair(p)
 T     values:
 T       p
-T         = #(1, "two")
+T         = (1, "two")
 T FAIL <dir>/tests_operands.nomi :: a map
 T   line 128: assertion failed
 T     assert no_map(m)
@@ -8323,7 +8284,7 @@ T   after the lambda
 T ok <dir>/try_in_test.nomi :: the case after a propagating one still runs
 T test result: FAILED. 3 passed, 4 failed
 T
-C internal/irbuild/testdata/tuple_coerce_and_pattern.nomi@217c20f262df88b6
+C internal/irbuild/testdata/tuple_coerce_and_pattern.nomi@3ecd2a40556c6132
 E 0
 N 0
 H f7417b0b336cecaddde47cd35eeedbf61ff98fff935b4b37132e7cf113aaaafa
@@ -8335,16 +8296,16 @@ T untyped: keeps 9 [1, 2, 3]
 T pattern: a4=True b2=True
 T pattern: nested 21
 T
-C internal/irbuild/testdata/tuples.nomi@32198795da09c692
+C internal/irbuild/testdata/tuples.nomi@414d5a4332dc98c4
 E 0
 N 0
-H 09138046eec17219bbf62216194261b34869e7fc828d9b3104c00aaf2b2d90d4
+H a20d3b45de36108a456783cb0e47ec76afd6e5ddad8a1775ea3adff009a08146
 T hello / 42
-T #(hello, 42)
-T #(1, two, 3.5, True)
+T (hello, 42)
+T (1, two, 3.5, True)
 T 1 two 3.5 True
-T #(1, #(x, #(2, 3.0)))
-T x #(2, 3.0)
+T (1, (x, (2, 3.0)))
+T x (2, 3.0)
 T 30
 T 3 rem 2
 T kept
@@ -8360,10 +8321,10 @@ T origin
 T y-axis
 T x-axis
 T other
-T [#(1, a), #(2, b)]
+T [(1, a), (2, b)]
 T seven=7 then []
 T
-C internal/irbuild/testdata/type_alias.nomi@2b82422618798e31
+C internal/irbuild/testdata/type_alias.nomi@e659ec74c3bcb600
 E 0
 N 0
 H 0258b0e55ea1803d891509c9f95680bf6203f2064d720669cc082653fa0bbaca
@@ -8573,7 +8534,7 @@ T 5/1
 T lib
 T entry
 T
-C internal/irbuild/testdata/vectors.nomi@09eb20e9e30287cf
+C internal/irbuild/testdata/vectors.nomi@d1de68d9d30a94b8
 E 0
 N 0
 H 24de1e677c8687a7e8e1a9b75adc30f680795dcc0e324ccfa7a94ffb56dd1da7
@@ -9382,6 +9343,92 @@ T     assert Some(Shape.Circle(r)) = pick(0)
 T     actual: Some(Dot)
 T test result: FAILED. 1 passed, 1 failed
 T
+C pattern_test.nomi@6408ec37db92955c
+E 1
+N 0
+H 83c9b815cd21cb2187b7ade2710a8fa3794764dd8844312074d87580a25eccad
+S -- pattern_test.nomi 1280 --
+S import {
+S   std::duration.Duration
+S   std::instant.Instant
+S   std::tasks.Task
+S   std::testing.Clock
+S   std::timer
+S }
+S
+S fn long_sleep() -> Unit {
+S   timer.sleep(Duration.seconds(5))
+S }
+S
+S fn short_fail() -> Result<Int, String> {
+S   Err("boom")
+S }
+S
+S fn pair_of() -> (Int, String) {
+S   (1, "one")
+S }
+S
+S group "sibling cancellation under a virtual clock" {
+S   clock Clock.Virtual
+S
+S   test "a short-circuit cancels its siblings instead of waiting for them" {
+S     before = Instant.now()
+S
+S     outcome = concurrent {
+S       short = Task.spawn(fn -> short_fail())
+S       long = Task.spawn(fn -> long_sleep())
+S       _l = long
+S       Ok(Task.await(short)?)
+S     }
+S
+S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
+S
+S     assert Err(e) = outcome
+S     assert e == "boom"
+S     assert elapsed == 0
+S   }
+S
+S   test "a failing pattern over a concurrent block shows its definition" {
+S     outcome = concurrent {
+S       short = Task.spawn(fn -> short_fail())
+S       Ok(Task.await(short)?)
+S     }
+S
+S     assert Ok(n) = outcome
+S     assert n == 1
+S   }
+S
+S   test "a tuple pattern binds both parts" {
+S     pair = pair_of()
+S     assert (n, word) = pair
+S     assert n == 1
+S     assert word == "one"
+S   }
+S
+S   test "a list pattern that does not match shows the whole list" {
+S     assert [a, b] = ["one"]
+S     assert a == b
+S   }
+S }
+S
+S
+T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
+T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a failing pattern over a concurrent block shows its definition
+T   line 47: pattern did not match
+T     assert Ok(n) = outcome
+T     defined as:
+T       concurrent {
+T           short = Task.spawn(fn -> short_fail())
+T           Ok(Task.await(short)?)
+T       }
+T     actual: Err("boom")
+T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a tuple pattern binds both parts
+T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a list pattern that does not match shows the whole list
+T   line 59: pattern did not match
+T     assert [a, b] = ["one"]
+T     actual: ["one"]
+T test result: FAILED. 2 passed, 2 failed
+T
 C pattern_test.nomi@8e198d874f7b5fd7
 E 1
 N 0
@@ -9509,92 +9556,6 @@ T       3 < 4
 T ok <dir>/pattern_test.nomi :: a passing bare name
 T test result: FAILED. 4 passed, 7 failed
 T
-C pattern_test.nomi@f4e573156022233c
-E 1
-N 0
-H 83c9b815cd21cb2187b7ade2710a8fa3794764dd8844312074d87580a25eccad
-S -- pattern_test.nomi 1283 --
-S import {
-S   std::duration.Duration
-S   std::instant.Instant
-S   std::tasks.Task
-S   std::testing.Clock
-S   std::timer
-S }
-S
-S fn long_sleep() -> Unit {
-S   timer.sleep(Duration.seconds(5))
-S }
-S
-S fn short_fail() -> Result<Int, String> {
-S   Err("boom")
-S }
-S
-S fn pair_of() -> #(Int, String) {
-S   #(1, "one")
-S }
-S
-S group "sibling cancellation under a virtual clock" {
-S   clock Clock.Virtual
-S
-S   test "a short-circuit cancels its siblings instead of waiting for them" {
-S     before = Instant.now()
-S
-S     outcome = concurrent {
-S       short = Task.spawn(fn -> short_fail())
-S       long = Task.spawn(fn -> long_sleep())
-S       _l = long
-S       Ok(Task.await(short)?)
-S     }
-S
-S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
-S
-S     assert Err(e) = outcome
-S     assert e == "boom"
-S     assert elapsed == 0
-S   }
-S
-S   test "a failing pattern over a concurrent block shows its definition" {
-S     outcome = concurrent {
-S       short = Task.spawn(fn -> short_fail())
-S       Ok(Task.await(short)?)
-S     }
-S
-S     assert Ok(n) = outcome
-S     assert n == 1
-S   }
-S
-S   test "a tuple pattern binds both parts" {
-S     pair = pair_of()
-S     assert #(n, word) = pair
-S     assert n == 1
-S     assert word == "one"
-S   }
-S
-S   test "a list pattern that does not match shows the whole list" {
-S     assert [a, b] = ["one"]
-S     assert a == b
-S   }
-S }
-S
-S
-T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
-T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a failing pattern over a concurrent block shows its definition
-T   line 47: pattern did not match
-T     assert Ok(n) = outcome
-T     defined as:
-T       concurrent {
-T           short = Task.spawn(fn -> short_fail())
-T           Ok(Task.await(short)?)
-T       }
-T     actual: Err("boom")
-T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a tuple pattern binds both parts
-T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a list pattern that does not match shows the whole list
-T   line 59: pattern did not match
-T     assert [a, b] = ["one"]
-T     actual: ["one"]
-T test result: FAILED. 2 passed, 2 failed
-T
 C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@28dd79b2a50c7b22
 E 0
 N 0
@@ -9639,7 +9600,7 @@ T ok <dir>/dbg_test.nomi :: dbg expression prints source and returns value
 T ok <dir>/dbg_test.nomi :: dbg pipe stage prints source and passes the value through
 T test result: ok. 2 passed, 0 failed
 T
-C tests/03-tooling-and-diagnostics/formatting_test.nomi@8b3fbe214b1f1b2d
+C tests/03-tooling-and-diagnostics/formatting_test.nomi@1a821cb7d247cd81
 E 0
 N 0
 H 87e33a9a852ce0988ab214be2ae4be8516c91906447ed1feee4f44af456bd563

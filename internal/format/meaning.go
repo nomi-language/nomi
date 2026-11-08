@@ -403,6 +403,11 @@ func equalAST(a, b reflect.Value, path string) (string, bool) {
 			// A destructured parameter's synthesized name, `__destr_N`,
 			// carries the column of its opening delimiter. Its Destructure
 			// field holds the pattern.
+			// A positional struct literal value's Source is its text as
+			// written, for an error message; its Value holds what it means.
+			if t == reflect.TypeOf(ast.StructFieldVal{}) && name == "Source" {
+				continue
+			}
 			if t == reflect.TypeOf(ast.Param{}) && name == "Name" &&
 				strings.HasPrefix(a.Field(i).String(), "__destr_") && strings.HasPrefix(b.Field(i).String(), "__destr_") {
 				continue

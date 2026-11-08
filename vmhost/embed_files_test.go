@@ -143,19 +143,26 @@ const embedFilesSrc = `import {
 
 fn main() -> Result<Unit, io.Error> {
     io.print(fs.read_text("seed.txt"))
-    fs.with_writer("out.txt", mode: .ReplaceAtomically, fn w -> io.Writer.write_text(w, "written"))?
+    w = fs.create("out.txt", mode: .ReplaceAtomically)?
+    defer io.Writer.discard(w)
+    io.Writer.write_text(w, "written")?
+    io.Writer.close(w)?
     fs.create_dir("d/e", parents: True)?
     fs.write_text("d/e/f.txt", "deep")?
     io.print(fs.list("d") |> Result.map(fn es -> es |> Iter.map(fn e -> e.name) |> Iter.to_list()))
     io.print((fs.metadata("d/e/f.txt")?).size)
-    io.print(fs.with_file("d/e/f.txt", fn f -> File.read_at(f, 1, max: 2)) == Ok(Some(String.to_bytes("ee"))))
+    f = fs.open_file("d/e/f.txt")?
+    defer File.close_quietly(f)
+    io.print(File.read_at(f, 1, max: 2) == Ok(Some(String.to_bytes("ee"))))
+    File.close(f)?
     fs.rename("d/e/f.txt", "moved.txt")?
     fs.remove_all("d")?
     io.print(fs.read_text("missing.txt"))
     io.print(fs.read_text("/secret/key"))
     io.print(fs.within("/work", fn -> Ok(1)))
-    made = fs.with_temp_dir(fn dir -> fs.write_text(path.join(dir, "t.txt"), "t"))
-    io.print(made == Ok(Unit))
+    dir = fs.make_temp_dir()?
+    defer fs.remove_all_quietly(dir)
+    io.print(fs.write_text(path.join(dir, "t.txt"), "t") == Ok(Unit))
     Ok(Unit)
 }
 `

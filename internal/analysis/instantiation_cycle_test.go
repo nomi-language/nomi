@@ -16,7 +16,7 @@ func TestInstantiationCycle(t *testing.T) {
   if n == 0 { 0 } else { grow(Box{inner: x}, n - 1) }
 }`,
 		"direct, through a tuple": `fn pair<T>(x: T, n: Int) -> Int {
-  if n == 0 { 0 } else { pair(#(x, x), n - 1) }
+  if n == 0 { 0 } else { pair((x, x), n - 1) }
 }`,
 		"mutual, through a list": `fn ping<T>(x: T, n: Int) -> Int {
   if n == 0 { 0 } else { pong([x], n - 1) }

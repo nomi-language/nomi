@@ -179,7 +179,7 @@ fn main() {
     io.inspect(p)
     io.print(show(p))
     u = io.capture("", fn -> io.write("u"))
-    io.inspect(#(u, run))
+    io.inspect((u, run))
 }
 `, "")
 	if err != nil {
@@ -190,7 +190,7 @@ fn main() {
 		"[Captured{value: 42, output: \"hi\", errors: \"\", transcript: \"hi\"}]\n" +
 		"Captured{value: Point{x: 3}, output: \"\", errors: \"\", transcript: \"\"}\n" +
 		"3|\n" +
-		"#(Captured{value: Unit, output: \"u\", errors: \"\", transcript: \"u\"}, Captured{value: 42, output: \"hi\", errors: \"\", transcript: \"hi\"})\n"
+		"(Captured{value: Unit, output: \"u\", errors: \"\", transcript: \"u\"}, Captured{value: 42, output: \"hi\", errors: \"\", transcript: \"hi\"})\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
 	}

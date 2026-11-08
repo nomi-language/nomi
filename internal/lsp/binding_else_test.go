@@ -26,8 +26,8 @@ fn name(id: Int) -> Result<String, String> {
   Ok("${user}!")
 }
 
-fn size(r: Result<#(Int, Int), String>) -> Int {
-  Ok(#(width, height)) = r else { #(80, 24) }
+fn size(r: Result<(Int, Int), String>) -> Int {
+  Ok((width, height)) = r else { (80, 24) }
   width * height
 }
 `
@@ -76,7 +76,7 @@ func TestBindingElse_HoverAndDefinition(t *testing.T) {
 	}{
 		{"pattern name", posOf(t, bindingElseSrc, "${user}!", "user", 0), posOf(t, bindingElseSrc, "Ok(user) = load", "user", 0), "```nomi\nuser: String\n```"},
 		{"arm name", posOf(t, bindingElseSrc, "broken: ${", "err", 0), posOf(t, bindingElseSrc, "Err(err) ->", "err", 0), "```nomi\nerr: LoadError\n```"},
-		{"fallback-bound name", posOf(t, bindingElseSrc, "width * height", "width", 0), posOf(t, bindingElseSrc, "Ok(#(width, height))", "width", 0), "```nomi\nwidth: Int\n```"},
+		{"fallback-bound name", posOf(t, bindingElseSrc, "width * height", "width", 0), posOf(t, bindingElseSrc, "Ok((width, height))", "width", 0), "```nomi\nwidth: Int\n```"},
 	} {
 		sym := file.SymbolAt(tc.use)
 		if sym == nil {

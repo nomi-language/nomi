@@ -58,7 +58,7 @@ fn no_nested(_v: List<List<Int>>) -> Bool {
     False
 }
 
-fn no_pair(_v: #(Int, String)) -> Bool {
+fn no_pair(_v: (Int, String)) -> Bool {
     False
 }
 
@@ -119,7 +119,7 @@ test "a nested list" {
 }
 
 test "a tuple" {
-    p = #(1, "two")
+    p = (1, "two")
     assert no_pair(p)
 }
 

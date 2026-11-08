@@ -132,8 +132,8 @@ fn run_maybe<T>(f: (String) -> Maybe<T>, s: String) -> Maybe<T> {
     f(s)
 }
 
-fn run_pairs<K, T>(ps: List<#(K, (String) -> T)>, s: String) -> List<#(K, T)> {
-    ps |> Iter.map(fn p -> #(p.0, p.1(s))) |> Iter.to_list()
+fn run_pairs<K, T>(ps: List<(K, (String) -> T)>, s: String) -> List<(K, T)> {
+    ps |> Iter.map(fn p -> (p.first, p.second(s))) |> Iter.to_list()
 }
 
 fn scale(s: String, by: Int = 10) -> Maybe<Int> {
@@ -156,7 +156,7 @@ fn main() {
     io.inspect(run_all([scale, twice], "a"))
     io.inspect([scale, twice] |> run_all("a"))
     io.inspect(scale |> run_maybe("abc"))
-    io.inspect([#("ten", scale), #("two", twice)] |> run_pairs("a"))
+    io.inspect([("ten", scale), ("two", twice)] |> run_pairs("a"))
 }
 `, `Some(20)
 Some(20)
@@ -165,6 +165,6 @@ Some(20)
 [Some(10), Some(2)]
 [Some(10), Some(2)]
 Some(30)
-[#("ten", Some(10)), #("two", Some(2))]
+[("ten", Some(10)), ("two", Some(2))]
 `, nil)
 }

@@ -49,11 +49,11 @@ test "field-access chains resolve through structs and generics" {
         mid: Mid{inner: Inner{value: 100}},
     }
 
-    pair = #(p.mid.inner.value, p.mid.inner.value)
+    pair = (p.mid.inner.value, p.mid.inner.value)
 
     assert o.mid.inner.value == 42
     assert c.box.item.value == 7
-    assert pair == #(100, 100)
+    assert pair == (100, 100)
 }
 
 test "predicate-named functions and bindings stay callable" {

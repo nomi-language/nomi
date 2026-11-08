@@ -136,8 +136,8 @@ fn run_maybe<T>(f: (String) -> Maybe<T>, s: String) -> Maybe<T> {
     f(s)
 }
 
-fn run_pairs<K, T>(ps: List<#(K, (String) -> T)>, s: String) -> List<#(K, T)> {
-    ps |> Iter.map(fn p -> #(p.0, p.1(s))) |> Iter.to_list()
+fn run_pairs<K, T>(ps: List<(K, (String) -> T)>, s: String) -> List<(K, T)> {
+    ps |> Iter.map(fn p -> (p.first, p.second(s))) |> Iter.to_list()
 }
 
 fn parse(s: String, base: Int = 10) -> Maybe<Int> {
@@ -166,7 +166,7 @@ fn parse_in(s: String, base: Int) -> Maybe<Int> {
 		{"a lambda", `run(fn s -> String.length(s), "ab")`, `(fn s -> String.length(s)) |> run("ab")`, true},
 		{"a list of functions", `run_all([parse, parse_hex], "10")`, `[parse, parse_hex] |> run_all("10")`, true},
 		{"a nested generic", `run_maybe(parse, "1")`, `parse |> run_maybe("1")`, true},
-		{"a list of tuples of functions", `run_pairs([#("dec", parse), #("hex", parse_hex)], "10")`, `[#("dec", parse), #("hex", parse_hex)] |> run_pairs("10")`, true},
+		{"a list of tuples of functions", `run_pairs([("dec", parse), ("hex", parse_hex)], "10")`, `[("dec", parse), ("hex", parse_hex)] |> run_pairs("10")`, true},
 		{"a function whose extra parameter has no default", `run(parse_in, "1")`, `parse_in |> run("1")`, false},
 	} {
 		for form, expr := range map[string]string{"direct": tc.direct, "pipe": tc.pipe} {

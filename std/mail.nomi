@@ -89,7 +89,7 @@ pub struct Message {
     /// `Cc`, `Bcc`, `Reply-To`, `Subject`, `Date`, `Message-ID`,
     /// `MIME-Version`, `Content-Type`, `Content-Transfer-Encoding`) is
     /// refused, and so is a value with a line break.
-    headers: List<#(String, String)> = []
+    headers: List<(String, String)> = []
     attachments: List<Attachment> = []
 }
 
@@ -224,13 +224,13 @@ fn unquote(name: String) -> String {
             name
 
         Some(quoted) -> {
-            #(out, _) = Iter.reduce(quoted, #("", False), fn #(out, escaped), g -> {
+            (out, _) = Iter.reduce(quoted, ("", False), fn (out, escaped), g -> {
                 if escaped {
-                    #("${out}${g}", False)
+                    ("${out}${g}", False)
                 } else if g == "\\" {
-                    #(out, True)
+                    (out, True)
                 } else {
-                    #("${out}${g}", False)
+                    ("${out}${g}", False)
                 }
             })
 
@@ -546,7 +546,7 @@ fn converse(
 ) -> Result<Unit, Error> {
     expect(plain, read_reply(plain)?, [220], "the greeting")?
     extensions = hello(plain, config)?
-    #(session, extensions) = secure(plain, extensions, config)?
+    (session, extensions) = secure(plain, extensions, config)?
     authenticate(session, extensions, config)?
     expect(session, command(session, "MAIL FROM:<${from}>")?, [250], "MAIL FROM")?
 
@@ -609,7 +609,7 @@ fn secure(
     session: Session,
     extensions: List<String>,
     config: SmtpConfig,
-) -> Result<#(Session, List<String>), Error> {
+) -> Result<(Session, List<String>), Error> {
     wants = config.security == Security.StartTls or config.security == Security.StartTlsIfOffered
     offered = Iter.any(extensions, fn e -> e == "STARTTLS")
 
@@ -621,13 +621,13 @@ fn secure(
             |> Result.map_err(fn e -> Error.Network{reason: "${e}"})?
 
         upgraded = Session{conn, timeout: session.timeout, encrypted: True}
-        Ok(#(upgraded, hello(upgraded, config)?))
+        Ok((upgraded, hello(upgraded, config)?))
     } else if config.security == Security.StartTls {
         Err(Error.Protocol{
             reason: "${config.host} does not offer STARTTLS, and the config requires it (Security.StartTls)",
         })
     } else {
-        Ok(#(session, extensions))
+        Ok((session, extensions))
     }
 }
 
@@ -776,7 +776,7 @@ fn check_message(message: Message) -> Result<Unit, Error> {
 
     _ =
         message.headers
-        |> Iter.map(fn #(name, value) -> check_header(name, value))
+        |> Iter.map(fn (name, value) -> check_header(name, value))
         |> Result.collect()?
 
     _ = message.attachments |> Iter.map(check_attachment) |> Result.collect()?
@@ -906,7 +906,7 @@ pub fn render(
         None -> Instant.now()
     }
 
-    #(content_headers, body) = content(message)
+    (content_headers, body) = content(message)
 
     lines = [
         ["Date: ${rfc5322_date(at)}", address_header("From", [message.from])],
@@ -915,7 +915,7 @@ pub fn render(
         optional_addresses("Cc", message.cc),
         [text_header("Subject", message.subject), "Message-ID: ${id}", "MIME-Version: 1.0"],
         message.headers
-        |> Iter.map(fn #(name, value) -> text_header(name, value))
+        |> Iter.map(fn (name, value) -> text_header(name, value))
         |> Iter.to_list(),
         content_headers,
     ]
@@ -930,7 +930,7 @@ fn new_message_id(from: Address) -> String {
 }
 
 // The headers and body of the message's content, as one MIME entity.
-fn content(message: Message) -> #(List<String>, String) {
+fn content(message: Message) -> (List<String>, String) {
     bodies =
         [
             message.text |> Maybe.map(text_part),
@@ -953,39 +953,39 @@ fn content(message: Message) -> #(List<String>, String) {
     }
 }
 
-fn text_part(text: String) -> #(List<String>, String) {
-    #(
+fn text_part(text: String) -> (List<String>, String) {
+    (
         ["Content-Type: text/plain; charset=utf-8", "Content-Transfer-Encoding: quoted-printable"],
         quoted_printable(text),
     )
 }
 
-fn html_part(markup: String) -> #(List<String>, String) {
-    #(
+fn html_part(markup: String) -> (List<String>, String) {
+    (
         ["Content-Type: text/html; charset=utf-8", "Content-Transfer-Encoding: quoted-printable"],
         quoted_printable(markup),
     )
 }
 
-fn attachment_part(attachment: Attachment) -> #(List<String>, String) {
+fn attachment_part(attachment: Attachment) -> (List<String>, String) {
     name = attachment.filename
 
-    #(type_line, disposition) = if Iter.all(name, fn g -> {
+    (type_line, disposition) = if Iter.all(name, fn g -> {
         c = code_of(g)
         c >= 32 and c <= 126 and g != "\"" and g != "\\"
     }) {
-        #(
+        (
             "Content-Type: ${attachment.content_type}; name=\"${name}\"",
             "Content-Disposition: attachment; filename=\"${name}\"",
         )
     } else {
-        #(
+        (
             "Content-Type: ${attachment.content_type}",
             "Content-Disposition: attachment; filename*=utf-8''${percent_encode(name)}",
         )
     }
 
-    #([type_line, disposition, "Content-Transfer-Encoding: base64"], base64_lines(attachment.data))
+    ([type_line, disposition, "Content-Transfer-Encoding: base64"], base64_lines(attachment.data))
 }
 
 // RFC 2231's attr-char kept, every other byte as %XX.
@@ -1015,17 +1015,17 @@ fn boundary(subtype: String) -> String {
     "=_nomi_${subtype}"
 }
 
-fn multipart(subtype: String, parts: List<#(List<String>, String)>) -> #(List<String>, String) {
+fn multipart(subtype: String, parts: List<(List<String>, String)>) -> (List<String>, String) {
     b = boundary(subtype)
 
     body =
         parts
-        |> Iter.map(fn #(headers, part_body) -> {
+        |> Iter.map(fn (headers, part_body) -> {
             "--${b}\r\n${String.join(headers, "\r\n")}\r\n\r\n${part_body}\r\n"
         })
         |> String.join()
 
-    #(["Content-Type: multipart/${subtype}; boundary=\"${b}\""], "${body}--${b}--")
+    (["Content-Type: multipart/${subtype}; boundary=\"${b}\""], "${body}--${b}--")
 }
 
 fn base64_lines(data: Bytes) -> String {
@@ -1063,11 +1063,11 @@ fn is_plain(text: String) -> Bool {
 //! assert encoded_words("Grüße") == ["=?utf-8?b?R3LDvMOfZQ==?="]
 //
 pub fn encoded_words(text: String) -> List<String> {
-    #(done, last) = Iter.reduce(text, #([], ""), fn #(done, current), g -> {
+    (done, last) = Iter.reduce(text, ([], ""), fn (done, current), g -> {
         if current != "" and byte_length(current) + byte_length(g) > 39 {
-            #(List.concat(done, [current]), g)
+            (List.concat(done, [current]), g)
         } else {
-            #(done, "${current}${g}")
+            (done, "${current}${g}")
         }
     })
 
@@ -1130,11 +1130,11 @@ fn fold(line: String) -> String {
     first = List.head(words) |> Maybe.with_default("")
     rest = List.tail(words) |> Maybe.with_default([])
 
-    #(done, last) = Iter.reduce(rest, #([], first), fn #(done, current), word -> {
+    (done, last) = Iter.reduce(rest, ([], first), fn (done, current), word -> {
         if word != "" and String.length(current) + 1 + String.length(word) > 78 {
-            #(List.concat(done, [current]), word)
+            (List.concat(done, [current]), word)
         } else {
-            #(done, "${current} ${word}")
+            (done, "${current} ${word}")
         }
     })
 

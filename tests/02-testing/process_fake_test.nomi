@@ -113,16 +113,17 @@ test "run writes the answer's output to the program's own" {
     assert ran.value.errors == "warn\n"
 }
 
-test "with_spawned streams the answer and records what the body wrote" {
+test "spawn streams the answer and records what the caller wrote" {
     ran = process_testing.run([Answer{program: "sort", stdout: "a\nb\n"}], fn -> {
-        process.with_spawned(Command{program: "sort"}, fn child -> {
-            _ = Writer.write_text(Child.stdin(child), "b\n")
-            _ = Writer.write_text(Child.stdin(child), "a\n")
-            #(Child.wait(child), Reader.read_all_text(Child.stdout(child)), Child.wait(child))
-        })
+        child = process.spawn(Command{program: "sort"})?
+        defer Child.kill(child)
+
+        _ = Writer.write_text(Child.stdin(child), "b\n")
+        _ = Writer.write_text(Child.stdin(child), "a\n")
+        Ok((Child.wait(child), Reader.read_all_text(Child.stdout(child)), Child.wait(child)))
     })
 
-    assert ran.value == Ok(#(Ok(Status.Exited{code: 0}), Ok("a\nb\n"), Ok(Status.Exited{code: 0})))
+    assert ran.value == Ok((Ok(Status.Exited{code: 0}), Ok("a\nb\n"), Ok(Status.Exited{code: 0})))
 
     assert ran.calls == [Call{program: "sort", input: String.to_bytes("b\na\n")}]
 }
@@ -132,11 +133,11 @@ test "tasks started inside the run reach its fake" {
         concurrent {
             a = Task.spawn(fn -> current_branch())
             b = Task.spawn(fn -> current_branch())
-            #(Task.await(a), Task.await(b))
+            (Task.await(a), Task.await(b))
         }
     })
 
-    assert ran.value == #(Ok("main"), Ok("main"))
+    assert ran.value == (Ok("main"), Ok("main"))
     assert Iter.count(ran.calls) == 2
 }
 
@@ -146,9 +147,9 @@ test "a nested run takes over for its own call" {
             current_branch()
         })
 
-        #(inner.value, current_branch())
+        (inner.value, current_branch())
     })
 
-    assert ran.value == #(Ok("inner"), Ok("outer"))
+    assert ran.value == (Ok("inner"), Ok("outer"))
     assert Iter.count(ran.calls) == 1
 }

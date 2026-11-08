@@ -144,8 +144,8 @@ impl Span<T> {
         span.start
     }
 
-    fn pair<U>(span: Span<T>, u: U) -> #(T, U) {
-        #(span.start, u)
+    fn pair<U>(span: Span<T>, u: U) -> (T, U) {
+        (span.start, u)
     }
 
     fn is_longer(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {

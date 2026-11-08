@@ -65,7 +65,7 @@ fn verse(number: Int) -> List<String> {
     chain =
         swallowed
         |> Iter.zip(Iter.drop(swallowed, 1))
-        |> Iter.map(fn #(predator, prey) -> {
+        |> Iter.map(fn (predator, prey) -> {
             "She swallowed the ${predator.name} to catch the ${prey.name}${prey.detail}."
         })
 
@@ -77,7 +77,7 @@ import food_chain
 
 test "food chain" {
     [
-        #(
+        (
             "fly",
             1,
             1,
@@ -86,7 +86,7 @@ test "food chain" {
                 "I don't know why she swallowed the fly. Perhaps she'll die.",
             ],
         ),
-        #(
+        (
             "spider",
             2,
             2,
@@ -97,7 +97,7 @@ test "food chain" {
                 "I don't know why she swallowed the fly. Perhaps she'll die.",
             ],
         ),
-        #(
+        (
             "bird",
             3,
             3,
@@ -109,7 +109,7 @@ test "food chain" {
                 "I don't know why she swallowed the fly. Perhaps she'll die.",
             ],
         ),
-        #(
+        (
             "cat",
             4,
             4,
@@ -122,7 +122,7 @@ test "food chain" {
                 "I don't know why she swallowed the fly. Perhaps she'll die.",
             ],
         ),
-        #(
+        (
             "dog",
             5,
             5,
@@ -136,7 +136,7 @@ test "food chain" {
                 "I don't know why she swallowed the fly. Perhaps she'll die.",
             ],
         ),
-        #(
+        (
             "goat",
             6,
             6,
@@ -151,7 +151,7 @@ test "food chain" {
                 "I don't know why she swallowed the fly. Perhaps she'll die.",
             ],
         ),
-        #(
+        (
             "cow",
             7,
             7,
@@ -167,7 +167,7 @@ test "food chain" {
                 "I don't know why she swallowed the fly. Perhaps she'll die.",
             ],
         ),
-        #(
+        (
             "horse",
             8,
             8,
@@ -176,7 +176,7 @@ test "food chain" {
                 "She's dead, of course!",
             ],
         ),
-        #(
+        (
             "multiple verses",
             1,
             3,
@@ -196,7 +196,7 @@ test "food chain" {
                 "I don't know why she swallowed the fly. Perhaps she'll die.",
             ],
         ),
-        #(
+        (
             "full song",
             1,
             8,
@@ -254,7 +254,7 @@ test "food chain" {
             ],
         ),
     ]
-    |> subtests #(description, start, end, expected), description {
+    |> subtests (description, start, end, expected), description {
         assert food_chain.recite(start, end) == expected
     }
 }

@@ -35,7 +35,7 @@ pub enum Error {
 /// The game tree `encoded` writes.
 pub fn parse(encoded: String) -> Result<Tree, Error> {
     ['(', ..rest] = String.to_codepoints(encoded) else { return Err(.TreeMissing) }
-    #(tree, rest) = node(rest)?
+    (tree, rest) = node(rest)?
     if rest != [] { return Err(.Malformed) }
     Ok(tree)
 }
@@ -43,21 +43,21 @@ pub fn parse(encoded: String) -> Result<Tree, Error> {
 /// A node from its `;` on, with what follows it: another node is its one
 /// child, and parenthesized trees are its children. The node that ends a
 /// sequence reads the `)` that closes the sequence's tree.
-fn node(text: List<Codepoint>) -> Result<#(Tree, List<Codepoint>), Error> {
+fn node(text: List<Codepoint>) -> Result<(Tree, List<Codepoint>), Error> {
     [';', ..rest] = text else { return Err(.TreeWithNoNodes) }
-    #(properties, rest) = read_properties(rest, %{})?
+    (properties, rest) = read_properties(rest, %{})?
 
-    #(children, rest) = case rest {
+    (children, rest) = case rest {
         [';', ..] -> {
-            #(child, rest) = node(rest)?
-            #([child], rest)
+            (child, rest) = node(rest)?
+            ([child], rest)
         }
 
         _ ->
             variations(rest, [])?
     }
 
-    Ok(#(Tree{properties, children}, rest))
+    Ok((Tree{properties, children}, rest))
 }
 
 /// The parenthesized trees after a node, up to and including the `)` that
@@ -65,15 +65,15 @@ fn node(text: List<Codepoint>) -> Result<#(Tree, List<Codepoint>), Error> {
 fn variations(
     text: List<Codepoint>,
     found: List<Tree>,
-) -> Result<#(List<Tree>, List<Codepoint>), Error> {
+) -> Result<(List<Tree>, List<Codepoint>), Error> {
     case text {
         ['(', ..rest] -> {
-            #(tree, rest) = node(rest)?
+            (tree, rest) = node(rest)?
             variations(rest, found + [tree])
         }
 
         [')', ..rest] ->
-            Ok(#(found, rest))
+            Ok((found, rest))
 
         _ ->
             Err(.Malformed)
@@ -84,19 +84,19 @@ fn variations(
 fn read_properties(
     text: List<Codepoint>,
     found: Map<String, List<String>>,
-) -> Result<#(Map<String, List<String>>, List<Codepoint>), Error> {
+) -> Result<(Map<String, List<String>>, List<Codepoint>), Error> {
     key =
         text
         |> Iter.take_while(Codepoint.is_letter)
         |> Iter.to_list()
         |> String.from_codepoints()
 
-    if key == "" { return Ok(#(found, text)) }
+    if key == "" { return Ok((found, text)) }
 
     if not String.is_upper(key) { return Err(.PropertyMustBeUppercase) }
 
     rest = text |> Iter.drop_while(Codepoint.is_letter) |> Iter.to_list()
-    #(values, rest) = read_values(rest, [])?
+    (values, rest) = read_values(rest, [])?
 
     if values == [] { return Err(.PropertiesWithoutDelimiter) }
 
@@ -107,24 +107,24 @@ fn read_properties(
 fn read_values(
     text: List<Codepoint>,
     found: List<String>,
-) -> Result<#(List<String>, List<Codepoint>), Error> {
+) -> Result<(List<String>, List<Codepoint>), Error> {
     case text {
         ['[', ..rest] -> {
-            #(value, rest) = read_text(rest, "")?
+            (value, rest) = read_text(rest, "")?
             read_values(rest, found + [value])
         }
 
         _ ->
-            Ok(#(found, text))
+            Ok((found, text))
     }
 }
 
 /// One value's text, up to its closing `]`. A `\` keeps the character
 /// after it, except that a newline after it is removed; any whitespace
 /// other than a newline becomes a space.
-fn read_text(text: List<Codepoint>, value: String) -> Result<#(String, List<Codepoint>), Error> {
+fn read_text(text: List<Codepoint>, value: String) -> Result<(String, List<Codepoint>), Error> {
     case text {
-        [']', ..rest] -> Ok(#(value, rest))
+        [']', ..rest] -> Ok((value, rest))
         ['\\', '\n', ..rest] -> read_text(rest, value)
         ['\\', c, ..rest] or [c, ..rest] -> read_text(rest, value + plain(c))
         [] or ['\\'] -> Err(.Malformed)
@@ -143,16 +143,16 @@ fn plain(c: Codepoint) -> String {
 import sgf_parsing.{self, Error, Tree}
 
 test "parse" {
-    cases: List<#(String, String, Result<Tree, Error>)> = [
-        #("empty input", "", Err(.TreeMissing)),
-        #("tree with no nodes", "()", Err(.TreeWithNoNodes)),
-        #("node without tree", ";", Err(.TreeMissing)),
-        #("node without properties", "(;)", Ok(#{properties: %{}, children: []})),
-        #("single node tree", "(;A[B])", Ok(#{
+    cases: List<(String, String, Result<Tree, Error>)> = [
+        ("empty input", "", Err(.TreeMissing)),
+        ("tree with no nodes", "()", Err(.TreeWithNoNodes)),
+        ("node without tree", ";", Err(.TreeMissing)),
+        ("node without properties", "(;)", Ok(#{properties: %{}, children: []})),
+        ("single node tree", "(;A[B])", Ok(#{
                 properties: %{"A" => ["B"]},
                 children: [],
             })),
-        #(
+        (
             "multiple properties",
             "(;A[b]C[d])",
             Ok(#{
@@ -160,10 +160,10 @@ test "parse" {
                 children: [],
             }),
         ),
-        #("properties without delimiter", "(;A)", Err(.PropertiesWithoutDelimiter)),
-        #("all lowercase property", "(;a[b])", Err(.PropertyMustBeUppercase)),
-        #("upper and lowercase property", "(;Aa[b])", Err(.PropertyMustBeUppercase)),
-        #(
+        ("properties without delimiter", "(;A)", Err(.PropertiesWithoutDelimiter)),
+        ("all lowercase property", "(;a[b])", Err(.PropertyMustBeUppercase)),
+        ("upper and lowercase property", "(;Aa[b])", Err(.PropertyMustBeUppercase)),
+        (
             "two nodes",
             "(;A[B];B[C])",
             Ok(#{
@@ -176,7 +176,7 @@ test "parse" {
                 ],
             }),
         ),
-        #(
+        (
             "two child trees",
             "(;A[B](;B[C])(;C[D]))",
             Ok(#{
@@ -193,7 +193,7 @@ test "parse" {
                 ],
             }),
         ),
-        #(
+        (
             "multiple property values",
             "(;A[b][c][d])",
             Ok(#{
@@ -201,7 +201,7 @@ test "parse" {
                 children: [],
             }),
         ),
-        #(
+        (
             "within property values, whitespace characters such as tab are converted to spaces",
             "(;A[hello\t\tworld])",
             Ok(#{
@@ -209,7 +209,7 @@ test "parse" {
                 children: [],
             }),
         ),
-        #(
+        (
             "within property values, newlines remain as newlines",
             "(;A[hello\n\nworld])",
             Ok(#{
@@ -217,7 +217,7 @@ test "parse" {
                 children: [],
             }),
         ),
-        #(
+        (
             "escaped closing bracket within property value becomes just a closing bracket",
             "(;A[\\]])",
             Ok(#{
@@ -225,7 +225,7 @@ test "parse" {
                 children: [],
             }),
         ),
-        #(
+        (
             "escaped backslash in property value becomes just a backslash",
             "(;A[\\\\])",
             Ok(#{
@@ -233,7 +233,7 @@ test "parse" {
                 children: [],
             }),
         ),
-        #(
+        (
             "opening bracket within property value doesn't need to be escaped",
             "(;A[x[y\\]z][foo]B[bar];C[baz])",
             Ok(#{
@@ -246,7 +246,7 @@ test "parse" {
                 ],
             }),
         ),
-        #(
+        (
             "semicolon in property value doesn't need to be escaped",
             "(;A[a;b][foo]B[bar];C[baz])",
             Ok(#{
@@ -259,7 +259,7 @@ test "parse" {
                 ],
             }),
         ),
-        #(
+        (
             "parentheses in property value don't need to be escaped",
             "(;A[x(y)z][foo]B[bar];C[baz])",
             Ok(#{
@@ -272,7 +272,7 @@ test "parse" {
                 ],
             }),
         ),
-        #(
+        (
             "escaped tab in property value is converted to space",
             "(;A[hello\\\tworld])",
             Ok(#{
@@ -280,7 +280,7 @@ test "parse" {
                 children: [],
             }),
         ),
-        #(
+        (
             "escaped newline in property value is converted to nothing at all",
             "(;A[hello\\\nworld])",
             Ok(#{
@@ -288,7 +288,7 @@ test "parse" {
                 children: [],
             }),
         ),
-        #(
+        (
             "escaped t and n in property value are just letters, not whitespace",
             "(;A[\\t = t and \\n = n])",
             Ok(#{
@@ -296,7 +296,7 @@ test "parse" {
                 children: [],
             }),
         ),
-        #(
+        (
             "mixing various kinds of whitespace and escaped characters in property value",
             "(;A[\\]b\nc\\\nd\t\te\\\\ \\\n\\]])",
             Ok(#{
@@ -306,7 +306,7 @@ test "parse" {
         ),
     ]
 
-    subtests cases, #(description, encoded, expected), description {
+    subtests cases, (description, encoded, expected), description {
         assert sgf_parsing.parse(encoded) == expected
     }
 }
@@ -315,13 +315,13 @@ test "parse" {
 // leaves unfinished or follows with more.
 test "malformed trees" {
     [
-        #("a tree with no closing parenthesis", "(;A[B]"),
-        #("a value with no closing bracket", "(;A[B)"),
-        #("a value ending in a backslash", "(;A[B\\"),
-        #("text after the tree", "(;A[B])x"),
-        #("a child tree with no closing parenthesis", "(;A[B](;B[C])"),
+        ("a tree with no closing parenthesis", "(;A[B]"),
+        ("a value with no closing bracket", "(;A[B)"),
+        ("a value ending in a backslash", "(;A[B\\"),
+        ("text after the tree", "(;A[B])x"),
+        ("a child tree with no closing parenthesis", "(;A[B](;B[C])"),
     ]
-    |> subtests #(description, encoded), description {
+    |> subtests (description, encoded), description {
         assert sgf_parsing.parse(encoded) == Err(.Malformed)
     }
 }
@@ -334,7 +334,7 @@ test result: ok. 28 passed, 0 failed
 
 ## How it's written
 
-- The parser is recursive descent over `String.to_codepoints`, one function per part of the grammar (`node`, `variations`, `read_properties`, `read_values`, `read_text`). Each answers what it read and the codepoints after it, `Result<#(T, List<Codepoint>), Error>`, and `?` passes a failure up. The delimiters are codepoint literals in list patterns, `[';', ..rest]` and `['\\', '\n', ..rest]` (style §20).
+- The parser is recursive descent over `String.to_codepoints`, one function per part of the grammar (`node`, `variations`, `read_properties`, `read_values`, `read_text`). Each answers what it read and the codepoints after it, `Result<(T, List<Codepoint>), Error>`, and `?` passes a failure up. The delimiters are codepoint literals in list patterns, `[';', ..rest]` and `['\\', '\n', ..rest]` (style §20).
 - A `;` after a node starts its one child, and `(` starts its variations. The node that ends a sequence reads the `)` that closes the sequence's tree, so `(;A[B];B[C])` needs no count of open parentheses.
 - A property's key is read as the run of letters, turned into a `String` at once, and checked with `String.is_upper`.
 - `Tree` is a struct

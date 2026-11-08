@@ -35,7 +35,7 @@ test "Unit alone covers a Unit scrutinee" {
 }
 
 test "Unit in tuples, struct fields and Maybe" {
-    assert #(1, Unit) is #(1, Unit)
+    assert (1, Unit) is (1, Unit)
     job = Job{name: "a", done: Unit}
 
     assert case job {

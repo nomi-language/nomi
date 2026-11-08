@@ -83,37 +83,37 @@ pub fn run(
     tasks: Map<Int, Task>,
     store: Store,
     clock: Clock,
-) -> Result<#(Map<Int, Task>, List<String>), String> {
+) -> Result<(Map<Int, Task>, List<String>), String> {
     case command {
         Command.Help ->
-            Ok(#(tasks, help))
+            Ok((tasks, help))
 
         Command.Add{title} -> {
             task = Task{id: next_id(tasks), title, created: Clock.now(clock)}
             Store.save(store, task)?
-            Ok(#(Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
+            Ok((Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
         }
 
         Command.List{status} ->
-            Ok(#(tasks, list(tasks, status)))
+            Ok((tasks, list(tasks, status)))
 
         Command.Mark{id, status} -> {
             task = #{..find(tasks, id)?, status}
             Store.save(store, task)?
-            Ok(#(Map.put(tasks, id, task), [Task.render(task)]))
+            Ok((Map.put(tasks, id, task), [Task.render(task)]))
         }
 
         Command.Delete{id} -> {
             task = find(tasks, id)?
             Store.delete(store, id)?
-            Ok(#(Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))
+            Ok((Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))
         }
 
         Command.Quit ->
-            Ok(#(tasks, []))
+            Ok((tasks, []))
 
         Command.Blank ->
-            Ok(#(tasks, []))
+            Ok((tasks, []))
     }
 }
 

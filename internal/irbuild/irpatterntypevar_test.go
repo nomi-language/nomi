@@ -32,8 +32,8 @@ fn pick<T>(c: Bool, a: T, b: T) -> T {
 }
 
 fn main() {
-  case pick(True, Opt.Nothing, Opt.Has(#(1, "x"))) {
-    .Has(#(s, t)) -> io.print("tuple ${s} ${t}")
+  case pick(True, Opt.Nothing, Opt.Has((1, "x"))) {
+    .Has((s, t)) -> io.print("tuple ${s} ${t}")
     .Nothing -> io.print("none")
   }
   case pick(True, Opt.Nothing, Opt.Has(Pt{x: 3, y: 4})) {

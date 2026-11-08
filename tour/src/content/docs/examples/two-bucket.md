@@ -36,12 +36,12 @@ pub enum Error {
 /// `two` liters, filling `start` first. No action may leave `start` empty
 /// and the other bucket full.
 pub fn measure(one: Int, two: Int, goal: Int, start: Bucket) -> Result<Outcome, Error> {
-    #(first, forbidden) = case start {
-        .One -> #(#(one, 0), #(0, two))
-        .Two -> #(#(0, two), #(one, 0))
+    (first, forbidden) = case start {
+        .One -> ((one, 0), (0, two))
+        .Two -> ((0, two), (one, 0))
     }
 
-    search([first], %[first, forbidden], 1, #(one, two), goal)
+    search([first], %[first, forbidden], 1, (one, two), goal)
 }
 
 /// A breadth-first search over states, the liters in bucket one and bucket
@@ -49,17 +49,17 @@ pub fn measure(one: Int, two: Int, goal: Int, start: Bucket) -> Result<Outcome, 
 /// that no fewer actions do, and `seen` every state reached so far, with the
 /// forbidden one, so no action leads back to them.
 fn search(
-    frontier: List<#(Int, Int)>,
-    seen: Set<#(Int, Int)>,
+    frontier: List<(Int, Int)>,
+    seen: Set<(Int, Int)>,
     moves: Int,
-    sizes: #(Int, Int),
+    sizes: (Int, Int),
     goal: Int,
 ) -> Result<Outcome, Error> {
-    case Iter.find(frontier, fn #(one, two) -> one == goal or two == goal) {
-        Some(#(one, two)) when one == goal ->
+    case Iter.find(frontier, fn (one, two) -> one == goal or two == goal) {
+        Some((one, two)) when one == goal ->
             Ok(#{moves, goal_bucket: .One, other_bucket: two})
 
-        Some(#(one, _two)) ->
+        Some((one, _two)) ->
             Ok(#{moves, goal_bucket: .Two, other_bucket: one})
 
         None -> {
@@ -78,19 +78,19 @@ fn search(
     }
 }
 
-/// The states one action leads to from `#(one, two)`: fill a bucket, empty
+/// The states one action leads to from `(one, two)`: fill a bucket, empty
 /// one, or pour one into the other until it is empty or the other is full.
-fn actions(#(one, two): #(Int, Int), #(size_one, size_two): #(Int, Int)) -> List<#(Int, Int)> {
+fn actions((one, two): (Int, Int), (size_one, size_two): (Int, Int)) -> List<(Int, Int)> {
     into_two = Int.min(one, size_two - two)
     into_one = Int.min(two, size_one - one)
 
     [
-        #(size_one, two),
-        #(one, size_two),
-        #(0, two),
-        #(one, 0),
-        #(one - into_two, two + into_two),
-        #(one + into_one, two - into_one),
+        (size_one, two),
+        (one, size_two),
+        (0, two),
+        (one, 0),
+        (one - into_two, two + into_two),
+        (one + into_one, two - into_one),
     ]
 }
 
@@ -98,75 +98,75 @@ fn actions(#(one, two): #(Int, Int), #(size_one, size_two): #(Int, Int)) -> List
 import two_bucket.{self, Bucket, Error, Outcome}
 
 test "measure" {
-    cases: List<#(String, #(Int, Int), Int, Bucket, Result<Outcome, Error>)> = [
-        #(
+    cases: List<(String, (Int, Int), Int, Bucket, Result<Outcome, Error>)> = [
+        (
             "Measure using bucket one of size 3 and bucket two of size 5 - start with bucket one",
-            #(3, 5),
+            (3, 5),
             1,
             .One,
             Ok(#{moves: 4, goal_bucket: .One, other_bucket: 5}),
         ),
-        #(
+        (
             "Measure using bucket one of size 3 and bucket two of size 5 - start with bucket two",
-            #(3, 5),
+            (3, 5),
             1,
             .Two,
             Ok(#{moves: 8, goal_bucket: .Two, other_bucket: 3}),
         ),
-        #(
+        (
             "Measure using bucket one of size 7 and bucket two of size 11 - start with bucket one",
-            #(7, 11),
+            (7, 11),
             2,
             .One,
             Ok(#{moves: 14, goal_bucket: .One, other_bucket: 11}),
         ),
-        #(
+        (
             "Measure using bucket one of size 7 and bucket two of size 11 - start with bucket two",
-            #(7, 11),
+            (7, 11),
             2,
             .Two,
             Ok(#{moves: 18, goal_bucket: .Two, other_bucket: 7}),
         ),
-        #(
+        (
             "Measure one step using bucket one of size 1 and bucket two of size 3 - start with bucket two",
-            #(1, 3),
+            (1, 3),
             3,
             .Two,
             Ok(#{moves: 1, goal_bucket: .Two, other_bucket: 0}),
         ),
-        #(
+        (
             "Measure using bucket one of size 2 and bucket two of size 3 - start with bucket one and end with bucket two",
-            #(2, 3),
+            (2, 3),
             3,
             .One,
             Ok(#{moves: 2, goal_bucket: .Two, other_bucket: 2}),
         ),
-        #(
+        (
             "Measure using bucket one much bigger than bucket two",
-            #(5, 1),
+            (5, 1),
             2,
             .One,
             Ok(#{moves: 6, goal_bucket: .One, other_bucket: 1}),
         ),
-        #(
+        (
             "Measure using bucket one much smaller than bucket two",
-            #(3, 15),
+            (3, 15),
             9,
             .One,
             Ok(#{moves: 6, goal_bucket: .Two, other_bucket: 0}),
         ),
-        #("Not possible to reach the goal", #(6, 15), 5, .One, Err(.Impossible)),
-        #(
+        ("Not possible to reach the goal", (6, 15), 5, .One, Err(.Impossible)),
+        (
             "With the same buckets but a different goal, then it is possible",
-            #(6, 15),
+            (6, 15),
             9,
             .One,
             Ok(#{moves: 10, goal_bucket: .Two, other_bucket: 0}),
         ),
-        #("Goal larger than both buckets is impossible", #(5, 7), 8, .One, Err(.Impossible)),
+        ("Goal larger than both buckets is impossible", (5, 7), 8, .One, Err(.Impossible)),
     ]
 
-    subtests cases, #(description, #(one, two), goal, start, expected), description {
+    subtests cases, (description, (one, two), goal, start, expected), description {
         assert two_bucket.measure(one, two, goal, start) == expected
     }
 }
@@ -179,10 +179,10 @@ test result: ok. 11 passed, 0 failed
 ## How it's written
 
 - `measure` returns `Result<Outcome, Error>`. `Outcome` is a struct of the three canonical answers, the number of actions, the bucket that holds the goal and the liters in the other, and `Error.Impossible` is the canonical error.
-- A state is the liters in each bucket, a `#(Int, Int)`. The buckets are positions in the tuple, so filling, emptying and pouring are tuple arithmetic in `actions`.
+- A state is the liters in each bucket, a `(Int, Int)`. The buckets are positions in the tuple, so filling, emptying and pouring are tuple arithmetic in `actions`.
 - `search` is a breadth-first search, written as a tail-recursive function over three values: the frontier of states the current number of actions reaches first, the set of states seen so far, and the number of actions. Breadth first, the first frontier with the goal in either bucket is reached in the fewest actions.
 - The forbidden state, the starting bucket empty and the other full, goes into the seen set before the search starts, so no action ever leads to it, with no check of its own.
 - A frontier that adds no new state means the goal cannot be reached, which is `Error.Impossible`; that covers a goal larger than both buckets with no case of its own.
-- The answer reads the bucket from the state that reaches the goal, with a guard, `Some(#(one, two)) when one == goal`, and a second arm for bucket two.
+- The answer reads the bucket from the state that reaches the goal, with a guard, `Some((one, two)) when one == goal`, and a second arm for bucket two.
 - `Iter.loop` would not do here: a loop breaks with a value of its state's type, and the search ends with a `Result`.
-- The 11 canonical cases are one `subtests` table, annotated so each expected `Ok(#{...})` is an `Outcome`; the bucket sizes are one `#(one, two)` column, taken apart in the row pattern.
+- The 11 canonical cases are one `subtests` table, annotated so each expected `Ok(#{...})` is an `Outcome`; the bucket sizes are one `(one, two)` column, taken apart in the row pattern.

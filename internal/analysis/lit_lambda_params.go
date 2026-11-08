@@ -10,9 +10,9 @@ import (
 //
 // A collection literal written with no expected type (a list, vector or set,
 // or a map's keys or values) has elements of one type. When the elements hold
-// lambdas at the same place, `[#("a", fn d: Date -> f(d)), #("b", fn d ->
+// lambdas at the same place, `[("a", fn d: Date -> f(d)), ("b", fn d ->
 // g(d))]`, the parameter one of them annotates is the type of the others'
-// unannotated parameter at that place: each element is a `#(String, (Date) ->
+// unannotated parameter at that place: each element is a `(String, (Date) ->
 // String)` either way, and writing `: Date` thirteen times says nothing the
 // first did not.
 //
@@ -22,7 +22,7 @@ import (
 // place gives its type to that place's parameter of the same index; the first
 // annotation in the literal wins. Then, as each element is checked, the
 // elements' joined type gives the places still open a type from an earlier
-// element that is not a lambda at all (`#("a", month_name)`) or whose
+// element that is not a lambda at all (`("a", month_name)`) or whose
 // parameter a default typed. checkLambda reads the result
 // (checker.litLambdaParams) where it would report `cannot infer type for
 // parameter`. Elements that annotate different types at one place are not

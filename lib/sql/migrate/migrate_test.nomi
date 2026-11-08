@@ -16,33 +16,32 @@ fn m(name: String, text: String) -> Migration {
 // Runs body on a fresh database of each engine: SQLite in memory, and a
 // database of the process's scratch Postgres server (which needs `initdb`
 // and `postgres` on PATH). Returns each engine's name and result.
-fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<#(String, Result<T, Error>)> {
-    opens: List<#(String, () -> Result<Conn, sql.Error>)> = [
-        #("sqlite", fn -> sqlite.memory()),
-        #("postgres", fn -> postgres.connect(postgres.scratch()?)),
+fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<(String, Result<T, Error>)> {
+    opens: List<(String, () -> Result<Conn, sql.Error>)> = [
+        ("sqlite", fn -> sqlite.memory()),
+        ("postgres", fn -> postgres.connect(postgres.scratch()?)),
     ]
 
     opens
-    |> Iter.map(fn #(name, open) -> {
+    |> Iter.map(fn (name, open) -> {
         result = case open() {
             Ok(db) -> {
-                answer = body(db)
-                sql.close_quietly(db)
-                answer
+                defer sql.close_quietly(db)
+                body(db)
             }
 
             Err(error) ->
                 Err(Error.Database{error})
         }
 
-        #(name, result)
+        (name, result)
     })
     |> Iter.to_list()
 }
 
 // The same result from both engines.
-fn both<T>(answer: Result<T, Error>) -> List<#(String, Result<T, Error>)> {
-    [#("sqlite", answer), #("postgres", answer)]
+fn both<T>(answer: Result<T, Error>) -> List<(String, Result<T, Error>)> {
+    [("sqlite", answer), ("postgres", answer)]
 }
 
 fn db_error(error: sql.Error) -> Error {
@@ -87,25 +86,25 @@ once seed: Migration = m(
 )
 
 test "read lists a directory's migrations in name order, without down files or subdirectories" {
-    got = fs.with_temp_dir(fn dir -> {
-        fs.write_text("${dir}/000002_orders.up.sql", "B")?
-        fs.write_text("${dir}/000001_users.up.sql", "A")?
-        fs.write_text("${dir}/000001_users.down.sql", "DROP TABLE users")?
-        fs.write_text("${dir}/README.md", "notes")?
-        fs.create_dir("${dir}/old")?
-        fs.write_text("${dir}/old/9.sql", "S")?
+    dir = fs.make_temp_dir()?
+    defer fs.remove_all_quietly(dir)
 
-        Ok(
-            migrate.read(dir)
-            |> Result.map(fn ms -> {
-                ms
-                |> Iter.map(fn mig -> #(String.replace(mig.path, "${dir}/", ""), mig.sql))
-                |> Iter.to_list()
-            })
-        )
-    })?
+    fs.write_text("${dir}/000002_orders.up.sql", "B")?
+    fs.write_text("${dir}/000001_users.up.sql", "A")?
+    fs.write_text("${dir}/000001_users.down.sql", "DROP TABLE users")?
+    fs.write_text("${dir}/README.md", "notes")?
+    fs.create_dir("${dir}/old")?
+    fs.write_text("${dir}/old/9.sql", "S")?
 
-    assert got == Ok([#("000001_users.up.sql", "A"), #("000002_orders.up.sql", "B")])
+    got =
+        migrate.read(dir)
+        |> Result.map(fn ms -> {
+            ms
+            |> Iter.map(fn mig -> (String.replace(mig.path, "${dir}/", ""), mig.sql))
+            |> Iter.to_list()
+        })
+
+    assert got == Ok([("000001_users.up.sql", "A"), ("000002_orders.up.sql", "B")])
 }
 
 test "read refuses a directory that does not exist" {
@@ -139,10 +138,10 @@ test "up_from applies the embedded migrations" {
     answers = on_each(fn db -> {
         ran = migrate.up_from(db, fixtures, "testdata/migrations")?
         again = migrate.up_from(db, fixtures, "testdata/migrations")?
-        Ok(#(ran, again))
+        Ok((ran, again))
     })
 
-    assert answers == both(Ok(#(["000001_users.up.sql", "000002_orders.up.sql"], [])))
+    assert answers == both(Ok((["000001_users.up.sql", "000002_orders.up.sql"], [])))
 }
 
 test "apply runs each migration once, in order, and records it with its checksum" {
@@ -157,12 +156,12 @@ test "apply runs each migration once, in order, and records it with its checksum
             |> Result.collect()
             |> Result.map_err(db_error)?
 
-        Ok(#(first, again, sums, count(db, "users")?))
+        Ok((first, again, sums, count(db, "users")?))
     })
 
     assert answers == both(
         Ok(
-            #(
+            (
                 ["1_users.sql", "2_orders.sql", "3_seed.sql"],
                 [],
                 [checksum.of(users.sql), checksum.of(orders.sql), checksum.of(seed.sql)],
@@ -177,12 +176,12 @@ test "a migration whose text changed is refused before anything runs" {
         _ = migrate.apply(db, [users, orders])?
         edited = #{..users, sql: "CREATE TABLE users (id INTEGER PRIMARY KEY, mail TEXT)"}
         refused = migrate.apply(db, [edited, orders, seed])
-        Ok(#(refused, recorded(db)?, count(db, "users")?))
+        Ok((refused, recorded(db)?, count(db, "users")?))
     })
 
     assert answers == both(
         Ok(
-            #(
+            (
                 Err(Error.Changed{path: "db/migrations/1_users.sql"}),
                 ["1_users.sql", "2_orders.sql"],
                 0,
@@ -203,12 +202,11 @@ test "a failing migration keeps the ones before it and leaves itself and the res
 
         after_failure = recorded(db)?
         fixed = migrate.apply(db, [users, orders, seed])?
-        Ok(#(failed, after_failure, fixed))
+        Ok((failed, after_failure, fixed))
     })
 
-    assert answers == both(
-        Ok(#("db/migrations/2_orders.sql", ["1_users.sql"], ["2_orders.sql", "3_seed.sql"]))
-    )
+    assert answers
+        == both(Ok(("db/migrations/2_orders.sql", ["1_users.sql"], ["2_orders.sql", "3_seed.sql"])))
 }
 
 test "status sorts the migrations by where they stand, and creates nothing" {
@@ -219,12 +217,12 @@ test "status sorts the migrations by where they stand, and creates nothing" {
         still_fresh = migrate.status(db, [users, orders])?
         _ = migrate.apply(db, [users, orders])?
         later = migrate.status(db, [edited, seed])?
-        Ok(#(fresh == still_fresh, fresh, later))
+        Ok((fresh == still_fresh, fresh, later))
     })
 
     assert answers == both(
         Ok(
-            #(
+            (
                 True,
                 Status{
                     applied: [],
@@ -284,11 +282,11 @@ test "adopting golang-migrate's state records its migrations without running the
         adopted = migrate.adopt_golang_migrate(db, [g1, g2, g3])?
         again = migrate.adopt_golang_migrate(db, [g1, g2, g3])?
         ran = migrate.apply(db, [g1, g2, g3])?
-        Ok(#(adopted, again, ran))
+        Ok((adopted, again, ran))
     })
 
     assert answers
-        == both(Ok(#(["000001_users.up.sql", "000002_orders.up.sql"], [], ["000003_notes.up.sql"])))
+        == both(Ok((["000001_users.up.sql", "000002_orders.up.sql"], [], ["000003_notes.up.sql"])))
 }
 
 // The message of an adoption refused, or what came back instead.
@@ -313,12 +311,12 @@ test "adoption refuses a dirty version, a version with no file, and a database g
         unknown = adopt_refusal(db, [g1, g2])?
         // A refusal rolls back, so nothing was recorded.
         left = migrate.status(db, [g1, g2])?
-        Ok(#(none, dirty, unknown, left.applied))
+        Ok((none, dirty, unknown, left.applied))
     })
 
     assert answers == both(
         Ok(
-            #(
+            (
                 "no `schema_migrations` table: there is no golang-migrate state to adopt",
                 "golang-migrate marked version 2 dirty: a migration it left half-applied; resolve it with golang-migrate (`migrate force`) first",
                 "golang-migrate is at version 5, and no migration has that number",

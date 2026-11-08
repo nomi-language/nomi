@@ -22,6 +22,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | An interface is satisfied implicitly | `impl Interface for Type { .. }` |
 | A `[]Dog` is no `[]Speaker`; copy it in a loop | A `List<Dog>` passes where a `List<Speaker>` is expected, with nothing copied |
 | `nil` | `None`, from `Maybe<T>` |
+| `float64(x)` | `Int.to_float(x)`. Nomi's `x as T` converts nothing: it only states a type the value already fits (`[] as List<String>`) |
 | `[]int{1, 2}`, `map[string]int{"a": 1}` | `[1, 2]`, `%{"a" => 1}` |
 | `Point{X: 1}` | `Point{x: 1}` |
 | An exported name starts with a capital | `pub` |

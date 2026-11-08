@@ -122,3 +122,94 @@ func TestIn_TheCallItStandsFor(t *testing.T) {
 		}
 	}
 }
+
+// A collection whose Contains impl holds only where its element meets a
+// bound (`impl Contains for List<T> where T: Equatable`) and an element
+// that misses it is one error: the element's missing impl, at the
+// collection, naming the `in`. Not also the collection's missing Contains,
+// which it has.
+func TestIn_AnElementMissingTheImplsBoundIsOneError(t *testing.T) {
+	const p = "struct P {\n    x: Int\n}\n\n"
+	// An element type with equality meets List's and Vector's bound
+	// (TestIn_AListOrVectorOfAStructWithNoImplsIsAccepted); one that holds
+	// a function has none.
+	const op = "struct P {\n    f: (Int) -> Int\n}\n\n"
+	help := "`P` holds a function, an Iter or a handle to running state, which has no equality; write an `impl Equatable for P` block that leaves it out"
+	equatable := "no impl of `Equatable` for `P` (required via membership test `in`) | " + help
+	for name, tc := range map[string]struct {
+		src  string
+		want string
+		line int
+		col  int
+	}{
+		"a list":          {op + "fn f(p: P) -> Bool {\n    p in [p]\n}", equatable, 6, 10},
+		"a vector":        {op + "fn f(p: P) -> Bool {\n    p in #[p]\n}", equatable, 6, 10},
+		"a tuple element": {op + "fn f(p: P) -> Bool {\n    (1, p) in [(1, p)]\n}", equatable, 6, 15},
+		"the call it stands for": {op + "fn f(p: P) -> Bool {\n    Contains.contains([p], p)\n}",
+			"no impl of `Equatable` for `P` (required via interface-typed param/field) | " + help, 6, 23},
+		"a program's impl with a bound": {p + `struct Bag<T> {
+    items: List<T>
+}
+
+impl Contains for Bag<T> where T: Comparable {
+    fn contains(c: Bag<T>, x: T) -> Bool {
+        Iter.any(c.items, &(Comparable.compare(&1, x) == .Equal))
+    }
+}
+
+fn f(b: Bag<P>, p: P) -> Bool {
+    p in b
+}`, "no impl of `Comparable` for `P` (required via membership test `in`) | add `derive Comparable` to `P` or write an `impl Comparable for P` block", 16, 10},
+	} {
+		fa, errs := checkSourceWithStdlib(tc.src + "\n")
+		errs = append(errs, analysis.FinalizeCoherence(fa)...)
+		var got []string
+		for _, e := range errs {
+			got = append(got, strings.Join(append([]string{e.Message}, e.Hints...), " | "))
+		}
+		if len(got) == 0 {
+			t.Errorf("%s: the front end accepts this; want %q", name, tc.want)
+			continue
+		}
+		if len(got) != 1 || got[0] != tc.want {
+			t.Errorf("%s: want the one error %q, got:\n%s", name, tc.want, strings.Join(got, "\n"))
+			continue
+		}
+		if errs[0].Line != tc.line || errs[0].Col != tc.col {
+			t.Errorf("%s: the error is at %d:%d, want %d:%d", name, errs[0].Line, errs[0].Col, tc.line, tc.col)
+		}
+	}
+}
+
+// A Set and a Map find a member by `==` and hash it structurally, so an
+// element or key with no Equatable or Hashable impl of its own is looked
+// for (spec §5 *Hashing and keys*).
+func TestIn_ASetOrMapOfAStructWithNoImplsIsAccepted(t *testing.T) {
+	const p = "struct P {\n    x: Int\n}\n\n"
+	for name, src := range map[string]string{
+		"a set":       p + "fn f(p: P) -> Bool {\n    p in %[p]\n}",
+		"a map's key": p + "fn f(p: P) -> Bool {\n    p in %{p => 1}\n}",
+	} {
+		if got := inErrors(t, src); len(got) != 0 {
+			t.Errorf("%s: unexpected errors:\n%s", name, strings.Join(got, "\n"))
+		}
+	}
+}
+
+// A List or Vector finds a member by `==` too: their `Contains` impls bound
+// the element by Equatable, which a struct with equality and no impl of its
+// own meets (spec §5 *Equality bounds*).
+func TestIn_AListOrVectorOfAStructWithNoImplsIsAccepted(t *testing.T) {
+	const p = "struct P {\n    x: Int\n}\n\n"
+	for name, src := range map[string]string{
+		"a list":          p + "fn f(p: P) -> Bool {\n    p in [p]\n}",
+		"a vector":        p + "fn f(p: P) -> Bool {\n    p in #[p]\n}",
+		"a tuple element": p + "fn f(p: P) -> Bool {\n    (1, p) in [(1, p)]\n}",
+		"the call":        p + "fn f(p: P) -> Bool {\n    Contains.contains([p], p)\n}",
+		"List.contains":   p + "fn f(p: P) -> Bool {\n    List.contains([p], p)\n}",
+	} {
+		if got := inErrors(t, src); len(got) != 0 {
+			t.Errorf("%s: unexpected errors:\n%s", name, strings.Join(got, "\n"))
+		}
+	}
+}

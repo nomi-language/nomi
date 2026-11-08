@@ -149,7 +149,7 @@ func CloseIdle(c rt.HTTPClient) rt.Unit {
 }
 
 // exchange is what std/http_host's `Exchange` wraps: a response Go answered,
-// its body read whole (fetch) or open (with_response).
+// its body read whole (fetch) or open (stream).
 type exchange struct {
 	resp *http.Response
 	body []byte

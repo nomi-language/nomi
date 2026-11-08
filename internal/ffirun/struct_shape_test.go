@@ -64,7 +64,7 @@ fn rows() -> List<RawRow> go binding.Rows
 
 fn find(name: String) -> Result<Maybe<RawRow>, String> go binding.Find
 
-fn pair() -> #(RawRow, RawCell) go binding.Pair
+fn pair() -> (RawRow, RawCell) go binding.Pair
 `)
 	if _, err := Prepare(filepath.Join(root, "main.nomi")); err != nil {
 		t.Fatalf("Prepare refuses Nomi structs named apart from their Go structs: %v", err)
@@ -105,7 +105,7 @@ fn find(name: String) -> Result<Maybe<List<RawRow>>, String> go binding.Find
 
 fn upper(s: RawRow) -> String go binding.EchoUpper
 
-fn pair() -> #(RawRow, Thin) go binding.Pair
+fn pair() -> (RawRow, Thin) go binding.Pair
 `)
 	_, err := Prepare(filepath.Join(root, "main.nomi"))
 	if err == nil {

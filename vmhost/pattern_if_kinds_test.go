@@ -69,8 +69,8 @@ fn list_rest(xs: List<Int>) -> String {
   }
 }
 
-fn tuple_part(p: #(Int, Int)) -> String {
-  if #(0, y) = p {
+fn tuple_part(p: (Int, Int)) -> String {
+  if (0, y) = p {
     "y ${y}"
   } else {
     "x not 0"
@@ -117,8 +117,8 @@ fn as_map(m: Map<String, String>) -> String {
   }
 }
 
-fn nested(v: Maybe<List<#(Int, String)>>) -> String {
-  if Some([#(0, s), ..]) = v {
+fn nested(v: Maybe<List<(Int, String)>>) -> String {
+  if Some([(0, s), ..]) = v {
     "nested ${s}"
   } else {
     "nested miss"
@@ -137,8 +137,8 @@ fn main() {
   map_statement(%{"host" => "h1"})
   io.print(list_rest([1, 2, 3]))
   io.print(list_rest([]))
-  io.print(tuple_part(#(0, 5)))
-  io.print(tuple_part(#(1, 5)))
+  io.print(tuple_part((0, 5)))
+  io.print(tuple_part((1, 5)))
   io.print(int_lit(1))
   io.print(int_lit(2))
   io.print(string_lit("go"))
@@ -149,8 +149,8 @@ fn main() {
   io.print(as_list([7]))
   io.print(as_map(%{"mode" => "m", "a" => "b"}))
   io.print(as_map(%{"a" => "b"}))
-  io.print(nested(Some([#(0, "zero"), #(1, "one")])))
-  io.print(nested(Some([#(1, "one")])))
+  io.print(nested(Some([(0, "zero"), (1, "one")])))
+  io.print(nested(Some([(1, "one")])))
   io.print(nested(None))
 }
 `)
@@ -187,7 +187,7 @@ test "pattern if kinds" {
   if %{"host" => h} = m {
     io.print("host ${h}")
   }
-  r = if #(0, y) = #(0, 5) { y } else { -1 }
+  r = if (0, y) = (0, 5) { y } else { -1 }
   f = fn xs: List<Int> -> if [x, ..] = xs { x } else { 0 }
   io.print("${r} ${f([4, 5])} ${f([])}")
   assert r == 5

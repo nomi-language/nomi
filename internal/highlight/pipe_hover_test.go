@@ -29,7 +29,7 @@ fn main() {
   |> then fn v -> v + 1
   |> dbg
   xs = [1, 2] |> Iter.map(fn n -> n |> Int.to_string()) |> Iter.to_list()
-  io.inspect(#(total, xs, parse("1"), "x" |> nope()))
+  io.inspect((total, xs, parse("1"), "x" |> nope()))
 }
 
 test "parses" {
@@ -58,7 +58,7 @@ test "parses" {
 		{"a ? in a function", `  n = s |> String.to_int()`, 2, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
 		{"a ? in a test", `  n = "4" |>`, 2, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},
 		{"a pipe inside a lambda", "  xs = [1, 2]", 2, "`Int` → `Int.to_string(n)` → `String`\n\n```nomi\nfn to_string(n: Int) -> String\n```\n\nThe piped value fills `n`."},
-		{"a stage that fails to type", "  io.inspect(#(total", 1, "`String` → `nope()`"},
+		{"a stage that fails to type", "  io.inspect((total", 1, "`String` → `nope()`"},
 	}
 	lines := strings.Split(src, "\n")
 	for _, c := range cases {
@@ -82,10 +82,10 @@ test "parses" {
 			}
 			for offset := 0; offset < 2; offset++ {
 				pos := analysis.Pos{Line: line + 1, Col: col + 1 + offset}
-				if got := hoverdoc.At(fa, nodes, pos); got != c.want {
+				if got := hoverdoc.At(fa, nodes, src, pos); got != c.want {
 					t.Errorf("tour hover on character %d = %q, want %q", offset+1, got, c.want)
 				}
-				if got, _, _, _ := hoverdoc.SyntaxAt(editor, editorNodes, pos); got != c.want {
+				if got := hoverdoc.At(editor, editorNodes, src, pos); got != c.want {
 					t.Errorf("editor hover on character %d = %q, want %q", offset+1, got, c.want)
 				}
 			}

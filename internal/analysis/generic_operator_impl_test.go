@@ -206,7 +206,7 @@ fn main() {
     d: Duration = a - Instant.from_seconds(10)
     i: Instant = a - Duration.seconds(5)
     q: Duration = Subtract.subtract(a, Instant.from_seconds(10))
-    _ = #(d, i, q)
+    _ = (d, i, q)
 }
 `
 	for _, e := range diagnosticsFor(t, src) {

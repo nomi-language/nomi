@@ -147,18 +147,23 @@ var primitiveTypes = map[string]*PrimitiveType{
 // The flag drives the call-form constructor's missing-required-field
 // check: `Foo(#{a: 1})` is OK iff every absent field has HasDefault==true.
 //
-// Line and Col are where an anonymous struct TYPE written in source names the
-// field (`#{logger: String}` in a signature or annotation), the position
-// resolveTypeExpr records the field's symbol at. An anonymous literal checked
-// against that type points its labels there (recordAnonLitFieldLabels). They
-// are zero for every other field: nominal struct fields have their own
-// declaration symbols, and an anonymous literal's own inferred type declares
-// nothing. They take no part in type identity.
+// Line and Col are where source declares a field of an anonymous struct:
+// where an anonymous struct TYPE names it (`#{logger: String}` in a
+// signature or annotation), the position resolveTypeExpr records the field's
+// symbol at, or where the anonymous LITERAL the type was inferred from labels
+// it (`#{logger: "x"}`), where checkStructLit records it. A literal checked
+// against that type points its labels there (recordAnonLitFieldLabels), and a
+// field access refers there (anonFieldRef). They are zero for every other
+// field: nominal struct fields have their own declaration symbols. File is
+// the path of the user file the literal is in, "" for a type expression
+// (which a use in the same file reads) and for a stdlib or path-less file.
+// None of them take part in type identity.
 type FieldDef struct {
 	Name       string
 	Type       Type
 	HasDefault bool
 	Line, Col  int
+	File       string
 }
 
 // StructType represents a struct declaration.
@@ -183,9 +188,9 @@ type StructType struct {
 }
 
 func (t *StructType) String() string {
-	if len(t.TypeArgs) > 0 {
-		args := make([]string, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
+	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
+		args := make([]string, len(shown))
+		for i, a := range shown {
 			args[i] = a.String()
 		}
 		return t.Name + "<" + strings.Join(args, ", ") + ">"
@@ -247,9 +252,9 @@ type EnumType struct {
 }
 
 func (t *EnumType) String() string {
-	if len(t.TypeArgs) > 0 {
-		args := make([]string, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
+	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
+		args := make([]string, len(shown))
+		for i, a := range shown {
 			args[i] = a.String()
 		}
 		return t.Name + "<" + strings.Join(args, ", ") + ">"
@@ -294,9 +299,9 @@ type DistinctType struct {
 }
 
 func (t *DistinctType) String() string {
-	if len(t.TypeArgs) > 0 {
-		args := make([]string, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
+	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
+		args := make([]string, len(shown))
+		for i, a := range shown {
 			args[i] = a.String()
 		}
 		return t.Name + "<" + strings.Join(args, ", ") + ">"
@@ -363,7 +368,7 @@ func (t *TupleType) String() string {
 	for i, e := range t.Elems {
 		elems[i] = e.String()
 	}
-	return fmt.Sprintf("#(%s)", strings.Join(elems, ", "))
+	return fmt.Sprintf("(%s)", strings.Join(elems, ", "))
 }
 
 func (t *TupleType) typeTag() {}
@@ -419,6 +424,9 @@ type TypeParam_ struct {
 	Name_     string
 	Bounds    []*InterfaceType
 	AsWritten []string
+	// Default is the type a use that leaves this parameter's argument out
+	// takes (`Route<P = Unit>`), or nil (default_type_args.go).
+	Default Type
 }
 
 func (t *TypeParam_) String() string { return t.Name_ }
@@ -523,9 +531,9 @@ type InterfaceType struct {
 }
 
 func (t *InterfaceType) String() string {
-	if len(t.TypeArgs) > 0 {
-		args := make([]string, len(t.TypeArgs))
-		for i, a := range t.TypeArgs {
+	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
+		args := make([]string, len(shown))
+		for i, a := range shown {
 			args[i] = a.String()
 		}
 		return t.Name + "<" + strings.Join(args, ", ") + ">"

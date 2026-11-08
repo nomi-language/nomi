@@ -48,7 +48,7 @@ func TestTypeArgumentVariance_CovariantConverts(t *testing.T) {
 		"Maybe":             `x: Maybe<Int> = Some(1); y: Maybe<Display> = x; dbg Maybe.is_some(y)`,
 		"Result":            `x: Result<Int, String> = Ok(1); y: Result<Display, String> = x; dbg Result.is_ok(y)`,
 		"nested":            `xs = [[1]]; ys: List<List<Display>> = xs; dbg Iter.count(ys)`,
-		"tuple element":     `xs = [#("a", Pt{x: 1})]; ys: List<#(String, Named)> = xs; dbg Iter.count(ys)`,
+		"tuple element":     `xs = [("a", Pt{x: 1})]; ys: List<(String, Named)> = xs; dbg Iter.count(ys)`,
 		"record field":      `xs = [#{n: 1}]; ys: List<#{n: Display}> = xs; dbg Iter.count(ys)`,
 		"function result":   `fs = [number]; gs: List<(Int) -> Display> = fs; dbg Iter.count(gs)`,
 		"function argument": `fs = [shown]; gs: List<(Int) -> String> = fs; dbg Iter.count(gs)`,
@@ -162,9 +162,9 @@ fn page(_n: Int) -> Page { Page{text: "p"} }
 
 fn other(_s: String) -> Page { Page{text: "o"} }
 
-fn routes() -> List<#(String, Handler)> { [#("a", page)] }
+fn routes() -> List<(String, Handler)> { [("a", page)] }
 
-fn vroutes() -> Vector<#(String, Handler)> { #[#("a", page)] }
+fn vroutes() -> Vector<(String, Handler)> { #[("a", page)] }
 
 fn mroutes() -> Map<String, Handler> { %{"a" => page} }
 `
@@ -177,11 +177,11 @@ fn mroutes() -> Map<String, Handler> { %{"a" => page} }
 // result is a list of the alias.
 func TestTypeArgumentVariance_LiteralBuiltAsTheOtherOperand(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
-		"literal + list":    {`r = [#("b", page)] + routes()`, "List<#(String, (Int) -> Reply)>"},
-		"list + literal":    {`r = routes() + [#("b", page)]`, "List<#(String, (Int) -> Reply)>"},
-		"element, spread":   {`r = [#("b", page), ..routes()]`, "List<#(String, (Int) -> Reply)>"},
-		"spread, element":   {`r = [..routes(), #("b", page)]`, "List<#(String, (Int) -> Reply)>"},
-		"vector + literal":  {`r = #[#("b", page)] + vroutes()`, "Vector<#(String, (Int) -> Reply)>"},
+		"literal + list":    {`r = [("b", page)] + routes()`, "List<(String, (Int) -> Reply)>"},
+		"list + literal":    {`r = routes() + [("b", page)]`, "List<(String, (Int) -> Reply)>"},
+		"element, spread":   {`r = [("b", page), ..routes()]`, "List<(String, (Int) -> Reply)>"},
+		"spread, element":   {`r = [..routes(), ("b", page)]`, "List<(String, (Int) -> Reply)>"},
+		"vector + literal":  {`r = #[("b", page)] + vroutes()`, "Vector<(String, (Int) -> Reply)>"},
 		"map + literal":     {`r = %{"b" => page} + mroutes()`, "Map<String, (Int) -> Reply>"},
 		"interface element": {`ds: List<Display> = ["a"]; r = [1, 2] + ds`, "List<Display>"},
 	} {
@@ -197,15 +197,15 @@ func TestTypeArgumentVariance_LiteralBuiltAsTheOtherOperand(t *testing.T) {
 // flows (spec §5 *Assignability*).
 func TestTypeArgumentVariance_LiteralOperandMismatchIsRefused(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
-		"a narrowing parameter": {`r = [#("b", other)] + routes()`,
-			"binary + type mismatch: List<#(String, (String) -> Page)> vs List<#(String, (Int) -> Reply)>"},
+		"a narrowing parameter": {`r = [("b", other)] + routes()`,
+			"binary + type mismatch: List<(String, (String) -> Page)> vs List<(String, (Int) -> Reply)>"},
 		"an element of another type": {`r = [1] + ["a"]`, "binary + type mismatch: List<Int> vs List<String>"},
-		"two typed operands": {`mine = [#("b", page)]; r = mine + routes()`,
-			"binary + type mismatch: List<#(String, (Int) -> Page)> vs List<#(String, (Int) -> Reply)>"},
-		"a spread beside a narrowing element": {`r = [#("b", other), ..routes()]`,
-			"list spread element type mismatch: #(String, (String) -> Page) vs #(String, (Int) -> Reply)"},
-		"two typed spreads": {`mine = [#("b", page)]; r = [..mine, ..routes()]`,
-			"list spread element type mismatch: #(String, (Int) -> Page) vs #(String, (Int) -> Reply)"},
+		"two typed operands": {`mine = [("b", page)]; r = mine + routes()`,
+			"binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>"},
+		"a spread beside a narrowing element": {`r = [("b", other), ..routes()]`,
+			"list spread element type mismatch: (String, (String) -> Page) vs (String, (Int) -> Reply)"},
+		"two typed spreads": {`mine = [("b", page)]; r = [..mine, ..routes()]`,
+			"list spread element type mismatch: (String, (Int) -> Page) vs (String, (Int) -> Reply)"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := literalOperandDecls + "\nfn main() {\n  " + tc.body + "\n  dbg r\n}\n"

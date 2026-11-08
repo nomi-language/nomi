@@ -86,7 +86,7 @@ impl Seq<T> {
   pub fn from(start: Int) -> List<Int> {
     [start, start + 1]
   }
-  pub fn to_map<K, V>(pairs: List<#(K, V)>) -> Map<K, V> {
+  pub fn to_map<K, V>(pairs: List<(K, V)>) -> Map<K, V> {
     Iter.to_map(pairs)
   }
   pub fn flatten<U>(source: List<List<U>>) -> List<U> {
@@ -109,7 +109,7 @@ impl Box<T> {
 fn main() {
   _ = Seq.find([1, 2], fn x -> x > 1)
   _ = Seq.from(3)
-  _ = Seq.to_map([#("a", 1)])
+  _ = Seq.to_map([("a", 1)])
   _ = Seq.flatten([[1], [2]])
   _ = Box.get(Box{v: 1})
   _ = Box.seven()

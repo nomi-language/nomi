@@ -102,7 +102,7 @@ const (
 	// tagIface is an existential. Its identity is the *ifaceDef, so two
 	// interfaces are two kinds however identically they lower.
 	tagIface
-	// tagList is `List<T>` and tagTuple `#(A, B, …)`. Both structural: the
+	// tagList is `List<T>` and tagTuple `(A, B, …)`. Both structural: the
 	// identity is the interned *compKind, not the tag, because one tag covers
 	// unboundedly many Go types. See collections.go.
 	tagList
@@ -225,7 +225,7 @@ func (k kind) key() string {
 //
 // Deliberately NOT generic over structural kinds: whether one stores nothing
 // depends on the tag. A Go func value is a pointer pair and never vanishes,
-// while a hypothetical `#(Unit, Unit)` genuinely stores nothing — so each
+// while a hypothetical `(Unit, Unit)` genuinely stores nothing — so each
 // structural tag answers for itself rather than inheriting a guess.
 func (k kind) zeroSized() bool {
 	return k.zeroSizedOn(nil)
@@ -433,13 +433,12 @@ type gen struct {
 	// See inferred.go — every read goes through inferredKind, so there is one
 	// place that decides what the analyzer is allowed to answer for.
 	fa *analysis.FileAnalysis
-	// declaredIn maps the body and parameter defaults of an interface default
-	// inherited from another file to that file's unit: its names were written
-	// there. namesFrom is that unit, plus one, while one of them is lowered
-	// (0 outside), and a bare name the declaring file binds to a `once`
-	// reads that file's cell (onceValue). See inheritDefaults.
-	declaredIn map[ast.Node]int
-	namesFrom  int
+	// namesFrom is the unit, plus one, of the file whose names what is
+	// being lowered was written under (0 outside): another file's
+	// parameter default filled here (ifaceSlotDefault, siblingDefaultArgs),
+	// or an interface signature read here. A bare name that file binds to
+	// a `once` reads that file's cell (onceValue). See lowerNamesFrom.
+	namesFrom int
 	// blockImports is the module scope each qualifier an `import` at the top
 	// of a block binds, built on first use by moduleScope; a name two blocks
 	// bind to different files maps to nil.
@@ -609,6 +608,12 @@ type gen struct {
 	// flushMethodInsts. See methodinst.go.
 	methodInsts     map[string]*methodInst
 	methodInstQueue []*methodInst
+	// ifaceDefaults interns one instance per default of an interface this
+	// file declares and implementing type of another file;
+	// ifaceDefaultQueue holds them for flushIfaceDefaults. See
+	// ifacedefault.go.
+	ifaceDefaults     map[string]*ifaceDefaultInst
+	ifaceDefaultQueue []*ifaceDefaultInst
 	// fieldDefaults interns one accessor per field default another file's
 	// literal omitted; fieldDefaultQueue holds them for flushFieldDefaults.
 	// See foreignfielddefault.go.
@@ -620,7 +625,17 @@ type gen struct {
 	// instimplaccessor.go.
 	instImplAccessors     map[*implItem]*instImplAccessorReq
 	instImplAccessorQueue []*instImplAccessorReq
-	genericSubst          []map[string]kind
+	// ifaceSlotDefaults interns one accessor per parameter default of an
+	// interface function this file declares that another file's call
+	// omitted; ifaceSlotQueue holds them for flushIfaceSlotDefaults. See
+	// ifaceslotdefault.go.
+	ifaceSlotDefaults map[irIfaceSlotDefault]*irIfaceSlotReq
+	ifaceSlotQueue    []*irIfaceSlotReq
+	genericSubst      []map[string]kind
+	// defaultArgKinds is each default type argument this gen wrote into an
+	// annotation that left it out, as the declaring file resolves it. See
+	// defaulttypeargs.go.
+	defaultArgKinds map[ast.TypeExpr]kind
 	// ifaceInsts is one monomorphized *ifaceDef per (impl block, receiver) of a
 	// GENERIC interface. PER-GEN for genericInsts' reason: an instance's method
 	// kinds can name a type one generated package declares. The key needs its
@@ -764,6 +779,10 @@ type gen struct {
 	// is therefore unanswerable from it. See stdiface.go.
 	stdIfacesLoaded bool
 	stdIfaceByName  map[string]int
+	// stdIfaceDecls is the declaration each anchored spec was reached
+	// through, by spec index, for the defaults it declares beside its
+	// table (stdIfaceOverride).
+	stdIfaceDecls map[int]*ast.InterfaceDef
 	// structIfaceOK is whether this module reaches std's `Struct` — the
 	// universal structural marker, which has no spec row because it is no
 	// dispatch table. Loaded beside the anchors above so one `loadStdIfaces`
@@ -977,6 +996,10 @@ type gen struct {
 	// interface, so a generic call it passes one to reads the implementor
 	// from here (checkedMonoCallKinds). See inheritDefaults.
 	defaultSelf *irDefaultSelf
+	// defaultInst is the instance whose body is being lowered while this
+	// file lowers one of its interface's defaults for another file's
+	// implementing type (ifacedefault.go).
+	defaultInst *ifaceDefaultInst
 	// aliasResolving is the stack of MODULE-LEVEL `typealias` names currently
 	// being expanded, so a cycle is refused rather than recursed. The front end
 	// rejects a cyclic alias before the builder sees it, so this is
@@ -1259,7 +1282,9 @@ func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {
 		g.flushMonoInstances()
 		g.flushGenericImpls()
 		g.flushMethodInsts()
+		g.flushIfaceDefaults()
 		g.flushFieldDefaults()
+		g.flushIfaceSlotDefaults()
 		return nil, nil
 	}
 	// Collected before any body is emitted, because the duplicate-name
@@ -1377,9 +1402,15 @@ func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {
 	// generic instance, and the method instances. See genericimpl.go.
 	g.flushGenericImpls()
 	g.flushMethodInsts()
+	// The defaults of this file's interfaces another file's implementing
+	// blocks asked for. See ifacedefault.go.
+	g.flushIfaceDefaults()
 	// The field-default accessors another file's literals asked for. See
 	// foreignfielddefault.go.
 	g.flushFieldDefaults()
+	// The parameter-default accessors of this file's interface functions
+	// another file's calls asked for. See ifaceslotdefault.go.
+	g.flushIfaceSlotDefaults()
 	return g.errs, g.masked
 }
 
@@ -1476,7 +1507,7 @@ func (g *gen) signature(fd *ast.FuncDef) *fnSig {
 		sig.params, sig.result, sig.tps, sig.genericWhy = params, result, tps, why
 		sig.lowerable = why == ""
 		// Erasure declined. The DEPTH residue — a type parameter mentioned
-		// inside `List<T>`, `Half<T>`, `#(T, Int)` — is monomorphizable per call
+		// inside `List<T>`, `Half<T>`, `(T, Int)` — is monomorphizable per call
 		// site instead, and monoTemplateFor re-derives its OWN preconditions
 		// rather than reading `why`: that string is one spelling for eight
 		// different reasons, so keying off it would make a decorator on a
@@ -1612,7 +1643,8 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 			if _, resolved := g.patternParamKind(p, fd); !resolved {
 				ok = false
 			}
-		case p.TypeAnnotation == nil:
+		// kindInvalid: reports — an unannotated parameter whose default gave no kind is rejected here by name.
+		case p.TypeAnnotation == nil && (p.Default == nil || sig.params[i] == kindInvalid):
 			g.reject("parameter without a declared type", p.Name, fd)
 			ok = false
 		// kindInvalid: reports — rejectTypeAnnotation names the type's own gap.
@@ -1645,6 +1677,16 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 			}
 		}
 		g.popScope()
+		return
+	}
+	if sig.dict != nil {
+		// A bounded generic's erased body has no IR: a type parameter has no
+		// representation there. Nothing names it either: a call and a function
+		// value each lower an instance of the template irMonoTemplate derives,
+		// and another file's call instantiates it in its own file
+		// (siblinggeneric.go). Lowering the erased body would only record a
+		// decline for a function no program can reach (std/parse's
+		// `read_fields`, lowered with every listed module that imports it).
 		return
 	}
 

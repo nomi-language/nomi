@@ -46,15 +46,15 @@ fn shown(email: Maybe<String>) -> String {
     address
 }
 
-fn parse_size(text: String) -> Result<#(Int, Int), String> {
+fn parse_size(text: String) -> Result<(Int, Int), String> {
     case text {
-        "big" -> Ok(#(200, 100))
+        "big" -> Ok((200, 100))
         _ -> Err("unknown size ${text}")
     }
 }
 
 fn area(text: String) -> Int {
-    Ok(#(width, height)) = parse_size(text) else { #(80, 24) }
+    Ok((width, height)) = parse_size(text) else { (80, 24) }
 
     width * height
 }
@@ -97,10 +97,10 @@ fn first_or(xs: List<Int>, default: Int) -> Int {
     first
 }
 
-fn sizes(lines: List<String>) -> List<#(Int, Int)> {
+fn sizes(lines: List<String>) -> List<(Int, Int)> {
     lines
     |> Iter.map(fn line -> {
-        Ok(size) = parse_size(line) else { return #(0, 0) }
+        Ok(size) = parse_size(line) else { return (0, 0) }
 
         size
     })
@@ -149,7 +149,7 @@ test "a list pattern's else leaves" {
 }
 
 test "return in a lambda's else exits the lambda" {
-    assert sizes(["big", "no"]) == [#(200, 100), #(0, 0)]
+    assert sizes(["big", "no"]) == [(200, 100), (0, 0)]
 }
 
 test "continue in a callback's else skips the item" {

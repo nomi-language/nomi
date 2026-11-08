@@ -60,8 +60,8 @@ var builtinCheckedRows = map[string]bool{
 	"float.float_round": true, "float.Float.pow": true, "float.Float.sqrt": true, "float.Float.exp": true,
 	"float.Float.log": true, "float.Float.log2": true, "float.Float.log10": true, "float.Float.sin": true,
 	"float.Float.cos": true, "float.Float.tan": true, "float.Float.atan2": true,
-	"float.require_tolerance": true,
-	"decimal.Decimal.pow":     true, "decimal.Decimal.sqrt": true,
+	"float.require_tolerance": true, "float.require_clamp_bounds": true, "comparable.clamp_reversed": true,
+	"decimal.Decimal.pow": true, "decimal.Decimal.sqrt": true,
 }
 
 // contextCheckedRows are held to rt directly.
@@ -75,7 +75,7 @@ var contextCheckedRows = map[string]bool{
 	// Streams over handles and the sandbox: TestRtFuncs_HandlesAndSandboxes.
 	"io.read_up_to": true, "io.Reader.read_all": true, "io.Reader.read_all_text": true,
 	"io.Reader.copy_to": true, "io.Reader.close": true, "io.Reader.from_bytes": true, "io.Reader.from_text": true,
-	"io.Writer.flush": true, "io.Writer.close": true,
+	"io.Writer.flush": true, "io.Writer.close": true, "io.Writer.discard": true,
 	// Calls back into Nomi on each read's frame: rt's
 	// TestPullReaders_* and vmhost's TestReaderSources_*.
 	"io.Reader.from_fn": true,
@@ -84,7 +84,7 @@ var contextCheckedRows = map[string]bool{
 	"io.writer_from_fn": true,
 	// Writer.collect's writer: TestRtFuncs_MemoryWriterCollects.
 	"io.memory_writer": true, "io.collected": true,
-	"fs_host.open": true, "fs_host.create": true, "fs_host.discard": true, "fs_host.temp_dir": true,
+	"fs_host.open": true, "fs_host.create": true, "fs_host.temp_dir": true,
 	"fs_host.make_temp_dir": true, "fs_host.current_dir": true, "fs_host.new_sandbox": true,
 	"fs_host.sandbox_fail": true, "fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
 	// A File on the disk and in a sandbox, and fs.within's crossings:
@@ -403,6 +403,10 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	for _, x := range specials {
 		cases["float.require_tolerance"] = append(cases["float.require_tolerance"], []any{fv(x)})
 	}
+	for _, b := range [][2]float64{{0, 1}, {1, 1}, {2, 1}, {math.NaN(), 1}, {0, math.NaN()}, {math.Inf(-1), math.Inf(1)}, {math.Copysign(0, -1), 0}} {
+		cases["float.require_clamp_bounds"] = append(cases["float.require_clamp_bounds"], []any{fv(b[0]), fv(b[1])})
+	}
+	cases["comparable.clamp_reversed"] = [][]any{{sv("10"), sv("1")}, {sv(`"z"`), sv(`"a"`)}}
 	for _, x := range specials {
 		for _, k := range []string{"sqrt", "exp", "log", "log2", "log10", "sin", "cos", "tan"} {
 			cases["float.Float."+k] = append(cases["float.Float."+k], []any{fv(x)})

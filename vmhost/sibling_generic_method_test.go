@@ -25,12 +25,12 @@ impl Box {
         if c { a } else { b }
     }
 
-    pub fn pad<T>(x: T, n: Int = 2) -> #(T, Int) {
-        #(x, n)
+    pub fn pad<T>(x: T, n: Int = 2) -> (T, Int) {
+        (x, n)
     }
 
-    pub fn twice<T>(x: T) -> #(T, T) {
-        #(Box.ident(x), Box.ident(x))
+    pub fn twice<T>(x: T) -> (T, T) {
+        (Box.ident(x), Box.ident(x))
     }
 }
 
@@ -45,7 +45,7 @@ impl<T> Wrap<T> {
 }
 
 pub interface Pairs {
-    fn pair<U>(b: self, u: U) -> #(self, U)
+    fn pair<U>(b: self, u: U) -> (self, U)
 
     fn second<U>(_b: self, u: U) -> U {
         u
@@ -53,8 +53,8 @@ pub interface Pairs {
 }
 
 impl Pairs for Box {
-    fn pair<U>(b: Box, u: U) -> #(Box, U) {
-        #(b, u)
+    fn pair<U>(b: Box, u: U) -> (Box, U) {
+        (b, u)
     }
 }
 `
@@ -113,7 +113,7 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		{
 			name: "interface impl function",
 			body: "    io.inspect(Pairs.pair(Box{ value: 1 }, \"x\"))\n    io.inspect(leaf.Box.pair(Box{ value: 1 }, 2))\n",
-			want: "#(Box{value: 1}, \"x\")\n#(Box{value: 1}, 2)\n",
+			want: "(Box{value: 1}, \"x\")\n(Box{value: 1}, 2)\n",
 		},
 		{
 			name: "inherited interface default",
@@ -123,17 +123,17 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		{
 			name: "omitted default",
 			body: "    io.inspect(Box.pad(\"p\"))\n    io.inspect(leaf.Box.pad(n: 5, x: True))\n",
-			want: "#(\"p\", 2)\n#(True, 5)\n",
+			want: "(\"p\", 2)\n(True, 5)\n",
 		},
 		{
 			name: "member calling a member",
 			body: "    io.inspect(Box.twice(Wrap{ v: 1 }))\n",
-			want: "#(Wrap{v: 1}, Wrap{v: 1})\n",
+			want: "(Wrap{v: 1}, Wrap{v: 1})\n",
 		},
 		{
 			name: "generic caller",
 			body: "    io.inspect(both(1))\n    io.inspect(both(\"a\"))\n",
-			want: "#(1, 1)\n#(\"a\", \"a\")\n",
+			want: "(1, 1)\n(\"a\", \"a\")\n",
 		},
 		{
 			name: "value",
@@ -150,7 +150,7 @@ func TestSiblingGenericImplFunction_Runs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			main := "import {\n    std::io\n    leaf\n    leaf.{Box, Wrap, Pairs}\n}\n\n" +
 				"fn uses<P>(x: P) -> P where P: Pairs {\n    x\n}\n\n" +
-				"fn both<T>(x: T) -> #(T, T) {\n    leaf.Box.twice(x)\n}\n\n" +
+				"fn both<T>(x: T) -> (T, T) {\n    leaf.Box.twice(x)\n}\n\n" +
 				"fn main() {\n    _ = uses(Box{ value: 0 })\n    _ = both(Wrap{ v: 0 })\n" + tc.body + "}\n"
 			got := runSiblingProgram(t, map[string]string{"leaf.nomi": siblingGenericLeaf, "main.nomi": main})
 			if got != tc.want {
@@ -171,12 +171,12 @@ pub struct Cell<T> {
 }
 
 impl<T> Cell<T> {
-    pub fn pair<U>(c: Cell<T>, u: U) -> Pod<#(T, U)> {
-        Pod{ item: #(c.v, u) }
+    pub fn pair<U>(c: Cell<T>, u: U) -> Pod<(T, U)> {
+        Pod{ item: (c.v, u) }
     }
 }
 
-pub fn round(c: Cell<Int>) -> Cell<#(Int, String)> {
+pub fn round(c: Cell<Int>) -> Cell<(Int, String)> {
     Pod.cell(Pod{ item: c.v }, "r")
 }
 `,
@@ -187,12 +187,12 @@ pub struct Pod<T> {
 }
 
 impl<T> Pod<T> {
-    pub fn cell<U>(p: Pod<T>, u: U) -> Cell<#(T, U)> {
-        Cell{ v: #(p.item, u) }
+    pub fn cell<U>(p: Pod<T>, u: U) -> Cell<(T, U)> {
+        Cell{ v: (p.item, u) }
     }
 }
 
-pub fn back(p: Pod<Int>) -> Pod<#(Int, Bool)> {
+pub fn back(p: Pod<Int>) -> Pod<(Int, Bool)> {
     Cell.pair(Cell{ v: p.item }, True)
 }
 `,
@@ -214,7 +214,7 @@ fn main() {
 }
 `,
 	})
-	want := "Cell{v: #(2, True)}\nPod{item: #(1, \"x\")}\nCell{v: #(1, \"r\")}\nPod{item: #(2, True)}\n"
+	want := "Cell{v: (2, True)}\nPod{item: (1, \"x\")}\nCell{v: (1, \"r\")}\nPod{item: (2, True)}\n"
 	if got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}

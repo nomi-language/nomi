@@ -28,7 +28,7 @@ func TestParseCapture_Bodies(t *testing.T) {
 		{"&(&2)", "*ast.GroupedExpr", false},
 		{"&Point{x: &1, y: 0}", "*ast.StructLit", false},
 		{"&.Circle{radius: &1}", "*ast.StructLit", false},
-		{"&#(&1, 0)", "*ast.TupleLit", false},
+		{"&(&1, 0)", "*ast.TupleLit", false},
 		{"&[&1, 0]", "*ast.ListLit", false},
 		{"&#[&1]", "*ast.VectorLit", false},
 		{"&%[&1]", "*ast.SetLit", false},

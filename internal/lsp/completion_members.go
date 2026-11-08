@@ -41,7 +41,7 @@ func (r *completionRequest) memberCandidates() []candidate {
 		return r.reachedFileMembers(fp)
 	}
 	t := r.exprType(obj)
-	return fieldCandidates(fieldsOf(t), r.declOf(t))
+	return fieldCandidates(readFieldsOf(t), r.declOf(t))
 }
 
 // declOf returns the symbol declaring a struct type when it is visible at
@@ -127,9 +127,10 @@ func (r *completionRequest) ownerNameOf(sym *analysis.Symbol) string {
 // inherent functions and the functions of the interfaces it implements, from
 // this file's impl blocks and the project's (the standard library's
 // included). Another file's inherent function must be public; an interface
-// implementation is reachable wherever the interface is.
+// implementation is reachable wherever the type is, and so is a default the
+// type inherits from an interface, which is the interface's own function.
 func (r *completionRequest) ownerFunctions(owner string) map[string]*analysis.Symbol {
-	out := map[string]*analysis.Symbol{}
+	out := r.fa.TypeDefaultFunctions(owner)
 	if r.fa.Program().ImplIndex != nil {
 		for name, sym := range r.fa.Program().ImplIndex.TypeMethods[owner] {
 			if sym != nil && (sym.Public || sym.ImplInterface != "") {

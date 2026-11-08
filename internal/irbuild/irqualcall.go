@@ -402,7 +402,12 @@ func (bl *irScalarBuilder) qualCheckedFuncWant(t *ast.Call, i int, k kind) (kind
 	if k.tag != tagFunc || k.comp == nil {
 		return kindInvalid, false
 	}
+	// A non-generic callee (`Route.to(route, handler: Handler)`) has no
+	// instantiated signature; its declared one is the parameter's type.
 	ft := bl.g.checkedCallSignature(t)
+	if ft == nil {
+		ft = bl.g.declaredCallSignature(t)
+	}
 	if ft == nil || i >= len(ft.Params) || irUnsolvedType(ft.Params[i]) {
 		return kindInvalid, false
 	}
@@ -417,6 +422,13 @@ func (bl *irScalarBuilder) qualCheckedFuncWant(t *ast.Call, i int, k kind) (kind
 		if p != funcParams(k)[i] {
 			return want, true
 		}
+	}
+	// A result that erases into an interface the operation calls through
+	// (a handler answering a `Result` where std::http's `ToResponse` is
+	// expected) needs the adapter too, as an element of a list of them
+	// gets one (irlist.go).
+	if r := funcResult(want); r.tag == tagIface && funcResult(k) != r {
+		return want, true
 	}
 	return kindInvalid, false
 }
@@ -464,7 +476,7 @@ func (g *gen) declaredCallSignature(t *ast.Call) *analysis.FuncType {
 // any index says so.
 func (bl *irScalarBuilder) qualCall(t *ast.Call, fa *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	if bl.qualCalleeIsValue(fa) {
-		// `p.t.0(8)`, `gen.run(seed)`: a function read by a field chain,
+		// `p.t.first(8)`, `gen.run(seed)`: a function read by a field chain,
 		// called through the value it holds. An indirect call records its
 		// own rows in an assertion subject.
 		return bl.indirectCall(t)
@@ -716,6 +728,9 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 	if v, owned := bl.existentialHashCall(t, args, ti.Name, method); owned {
 		return v, kindInt, false, true
 	}
+	if v, owned := bl.structuralHashCall(t, args, ti.Name, method); owned {
+		return v, kindInt, false, true
+	}
 	if method == "to_string" && (ti.Name == "Int" || ti.Name == "Float" || ti.Name == "Bool" || ti.Name == "String") {
 		return bl.scalarTextCall(t, args, ti.Name)
 	}
@@ -826,6 +841,14 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 	}
 	if plan == nil {
 		plan = bl.siblingReceiverPlan(t, args, ti.Name, method)
+	}
+	if plan == nil {
+		// `Int.min(3, 4)`, `Comparable.min(v, w)`: a std interface's
+		// default that no impl of the receiver writes, instantiated in its
+		// declaring module (stdifacedefault.go).
+		if v, rk, mobile, ok, handled := bl.stdIfaceDefaultCall(t, args, ti.Name, method); handled {
+			return v, rk, mobile, ok
+		}
 	}
 	if plan == nil && (ti.Name == "Map" || ti.Name == "Set" || ti.Name == "Vector" || ti.Name == "List") && (bl.g.stdModule == "" || bl.stdTestOwnType()) {
 		// A Map, Set or Vector function with no intrinsic is std's Nomi body,
@@ -1383,8 +1406,9 @@ func (g *gen) siblingImplMemberBy(d *typeDef, method, iface string, pick func([]
 
 // siblingDefaultArgs fills the parameters a short call to a sibling file's
 // impl function omits from their declared defaults, lowered here. A default
-// whose names resolve differently in the two files, for portableDefault's
-// reason, is the declaring file's accessor's instead (siblingAccessorArgs).
+// whose names resolve differently in the two files, a name meaning another
+// declaration here or none, is the declaring file's accessor's instead
+// (siblingAccessorArgs).
 func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, site *implMemberSite, params []kind, owning *gen) (irQualArgs, bool) {
 	g := bl.g
 	f := site.fn
@@ -1394,6 +1418,18 @@ func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, site
 	temps, slots, mobile, ok := slottedOperands(t, args, params, f.params0)
 	if !ok {
 		return args, false
+	}
+	if len(slots) > 0 {
+		if _, iface := g.ifaceParamDefault(f.params0[slots[0]].Default); iface {
+			// An interface default the block inherits: its parameter
+			// defaults are the interface's, whichever file declares it,
+			// and callDefaults fills each under that file's names
+			// (ifaceslotdefault.go).
+			if !bl.callDefaults(&fnSig{decl: &ast.FuncDef{Params: f.params0}, params: params}, temps) {
+				return args, false
+			}
+			return irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}, true
+		}
 	}
 	if !bl.siblingDefaultsAgree(f, owning, slots) {
 		// A default naming what this file cannot (the declaring file's
@@ -1472,19 +1508,9 @@ func slottedOperands(t *ast.Call, args irQualArgs, params []kind, decl []ast.Par
 // in owning's file and in this one, so lowering it here means what it means
 // there.
 func (bl *irScalarBuilder) siblingDefaultsAgree(f *fileFunc, owning *gen, slots []int) bool {
-	g := bl.g
 	for _, i := range slots {
-		d := f.params0[i].Default
-		if d == nil {
+		if d := f.params0[i].Default; d == nil || !defaultNamesAgree(d, owning, bl.g) {
 			return false
-		}
-		names := map[string]bool{}
-		walkNames(d, names, pickAnyName)
-		for name := range names {
-			there, here := resolvedTypeSymbol(owning.fa, name), resolvedTypeSymbol(g.fa, name)
-			if (there == nil) != (here == nil) || (there != nil && there.Node != here.Node) {
-				return false
-			}
 		}
 	}
 	return true
@@ -1908,7 +1934,7 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 // qualCalleeIsValue reports whether a qualified callee is a value read by a
 // field chain rather than an owner qualifier: a bound local's field
 // (`gen.run(seed)`), or a chain of fields and tuple indices, of any length,
-// that names no namespaced type (`p.t.0(8)`, `make().q.f(1)`). Such a call
+// that names no namespaced type (`p.t.first(8)`, `make().q.f(1)`). Such a call
 // goes through the function value the chain reads.
 func (bl *irScalarBuilder) qualCalleeIsValue(fa *ast.FieldAccess) bool {
 	if fa.Field == nil {

@@ -16,10 +16,10 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The `stones`, each the dots on its two halves, laid in a chain, each
 /// turned as it must be, where touching halves match and the two free ends
 /// match each other; `None` when no order makes one.
-pub fn chain(stones: List<#(Int, Int)>) -> Maybe<List<#(Int, Int)>> {
+pub fn chain(stones: List<(Int, Int)>) -> Maybe<List<(Int, Int)>> {
     case stones {
         [] -> Some([])
-        [#(start, end) as first, ..rest] -> extend(start, end, [first], rest)
+        [(start, end) as first, ..rest] -> extend(start, end, [first], rest)
     }
 }
 
@@ -29,23 +29,23 @@ pub fn chain(stones: List<#(Int, Int)>) -> Maybe<List<#(Int, Int)>> {
 fn extend(
     start: Int,
     end: Int,
-    laid: List<#(Int, Int)>,
-    left: List<#(Int, Int)>,
-) -> Maybe<List<#(Int, Int)>> {
+    laid: List<(Int, Int)>,
+    left: List<(Int, Int)>,
+) -> Maybe<List<(Int, Int)>> {
     if left == [] and start == end { return Some(Iter.reverse(laid)) }
 
     left
     |> picks()
-    |> Iter.flat_map(fn #(#(a, b), others) -> [#(#(a, b), others), #(#(b, a), others)])
-    |> Iter.filter(fn #(#(a, _b), _others) -> a == end)
-    |> Iter.find_map(fn #(#(a, b), others) -> extend(start, b, [#(a, b), ..laid], others))
+    |> Iter.flat_map(fn ((a, b), others) -> [((a, b), others), ((b, a), others)])
+    |> Iter.filter(fn ((a, _b), _others) -> a == end)
+    |> Iter.find_map(fn ((a, b), others) -> extend(start, b, [(a, b), ..laid], others))
 }
 
 /// Each stone of `stones` with the stones other than it.
-fn picks(stones: List<#(Int, Int)>) -> Iter<#(#(Int, Int), List<#(Int, Int)>)> {
+fn picks(stones: List<(Int, Int)>) -> Iter<((Int, Int), List<(Int, Int)>)> {
     stones
     |> Iter.with_index()
-    |> Iter.map(fn #(index, stone) -> #(stone, List.remove_at(stones, index)))
+    |> Iter.map(fn (index, stone) -> (stone, List.remove_at(stones, index)))
 }
 
 // FILE: dominoes_test.nomi
@@ -54,34 +54,34 @@ import dominoes
 /// Whether `chain` is a chain of exactly `stones`: each stone's second half
 /// matches the next one's first, the last stone's matches the first's, and
 /// it holds each stone as often as `stones` does, either way round.
-fn is_chain_of(chain: List<#(Int, Int)>, stones: List<#(Int, Int)>) -> Bool {
+fn is_chain_of(chain: List<(Int, Int)>, stones: List<(Int, Int)>) -> Bool {
     next = chain |> Iter.drop(1) |> Iter.concat(Iter.take(chain, 1))
-    linked = Iter.zip(chain, next) |> Iter.all(fn #(#(_a, b), #(c, _d)) -> b == c)
+    linked = Iter.zip(chain, next) |> Iter.all(fn ((_a, b), (c, _d)) -> b == c)
     linked and has_same_stones(chain, stones)
 }
 
-fn has_same_stones(a: List<#(Int, Int)>, b: List<#(Int, Int)>) -> Bool {
+fn has_same_stones(a: List<(Int, Int)>, b: List<(Int, Int)>) -> Bool {
     a |> Iter.map(unturned) |> Iter.frequencies() == b |> Iter.map(unturned) |> Iter.frequencies()
 }
 
-fn unturned(#(a, b): #(Int, Int)) -> #(Int, Int) {
-    #(Int.min(a, b), Int.max(a, b))
+fn unturned((a, b): (Int, Int)) -> (Int, Int) {
+    (Int.min(a, b), Int.max(a, b))
 }
 
 test "can chain" {
     [
-        #("empty input = empty output", []),
-        #("singleton input = singleton output", [#(1, 1)]),
-        #("three elements", [#(1, 2), #(3, 1), #(2, 3)]),
-        #("can reverse dominoes", [#(1, 2), #(1, 3), #(2, 3)]),
-        #("need backtrack", [#(1, 2), #(2, 3), #(3, 1), #(2, 4), #(2, 4)]),
-        #("separate loops", [#(1, 2), #(2, 3), #(3, 1), #(1, 1), #(2, 2), #(3, 3)]),
-        #(
+        ("empty input = empty output", []),
+        ("singleton input = singleton output", [(1, 1)]),
+        ("three elements", [(1, 2), (3, 1), (2, 3)]),
+        ("can reverse dominoes", [(1, 2), (1, 3), (2, 3)]),
+        ("need backtrack", [(1, 2), (2, 3), (3, 1), (2, 4), (2, 4)]),
+        ("separate loops", [(1, 2), (2, 3), (3, 1), (1, 1), (2, 2), (3, 3)]),
+        (
             "nine elements",
-            [#(1, 2), #(5, 3), #(3, 1), #(1, 2), #(2, 4), #(1, 6), #(2, 3), #(3, 4), #(5, 6)],
+            [(1, 2), (5, 3), (3, 1), (1, 2), (2, 4), (1, 6), (2, 3), (3, 4), (5, 6)],
         ),
     ]
-    |> subtests #(description, stones), description {
+    |> subtests (description, stones), description {
         assert Some(chain) = dominoes.chain(stones)
         assert is_chain_of(chain, stones)
     }
@@ -89,14 +89,14 @@ test "can chain" {
 
 test "cannot chain" {
     [
-        #("singleton that can't be chained", [#(1, 2)]),
-        #("can't be chained", [#(1, 2), #(4, 1), #(2, 3)]),
-        #("disconnected - simple", [#(1, 1), #(2, 2)]),
-        #("disconnected - double loop", [#(1, 2), #(2, 1), #(3, 4), #(4, 3)]),
-        #("disconnected - single isolated", [#(1, 2), #(2, 3), #(3, 1), #(4, 4)]),
-        #("separate three-domino loops", [#(1, 2), #(2, 3), #(3, 1), #(4, 5), #(5, 6), #(6, 4)]),
+        ("singleton that can't be chained", [(1, 2)]),
+        ("can't be chained", [(1, 2), (4, 1), (2, 3)]),
+        ("disconnected - simple", [(1, 1), (2, 2)]),
+        ("disconnected - double loop", [(1, 2), (2, 1), (3, 4), (4, 3)]),
+        ("disconnected - single isolated", [(1, 2), (2, 3), (3, 1), (4, 4)]),
+        ("separate three-domino loops", [(1, 2), (2, 3), (3, 1), (4, 5), (5, 6), (6, 4)]),
     ]
-    |> subtests #(description, stones), description {
+    |> subtests (description, stones), description {
         assert dominoes.chain(stones) == None
     }
 }
@@ -109,7 +109,7 @@ test result: ok. 13 passed, 0 failed
 
 ## How it's written
 
-- This is the exercise's second level: `chain` returns the chain itself, `Maybe<List<Stone>>`, not only whether one exists. A stone is a `#(Int, Int)`, as the canonical comments suggest for a language with pairs. It is written out rather than named with a `typealias`: an alias is for shortening a long anonymous shape, and a pair is short.
+- This is the exercise's second level: `chain` returns the chain itself, `Maybe<List<Stone>>`, not only whether one exists. A stone is a `(Int, Int)`, as the canonical comments suggest for a language with pairs. It is written out rather than named with a `typealias`: an alias is for shortening a long anonymous shape, and a pair is short.
 - The search is a depth-first backtrack. The first stone starts the chain, and `extend` tries every stone left, either way round, whose first half matches the free end, and recurses. The candidates are a lazy pipeline ended by `Iter.find_map`, so the search stops at the first chain that closes and backs out of a dead end by moving on to the next candidate. A chain that uses every stone closes when its two ends match.
 - The chain is built last stone first, with `[stone, ..laid]`, and reversed once at the end, so each step is a cons.
 - `picks` pairs each stone with the stones other than it, the list with that stone taken out by `List.remove_at`.

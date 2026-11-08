@@ -13,9 +13,9 @@ const shoutTag = "import {\n    std::io\n    std::literals.{CheckedLiteral, Frag
 	"type Shout\n\n" +
 	"impl CheckedLiteral<Int, String> for Shout {\n" +
 	"    fn check(statics: List<String>) -> Result<Unit, LiteralError> {\n" +
-	"        bad = Iter.with_index(statics) |> Iter.find(fn #(_, s) -> String.contains(s, \"!\"))\n\n" +
+	"        bad = Iter.with_index(statics) |> Iter.find(fn (_, s) -> String.contains(s, \"!\"))\n\n" +
 	"        case bad {\n" +
-	"            Some(#(i, s)) -> {\n" +
+	"            Some((i, s)) -> {\n" +
 	"                before = String.split(s, \"!\") |> Iter.first() |> Maybe.with_default(\"\")\n\n" +
 	"                Err(LiteralError{fragment: i, offset: String.length(before), message: \"no `!` in a shout\"})\n" +
 	"            }\n\n" +

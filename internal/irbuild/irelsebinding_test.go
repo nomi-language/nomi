@@ -35,7 +35,7 @@ func TestBindingElse_RunsOnTheVM(t *testing.T) {
 		"3", "0",
 		"Ok(2)", "Ok(10)", "Err(b)",
 		"[10, 0, 30]",
-		"#(200, 100)", "#(200, 100)",
+		"(200, 100)", "(200, 100)",
 		"6",
 	}, "\n") + "\n"
 	got := vmReference(path)
@@ -186,8 +186,8 @@ fn vec(xs: Vector<Int>) -> Int {
     a + b
 }
 
-fn arms(r: Result<#(Int, Int), String>) -> Int {
-    Ok(#(a, b)) = r else {
+fn arms(r: Result<(Int, Int), String>) -> Int {
+    Ok((a, b)) = r else {
         Err("skip") -> return 0
         Err(_) -> unreachable "only skip fails"
     }
@@ -196,18 +196,18 @@ fn arms(r: Result<#(Int, Int), String>) -> Int {
 }
 
 fn looped(rows: List<List<Int>>) -> Int {
-    #(_, sum) = Iter.loop(
-        #(rows, 0),
-        fn #(left, total) -> {
+    (_, sum) = Iter.loop(
+        (rows, 0),
+        fn (left, total) -> {
             [row, ..rest] = left else {
-                break #(left, total)
+                break (left, total)
             }
 
             [a, b] = row else {
                 unreachable "rows have two cells"
             }
 
-            return #(rest, total + a + b)
+            return (rest, total + a + b)
         },
     )
 
@@ -229,7 +229,7 @@ fn sums(rows: List<List<Int>>) -> List<Int> {
 fn main() {
     io.inspect(pair([3, 4, 5]))
     io.inspect(vec(#[1, 2]))
-    io.inspect(arms(Ok(#(9, 2))))
+    io.inspect(arms(Ok((9, 2))))
     io.inspect(arms(Err("skip")))
     io.inspect(looped([[1, 2], [3, 4]]))
     io.inspect(sums([[1, 2], [3, 4]]))

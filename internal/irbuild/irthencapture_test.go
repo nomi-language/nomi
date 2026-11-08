@@ -41,8 +41,8 @@ fn main() {
 fn sub(a: Int, b: Int) -> Int { a - b }
 fn main() { io.print((3 |> then &sub(10, &1)) |> then &sub(&1, 2)) }`, "5\n"},
 		{"generic call", `import std::io
-fn pair<T, U>(a: T, b: U) -> #(T, U) { #(a, b) }
-fn main() { io.inspect(42 |> then &pair("answer", &1)) }`, "#(\"answer\", 42)\n"},
+fn pair<T, U>(a: T, b: U) -> (T, U) { (a, b) }
+fn main() { io.inspect(42 |> then &pair("answer", &1)) }`, "(\"answer\", 42)\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

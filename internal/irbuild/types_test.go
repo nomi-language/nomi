@@ -144,16 +144,16 @@ func TestEnumSlotsDedupByGoTypeNotLayout(t *testing.T) {
 		},
 		{
 			name:  "two tuple shapes get two slots",
-			src:   "enum Shapes {\n  Named {p: #(Int, String)}\n  Point {q: #(Int, Int)}\n}\n",
+			src:   "enum Shapes {\n  Named {p: (Int, String)}\n  Point {q: (Int, Int)}\n}\n",
 			enum:  "Shapes",
-			slots: []string{"#(Int, String)", "#(Int, Int)"},
+			slots: []string{"(Int, String)", "(Int, Int)"},
 			why:   "a structural type with no declaration still needs one identity per Go type",
 		},
 		{
 			name:  "the same tuple shape shares one slot",
-			src:   "enum Points {\n  Start {p: #(Int, Int)}\n  End {q: #(Int, Int)}\n}\n",
+			src:   "enum Points {\n  Start {p: (Int, Int)}\n  End {q: (Int, Int)}\n}\n",
 			enum:  "Points",
-			slots: []string{"#(Int, Int)"},
+			slots: []string{"(Int, Int)"},
 			why:   "Go's struct identity is structural, so one shape is one type",
 		},
 	}

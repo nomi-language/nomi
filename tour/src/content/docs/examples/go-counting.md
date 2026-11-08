@@ -13,10 +13,10 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: go_counting.nomi
 //# Territory on a Go board: the empty intersections a player's stones
 //# enclose. A board is rows of `B` (black), `W` (white) and ` ` (empty),
-//# and a point is `#(x, y)`, its column and row.
+//# and a point is `(x, y)`, its column and row.
 
-/// A point on the board, `#(x, y)`.
-pub typealias Point #(Int, Int)
+/// A point on the board, `(x, y)`.
+pub typealias Point (Int, Int)
 
 /// Who a territory belongs to.
 pub enum Owner {
@@ -41,16 +41,16 @@ pub struct Territories {
     neither: Set<Point>
 }
 
-once directions = [#(0, -1), #(-1, 0), #(1, 0), #(0, 1)]
+once directions = [(0, -1), (-1, 0), (1, 0), (0, 1)]
 
-/// The territory holding the point `#(x, y)`. A point with a stone on it
+/// The territory holding the point `(x, y)`. A point with a stone on it
 /// lies in no territory, and answers an empty one owned by neither.
 pub fn territory(board: List<String>, x: Int, y: Int) -> Result<Territory, String> {
     points = read(board)
 
-    case Map.get(points, #(x, y)) {
+    case Map.get(points, (x, y)) {
         None -> Err("Invalid coordinate")
-        Some(" ") -> Ok(fill(points, #(x, y)))
+        Some(" ") -> Ok(fill(points, (x, y)))
         Some(_) -> Ok(#{owner: .Neither, points: %[]})
     }
 }
@@ -61,8 +61,8 @@ pub fn territories(board: List<String>) -> Territories {
     empty: Territories = #{black: %[], white: %[], neither: %[]}
 
     points
-    |> Iter.filter(fn #(_point, stone) -> stone == " ")
-    |> Iter.reduce(empty, fn found, #(point, _stone) -> {
+    |> Iter.filter(fn (_point, stone) -> stone == " ")
+    |> Iter.reduce(empty, fn found, (point, _stone) -> {
         if is_claimed(found, point) {
             found
         } else {
@@ -75,8 +75,8 @@ pub fn territories(board: List<String>) -> Territories {
 fn read(board: List<String>) -> Map<Point, String> {
     board
     |> Iter.with_index()
-    |> Iter.flat_map(fn #(y, row) -> {
-        row |> Iter.with_index() |> Iter.map(fn #(x, stone) -> #(#(x, y), stone))
+    |> Iter.flat_map(fn (y, row) -> {
+        row |> Iter.with_index() |> Iter.map(fn (x, stone) -> ((x, y), stone))
     })
     |> Iter.to_map()
 }
@@ -84,7 +84,7 @@ fn read(board: List<String>) -> Map<Point, String> {
 /// The territory of the empty point `start`: every empty point connected
 /// to it, owned by the one colour of stone they touch, if there is one.
 fn fill(points: Map<Point, String>, start: Point) -> Territory {
-    #(area, borders) = spread(points, [start], %[start], %[])
+    (area, borders) = spread(points, [start], %[start], %[])
 
     owner = case Iter.to_list(borders) {
         ["B"] -> Owner.Black
@@ -102,19 +102,19 @@ fn spread(
     frontier: List<Point>,
     area: Set<Point>,
     borders: Set<String>,
-) -> #(Set<Point>, Set<String>) {
+) -> (Set<Point>, Set<String>) {
     case frontier {
         [] ->
-            #(area, borders)
+            (area, borders)
 
-        [#(x, y), ..rest] -> {
+        [(x, y), ..rest] -> {
             around =
                 directions
-                |> Iter.map(fn #(dx, dy) -> #(x + dx, y + dy))
+                |> Iter.map(fn (dx, dy) -> (x + dx, y + dy))
                 |> Iter.filter(&(&1 in points))
                 |> Iter.to_list()
 
-            #(empty, stones) = Iter.partition(around, fn point -> {
+            (empty, stones) = Iter.partition(around, fn point -> {
                 Map.get(points, point) == Some(" ")
             })
 
@@ -158,55 +158,55 @@ once board = [
 ]
 
 test "territory" {
-    cases: List<#(String, Int, Int, Result<Territory, String>)> = [
-        #(
+    cases: List<(String, Int, Int, Result<Territory, String>)> = [
+        (
             "Black corner territory on 5x5 board",
             0,
             1,
-            Ok(#{owner: .Black, points: %[#(0, 0), #(0, 1), #(1, 0)]}),
+            Ok(#{owner: .Black, points: %[(0, 0), (0, 1), (1, 0)]}),
         ),
-        #("White center territory on 5x5 board", 2, 3, Ok(#{owner: .White, points: %[#(2, 3)]})),
-        #(
+        ("White center territory on 5x5 board", 2, 3, Ok(#{owner: .White, points: %[(2, 3)]})),
+        (
             "Open corner territory on 5x5 board",
             1,
             4,
-            Ok(#{owner: .Neither, points: %[#(0, 3), #(0, 4), #(1, 4)]}),
+            Ok(#{owner: .Neither, points: %[(0, 3), (0, 4), (1, 4)]}),
         ),
-        #("A stone and not a territory on 5x5 board", 1, 1, Ok(#{owner: .Neither, points: %[]})),
-        #("Invalid because X is too low for 5x5 board", -1, 1, Err("Invalid coordinate")),
-        #("Invalid because X is too high for 5x5 board", 5, 1, Err("Invalid coordinate")),
-        #("Invalid because Y is too low for 5x5 board", 1, -1, Err("Invalid coordinate")),
-        #("Invalid because Y is too high for 5x5 board", 1, 5, Err("Invalid coordinate")),
+        ("A stone and not a territory on 5x5 board", 1, 1, Ok(#{owner: .Neither, points: %[]})),
+        ("Invalid because X is too low for 5x5 board", -1, 1, Err("Invalid coordinate")),
+        ("Invalid because X is too high for 5x5 board", 5, 1, Err("Invalid coordinate")),
+        ("Invalid because Y is too low for 5x5 board", 1, -1, Err("Invalid coordinate")),
+        ("Invalid because Y is too high for 5x5 board", 1, 5, Err("Invalid coordinate")),
     ]
 
-    subtests cases, #(description, x, y, expected), description {
+    subtests cases, (description, x, y, expected), description {
         assert go_counting.territory(board, x, y) == expected
     }
 }
 
 test "territories" {
-    cases: List<#(String, List<String>, Territories)> = [
-        #(
+    cases: List<(String, List<String>, Territories)> = [
+        (
             "One territory is the whole board",
             [" "],
-            #{black: %[], white: %[], neither: %[#(0, 0)]},
+            #{black: %[], white: %[], neither: %[(0, 0)]},
         ),
-        #(
+        (
             "Two territory rectangular board",
             [
                 " BW ",
                 " BW ",
             ],
-            #{black: %[#(0, 0), #(0, 1)], white: %[#(3, 0), #(3, 1)], neither: %[]},
+            #{black: %[(0, 0), (0, 1)], white: %[(3, 0), (3, 1)], neither: %[]},
         ),
-        #(
+        (
             "Two region rectangular board",
             [" B "],
-            #{black: %[#(0, 0), #(2, 0)], white: %[], neither: %[]},
+            #{black: %[(0, 0), (2, 0)], white: %[], neither: %[]},
         ),
     ]
 
-    subtests cases, #(description, board, expected), description {
+    subtests cases, (description, board, expected), description {
         assert go_counting.territories(board) == expected
     }
 }
@@ -219,7 +219,7 @@ test result: ok. 11 passed, 0 failed
 
 ## How it's written
 
-- The board is read once into a `Map<Point, String>` from each point, `#(x, y)`, to what stands on it. A point off the board has no key, so the bounds check in `territory` is one `Map.get` answering `None`, and the flood fill only ever asks the map.
+- The board is read once into a `Map<Point, String>` from each point, `(x, y)`, to what stands on it. A point off the board has no key, so the bounds check in `territory` is one `Map.get` answering `None`, and the flood fill only ever asks the map.
 - `territory` answers a `Territory`, a struct of its `owner` and its `points` as a `Set<Point>`, since the canonical territories are unordered lists. The owner is an `Owner` enum, `Black`, `White` and `Neither`, where the canonical data writes `"NONE"`; `None` is `Maybe`'s variant, so the third owner has another name.
 - `fill` grows a territory from one empty point with `spread`, a recursion over a frontier list that collects the area and the stones it touches. The owner is the colour of those stones when there is exactly one, which is a `case` over the set as a list: `["B"]`, `["W"]`, or anything else.
 - `territories` folds over the empty points with `Iter.reduce`, filling each point no territory has claimed yet and adding the territory to its owner's set.

@@ -14,10 +14,10 @@ derive Equatable for Value
 
 /// A graph: its nodes and edges, each with its attributes, and the graph's
 /// own attributes. An edge is keyed by its two nodes in order, so `b -- a`
-/// is the edge `#("a", "b")`.
+/// is the edge `("a", "b")`.
 pub struct Graph {
     nodes: Map<String, Map<String, Value>>
-    edges: Map<#(String, String), Map<String, Value>>
+    edges: Map<(String, String), Map<String, Value>>
     attrs: Map<String, Value>
 }
 
@@ -77,16 +77,16 @@ fn is_comment(line: String) -> Bool {
 fn statement(line: String) -> Result<Statement, Error> {
     Some(line) = String.strip_suffix(line, ";") else { return Err(.InvalidGraph) }
 
-    #(subject, attributes) = case String.split(line, "[") {
+    (subject, attributes) = case String.split(line, "[") {
         [subject] ->
-            #(subject, %{})
+            (subject, %{})
 
         [subject, list] -> {
             Some(inner) = list |> String.trim() |> String.strip_suffix("]") else {
                 return Err(.InvalidAttribute)
             }
 
-            #(subject, attributes_in(inner)?)
+            (subject, attributes_in(inner)?)
         }
 
         _ ->
@@ -114,7 +114,7 @@ fn attributes_in(list: String) -> Result<Map<String, Value>, Error> {
     String.split(list, ",")
     |> Iter.map(fn pair -> {
         case pair |> String.trim() |> String.split("=") {
-            [name, value] when name != "" and value != "" -> Ok(#(name, value_of(value)))
+            [name, value] when name != "" and value != "" -> Ok((name, value_of(value)))
             _ -> Err(Error.InvalidAttribute)
         }
     })
@@ -128,26 +128,26 @@ fn attributes_in(list: String) -> Result<Map<String, Value>, Error> {
 fn value_of(text: String) -> Value {
     quoted = String.strip_prefix(text, "\"") |> Maybe.flat_map(&String.strip_suffix(&1, "\""))
 
-    case #(quoted, String.to_int(text), text) {
-        #(Some(inner), _, _) -> .Text(inner)
-        #(_, Some(number), _) -> .Number(number)
-        #(_, _, "true") -> .Flag(True)
-        #(_, _, "false") -> .Flag(False)
+    case (quoted, String.to_int(text), text) {
+        (Some(inner), _, _) -> .Text(inner)
+        (_, Some(number), _) -> .Number(number)
+        (_, _, "true") -> .Flag(True)
+        (_, _, "false") -> .Flag(False)
         _ -> .Text(text)
     }
 }
 
 /// The nodes of a chain of edges, `a -- b -- c`, written as words.
 fn edge_names(words: List<String>) -> Result<List<String>, Error> {
-    #(names, links) =
+    (names, links) =
         words
         |> Iter.with_index()
-        |> Iter.partition(fn #(index, _word) -> index % 2 == 0)
+        |> Iter.partition(fn (index, _word) -> index % 2 == 0)
 
-    names = names |> Iter.map(.1) |> Iter.to_list()
+    names = names |> Iter.map(.second) |> Iter.to_list()
 
     valid = Iter.count(names) == Iter.count(links) + 1
-        and Iter.all(links, fn #(_index, word) -> word == "--")
+        and Iter.all(links, fn (_index, word) -> word == "--")
         and Iter.all(names, is_alphanumeric)
 
     if valid { Ok(names) } else { Err(.InvalidEdge) }
@@ -178,7 +178,7 @@ fn add(graph: Graph, statement: Statement) -> Graph {
                 |> Iter.reduce(graph.edges, fn edges, pair -> {
                     [a, b] = Iter.sort(pair) else { unreachable "a window of two holds two names" }
 
-                    with_attributes(edges, #(a, b), attributes)
+                    with_attributes(edges, (a, b), attributes)
                 })
 
             #{..graph, nodes, edges}

@@ -113,16 +113,16 @@ pub fn read(config: Json) -> List<Database> {
 }
 
 /// The dialects a `dialect` key names, and what each is called there.
-pub fn dialects() -> List<#(String, Dialect)> {
-    [#("sqlite", Dialect.Sqlite), #("postgres", Dialect.Postgres)]
+pub fn dialects() -> List<(String, Dialect)> {
+    [("sqlite", Dialect.Sqlite), ("postgres", Dialect.Postgres)]
 }
 
 // The dialect a `dialect` key names; one it does not name is reported by
 // `problems`, and read as SQLite meanwhile.
 fn dialect_of(given: Maybe<String>) -> Dialect {
     given
-    |> Maybe.flat_map(fn g -> dialects() |> Iter.find(fn #(name, _) -> name == g))
-    |> Maybe.map(fn #(_, d) -> d)
+    |> Maybe.flat_map(fn g -> dialects() |> Iter.find(fn (name, _) -> name == g))
+    |> Maybe.map(fn (_, d) -> d)
     |> Maybe.with_default(Dialect.Sqlite)
 }
 
@@ -149,7 +149,7 @@ pub fn problems(config: Json) -> List<String> {
         table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
 
         case text(table, "dialect") {
-            Some(g) when not Iter.any(dialects(), fn #(n, _) -> n == g) ->
+            Some(g) when not Iter.any(dialects(), fn (n, _) -> n == g) ->
                 [
                     "nomi.toml: `[sqlkit.database.${name}]` names the dialect ${Debug.inspect(
                         g
@@ -221,7 +221,7 @@ fn text_map(json: Json, key: String) -> Map<String, String> {
             |> Map.keys()
             |> Iter.flat_map(fn k -> {
                 case Map.get(entries, k) {
-                    Some(Json.String(s)) -> [#(k, s)]
+                    Some(Json.String(s)) -> [(k, s)]
                     _ -> []
                 }
             })

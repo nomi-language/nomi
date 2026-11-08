@@ -53,6 +53,8 @@
 02-testing/attached_tests_test.nomi:done_label	ran
 02-testing/attached_tests_test.nomi:ready_label	ran
 02-testing/attached_tests_test.nomi:render	ran
+02-testing/fs_disk_test.nomi:made_and_removed	ran
+02-testing/fs_sandbox_test.nomi:prepend_header	ran
 02-testing/fs_sandbox_test.nomi:sort_file	ran
 02-testing/io_capture_test.nomi:main	ran
 02-testing/io_capture_test.nomi:main failure	ran
@@ -372,6 +374,21 @@
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:FakeClock.at	ran
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:FakeClock.inspect	ran
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:has_diagnostic	ran
+07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi:Game.equal	ran
+07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi:Game.inspect	ran
+07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi:Game.to_string	ran
+07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi:Shape.inspect	ran
+07-structs-and-enums/field_types_from_defaults/field_types_from_defaults_test.nomi:has_diagnostic	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:Point.inspect	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.home default	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.inspect	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.limit default	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.name default	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.ratio default	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.retries default	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:Settings.started default	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:check Route literal at 9:12 failure	ran
+07-structs-and-enums/field_types_from_defaults/models.nomi:default_limit	ran
 07-structs-and-enums/nested_update/nested_update_test.nomi:Address.inspect	ran
 07-structs-and-enums/nested_update/nested_update_test.nomi:Address.to_string	ran
 07-structs-and-enums/nested_update/nested_update_test.nomi:Building.inspect	ran
@@ -672,6 +689,22 @@
 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi:unwrap	ran
 09-functions-and-control-flow/parameter_destructuring/test_helpers.nomi:has_diagnostic	ran
 09-functions-and-control-flow/parameter_destructuring/test_helpers.nomi:hover_signature	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:Page.shout	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:Page.word	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:greet	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:has_diagnostic	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:pair	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:pair	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Mode.inspect	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Page.inspect	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Page.window	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Page.window default 2	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Page.window default 3	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:search	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:search default 2	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:search default 3	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:write	ran
+09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:write default 2	ran
 09-functions-and-control-flow/tail_calls_test.nomi:Down.inspect	ran
 09-functions-and-control-flow/tail_calls_test.nomi:Down.step	ran
 09-functions-and-control-flow/tail_calls_test.nomi:count	ran
@@ -697,6 +730,15 @@
 10-generics-and-type-wrappers/bounds_test.nomi:announce	ran
 10-generics-and-type-wrappers/bounds_test.nomi:describe	ran
 10-generics-and-type-wrappers/bounds_test.nomi:describe_alias	ran
+10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi:Admin.inspect	ran
+10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi:check Route literal at 33:19 failure	ran
+10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi:first	ran
+10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi:has_diagnostic	ran
+10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi:label	ran
+10-generics-and-type-wrappers/default_type_arguments/default_type_arguments_test.nomi:reason	ran
+10-generics-and-type-wrappers/default_type_arguments/shapes.nomi:Labelled.inspect	ran
+10-generics-and-type-wrappers/default_type_arguments/shapes.nomi:Outcome.inspect	ran
+10-generics-and-type-wrappers/default_type_arguments/shapes.nomi:Tagged.inspect	ran
 10-generics-and-type-wrappers/embedded_variants_test.nomi:Circle.inspect	ran
 10-generics-and-type-wrappers/embedded_variants_test.nomi:Expired.inspect	ran
 10-generics-and-type-wrappers/embedded_variants_test.nomi:Identifier.inspect	ran
@@ -886,6 +928,13 @@
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<String>.show	ran
 11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi:circle_shape	ran
 11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi:shown	ran
+11-interfaces-and-impls/comparable_defaults_test.nomi:Entry.compare	ran
+11-interfaces-and-impls/comparable_defaults_test.nomi:Entry.inspect	ran
+11-interfaces-and-impls/comparable_defaults_test.nomi:Version.compare	ran
+11-interfaces-and-impls/comparable_defaults_test.nomi:Version.inspect	ran
+11-interfaces-and-impls/comparable_defaults_test.nomi:bounded	ran
+11-interfaces-and-impls/comparable_defaults_test.nomi:bounded	ran
+11-interfaces-and-impls/comparable_defaults_test.nomi:bounded	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:List<Int>.size	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:Maybe<String>.size	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
@@ -933,6 +982,19 @@
 11-interfaces-and-impls/container_impls/protocols.nomi:Int.loud	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Int.show	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Int.zero	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
+11-interfaces-and-impls/container_impls/protocols.nomi:Show.loud	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:String.loud	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:String.show	ran
 11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:Tally.got	ran
@@ -965,6 +1027,19 @@
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Wrap.twice	ran
 11-interfaces-and-impls/cross_file_impls/protocols.nomi:Crate.held	ran
 11-interfaces-and-impls/cross_file_impls/protocols.nomi:Crate.shout	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Gets.twice	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.shout	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.shout	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.shout	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.shout	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.shout	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.shout	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.shout	ran
+11-interfaces-and-impls/cross_file_impls/protocols.nomi:Holds.shout	ran
 11-interfaces-and-impls/cross_file_impls/things.nomi:Bag.got	ran
 11-interfaces-and-impls/cross_file_impls/things.nomi:Bag.inspect	ran
 11-interfaces-and-impls/cross_file_impls/things.nomi:Bag.twice	ran
@@ -982,6 +1057,29 @@
 11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
 11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
 11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
+11-interfaces-and-impls/defaults_through_the_type/shape.nomi:Shape.describe	ran
+11-interfaces-and-impls/defaults_through_the_type/shape.nomi:Shape.describe	ran
+11-interfaces-and-impls/defaults_through_the_type/shape.nomi:Shape.describe	ran
+11-interfaces-and-impls/defaults_through_the_type/shape.nomi:Shape.describe	ran
+11-interfaces-and-impls/defaults_through_the_type/shape.nomi:Shape.doubled	ran
+11-interfaces-and-impls/defaults_through_the_type/shape.nomi:Shape.doubled	ran
+11-interfaces-and-impls/defaults_through_the_type/shape.nomi:Shape.doubled	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Meters.area	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Meters.describe	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Meters.doubled	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Meters.inspect	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Span.area	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Span.describe	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Span.doubled	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Span.inspect	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Square.area	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Square.describe	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Square.doubled	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Square.inspect	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Tile.area	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Tile.describe	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Tile.doubled	ran
+11-interfaces-and-impls/defaults_through_the_type/shapes.nomi:Tile.inspect	ran
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi:has	ran
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi:hashes_alike	ran
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi:kinds	ran
@@ -1128,6 +1226,12 @@
 11-interfaces-and-impls/multiple_instantiations_test.nomi:holds_by	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:number	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:text	ran
+11-interfaces-and-impls/remainder_test.nomi:Minutes.inspect	ran
+11-interfaces-and-impls/remainder_test.nomi:Minutes.remainder	ran
+11-interfaces-and-impls/remainder_test.nomi:rem	ran
+11-interfaces-and-impls/remainder_test.nomi:rem	ran
+11-interfaces-and-impls/remainder_test.nomi:rem	ran
+11-interfaces-and-impls/remainder_test.nomi:trap_text	ran
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Error.inspect	ran
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Error.to_string	ran
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Seed.from_int	ran
@@ -1321,6 +1425,35 @@
 12-derives-and-standard-interfaces/derives_test.nomi:use_off	ran
 12-derives-and-standard-interfaces/display_debug_test.nomi:Greeter.inspect	ran
 12-derives-and-standard-interfaces/display_debug_test.nomi:Greeter.to_string	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Box.inspect	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Labeled.inspect	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Meters.inspect	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Point.inspect	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Shape.inspect	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Tag.equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Tag.inspect	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Wrap.equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Wrap.hash	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:Wrap.inspect	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:boxed	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:digest	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:equal	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:same	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:same	ran
+12-derives-and-standard-interfaces/equality_bounds_test.nomi:same	ran
 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Box.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Box.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Box.inspect	ran
@@ -1608,6 +1741,9 @@
 15-app-and-defer/effects/console.nomi:StdConsole.inspect	ran
 15-app-and-defer/effects/console.nomi:StdConsole.writeln	ran
 15-app-and-defer/effects/dev.nomi:build	ran
+15-app-and-defer/effects/effects.nomi:Logger.info	ran
+15-app-and-defer/effects/effects.nomi:Logger.warn	ran
+15-app-and-defer/effects/effects.nomi:Logger.warn	ran
 15-app-and-defer/effects/greeter.nomi:greet	ran
 15-app-and-defer/effects/log.nomi:ProdLogger.info	ran
 15-app-and-defer/effects/log.nomi:ProdLogger.inspect	ran
@@ -1676,6 +1812,15 @@
 15-app-and-defer/logging/orders_app.nomi:boot failure	ran
 15-app-and-defer/logging/orders_app.nomi:main	ran
 15-app-and-defer/logging/orders_app.nomi:place_order	ran
+15-app-and-defer/release_test.nomi:Draft.commit	ran
+15-app-and-defer/release_test.nomi:Draft.discard	ran
+15-app-and-defer/release_test.nomi:Draft.inspect	ran
+15-app-and-defer/release_test.nomi:Draft.open	ran
+15-app-and-defer/release_test.nomi:Draft.publish	ran
+15-app-and-defer/release_test.nomi:Draft.release	ran
+15-app-and-defer/release_test.nomi:opened	ran
+15-app-and-defer/release_test.nomi:save	ran
+15-app-and-defer/release_test.nomi:scratch	ran
 15-app-and-defer/with_overrides/app.nomi:App.inspect	ran
 15-app-and-defer/with_overrides/app.nomi:Level.inspect	ran
 15-app-and-defer/with_overrides/app.nomi:boot	ran
@@ -1823,6 +1968,11 @@
 17-typed-literals/toml_literal_test.nomi:literal Date`2026-05-04` at 52:11 failure	ran
 17-typed-literals/toml_literal_test.nomi:literal OffsetDateTime`2026-05-04T09:30:00+02:00` at 54:10 failure	ran
 17-typed-literals/toml_literal_test.nomi:literal Time`12:00:00` at 53:12 failure	ran
+17-typed-literals/type_ascription/type_ascription_test.nomi:Post.inspect	ran
+17-typed-literals/type_ascription/type_ascription_test.nomi:Post.name	ran
+17-typed-literals/type_ascription/type_ascription_test.nomi:check Route literal at 20:11 failure	ran
+17-typed-literals/type_ascription/type_ascription_test.nomi:check Route literal at 21:11 failure	ran
+17-typed-literals/type_ascription/type_ascription_test.nomi:has_diagnostic	ran
 17-typed-literals/typed_literals/html_tags.nomi:Raw.from_fragments	ran
 17-typed-literals/typed_literals/html_tags.nomi:Raw.inspect	ran
 17-typed-literals/typed_literals/html_tags.nomi:Safe.from_fragments	ran
@@ -1840,10 +1990,15 @@
 17-typed-literals/typed_literals/typed_literals_test.nomi:Box.to_string	ran
 17-typed-literals/typed_literals/typed_literals_test.nomi:param_strings	ran
 17-typed-literals/typed_literals/typed_literals_test.nomi:render_fragment	ran
+17-typed-literals/url_slots_test.nomi:Slug.inspect	ran
+17-typed-literals/url_slots_test.nomi:Slug.to_string	ran
 17-typed-literals/url_slots_test.nomi:breaks	ran
 17-typed-literals/url_slots_test.nomi:check Url literal at 44:13 failure	ran
 17-typed-literals/url_slots_test.nomi:check Url literal at 53:13 failure	ran
 17-typed-literals/url_slots_test.nomi:check Url literal at 62:13 failure	ran
+17-typed-literals/url_slots_test.nomi:check Url literal at 84:13 failure	ran
+17-typed-literals/url_slots_test.nomi:check Url literal at 85:13 failure	ran
+17-typed-literals/url_slots_test.nomi:check Url literal at 94:9 failure	ran
 17-typed-literals/url_slots_test.nomi:climbs	ran
 18-ffi-and-dynamic/callback_ffi_app/ffi.nomi:apply_twice	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/callback_ffi_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
@@ -2481,11 +2636,11 @@
 20-data-access/sessions_test.nomi:`!` failure Error	ran
 20-data-access/sessions_test.nomi:app	ran
 20-data-access/sessions_test.nomi:carry	ran
+20-data-access/sessions_test.nomi:check Route literal at 46:13 failure	ran
+20-data-access/sessions_test.nomi:check Route literal at 51:13 failure	ran
+20-data-access/sessions_test.nomi:check Route literal at 56:13 failure	ran
 20-data-access/sessions_test.nomi:get	ran
 20-data-access/sessions_test.nomi:home	ran
-20-data-access/sessions_test.nomi:literal Route`GET /` at 45:11 failure	ran
-20-data-access/sessions_test.nomi:literal Route`POST /sign-in` at 46:11 failure	ran
-20-data-access/sessions_test.nomi:literal Route`POST /sign-out` at 47:11 failure	ran
 20-data-access/sessions_test.nomi:sign_in	ran
 20-data-access/sessions_test.nomi:sign_out	ran
 20-data-access/sessions_test.nomi:signed_in	ran
@@ -2523,11 +2678,11 @@
 20-data-access/sql_test.nomi:user_row	ran
 20-data-access/storage_test.nomi:`!` failure Error	ran
 20-data-access/storage_test.nomi:`!` failure Error	ran
-20-data-access/storage_test.nomi:check Url literal at 182:37 failure	ran
+20-data-access/storage_test.nomi:check Route literal at 186:40 failure	ran
+20-data-access/storage_test.nomi:check Url literal at 184:37 failure	ran
 20-data-access/storage_test.nomi:check Url literal at 20:57 failure	ran
 20-data-access/storage_test.nomi:check Url literal at 58:35 failure	ran
 20-data-access/storage_test.nomi:fresh_local	ran
-20-data-access/storage_test.nomi:literal Route`GET /files/{key...}` at 183:28 failure	ran
 20-data-access/storage_test.nomi:serve	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.begin	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.close	ran
@@ -2549,6 +2704,8 @@
 20-data-access/transactions_test.nomi:NeverCloses.ping	ran
 20-data-access/transactions_test.nomi:NeverCloses.query	ran
 20-data-access/transactions_test.nomi:NeverCloses.rollback	ran
+20-data-access/transactions_test.nomi:add_then	ran
+20-data-access/transactions_test.nomi:add_then_trap	ran
 20-data-access/transactions_test.nomi:expect_closed	ran
 20-data-access/transactions_test.nomi:insert	ran
 20-data-access/transactions_test.nomi:is_all_closed	ran
@@ -2628,7 +2785,7 @@ exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1980-11-10
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1988-10-23` at 28:32 failure	ran
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1997-08-04` at 38:14 failure	ran
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1999-10-23` at 28:14 failure	ran
-exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2000-01-01` at 15:29 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2000-01-01` at 15:28 failure	ran
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2000-01-01` at 18:14 failure	ran
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2000-01-01` at 18:32 failure	ran
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2001-07-29` at 48:50 failure	ran
@@ -2839,14 +2996,14 @@ exercism/game-of-life/game_of_life.nomi:tick	ran
 exercism/gigasecond/gigasecond.nomi:add	ran
 exercism/gigasecond/gigasecond_test.nomi:literal Date`1959-07-19` at 16:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal Date`1977-06-13` at 11:13 failure	ran
-exercism/gigasecond/gigasecond_test.nomi:literal Date`2011-04-25` at 8:46 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal Date`2011-04-25` at 8:45 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`1991-03-27T01:46:40` at 17:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2009-02-19T01:46:40` at 12:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T22:00:00` at 29:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 34:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 44:14 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 47:22 failure	ran
-exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2043-01-01T01:46:40` at 8:64 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2043-01-01T01:46:40` at 8:63 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-02T23:46:40` at 30:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-03T01:46:39` at 35:13 failure	ran
 exercism/go-counting/go_counting.nomi:Owner.equal	ran
@@ -3047,8 +3204,8 @@ exercism/meetup/meetup_test.nomi:literal Date`2013-03-18` at 406:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-03-19` at 38:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-03-24` at 614:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-03-25` at 518:13 failure	ran
-exercism/meetup/meetup_test.nomi:literal Date`2013-03-25` at 624:80 failure	ran
-exercism/meetup/meetup_test.nomi:literal Date`2013-03-31` at 685:80 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-25` at 624:79 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-31` at 685:79 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-04-01` at 190:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-04-07` at 286:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-04-08` at 302:13 failure	ran
@@ -3060,8 +3217,8 @@ exercism/meetup/meetup_test.nomi:literal Date`2013-04-19` at 110:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-04-21` at 510:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-04-22` at 526:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-04-28` at 622:13 failure	ran
-exercism/meetup/meetup_test.nomi:literal Date`2013-04-28` at 686:80 failure	ran
-exercism/meetup/meetup_test.nomi:literal Date`2013-04-29` at 625:80 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-28` at 686:79 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-29` at 625:79 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-05-07` at 198:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-05-13` at 14:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-05-14` at 310:13 failure	ran
@@ -3069,7 +3226,7 @@ exercism/meetup/meetup_test.nomi:literal Date`2013-05-16` at 86:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-05-19` at 158:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-05-21` at 422:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-05-28` at 534:13 failure	ran
-exercism/meetup/meetup_test.nomi:literal Date`2013-05-28` at 626:83 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-28` at 626:82 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-06-04` at 206:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-06-11` at 318:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-06-13` at 94:13 failure	ran
@@ -3110,12 +3267,12 @@ exercism/meetup/meetup_test.nomi:literal Date`2013-11-01` at 246:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-11-08` at 358:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-11-15` at 470:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-11-22` at 582:13 failure	ran
-exercism/meetup/meetup_test.nomi:literal Date`2013-11-29` at 667:81 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-11-29` at 667:80 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-12-06` at 254:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-12-13` at 366:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-12-20` at 478:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-12-27` at 590:13 failure	ran
-exercism/meetup/meetup_test.nomi:literal Date`2013-12-27` at 668:81 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-12-27` at 668:80 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2014-12-31` at 701:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2015-02-22` at 709:13 failure	ran
 exercism/micro-blog/micro_blog.nomi:truncate	ran
@@ -3446,8 +3603,8 @@ exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:Step.inspect	ra
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:command	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 157:29 failure	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 191:74 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 65:75 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 66:64 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 65:74 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 66:63 failure	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 191:31 failure	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 197:26 failure	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 201:32 failure	ran
@@ -3799,6 +3956,7 @@ std/fs.nomi:lines	ran
 std/fs.nomi:link_metadata	ran
 std/fs.nomi:list	ran
 std/fs.nomi:listed	ran
+std/fs.nomi:make_temp_dir	ran
 std/fs.nomi:metadata	ran
 std/fs.nomi:metadata_of	ran
 std/fs.nomi:mode_code	ran
@@ -3810,7 +3968,7 @@ std/fs.nomi:read_link	ran
 std/fs.nomi:read_text	ran
 std/fs.nomi:remove	ran
 std/fs.nomi:remove_all	ran
-std/fs.nomi:remove_quietly	ran
+std/fs.nomi:remove_all_quietly	ran
 std/fs.nomi:rename	ran
 std/fs.nomi:set_mode	ran
 std/fs.nomi:temp_dir	ran
@@ -3818,22 +3976,6 @@ std/fs.nomi:walk	ran
 std/fs.nomi:walk_dir	ran
 std/fs.nomi:walk_entries	ran
 std/fs.nomi:walk_matches	ran
-std/fs.nomi:with_file	ran
-std/fs.nomi:with_file default 2	ran
-std/fs.nomi:with_reader	ran
-std/fs.nomi:with_reader	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_temp_dir	ran
-std/fs.nomi:with_writer	ran
-std/fs.nomi:with_writer	ran
-std/fs.nomi:with_writer default 2	ran
 std/fs.nomi:within	ran
 std/fs.nomi:within	ran
 std/fs.nomi:within	ran
@@ -3876,6 +4018,7 @@ std/fs_testing.nomi:Sandbox.failures default	ran
 std/fs_testing.nomi:Sandbox.files default	ran
 std/fs_testing.nomi:Sandbox.inspect	ran
 std/fs_testing.nomi:Sandbox.links default	ran
+std/fs_testing.nomi:abandoned_write	ran
 std/fs_testing.nomi:bytes_of	ran
 std/fs_testing.nomi:check	ran
 std/fs_testing.nomi:check	ran
@@ -4029,6 +4172,7 @@ std/http.nomi:Client.new	NETWORK: declared in std/http, std/net or std/tls, so i
 std/http.nomi:Client.new default 1	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Client.post	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Client.post_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.stream	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.cookies default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.max_body default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4073,6 +4217,8 @@ std/http.nomi:CrossOrigin.deny default	NETWORK: declared in std/http, std/net or
 std/http.nomi:CrossOrigin.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:CrossOrigin.trusted_origins default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Display.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Entry.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Entry.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.from_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4160,6 +4306,7 @@ std/http.nomi:Request.limit_body	NETWORK: declared in std/http, std/net or std/t
 std/http.nomi:Request.local_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.media_type	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.multipart_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.path_value	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.path_values default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.pattern default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4217,11 +4364,15 @@ std/http.nomi:Response.write_timeout default	NETWORK: declared in std/http, std/
 std/http.nomi:Response.write_to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ReverseProxy.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ReverseProxy.to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.build	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.check	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.check_type	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Route.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Route.from_fragments	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Route.hash	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Route.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Route.parse	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.path	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.path_with	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Route.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Router.find	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Router.handler	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4270,6 +4421,10 @@ std/http.nomi:Status.is_success	NETWORK: declared in std/http, std/net or std/tl
 std/http.nomi:Status.line	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Status.text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Status.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:StreamedResponse.close	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:StreamedResponse.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:StreamedResponse.of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:StreamedResponse.release	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:TraceEvent.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:TraceEvent.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Tracer.events	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4281,8 +4436,12 @@ std/http.nomi:`!` failure UrlError	NETWORK: declared in std/http, std/net or std
 std/http.nomi:accept	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:accepted_codings	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:allow_query_semicolons	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:an unsupported type.to_with	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:answer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:basic_auth	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:brace_in_segment	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:brace_or_mux_reason	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:brace_rule	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:chunked_reader	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:chunked_writer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:compress	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4330,14 +4489,20 @@ std/http.nomi:listen	NETWORK: declared in std/http, std/net or std/tls, so it is
 std/http.nomi:listen default 1	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:log_requests	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:method_override	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:method_rule	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:multipart_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:multipart_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:multipart_raw_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:mux_reason	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:nanos	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:not_found	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:one_edit_apart	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:pairs	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:param_fields	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:params_error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:parse_time	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:parts_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:pattern_reason	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:post	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:post_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:protocol_flags	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4356,6 +4521,9 @@ std/http.nomi:respond	NETWORK: declared in std/http, std/net or std/tls, so it i
 std/http.nomi:response_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:reverse_proxy	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:rooted	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:route_methods	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:route_path	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:route_wildcards	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:security_headers	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:security_headers default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:send	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4366,18 +4534,22 @@ std/http.nomi:serve_embedded default 4	NETWORK: declared in std/http, std/net or
 std/http.nomi:serve_file	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:serve_here	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:set_listed	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:stray_brace	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:stream	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:strip_prefix	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:take_requests	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:text_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:timeout	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:typed	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:vary_on	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:wildcard_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:wire_length	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:wire_parts_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:wire_request	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:wire_response	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:without_hop_headers	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:wrap_routes	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:wrap_serve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:write_multipart	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http_testing.nomi:TestServer.close_client_connections	ran
 std/http_testing.nomi:TestServer.inspect	ran
@@ -4806,6 +4978,13 @@ std/net.nomi:serve	NETWORK: declared in std/http, std/net or std/tls, so it is n
 std/net.nomi:split_host_port	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:srv_records	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:unix	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/parse.nomi:Int.parse	ran
+std/parse.nomi:String.parse	ran
+std/parse.nomi:Unit.field_names	ran
+std/parse.nomi:Unit.field_texts	ran
+std/parse.nomi:Unit.parse_fields	ran
+std/parse.nomi:read_fields	ran
+std/parse.nomi:write_fields	ran
 std/passwords.nomi:Display.to_string	ran
 std/passwords.nomi:Pbkdf2.hash	ran
 std/passwords.nomi:Pbkdf2.inspect	ran
@@ -4885,6 +5064,8 @@ std/phrase.nomi:text	ran
 std/phrase.nomi:time	ran
 std/phrase.nomi:variant	ran
 std/process.nomi:Child.inspect	ran
+std/process.nomi:Child.kill	ran
+std/process.nomi:Child.release	ran
 std/process.nomi:Child.stderr	ran
 std/process.nomi:Child.stdin	ran
 std/process.nomi:Child.stdout	ran
@@ -4908,9 +5089,9 @@ std/process.nomi:Status.to_string	ran
 std/process.nomi:Stdin.inspect	ran
 std/process.nomi:output	ran
 std/process.nomi:run	ran
+std/process.nomi:spawn	ran
 std/process.nomi:start	ran
 std/process.nomi:stdin_of	ran
-std/process.nomi:with_spawned	ran
 std/process_testing.nomi:Answer.args default	ran
 std/process_testing.nomi:Answer.code default	ran
 std/process_testing.nomi:Answer.error default	ran
@@ -5103,9 +5284,6 @@ std/sql.nomi:transaction	ran
 std/sql.nomi:transaction	ran
 std/sql.nomi:transaction	ran
 std/sql.nomi:where_of	ran
-std/sql.nomi:with_connection	ran
-std/sql.nomi:with_connection	ran
-std/sql.nomi:with_connection	ran
 std/sql_testing.nomi:Failure.equal	ran
 std/sql_testing.nomi:Failure.inspect	ran
 std/sql_testing.nomi:Failure.to_string	ran
@@ -5138,6 +5316,7 @@ std/sql_testing.nomi:checks	ran
 std/sql_testing.nomi:child_violation	ran
 std/sql_testing.nomi:children_table	ran
 std/sql_testing.nomi:close	ran
+std/sql_testing.nomi:closing	ran
 std/sql_testing.nomi:commit	ran
 std/sql_testing.nomi:conformance	ran
 std/sql_testing.nomi:conformance	ran
@@ -5222,6 +5401,8 @@ std/storage.nomi:Local.type_path	ran
 std/storage.nomi:Local.url	ran
 std/storage.nomi:Object.equal	ran
 std/storage.nomi:Object.inspect	ran
+std/storage.nomi:Store.exists	ran
+std/storage.nomi:Store.exists	ran
 std/storage.nomi:byte_length	ran
 std/storage.nomi:check_content_type	ran
 std/storage.nomi:check_key	ran

@@ -40,14 +40,14 @@ struct Card {
 pub fn best_hands(hands: List<String>) -> Result<List<String>, Error> {
     scored =
         hands
-        |> Iter.map(fn hand -> Ok(#(hand, score(hand)?)))
+        |> Iter.map(fn hand -> Ok((hand, score(hand)?)))
         |> Result.collect()?
 
-    Some(best) = scored |> Iter.map(.1) |> Iter.max() else { return Ok([]) }
+    Some(best) = scored |> Iter.map(.second) |> Iter.max() else { return Ok([]) }
 
     scored
-    |> Iter.filter(fn #(_hand, score) -> score == best)
-    |> Iter.map(.0)
+    |> Iter.filter(fn (_hand, score) -> score == best)
+    |> Iter.map(.first)
     |> Iter.to_list()
     |> Ok()
 }
@@ -66,23 +66,23 @@ fn score(hand: String) -> Result<Score, Error> {
         cards
         |> Iter.map(.rank)
         |> Iter.frequencies()
-        |> Iter.sort_by(.Descending, fn #(rank, count) -> #(count, rank))
+        |> Iter.sort_by(.Descending, fn (rank, count) -> (count, rank))
 
-    counts = groups |> Iter.map(.1) |> Iter.to_list()
-    ranks = groups |> Iter.map(.0) |> Iter.to_list()
+    counts = groups |> Iter.map(.second) |> Iter.to_list()
+    ranks = groups |> Iter.map(.first) |> Iter.to_list()
     flush = cards |> Iter.map(.suit) |> Iter.to_set() |> Set.size() == 1
 
     Ok(
-        case #(counts, straight(ranks), flush) {
-            #([4, 1], _, _) -> #{category: .FourOfAKind, ranks}
-            #([3, 2], _, _) -> #{category: .FullHouse, ranks}
-            #([3, 1, 1], _, _) -> #{category: .ThreeOfAKind, ranks}
-            #([2, 2, 1], _, _) -> #{category: .TwoPair, ranks}
-            #([2, 1, 1, 1], _, _) -> #{category: .OnePair, ranks}
-            #(_, Some(high), True) -> #{category: .StraightFlush, ranks: high}
-            #(_, Some(high), False) -> #{category: .Straight, ranks: high}
-            #(_, None, True) -> #{category: .Flush, ranks}
-            #(_, None, False) -> #{category: .HighCard, ranks}
+        case (counts, straight(ranks), flush) {
+            ([4, 1], _, _) -> #{category: .FourOfAKind, ranks}
+            ([3, 2], _, _) -> #{category: .FullHouse, ranks}
+            ([3, 1, 1], _, _) -> #{category: .ThreeOfAKind, ranks}
+            ([2, 2, 1], _, _) -> #{category: .TwoPair, ranks}
+            ([2, 1, 1, 1], _, _) -> #{category: .OnePair, ranks}
+            (_, Some(high), True) -> #{category: .StraightFlush, ranks: high}
+            (_, Some(high), False) -> #{category: .Straight, ranks: high}
+            (_, None, True) -> #{category: .Flush, ranks}
+            (_, None, False) -> #{category: .HighCard, ranks}
         }
     )
 }

@@ -113,7 +113,7 @@ impl Store for Memory {
 
         entries =
             peek(memory).objects
-            |> Iter.map(fn #(key, object) -> Entry{
+            |> Iter.map(fn (key, object) -> Entry{
                 key,
                 size: object.info.size,
                 modified: object.info.modified,
@@ -160,7 +160,7 @@ impl Store for Failing {
         data: Bytes,
         content_type: String,
     ) -> Result<Unit, Error> {
-        _ = #(key, data, content_type)
+        _ = (key, data, content_type)
         Err(failing.error)
     }
 
@@ -224,7 +224,7 @@ impl Display for Broken {
 //
 pub fn conformance(open: () -> Result<Store, Error>) -> List<Broken> {
     checks()
-    |> Iter.flat_map(fn #(rule, check) -> {
+    |> Iter.flat_map(fn (rule, check) -> {
         outcome = case open() {
             Ok(store) -> check(store)
             Err(e) -> Err("cannot open a store: ${e}")
@@ -243,7 +243,7 @@ pub fn conformance(open: () -> Result<Store, Error>) -> List<Broken> {
 //! assert Iter.contains(rules(), "an object of 5 MiB round-trips")
 //
 pub fn rules() -> List<String> {
-    checks() |> Iter.map(fn #(rule, _) -> rule) |> Iter.to_list()
+    checks() |> Iter.map(fn (rule, _) -> rule) |> Iter.to_list()
 }
 
 /// The keys every function of a backend must refuse with `InvalidKey`.
@@ -392,22 +392,22 @@ fn paged(store: Store, options: ListOptions, left: Int) -> Result<List<List<Stri
     }
 }
 
-fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
+fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
     [
-        #(
+        (
             "a put is read back with its bytes, type and size",
             fn store -> {
                 round_trips(store, "conformance/a.txt", bytes("hello"), "text/plain; charset=utf-8")
             },
         ),
-        #(
+        (
             "a second put replaces the first",
             fn store -> {
                 put_object(store, "conformance/a.txt", bytes("first"), "text/plain")?
                 round_trips(store, "conformance/a.txt", bytes("second, longer"), "application/json")
             },
         ),
-        #(
+        (
             "a missing key is NotFound to get, None to info, False to exists and Ok to delete",
             fn store -> {
                 key = "conformance/missing.txt"
@@ -439,7 +439,7 @@ fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "a deleted object is gone",
             fn store -> {
                 key = "conformance/gone.txt"
@@ -463,7 +463,7 @@ fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
                 )
             },
         ),
-        #(
+        (
             "every function refuses an invalid key and stores nothing",
             fn store -> {
                 probe = bytes("probe")
@@ -525,7 +525,7 @@ fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
                 |> Result.map(fn _ -> Unit)
             },
         ),
-        #(
+        (
             "put refuses an invalid content type",
             fn store -> {
                 key = "conformance/typed.txt"
@@ -544,26 +544,26 @@ fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
                 expect(Store.info(store, key) == Ok(None), "a refused put stored an object")
             },
         ),
-        #(
+        (
             "an empty object round-trips",
             fn store -> {
                 round_trips(store, "conformance/empty", bytes(""), "application/octet-stream")
             },
         ),
-        #(
+        (
             "every byte value round-trips",
             fn store -> {
                 round_trips(store, "conformance/bytes.bin", all_bytes(), "application/octet-stream")
             },
         ),
-        #(
+        (
             "an object of 5 MiB round-trips",
             fn store -> {
                 data = bytes(String.repeat("0123456789abcdef", 5 * 1024 * 64))
                 round_trips(store, "conformance/large.bin", data, "application/octet-stream")
             },
         ),
-        #(
+        (
             "keys with punctuation, spaces and other scripts round-trip",
             fn store -> {
                 _ =
@@ -598,7 +598,7 @@ fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
                 Ok(Unit)
             },
         ),
-        #(
+        (
             "list returns the keys under a prefix in order, folds a delimiter's prefixes and pages",
             fn store -> {
                 base = "conformance/list/"
@@ -660,7 +660,7 @@ fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
                 }
             },
         ),
-        #(
+        (
             "url answers a URL whose path ends with the key, or NoPublicUrl",
             fn store -> {
                 key = "conformance/linked.txt"

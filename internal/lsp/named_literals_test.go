@@ -24,7 +24,7 @@ func TestCompletion_InsideNamedCollectionLiteralsOffersValues(t *testing.T) {
 // names, so hover, go-to-definition and semantic tokens read it as a type;
 // the symbol itself names nothing.
 func TestHover_NamedShapeLiteralHeads(t *testing.T) {
-	const decls = "type Path Vector<Int>\ntype Tags Set<String>\ntype Kvs Map<String, Int>\ntype Pair #(Int, Int)\nstruct Point {\n    x: Int\n}\n\n"
+	const decls = "type Path Vector<Int>\ntype Tags Set<String>\ntype Kvs Map<String, Int>\ntype Pair (Int, Int)\nstruct Point {\n    x: Int\n}\n\n"
 	for _, tc := range []struct{ src, want string }{
 		{decls + "fn f() -> Path {\n    #▮Path[1]\n}\n", "Path"},
 		{decls + "fn f() -> Tags {\n    %▮Tags[\"a\"]\n}\n", "Tags"},

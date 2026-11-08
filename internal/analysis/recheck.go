@@ -826,10 +826,20 @@ func shiftDeclarations(p *CheckedProgram, fa *FileAnalysis, shift positionMap, n
 	for _, child := range fa.ModuleScope.Children[:k.scopes] {
 		scope(child)
 	}
-	if len(anonFields) > 0 {
+	// So are the fields of one an anonymous literal here declares, which
+	// name this file (FieldDef.File): an unannotated `once`'s type keeps
+	// them, and the files that read the once find the labels by them. A
+	// label inside the edit has no place to move to and goes to zero, which
+	// the once's inference again tells from its new place (OnceTable.reinfer).
+	if len(anonFields) > 0 || path != "" {
 		types := map[Type]bool{}
+		moved := map[*FieldDef]bool{}
 		move := func(f *FieldDef) {
-			if name, ok := anonFields[Pos{Line: f.Line, Col: f.Col}]; ok && name == f.Name {
+			if moved[f] {
+				return
+			}
+			if name, ok := anonFields[Pos{Line: f.Line, Col: f.Col}]; ok && name == f.Name || path != "" && f.File == path {
+				moved[f] = true
 				f.Line, f.Col, _ = shift.at(f.Line, f.Col)
 			}
 		}

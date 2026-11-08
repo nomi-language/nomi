@@ -4,18 +4,18 @@ test "seeded generators produce deterministic values" {
     seed = Seed.from_int(123)
     die = Generator.int(1, 6)
 
-    #(roll, seed) = die |> Generator.step(seed)
+    (roll, seed) = die |> Generator.step(seed)
 
     assert roll == 2
 
-    #(hand, seed) =
+    (hand, seed) =
         die
         |> Generator.list(3)
         |> Generator.step(seed)
 
     assert hand == [1, 5, 2]
 
-    #(choice, _) =
+    (choice, _) =
         Generator.uniform("rock", ["paper", "scissors"])
         |> Generator.step(seed)
 
@@ -26,7 +26,7 @@ test "random generators compose dependent draws" {
     seed = Seed.from_int(123)
     size = Generator.int(1, 4)
 
-    #(sized, _) =
+    (sized, _) =
         size
         |> Generator.flat_map(fn n -> Generator.list(Generator.bool(), n))
         |> Generator.step(seed)
@@ -35,12 +35,12 @@ test "random generators compose dependent draws" {
 }
 
 test "weighted generators require positive total weight" {
-    assert Generator.weighted(#(0.0, "never"), [])
+    assert Generator.weighted((0.0, "never"), [])
         |> Result.is_err()
 }
 
 test "weighted generators reject negative weights" {
-    assert Generator.weighted(#(-1.0, "bad"), [])
+    assert Generator.weighted((-1.0, "bad"), [])
         |> Result.is_err()
 }
 
@@ -48,7 +48,7 @@ test "an integer range of any width draws in range" {
     seed = Seed.from_int(2026)
     top = Int.pow(2, 63) - 1
 
-    #(all, _) =
+    (all, _) =
         Generator.int(-top - 1, top)
         |> Generator.list(8)
         |> Generator.step(seed)
@@ -57,7 +57,7 @@ test "an integer range of any width draws in range" {
     assert all |> Iter.any(&(&1 < 0))
     assert all |> Iter.any(&(&1 > 0))
 
-    #(wide, _) =
+    (wide, _) =
         Generator.int(-5, top)
         |> Generator.list(8)
         |> Generator.step(seed)
@@ -65,19 +65,19 @@ test "an integer range of any width draws in range" {
     assert wide |> Iter.all(&(&1 >= -5))
     assert wide |> Iter.any(&(&1 > top / 2))
 
-    #(low, _) =
+    (low, _) =
         Generator.int(-top - 1, 0)
         |> Generator.list(8)
         |> Generator.step(seed)
 
     assert low |> Iter.all(&(&1 <= 0))
 
-    #(one, _) = Generator.int(top, top) |> Generator.step(seed)
+    (one, _) = Generator.int(top, top) |> Generator.step(seed)
     assert one == top
 
     huge = Int.pow(10, 40)
 
-    #(past, _) =
+    (past, _) =
         Generator.int(-huge, huge)
         |> Generator.list(16)
         |> Generator.step(seed)
@@ -88,7 +88,7 @@ test "an integer range of any width draws in range" {
 }
 
 test "a float range wider than a Float can span draws in range" {
-    #(xs, _) =
+    (xs, _) =
         Generator.float(-1.0e308, 1.0e308)
         |> Generator.list(8)
         |> Generator.step(Seed.from_int(2026))

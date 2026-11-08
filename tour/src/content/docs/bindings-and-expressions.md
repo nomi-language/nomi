@@ -345,14 +345,17 @@ dbg line 9:
 
 `%{}` alone could be a map of any key and value types, so you say which.
 The empty literals `[]`, `#[]`, `%[]` and `%{}` are each collection's empty
-value, and each needs its type from somewhere. There are two ways to give a
-type:
+value, and each needs its type from somewhere. There are three ways to give
+a type:
 
 - Annotate the binding: `scores: Map<String, Int> = %{}`. Use this when you
   name the value.
 - Give type arguments to a call: `Iter.to_map<String, Int>([])`. Use this
   when the value goes straight into a pipe or another call. `Iter.to_map`
   builds a map from pairs; [Collections](/collections/) covers it.
+- Write `as` after the value: `#{name: "Ada", tags: [] as List<String>}`.
+  Use this where no annotation fits, such as a field of an anonymous
+  struct. `as` only states the type; it never converts a value.
 
 Without either, the compiler reports that the binding's type is not locally
 determined.

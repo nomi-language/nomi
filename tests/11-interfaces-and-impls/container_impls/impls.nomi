@@ -21,7 +21,7 @@ impl Show for Set<T> where T: Show {
 
 impl Show for Map<String, V> where V: Show {
     fn show(m: Map<String, V>) -> String {
-        m |> Iter.map(fn #(k, v) -> "${k}=${V.show(v)}") |> String.join(",")
+        m |> Iter.map(fn (k, v) -> "${k}=${V.show(v)}") |> String.join(",")
     }
 }
 

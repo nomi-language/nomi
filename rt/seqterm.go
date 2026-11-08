@@ -240,7 +240,7 @@ func SeqDropWhile[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 // where Go requires `comparable`. The
 // caller resolves both from the key's type.
 
-// SeqToMap is `pub host fn to_map<K, V>(source: Iter<#(K, V)>) -> Map<K, V>`.
+// SeqToMap is `pub host fn to_map<K, V>(source: Iter<(K, V)>) -> Map<K, V>`.
 //
 // The element is a Nomi tuple, which lowers to a per-package anonymous Go struct
 // this package cannot name — so the two projections arrive as closures the call

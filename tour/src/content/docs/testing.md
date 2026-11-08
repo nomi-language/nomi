@@ -206,8 +206,8 @@ fn is_palindrome(text: String) -> Bool {
 }
 
 test "determines palindromes" {
-    [#("abba", True), #("abc", False), #("x", True)]
-    |> subtests #(line, known_palindrome) {
+    [("abba", True), ("abc", False), ("x", True)]
+    |> subtests (line, known_palindrome) {
         assert is_palindrome(line) == known_palindrome
     }
 }
@@ -220,17 +220,17 @@ test result: ok. 3 passed, 0 failed
 The body runs once for each row, in order. The pattern after `subtests` names
 the parts of the row. The rows can be a list, a range, a map's entries or any
 other `Iter`. The `|> subtests` stage ends its pipeline and stands as a
-statement; `subtests cases, #(line, known_palindrome) { ... }` is the same
+statement; `subtests cases, (line, known_palindrome) { ... }` is the same
 check with rows you bound to a name.
 
 A failed assertion ends its row, and the next row still runs. After the last
 row, the test fails if any row failed. The report shows each failed row, then
-how many failed. If the second row were `#("abc", True)`, the test above would
+how many failed. If the second row were `("abc", True)`, the test above would
 report:
 
 ```console
 FAIL palindrome_test.nomi :: determines palindromes
-  subtest #("abc", True): line 8: assertion failed
+  subtest ("abc", True): line 8: assertion failed
     assert is_palindrome(line) == known_palindrome
     values:
       line
@@ -260,11 +260,11 @@ fn is_leap_year(year: Int) -> Bool {
 
 test "leap years" {
     [
-        #("year divisible by 400 is leap year", 2000, True),
-        #("year divisible by 100, not divisible by 400 in common year", 1900, False),
-        #("year divisible by 4, not divisible by 100 in leap year", 1996, True),
+        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 100, not divisible by 400 in common year", 1900, False),
+        ("year divisible by 4, not divisible by 100 in leap year", 1996, True),
     ]
-    |> subtests #(description, year, expected), description {
+    |> subtests (description, year, expected), description {
         assert is_leap_year(year) == expected
     }
 }
@@ -292,7 +292,7 @@ FAIL leap_test.nomi :: leap years
 ```
 
 You can also build a name from the row, as in
-`|> subtests #(a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
+`|> subtests (a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
 name it `_` as usual.
 
 <div class="tour-details">
@@ -501,7 +501,7 @@ A test sees only the value `setup` returns. Names bound inside the `setup`
 block don't reach the tests.
 
 The value can be anything. A test can bind a record with `#{name, role}`, a
-tuple with `#(left, right)`, or the whole value with a name, as in
+tuple with `(left, right)`, or the whole value with a name, as in
 `test "loads rows", db { ... }`. The pattern has to match every value setup
 can produce, so a pattern such as `Some(n)` is an error. Bind a name instead,
 and match it in the test's body.

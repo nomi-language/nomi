@@ -27,7 +27,7 @@ type Wrapped Circle
 
 type UserId String
 
-type Pair #(Int, Int)
+type Pair (Int, Int)
 
 type Ids List<Int>
 
@@ -109,7 +109,7 @@ fn literal(s: Shape) -> String {
 
 fn tuple(s: Shape) -> String {
   case s {
-    Shape.Pair(#(1, b)) -> "pair ${b}"
+    Shape.Pair((1, b)) -> "pair ${b}"
     _ -> "pair miss"
   }
 }
@@ -143,8 +143,8 @@ fn again(s: Shape) -> String {
 }
 
 fn pair_fallback(s: Shape) -> String {
-  Shape.Pair(#(a, b)) = s else {
-    #(0, 0)
+  Shape.Pair((a, b)) = s else {
+    (0, 0)
   }
   "pair fallback ${a} ${b}"
 }
@@ -174,8 +174,8 @@ fn main() {
   io.print(mid_case(Shape.Dot))
   io.print(literal(Shape.UserId("ann")))
   io.print(literal(Shape.UserId("bob")))
-  io.print(tuple(Shape.Pair(#(1, 9))))
-  io.print(tuple(Shape.Pair(#(2, 9))))
+  io.print(tuple(Shape.Pair((1, 9))))
+  io.print(tuple(Shape.Pair((2, 9))))
   io.print(list(Shape.Ids([4, 5])))
   io.print(list(Shape.Ids([])))
   io.print(map(Shape.Kvs(%{"k" => 3})))
@@ -184,7 +184,7 @@ fn main() {
   io.print(distinct(Shape.Dot))
   io.print(again(Shape.Again(Wrapped(Circle{r: 6}))))
   io.print(again(Shape.Dot))
-  io.print(pair_fallback(Shape.Pair(#(3, 4))))
+  io.print(pair_fallback(Shape.Pair((3, 4))))
   io.print(pair_fallback(Shape.Dot))
   io.print(again_fallback(Shape.Again(Wrapped(Circle{r: 7}))))
   io.print(again_fallback(Shape.Dot))
@@ -352,10 +352,10 @@ fn list(xs: List<Shape>) -> String {
   }
 }
 
-fn tuple(t: #(Shape, Int)) -> String {
+fn tuple(t: (Shape, Int)) -> String {
   case t {
-    #(Shape.Wrapped(#{r}), n) -> "tuple ${r + n}"
-    #(_, n) -> "tuple ${n}"
+    (Shape.Wrapped(#{r}), n) -> "tuple ${r + n}"
+    (_, n) -> "tuple ${n}"
   }
 }
 
@@ -372,8 +372,8 @@ fn main() {
   io.print(plain(Some(Circle{r: 4})))
   io.print(list([Shape.Dot]))
   io.print(list([Wrapped(Circle{r: 5}), Shape.Dot]))
-  io.print(tuple(#(Shape.Dot, 1)))
-  io.print(tuple(#(Wrapped(Circle{r: 6}), 1)))
+  io.print(tuple((Shape.Dot, 1)))
+  io.print(tuple((Wrapped(Circle{r: 6}), 1)))
   h = Holder{shape: Some(Shape.Dot)}
   io.print(maybe(h.shape))
   shapes: List<Shape> = [Wrapped(Circle{r: 8}), Shape.Dot]

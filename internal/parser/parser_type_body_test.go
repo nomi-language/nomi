@@ -541,7 +541,7 @@ func TestParseExternType_WithBodyRejected(t *testing.T) {
 }
 
 impl iter for List<T> {
-  host fn next(list: self) -> Maybe<#(T, self)>
+  host fn next(list: self) -> Maybe<(T, self)>
 }
 
 `

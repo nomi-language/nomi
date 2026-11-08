@@ -15,7 +15,7 @@ import (
 // with `+`, two typed spreads, the branches of an `if` or `case` and the
 // elements of an unannotated list are refused when they differ, even
 // where both convert to one type. An annotation says the way. The help
-// names it as source to paste: `annotate the binding: `mine: List<#(Route,
+// names it as source to paste: `annotate the binding: `mine: List<(Route,
 // Handler)> = ...``.
 //
 // The suggested type is found in this order:
@@ -160,7 +160,7 @@ func (c *checker) spellType(t Type, depth int) (string, bool) {
 			return "Unit", true
 		}
 		elems, ok := each(v.Elems)
-		return "#(" + strings.Join(elems, ", ") + ")", ok
+		return "(" + strings.Join(elems, ", ") + ")", ok
 	case *FuncType:
 		if v.DefaultCount != 0 || len(v.WhereBounds) != 0 {
 			return "", false
@@ -331,7 +331,7 @@ func (j *annotationJoin) joinParts(a, b Type, depth int) (string, bool) {
 				return "", false
 			}
 		}
-		return "#(" + strings.Join(parts, ", ") + ")", true
+		return "(" + strings.Join(parts, ", ") + ")", true
 	case *FuncType:
 		bv, ok := b.(*FuncType)
 		if !ok || len(av.Params) != len(bv.Params) || av.DefaultCount != 0 || bv.DefaultCount != 0 ||

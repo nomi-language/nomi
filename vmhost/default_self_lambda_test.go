@@ -29,12 +29,12 @@ const defaultSelfLambdaIface = `interface Temperature {
     }
 
     fn looped(t: self) -> String {
-        #(c, n) = Iter.loop(#(t, 0), fn state -> {
-            #(c, n) = state
+        (c, n) = Iter.loop((t, 0), fn state -> {
+            (c, n) = state
             if n == 2 {
                 break state
             }
-            #(c, n + 1)
+            (c, n + 1)
         })
         "${Temperature.unit(c)}${n}"
     }
@@ -94,8 +94,8 @@ const defaultSelfLambdaIface = `interface Temperature {
 }
 `
 
-// A default that names its own file's `io` import is not lowered from a
-// sibling file's impl (portableDefault), so only the one-file program has it.
+// A default that names its own file's `io` import, which the sibling-file
+// program's impls reach from a file whose `io` is its own import.
 const defaultSelfLambdaPrinted = `
     fn printed(t: self) {
         [t, t] |> Iter.each(fn c -> io.print("each ${Temperature.unit(c)}"))
@@ -163,13 +163,14 @@ func TestDefaultSelfLambda_Runs(t *testing.T) {
 }
 
 // The same defaults, declared in a sibling file and inherited by impls in
-// the entry file.
+// the entry file: each is lowered in temps.nomi, whose names it reads.
 func TestDefaultSelfLambda_InterfaceInASiblingFile(t *testing.T) {
 	got := runSiblingProgram(t, map[string]string{
-		"temps.nomi": "pub " + fmt.Sprintf(defaultSelfLambdaIface, ""),
-		"main.nomi":  "import {\n    std::io\n    temps.{Temperature}\n}\n\n" + fmt.Sprintf(defaultSelfLambdaImpls, ""),
+		"temps.nomi": "import std::io\n\npub " + fmt.Sprintf(defaultSelfLambdaIface, defaultSelfLambdaPrinted),
+		"main.nomi": "import {\n    std::io\n    temps.{Temperature}\n}\n\n" +
+			fmt.Sprintf(defaultSelfLambdaImpls, "    Celsius.printed(c)\n    Fahrenheit.printed(f)\n"),
 	})
-	want := fmt.Sprintf(defaultSelfLambdaWant, "")
+	want := fmt.Sprintf(defaultSelfLambdaWant, "each C\neach C\neach F\neach F\n")
 	if got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}

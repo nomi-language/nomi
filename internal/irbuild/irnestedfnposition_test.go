@@ -23,7 +23,7 @@ fn main() {
 `, "[1, 2]\n"},
 		{"tuple element", `import std::io
 fn main() {
-  v = #({
+  v = ({
     fn name() -> String {
       "t"
     }
@@ -31,7 +31,7 @@ fn main() {
   }, 3)
   io.inspect(v)
 }
-`, "#(\"t\", 3)\n"},
+`, "(\"t\", 3)\n"},
 		{"struct field", `import std::io
 struct Point {
   x: Int
@@ -75,7 +75,7 @@ fn main() {
 `, "7\n"},
 		{"lambda body in a tuple", `import std::io
 fn main() {
-  #(f, label) = #(fn n: Int -> {
+  (f, label) = (fn n: Int -> {
     fn twice(k: Int) -> Int {
       k * 2
     }

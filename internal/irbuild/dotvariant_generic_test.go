@@ -20,13 +20,13 @@ func TestDotVariant_GenericEnumBareVariant(t *testing.T) {
 
 enum Tree<T> {
     Leaf
-    Node #(Tree<T>, T, Tree<T>)
+    Node (Tree<T>, T, Tree<T>)
 }
 
 fn size<T>(t: Tree<T>) -> Int {
     case t {
         .Leaf -> 0
-        .Node(#(l, _, r)) -> size(l) + 1 + size(r)
+        .Node((l, _, r)) -> size(l) + 1 + size(r)
     }
 }
 
@@ -36,12 +36,12 @@ fn empty<T>() -> Tree<T> {
 
 fn insert(t: Tree<Int>, n: Int) -> Tree<Int> {
     case t {
-        .Leaf -> .Node(#(.Leaf, n, .Leaf))
-        .Node(#(l, v, r)) -> {
+        .Leaf -> .Node((.Leaf, n, .Leaf))
+        .Node((l, v, r)) -> {
             if n < v {
-                .Node(#(insert(l, n), v, r))
+                .Node((insert(l, n), v, r))
             } else {
-                .Node(#(l, v, insert(r, n)))
+                .Node((l, v, insert(r, n)))
             }
         }
     }
@@ -58,7 +58,7 @@ fn slots() -> List<Slot<Int>> {
 fn main() {
     t: Tree<Int> = empty()
     io.inspect(size([3, 1, 2] |> Iter.reduce(t, fn acc, n -> insert(acc, n))))
-    io.inspect(count([.Leaf, .Node(#(.Leaf, "a", .Leaf))]))
+    io.inspect(count([.Leaf, .Node((.Leaf, "a", .Leaf))]))
     io.inspect(slots())
     s: Slot<String> = .Empty
     io.inspect(s)
@@ -93,7 +93,7 @@ enum Tree<T> {
 
 enum Pos<T> {
     Leaf
-    Node #(Pos<T>, T)
+    Node (Pos<T>, T)
 }
 
 enum Slot<T> {
@@ -117,7 +117,7 @@ fn both<T>(a: Slot<T>, b: Slot<T>) -> List<Slot<T>> {
 fn main() {
     io.inspect(Tree.Node{left: .Leaf, value: 4})
     io.inspect(Tree.Node{left: .Node{left: .Leaf, value: 3}, value: 4})
-    io.inspect(Pos.Node(#(.Node(#(.Leaf, 1)), 4)))
+    io.inspect(Pos.Node((.Node((.Leaf, 1)), 4)))
     io.inspect(Box{inner: .Leaf, v: "b"})
     io.inspect(pair(.Leaf, 2.5))
     io.inspect(pair(.Node{left: .Leaf, value: 1}, 2))

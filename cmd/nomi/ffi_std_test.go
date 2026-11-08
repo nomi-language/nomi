@@ -223,7 +223,7 @@ fn hex_decoder(r: Reader) -> Reader go hex.NewDecoder
 fn limit(r: Reader, n: Int) -> Reader go goio.LimitReader
 
 fn main() {
-    #(_, encoded) = Writer.collect(fn w -> Writer.write_text(hex_encoder(w), "Nomi"))
+    (_, encoded) = Writer.collect(fn w -> Writer.write_text(hex_encoder(w), "Nomi"))
     io.print(Bytes.to_string(encoded) |> Result.with_default("?"))
     decoded = hex_decoder(Reader.from_bytes(encoded)) |> Reader.read_all_text()
     io.print(decoded |> Result.with_default("?"))

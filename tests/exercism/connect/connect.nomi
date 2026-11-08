@@ -9,13 +9,13 @@ pub enum Player {
 
 derive Equatable for Player
 
-/// A cell on the board, `#(row, column)`.
-typealias Cell #(Int, Int)
+/// A cell on the board, `(row, column)`.
+typealias Cell (Int, Int)
 
 /// The six cells a hexagon touches. Each row is shifted half a cell right
 /// of the one above, so a cell touches the one above it and the one above
 /// and right, and the one below it and the one below and left.
-once neighbours = [#(0, -1), #(0, 1), #(-1, 0), #(-1, 1), #(1, -1), #(1, 0)]
+once neighbours = [(0, -1), (0, 1), (-1, 0), (-1, 1), (1, -1), (1, 0)]
 
 /// The player whose stones join their two sides of `board`, or `None`.
 /// Each row of the board is its cells separated by spaces, `X`, `O` or `.`,
@@ -34,11 +34,11 @@ fn connects(rows: List<List<String>>, player: Player) -> Bool {
     stones =
         rows
         |> Iter.with_index()
-        |> Iter.flat_map(fn #(row, cells) -> {
+        |> Iter.flat_map(fn (row, cells) -> {
             cells
             |> Iter.with_index()
-            |> Iter.filter(fn #(_column, cell) -> cell == stone(player))
-            |> Iter.map(fn #(column, _cell) -> #(row, column))
+            |> Iter.filter(fn (_column, cell) -> cell == stone(player))
+            |> Iter.map(fn (column, _cell) -> (row, column))
         })
         |> Iter.to_set()
 
@@ -46,15 +46,15 @@ fn connects(rows: List<List<String>>, player: Player) -> Bool {
     width = rows |> Iter.first() |> Maybe.map(Iter.count) |> Maybe.with_default(0)
     last_column = width - 1
 
-    #(is_start, is_goal) = case player {
+    (is_start, is_goal) = case player {
         .X ->
-            #(
-                fn #(_row, column): Cell -> column == 0,
-                fn #(_row, column): Cell -> column == last_column,
+            (
+                fn (_row, column): Cell -> column == 0,
+                fn (_row, column): Cell -> column == last_column,
             )
 
         .O ->
-            #(fn #(row, _column): Cell -> row == 0, fn #(row, _column): Cell -> row == last_row)
+            (fn (row, _column): Cell -> row == 0, fn (row, _column): Cell -> row == last_row)
     }
 
     starts = stones |> Iter.filter(is_start) |> Iter.to_list()
@@ -84,11 +84,11 @@ fn reaches(
         [cell, ..rest] -> {
             if is_goal(cell) { return True }
 
-            #(row, column) = cell
+            (row, column) = cell
 
             next =
                 neighbours
-                |> Iter.map(fn #(dr, dc) -> #(row + dr, column + dc))
+                |> Iter.map(fn (dr, dc) -> (row + dr, column + dc))
                 |> Iter.filter(fn n -> n in stones and not n in seen)
                 |> Iter.to_list()
 

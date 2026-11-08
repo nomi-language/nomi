@@ -355,7 +355,7 @@ func growingArgs(where string, fd *ast.FuncDef, params map[string]bool, c *ast.C
 // `again<T>(x)` inside `fn again<T>` is not growth — that is the same
 // same-`T` distinction the annotation test makes on the argument side, and the
 // `bare type argument` control row pins it. Anything composed — `Box<T>`,
-// `List<T>`, `#(T, Int)` — is a strictly larger instance at every hop.
+// `List<T>`, `(T, Int)` — is a strictly larger instance at every hop.
 func composedOverTypeParam(te ast.TypeExpr, params map[string]bool) string {
 	if st, isSimple := te.(*ast.SimpleType); isSimple {
 		// Bare: either a type parameter (same argument) or a concrete type.

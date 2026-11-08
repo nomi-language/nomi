@@ -80,7 +80,7 @@ fn main() {
 
     io.print("computed key = ${computed}")
 
-    io.print("pair key = ${by_pair(%{#(1, 2) => "a", #(3, 4) => "b"})}")
+    io.print("pair key = ${by_pair(%{(1, 2) => "a", (3, 4) => "b"})}")
     io.print("colour key = ${by_colour(%{Colour.Green => "g"})}")
     io.print("id key = ${by_id(%{Id(5) => "five"})}")
 
@@ -150,9 +150,9 @@ fn noisy(n: Int) -> Int {
     n
 }
 
-fn by_pair(m: Map<#(Int, Int), String>) -> String {
+fn by_pair(m: Map<(Int, Int), String>) -> String {
     case m {
-        %{#(3, 4) => v} -> v
+        %{(3, 4) => v} -> v
         _ -> "?"
     }
 }

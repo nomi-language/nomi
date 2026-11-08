@@ -5,13 +5,13 @@ import {
 
 type Id Int
 
-type Pair #(Int, String)
+type Pair (Int, String)
 
 type Label String
 
 enum Shape {
     Circle Float
-    Seg #(Int, Int)
+    Seg (Int, Int)
 }
 
 enum Box<T> {
@@ -39,7 +39,7 @@ fn main() {
 
     io.print(
         Debug.inspect(
-            Iter.map([#(1, "a")], Pair)
+            Iter.map([(1, "a")], Pair)
             |> Iter.to_list()
         )
     )
@@ -89,7 +89,7 @@ fn main() {
 
     io.print(
         Debug.inspect(
-            Iter.map([#(1, 2)], Shape.Seg)
+            Iter.map([(1, 2)], Shape.Seg)
             |> Iter.to_list()
         )
     )

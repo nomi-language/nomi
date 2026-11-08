@@ -17,7 +17,7 @@ enum JV {
   Num Int
   Obj Map<String, JV>
   Arr List<JV>
-  Pos #(Int, Int)
+  Pos (Int, Int)
 }
 
 fn describe(m: Map<String, Int>) -> String {
@@ -40,9 +40,9 @@ fn nested(x: Maybe<Map<Int, String>>) -> String {
   }
 }
 
-fn composite(m: Map<#(Int, Int), String>, flags: Map<Bool, String>) -> String {
+fn composite(m: Map<(Int, Int), String>, flags: Map<Bool, String>) -> String {
   a = case m {
-    %{#(3, 4) => v} -> v
+    %{(3, 4) => v} -> v
     _ -> "?"
   }
   b = case flags {
@@ -69,7 +69,7 @@ fn main() {
   io.print(pick(%{1 => "x", 2 => "y"}))
   io.print(nested(Some(%{-2 => "neg"})))
   io.print(nested(None))
-  io.print(composite(%{#(1, 2) => "a", #(3, 4) => "b"}, %{True => "t"}))
+  io.print(composite(%{(1, 2) => "a", (3, 4) => "b"}, %{True => "t"}))
   io.print(attached(%JV.Obj{"k" => JV.Num(7)}))
   io.print(attached(JV.Arr[JV.Num(1), JV.Num(2), JV.Num(3)]))
   io.print(attached(JV.Arr[JV.Num(1)]))

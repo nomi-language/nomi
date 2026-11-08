@@ -24,8 +24,8 @@ func TestFormat_ThenStageStacksThePipeline(t *testing.T) {
 			"fn main() -> Int {\n    3\n    |> then fn n -> { n + 1 }\n}\n",
 		},
 		"destructuring parameter": {
-			"fn main() -> Int {\n    #(1, 2) |> then fn #(a, b) -> a + b\n}\n",
-			"fn main() -> Int {\n    #(1, 2)\n    |> then fn #(a, b) -> a + b\n}\n",
+			"fn main() -> Int {\n    (1, 2) |> then fn (a, b) -> a + b\n}\n",
+			"fn main() -> Int {\n    (1, 2)\n    |> then fn (a, b) -> a + b\n}\n",
 		},
 		"assert head": {
 			"fn main() {\n    assert 2 |> then fn n -> n > 1\n}\n",

@@ -22,7 +22,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `{:ok, v}`, `{:error, e}` | `Ok(v)`, `Err(e)`, and a postfix `?` instead of `with` |
 | `nil` | `None`, from `Maybe<T>` |
 | `:atom` | An enum variant: `.Ready` |
-| `{a, b}` | `#(a, b)` |
+| `{a, b}` | `(a, b)` |
 | `%{name: "Ada"}` (atom keys) | `#{name: "Ada"}`, an anonymous struct |
 | `%User{name: "Ada"}` | `User{name: "Ada"}`: `#` is a struct, `%` a map or set |
 | `"#{x}"` | `"${x}"` |

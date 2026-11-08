@@ -1,0 +1,50 @@
+//# The protocols the checker holds an acquired resource to (spec §9
+//# *Releasing resources*). A value of a `Release` type that a call returns
+//# is the function's to give back: it defers a release of it, or
+//# hands it on. A `Commit` type's release throws its work away, so a
+//# function that defers that release commits on every path that returns
+//# normally.
+
+import {
+    results.Result
+    unit.Unit
+}
+
+/// A value that holds something outside the program, which a function that
+/// acquires it gives back. The body of `release` names the type's usual
+/// release, the call a `defer` after the acquisition makes:
+///
+/// ```nomi
+/// impl Release for Writer {
+///     fn release(w: Writer) {
+///         Writer.discard(w)
+///     }
+/// }
+/// ```
+///
+/// A value of the type that a call returns, directly or in a `Result` (an
+/// acquisition: `fs.create`, `process.spawn`), is released in the function
+/// that binds it: a `defer` of a call taking it, on the lines after the
+/// binding, or it is returned or stored in a value that is.
+pub interface Release {
+    fn release(value: self) -> Unit
+}
+
+/// A `Release` type whose release discards the work done with the value,
+/// and whose `commit` keeps it. The body of `commit` names the type's usual
+/// commit:
+///
+/// ```nomi
+/// impl Commit for Writer {
+///     fn commit(w: Writer) -> Result<Unit, Error> {
+///         Writer.close(w)
+///     }
+/// }
+/// ```
+///
+/// A function that defers the discarding release of a Commit value calls the
+/// commit on every path that returns normally: an `Ok` or `Some`, any other
+/// value, or the end of a function that returns `Unit`.
+pub interface Commit<E> {
+    fn commit(value: self) -> Result<Unit, E>
+}

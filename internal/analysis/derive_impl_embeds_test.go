@@ -38,12 +38,13 @@ func buildDeriveImplWithStdlib(src string) *analysis.FileAnalysis {
 // the lowering never fed the type through CheckDeriveBounds's demand-recording.
 //
 // The discriminating probe: the embedded payload type (`NoImpl`) has NO
-// Equatable impl. If the transitive demand is recorded (the fix), the manifest
+// Equatable impl and no equality, since it holds a function (one with
+// equality meets Equatable without an impl). If the transitive demand is recorded (the fix), the manifest
 // demand drives DetectMissingImpls to a precise "no impl of `Equatable` for
 // `NoImpl`" diagnostic. Before the fix the demand was never recorded, so the
 // build was silent here and the gap only surfaced as a runtime dispatch miss.
 func TestDeriveImplOnEmbedsEnumRecordsTransitiveDemand(t *testing.T) {
-	src := `struct NoImpl { x: Int }
+	src := `struct NoImpl { x: Int, f: (Int) -> Int }
 
 enum E {
   embeds NoImpl

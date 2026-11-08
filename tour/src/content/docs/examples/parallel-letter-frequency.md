@@ -202,17 +202,17 @@ import {
 
 test "letter frequency" {
     [
-        #("no texts", [], %{}),
-        #("one text with one letter", ["a"], %{"a" => 1}),
-        #("one text with multiple letters", ["bbcccd"], %{"b" => 2, "c" => 3, "d" => 1}),
-        #("two texts with one letter", ["e", "f"], %{"e" => 1, "f" => 1}),
-        #("two texts with multiple letters", ["ggh", "hhi"], %{"g" => 2, "h" => 3, "i" => 1}),
-        #("ignore letter casing", ["m", "M"], %{"m" => 2}),
-        #("ignore whitespace", ["   ", "\t", "\r\n"], %{}),
-        #("ignore punctuation", ["!", "?", ";", ",", "."], %{}),
-        #("ignore numbers", ["1", "2", "3", "4", "5", "6", "7", "8", "9"], %{}),
-        #("Unicode letters", ["本", "φ", "ほ", "ø"], %{"本" => 1, "φ" => 1, "ほ" => 1, "ø" => 1}),
-        #(
+        ("no texts", [], %{}),
+        ("one text with one letter", ["a"], %{"a" => 1}),
+        ("one text with multiple letters", ["bbcccd"], %{"b" => 2, "c" => 3, "d" => 1}),
+        ("two texts with one letter", ["e", "f"], %{"e" => 1, "f" => 1}),
+        ("two texts with multiple letters", ["ggh", "hhi"], %{"g" => 2, "h" => 3, "i" => 1}),
+        ("ignore letter casing", ["m", "M"], %{"m" => 2}),
+        ("ignore whitespace", ["   ", "\t", "\r\n"], %{}),
+        ("ignore punctuation", ["!", "?", ";", ",", "."], %{}),
+        ("ignore numbers", ["1", "2", "3", "4", "5", "6", "7", "8", "9"], %{}),
+        ("Unicode letters", ["本", "φ", "ほ", "ø"], %{"本" => 1, "φ" => 1, "ほ" => 1, "ø" => 1}),
+        (
             "large texts",
             novel.texts,
             %{
@@ -243,13 +243,13 @@ test "letter frequency" {
                 "y" => 251,
             },
         ),
-        #(
+        (
             "many small texts",
             Iter.repeat("abbccc") |> Iter.take(50) |> Iter.to_list(),
             %{"a" => 50, "b" => 100, "c" => 150},
         ),
     ]
-    |> subtests #(description, texts, expected), description {
+    |> subtests (description, texts, expected), description {
         assert parallel_letter_frequency.frequency(texts) == expected
     }
 }

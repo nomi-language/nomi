@@ -285,7 +285,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if k, isGenHost := g.projectStdGenHost(ty); isGenHost {
 			return k
 		}
-		// `Regex<#(String)>`: a std host type whose type parameter is
+		// `Regex<(String)>`: a std host type whose type parameter is
 		// phantom, one leaf for every argument. See stdhost.go.
 		if k, isPhantom := projectPhantomHost(ty); isPhantom {
 			return k
@@ -485,4 +485,43 @@ func (g *gen) siblingNamed(origin, name string, shape func(*typeDef) bool) kind 
 		return kindInvalid
 	}
 	return named(d)
+}
+
+// fieldKind is a struct or record-variant field's kind: its annotation's,
+// or, for a field whose type comes from its default (`misses = 0`), the
+// type the checker gave it, which it records on the field's own symbol
+// (analysis's attachInferredField) as hover reads it.
+func (g *gen) fieldKind(f ast.StructField) kind {
+	if f.TypeAnnotation != nil {
+		return g.typeOf(f.TypeAnnotation)
+	}
+	if t := g.inferredFieldType(f); t != nil {
+		return g.project(t)
+	}
+	return kindInvalid
+}
+
+// inferredFieldType is the type the checker gave a field written with no
+// type, or nil.
+func (g *gen) inferredFieldType(f ast.StructField) analysis.Type {
+	if g.fa == nil || f.TypeAnnotation != nil {
+		return nil
+	}
+	sym, found := g.srcFA().Definitions[analysis.Pos{Line: f.Line, Col: f.Col}]
+	if !found || sym.Kind != analysis.SymbolField || sym.Name != f.Name {
+		return nil
+	}
+	return sym.Type
+}
+
+// fieldTypeText is a field's type as a refusal names it: its annotation, or
+// the type the checker gave it.
+func (g *gen) fieldTypeText(f ast.StructField) string {
+	if f.TypeAnnotation != nil {
+		return typeText(f.TypeAnnotation)
+	}
+	if t := g.inferredFieldType(f); t != nil {
+		return t.String()
+	}
+	return "?"
 }

@@ -89,6 +89,14 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 // accessor `.name` (irfieldaccessor.go), whose object is its parameter.
 func (bl *irScalarBuilder) fieldProject(at ast.Node, name string, subj ir.Temp, k kind, mobile bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if index, ordinal := ast.TupleOrdinalIndex(name); ordinal && irTupleOrNamedTuple(k) {
+		// `pair.first`: a tuple's item, by its ordinal name.
+		v, part, ok := bl.tupleItem(at, subj, k, index)
+		if !ok {
+			return no()
+		}
+		return v, part, mobile, true
+	}
 	if irRetainedRecordKind(k) {
 		return bl.recordRead(at, name, subj, k, mobile)
 	}

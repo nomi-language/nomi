@@ -27,7 +27,7 @@ func (r *completionRequest) accessorCandidates() ([]candidate, bool) {
 		}
 		t = f.Type
 	}
-	fields := fieldsOf(t)
+	fields := readFieldsOf(t)
 	if len(fields) == 0 {
 		return nil, false
 	}

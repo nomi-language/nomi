@@ -105,7 +105,7 @@ fn main() {
 func TestGenericRecursion_PolymorphicIsRejected(t *testing.T) {
 	const src = `import std::io
 fn f<T>(x: T, n: Int) -> Int {
-  if n == 0 { 0 } else { f(#(x, x), n - 1) }
+  if n == 0 { 0 } else { f((x, x), n - 1) }
 }
 fn main() { io.print(f(1, 3)) }`
 	_, err := AnalyzeSource("main.nomi", src)
@@ -126,16 +126,16 @@ func TestGenericLambda_ParamAtTheEnclosingTypeParameter(t *testing.T) {
 		{"a generic enum", `import std::io
 enum Box<T> {
   One(T)
-  Two(#(Box<T>, Box<T>))
+  Two((Box<T>, Box<T>))
 }
 fn leaves<T>(b: Box<T>) -> Int {
   case b {
     Box.One(_) -> 1
-    Box.Two(#(l, r)) -> leaves(l) + leaves(r)
+    Box.Two((l, r)) -> leaves(l) + leaves(r)
   }
 }
 fn wrap<T>(t: Box<T>, n: Int) -> Box<T> {
-  1..=n |> Iter.reduce(t, fn acc, _ -> Box.Two(#(acc, acc)))
+  1..=n |> Iter.reduce(t, fn acc, _ -> Box.Two((acc, acc)))
 }
 fn main() {
   io.print(leaves(wrap(Box.One(1), 3)))

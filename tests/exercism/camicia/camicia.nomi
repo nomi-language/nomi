@@ -42,11 +42,11 @@ pub fn simulate_game(player_a: List<String>, player_b: List<String>) -> Game {
 fn rounds(
     hands: Hands,
     leader: Side,
-    seen: Set<#(List<String>, List<String>)>,
+    seen: Set<(List<String>, List<String>)>,
     cards: Int,
     tricks: Int,
 ) -> Game {
-    #(collector, pile, hands) = play(hands, turn: leader, pile: [], owed: 0, collector: leader)
+    (collector, pile, hands) = play(hands, turn: leader, pile: [], owed: 0, collector: leader)
     hands = with_hand(hands, collector, [..hand(hands, collector), ..Iter.reverse(pile)])
     cards = cards + Iter.count(pile)
     tricks = tricks + 1
@@ -69,10 +69,10 @@ fn play(
     pile: List<String>,
     owed: Int,
     collector: Side,
-) -> #(Side, List<String>, Hands) {
+) -> (Side, List<String>, Hands) {
     case hand(hands, turn) {
         [] ->
-            #(other(turn), pile, hands)
+            (other(turn), pile, hands)
 
         [card, ..rest] -> {
             hands = with_hand(hands, turn, rest)
@@ -80,7 +80,7 @@ fn play(
 
             case {
                 penalty(card) > 0 -> play(hands, other(turn), pile, penalty(card), turn)
-                owed == 1 -> #(collector, pile, hands)
+                owed == 1 -> (collector, pile, hands)
                 owed > 1 -> play(hands, turn, pile, owed - 1, collector)
                 _ -> play(hands, other(turn), pile, 0, collector)
             }
@@ -102,8 +102,8 @@ fn penalty(card: String) -> Int {
 
 /// The hands with every number card alike, which is all that decides how
 /// the game goes on.
-fn shape(hands: Hands) -> #(List<String>, List<String>) {
-    #(alike(hands.a), alike(hands.b))
+fn shape(hands: Hands) -> (List<String>, List<String>) {
+    (alike(hands.a), alike(hands.b))
 }
 
 /// `cards` with each number card written `-`.

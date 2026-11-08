@@ -47,12 +47,12 @@ struct Point {
   x: Int
 }
 
-fn later(day: Date) -> #(Date, Date) {
-  #(day + Days(1), day + Months(1))
+fn later(day: Date) -> (Date, Date) {
+  (day + Days(1), day + Months(1))
 }
 
-fn sizes(n: Int, d: Decimal, f: Float) -> #(Int, Decimal, Float) {
-  #(n / 3 + n % 3 - -n, d * 2d, f * 2.0)
+fn sizes(n: Int, d: Decimal, f: Float) -> (Int, Decimal, Float) {
+  (n / 3 + n % 3 - -n, d * 2d, f * 2.0)
 }
 
 fn main() {
@@ -62,7 +62,7 @@ fn main() {
   origin = Point{x: 0} != Point{x: 1}
   ok = 1 < 2 and not newer or same
   big = [1, 5] |> Iter.filter(&(&1 > 2)) |> Iter.map(fn n -> n * 2) |> Iter.to_list()
-  io.inspect(#(m, ok, origin, big, 0..3, 1..=3, later, sizes))
+  io.inspect((m, ok, origin, big, 0..3, 1..=3, later, sizes))
   bad = nope + 1
 }
 `
@@ -72,6 +72,8 @@ fn main() {
 		t.Fatal("highlight.AnalyzeNodes returned nil")
 	}
 	editor, editorNodes := editorDoc(t, lib, src)
+	// A word operator is a keyword, whose hover adds its link.
+	const logicalLink = "\n\nMore in the [spec](https://nomi-lang.org/spec/expressions/#logical-operators)."
 	cases := []struct {
 		name string
 		// line starts the line that holds the operator, op is the
@@ -80,22 +82,22 @@ fn main() {
 		nth      int
 		want     string
 	}{
-		{"Int +", "  #(n / 3", "+", 1, "```nomi\nInt + Int -> Int\n```\n\nExact at any size: never overflows.\n\n`impl Add<Int, Int> for Int` in `std/int`."},
-		{"Int /", "  #(n / 3", "/", 1, "```nomi\nInt / Int -> Int\n```\n\nTruncates toward zero; traps on division by zero.\n\n`impl Divide<Int, Int> for Int` in `std/int`."},
-		{"Int %", "  #(n / 3", "%", 1, "```nomi\nInt % Int -> Int\n```\n\nRemainder: takes the dividend's sign; `Int.modulo` takes the divisor's. Traps on division by zero."},
-		{"unary - on Int", "  #(n / 3", "-n", 1, "```nomi\n-Int -> Int\n```\n\nNegation, exact at any size."},
-		{"Decimal *", "  #(n / 3", "*", 1, "```nomi\nDecimal * Decimal -> Decimal\n```\n\nExact: never rounds.\n\n`impl Multiply<Decimal, Decimal> for Decimal` in `std/decimal`."},
-		{"Float *", "  #(n / 3", "*", 2, "```nomi\nFloat * Float -> Float\n```\n\nIEEE 754: never traps.\n\n`impl Multiply<Float, Float> for Float` in `std/float`."},
+		{"Int +", "  (n / 3", "+", 1, "```nomi\nInt + Int -> Int\n```\n\nExact at any size: never overflows.\n\n`impl Add<Int, Int> for Int` in `std/int`."},
+		{"Int /", "  (n / 3", "/", 1, "```nomi\nInt / Int -> Int\n```\n\nTruncates toward zero; traps on division by zero.\n\n`impl Divide<Int, Int> for Int` in `std/int`."},
+		{"Int %", "  (n / 3", "%", 1, "```nomi\nInt % Int -> Int\n```\n\nRemainder: takes the dividend's sign; `Int.modulo` takes the divisor's. Traps on division by zero.\n\n`impl Remainder<Int, Int> for Int` in `std/int`."},
+		{"unary - on Int", "  (n / 3", "-n", 1, "```nomi\n-Int -> Int\n```\n\nNegation, exact at any size."},
+		{"Decimal *", "  (n / 3", "*", 1, "```nomi\nDecimal * Decimal -> Decimal\n```\n\nExact: never rounds.\n\n`impl Multiply<Decimal, Decimal> for Decimal` in `std/decimal`."},
+		{"Float *", "  (n / 3", "*", 2, "```nomi\nFloat * Float -> Float\n```\n\nIEEE 754: never traps.\n\n`impl Multiply<Float, Float> for Float` in `std/float`."},
 		{"a user Add", "  m = Money", "+", 1, "```nomi\nMoney + Money -> Money\n```\n\n`impl Add<Money, Money> for Money` in this file."},
-		{"Date + Days", "  #(day + Days", "+", 1, "```nomi\nDate + Days -> Date\n```\n\n`impl Add<Days, Date> for Date` in `std/calendar`."},
-		{"Date + Months", "  #(day + Days", "+", 2, "```nomi\nDate + Months -> Date\n```\n\n`impl Add<Months, Date> for Date` in `std/calendar`."},
+		{"Date + Days", "  (day + Days", "+", 1, "```nomi\nDate + Days -> Date\n```\n\n`impl Add<Days, Date> for Date` in `std/calendar`."},
+		{"Date + Months", "  (day + Days", "+", 2, "```nomi\nDate + Months -> Date\n```\n\n`impl Add<Months, Date> for Date` in `std/calendar`."},
 		{"a derived Comparable", "  newer =", "<", 1, "```nomi\nVersion < Version -> Bool\n```\n\nDerived: `derive Comparable for Version`, which compares field by field in declaration order."},
 		{"a user Equatable", "  same =", "==", 1, "```nomi\nTag == Tag -> Bool\n```\n\nUses `impl Equatable for Tag` in this file."},
 		{"structural equality", "  origin =", "!=", 1, "```nomi\nPoint != Point -> Bool\n```\n\nStructural: compares field by field."},
 		{"Int <", "  ok = 1", "<", 1, "```nomi\nInt < Int -> Bool\n```\n\n`impl Comparable for Int` in `std/int`."},
-		{"and", "  ok = 1", "and", 1, "```nomi\nBool and Bool -> Bool\n```\n\nShort-circuits: the right side runs only when the left is `True`."},
-		{"or", "  ok = 1", "or", 1, "```nomi\nBool or Bool -> Bool\n```\n\nShort-circuits: the right side runs only when the left is `False`."},
-		{"not", "  ok = 1", "not", 1, "```nomi\nnot Bool -> Bool\n```\n\nLogical not."},
+		{"and", "  ok = 1", "and", 1, "```nomi\nBool and Bool -> Bool\n```\n\nShort-circuits: the right side runs only when the left is `True`." + logicalLink},
+		{"or", "  ok = 1", "or", 1, "```nomi\nBool or Bool -> Bool\n```\n\nShort-circuits: the right side runs only when the left is `False`." + logicalLink},
+		{"not", "  ok = 1", "not", 1, "```nomi\nnot Bool -> Bool\n```\n\nLogical not." + logicalLink},
 		{"inside a capture", "  big =", "> 2", 1, "```nomi\nInt > Int -> Bool\n```\n\n`impl Comparable for Int` in `std/int`."},
 		{"inside a lambda", "  big =", "*", 1, "```nomi\nInt * Int -> Int\n```\n\nExact at any size: never overflows.\n\n`impl Multiply<Int, Int> for Int` in `std/int`."},
 		{"..", "  io.inspect(", "..", 1, "```nomi\nRange<Int>\n```\n\nExclusive: from the start up to, not including, the end."},
@@ -129,10 +131,10 @@ fn main() {
 			}
 			for offset := 0; offset < width; offset++ {
 				pos := analysis.Pos{Line: line + 1, Col: col + 1 + offset}
-				if got := hoverdoc.At(fa, nodes, pos); got != c.want {
+				if got := hoverdoc.At(fa, nodes, src, pos); got != c.want {
 					t.Errorf("tour hover on character %d = %q, want %q", offset+1, got, c.want)
 				}
-				if got, _, _, _ := hoverdoc.SyntaxAt(editor, editorNodes, pos); got != c.want {
+				if got := hoverdoc.At(editor, editorNodes, src, pos); got != c.want {
 					t.Errorf("editor hover on character %d = %q, want %q", offset+1, got, c.want)
 				}
 			}

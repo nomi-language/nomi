@@ -27,12 +27,12 @@ import eliuds_eggs
 
 test "counts the eggs" {
     [
-        #("0 eggs", 0, 0),
-        #("1 egg", 16, 1),
-        #("4 eggs", 89, 4),
-        #("13 eggs", 2000000000, 13),
+        ("0 eggs", 0, 0),
+        ("1 egg", 16, 1),
+        ("4 eggs", 89, 4),
+        ("13 eggs", 2000000000, 13),
     ]
-    |> subtests #(description, number, expected), description {
+    |> subtests (description, number, expected), description {
         assert eliuds_eggs.egg_count(number) == expected
     }
 }

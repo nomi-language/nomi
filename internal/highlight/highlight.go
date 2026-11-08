@@ -281,7 +281,7 @@ func (p *Program) HoverIn(name string, line, col int) (md string) {
 			md = ""
 		}
 	}()
-	return hoverdoc.At(f.FA, f.Nodes, analysis.Pos{Line: line, Col: ByteCol(f.Source, line, col)})
+	return hoverdoc.At(f.FA, f.Nodes, f.Source, analysis.Pos{Line: line, Col: ByteCol(f.Source, line, col)})
 }
 
 // SemanticTokensIn answers the semantic tokens of the file name names, as

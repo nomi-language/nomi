@@ -100,7 +100,7 @@ test "join reads any iterator of strings and defaults to no separator" {
         |> String.equal("2 4 6")
 
     assert %{"k" => 1}
-    |> Iter.map(fn #(k, v) -> k + "=" + Int.to_string(v))
+    |> Iter.map(fn (k, v) -> k + "=" + Int.to_string(v))
     |> String.join("&") == "k=1"
 
     assert slash_joined(["p", "q"]) == "p/q"
@@ -110,17 +110,17 @@ test "join reads any iterator of strings and defaults to no separator" {
 test "captures gives the groups of the first match as a tuple, without the whole match" {
     pair = Regex`(\w+)@(\w+)`
 
-    assert String.captures("mail ann@home now", pair) == Some(#("ann", "home"))
+    assert String.captures("mail ann@home now", pair) == Some(("ann", "home"))
     assert String.captures("no address", pair) == None
 }
 
 test "a group a match can leave out is a Maybe, and an empty one is Some(\"\")" {
-    assert String.captures("b", Regex`(a)|(b)`) == Some(#(None, Some("b")))
-    assert String.captures("y", Regex`(x*)(y)`) == Some(#("", "y"))
+    assert String.captures("b", Regex`(a)|(b)`) == Some((None, Some("b")))
+    assert String.captures("y", Regex`(x*)(y)`) == Some(("", "y"))
     assert String.captures("ac", Regex`a(b)?c`) == Some(None)
     assert String.captures("abc", Regex`a(b)?c`) == Some(Some("b"))
     assert String.captures("aaa", Regex`(a)+`) == Some("a")
-    assert String.captures("ab", Regex`((a)?)b`) == Some(#("a", Some("a")))
+    assert String.captures("ab", Regex`((a)?)b`) == Some(("a", Some("a")))
 }
 
 test "one group is its text, and a pattern with none answers Unit" {
@@ -140,7 +140,7 @@ test "a pattern whose every group is named gives a struct" {
     assert day == Some("17")
 
     mixed = Regex`(?P<key>\w+)=(\w+)`
-    assert String.captures("a=1", mixed) == Some(#("a", "1"))
+    assert String.captures("a=1", mixed) == Some(("a", "1"))
 }
 
 test "a regex compiled while the program runs lists its groups" {
@@ -163,7 +163,7 @@ struct Rule<C> {
 }
 
 test "a typed regex passes through a generic function" {
-    assert first_groups(Regex`(\w)=(\d)`, ["a=1", "none", "b=2"]) == [#("a", "1"), #("b", "2")]
+    assert first_groups(Regex`(\w)=(\d)`, ["a=1", "none", "b=2"]) == [("a", "1"), ("b", "2")]
     assert first_groups(Regex`(\d)`, ["x", "7"]) == ["7"]
     assert match_count(Regex`\d`, "1 2 3") == 3
     assert match_count(Regex.compile("(\\d)")!, "1 2") == 2
@@ -171,9 +171,9 @@ test "a typed regex passes through a generic function" {
     assert String.split("a1b2c", Regex`(\d)`) == ["a", "b", "c"]
 
     rule = Rule{name: "pair", re: Regex`(\w)=(\d)`}
-    assert String.captures("a=1", rule.re) == Some(#("a", "1"))
+    assert String.captures("a=1", rule.re) == Some(("a", "1"))
 
-    numbers: List<Regex<String>> = [Regex`(\d+)`, Regex`#(\w+)`]
+    numbers: List<Regex<String>> = [Regex`(\d+)`, Regex`(\w+)`]
 
     assert numbers |> Iter.map(fn re -> String.captures("#12", re)) |> Iter.to_list() == [
         Some("12"),
@@ -182,12 +182,12 @@ test "a typed regex passes through a generic function" {
 }
 
 test "captures_all gives the groups of every match, left to right" {
-    assert String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`) == [#("a", "1"), #("b", "22")]
+    assert String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`) == [("a", "1"), ("b", "22")]
 
     assert "ab b" |> String.captures_all(Regex`(a)|(b)`) == [
-        #(Some("a"), None),
-        #(None, Some("b")),
-        #(None, Some("b")),
+        (Some("a"), None),
+        (None, Some("b")),
+        (None, Some("b")),
     ]
 
     assert String.captures_all("none", Regex`(\d)`) == []
@@ -202,9 +202,9 @@ test "captures_all gives the groups of every match, left to right" {
 }
 
 test "captures work over Unicode text" {
-    assert String.captures("café crème", Regex`(\p{L}+) (\p{L}+)`) == Some(#("café", "crème"))
+    assert String.captures("café crème", Regex`(\p{L}+) (\p{L}+)`) == Some(("café", "crème"))
 
-    assert String.captures_all("🙂=1 é=2", Regex`(\S)=(\d)`) == [#("🙂", "1"), #("é", "2")]
+    assert String.captures_all("🙂=1 é=2", Regex`(\S)=(\d)`) == [("🙂", "1"), ("é", "2")]
 }
 
 test "captures_all finds the matches find_all finds" {
@@ -214,10 +214,10 @@ test "captures_all finds the matches find_all finds" {
     assert Iter.count(String.captures_all(text, re)) == Iter.count(String.find_all(text, re))
 
     assert String.captures_all(text, re) == [
-        #("1", None),
-        #("2", Some("3")),
-        #("4", Some("5")),
-        #("6", None),
+        ("1", None),
+        ("2", Some("3")),
+        ("4", Some("5")),
+        ("6", None),
     ]
 }
 

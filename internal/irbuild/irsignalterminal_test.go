@@ -53,7 +53,7 @@ fn main() {
     x > 4
   })
   io.print("find break False: ${refused}")
-  entry = Iter.find(%{"a" => 1, "b" => 2, "c" => 3}, fn #(k, v) -> {
+  entry = Iter.find(%{"a" => 1, "b" => 2, "c" => 3}, fn (k, v) -> {
     if k == "a" { continue }
     v % 2 == 1
   })
@@ -63,7 +63,7 @@ fn main() {
   io.print("find bounds an unbounded source: ${Iter.from(1) |> Iter.find(upto_three)}")
 }
 `, "find continue: Some(3)\nfind break: None\nfind break True: Some(2)\nfind break False: None\n"+
-		"find over a map: Some(#(c, 3))\nfind named: Some(3)\nfind named piped: Some(3)\n"+
+		"find over a map: Some((c, 3))\nfind named: Some(3)\nfind named piped: Some(3)\n"+
 		"find bounds an unbounded source: None\n")
 }
 
@@ -99,7 +99,7 @@ fn main() {
     if x == 2 { break False }
     x == 4
   })}")
-  io.print("any over a map: ${Iter.any(%{"a" => 1, "b" => 2}, fn #(k, v) -> {
+  io.print("any over a map: ${Iter.any(%{"a" => 1, "b" => 2}, fn (k, v) -> {
     if k == "b" { continue }
     v == 2
   })}")
@@ -118,7 +118,7 @@ fn main() {
     if x == 1 { break False }
     True
   })}")
-  io.print("all over a map: ${%{"a" => 1, "b" => 20} |> Iter.all(fn #(k, v) -> {
+  io.print("all over a map: ${%{"a" => 1, "b" => 20} |> Iter.all(fn (k, v) -> {
     if k == "b" { continue }
     v < 10
   })}")
@@ -172,7 +172,7 @@ fn main() {
   }) |> Iter.to_list()
   io.print("drop_while break True: ${dropped}")
   io.print("drop_while named: ${Iter.drop_while([5, 1, 2, 6, 1], drop_small) |> Iter.to_list()}")
-  io.print("drop_while over a map: ${Iter.drop_while(%{"a" => 1, "b" => 2, "c" => 3}, fn #(k, v) -> {
+  io.print("drop_while over a map: ${Iter.drop_while(%{"a" => 1, "b" => 2, "c" => 3}, fn (k, v) -> {
     if k == "b" { break False }
     v < 5
   }) |> Iter.to_list()}")
@@ -193,7 +193,7 @@ fn main() {
     if x == 2 { break Iter.take(Iter.repeat(x), 3) }
     Iter.take(Iter.repeat(x), 1)
   }) |> Iter.to_list()}")
-  io.print("flat_map over a map: ${%{"a" => 1, "b" => 2} |> Iter.flat_map(fn #(k, v) -> {
+  io.print("flat_map over a map: ${%{"a" => 1, "b" => 2} |> Iter.flat_map(fn (k, v) -> {
     if k == "a" { continue }
     [k, "${v}"]
   }) |> Iter.to_list()}")
@@ -203,7 +203,7 @@ fn main() {
   }) |> Iter.to_list()}")
 }
 `, "drop_while continue: [6, 1]\ndrop_while break: []\ndrop_while break False: [2]\n"+
-		"drop_while break True: []\ndrop_while named: [6, 1]\ndrop_while over a map: [#(b, 2)]\n"+
+		"drop_while break True: []\ndrop_while named: [6, 1]\ndrop_while over a map: [(b, 2)]\n"+
 		"drop_while bounds an unbounded source: [3]\nflat_map continue: [1, 10, 3, 30]\n"+
 		"flat_map break: [1, 10]\nflat_map named: [1, 10, 2, 20, 3]\nflat_map lazy inner: [1, 2, 2, 2]\n"+
 		"flat_map over a map: [b, 2]\nflat_map bounds an unbounded source: [1, 1, 2, 2]\n")

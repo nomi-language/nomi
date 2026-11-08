@@ -144,10 +144,61 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, own
 		bl.side(c.Dst(), irScalarSide{k: kindBool})
 		return c.Dst(), true, true
 	}
-	if k != args.kinds[1] || !irRetainedTupleKind(k) && !irRetainedRecordKind(k) {
+	if k != args.kinds[1] {
 		return ir.NoTemp, false, false
 	}
 	at := &ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}
+	if bl.g.meetsByEquality("Equatable", k) {
+		// A declared type with no Equatable of its own meets the bound by
+		// its equality, so the call is `a == b` over it.
+		v, _, _, ok := bl.compareOperands(at, ir.OpEq, args.temps[0], k, args.temps[1], k, args.mobile[1])
+		return v, ok, true
+	}
+	if !irRetainedTupleKind(k) && !irRetainedRecordKind(k) {
+		return ir.NoTemp, false, false
+	}
 	v, _, ok := bl.valueEquality(at, ir.OpEq, args.temps[0], args.temps[1], k)
 	return v, ok, true
+}
+
+// meetsByEquality reports whether k, a declared type, meets a `where T:
+// iface` bound (std's Equatable or Hashable) by its equality: no file of the
+// program and nothing in std declares an impl of iface for it (spec §5
+// *Equality and Ordering Semantics*). Its `Equatable.equal` is then `==`, and
+// its `Hashable.hash` the hash a Map key of it takes.
+func (g *gen) meetsByEquality(iface string, k kind) bool {
+	if k.tag != tagNamed || k.def == nil || isDecimalKind(k) || !irKeyImplRecv(k) || !g.noImplOf(iface, k) {
+		// A prelude or std container instance (`Maybe<Int>`, `Set<Int>`)
+		// takes std's generic impl, which byIface does not key by the
+		// instance, and an rt leaf or scalar has its own.
+		return false
+	}
+	if reg := g.programReg(); reg != nil && k.def.decl != nil && reg.byDecl[k.def.decl] != nil {
+		// A user declaration, here or in a std instance's body: another
+		// file of its module may write or derive the impl.
+		return !reg.declaresImpl(iface, k.def.decl)
+	}
+	return true
+}
+
+// structuralHashCall lowers `Hashable.hash(x)` over a declared type that
+// meets Hashable by its equality to the irHashValueHost call: the hash a Map
+// key of the type takes, so it agrees with `==`. owned is false for any
+// other call.
+func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool) {
+	if owner != "Hashable" || method != "hash" || len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 {
+		return ir.NoTemp, false
+	}
+	if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
+		// A program's own Hashable.
+		return ir.NoTemp, false
+	}
+	if !bl.g.meetsByEquality("Hashable", args.kinds[0]) {
+		return ir.NoTemp, false
+	}
+	pos := bl.g.irNodePos(t)
+	c := ir.NewHostCall(pos, bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(irHashValueHost, irHashValueHost), args.temps[0])
+	bl.b.Append(c)
+	bl.side(c.Dst(), irScalarSide{k: kindInt})
+	return c.Dst(), true
 }

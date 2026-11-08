@@ -27,10 +27,10 @@ impl LinkedList<T> {
 
     /// The value at the head of `list` and the list after it, or
     /// `EmptyList`.
-    pub fn pop(list: LinkedList<T>) -> Result<#(T, LinkedList<T>), Error> {
+    pub fn pop(list: LinkedList<T>) -> Result<(T, LinkedList<T>), Error> {
         case list {
             .Empty -> Err(.EmptyList)
-            .Node{value, next} -> Ok(#(value, next))
+            .Node{value, next} -> Ok((value, next))
         }
     }
 

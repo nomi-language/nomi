@@ -11,8 +11,11 @@ import (
 // can reach, and it cannot change what the program does.
 //
 // Children: a struct's or record's fields in declaration order, a tuple's
-// components (`0`, `1`), a variant's payload (its fields by name, or `0` for
-// a positional one), a distinct's inner value (`0`), a List's or Vector's
+// items by the ordinal names that read them (`first`, `second`, through
+// `twentieth`; an item past that has no name and is `[20]`, its zero-based
+// index, as a List's elements are), a named tuple's items the same way, a
+// variant's payload (its fields by name, or `0` for a positional one), any
+// other distinct's inner value (`0`), a List's or Vector's
 // elements (`[0]`, `[1]`), a Set's members (`[0]`), a Map's entries (by the
 // key's text when the key is a scalar, otherwise `[i]` holding `key` and
 // `value`). A lazy Iter has none: a debugger never runs one.
@@ -203,6 +206,9 @@ func (n Inspected) NumChildren() int {
 			}
 			return 1
 		}
+		if inner, ok := namedTupleInner(x); ok {
+			return Inspect(inner).NumChildren()
+		}
 		return x.NumFields()
 	}
 	return 0
@@ -265,16 +271,36 @@ func (n Inspected) Children(start, count int) []InspectChild {
 			}
 			return out
 		}
+		if inner, ok := namedTupleInner(x); ok {
+			return Inspect(inner).Children(start, count)
+		}
 		l := x.Layout()
 		for i := start; i < end; i++ {
 			name := l.Fields[i].Name
-			if x.Desc.Kind == KindTuple || x.Desc.Kind == KindDistinct || name == "" {
+			switch {
+			case x.Desc.Kind == KindTuple:
+				name = tupleItemLabel(i)
+			case x.Desc.Kind == KindDistinct || name == "":
 				name = strconv.Itoa(i)
 			}
 			out = append(out, InspectChild{name, Inspect(x.slot(&l.Fields[i]))})
 		}
 	}
 	return out
+}
+
+// namedTupleInner is the tuple a named tuple (a distinct type over a tuple)
+// wraps. Its children are the tuple's items, named as the program reads
+// them, `p.first`, rather than one child holding the tuple.
+func namedTupleInner(r *Record) (*Record, bool) {
+	if r.Desc.Kind != KindDistinct || r.NumFields() != 1 {
+		return nil, false
+	}
+	inner, ok := Unbox(r.Field(0)).(*Record)
+	if !ok || inner == nil || inner.Desc.Kind != KindTuple {
+		return nil, false
+	}
+	return inner, true
 }
 
 // scalarKey reports whether a Map key reads well as a child's name.

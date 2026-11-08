@@ -15,24 +15,26 @@ import {
 }
 
 fn main() -> Result<Unit, Error> {
-    sql.with_connection(fn -> sqlite.open("notes.db"), fn db -> {
-        _ = Conn.exec(
-            db,
-            Sql"CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)",
-        )?
+    db = sqlite.open("notes.db")?
+    defer sql.close_quietly(db)
 
-        _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"hello"})")?
-        rows = Conn.query(db, Sql"SELECT body FROM notes")?
+    _ = Conn.exec(
+        db,
+        Sql"CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)",
+    )?
 
-        Iter.each(rows, fn row -> {
-            io.print(
-                Row.get<String>(row, "body")
-                |> Result.with_default("?")
-            )
-        })
+    _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"hello"})")?
+    rows = Conn.query(db, Sql"SELECT body FROM notes")?
 
-        Ok(Unit)
+    Iter.each(rows, fn row -> {
+        io.print(
+            Row.get<String>(row, "body")
+            |> Result.with_default("?")
+        )
     })
+
+    Conn.close(db)?
+    Ok(Unit)
 }
 ```
 

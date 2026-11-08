@@ -93,9 +93,9 @@ impl Display for Problem {
 }
 
 /// The line and column, from 1, of grapheme `index` of a query's SQL.
-pub fn place(query: Query, index: Int) -> #(Int, Int) {
-    #(line, before) = sqltext.position(query.sql, index)
-    #(query.sql_line + line, String.length(before) + 1)
+pub fn place(query: Query, index: Int) -> (Int, Int) {
+    (line, before) = sqltext.position(query.sql, index)
+    (query.sql_line + line, String.length(before) + 1)
 }
 
 // What the reader has seen so far: the imports, the queries done, the
@@ -124,8 +124,8 @@ struct State {
 //!
 //! assert file.imports == ["shop.Report"]
 //!
-//! assert file.queries |> Iter.map(fn q -> #(q.name, q.result, q.doc, q.sql)) |> Iter.to_list() == [
-//!     #("n", Some("Int"), ["One."], "SELECT @id"),
+//! assert file.queries |> Iter.map(fn q -> (q.name, q.result, q.doc, q.sql)) |> Iter.to_list() == [
+//!     ("n", Some("Int"), ["One."], "SELECT @id"),
 //! ]
 //
 pub fn parse(path: String, text: String) -> Result<File, List<Problem>> {
@@ -144,7 +144,7 @@ pub fn parse(path: String, text: String) -> Result<File, List<Problem>> {
     read =
         lines
         |> Iter.with_index()
-        |> Iter.reduce(start, fn s, #(i, line) -> step(path, s, i + 1, line))
+        |> Iter.reduce(start, fn s, (i, line) -> step(path, s, i + 1, line))
 
     state = finish(path, read)
 
@@ -251,13 +251,13 @@ fn finish(path: String, s: State) -> State {
 
         Some(q) -> {
             // A query with only doc lines has its SQL start after them.
-            #(q, text) = if s.in_doc {
-                #(
+            (q, text) = if s.in_doc {
+                (
                     #{..q, doc: Iter.reverse(s.lines), sql_line: q.line + Iter.count(s.lines) + 1},
                     "",
                 )
             } else {
-                #(q, s.lines |> Iter.reverse() |> String.join("\n"))
+                (q, s.lines |> Iter.reverse() |> String.join("\n"))
             }
 
             base = #{..s, current: None, in_doc: False, lines: []}
@@ -293,7 +293,7 @@ fn statement(path: String, q: Query, text: String) -> Result<String, Problem> {
 
     case Iter.find(solid, fn t -> t.start > end.start) {
         Some(t) -> {
-            #(line, col) = place(#{..q, sql: text}, t.start)
+            (line, col) = place(#{..q, sql: text}, t.start)
 
             Err(problem(path, line, col, "`${q.name}` has SQL after the `;` that ends it", [
                     "a query is one statement: start the next with `-- query:`",
@@ -347,13 +347,13 @@ fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Q
     after = skip_spaces(chars, close + 1)
     tail = slice(chars, after, Vector.length(chars)) |> trim_end()
 
-    #(result, result_col) = if tail == "" {
-        #(None, 0)
+    (result, result_col) = if tail == "" {
+        (None, 0)
     } else {
         case String.strip_prefix(tail, "->") {
             Some(t) when String.trim(t) != "" -> {
                 col = skip_spaces(chars, after + 2)
-                #(Some(String.trim(t)), col + 1)
+                (Some(String.trim(t)), col + 1)
             }
 
             _ ->
@@ -389,8 +389,8 @@ fn parameters(
 
     parsed =
         pieces
-        |> Iter.filter(fn #(_, text) -> String.trim(text) != "")
-        |> Iter.map(fn #(at_index, text) -> {
+        |> Iter.filter(fn (_, text) -> String.trim(text) != "")
+        |> Iter.map(fn (at_index, text) -> {
             lead = String.length(text) - String.length(trim_start(text))
             col = at_index + lead + 1
 
@@ -421,13 +421,13 @@ fn parameters(
 
     params = parsed?
 
-    #(_, twice) = Iter.reduce(params, #([], None), fn acc, p -> {
-        #(seen, twice) = acc
+    (_, twice) = Iter.reduce(params, ([], None), fn acc, p -> {
+        (seen, twice) = acc
 
         if Iter.contains(seen, p.name) and twice == None {
-            #(seen, Some(p))
+            (seen, Some(p))
         } else {
-            #([p.name, ..seen], twice)
+            ([p.name, ..seen], twice)
         }
     })
 
@@ -442,24 +442,24 @@ fn parameters(
 
 // The text between `from` and `to`, split at the commas outside brackets,
 // each piece with the index it starts at.
-fn split(chars: Vector<String>, from: Int, to: Int) -> List<#(Int, String)> {
-    #(pieces, start, _) = Iter.reduce(Iter.from(from)
-    |> Iter.take(to - from), #([], from, 0), fn acc, i -> {
-        #(pieces, start, depth) = acc
+fn split(chars: Vector<String>, from: Int, to: Int) -> List<(Int, String)> {
+    (pieces, start, _) = Iter.reduce(Iter.from(from)
+    |> Iter.take(to - from), ([], from, 0), fn acc, i -> {
+        (pieces, start, depth) = acc
         c = at(chars, i)
 
         if c == "," and depth == 0 {
-            #([#(start, slice(chars, start, i)), ..pieces], i + 1, depth)
+            ([(start, slice(chars, start, i)), ..pieces], i + 1, depth)
         } else if c == "(" or c == "<" or c == "[" or c == "{" {
-            #(pieces, start, depth + 1)
+            (pieces, start, depth + 1)
         } else if c == ")" or c == ">" or c == "]" or c == "}" {
-            #(pieces, start, depth - 1)
+            (pieces, start, depth - 1)
         } else {
             acc
         }
     })
 
-    Iter.reverse([#(start, slice(chars, start, to)), ..pieces])
+    Iter.reverse([(start, slice(chars, start, to)), ..pieces])
 }
 
 // The index of the `)` that closes the bracket open before `i`.

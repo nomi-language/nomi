@@ -22,7 +22,7 @@ fn main() {
     io.print([3, 1, 3, 3] |> Iter.frequencies())
     io.print(Iter.frequencies(1..=5 |> Iter.map(fn n -> n % 2)))
     io.inspect(Iter.frequencies([Pt{x: 1, y: 2}, Pt{x: 1, y: 2}]))
-    io.print(Iter.frequencies([#(1, "a"), #(1, "a"), #(2, "b")]))
+    io.print(Iter.frequencies([(1, "a"), (1, "a"), (2, "b")]))
     empty: List<Int> = []
     io.print(Iter.frequencies(empty))
     io.print([["x"], ["y", "y"]] |> Iter.map(Iter.frequencies) |> Iter.to_list())
@@ -33,7 +33,7 @@ fn main() {
 		"%{3 => 3, 1 => 1}\n" +
 		"%{1 => 3, 0 => 2}\n" +
 		"%{Pt{x: 1, y: 2} => 2}\n" +
-		"%{#(1, a) => 2, #(2, b) => 1}\n" +
+		"%{(1, a) => 2, (2, b) => 1}\n" +
 		"%{}\n" +
 		"[%{x => 1}, %{y => 2}]\n"
 	irRunSource(t, src, want)

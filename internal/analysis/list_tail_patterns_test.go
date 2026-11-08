@@ -10,7 +10,7 @@ import (
 // messages.
 func listPatternErrors(t *testing.T, body string) []string {
 	t.Helper()
-	src := "type Items List<Int>\n\nfn run(xs: List<Int>, lines: List<String>, items: Items) -> Int {\n    _ = #(xs, lines, items)\n" + body + "\n}\n"
+	src := "type Items List<Int>\n\nfn run(xs: List<Int>, lines: List<String>, items: Items) -> Int {\n    _ = (xs, lines, items)\n" + body + "\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	var out []string
 	for _, e := range errs {

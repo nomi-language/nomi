@@ -353,13 +353,13 @@ pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing {
         |> Iter.sort_by(fn e -> e.key)
         |> Iter.map(fn e -> {
             case folded(e.key, options) {
-                Some(p) -> #(p, None)
-                None -> #(e.key, Some(e))
+                Some(p) -> (p, None)
+                None -> (e.key, Some(e))
             }
         })
-        |> Iter.chunk_by(fn #(text, _) -> text)
+        |> Iter.chunk_by(fn (text, _) -> text)
         |> Iter.flat_map(fn group -> Iter.first(group))
-        |> Iter.filter(fn #(text, _) -> {
+        |> Iter.filter(fn (text, _) -> {
             case options.continuation {
                 Some(after) -> text > after
                 None -> True
@@ -371,16 +371,16 @@ pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing {
     shown = Iter.take(items, limit) |> Iter.to_list()
 
     next = if Iter.count(items) > limit {
-        Iter.last(shown) |> Maybe.map(fn #(text, _) -> text)
+        Iter.last(shown) |> Maybe.map(fn (text, _) -> text)
     } else {
         None
     }
 
     Listing{
-        objects: shown |> Iter.flat_map(fn #(_, entry) -> entry) |> Iter.to_list(),
+        objects: shown |> Iter.flat_map(fn (_, entry) -> entry) |> Iter.to_list(),
         prefixes: shown
-        |> Iter.filter(fn #(_, entry) -> entry == None)
-        |> Iter.map(fn #(text, _) -> text)
+        |> Iter.filter(fn (_, entry) -> entry == None)
+        |> Iter.map(fn (text, _) -> text)
         |> Iter.to_list(),
         next,
     }
@@ -525,10 +525,10 @@ pub fn check_content_type(content_type: String) -> Result<Unit, Error> {
 //! ran = fs_testing.run(fs_testing.Sandbox{}, fn -> {
 //!     store = local("files", public_base: Some(Url`/files/`))
 //!     Store.put(store, "a/b.txt", String.to_bytes("hi"), "text/plain")?
-//!     Ok(#(Store.get(store, "a/b.txt")?.info.content_type, "${Store.url(store, "a/b.txt")?}"))
+//!     Ok((Store.get(store, "a/b.txt")?.info.content_type, "${Store.url(store, "a/b.txt")?}"))
 //! })
 //!
-//! assert ran.value == Ok(#("text/plain", "/files/a/b.txt"))
+//! assert ran.value == Ok(("text/plain", "/files/a/b.txt"))
 //! assert fs_testing.text(ran, "/work/files/a/b.txt") == Some("hi")
 //! assert fs_testing.text(ran, "/work/files/.nomi-storage/types/a/b.txt") == Some("text/plain")
 //
@@ -741,7 +741,7 @@ fn file_name(segment: String) -> String {
 
     codepoints
     |> Iter.with_index()
-    |> Iter.map(fn #(i, c) -> {
+    |> Iter.map(fn (i, c) -> {
         text = "${c}"
 
         escaped = String.contains("%<>:\"|?*", c)
@@ -823,7 +823,9 @@ fn io_code(error: io.Error) -> String {
 /// and any other error a 500.
 ///
 /// ```nomi
-/// routes = [#(Route`GET /files/{key...}`, storage.handler(App.store))]
+/// files = storage.handler(App.store)
+///
+/// routes = [Route.to_with("GET /files/{key...}", fn r, _ -> files(r))]
 /// ```
 ///
 /// It sets no `Cache-Control`: an app whose keys never change wraps the

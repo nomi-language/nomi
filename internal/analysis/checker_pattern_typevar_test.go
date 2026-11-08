@@ -26,8 +26,8 @@ fn pick<T>(c: Bool, a: T, b: T) -> T {
 // TestIRPattern_EveryShapeThroughATypeVariable.
 func TestChecker_PatternsResolveABoundTypeVariable(t *testing.T) {
 	for _, tc := range []struct{ name, arms string }{
-		{"tuple", `case pick(True, Opt.Nothing, Opt.Has(#(1, "x"))) {
-    .Has(#(s, t)) -> s + String.length(t)
+		{"tuple", `case pick(True, Opt.Nothing, Opt.Has((1, "x"))) {
+    .Has((s, t)) -> s + String.length(t)
     .Nothing -> 0
   }`},
 		{"struct", `case pick(True, Opt.Nothing, Opt.Has(Pt{x: 3, y: 4})) {
@@ -67,7 +67,7 @@ func TestChecker_PatternsResolveABoundTypeVariable(t *testing.T) {
 func TestChecker_PatternMismatchThroughATypeVariableIsRejected(t *testing.T) {
 	for _, tc := range []struct{ name, arms, want string }{
 		{"tuple", `case pick(True, Opt.Nothing, Opt.Has(5)) {
-    .Has(#(s, t)) -> s + String.length(t)
+    .Has((s, t)) -> s + String.length(t)
     .Nothing -> 0
   }`, "tuple pattern requires a tuple type, got Int"},
 		{"struct", `case pick(True, Opt.Nothing, Opt.Has(5)) {
@@ -84,8 +84,8 @@ func TestChecker_PatternMismatchThroughATypeVariableIsRejected(t *testing.T) {
     .Has(_) -> 0
     .Nothing -> 0
   }`, "enum pattern requires an enum type, got Int"},
-		{"tuple arity", `case pick(True, Opt.Nothing, Opt.Has(#(1, 2))) {
-    .Has(#(a, b, c)) -> a
+		{"tuple arity", `case pick(True, Opt.Nothing, Opt.Has((1, 2))) {
+    .Has((a, b, c)) -> a
     .Has(_) -> 0
     .Nothing -> 0
   }`, "tuple pattern has 3 elements but expected 2"},

@@ -15,10 +15,10 @@ func TestIRLoop_CompletePrograms(t *testing.T) {
   dbg countdown
 
   // Tuple state — first Fibonacci pair where the second is > 100.
-  #(a, b) = Iter.loop(#(0, 1), fn state -> {
-    #(x, y) = state
-    if y > 100 { break #(x, y) }
-    #(y, x + y)
+  (a, b) = Iter.loop((0, 1), fn state -> {
+    (x, y) = state
+    if y > 100 { break (x, y) }
+    (y, x + y)
   })
   dbg a
   dbg b

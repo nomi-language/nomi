@@ -66,34 +66,34 @@ fn coded(n: Int) -> Code {
     Code(n)
 }
 
-fn codes(routes: List<#(String, (Int) -> ToAnswer)>, n: Int) -> List<Int> {
-    routes |> Iter.map(fn #(_, h) -> ToAnswer.to_answer(h(n)).code) |> Iter.to_list()
+fn codes(routes: List<(String, (Int) -> ToAnswer)>, n: Int) -> List<Int> {
+    routes |> Iter.map(fn (_, h) -> ToAnswer.to_answer(h(n)).code) |> Iter.to_list()
 }
 
-fn first(route: #(String, (Int) -> ToAnswer), n: Int) -> Int {
-    ToAnswer.to_answer(route.1(n)).code
+fn first(route: (String, (Int) -> ToAnswer), n: Int) -> Int {
+    ToAnswer.to_answer(route.second(n)).code
 }
 
-fn bypassed(name: String) -> #(String, (Int) -> ToAnswer) {
-    #(name, failing)
+fn bypassed(name: String) -> (String, (Int) -> ToAnswer) {
+    (name, failing)
 }
 
 test "a list of tuples mixes plain, Result and lambda handlers" {
-    assert codes([#("a", plain), #("b", failing), #("c", fn _ -> Failure.Missing)], 3) == [
+    assert codes([("a", plain), ("b", failing), ("c", fn _ -> Failure.Missing)], 3) == [
         3, 404, 404,
     ]
 
-    assert codes([#("a", plain), #("b", failing)], 7) == [7, 7]
+    assert codes([("a", plain), ("b", failing)], 7) == [7, 7]
 }
 
 test "a tuple held in a variable enters as a literal does" {
-    route = #("b", failing)
-    assert codes([#("a", plain), route], 3) == [3, 404]
+    route = ("b", failing)
+    assert codes([("a", plain), route], 3) == [3, 404]
     assert first(route, 9) == 9
 }
 
 test "an annotated binding, a record and a declared result" {
-    pair: #(String, (Int) -> ToAnswer) = #("a", failing)
+    pair: (String, (Int) -> ToAnswer) = ("a", failing)
     assert first(pair, 1) == 404
     record: #{name: String, handler: (Int) -> ToAnswer} = #{name: "r", handler: failing}
     assert ToAnswer.to_answer(record.handler(8)).code == 8
@@ -106,9 +106,9 @@ test "a struct field" {
 }
 
 test "a distinct type's result is dispatched by its impl" {
-    route = #("a", coded)
+    route = ("a", coded)
     assert codes([route], 1) == [1001]
-    pair: #(String, (Int) -> ToAnswer) = route
+    pair: (String, (Int) -> ToAnswer) = route
     assert first(pair, 2) == 1002
     handlers: List<(Int) -> ToAnswer> = [coded, plain]
 

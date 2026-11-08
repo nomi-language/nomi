@@ -31,8 +31,8 @@ func TestFormat_DepthBreakLeavesElementsToThemselves(t *testing.T) {
 			// A table of tuples holding grids: the tuple adds no level, so
 			// the list is three deep and breaks, and each row fits.
 			"table of grids",
-			"fn main() {\n    cases = [#(\"blinker\", #[#[0, 1, 0], #[0, 1, 0]])]\n}\n",
-			"fn main() {\n    cases = [\n        #(\"blinker\", #[#[0, 1, 0], #[0, 1, 0]]),\n    ]\n}\n",
+			"fn main() {\n    cases = [(\"blinker\", #[#[0, 1, 0], #[0, 1, 0]])]\n}\n",
+			"fn main() {\n    cases = [\n        (\"blinker\", #[#[0, 1, 0], #[0, 1, 0]]),\n    ]\n}\n",
 		},
 		{
 			"struct three deep",

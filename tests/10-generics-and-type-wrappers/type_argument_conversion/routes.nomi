@@ -12,11 +12,11 @@ pub interface Reply {
     fn text(r: self) -> String
 }
 
-pub fn serve(routes: List<#(Route, (Request) -> Reply)>, path: String) -> String {
-    found = Iter.find(routes, fn #(route, _) -> route.path == path)
+pub fn serve(routes: List<(Route, (Request) -> Reply)>, path: String) -> String {
+    found = Iter.find(routes, fn (route, _) -> route.path == path)
 
     case found {
-        Some(#(_, handler)) -> Reply.text(handler(Request{path}))
+        Some((_, handler)) -> Reply.text(handler(Request{path}))
         None -> "not found"
     }
 }

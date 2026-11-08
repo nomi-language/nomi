@@ -95,7 +95,7 @@ enum ParseError {
 // Type declarations and aliases
 // ---------------------------------------------------------------------------
 pub type Email String
-pub type Coord #(Int, Int)
+pub type Coord (Int, Int)
 pub type Handler (String, String) -> Result<String, String>
 pub type Expired
 pub opaque type Counter Int
@@ -169,7 +169,7 @@ fn binding_forms() {
     _y: Int = 2
 
     // Tuple destructure
-    #(_, _) = #(10, 20)
+    (_, _) = (10, 20)
 
     // Distinct destructure
     Email(_) = Email("a@b.com")
@@ -256,9 +256,9 @@ fn pipe_chain(xs: List<Int>) -> List<Int> {
 // Anon struct types break at their column when long; outer container
 // (tuple, generic) stays inline. Function-type-with-Return wraps its
 // param list in a Group so a too-long signature breaks at the param list.
-pub type Tagged #(String, #{tag: String, payload: Int})
+pub type Tagged (String, #{tag: String, payload: Int})
 
-pub type LongTuple #(String, #{
+pub type LongTuple (String, #{
     status: Int,
     message: String,
     retryable: Bool,

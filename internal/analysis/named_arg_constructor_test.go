@@ -20,7 +20,7 @@ import (
 const namedCtorDecls = `
 enum Shape {
   Sq Int
-  Pair #(Int, Int)
+  Pair (Int, Int)
   Rect {w: Int, h: Int}
   embeds Id
 }
@@ -32,7 +32,7 @@ enum Box<T> {
 
 type Id Int
 
-type Two #(Int, String)
+type Two (Int, String)
 
 struct Point {
   x: Int
@@ -69,8 +69,8 @@ func TestNamedArgToConstructor_IsAnError(t *testing.T) {
   Shape.Pair(a: 1, 2)
 }`, "a: 1", variantNameHint},
 		{"a tuple-payload variant, whole", `fn f() -> Shape {
-  Shape.Pair(a: #(1, 2))
-}`, "a: #(1, 2)", variantNameHint},
+  Shape.Pair(a: (1, 2))
+}`, "a: (1, 2)", variantNameHint},
 		{"a generic variant", `fn f() -> Box<Int> {
   Box.Full(v: 1)
 }`, "v: 1", variantNameHint},
@@ -100,8 +100,8 @@ impl Assertable for Same {
   Id(n: 5)
 }`, "n: 5", distinctNameHint},
 		{"a tuple distinct", `fn f() -> Two {
-  Two(t: #(1, "x"))
-}`, `t: #(1, "x")`, distinctNameHint},
+  Two(t: (1, "x"))
+}`, `t: (1, "x")`, distinctNameHint},
 		{"an embedded distinct", `fn f() -> Shape {
   Shape.Id(n: 3)
 }`, "n: 3", distinctNameHint},
@@ -179,7 +179,7 @@ func TestNamedArgToConstructor_PositionalStillChecks(t *testing.T) {
   i: Two = Two(1, "x")
   j: Shape = Shape.Id(3)
   k: Point = Point(#{x: 1})
-  _ = #(a, b, c, d, e, f(1), g, h, i, j, k)
+  _ = (a, b, c, d, e, f(1), g, h, i, j, k)
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -247,7 +247,7 @@ fn main() {
   a: Point = Struct.update(p, updates: #{x: 2})
   b: Point = Struct.update(updates: #{x: 3}, original: p)
   c: String = Display.to_string(value: 4)
-  _ = #(a, b, c, show(5))
+  _ = (a, b, c, show(5))
 }
 `)
 	expectNoStdlibErrors(t, errs)

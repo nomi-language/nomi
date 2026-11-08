@@ -12,7 +12,7 @@ does, and where something lives, is for grep and the code's own comments.
 
 **How the implementation is built.** [The engine and `nomi check`](#the-engine-and-nomi-check), [Kept programs](#kept-programs), [Front end](#front-end), [Keyword declarations and their inputs](#keyword-declarations-and-their-inputs), [Embedded files](#embedded-files), [HTML templates](#html-templates), [File interfaces](#file-interfaces), [Language server analysis](#language-server-analysis), [IR builder](#ir-builder), [VM](#vm), [Debugging and `nomi dap`](#debugging-and-nomi-dap), [rt](#rt), [Int: exact at any size](#int-exact-at-any-size), [Stdlib](#stdlib), [std and lib](#std-and-lib), [Host functions](#host-functions), [Why std uses `host` rather than `go`](#why-std-uses-host-rather-than-go), [CSV and XML](#csv-and-xml), [Passwords, signatures and JWTs](#passwords-signatures-and-jwts), [Files](#files), [Logging and actors](#logging-and-actors), [Background jobs](#background-jobs), [Mail](#mail), [Object storage](#object-storage), [Locale data](#locale-data), [Collation](#collation), [Embedding](#embedding), [Go FFI wrapper](#go-ffi-wrapper), [Modules](#modules), [`nomi build`](#nomi-build), [REPL](#repl).
 
-**Formatter and syntax.** [Formatter: layout](tooling.md#formatting), [Formatter: brace-bounded field constructs](#formatter-brace-bounded-field-constructs), [Formatter: fixed layouts](#formatter-fixed-layouts), [Formatter: one-line `if` and binding `else`](#formatter-one-line-if-and-binding-else), [Formatter: a line break after a literal's opening bracket](#formatter-a-line-break-after-a-literals-opening-bracket), [Formatter: filled literal lists](#formatter-filled-literal-lists), [Formatter: comparison and boolean operators](#formatter-comparison-and-boolean-operators), [Formatter: compound depth](#formatter-compound-depth), [Formatter: comments](#formatter-comments), [`or` patterns](#or-patterns), [`if` without `else`](#if-without-else), [Captures](#captures).
+**Formatter and syntax.** [Formatter: layout](tooling.md#formatting), [Formatter: brace-bounded field constructs](#formatter-brace-bounded-field-constructs), [Formatter: fixed layouts](#formatter-fixed-layouts), [Formatter: one-line `if` and binding `else`](#formatter-one-line-if-and-binding-else), [Formatter: a line break after a literal's opening bracket](#formatter-a-line-break-after-a-literals-opening-bracket), [Formatter: filled literal lists](#formatter-filled-literal-lists), [Formatter: comparison and boolean operators](#formatter-comparison-and-boolean-operators), [Formatter: compound depth](#formatter-compound-depth), [Formatter: comments](#formatter-comments), [`or` patterns](#or-patterns), [`if` without `else`](#if-without-else), [Releasing resources](#releasing-resources), [Captures](#captures).
 
 **Testing, editors and the tour.** [Test harnesses](#test-harnesses), [Grammar checks](#grammar-checks), [Editor development setup](#editor-development-setup), [Tour internals](#tour-internals).
 
@@ -70,7 +70,21 @@ vmhost maps back to the source (checked_literals.go). The checker types a
 checked literal as its `build`'s result and records it in
 `FileAnalysis.CheckedLiterals`; irbuild lowers it as a `build` call and
 declares a check site, a lazy cell over `check` and the literal's statics,
-in the same `LiteralSite` list backtick literals use (irchecked.go). A
+in the same `LiteralSite` list backtick literals use (irchecked.go). An
+untagged string literal whose expected type has a `CheckedLiteral` impl
+is checked as a twin `TaggedString` the checker builds
+(analysis/target_literal.go): `FileAnalysis.TargetLiterals` maps the
+literal to the twin and `TargetLiteralBuilds` the twin to the `build` the
+expected type chose, which irbuild reads in place of the tag's reference
+(`literalDispatch`), lowering the literal as its twin; its site has an
+empty `Tag` and the type in `Type`. The check site calls the impl's
+`check_type` when it writes one, with the spelling of each of the
+literal's type arguments (`kindSpelling` over the instance's
+`genericArgs`), and its `check` otherwise. A generic type's handler
+(`impl CheckedLiteral<String, Route<P>> for Route<P>`) is freshened per
+literal in the checker (checked_literal_args.go) and lowered at the
+literal's instance (`genericLiteralImpl`): the instance's impl item for a
+program's type, an instance of the std template for std's. A
 handler or check that can reach something acting outside the machine is
 refused, an effectful check once at the check, so a compile never has
 effects. The language server also evaluates double-quoted
@@ -282,6 +296,67 @@ analyzes the whole program. The checker has two phases: one registers every
 type, and the second walks bodies. Names resolve whole-program, so the
 import graph may be cyclic and import order never matters.
 
+**Types from values.** An unannotated `once`, and a field or parameter
+written with a default and no type (`misses = 0`, `limit = 10`,
+`internal/analysis/default_type.go`),
+take the type of their value, which only checking the value tells. Both
+are part of the file's interface, so the program's `OnceTable` infers
+every one in one phase before the first file's `CheckTypes`, each with a
+checker for its declaring file: the fields first, in rounds (a default that
+reads a type still pending is tried again after the others), then the
+`once`s. Until then a field's `FieldDef`, or the parameter's slot of its function's
+`FuncType` (or interface `MethodSig`), holds `pendingDefault`, which the
+phase overwrites in place; a parameter's symbol is defined where the body is
+walked, so its type is kept with the declarations' (`attachInferredParam`)
+and a rebuild of the bodies writes it again, so an instance of a generic struct, which shares
+its declaration's `Fields`, sees the type too. The declaring file's
+`CheckTypes` reports what the phase found (`checkInferredDefault`); a
+block-local struct is inferred there. The IR builder reads an inferred
+field's or parameter's type from its symbol (`irbuild.fieldKind`,
+`paramKind`), as it reads an inferred lambda parameter's; a std signature,
+which it builds from the module's syntax, reads such a parameter's type
+from the module's analysis (`stdInferredParamKind`). An interface keeps every field default, so a
+file checked against it infers the same type.
+
+**Type ascription** (`internal/analysis/ascription.go`). `value as Type`
+is an `ast.Ascription`, which the parser reads at `|>`'s precedence. The
+checker checks the value against the type as an annotated binding's value
+(`checkNodeExpecting`, then `unifyInto`), and for a name, a field read or a
+number literal first checks it alone in a
+trial whose effects are put back: when that gives the type already, the
+node goes in `FileAnalysis.RedundantAscriptions`, which the language server
+reports as an unnecessary-code hint, not an error. A hover on `as` reads a
+hover-only symbol at the keyword. The IR builder lowers it as an annotated
+binding's value (`annotatedValue`), and an ascription to an interface as
+its value, which the position that reads it erases.
+
+**Default type arguments** (`internal/analysis/default_type_args.go`). A
+declaration's type parameter that names a default keeps its resolved type
+on its `TypeParam_` (`Default`), which every instance shares through
+`TypeParamDefs`. The resolver fills a use in a type position that leaves
+arguments out (`Route` is `Route<Unit>`); a use resolved before the
+declaration is built becomes an instance with the arguments written, and
+building the declaration appends the defaults, read from the parameters
+its shell keeps (`unbuiltDecl.params`). Completing such an instance with a
+default that contains it would make a cycle of type arguments, which every
+walk over types follows forever, so `rejectEndlessDefaults` looks for one
+while the declaration's defaults are resolved: a default that reaches,
+through type arguments, an instance of the unbuilt declaration that leaves
+out a parameter whose default leads back. It reports the error there and
+makes that default `Unit`, so no cycle is built. A cycle through several
+declarations closes at the build of the last of them, whichever file builds
+first. A nominal type's `String` leaves
+out trailing arguments equal to their defaults. The IR builder resolves
+annotations itself, so `typeOf` first writes the left-out arguments in as
+the declaration's default syntax (`irbuild.withDefaultTypeArgs`), finding
+the declaration by the reference the analyzer recorded at the name. A
+default means what it means where the declaration wrote it, so the gen of
+the declaring file resolves it at module scope, with no type parameter or
+block of a body it is lowering open (`moduleTypeOf`), and the using gen
+imports the kind (`importKind`) and answers the default's node with it
+(`gen.defaultArgKinds`). A file that uses `Box` for `Box<T = Config>` need
+not import `Config`, and its own `Config` does not replace it.
+
 The boot-only check (`CheckBootScope`, spec §16 *Supervision*) reports per
 file over a graph of the whole program's functions: every function of every
 project file, and each std function the program reaches, whose calls are
@@ -309,6 +384,19 @@ language server re-analyzes a changed file's importers.
 The lexer leaves `>>>` as three `>` tokens. The parser joins them into the
 shift operator only after an operand, so nested type arguments such as
 `List<Maybe<Box<Int>>>` still close one `>` at a time.
+
+**Parentheses.** One parse reads what parentheses hold: a comma at their top
+level makes a tuple (`ast.TupleLit`, `ast.TuplePattern`, or a tuple type, an
+`ast.FuncType` with no `Return`), and one item alone is grouped
+(`parseParenExpr`, `parseSinglePatternInner`, `parseFuncTypeAnnotation`). In
+a type, a `->` after the `)` makes the list a function's parameters. A
+lambda parameter's annotation is read once as written and, when it is a
+function type that what follows does not end a parameter after, again with
+`parenTypeNoArrow` set, which leaves the `->` for the lambda
+(`parseParamPattern`); the tree-sitter grammar keeps both readings alive
+by a declared conflict. A call's `(` is on the line its callee ends on, so a
+line that starts with `(` after `f()!`, which the lexer ends no statement
+after, starts a statement. `#(` is `hashTupleError`, whose fix drops the `#`.
 
 **Paths at a use.** The lexer emits `::` as `COLONCOLON`, and the parser's
 constructors join each run of words with `::` between them and no space
@@ -472,7 +560,7 @@ hidden import of std/embed, whose private constructor the expansion
 reaches. `ast.EmbeddedFiles` holds each file's path, its `Source` (the
 path on disk, or the data file's key) and its size and SHA-256, which the
 resolver computes by streaming the file through the hash; no stage keeps
-an embedded file's bytes. The checker types it `List<#(String, Int, Int)>`
+an embedded file's bytes. The checker types it `List<(String, Int, Int)>`
 and reports the pattern errors the expansion kept (`checkEmbed`);
 `analysis.EmbedOf` returns what each pattern matched, which the language
 server's hover and go to definition read. The IR builder lowers it to a
@@ -625,8 +713,10 @@ nodes as a build is given them (parsed, Go bindings injected, keyword
 declarations expanded), with what no other file reads taken out. A
 function's body becomes an empty block holding only the `break` and
 `continue` its own scope holds, the one fact of a body another file's check
-reads (`FuncIterSignals`). A `once` written with a type has its value
-replaced by `todo`; an unannotated one, and a `noun`'s, keep theirs, since
+reads (`FuncIterSignals`). The bodies of an `impl Release` and an `impl
+Commit` stay, since another file's release check reads the call each makes
+([releasing resources](#releasing-resources)). A `once` written with a type
+has its value replaced by `todo`; an unannotated one, and a `noun`'s, keep theirs, since
 the type is inferred from the value. Test declarations and attached tests
 go. Interface default bodies stay, since registering the interface reads
 them (`TakesSelfApart`, `BuildsSelf`), and so do parameter and field
@@ -713,6 +803,22 @@ about 0.1 s instead of the whole program in 1.07 s. The whole program is
 checked afresh instead when another file can see a changed impl, when a
 kept file holds something of a rechecked one, or when the rechecked files
 are every file.
+
+A field of an anonymous struct is declared where its literal labels it or
+where a type expression names it. A literal's label puts its file and
+position in the type (`FieldDef.File`, `Line`, `Col`), and a field access,
+a field accessor, a destructuring pattern or a struct update's label on the
+value refers there; from another file the reference is a symbol naming that
+file (`anonFieldRef`), which go-to-definition, references and rename read as
+they read an imported declaration's. A type expression's field names no
+file and is linked only within its own file. A use with neither stands at
+itself, marked `Undeclared`, for hover alone. A label in an unannotated
+`once`'s value sits in a body, so a body edit moves the labels of the types
+the file's literals built with its other positions (`shiftDeclarations`),
+and the early cutoff keeps the once's old type only when its labels stand
+where inferring it again put them (`sameLiteralFields`); a label inside the
+edit has no place to move to, and the files that read the once are checked
+again.
 
 The program-wide reductions over bodies (coherence, whole-file imports, a
 rootless file's application-field roots, the boot-only check's summaries)
@@ -1019,7 +1125,24 @@ semantic tokens and inlay hints wait up to 2 s for the current analysis.
 Rename and code actions fail with `ContentModified` rather than respond from
 an older one.
 
-**MessageFormat 2 in the editor** (`phrase_tokens.go`,
+**Annotations a default decides** (`code_action_default_type.go`). On a
+field or parameter written with a default, the `refactor.rewrite` actions
+"Remove type annotation" and "Add type annotation" turn `limit: Int = 10`
+into `limit = 10` and back. They come with no diagnostic or hint and are
+not in `source.fixAll`. Removal asks the analysis what the default's type
+is alone (`FileAnalysis.DefaultTypeAlone`): a checker for the file, under
+the owner the inference phase uses, checks the default with no expected
+type against a copy of the file's body tables (`FileBodies.clone`), so the
+published analysis is not written. It is offered when that check reports
+nothing and leaves no part unknown, when the type is the written one
+(`SameDefaultType`: identical, with no `embeds` coercion, and printed
+alike), and when the written text is that type as the file spells it
+(`FileAnalysis.SpellType`, the spelling the annotation help writes), so
+an alias such as `n: Count = 1` stays. Adding writes the field's or
+parameter's symbol type in that spelling, which is the inlay hint's text
+for the types a file names bare.
+
+**MessageFormat 2 in the editor** (`phrase_tokens.go`, `phrase_hover.go`,
 `code_action_plural.go`). No editor Nomi supports has an MF2 grammar for
 the injection `tree-sitter-nomi/queries/injections.scm` asks for, so the
 server colors MF2 itself. `mf2.Tokens` runs the MF2 parser with recording
@@ -1033,14 +1156,65 @@ stripped indentation, and drops a token that would cross a line;
 `catalog.Value.Offset` and skips a basic string with an escape, which
 breaks the byte mapping. `encodeTokens` merges them with semtokens' identifier
 tokens, drops any token that starts inside the one before it, and converts
-columns to UTF-16. The token types: `keyword` for `.input`, `.local`,
-`.match` and the key `*`; `parameter` for a `$name` that is a parameter
-(a noun's `$count`), `variable` for a `.local`; `namespace` and `function`
-for `:nomi` and `:noun`; `property` for an option's or attribute's name;
-`enumMember` for a key and a name literal, `number` and `string` for
+columns to UTF-16. The token types: `keyword` for `.input`, `.local` and
+`.match`; `parameter` for a `$name` that is a parameter
+(a noun's `$count`), `variable` for a `.local`; `function` for a function,
+namespace and all (`:nomi:noun` is one token, since many colorschemes leave
+`namespace` unstyled); `property` for an option's or attribute's name;
+`enumMember` for a key, `*` included, and a name literal, `number` and `string` for
 number and quoted literals; `type` for a markup name; `operator` for
 `{{`, `}}`, `{`, `}`, `=` and a markup's `/`. The tour's highlighter does
 not use them.
+
+Hover inside MF2 (`phrase_hover.go`) finds the `mf2.Tokens` token under the
+cursor: in a body by mapping the position back through `BodyPosition`, in
+a catalog through `catalog.Value.Body`. An `mf2Text` carries the text, its
+declaration's signature (`analysis.PhraseSignature`, or
+`mf2.NounSignature`) and its locale: the source locale for a body and a
+catalog's `source`, the catalog's locale for its `text` and a noun's forms.
+What functions and options do is one table, `mf2.FunctionDocOf`
+(`internal/mf2/docs.go`), which `TestFunctionDocsMatchValidate` holds to
+the functions and options `Validate` accepts. A variant key asks
+`mf2.Selectors` for its column's selector (plural, with `Ordinal` and
+`Integers`; gender; weekday; enum) and a plural category's numbers come
+from `mf2.PluralExamples`, which scans 0 to 1000 under the locale's rules
+and writes runs (`2–4, 22–24, 32–34, …`). Text a pattern writes has no
+hover, so a catalog entry's own hover answers there.
+
+**Keyword hover** (`internal/hoverdoc/keywords.go`, `hoverdoc.KeywordAt`,
+called first by `textDocumentHover`). Every keyword's hover is a row of one
+table, `keywordDocs`: the word, the context it stands in (`""` for its main
+use), the construct as Nomi code, one to three sentences from the spec, and
+the tour or spec page that teaches it. `KeywordAt` lexes the file only when
+the word under the cursor is a reserved or contextual word
+(`lexer.ReservedWords`, `lexer.ContextualWords`), then reads the context
+from the neighbouring tokens and the nodes whose span holds the keyword:
+`as` in an import, a `gopkg` or a pattern; `case`, `if` and `dbg` after a
+`|>`; `else` of a binding (`ast.BindingElse` at the keyword); `or` in an
+`ast.OrPattern`; `for` and `with` on a `derive` line; `type` after `host` or
+before a `go` binding; `where self`. Some rows add what the place holds:
+`return` the function it leaves and its result type (a lambda's from
+`ExprTypes`), `break` and `continue` the call their callback is passed to,
+`self` the interface or impl receiver, `pub` the declaration it publishes.
+A contextual word is a keyword only where an AST node records its
+construct at that position (a group's `clock`, `boot` and `setup`
+positions, `ast.Subtests`, `ast.ConcurrentBlock`, `ast.KeywordDecl`, ...),
+or where its tokens are its construct's (`host fn`, `open fn` in an
+interface, `embeds` starting a line of an enum, `derive Name` starting a
+line); elsewhere the hover falls through to the name's. Where the analysis
+already hovers the token, a row says what to do with that hover: keep it
+and add the link when it explains the keyword with its types (`if`,
+`case`, `then`, `assert`, `impl`, a lambda's `fn`, the word operators),
+ignore it for `self` in an interface, and otherwise keep it with the
+row's text below (a declaration's `fn` under the function's hover). `TestKeywordDocsCoverTheLexer` fails when a reserved or contextual
+word has no row for its main use, `TestContextualWordsAreListed`
+(`internal/parser`) when the parser recognizes a lexeme that
+`lexer.ContextualWords` lacks, and `TestKeywordHoverLinksResolve`
+(`cmd/nomi-docgen`) when a row links a page or anchor the site does not
+have, read from the pages the generators would write and the tour's
+chapters (`siteAnchors`). The tour's own hover (`hoverdoc.At`, which the
+wasm build's `nomiHover` and `nomiHoverIn` call) asks it first too, as
+`textDocumentHover` does.
 
 "Add plural forms" is `mf2.AddPluralForms`: it keeps the declarations,
 adds `.input {$name :integer}` unless one declares the variable, adds
@@ -1059,6 +1233,18 @@ Generic functions, types and impls are instantiated per type-argument tuple
 a program reaches. Generic stdlib bodies are instantiated per program, never
 in the shared cache.
 
+A tuple's items are read by ordinal name (`pair.first`). The list of
+ordinals lives once in `rt` (`rt.TupleOrdinal`, rt/ordinal.go), which the
+debugger's variable tree reads too; `internal/ast` forwards to it for the
+front end, which already links `rt`. A struct may declare a field called
+`first`, so the name alone does not say which read it is. The checker records each field access it typed as a
+tuple's or a named tuple's item in `FileAnalysis.TupleItems`, with the
+item's index, and the builder reads that slot, unwrapping a named tuple's
+distinct first (`tupleItem`, irtuple.go). An accessor (`.second`) has no
+record and decides by the kind it reads from. The parser reads `t.0` as the
+error that writes `t.first` and goes on with the ordinal, so no later layer
+sees a numeric field.
+
 A std module in `programStdModules` is not in the shared cache. It is
 declared with each program that imports it, as one more module of the
 program, so its types are the program's types and one program has one
@@ -1069,7 +1255,9 @@ module is. `TestProgramStdModulesQualify` holds each listed module to the
 rule: no `host fn` or `host type`, no shared std module imports it (the
 prelude, which only re-exports, may), and it checks and lowers with no
 decline. The prelude's import of std/phrase's `Phrase` and `Noun` reaches
-the module only from a file that names one of them (`importedStdModules`);
+the module only from a file that names one of them, anywhere, a
+parameter's type included, whether or not the file's nodes carry the
+prelude's import statement (`importedStdModules`, `preludeListedNames`);
 a `phrase` or `noun` declaration reaches it through its expansion's hidden
 import. Otherwise every program would lower std/phrase and std/money, and
 their checked `Currency` literals would keep any program from a kept
@@ -1198,7 +1386,11 @@ body) qualified by the declaring module: `std/http.get`,
 `billing/invoice.impl Display for Invoice[...].to_string`. A generic
 instance adds its type arguments, spelled by `portableArgsKey`, which names
 every declaration by its linkage path (a program's from the names its
-lowering holds while it runs, `holdDeclKeys`); an impl
+lowering holds while it runs, `holdDeclKeys`), and a process-wide std
+interface (`stdIfaceDefs`, whose decl is a node of the process's own) by
+its spec's module and name, so `impl CheckedLiteral<Display, Url> for Url`
+names its functions alike in the std bundle a process reads and the
+process that wrote it; an impl
 function adds its block's receiver and the substitution it was built
 under; a default accessor its slot; an interface method a program interns
 for a std interface (`stdIfaceMethodToken`) is the program's, not a
@@ -1268,6 +1460,22 @@ gives, at the expression the builder stopped at and worded for the author
 reports the case as `BLOCKED` with that diagnostic. The builder's own
 decline reason is shown only with `NOMI_DEBUG_LOWERING=1`, which adds it to
 each such diagnostic as a hint.
+
+The shared stdlib lowering records no decline of a std body: a std function
+that declines is marked unlowered, and a program's call to it declines at
+the call, which is code the program's author wrote. A stdlib module's own
+cases (`nomi test` and `nomi check` on `std/<module>.nomi`) are std's
+author's code, so there `vmhost` follows such a call into std
+(`stdBlocker`): `irbuild.StdlibDeclines` lowers the callee's module afresh
+with a census that keeps each body's decline, and the report moves to that
+body's decline, through each further call to a std function that did not
+lower, and names the innermost construct in its own file. A program-std
+module's declines already reach the program's hooks; a diagnostic in a
+stdlib file is worded from that module's nodes (`stdModuleAt`). Before a
+module's embedded cases are built, `frontend.StdlibErrors` reports every
+check error the shared analysis recorded, in any module, as a program's
+check does, so a case that reaches a std body that does not check fails
+with the error rather than blocking on the body's missing lowering.
 
 A dispatched call reaches every retained implementation of its method. One
 with none blocks the program only when some module implements the method
@@ -1363,7 +1571,9 @@ taken as it comes ([REPL](#repl)).
 
 A generic function, type or impl is specialized to each set of concrete type
 arguments a program uses it at. Inside a body, `T` is a known type, and
-`T.format(x)` calls that type's implementation directly.
+`T.format(x)` calls that type's implementation directly. A bounded generic
+function's declaration lowers no body of its own (`funcDecl`): every call,
+function value and other file's call names an instance.
 
 Interface calls on existentials dispatch at run time. An interface-typed
 parameter, field or collection element erases its concrete type (spec §4).
@@ -1393,7 +1603,7 @@ is. A std type's value enters as a program interface's would: a builtin
 scalar or a std struct or enum unboxed, its run-time value naming its type,
 and a std container or leaf (`List<Int>`, `Range`, `Regex`, `Bytes`) boxed
 under its type's name (`irBoxPlan`). A tuple or anonymous record entering a
-std interface (`h: Hashable = #(1, 2)`) is boxed the same way
+std interface (`h: Hashable = (1, 2)`) is boxed the same way
 (`irStructuralBoxes`); its `Hashable.hash` thunk is the derive mix a direct
 call lowers (`tupleHashOf`, irtuplehash.go), and its Display is the
 structural rendering a container's is (`irDisplayErasedContainer`,
@@ -1417,6 +1627,97 @@ only to agree with `==`.
 `Display`, `Comparable` and `Debug` keep their `stdIfaceSpecs` rows, `Struct`
 and `Iter` their own representations, and the stdlib lowered once for the
 process builds no such def, so a shared std body taking one declines.
+
+A declared struct, enum or distinct type with no `Equatable` or `Hashable`
+impl of its own meets a `where T: Equatable` or `where T: Hashable` bound
+by its equality (spec §5 *Equality bounds*). The checker decides it in
+`structuralEqualityConformance` (analysis/structural_bounds.go) over
+`noEqualityPartWith`, the one definition of what `==` accepts, at each
+place a bound is checked (`typeImplementsInterface`, the impl-bound match
+`typeSatisfiesInterfaceForImplMatch`), and records no demand for the pair.
+An existential position (`h: Hashable`) still takes only an implementor
+(`partMeetsInterfaceValue`). A derive's field check asks the same of each
+component from its declaration (`deriveComponentHasEquality`), since types
+are not resolved when derives are checked. In the builder, `meetsByEquality`
+establishes that no file and nothing in std writes or derives the impl
+(`noImplOf`, `declaresImpl`); `Equatable.equal` on such a type then lowers
+as `==` (`compareOperands`) and `Hashable.hash` as `vm.hash_value`, the hash
+a Map key of it takes (irscalaroperator.go). `declaresImpl` counts a generic
+type's impls from its template, since they are registered per instance and
+never in `implOrder`. A std instance gen (`Maybe.hash<Point>`) has no
+registry of its own and asks its program's (`programReg`), so a derived
+impl wins there too.
+
+An interface default is lowered in the file that declares it, once per
+implementing type, with `self` bound to that type (`gen.defaultSelf`), so its
+names (a private function of that file, its imports, its `once` values) are
+that file's wherever the implementing block is. Each implementing block gets
+one function per default it does not write (`inheritDefaults`), so a
+type-qualified call, the dispatch table, a dictionary and a function value
+all name the block's function as they name a written one. A block in the
+declaring file lowers the body as that function. A block in another file
+makes the function one tail call of the declaring file's instance at its
+receiver (`irImplForwardDefault`, ifacedefault.go), which the declaring gen
+queues and builds in its own scope (`flushIfaceDefaults`, late instances
+included). In the instance, a call of the interface's own function at the
+receiver, bare or qualified (`area(s)`, `Shape.describe(s)`), is the
+implementing block's function (`defaultInstImplPlan`), so an `open` override
+the block writes is the one called and another default is its forwarding
+function. A `self(n)` pattern names the receiver directly (`selfHeadDef`),
+since the declaring file may have no name for it. The instance is keyed by
+the default's declaration, the receiver and the type arguments it is lowered
+at (the interface's and a generic default's own, a generic default being
+instantiated per call in the implementing block first, methodinst.go), and
+links by the interface function's linkage name with them
+(`shape.Shape.describe<Square>`). A call in another file that leaves out
+a parameter default of an interface function, whether it reaches an
+implementing block's function, an erased receiver's dispatch or a
+named-argument call, fills it as a sibling file's `fn` default is
+(ifaceslotdefault.go): at the call, under the declaring file's names
+(`lowerNamesFrom`), when every name it mentions resolves to the same
+declaration in both files (`defaultNamesAgree`), and otherwise by calling
+an accessor the declaring file builds on request, keyed by the interface
+function, the slot and the kinds of the parameters up to it, and linked
+by the function's linkage name with those kinds and the slot.
+
+A default a std interface declares with a Nomi body (`Discrete.steps_between`)
+is std's code, whose names resolve in its declaring module. A std module is
+lowered once per process, so its default is a template over `self`,
+instantiated per receiver kind and program as a generic std function is (stdifacedefault.go,
+stdinst.go): a gen of the declaring module's retained view builds it with
+`self` bound to the receiver (`gen.defaultSelf`), and a bare call of the
+interface's own function in the body (`compare(b, a)`) is that function at
+the receiver (`stdIfaceOwnCall`), which reaches the receiver's impl wherever
+it is: std's, the program's, or a derived one. A call reaches the template
+when the checker resolved it to the interface's function and no route that
+finds a written impl function answered it (`stdIfaceDefaultCall`, the last arm
+of `qualCallLowered`): `Day.steps_between(a, b)`, `Discrete.steps_between(a,
+b)`, and either inside a generic body once its argument is known. So an
+`open` override an impl writes is found first, and is the impl's own function
+(`stdIfaceOverride` admits it beside a `stdIfaceSpecs` row, whose table holds
+the row's functions alone). A row's anchor ignores the interface's Nomi
+defaults (`stdIfaceSpec.matches`), so `Comparable.compare` keeps its table
+when Comparable gains defaults; a default on an erased receiver declines. The
+instance's linkage name is the interface function's with its receiver
+(`std/discrete.Discrete.steps_between<Day>`). A std body that calls a default
+is not retained by the shared lowering, which builds no instances, and a
+program builds it as an instance with no arguments (`stdUnretainedMonoBody`),
+a call that leaves out a parameter with a literal default included
+(`stdUnretainedShortCall`). A default that is no literal
+(`max_fraction: Int = Int.max(Decimal.scale(d), min_fraction)` in
+`Decimal.format`) is Nomi of the function's module, so the instance's gen
+builds the function's arity wrappers and default accessors beside its body,
+as the shared lowering builds a retained function's, and the call is planned
+against them (`stdUnretainedDefaultedCall`). They link by the names the
+shared lowering would give them (`Decimal.format arity 3`), which it never
+defines for a body it does not retain: `irStdArityRetain` and
+`emitStdSlotDefaults` each build only beside the body. The shared lowering builds no
+instance of a default even at a receiver only std declares (`Int.min`), so
+it never defines a name a program's own `Int.min` call defines too. Range's and
+Iter's own protocols (`known_count`, `is_infinite`, `steps_between` as a
+Range's step count) keep their lowering in iter.go and irrange.go: the VM
+drives them with the impl's functions as values and answers an inherited
+default statically, and `Iter` is generic, which the template does not cover.
 
 ### Type argument conversion
 
@@ -1549,6 +1850,18 @@ an `io.capture` or `io.replay` returns runs again instead of being recorded,
 so the capture's transcript replays too. A replay cannot reproduce how tasks
 interleave, so step back turns off at the first task, `concurrent`,
 supervisor or channel.
+
+The variables tree is `rt.Inspect`, built from a value's representation
+and running no Nomi code. It names a struct's fields by name and a tuple's
+items by the ordinals that read them (`first` through `twentieth`); a named
+tuple shows its tuple's items as its own children, as `span.first` reads
+them. An item past the twentieth has no ordinal and is `[20]`, its
+zero-based index in brackets as a List's elements are named, so it never
+reads as a field. A watch or hover that is a variable or a path of names on
+one (`p.x`, `nested.second.first`) follows those children with nothing
+compiled (`readPath`, internal/dap/evaluate.go); any other text, `pair.0`
+included, is compiled as below, and the compiler accepts or rejects it as
+Nomi does.
 
 An evaluated expression (a watch, a hover, the debug console) is checked and
 lowered as a function appended to the frame's file, whose parameters are the
@@ -2044,8 +2357,9 @@ replace the backend for their body, and tasks inherit it as they inherit
 `io.capture`.
 
 `fs_testing.conformance` holds the in-memory backend to the disk; std's
-tests run it against both. A test that touches the disk does it inside
-`fs.with_temp_dir` or a Go `t.TempDir()`.
+tests run it against both. A test that touches the disk does it in a
+directory from `fs.make_temp_dir`, with `defer fs.remove_all_quietly(dir)`,
+or a Go `t.TempDir()`.
 
 ## HTTP
 
@@ -2055,7 +2369,7 @@ tests run it against both. A test that touches the disk does it inside
 
 A server is Go's `http.Server` (internal/stdhttp/server.go). Go calls its handler on a goroutine per request; that handler hands the request to the program over a channel (`http_host.next`) and waits until the program has responded (`http_host.finish`), so no Nomi code runs on Go's goroutines. `http.serve` loops on `next` in the calling task and spawns each request on the supervisor it was given. The request task runs its handler through `http_host.request_on`, a VM crossing (`networkRequestHost`, lowered by `requestOn` in ircapture.go): the handler gets the request's context, the active context with the server's `request_timeout` as a deadline, on a frame whose app `Context` field reads it and which stops when the client goes away (`rt.EnterRequest`, which ends the frame's Go context when the request's does). Every write to the `ResponseWriter` holds the request's lock, and once Go's handler has returned a write fails rather than touch it. A request whose handler wrote nothing gets a 500 from the deferred `finish`; a request whose task a supervisor restarts finds the response already sent and returns. `Body.Produce` writes through an rt `Writer` whose sink flushes to the client on each write it passes on. `http_host.listen` carries the `listen` class, which js/wasm and wasip1 lack.
 
-`Router` builds Go's `ServeMux` over its patterns (`http_host.new_mux`), each with a handler that only records which pattern matched and its wildcards' values; `http_host.route` runs the mux on a recorder and returns the match, or what the mux wrote itself (a redirect, a 405, a 404). So pattern syntax, precedence, conflicts and path cleaning are Go's own. `Response.redirect` and `Response.content` run Go's `Redirect` and `ServeContent` on a recorder the same way; `http.serve_file` reads through std/fs and hands the bytes to `ServeContent`. Cookies cross as lists of their fields, and a `CookieJar` is Go's cookiejar as a handle (rt.HTTPJar).
+`Router` builds Go's `ServeMux` over its patterns (`http_host.new_mux`), each with a handler that only records which pattern matched and its wildcards' values; `http_host.route` runs the mux on a recorder and returns the match, or what the mux wrote itself (a redirect, a 405, a 404). So pattern syntax, precedence, conflicts and path cleaning are Go's own. `Route<P>` is a checked literal whose `check` adds two rules in Nomi before Go's check (`http_host.check_pattern`): a method is one of `Method`'s named variants, and a brace stands only in a whole-segment wildcard; its `check_type` holds the wildcards to `P`'s fields. `Route.parse` and `Route.with_method` (which skips the method rule) apply the same rules at run time, the fields through std/parse's `ParseFields.field_names`. The checker types a route literal with no expected type from its wildcards (analysis/checked_literal_args.go) and holds `P`'s fields to `Parse` and `Display` there. `Route.to` and `Route.to_with` make an `Entry`, a pattern and a `(Request) -> Maybe<Response>`; `to_with`'s reads the path values through `parse.read_fields`, and `None` is a 404. `ParseFields` at an anonymous struct has no impl: the checker admits it when each field implements `Parse` and `Display` (structural_parse_fields.go), and irbuild lowers its three functions at the record kind an instance binds (irparsefields.go), each field's `parse` by its kind; at `Unit` irbuild writes them too, since no receiver selects std's impl. `Response.redirect` and `Response.content` run Go's `Redirect` and `ServeContent` on a recorder the same way; `http.serve_file` reads through std/fs and hands the bytes to `ServeContent`. Cookies cross as lists of their fields, and a `CookieJar` is Go's cookiejar as a handle (rt.HTTPJar).
 
 A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The form readers read a body through `read_capped`, in Nomi, which copies at most one byte past the limit into `Writer.collect` and leaves the rest of the stream unread; the limit is the request's `body_limit` (set by `Request.limit_body`, which also wraps the stream in Go's `MaxBytesReader` semantics, and applied to every request by `Server.max_body` in `answer`), else 10 MB for a URL-encoded form and 32 MB for a multipart one. A read that the `MaxBytesReader` cuts off exactly at `body_limit` is reported as `Error.BodyTooLarge`. Every middleware (`timeout`, `cross_origin_protection`, `cors`, `log_requests`, `security_headers`, `request_id` and the rest) is a Nomi function that takes the handler first and returns a handler; only `compress` crosses to Go, for compress/gzip (internal/stdhttp/compress.go). It picks the body's form: a whole body goes through `http_host.gzip_bytes`, a `Body.Stream` through `gzip_reader`, which compresses on read and flushes the compressor after each read of the source so a slow stream is not held back, and a `Body.Produce` writes into `gzip_writer`, whose `rt.WriteSink.Flush` hook flushes the compressor and then the writer under it at each `Writer.flush`. `http_testing.decompressed` reads a response back through `http_host.gunzip`. `method_override` reads a URL-encoded `POST` body through `read_capped` and hands the handler a request whose body is those bytes, so the handler reads the form again. `cross_origin_protection` builds one `Router` per bypass pattern, since overlapping patterns are fine there and one router refuses them, and asks `CrossOrigin.check`, which runs Go's `CrossOriginProtection.Check` (`http_host.cross_origin_check`) over the trusted origins and the Nomi request's method, `Host` and headers. It does not hand Go the request the server received (`Request.incoming`): a middleware before it may have changed the headers, and the check must read what the handler holds. The other questions Go answers about a request's parts cross the same way, as plain strings: `Headers.write_to` (`Header.WriteSubset`), `Protocol.parse` (`ParseHTTPVersion`), `Request.basic_auth` and `Request.add_cookie`.
 
@@ -2332,11 +2646,12 @@ program, its arguments, environment and directory, and a mode for each
 stream: null, the running program's own, captured in memory, or piped.
 `process.output` captures stdout and stderr, `process.run` sends them to
 the program's own output (through `io.capture` when one is in force), and
-`process.with_spawned` pipes all three, as `os.Pipe` files the child holds
+`process.spawn` pipes all three, as `os.Pipe` files the child holds
 directly, so its readers outlive the wait. `Child.wait` closes the piped
-input and waits once; `with_spawned` defers `process_host.kill`, which
-kills and reaps a child still running, so a body that returns, traps or is
-cancelled leaves no process behind. A child is started under its frame's
+input and waits once; `Child.kill`, which the caller defers, is
+`process_host.kill`, which kills and reaps a child still running and does
+nothing after a wait, so a function that returns, traps or is cancelled
+leaves no process behind. A child is started under its frame's
 context, so a cancelled task or a passed deadline kills it, and the wait
 then unwinds as the cancellation does. A relative `dir` resolves against
 the program's working directory, which `nomi test` puts at the module root
@@ -3189,6 +3504,58 @@ stay test statements.
 a branch of an `if` with no final `else` keeps its value returns, since its
 value is wrapped.
 
+## Releasing resources
+
+The release rules (spec §9 *Releasing resources*) are a check over one body
+at a time, run by the checker at the end of `checkFunc` and of a test's body
+(`analysis/resources.go`, `checkReleases`), once every expression has its
+type. A lambda met in the body is checked as a body of its own; a nested
+function is checked by its own `checkFunc`.
+
+A type is a Release type when the impl index holds an `impl Release` whose
+receiver is that declaration: the index is keyed by the receiver's name, so
+the impl found must carry the type's qualified receiver (std/http_host's
+`Conn` is not std/sql's). What the errors and the quick fix write comes from
+the body of the impl's `release` and `commit`, each one call
+(`resourceCall`): `Writer.discard(w)` gives `Writer.discard`, and a bare
+`close_quietly(conn)` in std/sql is written `sql.close_quietly` outside it.
+So another file can read those bodies, a file's interface keeps the bodies
+of its `impl Release` and `impl Commit` blocks (`stripBodies`), as it keeps
+interface defaults; every other function's body is stripped.
+
+`collectAcquisitions` walks the body for bindings whose name has a Release
+type and whose value, with its `?`, `!` and parentheses taken off, is an
+acquiring call or pipe (`acquired`): its type is a Release type or a
+`Result` holding one, with no identifier or field access of a Release type
+in it outside a lambda, and it is no constructor call. A `Reader` or
+`Writer` outside a `Result` does not count (`isStreamType`, by std/io's
+declarations). `case` arms and `if` patterns over such a call bind them
+too. `checkDiscarded` reports an acquiring call bound to a discard name, or
+the last statement of a block whose value nothing takes, as the
+`discarded-resource` error. `markDropped` finds those blocks: a test's
+body, a body whose result is `Unit`, a lambda the checker recorded in
+`unitCallbacks` (`checkLambdaExpecting` with a `Unit` result), and the
+value blocks of a statement whose value is dropped. A name with no `defer` among its block's later
+statements whose call takes it, and that `handedOn` does not find returned,
+yielded, stored in a literal or constructor, or rebound, is the
+`unreleased-resource` error. A Commit type's deferred usual release starts a
+`commitFlow` at the statement after the `defer`: it follows the statements
+in order, branching at `if` and `case` and joining the states of the
+branches that go on (committed only when each committed), and records each
+normal return reached uncommitted (a `return` or a tail value that is not
+`Err` or `None`, `break`, `continue`, and the end of the binding's block) as
+the `uncommitted-resource` error. A call of the commit or of the release
+with the name settles the path, as does one inside a lambda. The flow is
+the unreachable-code rule's shape (`alwaysExits`) carried with a state; the
+analyzer has no control-flow graph to reuse.
+
+Each error carries a `parser.Fix`, which the language server offers as a
+quick fix: "Release `w`" inserts the `defer` on the line after the binding
+and, for a Commit type, the commit before each return the flow finds
+uncommitted; "Release the `Reader`" binds a dropped acquisition to a name
+the body does not write (`reader`, else `reader2`), then does the same;
+"Commit `w`" inserts the commit before its return.
+
 ## Captures
 
 The parser reads one postfix-level operand after `&` and refuses a body that
@@ -3232,7 +3599,10 @@ A test about how a blocked program is reported (`nomi run`, `nomi test`,
 `nomi check`, the REPL, exports, the language server) blocks on a planted
 decline: a call to `planted_decline`, which `irbuild.PlantDeclineForTest`
 makes the builder decline. It never blocks on a real gap, which a fix would
-close.
+close. A test of a stdlib module's cases plants the decline on a call std
+itself makes (`withPlantedDeclineOf` in `cmd/nomi`, `nanos_in_range` in
+std/duration.nomi), in a child that keeps no std bundle, so std is lowered
+with the plant in place.
 
 ### Decline sites
 

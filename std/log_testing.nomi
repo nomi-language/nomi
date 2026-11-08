@@ -48,8 +48,8 @@ pub struct Logged<T> {
 //! assert only.message == "slow"
 //! assert only.fields == [log.int("ms", 900)]
 //
-pub fn run<T>(min: Level = Level.Debug, body: (Logger) -> T) -> Logged<T> {
-    #(value, out) = Writer.collect(fn w -> body(Logger.records(w, min)))
+pub fn run<T>(min = Level.Debug, body: (Logger) -> T) -> Logged<T> {
+    (value, out) = Writer.collect(fn w -> body(Logger.records(w, min)))
     text = Bytes.to_string(out) |> Result.with_default("")
 
     records =

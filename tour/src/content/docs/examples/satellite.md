@@ -83,9 +83,9 @@ fn leaf(value: String) -> Tree<String> {
 
 test "rebuilds the tree" {
     [
-        #("Empty tree", [], [], Tree.Leaf),
-        #("Tree with one item", ["a"], ["a"], leaf("a")),
-        #(
+        ("Empty tree", [], [], Tree.Leaf),
+        ("Tree with one item", ["a"], ["a"], leaf("a")),
+        (
             "Tree with many items",
             ["a", "i", "x", "f", "r"],
             ["i", "a", "f", "x", "r"],
@@ -95,7 +95,7 @@ test "rebuilds the tree" {
                 right: .Node{left: leaf("f"), value: "x", right: leaf("r")},
             },
         ),
-        #(
+        (
             "A degenerate binary tree",
             ["a", "b", "c", "d"],
             ["d", "c", "b", "a"],
@@ -109,7 +109,7 @@ test "rebuilds the tree" {
                 right: .Leaf,
             },
         ),
-        #(
+        (
             "Another degenerate binary tree",
             ["a", "b", "c", "d"],
             ["a", "b", "c", "d"],
@@ -123,7 +123,7 @@ test "rebuilds the tree" {
                 },
             },
         ),
-        #(
+        (
             "Tree with many more items",
             ["a", "b", "d", "g", "h", "c", "e", "f", "i"],
             ["g", "d", "h", "b", "a", "e", "c", "i", "f"],
@@ -142,33 +142,33 @@ test "rebuilds the tree" {
             },
         ),
     ]
-    |> subtests #(description, preorder, inorder, expected), description {
+    |> subtests (description, preorder, inorder, expected), description {
         assert satellite.tree_from_traversals(preorder, inorder) == Ok(expected)
     }
 }
 
 test "rejects traversals of no tree" {
     [
-        #(
+        (
             "Reject traversals of different length",
             ["a", "b"],
             ["b", "a", "r"],
             Error.DifferentLengths,
         ),
-        #(
+        (
             "Reject inconsistent traversals of same length",
             ["x", "y", "z"],
             ["a", "b", "c"],
             .DifferentElements,
         ),
-        #(
+        (
             "Reject traversals with repeated items",
             ["a", "b", "a"],
             ["b", "a", "a"],
             .RepeatedItems,
         ),
     ]
-    |> subtests #(description, preorder, inorder, expected), description {
+    |> subtests (description, preorder, inorder, expected), description {
         assert satellite.tree_from_traversals(preorder, inorder) == Err(expected)
     }
 }

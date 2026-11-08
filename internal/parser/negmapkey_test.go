@@ -153,9 +153,9 @@ func TestCaseMapPatternPayloadVariantKey(t *testing.T) {
 	}
 }
 
-// Tuple key (`#(1, 2)`).
+// Tuple key (`(1, 2)`).
 func TestCaseMapPatternTupleKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n %{#(1, 2) => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{(1, 2) => v} -> v\n _ -> \"no\"\n}")
 	if _, ok := mp.Entries[0].Key.(*ast.TupleLit); !ok {
 		t.Fatalf("entry[0] key: expected TupleLit, got %T", mp.Entries[0].Key)
 	}
@@ -223,7 +223,7 @@ func TestTypePrefixedMapPatternVariantKey(t *testing.T) {
 
 // Nested path (enum payload): a tuple key inside `Some(#{...})`.
 func TestEnumPayloadMapPatternTupleKey(t *testing.T) {
-	expr := parseExpr(t, "case x {\n Some(%{#(1, 2) => v}) -> v\n _ -> \"no\"\n}")
+	expr := parseExpr(t, "case x {\n Some(%{(1, 2) => v}) -> v\n _ -> \"no\"\n}")
 	c := expr.(*ast.Case)
 	ep := c.Branches[0].Pattern.(*ast.EnumPattern)
 	mp, ok := ep.Payload.(*ast.MapPattern)
@@ -278,7 +278,7 @@ func TestCaseBraceMultiFieldStaysStruct(t *testing.T) {
 // Disambiguation in the destructure-binding form: `#{x} = expr` stays a struct
 // destructure, while `%{k => v} = expr` is a binding of a map pattern.
 func TestMapDestructureExpressionKey(t *testing.T) {
-	nodes := parse(t, "%{#(1, 2) => v} = m")
+	nodes := parse(t, "%{(1, 2) => v} = m")
 	pb, ok := nodes[0].(*ast.PatternBinding)
 	if !ok {
 		t.Fatalf("expected PatternBinding, got %T", nodes[0])

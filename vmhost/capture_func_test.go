@@ -10,7 +10,7 @@ import (
 )
 
 // Each capture (`&(&1 > 2)`, `&(0..&1)`, `&(-&1)`, `&Point{x: &1, y: 0}`,
-// `&#(&1, 0)`) runs as the lambda it stands for, in each place a function
+// `&(&1, 0)`) runs as the lambda it stands for, in each place a function
 // value stands: a callback, a pipe stage's argument, an annotated binding,
 // a struct field and a generic call.
 func TestCaptureFunc_Runs(t *testing.T) {
@@ -78,8 +78,8 @@ fn main() {
     io.inspect([1.5] |> Iter.map(&Shape.Circle{radius: &1}) |> Iter.to_list())
     circle: (Float) -> Shape = &.Circle{radius: &1}
     io.inspect(circle(2.5))
-    io.inspect([1, 2] |> Iter.map(&#(&1, "n")) |> Iter.to_list())
-    pair: (Int, String) -> #(Int, String) = &#(&1, &2)
+    io.inspect([1, 2] |> Iter.map(&(&1, "n")) |> Iter.to_list())
+    pair: (Int, String) -> (Int, String) = &(&1, &2)
     io.inspect(pair(1, "a"))
     io.inspect([1, 5] |> Iter.filter(&(&1 > 2)) |> Iter.to_list())
     rule = Rule{name: "big", keep: &(&1 > 10)}
@@ -115,8 +115,8 @@ Point{x: 3, y: 7}
 Box{v: "b"}
 [Circle{radius: 1.5}]
 Circle{radius: 2.5}
-[#(1, "n"), #(2, "n")]
-#(1, "a")
+[(1, "n"), (2, "n")]
+(1, "a")
 [5]
 True
 [5, 9]
@@ -224,8 +224,8 @@ fn main() {
     io.inspect(Iter.map(xs, &Int.max(&1, 0)) |> Iter.to_list())
     io.inspect(Iter.map(xs, &(Int.max(&1, 0) + 1)) |> Iter.to_list())
     io.inspect(g(&Int.max(&1, 0)))
-    t = #(&Int.max(&1, 0), 1)
-    io.inspect(t.0(-3))
+    t = (&Int.max(&1, 0), 1)
+    io.inspect(t.first(-3))
     io.inspect(Iter.map(xs, &Point{x: &1, y: 0}) |> Iter.to_list())
     mul: (Int, Int) -> Int = &(&1 * &2)
     io.inspect(mul(3, 4))
@@ -301,8 +301,8 @@ fn main() {
     io.inspect(Iter.map(xs, &Int.max(&1, 0)) |> Iter.to_list())
     io.inspect(Iter.map(xs, &(Int.max(&1, 0) + 1)) |> Iter.to_list())
     io.inspect(g(&Int.max(&1, 0)))
-    t = #(&Int.max(&1, 0), 1)
-    io.inspect(t.0(-3))
+    t = (&Int.max(&1, 0), 1)
+    io.inspect(t.first(-3))
     io.inspect(Iter.map(xs, &Point{x: &1, y: 0}) |> Iter.to_list())
     mul: (Int, Int) -> Int = &(&1 * &2)
     io.inspect(mul(3, 4))
@@ -403,7 +403,7 @@ fn err() -> Result<Int, Int> {
 }
 
 fn main() {
-    _ = #(ok(), err())
+    _ = (ok(), err())
     io.inspect(` + c.expr + `)
 }
 `

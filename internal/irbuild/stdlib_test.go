@@ -118,11 +118,15 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		// see them.
 		//
 		// EXPIRY: a stdlibBinding shape that can carry a call-site position.
-		// TestScalarArith_TheTwelveKeysStayUnbound is the other half of this
+		// TestScalarArith_TheOperatorKeysStayUnbound is the other half of this
 		// and fires on the same event.
-		"decimal.Decimal.Add<Decimal, Decimal>.add":           "the row cannot carry the call's line; scalararith.go lowers it",
-		"decimal.Decimal.Subtract<Decimal, Decimal>.subtract": "the row cannot carry the call's line; scalararith.go lowers it",
-		"decimal.Decimal.Multiply<Decimal, Decimal>.multiply": "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Add<Decimal, Decimal>.add":             "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Subtract<Decimal, Decimal>.subtract":   "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Multiply<Decimal, Decimal>.multiply":   "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Divide<Decimal, Decimal>.divide":       "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Remainder<Decimal, Decimal>.remainder": "the row cannot carry the call's line; scalararith.go lowers it",
+		"int.Int.Remainder<Int, Int>.remainder":                 "operator impl; `%` on Int is lowered natively and the divide-by-zero trap carries the operator's line",
+		"float.Float.Remainder<Float, Float>.remainder":         "operator impl; `%` on Float lowers to rt.ModFloat",
 
 		// Three iteration protocol hosts, which count here because a std
 		// signature's function type projects. None is a crossing a program

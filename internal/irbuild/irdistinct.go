@@ -237,6 +237,18 @@ func (g *gen) selfDistinct() *typeDef {
 	return ds.recv.def
 }
 
+// selfHeadDef is the distinct type a `self` pattern head names in a default
+// being lowered (selfDistinct), or nil for any other head. Read before a
+// head's name is looked up: a default lowered in its declaring file for
+// another file's type may have no name for the type, or one that names a
+// type of its own.
+func (g *gen) selfHeadDef(head ast.TypeExpr) *typeDef {
+	if _, isSelf := head.(*ast.SelfType); isSelf {
+		return g.selfDistinct()
+	}
+	return nil
+}
+
 // distinctMakeOf is distinctMake for the declaration d: `self(x)` in a
 // default names it through the implementor rather than a type name.
 func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
@@ -262,7 +274,7 @@ func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kin
 	return m.Dst(), out, pure, true
 }
 
-// compositeDistinctMake lowers `Coord(#(3, 4))` and `Coord(3, 4)` over a
+// compositeDistinctMake lowers `Coord((3, 4))` and `Coord(3, 4)` over a
 // tuple inner, and `Headers(%{...})` over a map inner: the inner value,
 // built at the declared inner type, wrapped by MakeDistinct. The named
 // literals `%Headers{...}` and `#Path[...]` reach it through attachedVariant

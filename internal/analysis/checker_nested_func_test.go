@@ -224,13 +224,13 @@ func TestNestedFunc_BodyIsCheckedInEveryExpressionPosition(t *testing.T) {
   assert xs == [1, 2]
 }`},
 		{"tuple element", `fn main() {
-  v = #({
+  v = ({
     fn bad() -> Int {
       "nope"
     }
     bad()
   }, 2)
-  assert v == #(1, 2)
+  assert v == (1, 2)
 }`},
 		{"struct field", `struct P {
   x: Int

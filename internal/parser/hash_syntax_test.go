@@ -69,51 +69,71 @@ func wantParseError(t *testing.T, src, want string) {
 }
 
 func TestHashTuples(t *testing.T) {
-	wantShape(t, "x = #(1, \"a\")", "tuple")
-	wantShape(t, "x = #(#(1, 2), [#(3, 4)])", "tuple tuple tuple")
-	wantShape(t, "#(a, b) = pair", "tuple-destructure")
-	wantShape(t, "fn f(#(a, b): #(Int, Int)) -> Int { a + b }", "fn f tuple-pattern")
-	wantShape(t, "x = case p {\n    #(0, y) -> y\n    _ -> 0\n}", "tuple-pattern")
+	wantShape(t, "x = (1, \"a\")", "tuple")
+	wantShape(t, "x = ((1, 2), [(3, 4)])", "tuple tuple tuple")
+	wantShape(t, "(a, b) = pair", "tuple-destructure")
+	wantShape(t, "fn f((a, b): (Int, Int)) -> Int { a + b }", "fn f tuple-pattern")
+	wantShape(t, "x = case p {\n    (0, y) -> y\n    _ -> 0\n}", "tuple-pattern")
 	// Parentheses only group.
 	wantShape(t, "x = (1 + 2) * 3", "")
 	wantShape(t, "x = case n {\n    (1) -> 0\n    _ -> 1\n}", "")
 }
 
 func TestHashTupleType(t *testing.T) {
-	nodes := parse(t, "fn f() -> #(Int, String) { #(1, \"a\") }")
+	nodes := parse(t, "fn f() -> (Int, String) { (1, \"a\") }")
 	fd := nodes[0].(*ast.FuncDef)
 	ft, ok := fd.ReturnTypeExpr.(*ast.FuncType)
 	if !ok || ft.Return != nil || len(ft.Params) != 2 {
 		t.Fatalf("return type = %#v, want a two-element tuple type", fd.ReturnTypeExpr)
 	}
-	if got := ft.TypeString(); got != "#(Int, String)" {
+	if got := ft.TypeString(); got != "(Int, String)" {
 		t.Errorf("TypeString = %q", got)
 	}
 }
 
-// A parenthesized list is how other languages write a tuple, and the error
-// says Nomi's spelling, with the `#` to insert as its fix.
-func TestParenthesizedListNamesTheTupleForm(t *testing.T) {
-	for _, src := range []string{"x = (1, 2)", "(a, b) = pair", "fn f() -> (Int, String) { x }"} {
+// A tuple has no `#`: `#(` as a literal, a pattern or a type is an error
+// that says so, with the `#` to drop as its fix.
+func TestHashTupleNamesTheParenthesizedForm(t *testing.T) {
+	for _, src := range []string{
+		"x = #(1, 2)",
+		"#(a, b) = pair",
+		"fn f() -> #(Int, String) { x }",
+		"x = case p {\n    #(a, _) -> a\n}",
+		"f = fn #(a, b) -> a",
+	} {
 		_, err := Parse(lexer.Lex(src))
 		if err == nil {
 			t.Errorf("Parse(%q): the parser accepts it", src)
 			continue
 		}
 		var pe ParseError
-		if !errors.As(err, &pe) || !strings.Contains(pe.Error()+strings.Join(pe.Hints, " "), "#(") {
-			t.Errorf("Parse(%q) error %q names no `#(` form", src, err.Error())
+		if !errors.As(err, &pe) || !strings.Contains(pe.Message, "a tuple is written without `#`") {
+			t.Errorf("Parse(%q) error %q does not say a tuple has no `#`", src, err.Error())
 			continue
 		}
-		if pe.Fix == nil || len(pe.Fix.Edits) != 1 || pe.Fix.Edits[0].Text != "#" {
-			t.Errorf("Parse(%q) fix = %+v, want the `#` to insert", src, pe.Fix)
+		if pe.Fix == nil || len(pe.Fix.Edits) != 1 || pe.Fix.Edits[0].Text != "" ||
+			pe.Fix.Edits[0].End.Col-pe.Fix.Edits[0].Start.Col != 1 {
+			t.Errorf("Parse(%q) fix = %+v, want the `#` to drop", src, pe.Fix)
 		}
 	}
 }
 
-func TestHashTupleNeedsTwoItems(t *testing.T) {
-	wantParseError(t, "x = #(1)", "tuple")
-	wantParseError(t, "x = #()", "tuple")
+func TestTupleNeedsTwoItems(t *testing.T) {
+	wantParseError(t, "x = (1,)", "tuple")
+	wantParseError(t, "x = ()", "tuple")
+	wantParseError(t, "x: (Int,) = y", "tuple")
+	wantParseError(t, "x = case y {\n    (a,) -> a\n}", "")
+}
+
+// One item in parentheses is that item, grouped: `(x)` is `x`.
+func TestOneItemInParenthesesGroups(t *testing.T) {
+	stmt := parse(t, "x = (1)")[0].(*ast.Binding)
+	if _, ok := stmt.Value.(*ast.GroupedExpr); !ok {
+		t.Errorf("(1) = %T, want a grouping", stmt.Value)
+	}
+	if _, ok := parse(t, "x = (1, 2)")[0].(*ast.Binding).Value.(*ast.TupleLit); !ok {
+		t.Errorf("(1, 2) is not a tuple literal")
+	}
 }
 
 func TestHashedMaps(t *testing.T) {
@@ -144,7 +164,7 @@ func TestLambdaPositions(t *testing.T) {
 		"f = fn -> 1",
 		"f = fn x, y -> x + y",
 		"f = fn x: Int = 1 -> x",
-		"f = fn #(a, b) -> a + b",
+		"f = fn (a, b) -> a + b",
 		"f = fn Duration(ns) -> ns",
 		"f = fn #{x, y} -> x + y",
 		"f = fn #[x, ..] -> x",
@@ -154,7 +174,7 @@ func TestLambdaPositions(t *testing.T) {
 		"_ = g(1, fn x -> x, 2)",
 		"_ = g(by: fn x -> x)",
 		"_ = [fn x -> x, fn y -> y]",
-		"_ = #(fn x -> x, 1)",
+		"_ = (fn x -> x, 1)",
 		"_ = %{\"inc\" => fn x -> x + 1}",
 		"_ = Box{f: fn x -> x}",
 		"_ = xs |> Iter.map(fn x -> x * 2)",
@@ -242,7 +262,7 @@ func TestOldSpellingsAreErrors(t *testing.T) {
 		"interface I {\n    fn name(value: self): String\n}",
 		"f = |x| x + 1",
 		"m = {\"a\" => 1}",
-		"x = (1, 2)",
+		"x = #(1, 2)",
 		"s = #{1, 2}",
 		"p = {x: 1}",
 		"fn f(p: {x: Int}) -> Int { p.x }",
@@ -348,7 +368,7 @@ func TestShapeSymbolLiterals(t *testing.T) {
 	wantKinds(t, "p = #{x: 1, y: 2}", "struct")
 	wantKinds(t, "p = #{}", "struct")
 	wantKinds(t, "p = #{..base, x: 1}", "struct-update")
-	wantKinds(t, "t = #(1, 2)", "tuple")
+	wantKinds(t, "t = (1, 2)", "tuple")
 	// A lone punned field is a struct: a block opens with a plain `{`.
 	wantKinds(t, "p = #{name}", "struct")
 	wantKinds(t, "p = {name}", "block")
@@ -386,7 +406,7 @@ func TestNamedShapeLiterals(t *testing.T) {
 	wantParseError(t, "v = #Path[..v, 1]", "vector spread `..` has no named form; write `#[..base, item]`")
 	wantParseError(t, "s = %Tags[..s, 1]", "set spread `..` has no named form; write `%[..base, item]`")
 	wantParseError(t, "p = #Point", "expected '[' after `#Point`")
-	wantParseError(t, "p = #", "expected '{', '(', '[' or a type name after '#'")
+	wantParseError(t, "p = #", "expected '{', '[' or a type name after '#'")
 }
 
 // A `{` after an `if` condition, a `case` subject or a `subtests` name
@@ -416,7 +436,7 @@ func TestShapeSymbolPatternsAndTypes(t *testing.T) {
 	wantKinds(t, "x = case s {\n    .Circle{radius} -> radius\n    Shape.Square{side} -> side\n}", "struct-pattern .Circle struct-pattern Shape.Square")
 	wantKinds(t, "x = case p {\n    Pair(a, b) -> a\n}", "variant-pattern Pair tuple-pattern")
 	wantKinds(t, "Pair(a, b) = p", "variant-pattern Pair tuple-pattern")
-	wantKinds(t, "x = case p {\n    Pair(#(a, b)) -> a\n}", "variant-pattern Pair tuple-pattern")
+	wantKinds(t, "x = case p {\n    Pair((a, b)) -> a\n}", "variant-pattern Pair tuple-pattern")
 }
 
 func TestVectorPatterns(t *testing.T) {
@@ -464,7 +484,7 @@ func TestVectorPatterns(t *testing.T) {
 			t.Errorf("%s: heads %d tails %d spread %v rest %q", c.pat, len(v.Heads), len(v.Tails), v.Spread, rest)
 		}
 	}
-	wantKinds(t, arms("#[#(a, b), ..rest]"), "vector-pattern tuple-pattern")
+	wantKinds(t, arms("#[(a, b), ..rest]"), "vector-pattern tuple-pattern")
 	wantKinds(t, arms("#[Some(x), ..]"), "vector-pattern variant-pattern Some")
 	wantKinds(t, arms("#[a] or #[a, _]"), "vector-pattern vector-pattern")
 	wantKinds(t, arms("#[a, ..] as whole"), "vector-pattern")

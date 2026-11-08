@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"strconv"
-
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -29,7 +27,7 @@ func irCompositePartKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool) {
-	// `#(1, %[])` whose set a later use fixes (`Hold{v: #(1, %[]).1}` with
+	// `(1, %[])` whose set a later use fixes (`Hold{v: (1, %[]).second}` with
 	// `v: Set<Int>`): the checker's type of the tuple types each component,
 	// as a list literal's checked element does (literalParts).
 	if k := bl.g.project(bl.g.checkedExprType(t)); k.tag == tagTuple && k.comp != nil && len(k.comp.parts) == len(t.Items) &&
@@ -41,7 +39,7 @@ func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool
 }
 
 // tupleMakeWant is tupleMake with the position's expected tuple type, which
-// types each component: `#(0, [])` against `#(Int, List<Int>)` builds its empty
+// types each component: `(0, [])` against `(Int, List<Int>)` builds its empty
 // list at `List<Int>`.
 func (bl *irScalarBuilder) tupleMakeWant(t *ast.TupleLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
@@ -72,21 +70,39 @@ func (bl *irScalarBuilder) tupleMakeWant(t *ast.TupleLit, want kind) (ir.Temp, k
 	return n.Dst(), k, false, true
 }
 
-func irTupleIndex(t *ast.FieldAccess) (int, bool) {
-	if t.Field == nil {
-		return 0, false
-	}
-	i, err := strconv.Atoi(t.Field.Name)
-	return i, err == nil && i >= 0
-}
-
+// tupleRead lowers `t.first`, a read the checker recorded as a tuple item's
+// (FileAnalysis.TupleItems), at index.
 func (bl *irScalarBuilder) tupleRead(t *ast.FieldAccess, index int) (ir.Temp, kind, bool, bool) {
 	subj, k, mobile, ok := bl.lower(t.Object)
-	if !ok || !irRetainedTupleKind(k) || index >= len(k.comp.parts) {
+	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	v, part, ok := bl.tupleItem(t, subj, k, index)
+	if !ok {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	return v, part, mobile, true
+}
+
+// irTupleOrNamedTuple reports whether k is a tuple or a named tuple, whose
+// ordinal names (`.first`) read items rather than fields.
+func irTupleOrNamedTuple(k kind) bool {
+	return k.tag == tagTuple || (k.tag == tagNamed && irCompositeDistinct(k.def) && k.def.inner.tag == tagTuple)
+}
+
+// tupleItem reads the item at index of subj, a tuple or a named tuple (a
+// distinct type over a tuple, whose inner value is unwrapped first). ok is
+// false for any other kind.
+func (bl *irScalarBuilder) tupleItem(at ast.Node, subj ir.Temp, k kind, index int) (ir.Temp, kind, bool) {
+	if k.tag == tagNamed && irCompositeDistinct(k.def) && k.def.inner.tag == tagTuple {
+		subj = bl.distinctProjection(at, subj, k, true, "irtuple.go tupleItem")
+		k = k.def.inner
+	}
+	if !irRetainedTupleKind(k) || index < 0 || index >= len(k.comp.parts) {
+		return ir.NoTemp, kindInvalid, false
+	}
 	part := k.comp.parts[index]
-	return bl.tupleProjection(t, subj, index, part), part, mobile, true
+	return bl.tupleProjection(at, subj, index, part), part, true
 }
 
 func (bl *irScalarBuilder) tupleProjection(at ast.Node, subj ir.Temp, index int, part kind) ir.Temp {

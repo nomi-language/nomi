@@ -21,8 +21,8 @@ fn main() {
   io.print(Map.size(m))
   s = %[x, 2, y]
   io.print(s)
-  t = #(1, "k")
-  u = #(1, "k")
+  t = (1, "k")
+  u = (1, "k")
   io.print(%{t => 1, u => 2})
   k = "a"
   j = "a"
@@ -36,7 +36,7 @@ fn main() {
   })
 }
 `)
-	want := "%{1 => b, 2 => c}\n2\n%[1, 2]\n%{#(1, k) => 2}\n1\n0\n"
+	want := "%{1 => b, 2 => c}\n2\n%[1, 2]\n%{(1, k) => 2}\n1\n0\n"
 	if err != nil || out != want {
 		t.Fatalf("output %q, error %v; want %q", out, err, want)
 	}

@@ -116,7 +116,7 @@ func TestAppFieldsBootValidation(t *testing.T) {
 	for schema, want := range map[string]string{
 		`#{a: Context, b: Context}`: "at most one Context-typed field",
 		`Int`:                       "boot must return `Result<App, E>`",
-		`#(Context, Int)`:           "boot must return `Result<App, E>`",
+		`(Context, Int)`:            "boot must return `Result<App, E>`",
 	} {
 		expectErrorT(t, buildProjectForDefaultConfig(`
  fn boot(startup: Startup) -> `+schema+` { 3 }
@@ -494,8 +494,8 @@ func TestAppFieldsTestPatternIsIrrefutable(t *testing.T) {
  `), "a test's pattern must match every setup value")
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
  group "g" {
-  setup #(Some(1), "a")
-  test "x", #(n, s) {
+  setup (Some(1), "a")
+  test "x", (n, s) {
    assert n == Some(1)
    assert s == "a"
   }

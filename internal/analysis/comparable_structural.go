@@ -11,7 +11,7 @@ package analysis
 // function below: an ordering operator or an interface-typed argument
 // (recordConformanceRecording), a `where T: Comparable` bound
 // (typeImplementsInterface), and a bound inside a generic impl's receiver
-// (`List<#(Int, String)>` against `impl<T> Comparable for List<T> where T:
+// (`List<(Int, String)>` against `impl<T> Comparable for List<T> where T:
 // Comparable`, typeSatisfiesInterfaceForImplMatch). The IR builder lowers
 // the comparison (internal/irbuild/irtuplecompare.go).
 

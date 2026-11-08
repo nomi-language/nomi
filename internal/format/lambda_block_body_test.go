@@ -17,8 +17,8 @@ func TestFormat_LambdaBlockBrokenAfterBraceStays(t *testing.T) {
 			"    |> Iter.to_list()\n" +
 			"}\n",
 		"an if": "fn f(n: Int) -> String {\n" +
-			"    [#(3, \"Fizz\")]\n" +
-			"    |> Iter.reduce(\"\", fn acc, #(divisor, word) -> {\n" +
+			"    [(3, \"Fizz\")]\n" +
+			"    |> Iter.reduce(\"\", fn acc, (divisor, word) -> {\n" +
 			"        if n % divisor == 0 { acc + word } else { acc }\n" +
 			"    })\n" +
 			"}\n",

@@ -724,7 +724,7 @@ func (b *nomiHostBound) out8(v goside1.Failure) (rt.Value, error) {
 	return r, nil
 }
 
-// fn5 adapts image/image.decode_raw: decode_raw(data: Bytes, max_pixels: Int) -> #(Handle, Failure)
+// fn5 adapts image/image.decode_raw: decode_raw(data: Bytes, max_pixels: Int) -> (Handle, Failure)
 func (b *nomiHostBound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("image/image.decode_raw", &err)
 	if len(args) != 2 {
@@ -1029,7 +1029,7 @@ func (b *nomiHostBound) fn26(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	return v0, nil
 }
 
-// fn27 adapts password_hashers/password_hashers.bcrypt_hash_raw: bcrypt_hash_raw(password: Bytes, cost: Int) -> #(String, String)
+// fn27 adapts password_hashers/password_hashers.bcrypt_hash_raw: bcrypt_hash_raw(password: Bytes, cost: Int) -> (String, String)
 func (b *nomiHostBound) fn27(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("password_hashers/password_hashers.bcrypt_hash_raw", &err)
 	if len(args) != 2 {
@@ -1050,7 +1050,7 @@ func (b *nomiHostBound) fn27(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	return tup, nil
 }
 
-// fn28 adapts password_hashers/password_hashers.bcrypt_verify_raw: bcrypt_verify_raw(password: Bytes, stored: String) -> #(Bool, String)
+// fn28 adapts password_hashers/password_hashers.bcrypt_verify_raw: bcrypt_verify_raw(password: Bytes, stored: String) -> (Bool, String)
 func (b *nomiHostBound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("password_hashers/password_hashers.bcrypt_verify_raw", &err)
 	if len(args) != 2 {
@@ -1332,7 +1332,7 @@ func (b *nomiHostBound) out53(v goside4.Failure) (rt.Value, error) {
 	return r, nil
 }
 
-// fn49 adapts postgres/postgres.begin_raw: begin_raw(h: Handle) -> #(Handle, Failure)
+// fn49 adapts postgres/postgres.begin_raw: begin_raw(h: Handle) -> (Handle, Failure)
 func (b *nomiHostBound) fn49(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("postgres/postgres.begin_raw", &err)
 	if len(args) != 1 {

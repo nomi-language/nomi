@@ -47,11 +47,11 @@ func litLambdaErrors(errs []analysis.TypeError) string {
 // type is what hover shows.
 func TestLitLambdaParams_AnElementTypesTheOthers(t *testing.T) {
 	src := litLambdaTypes + `
-fn tuples() -> List<#(String, (Day) -> String)> {
+fn tuples() -> List<(String, (Day) -> String)> {
   [
-    #("a", fn d -> name_of(d)),
-    #("b", fn d: Day -> "${d.n + 1}"),
-    #("c", fn d -> name_of(d)),
+    ("a", fn d -> name_of(d)),
+    ("b", fn d: Day -> "${d.n + 1}"),
+    ("c", fn d -> name_of(d)),
   ]
 }
 
@@ -78,7 +78,7 @@ fn nested() -> Int {
 }
 
 fn named_first() -> Int {
-  ns = [#("a", name_of), #("b", fn d -> "${d.n}")]
+  ns = [("a", name_of), ("b", fn d -> "${d.n}")]
   _ = ns
   0
 }
@@ -91,14 +91,14 @@ fn named_first() -> Int {
 		line, col int
 		want      string
 	}{
-		{11, 15, "Day"},    // tuples, before the annotated element
-		{13, 15, "Day"},    // tuples, after it
+		{11, 14, "Day"},    // tuples, before the annotated element
+		{13, 14, "Day"},    // tuples, after it
 		{18, 17, "Day"},    // records: a, from the second element
 		{18, 65, "String"}, // records: b, from the first
 		{24, 15, "Day"},    // map values
 		{28, 12, "Day"},    // vector
 		{34, 33, "Day"},    // nested list
-		{40, 36, "Day"},    // after a named function
+		{40, 34, "Day"},    // after a named function
 	} {
 		if got := paramTypeAt(t, fa, tc.line, tc.col); got != tc.want {
 			t.Errorf("parameter at %d:%d: got %s, want %s", tc.line, tc.col, got, tc.want)
@@ -111,7 +111,7 @@ fn named_first() -> Int {
 func TestLitLambdaParams_DisagreeingAnnotations(t *testing.T) {
 	src := litLambdaTypes + `
 fn main() {
-  xs = [#("a", fn d: Day -> name_of(d)), #("b", fn d: Date -> "${d.n}"), #("c", fn d -> name_of(d))]
+  xs = [("a", fn d: Day -> name_of(d)), ("b", fn d: Date -> "${d.n}"), ("c", fn d -> name_of(d))]
   _ = xs
 }
 `
@@ -119,7 +119,7 @@ fn main() {
 	if len(errs) == 0 {
 		t.Fatal("the checker admits lambdas annotated `d: Day` and `d: Date` at the same place")
 	}
-	want := "10:42 list element type mismatch: expected #(String, (Day) -> String), got #(String, (Date) -> String)"
+	want := "10:41 list element type mismatch: expected (String, (Day) -> String), got (String, (Date) -> String)"
 	if got := litLambdaErrors(errs); !strings.HasPrefix(got, want) || len(errs) != 1 {
 		t.Fatalf("errors:\n%s\nwant only:\n%s", got, want)
 	}
@@ -132,12 +132,12 @@ fn main() {
 func TestLitLambdaParams_NothingTypesIt(t *testing.T) {
 	src := litLambdaTypes + `
 fn none() {
-  xs = [#("a", fn d -> "${d}"), #("b", fn e -> "${e}")]
+  xs = [("a", fn d -> "${d}"), ("b", fn e -> "${e}")]
   _ = xs
 }
 
 fn named_after() {
-  ys = [#("a", fn d -> "${d}"), #("b", name_of)]
+  ys = [("a", fn d -> "${d}"), ("b", name_of)]
   _ = ys
 }
 `
@@ -150,9 +150,9 @@ fn named_after() {
 			"help: annotate the parameter with its type, as in `fn " + name + ": T -> ...`, in this element or another one: the parameter at the same place in every element takes it"
 	}
 	want := strings.Join([]string{
-		"10:19 " + hint("d"),
-		"10:43 " + hint("e"),
-		"15:19 " + hint("d"),
+		"10:18 " + hint("d"),
+		"10:41 " + hint("e"),
+		"15:18 " + hint("d"),
 	}, "\n")
 	if got := litLambdaErrors(errs); got != want {
 		t.Fatalf("errors:\n%s\nwant:\n%s", got, want)

@@ -73,7 +73,7 @@ fn apply_list(f: (List<Int>) -> String, xs: List<Int>) -> String {
     f(xs)
 }
 
-fn apply_pair(f: (#(Int, String)) -> String, p: #(Int, String)) -> String {
+fn apply_pair(f: ((Int, String)) -> String, p: (Int, String)) -> String {
     f(p)
 }
 
@@ -146,7 +146,7 @@ fn main() {
     rendered = apply_list(fn xs -> "${xs}", [1, 2, 3])
     io.print("list = ${rendered}")
 
-    joined = apply_pair(fn p -> "${p.0}-${p.1}", #(7, "seven"))
+    joined = apply_pair(fn p -> "${p.first}-${p.second}", (7, "seven"))
     io.print("pair = ${joined}")
 
     io.print("hof = ${callf(fn g -> g(10))}")

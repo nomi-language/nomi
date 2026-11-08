@@ -37,11 +37,11 @@ fn main() {
 }`, "1\n2\n3\n#{a: 2, m: 3, z: 1}\n"},
 		{"structural fields", `import std::io
 fn main() {
-  record = #{z: #(1, "a\nb"), a: #{y: True, x: [1, 2]}}
+  record = #{z: (1, "a\nb"), a: #{y: True, x: [1, 2]}}
   io.inspect(record)
   inner = record.a
   io.inspect(inner.x)
-}`, "#{a: #{x: [1, 2], y: True}, z: #(1, \"a\\nb\")}\n[1, 2]\n"},
+}`, "#{a: #{x: [1, 2], y: True}, z: (1, \"a\\nb\")}\n[1, 2]\n"},
 		{"parameter and result", `import std::io
 fn record(n: Int) -> #{x: Int, y: Int} { #{y: n + 1, x: n} }
 fn sum(p: #{x: Int, y: Int}) -> Int { p.x + p.y }

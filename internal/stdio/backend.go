@@ -189,7 +189,7 @@ func escapes(path string) *rt.IOError {
 // withinTempDir is the error a temporary directory gets inside `fs.within`,
 // whose confinement it would leave.
 func withinTempDir() *rt.IOError {
-	return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.with_temp_dir", Target: "fs.within"}
+	return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.make_temp_dir", Target: "fs.within"}
 }
 
 // noTempDirTarget is what a WASI module with no directory to make a
@@ -199,7 +199,7 @@ const noTempDirTarget = "wasip1/wasm with no preopened directory (TMPDIR, /tmp o
 // noTempDir is the error a temporary directory gets in a WASI module whose
 // runtime preopened no directory to make it in (osTempDir).
 func noTempDir() *rt.IOError {
-	return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.with_temp_dir", Target: noTempDirTarget}
+	return &rt.IOError{Tag: rt.TagIOUnsupported, Operation: "fs.make_temp_dir", Target: noTempDirTarget}
 }
 
 // loopLimit is how many symlinks one path may pass through before it is

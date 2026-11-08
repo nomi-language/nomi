@@ -195,7 +195,7 @@ pub fn apply(conn: Conn, migrations: List<Migration>) -> Result<List<String>, Er
         }
     }
 
-    #(ran, failure) = run(tx, pending, [])
+    (ran, failure) = run(tx, pending, [])
     Conn.commit(tx) |> Result.map_err(database)?
 
     case failure {
@@ -284,14 +284,14 @@ fn adopted(tx: Conn, migrations: List<Migration>) -> Result<List<String>, Error>
         Conn.query(tx, Sql"SELECT version, dirty FROM schema_migrations")
         |> Result.map_err(database)?
 
-    #(version, dirty) = case rows {
+    (version, dirty) = case rows {
         [] ->
             return Ok([])
 
         [row, ..] -> {
             v = Row.get<Int>(row, "version") |> Result.map_err(database)?
             d = Row.get<Bool>(row, "dirty") |> Result.map_err(database)?
-            #(v, d)
+            (v, d)
         }
     }
 
@@ -305,10 +305,10 @@ fn adopted(tx: Conn, migrations: List<Migration>) -> Result<List<String>, Error>
 
     numbered =
         migrations
-        |> Iter.map(fn m -> number_of(m) |> Result.map(fn n -> #(n, m)))
+        |> Iter.map(fn m -> number_of(m) |> Result.map(fn n -> (n, m)))
         |> Result.collect()?
 
-    if not (numbered |> Iter.any(fn #(n, _) -> n == version)) {
+    if not (numbered |> Iter.any(fn (n, _) -> n == version)) {
         return Err(
             Error.Adopt{
                 message: "golang-migrate is at version ${version}, and no migration has that number",
@@ -320,10 +320,10 @@ fn adopted(tx: Conn, migrations: List<Migration>) -> Result<List<String>, Error>
 
     adopt =
         numbered
-        |> Iter.filter(fn #(n, m) -> {
+        |> Iter.filter(fn (n, m) -> {
             n <= version and Maybe.is_none(Map.get(recorded, version_of(m)))
         })
-        |> Iter.map(fn #(_, m) -> m)
+        |> Iter.map(fn (_, m) -> m)
         |> Iter.to_list()
 
     adopt
@@ -439,7 +439,7 @@ fn records(conn: Conn) -> Result<Map<String, String>, Error> {
         |> Iter.map(fn row -> {
             version = Row.get<String>(row, "version")?
             sum = Row.get<String>(row, "checksum")?
-            Ok(#(version, sum))
+            Ok((version, sum))
         })
         |> Result.collect()
         |> Result.map_err(database)?
@@ -470,10 +470,10 @@ fn table_exists(conn: Conn, name: String) -> Result<Bool, Error> {
 
 // Run each migration in a savepoint with its record, stopping at the first
 // that fails. Returns the versions run and the failure, if one stopped it.
-fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> #(List<String>, Maybe<Error>) {
+fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> (List<String>, Maybe<Error>) {
     case pending {
         [] ->
-            #(ran, None)
+            (ran, None)
 
         [first, ..rest] -> {
             version = version_of(first)
@@ -492,7 +492,7 @@ fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> #(List<String>,
 
             case done {
                 Ok(_) -> run(tx, rest, List.concat(ran, [version]))
-                Err(error) -> #(ran, Some(Error.Failed{path: first.path, error}))
+                Err(error) -> (ran, Some(Error.Failed{path: first.path, error}))
             }
         }
     }

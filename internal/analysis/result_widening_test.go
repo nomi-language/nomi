@@ -22,30 +22,30 @@ impl Named for Pt {
 // is a binding's: the embedded and implementor coercion reaches inside a
 // tuple, a list and a type argument at a result as it does at an annotated
 // binding (§4 *Embedded Types*: "a binding, an argument, a result"). The tail
-// was compared without it, so `#(1, Pt{x: 5})` was rejected as a
-// `#(Int, Named)` result though `t: #(Int, Named) = #(1, Pt{x: 5})` was not.
+// was compared without it, so `(1, Pt{x: 5})` was rejected as a
+// `(Int, Named)` result though `t: (Int, Named) = (1, Pt{x: 5})` was not.
 func TestResultWidening_TailWidensAsABindingDoes(t *testing.T) {
-	src := resultWideningDecls + `fn pair() -> #(Int, Named) {
-    #(1, Pt{x: 5})
+	src := resultWideningDecls + `fn pair() -> (Int, Named) {
+    (1, Pt{x: 5})
 }
 
-fn early(n: Int) -> #(Int, Named) {
+fn early(n: Int) -> (Int, Named) {
     if n > 0 {
-        return #(n, Pt{x: n})
+        return (n, Pt{x: n})
     }
-    #(0, Pt{x: 0})
+    (0, Pt{x: 0})
 }
 
-fn gen<A>(a: A) -> #(A, Named) {
-    #(a, Pt{x: 5})
+fn gen<A>(a: A) -> (A, Named) {
+    (a, Pt{x: 5})
 }
 
-fn bound(t: #(Int, Named)) -> #(Int, Named) {
+fn bound(t: (Int, Named)) -> (Int, Named) {
     t
 }
 
-fn binding() -> #(Int, Named) {
-    t: #(Int, Named) = #(1, Pt{x: 5})
+fn binding() -> (Int, Named) {
+    t: (Int, Named) = (1, Pt{x: 5})
     t
 }
 `
@@ -61,7 +61,7 @@ func TestResultWidening_OwnTypeParametersStayRigid(t *testing.T) {
 	cases := map[string]string{
 		"tail":            "fn wrap<T>(x: T) -> List<T> {\n    x\n}\n",
 		"return":          "fn wrap<T>(x: T) -> List<T> {\n    return x\n}\n",
-		"tuple":           "fn pair<A, B>(a: A, b: B) -> #(A, B) {\n    #(b, a)\n}\n",
+		"tuple":           "fn pair<A, B>(a: A, b: B) -> (A, B) {\n    (b, a)\n}\n",
 		"concrete result": "fn f<T>(x: T) -> Int {\n    return x\n}\n",
 	}
 	for name, src := range cases {

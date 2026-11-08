@@ -413,12 +413,12 @@ group "falls past an early return" {
   setup {
     flag = False
     if flag {
-      return #(1, "one")
+      return (1, "one")
     }
-    #(2, "two")
+    (2, "two")
   }
 
-  test "binds the tail value", #(n, s) {
+  test "binds the tail value", (n, s) {
     assert n == 2
     assert s == "two"
   }

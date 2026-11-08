@@ -52,7 +52,7 @@ fn main() {
   greet: (User) -> (String) -> String = .greet
   hello = greet(User{name: "Cy", age: 1, address: Address{city: "Ayr"}, greet: fn s -> "hey ${s}"})
   io.print(hello("there"))
-  io.print([#(1, "a"), #(2, "b")] |> Iter.map(.1) |> Iter.to_list())
+  io.print([(1, "a"), (2, "b")] |> Iter.map(.second) |> Iter.to_list())
   points = [#{x: 1, y: 2}, #{x: 3, y: 4}]
   io.print(points |> Iter.map(.y) |> Iter.to_list())
 }

@@ -87,7 +87,7 @@ fn total<T>(rows: List<List<T>>) -> Int {
 }
 
 test "the route list of an app" {
-    table = [#(Route{path: "/"}, home), #(Route{path: "/about"}, about)]
+    table = [(Route{path: "/"}, home), (Route{path: "/about"}, about)]
 
     assert routes.serve(table, "/") == "home /"
     assert routes.serve(table, "/about") == "about /about"
@@ -146,14 +146,14 @@ test "functions" {
 }
 
 test "tuples, records and fields" {
-    pairs = [#("a", Pt{x: 5})]
-    named: List<#(String, Named)> = pairs
+    pairs = [("a", Pt{x: 5})]
+    named: List<(String, Named)> = pairs
     records = [#{n: 1}]
     shown_records: List<#{n: Display}> = records
     pts = [Pt{x: 8}]
     gallery = Gallery{items: pts}
 
-    assert Iter.map(named, fn #(k, v) -> k + Named.name(v)) |> Iter.to_list() == ["apt5"]
+    assert Iter.map(named, fn (k, v) -> k + Named.name(v)) |> Iter.to_list() == ["apt5"]
     assert Iter.map(shown_records, fn r -> Display.to_string(r.n)) |> Iter.to_list() == ["1"]
     assert names(gallery.items) == "pt8"
 }
