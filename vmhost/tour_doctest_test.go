@@ -3,6 +3,7 @@ package vmhost_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/tourgo"
@@ -10,12 +11,15 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestTourDoctests runs every ```nomi-run block in tour/*.md on the VM,
@@ -36,6 +40,10 @@ import (
 // A test case the VM cannot run fails the block unless tourBlockedOnVM lists
 // it, and a listed case that runs fails too, so the list is exactly the
 // playground's BLOCKED set.
+//
+// A block that imports a tour module (`import sqlite`) runs in a second
+// test binary that links the module's Go (runTourModuleBlocks), held to the
+// same checks and regenerated the same way.
 func TestTourDoctests(t *testing.T) {
 	unblocked := map[string]bool{}
 	for name := range tourBlockedOnVM {
@@ -70,8 +78,24 @@ func TestTourDoctests(t *testing.T) {
 	// NOMI_REGENERATE_EXPECTATIONS=1 writes each ordinary block's expect
 	// block from its run, its tests' report included.
 	regenerate := os.Getenv("NOMI_REGENERATE_EXPECTATIONS") == "1"
+	// A block that imports a tour module runs in a second test binary that
+	// links the modules' Go (runTourModuleBlocks), which this one, the
+	// child, is when tourModulesShownEnv names a file: it runs only those
+	// blocks, and a regeneration writes what each shows to that file for
+	// the parent to put in its chapter.
+	childShown := os.Getenv(tourModulesShownEnv)
 	shownAt := map[string][]tourShown{}
 	defer func() {
+		if childShown != "" {
+			data, err := json.Marshal(shownAt)
+			if err == nil {
+				err = os.WriteFile(childShown, data, 0o644)
+			}
+			if err != nil {
+				t.Errorf("write %s: %v", childShown, err)
+			}
+			return
+		}
 		for chapter, shown := range shownAt {
 			if err := rewriteTourExpects(chapter, shown); err != nil {
 				t.Errorf("rewrite %s: %v", chapter, err)
@@ -79,6 +103,7 @@ func TestTourDoctests(t *testing.T) {
 		}
 	}()
 
+	var unlinkedBlocks []string
 	runnable := 0
 	for _, chapter := range chapters {
 		data, err := os.ReadFile(chapter)
@@ -88,6 +113,9 @@ func TestTourDoctests(t *testing.T) {
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
 			b := b
 			name := fmt.Sprintf("%s:'L%d", filepath.Base(chapter), b.Line)
+			if childShown != "" && len(tourgo.Imported(b.Code)) == 0 {
+				continue
+			}
 			if unknown := b.UnknownInfo(); len(unknown) > 0 {
 				t.Errorf("%s: ```nomi-run carries %q; the words a tour block may carry are %q",
 					name, unknown, doctest.InfoWords())
@@ -106,8 +134,24 @@ func TestTourDoctests(t *testing.T) {
 				t.Errorf("%s: a manual block's page shows its <!-- expect ... --> block until the reader runs it, so it needs one:\n%s", name, b.Code)
 				continue
 			}
+			if unlinked := tourgo.Unlinked(b.Code); len(unlinked) > 0 && !b.CompilesOnly() {
+				// This binary does not link the Go of a tour module the
+				// block imports; runTourModuleBlocks runs it in one that does.
+				unlinkedBlocks = append(unlinkedBlocks, name)
+				continue
+			}
 			if tools := b.Tools(); len(tools) > 0 {
-				t.Run(name, func(t *testing.T) { checkTourToolBlock(t, b, tools) })
+				t.Run(name, func(t *testing.T) {
+					if shown, ok := checkTourToolBlock(t, b, tools, unblocked); ok {
+						if regenerate {
+							shownAt[chapter] = append(shownAt[chapter], tourShown{Line: b.Line, Text: shown})
+							return
+						}
+						if err := doctest.CheckOutput(b.Expected, shown); err != nil {
+							t.Fatalf("the block's tools and run show something else:\n%s\n\n%s\n\nthe page shows:\n%s", b.Code, err, shown)
+						}
+					}
+				})
 				continue
 			}
 			if b.HasInfo(doctest.InfoError) {
@@ -125,84 +169,11 @@ func TestTourDoctests(t *testing.T) {
 				})
 				continue
 			}
-			if unlinked := tourgo.Unlinked(b.Code); len(unlinked) > 0 {
-				// A block that imports a tour module runs only on the
-				// module's browser build, which TestTourWasmAnswersTheTourBlocks
-				// runs under Node; here it must compile.
-				t.Run(name, func(t *testing.T) {
-					if msg := tourCompileError(t, b.Code); msg != "" {
-						t.Fatalf("a tour block that imports %v must compile:\n%s\n\nerror:\n%s", unlinked, b.Code, msg)
-					}
-					if b.Expected == nil {
-						t.Fatalf("a tour block that imports %v needs a hidden <!-- expect ... --> block, which the staged wasm is held to:\n%s", unlinked, b.Code)
-					}
-				})
-				continue
-			}
 			runnable++
 			t.Run(name, func(t *testing.T) {
-				files, data := tourFileSystem(t, b)
-				var out bytes.Buffer
-				// Mirror the tour playground: `// FILE: <name>` markers
-				// split the block into files (vmhost.LoadMarked, as the
-				// playground's nomiRun loads it); with no markers, the
-				// block is a single-file program.
-				// The VM, as the playground's nomiRun runs a block: one
-				// lowering serves the program and its tests.
-				// Standard error interleaves with the output, as the tour's
-				// runner shows it (cmd/nomi-wasm's nomiRun).
-				// Its `go` bindings, as the playground answers them.
-				// The modules the tour links that it imports, attached
-				// as the playground attaches them (tourgo.Source).
-				src := tourgo.Source(b.Code)
-				hosts, err := tourgo.MarkedHosts(src)
-				if err != nil {
-					t.Fatalf("the tour links no Go for this block's bindings:\n%s\n\nerror: %v", b.Code, err)
-				}
-				p, hasTests, err := vmhost.LoadMarked(src, t.TempDir(), vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&out), vmhost.WithFileSystem(files))
-				if err != nil {
-					t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", b.Code, err)
-				}
-				// A run that stops (a `todo` reached, a trap, an `Err` from
-				// main) is compared as the tour shows it: the output, then
-				// the failure. A case the VM cannot run is never expected.
-				failure := ""
-				if err := p.Run(context.Background(), &out, nil, false); err != nil {
-					if _, blocked := vmhost.IsBlocked(err); blocked {
-						t.Fatalf("the VM cannot run this tour block:\n%s\n\nerror: %v", b.Code, err)
-					}
-					failure = vmhost.FormatFailure(err)
-					shown := doctest.Shown(out.String(), failure)
-					if strings.Contains(shown, "-->") {
-						t.Fatalf("the run's text holds `-->`, which would end the hidden <!-- expect --> comment in the page:\n%s", shown)
-					}
-					t.Fatalf("Run failed for tour block:\n%s\n\nerror: %v\n\nIf it stops on purpose, mark its fence `nomi-run error` and give it an <!-- expect ... --> block holding what the tour shows:\n%s", b.Code, err, shown)
-				}
-				// A block's expect block holds what its page shows, its
-				// tests' report included, since the page shows it as the
-				// block's recorded output before any run.
-				report := ""
-				if hasTests {
-					var testOut bytes.Buffer
-					cases := p.Cases(&testOut, vmhost.TestOptions{})
-					report = vmhost.CaseReport(cases) + "\n"
-					for _, result := range cases {
-						if result.Blocked != nil {
-							if _, listed := tourBlockedOnVM[result.Name]; listed {
-								delete(unblocked, result.Name)
-								continue
-							}
-							t.Errorf("tour block test %q is blocked on the VM:\n%s\n\n%s", result.Name, b.Code, strings.Join(result.Blocked, "\n"))
-							continue
-						}
-						if result.Err != nil {
-							t.Fatalf("tour block test %q failed:\n%s\n\noutput:\n%s\nerror: %v", result.Name, b.Code, testOut.String(), result.Err)
-						}
-					}
-				}
-				shown := doctest.Shown(out.String()+report, failure)
+				shown, failure := tourBlockShown(t, b, b.Code, "", unblocked)
 				if regenerate {
-					shownAt[chapter] = append(shownAt[chapter], tourShown{line: b.Line, text: shown})
+					shownAt[chapter] = append(shownAt[chapter], tourShown{Line: b.Line, Text: shown})
 					return
 				}
 				if b.Expected == nil && shown != "" {
@@ -214,19 +185,25 @@ func TestTourDoctests(t *testing.T) {
 					}
 					t.Fatalf("tour block output mismatch:\n%s\n\n%s", b.Code, err)
 				}
-				checkTourReads(t, b, files, data, p.EmbeddedFiles())
 			})
 		}
 	}
+	if childShown != "" {
+		// The parent checks that each of its blocks passed here.
+		return
+	}
 	if runnable == 0 {
 		t.Fatal("no runnable ```nomi-run blocks found under ../tour/src/content/docs")
+	}
+	if len(unlinkedBlocks) > 0 {
+		t.Run("tour modules", func(t *testing.T) { runTourModuleBlocks(t, unlinkedBlocks, regenerate, shownAt) })
 	}
 }
 
 // tourShown is what the page shows for the block whose fence opens at line.
 type tourShown struct {
-	line int
-	text string
+	Line int    `json:"line"`
+	Text string `json:"text"`
 }
 
 // rewriteTourExpects writes each block's hidden <!-- expect ... --> block in
@@ -239,14 +216,14 @@ func rewriteTourExpects(chapter string, shown []tourShown) error {
 		return err
 	}
 	lines := strings.Split(string(data), "\n")
-	slices.SortFunc(shown, func(a, b tourShown) int { return b.line - a.line })
+	slices.SortFunc(shown, func(a, b tourShown) int { return b.Line - a.Line })
 	for _, s := range shown {
-		end := s.line
+		end := s.Line
 		for end < len(lines) && strings.TrimSpace(lines[end]) != "```" {
 			end++
 		}
 		if end == len(lines) {
-			return fmt.Errorf("the block at line %d has no closing fence", s.line)
+			return fmt.Errorf("the block at line %d has no closing fence", s.Line)
 		}
 		from, to := end+1, end+1
 		if from < len(lines) && strings.TrimSpace(lines[from]) == "<!-- expect" {
@@ -257,7 +234,7 @@ func rewriteTourExpects(chapter string, shown []tourShown) error {
 			to++
 		}
 		var expect []string
-		if text := strings.TrimRight(s.text, "\n"); text != "" {
+		if text := strings.TrimRight(s.Text, "\n"); text != "" {
 			expect = append(append([]string{"<!-- expect"}, strings.Split(text, "\n")...), "-->")
 		}
 		lines = slices.Concat(lines[:from], expect, lines[to:])
@@ -292,16 +269,85 @@ func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 	}
 }
 
-// checkTourToolBlock holds a ```nomi-run tool:<module>/<name> block to
-// what this binary can check of it. A tool of a module the block holds
-// (the block's own, or one under a directory of its own, which its go.mod
-// requires) is Nomi alone, so this binary runs the tools and the block
-// (checkOwnToolBlock).
-// Otherwise its tools are tour modules' (the block imports each one), whose
-// Go side only the tour's wasm links, so the block's run, which the tools'
-// files feed, is TestTourWasmAnswersTheTourBlocks' to compare with its
-// expect block, which it must have.
-func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
+// tourBlockShown runs a block that is not an error block as the page runs
+// code, its source (the block's, or what its tools left), and answers what
+// the page shows for it: printed (what its tools printed), the run's output
+// and its tests' report, and the run's failure. It fails the test on what
+// no expect block may hold: a case the VM cannot run, a failed test, or a
+// run that stops.
+func tourBlockShown(t *testing.T, b doctest.Block, code, printed string, unblocked map[string]bool) (shown, failure string) {
+	t.Helper()
+	files, data := tourFileSystem(t, b)
+	out := bytes.NewBufferString(printed)
+	// Mirror the tour playground: `// FILE: <name>` markers split the
+	// block into files (vmhost.LoadMarked, as the playground's nomiRun
+	// loads it); with no markers, the block is a single-file program.
+	// The VM, as the playground's nomiRun runs a block: one lowering
+	// serves the program and its tests. Standard error interleaves with
+	// the output, as the tour's runner shows it (cmd/nomi-wasm's nomiRun).
+	// Its `go` bindings, as the playground answers them. The modules the
+	// tour links that it imports, attached as the playground attaches them
+	// (tourgo.Source).
+	src := tourgo.Source(code)
+	hosts, err := tourgo.MarkedHosts(src)
+	if err != nil {
+		t.Fatalf("the tour links no Go for this block's bindings:\n%s\n\nerror: %v", b.Code, err)
+	}
+	p, hasTests, err := vmhost.LoadMarked(src, t.TempDir(), vmhost.WithHosts(hosts), vmhost.WithErrorOutput(out), vmhost.WithFileSystem(files))
+	if err != nil {
+		t.Fatalf("LoadMarked failed for tour block:\n%s\n\nerror: %v", b.Code, err)
+	}
+	// A run that stops (a `todo` reached, a trap, an `Err` from main) is
+	// shown as the tour shows it: the output, then the failure. A case the
+	// VM cannot run is never expected.
+	if err := p.Run(context.Background(), out, nil, false); err != nil {
+		if _, blocked := vmhost.IsBlocked(err); blocked {
+			t.Fatalf("the VM cannot run this tour block:\n%s\n\nerror: %v", b.Code, err)
+		}
+		failure = vmhost.FormatFailure(err)
+		shown := doctest.Shown(out.String(), failure)
+		if strings.Contains(shown, "-->") {
+			t.Fatalf("the run's text holds `-->`, which would end the hidden <!-- expect --> comment in the page:\n%s", shown)
+		}
+		t.Fatalf("Run failed for tour block:\n%s\n\nerror: %v\n\nIf it stops on purpose, mark its fence `nomi-run error` and give it an <!-- expect ... --> block holding what the tour shows:\n%s", b.Code, err, shown)
+	}
+	// A block's expect block holds what its page shows, its tests' report
+	// included, since the page shows it as the block's recorded output
+	// before any run.
+	report := ""
+	if hasTests {
+		var testOut bytes.Buffer
+		cases := p.Cases(&testOut, vmhost.TestOptions{})
+		report = vmhost.CaseReport(cases) + "\n"
+		for _, result := range cases {
+			if result.Blocked != nil {
+				if _, listed := tourBlockedOnVM[result.Name]; listed {
+					delete(unblocked, result.Name)
+					continue
+				}
+				t.Errorf("tour block test %q is blocked on the VM:\n%s\n\n%s", result.Name, b.Code, strings.Join(result.Blocked, "\n"))
+				continue
+			}
+			if result.Err != nil {
+				t.Fatalf("tour block test %q failed:\n%s\n\noutput:\n%s\nerror: %v", result.Name, b.Code, testOut.String(), result.Err)
+			}
+		}
+	}
+	checkTourReads(t, b, files, data, p.EmbeddedFiles())
+	return doctest.Shown(out.String()+report, failure), failure
+}
+
+// checkTourToolBlock holds a ```nomi-run tool:<module>/<name> block to its
+// expect block. A tool of a module the block holds (the block's own, or one
+// under a directory of its own, which its go.mod requires) is Nomi alone,
+// and checkOwnToolBlock compares the block's run itself; ok is false then.
+// Otherwise its tools are tour modules' (the block imports each one), which
+// run only in a binary that links their Go (runTourModuleBlocks): each tool
+// on the source the one before left, as the page runs them (cmd/nomi-wasm's
+// nomiTool), then the block on the files they wrote, and shown is what the
+// page shows, what the tools printed first. The files the tools write must
+// be the ones the block holds, which the page shows before any run.
+func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool, unblocked map[string]bool) (shown string, ok bool) {
 	t.Helper()
 	if b.CompilesOnly() {
 		t.Fatalf("a tool runs before the block's run, so a block with a tool: word is run; drop `no-run` or `compile-only`:\n%s", b.Code)
@@ -311,7 +357,7 @@ func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
 	}
 	if !slices.ContainsFunc(tools, func(tool doctest.Tool) bool { return tourModule(tool.Module) }) {
 		checkOwnToolBlock(t, b, tools)
-		return
+		return "", false
 	}
 	imported := tourgo.Imported(b.Code)
 	for _, tool := range tools {
@@ -319,11 +365,101 @@ func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
 			t.Fatalf("the block runs a tool of %s, which is not a tour module it imports (it imports %v):\n%s", tool.Module, imported, b.Code)
 		}
 	}
-	if len(tourgo.Unlinked(b.Code)) == 0 {
-		t.Fatalf("this binary links the Go of every module the block imports, so it could run the block's tools; check its run here:\n%s", b.Code)
+	if unlinked := tourgo.Unlinked(b.Code); len(unlinked) > 0 {
+		t.Fatalf("this binary does not link the Go of %v, so it cannot run the block's tools; runTourModuleBlocks runs it in one that does:\n%s", unlinked, b.Code)
 	}
 	if b.Expected == nil {
-		t.Fatalf("a block with a tool: word needs a hidden <!-- expect ... --> block, which the staged wasm is held to:\n%s", b.Code)
+		t.Fatalf("a block with a tool: word needs a hidden <!-- expect ... --> block, which the page shows before any run:\n%s", b.Code)
+	}
+	if b.HasInfo(doctest.InfoError) {
+		t.Fatalf("a block whose tools are a tour module's is checked as a block that runs clean; this one is an error block:\n%s", b.Code)
+	}
+	code := b.Code
+	var printed bytes.Buffer
+	for _, tool := range tools {
+		attached := tourgo.Source(code)
+		hosts, err := tourgo.ToolHosts(attached, tool.Name)
+		if err != nil {
+			t.Fatalf("the tour links no Go for the bindings of tool %s/%s:\n%s\n\nerror: %v", tool.Module, tool.Name, b.Code, err)
+		}
+		written, err := vmhost.ToolMarked(attached, t.TempDir(), tool.Module, tool.Name, &printed, vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&printed))
+		if err != nil {
+			t.Fatalf("tool %s/%s fails on the block:\n%s\n\noutput:\n%s\nerror: %s", tool.Module, tool.Name, b.Code, printed.String(), vmhost.FormatFailure(err))
+		}
+		code = vmhost.ReplaceSections(code, written)
+	}
+	if code != b.Code {
+		t.Fatalf("the block's tools write other files than the block holds, and the page shows the block's before any run; put the tools' files in the block:\n%s", code)
+	}
+	shown, _ = tourBlockShown(t, b, code, printed.String(), unblocked)
+	return shown, true
+}
+
+// tourModulesShownEnv names, in the child test binary runTourModuleBlocks
+// starts, the file the child writes what each block shows to under a
+// regeneration.
+const tourModulesShownEnv = "NOMI_TOUR_MODULES_SHOWN"
+
+// runTourModuleBlocks runs the blocks named, each of which imports a tour
+// module, in a test binary of this package that links the modules' Go: built
+// with the nomi_tourmodules tag in the tourgo.GoWork workspace, where
+// linked_modules_gen.go compiles over each module's native Go side (the
+// sqlite driver over modernc.org/sqlite). This binary cannot link them,
+// since the compiler's go.mod requires no tour module. The child runs
+// TestTourDoctests over only those blocks, with the same checks, and fails
+// as they fail; under a regeneration it writes what each shows, which this
+// one puts in shownAt with the rest of its chapter's.
+func runTourModuleBlocks(t *testing.T, names []string, regenerate bool, shownAt map[string][]tourShown) {
+	work, err := filepath.Abs(filepath.Join("..", tourgo.GoWork))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "vmhost.test")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	start := time.Now()
+	build := exec.Command("go", "test", "-c", "-tags", "nomi_tourmodules", "-o", bin, ".")
+	build.Env = append(os.Environ(), "GOWORK="+work)
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("these tour blocks import a tour module, whose Go only a build in its workspace links, and that build failed, so none of them ran:\n  %s\n\nGOWORK=%s go test -c -tags nomi_tourmodules ./vmhost: %v\n%s",
+			strings.Join(names, "\n  "), tourgo.GoWork, err, output)
+	}
+	built := time.Since(start)
+	start = time.Now()
+	shownFile := filepath.Join(dir, "shown.json")
+	child := exec.Command(bin, "-test.run", "^TestTourDoctests$", "-test.count=1", "-test.v")
+	child.Env = append(os.Environ(), tourModulesShownEnv+"="+shownFile)
+	output, err := child.CombinedOutput()
+	if err != nil {
+		t.Fatalf("the tour blocks that import a tour module, run by a test binary that links its Go:\n%s\n%v", output, err)
+	}
+	passed := regexp.MustCompile(`(?m)^    --- PASS: TestTourDoctests/(\S+)`).FindAllStringSubmatch(string(output), -1)
+	ran := map[string]bool{}
+	for _, m := range passed {
+		ran[m[1]] = true
+	}
+	for _, name := range names {
+		if !ran[strings.ReplaceAll(name, " ", "_")] {
+			t.Errorf("the test binary that links the tour modules' Go did not run %s:\n%s", name, output)
+		}
+	}
+	t.Logf("ran %d blocks that import a tour module in a test binary that links its Go (built in %s, ran in %s)",
+		len(names), built.Round(time.Millisecond), time.Since(start).Round(time.Millisecond))
+	if !regenerate {
+		return
+	}
+	data, err := os.ReadFile(shownFile)
+	if err != nil {
+		t.Fatalf("read what the child doctest shows: %v", err)
+	}
+	var shown map[string][]tourShown
+	if err := json.Unmarshal(data, &shown); err != nil {
+		t.Fatalf("decode %s: %v", shownFile, err)
+	}
+	for chapter, s := range shown {
+		shownAt[chapter] = append(shownAt[chapter], s...)
 	}
 }
 

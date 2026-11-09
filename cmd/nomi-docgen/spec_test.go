@@ -199,7 +199,10 @@ func TestSpecSectionReferences(t *testing.T) {
 	if got := doc.rewriteProse("(§5, *Default Arguments*)", five); got != "([§5, *Default Arguments*](#default-arguments))" {
 		t.Errorf("a reference into its own page = %q, want an anchor alone", got)
 	}
-	if got := doc.rewriteLinks("[notes](implementation-notes.md#go-ffi-wrapper)", five); got != "[notes](https://github.com/nomi-language/nomi/blob/main/docs/implementation-notes.md#go-ffi-wrapper)" {
+	if got := doc.rewriteLinks("[roadmap](roadmap.md#later)", five); got != "[roadmap](https://github.com/nomi-language/nomi/blob/main/docs/roadmap.md#later)" {
 		t.Errorf("a link to another document = %q, want its GitHub file", got)
+	}
+	if got := doc.rewriteLinks("[std](../std/doc.go)", five); got != "[std](https://github.com/nomi-language/nomi/blob/main/std/doc.go)" {
+		t.Errorf("a link to a file outside docs/ = %q, want its GitHub file", got)
 	}
 }

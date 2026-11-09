@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 370
-declared-cases 182
+records 372
+declared-cases 184
 failing 0
 C app-fields.md:L105
 E 0
@@ -45,13 +45,13 @@ T close log
 T close notes
 T after the block
 T
-C app-fields.md:L349
+C app-fields.md:L366
 E 0
 N 0
 H 8feac82b1491d389c0360dd65a6689b7a47a6eb9d016618d4dc79bba6c824f09
 T dev: postgres://localhost/myapp_dev, 5 connections
 T
-C app-fields.md:L431
+C app-fields.md:L448
 E 0
 N 1
 H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
@@ -60,7 +60,7 @@ T ok app-backed behavior / reads the booted field
 T ok app-backed behavior / a with line replaces a field for the rest of the body
 T test result: ok. 2 passed, 0 failed
 T
-C app-fields.md:L475
+C app-fields.md:L492
 E 0
 N 1
 H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e
@@ -68,6 +68,14 @@ T verbose: False
 T ok quiet by default / takes no arguments
 T ok verbose / reads -v
 T test result: ok. 2 passed, 0 failed
+T
+C app-fields.md:L601
+E 0
+N 1
+H f8dddb7c5f81249e771f276065062524732366ab8b5b544869ff605ca7ad662f
+T store: memory
+T ok postgres without a URL stops the program
+T test result: ok. 1 passed, 0 failed
 T
 C background-work.md:L127
 E 0
@@ -234,28 +242,28 @@ H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
 T ok literals
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L180
+C cheat-sheet.md:L184
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L271
+C cheat-sheet.md:L282
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L325
+C cheat-sheet.md:L336
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L366
+C cheat-sheet.md:L377
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
@@ -269,7 +277,7 @@ H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L428
+C cheat-sheet.md:L440
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -278,7 +286,7 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L492
+C cheat-sheet.md:L504
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
@@ -1932,7 +1940,7 @@ T dbg line 10: transform(5, fn x -> x + 1) = 6
 T dbg line 11: transform(5, factor: 3, fn x -> x + 1) = 16
 T dbg line 12: transform(5, factor: 3, double) = 30
 T
-C functions-and-lambdas.md:L414
+C functions-and-lambdas.md:L417
 E 0
 N 0
 H 603dda6a246f0e461002dfc04a26b5a6a18bb3eb8c627c4a7fc9746d699b4ac0
@@ -1989,7 +1997,7 @@ H d59ad04725cb4d783d88d6f4bb9d8aa14026593801d2642735e7ac2a2b926600
 T dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 T dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
 T
-C http.md:L133
+C http.md:L137
 E 0
 N 0
 H 17a32976d88b397334d71c10ec2f11af6f247933a3da8dcf1e9ba939bdad603d
@@ -2001,7 +2009,7 @@ N 0
 H b2d081ab19838216aa3178588b98237b4643bd979c1b80c5b81b74734a70f366
 T dbg line 20: ran.value = Ok("hello from /greet/ann b")
 T
-C http.md:L183
+C http.md:L189
 E 0
 N 0
 H 8716db159c7b6df8e40afaefd5fa1014f777b5fe8baf0251592c776a7725bc76
@@ -2009,7 +2017,7 @@ T dbg line 57: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
 T dbg line 58: answer("/users/8").status = Status(404)
 T dbg line 59: Response.text(answer("/users/x")) = Ok("not a number: x\n")
 T
-C http.md:L326
+C http.md:L337
 E 0
 N 0
 H 2076b0c9d76ac5518fc596ebddaeedaa15c9fa322d11199e216900e2f13403b4
@@ -2019,7 +2027,7 @@ T dbg line 64: Response.text(get("ada", "/admin/stats")) = Ok("42 users")
 T dbg line 65: app(http_testing.request(.Get, "/dashboard")).status = Status(401)
 T dbg line 66: Headers.get(get("ada", "/dashboard").headers, "X-Frame-Options") = Some("DENY")
 T
-C http.md:L420
+C http.md:L431
 E 0
 N 0
 H 0cf431dc734ac78aea6542644896ca4902c337d6a83cfd96757ebaf34e438842
@@ -2027,7 +2035,7 @@ T dbg line 63: Response.text(app(Request.add_cookie(http_testing.request(.Get, "
 T dbg line 64: app(http_testing.request(.Get, "/dashboard")).status = Status(303)
 T dbg line 71: app(Request.add_cookie(forged, cookie)).status = Status(403)
 T
-C http.md:L534
+C http.md:L545
 E 0
 N 0
 H acd2e735722a17969ba3fa0292bb232a2a0f5c51cd32884fde310ee1a906f14f
@@ -2042,7 +2050,7 @@ T dbg line 14: Response.text(found) = Ok("user 7")
 T dbg line 15: Router.serve(router, http_testing.request(.Get, "/users/ann")).status = Status(404)
 T dbg line 16: "${Route.path_with(user, #{id: 8})}" = "/users/8"
 T
-C http.md:L652
+C http.md:L663
 E 0
 N 1
 H b15893906451bcb5240d4d6eef8c96b3a7a0215aa35368c9214a36d2814ef0b4
@@ -2912,14 +2920,14 @@ N 0
 H 55261e44626589291e1917a4a2e1c0c448a2c51f8ef97e338c87a02c6c1c7276
 T dbg line 14: ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
 T
-C testing.md:L118
+C testing.md:L120
 E 0
 N 1
 H 879b1b8903d9a0d7baacc308b6979ce89b32ac57d3a1af95d7bcfb85342dcf14
 T ok formats parsed date
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L139
+C testing.md:L141
 E 0
 N 1
 H 6b04ccbeea1dc5ca4de4a98540f68ebcae24999a249d75d6ad56a31614803278
@@ -2927,42 +2935,42 @@ T ok answer //! test lines 1-2
 T ok label //! test line 8
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L162
+C testing.md:L164
 E 0
 N 1
 H 712da6c14a4271b5a08eb89f4e859a200d419383c29ccae0f1a99a50d0a08707
 T ok parse_int //! test lines 1-3
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L181
+C testing.md:L183
 E 0
 N 1
 H b6f742b0734d3b765366105b12405ca4ac01bdae6753dc25d94003cd499553b9
 T ok pipeline assertions validate transformed values
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L20
-E 0
-N 1
-H 8eeca313765dd04281036cf844cec131b22a8e5e72a400c514cfdef774f77606
-T ok arithmetic has the expected shape
-T test result: ok. 1 passed, 0 failed
-T
-C testing.md:L203
+C testing.md:L205
 E 0
 N 1
 H c718fee8366293ac979eed122530defb267fe83a80f5e292df92d0345abfac04
 T ok determines palindromes (3 cases)
 T test result: ok. 3 passed, 0 failed
 T
-C testing.md:L256
+C testing.md:L22
+E 0
+N 1
+H 8eeca313765dd04281036cf844cec131b22a8e5e72a400c514cfdef774f77606
+T ok arithmetic has the expected shape
+T test result: ok. 1 passed, 0 failed
+T
+C testing.md:L258
 E 0
 N 1
 H ea7c0d4d7e80368e897f54858d9187a8804aa570cf4f7d7408f867a67805a552
 T ok leap years (3 cases)
 T test result: ok. 3 passed, 0 failed
 T
-C testing.md:L321
+C testing.md:L323
 E 0
 N 1
 H a529d2aef3956d5ef189622e65532fffad58bf2db7f89c3238addc7971a12287
@@ -2971,14 +2979,14 @@ T ok greets the name it reads
 T ok greets a stranger when there is no input
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L357
+C testing.md:L359
 E 0
 N 1
 H 689a5fa4b60f419109c4e4ef868b48fafd7281d6aa30e37edb55433bff24140d
 T ok a bad count warns on stderr
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L36
+C testing.md:L38
 E 0
 N 1
 H dabcba4406ad63d73ade5d4fc338e41a451c8879c97bbf228b06a0e0da6de9a0
@@ -2986,7 +2994,7 @@ T ok assert checks successful results
 T ok refute checks result errors
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L396
+C testing.md:L398
 E 0
 N 1
 H 11e6df1f55bd27672717d56bebed415683122c04b2efa0e8ef7dc0976d009a56
@@ -2995,7 +3003,7 @@ T hello, stranger
 T ok asks for a name, then an age
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L449
+C testing.md:L451
 E 0
 N 1
 H 29f9191f9f1843ac32f0130f1f324909f10c53f3ca9cfbdb082f6f379d988540
@@ -3004,7 +3012,7 @@ T  -5.0 C |   23.0 F
 T ok converts to Fahrenheit
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L480
+C testing.md:L482
 E 0
 N 1
 H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
@@ -3012,21 +3020,29 @@ T ok user labels / setup value is explicit
 T ok user labels / a test may ignore the setup value
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L541
+C testing.md:L544
+E 0
+N 1
+H 339847d26d92a45a1df60115f8e7807d4a7553acb591a37574444cc517e0ceaa
+T ok storage [memory] / describes the booted store
+T ok storage [sqlite] / describes the booted store
+T test result: ok. 2 passed, 0 failed
+T
+C testing.md:L590
 E 0
 N 1
 H c0acde33b41944882e0c12f7be13c75f744a1586675d7c6330663a0678faed48
 T ok retry policy / gives up after backing off
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L68
+C testing.md:L70
 E 0
 N 1
 H 96e900cd5cd8591ae7f3c64c60673a9c8aee4155fb7162ba0bc6184787f16285
 T ok assert can destructure expected shapes
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L83
+C testing.md:L85
 E 0
 N 1
 H cfbb19b0fc6f852297e1671c2273a5570f042ffcc58080b0bf25fd569435bfdb

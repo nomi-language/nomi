@@ -1461,8 +1461,14 @@ func mxFormat(src string) (string, error) {
 	return b.String(), nil
 }
 
-// TestFeatureContextMatrix checks every pair and a fixed sample of the
-// triples; NOMI_MATRIX=full checks every triple.
+// TestFeatureContextMatrix (about 10 seconds) checks every pair and every
+// mxTripleSample-th triple, from a fixed start. Each cell's program must be
+// rejected with the text the matrix expects, or lower and print the
+// feature's value. NOMI_MATRIX=full checks every triple (about a minute),
+// and NOMI_MATRIX_ONLY=<text> the cells whose name holds the text. It also
+// fails for an mxKnown entry whose gap no knownLoweringGaps or
+// knownCheckerGaps entry pins. Findings are pinned in
+// lowering_gaps_matrix_test.go.
 func TestFeatureContextMatrix(t *testing.T) {
 	t.Setenv("NOMI_DEBUG_LOWERING", "1")
 	for _, k := range mxKnown {

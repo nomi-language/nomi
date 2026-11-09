@@ -44,7 +44,7 @@ func TestAnnotationHelpDiagnostic_ShowsTheAnnotationAndFixesIt(t *testing.T) {
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(annotationURI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(annotationURI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	want := "binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>\n" +
 		"help: annotate the binding: `mine: List<(String, Handler)> = ...`"
 	if len(diags) != 1 || diags[0].Message != want {

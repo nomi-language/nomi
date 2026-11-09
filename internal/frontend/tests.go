@@ -39,6 +39,18 @@ type TestCase struct {
 	// Clock is the innermost `clock` variant in force ("Virtual", "System"),
 	// "" when no group declared one, or InvalidClock.
 	Clock string
+	// Row is the row of its group's `subtests` block the case runs under,
+	// or nil.
+	Row *TestRow
+}
+
+// TestRow is one row of a group's `subtests` block, which a case of the
+// group runs under: the row's pattern binds Value before the boot line,
+// the setup and the body.
+type TestRow struct {
+	Subtests *ast.GroupSubtests
+	Value    ast.Node
+	Index    int
 }
 
 // InvalidClock marks a case whose `clock` declaration names no testing.Clock
@@ -169,7 +181,7 @@ func collectTestCases(nodes []ast.Node, namePrefix []string, selfTypeName string
 				collectTestCases(v.Items, names, receiverName, setupPrefix, groupLines, clock, out)
 			}
 		case *ast.TestDecl:
-			collectTestCasesInBlock(v, namePrefix, setupPrefix, groupLines, clock, out)
+			collectTestCasesInBlock(v, namePrefix, setupPrefix, groupLines, clock, nil, out)
 		}
 	}
 }
@@ -282,7 +294,7 @@ func AttachedTestsOf(n ast.Node) []ast.AttachedTest {
 	}
 }
 
-func collectTestCasesInBlock(decl *ast.TestDecl, namePrefix []string, setupPrefix []SetupFrame, groupLines []int, clock string, out *[]TestCase) {
+func collectTestCasesInBlock(decl *ast.TestDecl, namePrefix []string, setupPrefix []SetupFrame, groupLines []int, clock string, row *TestRow, out *[]TestCase) {
 	names := appendName(namePrefix, decl.Name)
 	if !decl.Group {
 		*out = append(*out, TestCase{
@@ -293,6 +305,7 @@ func collectTestCasesInBlock(decl *ast.TestDecl, namePrefix []string, setupPrefi
 			Line:           decl.Line,
 			GroupLines:     append([]int(nil), groupLines...),
 			Clock:          clock,
+			Row:            row,
 		})
 		return
 	}
@@ -301,6 +314,11 @@ func collectTestCasesInBlock(decl *ast.TestDecl, namePrefix []string, setupPrefi
 		localSetup = append(localSetup, SetupFrame{Boot: decl.Boot, Body: decl.Setup})
 	}
 	localGroupLines := append(append([]int(nil), groupLines...), decl.Line)
+	if decl.Subtests != nil {
+		// `--line` at the `subtests` line selects the group's cases, as the
+		// group's own header does.
+		localGroupLines = append(localGroupLines, decl.Subtests.Line)
+	}
 	localClock := clock
 	if decl.Clock != nil {
 		if name, ok := ast.TestClockVariant(decl.Clock); ok {
@@ -309,9 +327,24 @@ func collectTestCasesInBlock(decl *ast.TestDecl, namePrefix []string, setupPrefi
 			localClock = InvalidClock
 		}
 	}
+	if decl.Subtests != nil {
+		// Each row runs the group's items: its cases, row by row, are
+		// named with the row's label after the group's name.
+		rows := ast.GroupRows(decl.Subtests)
+		for i, label := range ast.GroupRowLabels(decl.Subtests) {
+			rowNames := appendName(namePrefix, ast.GroupRowSegment(decl.Name, label))
+			r := &TestRow{Subtests: decl.Subtests, Value: rows[i], Index: i}
+			for _, stmt := range decl.Body.Stmts {
+				if child, ok := stmt.(*ast.TestDecl); ok {
+					collectTestCasesInBlock(child, rowNames, localSetup, localGroupLines, localClock, r, out)
+				}
+			}
+		}
+		return
+	}
 	for _, stmt := range decl.Body.Stmts {
 		if child, ok := stmt.(*ast.TestDecl); ok {
-			collectTestCasesInBlock(child, names, localSetup, localGroupLines, localClock, out)
+			collectTestCasesInBlock(child, names, localSetup, localGroupLines, localClock, nil, out)
 		}
 	}
 }

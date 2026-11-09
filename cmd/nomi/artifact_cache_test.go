@@ -23,6 +23,31 @@ import (
 // The artifact cache's harness (internal/progcache, vmhost.Cache): a
 // command that reads a kept program must print exactly what it prints when
 // it checks and lowers the files afresh, after any edit to them.
+//
+// FuzzCachedBuildMatchesFresh writes a project to disk and edits one file.
+// After each edit it runs `nomi check` and `nomi run`, or `nomi test` for a
+// test entry, as a built `nomi`, twice with the cache and once with the
+// kept programs and file records set aside (requireCachedMatchesFresh). All
+// three must print the same, and the second must read a kept program
+// whenever the first read or kept one. Its projects are a generated one of
+// about 600 lines, whose projectgen edits it runs before the fuzzer's, and
+// every multi-file corpus directory. TestCachedBuildMatchesFreshSample
+// (about 15 seconds) runs each projectgen edit kind and a file added that a
+// leaf imports, each made and undone, and the fuzzer's edits of two corpus
+// entries; it fails unless a command relinked from file records after each
+// projectgen edit but the hub's signature edit (relinkingKinds), and prints
+// the cache's reasons when one did not. TestCachedBuildMatchesFreshRotating
+// runs two more edit sequences a day.
+//
+// TestArtifactCacheRebuildsWhatItCannotRead, TestFileRecordsRebuildWhatTheyCannotRead
+// and TestArtifactCacheTwoProcessesRace hold damaged records and racing
+// commands to a fresh command's output. internal/expectation's
+// TestCachedRunsMatchTheRecords holds kept corpus programs to the committed
+// records, and internal/progcache's tests hold the record's rules one by
+// one.
+//
+// cmd/nomi's tests share one cache directory per test binary, so its CLI
+// tests run on the cache as a user's commands do.
 
 // cacheProject is a project the harness edits on disk: a generated one,
 // whose edit kinds it applies, or a multi-file corpus directory, copied

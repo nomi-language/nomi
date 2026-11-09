@@ -189,8 +189,9 @@ func TestAppFieldsPublication(t *testing.T) {
  }`), "`Services.port` replacement expects Int, got String")
 }
 
-// An entry boot is called only on a group's `boot` line.
-func TestAppFieldsEntryBootCalledOnlyOnABootLine(t *testing.T) {
+// An entry boot is called on a group's `boot` line, or as an ordinary
+// function in a test, and nowhere else.
+func TestAppFieldsEntryBootCalledOnlyOnABootLineOrInATest(t *testing.T) {
 	prefix := `
  struct App { context: Context
  n: Int }
@@ -201,10 +202,44 @@ func TestAppFieldsEntryBootCalledOnlyOnABootLine(t *testing.T) {
   boot boot()
   test "reads" { assert App.n == 1 }
  }`))
-	expectErrorT(t, buildProjectForDefaultConfig(prefix+` test "calls" { assert boot().n == 1 }`),
-		"entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line")
-	expectErrorT(t, buildProjectForDefaultConfig(prefix+` fn again() -> App { boot() }`),
-		"entry-point boot cannot be called or captured as an ordinary function")
+	expectNoErrorsT(t, buildProjectForDefaultConfig(prefix+` test "calls" {
+  app = boot()?
+  assert app.n == 1
+  refute boot() is Err(_)
+ }`))
+	expectNoErrorsT(t, buildProjectForDefaultConfig(prefix+` group "g" {
+  setup boot()
+  test "reads", booted { assert booted is Ok(_) }
+ }`))
+	expectNoErrorsT(t, buildProjectForDefaultConfig(prefix+` //! assert boot() is Ok(_)
+ fn helper() -> Int { 1 }`))
+	const refused = "entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line, and a test may call it to check the Result it returns"
+	expectErrorT(t, buildProjectForDefaultConfig(prefix+` fn again() -> Result<App, String> { boot() }`), refused)
+	expectErrorT(t, buildProjectForDefaultConfig(prefix+` test "captures" {
+  f = boot
+  assert f() is Ok(_)
+ }`), refused)
+}
+
+// A test's call of an entry boot runs inside boot, so a boot that creates a
+// supervisor may be called there; the same call in a helper is refused as
+// a boot call, not as a supervisor made outside boot.
+func TestBootOnly_ATestMayCallABootThatCreatesASupervisor(t *testing.T) {
+	prefix := `
+ import std::supervisors.Supervisor
+ struct App { context: Context
+ work: Supervisor }
+ fn boot() -> Result<App, String> { Ok(App{context: Context.root(), work: Supervisor.new(max_running: 1)}) }
+ fn main() {}
+ `
+	expectNoErrorsT(t, buildProjectForDefaultConfig(prefix+` test "boots" { assert boot() is Ok(_) }`))
+	result := buildProjectForDefaultConfig(prefix + ` fn again() -> Result<App, String> { boot() }`)
+	expectErrorT(t, result, "a test may call it to check the Result it returns")
+	for _, err := range result {
+		if strings.Contains(err.Message, "creates a supervisor") {
+			t.Fatalf("a boot call is reported as a supervisor made outside boot: %s", err.Message)
+		}
+	}
 }
 
 // A group's `boot` line runs before any field is published, so its argument

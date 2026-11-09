@@ -641,6 +641,12 @@ func (r *bootReport) reportCall(c bootCall) {
 	if _, bootOnly := r.g.why[c.callee]; !bootOnly {
 		return
 	}
+	if r.fa.Program().BootFunctions[c.callee] {
+		// A test's call of an entry boot runs it as boot: the call is
+		// where the app value is built (CheckAppRoots refuses one outside
+		// a test).
+		return
+	}
 	r.add(Pos{Line: c.call.Line, Col: c.call.Col}, fmt.Sprintf("%s, so it can only be called while `boot` builds "+
 		"the app value, in boot or in something boot calls: a supervisor made here would be a new one every time "+
 		"this runs, so the bound would be per call rather than per downstream", r.because(c)))

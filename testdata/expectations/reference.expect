@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
 records 82
-declared-cases 943
+declared-cases 947
 failing 0
 C actors
 E 0
@@ -432,8 +432,8 @@ T ok Html.concat
 T ok Html.each
 C http
 E 0
-N 71
-H ac31f293c632981344db1efb5f3d837e73dd5935c9aaede4476c3c43af0c3162
+N 73
+H 03688b947f7724a429c803df137b4033abb30c4417e1fcb5f6bd866b68e52bef
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -453,6 +453,8 @@ T ok Request.form
 T ok Request.post_form
 T ok Request.multipart_form
 T ok Request.form_file
+T ok Request.text
+T ok Request.json_as
 T ok Request.cookies
 T ok Request.basic_auth
 T ok Request.read
@@ -508,9 +510,9 @@ T ok http.multipart_parts
 C http_testing
 E 0
 N 7
-H 6975d42b9510cec54a0b540fc4a02eca259d4f3ded5694eb08d80518fe7d497b
+H d16e750cc36eadb77cc8f6166e6074553c2a037a866aa778f3f6aec9ad96afcc
 T ok http_testing.run
-T ok http_testing.request
+T ok http_testing.request [not run in the browser: listen]
 T ok http_testing.form_request
 T ok http_testing.chunks
 T ok http_testing.decompressed
@@ -833,13 +835,15 @@ H 90184696d8d380b04e0ccff629ad1df93c1ddaca7d61ee18d9d2f1d7931c48aa
 T ok interface Matcher
 C maybe
 E 0
-N 12
-H 446c43132426710043a8c6b605c6b93bf7fe7039514117232e8eda5204bd80cf
+N 14
+H 536b16c7bb816ab6b3cc4952825b71fea0420d5715b29f55e807bf831d83709d
 T ok enum Maybe
 T ok Maybe.is_some
 T ok Maybe.is_none
 T ok Maybe.map
 T ok Maybe.with_default
+T ok Maybe.otherwise
+T ok Maybe.or_else
 T ok Maybe.to_result
 T ok Maybe.flat_map
 T ok Maybe.filter

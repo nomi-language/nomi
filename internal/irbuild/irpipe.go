@@ -56,7 +56,7 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		right = grouped.Expr
 	}
 	defer bl.stageAfter(t.Left, right)()
-	switch r := right.(type) {
+	switch r := bl.g.asTodo(right).(type) {
 	case *ast.Call:
 		// The order is the divergence risk pipe.go names: a pipe evaluates
 		// the LEFT operand first, and a lowering that appended it instead

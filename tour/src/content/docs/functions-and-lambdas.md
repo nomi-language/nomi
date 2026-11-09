@@ -409,6 +409,9 @@ If the program reaches it, the program stops with
 `todo reached at main.nomi:6: parse the header`. The editor shows each
 `todo` as a warning, and `nomi build` refuses a program that still has one.
 
+`todo` is still free as a name: `fn apply(todo: Todo)` works, and inside it
+a bare `todo` reads the parameter. Write the placeholder with a reason there.
+
 ## Code that cannot be reached
 
 ```nomi-run

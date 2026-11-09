@@ -35,20 +35,21 @@ import (
 //
 // Opened from its record, a program is checked one open document at a
 // time, each against the interfaces of the files it reads
-// (ProgramInterfaces.Check over NewStoredInterfaces). Every document's
-// diagnostics are none, as the record's program's were. A request that
+// (ProgramInterfaces.Check over NewStoredInterfaces). A document whose
+// check reports something its record's file does not is checked in its
+// program whole. A request that
 // needs a closed file's analysis checks that file against interfaces too,
 // once (the closed files' cache). The document gets no EntryProgram, since
 // its program's other files have no analysis to lower from; its lowering
 // reads whether the record's program lowered it with nothing to report
-// (StoredLoweredClean), and otherwise lowers it from its text.
+// (StoredLoweredClean), and otherwise lowers it from a kept lowering
+// (stored_lowering.go).
 //
-// The record answers only while every file of its program holds the text
-// it was written for, open documents included. The first analysis that
-// sees another text (an edit, a file changed on disk) checks the whole
-// program, as an open without a record does, and from then on the program
-// is kept and rechecked as edits come (document_programs.go). So an edit
-// costs one check of the program, once, where opening cost it before.
+// The record is opened only while every file of its program holds on disk
+// the text it was written for. An edit after the open stays in the program
+// opened from the record when it can (stored_edit.go); any other forgets
+// it, and the whole program is checked, kept and rechecked as edits come
+// (document_programs.go).
 //
 // A record is written when a document's lowering, with its program kept
 // and every text on disk, finds nothing to report (NoteLoweredClean): the

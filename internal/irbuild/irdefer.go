@@ -50,8 +50,10 @@ func (bl *irScalarBuilder) closeDefers(scope *irDeferScope, at ast.Node) {
 	}
 }
 
-// deferCall lowers `defer call(...)`: the call is lowered at the defer site
-// and only the call itself is deferred.
+// deferCall lowers `defer call(...)` and `defer on error call(...)`: the
+// call is lowered at the defer site and only the call itself is deferred.
+// The error-only form is an ir.Defer marked OnError, which the VM drops at
+// the scope's normal exit and at a return that is no error.
 //
 // The spec evaluates a deferred call's operands where the `defer` stands, so
 // whatever computes them (another call, a `case` or `if`, a widening, a
@@ -87,7 +89,9 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 		return false
 	}
 	bl.defers++
-	bl.b.DeferLastCall(bl.g.irNodePos(t), bl.defers)
+	if d := bl.b.DeferLastCall(bl.g.irNodePos(t), bl.defers); t.OnError {
+		d.SetOnError()
+	}
 	scope.ids = append(scope.ids, bl.defers)
 	bl.irDiscardStmtUnit(t)
 	return true

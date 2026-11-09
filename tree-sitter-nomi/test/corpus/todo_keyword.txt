@@ -1,5 +1,5 @@
 ================================================================================
-Bare todo is a function body
+Bare todo is an identifier, which the compiler resolves
 ================================================================================
 
 fn parse(text: String) -> Int {
@@ -17,7 +17,7 @@ fn parse(text: String) -> Int {
         (type_identifier)))
     return_type: (type_identifier)
     (body
-      (todo_expression))))
+      (identifier))))
 
 ================================================================================
 Todo with a reason
@@ -34,3 +34,35 @@ once a: Int = todo "parse the header"
     value: (todo_expression
       reason: (string
         (string_content)))))
+
+================================================================================
+Todo names a parameter, a binding and a field
+================================================================================
+
+fn apply(todo: Todo) -> String {
+    todo = Box{todo: todo}
+    todo.todo.title
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    return_type: (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (struct_construction
+          type: (type_identifier)
+          field_name: (identifier)
+          (identifier)))
+      (field_access
+        (field_access
+          (identifier)
+          (identifier))
+        (identifier)))))

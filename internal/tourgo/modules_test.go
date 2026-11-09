@@ -38,8 +38,9 @@ fn note_line(row: Row) -> Result<String, Error> {
 // A block that imports a tour module gets the module's files attached,
 // with nothing in the block that names where they come from, and a block
 // that imports none is left as it is. Outside the browser the module's Go
-// side is not linked, so Unlinked names it there: the doctests compile such
-// a block, and the staged wasm runs it (vmhost's TestTourWasm).
+// side is not linked without the nomi_tourmodules tag, so Unlinked names it
+// there: the doctests run such a block in a test binary built with the tag,
+// and the staged wasm runs it too (vmhost's TestTourWasm).
 func TestSourceAttachesTheModulesABlockImports(t *testing.T) {
 	src := tourgo.Source(firstQuery)
 	if !strings.Contains(src, "// FILE: main.nomi\n") || !strings.Contains(src, "// FILE: "+tourgo.ModulesDir+"/sqlite/sqlite.nomi\n") ||

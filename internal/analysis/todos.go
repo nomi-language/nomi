@@ -6,25 +6,34 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Todos is every `todo` expression in nodes, in source order. `nomi build`
-// refuses a program with any, and the language server reports each one.
-func Todos(nodes []ast.Node) []*ast.Todo {
-	todos, _ := TodosAndDbgs(nodes)
+// Todos is every placeholder `todo` in nodes, in source order. `nomi build`
+// refuses a program with any, and the language server reports each one. fa
+// is the analysis of nodes, which knows which bare `todo` is the
+// placeholder and which reads a binding (FileAnalysis.TodoPlaceholders);
+// with none, every bare `todo` is the placeholder, as nothing is bound.
+func Todos(nodes []ast.Node, fa *FileAnalysis) []*ast.Todo {
+	todos, _ := TodosAndDbgs(nodes, fa)
 	return todos
 }
 
 // Dbgs is every `dbg` expression in nodes, in source order. `nomi build`
 // refuses a program with any, and the language server reports each one.
 func Dbgs(nodes []ast.Node) []*ast.Dbg {
-	_, dbgs := TodosAndDbgs(nodes)
+	_, dbgs := TodosAndDbgs(nodes, nil)
 	return dbgs
 }
 
 // TodosAndDbgs is Todos and Dbgs from one walk of nodes.
-func TodosAndDbgs(nodes []ast.Node) (todos []*ast.Todo, dbgs []*ast.Dbg) {
+func TodosAndDbgs(nodes []ast.Node, fa *FileAnalysis) (todos []*ast.Todo, dbgs []*ast.Dbg) {
 	for _, n := range nodes {
 		WalkNodes(n, func(c ast.Node) {
 			switch v := c.(type) {
+			case *ast.Ident:
+				if fa == nil && v.Name == "todo" {
+					todos = append(todos, &ast.Todo{SpanCarrier: v.SpanCarrier, Line: v.Line, Col: v.Col})
+				} else if td, ok := fa.AsTodo(v).(*ast.Todo); ok {
+					todos = append(todos, td)
+				}
 			case *ast.Todo:
 				todos = append(todos, v)
 			case *ast.Dbg:
@@ -48,10 +57,10 @@ func TodosAndDbgs(nodes []ast.Node) (todos []*ast.Todo, dbgs []*ast.Dbg) {
 }
 
 // containsTodo reports whether n has a `todo` anywhere inside it.
-func containsTodo(n ast.Node) bool {
+func containsTodo(fa *FileAnalysis, n ast.Node) bool {
 	found := false
 	WalkNodes(n, func(c ast.Node) {
-		if _, ok := c.(*ast.Todo); ok {
+		if _, ok := fa.AsTodo(c).(*ast.Todo); ok {
 			found = true
 		}
 	})
@@ -60,15 +69,15 @@ func containsTodo(n ast.Node) bool {
 
 // bottomValueKeyword is `todo` or `unreachable` when n's value is one: the
 // expression itself, or a pipeline whose last stage is one. Otherwise "".
-func bottomValueKeyword(n ast.Node) string {
-	switch v := ungroupExpr(n).(type) {
+func bottomValueKeyword(fa *FileAnalysis, n ast.Node) string {
+	switch v := fa.AsTodo(ungroupExpr(n)).(type) {
 	case *ast.Todo:
 		return "todo"
 	case *ast.Unreachable:
 		return "unreachable"
 	case *ast.Binary:
 		if v.Op == "|>" {
-			return bottomValueKeyword(v.Right)
+			return bottomValueKeyword(fa, v.Right)
 		}
 	}
 	return ""
@@ -76,8 +85,8 @@ func bottomValueKeyword(n ast.Node) string {
 
 // bottomStage is a pipe stage that is a `todo` or an `unreachable`, which
 // traps after the piped value is computed.
-func bottomStage(stage ast.Node) (ast.Node, bool) {
-	switch s := ungroupExpr(stage).(type) {
+func bottomStage(fa *FileAnalysis, stage ast.Node) (ast.Node, bool) {
+	switch s := fa.AsTodo(ungroupExpr(stage)).(type) {
 	case *ast.Todo, *ast.Unreachable:
 		return s, true
 	}

@@ -91,3 +91,54 @@ func TestSameNamedDeclarationsInTwoFilesStayApart(t *testing.T) {
 		}
 	}
 }
+
+// TestOnlyOneFileDerivesForASameNamedType: the entry derives Equatable for
+// its Box and the other file's Box has none, so the other file's `==` is
+// structural and names no impl, though the entry's is the only Equatable
+// for a Box in the program. It once named the entry's, which compares the
+// other type, and a check of the file against interfaces, which does not
+// see the entry's impl, named none.
+func TestOnlyOneFileDerivesForASameNamedType(t *testing.T) {
+	p := incrementalProject{name: "one derive", entry: "main", texts: map[string]string{
+		"main": `import {
+    std::io
+    other
+}
+
+struct Box {
+    value: Int
+}
+
+derive Equatable for Box
+
+fn main() {
+    io.inspect(Box{value: 1} == Box{value: 1})
+    other.run()
+}
+`,
+		"other": `import std::io
+
+struct Box {
+    value: Int
+}
+
+pub fn run() {
+    io.inspect(Box{value: 2} == Box{value: 2})
+}
+`,
+	}}
+	full := fullCheck(p, p.texts)
+	if errs := full.Errors; len(errs["main"])+len(errs["other"]) > 0 {
+		t.Fatalf("the project does not check: %v", errs)
+	}
+	dump := analysis.DumpProgramForTest(full)
+	if n := strings.Count(dump, `= Equatable<> for Box at "`); n != 1 {
+		t.Errorf("%d `==` name an Equatable for Box, want the entry's one:\n%s", n, dump)
+	}
+	if !strings.Contains(dump, `= Equatable<> for Box at "" `) {
+		t.Errorf("the entry's `==` does not name its derived Equatable:\n%s", dump)
+	}
+	if diff := fromInterfacesDiff(p, p.texts); diff != "" {
+		t.Errorf("checked against interfaces, the program differs:\n%s", diff)
+	}
+}

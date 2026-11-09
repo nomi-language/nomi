@@ -25,8 +25,9 @@
 //# or down: `Request.limit_body` or the `http.limit_body` middleware for a
 //# route, and the `Server`'s `max_body` for every request. Limits on one
 //# request only lower each other, so a route cannot pass the server's.
-//# `Body.read_all` and `Body.reader` read what the stream holds, stopped
-//# only by such a limit.
+//# `Request.text` and `json_as` read a body whole under the same limit as a
+//# URL-encoded form. `Body.read_all` and `Body.reader` read what the stream
+//# holds, stopped only by such a limit.
 //#
 //# ## Middleware
 //#
@@ -55,7 +56,7 @@ import {
     io
     io.{Reader, Writer}
     iter.Iter
-    json.Json
+    json.{FromJson, Json}
     lists.List
     literals.{CheckedLiteral, Fragment, Literal, LiteralError}
     log.{self, Logger}
@@ -65,6 +66,7 @@ import {
     parse.{self, ParseFields}
     path
     resources.Release
+    results.Infallible
     results.Result.{self, Err, Ok}
     strings.String
     supervisors.Supervisor
@@ -714,10 +716,14 @@ impl Display for Protocol {
 /// A request to send, or one a server received.
 pub struct Request {
     method: Method = Method.Get
+    /// The URL. On a request a server received it is absolute: its scheme
+    /// is `https` over TLS and `http` otherwise, and its host is the `Host`
+    /// the client sent, as `http_testing.request` builds one.
     url: Url
     headers: Headers = Headers[]
     body: Body = Body.Empty
-    /// The `Host` to send in place of the URL's host.
+    /// The `Host` to send in place of the URL's host. On a request a server
+    /// received, the `Host` the client sent.
     host: Maybe<String> = None
     /// The body's length when it is known ahead.
     content_length: Maybe<Int> = None
@@ -892,6 +898,67 @@ impl Request {
         Map.get(form.files, field)
         |> Maybe.flat_map(List.head)
         |> Maybe.to_result(Error.MissingFile{field})
+    }
+
+    /// The whole body as text. It reads at most 10 MB, or the request's
+    /// `body_limit`, as `post_form` does, and returns `Error.BodyTooLarge`
+    /// past that; a body that is not UTF-8 is `Error.MalformedBody`, which a
+    /// handler's `?` answers with a 400. It reads the body, which a request
+    /// can do once.
+    //! import std::http.{Body, Method, Request}
+    //! import std::http_testing
+    //!
+    //! posted = fn body: Body -> #{..http_testing.request(Method.Post, "/notes"), body}
+    //!
+    //! assert Request.text(posted(Body.Stream(Reader.from_text("hello")))) == Ok("hello")
+    //!
+    //! assert Request.text(Request.limit_body(posted(Body.Text("too long")), 4))
+    //!     == Err(Error.BodyTooLarge{limit: 4})
+    //!
+    //! assert Request.text(posted(Body.Bytes(Bytes.from_list([255]))))
+    //!     == Err(Error.MalformedBody{reason: "the body is not UTF-8 text"})
+    //
+    pub fn text(request: Request) -> Result<String, Error> {
+        max = Maybe.with_default(request.body_limit, max_form_body)
+        data = read_capped(request.body, max, request.body_limit)?
+
+        Bytes.to_string(data)
+        |> Result.map_err(fn _ -> Error.MalformedBody{reason: "the body is not UTF-8 text"})
+    }
+
+    /// The body read as JSON into a `T`: `Request.text`, then
+    /// `Json.decode_as`. Text that is not JSON, or JSON that is not a `T`, is
+    /// `Error.MalformedBody`, so a handler that returns `Result<_,
+    /// http.Error>` answers it with a 400 through `?`. It does not check the
+    /// `Content-Type`. Give `T` with a binding's annotation or as
+    /// `Request.json_as<T>(request)`.
+    //! import std::http.{Body, Method, Request, Response, Status}
+    //! import std::http_testing
+    //!
+    //! posted = fn text: String -> #{..http_testing.request(Method.Post, "/todos"), body: Body.Text(text)}
+    //!
+    //! read: Result<Map<String, String>, Error> = Request.json_as(posted(`{"title": "milk"}`))
+    //! assert read == Ok(%{"title" => "milk"})
+    //!
+    //! assert Request.json_as<List<Int>>(posted("[1,")) |> Result.is_err()
+    //!
+    //! create = fn request: Request -> {
+    //!     fields = Request.json_as<Map<String, String>>(request)?
+    //!     Ok(Response{status: Status.created, body: Body.Text("${Map.get(fields, "title")}")})
+    //! }
+    //!
+    //! answer = fn text: String -> ToResponse.to_response(create(posted(text)))
+    //! assert answer(`{"title": "milk"}`).status == Status.created
+    //! assert answer(`{"title": 7}`).status == Status.bad_request
+    //!
+    //! assert Response.text(answer(`{"title": 7}`))
+    //!     == Ok("malformed body: title: expected string, got int\n")
+    //
+    pub fn json_as<T>(request: Request) -> Result<T, Error> where T: FromJson {
+        text = Request.text(request)?
+
+        Json.decode_as<T>(text)
+        |> Result.map_err(fn e -> Error.MalformedBody{reason: "${e}"})
     }
 
     /// The request's media type: its `Content-Type` without parameters, in
@@ -1480,11 +1547,70 @@ impl ToResponse for Html {
     }
 }
 
+// Infallible has no values, so this is never called. It lets a handler
+// whose body only answers `Ok(...)`, a `Result<Response, Infallible>`, be a
+// `ToResponse` through the `Result` impl below.
+impl ToResponse for Infallible {
+    fn to_response(value: Infallible) -> Response {
+        value
+    }
+}
+
 impl ToResponse for Result<T, E> where T: ToResponse, E: ToResponse {
     fn to_response(value: Result<T, E>) -> Response {
         case value {
             Ok(answer) -> ToResponse.to_response(answer)
             Err(failure) -> ToResponse.to_response(failure)
+        }
+    }
+}
+
+/// An error as a handler's answer, so a handler that returns
+/// `Result<Response, http.Error>` passes a failure up with `?`. A request
+/// the handler could not read is the client's fault and gets a 4xx whose
+/// body says why: 413 for `BodyTooLarge`, 403 for `CrossOrigin`, and 400 for
+/// `MalformedBody`, `Form`, `MissingFile` and `Body`. A request the handler
+/// sent upstream and lost is a 502, or a 504 when it timed out, and a
+/// handler that ran out of time a 503. Anything else is a 500. A 5xx body is
+/// the status text alone, so it shows the client nothing internal.
+//! import std::http.{Body, Method, Request, Response, Status}
+//! import std::http_testing
+//!
+//! status = fn e: Error -> ToResponse.to_response(e).status
+//! assert status(Error.MalformedBody{reason: "x"}) == Status.bad_request
+//! assert status(Error.BodyTooLarge{limit: 8}) == Status.request_entity_too_large
+//! assert status(Error.Timeout{during: "dial"}) == Status.gateway_timeout
+//!
+//! hidden = ToResponse.to_response(Error.Listen{address: ":80", reason: "secret"})
+//! assert hidden.status == Status.internal_server_error
+//! assert Response.text(hidden) == Ok("Internal Server Error\n")
+//
+impl ToResponse for Error {
+    fn to_response(error: Error) -> Response {
+        status = case error {
+            .BodyTooLarge{limit: _} -> Status.request_entity_too_large
+            .CrossOrigin{reason: _} -> Status.forbidden
+            .MalformedBody{reason: _} -> Status.bad_request
+            .Form{reason: _} -> Status.bad_request
+            .MissingFile{field: _} -> Status.bad_request
+            .Body{error: _} -> Status.bad_request
+            .Timeout{during: _} -> Status.gateway_timeout
+            .HandlerTimeout -> Status.service_unavailable
+            .InvalidUrl{url: _, reason: _} -> Status.bad_gateway
+            .Dns{host: _, reason: _} -> Status.bad_gateway
+            .Connect{address: _, reason: _} -> Status.bad_gateway
+            .Tls{reason: _} -> Status.bad_gateway
+            .Canceled -> Status.bad_gateway
+            .TooManyRedirects{count: _} -> Status.bad_gateway
+            .RedirectRefused{url: _, reason: _} -> Status.bad_gateway
+            .Protocol{reason: _} -> Status.bad_gateway
+            _ -> Status.internal_server_error
+        }
+
+        if Status.code(status) < 500 {
+            Response.error(status, "${error}")
+        } else {
+            Response.error(status, Status.text(status))
         }
     }
 }
@@ -1511,6 +1637,9 @@ pub enum Error {
     RedirectRefused {url: String, reason: String}
     Protocol {reason: String}
     BodyTooLarge {limit: Int}
+    /// A request body `Request.text` or `json_as` could not read as asked:
+    /// not UTF-8, not JSON, or JSON of another shape.
+    MalformedBody {reason: String}
     BodyNotAllowed
     ContentLength
     HandlerTimeout
@@ -1596,6 +1725,7 @@ impl Display for Error {
             .RedirectRefused{url, reason} -> "the redirect to ${url} was refused: ${reason}"
             .Protocol{reason} -> reason
             .BodyTooLarge{limit} -> "the body is larger than ${limit} bytes"
+            .MalformedBody{reason} -> "malformed body: ${reason}"
             .BodyNotAllowed -> "this request or response cannot have a body"
             .ContentLength -> "the body's length is not its Content-Length"
             .HandlerTimeout -> "the handler timed out"
@@ -2467,13 +2597,21 @@ fn request_of(incoming: http_host.Incoming, context: Context) -> Request {
     }
 
     length = http_host.in_content_length(incoming)
+    host = http_host.in_host(incoming)
+    local_address = http_host.in_local(incoming)
+    connection = http_host.in_tls(incoming) |> Maybe.map(tls.ConnectionState.of_parts)
 
     Request{
         method: Method.parse(http_host.in_method(incoming)),
-        url: Url.parse(http_host.in_url(incoming))!,
+        url: served_url(
+            Url.parse(http_host.in_url(incoming))!,
+            host,
+            local_address,
+            connection is Some(_),
+        ),
         headers: Headers(pairs(http_host.in_headers(incoming))),
         body: Body.Stream(http_host.in_body(incoming)),
-        host: Some(http_host.in_host(incoming)),
+        host: Some(host),
         content_length: if length < 0 { None } else { Some(length) },
         transfer_encoding: http_host.in_transfer_encoding(incoming),
         close: http_host.in_close(incoming),
@@ -2481,9 +2619,23 @@ fn request_of(incoming: http_host.Incoming, context: Context) -> Request {
         remote_address: http_host.in_remote(incoming),
         request_uri: http_host.in_target(incoming),
         context,
-        local_address: http_host.in_local(incoming),
-        tls: http_host.in_tls(incoming) |> Maybe.map(tls.ConnectionState.of_parts),
+        local_address,
+        tls: connection,
         incoming: Some(incoming),
+    }
+}
+
+/// A served request's URL made absolute, as a client wrote it: `https` over
+/// TLS and `http` otherwise, and the `Host` it asked for, or the address it
+/// reached when it sent none. A target that is already absolute (a proxy's
+/// request) and `OPTIONS *` stay as they came.
+fn served_url(target: Url, host: String, local_address: String, secure: Bool) -> Url {
+    if target.host != "" or not String.starts_with(target.path, "/") { return target }
+
+    #{
+        ..target,
+        scheme: if secure { "https" } else { "http" },
+        host: if host == "" { local_address } else { host },
     }
 }
 

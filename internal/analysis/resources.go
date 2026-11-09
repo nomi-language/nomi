@@ -16,7 +16,9 @@ import (
 // `Result` holding it, is the body's to give back: a `defer` among the
 // statements after the binding, in the binding's own block, makes a call
 // that takes it, or the body hands it on by returning it, storing it in a
-// literal or a constructor, or binding another name to it. A `Commit` type's
+// literal or a constructor, or binding another name to it. A value with no
+// `defer` is handed on or released on every path that returns normally. A
+// `Commit` type's
 // usual release discards its work, so a body that defers that release
 // calls the type's commit on every path that returns normally.
 //
@@ -35,6 +37,23 @@ const UncommittedResourceCode = "uncommitted-resource"
 // DiscardedResourceCode tags the error at an acquisition whose value is
 // dropped: bound to `_`, or the value of a body that nothing takes.
 const DiscardedResourceCode = "discarded-resource"
+
+// EscapedReleaseCode tags the error at a `defer` that releases a value which
+// then leaves the `defer`'s block.
+const EscapedReleaseCode = "released-value-escapes"
+
+// ErrorExitLeakCode tags the error at a `?` or an error `return` that leaves
+// a resource unreleased: acquired before it, handed on or released only
+// after it.
+const ErrorExitLeakCode = "leaks-on-error"
+
+// ReturnLeakCode tags the error at a normal exit that neither hands on nor
+// releases a resource that another path hands on.
+const ReturnLeakCode = "leaks-on-return"
+
+// DeferOnErrorNoFailureCode tags the error at a `defer on error` in a
+// function whose result carries no failure.
+const DeferOnErrorNoFailureCode = "defer-on-error-cannot-fail"
 
 // isResourceImpl reports whether n is an `impl Release` or `impl Commit`,
 // whose functions' bodies name the type's usual release and commit.
@@ -195,6 +214,11 @@ type releaseBody struct {
 	dropped map[*ast.Block]bool
 	// names are the names the body writes, which a fix's new name avoids.
 	names map[string]bool
+	// boot says the body is a top-level `fn boot`, an entry's boot (one
+	// anywhere else is an error of its own): a `defer` written directly in
+	// it runs after `main` finishes (spec §15), so the value it releases
+	// may leave in the App.
+	boot bool
 }
 
 // acquisition is a name a body binds to a value of a Release type from an
@@ -218,12 +242,13 @@ type acquisition struct {
 // checkReleases applies the release rules to body, a function's or a
 // test's, whose result is result, and to each lambda in it. dropped says
 // nothing takes the body's value, as for a test or a Unit callback; a body
-// whose result is Unit drops it too.
-func (c *checker) checkReleases(body *ast.Block, result Type, test, dropped bool) {
+// whose result is Unit drops it too. boot says body is a top-level
+// `fn boot`'s.
+func (c *checker) checkReleases(body *ast.Block, result Type, test, dropped, boot bool) {
 	if body == nil || c.fa == nil {
 		return
 	}
-	rb := &releaseBody{block: body, tails: map[*ast.Block]bool{}, propagates: test || propagatesInto(result)}
+	rb := &releaseBody{block: body, tails: map[*ast.Block]bool{}, propagates: test || propagatesInto(result), boot: boot}
 	markTailBlocks(body, rb.tails)
 	rb.markDropped(dropped || result == nil || IsUnitType(resolveTypeVar(result)))
 	var acqs []*acquisition
@@ -231,6 +256,7 @@ func (c *checker) checkReleases(body *ast.Block, result Type, test, dropped bool
 	for _, a := range acqs {
 		c.checkAcquisition(rb, a)
 	}
+	c.checkDeferredEscapes(rb)
 }
 
 // propagatesInto reports whether a `?` can leave a body whose result is t.
@@ -313,7 +339,7 @@ func (c *checker) collectAcquisitions(n ast.Node, rb *releaseBody, acqs *[]*acqu
 			if v.Body != nil {
 				// A lambda written as one expression has a body block the
 				// parser made, with no braces to insert a `defer` in.
-				c.checkReleases(v.Body, result, false, c.unitCallbacks[v])
+				c.checkReleases(v.Body, result, false, c.unitCallbacks[v], false)
 			}
 			return
 		case *ast.Block:
@@ -599,37 +625,135 @@ func (a *acquisition) scopeNodes() []ast.Node {
 	return nil
 }
 
-// checkAcquisition applies both rules to a.
+// checkAcquisition applies the rules to a. A `defer` releases a on every
+// exit; a `defer on error` only on an error exit, so a value it covers must
+// also be handed on.
 func (c *checker) checkAcquisition(rb *releaseBody, a *acquisition) {
-	deferAt, deferFn := -1, ""
+	deferAt, deferFn, errDeferAt := -1, "", -1
 	if a.block != nil {
 		for i := a.index + 1; i < len(a.block.Stmts); i++ {
 			d, ok := a.block.Stmts[i].(*ast.Defer)
 			if !ok {
 				continue
 			}
-			if call, ok := d.Call.(*ast.Call); ok && c.callTakes(call, a.sym) {
-				deferAt, deferFn = i, calleeName(call)
-				break
+			call, ok := d.Call.(*ast.Call)
+			if !ok || !c.callTakes(call, a.sym) {
+				continue
 			}
+			if d.OnError {
+				if errDeferAt < 0 {
+					errDeferAt = i
+				}
+				continue
+			}
+			deferAt, deferFn = i, calleeName(call)
+			break
 		}
 	}
 	if deferAt < 0 {
 		if !c.handedOn(a) {
+			if errDeferAt >= 0 {
+				c.report(TypeError{
+					Line: a.line,
+					Col:  a.col,
+					Message: fmt.Sprintf("`%s` is released only if the body fails; write `defer %s(%s)` after it, or return it",
+						a.name, a.kind.release, a.name),
+					Code: UnreleasedResourceCode,
+				})
+				return
+			}
 			c.reportUnreleased(rb, a)
+			return
 		}
+		if a.block != nil {
+			f := &pathFlow{c: c, a: a, rb: rb, handOn: true}
+			f.run(a.block, a.index+1)
+			for _, m := range f.misses {
+				c.report(f.leakError(m))
+			}
+		}
+		c.checkErrorExits(rb, a, errDeferAt, false)
 		return
 	}
+	c.checkErrorExits(rb, a, deferAt, true)
 	if a.kind.commit == "" || (deferFn != a.kind.releaseFn && deferFn != "release") {
 		// A deferred release that is not the discarding one (a writer's
 		// `close_quietly`) commits as it releases.
 		return
 	}
-	f := &commitFlow{c: c, a: a, rb: rb}
+	f := &pathFlow{c: c, a: a, rb: rb}
 	f.run(a.block, deferAt+1)
 	for _, m := range f.misses {
 		c.report(f.missError(m))
 	}
+}
+
+// checkErrorExits reports the first error exit, a `?` or a `return` of
+// `Err` or `None`, that leaves the body between a's binding and the
+// statement releaseAt that defers its release (-1 for none), or the
+// statement that hands it on, whichever comes first. plain says the release
+// at releaseAt is a `defer`, not a `defer on error`.
+func (c *checker) checkErrorExits(rb *releaseBody, a *acquisition, releaseAt int, plain bool) {
+	if !rb.propagates {
+		return
+	}
+	nodes := a.scopeNodes()
+	if releaseAt >= 0 && a.block != nil {
+		nodes = a.block.Stmts[a.index+1 : releaseAt]
+	}
+	for i, n := range nodes {
+		if c.handsOnIn(n, a.sym) || (i == len(nodes)-1 && releaseAt < 0 && c.yields(n, a.sym)) {
+			return
+		}
+		line, col, what := firstErrorExit(n)
+		if line == 0 {
+			continue
+		}
+		e := TypeError{Line: line, Col: col, Code: ErrorExitLeakCode}
+		release := fmt.Sprintf("defer on error %s(%s)", a.kind.release, a.name)
+		switch {
+		case releaseAt >= 0 && plain:
+			e.Message = fmt.Sprintf("`%s` leaks if %s: its `defer` comes after it; move the `defer` up to right after acquiring `%s`",
+				a.name, what, a.name)
+		case releaseAt >= 0:
+			e.Message = fmt.Sprintf("`%s` leaks if %s: its `defer on error` comes after it; move it up to right after acquiring `%s`",
+				a.name, what, a.name)
+		default:
+			e.Message = fmt.Sprintf("`%s` leaks if %s: it isn't released on that path; add `%s` after acquiring it",
+				a.name, what, release)
+			if a.block != nil {
+				if edit, ok := deferEdit(a, release); ok {
+					e.Fix = &parser.Fix{Title: fmt.Sprintf("Release `%s` on error", a.name), Edits: []parser.Edit{edit}}
+				}
+			}
+		}
+		c.report(e)
+		return
+	}
+}
+
+// firstErrorExit is the position of the first `?` or `return` of `Err` or
+// `None` in n outside a lambda or a nested function, and what it does as
+// the leak message words it.
+func firstErrorExit(n ast.Node) (int, int, string) {
+	line, col, what := 0, 0, ""
+	ast.Inspect(n, func(m ast.Node) bool {
+		if line != 0 {
+			return false
+		}
+		switch v := m.(type) {
+		case *ast.Lambda, *ast.FuncDef:
+			return false
+		case *ast.TryOp:
+			line, col, what = v.Line, v.Col, "this `?` returns an error"
+		case *ast.Return:
+			if isFailureValue(v) {
+				line, col, what = v.Line, v.Col, "this `return` runs"
+			}
+		}
+		return line == 0
+	})
+	return line, col, what
 }
 
 // handedOn reports whether a's value leaves the body some other way than
@@ -640,42 +764,62 @@ func (c *checker) handedOn(a *acquisition) bool {
 	if len(nodes) > 0 && c.yields(nodes[len(nodes)-1], a.sym) {
 		return true
 	}
-	found := false
 	for _, n := range nodes {
-		ast.Inspect(n, func(m ast.Node) bool {
-			if found {
-				return false
-			}
-			switch v := m.(type) {
-			case *ast.Return:
-				found = c.yields(v.Value, a.sym)
-			case *ast.Binding:
-				found = c.refersTo(v.Value, a.sym)
-			case *ast.Call:
-				found = isConstructorCall(v) && c.callTakes(v, a.sym)
-			case *ast.ListLit:
-				found = c.anyRefers(v.Items, a.sym)
-			case *ast.VectorLit:
-				found = c.anyRefers(v.Items, a.sym)
-			case *ast.SetLit:
-				found = c.anyRefers(v.Items, a.sym)
-			case *ast.ListSpreadLit:
-				found = c.anyRefers(v.Items, a.sym)
-			case *ast.TupleLit:
-				found = c.anyRefers(v.Items, a.sym)
-			case *ast.MapLit:
-				for _, e := range v.Entries {
-					found = found || c.refersTo(e.Key, a.sym) || c.refersTo(e.Value, a.sym)
-				}
-			case *ast.StructLit:
-				for _, f := range v.Fields {
-					found = found || c.refersTo(f.Value, a.sym)
-				}
-			}
-			return !found
-		})
-		if found {
+		if c.handsOnIn(n, a.sym) {
 			return true
+		}
+	}
+	return false
+}
+
+// handsOnIn reports whether n hands sym's value on: returns it, binds
+// another name to it, or stores it in a literal or a constructor.
+func (c *checker) handsOnIn(n ast.Node, sym *Symbol) bool {
+	found := false
+	ast.Inspect(n, func(m ast.Node) bool {
+		if found {
+			return false
+		}
+		if r, ok := m.(*ast.Return); ok {
+			found = c.yields(r.Value, sym)
+		} else {
+			found = c.handsOnAt(m, sym)
+		}
+		return !found
+	})
+	return found
+}
+
+// handsOnAt reports whether m itself, not what it holds, hands sym's value
+// on: binds another name to it, or stores it in a literal or a
+// constructor.
+func (c *checker) handsOnAt(m ast.Node, sym *Symbol) bool {
+	switch v := m.(type) {
+	case *ast.Binding:
+		return c.refersTo(v.Value, sym)
+	case *ast.Call:
+		return isConstructorCall(v) && c.callTakes(v, sym)
+	case *ast.ListLit:
+		return c.anyRefers(v.Items, sym)
+	case *ast.VectorLit:
+		return c.anyRefers(v.Items, sym)
+	case *ast.SetLit:
+		return c.anyRefers(v.Items, sym)
+	case *ast.ListSpreadLit:
+		return c.anyRefers(v.Items, sym)
+	case *ast.TupleLit:
+		return c.anyRefers(v.Items, sym)
+	case *ast.MapLit:
+		for _, e := range v.Entries {
+			if c.refersTo(e.Key, sym) || c.refersTo(e.Value, sym) {
+				return true
+			}
+		}
+	case *ast.StructLit:
+		for _, f := range v.Fields {
+			if c.refersTo(f.Value, sym) {
+				return true
+			}
 		}
 	}
 	return false
@@ -768,7 +912,7 @@ func (c *checker) checkDiscarded(rb *releaseBody, b *ast.Block, i int, s ast.Nod
 	if edit, ok := deferEdit(a, fmt.Sprintf("defer %s(%s)", kind.release, name)); ok {
 		fix := &parser.Fix{Title: fmt.Sprintf("Release the `%s`", typeName), Edits: []parser.Edit{bind, edit}}
 		if kind.commit != "" {
-			f := &commitFlow{c: c, a: a, rb: rb}
+			f := &pathFlow{c: c, a: a, rb: rb}
 			f.run(b, i+1)
 			for _, m := range f.misses {
 				if edit, ok := f.commitEdit(m); ok {
@@ -838,7 +982,7 @@ func (c *checker) reportUnreleased(rb *releaseBody, a *acquisition) {
 		if edit, ok := deferEdit(a, fmt.Sprintf("defer %s(%s)", a.kind.release, a.name)); ok {
 			fix := &parser.Fix{Title: fmt.Sprintf("Release `%s`", a.name), Edits: []parser.Edit{edit}}
 			if a.kind.commit != "" {
-				f := &commitFlow{c: c, a: a, rb: rb}
+				f := &pathFlow{c: c, a: a, rb: rb}
 				f.run(a.block, a.index+1)
 				for _, m := range f.misses {
 					if edit, ok := f.commitEdit(m); ok {
@@ -887,31 +1031,41 @@ func stmtSpan(s ast.Node) ast.Span {
 	return ast.Span{}
 }
 
-// commitFlow follows the paths from a deferred discarding release to every
-// normal return, and records each that has not called the commit.
-type commitFlow struct {
-	c         *checker
-	a         *acquisition
-	rb        *releaseBody
-	committed bool
-	dead      bool
-	misses    []commitMiss
-	seen      map[Pos]bool
+// pathFlow follows the paths from a statement to every normal return of
+// the body, and records each that the path has not settled. For the commit
+// rule it starts after a deferred discarding release, and the commit or the
+// release settles a path. For the hand-on rule (handOn) it starts after an
+// acquisition with no `defer`, and handing the value on or releasing it
+// settles a path: a binding, literal or constructor that holds it, a block
+// value or return that is it, or a call of its release or commit.
+type pathFlow struct {
+	c       *checker
+	a       *acquisition
+	rb      *releaseBody
+	handOn  bool
+	settled bool
+	dead    bool
+	misses  []pathMiss
+	seen    map[Pos]bool
+	// in is the block whose statement the flow is at.
+	in *ast.Block
 }
 
-// commitMiss is a normal return that does not commit: stmt is the
+// pathMiss is a normal return the path has not settled: stmt is the
 // statement it is (a `return`, or a tail expression) when one is, and
-// block the block whose closing brace it is when the path ends there.
-type commitMiss struct {
+// block the block whose closing brace it is when the path ends there. in
+// is the block the flow was in.
+type pathMiss struct {
 	line, col int
 	stmt      ast.Node
 	block     *ast.Block
+	in        *ast.Block
 }
 
-type flowState struct{ committed, dead bool }
+type flowState struct{ settled, dead bool }
 
-func (f *commitFlow) state() flowState { return flowState{f.committed, f.dead} }
-func (f *commitFlow) set(s flowState)  { f.committed, f.dead = s.committed, s.dead }
+func (f *pathFlow) state() flowState { return flowState{f.settled, f.dead} }
+func (f *pathFlow) set(s flowState)  { f.settled, f.dead = s.settled, s.dead }
 func joinFlow(a, b flowState) flowState {
 	switch {
 	case a.dead:
@@ -919,35 +1073,39 @@ func joinFlow(a, b flowState) flowState {
 	case b.dead:
 		return a
 	}
-	return flowState{committed: a.committed && b.committed}
+	return flowState{settled: a.settled && b.settled}
 }
 
 // run follows block's statements from start. The block ending discards the
 // value, so its end is a return: the body's when the block's value is the
 // body's result.
-func (f *commitFlow) run(block *ast.Block, start int) {
+func (f *pathFlow) run(block *ast.Block, start int) {
 	f.stmts(block, block.Stmts[start:], f.rb.tails[block])
 }
 
 // stmts follows stmts, the rest of block, to its end. tail says the
 // block's value is the body's result, so its last statement returns.
-func (f *commitFlow) stmts(block *ast.Block, stmts []ast.Node, tail bool) {
+func (f *pathFlow) stmts(block *ast.Block, stmts []ast.Node, tail bool) {
+	outer := f.in
+	defer func() { f.in = outer }()
 	for i, s := range stmts {
 		if f.dead {
 			return
 		}
+		f.in = block
 		if tail && i == len(stmts)-1 && isValueStmt(s) {
 			f.tail(s)
 			return
 		}
 		f.node(s)
+		f.blockValue(block, i == len(stmts)-1, s)
 	}
-	if !f.dead && !f.committed {
+	if !f.dead && !f.settled {
 		line, col := block.EndLine, block.EndCol
 		if line == 0 && len(block.Stmts) > 0 {
 			line, col = stmtStart(block.Stmts[len(block.Stmts)-1])
 		}
-		f.miss(commitMiss{line: line, col: col, block: block})
+		f.miss(pathMiss{line: line, col: col, block: block})
 	}
 	f.dead = true
 }
@@ -964,7 +1122,7 @@ func isValueStmt(s ast.Node) bool {
 }
 
 // tail follows e, the body's result.
-func (f *commitFlow) tail(e ast.Node) {
+func (f *pathFlow) tail(e ast.Node) {
 	stmt := e
 	if es, ok := e.(*ast.ExprStmt); ok {
 		e = es.Expr
@@ -1019,19 +1177,53 @@ func (f *commitFlow) tail(e ast.Node) {
 }
 
 // returnAt records the normal return the expression e is unless it is a
-// failure or the path has committed, and ends the path.
-func (f *commitFlow) returnAt(e ast.Node, stmt ast.Node) {
-	if !isFailureValue(e) && !f.committed {
+// failure or the path has settled, and ends the path. For the hand-on
+// rule, a return whose value is the name settles it.
+func (f *pathFlow) returnAt(e ast.Node, stmt ast.Node) {
+	if f.handOn && f.carries(e) {
+		f.settled = true
+	}
+	if !isFailureValue(e) && !f.settled {
 		line, col := stmtStart(e)
 		if span := stmtSpan(e); !span.IsZero() {
 			line, col = span.StartLine, span.StartCol
 		}
-		f.miss(commitMiss{line: line, col: col, stmt: stmt})
+		f.miss(pathMiss{line: line, col: col, stmt: stmt, in: f.in})
 	}
 	f.dead = true
 }
 
-func (f *commitFlow) miss(m commitMiss) {
+// carries reports whether the exit e's value is the name: `r`, `return r`,
+// `break r`. A constructor or literal holding it settled the path as the
+// flow went through it.
+func (f *pathFlow) carries(e ast.Node) bool {
+	switch v := e.(type) {
+	case *ast.Return:
+		return f.c.yields(v.Value, f.a.sym)
+	case *ast.Break:
+		return f.c.yields(v.Value, f.a.sym)
+	case *ast.Continue:
+		return false
+	}
+	return f.c.yields(e, f.a.sym)
+}
+
+// blockValue settles the hand-on rule's path when s, the last statement
+// of block, is the name and gives the value of a block something takes:
+// the `r` of `x = if want { r } else { ... }`.
+func (f *pathFlow) blockValue(block *ast.Block, last bool, s ast.Node) {
+	if !f.handOn || !last || f.dead || !isValueStmt(s) || f.rb.dropped[block] {
+		return
+	}
+	if es, ok := s.(*ast.ExprStmt); ok {
+		s = es.Expr
+	}
+	if f.c.refersTo(s, f.a.sym) {
+		f.settled = true
+	}
+}
+
+func (f *pathFlow) miss(m pathMiss) {
 	if m.line == 0 {
 		return
 	}
@@ -1071,19 +1263,20 @@ func isFailureValue(e ast.Node) bool {
 }
 
 // node follows n, which does not end the body unless it holds a return.
-func (f *commitFlow) node(n ast.Node) {
+func (f *pathFlow) node(n ast.Node) {
 	if f.dead {
 		return
 	}
-	switch v := n.(type) {
+	switch v := f.c.fa.AsTodo(n).(type) {
 	case nil:
 		return
 	case *ast.FuncDef, *ast.Defer:
 		return
 	case *ast.Lambda:
-		// A commit in a callback counts: the callback may run it.
-		if f.containsCommit(v.Body) {
-			f.committed = true
+		// A commit or a hand-on in a callback counts: the callback may run
+		// it.
+		if f.containsCommit(v.Body) || (f.handOn && f.c.handsOnIn(v.Body, f.a.sym)) {
+			f.settled = true
 		}
 		return
 	case *ast.Return:
@@ -1138,49 +1331,56 @@ func (f *commitFlow) node(n ast.Node) {
 		return
 	case *ast.Call:
 		ast.Children(n, f.node)
-		if f.isCommit(v) {
-			f.committed = true
+		if f.isCommit(v) || (f.handOn && f.c.handsOnAt(v, f.a.sym)) {
+			f.settled = true
 		}
 		return
 	case *ast.Binary:
 		f.node(v.Left)
 		f.node(v.Right)
 		if f.isCommitPipe(v) {
-			f.committed = true
+			f.settled = true
 		}
 		return
 	}
 	ast.Children(n, f.node)
+	if f.handOn && !f.dead && f.c.handsOnAt(n, f.a.sym) {
+		f.settled = true
+	}
 }
 
 // inner follows a block inside the path, whose end is not a return.
-func (f *commitFlow) inner(b *ast.Block) {
+func (f *pathFlow) inner(b *ast.Block) {
 	if b == nil {
 		return
 	}
-	for _, s := range b.Stmts {
+	outer := f.in
+	defer func() { f.in = outer }()
+	for i, s := range b.Stmts {
 		if f.dead {
 			return
 		}
+		f.in = b
 		f.node(s)
+		f.blockValue(b, i == len(b.Stmts)-1, s)
 	}
 }
 
 // isCommit reports whether call settles the value: its commit (the type's
 // commit, or `commit` itself), or its release called outright, which
 // discards on purpose. Either way the path has decided what to keep.
-func (f *commitFlow) isCommit(call *ast.Call) bool {
+func (f *pathFlow) isCommit(call *ast.Call) bool {
 	return f.settles(calleeName(call)) && f.c.callTakes(call, f.a.sym)
 }
 
-func (f *commitFlow) settles(name string) bool {
+func (f *pathFlow) settles(name string) bool {
 	k := f.a.kind
 	return name == k.commitFn || name == "commit" || name == k.releaseFn || name == "release"
 }
 
 // isCommitPipe reports whether b is `w |> Writer.close()`, or a pipe into
 // the release.
-func (f *commitFlow) isCommitPipe(b *ast.Binary) bool {
+func (f *pathFlow) isCommitPipe(b *ast.Binary) bool {
 	if b.Op != "|>" || !f.c.refersTo(b.Left, f.a.sym) {
 		return false
 	}
@@ -1191,7 +1391,7 @@ func (f *commitFlow) isCommitPipe(b *ast.Binary) bool {
 	return f.settles(calleeName(call))
 }
 
-func (f *commitFlow) containsCommit(n ast.Node) bool {
+func (f *pathFlow) containsCommit(n ast.Node) bool {
 	found := false
 	ast.Inspect(n, func(m ast.Node) bool {
 		switch v := m.(type) {
@@ -1206,7 +1406,7 @@ func (f *commitFlow) containsCommit(n ast.Node) bool {
 }
 
 // commitText is the commit a path is missing, as the body writes it.
-func (f *commitFlow) commitText() string {
+func (f *pathFlow) commitText() string {
 	suffix := "!"
 	if f.rb.propagates {
 		suffix = "?"
@@ -1214,7 +1414,7 @@ func (f *commitFlow) commitText() string {
 	return fmt.Sprintf("%s(%s)%s", f.a.kind.commit, f.a.name, suffix)
 }
 
-func (f *commitFlow) missError(m commitMiss) TypeError {
+func (f *pathFlow) missError(m pathMiss) TypeError {
 	e := TypeError{
 		Line: m.line,
 		Col:  m.col,
@@ -1228,9 +1428,47 @@ func (f *commitFlow) missError(m commitMiss) TypeError {
 	return e
 }
 
+// leakError is the hand-on rule's error at m. Its fix calls the release on
+// its own line before m's statement, when m is a statement of its block
+// that nothing comes before on its line.
+func (f *pathFlow) leakError(m pathMiss) TypeError {
+	release := fmt.Sprintf("%s(%s)", f.a.kind.release, f.a.name)
+	e := TypeError{
+		Line: m.line,
+		Col:  m.col,
+		Message: fmt.Sprintf("`%s` leaks here: this path returns without handing it on or releasing it; call `%s` before the return",
+			f.a.name, release),
+		Code: ReturnLeakCode,
+	}
+	if m.stmt == nil || m.in == nil {
+		return e
+	}
+	span := stmtSpan(m.stmt)
+	if span.IsZero() || span.StartCol < 1 {
+		return e
+	}
+	for i, s := range m.in.Stmts {
+		if s != m.stmt {
+			continue
+		}
+		prevEnd := m.in.Line
+		if i > 0 {
+			prevEnd = stmtSpan(m.in.Stmts[i-1]).EndLine
+		}
+		if prevEnd == 0 || prevEnd >= span.StartLine {
+			return e
+		}
+		at := parser.Pos{Line: span.StartLine, Col: 1}
+		edit := parser.Edit{Start: at, End: at, Text: strings.Repeat(" ", span.StartCol-1) + release + "\n"}
+		e.Fix = &parser.Fix{Title: fmt.Sprintf("Release `%s` on this path", f.a.name), Edits: []parser.Edit{edit}}
+		break
+	}
+	return e
+}
+
 // commitEdit inserts the commit on its own line before m's statement, or
 // before the closing brace m is at.
-func (f *commitFlow) commitEdit(m commitMiss) (parser.Edit, bool) {
+func (f *pathFlow) commitEdit(m pathMiss) (parser.Edit, bool) {
 	text := f.commitText()
 	if m.stmt != nil {
 		span := stmtSpan(m.stmt)

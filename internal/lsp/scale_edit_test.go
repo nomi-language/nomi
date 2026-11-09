@@ -28,10 +28,12 @@ import (
 //
 // Each session opens the entry, and the edited file when it is another,
 // then makes one edit. A row is the edit's analysis, the propagation of
-// the edit to the open documents that import the edited file, and then
-// references to and a rename of util.clamp, each with the project files
-// the document manager built from source and whether the edit was taken
-// in the program opened from its record.
+// the edit to the open documents that import the edited file, the edited
+// document's lowering, the entry's lowering when the edited file is
+// another, and references to util.clamp, each with the project files the
+// document manager built from source and whether the edit was taken in the
+// program opened from its record. NOMI_SCALE_EDITS=<kinds> measures only
+// the kinds whose names it holds.
 func TestScaleEdits(t *testing.T) {
 	if os.Getenv("NOMI_SCALE_LSP") == "" {
 		t.Skip("set NOMI_SCALE_LSP=1 to measure edits in a generated project")

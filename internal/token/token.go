@@ -100,7 +100,6 @@ const (
 	ASSERT      // assert — assertion statement
 	REFUTE      // refute — negated assertion statement
 	DBG         // dbg — debug-print expression and return its value
-	TODO        // todo — placeholder expression for unwritten code; traps when reached
 	UNREACHABLE // unreachable — a claim the program never reaches this point; traps when it does
 	SELF        // self — keyword for the implementing type in interface signatures and for import self-markers
 	THEN        // then — pipe stage that applies a lambda to the piped value
@@ -260,7 +259,6 @@ var tokenNames = [...]string{
 	ASSERT:                           "ASSERT",
 	REFUTE:                           "REFUTE",
 	DBG:                              "DBG",
-	TODO:                             "TODO",
 	UNREACHABLE:                      "UNREACHABLE",
 	SELF:                             "SELF",
 	THEN:                             "THEN",

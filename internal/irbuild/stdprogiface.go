@@ -100,6 +100,13 @@ func (g *gen) stdProgIfaceNamed(name string) *ifaceDef {
 	if !g.stdProgBuilds() || g.fa == nil {
 		return nil
 	}
+	if d, imported := g.blockImportedIface(name); imported {
+		// A block's import binds the name (bindBlockImports).
+		if d.stdOrigin != "" {
+			return d
+		}
+		return nil
+	}
 	if _, local := g.ifaceNamed(name); local {
 		return nil
 	}

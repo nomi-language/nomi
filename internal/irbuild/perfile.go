@@ -486,7 +486,29 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering map[s
 		if err != nil {
 			return nil, fmt.Errorf("irbuild: decoding %s's object: %w", f.Name, err)
 		}
-		dropped, err := carryKept(mod, was, f.Name, kept.Units[old].Decls, DeclFingerprints(f.Nodes), relowering != nil)
+		// What the other modules define, for carryKept: a function it would
+		// carry that names what none of them defines (an interface default's
+		// instance another file asked for, whose default changed) is dropped
+		// when the lowering may drop, so the file that asked asks again when
+		// its turn comes.
+		var elsewhere map[string]bool
+		if relowering != nil {
+			elsewhere = setOf(kept.Dangling)
+			if elsewhere == nil {
+				elsewhere = map[string]bool{}
+			}
+			mods := append(append(append([]*ir.Module(nil), objects.mods...), whole.instMods...), others...)
+			mods = append(mods, std.sortedModules()...)
+			if ls != nil {
+				mods = append(mods, ls.mods...)
+			}
+			for _, m := range mods {
+				for _, link := range definedLinks(m) {
+					elsewhere[link] = true
+				}
+			}
+		}
+		dropped, err := carryKept(mod, was, f.Name, kept.Units[old].Decls, DeclFingerprints(f.Nodes), relowering != nil, elsewhere)
 		if err != nil {
 			return nil, err
 		}
@@ -609,7 +631,22 @@ func (r *Result) Rekeep(kept *KeptLowering) (*KeptLowering, error) {
 	out.Units[f.unit] = u
 	out.Instances = append([][]byte(nil), kept.Instances...)
 	files := setOf(kept.InstanceFiles)
-	for _, m := range append(append([]*ir.Module(nil), f.instMods...), f.linked...) {
+	instances := append([]*ir.Module(nil), f.instMods...)
+	for _, m := range f.linked {
+		// A file read with its bodies made what this file asked of it (an
+		// instance of its generic function or interface default): it goes
+		// into that file's own object, where a whole lowering puts it and a
+		// later lowering of that file carries or drops it by its
+		// declaration.
+		merged, err := r.mergeLinked(&out, m)
+		if err != nil {
+			return nil, err
+		}
+		if !merged {
+			instances = append(instances, m)
+		}
+	}
+	for _, m := range instances {
 		if m.Empty() {
 			continue
 		}
@@ -627,6 +664,58 @@ func (r *Result) Rekeep(kept *KeptLowering) (*KeptLowering, error) {
 	}
 	out.InstanceFiles = sortedSet(files)
 	return &out, nil
+}
+
+// mergeLinked adds to the object of out's unit for linked's file each
+// function linked holds, by linkage name, that the object does not, with
+// the entries that dispatch to them. merged is false when out has no unit
+// for the file, or it is the relowered file.
+func (r *Result) mergeLinked(out *KeptLowering, linked *ir.Module) (merged bool, err error) {
+	at := -1
+	for i, u := range out.Units {
+		if u.Path == linked.Name() {
+			at = i
+		}
+	}
+	if at < 0 || at == r.file.unit {
+		return false, nil
+	}
+	u := out.Units[at]
+	if u.Object == nil {
+		return false, nil
+	}
+	l := ir.NewLinker()
+	l.Know(r.irLibraries...)
+	// The object's symbols are the ones linked names.
+	l.Know(linked)
+	mod, err := decodeObject(l, u.Object)
+	if err != nil {
+		return false, fmt.Errorf("irbuild: decoding %s's object: %w", u.Key, err)
+	}
+	have := setOf(definedLinks(mod))
+	if have == nil {
+		have = map[string]bool{}
+	}
+	added := false
+	for _, fn := range linked.Funcs() {
+		if fn.Sym() == nil || fn.Sym().Link() == "" || have[fn.Sym().Link()] {
+			continue
+		}
+		mod.AddFunc(fn)
+		have[fn.Sym().Link()] = true
+		added = true
+	}
+	if !added {
+		return true, nil
+	}
+	mod.CarryEntries(linked, func(s *ir.Symbol) bool { return s != nil && have[s.Link()] })
+	data, files, err := encodeWithFiles(mod)
+	if err != nil {
+		return false, err
+	}
+	u.Object, u.Files = data, files
+	out.Units[at] = u
+	return true, nil
 }
 
 // WithDecls is kept with the declaration fingerprints of the files at the
@@ -685,12 +774,19 @@ func missing(have, want []string) string {
 // instance of a generic function another file asked for), and the entries
 // that dispatch to what mod now holds. Anything else it lacks is a miss,
 // unless drop allows one made from a declaration that changed or went,
-// whose linkage name it answers.
-func carryKept(mod, was *ir.Module, key string, oldDecls, newDecls map[string][32]byte, drop bool) (dropped []string, err error) {
+// whose linkage name it answers. When drop allows, a function it would
+// carry that names a linkage name neither mod, elsewhere (what the other
+// modules define) nor another carried function defines is dropped too:
+// made from an unchanged declaration of this file, it calls what another
+// file made from one that changed (`Tri.pick<Int>` forwarding to
+// `shape.Shape.pick<Tri,Int>` after shape.nomi's default changed), and
+// the file that asked for it asks again.
+func carryKept(mod, was *ir.Module, key string, oldDecls, newDecls map[string][32]byte, drop bool, elsewhere map[string]bool) (dropped []string, err error) {
 	have := map[string]bool{}
 	for _, link := range definedLinks(mod) {
 		have[link] = true
 	}
+	var carry []*ir.Func
 	unnamed := map[string]bool{}
 	for _, fn := range mod.Funcs() {
 		if fn.Sym() == nil || fn.Sym().Link() == "" {
@@ -725,8 +821,14 @@ func carryKept(mod, was *ir.Module, key string, oldDecls, newDecls map[string][3
 			}
 			return nil, miss("%s's lowering lacks %s, and %s changed", key, link, decl)
 		}
-		mod.AddFunc(fn)
+		carry = append(carry, fn)
 		have[link] = true
+	}
+	if drop && elsewhere != nil {
+		carry, dropped = carryLinked(carry, have, elsewhere, dropped)
+	}
+	for _, fn := range carry {
+		mod.AddFunc(fn)
 	}
 	for _, c := range was.Cells() {
 		if c.Sym().Link() == "" || !have[c.Sym().Link()] {
@@ -739,6 +841,41 @@ func carryKept(mod, was *ir.Module, key string, oldDecls, newDecls map[string][3
 	}
 	mod.CarryEntries(was, func(s *ir.Symbol) bool { return s != nil && have[s.Link()] })
 	return dropped, nil
+}
+
+// carryLinked is carry less each function that names a linkage name
+// neither have (mod's and carry's), elsewhere nor a function still carried
+// defines, until none does, with each one taken out added to dropped and
+// out of have.
+func carryLinked(carry []*ir.Func, have, elsewhere map[string]bool, dropped []string) ([]*ir.Func, []string) {
+	named := make([][]string, len(carry))
+	for i, fn := range carry {
+		one := ir.NewModule("carried")
+		one.AddFunc(fn)
+		for _, s := range ir.ModuleSymbols(one) {
+			if s.Link() != "" {
+				named[i] = append(named[i], s.Link())
+			}
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for i, fn := range carry {
+			if fn == nil {
+				continue
+			}
+			for _, link := range named[i] {
+				if !have[link] && !elsewhere[link] {
+					carry[i] = nil
+					delete(have, fn.Sym().Link())
+					dropped = append(dropped, fn.Sym().Link())
+					changed = true
+					break
+				}
+			}
+		}
+	}
+	return slices.DeleteFunc(carry, func(fn *ir.Func) bool { return fn == nil }), dropped
 }
 
 // templateDecl is the top-level declaration of the module with key, one

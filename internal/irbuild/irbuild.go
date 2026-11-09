@@ -1,31 +1,3 @@
-// Package irbuild builds the IR the VM runs: it takes a checked Nomi program
-// (Analyze, AnalyzeSource, AnalyzeVirtual — the same front end `nomi run`
-// runs) and lowers every body it can into `ir.Func`s (GenerateIR). `nomi run`,
-// `nomi test`, the REPL and the tour execute the result on internal/vm
-// through vmhost.
-//
-// # The builder's Go-shaped representation
-//
-// Each module is walked by a `gen` that assigns every expression a `kind`
-// (the builder's type, which names a Go type) and an `expr` whose `code`
-// field is a Go spelling; IR nodes are built beside those spellings. Nothing
-// prints, compiles or returns that text. Removing it means replacing `kind`
-// and `expr` with the checker's solved types and IR temporaries throughout
-// the builder, which is its own piece of work.
-//
-// # The stdlib
-//
-// The standard library is lowered once per process (stdlibLowering), and a
-// program's IR links every cached stdlib module (Result.IRModules). The std
-// modules listed in programStdModules are the exception: each is lowered
-// with every program that imports it, as one of the program's own files
-// (programstd.go).
-//
-// # Correctness
-//
-// The IR is checked by what the VM does with it, against the golden files in
-// testdata/expectations (see internal/expectation), and every
-// retained graph must pass ir.LintModule.
 package irbuild
 
 import (

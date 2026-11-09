@@ -1,19 +1,3 @@
-// Package goside is the Go half of the Nomi module postgres: a pool of
-// connections, or one connection, to a Postgres database over pgx, with the
-// transaction and savepoint bookkeeping std/sql's Conn rules ask for, and
-// the description of a schema and its statements that sqlkit's tool asks
-// for (describe.go). The Nomi facade (postgres.nomi, describe.nomi) binds
-// these functions and turns their plain structs into std/sql's values and
-// errors.
-//
-// Every function that talks to the server takes the calling task's context
-// first, which the Go binding fills (spec §19 *The task's context*), so a
-// deadline or a cancelled task stops the statement.
-//
-// The browser build (goside_js.go) has no pgx: a page cannot open a TCP
-// connection to a server, so every function there answers that Postgres
-// cannot be reached from the browser. This file and describe_types.go are
-// the values that cross in every build.
 package goside
 
 // Failure kinds. FailNone means no failure.

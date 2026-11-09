@@ -1,0 +1,115 @@
+import std::compiler
+
+test "defer on error runs only when the function fails" {
+    result = compiler.run(
+        """
+        import std::io
+
+        struct Conn {
+          name: String
+        }
+
+        impl Release for Conn {
+          fn release(conn: Conn) {
+            close(conn)
+          }
+        }
+
+        fn close(conn: Conn) {
+          io.print("close " + conn.name)
+        }
+
+        fn connect(name: String) -> Result<Conn, String> {
+          Ok(Conn{name})
+        }
+
+        struct Store {
+          conn: Conn
+        }
+
+        fn migrate(conn: Conn, ok: Bool) -> Result<Unit, String> {
+          if ok { Ok(Unit) } else { Err("migrate " + conn.name) }
+        }
+
+        fn open(name: String, ok: Bool) -> Result<Store, String> {
+          conn = connect(name)?
+          defer on error close(conn)
+          _ = migrate(conn, ok)?
+          Ok(Store{conn})
+        }
+
+        fn guarded(fail: Bool) -> Result<Int, String> {
+          defer io.print("plain")
+          defer on error io.print("on error")
+          if fail {
+            return Err("failed")
+          }
+          Ok(1)
+        }
+
+        fn main() {
+          case open("a", True) {
+            Ok(store) -> io.print("kept " + store.conn.name)
+            Err(e) -> io.print(e)
+          }
+          case open("b", False) {
+            Ok(_) -> io.print("unexpected")
+            Err(e) -> io.print("failed: " + e)
+          }
+          io.inspect(guarded(False))
+          io.inspect(guarded(True))
+        }
+        """
+    )
+
+    assert result == Ok(
+        """
+        kept a
+        close b
+        failed: migrate b
+        plain
+        Ok(1)
+        on error
+        plain
+        Err("failed")
+
+        """
+    )
+}
+
+test "a question mark before the hand-on leaks the resource" {
+    diagnostics = compiler.check(
+        """
+        struct Conn {
+          name: String
+        }
+
+        impl Release for Conn {
+          fn release(conn: Conn) {
+            close(conn)
+          }
+        }
+
+        fn close(conn: Conn) {
+          _ = conn
+        }
+
+        fn connect(name: String) -> Result<Conn, String> {
+          Ok(Conn{name})
+        }
+
+        fn ready(conn: Conn) -> Result<Unit, String> {
+          if conn.name == "" { Err("unnamed") } else { Ok(Unit) }
+        }
+
+        fn open(name: String) -> Result<Conn, String> {
+          conn = connect(name)?
+          _ = ready(conn)?
+          Ok(conn)
+        }
+        """
+    )
+
+    assert [diagnostic] = diagnostics
+    assert String.contains(diagnostic.message, "`conn` leaks if this `?` returns an error")
+}

@@ -1390,11 +1390,13 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if t != bl.pipedCall {
 		bl.recordCallSlots(t.Args, plan, sigParamNames(sig), args, sig.params, sig.result)
 	}
+	calleeSym := bl.g.irFunctionCallee(sig)
+	bl.g.irNoteBootCall(sig.decl, calleeSym)
 	if signalling {
-		return bl.signallingCall(t, sig.decl, bl.g.irFunctionCallee(sig), args, sig.result)
+		return bl.signallingCall(t, sig.decl, calleeSym, args, sig.result)
 	}
 	c := ir.NewCall(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), irCallSite(t),
-		bl.g.irFunctionCallee(sig), args...)
+		calleeSym, args...)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: sig.result, deferrable: true})
 	return c.Dst(), sig.result, false, true
@@ -2109,10 +2111,11 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		// A `subtests` statement ending a block, which answers Unit.
 		return append(lead, st), &ast.TypeIdent{Name: "Unit", Line: st.Line, Col: st.Col}
 	}
-	if b, isBinding := n.(*ast.Binding); isBinding && ast.IsDiscardName(b.Name) && b.TypeAnnotation == nil {
-		// `_ = Sender.send(ch.sender, 1)` ending a block: the value is
-		// evaluated and dropped, and the block answers Unit, as a block
-		// does after a binding statement.
+	if b, isBinding := n.(*ast.Binding); isBinding && ast.IsDiscardName(b.Name) {
+		// `_ = Sender.send(ch.sender, 1)` or `_n: Int = todo` ending a
+		// block: the value is evaluated, at the annotation's type when it
+		// has one, and dropped, and the block answers Unit, as a block does
+		// after a binding statement.
 		return append(lead, b), &ast.TypeIdent{Name: "Unit", Line: b.Line, Col: b.Col}
 	}
 	switch st := n.(type) {
@@ -2708,7 +2711,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(body), exit.ID()))
 		return k, true
 	}
-	if sig.leaves && isTrapExpr(body) {
+	if sig.leaves && bl.g.isTrapExpr(body) {
 		// A leaving region's path that ends in a trap writes no value and
 		// reaches no exit, as a `return` arm does: the names a binding's
 		// pattern binds are bound only where it matched.

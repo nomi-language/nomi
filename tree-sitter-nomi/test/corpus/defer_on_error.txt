@@ -1,0 +1,30 @@
+================================================================================
+Defer and the error-only defer
+================================================================================
+
+fn f() {
+  defer close(a)
+  defer on error close(b)
+  defer on(c)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (defer_statement
+        call: (call_expression
+          function: (identifier)
+          (identifier)))
+      (defer_statement
+        on_error: (on_error)
+        call: (call_expression
+          function: (identifier)
+          (identifier)))
+      (defer_statement
+        call: (call_expression
+          function: (identifier)
+          (identifier))))))

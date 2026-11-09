@@ -38,6 +38,9 @@
 (group_declaration
   "group" @context
   name: (_) @name) @item
+(group_subtests
+  "subtests" @context
+  rows: (_) @name) @item
 
 ; Interface methods (children of interfaces)
 (interface_method

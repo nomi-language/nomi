@@ -25,10 +25,15 @@ import (
 // program that did not run.
 //
 // The corpus and the tour run a sample of every eighth program (about 20
-// seconds); NOMI_OBJECTS_LINK=full runs all of them, as `make check-full`
-// does, beside the irbuild fixtures under NOMI_LINK_OBJECTS=1. A program
-// run through a generated FFI wrapper lowers in the wrapper's process,
-// which sees only NOMI_LINK_OBJECTS.
+// seconds); NOMI_OBJECTS_LINK=full runs all of them, as `make check-full`'s
+// objects-link step does. Its objects-irbuild step runs
+// TestIRGolden_RecordsMatchTheVM under NOMI_LINK_OBJECTS=1, so every
+// program irbuild.expect records is linked through objects and held to its
+// record. A program run through a generated FFI wrapper lowers in the
+// wrapper's process, which sees only NOMI_LINK_OBJECTS. TestLink_* in
+// internal/ir hold the linker's rules, and TestLinkedStd_* in
+// internal/irbuild hold that two programs reaching listed std modules link
+// one kept lowering of them.
 func TestObjectsLinkToTheSameProgram(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; runs a sample of every population linked through objects; -short")
@@ -41,10 +46,22 @@ func TestObjectsLinkToTheSameProgram(t *testing.T) {
 // TestFilesLowerOnTheirOwnAsInTheProgram runs the same programs with every
 // lowering kept and each of its files lowered again on its own, against
 // its imports' interfaces and the kept objects of the other files
-// (internal/irbuild's perfile.go, RelowerEachFile). Each file's module
-// must encode as the whole lowering's, and the program a file's lowering
-// links must run as its record says. NOMI_OBJECTS_LINK=full runs every
-// program.
+// (internal/irbuild's perfile.go, RelowerEachFile; NOMI_LINK_OBJECTS=perfile
+// does it for any test). Each file's module must be the whole lowering's
+// part by part; the program it links must define every name the whole one
+// does and name no function by a symbol no module defines while one
+// defines its name; and the run of the program that the first file other
+// than the entry links (the entry's, for a one-file program) must equal
+// the record byte for byte. A file may miss (a decline the whole lowering
+// also has, counted differently); NOMI_PERFILE_REPORT=1 writes each miss on
+// stderr.
+//
+// The checks rely on irbuild's dropLinkedDuplicates running against kept
+// objects (a std instance asked for again must not be defined twice under
+// one symbol, which the VM reads as ambiguous) and on writeDeclKey
+// spelling a program's types by declaration, never by node.
+// NOMI_OBJECTS_LINK=full (about 110 seconds) runs every program, as `make
+// check-full`'s objects-perfile step does.
 func TestFilesLowerOnTheirOwnAsInTheProgram(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; runs a sample of every population lowered one file at a time; -short")

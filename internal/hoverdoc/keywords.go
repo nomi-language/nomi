@@ -96,6 +96,15 @@ var keywordDocs = []keywordDoc{
 	{word: "defer", form: "defer call(args)",
 		text: "Registers a call to run when the enclosing block ends, however it ends; the most recently registered runs first. The function and its arguments are evaluated where the `defer` stands, and the call returns `Unit`.",
 		link: "/app-fields/#defer-runs-block-scoped-cleanup"},
+	{word: "defer", context: "error", form: "defer on error call(args)",
+		text: "Registers a call to run only if the enclosing block is left through an error: a `?` that propagates `Err` or `None`, a `return` of one, or a trap. A normal exit drops it. It releases a resource the function hands on when it succeeds.",
+		link: "/app-fields/#defer-runs-block-scoped-cleanup"},
+	{word: "on", form: "defer on error call(args)",
+		text: "Registers a call to run only if the enclosing block is left through an error: a `?` that propagates `Err` or `None`, a `return` of one, or a trap. A normal exit drops it. It releases a resource the function hands on when it succeeds.",
+		link: "/app-fields/#defer-runs-block-scoped-cleanup"},
+	{word: "error", form: "defer on error call(args)",
+		text: "Registers a call to run only if the enclosing block is left through an error: a `?` that propagates `Err` or `None`, a `return` of one, or a trap. A normal exit drops it. It releases a resource the function hands on when it succeeds.",
+		link: "/app-fields/#defer-runs-block-scoped-cleanup"},
 	{word: "else", form: "if condition {\n    ...\n} else {\n    ...\n}",
 		text: "The branch that runs when the `if` condition is `False`, or its pattern does not match. `else if` chains another condition.",
 		link: "/bindings-and-expressions/#ifelse-and-case-are-expressions"},
@@ -190,7 +199,7 @@ var keywordDocs = []keywordDoc{
 		text: "A pipe stage that applies the lambda or capture to the piped value, as `(fn v -> body)(value)` would.",
 		link: "/pipes/#the-then-stage", existing: typedKeyword},
 	{word: "todo", form: "todo\ntodo \"reason\"",
-		text: "A placeholder for code not written yet. It has the type its position expects and traps when reached, and `nomi build` refuses a program that holds one.",
+		text: "A placeholder for code not written yet. It has the type its position expects and traps when reached, and `nomi build` refuses a program that holds one. `todo` is a contextual keyword: it can name a parameter, binding or field, and a bare `todo` in that binding's scope reads it.",
 		link: "/functions-and-lambdas/#unwritten-code"},
 	{word: "type", form: "type Name Inner",
 		text: "Declares a distinct type: a new nominal type over its representation, which is a tuple, a generic or single type, a function type, or nothing for a zero-sized type. `Name(value)` wraps a value and the pattern `Name(x)` unwraps one.",
@@ -275,6 +284,9 @@ var keywordDocs = []keywordDoc{
 	{word: "subtests", form: "subtests rows, pattern { body }",
 		text: "Runs the body once per row, in order, with `pattern` bound to the row. A failed row does not stop the next one.",
 		link: "/testing/#subtests", existing: typedKeyword},
+	{word: "subtests", context: "group", form: "subtests rows, pattern { boot, setup and tests }",
+		text: "Runs the group's boot, setup and tests once per row of literal values, with `pattern` bound to the row. Each row's tests are cases of their own, named `group [row] / test`.",
+		link: "/testing/#subtests-in-a-group"},
 }
 
 // keywordDocFor is the hover of word in context, falling back to its main
@@ -614,6 +626,35 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 		n := k.next(1)
 		inInterface := k.innermost(is[*ast.InterfaceDef]) != nil
 		return "", "", inInterface && (n.Type == token.FN || (n.Type == token.IDENT && n.Lexeme == "host"))
+	case "defer":
+		if n := k.next(1); n.Type == token.IDENT && n.Lexeme == "on" && n.Line == k.at.Line {
+			if e := k.next(2); e.Type == token.IDENT && e.Lexeme == "error" && e.Line == k.at.Line {
+				return "error", "", true
+			}
+		}
+		return "", "", true
+	case "on":
+		return "", "", k.declaredAt(func(n ast.Node) (int, int) {
+			if d, ok := n.(*ast.Defer); ok && d.OnError {
+				return d.OnLine, d.OnCol
+			}
+			return 0, 0
+		})
+	case "error":
+		p := k.prev()
+		if p.Type != token.IDENT || p.Lexeme != "on" || p.Line != k.at.Line {
+			return "", "", false
+		}
+		found := false
+		for _, n := range k.nodes {
+			ast.Inspect(n, func(c ast.Node) bool {
+				if d, ok := c.(*ast.Defer); ok && d.OnError && d.OnLine == p.Line && d.OnCol == p.Col {
+					found = true
+				}
+				return !found
+			})
+		}
+		return "", "", found
 	case "embeds":
 		return "", "", k.startsLine() && k.innermost(is[*ast.EnumDef]) != nil
 	case "derive":
@@ -649,7 +690,24 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 			}
 			return 0, 0
 		})
+	case "todo":
+		// The placeholder; a bare `todo` that reads a binding named `todo`
+		// gets the binding's hover.
+		return "", "", k.declaredAt(func(n ast.Node) (int, int) {
+			if d, ok := k.fa.AsTodo(n).(*ast.Todo); ok {
+				return d.Line, d.Col
+			}
+			return 0, 0
+		})
 	case "subtests":
+		if k.declaredAt(func(n ast.Node) (int, int) {
+			if d, ok := n.(*ast.GroupSubtests); ok {
+				return d.Line, d.Col
+			}
+			return 0, 0
+		}) {
+			return "group", "", true
+		}
 		return "", "", k.declaredAt(func(n ast.Node) (int, int) {
 			if d, ok := n.(*ast.Subtests); ok {
 				return d.Line, d.Col

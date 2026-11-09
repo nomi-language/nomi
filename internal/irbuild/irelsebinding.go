@@ -417,7 +417,7 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		}
 	}
 	var target *ir.Block
-	switch s := tail.(type) {
+	switch s := bl.g.asTodo(tail).(type) {
 	case *ast.Break:
 		if !bl.loopBreakValue(s, lp) {
 			return false

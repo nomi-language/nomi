@@ -24,7 +24,40 @@ import (
 // (DocumentManager.CheckFromInterfacesForTest: its import closure's
 // interfaces, written and read back, and the impls it can see of the other
 // files), and the program those checks make must dump as a check of every
-// file from source does (analysis.DumpProgramForTest), byte for byte.
+// file from source does (analysis.DumpProgramForTest), byte for byte. The
+// program those checks make takes each file's analysis, nodes and own
+// diagnostics from its check, and the program's reductions from the check
+// from source (CheckedProgram.factsFrom).
+//
+// TestCheckFromInterfacesMatchesFull (about 40 seconds) runs over the
+// incremental harness's projects and edit sequences and every multi-file
+// corpus directory. FuzzCheckFromInterfacesMatchesFull mutates and edits as
+// FuzzIncrementalMatchesFull does, and TestCheckFromInterfacesMatchesFullSample
+// and TestCheckFromInterfacesMatchesFullRotating run a fixed and a daily
+// set. TestKnownInterfaceGaps checks knownInterfaceGaps, and the harness
+// passes over a difference one explains.
+//
+// NOMI_CHECK_FROM_INTERFACES=1 makes the front end check every project
+// file of each program again against interfaces after checking the
+// program, and fail the program with the first file whose own diagnostics
+// differ. scripts/check-full.sh runs the expectation suites under it, one
+// step per suite (interfaces-corpus, -stdlib, -tour, -failure), each still
+// held to its golden file, so its package step skips those four suites.
+//
+// Rules the harness holds, each with its test: two files declaring a type
+// and an interface of the same names, each with an impl, stay apart in
+// bound checks, dispatch and `==`
+// (TestSameNamedDeclarationsInTwoFilesStayApart); a bare type name a file
+// binds to nothing names nothing, so `Box.inspect` in a file that neither
+// declares nor imports `Box` is not typed through another file's impl
+// (TestUndefinedTypeOwnerReadsNoOtherFile); and a file's own impl wins for
+// the receiver its impl header names, so `List.size` in a file with its
+// own `impl Sized for List<Int>` does not resolve through another file's
+// `Sized`, and under a block import of std's `Duration` a file's own
+// `Duration.seconds` does not resolve (TestOwnerDecl_BlockImportRebindsAStdType
+// in internal/irbuild). An empty file's interface holds no nodes rather
+// than an empty list, so a check against interfaces passes over it as
+// discovery passes over the empty source.
 
 // fromInterfacesDiff checks p's texts from source and each file against
 // interfaces, and answers how the two programs differ, or "". A difference
@@ -252,6 +285,7 @@ func TestCheckFromInterfacesMatchesFull(t *testing.T) {
 	t.Run("layered", func(t *testing.T) { interfaceSteps(t, layeredProject(), layeredEdits) })
 	t.Run("signal", func(t *testing.T) { interfaceSteps(t, signalProject(), signalEdits) })
 	t.Run("anonymous fields", func(t *testing.T) { interfaceSteps(t, anonFieldsProject(), anonFieldsEdits) })
+	t.Run("anonymous type fields", func(t *testing.T) { interfaceSteps(t, anonTypeFieldsProject(), anonTypeFieldsEdits) })
 	t.Run("phrases", func(t *testing.T) { interfaceSteps(t, phrasesProject(t), phrasesEdits) })
 	t.Run("dispatch", func(t *testing.T) { interfaceSteps(t, dispatchProject(), dispatchEdits) })
 	t.Run("local type argument", func(t *testing.T) { interfaceSteps(t, rateProject(), rateEdits) })

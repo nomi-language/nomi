@@ -31,8 +31,8 @@ type regStack struct {
 	// w[i] holds when w[i] is rt.BigWord, and nil when that word is the
 	// int64 math.MinInt64. It is read only beside a word of rt.BigWord, so
 	// an entry beside any other word may be stale, and every write of an
-	// Int word that may be rt.BigWord writes its shadow too. See
-	// docs/implementation-notes.md, "Int: exact at any size".
+	// Int word that may be rt.BigWord writes its shadow too. See the
+	// package doc, "Big Ints in the word bank".
 	b []any
 	// bigs says a big Int has been written to b since the stack was last
 	// parked, so a closing window clears its shadows for the collector.
@@ -591,6 +591,9 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 		stk = getStack()
 	}
 	c := m.codeOf(slot)
+	if c.boot {
+		runtime = rt.EnterBoot(runtime)
+	}
 	fr := stk.newFrame()
 	fr.c, fr.fn, fr.runtime, fr.testBody, fr.depth = c, f, runtime, testBody, caller+1
 	fr.wb, fr.sb, fr.rb = stk.push(c)
@@ -693,6 +696,12 @@ func (m *Machine) finish(fr *frame, err error) error {
 		// An abandoned pass runs nothing more (debugtravel.go).
 		return err
 	}
+	if err == nil {
+		dropErrorDefers(fr, fr.stk.ret)
+		if len(fr.deferred) == 0 {
+			return nil
+		}
+	}
 	if err == nil && m.isBootFunc(fr.fn) {
 		m.deferToBootCleanup(fr)
 		return nil
@@ -731,6 +740,10 @@ func (m *Machine) transfer(fr *frame, next *tailTransfer) error {
 			next.fn.Name(), len(next.fn.Params()), len(next.args))
 	}
 	fr.enterCode(m.codeOf(m.slotFor(next.fn)))
+	if fr.c.boot {
+		// A tail call into boot runs it on a boot frame, as a call does.
+		fr.runtime = rt.EnterBoot(fr.runtime)
+	}
 	if m.dbg != nil {
 		fr.tail, fr.taps, fr.entered = true, nil, true
 	}
@@ -1252,6 +1265,10 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 				} else {
 					fr.tailInto(callee.fn, at)
 					m.moveTailArgs(fr, callee, args)
+					if callee.boot {
+						// A tail call into boot runs it on a boot frame.
+						fr.runtime = rt.EnterBoot(fr.runtime)
+					}
 					if m.dbg != nil {
 						fr.tail, fr.taps, fr.entered = true, nil, true
 					}
@@ -1271,6 +1288,11 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			}
 			cf := stk.newFrame()
 			cf.c, cf.fn, cf.runtime, cf.depth, cf.testBody = callee, callee.fn, fr.runtime, fr.depth+1, false
+			if callee.boot {
+				// A test's call of an entry boot builds the app on a boot
+				// frame, as a group's `boot` line does.
+				cf.runtime = rt.EnterBoot(cf.runtime)
+			}
 			cf.wb, cf.sb, cf.rb = stk.push(callee)
 			pw, ps, pr := cf.wb, cf.sb, cf.rb
 			for _, a := range args {

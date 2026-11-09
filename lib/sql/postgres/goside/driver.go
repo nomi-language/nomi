@@ -27,8 +27,11 @@ type DB struct {
 	pool    *pgxpool.Pool
 	conn    *pgx.Conn
 	openErr error
-	// connMu serializes statements on conn, which pgx does not share.
-	connMu sync.Mutex
+	// turn is conn's one turn, which pgx does not share: a statement sent
+	// through the connection holds it while it runs, and a transaction
+	// from its begin until it ends, so a statement from another task waits
+	// for an open transaction rather than run inside it.
+	turn   chan struct{}
 	closed bool
 	// txs are the transactions open on the DB. A DB from Connect has one
 	// at most, since a transaction is a property of a connection.
@@ -68,7 +71,7 @@ func Connect(ctx context.Context, url string) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Session{db: &DB{conn: conn, txs: map[*Tx]bool{}}}, nil
+	return &Session{db: &DB{conn: conn, txs: map[*Tx]bool{}, turn: make(chan struct{}, 1)}}, nil
 }
 
 // Pool makes a pool of connections to the database at url. It connects
@@ -98,6 +101,28 @@ func keepOnCancel(config *pgconn.Config) {
 
 const cancelGrace = 5 * time.Second
 
+// take waits for the connection's turn, or for ctx to end, which is a
+// Timeout. The caller does not hold db.mu. Once it has the turn the DB may
+// have closed meanwhile, which is Closed, with the turn given back.
+func (db *DB) take(ctx context.Context) Failure {
+	select {
+	case db.turn <- struct{}{}:
+	case <-ctx.Done():
+		return Failure{Kind: FailTimeout, Message: ctx.Err().Error()}
+	}
+	db.mu.Lock()
+	closed := db.closed
+	db.mu.Unlock()
+	if closed {
+		db.give()
+		return Failure{Kind: FailClosed}
+	}
+	return Failure{}
+}
+
+// give gives the connection's turn back.
+func (db *DB) give() { <-db.turn }
+
 // querier is what a statement runs on: a pool or a connection.
 type querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
@@ -107,8 +132,9 @@ type querier interface {
 // target is what a statement on s runs on, and the function that releases
 // it, or the failure that stops it. A statement must run on the innermost
 // open transaction or savepoint of its connection: one sent through an
-// outer level would belong to the savepoint, and roll back with it.
-func (s *Session) target() (querier, func(), Failure) {
+// outer level would belong to the savepoint, and roll back with it. A
+// statement sent through a single connection waits for its turn (DB.turn).
+func (s *Session) target(ctx context.Context) (querier, func(), Failure) {
 	db := s.db
 	db.mu.Lock()
 	if db.closed {
@@ -124,14 +150,11 @@ func (s *Session) target() (querier, func(), Failure) {
 			db.mu.Unlock()
 			return db.pool, func() {}, Failure{}
 		}
-		if len(db.txs) > 0 {
-			db.mu.Unlock()
-			return nil, nil, Failure{Kind: FailDatabase, Code: "25001",
-				Message: "a transaction is open on this connection; run the statement on the Conn its begin answered"}
-		}
 		db.mu.Unlock()
-		db.connMu.Lock()
-		return db.conn, db.connMu.Unlock, Failure{}
+		if f := db.take(ctx); f.Kind != FailNone {
+			return nil, nil, f
+		}
+		return db.conn, db.give, Failure{}
 	}
 	db.mu.Unlock()
 	tx := s.tx
@@ -167,7 +190,7 @@ func (s *Session) usable() Failure {
 // Run runs a statement on s. parts is the SQL around each parameter; each
 // parameter is bound as $1, $2, ..., never spliced into the text.
 func Run(ctx context.Context, s *Session, parts []string, params []Cell) Answer {
-	q, release, f := s.target()
+	q, release, f := s.target(ctx)
 	if f.Kind != FailNone {
 		return Answer{Failure: f}
 	}
@@ -194,7 +217,7 @@ func Run(ctx context.Context, s *Session, parts []string, params []Cell) Answer 
 
 // Exec runs a statement that writes and answers how many rows it changed.
 func Exec(ctx context.Context, s *Session, parts []string, params []Cell) Answer {
-	q, release, f := s.target()
+	q, release, f := s.target(ctx)
 	if f.Kind != FailNone {
 		return Answer{Failure: f}
 	}
@@ -214,7 +237,7 @@ func Exec(ctx context.Context, s *Session, parts []string, params []Cell) Answer
 // when f returns false. The connection is held while it runs, so f must
 // not use the same connection.
 func EachRow(ctx context.Context, s *Session, parts []string, params []Cell, f func(Row) bool) Failure {
-	q, release, fl := s.target()
+	q, release, fl := s.target(ctx)
 	if fl.Kind != FailNone {
 		return fl
 	}
@@ -275,16 +298,16 @@ func (s *Session) beginTransaction(ctx context.Context) (*Session, Failure) {
 	}
 	tx := &Tx{db: db}
 	if db.conn != nil {
-		if len(db.txs) > 0 {
-			db.mu.Unlock()
-			return s, Failure{Kind: FailDatabase, Code: "25001", Message: "a transaction is already open on this connection"}
+		db.mu.Unlock()
+		// The transaction holds the connection's turn until it ends, so a
+		// statement or transaction already on it finishes first.
+		if f := db.take(ctx); f.Kind != FailNone {
+			return s, f
 		}
+		db.mu.Lock()
 		db.txs[tx] = true
 		db.mu.Unlock()
-		// The transaction holds the connection until it ends, so a
-		// statement already running on it finishes first.
-		db.connMu.Lock()
-		tx.conn, tx.release = db.conn, db.connMu.Unlock
+		tx.conn, tx.release = db.conn, db.give
 	} else {
 		db.mu.Unlock()
 		pooled, err := db.pool.Acquire(ctx)
@@ -399,7 +422,7 @@ func (s *Session) notATransaction(what string) Failure {
 
 // Ping checks that the server answers.
 func Ping(ctx context.Context, s *Session) Failure {
-	q, release, f := s.pingTarget()
+	q, release, f := s.pingTarget(ctx)
 	if f.Kind != FailNone {
 		return f
 	}
@@ -412,7 +435,7 @@ func Ping(ctx context.Context, s *Session) Failure {
 
 // pingTarget is target without the rule that a statement runs on the
 // innermost level: a ping changes nothing.
-func (s *Session) pingTarget() (querier, func(), Failure) {
+func (s *Session) pingTarget(ctx context.Context) (querier, func(), Failure) {
 	if s.tx == nil {
 		db := s.db
 		db.mu.Lock()
@@ -437,8 +460,10 @@ func (s *Session) pingTarget() (querier, func(), Failure) {
 			return tx.conn, tx.mu.Unlock, Failure{}
 		}
 		db.mu.Unlock()
-		db.connMu.Lock()
-		return db.conn, db.connMu.Unlock, Failure{}
+		if f := db.take(ctx); f.Kind != FailNone {
+			return nil, nil, f
+		}
+		return db.conn, db.give, Failure{}
 	}
 	tx := s.tx
 	tx.mu.Lock()
@@ -476,11 +501,13 @@ func Close(s *Session) Failure {
 	}
 	switch {
 	case db.conn != nil:
-		db.connMu.Lock()
+		// A statement running on the connection finishes first; one
+		// waiting for the turn finds the DB closed.
+		db.turn <- struct{}{}
 		if err := db.conn.Close(ctx); err != nil && first == nil {
 			first = err
 		}
-		db.connMu.Unlock()
+		db.give()
 	case db.pool != nil:
 		db.pool.Close()
 	}

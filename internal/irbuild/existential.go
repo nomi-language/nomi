@@ -466,6 +466,15 @@ func (g *gen) importIfaceMethods(d, src *ifaceDef) {
 // whole answer, on exactly the footing namedType stands on for types. Local
 // wins, for the same reason.
 func (g *gen) ifaceNamed(name string) (*ifaceDef, bool) {
+	if d, imported := g.blockImportedIface(name); imported {
+		// A sibling file's interface a block's import binds
+		// (bindBlockImports). A std interface the import binds is
+		// stdIfaceNamed's or stdProgIfaceNamed's to answer.
+		if d.stdOrigin == "" && !d.stdShared {
+			return d, true
+		}
+		return nil, false
+	}
 	if d, local := g.ifaces[name]; local {
 		return d, true
 	}

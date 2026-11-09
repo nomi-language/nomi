@@ -11,35 +11,6 @@ import (
 	"github.com/nomi-language/nomi/internal/virtualproject"
 )
 
-// A tour module is a Nomi module a tour block imports as a program on disk
-// imports a module its go.mod requires, with nothing in the block that
-// says where it comes from: the Databases chapter's `import sqlite` is the
-// same line a program written by hand has. The tour links each one from
-// its directory in this repository, under lib/: its Nomi sources
-// (modules_sources_gen.go, which `go generate ./internal/tourgo` writes
-// from the tree), and in the browser the adapters of its `go` bindings
-// (linked_modules_gen.go's linkedModules), generated as ffirun generates a
-// wrapper's, over the js/wasm build of its Go side: the sqlite driver's
-// talks to SQLite's official WebAssembly build, which the tour's worker
-// loads before a run (run-worker.js).
-//
-// The compiler's go.mod requires no tour module. A Nomi module it required
-// would be a dependency of every program whose go.mod is the compiler's
-// (the corpus), and the sqlite driver's module requires modernc.org/sqlite.
-// A js/wasm build of cmd/nomi-wasm runs instead in the Go workspace
-// GoWork, which puts each tour module's directory beside the compiler's
-// module, so linked_modules_gen.go imports the module's Go package from
-// the tree; the js/wasm build of that package imports no
-// modernc.org/sqlite. Outside the browser no tour module's Go side is
-// linked (modules_native.go), and Unlinked says so.
-//
-// Source attaches the modules a block imports to its source, as the
-// sections of a project that names modules (a go.mod that requires each
-// one, its files under ModulesDir), which vmhost.LoadMarked writes and
-// loads as it loads any such block; MarkedHosts then answers the modules'
-// bindings beside the block's own. Every runner of tour blocks loads a
-// block through Source.
-
 // Module is one Nomi module the tour links for its blocks.
 type Module struct {
 	// Name is the module's name, its nomi.toml's, which a block imports
@@ -136,11 +107,11 @@ func Imported(src string) []string {
 }
 
 // Unlinked is the names of the modules src imports whose Go side this
-// binary does not link: every one outside the browser, since only the
-// tour's js/wasm build links a module's Go side. A runner of tour blocks
-// outside the browser (the doctests, the tour recorder, the VM harness)
-// leaves such a block to the staged wasm, which TestTourWasm runs under
-// Node with SQLite's WebAssembly build.
+// binary does not link: every one outside the browser, unless the binary
+// is built with the nomi_tourmodules tag in the GoWork workspace. The tour
+// recorder and the VM harness leave such a block to the staged wasm, which
+// TestTourWasm runs under Node with SQLite's WebAssembly build; the
+// doctests run it in a test binary built with the tag.
 func Unlinked(src string) []string {
 	_, used := importedBy(src)
 	var out []string

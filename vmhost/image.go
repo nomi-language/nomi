@@ -396,7 +396,7 @@ func (p *Program) leftovers() []Leftover {
 	var out []Leftover
 	for _, m := range p.prog.Modules {
 		var sites []Leftover
-		todos, dbgs := analysis.TodosAndDbgs(m.Nodes)
+		todos, dbgs := analysis.TodosAndDbgs(m.Nodes, m.FA)
 		for _, t := range todos {
 			sites = append(sites, Leftover{Kind: LeftoverTodo, Path: m.Path, Line: t.Line, Col: t.Col, Text: t.ReasonText()})
 		}

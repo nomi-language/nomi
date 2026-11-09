@@ -184,6 +184,15 @@ type FileBodies struct {
 	// rename read this map for the field. Nil until a punned label is
 	// recorded (setPunnedFieldLabel).
 	PunnedFieldLabels map[Pos]*Symbol
+	// TodoPlaceholders maps each bare `todo` that names no binding in scope to
+	// the placeholder it is (spec §2 *Keywords*). The parser reads a bare
+	// `todo` as an identifier, since only resolution knows whether a
+	// binding named `todo` is in scope; where none is, the builder makes a
+	// Todo at the identifier's position, which the checker types and the
+	// IR builder lowers in the identifier's place (AsTodo). The parsed
+	// tree is never changed, so files that checks share keep one meaning
+	// per check. Nil until the first.
+	TodoPlaceholders map[*ast.Ident]*ast.Todo
 	// Definitions maps each definition's position to its symbol.
 	Definitions map[Pos]*Symbol
 	// BlockImportScopes maps an `import` at the top of a block to the
@@ -209,6 +218,9 @@ type FileBodies struct {
 	// to the type of its rows: the element type of what it iterates, which
 	// its pattern binds. Nil until the first record.
 	SubtestsRowTypes map[*ast.Subtests]Type
+	// GroupRowTypes maps each group's `subtests` block to the type of its
+	// rows, which its pattern binds. Nil until the first record.
+	GroupRowTypes map[*ast.GroupSubtests]Type
 	// CoveringOrPatterns holds each `or` pattern whose alternatives together
 	// match every value of the type at its position (`.L(n) or .R(n)` over a
 	// two-variant enum), by the coverage rules a `case` applies. The IR
@@ -594,4 +606,30 @@ func (fa *FileAnalysis) walkBodies(nodes []ast.Node, resetSymbols bool) bool {
 	fa.TypeErrors = append(fa.TypeErrors, k.typeErrors...)
 	fa.TypeErrors = append(fa.TypeErrors, buildBodyTypes(fa, k.types, nodes)...)
 	return true
+}
+
+// recordPlaceholder records id, a bare `todo` that names no binding, as the
+// placeholder (TodoPlaceholders).
+func (fb *FileBodies) recordTodoPlaceholder(id *ast.Ident) {
+	if fb.TodoPlaceholders == nil {
+		fb.TodoPlaceholders = map[*ast.Ident]*ast.Todo{}
+	}
+	if _, done := fb.TodoPlaceholders[id]; done {
+		return
+	}
+	fb.TodoPlaceholders[id] = &ast.Todo{SpanCarrier: id.SpanCarrier, Line: id.Line, Col: id.Col}
+}
+
+// AsTodo is the placeholder n is when n is a bare `todo` that names no
+// binding (TodoPlaceholders), and n otherwise. A nil analysis answers n.
+func (fa *FileAnalysis) AsTodo(n ast.Node) ast.Node {
+	if fa == nil || fa.TodoPlaceholders == nil {
+		return n
+	}
+	if id, ok := n.(*ast.Ident); ok {
+		if td := fa.TodoPlaceholders[id]; td != nil {
+			return td
+		}
+	}
+	return n
 }

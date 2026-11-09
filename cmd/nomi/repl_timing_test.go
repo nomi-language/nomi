@@ -84,7 +84,7 @@ func TestReplVM_AnInputsCostDoesNotGrowWithTheSession(t *testing.T) {
 // input's function: input 1 (which loads the stdlib), and the median of
 // the nine inputs up to input 100 and 500. It runs only with
 // NOMI_REPL_TIMING set to the number of inputs (500 for the figures in
-// docs/implementation-notes.md).
+// cmd/nomi's package doc, "REPL").
 func TestReplVM_WallTimePerInput(t *testing.T) {
 	n, _ := strconv.Atoi(os.Getenv("NOMI_REPL_TIMING"))
 	if n == 0 {

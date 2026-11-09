@@ -8,6 +8,163 @@
 // Wadler/Leijen pretty-printer (see layout.go). The emitter and layout
 // algorithm are decoupled: the emitter decides what pieces appear; the
 // layout engine decides where to break lines to fit a width budget.
+//
+// What `nomi fmt` does for a user is in docs/tooling.md, "Formatting". The
+// sections below say why some of its rules are built the way they are.
+//
+// # Tests that guard the formatter
+//
+// TestFormatKeepsMeaning and FuzzFormatKeepsMeaning (vmhost,
+// format_meaning_test.go) hold every format to the program's meaning and
+// to a second format changing nothing. TestKnownFormatGaps pins each known
+// break in knownFormatGaps (vmhost/format_gaps_test.go).
+// TestTrackedNomiFilesAreFormatted fails for every tracked .nomi file
+// `nomi fmt` would change, outside its unformattedAllowed list, and
+// TestDocExamplesAreFormatted (vmhost) does the same for the examples in
+// the tour, docs/ and std's doc comments.
+//
+// # Brace-bounded field constructs
+//
+// Anonymous struct types, struct-shaped variant payloads and struct literals
+// share one surface syntax, so they share one width rule. The break decision
+// is made at the braces, not at the enclosing list, so a long parameter
+// annotation breaks its own anonymous struct rather than the parameter list,
+// and `Map<String, List<#{...}>>` keeps the outer containers inline. The
+// exception is an anonymous struct in a function type's parameter list
+// (`(#{...}) -> R`): the whole signature including `-> R` is fit-checked as
+// one unit, so a too-long signature breaks at the parameter list and the
+// struct sits flat at the inner indent.
+//
+// Fits are tail-aware: each group's flat-or-broken decision counts the rest
+// of the line after it, up to the first place it may break and the `{` of a
+// construct kept multi-line, so `A{a} + B{` measures the same whether
+// `B{...}` was broken for width or kept broken from the source. Trailing
+// comments are invisible to fits (Hidden).
+//
+// A type keeps a multi-line shape when its fields span lines, as a `fn`
+// body does (see "Fixed layouts"), so typing a brace, pressing enter and
+// saving does not collapse the new layout. Literals use Prettier's rule for
+// objects instead (see "A line break after a literal's opening bracket").
+//
+// The kept shape is local (LocalBroken), so a call can hug it
+// (`f(Point{`). The exception is an argument or parameter list already
+// written one element per line, its first element below its opening
+// bracket: it stays that way when it holds an element that breaks whatever
+// the width. Otherwise a list broken for width would hug its literal on the
+// next format, and the layout would not be stable. The same holds for an
+// or-pattern written one alternative per line, the short form of a
+// one-statement block (`if`, `else`), and a case arm's body below its `->`.
+//
+// # Fixed layouts
+//
+// Some layouts do not depend on width or on how the source was written:
+//
+//   - A `fn` body is always written across lines, as gofmt, Prettier and
+//     rustfmt write one: `fn add(x: Int, y: Int) -> Int` then `x + y` on
+//     its own line. An empty body stays `{}`. This holds for top-level
+//     functions, impl functions and interface defaults; an expression block
+//     such as `if c { x }` keeps its one-line form (see "One-line if and
+//     binding else").
+//   - A block of several statements puts each on its own line:
+//     `a = 1; b = 2` becomes two lines.
+//   - A tail `return value` becomes `value` (stripTailReturns).
+//   - A spread of a range in a literal is written in parentheses,
+//     `[0, ..(1..4)]`, so the two `..` do not run together.
+//   - A parameter pattern whose head names its type loses a redundant
+//     annotation: `fn raw(Duration(x): Duration)` becomes
+//     `fn raw(Duration(x))` (stripSelfTypingAnnotations). A head with
+//     nothing after it keeps its annotation, since `fn f(Label)` is another
+//     parameter: one written as its type alone, which the parser gives
+//     [ast.Param].TypeOnly (name `_`, the head as its annotation) and the
+//     formatter writes back as the type alone.
+//   - A `#!` line is kept as written, without trailing whitespace. A blank
+//     line after it stays one blank line, and no blank line stays none.
+//
+// # One-line if and binding else
+//
+// A one-line guard or binding `else` is limited only by the 100-column line,
+// its indentation and the rest of the line, so a run of guards reads as a
+// run of one-line statements. A plain two-branch `if`/`else` also has a
+// 50-column limit (singleLineValueIfMaxWidth), like rustfmt's
+// single_line_if_else_max_width. A form holding a forced break (a `case`,
+// a block of several statements, a stacked pipe) is never one line.
+//
+// # A line break after a literal's opening bracket
+//
+// A literal broken after its opening bracket stays broken. This is
+// Prettier's rule for objects: the author joins the literal again by
+// deleting one line break. The parser records the opening bracket's line on
+// each literal, and the formatter compares it with its first element's
+// line, so the rule needs no flag. The broken form puts the first element
+// below the bracket, so the next format finds the same break. A list with a
+// spread, a pattern with `..`, and every other bracketed form (call
+// arguments, parameter lists, type argument lists, pipes) are laid out by
+// width.
+//
+// A lambda body in braces follows the same rule. The parser builds one tree
+// for `fn x -> { e }` and `fn x -> e` and records only the `{` line and the
+// first statement's line, so braces the formatter adds stay on later runs,
+// even after the body shrinks to fit. A body that does not fit goes below
+// the parameters as a braced block, as rustfmt writes a closure, wherever
+// the lambda stands.
+//
+// # Filled literal lists
+//
+// Only lists of number literals (alone, after a unary `-`, or in
+// parentheses the formatter drops) are filled (filledList, fillTexts).
+// Strings, codepoints and booleans are not, since such a list is usually
+// read one element at a time, as messages or the rows of a grid. Packing is
+// greedy (packGreedy), in display columns, with no column alignment, and is
+// decided when the list renders from the indent its elements start at, so
+// it depends only on the syntax tree, the list's position and whether the
+// source breaks after the opening bracket. Derive and impl conformance
+// lists use the same greedy packing, against the fixed conformanceWrapWidth
+// rather than the indent they render at.
+//
+// # Comparison and boolean operators
+//
+// A comparison, `and` or `or` gets a group that breaks before the operator,
+// the right operand one indent in. The renderer breaks the outermost group
+// first, so a long comparison breaks before its operator before it breaks
+// inside a call on either side. A chain of one `and` or `or` is one group,
+// so a broken chain puts each operator on its own line. No group is made
+// when either operand already spans lines, when the left operand is a
+// pipeline (the operator follows its last stage), or when the right operand
+// is a bracketed literal, which breaks inside its brackets.
+//
+// # Compound depth
+//
+// Each list, vector, set, map or struct literal or pattern adds a level
+// (compoundDepth). A call, an enum pattern's payload, a tuple, an `as` or
+// `or` pattern and parentheses add none but pass their contents' depth
+// through. Only the literal or pattern that reaches maxCompoundDepth (three)
+// levels breaks for it; its elements are laid out on their own merits, so a
+// nested literal one level down can stay on one line inside it.
+//
+// # Comments
+//
+// The parser attaches a comment inside a bracketed, comma-separated list to
+// one of its items as it reads the list, so every list form keeps comments
+// the same way. A list holding a comment is written one item per line, with
+// no trailing comma where its syntax takes none (a lambda's parameters, type
+// arguments and parameters, a tuple or variant pattern, a list ending in a
+// spread, a call with one argument). Parentheses around an expression
+// holding a comment stay, with the comment inside. A lambda header whose
+// only comments each end the line of a parameter other than the last keeps
+// its layout.
+//
+// Most other comments are trivia on their construct: a statement's leading
+// and trailing comments, the comments before a closing `}`, a struct
+// field's leading comments. A comment with no slot of its own (after a
+// `with` statement's `=`, after a spread's `..`, inside a pattern's
+// parentheses) goes to the nearest node: inside the innermost node
+// containing it, after the last node ending before it, else before the
+// first node starting after it ([ast.TriviaCarrier]'s DanglingBefore and
+// DanglingAfter). A comment before a node is written on the line above when
+// the node starts a line, else at the end of the line (CommentBefore). A
+// comment that cannot end its line, because the line already ends in a
+// comment, an opening bracket or `|`, goes on its own line above the next
+// line of code, where it reads back as the next item's comment.
 package format
 
 // Doc is an element of the formatter's intermediate representation.

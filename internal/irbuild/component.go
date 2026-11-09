@@ -7,69 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Unit granularity: one unit package per strongly-connected component of the
-// Nomi IMPORT graph, not per Nomi file.
-//
-// The unit package is a name, not a compiled artifact. The builder still spells
-// each expression's `code` as Go text qualified by the unit's package
-// (typeRegistry's pkgOf), and nothing compiles that text. The partition below
-// decides which declarations share one namespace for that spelling.
-//
-// # Why not one package per file
-//
-// Nomi permits a cyclic file import graph deliberately. The analyzer resolves
-// names whole-program in two phases, so import ORDER never matters and adding
-// an `import` can never produce a circular-dependency error. Go forbids an
-// import cycle between packages absolutely.
-//
-// So one Go-spelled package per Nomi FILE cannot represent a legal Nomi
-// program. The shape is ordinary: an app-root file declaring the app struct
-// plus a dispatching `load`, and N deployment files each declaring one builder
-// that names the root's type. The mutual reference is inherent — the root must
-// call the builders and the builders must name the root's type.
-//
-// # Why the IMPORT graph rather than the reference graph
-//
-// Merging on fileIndex.reaches, the closure of the REFERENCE graph, would be
-// circular: buildFileIndex needs each unit's package name to build the units it
-// then closes over. The import graph is a pure
-// function of the parsed program and needs nothing from the builder.
-//
-// It is also SAFE in the one direction that matters. Every reference edge
-// implies an import edge — a qualified `owner.member`, a bare name from a
-// selective import, and a type reference all need the name in scope, and a
-// user file's name reaches another user file's scope only through an `import`.
-// So reference ⊆ import, mutual-in-reference implies mutual-in-import, and
-// merging by import-graph component merges at least as much as the reference
-// graph needs. TestReferenceEdgesAreImportEdges holds that containment over the
-// whole corpus, and it is the soundness argument for this whole file: the
-// reference graph is a subset of the Nomi import graph, whose components are
-// exactly what collapse to one unit package here, so the unit graph is
-// acyclic.
-//
-// # The `sibling file import cycle` refusal is a fail-safe
-//
-// It is unreachable through this partition. `importTargets` completeness over
-// Nomi's import SYNTAX is an empirical claim about a front-end surface this
-// package does not own: a new import form `importTargets` does not recognise
-// would make the partition under-merge silently. With the refusal in place that
-// degrades to a correct, named refusal; without it, it degrades to a cycle
-// between unit packages that nothing reports.
-//
-// # What a shared package costs, and what it does not
-//
-// Nothing about VISIBILITY. `pub` is enforced by the front end rather than
-// borrowed from Go's exported-identifier rule, so two files sharing a unit
-// package changes no visibility decision.
-//
-// Package-level IDENTIFIER collisions are the real cost, and they are the
-// normal case rather than a corner: files that share a package typically
-// collide on a `pub` function name, because a same-named builder in each
-// deployment file IS the idiom (`configure`/`configure`,
-// `build`/`build`/`build`). Mangling is collision-TRIGGERED at every minting
-// site, so a program whose components are all singletons (every acyclic
-// program) reserves no name against a non-empty predecessor and mints the same
-// names it would alone.
+// The unit partition is described in the package doc, "Unit packages".
 
 func unitPackagesFrom(owner []int) []string {
 	out := make([]string, len(owner))

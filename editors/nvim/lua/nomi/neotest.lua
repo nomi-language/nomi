@@ -293,6 +293,39 @@ end
 
 local rank = { passed = 1, skipped = 0, failed = 2 }
 
+-- The records of one test position, one per row of its group's `subtests`
+-- block, as one record: the worst status (failed, then blocked, then
+-- passed), every row's report in order, and the message of each row with
+-- that status under the row's name. A position with one record keeps it.
+local function merge_rows(recs)
+  if #recs == 1 then
+    return recs[1]
+  end
+  local order = { failed = 3, blocked = 2, passed = 1 }
+  local worst = recs[1]
+  for _, rec in ipairs(recs) do
+    if (order[rec.status] or 0) > (order[worst.status] or 0) then
+      worst = rec
+    end
+  end
+  local reports, messages = {}, {}
+  for _, rec in ipairs(recs) do
+    if type(rec.report) == 'string' then
+      table.insert(reports, rec.report)
+    end
+    if rec.status == worst.status and rec.message and rec.message ~= '' then
+      table.insert(messages, (rec.name or '') .. '\n' .. rec.message)
+    end
+  end
+  return {
+    status = worst.status,
+    name = worst.name,
+    error_line = worst.error_line,
+    message = table.concat(messages, '\n'),
+    report = #reports == #recs and table.concat(reports) or nil,
+  }
+end
+
 ---@async
 ---@param spec neotest.RunSpec
 ---@param result neotest.StrategyResult
@@ -342,16 +375,26 @@ function adapter.results(spec, result, tree)
     end
   end
 
+  -- A test in a group's `subtests` block runs once per row, and each row's
+  -- record names the test's first line, so one position takes all of them.
   local file_failures = {}
+  local by_id, ids = {}, {}
   for _, rec in ipairs(records) do
     if rec.type == 'test' and rec.file and rec.line then
       local id = by_line[realpath(rec.file) .. ':' .. rec.line]
       if id then
-        results[id] = record_result(rec)
+        if not by_id[id] then
+          by_id[id] = {}
+          table.insert(ids, id)
+        end
+        table.insert(by_id[id], rec)
       end
     elseif rec.type == 'file' and rec.file then
       file_failures[realpath(rec.file)] = rec
     end
+  end
+  for _, id in ipairs(ids) do
+    results[id] = record_result(merge_rows(by_id[id]))
   end
 
   -- A file that failed to load never ran its tests; each of them fails with

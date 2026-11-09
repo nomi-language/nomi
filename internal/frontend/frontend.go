@@ -1,10 +1,3 @@
-// Package frontend is Nomi's front end: parse, inject the synthetic host
-// declarations an FFI project mirrors from its Go bindings, lower derives,
-// synthesize derived and universal Debug impls, analyze the whole import
-// graph, and check that every `host` declaration has something to answer it.
-// It executes nothing.
-//
-// internal/irbuild's Analyze, vmhost and `nomi check` call it directly.
 package frontend
 
 import (
@@ -335,7 +328,7 @@ func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 		return nil, err
 	}
 	nodes = analysis.ExpandDeclarations(nodes, c.site(c.entryModRel))
-	nodes, err = lowerDerives(c.diagPath, src, nodes)
+	nodes, err = lowerDerives(c.diagPath, src, nodes, c.entryModRel, c.projectNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -346,13 +339,27 @@ func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 	return analysis.SynthesizeUniversalDebug(nodes), nil
 }
 
-// lowerDerives lowers the derives of the file at path.
-func lowerDerives(path, src string, nodes []ast.Node) ([]ast.Node, error) {
-	nodes, errs := analysis.LowerDerives(nodes)
+// lowerDerives lowers the derives of the file at path, whose module key
+// is key: a partner test's for its partner's types first, with the
+// partner's nodes from fileNodes (analysis.LowerPartnerDerives).
+func lowerDerives(path, src string, nodes []ast.Node, key string, fileNodes func(key string) ([]ast.Node, bool)) ([]ast.Node, error) {
+	nodes, errs := analysis.LowerPartnerDerives(nodes, key, fileNodes)
+	nodes, lowerErrs := analysis.LowerDerives(nodes)
+	errs = append(errs, lowerErrs...)
 	if len(errs) == 0 {
 		return nodes, nil
 	}
 	return nil, typeDiagnostics(path, src, errs)
+}
+
+// projectNodes answers the nodes of the project file with module key as
+// the program's build loads them, and false for none.
+func (c *Checker) projectNodes(key string) ([]ast.Node, bool) {
+	if c.lib == nil || key == "" {
+		return nil, false
+	}
+	nodes, err := c.Loader()(c.root, strings.Split(key, "/"))
+	return nodes, err == nil
 }
 
 // Analyze runs the analysis pipeline over a prepared entry: the whole import
@@ -921,7 +928,7 @@ func (c *Checker) CheckStdlibTest(moduleKey, src string, line int) (test *ast.Te
 	if perr != nil {
 		return nil, nil, nil, true, located(c.diagPath, src, perr)
 	}
-	if nodes, err = lowerDerives(c.diagPath, src, nodes); err != nil {
+	if nodes, err = lowerDerives(c.diagPath, src, nodes, "", nil); err != nil {
 		return nil, nil, nil, true, err
 	}
 	nodes, _ = analysis.SynthesizeDerives(nodes)
@@ -990,7 +997,7 @@ func (c *Checker) prepareStdlib(src string, mode Mode) ([]ast.Node, error) {
 	if err != nil {
 		return nil, located(c.diagPath, src, err)
 	}
-	nodes, err = lowerDerives(c.diagPath, src, nodes)
+	nodes, err = lowerDerives(c.diagPath, src, nodes, "", nil)
 	if err != nil {
 		return nil, err
 	}

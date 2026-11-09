@@ -46,7 +46,7 @@ echo "==> nomi wasm"
 # GOWORK too, also matched by the rebuild: the tour links the sqlite
 # driver's browser build from lib/sql/sqlite, a module the compiler's go.mod
 # does not require, through the workspace internal/tourgo/tour.work
-# (internal/tourgo/modules.go).
+# (internal/tourgo/doc.go, "Modules the tour links").
 #
 # The std bundle too, also matched by the rebuild: the wasm embeds the
 # stdlib's lowering (internal/irbuild/stdbundle.go) and its interfaces and

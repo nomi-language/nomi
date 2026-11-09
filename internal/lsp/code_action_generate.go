@@ -83,7 +83,8 @@ func (r *refactorRequest) generateFunction(line, col int, msg string) (string, s
 			if !ok {
 				return "", "", false
 			}
-			text := "\n\n" + sig + " {\n" + strings.Repeat(" ", format.IndentWidth) + fillPlaceholder + "\n}"
+			// The function is declared at the file's top level.
+			text := "\n\n" + sig + " {\n" + strings.Repeat(" ", format.IndentWidth) + r.placeholderAt(0, 0, sig) + "\n}"
 			return fmt.Sprintf("Generate function '%s'", m[1]), r.replace(at, at, text), true
 		}
 		return "", "", false
@@ -258,7 +259,7 @@ func (r *refactorRequest) declaresPlainType(name string) bool {
 // declaration under the range.
 func (r *refactorRequest) addToInherentImpl(typeName, sig string) (string, bool) {
 	indent := strings.Repeat(" ", format.IndentWidth)
-	fn := indent + sig + " {\n" + indent + indent + fillPlaceholder + "\n" + indent + "}"
+	fn := indent + sig + " {\n" + indent + indent + r.placeholderAt(0, 0, sig) + "\n" + indent + "}"
 	for _, n := range r.nodes {
 		impl, ok := n.(*ast.ImplBlock)
 		if !ok || impl.Interface != nil || receiverBaseName(impl.Receiver) != typeName || impl.EndLine <= 0 {

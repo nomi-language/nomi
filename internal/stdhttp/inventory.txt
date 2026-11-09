@@ -1,6 +1,6 @@
 # Every exported identifier of Go's HTTP packages, and what Nomi does with
-# it (docs/design/http.md, "The coverage rule"). TestGoInventoryIsComplete
-# holds this file to the Go the test runs under.
+# it (internal/stdhttp's package doc). TestGoInventoryIsComplete holds this
+# file to the Go the test runs under.
 #
 # "@ <package>" starts a package's rows. A row is
 #   <name or group> | covered | phase <n> | <the Nomi name, then notes>

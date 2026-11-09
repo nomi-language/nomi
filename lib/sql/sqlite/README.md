@@ -48,10 +48,23 @@ fn main() -> Result<Unit, Error> {
   waits up to that long for it, then fails with `SQLITE_BUSY`.
 - Parameters are bound as `?1`, `?2`, ..., never spliced into the SQL.
 - `Conn.begin` on the connection is `BEGIN`; on a transaction it is a
-  savepoint, which `commit` releases and `rollback` rolls back to. A
-  statement must run on the innermost open transaction or savepoint: SQLite
-  has one transaction per connection, so one sent through an outer `Conn`
-  would belong to the savepoint, and the driver refuses it.
+  savepoint, which `commit` releases and `rollback` rolls back to. Inside a
+  transaction, a statement must run on the innermost open transaction or
+  savepoint: SQLite has one transaction per connection, so one sent through
+  an outer transaction would belong to the savepoint, and the driver
+  refuses it.
+- One `Conn` is meant to be shared by every task of a program, as an app
+  keeps it in an app field for every request. Tasks take turns on the
+  connection: a statement runs alone, and a transaction has the connection
+  to itself from `begin` until `commit` or `rollback`. A statement or
+  `begin` from another task meanwhile waits for the transaction to end,
+  then runs outside it; it never fails for it, and never joins it. The wait
+  lasts as long as the waiting task's context allows: past a
+  `Context.with_timeout` deadline, or once the task is cancelled, it is
+  `Err(.Timeout)`. So keep transactions short, and inside one use only the
+  `Conn` its `begin` returned: a statement the transaction's own task sends
+  through the shared `Conn` waits for that same transaction, until the
+  task's deadline.
 - It passes `std/sql_testing`'s conformance suite (every rule;
   `sqlite_test.nomi`).
 

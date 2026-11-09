@@ -19,7 +19,7 @@ func pipeToStringActions(t *testing.T, s *Server, uri, src string) ([]protocol.D
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	res, err := s.textDocumentCodeAction(nil, &protocol.CodeActionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
 		Context: protocol.CodeActionContext{

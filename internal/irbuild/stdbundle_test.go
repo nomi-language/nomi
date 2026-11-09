@@ -54,12 +54,25 @@ func TestStdBundle_WrittenByAFreshProcess(t *testing.T) {
 
 // TestStdBundle_DecodesToTheLowering holds the bundle's shared section to the
 // lowering it replaces: decoded in this process, the bundle a fresh process
-// made must hold the modules this process's lowering makes, byte for byte as
-// an ir image, and the same index: every view, declaration, `once`, overload
-// set and table, each IR function named by its module and place.
+// made, with std at another path (NOMI_STD_PATH), must hold the modules
+// this process's lowering makes, byte for byte as an ir image, and the same
+// index printed by reflection: every view, declaration, `once`, overload
+// set and table, each IR function named by its module and place. So a
+// stdFunc field that lowering sets and the bundle drops fails it.
 //
-// Every other test in this package runs on a decoded bundle too
-// (loadStdlibIndex under `go test`).
+// Every process under `go test` runs on a decoded bundle: one that lowers
+// the stdlib encodes the lowering and decodes it before use
+// (loadStdlibIndex, keptListedStd), so every test and expectation suite
+// runs on decoded std. TestStdBundle_ListedDecodesToTheLowering holds the
+// listed section to this process's lowering of every listed module linked
+// by name, and TestStdlibLowersTheSameWithoutLint runs over a decoded
+// bundle too. TestStdBundle_RejectsAStaleOrCorruptBundle requires refusal
+// of a truncated or changed bundle, one made for another version, stdlib,
+// host registry or fixtures setting, and one whose modules or declarations
+// do not match the process's; TestStdBundle_TheCacheRewritesABundleItCannotUse
+// requires a corrupt cached one to be lowered past and written again.
+// internal/artifactcache's tests hold that a test never writes the user's
+// cache.
 func TestStdBundle_DecodesToTheLowering(t *testing.T) {
 	if os.Getenv(stdBundleOutEnv) != "" {
 		t.Skip("the child writes the bundle")

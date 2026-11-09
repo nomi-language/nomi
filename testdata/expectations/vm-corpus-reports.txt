@@ -19,6 +19,7 @@
 02-testing/attached_tests_test.nomi
 02-testing/fs_disk_test.nomi
 02-testing/fs_sandbox_test.nomi
+02-testing/group_subtests_test.nomi
 02-testing/io_capture_test.nomi
 02-testing/process_fake_test.nomi
 02-testing/setup_semantics_test.nomi
@@ -144,6 +145,7 @@
 14-modules-and-packaging/imported_typealias/imported_typealias_test.nomi
 14-modules-and-packaging/imports_and_modules_test.nomi
 14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi
+14-modules-and-packaging/partner_test_derive/todos_test.nomi
 14-modules-and-packaging/partner_test_file/shapes_test.nomi
 14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi
 14-modules-and-packaging/reexport_order/reexport_order_test.nomi

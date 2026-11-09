@@ -7,6 +7,8 @@ A test is ordinary Nomi code. A `test` declaration gives a name and a block to
 run. You can put tests next to the code they check, or in a file whose name
 ends in `_test.nomi`. `shapes_test.nomi` beside `shapes.nomi` can use that
 file's private declarations, so nothing needs `pub` just to be tested.
+It can also `derive` an interface for that file's types, such as
+`derive FromJson for Shape`, which exists only while the tests run.
 
 `nomi test` runs them. Anything a test prints, `dbg` included, appears under
 its `ok` or `FAIL` line. `nomi test --watch` runs the tests again each time
@@ -529,7 +531,54 @@ Spec: [Groups](/spec/tests/#groups).
 
 A group can also start the application with a `boot` line;
 [App Fields, Defer & Context](/app-fields/#testing-code-that-reads-app-fields)
-shows how.
+shows how. A test can also call `boot` itself and assert on the `Result`, to
+check [how it fails](/app-fields/#a-boot-that-fails).
+
+## Subtests in a group
+
+When the same tests should run against several configurations, put the
+group's lines and tests in a `subtests` block. Everything inside runs once
+per row, with the row bound in the `boot` line, the `setup` and every test.
+Each row's tests are reported as tests of their own.
+
+```nomi-run
+struct Config {
+    store: String
+}
+
+fn boot(startup: Startup) -> Result<Config, String> {
+    Ok(Config{store: Map.get(startup.env, "STORE") |> Maybe.with_default("memory")})
+}
+
+fn main() {}
+
+fn describe() -> String {
+    "a ${Config.store} store"
+}
+
+group "storage" {
+    subtests ["memory", "sqlite"], store {
+        boot boot(Startup{env: %{"STORE" => store}})
+
+        test "describes the booted store" {
+            assert describe() == "a ${store} store"
+        }
+    }
+}
+```
+<!-- expect
+ok storage [memory] / describes the booted store
+ok storage [sqlite] / describes the booted store
+test result: ok. 2 passed, 0 failed
+-->
+
+The rows are written in place, as literal values, because `nomi test` names
+and counts each row's tests before anything runs. A row of tuples names
+itself by a String column given after the pattern, as in
+`subtests [("memory", 1), ("sqlite", 4)], (store, workers), store`. The block
+holds everything in the group, so nothing in it runs without a row.
+
+Spec: [Subtests in a group](/spec/tests/#subtests-in-a-group).
 
 ## Virtual time
 

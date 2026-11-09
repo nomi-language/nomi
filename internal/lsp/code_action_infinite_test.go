@@ -19,7 +19,7 @@ func limitInfiniteActions(t *testing.T, s *Server, src string) []protocol.CodeAc
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(limitInfiniteURI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(limitInfiniteURI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	for i := range diags {
 		diags[i].Code = nil
 	}

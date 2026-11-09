@@ -644,8 +644,8 @@ func (g *gen) mirrorShell(src *typeDef, o *typeOwner) *typeDef {
 		//
 		// `genericArgs` deliberately does NOT travel: they are the owner's
 		// kinds, and re-deriving them here would be a second import of
-		// components importDef already imports. unifyTypeParams reads both
-		// together and so declines a mirror.
+		// components importDef already imports. A reader that needs them
+		// imports the owner's (instanceArgs).
 		d.genericOf = src.genericOf
 		d.instOrigin = o.instSrc
 	} else {

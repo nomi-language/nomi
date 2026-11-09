@@ -110,6 +110,9 @@ type testCaseDecl struct {
 	// and run one group under different clocks. That is a wrong ANSWER, so it
 	// is not a place for two implementations kept in step by a test.
 	clock string
+	// row is the row of its group's `subtests` block the case runs under,
+	// or nil: frontend.TestCase's Row.
+	row *testRow
 	// refusedBy is the construct name this case is refused under, or "" when it
 	// lowers. A refused case is not in the table; its body is still walked for
 	// blockers, so the refusal does not hide what is inside it.
@@ -164,7 +167,7 @@ func collectTestCases(nodes []ast.Node, declaresTests bool) []testCaseDecl {
 			if !declaresTests {
 				ref = importedModuleRefusal(t.Name, t)
 			}
-			out = append(out, collectTestDecl(t, n, nil, nil, "", ref)...)
+			out = append(out, collectTestDecl(t, n, nil, nil, "", ref, nil)...)
 		}
 	}
 	// One refusal per refused CONSTRUCT rather than per case beneath it, and
@@ -201,11 +204,19 @@ type testRefusal struct {
 	probe ast.Node
 }
 
+// testRow is one row of a group's `subtests` block: the row's pattern
+// binds value ahead of the case's boot line, setup and body.
+type testRow struct {
+	rows  *ast.GroupSubtests
+	value ast.Node
+	index int
+}
+
 // collectTestDecl collects one `test` or `group` declaration and its
 // descendants. ref is inherited: a group this builder turns down refuses every
 // case beneath it, and the reason and position are the group's. clock is the
 // inherited `clock` variant, "" at the top level.
-func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []testSetup, clock string, ref testRefusal) []testCaseDecl {
+func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []testSetup, clock string, ref testRefusal, row *testRow) []testCaseDecl {
 	names := append(append(make([]string, 0, len(prefix)+1), prefix...), t.Name)
 	if !t.Group {
 		return []testCaseDecl{{
@@ -216,6 +227,7 @@ func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []
 			line:          t.Line,
 			owner:         owner,
 			clock:         clock,
+			row:           row,
 			refusedBy:     ref.construct,
 			refusalDetail: ref.detail,
 			refusalAt:     ref.at,
@@ -276,12 +288,28 @@ func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []
 	if t.Body == nil {
 		return nil
 	}
+	if t.Subtests != nil {
+		// frontend's rule: each row runs the group's items, its cases named
+		// with the row's label (ast.GroupRowLabels, the one copy).
+		rows := ast.GroupRows(t.Subtests)
+		var out []testCaseDecl
+		for i, label := range ast.GroupRowLabels(t.Subtests) {
+			rowNames := appendTestName(prefix, ast.GroupRowSegment(t.Name, label))
+			r := &testRow{rows: t.Subtests, value: rows[i], index: i}
+			for _, stmt := range t.Body.Stmts {
+				if child, ok := stmt.(*ast.TestDecl); ok {
+					out = append(out, collectTestDecl(child, owner, rowNames, local, clock, ref, r)...)
+				}
+			}
+		}
+		return out
+	}
 	var out []testCaseDecl
 	for _, stmt := range t.Body.Stmts {
 		child, ok := stmt.(*ast.TestDecl)
 		if !ok {
 			// The parser admits only clock, boot, setup and test in a group
-			// body ("a group body may contain only clock, boot, setup, and test
+			// body ("a group body may contain only clock, boot, setup, subtests and test
 			// declarations"), so this is unreachable from legal source. Carried
 			// as a refused case rather than dropped, so a parser change
 			// surfaces in the tally instead of losing a declaration silently.
@@ -294,7 +322,7 @@ func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []
 			})
 			continue
 		}
-		out = append(out, collectTestDecl(child, owner, names, local, clock, ref)...)
+		out = append(out, collectTestDecl(child, owner, names, local, clock, ref, nil)...)
 	}
 	return out
 }

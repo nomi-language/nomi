@@ -19,8 +19,12 @@ import (
 )
 
 // TestScaleOpen measures what opening a generated project costs the
-// language server, and the requests a reader makes next, at about 50k
-// lines (NOMI_SCALE_LINES picks another size):
+// language server, and the requests a reader makes next (hover and
+// definition into a closed file, references to and a rename of a function
+// most files call, a closed file's diagnostics, the first edit), in a
+// server that checks the program whole and in one that opens it from its
+// record, at about 50k lines (NOMI_SCALE_LINES picks another size;
+// NOMI_SCALE_TYPO=1 misspells a name in a leaf first):
 //
 //	NOMI_SCALE_LSP=1 go test ./internal/lsp -run TestScaleOpen -count=1 -v -timeout 0
 //

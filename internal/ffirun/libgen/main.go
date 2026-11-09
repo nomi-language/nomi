@@ -1,8 +1,7 @@
 // Command libgen writes the main packages of the prebuilt lib binaries,
-// librunners/nomi-lib, librunners/nomi-vm-lib and
-// librunners/nomi-vm-reactor-lib, from the lib/ modules' Go bindings
-// (ffirun.GenerateLibMains). Run it from the repository root after changing a
-// lib/ module's `go` bindings or the FFI wrapper's template:
+// librunners/nomi-lib and librunners/nomi-vm-lib, from the lib/ modules' Go
+// bindings (ffirun.GenerateLibMains). Run it from the repository root after
+// changing a lib/ module's `go` bindings or the FFI wrapper's template:
 //
 //	go run ./internal/ffirun/libgen
 //

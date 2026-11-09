@@ -1,28 +1,3 @@
-// Package tourgo is the Go the tour's examples bind, linked into the tour's
-// wasm (cmd/nomi-wasm) and into every test that runs the tour's blocks.
-//
-// A browser cannot compile Go, so a tour block's `go` bindings cannot get
-// the wrapper `nomi run` builds for them (internal/ffirun). Instead, every
-// Go package a tour block binds is compiled in ahead of time, with the
-// adapters ffirun generates for the block's declarations
-// (ffirun.LinkedAdapters). `go generate ./internal/tourgo` reads the tour's
-// chapters, stages each ```nomi-run block that declares a `gopkg` as a
-// project, and writes linked_gen.go: the adapters, and `linked`, the one
-// list of the Go functions the tour links, each with the Nomi declaration
-// its adapter was generated for. TestGeneratedFileIsCurrent fails while it is
-// stale.
-//
-// A block's Go file (`// FILE: urltools.go`) is shown read-only in its
-// editor, and is this package's urltools/urltools.go, byte for byte
-// (TestTourGoFilesAreTheLinkedSources): the generator compiles the file in
-// this tree, and the page shows the same text.
-//
-// When a visitor edits a block, Hosts matches each `go` binding the edited
-// program declares to a linked function by its Go package and name, and
-// rekeys the adapter to the key the edited program crosses under, so a
-// renamed or moved declaration still runs. A binding the tour did not link,
-// or one whose declaration no longer has the types its adapter converts, is
-// an error at the declaration (Problems).
 package tourgo
 
 //go:generate go run ./gen

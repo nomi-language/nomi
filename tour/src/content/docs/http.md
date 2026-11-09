@@ -87,9 +87,13 @@ dbg line 15: Router.serve(router, http_testing.request(.Get, "/users/ann")).stat
 dbg line 16: "${Route.path_with(user, #{id: 8})}" = "/users/8"
 -->
 
-A route literal written with no type, as an argument with nothing to say
-what its parameters are, has a `String` field per wildcard:
-``Route`GET /users/{id}` `` is a `Route<#{id: String}>`.
+A route literal written as an argument takes its parameters from the
+handler beside it: with the `show` above, `Route.to_with("GET
+/users/{id}", show)` is a `Route<#{id: Int}>`, and so is `"GET
+/users/{id}" |> Route.to_with(show)`. With nothing to say what its
+parameters are, such as a lambda handler that states no types, a route
+literal has a `String` field per wildcard: ``Route`GET /users/{id}` `` is
+a `Route<#{id: String}>`.
 `Request.path_value` reads a wildcard's text from the request too.
 
 `http_testing.form_request(.Post, "/signup", [("email", "ada@example.com")])`
@@ -172,7 +176,9 @@ What a slot in an attribute, a URL or a
 
 A handler may return any value whose type implements
 [`ToResponse`](/reference/http/#interface-toresponse): a `Response`, an
-`Html` page, or a `Result` of two such types. The handler's type,
+`Html` page, or a `Result` of two such types. A lambda handler that only
+ever answers `Ok(...)` names no error type, and the one it leaves open is
+`Infallible`, the type with no values. The handler's type,
 `(Request) -> ToResponse`, is named
 [`http.Handler`](/reference/http/#type-handler), which `Router.new`,
 `http.serve` and middleware such as `http.limit_body` take. So a handler
@@ -297,7 +303,12 @@ this way, with a Nomi JSON API behind it.
 
 A handler that reads a posted form with `Request.form` reads at most
 10 MB of it, and `Request.multipart_form` at most 32 MB; a larger body is
-`Error.BodyTooLarge`. `Server{max_body: Some(n)}` sets one limit for every
+`Error.BodyTooLarge`. `Request.text` reads a body as text and
+`Request.json_as<T>` decodes it as JSON into a `T`, under the 10 MB
+limit too. A body that is not JSON of that shape is
+`Error.MalformedBody`, and `http.Error` implements `ToResponse`, so a
+handler returning `Result<Response, http.Error>` answers it with a 400
+through `?`. `Server{max_body: Some(n)}` sets one limit for every
 request, and `upload |> http.limit_body(n)` one for a route, such as an
 upload route that needs more.
 

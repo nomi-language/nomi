@@ -88,12 +88,23 @@ func writeList(path string, sites []Site, entries map[string]entry) error {
 }
 
 // TestDeclineSitesAreListed holds testdata/lowering-declines.txt to the
-// builder: every decline site is listed, by a key without its line, and
-// nothing else is. NOMI_REGENERATE_EXPECTATIONS=1 rewrites the list, keeping
-// each site's class and note; NOMI_DECLINE_COVERAGE=1 also runs the suites
-// with coverage and records which execute each site, and
-// NOMI_DECLINE_PROFILES=<dir> reads their profiles from a directory a
-// previous run left instead.
+// builder: every decline site Find reads from internal/irbuild's source
+// (the package doc gives the rule) is listed, by a key without its line,
+// and nothing else is. Each line carries the site's class (reached by a
+// suite, dead because the checker rejects what would reach it, a pinned
+// gap, or undecided) and a reproducer or reason, so adding or removing a
+// site fails here until the list moves with it.
+//
+//	NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/declinesites -run TestDeclineSitesAreListed -count=1
+//
+// rewrites the list, keeping each site's class and note; a new site is
+// classified by hand. NOMI_DECLINE_COVERAGE=1 instead runs the suites that
+// hold programs to lowering, with coverage of internal/irbuild, and records
+// which execute each site (about ten minutes, so add `-timeout 0`).
+// NOMI_DECLINE_PROFILES=<dir> keeps the profiles there, or alone rereads
+// the ones a previous run left. An unreached site is a place to look for a
+// gap: write the program that reaches it, and pin it in vmhost's
+// knownLoweringGaps if the front end accepts it.
 func TestDeclineSitesAreListed(t *testing.T) {
 	sites, err := Find("../irbuild")
 	if err != nil {

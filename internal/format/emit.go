@@ -1622,6 +1622,9 @@ func emitSubtestsPattern(n ast.Node) Doc {
 
 // emitDefer renders `defer call(...)`.
 func emitDefer(v *ast.Defer) Doc {
+	if v.OnError {
+		return Group(Concat(Text("defer on error "), emit(v.Call)))
+	}
 	return Group(Concat(Text("defer "), emit(v.Call)))
 }
 
@@ -1726,6 +1729,16 @@ func emitTestDecl(v *ast.TestDecl) Doc {
 	var body []Doc
 	if len(items) > 0 {
 		body = []Doc{emitStatementSequence(items)}
+	}
+	if st := v.Subtests; st != nil {
+		// The group's items are the block's, which is the group's only
+		// item.
+		header := Concat(Text("subtests "), emit(st.Rows), Text(", "), emitSubtestsPattern(st.Pattern))
+		if st.Name != nil {
+			header = Concat(header, Text(", "), emit(st.Name))
+		}
+		block := Concat(header, Text(" "), emitDocsBlockForceBroken(body, st.EndTrivia))
+		body = []Doc{emitWithTriviaParts(block, withoutBlankTrivia(st.Leading), st.Trailing)}
 	}
 	return Concat(Text("group "), Text(encodeNomiString(v.Name)), Text(" "), emitDocsBlockForceBroken(body, v.Body.GetTrailing()))
 }

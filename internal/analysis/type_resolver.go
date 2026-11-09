@@ -48,14 +48,17 @@ func (e TypeError) Error() string {
 // `typeParams` maps type parameter names to their TypeParam_ values (nil
 // if no generics in scope).
 //
-// `refs` is an optional file-level References map. When non-nil, every
-// nested *ast.AnonStructType node has a SymbolField written at each
-// field name's position so the LSP can show `name: String` on hover —
-// the same shape checkStructLit uses for anon-struct *literals*. Pass
-// nil from contexts where reference registration isn't desired (e.g.,
-// resolving an interface bound where there's no field-name UX to surface).
-func ResolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*TypeParam_, refs map[Pos]*Symbol) (Type, error) {
-	return resolveTypeExpr(te, reg, typeParams, refs, false)
+// `fa` is the file the type expression is written in, or nil. When non-nil,
+// every nested *ast.AnonStructType node has a SymbolField written in its
+// References at each field name's position, so the LSP can show
+// `name: String` on hover — the same shape checkStructLit uses for
+// anon-struct *literals* — and each field of the resolved type names the
+// file (FieldDef.File), so a use in another file finds the field there
+// (anonFieldDeclared). Pass nil from contexts where reference registration
+// isn't desired (e.g., resolving an interface bound where there's no
+// field-name UX to surface).
+func ResolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis) (Type, error) {
+	return resolveTypeExpr(te, reg, typeParams, fa, false)
 }
 
 // ResolveDeclaredType is ResolveTypeExpr for a type written in a DECLARATION
@@ -80,14 +83,14 @@ func ResolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 //     its argument from the field values, and there is no turbofish on a struct
 //     literal — `Box<Int>{…}` parses as a comparison — so there is no spelling
 //     that would satisfy a rule here. Many sites in the same trees are this shape.
-func ResolveDeclaredType(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*TypeParam_, refs map[Pos]*Symbol) (Type, error) {
-	return resolveTypeExpr(te, reg, typeParams, refs, true)
+func ResolveDeclaredType(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis) (Type, error) {
+	return resolveTypeExpr(te, reg, typeParams, fa, true)
 }
 
 // resolveTypeExpr carries `declared` through the whole recursion, so a nested
 // argument is held to the same standard as its head: `List<Box>` in a
 // parameter type rejects the `Box`.
-func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*TypeParam_, refs map[Pos]*Symbol, declared bool) (Type, error) {
+func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis, declared bool) (Type, error) {
 	switch n := te.(type) {
 	case *ast.SimpleType:
 		// Check type params first (for generic T).
@@ -116,7 +119,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		// Resolve all type arguments recursively.
 		args := make([]Type, len(n.Params))
 		for i, p := range n.Params {
-			resolved, err := resolveTypeExpr(p, reg, typeParams, refs, declared)
+			resolved, err := resolveTypeExpr(p, reg, typeParams, fa, declared)
 			if err != nil {
 				return nil, err
 			}
@@ -178,7 +181,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 	case *ast.FuncType:
 		params := make([]Type, len(n.Params))
 		for i, p := range n.Params {
-			resolved, err := resolveTypeExpr(p, reg, typeParams, refs, declared)
+			resolved, err := resolveTypeExpr(p, reg, typeParams, fa, declared)
 			if err != nil {
 				return nil, err
 			}
@@ -190,7 +193,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 			return &TupleType{Elems: params}, nil
 		}
 
-		ret, err := resolveTypeExpr(n.Return, reg, typeParams, refs, declared)
+		ret, err := resolveTypeExpr(n.Return, reg, typeParams, fa, declared)
 		if err != nil {
 			return nil, err
 		}
@@ -220,7 +223,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 				Line:   member.Line,
 				Col:    member.Col,
 			}
-			return resolveTypeExpr(base, reg, typeParams, refs, declared)
+			return resolveTypeExpr(base, reg, typeParams, fa, declared)
 		}
 		e := TypeError{Line: n.ModuleLine, Col: n.ModuleCol, Message: fmt.Sprintf("unknown type %q", qualName)}
 		if et, ok := reg.Lookup(n.Module).(*EnumType); ok {
@@ -243,8 +246,9 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		// Returns the existing *analysis.AnonStructType, which already
 		// participates in TypesEqual structural equality (see types.go).
 		//
-		// When `refs` is non-nil, register a self-referential SymbolField at
-		// each field name's position. The anon struct type has no upstream
+		// When `fa` is non-nil, register a self-referential SymbolField at
+		// each field name's position in its References, and name the file
+		// in the field (typeFieldFile). The anon struct type has no upstream
 		// declaration site — the literal/type position IS the declaration —
 		// so the symbol owns its own Pos and Type. This mirrors checkStructLit
 		// for anon struct *literals* so hover behaves consistently across
@@ -266,13 +270,13 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 				return nil, TypeError{Line: f.Line, Col: f.Col, Message: fmt.Sprintf("duplicate field '%s' in anon struct type", f.Name)}
 			}
 			seen[f.Name] = true
-			ty, err := resolveTypeExpr(f.TypeAnnotation, reg, typeParams, refs, declared)
+			ty, err := resolveTypeExpr(f.TypeAnnotation, reg, typeParams, fa, declared)
 			if err != nil {
 				return nil, err
 			}
-			fields = append(fields, FieldDef{Name: f.Name, Type: ty, Line: f.Line, Col: f.Col})
-			if refs != nil && f.Line > 0 {
-				refs[Pos{Line: f.Line, Col: f.Col}] = &Symbol{
+			fields = append(fields, FieldDef{Name: f.Name, Type: ty, Line: f.Line, Col: f.Col, File: typeFieldFile(fa, f.Line)})
+			if fa != nil && fa.References != nil && f.Line > 0 {
+				fa.References[Pos{Line: f.Line, Col: f.Col}] = &Symbol{
 					Name: f.Name,
 					Kind: SymbolField,
 					Pos:  Pos{Line: f.Line, Col: f.Col},
@@ -285,6 +289,18 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 	default:
 		return nil, fmt.Errorf("unsupported TypeExpr node: %T", te)
 	}
+}
+
+// typeFieldFile is the file a field an anonymous struct type names at line
+// in fa is declared in, for FieldDef.File: fa's path when it is a user file
+// with one, as literalFieldDef records a literal's label. A stdlib file, a
+// path-less one and the synthesized band name none, and their fields are
+// linked only within the file that resolves them (anonFieldDecl).
+func typeFieldFile(fa *FileAnalysis, line int) string {
+	if fa == nil || line <= 0 || IsSynthesizedLine(line) || IsStdlibKey(fa.Origin) {
+		return ""
+	}
+	return fa.FilePath
 }
 
 // unknownTypeError is the error for a type name written at line:col that

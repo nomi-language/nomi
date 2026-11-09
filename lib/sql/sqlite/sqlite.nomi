@@ -14,7 +14,10 @@
 //# back; an `Instant` as SQLite's own timestamps are, in UTC with no offset
 //# (`2026-10-24 16:59:52`), so it compares in time order with
 //# `CURRENT_TIMESTAMP`. A transaction is `BEGIN`; a transaction inside one
-//# is a savepoint. Foreign keys are enforced, and a constraint error names
+//# is a savepoint. One `Conn` may be shared by every task: tasks take turns
+//# on the connection, and a transaction has it to itself until it ends, so
+//# a statement from another task waits for the transaction (as long as that
+//# task's context allows, then `Error.Timeout`) and never runs inside it. Foreign keys are enforced, and a constraint error names
 //# the constraint as Postgres does (`users_email_key`). A file database
 //# waits up to 5 seconds for a lock another connection holds.
 //#

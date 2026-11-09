@@ -1,0 +1,2 @@
+go test fuzz v1
+string("fn=main() {\n  zerd   /.00d\n  _ = 1o / zero\n}")

@@ -1,10 +1,3 @@
-// Package stdcsv is std/csv_host: reading CSV records from a Reader with
-// Go's encoding/csv, and writing one record as CSV text.
-//
-// A reader is a handle (rt.CsvRecords) over a csv.Reader that reads a
-// lineinput.Input, so a stream is read a record at a time and an error's
-// column is in code points. Go's own error texts never reach Nomi: each
-// failure is reported with std/csv's wording.
 package stdcsv
 
 import (

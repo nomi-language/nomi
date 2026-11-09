@@ -121,7 +121,7 @@ func (c *checker) checkUndeterminedTypeArgs() {
 			// defaulted parameter mentions is no argument's.
 			v := &TypeVar{}
 			if arg, ok := u.subs[tp]; ok {
-				if v, ok = resolveTypeVar(arg).(*TypeVar); !ok {
+				if v, ok = c.openVarOf(arg); !ok {
 					continue
 				}
 			} else if a, _ := undeterminedArg(u, tp); a == nil {
@@ -155,6 +155,24 @@ func (c *checker) checkUndeterminedTypeArgs() {
 		}
 		c.report(c.undeterminedError(u, bad, unsolved, names))
 	}
+}
+
+// openVarOf is the unsolved variable a type argument's solution leaves
+// open: the solution itself when it is one, or one of the variables of a
+// function a callback's call made of it whose context never solved it
+// (`keep(fn s, f -> { _ = f(s); s })` makes M `(Int) -> _`).
+func (c *checker) openVarOf(arg Type) (*TypeVar, bool) {
+	switch t := resolveTypeVar(arg).(type) {
+	case *TypeVar:
+		return t, true
+	case *FuncType:
+		for _, v := range c.calledFuncs[t] {
+			if open, ok := resolveTypeVar(v).(*TypeVar); ok {
+				return open, true
+			}
+		}
+	}
+	return nil, false
 }
 
 // typeParamUsedAsValue reports whether ft makes values of tp: its

@@ -25,8 +25,8 @@ import (
 
 // isPipeKeywordStage reports the keyword stages checkBinary judges after
 // the stage dispatch: `x |> todo`, and `x |> dbg expr`, which it rejects.
-func isPipeKeywordStage(stage ast.Node) bool {
-	switch ungroupExpr(stage).(type) {
+func isPipeKeywordStage(fa *FileAnalysis, stage ast.Node) bool {
+	switch fa.AsTodo(ungroupExpr(stage)).(type) {
 	case *ast.Todo, *ast.Unreachable, *ast.Dbg:
 		return true
 	}

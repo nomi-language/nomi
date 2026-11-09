@@ -1,0 +1,68 @@
+//# A test may call an entry's boot as an ordinary function and check the
+//# Result it returns. What boot starts ends with the test: its deferred
+//# calls run and its supervised work stops when the test finishes.
+
+import {
+    std::compiler
+    std::io
+    std::testing.Clock
+    server
+}
+
+test "a boot that fails returns its Err" {
+    assert server.boot(
+        Startup{env: %{"STORE" => "postgres"}}
+    ) is Err("STORE=postgres needs DATABASE_URL")
+}
+
+group "a boot that succeeds" {
+    // Virtual time: the heartbeat boot spawns sleeps for an hour, and the
+    // drain at the end of each test stops it at once.
+    clock Clock.Virtual
+
+    test "returns the app" {
+        app = server.boot(Startup{env: %{"STORE" => "files"}})?
+        assert app.store == "files"
+        io.print("test body ends")
+    }
+
+    test "starts work that ends with the test" {
+        app = server.boot(Startup{env: %{"STORE" => "files", "HEARTBEAT" => "on"}})?
+        assert app.store == "files"
+        io.print("test body ends")
+    }
+
+    test "the next test starts with none of it" {
+        io.print("the next test runs")
+        assert True
+    }
+}
+
+test "outside a test, a call of boot is refused" {
+    diagnostics = compiler.check(
+        """
+        pub struct App {
+          context: Context
+        }
+
+        pub fn boot() -> Result<App, String> {
+          Ok(App{context: Context.root()})
+        }
+
+        fn restart() -> Result<App, String> {
+          boot()
+        }
+
+        fn main() {
+          _ = restart()
+        }
+        """
+    )
+
+    assert diagnostics |> Iter.map(fn d -> (d.line, d.message)) |> Iter.to_list() == [
+        (
+            10,
+            "entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line, and a test may call it to check the Result it returns",
+        ),
+    ]
+}

@@ -60,7 +60,7 @@ func (c *checker) recordComparisonImpl(n *ast.Binary, operand Type, iface, metho
 	if name == "" {
 		return
 	}
-	if m := implMethodOf(c.fa.Program().ImplIndex, iface, method, concrete, name); m != nil {
+	if m := implMethodOf(c.fa.Program(), iface, method, concrete, name); m != nil {
 		c.fa.recordOperatorImpl(n, &OperatorImpl{Interface: iface, Receiver: concrete, Method: m})
 	}
 }
@@ -69,7 +69,8 @@ func (c *checker) recordComparisonImpl(n *ast.Binary, operand Type, iface, metho
 // iface for concrete, a type named receiver: a hand-written one, a derived
 // one or a `host fn`. It is nil when there is none or when two files each
 // have one for concrete's type.
-func implMethodOf(idx *ProjectImplIndex, iface, method string, concrete Type, receiver string) ast.ImplMethodDecl {
+func implMethodOf(p *Program, iface, method string, concrete Type, receiver string) ast.ImplMethodDecl {
+	idx := p.ImplIndex
 	if idx == nil {
 		return nil
 	}
@@ -80,7 +81,7 @@ func implMethodOf(idx *ProjectImplIndex, iface, method string, concrete Type, re
 		}
 	}
 	var fd *ast.FuncDef
-	for _, fn := range ownReceiverImpls(idx, candidates, concrete) {
+	for _, fn := range ownReceiverImpls(idx, candidates, concrete, p.entryOrigin()) {
 		if fd != nil {
 			// The same impl recorded twice, by pointer or by a copy of
 			// its file, is one impl.

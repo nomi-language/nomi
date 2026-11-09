@@ -77,6 +77,15 @@ import {
 ///   A transaction's `Conn` is a view of its connection, so there is one
 ///   thing to close, and closing only the transaction would be
 ///   `rollback`.
+///
+/// A connection is meant to be shared: a program opens one in its `boot`
+/// and every task uses it. While one task's transaction is open, a
+/// statement another task sends through the connection runs outside the
+/// transaction, on another connection of a pool or after the transaction
+/// ends on a single connection, and never fails or joins the transaction
+/// for it. Inside a transaction, use the `Conn` its `begin` returned: a
+/// statement the same task sends through the connection may wait for its
+/// own transaction.
 pub interface Conn {
     fn query(conn: self, statement: Statement) -> Result<List<Row>, Error>
     fn each_row(conn: self, statement: Statement, f: (Row) -> Bool) -> Result<Unit, Error>

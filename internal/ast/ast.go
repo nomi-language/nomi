@@ -919,13 +919,19 @@ type With struct {
 func (*With) NodeType() string { return "With" }
 func (n *With) LineNum() int   { return n.Line }
 
-// Defer registers a Unit-returning call to run when the current block exits.
+// Defer registers a Unit-returning call to run when the current block exits:
+// `defer call(...)`. OnError marks the error-only form, `defer on error
+// call(...)`, whose call runs only when the block is left through an error
+// exit (spec §9 *`defer`*); OnLine and OnCol are its `on`.
 type Defer struct {
 	TriviaCarrier
 	SpanCarrier
-	Call Node
-	Line int
-	Col  int
+	Call    Node
+	OnError bool
+	Line    int
+	Col     int
+	OnLine  int
+	OnCol   int
 }
 
 func (*Defer) NodeType() string { return "Defer" }
@@ -939,6 +945,12 @@ type TestDecl struct {
 	SpanCarrier
 	Name  string
 	Group bool
+	// Subtests is a group's `subtests rows, pattern { ... }` block, which
+	// holds the group's clock, boot, setup and tests and repeats them once
+	// per row. When it is set, Clock, Boot, Setup and Body are the block's
+	// own items, and the block is the group's only item. nil for a group
+	// without one, and for a test.
+	Subtests *GroupSubtests
 	// Clock is the expression in a `clock …` declaration, naming a
 	// `testing.Clock` variant: `.Virtual` runs the group's tests in a bubble
 	// where time only advances when every task is blocked, `.System` the
@@ -1038,6 +1050,35 @@ type Subtests struct {
 
 func (*Subtests) NodeType() string { return "Subtests" }
 func (n *Subtests) LineNum() int   { return n.Line }
+
+// GroupSubtests is the header of `subtests rows, pattern, name { ... }`
+// written in a `group`: the group's items inside the block (its TestDecl's
+// Clock, Boot, Setup and Body) run once per row, with Pattern bound to the
+// row in the boot line, the setup and every test.
+//
+// Rows is a list literal of literal values, read when the tests are
+// collected (GroupRowLabels): each row's tests are cases of their own,
+// named with the row. Name is nil or the name of a String column the
+// pattern binds, which names each row in place of the rendered row.
+//
+// EndTrivia holds the comments before the block's closing brace; the
+// comments after it, before the group's own brace, are the group body's
+// trailing trivia. EndLine and EndCol are the block's closing brace.
+type GroupSubtests struct {
+	TriviaCarrier
+	SpanCarrier
+	Rows      Node
+	Pattern   Node
+	Name      Node
+	EndTrivia []Trivia
+	Line      int // the `subtests` keyword
+	Col       int
+	EndLine   int
+	EndCol    int
+}
+
+func (*GroupSubtests) NodeType() string { return "GroupSubtests" }
+func (n *GroupSubtests) LineNum() int   { return n.Line }
 
 // Dbg is `dbg expr`, a debug-print expression that returns the evaluated value.
 // Expr is nil only for the pipe-stage form `value |> dbg`, where the piped

@@ -3,6 +3,8 @@ package vmhost_test
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -274,5 +276,108 @@ fn main() {
 	}
 	if want := "False True False 7 True\n"; out != want {
 		t.Fatalf("output %q, want %q", out, want)
+	}
+}
+
+// `todo` is a contextual keyword: it names parameters, bindings, fields and
+// pattern bindings, and a bare `todo` inside the scope of one reads it. Out
+// of every such scope it is the placeholder again, as the `None` arm's is.
+func TestTodo_ANameTodoIsAnOrdinaryName(t *testing.T) {
+	path, out, err := runTodo(t, `import std::io
+
+struct Todo {
+    title: String
+    done: Bool
+}
+
+struct Box {
+    todo: Todo
+}
+
+fn apply(todo: Todo) -> Todo {
+    todo
+}
+
+fn title_of(todo: Todo) -> String {
+    todo.title
+}
+
+fn pick(m: Maybe<Int>) -> Int {
+    case m {
+        Some(todo) -> todo
+        None -> todo
+    }
+}
+
+fn main() {
+    t = Todo{title: "milk", done: False}
+    io.print(apply(t).title)
+    io.print(title_of(t))
+    todo = 1
+    io.print(todo + 1)
+    box = Box{todo: t}
+    io.print(box.todo.title)
+    io.print(#{todo}.todo)
+    f = fn todo: Int -> todo * 10
+    io.print(f(4))
+    io.print(pick(Some(7)))
+    io.print(pick(None))
+}
+`)
+	if want := "milk\nmilk\n2\nmilk\n1\n40\n7\n"; out != want {
+		t.Errorf("output %q, want %q", out, want)
+	}
+	if want := "todo reached at " + path + ":23"; err == nil || err.Error() != want {
+		t.Fatalf("error %v, want %q", err, want)
+	}
+}
+
+// A function named `todo` is a binding like any other: in its file a bare
+// `todo` names it, and `todo "reason"` is still the placeholder.
+func TestTodo_AFunctionNamedTodoShadowsTheBarePlaceholder(t *testing.T) {
+	path, out, err := runTodo(t, `import std::io
+
+fn todo() -> Int {
+    5
+}
+
+fn main() {
+    io.print(todo())
+    io.print([1, 2] |> Iter.map(fn _ -> todo()) |> Iter.sum())
+    todo "still the placeholder"
+}
+`)
+	if want := "5\n10\n"; out != want {
+		t.Errorf("output %q, want %q", out, want)
+	}
+	if want := "todo reached at " + path + ":10: still the placeholder"; err == nil || err.Error() != want {
+		t.Fatalf("error %v, want %q", err, want)
+	}
+}
+
+// A module named `todo` (a file `todo.nomi` beside the program's) is no
+// value: `todo.label()` names a member of it, and a bare `todo` read as a
+// value is still the placeholder.
+func TestTodo_AModuleNamedTodoLeavesTheBarePlaceholder(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "todo.nomi"), []byte("pub fn label() -> String {\n    \"from todo\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "main.nomi")
+	src := "import std::io\nimport todo\n\nfn later() -> Int {\n    todo\n}\n\nfn main() {\n    io.print(todo.label())\n    io.inspect(later())\n}\n"
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := vmhost.Load(path)
+	if err != nil {
+		t.Fatalf("the front end rejects the program: %v", err)
+	}
+	var out bytes.Buffer
+	err = p.Run(context.Background(), &out, nil, false)
+	if want := "from todo\n"; out.String() != want {
+		t.Errorf("output %q, want %q", out.String(), want)
+	}
+	if want := "todo reached at " + path + ":5"; err == nil || err.Error() != want {
+		t.Fatalf("error %v, want %q", err, want)
 	}
 }

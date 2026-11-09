@@ -1941,6 +1941,42 @@ func TestFormat_TestGroupLinesReordered(t *testing.T) {
 	formatWithTwice(t, src, want)
 }
 
+// A group's `subtests` block lays out its items as a group body does, its
+// lines first, and keeps the comments around it and before each brace.
+func TestFormat_GroupSubtestsBlock(t *testing.T) {
+	src := `group "stores" {
+  // above the block
+  subtests [("memory", 1),   ("sqlite", 2)], (store,  n), store {
+    test "t" {
+      assert store != ""
+    }
+    // above the setup
+    setup   n
+    clock Clock.Virtual
+    // before the block's brace
+  }
+  // after the block
+}
+`
+	want := `group "stores" {
+    // above the block
+    subtests [("memory", 1), ("sqlite", 2)], (store, n), store {
+        clock Clock.Virtual
+
+        // above the setup
+        setup n
+
+        test "t" {
+            assert store != ""
+        }
+        // before the block's brace
+    }
+    // after the block
+}
+`
+	formatWithTwice(t, src, want)
+}
+
 // The comments above a moved line, and the one after it, move with it.
 func TestFormat_TestGroupLinesReorderedKeepComments(t *testing.T) {
 	src := `group "g" {

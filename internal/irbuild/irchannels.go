@@ -17,8 +17,12 @@ import (
 
 // irConcHandleKind is a task or channel handle over a retained payload:
 // `Task<T>`, `Sender<T>`, `Receiver<T>` or the `Channel<T>` holding a pair.
+// A function value is a payload like any other (`Channel<(Int) -> Int>`):
+// the rt channel carries whatever value it is sent.
 func irConcHandleKind(k kind) bool {
-	payload := func(p kind) bool { return p == kindUnit || irRetainedValueKind(p) }
+	payload := func(p kind) bool {
+		return p == kindUnit || irRetainedValueKind(p) || (p.tag == tagFunc && irCallableValueKind(p))
+	}
 	if elem, owner, isChannel := channelElem(k); isChannel {
 		return owner != "" && payload(elem)
 	}
@@ -59,7 +63,7 @@ func irHandleFieldKind(k kind) bool {
 // depth: Unit, a leaf, a structural composite (`Map<String, Int>`,
 // `List<List<Int>>`, `(Int, String)`) whose parts end, or a named
 // declaration other than self whose own handles end. A function element
-// stays outside.
+// ends when its parameters and result do.
 func irHandleElemEnds(elem kind, self *typeDef, depth int) bool {
 	if depth > 8 {
 		return false
@@ -70,7 +74,7 @@ func irHandleElemEnds(elem kind, self *typeDef, depth int) bool {
 	if elem.tag == tagNamed && elem.def != nil {
 		return elem.def != self && !irReachesNominalChannel(elem.def, depth+1)
 	}
-	if elem.comp == nil || elem.tag == tagFunc {
+	if elem.comp == nil {
 		return false
 	}
 	for _, p := range elem.comp.parts {

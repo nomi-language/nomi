@@ -4,9 +4,15 @@
 //
 //	NOMI_SCALE_TABLE=1 go test ./internal/scalebench -run TestScaleTable -count=1 -v -timeout 0
 //
-// prints a table of time and allocations per operation and size.
-// NOMI_SCALE_SIZES=1000,10000 picks the sizes. The same operations are Go
-// benchmarks, for profiling one:
+// prints a table of time and allocations per operation and size: check
+// cold and warm, `nomi check`, the language server's edits and lowering,
+// `nomi run`, and the heap a kept program holds, at 1k, 10k and 50k lines
+// and on the stdlib (about two minutes). NOMI_SCALE_SIZES=1000,10000 picks
+// the sizes. internal/analysis's TestEditWorkStaysFlatAsAProjectGrows counts
+// an edit's work at each size rather than timing it, and internal/lsp's
+// TestScaleOpen and TestScaleEdits (under NOMI_SCALE_LSP=1) measure the
+// language server opening a project and its first edits. The same
+// operations are Go benchmarks, for profiling one:
 //
 //	go test ./internal/scalebench -run '^$' -bench 'Scale/50000/signature_edit_hub' -cpuprofile cpu.out
 package scalebench

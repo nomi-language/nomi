@@ -1,39 +1,3 @@
-// Command nomi-docgen generates the standard-library API reference from ///
-// doc comments.
-//
-// For each stdlib module it writes <out>/<module>.md: every pub declaration with
-// its signature + doc, rendered by the same renderer the LSP and the tour's
-// hovers use (hoverdoc.Render), so the reference can't drift
-// from the editor. Signatures use ```nomi fences (statically highlighted,
-// not turned into runnable editors). Output is generated, not committed.
-//
-//	go run ./cmd/nomi-docgen <reference-output-dir>
-//
-// With -examples it writes the tour's Examples section instead, from the
-// Exercism solutions (examples.go). Those pages are committed.
-//
-//	go run ./cmd/nomi-docgen -examples tests/exercism tour/src/content/docs/examples
-//
-// With -spec it writes the site's Specification section from docs/spec.md
-// (spec.go). Those pages are generated, not committed.
-//
-//	go run ./cmd/nomi-docgen -spec docs/spec.md tour/src/content/docs/spec
-//
-// With -style it writes the site's Writing Nomi section from docs/style.md
-// (style.go). Those pages are generated, not committed.
-//
-//	go run ./cmd/nomi-docgen -style docs/style.md tour/src/content/docs/writing
-//
-// With -tooling it writes the site's Tooling section from docs/tooling.md
-// (tooling.go):
-//
-//	go run ./cmd/nomi-docgen -tooling docs/tooling.md tour/src/content/docs/tooling
-//
-// With -llms it writes the files for models (llms.go): the cheat sheet's
-// page from docs/cheatsheet.md, and llms.txt, llms-full.txt and
-// cheatsheet.md at the site root. All are generated, not committed.
-//
-//	go run ./cmd/nomi-docgen -llms . tour
 package main
 
 import (

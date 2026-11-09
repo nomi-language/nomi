@@ -44,7 +44,7 @@ func (g *gen) irTestGroup(c testCaseDecl) (ir.TestGroup, bool) {
 			g.dc.note("a test boot that names no entry boot this program lowers")
 			return ir.TestGroup{}, false
 		}
-		startup, ok := g.irTestStartup(t, fd)
+		startup, ok := g.irTestStartup(t, fd, c.row)
 		if !ok {
 			return ir.TestGroup{}, false
 		}
@@ -87,9 +87,24 @@ func (g *gen) irRecordTestBoot(sym *ir.Symbol) {
 	g.irTestBoots = append(g.irTestBoots, sym)
 }
 
+// irNoteBootCall records callee as a boot this unit's tests start when decl
+// is an entry boot: a test that calls one as an ordinary function (the
+// checker admits no other call outside a group's `boot` line). The VM then
+// runs it on a boot frame, so it may create supervisors, and hands the calls
+// it defers to the case's cleanup, as for a group's boot.
+func (g *gen) irNoteBootCall(decl *ast.FuncDef, callee *ir.Symbol) {
+	if decl != nil && callee != nil && g.fa != nil && g.fa.Program().BootFunctions[decl] {
+		g.irRecordTestBoot(callee)
+	}
+}
+
 // irTestStartupToken is the declaration identity of a group's startup
-// function: the group whose `boot` line it evaluates.
-type irTestStartupToken struct{ group *ast.TestDecl }
+// function: the group whose `boot` line it evaluates, and the row of the
+// group's `subtests` block it evaluates it for (-1 when it has none).
+type irTestStartupToken struct {
+	group *ast.TestDecl
+	row   int
+}
 
 // irTestStartup builds, once per group, the zero-parameter function that
 // evaluates the Startup the entry boot fd receives: the argument of the
@@ -100,7 +115,10 @@ type irTestStartupToken struct{ group *ast.TestDecl }
 // The line's argument is an expression of the test file, lowered here. The
 // default is an expression of the entry file and may name what only that
 // file declares, so the entry's unit lowers it, into its own module.
-func (g *gen) irTestStartup(t *ast.TestDecl, fd *ast.FuncDef) (*ir.Symbol, bool) {
+//
+// In a group's `subtests` block the argument may read the row, so each row
+// has a startup function of its own, which binds the row's pattern first.
+func (g *gen) irTestStartup(t *ast.TestDecl, fd *ast.FuncDef, row *testRow) (*ir.Symbol, bool) {
 	call, isCall := t.Boot.(*ast.Call)
 	if !isCall || len(call.Args) > 1 || len(fd.Params) > 1 {
 		g.dc.note("a test boot line that does not pass at most one Startup")
@@ -114,14 +132,18 @@ func (g *gen) irTestStartup(t *ast.TestDecl, fd *ast.FuncDef) (*ir.Symbol, bool)
 		if named, isNamed := arg.(*ast.NamedArg); isNamed {
 			arg = named.Value
 		}
-		return g.irStartupFunc(irTestStartupToken{t}, fd, arg)
+		token := irTestStartupToken{group: t, row: -1}
+		if row != nil {
+			token.row = row.index
+		}
+		return g.irStartupFunc(token, fd, arg, row)
 	}
 	owner := g.irEntryBootOwner(fd)
 	if owner == nil || fd.Params[0].Default == nil {
 		g.dc.note("a test boot line that passes no Startup to a boot whose parameter has no default")
 		return nil, false
 	}
-	return owner.irStartupFunc(irBootDefaultToken{fd}, fd, fd.Params[0].Default)
+	return owner.irStartupFunc(irBootDefaultToken{fd}, fd, fd.Params[0].Default, nil)
 }
 
 // irBootDefaultToken is the declaration identity of the function that
@@ -130,8 +152,9 @@ func (g *gen) irTestStartup(t *ast.TestDecl, fd *ast.FuncDef) (*ir.Symbol, bool)
 type irBootDefaultToken struct{ boot *ast.FuncDef }
 
 // irStartupFunc builds, once per token, the zero-parameter function that
-// lowers arg as the Startup entry boot fd receives, into this unit's module.
-func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node) (*ir.Symbol, bool) {
+// lowers arg as the Startup entry boot fd receives, into this unit's module,
+// with row's pattern bound first when row is not nil.
+func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node, row *testRow) (*ir.Symbol, bool) {
 	sym := g.irCalleeSym(token, "boot startup")
 	if g.irModule().FuncFor(sym) != nil {
 		return sym, true
@@ -152,6 +175,13 @@ func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node) (*ir.Symbo
 	sh.entry.Append(sh.slot)
 	sh.prologue = 1
 	bl := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	if row != nil {
+		g.pushScope()
+		defer g.popScope()
+		if !bl.testBindRow(row) {
+			return nil, false
+		}
+	}
 	val, got, _, ok := bl.lowerWant(arg, k)
 	if !ok || got != k {
 		g.dc.note("a test boot's Startup argument outside the retained shape")
@@ -192,7 +222,7 @@ func (g *gen) irEntryBootStartupKind(fd *ast.FuncDef) kind {
 // irTestGrouped reports whether a case inherits anything from a group, which
 // is what makes it VM-only.
 func irTestGrouped(c testCaseDecl) bool {
-	return len(c.setups) != 0 || c.ctxPat != nil || c.clock != ""
+	return len(c.setups) != 0 || c.ctxPat != nil || c.clock != "" || c.row != nil
 }
 
 // recordedQualCall lowers a qualified call inside a grouped case's assertion

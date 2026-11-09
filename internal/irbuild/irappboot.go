@@ -31,7 +31,10 @@ import (
 // The entry boot a `group`'s `boot` line calls is the same function,
 // recorded on the test file's module with `ir.Module.AddTestBoot`; the VM
 // starts it with `Machine.BootTest` (irtestgroup.go), and an app-field read in
-// a function its cases call reads that app.
+// a function its cases call reads that app. A test that calls an entry boot
+// as an ordinary function records it the same way (irNoteBootCall): the VM
+// runs every activation of a recorded boot on a boot frame and hands its
+// deferred calls to the case's cleanup, but publishes nothing for a call.
 //
 // Outside boot, a read is a RefAppField. A `with` statement lowers to a
 // Store that holds for the rest of the activation; a block other than the

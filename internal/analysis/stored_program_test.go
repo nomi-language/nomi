@@ -16,6 +16,80 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
+// The harness a program the language server opens from its record
+// (stored_program.go) is held to: it must answer what the program checked
+// whole answers. Its tests:
+//
+//   - TestOpenFromRecordMatchesAFullCheck (internal/lsp, about 15 seconds)
+//     writes the record of every multi-file corpus project and a generated
+//     one, opens every file in a server that reads the record and in one
+//     with the artifact cache off, and compares every position request at
+//     every identifier and every published per-document result. A closed
+//     file's references must have been served from a record. Position
+//     lookups must not depend on map order: document highlight takes the
+//     innermost reference, as FileAnalysis.TokenAt does, and rename's
+//     nameAt orders its candidates.
+//   - TestOpenFromRecordMatchesAFullCheckDumps compares the installed
+//     analyses dump for dump, over each corpus project also with a typo and
+//     then a syntax error in its entry's first body; most of those, and the
+//     project that embeds files, must be recorded.
+//   - FuzzOpenFromRecordMatchesFull replaces one file's text with the input
+//     after the record is written, on disk before the files are opened (the
+//     record must not be used) or in the open document after, and compares
+//     again. Its open-document edits take the next test's path:
+//
+//	go test ./internal/analysis -run '^$' -fuzz '^FuzzOpenFromRecordMatchesFull$' -fuzztime 5m -parallel 4
+//
+//   - TestOpenFromRecordEditsMatchAFullCheck (about 28 seconds) writes the
+//     record of the texts before each step of the incremental harness's
+//     edit sequences, opens every file from it and in a program checked
+//     whole, makes the step in the open document and compares every
+//     document dump for dump. The project with an application type
+//     (app_field_permission) also moves a read by lines (which must be
+//     taken), adds a read the entry's main reaches, a factory whose lambda
+//     reads the application type, and a test with no boot that reads it. A
+//     step must be taken in the program opened from the record unless it
+//     changes an impl, the program has an application type, or the manager
+//     names a diagnostic only the program checked whole words. A body-only
+//     step must rebuild the installed analysis in place; some step that
+//     leaves something to report must be taken; some open document must be
+//     checked from its installed check (ChecksAfterEdits); and some edit
+//     must take the missing-impl supply from the entry's check, each equal
+//     to the one worked out from every file's interface
+//     (CheckSuppliesForTest).
+//   - TestOpenFromRecordEditsMatchAFullCheck (internal/lsp, about 210
+//     seconds) makes each of projectgen's edit kinds and its undoing in a
+//     server that opened a generated project from its record, with its
+//     entry, hub and a leaf open, and in one that checked it whole, and
+//     compares every request at every identifier except those that check
+//     the document whole (implementation, and references to an interface
+//     method), references and rename over the closed files among them.
+//     Most edits must be taken from the record, and projectgen's typos
+//     (TypoLeaf, TypoEntry) and their undoing each must.
+//   - TestServerOpensAProgramFromItsRecord (internal/lsp) drives two
+//     servers over the protocol: the first writes the record after its
+//     lowering, and the second opens from it, building one file, takes its
+//     lowering's result from the record, and takes its first edit in the
+//     program opened from the record.
+//   - TestStoredLoweringMatchesTheText and
+//     TestStoredLoweringMatchesTheTextGenerated (internal/lsp) lower the
+//     entry after edits from the record's kept lowering and require the
+//     diagnostics a lowering of the text reports, and a lowering file by
+//     file after each body edit.
+//   - TestRelinkChecksTheImportersOfAOnceWhoseTypeChanged (cmd/nomi): the
+//     interface hash leaves `once` values out, so an unannotated `once`
+//     whose value changed looks like an edit that changes no interface. The
+//     relink from file records, the server's lowering file by file and the
+//     record's edits check and lower its importers again
+//     (InferredOncesChanged).
+//   - TestOpenFromRecordReadsEmbeddedFiles and TestOpenFromRecordReadsCatalogs
+//     hold a record to the embedded files and catalogs it read.
+//   - TestClosedFilesFromProgramsMatchTheirOwnBuilds (closed_kept_test.go)
+//     holds each closed file a kept program serves to a build of the file
+//     alone with the same documents open, after each of a sequence of saved
+//     and unsaved edits to the entry, and requires some file served past an
+//     unsaved edit (ClosedPastUnsavedEntry).
+
 // renderOpen renders an open document's installed analysis as the
 // language server reads it: its nodes, syntax errors and repaired
 // declarations, and its analysis dumped. The program it offers is left
@@ -180,7 +254,7 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 		steps []editStep
 	}
 	order := orderIncremental()
-	seqs := []sequence{{order, orderEdits}, {layeredProject(), layeredEdits}, {rateProject(), rateEdits}, {anonFieldsProject(), anonFieldsEdits}}
+	seqs := []sequence{{order, orderEdits}, {layeredProject(), layeredEdits}, {rateProject(), rateEdits}, {anonFieldsProject(), anonFieldsEdits}, {anonTypeFieldsProject(), anonTypeFieldsEdits}}
 	for _, key := range sortedTextKeys(order) {
 		seqs = append(seqs, sequence{order, genericEdits(key, order.texts[key])})
 	}

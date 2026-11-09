@@ -159,27 +159,27 @@ var (
 	_ = goside4.Scratch
 //line github.com/nomi-language/nomi/lib/sql/postgres/postgres.nomi:121
 	_ = goside4.Wait
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:39
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:42
 	_ = (*goside5.Conn)(nil)
 //line github.com/nomi-language/nomi/lib/sql/sqlite/describe.nomi:74
 	_ = goside5.Describe
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:110
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:113
 	_ = goside5.Begin
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:118
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:121
 	_ = goside5.Close
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:112
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:115
 	_ = goside5.Commit
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:108
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:111
 	_ = goside5.EachRow
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:99
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:102
 	_ = goside5.Exec
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:83
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:86
 	_ = goside5.Open
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:116
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:119
 	_ = goside5.Ping
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:114
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:117
 	_ = goside5.Rollback
-//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:91
+//line github.com/nomi-language/nomi/lib/sql/sqlite/sqlite.nomi:94
 	_ = goside5.Run
 //line github.com/nomi-language/nomi/lib/sql/sqlkit/sqlkit_test.nomi:964
 	_ = testside.RemoveAll
@@ -2266,7 +2266,7 @@ func (b *nomiHostBound) fn112(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	if err != nil {
 		return nil, hostadapt.Param("sqlite/sqlite.begin_raw", 2, "goside.Begin", "token", err)
 	}
-	r0 := goside5.Begin(a0, a1, a2)
+	r0 := goside5.Begin(fr.Context(), a0, a1, a2)
 	v0, err := b.out114(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Begin", err)

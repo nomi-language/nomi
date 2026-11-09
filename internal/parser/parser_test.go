@@ -6058,6 +6058,84 @@ func TestParseGroupLinesInAnyOrder(t *testing.T) {
 	}
 }
 
+// A group's `subtests` block holds the group's lines and tests: they are the
+// group's own, and the block's header is the group's Subtests.
+func TestParseGroupSubtestsBlock(t *testing.T) {
+	src := "group \"g\" {\n  subtests [(\"a\", 1)], (s, n), s {\n    boot server.boot(st(n))\n    setup n\n    test \"t\" { assert s != \"\" }\n    test \"u\" { assert n > 0 }\n  }\n}\n"
+	nodes, err := Parse(lexer.Lex(src))
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+	decl := nodes[0].(*ast.TestDecl)
+	st := decl.Subtests
+	if st == nil {
+		t.Fatal("the group has no Subtests")
+	}
+	if _, ok := st.Rows.(*ast.ListLit); !ok {
+		t.Errorf("rows %T, want a list literal", st.Rows)
+	}
+	if _, ok := st.Pattern.(*ast.TuplePattern); !ok {
+		t.Errorf("pattern %T, want a tuple pattern", st.Pattern)
+	}
+	if name, ok := st.Name.(*ast.Ident); !ok || name.Name != "s" {
+		t.Errorf("name %#v, want the column s", st.Name)
+	}
+	if st.Line != 2 || st.Col != 3 || st.EndLine != 7 {
+		t.Errorf("block at %d:%d to line %d, want 2:3 to line 7", st.Line, st.Col, st.EndLine)
+	}
+	if decl.Boot == nil || decl.Setup == nil || len(decl.Body.Stmts) != 2 {
+		t.Fatalf("boot %v, setup %v, %d tests; want the block's items on the group", decl.Boot, decl.Setup, len(decl.Body.Stmts))
+	}
+	if got := ast.GroupRowLabels(st); len(got) != 1 || got[0] != "a" {
+		t.Errorf("labels %q, want [a]", got)
+	}
+}
+
+// The labels a group's rows are named by: a String row is its own, a name
+// column's String names a tuple row, and any other row reads as a value.
+func TestGroupRowLabels(t *testing.T) {
+	for _, c := range []struct{ header, want string }{
+		{`subtests ["memory", "sqlite"], s`, "memory|sqlite"},
+		{`subtests [1, -2, 2.5, 1.0, True], v`, "1|-2|2.5|1.0|True"},
+		{`subtests [("a", 1), ("b\"c", 2)], (s, n)`, `("a", 1)|("b\"c", 2)`},
+		{`subtests [(1, "one"), (2, "two")], (n, word), word`, "one|two"},
+	} {
+		src := "group \"g\" {\n  " + c.header + " {\n    test \"t\" { assert True }\n  }\n}\n"
+		nodes, err := Parse(lexer.Lex(src))
+		if err != nil {
+			t.Fatalf("%s: %v", c.header, err)
+		}
+		got := strings.Join(ast.GroupRowLabels(nodes[0].(*ast.TestDecl).Subtests), "|")
+		if got != c.want {
+			t.Errorf("%s: labels %q, want %q", c.header, got, c.want)
+		}
+	}
+}
+
+// A group's `subtests` block is the group's only item, and holds no other.
+func TestParseGroupSubtestsRefusals(t *testing.T) {
+	const alone = "a `group` with a `subtests` block holds nothing else: its clock, boot, setup and tests go inside the block, which runs them once per row"
+	for _, c := range []struct{ name, body, want string }{
+		{"a test before it", "test \"a\" { assert True }\n  subtests [1], n {\n    test \"t\" { assert n > 0 }\n  }", alone},
+		{"a setup after it", "subtests [1], n {\n    test \"t\" { assert n > 0 }\n  }\n  setup 1", alone},
+		{"a second block", "subtests [1], n {\n    test \"t\" { assert n > 0 }\n  }\n  subtests [2], m {\n    test \"u\" { assert m > 0 }\n  }", alone},
+		{"a block inside it", "subtests [1], n {\n    subtests [2], m {\n      test \"t\" { assert m > n }\n    }\n  }",
+			"`subtests` in a group cannot hold another `subtests`: each row of the outer one boots the group once"},
+		{"no pattern", "subtests [1] {\n    test \"t\" { assert True }\n  }",
+			"expected a comma and a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store { ... }`"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := Parse(lexer.Lex("group \"g\" {\n  " + c.body + "\n}\n"))
+			if err == nil {
+				t.Fatal("the parser accepts it")
+			}
+			if !strings.Contains(err.Error(), c.want) {
+				t.Errorf("error %q, want %q", err, c.want)
+			}
+		})
+	}
+}
+
 func TestParseTestsSetupExpression(t *testing.T) {
 	nodes, err := Parse(lexer.Lex(`group "fixture" {
   setup Config{name: "Ada"}

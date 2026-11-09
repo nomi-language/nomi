@@ -751,6 +751,16 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 			end.EndLine, end.EndCol = sp.EndLine, sp.EndCol
 		}
 	}
+	if containsTypeVar(concrete) {
+		// `v = Ok(1)` then `io.print(v)`: nothing names Ok's error type, so
+		// whether the Result has the bound is not known yet, and no impl
+		// is missing. The answer is an annotation.
+		c.report(TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: c.typef(
+			"%s needs %s (required by `where %s: %s`), and nothing names the type its `_` stands for",
+			concrete, boundAt(bound, param, concrete), param, bound)}.WithHint(
+			"annotate the binding this value comes from with its whole type, as in `r: Result<Int, String> = Ok(1)`, or a lambda's parameters and result, as in `f: (Int) -> Result<Int, String> = fn x -> Ok(x)`"))
+		return true
+	}
 	c.report(TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
 		concrete, boundAt(bound, param, concrete), param, bound)}.WithHint(c.boundHelp(concrete, bound)))

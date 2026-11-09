@@ -893,7 +893,10 @@ func buildFileWithStdlibAtPath(nodes []ast.Node, primitives *Scope, modules map[
 }
 
 type builder struct {
-	file              *FileAnalysis
+	file *FileAnalysis
+	// qualifier is the identifier a field access is walking as its object,
+	// which may name a module (`todo.create`) where a bare `todo` could not.
+	qualifier         *ast.Ident
 	modules           map[string]*Scope        // module name -> scope (stdlib + resolved user modules)
 	moduleSyms        map[string]*Symbol       // module name -> synthetic symbol for go-to-def
 	blockImports      map[*ast.ImportStmt]bool // imports at the top of a block, which bind only inside it
@@ -1176,7 +1179,14 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	// get FuncTypes attached consistently. buildModule lowers its own local copy
 	// internally (idempotent), but BuildTypes runs on the nodes handed here, so
 	// both passes need the same lowered nodes.
+	nodes, partnerErrs := LowerPartnerDerives(nodes, cacheKey, func(k string) ([]ast.Node, bool) {
+		// The partner is in the file's directory.
+		partnerPath := append(slices.Clone(loadPath[:len(loadPath)-1]), k[strings.LastIndex(k, "/")+1:])
+		nodes, err := b.loader(loadRoot, partnerPath)
+		return nodes, err == nil
+	})
 	loweredNodes, lowerErrs := LowerDerives(nodes)
+	sub.file.TypeErrors = append(sub.file.TypeErrors, partnerErrs...)
 	sub.file.TypeErrors = append(sub.file.TypeErrors, lowerErrs...)
 	sub.buildModule(loweredNodes, moduleScope)
 	BuildTypes(sub.file, loweredNodes)
@@ -3283,6 +3293,12 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 	b.walkTypeExpr(n.Receiver, inner)
 	if n.Interface != nil {
 		b.walkTypeExpr(n.Interface, inner)
+		if iface := foreignDeriveInterface(n); iface != nil {
+			// A derive for another file's type: no declaration of this
+			// file carries it, so its interface name is held to scope
+			// here, as a derive in the declaring file is.
+			b.walkTypeDeclDecoratorArgs([]ast.Decorator{{Name: "derive", Args: []ast.Node{iface}}}, scope)
+		}
 		// `Struct` is a compiler-managed structural marker: every struct (named
 		// or anonymous) satisfies it automatically by shape — conformance is a
 		// predicate (isStructShaped), not a registered impl — and its `update`
@@ -4707,7 +4723,13 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 
 	case *ast.Ident:
 		sym := scope.Lookup(n.Name)
-		if sym != nil {
+		if n.Name == "todo" && (sym == nil || sym.Kind == SymbolModule && b.qualifier != n) {
+			// A bare `todo` naming no binding is the placeholder (spec §2
+			// *Keywords*). A module named `todo` (a sibling `todo.nomi`)
+			// is no value, so a bare `todo` read as one is the placeholder
+			// too; `todo.member` still names the module.
+			b.file.recordTodoPlaceholder(n)
+		} else if sym != nil {
 			b.file.References[Pos{Line: n.Line, Col: n.Col}] = sym
 		}
 
@@ -4766,7 +4788,14 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		if fp, ok := n.Object.(*ast.FilePath); ok && n.Field != nil {
 			b.walkFilePath(fp, scope, n.Field.Name)
 		}
-		b.walkNode(n.Object, scope)
+		if id, ok := n.Object.(*ast.Ident); ok {
+			prev := b.qualifier
+			b.qualifier = id
+			b.walkNode(id, scope)
+			b.qualifier = prev
+		} else {
+			b.walkNode(n.Object, scope)
+		}
 		b.recordImportedTypeQualifiedAccess(n, scope)
 		// Resolve qualified names: io.inspect, Iter.map, etc.
 		// When a local binding in scope shadows the module name, preserve the
@@ -5467,6 +5496,16 @@ func (b *builder) walkTestDecl(n *ast.TestDecl, scope *Scope) {
 	// would be anywhere else.
 	if n.Clock != nil {
 		b.walkNode(n.Clock, child)
+	}
+	if st := n.Subtests; st != nil {
+		// The rows are read outside the group; the pattern's names reach
+		// its boot line, its setup and every test, as one row runs them.
+		b.walkNode(st.Rows, scope)
+		b.definePatternIn(st.Pattern, child, n.Body)
+		b.walkNode(st.Pattern, child)
+		if st.Name != nil {
+			b.walkNode(st.Name, child)
+		}
 	}
 	if n.Boot != nil {
 		// The `boot` line's call is ordinary code in the group's scope.

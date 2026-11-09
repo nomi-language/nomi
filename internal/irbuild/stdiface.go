@@ -433,6 +433,20 @@ func stdIfaceAnchorsWith(fa *analysis.FileAnalysis, anchors stdAnchors) (map[*as
 	return byDecl, byName
 }
 
+// stdIfaceOfDecl is the shared def of the std interface decl, which std
+// module origin declares, when a spec describes it, or nil. It is
+// stdIfaceAnchorsWith's identity check for a declaration reached through a
+// block's import (importedIfaceDef) rather than through the module scope.
+func (g *gen) stdIfaceOfDecl(origin string, decl *ast.InterfaceDef) *ifaceDef {
+	for i := range stdIfaceSpecs {
+		s := &stdIfaceSpecs[i]
+		if s.module == origin && s.nomi == decl.Name && s.matches(decl, stdAnchorsOf(g.srcFA())) {
+			return stdIfaceDefs()[i]
+		}
+	}
+	return nil
+}
+
 // stdImportModuleOf is the module path an IMPORTED symbol was reached through,
 // and false when the symbol is not an import at all.
 //
@@ -730,6 +744,14 @@ func stdIfaceKey(origin, name string) string {
 }
 
 func (g *gen) stdIfaceNamed(name string) (*ifaceDef, bool) {
+	if d, imported := g.blockImportedIface(name); imported {
+		// A block's import binds the name (bindBlockImports), which the
+		// module scope's anchors may not hold at all.
+		if _, shared := stdIfaceOf(d); shared {
+			return d, true
+		}
+		return nil, false
+	}
 	if _, user := g.ifaceNamed(name); user {
 		return nil, false
 	}

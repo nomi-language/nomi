@@ -20,7 +20,7 @@ func fillActions(t *testing.T, s *Server, uri, src string) []protocol.CodeAction
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	// The client echoes diagnostics back without their code (glsp drops it).
 	for i := range diags {
 		diags[i].Code = nil
@@ -303,5 +303,29 @@ func TestFill_UnformattedDocumentKeepsItsLayout(t *testing.T) {
 				t.Fatalf("got\n%s\nwant\n%s", got, c.want)
 			}
 		})
+	}
+}
+
+// Where a binding named `todo` is in scope, a bare `todo` would read it, so
+// a fill writes the placeholder with a reason there: in a literal inside
+// the binding's scope, and in a stub whose parameters bind `todo`.
+func TestFill_WritesAReasonWhereTodoNamesABinding(t *testing.T) {
+	body := func(lit string) string {
+		return fillPointDecls + "fn make(todo: Int) -> Point {\n    _ = todo\n    " + lit + "\n}\n"
+	}
+	got := checkFill(t, NewServer(), fillURI, body("Point{x: 1, y: 2}"), "Add missing field 'z'")
+	if want := body(`Point{x: 1, y: 2, z: todo "fill in"}`); got != want {
+		t.Fatalf("got\n%s\nwant\n%s", got, want)
+	}
+	outside := fillPointDecls + "fn make() -> Point {\n    Point{x: 1, y: 2}\n}\n\nfn other(todo: Int) -> Int {\n    todo\n}\n"
+	got = checkFill(t, NewServer(), fillURI, outside, "Add missing field 'z'")
+	if want := strings.Replace(outside, "Point{x: 1, y: 2}", "Point{x: 1, y: 2, z: todo}", 1); got != want {
+		t.Fatalf("outside the binding's scope: got\n%s\nwant\n%s", got, want)
+	}
+
+	decls := "interface Step {\n    fn run(step: self, todo: Int) -> Int\n}\n\nstruct Walk {\n    n: Int\n}\n\n"
+	got = checkFill(t, NewServer(), fillURI, decls+"impl Step for Walk {\n}\n", "Implement missing function 'run'")
+	if want := decls + "impl Step for Walk {\n    fn run(walk: Walk, todo: Int) -> Int {\n        todo \"fill in\"\n    }\n}\n"; got != want {
+		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }

@@ -693,7 +693,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.blockValue(block, want)
 	}
 	// kindInvalid: sentinel — no wanted kind passed; todo() then reads the checker's.
-	if td, isTodo := at.(*ast.Todo); isTodo && want != kindInvalid {
+	if td, isTodo := bl.g.asTodo(at).(*ast.Todo); isTodo && want != kindInvalid {
 		// `todo` takes the wanted kind; see irtodo.go.
 		return bl.todo(td, want)
 	}

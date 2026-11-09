@@ -21,8 +21,8 @@ Other documents cover the rest:
   depends on it.
 - The [tooling reference](/tooling/) documents the `nomi` command,
   `nomi.toml`, dependencies and builds.
-- [`implementation-notes.md`](implementation-notes.md) says how parts of the
-  language are built.
+- How parts of the language are built is in the implementation's package
+  docs, which [`AGENTS.md`](../AGENTS.md) maps.
 - The [roadmap](roadmap.md) holds open design questions.
 
 ### Notation and error text
@@ -181,8 +181,13 @@ These words are reserved and cannot name anything:
 `and`, `as`, `assert`, `break`, `case`, `continue`, `dbg`, `defer`, `else`,
 `enum`, `export`, `extern`, `fn`, `for`, `if`, `impl`, `import`, `in`,
 `interface`, `is`, `not`, `once`, `opaque`, `or`, `pub`, `refute`,
-`return`, `self`, `struct`, `tap`, `test`, `then`, `todo`, `type`,
+`return`, `self`, `struct`, `tap`, `test`, `then`, `type`,
 `typealias`, `unreachable`, `when`, `where`, `with`.
+
+One written as a parameter, a binding, a field or a function's name is the
+error `` `type` is a keyword (declares a distinct type), so it can't name a
+binding; name it something else, such as `kind` ``, which says what the
+word is for and offers another name.
 
 `when` stands only before an arm's guard (§10 *Guards*). `extern` has no
 construct: `extern fn` is the error
@@ -193,7 +198,25 @@ construct: `extern fn` is the error
 These words have a meaning only where their construct stands, and are
 ordinary names elsewhere: `host` (§19), `open` (§12), `embeds` (§4),
 `phrase`, `noun` and `embed` (§18), `concurrent` (§16), and `group`,
-`clock`, `boot`, `setup` and `subtests` (§17).
+`clock`, `boot`, `setup` and `subtests` (§17), and `todo` (§11).
+
+`todo` names anything a name can: a parameter, a binding, a field, a
+function, a pattern's binding, an import. Read as a value, a bare `todo` is
+the placeholder unless a binding named `todo` is in scope, and then it reads
+that binding:
+
+```nomi
+fn apply(todo: Todo) -> Todo {
+    todo
+}
+```
+
+returns its argument. Inside that scope the placeholder is written with a
+reason, `todo "apply the patch"`, which is always the placeholder. A
+function named `todo` is such a binding throughout its file and in a file
+that imports it by name. A module named `todo` (a file `todo.nomi`) is not
+a value, so it leaves a bare `todo` the placeholder; `todo.create(...)`
+still names its member.
 
 `derive`, `gopkg` and `go` may name a parameter or a binding, but a
 statement that begins with one of them always starts that declaration. So
@@ -823,9 +846,10 @@ a type argument (`Result<Unit, String>`). It implements `Equatable` and
 `Hashable`, and neither `Display` nor `Comparable`.
 
 **`Infallible`** has no values. `Result<T, Infallible>` is a result that is
-never an `Err`. It implements `Display`, `Equatable` and `Hashable`, whose
-functions can never be called, so a bound such as `where T: Hashable`
-accepts a `Result<Int, Infallible>`.
+never an `Err`. It implements `Display`, `Equatable` and `Hashable`, and
+std/http's `ToResponse`, whose functions can never be called, so a bound
+such as `where T: Hashable` accepts a `Result<Int, Infallible>`. It is what
+a lambda's result leaves open against an interface (§7 *Lambdas*).
 
 **`Codepoint`** is a Unicode scalar value, with a literal for ASCII (§3
 *Codepoint literals*). There is no character type: one character of text is
@@ -1986,7 +2010,9 @@ expected, and a `List<List<Int>>` where a `List<Iter<Int>>` is.
 
 A function of type `(P1) -> R1` fits where `(P2) -> R2` is expected when
 each `P2` fits its `P1` and `R1` fits `R2`: parameters are contravariant and
-results covariant. Inside a function type, one type fits another when they
+results covariant. The two take the same number of parameters, except a
+function whose parameters past the expected ones have defaults (§7 *Default
+Arguments*) and the callback of a stateless `Iter.loop` (§13 *`loop`*). Inside a function type, one type fits another when they
 are the same, when a concrete type meets an interface it implements, when a
 type meets an enum that embeds it, or when both are function types that fit.
 A type argument inside a function type is compared exactly, except an
@@ -2252,6 +2278,14 @@ function type its position expects: a parameter's type at a call, a
 function-typed annotation, a declared return type, or a generic parameter the
 call's own expected type fixes (`f: (Int) -> Int = ident(fn x -> x + 1)`,
 `g: Maybe<(Int) -> Int> = Some(fn x -> x * 3)`).
+
+A parameter typed by a type parameter of the callee that nothing has solved
+yet, and called in the body, is a function: the call solves it to a
+function of its arguments' types, returning what the call's position needs.
+`Actor.start(workers, 0, fn s, f -> f(s))` makes the actor's message type
+`(Int) -> Int`, since the handler's result is the state, an `Int`.
+A result nothing fixes leaves the type argument undetermined
+(§5 *Determined type arguments*).
 
 In a list, vector or set literal, or a map literal's keys or values, with no
 expected type, the elements share one type, so a parameter annotated in one
@@ -2974,6 +3008,13 @@ fn main() {
 }
 ```
 
+A lambda takes the parameters of the function type its position expects
+(§5 *Assignability*), so a lambda that ignores them still names each one
+`_`. Where a `(Request) -> ToResponse` is expected, `fn -> page` is
+``this lambda takes no parameters, but a (Request) -> ToResponse takes 1 parameter``,
+whose help writes `fn _ -> ...`. The one lambda of no parameters that stands
+for a parameter is a stateless `Iter.loop(fn -> ...)` (§13 *`loop`*).
+
 `fn` starts a declaration when a lowercase name and `(` or `<` follow it;
 anything else after `fn` starts a lambda. `|x| x + 1` is not a lambda
 (`` unexpected `|` ``).
@@ -2988,6 +3029,33 @@ values, which must agree; a bare `return` gives `Unit`. A lambda parameter's
 default gives its type. A lambda parameter without an annotation or a
 default takes its type from the expected function type (§5 *Lambda
 parameter types*).
+
+The body's type is the lambda's result, and an expected result that names
+a type fixes what the body leaves open: against `(Int) -> Result<Int, MyError>`,
+`fn x -> Ok(x)` is a `Result<Int, MyError>`. An expected result that is an
+interface fixes nothing, so a type the body leaves open is `Infallible`, the
+type with no values, since the body made no value of it. Passed as a
+`(Request) -> ToResponse`, `fn _ -> Ok(page)` is a
+`Result<Response, Infallible>` and `fn _ -> Err(failure)` a
+`Result<Infallible, Response>`, and each implements the interface when
+`Infallible` does. An `Err(e)` in the body names the error type, as it does
+anywhere.
+
+```nomi
+fn show(f: (Int) -> Display) -> String {
+    "${f(1)}"
+}
+
+fn main() {
+    dbg show(fn x -> Ok(x + 1)) // "Ok(2)"
+}
+```
+
+With no expected function type, the open type stays open, which is harmless
+until something needs to know it: after `f = fn x: Int -> Ok(x)`,
+`io.print(f(1))` is
+``Result<Int, _> needs Display (required by `where T: Display`), and nothing names the type its `_` stands for``,
+whose help writes the annotation, `f: (Int) -> Result<Int, String> = fn x -> Ok(x)`.
 
 ### Captures
 
@@ -4470,7 +4538,53 @@ Taught in [App Fields, Defer and Context](/app-fields/#defer-runs-block-scoped-c
   *Named Functions as Callbacks*).
 - In an entry file's `boot`, a `defer` written directly in its body runs after
   `main` and the tasks it owns have finished. In a test, one in `boot` or
-  `setup` runs when that test finishes (§15, §17).
+  `setup` runs when that test finishes, also when the test called boot
+  itself (§15, §17).
+
+**`defer on error call(args)`** registers a call that runs only if the block
+is left through an error exit, and is dropped otherwise. It is otherwise a
+`defer`: its operand is a Unit call evaluated where it stands, and it is on
+the same list as the block's other deferred calls, so it runs in its place
+among them, most recent first.
+
+- **An error exit** is a trap (and a cancelled task's unwinding), or the
+  function, lambda or test body returning `Err(...)` when its result is a
+  `Result`, or `None` when it is a `Maybe`, whichever way it returns it: a
+  `?` that propagates, `return Err(e)`, or a last expression that is an
+  `Err`.
+- **Anything else is a normal exit**, and drops the call unrun: the block
+  reaching its end, a `return` or last expression of any other value, and a
+  callback's `break` or `continue`. A `defer on error` in a nested block
+  whose end is reached is dropped there, even if the function fails later.
+- **The function must be able to fail.** In a function whose result is
+  neither a `Result` nor a `Maybe`, where only a trap could run it, it is the
+  error `` `defer on error` runs only when `f` fails, and it returns Int,
+  which carries no failure; write `defer` ``.
+- **`on error` is not reserved.** The two words open the form only right
+  after `defer` on its line; `on` and `error` stay names everywhere else, and
+  `defer on(x)` defers a call of `on`.
+- A function that registers one makes no tail call while it is pending, as
+  for `defer`.
+
+```nomi
+import std::io
+
+fn note(label: String) {
+    io.print(label)
+}
+
+fn half(n: Int) -> Result<Int, String> {
+    defer note("done")
+    defer on error note("failed ${n}")
+    if n % 2 != 0 { return Err("odd") }
+    Ok(n / 2)
+}
+
+fn main() {
+    _ = half(4) // done
+    _ = half(3) // failed 3, done
+}
+```
 
 ```nomi
 import std::io
@@ -4553,6 +4667,40 @@ released or handed on in that body:
   `Body.Stream(r)`), wherever that value goes; or another name is bound to
   it.
 
+A `defer on error` that calls a function taking it releases it on the error
+exits only, so it does not count as released on its own: a name with one
+and no hand-on is the error `` `r` is released only if the body fails;
+write `defer Reader.close_quietly(r)` after it, or return it ``.
+
+**A value handed on is handed on along every path.** A name with no `defer`
+that releases it is handed on along each path that returns normally, or
+released on it. A normal return is a `return` whose value is not `Err(...)`
+or `None`, the body's last expression through the branches of an `if`, a
+`case` or a block that ends it, and the end of the block the binding is in.
+The path hands the value on when the return's value carries it (`r`,
+`Ok(Some(r))`, a struct holding it) or an earlier statement on that path
+handed it on, and releases it with a call of the type's release or commit
+that takes it (`Reader.close_quietly(r)`). A `defer on error` does not run on
+a normal return, so it does not cover one. A path that does neither is the
+error `` `r` leaks here: this path returns without handing it on or
+releasing it; call `Reader.close_quietly(r)` before the return ``, at the
+return. A plain `defer` is no fix when another path hands the value on: it
+would release that value too (*A released value stays in its block*, below).
+
+```nomi
+fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, io.Error> {
+    r = fs.open(path)?
+    defer on error Reader.close_quietly(r)
+
+    if not want {
+        Reader.close_quietly(r) // without it, `r` leaks here
+        return Ok(None)
+    }
+
+    Ok(Some(r))
+}
+```
+
 An acquisition whose value is dropped is the error `` the `Reader` this
 acquires is never released; bind it and write `defer
 Reader.close_quietly(reader)` after it ``: one bound to `_`
@@ -4569,6 +4717,63 @@ the error `` `r` is never released; write `defer Reader.close_quietly(r)`
 after it, or return it ``, at the binding, which names the type's usual
 release. A `defer` inside an `if` releases on one path only, so it does not
 count.
+
+**A released value stays in its block.** A deferred call runs when its block
+ends, so a value it releases is released by the time anything outside the
+block sees it. When a `defer` calls a function given a value of a Release
+type, written as a name or a field path (`db`, `db.conn`), that value must
+not leave the `defer`'s block after it: not as the block's value, not in a
+`return`, not inside a literal or a constructor that does (`Ok(r)`,
+`App{store: db}`), not through a name bound to one, and not captured by a
+lambda that does. A value holding the released one counts too:
+`defer sql.close_quietly(db.conn)` releases part of `db`, so `db` stays in
+the block as well. Each is the error `` this `defer` releases `db.conn` when
+the block ends, but `db` leaves the block as its value; defer the release
+where `db` is finally used, or hand `db` on without deferring it here ``, at
+the `defer`. Using the value in the block, passing it to a call, and a
+`defer` in an outer block are fine. A `defer on error` is not held to this:
+its release runs only when the block fails, so the value it covers is meant
+to leave on the success path.
+
+**An error exit before the hand-on releases.** In a body whose result is a
+`Result` or a `Maybe`, or a test's, an error exit between a binding and the
+statement that defers its release, or, with no `defer`, the statement that
+hands it on, leaks the value: a `?` that propagates, or a `return` of
+`Err(...)` or `None`, outside a lambda. With no deferred release it is the
+error `` `conn` leaks if this `?` returns an error: it isn't released on that
+path; add `defer on error sql.close_quietly(conn)` after acquiring it ``
+(`` if this `return` runs `` for a `return`), at the first such exit. With a
+`defer` or a `defer on error` after it, the error says to move it up to
+right after the binding. A trap and `!` are not checked; the program stops.
+The check stops at the first statement that hands the value on, so an
+error exit after the value is stored in a struct that is later returned is
+not seen.
+
+```nomi
+pub fn open(path: String) -> Result<SqliteStore, sql.Error> {
+    conn = sqlite.open(path)?
+    defer on error sql.close_quietly(conn) // released if a later `?` fails
+    _ = Conn.exec(conn, Sql"CREATE TABLE IF NOT EXISTS notes (body TEXT)")?
+    Ok(SqliteStore{conn})
+}
+```
+
+```nomi
+fn open_app(kind: String, path: String) -> Result<App, sql.Error> {
+    store = case kind {
+        "sqlite" -> {
+            db = sqlite_store.open(path)?
+            defer sql.close_quietly(db.conn) // error: `db` leaves the block as its value
+            db
+        }
+
+        _ ->
+            memory_store()
+    }
+
+    Ok(App{store})
+}
+```
 
 **A deferred discard needs a commit on every normal return.** When the
 deferred call is a Commit type's usual release (`Writer.discard`, which drops
@@ -4606,7 +4811,9 @@ fn save(path: String, rows: List<String>) -> Result<Unit, io.Error> {
 The editor's quick fix for an unreleased name writes the `defer` after the
 binding and, for a Commit type, the commit before each return that lacks
 it; the one for a dropped acquisition first binds it to a name; the one for
-a missing commit writes the commit.
+a missing commit writes the commit; the one for an error exit that leaks
+writes the `defer on error` after the binding; the one for a normal return
+that leaks writes the release before it, when the return starts its line.
 
 ### `break` and `continue`
 
@@ -5559,6 +5766,9 @@ fn parse(text: String) -> Int {
   they scope over holds one.
 - **Builds.** `nomi build` refuses a program that holds a `todo`
   ([tooling reference](/tooling/building/#executables)).
+- **A name.** `todo` is a contextual keyword (§2 *Keywords*): a bare `todo`
+  in the scope of a binding named `todo` reads the binding, and `todo
+  "reason"` is the placeholder everywhere.
 
 ### Unreachable code: `unreachable`
 
@@ -6491,8 +6701,23 @@ fn main() {
 ```
 
 - **Targets.** A `struct`, `enum`, distinct `type` or `host type`.
-- **Same file.** A derive sits in the file and scope of the type's declaration.
-  A derive in another file is an error.
+- **Same file.** A derive sits in the file and scope of the type's declaration,
+  or in that file's partner test file (§14 *Visibility*). A derive in any
+  other file is the error `` `derive ... for T` must be written in the file
+  that declares `T`, or in that file's partner test file ``.
+- **Derives in a partner test.** `api_test.nomi` may write `derive FromJson
+  for TodoJson` for the `TodoJson` that `api.nomi` declares, `pub` or private,
+  when it imports the name from `api`. The impl is the test file's own, as a
+  hand-written `impl` there is: it is in a program only when the test file
+  is, which `nomi test` makes the entry and an ordinary program reaches only
+  by importing it. So production code that decodes a `TodoJson` fails `nomi
+  check` and `nomi run`, which do not compile the test file, even though its
+  tests pass. The derived body is the one a derive in `api.nomi` would have:
+  a field's type means what `api.nomi` makes it mean, and the test file need
+  not import it. The interface name resolves in the test file. A derive of an
+  interface `api.nomi` already implements for the type, `Debug` included,
+  is the error `` duplicate impl: `FromJson` for `TodoJson` is derived here
+  and implemented in `api` ``.
 - **Scope.** The interface name resolves through ordinary scope: it counts as a
   use, and a name not in scope is an error with the import to add: ``
   `ToJson` is not in scope — import `std::json.ToJson` ``. Names in `with`
@@ -7137,7 +7362,7 @@ fn validate(c: Config) -> Bool {
 - **A file qualifier is not a value.** `io` alone, as a statement, a binding's value or an argument, is the error `` `io` is a file, not a value ``.
 - **File API is top-level functions.** A file's `pub fn` and `pub host fn` are reached through its qualifier (`users.find(...)`). A function or `once` declared in an `impl` block is reached through its owner (`Duration.seconds(1)`, `Display.to_string(n)`). A file-qualified spelling of one, `duration.seconds(1)`, is the error `file 'duration' has no member 'seconds'`, whose hint names the owner.
 - **Private names are invisible to other files.** No other file can name a private declaration in any position: a call, a type annotation or type argument, a struct literal or pattern, a variant, an interface bound or `impl` header. A qualified spelling is the error `file 'other' has no member 'Hidden'`, and an import is `'Hidden' is private and cannot be imported`.
-- **A file's partner test reads its private declarations.** A file named as another file in the same directory with `_test` before `.nomi` (`shapes_test.nomi` for `shapes.nomi`) is that file's partner test, whether or not it declares tests. It may import and name every top-level declaration of its partner as if it were `pub`, and is inside the partner's `opaque` types, so it can construct, destructure and read them. It still imports what it uses, and it publishes none of it: a file importing from `shapes_test` reaches only `shapes_test`'s own `pub` declarations. Any other file, a `_test` file named after no sibling included, gets the errors above. A test of a private function goes in the partner test file, and the function stays private.
+- **A file's partner test reads its private declarations.** A file named as another file in the same directory with `_test` before `.nomi` (`shapes_test.nomi` for `shapes.nomi`) is that file's partner test, whether or not it declares tests. It may import and name every top-level declaration of its partner as if it were `pub`, and is inside the partner's `opaque` types, so it can construct, destructure and read them. It still imports what it uses, and it publishes none of it: a file importing from `shapes_test` reaches only `shapes_test`'s own `pub` declarations. Any other file, a `_test` file named after no sibling included, gets the errors above. A test of a private function goes in the partner test file, and the function stays private. A partner test may also `derive` an interface, or write an `impl`, for its partner's types (§12 *Derive*); the impl is the test file's own.
 
 ```nomi
 // shapes.nomi
@@ -7310,9 +7535,9 @@ The boot's signature is checked:
 | A result that is not a `Result` of a struct | `` boot must return `Result<App, E>`: the application struct, or the error that stops the program `` |
 | Two `Context` fields | `an application struct may have at most one Context-typed field` |
 | `fn boot` in a file with no `fn main` | `` `boot` belongs in an entry file, one that defines `fn main`; a `group` names an entry's boot with `boot entry.boot(startup)` `` |
-| A call or reference to boot | `` entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line `` |
+| A call of boot outside a test, or a reference to it as a value | `` entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line, and a test may call it to check the Result it returns `` |
 
-The only call of an entry boot is a `group`'s `boot` line (§17 *Groups*). A test file names the boot through an import of its entry file, so a boot that tests run is `pub`, and so is its struct.
+An entry boot is called in two places: a `group`'s `boot` line, which publishes the app for the group's tests (§17 *Groups*), and a test, which calls it as an ordinary function to check the `Result` it returns (§17 *Calling boot in a test*). A test file names the boot through an import of its entry file, so a boot that tests run is `pub`, and so is its struct.
 
 #### Reading a field
 
@@ -7390,7 +7615,7 @@ The runtime finds the `Context` field by its type, so a field named `execution` 
 
 Taught in [App Fields, Defer & Context](/app-fields/#cleanup-and-failure-in-boot).
 
-A `defer` in the outer block of an entry boot runs after `main` returns and the tasks it owns have stopped. A `defer` in a test's boot or `setup` runs after that test and its work. A `defer` anywhere else runs when its block ends. A deferred call keeps the arguments and the field values in force when it was registered. A failing cleanup does not hide the first failure or stop the rest of the cleanup.
+A `defer` in the outer block of an entry boot runs after `main` returns and the tasks it owns have stopped. A `defer` in a test's boot or `setup` runs after that test and its work, and so does one in a boot a test calls directly. A `defer` anywhere else runs when its block ends. A deferred call keeps the arguments and the field values in force when it was registered. A failing cleanup does not hide the first failure or stop the rest of the cleanup.
 
 A boot that returns `Err(e)` fails the program: `main` does not run, work boot started is stopped, the calls boot registered with `defer` run, most recent first, and the program exits as one whose `main` returned `Err(e)` does (*Exit status* above). A program with exported functions returns that error in place of the booted program (§7 *Exported Functions*). In a `group`, a boot that returns `Err` fails each test it serves before the body runs, with the report of an early `?` (§17 *Groups*). A trap in boot is a trap like any other.
 
@@ -7647,7 +7872,7 @@ Long-lived background work is owned by a `Supervisor`, from `std::supervisors`. 
 
 A supervisor is created only while `boot` builds the application value, in boot or in something boot calls, and is usually kept in an application field. Anywhere else, `Supervisor.new` is the error `` a supervisor here would be a new one every time this runs, and each is kept for the life of the program with a `max_running` of its own — so the bound would be per call rather than per downstream. Create it while `boot` builds the app value: in boot, or in something boot calls ``.
 
-The checker follows this across the whole program, std included. A function is *boot-only* when it calls `Supervisor.new` or another boot-only function, directly or through any chain of calls in any module: std::jobs's `Worker.new` is one, and so is an app's function that calls it. Code starts running outside boot in `fn main`, in a test body, in a lambda or capture (wherever it is written, since it runs whenever it is called), and in a private function nothing calls. Each call such code makes to a boot-only function is an error at that call, naming the chain down to `Supervisor.new`: `` `make_worker` creates a supervisor (through `Worker.new` at workers.nomi:4, then `Supervisor.new` at jobs.nomi:483), so it can only be called while `boot` builds the app value ``. A call inside a boot-only function is not itself an error; the call into that function is. A `pub` function nothing calls is not checked from inside: it is another module's to call. `boot`, and a function a test group's `boot` calls, runs inside boot. A boot-only function named as a value (`f = Worker.new`) is an error where it is named, in boot too, since a function value may be called anywhere. The runtime traps with the same message as a backstop.
+The checker follows this across the whole program, std included. A function is *boot-only* when it calls `Supervisor.new` or another boot-only function, directly or through any chain of calls in any module: std::jobs's `Worker.new` is one, and so is an app's function that calls it. Code starts running outside boot in `fn main`, in a test body, in a lambda or capture (wherever it is written, since it runs whenever it is called), and in a private function nothing calls. Each call such code makes to a boot-only function is an error at that call, naming the chain down to `Supervisor.new`: `` `make_worker` creates a supervisor (through `Worker.new` at workers.nomi:4, then `Supervisor.new` at jobs.nomi:483), so it can only be called while `boot` builds the app value ``. A call inside a boot-only function is not itself an error; the call into that function is. A `pub` function nothing calls is not checked from inside: it is another module's to call. `boot`, and a function a test group's `boot` calls, runs inside boot, and so does an entry boot a test calls. A boot-only function named as a value (`f = Worker.new`) is an error where it is named, in boot too, since a function value may be called anywhere. The runtime traps with the same message as a backstop.
 
 ```nomi
 import {
@@ -7725,7 +7950,7 @@ test "new user" {
 
 Taught in [Testing](/testing/#groups-and-setup).
 
-`group "name" { ... }` holds tests that share a clock, a boot or a setup. It holds at most one `clock` line, at most one `boot` line, at most one `setup`, and its `test` blocks. Each part is optional and may stand anywhere among the tests; they run in a fixed order whatever their position.
+`group "name" { ... }` holds tests that share a clock, a boot or a setup. It holds at most one `clock` line, at most one `boot` line, at most one `setup`, and its `test` blocks, or a `subtests` block that holds them all and runs them once per row (§17 *Subtests in a group*). Each part is optional and may stand anywhere among the tests; they run in a fixed order whatever their position.
 
 ```nomi
 group "defaults" {
@@ -7746,6 +7971,7 @@ group "defaults" {
 | An empty name | `` a `group` name must not be empty; name the group for what its tests share, such as `group "dates"` `` |
 | A second `clock`, `boot` or `setup` | `` a `group` has at most one `setup` line `` (and the same for `clock` and `boot`) |
 | `fn boot` in a group | `` a `group` does not define `fn boot`; it names an entry's boot on a `boot` line, such as `boot server.boot(startup)` `` |
+| Anything else in a group body | `` a group body may contain only clock, boot, setup, subtests and test declarations `` |
 | A `boot` line that calls anything but an entry's boot | `` `boot` in a `group` calls an entry's boot, the `fn boot` of a file that defines `fn main`, such as `boot server.boot(startup)`; `helpers.make_app` is not one `` |
 
 `group` is a keyword only at the top level of a file, before a name string or a `{`. Anywhere else it is an ordinary name, so `group = Iter.group_by(...)` works.
@@ -7768,6 +7994,17 @@ group "configured sender" {
     test "reads the booted sender" {
         assert App.sender == "ada"
     }
+}
+```
+
+**Calling boot in a test.** A test may also call an entry's boot as an ordinary function, to check what it returns: the `Err` that stops the program, or the fields of the app in `Ok`. The call may stand in a `test` body, a group's `setup` or an attached test, lambdas inside them included; anywhere else, and as a function value anywhere, it is the error in §15 *Scoped application fields*. The call runs boot as the program does, so boot may create supervisors, but it publishes nothing: the test reads the app's fields from the value it got, and `App.field` still reads only what the group's `boot` line published. What the boot starts belongs to the test that called it: its supervised work is stopped and the calls it registered with `defer` run when that test finishes, after its body, whether boot returned `Ok` or `Err`.
+
+```nomi
+import server
+
+test "postgres needs a database URL" {
+    startup = Startup{env: %{"STORE" => "postgres"}}
+    assert server.boot(startup) is Err("STORE=postgres needs DATABASE_URL")
 }
 ```
 
@@ -7944,6 +8181,41 @@ A row whose name trapped is listed under the rendered row with `its name trapped
 
 **Cases.** Each row a test runs is a case in the run's totals. A test that runs `subtests` counts as many cases as rows it ran, summed over its statements, and a test with none counts one. A failed row is a failed case and a passing row a passed one, so 9 rows of which 1 failed add `8 passed, 1 failed`. A failure outside every row (an assertion after the rows, or a trap in a row) is one more failed case. A passing test prints one `ok` line with its count, `ok palindrome_test.nomi :: determines palindromes (3 cases)`.
 
+### Subtests in a group
+
+Taught in [Testing](/testing/#subtests-in-a-group).
+
+`subtests rows, pattern { ... }` written in a `group` holds the group's `clock`, `boot` and `setup` lines and its tests, and runs all of them once per row, with `pattern` bound to the row in the `boot` line, the `setup` and every test. Each row's tests are cases of their own, and each starts fresh as any test of a group does: for each row and each test, the clock is selected, the `boot` line runs with that row, then the `setup`, then the test's body. The boot is the entry's `fn boot`, run once for each case.
+
+```nomi
+import {
+    server
+    server.App
+}
+
+group "todo api" {
+    subtests ["memory", "sqlite"], store {
+        boot server.boot(Startup{env: %{"STORE" => store}})
+
+        test "boots the row's store" {
+            assert App.store == store
+        }
+    }
+}
+```
+
+A case is named with its row after the group's name, in brackets: `todo api [memory] / boots the row's store`, then `todo api [sqlite] / boots the row's store`, rows in order and, within a row, the tests in order. A row that is a String is named by its text. `subtests rows, pattern, name { ... }` names a row by a column: `name` is a name the pattern binds to a String in every row, as in `subtests [("memory", 1), ("sqlite", 4)], (store, workers), store`. Any other row is named as a `values:` row renders it: `[2]`, `[("memory", 1)]`. A test inside may run a `subtests` statement of its own, whose rows count as that case's cases (*Cases* above), so the group's cases are its rows times its tests, each counted as its own statements' rows. `nomi test --line` at the `subtests` line, as at the group's, runs the whole group, and at a test, that test for every row.
+
+The rows are read when the tests are collected, before anything runs, because each row's cases are named and counted then. So:
+
+- The rows are a list literal: `` the rows of a `subtests` block in a `group` are a list literal, such as `["memory", "sqlite"]`: each row's tests are named and counted when the tests are collected, before anything runs ``. A test that needs computed rows runs a `subtests` statement in its body.
+- Each row is a literal value, a String without interpolation, an Int or Float with or without a `-`, `True` or `False`, or a tuple of them: `` a row of a `subtests` block in a `group` is a literal value, read when the tests are collected: a String, a number, True or False, or a tuple of them ``. A `?` in a row is `` `?` cannot be used in a row of a `subtests` block in a `group`: the rows are literal values, read when the tests are collected ``.
+- The pattern must match every row, as a statement's must: `` a `subtests` pattern must match every row; bind it with a name or an irrefutable pattern and match it in the body ``.
+- A name is a String column of the pattern: `` the name of a row of a `subtests` block in a `group` is a String column its pattern binds, such as `subtests [("memory", 1)], (store, workers), store` ``, and a column of another type is `` the name of a `subtests` row must be a String, got Int ``.
+- The block is the group's only item, so every item runs once per row and none runs without one: `` a `group` with a `subtests` block holds nothing else: its clock, boot, setup and tests go inside the block, which runs them once per row ``.
+- Rows have two dimensions at most: a group's row, and a statement's row in one of its tests. A block inside the block is `` `subtests` in a group cannot hold another `subtests`: each row of the outer one boots the group once ``; write the rows as tuples instead, as in `subtests [("memory", 1), ("sqlite", 2)], (store, workers) { ... }`.
+- In a group, `subtests` is a keyword where an item starts with it and an expression follows on its line.
+
 ## 18. Typed literals and keyword declarations
 
 ### Typed literals
@@ -8093,7 +8365,7 @@ Its literals are checked literals. A checked literal's type is `T` in every quot
 - `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a raw literal's handler: a `check` that reaches an effect is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, and one that does not finish within the step limit is an error at the literal.
 - What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<#{id: Uuid}>` literal gets `["#{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
 - A generic type's impl, `impl CheckedLiteral<String, Route<P>> for Route<P>`, gives each literal fresh type arguments, which the expected type solves as it solves a generic call's.
-- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open, ``Route`GET /users/{id}` `` is a `Route<#{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `#{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
+- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), ``Route`GET /users/{id}` `` is a `Route<#{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `#{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
 - An `Err(LiteralError{fragment, offset, message})` is a compile error carrying `message` at the character `offset` code points into static `fragment`, counted in the text as `check` received it. An offset at a static's end points at the `${` of the slot after it; fragment 0 and offset 0 point at the literal.
 - `build` runs when the program runs, gets the fragments `from_fragments` would get, and cannot fail: once `check` accepts the text, every slot value must build. A `build` that traps anyway traps where it runs.
 
@@ -8164,6 +8436,7 @@ fn main() {
 
 - The literal is checked as the tagged one is: its slots take the impl's slot type, `check` runs when the program is checked, and a refusal is an error at the place it names, labelled with the type: ``a `Url` literal "https://${host}/a" is invalid: a slot in the scheme, user or host cannot be escaped``.
 - Only a literal converts. A `String` value where a `Url` is expected is the ordinary mismatch, `` argument 1: expected Url, got String ``.
+- A checked literal, tagged or not, passed to a generic function where its parameter's type holds a type parameter that another argument solves on its own is checked after that argument, against the solved type. An argument solves it on its own when its type does not depend on its slot: a name of a value or function that is not generic, or a lambda whose parameters are all annotated. With `fn update(r: Request, p: #{id: Int}) -> Response`, `Route.to_with("PATCH /todos/{id}", update)` checks the route as a `Route<#{id: Int}>`. A lambda that leaves a parameter's type to the call, `fn r, p -> ...`, takes it from the literal, which is checked first, as written. The arguments still run in the order they are written. A literal piped into such a stage, `"PATCH /todos/{id}" |> Route.to_with(update)`, is typed the same way, though there only an argument that names a value counts, since the head is checked before the stage.
 - With no expected type, or one with no `CheckedLiteral` impl, the literal is a `String`, as always. A `Literal` impl does not make a literal typed by its position, since such a literal is its handler's result, usually a `Result` built when the program runs.
 - The literal keeps the form it was written in; `nomi fmt` does not add or remove a tag.
 
@@ -8490,11 +8763,11 @@ host fn abs(n: Int) -> Int
 - `host fn name(params) -> R` declares a function with no body. It may also be an item of an `impl` block, where its host key is `module.Type.function`.
 - Host declarations take doc comments like any declaration.
 
-**`host` for the standard library, `go` for user bindings.** Every std declaration whose implementation is Go is a `host fn` or `host type`, whichever Go package implements it, so importing any std module, `std::regex` included, needs no Go toolchain. A user binds Go code with `gopkg` and `go` (*Binding Go packages* below); there is no Go-side registration function. Why std does not use `go` is in [`implementation-notes.md`](implementation-notes.md#why-std-uses-host-rather-than-go).
+**`host` for the standard library, `go` for user bindings.** Every std declaration whose implementation is Go is a `host fn` or `host type`, whichever Go package implements it, so importing any std module, `std::regex` included, needs no Go toolchain. A user binds Go code with `gopkg` and `go` (*Binding Go packages* below); there is no Go-side registration function. Why std does not use `go` is in [the `std` package doc](../std/doc.go).
 
 #### `host` declarations and embedders
 
-A Go program that embeds Nomi implements the `host fn`s its Nomi program declares from a host table it passes in ([implementation notes](implementation-notes.md#embedding) cover the Go API).
+A Go program that embeds Nomi implements the `host fn`s its Nomi program declares from a host table it passes in ([the `vmhost` package doc](../vmhost/doc.go) covers the Go API).
 
 - A plain `host type` in such a program is an opaque handle. The table's functions create and read its values; Nomi code passes them around and stores them. The type needs no registration.
 - A table implements each function by its declaration's key: its name in the entry file, `module.name` in another file.

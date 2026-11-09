@@ -127,7 +127,7 @@ func canEnd(t token.TokenType) bool {
 		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL,
 		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
 		token.RETURN, token.BREAK, token.CONTINUE, token.ASSERT, token.REFUTE, token.DBG,
-		token.TODO, token.EXPORT, token.UNDERSCORE, token.COMMENT, token.DOC_COMMENT, token.TEST_PROMPT:
+		token.EXPORT, token.UNDERSCORE, token.COMMENT, token.DOC_COMMENT, token.TEST_PROMPT:
 		return true
 	}
 	return false

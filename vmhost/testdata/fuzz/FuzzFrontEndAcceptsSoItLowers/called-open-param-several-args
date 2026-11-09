@@ -1,0 +1,2 @@
+go test fuzz v1
+string("fn fold<S, M>(state: S, h: (S, M) -> S, m: M) -> S {\n    h(state, m)\n}\n\nfn run<M>(h: (Int, M) -> Int, m: M) -> Int {\n    h(1, m)\n}\n\ntest \"a called parameter is a function\" {\n    assert fold(\"a\", fn s, f -> f(s, 3), fn s, n -> \"${s}${n}\") == \"a3\"\n    assert run(fn s, f -> f(s), fn n -> n * 2) == 2\n}\n")

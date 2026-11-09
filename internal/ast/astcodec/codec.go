@@ -1,12 +1,3 @@
-// Package astcodec writes syntax trees as bytes and reads them back: the
-// node half of a file's interface (analysis.FileInterface). The encoder and
-// decoder of each node type are generated from internal/ast's types
-// (codec_gen.go, by codecgen), so every exported field is written;
-// TestInterfaceCodecCoversEveryNode holds that to a tree of every shape.
-//
-// A pointer the tree holds twice is written once and then by its number,
-// so a decoded tree shares what the encoded one shares. Decoding bytes the
-// encoder did not write, or bytes cut short, is an error, never a panic.
 package astcodec
 
 //go:generate go run ./gen

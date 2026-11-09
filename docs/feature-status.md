@@ -6,7 +6,8 @@ without a "Status: not yet implemented" callout, it works.** This file does
 not re-list language features. It tracks a punch list of spec sections that
 are still aspirational, the parts of shipped features that are not built, the
 tooling capabilities the spec does not describe, and known defects. How each
-part is built is in [`implementation-notes.md`](implementation-notes.md).
+part is built is in the package doc of the Go package that builds it
+(`doc.go`; [`AGENTS.md`](../AGENTS.md) maps the packages).
 
 For the forward view (big-ticket initiatives and their order) see
 [`roadmap.md`](roadmap.md).

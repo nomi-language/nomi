@@ -17,6 +17,9 @@ import (
 // expression answers Unit. A `return value` in the setup ends it with that
 // value (testSetupReturning).
 func (bl *irScalarBuilder) testSetupChain(c testCaseDecl) bool {
+	if c.row != nil && !bl.testBindRow(c.row) {
+		return false
+	}
 	ctx, ctxK := ir.NoTemp, kindUnit
 	for _, s := range c.setups {
 		if s.body == nil {
@@ -41,6 +44,25 @@ func (bl *irScalarBuilder) testSetupChain(c testCaseDecl) bool {
 		return bl.testDestructure(c.ctxPat, ctx, ctxK)
 	}
 	return true
+}
+
+// testBindRow binds the pattern of a group's `subtests` block over the
+// case's row, a literal lowered in place: the names reach the setup and the
+// body, as the row's boot line reads them in its own startup function.
+func (bl *irScalarBuilder) testBindRow(r *testRow) bool {
+	var v ir.Temp
+	var k kind
+	var ok bool
+	if ty := bl.g.fa.GroupRowTypes[r.rows]; ty != nil {
+		v, k, _, ok = bl.lowerWant(r.value, bl.g.project(ty))
+	} else {
+		v, k, _, ok = bl.lower(r.value)
+	}
+	if !ok {
+		bl.g.dc.note("a row of a group's `subtests` block the builder did not lower")
+		return false
+	}
+	return bl.testDestructure(r.rows.Pattern, v, k)
 }
 
 // testScopeSave copies the builder's name tables, so a setup's names can be

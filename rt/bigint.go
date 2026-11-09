@@ -8,16 +8,11 @@ import (
 	"strconv"
 )
 
-// Nomi's `Int` is exact at any size. A value that fits int64 is an int64
-// everywhere it is today: in a Value, in a VM word register, in a record's
-// word slot. A value that does not fit is a *BigInt, a heap value over
-// math/big. There is one canonical form, and every constructor here keeps it:
-// a value that fits int64 is never a *BigInt. So two equal Ints have the same
-// Go type, equality and hashing compare like with like, and a Map keyed by
-// Int needs no normalization at its use sites.
-//
-// docs/implementation-notes.md ("Int: exact at any size") gives the design,
-// including how the VM keeps a big value beside a word register.
+// Nomi's `Int` is exact at any size: an int64 when it fits, a *BigInt when
+// it does not, never a *BigInt that fits int64. Every constructor here
+// keeps that canonical form. The package doc, "Int: exact at any size",
+// gives the design; internal/vm's package doc, "Big Ints in the word bank",
+// gives how the VM keeps a big value beside a word register.
 
 // BigInt is an Int outside int64's range. It is immutable: nothing changes
 // one after it is built, and Big hands out a copy.

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("fn show(f: (Int) -> Display) -> String {\n    \"${f(1)}\"\n}\n\ntest \"open\" {\n    assert show(fn x -> Ok(x + 1)) == \"Ok(2)\"\n    assert show(fn x -> Err(x)) == \"Err(1)\"\n}\n")

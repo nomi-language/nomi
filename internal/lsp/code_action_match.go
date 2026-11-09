@@ -23,7 +23,7 @@ func (r *refactorRequest) patternMatches() []offer {
 			start, end, ok := r.span(b)
 			if ok {
 				indent := r.lineIndentOf(start)
-				text := "\n" + indent + "case " + b.Name + " {\n" + enumArms(et, indent+strings.Repeat(" ", format.IndentWidth)) + indent + "}"
+				text := "\n" + indent + "case " + b.Name + " {\n" + r.enumArms(et, indent+strings.Repeat(" ", format.IndentWidth), b) + indent + "}"
 				out = append(out, offer{title: "Pattern match on '" + b.Name + "'", edited: r.replace(end, end, text)})
 			}
 		}
@@ -36,7 +36,7 @@ func (r *refactorRequest) patternMatches() []offer {
 			start, end, ok := r.span(call)
 			if ok {
 				indent := r.lineIndentOf(start)
-				text := "case " + r.content[start:end] + " {\n" + enumArms(et, indent+strings.Repeat(" ", format.IndentWidth)) + indent + "}"
+				text := "case " + r.content[start:end] + " {\n" + r.enumArms(et, indent+strings.Repeat(" ", format.IndentWidth), call) + indent + "}"
 				out = append(out, offer{title: "Pattern match on the result of " + calleeName(call.(*ast.Call)), edited: r.replace(start, end, text)})
 			}
 		}
@@ -95,12 +95,16 @@ func enumOf(t analysis.Type) *analysis.EnumType {
 }
 
 // enumArms is a `case` arm for each variant of et, each arm's body the fill
-// placeholder, in the fill fix's arm layout.
-func enumArms(et *analysis.EnumType, indent string) string {
+// placeholder for a `case` written at at, in the fill fix's arm layout.
+func (r *refactorRequest) enumArms(et *analysis.EnumType, indent string, at ast.Node) string {
 	var b strings.Builder
+	line, col := at.LineNum(), 0
+	if s, ok := at.(ast.HasSpan); ok && s.GetSpan().StartLine > 0 {
+		line, col = s.GetSpan().StartLine, s.GetSpan().StartCol
+	}
 	for _, v := range et.Variants {
 		pat, _ := variantPattern(v, 0, false)
-		b.WriteString(indent + pat + " -> " + fillPlaceholder + "\n")
+		b.WriteString(indent + pat + " -> " + r.placeholderAt(line, col, pat) + "\n")
 	}
 	return b.String()
 }

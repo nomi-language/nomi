@@ -3,6 +3,7 @@ package analysis_test
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -148,7 +149,7 @@ func TestTodos_ListsEveryTodoInSourceOrder(t *testing.T) {
 		t.Fatalf("parse: %v", perrs)
 	}
 	var got []string
-	for _, td := range analysis.Todos(nodes) {
+	for _, td := range analysis.Todos(nodes, analysis.BuildFile(nodes)) {
 		got = append(got, todoSite(td))
 	}
 	want := []string{`2:5 "one"`, `6:12 ""`, `6:50 "two"`}
@@ -159,4 +160,92 @@ func TestTodos_ListsEveryTodoInSourceOrder(t *testing.T) {
 
 func todoSite(td *ast.Todo) string {
 	return fmt.Sprintf("%d:%d %q", td.Line, td.Col, td.ReasonText())
+}
+
+// A bare `todo` in the scope of a binding named `todo` reads the binding,
+// a reference to it; one outside every such scope, and one with a reason,
+// are placeholders. The parser reads a bare `todo` as an identifier and
+// the analysis decides, so the tree is the same after the check: with no
+// analysis, all four are placeholders.
+func TestTodo_InABindingsScopeReadsTheBinding(t *testing.T) {
+	nodes := parseTodoBindings(t)
+	fa := analysis.BuildFile(nodes)
+	if got, want := todoSites(nodes, fa), `8:17 ""|13:5 "reasoned"`; got != want {
+		t.Fatalf("Todos %q, want %q", got, want)
+	}
+	if got, want := todoSites(nodes, nil), `2:5 ""|7:23 ""|8:17 ""|13:5 "reasoned"`; got != want {
+		t.Fatalf("Todos with no analysis %q, want %q", got, want)
+	}
+	for _, at := range []analysis.Pos{{Line: 2, Col: 5}, {Line: 7, Col: 23}} {
+		if sym := fa.References[at]; sym == nil || sym.Name != "todo" {
+			t.Errorf("%v refers to %+v, want the binding `todo`", at, sym)
+		}
+	}
+}
+
+const todoBindingsSrc = "fn apply(todo: Int) -> Int {\n    todo + 1\n}\n\nfn pick(m: Maybe<Int>) -> Int {\n    case m {\n        Some(todo) -> todo\n        None -> todo\n    }\n}\n\nfn later(todo: Int) -> Int {\n    todo \"reasoned\"\n}\n"
+
+func parseTodoBindings(t *testing.T) []ast.Node {
+	t.Helper()
+	nodes, perrs := parser.ParseWithRecovery(lexer.Lex(todoBindingsSrc))
+	if len(perrs) > 0 {
+		t.Fatalf("parse: %v", perrs)
+	}
+	return nodes
+}
+
+func todoSites(nodes []ast.Node, fa *analysis.FileAnalysis) string {
+	var got []string
+	for _, td := range analysis.Todos(nodes, fa) {
+		got = append(got, todoSite(td))
+	}
+	return strings.Join(got, "|")
+}
+
+// One parsed tree, checked by many checks at once, as the language server's
+// checks share a file nothing edited: each check's analysis gives each bare
+// `todo` its meaning, and none writes the tree (run under -race). Half the
+// checks see a `todo` from outside the file, as a name an import binds
+// would be, so there every bare `todo` reads it; the others see none, so
+// the one in `pick`'s `None` arm is the placeholder. A check after them
+// with no outside `todo`, the tree unparsed again, finds the placeholder
+// back, as a recheck after an edit removes the binding does.
+func TestTodo_ChecksSharingATreeEachResolveIt(t *testing.T) {
+	nodes := parseTodoBindings(t)
+	outside := func() *analysis.Scope {
+		s := analysis.NewScope(nil)
+		s.Define(&analysis.Symbol{Name: "todo", Kind: analysis.SymbolFunction})
+		return s
+	}
+	check := func(bound bool) (string, []analysis.TypeError) {
+		var prims *analysis.Scope
+		if bound {
+			prims = outside()
+		}
+		fa := analysis.BuildFileWithStdlib(nodes, prims, nil, "", nil)
+		errs := append(analysis.BuildTypes(fa, nodes), analysis.CheckTypes(fa, nodes)...)
+		return todoSites(nodes, fa), errs
+	}
+	want := map[bool]string{true: `13:5 "reasoned"`, false: `8:17 ""|13:5 "reasoned"`}
+	var wg sync.WaitGroup
+	got := make([]string, 16)
+	for i := range got {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got[i], _ = check(i%2 == 0)
+		}()
+	}
+	wg.Wait()
+	for i, g := range got {
+		if w := want[i%2 == 0]; g != w {
+			t.Errorf("check %d (outside todo %v): Todos %q, want %q", i, i%2 == 0, g, w)
+		}
+	}
+	if g, errs := check(false); g != want[false] {
+		t.Fatalf("a later check with no outside todo: Todos %q, want %q (errors %v)", g, want[false], errs)
+	}
+	if got := todoSites(nodes, nil); got != `2:5 ""|7:23 ""|8:17 ""|13:5 "reasoned"` {
+		t.Fatalf("the checks changed the tree: Todos with no analysis %q", got)
+	}
 }

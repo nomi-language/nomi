@@ -76,7 +76,7 @@ func TestDiagnostics_RelatedInAnotherFileIsUTF16(t *testing.T) {
 		errs := []analysis.TypeError{{Line: 1, Col: 1, Message: "m", Related: []analysis.RelatedInfo{
 			{File: other, Line: 1, Col: b + 1, EndLine: 1, EndCol: b + 2, Message: "there"},
 		}}}
-		diags := buildPublishedDiagnostics(pathToURI(filepath.Join(dir, "main.nomi")), "x = 1\n", nil, nil, errs)
+		diags := buildPublishedDiagnostics(pathToURI(filepath.Join(dir, "main.nomi")), "x = 1\n", nil, nil, nil, errs)
 		if len(diags) != 1 || len(diags[0].RelatedInformation) != 1 {
 			t.Fatalf("%q: diagnostics %+v, want one with one related location", line, diags)
 		}

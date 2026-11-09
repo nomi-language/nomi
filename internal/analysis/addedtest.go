@@ -69,6 +69,8 @@ func (fb FileBodies) clone() FileBodies {
 	out := fb
 	out.References = maps.Clone(fb.References)
 	out.PunnedFieldLabels = maps.Clone(fb.PunnedFieldLabels)
+	out.TodoPlaceholders = maps.Clone(fb.TodoPlaceholders)
+	out.GroupRowTypes = maps.Clone(fb.GroupRowTypes)
 	out.Definitions = maps.Clone(fb.Definitions)
 	out.BlockImportScopes = maps.Clone(fb.BlockImportScopes)
 	out.receiverMembers = maps.Clone(fb.receiverMembers)

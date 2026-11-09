@@ -3,34 +3,129 @@ package std
 // The process's stdlib, built from its modules' interfaces, a module at a
 // time.
 //
+// std/ is one Nomi module embedded into the binaries. Stdlib files import
+// each other with bare paths (`import iter.Iter`); code outside writes
+// `std/iter`. `std/_fixtures/<name>.nomi` files are test-only modules
+// (`std/_fixtures/<name>`), in the stdlib only of a test binary run with
+// NOMI_STD_FIXTURES=1 (FixturesLoaded), so a test that needs one runs
+// itself again in a child process with it set. internal/irbuild always
+// lowers them per program.
+//
+// # From interfaces
+//
 // A program's check reads of the stdlib only what its modules declare
-// (docs/implementation-notes.md, "File interfaces"), so Shared builds the
-// stdlib from each module's interface, whose bodies are stubs, and checks
-// no body. What the bodies tell a program's check (the stdlib's
-// diagnostics, the conformance demands its bodies and attached tests make,
-// and which of its functions are boot-only) are the stdlib's facts
-// (analysis.StdFacts), worked out from an analysis from source (Load) and
-// kept beside the interfaces. A module's bodies and attached tests are
-// grafted back from its source and checked when something first reads them
-// (Bodies): the module's lowering when no std bundle has it, an instance of
-// one of its generic functions, a program that lowers a listed module, its
-// cases, an editor's hover of one of its declarations.
+// (internal/ast/astcodec package doc, "File interfaces"), so Shared, the
+// stdlib every program in a process is checked and lowered against, is
+// built from each module's interface, whose bodies are stubs, and checks no
+// body. The sweeps run over the interfaces
+// (analysis.BuildStdDeclarations, which keeps each module's declarations as
+// a project build keeps a project file's, defers the unused checks and
+// infers the unannotated `once`s). A stub body keeps the `break` and
+// `continue` its function's own scope holds, which is all a program's check
+// reads of another file's body. Load analyzes the stdlib from source; the
+// stdlib reference, `nomi test` of an edited std file and a few tests use
+// it. std/compiler's `check`, `hover` and `run` check their source against
+// Shared, as a program is checked.
 //
-// Shared holds only the modules something has reached: at first the
-// prelude and what it imports, then each module a build against it reaches
-// with every module that one imports (analysis.StdSource, Ensure), so a
-// program pays for the stdlib it uses. Each answer is a snapshot: a larger
-// stdlib is a new StdLib sharing the smaller one's analyses, so a caller
-// holding one keeps a consistent view while another goroutine extends it.
-// All builds every module, for what reads the whole stdlib (the language
-// server, the reference).
+// What the bodies tell a program's check is the stdlib's facts
+// (analysis.StdFacts, internal/analysis/std_facts.go), worked out from Load
+// and installed over the modules built from interfaces: each module's
+// diagnostics, the conformance demands its bodies and attached tests add to
+// its declarations' (its ImplManifest, which StdBase and the whole-file
+// import check fold), and each boot-only std function's first boot-only
+// call, which the boot-only check reads instead of the body (stdBootFns).
+// std's functions call only std's, so which are boot-only is the same in
+// every program. Positions in the facts name a module, not a path.
 //
-// The interfaces and facts are one artifact (stdArtifact), which a binary
-// built with the nomi_stdbundle tag embeds (stdbundlegen writes it with the
-// std bundle) and any other binary keeps in the artifact cache under its
-// build ID. A process that finds none parses the stdlib and extracts the
-// interfaces, analyzes it from source for the facts, builds it from the
-// interfaces as a later process does, and writes the artifact for the next.
+// A module's bodies are grafted back from its source (analysis.GraftBodies,
+// which puts each function body, annotated `once` value and attached test
+// back into the interface's nodes, so every pointer into the declarations
+// holds) and checked in place, with its test declarations, when something
+// first reads them (Bodies, analysis.CheckDeferredBodies): the module's
+// lowering when no std bundle has it, an instance of one of its generic
+// functions, a program that lowers a listed module, the module's cases
+// (TestDecls), and an editor's hover, which shows a declaration's attached
+// tests (AttachedTests). internal/irbuild asks through its stdBodies before
+// it reads a body. Body checks write the module's own analysis; the module
+// scope's symbols stay as they are, and only the prelude's scope, every
+// program file's parent, is marked shared, since no build parents a scope
+// under another std module's.
+//
+// The analysis works out the stdlib's share of a program's impl index and
+// coherence facts (analysis.StdBase) once per stdlib a process has built. A
+// build folds only its own files and lays them over that base, which no
+// build writes. The TestStdBase_ tests in internal/analysis and vmhost hold
+// it to a build that folds every file.
+//
+// # The artifact
+//
+// The interfaces and facts are one artifact (stdArtifact, artifact.go): a
+// head naming its format version, Digest and the fixtures setting, a
+// CRC-32, each module's interface and parse errors, the index of what each
+// module imports, and the facts. A binary built with the nomi_stdbundle tag
+// embeds it (std/stdiface.bin, written by internal/irbuild/stdbundlegen
+// beside the std bundle and supplied with `go build -overlay`); any other
+// binary keeps it in the artifact cache under its build ID
+// (`<cache>/std/<hash>.iface`). A process that finds neither parses the
+// stdlib and extracts the interfaces, runs Load for the facts, builds from
+// the interfaces as a later process does, and writes the artifact for the
+// next. An artifact that does not decode or build is made again.
+// NOMI_DEBUG_STD_BUNDLE=1 reports why one was not used. Building every
+// module from interfaces takes about 53 ms, against 345 ms to analyze it
+// from source. TestShared_ModulesAreLoadsModules holds the result to Load's.
+//
+// # A module at a time
+//
+// Shared holds only the modules something has reached (stdCore): at first
+// stdBaseModules with every module they import, then each module a build
+// reaches with every module it imports, in one build per program that
+// reaches any, so a program pays for the stdlib it uses. What a module
+// imports is the artifact's index, written when the interfaces are
+// extracted (analysis.StdModuleImports): its imports at any depth, its
+// bodies' and attached tests' included, since checking its bodies resolves
+// them all.
+//
+// A build against Shared extends it before it builds anything
+// (analysis.StdSource, installed by Shared): discovery asks for each
+// stdlib module a walked file imports, at the top level or in a block, and
+// for std/json when a file declares an `export fn`, whose arguments and
+// result cross as JSON; a build with no loader asks for the entry's
+// imports. The build then runs over the largest stdlib built so far. A
+// module is built against those already built
+// (analysis.BuildStdDeclarationsOver), its imports of them resolving to
+// their analyses as a program's do, with their scopes as the program's
+// StdlibModuleScopes. Its facts are installed then (InstallModules), and the
+// StdBase of the larger stdlib is formed when a build first asks for it
+// (StdSource.Base), so a run forms one.
+//
+// Each extension is a new StdLib, a snapshot sharing the smaller one's
+// analyses: a caller holding one keeps a consistent view while another
+// goroutine extends the stdlib, and asks Latest for the larger one after a
+// build (the front end does after its build, before telling a shared std
+// module from its own files). Ensure builds named modules; All (and
+// AllBodies) builds every module, which the language server, `nomi mcp` and
+// std/compiler use, since they read the whole stdlib. NOMI_STD_WHOLE=1
+// builds every module in one build at the first call.
+//
+// Two rules make a part of the stdlib behave as the whole does. A program
+// can reach no declaration of a module it does not import, directly or
+// through what it imports, and an impl lives in its interface's or its
+// type's module (one either imports) or a base module, so a program's impl
+// index holds every impl it could select
+// (TestShared_ImplsAreBuiltWithWhatTheyImplement); std is one Nomi module,
+// so the orphan rule alone would allow an impl anywhere. And a module built
+// later is the module built at once (TestShared_LazyModulesAreEagerModules),
+// except that an annotation's reference to another module's declaration
+// holds a copy of that declaration's symbol, typed when the module it names
+// was built earlier, which the eager build's order leaves untyped.
+//
+// On an Apple M2 Max a built `nomi` runs hello world with no program record
+// in about 44 ms, against 119 ms with every module built; the std setup
+// (the artifact read, the base modules' build, their facts and the base) is
+// about 18 ms of it. A machine decodes its CLDR data only when a frame
+// first reads it (cldrdata.NewLazyStore). Most of the remaining setup is
+// the base build's fresh memory (about 11 MB) and the sweeps over the base
+// modules' declarations.
 
 import (
 	"fmt"

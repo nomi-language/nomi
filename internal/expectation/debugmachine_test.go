@@ -26,6 +26,9 @@ import (
 // fault hook. vmhost's TestSpecProgramsOnADebugMachine is the same check
 // over the spec's programs. A program run through a generated FFI wrapper
 // runs in its own process and is not on a debug machine.
+//
+//	go test ./internal/expectation -run 'TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes$' -count=1
+//	go test ./vmhost -run 'TestSpecProgramsOnADebugMachine$' -count=1
 func TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; runs a sample of every population on debug machines; -short")

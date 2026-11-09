@@ -17,7 +17,19 @@ import (
 // decodes, every module declares what Load's declares, with the demands the
 // facts give it, before any body is checked; and once Bodies has checked a
 // module, its whole analysis dumps as Load's does, its bodies' and attached
-// tests' facts included. Its diagnostics are Load's.
+// tests' facts included. Its diagnostics are Load's. The declarations are
+// compared by analysis.DumpDeclarationsForTest (module scope symbols and
+// types, impls, type methods and demands, facts included) and the whole
+// analysis by DumpFileForTest, with one allowed difference (typedLater): an
+// `import` in an attached test binds a copy of the type it names, which
+// Load leaves untyped and Bodies types.
+//
+// TestStdArtifact_RefusesAStaleOrCorruptOne requires a truncated or changed
+// artifact, or one of another version or stdlib, to be refused. Every other
+// test runs on the stdlib from interfaces, and a test that runs a built
+// `nomi` runs it on a cached or fresh artifact, so a fact a program's check
+// reads before any body check put it in place (such as a `once` type
+// BuildStdDeclarations infers) shows there.
 func TestShared_ModulesAreLoadsModules(t *testing.T) {
 	full := Load()
 	art := extractStdArtifact()
@@ -65,7 +77,15 @@ func TestShared_ModulesAreLoadsModules(t *testing.T) {
 // what the eager build's declares and, once its bodies are checked, dumps
 // as the eager build's does, and the two have the same diagnostics. What a
 // program's check reads of a module does not depend on which modules were
-// built before it.
+// built before it. TestShared_ImplsAreBuiltWithWhatTheyImplement holds the
+// impl placement the laziness relies on (shared.go's file comment, "A
+// module at a time").
+//
+// cmd/nomi's TestStdLazyRunsAsWholeSample and TestStdLazyRunsAsWholeRotating
+// hold whole programs to the same rule. internal/expectation's suites run
+// in one process on the lazy stdlib, which grows as the corpus runs.
+// internal/irbuild's tests ask about the whole stdlib (its spec tables, its
+// lowering's index), so its TestMain builds every module first (All).
 func TestShared_LazyModulesAreEagerModules(t *testing.T) {
 	art := extractStdArtifact()
 	if _, err := buildFromArtifact(art, Load()); err != nil {

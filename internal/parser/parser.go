@@ -271,6 +271,13 @@ func (p *Parser) parseWithRecovery() ([]ast.Node, []ParseError) {
 		node, attachedDoc, attachedLeading, err := p.parseStmt()
 		if err != nil {
 			p.recordParseError(err)
+			// A statement refused at its first token (`fn = 1`, a keyword
+			// written as a binding's name) consumed nothing, and when that
+			// token starts a declaration synchronize stops on it again, so
+			// step over it first.
+			if p.pos == declStart && !p.atEnd() {
+				p.advance()
+			}
 			p.synchronize()
 			continue
 		}
@@ -1299,6 +1306,11 @@ func (p *Parser) parseBlockStmt() (ast.Node, string, []ast.Trivia, error) {
 func (p *Parser) parseStmtInner() (ast.Node, error) {
 	if err := p.confusedStmt(); err != nil {
 		return nil, err
+	}
+	if p.peekAt(1).Type == token.EQ {
+		if err := keywordAsName(p.peek(), "a binding"); err != nil {
+			return nil, err
+		}
 	}
 	if p.peek().Type == token.EXPORT {
 		return p.parseExportFunc()
@@ -2766,9 +2778,32 @@ func (p *Parser) parseBarePipeValueKeywordInner() ast.Node {
 	return &ast.Ident{Name: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 }
 
-// parseTodo parses `todo` and `todo "reason"`. The reason is optional and,
-// when present, starts on the `todo`'s line. It is a string literal in any of
-// the four uninterpolated forms (`"..."`, `"""..."""` and the two raw forms):
+// todoReasonFollows reports whether the `todo` at the cursor has a reason:
+// a string literal starting on its line, which parseTodo reads (and
+// rejects when it interpolates or carries a tag).
+func (p *Parser) todoReasonFollows() bool {
+	if p.pos+1 >= len(p.tokens) {
+		return false
+	}
+	next := p.tokens[p.pos+1]
+	if next.Line != p.tokens[p.pos].Line {
+		return false
+	}
+	switch next.Type {
+	case token.STRING_LITERAL, token.TRIPLE_STRING_LITERAL,
+		token.RAW_STRING_LITERAL, token.RAW_TRIPLE_STRING_LITERAL,
+		token.STRING_START, token.TRIPLE_STRING_START,
+		token.TAGGED_STRING_START, token.TAGGED_TRIPLE_STRING_START,
+		token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL,
+		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL:
+		return true
+	}
+	return false
+}
+
+// parseTodo parses `todo "reason"`; a bare `todo` is an identifier
+// (todoReasonFollows). The reason starts on the `todo`'s line. It is a
+// string literal in any of the four uninterpolated forms (`"..."`, `"""..."""` and the two raw forms):
 // the reason is fixed text that `nomi build` and the editor list without
 // running anything, so an interpolated or tagged string is rejected here.
 func (p *Parser) parseTodo() (ast.Node, error) {
@@ -3157,9 +3192,6 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		}
 		return &ast.Dbg{Expr: expr, Line: tok.Line, Col: tok.Col}, nil
 
-	case token.TODO:
-		return p.parseTodo()
-
 	case token.UNREACHABLE:
 		return p.parseUnreachable()
 
@@ -3243,6 +3275,14 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		// interface bodies (and `embeds` after a struct/enum head).
 		if tok.Type == token.IDENT && tok.Lexeme == "concurrent" && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Type == token.LBRACE {
 			return p.parseConcurrentBlock()
+		}
+		// Contextual keyword: `todo` before a reason on its line is the
+		// placeholder (spec §2 *Keywords*). A bare `todo` is an identifier
+		// here: resolution, which knows the scopes, reads it as a binding
+		// named `todo` where one is in scope and as the placeholder
+		// otherwise (analysis.FileAnalysis.TodoPlaceholders).
+		if tok.Type == token.IDENT && tok.Lexeme == "todo" && p.todoReasonFollows() {
+			return p.parseTodo()
 		}
 		// A MODULE-QUALIFIED LIST-ATTACH HEAD. `shapes.Bag.Items[1, 2]`
 		// names a list-payload variant or a list-distinct type through the
@@ -4253,10 +4293,23 @@ func (p *Parser) parseWithTarget() (*ast.FieldAccess, error) {
 }
 
 // parseDefer parses `defer call(...)`, a statement that registers a
-// Unit-returning call for block-exit cleanup.
+// Unit-returning call for block-exit cleanup, and its error-only form
+// `defer on error call(...)`. `on` and `error` are contextual: they open
+// the form only as the two names right after `defer` on its line, where an
+// expression could not hold two names in a row.
 func (p *Parser) parseDefer() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume DEFER
+	onError, onLine, onCol := false, 0, 0
+	if on, kw := p.peek(), p.peekAt(1); on.Type == token.IDENT && on.Lexeme == "on" && on.Line == tok.Line &&
+		kw.Type == token.IDENT && kw.Lexeme == "error" && kw.Line == on.Line {
+		onError, onLine, onCol = true, on.Line, on.Col
+		p.advance() // consume `on`
+		p.advance() // consume `error`
+		if p.atEnd() || p.peek().Type == token.NEWLINE {
+			return nil, p.errorOnLine(kw.Line, "expected call after `defer on error`")
+		}
+	}
 	p.skipNewlines()
 
 	if p.atEnd() {
@@ -4270,7 +4323,7 @@ func (p *Parser) parseDefer() (ast.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ast.Defer{Call: call, Line: tok.Line, Col: tok.Col}, nil
+	return &ast.Defer{Call: call, OnError: onError, Line: tok.Line, Col: tok.Col, OnLine: onLine, OnCol: onCol}, nil
 }
 
 // parseConcurrentBlock parses `concurrent { body }` — the structured
@@ -4367,6 +4420,7 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 	var clockCol int
 	var clockLeading []ast.Trivia
 	var clockTrailing []ast.Trivia
+	var subtests *ast.GroupSubtests
 	var body *ast.Block
 	if group {
 		parsed, err := p.parseGroupBody()
@@ -4385,6 +4439,7 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 		clockCol = parsed.clockCol
 		clockLeading = parsed.clockLeading
 		clockTrailing = parsed.clockTrailing
+		subtests = parsed.subtests
 	} else {
 		bodyNode, err := p.parseBlock()
 		if err != nil {
@@ -4396,6 +4451,7 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 	testDecl := &ast.TestDecl{
 		Name:           name,
 		Group:          group,
+		Subtests:       subtests,
 		Clock:          clock,
 		ClockLine:      clockLine,
 		ClockCol:       clockCol,
@@ -4464,25 +4520,78 @@ type groupBody struct {
 	clockCol      int
 	clockLeading  []ast.Trivia
 	clockTrailing []ast.Trivia
+	subtests      *ast.GroupSubtests
 }
 
 // parseGroupBody parses a group's body: at most one `clock`, one `boot` and
-// one `setup` line, and its `test` blocks, in any order. The lines run in a
-// fixed order whatever their position, so position means nothing; `nomi fmt`
-// moves them to the top. Groups do not nest.
+// one `setup` line, and its `test` blocks, in any order, or a `subtests`
+// block that holds them all. The lines run in a fixed order whatever their
+// position, so position means nothing; `nomi fmt` moves them to the top.
+// Groups do not nest.
 func (p *Parser) parseGroupBody() (groupBody, error) {
 	tok := p.peek()
 	p.advance() // consume LBRACE
 
 	var children []ast.Node
 	var out groupBody
-	var endTrivia []ast.Trivia
+	endTrivia, err := p.parseGroupItems(&out, &children, nil)
+	if err != nil {
+		return out, err
+	}
+	if p.atEnd() || p.peek().Type != token.RBRACE {
+		return out, errorAt(tok.Line, tok.Col, "expected '}' to close group body")
+	}
+	closeTok := p.peek()
+	p.advance() // consume RBRACE
 
+	block := &ast.Block{
+		Stmts:   children,
+		Line:    tok.Line,
+		Col:     tok.Col,
+		EndLine: closeTok.Line,
+		EndCol:  closeTok.Col,
+	}
+	for _, t := range endTrivia {
+		block.AddTrailing(t)
+	}
+	out.block = block
+	return out, nil
+}
+
+// groupSubtestsAloneMsg is the error at a group item beside a `subtests`
+// block: the block repeats the group's items once per row, so an item
+// outside it would run with no row, and a group that boots per row in one
+// place and once in another reads as one group and runs as two.
+const groupSubtestsAloneMsg = "a `group` with a `subtests` block holds nothing else: its clock, boot, setup and tests go inside the block, which runs them once per row"
+
+// parseGroupItems parses a group body's items up to its closing brace,
+// which it leaves unconsumed, and answers the comments before the brace.
+// rows is the `subtests` block the items are inside, or nil for the
+// group's own body.
+func (p *Parser) parseGroupItems(out *groupBody, children *[]ast.Node, rows *ast.GroupSubtests) ([]ast.Trivia, error) {
+	items := 0
 	for {
 		leading := p.collectLeadingTrivia()
 		if p.atEnd() || p.peek().Type == token.RBRACE {
-			endTrivia = leading
-			break
+			return leading, nil
+		}
+		if rows == nil && out.subtests != nil {
+			return nil, errorAt(p.peek().Line, p.peek().Col, groupSubtestsAloneMsg)
+		}
+		items++
+
+		if p.atGroupSubtests() {
+			kw := p.peek()
+			if rows != nil {
+				return nil, errorAt(kw.Line, kw.Col, "`subtests` in a group cannot hold another `subtests`: each row of the outer one boots the group once")
+			}
+			if items > 1 {
+				return nil, errorAt(kw.Line, kw.Col, groupSubtestsAloneMsg)
+			}
+			if err := p.parseGroupSubtests(out, children, leading); err != nil {
+				return nil, err
+			}
+			continue
 		}
 
 		// `clock Clock.Virtual` / `clock Clock.System` selects which clock the tests
@@ -4490,15 +4599,15 @@ func (p *Parser) parseGroupBody() (groupBody, error) {
 		if p.peek().Type == token.IDENT && p.peek().Lexeme == "clock" {
 			clockTok := p.peek()
 			if out.clock != nil {
-				return out, errorAt(clockTok.Line, clockTok.Col, "a `group` has at most one `clock` line")
+				return nil, errorAt(clockTok.Line, clockTok.Col, "a `group` has at most one `clock` line")
 			}
 			p.advance() // consume contextual clock
 			if p.atEnd() || p.peek().Line != clockTok.Line || !canStartRangeOperand(p.peek().Type) {
-				return out, errorAt(clockTok.Line, clockTok.Col, "expected a clock after `clock`, such as `clock Clock.Virtual`")
+				return nil, errorAt(clockTok.Line, clockTok.Col, "expected a clock after `clock`, such as `clock Clock.Virtual`")
 			}
 			clockNode, err := p.parseExpr(1)
 			if err != nil {
-				return out, err
+				return nil, err
 			}
 			// The expected type is known here, so `.Virtual` resolves
 			// without an import — the same parse-time stamp param defaults
@@ -4516,7 +4625,7 @@ func (p *Parser) parseGroupBody() (groupBody, error) {
 
 		if p.peek().Type == token.FN && p.peekAt(1).Lexeme == "boot" {
 			fnTok := p.peek()
-			return out, errorAt(fnTok.Line, fnTok.Col, "a `group` does not define `fn boot`; it names an entry's boot on a `boot` line, such as `boot server.boot(startup)`")
+			return nil, errorAt(fnTok.Line, fnTok.Col, "a `group` does not define `fn boot`; it names an entry's boot on a `boot` line, such as `boot server.boot(startup)`")
 		}
 
 		// `boot server.boot(startup)` names the entry boot each test in
@@ -4524,15 +4633,15 @@ func (p *Parser) parseGroupBody() (groupBody, error) {
 		if p.peek().Type == token.IDENT && p.peek().Lexeme == "boot" && p.peekAt(1).Line == p.peek().Line {
 			bootTok := p.peek()
 			if out.boot != nil {
-				return out, errorAt(bootTok.Line, bootTok.Col, "a `group` has at most one `boot` line")
+				return nil, errorAt(bootTok.Line, bootTok.Col, "a `group` has at most one `boot` line")
 			}
 			p.advance() // consume contextual boot
 			if p.atEnd() || p.peek().Line != bootTok.Line || !canStartRangeOperand(p.peek().Type) {
-				return out, errorAt(bootTok.Line, bootTok.Col, "expected a call to an entry's boot after `boot`, such as `boot server.boot(startup)`")
+				return nil, errorAt(bootTok.Line, bootTok.Col, "expected a call to an entry's boot after `boot`, such as `boot server.boot(startup)`")
 			}
 			bootNode, err := p.parseExpr(1)
 			if err != nil {
-				return out, err
+				return nil, err
 			}
 			out.boot = bootNode
 			out.bootLine = bootTok.Line
@@ -4547,15 +4656,15 @@ func (p *Parser) parseGroupBody() (groupBody, error) {
 		if p.peek().Type == token.IDENT && p.peek().Lexeme == "setup" {
 			setupTok := p.peek()
 			if out.setup != nil {
-				return out, errorAt(setupTok.Line, setupTok.Col, "a `group` has at most one `setup` line")
+				return nil, errorAt(setupTok.Line, setupTok.Col, "a `group` has at most one `setup` line")
 			}
 			p.advance() // consume contextual setup
 			if p.atEnd() || p.peek().Line != setupTok.Line || !canStartRangeOperand(p.peek().Type) {
-				return out, errorAt(setupTok.Line, setupTok.Col, "expected setup expression")
+				return nil, errorAt(setupTok.Line, setupTok.Col, "expected setup expression")
 			}
 			setupNode, err := p.parseExpr(1)
 			if err != nil {
-				return out, err
+				return nil, err
 			}
 			if _, ok := setupNode.(*ast.Block); !ok {
 				setupNode = &ast.Block{
@@ -4578,42 +4687,85 @@ func (p *Parser) parseGroupBody() (groupBody, error) {
 
 		if p.atGroupStart() {
 			nested := p.peek()
-			return out, errorAt(nested.Line, nested.Col, "a `group` cannot contain another `group`; write a sibling group instead")
+			return nil, errorAt(nested.Line, nested.Col, "a `group` cannot contain another `group`; write a sibling group instead")
 		}
 
 		if p.peek().Type != token.TEST {
-			return out, errorAt(p.peek().Line, p.peek().Col, "a group body may contain only clock, boot, setup, and test declarations")
+			return nil, errorAt(p.peek().Line, p.peek().Col, "a group body may contain only clock, boot, setup, subtests and test declarations")
 		}
 
 		start := p.pos
 		node, err := p.parseTestDecl()
 		if err != nil {
-			return out, err
+			return nil, err
 		}
 		p.recordSpan(node, start)
 		trailing := p.collectTrailingComment(node.LineNum())
 		attachTrivia(node.(ast.HasTrivia), leading, trailing)
-		children = append(children, node)
+		*children = append(*children, node)
 	}
+}
 
+// atGroupSubtests reports whether the cursor, at the start of a group item,
+// is on a `subtests` block: the word, then after a space an expression on
+// its line. Nothing else in a group body starts with a name, so the word is
+// the block's keyword here before its comma is seen.
+func (p *Parser) atGroupSubtests() bool {
+	if p.atEnd() {
+		return false
+	}
+	tok, next := p.peek(), p.peekAt(1)
+	return tok.Type == token.IDENT && tok.Lexeme == "subtests" &&
+		next.Line == tok.Line && next.Col != tok.Col+len(tok.Lexeme) && canStartRangeOperand(next.Type)
+}
+
+// parseGroupSubtests parses a group's `subtests rows, pattern, name { ... }`
+// block, with the cursor at the keyword: its header into out.subtests and
+// its items into out and children. leading is the comments above it.
+func (p *Parser) parseGroupSubtests(out *groupBody, children *[]ast.Node, leading []ast.Trivia) error {
+	start := p.pos
+	kw := p.peek()
+	p.advance() // consume the contextual `subtests`
+	rows, err := p.parseExpr(1)
+	if err != nil {
+		return err
+	}
+	if p.atEnd() || p.peek().Type != token.COMMA {
+		return errorAt(kw.Line, kw.Col, "expected a comma and a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store { ... }`")
+	}
+	comma := p.peek()
+	p.advance() // consume COMMA
+	if p.atEnd() || p.peek().Line != comma.Line || !canStartPatternAssertion(p.peek().Type) {
+		return errorAt(kw.Line, kw.Col, "expected a pattern after the rows in `subtests`, such as `subtests [\"memory\", \"sqlite\"], store { ... }`")
+	}
+	pattern, err := p.parseSinglePattern()
+	if err != nil {
+		return err
+	}
+	name, err := p.parseSubtestsName(kw)
+	if err != nil {
+		return err
+	}
+	if p.atEnd() || p.peek().Type != token.LBRACE {
+		return errorAt(kw.Line, kw.Col, "expected '{' for the `subtests` block after its pattern")
+	}
+	p.advance() // consume LBRACE
+	gs := &ast.GroupSubtests{Rows: rows, Pattern: pattern, Name: name, Line: kw.Line, Col: kw.Col}
+	attachTrivia(gs, leading, nil)
+	out.subtests = gs
+	endTrivia, err := p.parseGroupItems(out, children, gs)
+	if err != nil {
+		return err
+	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return out, errorAt(tok.Line, tok.Col, "expected '}' to close group body")
+		return errorAt(kw.Line, kw.Col, "expected '}' to close the `subtests` block")
 	}
 	closeTok := p.peek()
 	p.advance() // consume RBRACE
-
-	block := &ast.Block{
-		Stmts:   children,
-		Line:    tok.Line,
-		Col:     tok.Col,
-		EndLine: closeTok.Line,
-		EndCol:  closeTok.Col,
-	}
-	for _, t := range endTrivia {
-		block.AddTrailing(t)
-	}
-	out.block = block
-	return out, nil
+	gs.EndTrivia = endTrivia
+	gs.EndLine, gs.EndCol = closeTok.Line, closeTok.Col
+	p.recordSpan(gs, start)
+	return nil
 }
 
 func (p *Parser) parseAssertion() (ast.Node, error) {
@@ -5387,6 +5539,9 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			if err := p.doubledComma(); err != nil {
 				return nil, nil, err
 			}
+			if err := keywordAsName(tok, "a binding"); err != nil {
+				return nil, nil, err
+			}
 			return nil, nil, errorAt(tok.Line, tok.Col, "unexpected %s in case pattern", tokenShown(tok))
 		}
 	} else {
@@ -5807,6 +5962,9 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 			if err := p.doubledComma(); err != nil {
 				return nil, err
 			}
+			if err := keywordAsName(p.peek(), "a field"); err != nil {
+				return nil, err
+			}
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected field name in struct literal")
 		}
 		fieldTok := p.peek()
@@ -6043,6 +6201,11 @@ func (p *Parser) parseGoSelectorBinding() (string, string, token.Token, token.To
 
 func (p *Parser) parseFunctionHeaderName(tok token.Token, keyword string, allowImplQualifier bool) (string, token.Token, ast.TypeExpr, bool, error) {
 	if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.TYPE_IDENT) {
+		if !p.atEnd() && p.peekAt(1).Type == token.LPAREN {
+			if err := keywordAsName(p.peek(), "a function"); err != nil {
+				return "", token.Token{}, nil, false, err
+			}
+		}
 		return "", token.Token{}, nil, false, errorAt(tok.Line, tok.Col, "expected function name after '%s'", keyword)
 	}
 	segments := []token.Token{p.peek()}
@@ -6127,6 +6290,11 @@ func (p *Parser) parseFuncParamList(tok token.Token) ([]ast.Param, []ast.Trivia,
 // function type when what follows that type ends a parameter (`,`, `->` or
 // `=`), and otherwise the parenthesized type alone.
 func (p *Parser) parseParamPattern(lambda bool) (ast.Param, error) {
+	if tok := p.peek(); tok.Type != token.SELF {
+		if err := keywordAsName(tok, "a parameter"); err != nil {
+			return ast.Param{}, err
+		}
+	}
 	pat, err := p.parseSinglePattern()
 	if err != nil {
 		return ast.Param{}, err
@@ -7142,6 +7310,9 @@ func (p *Parser) parseEnumVariant(enumName string) (v ast.EnumVariant, err error
 				}
 			}
 			if p.peek().Type != token.IDENT {
+				if err := keywordAsName(p.peek(), "a field"); err != nil {
+					return ast.EnumVariant{}, err
+				}
 				return ast.EnumVariant{}, errorAt(p.peek().Line, p.peek().Col, "expected field name in struct variant")
 			}
 			fieldTok := p.peek()
@@ -7998,6 +8169,11 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 		case tk.Type == token.IDENT:
 			// Bare field — parsed below.
 		default:
+			if p.peekAt(1).Type == token.COLON {
+				if err := keywordAsName(tk, "a field"); err != nil {
+					return nil, err
+				}
+			}
 			return nil, errorAt(tk.Line, tk.Col, "expected field name in struct `%s` body, got %s", name, tokenShown(tk))
 		}
 
@@ -8176,6 +8352,11 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 				return nil, err
 			}
 			start, at := p.pos, p.peek()
+			if p.peekAt(1).Type == token.COLON {
+				if err := keywordAsName(at, "a field"); err != nil {
+					return nil, err
+				}
+			}
 			errs := len(p.errors)
 			val, err := p.parseExpr(1)
 			if err != nil {
@@ -8706,6 +8887,9 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		if err := p.doubledComma(); err != nil {
 			return nil, err
 		}
+		if err := keywordAsName(tok, "a binding"); err != nil {
+			return nil, err
+		}
 		return nil, errorAt(tok.Line, tok.Col, "unexpected %s in pattern", tokenShown(tok))
 	}
 }
@@ -9144,6 +9328,9 @@ func (p *Parser) parseStructPatternBody(typeName ast.TypeExpr, line, col int) (a
 		}
 		if p.peek().Type != token.IDENT {
 			if err := p.doubledComma(); err != nil {
+				return nil, err
+			}
+			if err := keywordAsName(p.peek(), "a field"); err != nil {
 				return nil, err
 			}
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected field name in struct pattern")

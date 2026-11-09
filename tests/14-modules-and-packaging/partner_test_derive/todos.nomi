@@ -1,0 +1,33 @@
+//# Todos sent as JSON. The wire type only encodes here; todos_test.nomi,
+//# the partner test file, derives what its tests need to decode and
+//# compare it, and those impls exist only when the tests are compiled.
+
+import {
+    std::json.{FromJson, Json, ToJson}
+    std::uuid.Uuid
+}
+
+struct Tag {
+    name: String
+}
+
+derive ToJson for Tag
+derive FromJson for Tag
+
+struct TodoJson {
+    id: Uuid
+    title: String
+    tags: List<Tag>
+    note: Maybe<String>
+}
+
+derive ToJson for TodoJson
+
+pub fn encoded(title: String) -> String {
+    Json.encode_as(TodoJson{
+        id: Uuid.nil(),
+        title,
+        tags: [Tag{name: "home"}],
+        note: None,
+    })
+}

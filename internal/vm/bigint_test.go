@@ -1,12 +1,13 @@
 package vm_test
 
-// An Int is exact at any size (docs/implementation-notes.md, "Int: exact at
-// any size"). The VM keeps a value that fits int64 in a word register and a
-// larger one beside its word, in the word bank's shadow. These programs move
-// big values through every path that carries a word: constants, moves,
-// arithmetic on each side of the boundary, comparison and equality, calls
-// and tail calls, returns, struct fields, enum payloads, distinct types,
-// collections, patterns and the 64-bit wrapping operators.
+// An Int is exact at any size (rt package doc, "Int: exact at any size";
+// internal/vm package doc, "Big Ints in the word bank"). The VM keeps a
+// value that fits int64 in a word register and a larger one beside its
+// word, in the word bank's shadow. These programs move big values through
+// every path that carries a word: constants, moves, arithmetic on each side
+// of the boundary, comparison and equality, calls and tail calls, returns,
+// struct fields, enum payloads, distinct types, collections, patterns and
+// the 64-bit wrapping operators.
 
 import (
 	"strings"

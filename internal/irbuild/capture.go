@@ -109,5 +109,14 @@ func (g *gen) holeRead(n ast.Node) ast.Node {
 		line, col := nodePos(n)
 		return &ast.Ident{Name: name, Line: line, Col: col}
 	}
-	return n
+	return g.asTodo(n)
+}
+
+// asTodo is the placeholder n is when n is a bare `todo` that names no
+// binding, and n otherwise (analysis.FileAnalysis.AsTodo).
+func (g *gen) asTodo(n ast.Node) ast.Node {
+	if g.fa == nil {
+		return n
+	}
+	return g.srcFA().AsTodo(n)
 }

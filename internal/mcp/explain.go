@@ -19,6 +19,19 @@ var explanations = map[string]string{
 	"unreleased-resource": "A resource the function acquires (a file reader or writer, a spawned process, a connection, " +
 		"or a value of a type implementing `Release`) is never released and not handed on. Write `defer` with its release " +
 		"right after the binding (`defer Reader.close_quietly(r)`), or return it or store it where its owner releases it.",
+	"released-value-escapes": "A `defer` releases a resource when its block ends, but the value (or a value holding it) " +
+		"leaves that block: as the block's value, in a `return`, inside a struct or constructor, or captured by a lambda. " +
+		"It would be used after it is closed. Defer the release where the value is finally used, or hand it on without deferring it here.",
+	"leaks-on-error": "A function acquires a resource and hands it on (returns it, or stores it in what it returns), but a `?` " +
+		"or an error `return` between the acquisition and the hand-on leaves without releasing it. Write `defer on error` " +
+		"with its release right after the binding (`defer on error sql.close_quietly(conn)`), which runs only if the function fails, " +
+		"or move an existing `defer` up to right after the binding.",
+	"leaks-on-return": "A function acquires a resource with no `defer` that releases it, and hands it on along some paths " +
+		"(returns it, or stores it in what it returns), but this path returns normally without handing it on or releasing it. " +
+		"A `defer on error` does not run here, since the return is not a failure. Call the release on this path before the return " +
+		"(`Reader.close_quietly(r)` before `return Ok(None)`). A plain `defer` would release the value on the paths that hand it on too.",
+	"defer-on-error-cannot-fail": "A `defer on error` runs only when its function fails through a `?` or a `return` of `Err` or `None`, " +
+		"and this function returns a type that carries no failure, so only a trap would run it. Write `defer`.",
 	"discarded-resource": "A call acquires a resource and the value is dropped (bound to `_` or left unused), so nothing " +
 		"can release it. Bind it to a name and `defer` its release, or do not acquire it.",
 	"uncommitted-resource": "A writer's discard is deferred, and a path returns normally without committing it, so the " +

@@ -1,26 +1,3 @@
-// Package vmhost is Nomi's embedding API: a Go program loads a Nomi program,
-// runs it, calls its functions and runs its tests on the VM.
-//
-//	p, err := vmhost.Load("policy.nomi", vmhost.WithHosts(myHosts))
-//	quote, err := p.Call(ctx, "price", vmhost.Fields{"weight": 12.5, "distance": 800})
-//
-// Loading runs the shared front end (internal/frontend), lowers the program
-// to IR (internal/irbuild's GenerateIR) and opens the VM (internal/vm) over it.
-// `nomi run`, `nomi test`, `nomi check`, the REPL, the tour and an FFI
-// project's wrapper all run through this package.
-//
-// A program that reaches a function the VM cannot run fails with a *Blocked
-// before the program's first effect: for each body the compiler could not
-// lower, the diagnostic `nomi check` reports at its source.
-//
-// Go functions a program calls are host tables (WithHosts) of hostadapt.Func
-// values over the VM's own Values: an FFI wrapper generates one from the
-// project's `go` bindings, and an embedder writes one for the `host fn`s its
-// program declares.
-//
-// It is a public package because a generated FFI wrapper is a separate Go
-// module, and a separate module can import only the public packages of this
-// one.
 package vmhost
 
 import (

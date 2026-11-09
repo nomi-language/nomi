@@ -24,7 +24,18 @@ import (
 // the passes over the program's analyses report: the boot-only calls, the
 // application-field roots (when the program declares no application type),
 // the whole-file imports and coherence's missing impls, diagnostic for
-// diagnostic.
+// diagnostic (StoredFactsForTest).
+//
+// TestStoredReductionsMatchTheProgram (about 40 seconds) runs over the
+// incremental harness's projects and edit sequences, a project that draws
+// each reduction's diagnostic (reductionsProject), and every multi-file
+// corpus project with its entry edited, and fails when some reduction
+// reported nothing over the whole run.
+// FuzzStoredReductionsMatchTheProgram mutates and edits as
+// FuzzIncrementalMatchesFull does, and ...Sample and ...Rotating run a
+// fixed and a daily set. TestStoredFactsSupplyIgnoresModulesBuiltLater
+// holds a record's supply to the same answer whatever std modules the
+// reading process has built.
 
 // storedDiff checks p's texts and answers how the stored facts or their
 // reductions differ from the program's, or "".

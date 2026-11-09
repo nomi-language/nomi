@@ -18,7 +18,7 @@ func releaseActions(t *testing.T, s *Server, src, title string) []protocol.CodeA
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(releaseURI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(releaseURI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	res, err := s.textDocumentCodeAction(nil, &protocol.CodeActionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(releaseURI)},
 		Context: protocol.CodeActionContext{

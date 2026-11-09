@@ -365,6 +365,8 @@
   "refute" @keyword)
 (subtests_statement
   "subtests" @keyword)
+(group_subtests
+  "subtests" @keyword)
 ; Recovery fallback for list-led assertions that can be confused with
 ; `assert <list-pattern> = ...` while editing/highlighting.
 (assertion
@@ -607,6 +609,7 @@
 "where" @keyword
 "with" @keyword
 "defer" @keyword
+(on_error) @keyword
 "test" @keyword
 "assert" @keyword
 "refute" @keyword
@@ -657,6 +660,11 @@
 ; === Catch-all patterns (lowest priority — listed last for tree-sitter) ===
 
 (type_identifier) @type
+; A bare `todo` read as a value: the placeholder, unless a binding named
+; `todo` is in scope, which only the compiler knows. Its names (a parameter,
+; a field, a function) match their own patterns above first.
+((identifier) @keyword
+  (#eq? @keyword "todo"))
 (identifier) @variable
 
 ; === Operators and punctuation ===

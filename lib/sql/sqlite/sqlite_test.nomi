@@ -1,10 +1,13 @@
 import {
     std::calendar.{Date, NaiveDateTime, Time}
+    std::channels.{Channel, Receiver, Sender}
     std::duration.Duration
     std::instant.Instant
     std::json.Json
     std::sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
     std::sql_testing
+    std::tasks.Task
+    std::timer
     std::uuid.Uuid
     sqlite
 }
@@ -26,6 +29,7 @@ test "a connection says it is SQLite" {
 
 fn values_db() -> Result<Conn, sql.Error> {
     db = sqlite.memory()?
+    defer on error sql.close_quietly(db)
 
     _ = Conn.exec(
         db,
@@ -102,6 +106,7 @@ test "an expression's column has no declared type and keeps its storage class" {
 
 fn money_db() -> Result<Conn, sql.Error> {
     db = sqlite.memory()?
+    defer on error sql.close_quietly(db)
     _ = Conn.exec(db, Sql"CREATE TABLE m (id INTEGER PRIMARY KEY, amount DECIMAL(12, 2))")?
     Ok(db)
 }
@@ -208,6 +213,7 @@ test "a stored value that is not exactly a decimal of the column's scale is refu
 
 fn users_db() -> Result<Conn, sql.Error> {
     db = sqlite.memory()?
+    defer on error sql.close_quietly(db)
 
     _ = Conn.exec(
         db,
@@ -339,6 +345,7 @@ test "exec answers the rows a statement changed" {
 
 fn events_db() -> Result<Conn, sql.Error> {
     db = sqlite.memory()?
+    defer on error sql.close_quietly(db)
 
     _ = Conn.exec(
         db,
@@ -412,4 +419,63 @@ test "an Array parameter is refused, since SQLite has no arrays" {
             message: "parameter ?1 is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text",
         }
     )
+}
+
+// One task holds a transaction open until told to end it, with `outcome`;
+// meanwhile another writes and reads through the shared connection. The
+// other's statements wait for the transaction and run outside it.
+fn beside_a_transaction(
+    outcome: Result<Unit, sql.Error>,
+) -> Result<(Result<Unit, sql.Error>, Result<Int, sql.Error>, List<Int>, List<Int>), sql.Error> {
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+    opened: Channel<Unit> = Channel.buffered(1)
+    finish: Channel<Unit> = Channel.buffered(1)
+
+    (held, wrote, read) = concurrent {
+        holder = Task.spawn(fn -> {
+            sql.transaction(db, fn tx -> {
+                _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
+                _ = Sender.send(opened.sender, Unit)
+                _ = Receiver.receive(finish.receiver)
+                outcome
+            })
+        })
+
+        _ = Receiver.receive(opened.receiver)
+
+        other = Task.spawn(fn -> {
+            wrote = Conn.exec(db, Sql"INSERT INTO t VALUES (2)")
+            read = Conn.query(db, Sql"SELECT n FROM t ORDER BY n")
+            (wrote, read)
+        })
+
+        // The other task's statements are waiting by now.
+        timer.sleep(Duration.milliseconds(50))
+        _ = Sender.send(finish.sender, Unit)
+        (wrote, read) = Task.await(other)
+        (Task.await(holder), wrote, read)
+    }
+
+    seen =
+        read?
+        |> Iter.map(fn row -> Row.get<Int>(row, "n") |> Result.with_default(0))
+        |> Iter.to_list()
+
+    after =
+        Conn.query(db, Sql"SELECT n FROM t ORDER BY n")?
+        |> Iter.map(fn row -> Row.get<Int>(row, "n") |> Result.with_default(0))
+        |> Iter.to_list()
+
+    Ok((held, wrote, seen, after))
+}
+
+test "a statement from another task waits for an open transaction, then runs outside it" {
+    assert beside_a_transaction(Ok(Unit)) == Ok((Ok(Unit), Ok(1), [1, 2], [1, 2]))
+}
+
+test "a rolled-back transaction leaves another task's write standing" {
+    failed = Err(sql.Error.Database{code: "X", message: "undo"})
+    assert beside_a_transaction(failed) == Ok((failed, Ok(1), [2], [2]))
 }

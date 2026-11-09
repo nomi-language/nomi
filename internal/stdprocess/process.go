@@ -1,14 +1,3 @@
-// Package stdprocess answers std/process_host's crossings: starting a
-// program, its streams, waiting for it and killing it, either on the
-// operating system (os.go) or, inside `process_testing.run`, on the
-// recording fake the frame carries (fake.go).
-//
-// A child is started by `start` with each stream in a mode the Nomi side
-// chose: `process.output` captures stdout and stderr, `process.run` sends
-// them to the program's own output, and `process.spawn` pipes all
-// three to the caller. Nothing is run through a shell: the program is looked
-// up on PATH when its name has no separator, and its arguments are passed
-// as they are.
 package stdprocess
 
 import (

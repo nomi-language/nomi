@@ -33,9 +33,12 @@ import (
 // directories, nomi.toml and `go` bindings resolve as they do on disk.
 // Nothing runs.
 //
-// FuzzFrontEndAcceptsSoItLowers mutates the seeds byte by byte.
-// TestFrontEndAcceptsSoItLowers checks every seed and every generated program
-// (lowering_gen_test.go) once, under plain `go test`.
+// FuzzFrontEndAcceptsSoItLowers mutates the seeds and the generated programs
+// (lowering_gen_test.go) byte by byte. Under plain `go test`,
+// TestFrontEndAcceptsSoItLowers (lowering_gaps_test.go) checks every
+// generated program and every program a corpus file embeds for std/compiler
+// to run, once; the corpus files, tour blocks and spec programs are held to
+// the rule where they run.
 
 // lowerOutcome is what checking one input found.
 type lowerOutcome struct {
@@ -627,17 +630,33 @@ func fuzzing() bool {
 	return f != nil && f.Value.String() != ""
 }
 
-// FuzzFrontEndAcceptsSoItLowers fails for an input the front end accepts
-// and the IR builder declines, one whose expressions the checker leaves
-// without a resolved type (checker_gaps_test.go), or one that panics the
-// compiler. An input whose every decline, untyped expression or panic
-// matches a known gap (knownLoweringGaps, knownCheckerGaps) is skipped, so a
-// run reports new causes. Run it with
+// FuzzFrontEndAcceptsSoItLowers mutates the corpus files, tour blocks, spec
+// programs and generated programs (lowering_gen_test.go), checks each as
+// `nomi check` does without running it, and fails for an input the front
+// end accepts and the IR builder declines, one whose expressions the
+// checker leaves without a resolved type (checker_gaps_test.go), or one
+// that panics the compiler. An input whose every decline, untyped
+// expression or panic matches a known gap (knownLoweringGaps,
+// knownCheckerGaps) is skipped, so a run reports new causes. Run it with
 //
 //	go test ./vmhost -run '^$' -fuzz '^FuzzFrontEndAcceptsSoItLowers$' -fuzztime 5m
 //
 // A failing input is written under vmhost/testdata/fuzz/; plain `go test`
-// replays everything there, so triage an input before committing it.
+// replays everything there, so triage an input before committing it. Under
+// plain `go test`, TestFrontEndAcceptsSoItLowers checks the generated
+// programs and the programs corpus files embed, and TestKnownLoweringGaps
+// checks each entry of knownLoweringGaps (lowering_gaps_test.go). The
+// generator avoids the pinned shapes, so a gap and its avoidance are
+// removed together.
+//
+// A test about how a blocked program is reported (`nomi run`, `nomi test`,
+// `nomi check`, the REPL, exports, the language server) blocks on a planted
+// decline: a call to `planted_decline`, which irbuild.PlantDeclineForTest
+// makes the builder decline, never on a real gap, which a fix would close.
+// A test of a stdlib module's cases plants the decline on a call std itself
+// makes (cmd/nomi's withPlantedDeclineOf, `nanos_in_range` in
+// std/duration.nomi), in a child that keeps no std bundle, so std is
+// lowered with the plant in place.
 func FuzzFrontEndAcceptsSoItLowers(f *testing.F) {
 	f.Setenv("NOMI_DEBUG_LOWERING", "1")
 	if fuzzing() {

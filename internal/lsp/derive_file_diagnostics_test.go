@@ -43,7 +43,7 @@ derive Equatable for Holder
 			t.Fatalf("%s: no analysis", uri)
 		}
 		var out []protocol.Diagnostic
-		for _, d := range buildPublishedDiagnostics(snap.URI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors) {
+		for _, d := range buildPublishedDiagnostics(snap.URI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors) {
 			if strings.Contains(d.Message, "no impl of `Equatable` for `Opaque`") {
 				out = append(out, d)
 			}

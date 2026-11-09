@@ -975,6 +975,23 @@ func reduceBoot(files map[string]*FileFacts, keys []string, r *Reductions) {
 		}
 		return out
 	}
+	// entryBoot is the program's BootFunctions over facts: a top-level
+	// `fn boot` of a file that defines `fn main`.
+	entryBoot := func(t BootTarget) bool {
+		if t.Std || t.Fn.Name != "boot" {
+			return false
+		}
+		f := files[t.Fn.File]
+		if f == nil {
+			return false
+		}
+		for _, v := range f.Boot.Visits {
+			if v.Main && !v.Test && v.Name == "main" {
+				return true
+			}
+		}
+		return false
+	}
 	for _, key := range keys {
 		var errs []TypeError
 		reported := map[Pos]bool{}
@@ -995,7 +1012,9 @@ func reduceBoot(files map[string]*FileFacts, keys []string, r *Reductions) {
 					"something boot calls")
 				return
 			}
-			if !bootOnly(c.Target) {
+			if !bootOnly(c.Target) || entryBoot(c.Target) {
+				// A test's call of an entry boot runs it as boot, as in
+				// bootReport.reportCall.
 				return
 			}
 			add(c.Line, c.Col, fmt.Sprintf("%s, so it can only be called while `boot` builds "+

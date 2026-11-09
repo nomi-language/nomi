@@ -22,11 +22,11 @@ import (
 // each burst of typing (checkLoweringAnalyzed). A whole lowering keeps
 // itself per file (irbuild.Result.Keep), with each file's text and
 // interface, by the document's path. The next lowering of the document,
-// when the program holds the same files and at most maxRelowered of them
-// changed text, each keeping its interface's hash, lowers just those files
-// on their own from the analysis and links them with the kept objects of
-// the others (irbuild.LowerFile), as `nomi check` relinks a kept program
-// after a body edit (filerecord.go). The analysis already checked the
+// when the program holds the same files and at most maxAnalyzedRelowered
+// of them changed text, lowers those files on their own from the analysis,
+// with the files their interface or impl changes reach (importersToo), and
+// links them with the kept objects of the others (irbuild.LowerFileAmong),
+// as `nomi check` relinks a kept program after an edit (filerecord.go). The analysis already checked the
 // whole program, so the program's reductions over bodies are in its
 // diagnostics, and a program with any diagnostic is not lowered from its
 // analysis at all.

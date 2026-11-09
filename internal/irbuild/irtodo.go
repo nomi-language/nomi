@@ -61,10 +61,10 @@ func (bl *irScalarBuilder) todoCheckedKind(t ast.Node) kind {
 
 // isTrapExpr reports whether n, through parentheses, is a `todo` or an
 // `unreachable`: an expression that always traps.
-func isTrapExpr(n ast.Node) bool {
-	switch t := n.(type) {
+func (g *gen) isTrapExpr(n ast.Node) bool {
+	switch t := g.asTodo(n).(type) {
 	case *ast.GroupedExpr:
-		return isTrapExpr(t.Expr)
+		return g.isTrapExpr(t.Expr)
 	case *ast.Todo, *ast.Unreachable:
 		return true
 	}

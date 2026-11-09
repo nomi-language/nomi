@@ -27,7 +27,7 @@ func TestBuildPublishedDiagnosticsReportsTodoWarnings(t *testing.T) {
 	if len(parseErrs) != 0 {
 		t.Fatalf("unexpected parse errors: %+v", parseErrs)
 	}
-	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, nil, nil)
+	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, nil, nil, nil)
 	if len(diags) != 2 {
 		t.Fatalf("expected two todo warnings, got %d: %+v", len(diags), diags)
 	}
@@ -68,8 +68,25 @@ func TestTodoDocumentHasNoErrors(t *testing.T) {
 	if len(snap.Errors) > 0 || len(snap.Analysis.TypeErrors) > 0 {
 		t.Fatalf("errors: %v %v", snap.Errors, snap.Analysis.TypeErrors)
 	}
-	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	if len(diags) != 1 || diags[0].Source == nil || *diags[0].Source != "nomi-todo" {
 		t.Fatalf("diagnostics %+v, want the one todo warning", diags)
+	}
+}
+
+// A `todo` that reads a binding named `todo` is no placeholder: the server
+// publishes no warning for it, and only the placeholder outside the
+// binding's scope gets one.
+func TestTodoNamingABindingIsNoPlaceholder(t *testing.T) {
+	s := NewServer()
+	uri := "file:///todo/main.nomi"
+	s.docs.Open(uri, "fn apply(todo: Int) -> Int {\n    todo + 1\n}\n\nfn later() -> Int {\n    todo\n}\n")
+	snap := s.docs.Snapshot(uri)
+	if len(snap.Errors) > 0 || len(snap.Analysis.TypeErrors) > 0 {
+		t.Fatalf("errors: %v %v", snap.Errors, snap.Analysis.TypeErrors)
+	}
+	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
+	if len(diags) != 1 || diags[0].Source == nil || *diags[0].Source != "nomi-todo" || diags[0].Range.Start.Line != 5 {
+		t.Fatalf("diagnostics %+v, want one todo warning, on line 6", diags)
 	}
 }

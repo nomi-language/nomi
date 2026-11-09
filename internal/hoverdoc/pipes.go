@@ -115,7 +115,7 @@ func (s *shapeSearch) pipeType(t analysis.Type) string {
 // describeStage is the stage of pipe b, which takes a value of type in.
 func (s *shapeSearch) describeStage(b *ast.Binary, in string) pipeStage {
 	out := s.pipeType(s.fa.ExprTypes[b])
-	switch r := b.Right.(type) {
+	switch r := s.fa.AsTodo(b.Right).(type) {
 	case *ast.Call:
 		return s.callStage(r, in, out)
 	case *ast.Unwrap:

@@ -55,6 +55,7 @@ pub struct App {
 pub fn boot() -> Result<App, String> {
     url = postgres.scratch() |> Result.map_err(fn e -> "${e}")?
     db = postgres.pool(url)
+    defer on error sql.close_quietly(db)
     create_tables(db) |> Result.map_err(fn e -> "${e}")?
     queue = pgjobs.queue(db, url) |> Result.map_err(fn e -> "${e}")?
 

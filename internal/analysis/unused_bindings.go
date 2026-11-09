@@ -72,7 +72,7 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 		if used[sym] || onceShadows[Pos{Line: sym.Pos.Line, Col: sym.Pos.Col}] {
 			continue
 		}
-		if kind == "parameter" && unfinishedBody(owner) {
+		if kind == "parameter" && unfinishedBody(fa, owner) {
 			// A body with a `todo` in it is not written yet, so a parameter
 			// it does not read yet is expected, not a mistake.
 			continue
@@ -82,7 +82,7 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 			// (rejectIsBindings): the test binds nothing.
 			continue
 		}
-		if sym.PatternBody != nil && containsTodo(sym.PatternBody) {
+		if sym.PatternBody != nil && containsTodo(fa, sym.PatternBody) {
 			// The same for an arm: `.Rect{w, h} -> todo`, as the editor's
 			// fill-arms action writes it.
 			continue
@@ -145,14 +145,14 @@ func isUnusedParameterCandidate(node ast.Node) bool {
 
 // unfinishedBody reports whether the function or lambda node declares has a
 // `todo` anywhere in its body.
-func unfinishedBody(node ast.Node) bool {
+func unfinishedBody(fa *FileAnalysis, node ast.Node) bool {
 	switch n := node.(type) {
 	case *ast.FuncDef:
-		return n.Body != nil && containsTodo(n.Body)
+		return n.Body != nil && containsTodo(fa, n.Body)
 	case *ast.Lambda:
-		return n.Body != nil && containsTodo(n.Body)
+		return n.Body != nil && containsTodo(fa, n.Body)
 	case *ast.InterfaceMethod:
-		return n.Body != nil && containsTodo(n.Body)
+		return n.Body != nil && containsTodo(fa, n.Body)
 	}
 	return false
 }

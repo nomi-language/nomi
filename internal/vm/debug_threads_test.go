@@ -1,6 +1,7 @@
 package vm_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -135,7 +136,26 @@ fn main() {
 }
 `
 
+// maybeMapLine is the line of `pub fn map` in std's maybe.nomi, read from the
+// embedded source so an edit above it in std does not move these tests.
+func maybeMapLine(t *testing.T) int {
+	t.Helper()
+	src, ok := std.ReadFile("maybe")
+	if !ok {
+		t.Fatal("std has no maybe.nomi")
+	}
+	for i, line := range strings.Split(string(src), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "pub fn map<") {
+			return i + 1
+		}
+	}
+	t.Fatal("maybe.nomi declares no `pub fn map`")
+	return 0
+}
+
 func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
+	// Maybe.map's body is a case whose Some arm calls f on the second line.
+	call := "maybe.Maybe.map<Int, Int>:" + strconv.Itoa(maybeMapLine(t)+2)
 	s := debugProgram(t, stdStepSrc)
 	s.d.SetSkipFiles(std.IsSourcePath)
 	s.breakAt(5)
@@ -144,10 +164,10 @@ func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
 	s.at(st, vm.StopBreakpoint, "main:5", "m: Maybe<Int> = Some(2)")
 	s.d.StepIn(st.Thread)
 	st = s.stop()
-	s.at(st, vm.StopStep, "<lambda>:6 maybe.Maybe.map<Int, Int>:69 main:5", "v: Int = 2")
+	s.at(st, vm.StopStep, "<lambda>:6 "+call+" main:5", "v: Int = 2")
 	s.d.StepOver(st.Thread)
 	st = s.stop()
-	s.at(st, vm.StopStep, "<lambda>:7 maybe.Maybe.map<Int, Int>:69 main:5", "v: Int = 2, w: Int = 6")
+	s.at(st, vm.StopStep, "<lambda>:7 "+call+" main:5", "v: Int = 2, w: Int = 6")
 	s.d.StepOver(st.Thread)
 	st = s.stop()
 	s.at(st, vm.StopStep, "main:9", "m: Maybe<Int> = Some(2), r: Maybe<Int> = Some(6)")
@@ -158,6 +178,7 @@ func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
 }
 
 func TestDebug_StepInEntersTheStandardLibraryWhenNothingIsSkipped(t *testing.T) {
+	first := "maybe.Maybe.map<Int, Int>:" + strconv.Itoa(maybeMapLine(t)+1)
 	s := debugProgram(t, stdStepSrc)
 	s.breakAt(5)
 	s.run()
@@ -165,7 +186,7 @@ func TestDebug_StepInEntersTheStandardLibraryWhenNothingIsSkipped(t *testing.T) 
 	s.d.StepIn(st.Thread)
 	st = s.stop()
 	frames, stack := s.stack(st.Thread)
-	if stack != "maybe.Maybe.map<Int, Int>:68 main:5" || !std.IsSourcePath(frames[0].Pos.File()) {
+	if stack != first+" main:5" || !std.IsSourcePath(frames[0].Pos.File()) {
 		t.Fatalf("step in from main: %s in %s", stack, frames[0].Pos.File())
 	}
 	s.d.Continue()

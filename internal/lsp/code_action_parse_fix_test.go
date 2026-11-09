@@ -19,7 +19,7 @@ func parseFixActions(t *testing.T, s *Server, src, title string) []protocol.Code
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(parseFixURI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(parseFixURI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	res, err := s.textDocumentCodeAction(nil, &protocol.CodeActionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(parseFixURI)},
 		Context: protocol.CodeActionContext{
@@ -243,7 +243,7 @@ pub fn f(xs: List<Int>) {
 			}
 			s.docs.Open(parseFixURI, got)
 			snap := s.docs.Snapshot(parseFixURI)
-			if diags := buildPublishedDiagnostics(parseFixURI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors); len(diags) != 0 {
+			if diags := buildPublishedDiagnostics(parseFixURI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors); len(diags) != 0 {
 				t.Errorf("fixed program has diagnostics: %v", diags)
 			}
 			formatted, err := format.Format(got)

@@ -21,7 +21,7 @@ import (
 //     shared stdlib's;
 //   - of every other file, the impls F can see: an impl whose interface,
 //     receiver and type arguments are all declared in F's closure, the
-//     stdlib or F (the relevant impl set, docs/design "Impls"). Such a
+//     stdlib or F (the relevant impl set). Such a
 //     file is given as its imports and those impl blocks alone.
 //
 // No other file of the program's module is read. A file of another module
@@ -921,7 +921,12 @@ func (pi *ProgramInterfaces) buildAll(key string, closure map[string]bool, relev
 	}
 
 	if key == sp.Entry {
-		prog, frontEnd := sp.PrepareEntry(pi.source(key))
+		entry, partnerErrs := LowerPartnerDerives(pi.source(key), key, func(k string) ([]ast.Node, bool) {
+			nodes, err := loader(sp.Root, strings.Split(k, "/"))
+			return nodes, err == nil
+		})
+		prog, frontEnd := sp.PrepareEntry(entry)
+		frontEnd = append(partnerErrs, frontEnd...)
 		fa, siblings, siblingNodes := buildProjectWithCache(prog, sp.Primitives, sp.Modules, sp.StdlibFAs, sp.Root, sp.EntryPath, key, sp.PlaceEntry, loader, sp.VirtualManifest, in)
 		reuse.carryOnces(fa)
 		files, fileNodes := projectFilesOf(siblings, siblingNodes, key)

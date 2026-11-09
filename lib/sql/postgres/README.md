@@ -59,8 +59,14 @@ runs, with the `go` on `PATH` or the Go toolchain `nomi` downloads.
   commits or rolls back; on a transaction it is a savepoint, which
   `commit` releases and `rollback` rolls back to. A statement must run on
   the innermost open transaction or savepoint, and the driver refuses one
-  sent through an outer `Conn`. On a `connect` connection, a statement
-  sent through the connection while a transaction is open is refused too.
+  sent through an outer transaction.
+- One `Conn` may be shared by every task of a program. On a pool, a
+  statement from another task while a transaction is open runs on another
+  connection. On a `connect` connection, it waits for the transaction to
+  end and then runs outside it, for as long as the waiting task's context
+  allows (then `Error.Timeout`); inside the transaction, use the `Conn` its
+  `begin` returned, since a statement through the connection would wait
+  for its own transaction.
 - Parameters are bound as `$1`, `$2`, ..., never spliced into the SQL.
 - Every statement runs under the calling task's context. A
   `with App.context = Context.with_timeout(...)` deadline, or a cancelled

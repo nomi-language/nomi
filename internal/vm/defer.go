@@ -10,12 +10,16 @@ import (
 // pendingDefer is one registered deferred call with the operands read at its
 // registration, and the runtime frame in effect then, so an app field replaced
 // after the `defer` statement is not what the deferred call reads.
+//
+// onError marks an error-only registration, `defer on error`, which runs
+// only on an error exit (dropErrorDefers).
 type pendingDefer struct {
 	id      int
 	call    *ir.Call
 	args    []any
 	fn      any
 	runtime *rt.Frame
+	onError bool
 }
 
 // deferInstr registers a deferred call. Its operands are read now, at the
@@ -25,11 +29,39 @@ func deferInstr(fr *frame, n *ir.Defer) error {
 	if err != nil {
 		return err
 	}
-	fr.deferred = append(fr.deferred, pendingDefer{id: n.ID(), call: n.Call(), args: args, fn: fn, runtime: fr.runtime})
+	fr.deferred = append(fr.deferred, pendingDefer{id: n.ID(), call: n.Call(), args: args, fn: fn, runtime: fr.runtime, onError: n.OnError()})
 	return nil
 }
 
-// runDeferInstr runs the most recent registration at its scope's normal exit.
+// dropErrorDefers removes the error-only registrations of an activation
+// returning normally with result, unless result is a failure: an `Err`, or
+// a `None`. A callback's `break` or `continue` is no error exit. A fault, or a panic unwinding the activation, is an error exit
+// and keeps them.
+func dropErrorDefers(fr *frame, result func() any) {
+	n := 0
+	for _, d := range fr.deferred {
+		if d.onError {
+			n++
+		}
+	}
+	if n == 0 {
+		return
+	}
+	if carries, isShape := shapeCarries(result()); isShape && !carries {
+		return
+	}
+	kept := fr.deferred[:0]
+	for _, d := range fr.deferred {
+		if !d.onError {
+			kept = append(kept, d)
+		}
+	}
+	clear(fr.deferred[len(kept):])
+	fr.deferred = kept
+}
+
+// runDeferInstr runs the most recent registration at its scope's normal exit,
+// or drops it, unrun, when it is error-only.
 // A scope's RunDefers are in reverse registration order, so that registration
 // is the one the instruction names. A failing cleanup reports through
 // rt.DeferredCleanupError, and the activation's exit runs the rest.
@@ -41,6 +73,9 @@ func (m *Machine) runDeferInstr(fr *frame, n *ir.RunDefer) error {
 	}
 	d := fr.deferred[last]
 	fr.deferred = fr.deferred[:last]
+	if d.onError {
+		return nil
+	}
 	if _, err := m.invokeDeferred(fr, d); err != nil {
 		return rt.DeferredCleanupError(d.call.Pos().Line(), err)
 	}

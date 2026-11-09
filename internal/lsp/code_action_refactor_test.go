@@ -44,7 +44,7 @@ func refactorActions(t *testing.T, s *Server, src string) ([]protocol.CodeAction
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(refactorURI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(refactorURI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	for i := range diags {
 		diags[i].Code = nil
 	}

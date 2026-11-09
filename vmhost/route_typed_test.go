@@ -249,3 +249,125 @@ func TestRouteLiteral_WrongPickNamesTheOtherFunction(t *testing.T) {
 		}
 	}
 }
+
+// A lambda handler whose body only answers Ok(...), or only Err(...), names
+// one side of its Result and nothing the other. Against the handler's
+// ToResponse result the open side is Infallible (spec §7 *Lambdas*), so
+// `fn _, params -> Ok(page(params))` serves its page.
+func TestRouteHandlers_OkOnlyLambdaServes(t *testing.T) {
+	const src = `import {
+    std::http.{Body, Method, Request, Response, Route, Router, Status}
+    std::http_testing
+    std::io
+}
+
+fn page(params: #{id: Int}) -> Response {
+    Response{body: Body.Text("edit ${params.id}")}
+}
+
+// A named handler declares its result, so it names the error type itself.
+fn named(_: Request) -> Result<Response, Infallible> {
+    Ok(Response{body: Body.Text("named")})
+}
+
+fn main() {
+    admin_post_edit: Route<#{id: Int}> = "POST /admin/posts/{id}/edit"
+    router = Router.new([
+        Route.to_with(admin_post_edit, fn _request, params -> Ok(page(params))),
+        Route.to("GET /home", fn _ -> Ok(Response{body: Body.Text("home")})),
+        Route.to("GET /gone", fn _ -> Err(Response.error(Status.not_found, "gone"))),
+        Route.to("GET /named", named),
+    ])!
+    io.print(Response.text(Router.serve(router, http_testing.request(Method.Post, "/admin/posts/7/edit"))))
+    io.print(Response.text(Router.serve(router, http_testing.request(Method.Get, "/home"))))
+    io.print(Router.serve(router, http_testing.request(Method.Get, "/gone")).status)
+    io.print(Response.text(Router.serve(router, http_testing.request(Method.Get, "/named"))))
+}
+`
+	var out strings.Builder
+	p, err := LoadSource("main", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	if want := "Ok(edit 7)\nOk(home)\n404 Not Found\nOk(named)\n"; out.String() != want {
+		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
+// A route literal written as an argument beside a handler that names its
+// parameters takes them from the handler: the literal, untagged or
+// tagged, passed or piped, is checked as `Route<#{id: Int}>` and the
+// request's segment is parsed into an Int. A lambda that leaves the
+// parameters to the call still gets a String per wildcard.
+func TestRouteLiteral_ArgumentTakesTheHandlersParameters(t *testing.T) {
+	const src = `import {
+    std::http.{Body, Method, Request, Response, Route, Router}
+    std::http_testing
+    std::io
+}
+
+fn update(_: Request, item: #{id: Int}) -> Response {
+    Response{body: Body.Text("todo ${item.id + 1}")}
+}
+
+fn main() {
+    router = Router.new([
+        Route.to_with("PATCH /todos/{id}", update),
+        Route.to_with(Route` + "`GET /todos/{id}`" + `, update),
+        "PUT /todos/{id}" |> Route.to_with(update),
+        Route.to_with("GET /names/{id}", fn _, p -> Response{body: Body.Text(p.id + "!")}),
+        Route.to_with("GET /n/{id}", fn _: Request, p: #{id: Int} -> Response{body: Body.Text("${p.id * 2}")}),
+    ])!
+
+    serve = fn method: Method, target: String -> Router.serve(router, http_testing.request(method, target))
+    io.print(Response.text(serve(Method.Patch, "/todos/41")))
+    io.print(Response.text(serve(Method.Get, "/todos/1")))
+    io.print(Response.text(serve(Method.Put, "/todos/9")))
+    io.print(serve(Method.Get, "/todos/x").status)
+    io.print(Response.text(serve(Method.Get, "/names/x")))
+    io.print(Response.text(serve(Method.Get, "/n/21")))
+}
+`
+	var out strings.Builder
+	p, err := LoadSource("main", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	want := "Ok(todo 42)\nOk(todo 2)\nOk(todo 10)\n404 Not Found\nOk(x!)\nOk(42)\n"
+	if out.String() != want {
+		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
+// A route literal whose wildcards are not the fields of the handler's
+// parameters is an error at the literal, untagged or tagged, naming the
+// wildcard the fields lack, at the wildcard.
+func TestRouteLiteral_ArgumentRefusesAHandlerOfOtherFields(t *testing.T) {
+	for _, c := range []struct {
+		arg, want string
+		col       int
+	}{
+		{`"PATCH /todos/{name}"`, "`Route` literal \"PATCH /todos/{name}\" is invalid: the pattern has `{name}`, but `#{id: Int}` has no field `name`", 37},
+		{"Route`PATCH /todos/{name}`", "typed literal Route`PATCH /todos/{name}` is invalid: the pattern has `{name}`, but `#{id: Int}` has no field `name`", 42},
+	} {
+		src := "import std::http.{Body, Request, Response, Route}\n\n" +
+			"fn update(_: Request, item: #{id: Int}) -> Response {\n    Response{body: Body.Text(\"${item.id}\")}\n}\n\n" +
+			"fn main() {\n    _ = Route.to_with(" + c.arg + ", update)\n}\n"
+		ds := literalDiagnostics(t, src)
+		if len(ds) != 1 {
+			t.Fatalf("%s: %d diagnostics, want 1: %v", c.arg, len(ds), ds)
+		}
+		if ds[0].Message != c.want {
+			t.Errorf("%s:\n got %q\nwant %q", c.arg, ds[0].Message, c.want)
+		}
+		if ds[0].Line != 8 || ds[0].Col != c.col {
+			t.Errorf("%s: at %d:%d, want 8:%d", c.arg, ds[0].Line, ds[0].Col, c.col)
+		}
+	}
+}

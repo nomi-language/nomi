@@ -703,7 +703,9 @@ func (d *decoder) instr(r *rbuf) Instr {
 		return &Concat{pos: d.pos(r), dst: r.temp(), parts: d.temps(r)}
 	case tagDefer:
 		n := &Defer{pos: d.pos(r), id: int(r.sv())}
-		if r.byte1() != 0 {
+		flags := r.byte1()
+		n.onError = flags&2 != 0
+		if flags&1 != 0 {
 			n.call = d.call(r)
 		}
 		return n

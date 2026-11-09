@@ -21,7 +21,8 @@ package vmhost
 //   - the files checked again are the changed and added ones, those that
 //     import a file whose interface changed, and those that can see an
 //     impl that came, went or changed (the relevant impl set); an edit that
-//     reaches a quarter of the program is a miss;
+//     reaches more than maxRelowered files and a quarter of the program is
+//     a miss;
 //   - each is checked against the interfaces of the files it reads
 //     (analysis.NewStoredInterfaces), with no diagnostic;
 //   - the program's reductions over bodies (boot-only calls,

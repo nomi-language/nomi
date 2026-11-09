@@ -56,6 +56,12 @@
 02-testing/fs_disk_test.nomi:made_and_removed	ran
 02-testing/fs_sandbox_test.nomi:prepend_header	ran
 02-testing/fs_sandbox_test.nomi:sort_file	ran
+02-testing/group_subtests_test.nomi:Config.inspect	ran
+02-testing/group_subtests_test.nomi:boot	ran
+02-testing/group_subtests_test.nomi:boot failure	ran
+02-testing/group_subtests_test.nomi:boot startup	ran
+02-testing/group_subtests_test.nomi:describe	ran
+02-testing/group_subtests_test.nomi:main	ran
 02-testing/io_capture_test.nomi:main	ran
 02-testing/io_capture_test.nomi:main failure	ran
 02-testing/io_capture_test.nomi:read_words	ran
@@ -97,6 +103,7 @@
 03-tooling-and-diagnostics/formatting_test.nomi:control_flow	ran
 03-tooling-and-diagnostics/formatting_test.nomi:greet	ran
 03-tooling-and-diagnostics/formatting_test.nomi:greet default 2	ran
+03-tooling-and-diagnostics/formatting_test.nomi:lambda_forms	ran
 03-tooling-and-diagnostics/formatting_test.nomi:noop	ran
 03-tooling-and-diagnostics/formatting_test.nomi:pipe_chain	ran
 03-tooling-and-diagnostics/formatting_test.nomi:process	ran
@@ -1658,6 +1665,15 @@
 14-modules-and-packaging/module_qualified_literals/shapes.nomi:Shape.inspect	ran
 14-modules-and-packaging/module_qualified_literals/shapes.nomi:holder_int	ran
 14-modules-and-packaging/module_qualified_literals/shapes.nomi:ring_radius	ran
+14-modules-and-packaging/partner_test_derive/todos.nomi:Tag.from_json	ran
+14-modules-and-packaging/partner_test_derive/todos.nomi:Tag.inspect	ran
+14-modules-and-packaging/partner_test_derive/todos.nomi:Tag.to_json	ran
+14-modules-and-packaging/partner_test_derive/todos.nomi:TodoJson.inspect	ran
+14-modules-and-packaging/partner_test_derive/todos.nomi:TodoJson.to_json	ran
+14-modules-and-packaging/partner_test_derive/todos.nomi:encoded	ran
+14-modules-and-packaging/partner_test_derive/todos_test.nomi:TodoJson.equal	ran
+14-modules-and-packaging/partner_test_derive/todos_test.nomi:TodoJson.from_json	ran
+14-modules-and-packaging/partner_test_derive/todos_test.nomi:`!` failure Json.Error	ran
 14-modules-and-packaging/partner_test_file/shapes.nomi:Area.inspect	ran
 14-modules-and-packaging/partner_test_file/shapes.nomi:Kind.inspect	ran
 14-modules-and-packaging/partner_test_file/shapes.nomi:Shape.inspect	ran
@@ -1693,6 +1709,12 @@
 15-app-and-defer/app_field_permission/own_app_struct.nomi:read	ran
 15-app-and-defer/app_field_permission/settings.nomi:Settings.inspect	ran
 15-app-and-defer/app_root_identity_test.nomi:has_diagnostic	ran
+15-app-and-defer/boot_called_in_test/server.nomi:App.inspect	ran
+15-app-and-defer/boot_called_in_test/server.nomi:boot	ran
+15-app-and-defer/boot_called_in_test/server.nomi:boot failure	ran
+15-app-and-defer/boot_called_in_test/server.nomi:close	ran
+15-app-and-defer/boot_called_in_test/server.nomi:heartbeat	ran
+15-app-and-defer/boot_called_in_test/server.nomi:main	ran
 15-app-and-defer/boot_failure/debug_error.nomi:App.inspect	ran
 15-app-and-defer/boot_failure/debug_error.nomi:StartError.inspect	ran
 15-app-and-defer/boot_failure/debug_error.nomi:boot	ran
@@ -4217,13 +4239,14 @@ std/http.nomi:CrossOrigin.deny default	NETWORK: declared in std/http, std/net or
 std/http.nomi:CrossOrigin.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:CrossOrigin.trusted_origins default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Display.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Display.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Entry.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Entry.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.from_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Error.is_timeout	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Error.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Error.to_response	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:FormFile.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:FormFile.open	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:FormPart.encode	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4243,6 +4266,7 @@ std/http.nomi:Headers.write_to	NETWORK: declared in std/http, std/net or std/tls
 std/http.nomi:Headers.write_to default 3	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Html.to_response	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Http2Options.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Infallible.to_response	NEVER: a parameter is Infallible, so nothing can call it
 std/http.nomi:Listener.address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Listener.close_connections	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Listener.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4317,6 +4341,7 @@ std/http.nomi:Request.read	NETWORK: declared in std/http, std/net or std/tls, so
 std/http.nomi:Request.referer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.remote_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.request_uri default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.tls default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.trace default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Request.trailers default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4533,6 +4558,7 @@ std/http.nomi:serve_embedded	NETWORK: declared in std/http, std/net or std/tls, 
 std/http.nomi:serve_embedded default 4	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:serve_file	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:serve_here	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:served_url	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:set_listed	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:stray_brace	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:stream	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4557,7 +4583,7 @@ std/http_testing.nomi:`!` failure Error	ran
 std/http_testing.nomi:`!` failure Error	ran
 std/http_testing.nomi:`!` failure UrlError	ran
 std/http_testing.nomi:`!` failure UrlError	ran
-std/http_testing.nomi:check Url literal at 90:28 failure	ran
+std/http_testing.nomi:check Url literal at 115:28 failure	ran
 std/http_testing.nomi:chunks	ran
 std/http_testing.nomi:decompressed	ran
 std/http_testing.nomi:form_request	ran

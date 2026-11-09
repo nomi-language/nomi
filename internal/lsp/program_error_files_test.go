@@ -57,7 +57,7 @@ func publishedOrphans(t *testing.T, s *Server, uri string) []protocol.Diagnostic
 	if snap == nil || snap.Analysis == nil {
 		t.Fatalf("%s: no analysis", uri)
 	}
-	return orphanDiags(buildPublishedDiagnostics(snap.URI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors))
+	return orphanDiags(buildPublishedDiagnostics(snap.URI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors))
 }
 
 // wantOneAt fails unless diags is one diagnostic starting at the 1-based

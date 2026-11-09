@@ -320,6 +320,18 @@
           }
         },
         {
+          "comment": "`on error` is a keyword only right after `defer`.",
+          "match": "\\b(defer)[ \\t]+(on[ \\t]+error)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.nomi"
+            },
+            "2": {
+              "name": "keyword.declaration.nomi"
+            }
+          }
+        },
+        {
           "comment": "`variant`, `open` and `derive` are contextual keywords; like the bat syntax, match them everywhere.",
           "name": "keyword.declaration.nomi",
           "match": "\\b(?:pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|variant|open)\\b"

@@ -13,7 +13,8 @@ import {
 //# owner functions are called `Maybe.map(m, f)` and so on: test it with
 //# `is_some` and `is_none`, transform the value with `map` and `flat_map`,
 //# unnest a `Maybe<Maybe<T>>` with `flatten`, take the value out with
-//# `with_default`, and turn it into a `Result` with `to_result`. `collect` and `values` work over many maybes at once.
+//# `with_default`, fall back to another `Maybe` with `otherwise` and
+//# `or_else`, and turn it into a `Result` with `to_result`. `collect` and `values` work over many maybes at once.
 //#
 //# A `Maybe` is an `Iter` of zero or one elements, so it goes wherever an
 //# `Iter` does. It renders, in `Display` and in `Debug`, as its variant
@@ -79,6 +80,40 @@ impl Maybe<T> {
         case maybe {
             Some(v) -> v
             None -> default
+        }
+    }
+
+    /// Returns `maybe` when it is Some, and otherwise `fallback`: the first
+    /// of two places a value may come from. `fallback` is computed even when
+    /// `maybe` is Some; `or_else` computes it only when needed.
+    //! import std::maps.Map
+    //!
+    //! assert Maybe.otherwise(Maybe.Some(1), Maybe.Some(2)) == Maybe.Some(1)
+    //! assert Maybe.otherwise(Maybe.None, Maybe.Some(2)) == Maybe.Some(2)
+    //! nothing: Maybe<Int> = Maybe.None
+    //! assert Maybe.otherwise(nothing, Maybe.None) == Maybe.None
+    //!
+    //! flags = %{"port" => "8080"}
+    //! port = Map.get(flags, "listen") |> Maybe.otherwise(Map.get(flags, "port"))
+    //! assert port == Maybe.Some("8080")
+    //
+    pub fn otherwise<T>(maybe: Maybe<T>, fallback: Maybe<T>) -> Maybe<T> {
+        case maybe {
+            Some(_) -> maybe
+            None -> fallback
+        }
+    }
+
+    /// Returns `maybe` when it is Some, and otherwise what `fallback`
+    /// returns. `fallback` is called only for None, so it can do work, such
+    /// as a lookup, that a Some makes unneeded.
+    //! assert Maybe.or_else(Maybe.Some(1), fn -> Maybe.Some(2)) == Maybe.Some(1)
+    //! assert Maybe.or_else(Maybe.None, fn -> Maybe.Some(2)) == Maybe.Some(2)
+    //
+    pub fn or_else<T>(maybe: Maybe<T>, fallback: () -> Maybe<T>) -> Maybe<T> {
+        case maybe {
+            Some(_) -> maybe
+            None -> fallback()
         }
     }
 

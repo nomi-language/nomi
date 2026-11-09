@@ -44,7 +44,7 @@ func stdModuleTestCases(nodes []ast.Node) []testCaseDecl {
 	for _, n := range nodes {
 		out = append(out, attachedTestCasesIn([]ast.Node{n}, nil, "")...)
 		if t, ok := n.(*ast.TestDecl); ok {
-			out = append(out, collectTestDecl(t, n, nil, nil, "", testRefusal{})...)
+			out = append(out, collectTestDecl(t, n, nil, nil, "", testRefusal{}, nil)...)
 		}
 	}
 	return out

@@ -629,7 +629,11 @@ contain test declarations.
 
 `nomi test <file> --line N` runs the test whose declaration starts on line
 `N` (or `N + 1`): a `test`, an attached `//!` test (any of its `//!` lines),
-or a `group`, whose header line runs every test in the group. When
+or a `group`, whose header line runs every test in the group. In a group's
+`subtests` block (spec §17 *Subtests in a group*), the block's line runs the
+whole group too, and a test's line runs that test once for every row, each
+row a test of its own in the report, `todo api [sqlite] / creates a todo`.
+When
 nothing starts there, `nomi test` runs nothing and exits non-zero with
 `no test at <file>:<N>` and the nearest test's first line; with
 `--format json` that error is a `"type":"file"` failure record.
@@ -732,7 +736,10 @@ summary record comes last:
 - `file` is absolute; `line` is the declaration's first line, the one
   `--line` matches, and `end_line` its last. Tools should locate a result by
   `file` and `line`: `name` is the label the text report prints, and an
-  attached test's label embeds display wording and line numbers.
+  attached test's label embeds display wording and line numbers. A test in
+  a group's `subtests` block has one record per row, all at the test's
+  `line`, each `name` carrying its row (`todo api [sqlite] / creates a
+  todo`).
 - `status` is `passed`, `failed` or `blocked`. `blocked` marks a test the
   VM could not run (see [When code cannot run yet](#when-code-cannot-run-yet)); its `message` is what the text report's
   `BLOCKED` lines give: for code the compiler could not lower, the error
@@ -796,7 +803,7 @@ spaces per level and breaks lines at 100 columns. It keeps a few layout
 choices of the author's, which Writing Nomi lists
 ([Let `nomi fmt` own the layout](/writing/files-and-layout/#1-let-nomi-fmt-own-the-layout)),
 and decides the rest from the syntax and the width. The
-[implementation notes](implementation-notes.md#formatter) say why some of
+[formatter's package doc](../internal/format/doc.go) says why some of
 these rules are built the way they are.
 
 **Blank lines between statements.** A statement that spans more than one
@@ -876,13 +883,13 @@ pipeline with a `then` or `tap` stage is always stacked, since that lambda's
 body ends at the next `|>`.
 
 **`if`, binding `else` and lambda bodies.** See
-[one-line `if` and binding `else`](implementation-notes.md#formatter-one-line-if-and-binding-else)
+[one-line `if` and binding `else`](../internal/format/doc.go)
 for when a guard or a two-branch `if` goes on one line; an `else if` chain
 is always broken. A single-expression lambda whose body is an `if` holding
 `break`, `continue` or `return` goes below the header in braces, as does a
 value-producing lambda body that does not fit, and a call it ends closes
 with `})`. A braced body written with its contents below the `{` stays that
-way ([below](implementation-notes.md#formatter-a-line-break-after-a-literals-opening-bracket)).
+way (the [formatter's package doc](../internal/format/doc.go) says why).
 
 **`case` arms.** When every arm fits on one line as `pattern -> body` and no
 body is a block, the arms sit on consecutive lines. Otherwise every arm
@@ -924,16 +931,16 @@ its `return value`s too, since its branches' values are wrapped in `Some`.
 
 **Struct literals and anonymous struct types** are kept on one line when
 short and broken one field per line, each with a comma, when long
-([brace-bounded field constructs](implementation-notes.md#formatter-brace-bounded-field-constructs)).
+([brace-bounded field constructs](../internal/format/doc.go)).
 An anonymous struct type or variant written across lines keeps one field per
 line. Literals follow
-[a line break after a literal's opening bracket](implementation-notes.md#formatter-a-line-break-after-a-literals-opening-bracket);
-lists of numbers are [filled](implementation-notes.md#formatter-filled-literal-lists); long
+[a line break after a literal's opening bracket](../internal/format/doc.go);
+lists of numbers are [filled](../internal/format/doc.go); long
 comparisons and boolean chains break
-[before the operator](implementation-notes.md#formatter-comparison-and-boolean-operators); three
+[before the operator](../internal/format/doc.go); three
 levels of brackets break
-[the outermost](implementation-notes.md#formatter-compound-depth); and comments stay
-[with their item](implementation-notes.md#formatter-comments). A trailing comment is never moved to
+[the outermost](../internal/format/doc.go); and comments stay
+[with their item](../internal/format/doc.go). A trailing comment is never moved to
 make room, so it may run past 100 columns.
 
 **Small layouts.** One space follows `not`, and parentheses written around

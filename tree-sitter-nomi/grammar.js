@@ -70,6 +70,12 @@ module.exports = grammar({
     // line after a space (`rows |> subtests (input, want) { ... }`), as the
     // Go parser reads it. `x |> subtests(y)` leaves it an identifier.
     $._subtests_stage_keyword,
+    // The contextual keyword `todo` with its reason, emitted only when a
+    // string follows it on its line (`todo "parse the header"`). A bare
+    // `todo` is an identifier: the compiler reads it as the placeholder or,
+    // in the scope of a binding named `todo`, as that binding, which only
+    // resolution can tell apart.
+    $._todo_keyword,
   ],
 
   word: $ => $.identifier,
@@ -859,8 +865,21 @@ module.exports = grammar({
     // `setup`; the grammar accepts it, so an editor keeps highlighting.
     group_body: $ => seq(
       '{',
-      repeat(choice($.clock_block, $.boot_block, $.setup_block, $.test_declaration)),
+      repeat(choice($.clock_block, $.boot_block, $.setup_block, $.test_declaration, $.group_subtests)),
       '}',
+    ),
+
+    // `subtests rows, pattern { ... }` in a group holds the group's lines
+    // and tests and runs them once per row, with the pattern bound to it.
+    // The compiler rejects anything beside it in the group and a second one
+    // inside it; the grammar accepts both, so an editor keeps highlighting.
+    group_subtests: $ => seq(
+      alias($._subtests_keyword, 'subtests'),
+      field('rows', $._expression),
+      ',',
+      field('pattern', $._param_pattern),
+      optional(seq(',', field('name', $._expression))),
+      field('body', $.group_body),
     ),
 
     // `clock Clock.Virtual` selects the clock each test runs under.
@@ -1378,10 +1397,16 @@ module.exports = grammar({
       seq($._field_identifier, ':', $._type, '=', choice($.assertion, $._expression)),
     )),
 
+    // `defer call(...)`, or the error-only `defer on error call(...)`.
+    // `on error` is one token, so `on` stays a name elsewhere, and in
+    // `defer on(x)`.
     defer_statement: $ => seq(
       'defer',
+      optional(field('on_error', $.on_error)),
       field('call', $._expression),
     ),
+
+    on_error: _ => token(prec(1, seq('on', /[ \t]+/, 'error'))),
 
     assertion: $ => prec.right(1, seq(
       choice('assert', 'refute'),
@@ -2151,9 +2176,10 @@ module.exports = grammar({
     _not_stage: $ => prec.right(7, seq('not', choice($._expression, alias($._not_stage, $.unary_expression)))),
     pipe_expression: $ => prec.left(6, seq($._expression, '|>', choice($.bare_assertion, $.assertion, $._expression, alias($._not_stage, $.unary_expression), $.pipe_if_expression, $.then_stage, $.tap_stage))),
     dbg_expression: $ => prec.right(1, seq('dbg', optional(seq($._same_line, field('value', $._expression))))),
-    // A placeholder for code not yet written: `todo` or `todo "reason"`. The
-    // reason is a string literal; the compiler rejects an interpolated one.
-    todo_expression: $ => prec.right(1, seq('todo', optional(seq($._same_line, field('reason', choice($.string, $.triple_string, $.raw_string)))))),
+    // A placeholder for code not yet written, with its reason:
+    // `todo "reason"`. The reason is a string literal; the compiler rejects
+    // an interpolated one. A bare `todo` parses as an identifier.
+    todo_expression: $ => prec.right(1, seq(alias($._todo_keyword, 'todo'), $._same_line, field('reason', choice($.string, $.triple_string, $.raw_string)))),
     // The program's claim that it never reaches a point:
     // `unreachable "reason"`. The reason is required and starts on the
     // keyword's line; the compiler rejects an interpolated one.

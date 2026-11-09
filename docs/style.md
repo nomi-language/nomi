@@ -2028,3 +2028,32 @@ success path's close for one that implements `Commit` (spec §9 *Releasing
 resources*). A type of your own that holds something to give back
 implements `Release`, with the body of its `release` calling the function a
 caller defers.
+
+### 52. Take an interface value unless the caller's type comes back
+
+A parameter used only through one interface, whose type appears nowhere else
+in the signature, takes the interface as its type. It reads as what it is,
+any value that can do this:
+
+```nomi
+fn text(error: Display) -> String {
+    "failed: ${error}"
+}
+```
+
+Write a type parameter when the caller's type matters past the call: it
+recurs in another parameter, in the result or inside another type
+(`Result<T, E>`, a returned `(E) -> Error`), it needs two bounds, or the body
+calls an interface function whose result is `self` or that takes no `self`.
+An interface value keeps none of that (spec §12 *Interface values*):
+
+```nomi
+fn larger<T>(a: T, b: T) -> T where T: Comparable {
+    if a > b { a } else { b }
+}
+```
+
+A function taking an interface value passes where a function of the
+concrete type is expected, so `Result.map_err(text)` works on any error
+that implements `Display` (spec §5 *Assignability*). A struct or an enum of
+your own enters its interface unboxed, so the two forms cost the same.

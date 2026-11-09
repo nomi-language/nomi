@@ -12,8 +12,8 @@ import (
 )
 
 // A file's interface is what another file's check reads of it: its
-// declarations with their bodies taken out (docs/design, "A file's
-// interface"). Checking a file against interfaces (ProgramInterfaces.Check)
+// declarations with their bodies taken out (internal/ast/astcodec package
+// doc, "File interfaces"). Checking a file against interfaces (ProgramInterfaces.Check)
 // builds the file from its source and every file it reads from their
 // interfaces, and answers the same analysis and diagnostics for the file as
 // a check of the whole program from source;

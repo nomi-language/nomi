@@ -155,8 +155,9 @@ var primitiveTypes = map[string]*PrimitiveType{
 // against that type points its labels there (recordAnonLitFieldLabels), and a
 // field access refers there (anonFieldRef). They are zero for every other
 // field: nominal struct fields have their own declaration symbols. File is
-// the path of the user file the literal is in, "" for a type expression
-// (which a use in the same file reads) and for a stdlib or path-less file.
+// the path of the user file the type expression or literal is in
+// (typeFieldFile, literalFieldDef), "" for a stdlib or path-less file and
+// for a type resolved with no file, which a use in the same file reads.
 // None of them take part in type identity.
 type FieldDef struct {
 	Name       string

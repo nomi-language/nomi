@@ -406,7 +406,21 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 	if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(entryPath)); err == nil {
 		nodes = injected
 	}
+	// A partner test's derives for its partner's types read the partner
+	// as the build below loads it.
+	nodes, partnerErrs := LowerPartnerDerives(nodes, entry, func(key string) ([]ast.Node, bool) {
+		src, ok := text(key)
+		if !ok {
+			return nil, false
+		}
+		nodes, err := syntheticextern.Inject(parseFile(src).nodes, externs, false)
+		if err != nil {
+			return nil, false
+		}
+		return expand(key, nodes), true
+	})
 	nodes, lowerErrs := LowerDerives(nodes)
+	lowerErrs = append(partnerErrs, lowerErrs...)
 	p.entryOwn = len(nodes)
 	testNameErrs := CheckDuplicateTestNames(nodes)
 	prog, _ := SynthesizeDerives(nodes)

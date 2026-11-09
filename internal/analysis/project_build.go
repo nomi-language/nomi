@@ -411,6 +411,15 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// loweredLen is each file's node count once lowered, before synthesis
 	// appends to it (FileAnalysis.ownNodes).
 	loweredLen := make(map[string]int, len(proj.Files))
+	// projectNodes answers a project file's nodes by key, the entry's
+	// included, for a partner test's derives (LowerPartnerDerives).
+	projectNodes := func(k string) ([]ast.Node, bool) {
+		if k == entryModRel && entryModRel != "" {
+			return entryNodes, true
+		}
+		nodes, ok := proj.Files[k]
+		return nodes, ok
+	}
 	for key, nodes := range proj.Files {
 		// Derive lowering FIRST: derive declarations become top-level impl
 		// blocks, which the derive + universal-Debug passes
@@ -426,7 +435,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 				return other, ok
 			})
 		}
+		nodes, partnerErrs := LowerPartnerDerives(nodes, key, projectNodes)
 		lowered, lowerErrs := LowerDerivesWith(nodes, imported)
+		lowerErrs = append(partnerErrs, lowerErrs...)
 		loweredLen[key] = len(lowered)
 		extended, errs := SynthesizeDerives(lowered)
 		errs = append(lowerErrs, errs...)
@@ -443,7 +454,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			deriveErrsByKey[key] = errs
 		}
 	}
-	loweredEntry, entryLowerErrs := LowerDerives(entryNodes)
+	partnerEntry, entryPartnerErrs := LowerPartnerDerives(entryNodes, entryModRel, projectNodes)
+	loweredEntry, entryLowerErrs := LowerDerives(partnerEntry)
+	entryLowerErrs = append(entryPartnerErrs, entryLowerErrs...)
 	extendedEntry, entryDeriveErrs := SynthesizeDerives(loweredEntry)
 	entryDeriveErrs = append(entryLowerErrs, entryDeriveErrs...)
 	extendedEntry = SynthesizeUniversalDebug(extendedEntry)
@@ -878,8 +891,16 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// by defineImplBlockStub on the synthesizer's emitted
 	// impl block during Sweep A/B-ann), letting recursive types
 	// pass their own self-reference check naturally.
+	byPath := make(map[string]*FileAnalysis, len(filesByKey))
+	for _, fa := range filesByKey {
+		if fa != nil && fa.FilePath != "" {
+			byPath[fa.FilePath] = fa
+		}
+	}
+	fileOf := func(path string) *FileAnalysis { return byPath[path] }
 	for _, fb := range built {
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex)...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckForeignDeriveBounds(fb.fa, fb.nodes, implIndex, fileOf)...)
 	}
 
 	// The declarations are done. Each of the build's own files keeps what

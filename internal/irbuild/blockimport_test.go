@@ -3,6 +3,7 @@ package irbuild
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -146,4 +147,77 @@ pub struct B {
     a: A
 }
 `})
+}
+
+// An interface an import at the top of a test body binds, which the file
+// itself does not import, resolves there as a type: in a `//!` prompt and in
+// a `test` declaration, a sibling file's interface and a std one, as an
+// annotation and as a call's type argument (bindBlockImports'
+// importedIfaces). The name-keyed lookups read the module scope, which the
+// body's import does not reach, so each such body declined. std's `//!`
+// prompts reach it the same way: std/literals_testing's `build_each<Display,
+// Url>(...)` names `Display`, which that module does not import.
+func TestBlockImport_AnInterfaceOnlyATestImports(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	dir := t.TempDir()
+	files := map[string]string{
+		"main.nomi": `/// Doubles.
+//! import shapes.{Shape, Square}
+//! import std::html.{Html, ToHtml}
+//!
+//! s: Shape = Square{side: 3}
+//! assert Shape.area(s) == 9
+//! assert Iter.map(held<Shape>([Square{side: 2}]), Shape.area) |> Iter.to_list() == [4]
+//! h: ToHtml = "<b>"
+//! assert Html.to_string(ToHtml.to_html(h)) == "&lt;b&gt;"
+//
+pub fn double(n: Int) -> Int {
+    n * 2
+}
+
+pub fn held<I>(values: List<I>) -> List<I> {
+    values
+}
+
+test "an interface the test imports" {
+    import shapes.{Shape, Square}
+    import std::html.{Html, ToHtml}
+
+    s: Shape = Square{side: 3}
+    assert Shape.area(s) == double(4) + 1
+    assert Iter.map(held<Shape>([Square{side: 2}]), Shape.area) |> Iter.to_list() == [4]
+    h: ToHtml = 7
+    assert Html.to_string(ToHtml.to_html(h)) == "7"
+}
+`,
+		"shapes.nomi": `pub interface Shape {
+    fn area(shape: self) -> Int
+}
+
+pub struct Square {
+    side: Int
+}
+
+impl Shape for Square {
+    fn area(s: Square) -> Int {
+        s.side * s.side
+    }
+}
+`,
+	}
+	for name, src := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entry := filepath.Join(dir, "main.nomi")
+	if _, err := Analyze(entry); err != nil {
+		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
+	}
+	got := vmReference(entry)
+	if got.exit != 0 || !strings.Contains(got.stdout, "2 passed, 0 failed") {
+		t.Fatalf("VM test run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s", got.exit, got.stdout, got.stderr)
+	}
 }

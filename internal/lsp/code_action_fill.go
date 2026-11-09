@@ -26,7 +26,7 @@ import (
 //     variant the checker names, with the pattern the completion item writes
 //     (completion_structural.go), at the arms' indentation.
 //
-// Each written value or body is fillPlaceholder, the `todo` expression,
+// Each written value or body is the `todo` expression (placeholderAt),
 // which fits whatever type its position expects. The result checks cleanly:
 // a stub's parameters are not reported as unread because its body holds a
 // `todo`, and the language server lists each hole as a `todo` warning.
@@ -35,7 +35,34 @@ import (
 // formatted again and the action returns the lines that differ, so applying
 // it leaves a formatted file.
 
-const fillPlaceholder = "todo"
+// fillPlaceholder is the `todo` a fill writes, and fillReasonedPlaceholder
+// the one it writes where a binding named `todo` is in scope, which a bare
+// `todo` would read (spec §2 *Keywords*): with a reason, `todo` is the
+// placeholder everywhere.
+const (
+	fillPlaceholder         = "todo"
+	fillReasonedPlaceholder = `todo "fill in"`
+)
+
+// todoWord matches a `todo` a written signature or pattern binds.
+var todoWord = regexp.MustCompile(`\btodo\b`)
+
+// placeholderAt is the placeholder a fill writes at line and col of the
+// file, inside the signature or pattern binds is the text of (a stub's
+// signature, an arm's pattern; "" for none): fillPlaceholder, or
+// fillReasonedPlaceholder when a binding named `todo` is in scope there or
+// binds names one.
+func (f *fillRequest) placeholderAt(line, col int, binds string) string {
+	if todoWord.MatchString(binds) {
+		return fillReasonedPlaceholder
+	}
+	if f.fa != nil {
+		if scope := f.fa.ScopeAt(analysis.Pos{Line: line, Col: col}); scope != nil && scope.Lookup("todo") != nil {
+			return fillReasonedPlaceholder
+		}
+	}
+	return fillPlaceholder
+}
 
 var (
 	missingFunctionMessage = regexp.MustCompile(`^impl '[^']*' for '[^']*': missing function '[^']+' required by interface '[^']*'$`)
@@ -244,7 +271,7 @@ func (f *fillRequest) fillFunctions(t *fillTarget) (string, string, bool) {
 	indent := strings.Repeat(" ", format.IndentWidth)
 	stubs := make([]string, len(required))
 	for i, m := range required {
-		stubs[i] = indent + g.stub(m, indent, fillPlaceholder, false)
+		stubs[i] = indent + g.stub(m, indent, f.placeholderAt(impl.Line, impl.Col, g.signature(m, false)), false)
 	}
 
 	title := "Implement missing functions"
@@ -369,8 +396,9 @@ func (f *fillRequest) fillFields(t *fillTarget) (string, string, bool) {
 	}
 	openOff, closeOff := f.offOf(f.tokens[open]), f.offOf(f.tokens[close])
 	entries := make([]string, len(missing))
+	placeholder := f.placeholderAt(lit.Line, lit.Col, "")
 	for i, name := range missing {
-		entries[i] = name + ": " + fillPlaceholder
+		entries[i] = name + ": " + placeholder
 	}
 	var edited string
 	if f.tokens[open].Line == f.tokens[close].Line {
@@ -455,7 +483,7 @@ func (f *fillRequest) fillArms(t *fillTarget) (string, string, bool) {
 		for _, v := range et.Variants {
 			if v.Name == name {
 				pat, _ := variantPattern(v, 0, false)
-				arms = append(arms, pat+" -> "+fillPlaceholder)
+				arms = append(arms, pat+" -> "+f.placeholderAt(c.Line, c.Col, pat))
 				found = true
 			}
 		}

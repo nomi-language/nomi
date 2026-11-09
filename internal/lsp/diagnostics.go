@@ -157,8 +157,8 @@ func buildDiagnostics(uri string, parseErrs []parser.ParseError, typeErrs []anal
 
 // buildPublishedDiagnostics is uri's diagnostics for a client that reads
 // relatedInformation.
-func buildPublishedDiagnostics(uri string, content string, nodes []ast.Node, parseErrs []parser.ParseError, typeErrs []analysis.TypeError) []protocol.Diagnostic {
-	return buildPublishedDiagnosticsFor(uri, content, diskContent, nil, nodes, parseErrs, typeErrs, true)
+func buildPublishedDiagnostics(uri string, content string, nodes []ast.Node, fa *analysis.FileAnalysis, parseErrs []parser.ParseError, typeErrs []analysis.TypeError) []protocol.Diagnostic {
+	return buildPublishedDiagnosticsFor(uri, content, diskContent, nil, nodes, fa, parseErrs, typeErrs, true)
 }
 
 // errorsInDocument drops the errors whose position is in another file
@@ -179,7 +179,7 @@ func errorsInDocument(uri string, errs []analysis.TypeError) []analysis.TypeErro
 //
 // tokens, when not nil, returns content's tokens, which the server may hold
 // already; otherwise content is lexed here, at most once.
-func buildPublishedDiagnosticsFor(uri string, content string, contentOf func(protocol.DocumentUri) (string, bool), tokens func() []token.Token, nodes []ast.Node, parseErrs []parser.ParseError, typeErrs []analysis.TypeError, related bool) []protocol.Diagnostic {
+func buildPublishedDiagnosticsFor(uri string, content string, contentOf func(protocol.DocumentUri) (string, bool), tokens func() []token.Token, nodes []ast.Node, fa *analysis.FileAnalysis, parseErrs []parser.ParseError, typeErrs []analysis.TypeError, related bool) []protocol.Diagnostic {
 	var toks []token.Token
 	lexed := func() []token.Token {
 		if toks == nil {
@@ -203,7 +203,7 @@ func buildPublishedDiagnosticsFor(uri string, content string, contentOf func(pro
 	if !related {
 		foldRelated(diags)
 	}
-	todos, dbgs := analysis.TodosAndDbgs(nodes)
+	todos, dbgs := analysis.TodosAndDbgs(nodes, fa)
 	diags = append(diags, dbgWarningDiagnostics(dbgs)...)
 	diags = append(diags, todoWarningDiagnostics(todos)...)
 	diags = append(diags, embedWarningDiagnostics(uri, nodes)...)
@@ -306,7 +306,7 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 		// the refusals alone, as the front end does.
 		typeErrs = analysis.ReservedNameRefusals(typeErrs)
 	}
-	diags := buildPublishedDiagnosticsFor(snap.URI, snap.Content, s.contentForURI, tokens, snap.Nodes, snap.Errors, typeErrs, s.relatedInformation)
+	diags := buildPublishedDiagnosticsFor(snap.URI, snap.Content, s.contentForURI, tokens, snap.Nodes, snap.Analysis, snap.Errors, typeErrs, s.relatedInformation)
 	if refused {
 		notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 			URI:         protocol.DocumentUri(snap.URI),

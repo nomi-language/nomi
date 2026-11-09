@@ -19,7 +19,7 @@ func TestPositionalStructLit_QuickFixNamesTheFields(t *testing.T) {
 	}
 	s.docs.Open(parseFixURI, got)
 	snap := s.docs.Snapshot(parseFixURI)
-	if diags := buildPublishedDiagnostics(parseFixURI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors); len(diags) != 0 {
+	if diags := buildPublishedDiagnostics(parseFixURI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors); len(diags) != 0 {
 		t.Errorf("fixed program has diagnostics: %v", diags)
 	}
 }

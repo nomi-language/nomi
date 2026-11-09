@@ -1,26 +1,3 @@
-// Package vmrunner is the runtime half of `nomi build`: a runner binary reads
-// the linked IR image `nomi build` appended to its own executable, decodes it
-// and runs `main` on the VM exactly as `nomi run` does.
-//
-// It links the VM, rt, the stdlib host adapters and the IR decoder, and no
-// front end: no parser, analyzer, IR builder or LSP. vmrunner's deps test
-// pins that. A program that crosses into std/compiler's hosts is the one
-// exception, and its runner links nomi/vmrunner/compiler, which brings the
-// front end with it.
-//
-// A native executable is the runner's bytes, then the image (its code, then
-// its embedded files' region; files.go), then a fixed 24-byte trailer: the
-// image's offset and length as little-endian uint64s and the magic
-// "NOMIEXE\x01". The runner reads the code and maps the region. A WebAssembly runner carries the image in a
-// custom section instead (wasm.go). A built binary runs at `nomi run` speed: it
-// skips the front end and the lowering at startup and runs the same VM over
-// the same IR. It is not native code.
-//
-// A runner nothing was appended to (nomi-vm) runs a .nomic file `nomi build --no-vm`
-// wrote, handed to it by path or framed on stdin (imagefile.go, bare.go).
-//
-// It is a public package because an FFI project's runner is generated into a
-// separate Go module, which can import only this module's public packages.
 package vmrunner
 
 import (

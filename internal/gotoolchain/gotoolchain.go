@@ -1,21 +1,3 @@
-// Package gotoolchain answers one question: which Go toolchain the command in
-// front of the user compiles with, and what the failure says when there is
-// none.
-//
-// `nomi run`, `nomi test` and `nomi check` on a project with Go FFI build a
-// wrapper with `go build` (internal/ffirun), and a user who installed a
-// prebuilt `nomi` may have no Go at all. The toolchain is, in order:
-//
-//  1. NOMI_GO, the path of a `go` command (or of a GOROOT holding bin/go);
-//  2. the `go` on PATH, so a Go developer downloads nothing;
-//  3. the managed toolchain (managed.go): the Go release this `nomi` was built
-//     with, downloaded from go.dev once, verified against a SHA-256 compiled
-//     into this binary, and kept in the cache. Only a command the user ran
-//     downloads it (AllowDownload); the language server uses it only once it
-//     is there.
-//
-// When none is found the failure says what needed Go, where it looked, and
-// why the managed toolchain was not used.
 package gotoolchain
 
 import (

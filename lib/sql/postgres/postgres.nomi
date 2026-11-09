@@ -148,11 +148,12 @@ pub fn pool(url: String) -> Conn {
 }
 
 /// One connection to the database at `url`, opened now: an unreachable
-/// server is `Err(.Connection)`. A transaction is open on the whole
-/// connection, so a statement sent through the connection while one is
-/// open is refused; run it on the `Conn` the transaction's `begin`
-/// returned. What a temporary table needs, since it lives on one
-/// connection.
+/// server is `Err(.Connection)`. A transaction has the whole connection
+/// to itself until it ends, so a statement another task sends through the
+/// connection meanwhile waits for it (as long as that task's context
+/// allows, then `Err(.Timeout)`); inside the transaction, use the `Conn`
+/// its `begin` returned. What a temporary table needs, since it lives on
+/// one connection.
 pub fn connect(url: String) -> Result<Conn, sql.Error> {
     case connect_raw(url) {
         Ok(handle) -> Ok(PgConn{handle})

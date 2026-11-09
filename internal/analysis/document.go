@@ -937,7 +937,19 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 	// re-report — this call is the only place these errors exist, so we
 	// capture them here and fold them into the focused doc's TypeErrors once
 	// the build has created fa (below, after every branch).
+	var partnerErrs []TypeError
+	if root != "" && !dm.isStdlibFile(uri) {
+		if rel, err := filepath.Rel(root, docPath); err == nil && !strings.HasPrefix(rel, "..") {
+			key := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
+			load := dm.makeLoader()
+			nodes, partnerErrs = LowerPartnerDerives(nodes, key, func(k string) ([]ast.Node, bool) {
+				nodes, err := load(root, strings.Split(k, "/"))
+				return nodes, err == nil
+			})
+		}
+	}
 	nodes, lowerErrs := LowerDerives(nodes)
+	lowerErrs = append(partnerErrs, lowerErrs...)
 	testNameErrs := CheckDuplicateTestNames(nodes)
 	// A program is offered only for a text with no error before analysis;
 	// the build checks a program's other files only then.

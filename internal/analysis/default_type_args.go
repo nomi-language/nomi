@@ -39,7 +39,7 @@ func resolveTypeParamDefaults(fa *FileAnalysis, reg *TypeRegistry, name string, 
 				"a type parameter's default can't name a type parameter (`%s`)", name)})
 			continue
 		}
-		resolved, err := ResolveDeclaredType(p.Default, reg, nil, fa.References)
+		resolved, err := ResolveDeclaredType(p.Default, reg, nil, fa)
 		if err != nil {
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)

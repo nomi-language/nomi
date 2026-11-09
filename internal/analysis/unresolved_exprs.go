@@ -91,7 +91,7 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 			w.where[c] = "in " + exprLabel(n)
 		}
 	})
-	switch n := n.(type) {
+	switch n := w.fa.AsTodo(n).(type) {
 	case ast.TypeExpr, *ast.ImportStmt, *ast.ImportBlock, *ast.Decorator, *ast.FieldAccessor,
 		*ast.Todo, *ast.Unreachable:
 		return false

@@ -1,23 +1,9 @@
 package irbuild
 
-// Linkage names.
-//
-// Every symbol another module can name carries a linkage name (ir.Symbol's
-// header), built here from the analyzer's declaration names
-// (analysis.DeclarationNames) qualified by the declaring module:
-// `std/http.get`, `billing/invoice.impl Display for Invoice.to_string`,
-// `std/uuid.once nil`. A generic instance adds its type arguments
-// (portableArgsKey), a default accessor its slot. The name depends on the
-// declaration and not on the lowering, so two lowerings of one module name
-// its declarations alike: a program links the std modules lowered once for
-// the process by these names (programstdlink.go), and a module encoded as
-// an object links back into its program by them (objects.go).
-//
-// A symbol only its own module names (a local, a lambda's parameter, a
-// field's projection symbol, a type's symbol, whose identity at run time is
-// its spelling) has none. ir.CheckLinkage holds the rule over every program
-// the object harness runs: a symbol two modules name has a linkage name, and
-// no two symbols share one.
+// Linkage names: what they are and why is the package doc, "Linkage
+// names". ir.CheckLinkage holds the rule over every program the object
+// harness runs: a symbol two modules name has a linkage name, and two
+// symbols share one only when both define the same code.
 
 import (
 	"sort"

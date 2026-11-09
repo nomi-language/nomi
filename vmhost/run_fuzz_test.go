@@ -46,8 +46,9 @@ import (
 //     VM's bytecode compiler (vm.CompilePanic); a machine limit reached
 //     mid-run (an instruction or callee the VM cannot run, which Unretained
 //     did not find before the run); a deterministic program that used its
-//     budget with no loop, or outlived runWallLimit; or two runs of a
-//     deterministic program that differ.
+//     budget with no loop, or outlived runWallLimit; two runs of a
+//     deterministic program that differ; or a deterministic program's
+//     `main` running differently from the image `nomi build` writes.
 //
 // An input is skipped, not run, when the front end rejects it, it does not
 // lower (the lowering harness's rule), it has nothing to run, or it reaches
@@ -739,14 +740,29 @@ func TestLoweredProgramsRunRotating(t *testing.T) {
 	t.Logf("outcomes: %s", &tally)
 }
 
-// FuzzLoweredProgramsRun fails for an input that lowers and crashes the VM
-// when it runs (runInput's classes). An input matching a known gap
-// (knownRunGaps) is skipped, so a run reports new causes. Run it with
+// FuzzLoweredProgramsRun runs each input that lowers: its `main`, or its
+// test cases, with no input, output in a buffer and a step budget. A Nomi
+// trap, a failed assertion and an `Err` from main are the program's own
+// outcomes. It fails for an input that crashes the VM (runInput's classes):
+//
+//   - a Go panic or a bytecode compiler panic;
+//   - a machine limit reached mid-run;
+//   - a loop-free program that uses its budget;
+//   - two runs of a program with no clock, randomness or concurrency that
+//     differ, or such a program's `main` running differently from the image
+//     `nomi build` writes.
+//
+// A program that may loop and uses its budget is skipped, and so is one
+// whose effects reach outside the machine (files, std/compiler, Go
+// bindings). An input matching a known gap (knownRunGaps, run_gaps_test.go)
+// is skipped, so a run reports new causes. Run it with
 //
 //	go test ./vmhost -run '^$' -fuzz '^FuzzLoweredProgramsRun$' -fuzztime 5m -parallel 4
 //
 // A failing input is written under vmhost/testdata/fuzz/; plain `go test`
 // replays everything there, so triage an input before committing it.
+// TestLoweredProgramsRun runs the generated programs and every seed with a
+// `fn main` (about 13 seconds), and TestKnownRunGaps checks knownRunGaps.
 func FuzzLoweredProgramsRun(f *testing.F) {
 	if fuzzing() {
 		for _, s := range runSeeds(f) {

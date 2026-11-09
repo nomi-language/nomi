@@ -194,6 +194,11 @@ type code struct {
 	// guard says an activation needs its exit hooks: the function registers
 	// deferred calls or rebinds the Context, whose deadlines must end.
 	guard bool
+	// boot says the function is an entry boot this program records: an
+	// activation of it runs on a boot frame (rt.EnterBoot), however it was
+	// called, so a test that calls boot directly builds the app the way a
+	// group's `boot` line does.
+	boot bool
 	// dbg is the statement and position table of a function compiled for a
 	// debugger, or nil. See debug.go.
 	dbg *codeDebug
@@ -290,7 +295,7 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 	if CompileHook != nil {
 		CompileHook(f)
 	}
-	c = &code{fn: f}
+	c = &code{fn: f, boot: m.isBootFunc(f)}
 	cp := &compiler{m: m, c: c, blocks: map[ir.BlockID]int{},
 		ksIndex: map[string]uint32{}, kwIndex: map[uint64]uint32{}, calleeI: map[*ir.Func]uint32{}}
 	cp.assignRegisters()

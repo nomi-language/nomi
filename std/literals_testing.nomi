@@ -22,12 +22,13 @@ import {
 /// `build` itself.
 ///
 /// For a literal whose slots take an interface, name it as the first type
-/// argument so the values are held as it, as std::url's tests of the `Url`
-/// literal do:
-///
-/// ```nomi
-/// built = build_each<Display, Url>(["/users/", ""], ["a/b", 7], Url.check, Url.build)
-/// ```
+/// argument so the values are held as it:
+//! import std::display.Display
+//! import std::url.Url
+//!
+//! assert Ok(urls) = build_each<Display, Url>(["/users/", ""], ["a/b", 7], Url.check, Url.build)
+//! assert Iter.map(urls, fn u -> "${u}") |> Iter.to_list() == ["/users/a%2Fb", "/users/7"]
+//!
 //! built = build_each(["a", "b"], ["x", "y"], fn _ -> Ok(Unit), fn fragments -> Iter.count(fragments))
 //! assert built == Ok([3, 3])
 //!

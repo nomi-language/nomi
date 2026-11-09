@@ -62,7 +62,21 @@ import (
 // runnable tour block (NOMI_LSP_TYPING_SHARD=k/n runs every n-th seed from
 // the k-th, so the sweep can be split across processes).
 // FuzzLSPSurvivesEdits mutates a seed and runs the battery on the result.
-// A panic that matches a known gap (knownTypingGaps) is not a failure.
+// A panic that matches a known gap (knownTypingGaps) is not a failure. The
+// full sweep takes about 7 minutes in one process, split four ways with
+// NOMI_LSP_TYPING_SHARD=k/4. Run the fuzzer with
+//
+//	go test ./internal/lsp -run '^$' -fuzz '^FuzzLSPSurvivesEdits$' -fuzztime 5m -fuzzminimizetime 5s -parallel 4
+//
+// A fuzz worker that dies with exit status 2 and no output is a fatal
+// concurrent map access, such as a std module's bodies checked after the
+// server started (NewServer checks them all first, StdLib.AllBodies).
+// Replay the seeds under the race detector:
+//
+//	NOMI_LSP_TYPING=full go test -race ./internal/lsp -run FuzzLSPSurvivesEdits
+//
+// Setting NOMI_ARTIFACT_CACHE to a directory of its own makes a run write
+// and open program records (analysis/stored_program.go) as a server does.
 
 const (
 	typingHang = 20 * time.Second

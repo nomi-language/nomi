@@ -228,6 +228,60 @@ func publicNames(scope *Scope) []string {
 	return names
 }
 
+// membershipNames are member names that read as a membership test in
+// another language (`has_key`, `includes`), which Nomi writes `x in c`.
+var membershipNames = map[string]bool{
+	"has": true, "has_key": true, "contains_key": true, "has_member": true,
+	"includes": true, "include": true, "member": true, "is_member": true,
+	"key_exists": true, "exists": true, "has_value": true, "contains_value": true,
+}
+
+// stdCollectionName is "Map", "Set" or "List" when ty is one of std's,
+// else "".
+func stdCollectionName(ty Type) string {
+	switch t := resolveTypeVar(ty).(type) {
+	case *MapType:
+		return "Map"
+	case *ListType:
+		return "List"
+	case *PrimitiveType:
+		if IsStdlibKey(t.Origin) && (t.Name_ == "Map" || t.Name_ == "Set" || t.Name_ == "List") {
+			return t.Name_
+		}
+	case *DistinctType:
+		if IsStdlibKey(t.Origin) && (t.Name == "Map" || t.Name == "Set" || t.Name == "List") {
+			return t.Name
+		}
+	case *StructType:
+		if IsStdlibKey(t.Origin) && (t.Name == "Map" || t.Name == "Set" || t.Name == "List") {
+			return t.Name
+		}
+	}
+	return ""
+}
+
+// membershipHint is the hint for a member of the collection named
+// collection ("Map", "Set", "List") that it lacks and that reads as a
+// membership test: Nomi tests membership with `in`, which calls the
+// collection's `contains` (the `Contains` interface).
+func membershipHint(collection, member string) string {
+	if collection == "" || !membershipNames[member] {
+		return ""
+	}
+	switch collection {
+	case "Map":
+		if member == "has_value" || member == "contains_value" {
+			return "test a value with `v in Map.values(m)`; `k in m` tests a key"
+		}
+		return "test a key with `k in m` (it calls `Map.contains(m, k)`); `Map.get(m, k)` gives its value as a `Maybe`"
+	case "Set":
+		return "test membership with `x in s` (it calls `Set.contains(s, x)`)"
+	case "List":
+		return "test membership with `x in list` (it calls `List.contains(list, x)`)"
+	}
+	return ""
+}
+
 // emptyCollectionLiteralHint is the hint for an empty constructor a
 // collection does not have: the empty Map, Set and Vector are written as
 // their literals, as the empty List is `[]`. ty is the type the call names,

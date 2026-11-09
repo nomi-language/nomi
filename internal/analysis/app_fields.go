@@ -165,6 +165,56 @@ func TestGroupBoot(fa *FileAnalysis, t *ast.TestDecl) *ast.FuncDef {
 	return fn
 }
 
+// testBootCalls is where each call written inside a test records its
+// callee (calleePos): in a `test` body, a group's `setup` or an attached
+// test, lambdas inside them included. These are the places an entry boot
+// may be called as an ordinary function (spec §15 *Scoped application
+// fields*); a group's `boot` line is not among them, since it is checked
+// as the group's boot.
+func testBootCalls(nodes []ast.Node) map[Pos]bool {
+	calls := map[Pos]bool{}
+	walk := func(body ast.Node) {
+		WalkNodes(body, func(n ast.Node) {
+			if call, ok := n.(*ast.Call); ok {
+				if pos, ok := calleePos(call.Func); ok {
+					calls[pos] = true
+				}
+			}
+		})
+	}
+	var visit func([]ast.Node)
+	visit = func(items []ast.Node) {
+		for _, n := range items {
+			for _, attached := range ast.AttachedTestsOf(n) {
+				if attached.Body != nil {
+					walk(attached.Body)
+				}
+			}
+			switch v := n.(type) {
+			case *ast.TestDecl:
+				if v.Setup != nil {
+					walk(v.Setup)
+				}
+				if v.Body != nil {
+					walk(v.Body)
+				}
+			case *ast.StructDef:
+				visit(v.Items)
+			case *ast.EnumDef:
+				visit(v.Items)
+			case *ast.TypeDef:
+				visit(v.Items)
+			case *ast.ExternType:
+				visit(v.Items)
+			case *ast.ImplBlock:
+				visit(v.Items)
+			}
+		}
+	}
+	visit(nodes)
+	return calls
+}
+
 // calleePos is where the analyzer records the reference a call's callee
 // makes: the name, or a qualified name's last segment.
 func calleePos(n ast.Node) (Pos, bool) {
@@ -279,12 +329,21 @@ func checkAppRootsWith(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, u
 			}
 		}
 	}
+	// A test may also call it as an ordinary function, to assert on the
+	// Result it returns; testBootCalls, read only when a reference needs it.
+	var testCalls map[Pos]bool
 	for pos, sym := range fa.References {
 		for sym.Resolved != nil {
 			sym = sym.Resolved
 		}
 		if fn, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fa.Program().BootFunctions[fn] && !bootLines[pos] {
-			errors = append(errors, TypeError{Line: pos.Line, Col: pos.Col, Message: "entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line"})
+			if testCalls == nil {
+				testCalls = testBootCalls(nodes)
+			}
+			if testCalls[pos] {
+				continue
+			}
+			errors = append(errors, TypeError{Line: pos.Line, Col: pos.Col, Message: "entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line, and a test may call it to check the Result it returns"})
 		}
 	}
 	// Every other error names an application-field read, and a program with

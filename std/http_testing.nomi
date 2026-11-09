@@ -79,16 +79,41 @@ pub fn run<T>(answer: (Request) -> Result<Response, Error>, body: () -> T) -> Ra
     })
 }
 
-/// A request for `target`, a URL or a path, as a test builds one: a path is
-/// on `http://example.com`.
+/// A request for `target`, a URL or a path, as a server receives one: a
+/// path is on `http://example.com`, and `host` is the URL's host, as the
+/// `Host` header a client sends. A served request's `url` is absolute too,
+/// so a handler sees the same `url` and `host` in a test and when served.
+//! import std::http.{Body, Request, Response}
 //! import std::http_testing
 //!
 //! r = http_testing.request(Method.Post, "/users?x=1")
 //! assert "${r.url}" == "http://example.com/users?x=1"
+//! assert r.host == Some("example.com")
+//!
+//! echo = fn r: Request -> Response{body: Body.Text("${r.url} ${r.host}")}
+//!
+//! agree = fn secure: Bool -> {
+//!     served = http_testing.with_server(echo, tls: secure, fn server -> {
+//!         Response.text(Client.get(server.client, Url.resolve_text(server.url, "/a?b=1")!)!)!
+//!     })
+//!
+//!     url = String.split(served, " ") |> List.head()!
+//!     tested = http_testing.request(Method.Get, url)
+//!     (served, "${tested.url} ${tested.host}")
+//! }
+//!
+//! (plain, tested) = agree(False)
+//! assert String.starts_with(plain, "http://127.0.0.1:")
+//! assert String.contains(plain, "/a?b=1 Some(127.0.0.1:")
+//! assert plain == tested
+//!
+//! (secure, tested_secure) = agree(True)
+//! assert String.starts_with(secure, "https://127.0.0.1:")
+//! assert secure == tested_secure
 //
 pub fn request(method: Method, target: String) -> Request {
     url = Url.resolve_text(Url`http://example.com/`, target)!
-    Request{method, url, remote_address: "192.0.2.1:1234"}
+    Request{method, url, host: Some(url.host), remote_address: "192.0.2.1:1234"}
 }
 
 /// A `request` that posts `fields` as a form, as a browser does: a
@@ -335,9 +360,7 @@ pub fn open_websocket<T>(
 
     handshake = Headers(required + extra)
 
-    response = ToResponse.to_response(
-        handler(#{..base, host: Some(base.url.host), headers: handshake})
-    )
+    response = ToResponse.to_response(handler(#{..base, headers: handshake}))
 
     on_connection = case response.upgrade {
         Some(f) -> f

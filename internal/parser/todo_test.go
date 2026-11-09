@@ -7,9 +7,11 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
+// A bare `todo` is an identifier, which resolution reads as a binding
+// named `todo` or the placeholder; `todo "reason"` is the placeholder.
 func TestTodo_BareAndWithReason(t *testing.T) {
-	bare, ok := parseExpr(t, "todo").(*ast.Todo)
-	if !ok || bare.Reason != nil || bare.Line != 1 || bare.Col != 1 {
+	bare, ok := parseExpr(t, "todo").(*ast.Ident)
+	if !ok || bare.Name != "todo" || bare.Line != 1 || bare.Col != 1 {
 		t.Fatalf("bare todo: %#v", bare)
 	}
 	for src, want := range map[string]struct {
@@ -37,8 +39,8 @@ func TestTodo_ReasonOnTheNextLineIsAStatement(t *testing.T) {
 	if len(nodes) != 2 {
 		t.Fatalf("got %d statements, want 2", len(nodes))
 	}
-	if td := nodes[0].(*ast.ExprStmt).Expr.(*ast.Todo); td.Reason != nil {
-		t.Fatalf("the next line's string became the reason: %#v", td.Reason)
+	if id, ok := nodes[0].(*ast.ExprStmt).Expr.(*ast.Ident); !ok || id.Name != "todo" {
+		t.Fatalf("the next line's string became the reason: %#v", nodes[0])
 	}
 }
 
@@ -53,7 +55,7 @@ func TestTodo_ReasonCannotInterpolateOrCarryATag(t *testing.T) {
 
 func TestTodo_PipeStageAndArgument(t *testing.T) {
 	pipe := parseExpr(t, "3 |> todo").(*ast.Binary)
-	if _, ok := pipe.Right.(*ast.Todo); !ok || pipe.Op != "|>" {
+	if id, ok := pipe.Right.(*ast.Ident); !ok || id.Name != "todo" || pipe.Op != "|>" {
 		t.Fatalf("pipe stage: %#v", pipe)
 	}
 	call := parseExpr(t, `f(todo, todo "b")`).(*ast.Call)

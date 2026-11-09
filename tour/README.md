@@ -57,6 +57,60 @@ make deploy-tour
 Commit the updated `tree-sitter-nomi/tree-sitter-nomi.wasm` along with the
 grammar source changes before pushing.
 
+## How the site runs examples
+
+A ` ```nomi-run ` block becomes a live editor. The authoring rules (fence
+words, expect blocks, the Examples pages) are in the repository's
+`AGENTS.md`. The Go side is documented in the packages that run blocks:
+`vmhost.LoadMarked` and `vmhost.BlockFiles` (a block's files, data files,
+modules and sibling projects), `vmhost.ToolMarked` (`tool:` steps),
+`internal/tourgo` (Go bindings and the `lib/` modules the tour links) and
+`cmd/nomi-docgen` (the stdlib reference's editors). This section is the
+browser side.
+
+**Recorded output.** A page runs nothing when it loads. Until a block's
+first run its output panel shows its expect block, over the files as the
+block holds them, and the page asks the worker only for the analyzer's
+tokens. The build carries the expect text in the page beside the block's
+code (`src/lib/rehype-shiki.mjs`, empty for a block with no expect block).
+The reader's first edit runs the block. A `manual` block runs only on its
+Run button, labelled "Recorded output. Press Run to run it." until then. A
+`no-run` block runs when it scrolls into view, as a stdlib reference example
+does. The panel shows the record as a run's output: an error block's failure
+is its last line, or its last two when the last is `exit status N`, or all of
+it when its first line names a file, line and column (`showRecorded` in
+`src/lib/tour-client.mjs`, which vmhost's `recordedFailure` mirrors).
+`astro.config.mjs` passes a hash of `rehype-shiki.mjs` as the plugin's
+option, so an edit to it clears Astro's cache of rendered pages.
+
+**The worker.** `src/lib/run-worker.js` runs the Nomi wasm. It lowers the
+standard library (`nomiWarm`, `vmhost.Warm`) before its first run, inside the
+page's load allowance (`LOAD_BUDGET_MS`) and outside the run's budget; tokens,
+hovers and the formatter need only the analysis, so a page that is only read
+never lowers it. The wasm reaches nothing outside the worker: std/fs goes to
+an in-memory file system (`src/lib/go-memfs.js`), and the stdlib has no
+networking module there. Memory is capped at 1 GiB and call depth at 1,000.
+The worker starts the wasm with `GODEBUG=gcstoptheworld=1`, for the reason its
+comment gives: js/wasm has one thread and no preemption, so without it a busy
+machine lets the heap grow without bound.
+
+**The live editor.** A block of up to four files, none under a directory,
+picks files from a tab strip; a larger one, or one with a file under a
+directory, from a file tree beside the editor. Every runnable block has an
+"Open large" button that moves the editor itself into a modal `<dialog>` and
+back, so its edits and output carry over. In the large view a block's files
+can be split into two groups of tabs, and the output can move below the code.
+A block that is a solution and its test opens the first time, in a large view
+at least 1100px wide, with the two side by side. A file is editable only when
+an edit can change what the block prints (`readOnlyReason`): Go files,
+`go.mod`, `go.sum`, a `nomi.toml` whose only table is `[module]`, and data
+files a `read-only:` word marks are locked. Highlighting, hovers and runs use
+the same grammar, queries, analyzer and VM the editors use, compiled to wasm.
+
+**Tests.** `npm --prefix tour test` loads recorded, manual and unrecorded
+blocks into headless Chrome with a fake worker and holds them to the rules
+above (`test/`; it skips without Chrome or the staged `public/nomi/`).
+
 ## Cloudflare Pages
 
 Cloudflare Pages settings:

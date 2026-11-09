@@ -50,8 +50,15 @@ import (
 //
 // FuzzFormatKeepsMeaning mutates the seeds and variants byte by byte.
 // TestFormatKeepsMeaning checks the seeds, the generated programs and a
-// fixed set of variants once, under plain `go test`, and
+// fixed set of variants once, under plain `go test` (about 4 seconds), and
 // TestFormatKeepsMeaningRotating a set of variants that changes every day.
+// Fuzz with
+//
+//	go test ./vmhost -run '^$' -fuzz '^FuzzFormatKeepsMeaning$' -fuzztime 5m -parallel 4
+//
+// A failure too large to fix where it was found is pinned in
+// knownFormatGaps (format_gaps_test.go), which TestKnownFormatGaps checks.
+// The layout rules these tests hold are in the internal/format package doc.
 
 // formatFailure is one break of the rule.
 type formatFailure struct {

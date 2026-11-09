@@ -45,6 +45,8 @@
 //                                its line.
 //   SUBTESTS_STAGE_KEYWORD     — the contextual keyword `subtests` as the
 //                                pipe stage `|> subtests pattern { ... }`.
+//   TODO_KEYWORD               — the contextual keyword `todo` before its
+//                                reason, `todo "reason"`.
 //
 // Each string scanner emits at least one character; if the first character
 // is already a boundary, the scanner returns false and lets the main
@@ -79,6 +81,9 @@ enum TokenType {
     // The contextual keyword `subtests` after a `|>`, emitted only when a
     // pattern follows it after a space (scan_subtests_stage_keyword).
     SUBTESTS_STAGE_KEYWORD,
+    // The contextual keyword `todo` with its reason, emitted only when a
+    // string follows it on its line (scan_todo_keyword).
+    TODO_KEYWORD,
 };
 
 typedef struct {
@@ -501,6 +506,20 @@ static bool scan_host_keyword(TSLexer *lexer) {
     return true;
 }
 
+// The contextual keyword `todo`, at the lookahead where an expression can
+// start, when its reason, a string, follows it on its line: `todo "parse
+// the header"`, `todo """...`, todo `raw`. A bare `todo` is left an
+// identifier, which the compiler reads as the placeholder or, in the scope
+// of a binding named `todo`, as that binding. The token ends after the word.
+static bool scan_todo_keyword(TSLexer *lexer) {
+    if (!at_word(lexer, "todo")) return false;
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    if (lexer->lookahead != '"' && lexer->lookahead != '`') return false;
+    lexer->result_symbol = TODO_KEYWORD;
+    return true;
+}
+
 // Scan a line-leading `//!` prompt, or the end of a prompt group, at the
 // position after the leading whitespace run, which held `newlines` line
 // breaks. A prompt token ends right after its `!`: the spaces after it are
@@ -637,6 +656,10 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
 
     if (valid_symbols[HOST_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'h') {
         return scan_host_keyword(lexer);
+    }
+
+    if (valid_symbols[TODO_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 't') {
+        return scan_todo_keyword(lexer);
     }
 
     // The operand of `dbg`, `return`, `break` and `todo` must start on

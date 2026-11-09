@@ -631,11 +631,11 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 
 	blockTP, _ := buildImplBlockTypeParams(fa, reg, n)
 	var receiver Type
-	if recvResolved, err := ResolveDeclaredType(n.Receiver, reg, blockTP, fa.References); err == nil {
+	if recvResolved, err := ResolveDeclaredType(n.Receiver, reg, blockTP, fa); err == nil {
 		receiver = recvResolved
 	}
 	var headerArgs []Type
-	if ifaceResolved, err := ResolveTypeExpr(n.Interface, reg, blockTP, fa.References); err == nil {
+	if ifaceResolved, err := ResolveTypeExpr(n.Interface, reg, blockTP, fa); err == nil {
 		if instantiated, ok := ifaceResolved.(*InterfaceType); ok {
 			headerArgs = instantiated.TypeArgs
 		}
@@ -1243,7 +1243,7 @@ func buildStructType(fa *FileAnalysis, reg *TypeRegistry, n *ast.StructDef) []Ty
 			}
 			continue
 		}
-		resolved, err := ResolveDeclaredType(f.TypeAnnotation, reg, tp, fa.References)
+		resolved, err := ResolveDeclaredType(f.TypeAnnotation, reg, tp, fa)
 		if err != nil {
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)
@@ -1294,7 +1294,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 		case "positional":
 			vd.Kind = VariantPositional
 			if v.DataTypeExpr != nil {
-				resolved, err := ResolveDeclaredType(v.DataTypeExpr, reg, tp, fa.References)
+				resolved, err := ResolveDeclaredType(v.DataTypeExpr, reg, tp, fa)
 				if err != nil {
 					if te, ok := err.(TypeError); ok {
 						errs = append(errs, te)
@@ -1316,7 +1316,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 					}
 					continue
 				}
-				resolved, err := ResolveDeclaredType(f.TypeAnnotation, reg, tp, fa.References)
+				resolved, err := ResolveDeclaredType(f.TypeAnnotation, reg, tp, fa)
 				if err != nil {
 					if te, ok := err.(TypeError); ok {
 						errs = append(errs, te)
@@ -1339,7 +1339,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 		case "embedded":
 			vd.Kind = VariantEmbedded
 			if v.EmbeddedTypeExpr != nil {
-				resolved, err := ResolveDeclaredType(v.EmbeddedTypeExpr, reg, tp, fa.References)
+				resolved, err := ResolveDeclaredType(v.EmbeddedTypeExpr, reg, tp, fa)
 				if err != nil {
 					if te, ok := err.(TypeError); ok {
 						errs = append(errs, te)
@@ -1514,7 +1514,7 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 	dt.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
 
 	if n.InnerTypeExpr != nil {
-		resolved, err := ResolveDeclaredType(n.InnerTypeExpr, reg, tp, fa.References)
+		resolved, err := ResolveDeclaredType(n.InnerTypeExpr, reg, tp, fa)
 		if err != nil {
 			if te, ok := err.(TypeError); ok {
 				return append(errs, te)
@@ -1655,7 +1655,7 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		}
 		var ret Type
 		if m.ReturnTypeExpr != nil {
-			resolved, err := ResolveDeclaredType(m.ReturnTypeExpr, reg, mtp, fa.References)
+			resolved, err := ResolveDeclaredType(m.ReturnTypeExpr, reg, mtp, fa)
 			if err != nil {
 				if te, ok := err.(TypeError); ok {
 					errs = append(errs, te)
@@ -1760,7 +1760,7 @@ func buildOnceTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.OnceBindi
 	if n.TypeAnnotation == nil {
 		return nil
 	}
-	resolved, err := ResolveDeclaredType(n.TypeAnnotation, reg, base, fa.References)
+	resolved, err := ResolveDeclaredType(n.TypeAnnotation, reg, base, fa)
 	if err != nil {
 		if te, ok := err.(TypeError); ok {
 			return []TypeError{te}
@@ -1816,7 +1816,7 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 	if n.TargetTypeExpr == nil {
 		return nil
 	}
-	resolved, err := ResolveDeclaredType(n.TargetTypeExpr, reg, nil, fa.References)
+	resolved, err := ResolveDeclaredType(n.TargetTypeExpr, reg, nil, fa)
 	if err != nil {
 		if te, ok := err.(TypeError); ok {
 			return []TypeError{te}
@@ -1904,7 +1904,7 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 
 	var retType Type = TypeUnit
 	if n.ReturnTypeExpr != nil {
-		resolved, err := ResolveDeclaredType(n.ReturnTypeExpr, reg, tp, fa.References)
+		resolved, err := ResolveDeclaredType(n.ReturnTypeExpr, reg, tp, fa)
 		if err != nil {
 			// An unknown type is unknown (nil), not Unit, so the body and the
 			// calls are not also mismatches against a type nobody wrote.
@@ -2145,7 +2145,7 @@ func appendUniqueInterface(items *[]*InterfaceType, value *InterfaceType) {
 // (jsonType). Returns nil for anything
 // else — the caller then reports the ordinary resolution error, so a
 // synthesizer emitting an unexpected name still fails loudly.
-func compilerKnownSynthType(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*TypeParam_, refs map[Pos]*Symbol) Type {
+func compilerKnownSynthType(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*TypeParam_, fa *FileAnalysis) Type {
 	switch t := te.(type) {
 	case *ast.SimpleType:
 		switch t.Name {
@@ -2164,9 +2164,9 @@ func compilerKnownSynthType(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*T
 		}
 		args := make([]Type, len(t.Params))
 		for i, p := range t.Params {
-			resolved, err := ResolveTypeExpr(p, reg, tp, refs)
+			resolved, err := ResolveTypeExpr(p, reg, tp, fa)
 			if err != nil {
-				resolved = compilerKnownSynthType(p, reg, tp, refs)
+				resolved = compilerKnownSynthType(p, reg, tp, fa)
 			}
 			if resolved == nil {
 				return nil
@@ -2256,7 +2256,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 			resolved, err := resolveParamType(p, fa, reg, tp, true)
 			if err != nil {
 				if synthBlock {
-					if known := compilerKnownSynthType(te, reg, tp, fa.References); known != nil {
+					if known := compilerKnownSynthType(te, reg, tp, fa); known != nil {
 						params = append(params, known)
 						continue
 					}
@@ -2273,10 +2273,10 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 
 		var retType Type = TypeUnit
 		if fn.ReturnTypeExpr != nil {
-			resolved, err := ResolveDeclaredType(fn.ReturnTypeExpr, reg, tp, fa.References)
+			resolved, err := ResolveDeclaredType(fn.ReturnTypeExpr, reg, tp, fa)
 			if err != nil {
 				retType = nil
-				if known := compilerKnownSynthType(fn.ReturnTypeExpr, reg, tp, fa.References); synthBlock && known != nil {
+				if known := compilerKnownSynthType(fn.ReturnTypeExpr, reg, tp, fa); synthBlock && known != nil {
 					retType = known
 				} else if terr, ok := err.(TypeError); ok {
 					errs = append(errs, terr)
@@ -2342,7 +2342,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		}
 		var retType Type = TypeUnit
 		if ef.ReturnTypeExpr != nil {
-			if resolved, err := ResolveDeclaredType(ef.ReturnTypeExpr, reg, tp, fa.References); err == nil {
+			if resolved, err := ResolveDeclaredType(ef.ReturnTypeExpr, reg, tp, fa); err == nil {
 				retType = resolved
 			} else if terr, ok := err.(TypeError); ok {
 				errs = append(errs, terr)
@@ -2451,7 +2451,7 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 
 	var retType Type = TypeUnit
 	if n.ReturnTypeExpr != nil {
-		resolved, err := ResolveDeclaredType(n.ReturnTypeExpr, reg, tp, fa.References)
+		resolved, err := ResolveDeclaredType(n.ReturnTypeExpr, reg, tp, fa)
 		if err != nil {
 			// An unknown type is unknown (nil), not Unit, so the body and the
 			// calls are not also mismatches against a type nobody wrote.
@@ -2535,7 +2535,7 @@ func resolveWhereBounds(fa *FileAnalysis, reg *TypeRegistry, typeParams map[stri
 		}
 		var bounds []*InterfaceType
 		for _, b := range wc.Bounds {
-			resolved, err := ResolveDeclaredType(b, reg, typeParams, fa.References)
+			resolved, err := ResolveDeclaredType(b, reg, typeParams, fa)
 			if err != nil {
 				if te, ok := err.(TypeError); ok {
 					errs = append(errs, te)

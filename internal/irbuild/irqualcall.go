@@ -1780,6 +1780,7 @@ func (bl *irScalarBuilder) qualEmit(t *ast.Call, args irQualArgs, p *irQualPlan)
 		callee = bl.g.irCalleeSym(p.token, p.name)
 	}
 	if decl := irQualPlanDecl(p); decl != nil {
+		bl.g.irNoteBootCall(decl, callee)
 		// `fn x -> lib.keep(x)` over another file's iter-sensitive keep.
 		signalling, ok := bl.iterSensitiveCall(t, decl, p.name)
 		if !ok {

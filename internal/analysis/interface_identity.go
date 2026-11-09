@@ -175,28 +175,31 @@ func (t ImplTables) namesInterface(concreteName, ifaceName, ifaceOrigin string) 
 // declaration: two files may each declare a type of one name with an impl
 // of one interface, and only its own file's impl is concrete's.
 // QualifiedReceiver names a receiver by its declaring file, and one the
-// entry declares bare. With one candidate, or a concrete type of no known
-// declaration, it answers candidates.
-func ownReceiverImpls(idx *ProjectImplIndex, candidates []*ast.FuncDef, concrete Type) []*ast.FuncDef {
+// entry declares bare, so a bare one is concrete's only when concrete is
+// the entry's (entryOrigin, Program.entryOrigin). This holds for a single
+// candidate too: an entry that derives Equatable for its Wallet gives
+// another file's Wallet no impl, and that file's `==` stays structural, as
+// it is when the file is checked against interfaces and the entry's impl
+// is not in sight. An impl with no qualified receiver recorded, and a
+// concrete type of no known declaration, match by name.
+func ownReceiverImpls(idx *ProjectImplIndex, candidates []*ast.FuncDef, concrete Type, entryOrigin string) []*ast.FuncDef {
 	origin, ok := nominalOrigin(resolveTypeVar(concrete))
-	if !ok || origin == OriginUnresolved || len(candidates) < 2 {
+	if !ok || origin == OriginUnresolved {
 		return candidates
 	}
-	var own, bare []*ast.FuncDef
+	entry := origin == OriginEntry || origin == entryOrigin
+	var own []*ast.FuncDef
 	for _, fn := range candidates {
-		o, _, qualified := strings.Cut(idx.QualifiedReceiver[fn], receiverOriginSep)
+		q, recorded := idx.QualifiedReceiver[fn]
+		o, _, qualified := strings.Cut(q, receiverOriginSep)
 		switch {
+		case !recorded || q == "":
+			own = append(own, fn)
 		case qualified && o == origin:
 			own = append(own, fn)
-		case !qualified:
-			bare = append(bare, fn)
+		case !qualified && entry:
+			own = append(own, fn)
 		}
 	}
-	if len(own) > 0 {
-		return own
-	}
-	if len(bare) > 0 {
-		return bare
-	}
-	return candidates
+	return own
 }

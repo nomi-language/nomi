@@ -267,6 +267,23 @@ If opening fails, the `?` returns before the `defer` line runs, so there is
 nothing to close. Calls deferred earlier in the block still run.
 [Files](/files/#streams) has more on closing files.
 
+A function that opens something and returns it can't defer the close, since
+the caller still needs it. `defer on error` runs its call only if the
+function fails after that line, through a `?`, a `return` of `Err` or
+`None`, or a trap:
+
+```nomi
+pub fn open(path: String) -> Result<SqliteStore, sql.Error> {
+    conn = sqlite.open(path)?
+    defer on error sql.close_quietly(conn)
+    _ = Conn.exec(conn, Sql"CREATE TABLE IF NOT EXISTS notes (body TEXT)")?
+    Ok(SqliteStore{conn})
+}
+```
+
+The checker asks for it: a `?` between opening a value and handing it on,
+with nothing that releases it on that path, is an error.
+
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
@@ -577,9 +594,43 @@ FAIL server_test.nomi :: without a database path / never gets this far
       Err("DATABASE_PATH is not set")
 ```
 
-A test that checks how `boot` fails calls the code `boot` calls, such as the
-function that reads the settings, and asserts on its `Err`, since a group's
-`boot` line runs only to start a test.
+To test how `boot` fails, call it in the test like any function and assert
+on the `Result` it returns. A call in a test publishes no app fields, and
+what `boot` starts, its cleanup and supervised work, ends with the test.
+
+```nomi-run
+import std::io
+
+struct App {
+    store: String
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    store = Map.get(startup.env, "STORE") |> Maybe.with_default("memory")
+
+    if store == "postgres" and not ("DATABASE_URL" in startup.env) {
+        return Err("STORE=postgres needs DATABASE_URL")
+    }
+
+    Ok(App{store})
+}
+
+fn main() {
+    io.print("store: ${App.store}")
+}
+
+test "postgres without a URL stops the program" {
+    startup = Startup{env: %{"STORE" => "postgres"}}
+    assert boot(startup) is Err("STORE=postgres needs DATABASE_URL")
+}
+```
+<!-- expect
+store: memory
+ok postgres without a URL stops the program
+test result: ok. 1 passed, 0 failed
+-->
+
+Outside a test, `boot` can only be called on a group's `boot` line.
 
 [Input & Output](/input-and-output/) is next. It prints, reads input and
 sets the exit status.

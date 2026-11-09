@@ -1,19 +1,3 @@
-// Package modcache answers which Go modules a Nomi project needs the source
-// of, and where each one is: a local `replace` directory, or its extracted
-// copy in the Go module cache (GOMODCACHE). It reads only the disk and never
-// downloads, so the language server, the checker and the FFI wrapper can use
-// it. internal/modfetch puts missing modules in the cache; a process that may
-// download (the `nomi` CLI) installs it with SetFetcher, and Load calls it
-// before reading.
-//
-// The modules a project needs are the direct requires of its go.mod (those
-// without `// indirect`), and, for each of them that is a Nomi module (its
-// root holds a nomi.toml), every module its own go.mod requires that the
-// project's go.mod also lists, transitively. Each is taken at the version the
-// project's go.mod requires: since Go 1.17 a tidy go.mod lists every module
-// its build needs at the version minimal version selection picks, and
-// `nomi add` and `nomi fetch` keep it that way. A Nomi module's requirement
-// the project's go.mod does not list is Unlisted, which `nomi fetch` adds.
 package modcache
 
 import (

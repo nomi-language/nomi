@@ -1,20 +1,3 @@
-// Package collation compares strings as the reader of a language orders
-// them: the Unicode Collation Algorithm (UTS #10) over CLDR's root
-// collation, with CLDR's per-locale tailorings (UTS #35 part 5).
-//
-// The design is ICU's, as ICU4X ports it: one root table every locale
-// shares, and per locale a tailoring that overlays it. internal/cldrgen
-// builds both from the pinned CLDR release (FractionalUCA.txt and the
-// collation/*.xml rules, compiled by package collgen) and writes them into
-// the locale data a program carries; this package decodes them and
-// compares. It links no generator and no rule parser.
-//
-// A string is normalized to NFD, mapped to collation elements (CEs) through
-// the tailoring and then the root (contractions, discontiguous contractions,
-// prefix contexts, expansions, implicit weights for Han and unassigned code
-// points, and numeric ordering when asked), and the CEs are compared level
-// by level as the options say: strength, alternate handling, case first,
-// case level, backwards secondary, and script reordering.
 package collation
 
 // CE is a collation element, laid out as ICU lays out its 64-bit CEs:

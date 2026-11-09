@@ -142,6 +142,11 @@ contexts:
     # `open = 42`) are conventionally rare; the test programs only
     # mention them inside comments, which the `comments` context already
     # swallows before this rule can fire.
+    # `on error` is a keyword only right after `defer`.
+    - match: '\b(defer)[ \t]+(on[ \t]+error)\b'
+      captures:
+        1: keyword.declaration.nomi
+        2: keyword.declaration.nomi
     - match: '\b(pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|variant|open)\b'
       scope: keyword.declaration.nomi
     # `clock` and `boot` are keywords only as a test group's lines

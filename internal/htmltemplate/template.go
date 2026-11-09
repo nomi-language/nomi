@@ -1,22 +1,3 @@
-// Package htmltemplate reads the text of an `Html` literal (spec §18
-// *HTML templates*) as an HTML template: it checks the markup, finds the
-// context of each `${...}` slot, and reports what it cannot accept.
-//
-// The template language is HTML with stricter rules. Every non-void element
-// has an explicit end tag; a `/>` closes only a void element or an element
-// inside `<svg>` or `<math>`; an element name is an HTML, SVG or MathML name
-// or a custom element's, with a hyphen. Attribute values may be quoted with
-// `"` or `'`, and the two quotes mean the same.
-//
-// A slot's context decides which std/html function receives its value, and
-// so which type the value must have. The contexts follow Go's html/template
-// (stateText, stateRCDATA, stateAttr, stateURL, stateCSS), found once, when
-// the program is checked, rather than at a template's first execution.
-//
-// The package knows nothing of Nomi's AST. The front end passes the static
-// text around the slots and receives the slots' contexts, the static text
-// to emit (an optional attribute's name moves into its slot), and errors at
-// positions in that text.
 package htmltemplate
 
 import (

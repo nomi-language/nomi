@@ -1,15 +1,3 @@
-// Package goside is the Go half of the Nomi module image: decoding JPEG,
-// PNG and WebP, resizing, cropping, and encoding JPEG and PNG, over Go's
-// image packages and golang.org/x/image. The Nomi facade (image.nomi) turns
-// a Failure into image.Error and holds an *Image as an opaque handle.
-//
-// An *Image is never changed after it is made: every operation answers a
-// new one, as the Nomi values over it require.
-//
-// No call takes a context. Neither Go's decoders nor x/image's scalers can
-// stop partway, and the pixel limit Decode enforces bounds every call, so
-// a cancelled task's call finishes and the task ends after it. A call runs
-// on the calling task's goroutine and does not hold up other tasks.
 package goside
 
 import (

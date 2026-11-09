@@ -31,6 +31,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -38,9 +39,10 @@ import (
 	"unicode"
 )
 
-// specRepoDocs is where a link from the spec to another document under
-// docs/ points, since only the spec is on the site.
-const specRepoDocs = "https://github.com/nomi-language/nomi/blob/main/docs/"
+// specRepo is where a link from the spec to another file in the repository
+// points, since only the spec is on the site. The link's target is relative
+// to docs/.
+const specRepo = "https://github.com/nomi-language/nomi/blob/main/"
 
 // specSite is the section's path on the site.
 const specSite = "/spec/"
@@ -504,7 +506,7 @@ func (d *specDoc) rewriteLinks(line string, from *specSection) string {
 			d.unresolved = append(d.unresolved, target)
 			return m
 		default:
-			return "](" + specRepoDocs + strings.TrimPrefix(target, "./") + ")"
+			return "](" + specRepo + path.Clean("docs/"+target) + ")"
 		}
 	})
 }

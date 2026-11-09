@@ -35,8 +35,18 @@ package ir
 //
 // A Return with no value accepts the transfer too: the function answers the
 // callee's value there as well.
+//
+// A function that registers an error-only Defer makes none: whether that
+// call runs depends on the value the callee answers.
 func TailTransfers(f *Func) map[*Call]bool {
 	var out map[*Call]bool
+	for _, b := range f.Blocks() {
+		for _, in := range b.Instrs() {
+			if d, isDefer := in.(*Defer); isDefer && d.OnError() {
+				return nil
+			}
+		}
+	}
 	for _, b := range f.Blocks() {
 		for i, in := range b.Instrs() {
 			c, isCall := in.(*Call)

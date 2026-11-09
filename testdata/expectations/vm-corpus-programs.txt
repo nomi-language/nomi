@@ -6,6 +6,7 @@
 12-derives-and-standard-interfaces/generic_debug/main.nomi
 14-modules-and-packaging/file_import_display/main.nomi
 15-app-and-defer/app_field_permission/main.nomi
+15-app-and-defer/boot_called_in_test/server.nomi
 15-app-and-defer/deadline_floor/supervisor_app.nomi
 15-app-and-defer/effects/main.nomi
 15-app-and-defer/import_vs_app/import_app.nomi

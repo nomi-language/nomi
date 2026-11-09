@@ -18,7 +18,8 @@ import (
 // TestEditWorkStaysFlatAsAProjectGrows counts the work each kind of edit
 // costs the language server's kept program (DocumentManager.RecheckEdits)
 // in generated projects of about 1k and 10k lines (internal/projectgen):
-// the files whose bodies CheckTypes walks. It counts work, not time.
+// the files whose bodies CheckTypes walks. It counts work, not time, and
+// runs in under a second.
 //
 //   - A body-only edit, in a leaf, a hub or the entry, re-checks the edited
 //     file and nothing else, at every size.

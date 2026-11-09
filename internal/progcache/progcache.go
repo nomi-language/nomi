@@ -1,25 +1,3 @@
-// Package progcache keeps what a `nomi` command built from a program's
-// files in the artifact cache, so the next command over the same files
-// reads it instead of checking and lowering the program again.
-//
-// An entry is keyed by the compiler's identity (artifactcache.CompilerID),
-// what was built (its kind: a load, a build for a target), the entry file's
-// absolute path and the environment variables the front end reads. It
-// records the files the build read: the trees it was built from, each walked
-// for the files a build can read in it, and single files outside them, each
-// with its size, times, inode and SHA-256. A later lookup walks the same
-// trees and stats the same files. A file whose stat is unchanged, and was
-// last changed well before the entry was made, is taken as unchanged; any
-// other is hashed and compared. Any difference, a file added or removed in a
-// tree included, is a miss.
-//
-// The record is made from a snapshot taken before the build starts, and is
-// written only when nothing in the snapshot changed while the build ran, so
-// it never names a file's later contents beside a build of earlier ones.
-//
-// A record that does not decode, is truncated or fails its checksum is a
-// miss, never an error. Writes go through a temporary file renamed into
-// place, so two processes racing on one key are harmless.
 package progcache
 
 import (

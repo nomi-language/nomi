@@ -9,6 +9,19 @@
 // build registers its own driver under that name instead, over SQLite's
 // official WebAssembly build (sqlite_js.go), so both answer the same
 // bindings with the same values and errors.
+//
+// A Conn is one SQLite connection, which every task of a program may
+// share: an app keeps one in an app field and uses it from every request.
+// The tasks take turns on it (see Conn): a statement sent through the
+// connection runs alone, and a transaction has the connection to itself
+// from its begin until it ends, so a statement from another task waits
+// for the transaction to end rather than fail or run inside it. The wait
+// is bounded only by the waiting task's context (a deadline or a cancel is
+// FailTimeout). One connection rather than database/sql's pool keeps what
+// SQLite ties to a connection where a program put it: an in-memory
+// database, a TEMP table, a PRAGMA. It costs reads during a write, which
+// SQLite in WAL mode could run on other connections; SQLite takes one
+// writer at a time either way.
 package goside
 
 import (
@@ -101,6 +114,19 @@ type Level struct {
 // a transaction, a savepoint) shares it and names its own depth and
 // token; a transaction or savepoint is open while its token is on the
 // stack at its depth.
+//
+// Tasks share a Conn by taking turns. SQLite has one transaction per
+// connection, so a statement sent through the connection while another
+// task's transaction is open would run inside that transaction, and commit
+// or roll back with it. Instead the connection has one turn: a statement
+// sent through it holds the turn while it runs, and a transaction holds it
+// from its begin until it ends. A statement from another task waits for an
+// open transaction to end, as one waits for a free connection of a
+// database/sql pool, for as long as its task's context allows. The
+// statements of an open transaction and its savepoints need no turn.
+//
+// Lock order: turn, then mu. Nothing waits for the turn while holding mu;
+// giving the turn back never waits.
 type Conn struct {
 	mu     sync.Mutex
 	db     *sql.DB
@@ -108,6 +134,44 @@ type Conn struct {
 	closed bool
 	stack  []int64
 	next   int64
+	// turn holds a value while a statement sent through the connection
+	// runs, and while a transaction is open (len(stack) > 0).
+	turn chan struct{}
+}
+
+// take waits for the connection's turn, or for ctx to end, which is a
+// Timeout.
+func (c *Conn) take(ctx context.Context) Failure {
+	select {
+	case c.turn <- struct{}{}:
+		return Failure{}
+	case <-ctx.Done():
+		return Failure{Kind: FailTimeout, Message: ctx.Err().Error()}
+	}
+}
+
+// give gives the turn back.
+func (c *Conn) give() { <-c.turn }
+
+// enter is what a statement on the Conn at depth runs under: the
+// connection's turn for a statement sent through the connection, none for
+// one on a transaction or savepoint, which runs inside the transaction
+// that holds the turn. It answers the function that gives the turn back.
+func (c *Conn) enter(ctx context.Context, depth int64) (func(), Failure) {
+	if depth > 0 {
+		return func() {}, Failure{}
+	}
+	if f := c.take(ctx); f.Kind != FailNone {
+		return nil, f
+	}
+	return c.give, Failure{}
+}
+
+// end forgets the transaction and gives the turn it held back. The caller
+// holds c.mu, and a transaction is open.
+func (c *Conn) end() {
+	c.stack = nil
+	c.give()
 }
 
 var background = context.Background()
@@ -146,7 +210,7 @@ func Open(path string) (*Conn, error) {
 			return nil, err
 		}
 	}
-	return &Conn{db: db, conn: conn}, nil
+	return &Conn{db: db, conn: conn, turn: make(chan struct{}, 1)}, nil
 }
 
 // usable is the failure of using the Conn at depth with token: Closed
@@ -167,19 +231,17 @@ func (c *Conn) usable(depth, token int64) Failure {
 
 // runnable is usable for a statement, which must run on the innermost open
 // transaction or savepoint: SQLite has one transaction per connection, so a
-// statement sent through the connection or an outer transaction while a
-// savepoint is open would belong to the savepoint, and roll back with it.
-// The caller holds c.mu.
+// statement sent through an outer transaction while a savepoint is open
+// would belong to the savepoint, and roll back with it. (One sent through
+// the connection waits for its turn, so no transaction is open when it
+// runs.) The caller holds c.mu.
 func (c *Conn) runnable(depth, token int64) Failure {
 	if f := c.usable(depth, token); f.Kind != FailNone {
 		return f
 	}
 	if int64(len(c.stack)) > depth {
-		what := "a transaction is open on this connection; run the statement on the Conn its begin answered"
-		if depth > 0 {
-			what = "a savepoint is open inside this transaction; run the statement on the Conn its begin answered"
-		}
-		return Failure{Kind: FailDatabase, Code: "SQLITE_MISUSE", Message: what}
+		return Failure{Kind: FailDatabase, Code: "SQLITE_MISUSE",
+			Message: "a savepoint is open inside this transaction; run the statement on the Conn its begin answered"}
 	}
 	return Failure{}
 }
@@ -189,6 +251,11 @@ func (c *Conn) runnable(depth, token int64) Failure {
 // spliced into the text. ctx is the calling task's context: SQLite is
 // interrupted when it ends.
 func Run(ctx context.Context, c *Conn, depth, token int64, parts []string, params []Cell) Answer {
+	leave, f := c.enter(ctx, depth)
+	if f.Kind != FailNone {
+		return Answer{Failure: f}
+	}
+	defer leave()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if f := c.runnable(depth, token); f.Kind != FailNone {
@@ -214,6 +281,11 @@ func Run(ctx context.Context, c *Conn, depth, token int64, parts []string, param
 
 // Exec runs a statement that writes and answers how many rows it changed.
 func Exec(ctx context.Context, c *Conn, depth, token int64, parts []string, params []Cell) Answer {
+	leave, f := c.enter(ctx, depth)
+	if f.Kind != FailNone {
+		return Answer{Failure: f}
+	}
+	defer leave()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if f := c.runnable(depth, token); f.Kind != FailNone {
@@ -247,6 +319,11 @@ type Row struct {
 // when f returns false. The connection is held while it runs, so f must
 // not use the same connection.
 func EachRow(ctx context.Context, c *Conn, depth, token int64, parts []string, params []Cell, f func(Row) bool) Failure {
+	leave, fl := c.enter(ctx, depth)
+	if fl.Kind != FailNone {
+		return fl
+	}
+	defer leave()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if fl := c.runnable(depth, token); fl.Kind != FailNone {
@@ -277,19 +354,30 @@ func EachRow(ctx context.Context, c *Conn, depth, token int64, parts []string, p
 }
 
 // Begin starts a transaction on the connection (depth 0), or a savepoint
-// inside the transaction or savepoint at depth.
-func Begin(c *Conn, depth, token int64) Level {
+// inside the transaction or savepoint at depth. A transaction waits for
+// the connection's turn, as a statement sent through the connection does,
+// and holds it until it ends.
+func Begin(ctx context.Context, c *Conn, depth, token int64) Level {
+	if depth == 0 {
+		if f := c.take(ctx); f.Kind != FailNone {
+			return Level{Failure: f}
+		}
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if f := c.usable(depth, token); f.Kind != FailNone {
+	// failed gives back the turn a transaction's begin took when it does
+	// not open the transaction.
+	failed := func(f Failure) Level {
+		if depth == 0 {
+			c.give()
+		}
 		return Level{Failure: f}
 	}
+	if f := c.usable(depth, token); f.Kind != FailNone {
+		return failed(f)
+	}
 	if int64(len(c.stack)) != depth {
-		what := "a transaction is already open on this connection"
-		if depth > 0 {
-			what = "a savepoint is already open inside this transaction"
-		}
-		return Level{Failure: Failure{Kind: FailDatabase, Code: "SQLITE_MISUSE", Message: what}}
+		return failed(Failure{Kind: FailDatabase, Code: "SQLITE_MISUSE", Message: "a savepoint is already open inside this transaction"})
 	}
 	next := depth + 1
 	stmt := "BEGIN"
@@ -297,7 +385,7 @@ func Begin(c *Conn, depth, token int64) Level {
 		stmt = fmt.Sprintf("SAVEPOINT sp%d", next)
 	}
 	if _, err := c.conn.ExecContext(background, stmt); err != nil {
-		return Level{Failure: c.failure(err)}
+		return failed(c.failure(err))
 	}
 	c.next++
 	c.stack = append(c.stack, c.next)
@@ -323,9 +411,15 @@ func Commit(c *Conn, depth, token int64) Failure {
 		stmt = fmt.Sprintf("RELEASE SAVEPOINT sp%d", depth)
 	}
 	if _, err := c.conn.ExecContext(background, stmt); err != nil {
+		// A transaction whose COMMIT failed is still open (a deferred
+		// foreign key, a lock): its rollback ends it.
 		return c.failure(err)
 	}
-	c.stack = c.stack[:depth-1]
+	if depth == 1 {
+		c.end()
+	} else {
+		c.stack = c.stack[:depth-1]
+	}
 	return Failure{}
 }
 
@@ -349,17 +443,23 @@ func Rollback(c *Conn, depth, token int64) Failure {
 		return f
 	}
 	if depth == 1 {
-		if _, err := c.conn.ExecContext(background, "ROLLBACK"); err != nil {
+		// The transaction ends even when ROLLBACK fails: SQLite has then
+		// rolled it back itself (after SQLITE_FULL, SQLITE_IOERR or
+		// SQLITE_NOMEM, ROLLBACK finds no transaction), and a transaction
+		// kept open would keep the turn from every other task.
+		_, err := c.conn.ExecContext(background, "ROLLBACK")
+		c.end()
+		if err != nil && !strings.Contains(err.Error(), "no transaction is active") {
 			return c.failure(err)
 		}
-	} else {
-		name := fmt.Sprintf("sp%d", depth)
-		if _, err := c.conn.ExecContext(background, "ROLLBACK TO SAVEPOINT "+name); err != nil {
-			return c.failure(err)
-		}
-		if _, err := c.conn.ExecContext(background, "RELEASE SAVEPOINT "+name); err != nil {
-			return c.failure(err)
-		}
+		return Failure{}
+	}
+	name := fmt.Sprintf("sp%d", depth)
+	if _, err := c.conn.ExecContext(background, "ROLLBACK TO SAVEPOINT "+name); err != nil {
+		return c.failure(err)
+	}
+	if _, err := c.conn.ExecContext(background, "RELEASE SAVEPOINT "+name); err != nil {
+		return c.failure(err)
 	}
 	c.stack = c.stack[:depth-1]
 	return Failure{}
@@ -389,8 +489,10 @@ func Close(c *Conn) Failure {
 	c.closed = true
 	var first error
 	if len(c.stack) > 0 {
+		// The transaction's turn goes back, so a statement waiting for it
+		// takes it and finds the connection closed.
 		_, first = c.conn.ExecContext(background, "ROLLBACK")
-		c.stack = nil
+		c.end()
 	}
 	if err := c.conn.Close(); err != nil && first == nil {
 		first = err

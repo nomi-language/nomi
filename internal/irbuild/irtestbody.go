@@ -721,7 +721,7 @@ func (bl *irScalarBuilder) testArm(exit *ir.Block, body ast.Node, leaves bool) (
 	if !bl.testStmts(stmts) {
 		return kindInvalid, false
 	}
-	if last := lastStmtExpr(stmts); leaves && isTrapExpr(last) {
+	if last := lastStmtExpr(stmts); leaves && bl.g.isTrapExpr(last) {
 		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(last), bl.b.ID()))
 		return kindDiverged, true
 	}

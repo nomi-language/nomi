@@ -121,7 +121,7 @@ func (bl *irScalarBuilder) isNeverOperand(n ast.Node) bool {
 	if g, grouped := n.(*ast.GroupedExpr); grouped {
 		return bl.isNeverOperand(g.Expr)
 	}
-	switch t := n.(type) {
+	switch t := bl.g.asTodo(n).(type) {
 	case *ast.Todo, *ast.Unreachable:
 		return true
 	case *ast.Ident:
@@ -169,7 +169,7 @@ func (bl *irScalarBuilder) neverResultKind(n ast.Node) kind {
 
 // lowerNever lowers an operand isNeverOperand accepted at kindNever.
 func (bl *irScalarBuilder) lowerNever(n ast.Node) (ir.Temp, kind, bool, bool) {
-	switch t := n.(type) {
+	switch t := bl.g.asTodo(n).(type) {
 	case *ast.GroupedExpr:
 		return bl.lowerNever(t.Expr)
 	case *ast.Todo:

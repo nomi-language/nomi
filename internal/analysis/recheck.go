@@ -449,11 +449,15 @@ func (s lineShifts) at(line, col int) (int, int, bool) {
 // them: for the entry as CheckProgram does before its build, and for any
 // other file as the build does, with the prelude imports the kept nodes
 // start with. frontEnd are the entry's derive-lowering and duplicate test
-// name errors.
-func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node, site *ExpansionSite) (prepared []ast.Node, frontEnd []TypeError) {
+// name errors. key is the file's module key, and fileNodes answers the
+// program's other files' nodes by key, for a partner test's derives
+// (LowerPartnerDerives).
+func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node, site *ExpansionSite, key string, fileNodes func(key string) ([]ast.Node, bool)) (prepared []ast.Node, frontEnd []TypeError) {
 	if entry {
 		nodes = ExpandDeclarations(nodes, site)
+		nodes, partnerErrs := LowerPartnerDerives(nodes, key, fileNodes)
 		nodes, lowerErrs := LowerDerives(nodes)
+		lowerErrs = append(partnerErrs, lowerErrs...)
 		testNameErrs := CheckDuplicateTestNames(nodes)
 		prog, _ := SynthesizeDerives(nodes)
 		return SynthesizeUniversalDebug(prog), append(lowerErrs, testNameErrs...)
@@ -465,7 +469,8 @@ func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node, site *Expansio
 		}
 		prelude = append(prelude, n)
 	}
-	lowered, _ := LowerDerives(ExpandDeclarations(append(prelude, nodes...), site))
+	expanded, _ := LowerPartnerDerives(ExpandDeclarations(append(prelude, nodes...), site), key, fileNodes)
+	lowered, _ := LowerDerives(expanded)
 	extended, _ := SynthesizeDerives(lowered)
 	return SynthesizeUniversalDebug(extended), nil
 }
@@ -531,7 +536,10 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 		delete(parsed, key)
 		var mu sync.Mutex
 		site := dm.expansionSite(prev.Root, key, manifest, dm.recordingInputs(prev, &mu))
-		prepared, frontEnd := preparedNodes(pf.nodes, key == prev.Entry, nodes, site)
+		prepared, frontEnd := preparedNodes(pf.nodes, key == prev.Entry, nodes, site, key, func(k string) ([]ast.Node, bool) {
+			n, ok := prev.Nodes[k]
+			return n, ok
+		})
 		if len(prepared) != len(nodes) {
 			return nil, "the prepared declarations differ in number"
 		}

@@ -275,3 +275,85 @@ func isRowStatement(n ast.Node) bool {
 	}
 	return false
 }
+
+// A group's `subtests rows, pattern, name { ... }` block runs the group's
+// boot line, setup and tests once per row, with pattern bound to the row in
+// each of them. The rows are read when the tests are collected, not run:
+// each row's tests are cases of their own, named with the row
+// (ast.GroupRowLabels), which `nomi test` lists, counts and selects before
+// anything runs. So the rows are a list literal of literal values, and a
+// row's name is a column of it.
+
+const (
+	groupRowsListMsg    = "the rows of a `subtests` block in a `group` are a list literal, such as `[\"memory\", \"sqlite\"]`: each row's tests are named and counted when the tests are collected, before anything runs"
+	groupRowLiteralMsg  = "a row of a `subtests` block in a `group` is a literal value, read when the tests are collected: a String, a number, True or False, or a tuple of them"
+	groupRowTryMsg      = "`?` cannot be used in a row of a `subtests` block in a `group`: the rows are literal values, read when the tests are collected"
+	groupRowNameMsg     = "the name of a row of a `subtests` block in a `group` is a String column its pattern binds, such as `subtests [(\"memory\", 1)], (store, workers), store`"
+	groupRowNameTypeMsg = "the name of a `subtests` row must be a String, got %s"
+)
+
+// checkGroupSubtests checks a group's `subtests` header: literal rows, a
+// pattern that matches every row, and a name that is one of its String
+// columns.
+func (c *checker) checkGroupSubtests(gs *ast.GroupSubtests) {
+	rowsTy := c.checkNode(gs.Rows)
+	if list, ok := gs.Rows.(*ast.ListLit); !ok || list.TypeName != nil {
+		c.report(errAt(gs.Rows, groupRowsListMsg).WithHint(
+			"write the rows in place; a test that needs computed rows runs a `subtests` statement in its body"))
+	} else {
+		for _, row := range list.Items {
+			if try := firstTryOp(row); try != nil {
+				c.report(errAt(try, groupRowTryMsg))
+				continue
+			}
+			if bad := ast.GroupRowNonLiteral(row); bad != nil {
+				c.report(errAt(bad, groupRowLiteralMsg).WithHint(
+					"compute the value in the boot line, the setup or the test from the row"))
+			}
+		}
+	}
+	rowTy, iterable := c.subtestsRowType(rowsTy)
+	if rowsTy != nil && iterable && rowTy == nil {
+		c.report(errAt(gs.Rows, c.typef(
+			"the type of the rows of `subtests` is not determined: %s", rowsTy)).WithHint(
+			"write at least one row"))
+	}
+	if gs.Pattern != nil {
+		if rowTy != nil {
+			c.checkParamPatternRefutable(gs.Pattern, rowTy, func(line, col int, _ string) {
+				c.addError(line, col, refutableSubtestsPatternMsg)
+			})
+		}
+		c.checkPattern(gs.Pattern, rowTy)
+	}
+	if gs.Name != nil {
+		ty := c.checkNode(gs.Name)
+		if _, ok := ast.GroupRowColumn(gs); !ok {
+			c.report(errAt(gs.Name, groupRowNameMsg))
+		} else if ty != nil && c.unify(TypeString, ty, nil) != nil {
+			c.report(errAt(gs.Name, c.typef(groupRowNameTypeMsg, ty)))
+		}
+	}
+	if rowTy != nil {
+		if c.fa.GroupRowTypes == nil {
+			c.fa.GroupRowTypes = map[*ast.GroupSubtests]Type{}
+		}
+		c.fa.GroupRowTypes[gs] = rowTy
+	}
+}
+
+// firstTryOp is the first `?` written in n, or nil.
+func firstTryOp(n ast.Node) ast.Node {
+	var found ast.Node
+	ast.Inspect(n, func(n ast.Node) bool {
+		if found != nil {
+			return false
+		}
+		if t, ok := n.(*ast.TryOp); ok {
+			found = t
+			return false
+		}
+		return true
+	})
+	return found
+}

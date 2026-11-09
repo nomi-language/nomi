@@ -758,6 +758,25 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 // thing a template would be read for is `templateParamSet`. Two unifiers would
 // be two answers to one question. Taking the set also stops the leaf arm
 // rebuilding the same map at every SimpleType it visits.
+// instanceArgs is generic instance d's type arguments in this gen's kinds.
+// A mirror of another file's instance carries none of its own (mirrorShell):
+// they are read off the owner's def and imported, so `fn show<T>(p:
+// Pair<T>)` solves T from another file's `Pair<Int>` as from its own.
+func (g *gen) instanceArgs(d *typeDef) ([]kind, bool) {
+	if d.instOrigin == nil {
+		return d.genericArgs, true
+	}
+	args := make([]kind, len(d.instOrigin.genericArgs))
+	for i, a := range d.instOrigin.genericArgs {
+		k, ok := g.importKind(a)
+		if !ok {
+			return nil, false
+		}
+		args[i] = k
+	}
+	return args, true
+}
+
 func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]bool, solved map[string]kind) {
 	switch a := ann.(type) {
 	case *ast.SimpleType:
@@ -773,13 +792,13 @@ func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]b
 		// instance carries its own arguments, so the match reads them back
 		// rather than re-deriving them — which is why genericArgs is on the
 		// def at all.
-		if actual.def != nil && actual.def.genericOf != nil &&
-			actual.def.genericOf.nomi == a.Name &&
-			len(actual.def.genericArgs) == len(a.Params) {
-			for i, p := range a.Params {
-				g.unifyTypeParams(p, actual.def.genericArgs[i], params, solved)
+		if actual.def != nil && actual.def.genericOf != nil && actual.def.genericOf.nomi == a.Name {
+			if args, ok := g.instanceArgs(actual.def); ok && len(args) == len(a.Params) {
+				for i, p := range a.Params {
+					g.unifyTypeParams(p, args[i], params, solved)
+				}
+				return
 			}
-			return
 		}
 		// `items: List<T>`, `m: Maybe<T>` — a structural or prelude container
 		// whose component kinds are what the parameter is matched against.

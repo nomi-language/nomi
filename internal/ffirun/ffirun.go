@@ -1,30 +1,3 @@
-// Package ffirun handles discovery + wrapper codegen + cache for the
-// nomi CLI's Go-backed execution path. Internal to the nomi CLI; not
-// part of the public embedding API.
-//
-// The package decomposes the path into three stages:
-//
-//  1. Discovery (discovery.go): walk up to the controlling go.mod, then
-//     scan Nomi source for top-level `gopkg "import/path" as alias`
-//     handles and `go alias.Symbol` type/function bindings.
-//  2. Codegen (codegen.go): emit a single-file main package holding a
-//     VM host table of adapters generated for each discovered binding,
-//     which dispatches to nomi/vmhost's Check, Load/Run or Test on the
-//     entry path passed through the private wrapper-mode flag.
-//  3. Cache (cache.go): persist the generated wrapper under
-//     ~/.cache/nomi/builds/<project-hash>/ along with a hash record;
-//     regenerate when go.mod, go.sum, the discovered set, the
-//     wrapper template, or the compiler (identity.go) changes. The
-//     last of those is in the key because the cached artifact is a
-//     wrapper binary that statically links the front end, the IR
-//     builder and the VM, not just the generated main.go.
-//
-// Prepare orchestrates the three stages and returns a Result the CLI
-// acts on. ExecVM runs the cached wrapper binary.
-//
-// This file is the public surface of the package; the other files
-// are implementation details kept private by Go's lowercase
-// convention.
 package ffirun
 
 import (

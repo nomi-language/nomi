@@ -1348,6 +1348,14 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		}
 		return kindInvalid
 	}
+	if d, isImported := g.blockImportedIface(st.Name); isImported {
+		// An interface an enclosing block's import binds, which the module
+		// scope may not bind at all. See bindBlockImports.
+		if d.lowerable {
+			return existential(d)
+		}
+		return kindInvalid
+	}
 	if d, found := g.types[st.Name]; found {
 		if d.lowerable {
 			return named(d)

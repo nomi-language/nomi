@@ -12,7 +12,8 @@ import (
 // as if they were `pub`, and is inside the boundary of src's opaque types,
 // as a Go test in the same package or a Rust test module is (spec §14
 // *Visibility*). Nothing else gains access, and the test file re-exports
-// none of what it reads.
+// none of what it reads. It may also derive for src's types, impls of its
+// own (LowerPartnerDerives, spec §12 *Derive*).
 func IsPartnerTestPath(test, src string) bool {
 	if test == "" || src == "" || test == src {
 		return false

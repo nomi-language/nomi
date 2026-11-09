@@ -42,11 +42,11 @@ func TestConn_SavepointsAndFinished(t *testing.T) {
 	insert := func(depth, token, n int64) Failure {
 		return Exec(background, c, depth, token, []string{"INSERT INTO t VALUES (", ")"}, []Cell{{Kind: KindInt, Int: n}}).Failure
 	}
-	tx := Begin(c, 0, 0)
+	tx := Begin(background, c, 0, 0)
 	if f := insert(tx.Depth, tx.Token, 1); f.Kind != FailNone {
 		t.Fatal(f)
 	}
-	sp := Begin(c, tx.Depth, tx.Token)
+	sp := Begin(background, c, tx.Depth, tx.Token)
 	if tx.Depth != 1 || sp.Depth != 2 {
 		t.Fatalf("depths %d %d", tx.Depth, sp.Depth)
 	}
@@ -56,9 +56,6 @@ func TestConn_SavepointsAndFinished(t *testing.T) {
 	// The outer transaction's statement would belong to the savepoint.
 	if f := insert(tx.Depth, tx.Token, 3); f.Kind != FailDatabase || !strings.Contains(f.Message, "a savepoint is open") {
 		t.Errorf("a statement on the transaction under an open savepoint answered %+v", f)
-	}
-	if f := insert(0, 0, 3); f.Kind != FailDatabase || !strings.Contains(f.Message, "a transaction is open") {
-		t.Errorf("a statement on the connection under an open transaction answered %+v", f)
 	}
 	if f := Rollback(c, sp.Depth, sp.Token); f.Kind != FailNone {
 		t.Fatal(f)
@@ -152,7 +149,7 @@ func TestConn_ConstraintNames(t *testing.T) {
 	check(0, 0)
 	// Inside a transaction too, and finding a foreign key's name leaves the
 	// transaction as it was.
-	tx := Begin(c, 0, 0)
+	tx := Begin(background, c, 0, 0)
 	if a := Exec(background, c, tx.Depth, tx.Token, []string{"INSERT INTO pairs VALUES (5, 6)"}, nil); a.Failure.Kind != FailNone {
 		t.Fatal(a.Failure)
 	}

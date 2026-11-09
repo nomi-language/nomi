@@ -255,7 +255,7 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 		return nil
 	}
 	if decl == nil {
-		addErr(conf.Line, conf.Col, "`derive ... for %s` requires `%s` to be declared in the same scope", conf.Receiver.TypeString(), recvName)
+		addErr(conf.Line, conf.Col, "`derive ... for %s` must be written in the file that declares `%s`, or in that file's partner test file (its name with `_test` before `.nomi`)", conf.Receiver.TypeString(), recvName)
 		return nil
 	}
 
@@ -303,7 +303,8 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 		// source the programmer navigates to.
 		site := synthSite{origin: synthOriginConformance, index: index, wrapping: wrappingDistincts(decls)}
 		site.line, site.col = declPos(decl)
-		if local := typeDeclsInNodeList(nodes)[recvName]; local != decl {
+		foreign := typeDeclsInNodeList(nodes)[recvName] != decl
+		if foreign {
 			// A type another file declares: the derived impl's origin is
 			// the derive itself, the one declaration of this file it
 			// comes from.
@@ -312,6 +313,13 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 		blocks := synthesizeDeriveFor(ifaceName, decl, one.Options, site)
 		for _, n := range blocks {
 			if block, ok := n.(*ast.ImplBlock); ok {
+				if foreign {
+					// No declaration of this file carries the derive, so
+					// the header names the interface as written: the
+					// name resolves through this file's scope and counts
+					// as its use.
+					block.Interface = iface
+				}
 				block.Receiver = conf.Receiver
 				block.WhereClauses = conf.WhereClauses
 				if len(conf.Generics) > 0 {

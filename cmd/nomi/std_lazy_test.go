@@ -39,6 +39,12 @@ var stdLazyFixed = []string{
 // adds to the fixed ones each day.
 const rotatingStdLazyCount = 12
 
+// TestStdLazyRunsAsWholeSample runs the fixed files, stdLazyFixed: files
+// that reach the stdlib in ways an import does not say (an `export fn`, a
+// boot, a phrase catalog, embedded files, a std module's own cases).
+// TestStdLazyRunsAsWholeRotating adds rotatingStdLazyCount files of tests/
+// and std/ a day. std's TestShared_LazyModulesAreEagerModules holds the
+// modules themselves to the stdlib built at once.
 func TestStdLazyRunsAsWholeSample(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs nomi four times per file; -short")

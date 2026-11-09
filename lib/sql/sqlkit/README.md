@@ -407,6 +407,13 @@ pub fn sign_up(email: String) -> Result<Int, Error> {
 }
 ```
 
+Every request shares that one `Conn`. While one request's
+`sql.transaction` is open, a statement another request sends through
+`App.db` waits for the transaction to end and then runs outside it, on
+either driver: SQLite's connection takes turns, and Postgres's pool gives
+the transaction a connection of its own. Inside the transaction, use the
+`tx` it passes, not `App.db`.
+
 When the file does not open or a migration fails, `boot` returns the `Err`
 and `main` does not run. The `defer` closes the database when the program
 ends. A test group that writes `boot main.boot(Startup{})` gets a fresh

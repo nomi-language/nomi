@@ -22,7 +22,25 @@ import (
 // the edit, consuming the program it was given. After every edit, and before
 // the next one rewrites anything, the harness checks the edited texts again
 // from scratch, with a manager that has checked nothing, and compares the two
-// programs' dumps (analysis.DumpProgramForTest) byte for byte.
+// programs' dumps (analysis.DumpProgramForTest) byte for byte. The dump
+// includes the diagnostics `nomi check` prints, and
+// TestCheckProgramPrintsWhatTheFrontEndPrints holds that list to the front
+// end. A kept analysis must hold no node a recheck replaced (StaleForTest).
+//
+// TestIncrementalMatchesFull (about 13 seconds) applies fixed edit
+// sequences to small projects declared here (layered imports, phrase
+// catalogs, dispatch, application types) and to the multi-file corpus
+// directories. TestIncrementalHarnessCatchesAStaleResult proves a stale
+// recheck fails it. FuzzIncrementalMatchesFull (incremental_fuzz_test.go)
+// mutates a project file and edits it the same way, and
+// TestIncrementalMatchesFullSample (about 2 seconds) and
+// TestIncrementalMatchesFullRotating run a fixed and a daily set of those
+// edits. The `phrases` project holds its catalogs on disk: an edit step
+// whose key ends in `.toml` writes that input and rechecks with an input
+// edit, and TestOpenDocumentCatalogEditsMatchFreshBuilds holds open
+// documents to fresh builds through the same edits.
+// TestOpenDocumentEditsMatchFreshBuilds holds each open document's
+// diagnostics to an analysis of the file on its own.
 
 // recheckFunc is the seam's signature.
 type recheckFunc func(prev *analysis.CheckedProgram, edit analysis.ProgramEdit) (*analysis.CheckedProgram, analysis.RecheckOutcome)
@@ -719,6 +737,82 @@ var anonFieldsEdits = []editStep{
 	restore("routes back again", "routes"),
 }
 
+// anonTypeFieldsProject reads, in main, the fields of anonymous struct
+// types routes writes: a return type, a parameter type, a struct field's
+// type, a typealias's target, a once's annotation and a generic's argument.
+// A read refers to the field in routes (FieldDef.File and its position), so
+// an edit to routes that moves a type's field must move what main holds.
+func anonTypeFieldsProject() incrementalProject {
+	return incrementalProject{name: "anonymous type fields", entry: "main", texts: map[string]string{
+		"main": `import {
+    std::io
+    routes
+}
+
+fn shown(r: routes.Row) -> String {
+    r.tag
+}
+
+fn main() {
+    io.print(routes.make(1).label)
+    io.print(routes.holder().inner.note)
+    io.print("${routes.boxed().value.code}")
+    io.print("${routes.settings.port}")
+    io.print("${routes.take(#{id: 1, size: 2})}")
+    io.print(shown(routes.row()))
+}
+`,
+		"routes": `pub fn helper() -> Int {
+    1
+}
+
+pub typealias Row #{id: Int, tag: String}
+
+pub struct Holder {
+    inner: #{id: Int, note: String}
+}
+
+pub struct Box<T> {
+    value: T
+}
+
+pub once settings: #{port: Int} = #{port: 80}
+
+pub fn make(id: Int) -> #{id: Int, label: String} {
+    #{id, label: "x"}
+}
+
+pub fn take(p: #{id: Int, size: Int}) -> Int {
+    p.size
+}
+
+pub fn row() -> Row {
+    #{id: 1, tag: "t"}
+}
+
+pub fn holder() -> Holder {
+    Holder{inner: #{id: 1, note: "n"}}
+}
+
+pub fn boxed() -> Box<#{id: Int, code: Int}> {
+    Box{value: #{id: 1, code: 2}}
+}
+`,
+	}}
+}
+
+var anonTypeFieldsEdits = []editStep{
+	replace("body only, the types below shift", "routes", "    1\n", "    // One.\n\n    1\n"),
+	replace("body only, a literal under a return type", "routes", "#{id, label: \"x\"}", "#{id, label: \"y\"}"),
+	replace("body only, main", "main", "r.tag", "r.tag + \"!\""),
+	replace("a declaration line above the types", "routes", "pub typealias Row", "pub fn extra() -> Int {\n    2\n}\n\npub typealias Row"),
+	replace("a return type's field moves", "routes", "-> #{id: Int, label: String}", "-> #{\n    id: Int,\n    label: String,\n}"),
+	replace("a typealias's field moves", "routes", "#{id: Int, tag: String}", "#{tag: String, id: Int}"),
+	restore("routes back", "routes"),
+	replace("a struct field's type renamed", "routes", "note: String}", "remark: String}"),
+	restore("routes back again", "routes"),
+}
+
 // signalProject is a project whose entry uses another file's functions as
 // iteration callbacks: keep as the callback itself, step as a loop's named
 // step with `from:`, and score called inside a callback's own code. Which of `break`
@@ -784,6 +878,9 @@ func TestIncrementalMatchesFull(t *testing.T) {
 	})
 	t.Run("anonymous fields", func(t *testing.T) {
 		runChecked(t, anonFieldsProject(), anonFieldsEdits, recheck)
+	})
+	t.Run("anonymous type fields", func(t *testing.T) {
+		runChecked(t, anonTypeFieldsProject(), anonTypeFieldsEdits, recheck)
 	})
 	t.Run("phrases", func(t *testing.T) {
 		p := phrasesProject(t)

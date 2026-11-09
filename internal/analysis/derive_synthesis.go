@@ -2019,7 +2019,7 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 				ifaceName := st.Name
 				ifaceLine, ifaceCol := st.Line, st.Col
 				derivePos := Pos{File: fa.FilePath, Line: ifaceLine, Col: ifaceCol}
-				errs = append(errs, checkDeriveComponentTypes(fa, impls, n, typeName, ifaceName, derivePos, typeParamSet)...)
+				errs = append(errs, checkDeriveComponentTypes(fa, fa, impls, n, typeName, ifaceName, derivePos, typeParamSet)...)
 				// Synth bodies for Display/Debug emit StringInterp literals like
 				// "Some(${Iface.to_string(_v0)})". At runtime, evalStringInterp
 				// re-dispatches Display.to_string on the inner String parts
@@ -2073,7 +2073,14 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 // a synth-band position. The recursion uses the same DeriveCtx as the
 // outer field — the user's actionable fix is on Holder's `w` field,
 // not Wrapper's synthesizer.
-func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
+//
+// fa is the analysis of the file that declares typeNode, which names the
+// component types; into is that of the file the derived impl belongs to,
+// whose manifest the demands go in. They differ for a derive written for
+// another file's type (CheckForeignDeriveBounds): the impl, and so what its
+// body demands, is the deriving file's, and a check that rebuilds one file
+// and keeps the other must find each demand once, in the file it rebuilt.
+func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
 	var errs []TypeError
 	var report func(componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr)
 	report = func(componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr) {
@@ -2159,7 +2166,7 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 			// Equatable and Hashable by it, as a bound does
 			// (structural_bounds.go); its type arguments still must.
 			for _, ta := range typeArgs(te) {
-				errs = append(errs, recordDeriveTypeArg(fa, impls, ifaceName, ta, ctx, typeParamSet)...)
+				errs = append(errs, recordDeriveTypeArg(fa, into, impls, ifaceName, ta, ctx, typeParamSet)...)
 			}
 			return
 		}
@@ -2169,7 +2176,7 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 			Derive:     ctx,
 			TypeOrigin: deriveComponentOrigin(fa, baseName),
 		}
-		fa.RecordManifest(baseName, ifaceName, rec)
+		into.RecordManifest(baseName, ifaceName, rec)
 		errs = append(errs, stdDeriveGap(fa, impls, baseName, ifaceName, rec)...)
 		if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
 			// Generic-instantiation recursion: when the base type itself
@@ -2179,7 +2186,7 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 			// recordings to the *current* field so the diagnostic points
 			// at the user's `w: Wrapper<C>` site, not Wrapper's synth.
 			for _, ta := range typeArgs(te) {
-				errs = append(errs, recordDeriveTypeArg(fa, impls, ifaceName, ta, ctx, typeParamSet)...)
+				errs = append(errs, recordDeriveTypeArg(fa, into, impls, ifaceName, ta, ctx, typeParamSet)...)
 			}
 		}
 	}
@@ -2326,11 +2333,6 @@ func typeArgs(te ast.TypeExpr) []ast.TypeExpr {
 	return nil
 }
 
-// recordDeriveTypeArg records (typeArg's base name, ifaceName) attributed
-// to the same DeriveCtx as the parent field. Recurses into the type-arg's
-// own TypeArgs when the base type itself has an impl — same rationale as
-// the outer report closure's generic-instantiation recursion: the impl's
-// synth body will dispatch through each TypeArg slot too.
 // phantomTypeArgs reports whether a type's arguments are phantom, so no
 // derived body dispatches on them: std/regex's `Regex<C>`, whose C only
 // types what `String.captures` answers (regex_literal.go). The walk here
@@ -2339,7 +2341,13 @@ func phantomTypeArgs(baseName string) bool {
 	return baseName == regexName
 }
 
-func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) []TypeError {
+// recordDeriveTypeArg records (typeArg's base name, ifaceName) in into's
+// manifest, attributed to the same DeriveCtx as the parent field, with te
+// resolved in fa (checkDeriveComponentTypes). Recurses into the type-arg's
+// own TypeArgs when the base type itself has an impl — same rationale as
+// the outer report closure's generic-instantiation recursion: the impl's
+// synth body will dispatch through each TypeArg slot too.
+func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) []TypeError {
 	if te == nil {
 		return nil
 	}
@@ -2359,7 +2367,7 @@ func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName st
 	if deriveComponentHasEquality(fa, impls, baseName, ifaceName) {
 		var errs []TypeError
 		for _, ta := range typeArgs(te) {
-			errs = append(errs, recordDeriveTypeArg(fa, impls, ifaceName, ta, ctx, typeParamSet)...)
+			errs = append(errs, recordDeriveTypeArg(fa, into, impls, ifaceName, ta, ctx, typeParamSet)...)
 		}
 		return errs
 	}
@@ -2369,13 +2377,13 @@ func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName st
 		Derive:     ctx,
 		TypeOrigin: deriveComponentOrigin(fa, baseName),
 	}
-	fa.RecordManifest(baseName, ifaceName, rec)
+	into.RecordManifest(baseName, ifaceName, rec)
 	errs := stdDeriveGap(fa, impls, baseName, ifaceName, rec)
 	// Recurse further: an impl on a generic type will dispatch through
 	// each layer of its TypeArgs in turn.
 	if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
 		for _, inner := range typeArgs(te) {
-			errs = append(errs, recordDeriveTypeArg(fa, impls, ifaceName, inner, ctx, typeParamSet)...)
+			errs = append(errs, recordDeriveTypeArg(fa, into, impls, ifaceName, inner, ctx, typeParamSet)...)
 		}
 	}
 	return errs
@@ -4306,6 +4314,11 @@ func cloneTypeExprNode(te ast.TypeExpr, line, col int) ast.Node {
 		}
 		return &ast.GenericType{Name: t.Name, Params: params, Line: line, Col: col}
 	case *ast.QualifiedType:
+		if m, ok := t.Member.(*ast.SimpleType); ok && !strings.Contains(m.Name, ".") {
+			// `tags.Tag` as an expression is written as the parser reads
+			// `tags.Tag.from_json`: the file, then its member.
+			return fieldAccess(identExpr(t.Module, line, col), m.Name, line, col)
+		}
 		member, _ := cloneTypeExpr(t.Member, line, col)
 		return &ast.QualifiedType{Module: t.Module, ModuleLine: line, ModuleCol: col, Member: member}
 	default:

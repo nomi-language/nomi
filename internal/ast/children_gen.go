@@ -139,6 +139,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfGenericType(n, fn)
 		}
+	case *GroupSubtests:
+		if n != nil {
+			childrenOfGroupSubtests(n, fn)
+		}
 	case *GroupedExpr:
 		if n != nil {
 			childrenOfGroupedExpr(n, fn)
@@ -437,6 +441,8 @@ func absent(n Node) bool {
 	case *FuncType:
 		return n == nil
 	case *GenericType:
+		return n == nil
+	case *GroupSubtests:
 		return n == nil
 	case *GroupedExpr:
 		return n == nil
@@ -1022,6 +1028,18 @@ func childrenOfGenericType(x *GenericType, fn func(Node)) {
 	}
 }
 
+func childrenOfGroupSubtests(x *GroupSubtests, fn func(Node)) {
+	if !absent(x.Rows) {
+		fn(x.Rows)
+	}
+	if !absent(x.Pattern) {
+		fn(x.Pattern)
+	}
+	if !absent(x.Name) {
+		fn(x.Name)
+	}
+}
+
 func childrenOfGroupedExpr(x *GroupedExpr, fn func(Node)) {
 	if !absent(x.Expr) {
 		fn(x.Expr)
@@ -1564,6 +1582,9 @@ func childrenOfTap(x *Tap, fn func(Node)) {
 }
 
 func childrenOfTestDecl(x *TestDecl, fn func(Node)) {
+	if x.Subtests != nil {
+		fn(x.Subtests)
+	}
 	if !absent(x.Clock) {
 		fn(x.Clock)
 	}
@@ -1810,6 +1831,7 @@ var generatedTypes = []any{
 	(*FuncDef)(nil),
 	(*FuncType)(nil),
 	(*GenericType)(nil),
+	(*GroupSubtests)(nil),
 	(*GroupedExpr)(nil),
 	(*Ident)(nil),
 	(*IdentPattern)(nil),

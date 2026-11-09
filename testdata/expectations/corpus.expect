@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 707
-declared-cases 4000
+records 713
+declared-cases 4026
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -345,6 +345,24 @@ T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: an injected failure's opera
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: walk and glob find the files under a directory
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a task inside within is confined too
 T ok <root>/tests/02-testing/fs_sandbox_test.nomi :: a File handle left open is in ran.open
+T test result: ok. 16 passed, 0 failed
+T
+C 02-testing/group_subtests_test.nomi
+E 0
+N 16
+H f6cb67380fccc3ea2b694d423a3891fb6557ae4f4a96128ddf7be23d8db85769
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: stores [memory] / each row boots its own store
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: stores [memory] / code that reads the app sees the row's boot
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: stores [sqlite] / each row boots its own store
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: stores [sqlite] / code that reads the app sees the row's boot
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: row in the setup [2] / the setup reads the row
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: row in the setup [3] / the setup reads the row
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: named rows [one] / a tuple row binds every column
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: named rows [three] / a tuple row binds every column
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: rows of tests with their own subtests [(1, 2)] / each statement row is a case (3 cases)
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: rows of tests with their own subtests [(2, 4)] / each statement row is a case (3 cases)
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: a virtual clock per row [1] / waits without taking time
+T ok <root>/tests/02-testing/group_subtests_test.nomi :: a virtual clock per row [5] / waits without taking time
 T test result: ok. 16 passed, 0 failed
 T
 C 02-testing/io_capture_test.nomi
@@ -3049,6 +3067,22 @@ H 33ec1bff8d3f7269ce7e6f18fa738171f17570162d885cf053e40571fe20d016
 T --- stderr ---
 T nomi run: <root>/tests/14-modules-and-packaging/module_qualified_literals/shapes.nomi declares no `fn main`, so there is no program to run
 T
+C 14-modules-and-packaging/partner_test_derive/todos.nomi
+E 1
+N 0
+H 3fe7165bacedcdac0304a2af36e5a2faedac296124867ba40ccb435b78f3827a
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/partner_test_derive/todos.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/partner_test_derive/todos_test.nomi
+E 0
+N 3
+H aea3f19a43f90d9cf50a5dc1e9d984506d8af3c43cf54a14e3dc594e1ae8976c
+T ok <root>/tests/14-modules-and-packaging/partner_test_derive/todos_test.nomi :: a derive in the partner test decodes the private type
+T ok <root>/tests/14-modules-and-packaging/partner_test_derive/todos_test.nomi :: the derived impls compare a decoded value
+T ok <root>/tests/14-modules-and-packaging/partner_test_derive/todos_test.nomi :: a missing field names its type as todos.nomi writes it
+T test result: ok. 3 passed, 0 failed
+T
 C 14-modules-and-packaging/partner_test_file/shapes.nomi
 E 1
 N 0
@@ -3232,6 +3266,30 @@ T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: boot takes at 
 T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: boot may take no parameter, or a Startup with a default
 T test result: ok. 10 passed, 0 failed
 T
+C 15-app-and-defer/boot_called_in_test/server.nomi
+E 0
+N 0
+H 58472808081103bc02ce95002e759e5fd992f32788694ad7466a1c88e90ef00e
+T serving from memory
+T
+C 15-app-and-defer/boot_called_in_test/server_test.nomi
+E 0
+N 5
+H e36171a4bfa7d9a55a0da4df2646e41fd49440faceb6350c16861994458cbe0c
+T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that fails returns its Err
+T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / returns the app
+T   test body ends
+T   closed the files store
+T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / starts work that ends with the test
+T   test body ends
+T   heartbeat started
+T   closed the files store
+T   heartbeat stopped
+T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / the next test starts with none of it
+T   the next test runs
+T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: outside a test, a call of boot is refused
+T test result: ok. 5 passed, 0 failed
+T
 C 15-app-and-defer/boot_failure/debug_error.nomi
 E 1
 N 0
@@ -3335,6 +3393,14 @@ N 1
 H 38af0e0623a4501930ac81951b0feca1ffd3949ca735e0fb80c557eda832efb0
 T ok <root>/tests/15-app-and-defer/defer_cleanup_test.nomi :: defer runs on normal exit failed acquire and early return
 T test result: ok. 1 passed, 0 failed
+T
+C 15-app-and-defer/defer_on_error_test.nomi
+E 0
+N 2
+H fefb54b97997cb4b56c408b681c64fcc86cf893bb22f2d0c2c3528684ff0fa8e
+T ok <root>/tests/15-app-and-defer/defer_on_error_test.nomi :: defer on error runs only when the function fails
+T ok <root>/tests/15-app-and-defer/defer_on_error_test.nomi :: a question mark before the hand-on leaks the resource
+T test result: ok. 2 passed, 0 failed
 T
 C 15-app-and-defer/effects/app.nomi
 E 1

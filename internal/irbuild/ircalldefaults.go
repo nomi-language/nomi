@@ -44,10 +44,19 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 			var src ir.Temp
 			var k kind
 			var ok bool
-			if o, foreign := bl.g.ifaceParamDefaultOf(p.Default); foreign {
-				// Another file's interface function's default: its names
-				// are that file's (ifaceslotdefault.go).
-				src, k, ok = bl.ifaceSlotDefault(o, p, sig.params, args, i)
+			if o, iface := bl.g.ifaceParamDefault(p.Default); iface {
+				// An interface function's default, in a frame binding its
+				// type parameters; another file's has that file's names
+				// (ifaceslotdefault.go).
+				frame, bound := bl.g.ifaceDefaultFrame(o, sig.params)
+				switch {
+				case !bound:
+					return false
+				case o.unit != bl.g.fileUnit:
+					src, k, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, args, i)
+				default:
+					src, k, ok = bl.ifaceDefaultHere(p, frame, sig.params[i])
+				}
 			} else {
 				src, k, _, ok = bl.lowerWant(p.Default, sig.params[i])
 			}

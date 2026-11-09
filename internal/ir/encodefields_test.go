@@ -48,7 +48,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Arith]():         "pos dst lhs rhs op dom over",
 	reflect.TypeFor[ir.Call]():          "pos dst form callee fn keyAt args tail crosses",
 	reflect.TypeFor[ir.Concat]():        "pos dst parts",
-	reflect.TypeFor[ir.Defer]():         "pos id call",
+	reflect.TypeFor[ir.Defer]():         "pos id call onError",
 	reflect.TypeFor[ir.RunDefer]():      "pos id",
 	reflect.TypeFor[ir.FuncValue]():     "pos dst body self captures",
 	reflect.TypeFor[ir.Assert]():        "pos dst subj kw text mismatch binding answer",

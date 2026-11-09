@@ -1,0 +1,34 @@
+// A partner test file derives for its partner's private TodoJson. The
+// derived FromJson decodes the fields as todos.nomi declares them: Tag is
+// todos.nomi's and Uuid is the one it imports, though this file imports
+// neither.
+import {
+    std::json.{FromJson, Json}
+    todos.{self, TodoJson}
+}
+
+derive FromJson for TodoJson
+derive Equatable for TodoJson
+
+test "a derive in the partner test decodes the private type" {
+    todo_json = Json.decode_as<TodoJson>(todos.encoded("milk"))!
+    assert todo_json.title == "milk"
+    assert Iter.count(todo_json.tags) == 1
+    assert todo_json.note == None
+}
+
+test "the derived impls compare a decoded value" {
+    first = Json.decode_as<TodoJson>(todos.encoded("milk"))!
+    second = Json.decode_as<TodoJson>(todos.encoded("milk"))!
+    assert first == second
+    refute first == Json.decode_as<TodoJson>(todos.encoded("eggs"))!
+}
+
+test "a missing field names its type as todos.nomi writes it" {
+    message = case Json.decode_as<TodoJson>("{\"title\": \"milk\"}") {
+        Ok(_) -> ""
+        Err(e) -> "${e}"
+    }
+
+    assert String.contains(message, "expected Uuid")
+}

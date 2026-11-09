@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,31 +38,115 @@ func TestTreeSitterInjectsPhraseBodies(t *testing.T) {
 	}
 }
 
-// An `Html` literal's text is handed to the editor's `html` grammar, in
-// each form, by the static rule ahead of the generic dynamic one, which
-// would capture the tag itself as the language's name.
-func TestTreeSitterInjectsHtmlLiterals(t *testing.T) {
+// Each std tag with an embedded language hands its literal's text, in each
+// form, to the editor's lowercase grammar name, set by a static rule: Helix
+// matches a captured `Sql` against no language, and searches its injection
+// regexes inside a tag such as `Url` (R) or `Cron` (RON). A tag with no
+// embedded language injects nothing.
+func TestTreeSitterInjectsTypedLiteralsByGrammarName(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs the tree-sitter CLI")
 	}
 	runCLI := treeSitterCLI(t)
-	src := "fn f(n: Int) -> Html {\n    Html\"<b class='x'>${n}</b>\"\n}\n\nfn g() -> Html {\n    Html\"\"\"<i>ok</i>\"\"\"\n}\n"
-	path := filepath.Join(t.TempDir(), "html.nomi")
-	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+	query, err := os.ReadFile(filepath.Join("..", "..", "tree-sitter-nomi", "queries", "injections.scm"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := runCLI("query", "queries/injections.scm", path)
-	if err != nil {
-		t.Fatalf("tree-sitter query: %v\n%s", err, out)
+	languages := injectionPatternLanguages(string(query))
+	cases := []struct{ tag, body, lang string }{
+		{"Sql", "SELECT 1", "sql"},
+		{"Html", "<b>x</b>", "html"},
+		{"Toml", "a = 1", "toml"},
+		{"Regex", "a+b", "regex"},
+		{"Url", "https://x.test/", ""},
+		{"Cron", "0 * * * *", ""},
+		{"Locale", "en-US", ""},
+		{"Route", "/users", ""},
 	}
-	for _, want := range []string{"text: `<b class='x'>`", "text: `<i>ok</i>`"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("the injection query does not capture %q:\n%s", want, out)
+	for _, c := range cases {
+		forms := []struct{ name, src string }{
+			{"string", c.tag + "\"" + c.body + "\""},
+			{"triple", c.tag + "\"\"\"" + c.body + "\"\"\""},
+			{"raw", c.tag + "`" + c.body + "`"},
+		}
+		for _, f := range forms {
+			path := filepath.Join(t.TempDir(), "lit.nomi")
+			if err := os.WriteFile(path, []byte("fn f() {\n    x = "+f.src+"\n}\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			out, err := runCLI("query", "queries/injections.scm", path)
+			if err != nil {
+				t.Fatalf("tree-sitter query: %v\n%s", err, out)
+			}
+			matches := strings.Split(out, "  pattern: ")[1:]
+			if c.lang == "" {
+				if len(matches) != 0 {
+					t.Errorf("%s %s: a tag with no embedded language is injected:\n%s", c.tag, f.name, out)
+				}
+				continue
+			}
+			if len(matches) != 1 {
+				t.Errorf("%s %s: %d matches, want 1:\n%s", c.tag, f.name, len(matches), out)
+				continue
+			}
+			m := matches[0]
+			if want := "text: `" + c.body + "`"; !strings.Contains(m, want) {
+				t.Errorf("%s %s: the match does not capture %q:\n%s", c.tag, f.name, want, m)
+			}
+			if strings.Contains(m, "injection.language") {
+				t.Errorf("%s %s: the tag is captured as the language name:\n%s", c.tag, f.name, m)
+			}
+			var ix int
+			if _, err := fmt.Sscanf(m, "%d", &ix); err != nil || ix >= len(languages) {
+				t.Fatalf("%s %s: no pattern index in %q", c.tag, f.name, m)
+			}
+			if languages[ix] != c.lang {
+				t.Errorf("%s %s: pattern %d sets injection.language %q, want %q", c.tag, f.name, ix, languages[ix], c.lang)
+			}
 		}
 	}
-	if strings.Contains(out, "injection.language") {
-		t.Errorf("an Html literal's tag is captured as a language name, not the static `html`:\n%s", out)
+}
+
+// injectionPatternLanguages returns, per top-level pattern of an injection
+// query, the language its `#set! injection.language` names, or "".
+func injectionPatternLanguages(query string) []string {
+	var langs []string
+	depth, start := 0, 0
+	inString := false
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		switch {
+		case inString:
+			if ch == '\\' {
+				i++
+			} else if ch == '"' {
+				inString = false
+			}
+		case ch == ';':
+			for i < len(query) && query[i] != '\n' {
+				i++
+			}
+		case ch == '"':
+			inString = true
+		case ch == '(':
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case ch == ')':
+			depth--
+			if depth == 0 {
+				lang := ""
+				pattern := query[start : i+1]
+				if j := strings.Index(pattern, `injection.language "`); j >= 0 {
+					rest := pattern[j+len(`injection.language "`):]
+					lang = rest[:strings.IndexByte(rest, '"')]
+				}
+				langs = append(langs, lang)
+			}
+		}
 	}
+	return langs
 }
 
 // A tagged literal with `${...}` slots is one injected document: one match

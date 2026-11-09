@@ -18,6 +18,7 @@ import {
 fn fresh(table: String = "nomi_jobs") -> Result<(Conn, Queue, String), sql.Error> {
     url = postgres.scratch()?
     db = postgres.pool(url)
+    defer on error sql.close_quietly(db)
     pgjobs.install(db, table: table)?
     Ok((db, pgjobs.queue(db, url, table: table)?, url))
 }

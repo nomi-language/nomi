@@ -173,6 +173,10 @@ test result: ok. 1 passed, 0 failed
   errors. A file's name reaches only its file-level functions, never one
   declared in an `impl`: `duration.seconds(1)` is an error, and
   `Duration.seconds(1)` is the call.
+- A parameter used only through one interface, whose type appears nowhere
+  else in the signature, takes the interface: `fn label(value: Named)`. A
+  type parameter is for a type that comes back, in another parameter, the
+  result or another type: `fn larger<T>(a: T, b: T) -> T where T: Comparable`.
 
 ```nomi-run
 enum Shape {
@@ -206,8 +210,8 @@ impl Named for Shape {
 
 type UserId Int
 
-fn label<T>(value: T) -> String where T: Named {
-    "a ${T.name(value)}"
+fn label(value: Named) -> String {
+    "a ${Named.name(value)}"
 }
 
 test "types and calls" {
@@ -264,6 +268,13 @@ test result: ok. 1 passed, 0 failed
   an opened resource with no deferred release, one dropped with
   `_ = fs.open(p)?`, and a deferred discard on a path that returns `Ok`
   without the close, are compile errors.
+- A function that opens a resource and returns it releases it with
+  `defer on error sql.close_quietly(conn)` on the line after opening it.
+  That call runs only if the function then fails (a `?` or `return` of
+  `Err` or `None`, or a trap); a `?` before the value is handed on, with no
+  such release, is a compile error. So is a path that returns normally
+  without the value, such as `return Ok(None)`, unless it calls the release
+  (`sql.close_quietly(conn)`) first.
 
 ```nomi-run
 fn parse_age(text: String) -> Result<Int, String> {
@@ -413,7 +424,8 @@ entry_points = ["main"]
   `Some` or `Ok`, or a pattern; `refute` the opposite. `nomi test` runs them.
 - A `group` holds at most one `clock`, `boot` and `setup`, in that order, then
   its tests. Groups do not nest. `boot server.boot(startup)` calls an entry's
-  boot. A test binds the setup value with a pattern:
+  boot; a test may also call `server.boot(startup)` itself to assert on the
+  `Result`. A test binds the setup value with a pattern:
   `test "loads rows", db { ... }`. Each test runs clock, boot, setup and body
   afresh. `clock Clock.Virtual` makes waits instant.
 - Tasks start only inside `concurrent { ... }`, which waits for them:

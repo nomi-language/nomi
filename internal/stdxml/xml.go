@@ -1,19 +1,3 @@
-// Package stdxml is std/xml_host: reading XML tokens from a Reader with
-// Go's encoding/xml, and the escaping and name checks std/xml's writer
-// uses.
-//
-// The reader is a handle (rt.XmlTokens) over an xml.Decoder that reads a
-// lineinput.Input. It reads raw tokens and does the namespace work
-// itself, so a name keeps the prefix the document wrote beside the
-// namespace it stands for, and it checks what the raw tokens leave out:
-// that each end tag closes the element open, that a document has one root
-// and no text outside it, that every prefix is declared and no attribute
-// appears twice.
-//
-// Go's decoder fetches no external entity and expands no entity a DTD
-// declares: in strict mode a reference to any entity but the five XML
-// predefines is an error. The reader also refuses a DOCTYPE unless asked
-// to skip it, so an XXE document fails before its first entity.
 package stdxml
 
 import (

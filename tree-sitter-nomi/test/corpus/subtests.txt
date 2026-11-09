@@ -258,3 +258,65 @@ test "abbreviates" {
         (call_expression
           (identifier)
           (identifier))))))
+
+================================================================================
+Subtests in a group, with a boot line, a setup and a named row
+================================================================================
+
+group "todo api" {
+  subtests [("memory", 1), ("sqlite", 2)], (store, workers), store {
+    boot server.boot(Startup{env: %{"STORE" => store}})
+    setup workers
+
+    test "creates a todo", n {
+      assert n > 0
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (group_declaration
+    (string
+      (string_content))
+    (group_body
+      (group_subtests
+        (list
+          (tuple_expression
+            (string
+              (string_content))
+            (integer))
+          (tuple_expression
+            (string
+              (string_content))
+            (integer)))
+        (tuple_pattern
+          (identifier)
+          (identifier))
+        (identifier)
+        (group_body
+          (boot_block
+            (call_expression
+              (field_access
+                (identifier)
+                (identifier))
+              (struct_construction
+                (type_identifier)
+                (identifier)
+                (map_construction
+                  (map_entry
+                    (string
+                      (string_content))
+                    (identifier))))))
+          (setup_block
+            (identifier))
+          (test_declaration
+            (string
+              (string_content))
+            (identifier)
+            (body
+              (assertion
+                (binary_expression
+                  (identifier)
+                  (integer))))))))))

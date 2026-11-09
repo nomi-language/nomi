@@ -415,6 +415,32 @@ test('neotest shows a timed-out test as failed at the line it was running', func
   eq(results[path].status, 'failed', 'file status')
 end)
 
+-- A test in a group's `subtests` block reports once per row, each record at
+-- the test's line: the position fails when any row does, and shows each
+-- row's report.
+test('neotest folds the rows of a group subtests block into their test', function()
+  stub_neotest_lib()
+  local path = write('rows_test.nomi', source)
+  local records = {
+    record({
+      file = path, line = 5, name = 'a [memory] :: bad', status = 'passed',
+      message = '', report = 'ok a [memory] :: bad\n',
+    }),
+    record({
+      file = path, line = 5, name = 'a [sqlite] :: bad', status = 'failed',
+      message = '  line 7: assertion failed', error_line = 7,
+      report = 'FAIL a [sqlite] :: bad\n  line 7: assertion failed\n',
+    }),
+    '{"type":"summary","passed":1,"failed":1,"blocked":0}',
+  }
+  local results = run_results(path, records)
+  local bad = results[path .. '::bad']
+  eq(bad.status, 'failed', 'status')
+  eq(bad.short, 'a [sqlite] :: bad', 'short names the failed row')
+  eq(bad.errors[1].line, 6, 'error line')
+  eq(read_output(bad), 'ok a [memory] :: bad\nFAIL a [sqlite] :: bad\n  line 7: assertion failed\n', 'output')
+end)
+
 test('neotest output falls back to plain text without a report', function()
   stub_neotest_lib()
   local path = write('plain_test.nomi', source)

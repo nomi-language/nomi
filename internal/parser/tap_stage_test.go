@@ -46,7 +46,7 @@ func TestTap_BracedBodyHoldsAPipe(t *testing.T) {
 func TestTap_Errors(t *testing.T) {
 	for src, want := range map[string]string{
 		"x = tap fn v -> v":            "`tap` is a pipe stage: write `value |> tap fn v -> ...`",
-		"tap = 1":                      "`tap` is a pipe stage",
+		"tap = 1":                      "`tap` is a keyword (a pipe stage run for its effect), so it can't name a binding",
 		"x = 5 |> tap":                 "`tap` takes a function: write `tap f`, `tap fn v -> ...` or `tap &f(&1)`",
 		"x = 5 |> tap 42":              "`tap` takes a function: write `tap f`, `tap fn v -> ...` or `tap &f(&1)`",
 		"x = 5 |> tap? f":              "`tap` passes its input on unchanged, so there is no result for a `?` to propagate",

@@ -22,7 +22,10 @@ import (
 // load leaves behind and a later load reads shows up as a difference. The
 // two processes also differ in Go's map iteration seeds.
 //
-// NOMI_ORDER_COUNT=<n> changes the sample's size (default 40).
+// It fails when a program's declines, unsupported diagnostic or run
+// transcript differ (about 6 seconds). NOMI_ORDER_COUNT=<n> changes the
+// sample's size (default 40); a count past the number of seeds, such as
+// NOMI_ORDER_COUNT=100000, checks every seed (about 90 seconds).
 func TestLoadOrderDoesNotChangeAProgram(t *testing.T) {
 	if mode := os.Getenv("NOMI_ORDER_CHILD"); mode != "" {
 		loadOrderChild(t, mode, os.Getenv("NOMI_ORDER_OUT"))

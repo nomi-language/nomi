@@ -20,6 +20,12 @@ Neovim support for Nomi. Requires Neovim 0.11 or newer.
 The ftplugin sets `indentexpr` to nvim-treesitter's when that plugin is
 installed; without it Neovim keeps `autoindent`.
 
+A typed literal's body is highlighted only when Neovim has a parser for its
+language: `sql` for `Sql"..."`, `html` for `Html`, `toml` for `Toml`,
+`regex` for `Regex`, and `mf2` for a `phrase` or `noun` body. Neovim bundles
+none of them; with nvim-treesitter, `:TSInstall sql html toml regex`
+installs them. Without one, the literal stays a plain string.
+
 ## Install
 
 From the repository root, install `nomi` and the language server `nomi-lsp`
@@ -386,4 +392,8 @@ test keys' neotest detection, the runner's rerun of a moved or deleted test,
 the neotest adapter's position ids and its `dap` strategy spec, and the
 nvim-dap adapter's registration (never loading nvim-dap), the Debug lenses
 and the debug key, with neotest, nvim-dap, lazy.nvim and snacks.nvim
-stubbed.
+stubbed. CI does not run them.
+
+Nothing under `plugin/` or `ftplugin/` may require neotest or nvim-dap at
+load time: the test keys require neotest at keypress, only when it is
+installed, and the debug commands require nvim-dap at keypress.

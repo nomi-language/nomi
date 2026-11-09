@@ -49,7 +49,7 @@ func TestModules_TheServerReportsAMissingModuleAndNeverDownloads(t *testing.T) {
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	found := false
 	for _, d := range diags {
 		if strings.Contains(d.Message, "no module `greet`") &&

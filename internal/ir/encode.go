@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 49
+const FormatVersion = 50
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -874,10 +874,16 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		w.byte1(tagDefer)
 		e.pos(w, n.pos)
 		w.sv(int64(n.id))
-		if n.call == nil {
-			w.byte1(0)
-		} else {
-			w.byte1(1)
+		// Bit 0: the call follows. Bit 1: error-only.
+		flags := byte(0)
+		if n.call != nil {
+			flags |= 1
+		}
+		if n.onError {
+			flags |= 2
+		}
+		w.byte1(flags)
+		if n.call != nil {
 			e.call(w, n.call)
 		}
 	case *RunDefer:

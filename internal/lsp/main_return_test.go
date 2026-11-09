@@ -16,7 +16,7 @@ func TestDiagnostics_MainReturningAValue(t *testing.T) {
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(uri, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	for _, d := range diags {
 		if !strings.HasPrefix(d.Message, "`main` must return `Unit` or `Result<Unit, E>`") {
 			continue

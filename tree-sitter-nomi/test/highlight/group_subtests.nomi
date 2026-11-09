@@ -1,0 +1,12 @@
+// `subtests` in a group reads as a keyword. The caret line below names the
+// highlight of the token it points at.
+group "stores" {
+    subtests ["memory", "sqlite"], store {
+        // <- keyword
+        setup store
+
+        test "reads the row", s {
+            assert s == store
+        }
+    }
+}

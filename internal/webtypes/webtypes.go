@@ -1,31 +1,3 @@
-// Package webtypes writes TypeScript declarations for Nomi types: nomi.d.ts,
-// which `nomi build --web` puts beside nomi.js, and the file `nomi types`
-// writes for a frontend that talks to a Nomi backend over HTTP. Both map a
-// Nomi type to the TypeScript type of the JSON its ToJson writes, through
-// one Writer:
-//
-//	Int                              number | bigint (nomi.d.ts), number (nomi types)
-//	Float                            number
-//	String                           string
-//	Bool                             boolean
-//	Decimal                          string, its exact digits ("12.50")
-//	Uuid                             string, lowercase 8-4-4-4-12 hex
-//	Instant                          string, RFC 3339 in UTC
-//	Date, Time, NaiveDateTime        string
-//	List, Vector, Set<T>             T[]
-//	Map<String, V>                   Record<string, V>
-//	Maybe<T>                         T | null
-//	a tuple payload                  [A, B]
-//	Unit (a result)                  void
-//	a derived struct                 an interface of its fields, by their JSON keys
-//	a derived enum                   a union: "Bare" | { Payload: ... }
-//	a derived distinct type          its inner type
-//	a generic declaration            a generic interface or type
-//
-// A declared type is written once, under its Nomi name, and referred to by
-// that name. A type whose ToJson is written by hand is declared `unknown`:
-// the declarations cannot know what its impl writes. So is any type with
-// no JSON encoding at all, such as a Map with non-String keys.
 package webtypes
 
 import (

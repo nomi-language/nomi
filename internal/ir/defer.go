@@ -13,10 +13,18 @@ import "strconv"
 // The call is held rather than appended to a block, so it is not an
 // instruction of any block and does not define its destination. Its uses are
 // the Defer's uses.
+//
+// An error-only Defer, `defer on error close(conn)`, runs only on an error
+// exit: a fault, or a return whose value is `Err` (a function returning a
+// Result) or `None` (one returning a Maybe). Its RunDefer, at the scope's
+// normal exit, drops it without running it, and so does a return of any
+// other value. A function that registers one makes no tail transfer
+// (TailTransfers), since the callee's value decides whether it runs.
 type Defer struct {
-	pos  Pos
-	id   int
-	call *Call
+	pos     Pos
+	id      int
+	call    *Call
+	onError bool
 }
 
 // NewDefer registers call under id, which is unique within the function.
@@ -53,6 +61,12 @@ func (b *Block) DeferLastCall(pos Pos, id int) *Defer {
 	return d
 }
 
+// SetOnError makes d error-only.
+func (d *Defer) SetOnError() { d.onError = true }
+
+// OnError reports whether d runs only on an error exit.
+func (d *Defer) OnError() bool { return d.onError }
+
 func (d *Defer) Pos() Pos    { return d.pos }
 func (d *Defer) Dst() Temp   { return NoTemp }
 func (d *Defer) ID() int     { return d.id }
@@ -61,13 +75,17 @@ func (d *Defer) AppendUses(dst []Temp) []Temp {
 	return d.call.AppendUses(dst)
 }
 func (d *Defer) String() string {
+	if d.onError {
+		return "defer#" + strconv.Itoa(d.id) + " on error " + d.call.String()
+	}
 	return "defer#" + strconv.Itoa(d.id) + " " + d.call.String()
 }
 func (d *Defer) irNode()  {}
 func (d *Defer) irInstr() {}
 
 // RunDefer runs the deferred call registered under id at its scope's normal
-// exit, unless an earlier exit already ran it. A scope's RunDefers appear in
+// exit, unless an earlier exit already ran it, and drops an error-only one
+// without running it. A scope's RunDefers appear in
 // reverse registration order.
 type RunDefer struct {
 	pos Pos

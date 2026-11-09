@@ -65,6 +65,25 @@ test("a test inside a group wins over the group", () => {
   assert.equal(at(source, 24), 18);
 });
 
+test("a test in a group's subtests block runs for every row; the block's line runs the group", () => {
+  const rows = [
+    /* 1 */ 'group "stores" {',
+    /* 2 */ '    subtests ["memory", "sqlite"], store {',
+    /* 3 */ "        setup store",
+    /* 4 */ "",
+    /* 5 */ '        test "reads the row", s {',
+    /* 6 */ "            assert s == store",
+    /* 7 */ "        }",
+    /* 8 */ "    }",
+    /* 9 */ "}",
+  ].join("\n");
+  assert.equal(at(rows, 2), 1);
+  assert.equal(at(rows, 3), 1);
+  assert.equal(at(rows, 5), 5);
+  assert.equal(at(rows, 6), 5);
+  assert.equal(at(rows, 8), 1);
+});
+
 test("CRLF line ends give the same lines", () => {
   const crlf = source.replace(/\n/g, "\r\n");
   assert.equal(at(crlf, 9), 6);

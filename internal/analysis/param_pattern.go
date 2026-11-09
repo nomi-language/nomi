@@ -53,24 +53,24 @@ func paramShapeName(pattern ast.Node) string {
 // paramPatternHeadType resolves the concrete type a self-typing pattern head
 // names, or returns (nil, nil) if the pattern is type-less (no head to read a
 // type from). A non-nil error reports a genuine resolution failure.
-func paramPatternHeadType(pattern ast.Node, reg *TypeRegistry, typeParams map[string]*TypeParam_, refs map[Pos]*Symbol) (Type, error) {
+func paramPatternHeadType(pattern ast.Node, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis) (Type, error) {
 	// `Point{x, y} as p` is typed by its pattern's head.
 	switch p := ast.WithoutAs(pattern).(type) {
 	case *ast.EnumPattern:
 		switch v := p.Variant.(type) {
 		case *ast.SimpleType:
 			// `Dur(x)` — head names the distinct/enum type directly.
-			return ResolveTypeExpr(v, reg, typeParams, refs)
+			return ResolveTypeExpr(v, reg, typeParams, fa)
 		case *ast.QualifiedType:
 			// `units.Days(n)` may name a qualified distinct type.
 			// Prefer the full dotted type when it exists; otherwise `E.V(x)`
 			// is an enum variant pattern where the qualifier E is the type and
 			// V is the variant.
-			if t, err := ResolveTypeExpr(v, reg, typeParams, refs); err == nil && t != nil {
+			if t, err := ResolveTypeExpr(v, reg, typeParams, fa); err == nil && t != nil {
 				return t, nil
 			}
 			head := &ast.SimpleType{Name: v.Module, Line: v.ModuleLine, Col: v.ModuleCol}
-			return ResolveTypeExpr(head, reg, typeParams, refs)
+			return ResolveTypeExpr(head, reg, typeParams, fa)
 		default:
 			// `.V(x)` (DotVariantType) — no type head; needs an annotation.
 			return nil, nil
@@ -84,13 +84,13 @@ func paramPatternHeadType(pattern ast.Node, reg *TypeRegistry, typeParams map[st
 			// full dotted type when it exists; otherwise `E.V{...}` is an enum
 			// struct variant pattern where the qualifier E is the type and V is
 			// the variant (e.g. `Shape.Circle{radius}`).
-			if t, err := ResolveTypeExpr(qt, reg, typeParams, refs); err == nil && t != nil {
+			if t, err := ResolveTypeExpr(qt, reg, typeParams, fa); err == nil && t != nil {
 				return t, nil
 			}
 			head := &ast.SimpleType{Name: qt.Module, Line: qt.ModuleLine, Col: qt.ModuleCol}
-			return ResolveTypeExpr(head, reg, typeParams, refs)
+			return ResolveTypeExpr(head, reg, typeParams, fa)
 		}
-		return ResolveTypeExpr(p.TypeName, reg, typeParams, refs)
+		return ResolveTypeExpr(p.TypeName, reg, typeParams, fa)
 	}
 	return nil, nil
 }
@@ -119,12 +119,11 @@ func genericWithoutArgs(t Type) bool {
 // Plain (non-destructure) params are not this function's concern — the caller
 // only invokes it for params with p.Destructure != nil.
 func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis) (Type, error) {
-	refs := fa.References
 	if p.TypeAnnotation != nil {
-		return ResolveTypeExpr(p.TypeAnnotation, reg, typeParams, refs)
+		return ResolveTypeExpr(p.TypeAnnotation, reg, typeParams, fa)
 	}
 
-	headTy, err := paramPatternHeadType(p.Destructure, reg, typeParams, refs)
+	headTy, err := paramPatternHeadType(p.Destructure, reg, typeParams, fa)
 	if err != nil {
 		return nil, err
 	}
@@ -153,14 +152,10 @@ func resolveParamType(p ast.Param, fa *FileAnalysis, reg *TypeRegistry, typePara
 	if te := typeOnlyParamError(p, fa, reg); te != nil {
 		return nil, *te
 	}
-	var refs map[Pos]*Symbol
-	if fa != nil {
-		refs = fa.References
-	}
 	if declared {
-		return ResolveDeclaredType(p.TypeAnnotation, reg, typeParams, refs)
+		return ResolveDeclaredType(p.TypeAnnotation, reg, typeParams, fa)
 	}
-	return ResolveTypeExpr(p.TypeAnnotation, reg, typeParams, refs)
+	return ResolveTypeExpr(p.TypeAnnotation, reg, typeParams, fa)
 }
 
 // typeOnlyParamError reports a parameter written as its type alone,

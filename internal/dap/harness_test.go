@@ -20,7 +20,10 @@ import (
 // A scripted session: the test plays the client, sending requests to a
 // server running in process and waiting for its responses and events. Every
 // message is written to a transcript, which is compared with a golden file
-// in testdata (NOMI_REGENERATE_EXPECTATIONS=1 rewrites them).
+// in testdata, with paths normalized. The tests are in session_test.go and
+// eval_test.go; `NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/dap
+// -count=1` rewrites the transcripts, and a moved transcript needs a named
+// reason in the commit message.
 //
 // A response is recorded when its request's step reads it; events are
 // recorded, in the order they arrived, by the wait step that consumes them.

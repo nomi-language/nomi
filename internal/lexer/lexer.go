@@ -1060,7 +1060,6 @@ var keywords = map[string]token.TokenType{
 	"assert":      token.ASSERT,
 	"refute":      token.REFUTE,
 	"dbg":         token.DBG,
-	"todo":        token.TODO,
 	"unreachable": token.UNREACHABLE,
 	"self":        token.SELF,
 	"then":        token.THEN,
@@ -1078,8 +1077,9 @@ var keywords = map[string]token.TokenType{
 // construct. `TestContextualWordsAreListed` (internal/parser) holds this
 // list to the lexemes the parser compares against.
 var contextualWords = []string{
-	"boot", "clock", "concurrent", "derive", "embed", "embeds", "go",
-	"gopkg", "group", "host", "noun", "open", "phrase", "setup", "subtests",
+	"boot", "clock", "concurrent", "derive", "embed", "embeds", "error", "go",
+	"gopkg", "group", "host", "noun", "on", "open", "phrase", "setup", "subtests",
+	"todo",
 }
 
 // ReservedWords returns the reserved words, which the lexer turns into
@@ -1442,7 +1442,7 @@ func canEndStatement(tt token.TokenType) bool {
 		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL,
 		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
 		token.RETURN, token.BREAK, token.CONTINUE, token.QUESTION,
-		token.ASSERT, token.REFUTE, token.DBG, token.TODO,
+		token.ASSERT, token.REFUTE, token.DBG,
 		token.UNDERSCORE, token.PLACEHOLDER:
 		return true
 	default:

@@ -1,16 +1,3 @@
-// Package dap is `nomi dap`: a Debug Adapter Protocol server over stdio that
-// runs a Nomi program in process on a debug machine (internal/vm's debug.go)
-// and lets an editor set breakpoints, step, and read the stack and locals.
-//
-// A session is one launch: `mode: "run"` runs `main` of a file (or of a
-// project's single entry point), `mode: "test"` runs a file's tests, or the
-// one test `line` selects as `nomi test --line` does. The program's output
-// becomes `output` events, or, with `console: "integratedTerminal"` and a
-// client that supports `runInTerminal`, goes to a terminal the editor opens:
-// it runs `nomi dap-terminal <socket>` (RunTerminal), which connects back
-// and carries the program's standard input and output.
-//
-// The message types are github.com/google/go-dap's.
 package dap
 
 import (

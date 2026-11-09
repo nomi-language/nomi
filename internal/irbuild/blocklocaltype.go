@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -97,6 +98,12 @@ type blockTypeDecls struct {
 	// block does not declare them: an imported std type is not a user type.
 	imports  []*ast.ImportStmt
 	imported map[string]*typeDef
+	// importedIfaces is the def of each monomorphic interface the imports
+	// bind, by the name it is bound under (bindBlockImports): a sibling
+	// file's mirror, a std interface's shared table, or a std interface's
+	// program def. The module scope need not bind the name at all, as in a
+	// std module's `//!` prompt that opens with `import std::display.Display`.
+	importedIfaces map[string]*ifaceDef
 	// outer is the nearest enclosing block's declarations, or nil. A
 	// declaration here may name one there (`struct Inner { p: P<Int> }`
 	// under the block declaring `P`), so wherever this scope is made
@@ -217,10 +224,11 @@ func (g *gen) declareBlockTypes(b *ast.Block, order *[]*typeDef) {
 
 func newBlockTypeDecls() *blockTypeDecls {
 	return &blockTypeDecls{
-		defs:      map[string]*typeDef{},
-		imported:  map[string]*typeDef{},
-		aliases:   map[string]kind{},
-		templates: map[string]*genericTemplate{},
+		defs:           map[string]*typeDef{},
+		imported:       map[string]*typeDef{},
+		importedIfaces: map[string]*ifaceDef{},
+		aliases:        map[string]kind{},
+		templates:      map[string]*genericTemplate{},
 	}
 }
 
@@ -346,12 +354,13 @@ func (g *gen) resolveBlockScope(scope *blockTypeDecls) {
 	}
 }
 
-// bindBlockImports puts each monomorphic struct, enum or distinct type the
-// block's imports bind into the block's overlay under the name the import
-// binds, as the def of the declaration the checker resolved it to: another
-// file's type by its mirror, a std type by the def its analyzer type projects
-// to. A generic type or an interface is left to the name-keyed lookups, and
-// testImport declines an import that rebinds one.
+// bindBlockImports puts each monomorphic struct, enum, distinct type or
+// interface the block's imports bind into the block's overlay under the name
+// the import binds, as the def of the declaration the checker resolved it to:
+// another file's type or interface by its mirror, a std type by the def its
+// analyzer type projects to, a std interface by its shared table or program
+// def (importedIfaceDef). A generic type or interface is left to the
+// name-keyed lookups, and testImport declines an import that rebinds one.
 func (g *gen) bindBlockImports(scope *blockTypeDecls) {
 	if len(scope.imports) == 0 || g.fa == nil {
 		return
@@ -371,8 +380,11 @@ func (g *gen) bindBlockImports(scope *blockTypeDecls) {
 		}
 		slices.Sort(names)
 		for _, name := range names {
-			if d := g.importedTypeDef(resolveSymbol(bound.Symbols[name])); d != nil {
+			sym := resolveSymbol(bound.Symbols[name])
+			if d := g.importedTypeDef(sym); d != nil {
 				scope.imported[name] = d
+			} else if d := g.importedIfaceDef(sym); d != nil {
+				scope.importedIfaces[name] = d
 			}
 		}
 	}
@@ -402,6 +414,48 @@ func (g *gen) importedTypeDef(sym *analysis.Symbol) *typeDef {
 		return k.def
 	}
 	return nil
+}
+
+// importedIfaceDef is the def of the monomorphic interface sym declares,
+// found by its declaration rather than by its name, or nil. The name-keyed
+// lookups (ifaceNamed, stdIfaceNamed, stdProgIfaceNamed) read the module
+// scope, which a block's import does not reach.
+func (g *gen) importedIfaceDef(sym *analysis.Symbol) *ifaceDef {
+	if sym == nil || sym.Kind != analysis.SymbolInterface {
+		return nil
+	}
+	decl, isDecl := sym.Node.(*ast.InterfaceDef)
+	if !isDecl || len(decl.TypeParams) > 0 {
+		return nil
+	}
+	if o := g.ownerOfSymbol(sym); o != nil {
+		if !o.isIface {
+			return nil
+		}
+		return g.mirrorIface(o)
+	}
+	it, isIface := sym.Type.(*analysis.InterfaceType)
+	if !isIface || !strings.HasPrefix(it.Origin, "std/") {
+		return nil
+	}
+	if d := g.stdIfaceOfDecl(it.Origin, decl); d != nil {
+		return d
+	}
+	if !g.stdProgBuilds() {
+		return nil
+	}
+	return g.stdProgIfaceOf(sym)
+}
+
+// blockImportedIface answers an interface name from the innermost enclosing
+// block whose imports bind it (bindBlockImports).
+func (g *gen) blockImportedIface(name string) (*ifaceDef, bool) {
+	for i := len(g.typeScopes) - 1; i >= 0; i-- {
+		if d, found := g.typeScopes[i].importedIfaces[name]; found {
+			return d, true
+		}
+	}
+	return nil, false
 }
 
 // aliasTarget is the kind a `typealias` names, or kindInvalid.

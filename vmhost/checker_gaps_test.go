@@ -22,6 +22,12 @@ import (
 // the checker. checkLowers (lowering_fuzz_test.go) reports a skipped
 // expression as a failure of its own, so the fuzz target and
 // TestFrontEndAcceptsSoItLowers name the checker's skip at its source.
+//
+// An expression breaks the rule when it has no type, a nil one, or an
+// unsolved variable as its own type; one nested in a type argument, as in
+// `[]`'s `List<?1>`, is allowed. TestSeedExprsAreTyped holds the corpus,
+// the tour, the spec and the embedded programs to it, TestStdlibExprsAreTyped
+// the stdlib, and TestKnownCheckerGaps the knownCheckerGaps list below.
 
 // checkerGap is an expression shape the checker accepts and leaves without
 // a resolved type: a known break in the rule. Each is pinned by a

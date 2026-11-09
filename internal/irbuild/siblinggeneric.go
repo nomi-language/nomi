@@ -208,7 +208,14 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 		if !ok {
 			return nil
 		}
-		if !bl.siblingDefaultsAgree(&fileFunc{name: method, params0: fd.Params}, owner, slots) {
+		// An interface default the block inherits: callDefaults fills its
+		// parameter defaults under the interface's file's names, whichever
+		// file declares the block (ifaceslotdefault.go).
+		inherited := false
+		if len(slots) > 0 {
+			_, inherited = g.ifaceParamDefault(fd.Params[slots[0]].Default)
+		}
+		if !inherited && !bl.siblingDefaultsAgree(&fileFunc{name: method, params0: fd.Params}, owner, slots) {
 			// A default naming what this file cannot: the declaring gen
 			// builds an accessor for each, at this instance's type
 			// arguments (instimplaccessor.go).
@@ -223,7 +230,7 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 			}
 			return &irQualPlan{token: it, name: name, result: result, sym: owner.irCalleeSym(it, name), args: &full}
 		}
-		if unit := slices.Index(g.reg.gens, owner); unit >= 0 && owner != g {
+		if unit := slices.Index(g.reg.gens, owner); unit >= 0 && owner != g && !inherited {
 			defer g.lowerNamesFrom(unit)()
 		}
 		if !bl.callDefaults(&fnSig{decl: fd, params: params}, temps) {

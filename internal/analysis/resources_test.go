@@ -18,7 +18,8 @@ func releaseErrors(t *testing.T, src string) []analysis.TypeError {
 	t.Helper()
 	var out []analysis.TypeError
 	for _, e := range checkWithStdlib(releaseImports + src) {
-		if e.Code == analysis.UnreleasedResourceCode || e.Code == analysis.UncommittedResourceCode || e.Code == analysis.DiscardedResourceCode {
+		if e.Code == analysis.UnreleasedResourceCode || e.Code == analysis.UncommittedResourceCode || e.Code == analysis.DiscardedResourceCode || e.Code == analysis.EscapedReleaseCode ||
+			e.Code == analysis.ErrorExitLeakCode || e.Code == analysis.ReturnLeakCode || e.Code == analysis.DeferOnErrorNoFailureCode {
 			out = append(out, e)
 		} else if !strings.Contains(e.Message, "never read") {
 			t.Fatalf("the front end rejects this for another reason: %s", e.Error())
@@ -512,4 +513,302 @@ fn read(request: Request, child: Child) -> Result<Unit, Error> {
     Ok(Unit)
 }
 `)
+}
+
+// escapeMsg is the error at a `defer` of released when subject leaves its
+// block as how says, name being the name that leaves.
+func escapeMsg(released, subject, name, how string) string {
+	return "this `defer` releases `" + released + "` when the block ends, but " + subject + " " + how +
+		"; defer the release where `" + name + "` is finally used, or hand `" + name + "` on without deferring it here"
+}
+
+func TestReleaseDeferredValueLeavingACaseBranchIsAnError(t *testing.T) {
+	expectReleaseErrors(t, `struct Store {
+    reader: Reader
+    path: String
+}
+
+struct App {
+    store: Store
+}
+
+fn open_store(path: String) -> Result<Store, Error> {
+    r = fs.open(path)?
+    Ok(Store{reader: r, path})
+}
+
+fn app(kind: String, path: String) -> Result<App, Error> {
+    store: Store = case kind {
+        "file" -> {
+            db = open_store(path)?
+            defer Reader.close_quietly(db.reader)
+            db
+        }
+        _ -> open_store("/dev/null")?
+    }
+    Ok(App{store})
+}
+`, at(19, 13, escapeMsg("db.reader", "`db`", "db", "leaves the block as its value")))
+}
+
+func TestReleaseDeferredValueReturnedIsAnError(t *testing.T) {
+	expectReleaseErrors(t, `fn opened(path: String) -> Result<Reader, Error> {
+    r = fs.open(path)?
+    defer Reader.close_quietly(r)
+    Ok(r)
+}
+
+fn early(path: String, now: Bool) -> Result<Reader, Error> {
+    r = fs.open(path)?
+    defer Reader.close_quietly(r)
+    if now {
+        return Ok(r)
+    }
+    fs.open("/dev/null")
+}
+
+fn bare(r: Reader) -> Reader {
+    defer Reader.close_quietly(r)
+    r
+}
+`,
+		at(3, 5, escapeMsg("r", "`r`", "r", "leaves the block inside its value")),
+		at(9, 5, escapeMsg("r", "`r`", "r", "leaves the block inside a `return`'s value")),
+		at(17, 5, escapeMsg("r", "`r`", "r", "leaves the block as its value")))
+}
+
+func TestReleaseDeferredValueInAReturnedStructIsAnError(t *testing.T) {
+	expectReleaseErrors(t, `struct Pair {
+    reader: Reader
+    name: String
+}
+
+fn pair(path: String) -> Result<Pair, Error> {
+    r = fs.open(path)?
+    defer Reader.close_quietly(r)
+    p = Pair{reader: r, name: path}
+    Ok(p)
+}
+
+fn direct(path: String) -> Result<Pair, Error> {
+    r = fs.open(path)?
+    defer Reader.close_quietly(r)
+    Ok(Pair{reader: r, name: path})
+}
+`,
+		at(8, 5, escapeMsg("r", "`p`", "p", "leaves the block inside its value")),
+		at(15, 5, escapeMsg("r", "`r`", "r", "leaves the block inside its value")))
+}
+
+func TestReleaseDeferredValueCapturedByAReturnedLambdaIsAnError(t *testing.T) {
+	expectReleaseErrors(t, `fn reading(path: String) -> Result<() -> Result<String, Error>, Error> {
+    r = fs.open(path)?
+    defer Reader.close_quietly(r)
+    Ok(fn -> Reader.read_all_text(r))
+}
+`, at(3, 5, escapeMsg("r", "a lambda that captures `r`", "r", "leaves the block inside its value")))
+}
+
+func TestReleaseDeferredValueUsedInItsBlockIsAccepted(t *testing.T) {
+	expectReleaseErrors(t, `struct Store {
+    reader: Reader
+    path: String
+}
+
+fn open_store(path: String) -> Result<Store, Error> {
+    r = fs.open(path)?
+    Ok(Store{reader: r, path})
+}
+
+fn first(path: String) -> Result<String, Error> {
+    text = {
+        db = open_store(path)?
+        defer Reader.close_quietly(db.reader)
+        Reader.read_all_text(db.reader)?
+    }
+    Ok(text)
+}
+
+fn name(path: String) -> Result<String, Error> {
+    db = open_store(path)?
+    defer Reader.close_quietly(db.reader)
+    Ok(db.path)
+}
+
+fn outer(path: String) -> Result<String, Error> {
+    r = fs.open(path)?
+    defer Reader.close_quietly(r)
+    text = {
+        all = Reader.read_all_text(r)?
+        all
+    }
+    next = fn -> Reader.read_all_text(r)
+    Ok("${text}${next()?}")
+}
+`)
+}
+
+// A `defer` in the outer block of an entry boot runs after `main` finishes
+// (spec §15 *Scoped application fields*), so the value it releases may
+// leave in the App. One in a block nested in boot still runs at that
+// block's end.
+func TestReleaseDeferredInAnEntryBootMayLeaveInTheApp(t *testing.T) {
+	expectReleaseErrors(t, `struct App {
+    reader: Reader
+}
+
+fn boot() -> Result<App, Error> {
+    r = fs.open("/dev/null")?
+    defer Reader.close_quietly(r)
+    Ok(App{reader: r})
+}
+
+fn main() {
+}
+`)
+	expectReleaseErrors(t, `struct App {
+    reader: Reader
+}
+
+fn boot() -> Result<App, Error> {
+    reader = {
+        r = fs.open("/dev/null")?
+        defer Reader.close_quietly(r)
+        r
+    }
+    Ok(App{reader})
+}
+
+fn main() {
+}
+`, at(8, 9, escapeMsg("r", "`r`", "r", "leaves the block as its value")))
+}
+
+// A value one path hands on is handed on or released on every other path
+// that returns normally.
+func leakMsg(name, release string) string {
+	return "`" + name + "` leaks here: this path returns without handing it on or releasing it; call `" + release + "(" + name + ")` before the return"
+}
+
+func TestReleaseAPathThatDropsAHandedOnValueIsAnError(t *testing.T) {
+	expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    defer on error Reader.close_quietly(r)
+    if not want {
+        return Ok(None)
+    }
+    Ok(Some(r))
+}
+`, at(5, 9, leakMsg("r", "Reader.close_quietly")))
+	expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    if not want {
+        return Ok(None)
+    }
+    Ok(Some(r))
+}
+`, at(4, 9, leakMsg("r", "Reader.close_quietly")))
+	expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    if want { Ok(Some(r)) } else { Ok(None) }
+}
+`, at(3, 36, leakMsg("r", "Reader.close_quietly")))
+	expectReleaseErrors(t, `fn by_mode(path: String, mode: Int, no: Error) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    defer on error Reader.close_quietly(r)
+    case mode {
+        0 -> Ok(None)
+        1 -> Err(no)
+        _ -> Ok(Some(r))
+    }
+}
+`, at(5, 14, leakMsg("r", "Reader.close_quietly")))
+}
+
+func TestReleaseEveryPathHandingOnIsAccepted(t *testing.T) {
+	expectReleaseErrors(t, `struct Holder {
+    reader: Reader
+}
+
+fn deferred(path: String, want: Bool) -> Result<Maybe<String>, Error> {
+    r = fs.open(path)?
+    defer Reader.close_quietly(r)
+    if not want {
+        return Ok(None)
+    }
+    Ok(Some(Reader.read_all_text(r)?))
+}
+
+fn both(path: String, wrap: Bool) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    if wrap { Ok(Some(r)) } else { Ok(Some(r)) }
+}
+
+fn held(path: String, want: Bool) -> Result<Maybe<Holder>, Error> {
+    r = fs.open(path)?
+    h = Holder{reader: r}
+    if not want {
+        return Ok(None)
+    }
+    Ok(Some(h))
+}
+
+fn released(path: String, want: Bool) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    defer on error Reader.close_quietly(r)
+    if not want {
+        Reader.close_quietly(r)
+        return Ok(None)
+    }
+    Ok(Some(r))
+}
+
+fn fails(path: String, want: Bool, no: Error) -> Result<Reader, Error> {
+    r = fs.open(path)?
+    defer on error Reader.close_quietly(r)
+    if not want {
+        return Err(no)
+    }
+    Ok(r)
+}
+
+fn as_a_value(path: String, want: Bool) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    found = if want {
+        Some(r)
+    } else {
+        Reader.close_quietly(r)
+        None
+    }
+    Ok(found)
+}
+`)
+}
+
+func TestReleasePathLeakFixReleasesBeforeTheReturn(t *testing.T) {
+	errs := expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    if not want {
+        return Ok(None)
+    }
+    Ok(Some(r))
+}
+`, at(4, 9, leakMsg("r", "Reader.close_quietly")))
+	fix := errs[0].Fix
+	if fix == nil || len(fix.Edits) != 1 {
+		t.Fatalf("want one edit, got %+v", fix)
+	}
+	e := fix.Edits[0]
+	if e.Start.Line != releaseLine(4) || e.Start.Col != 1 || e.Text != "        Reader.close_quietly(r)\n" {
+		t.Errorf("edit = %+v", e)
+	}
+	// A return that shares its line with what comes before it gets no fix.
+	errs = expectReleaseErrors(t, `fn maybe_open(path: String, want: Bool) -> Result<Maybe<Reader>, Error> {
+    r = fs.open(path)?
+    if want { Ok(Some(r)) } else { Ok(None) }
+}
+`, at(3, 36, leakMsg("r", "Reader.close_quietly")))
+	if errs[0].Fix != nil {
+		t.Errorf("want no fix, got %+v", errs[0].Fix)
+	}
 }

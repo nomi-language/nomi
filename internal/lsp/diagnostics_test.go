@@ -112,7 +112,7 @@ func TestAttachedTestDiagnosticsAllowOrdinaryAssert(t *testing.T) {
 	if len(parseErrs) != 0 {
 		t.Fatalf("expected no parse errors, got %d: %+v", len(parseErrs), parseErrs)
 	}
-	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, parseErrs, nil)
+	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, nil, parseErrs, nil)
 	if len(diags) != 0 {
 		t.Fatalf("expected no diagnostics, got %d: %+v", len(diags), diags)
 	}
@@ -130,7 +130,7 @@ func TestAttachedTestDiagnosticsAllowBlankSeparatedBlocks(t *testing.T) {
 	if len(parseErrs) != 0 {
 		t.Fatalf("expected no parse errors, got %d: %+v", len(parseErrs), parseErrs)
 	}
-	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, parseErrs, nil)
+	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, nil, parseErrs, nil)
 	if len(diags) != 0 {
 		t.Fatalf("expected no diagnostics, got %d: %+v", len(diags), diags)
 	}
@@ -149,7 +149,7 @@ func TestAttachedTestDiagnosticsAllowCommentSeparatedBlocks(t *testing.T) {
 			if len(parseErrs) != 0 {
 				t.Fatalf("expected no parse errors, got %d: %+v", len(parseErrs), parseErrs)
 			}
-			diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, parseErrs, nil)
+			diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, nil, parseErrs, nil)
 			if len(diags) != 0 {
 				t.Fatalf("expected no diagnostics, got %d: %+v", len(diags), diags)
 			}
@@ -194,7 +194,7 @@ func TestBuildPublishedDiagnosticsSuppressesExpectedFixtureErrors(t *testing.T) 
 		{Line: 2, Col: 9, Message: "undefined name 'Nope'"},
 		{Line: 3, Col: 14, Message: "undefined name 'other'"},
 	}
-	diags := buildPublishedDiagnostics("file:///repo/internal/analysis/testdata/orphan_violator/main.nomi", content, nil, nil, errs)
+	diags := buildPublishedDiagnostics("file:///repo/internal/analysis/testdata/orphan_violator/main.nomi", content, nil, nil, nil, errs)
 	if len(diags) != 0 {
 		t.Fatalf("expected matching fixture diagnostics to be suppressed, got %d: %+v", len(diags), diags)
 	}
@@ -209,7 +209,7 @@ func TestBuildPublishedDiagnosticsReportsFixtureDrift(t *testing.T) {
 	errs := []analysis.TypeError{
 		{Line: 2, Col: 9, Message: "undefined name 'Surprise'"},
 	}
-	diags := buildPublishedDiagnostics("file:///repo/internal/analysis/testdata/orphan_violator/main.nomi", content, nil, nil, errs)
+	diags := buildPublishedDiagnostics("file:///repo/internal/analysis/testdata/orphan_violator/main.nomi", content, nil, nil, nil, errs)
 	if len(diags) != 2 {
 		t.Fatalf("expected one missing-expectation diagnostic and one unexpected diagnostic, got %d: %+v", len(diags), diags)
 	}
@@ -226,7 +226,7 @@ func TestBuildPublishedDiagnosticsDoesNotSuppressNonFixtureErrors(t *testing.T) 
 	errs := []analysis.TypeError{
 		{Line: 1, Col: 19, Message: "undefined name 'Nope'"},
 	}
-	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nil, nil, errs)
+	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nil, nil, nil, errs)
 	if len(diags) != 1 {
 		t.Fatalf("expected non-fixture diagnostics to remain visible, got %d: %+v", len(diags), diags)
 	}
@@ -264,7 +264,7 @@ func TestWorkspaceFixtureDiagnosticsAreQuietWhenExpectationsMatch(t *testing.T) 
 		if doc == nil || doc.Analysis == nil {
 			continue
 		}
-		diags := buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors)
+		diags := buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, doc.Analysis.TypeErrors)
 		for _, diag := range diags {
 			if diag.Severity != nil && *diag.Severity == protocol.DiagnosticSeverityWarning {
 				continue
@@ -297,7 +297,7 @@ func TestStdlibSameOwnerPipeCallPublishesCleanly(t *testing.T) {
 		t.Fatal("expected analysis to be non-nil")
 	}
 
-	diags := buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, doc.Analysis.TypeErrors)
 	var messages []string
 	for _, diag := range diags {
 		if diag.Severity != nil && *diag.Severity == protocol.DiagnosticSeverityWarning {
@@ -320,7 +320,7 @@ func TestBuildPublishedDiagnosticsReportsDbgWarning(t *testing.T) {
 	if len(parseErrs) != 0 {
 		t.Fatalf("unexpected parse errors: %+v", parseErrs)
 	}
-	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, nil, nil)
+	diags := buildPublishedDiagnostics("file:///repo/app/main.nomi", content, nodes, nil, nil, nil)
 	if len(diags) != 1 {
 		t.Fatalf("expected one dbg warning, got %d: %+v", len(diags), diags)
 	}
@@ -364,7 +364,7 @@ func TestOperatorDiagnosticsStartAtTheOperator(t *testing.T) {
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis for the document")
 	}
-	diags := buildPublishedDiagnostics(snap.URI, snap.Content, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors)
+	diags := buildPublishedDiagnostics(snap.URI, snap.Content, snap.Nodes, snap.Analysis, snap.Errors, snap.Analysis.TypeErrors)
 	want := map[string]protocol.Position{
 		"no matching Subtract impl for Instant - Int": {Line: 3, Character: 33},
 		"equality type mismatch: String vs Int":       {Line: 4, Character: 12},
@@ -453,7 +453,7 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 			t.Fatalf("%s: no analysis", name)
 		}
 		var got []string
-		for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors) {
+		for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, doc.Analysis.TypeErrors) {
 			got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
 		}
 		return got
@@ -494,7 +494,7 @@ func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
 			t.Fatalf("%s: no analysis", name)
 		}
 		var got []string
-		for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors) {
+		for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, doc.Analysis.TypeErrors) {
 			got = append(got, fmt.Sprintf("%d:%d-%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1,
 				d.Range.End.Line+1, d.Range.End.Character+1, d.Message))
 		}
@@ -517,7 +517,7 @@ func TestGroupedImportPathPublishesAtTheBrace(t *testing.T) {
 	src := "import std::{io, regex.Regex}\n\nfn main() {\n}\n"
 	doc := dm.Open("file:///test.nomi", src)
 	var got []string
-	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, nil) {
+	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, nil) {
 		got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
 	}
 	want := "1:13: braces select names from one file, as in `std::regex.{Regex, Match}`\n" +
@@ -535,7 +535,7 @@ func TestGroupWithoutANamePublishesTheMissingName(t *testing.T) {
 	src := "group {\n    test \"a\" {\n        assert 1 == \"one\"\n    }\n}\n"
 	doc := dm.Open("file:///test.nomi", src)
 	var got []string
-	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors) {
+	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, doc.Analysis.TypeErrors) {
 		got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
 	}
 	const missing = "1:7: a `group` needs a name; name the group for what its tests share, such as `group \"dates\" { ... }`"
@@ -576,7 +576,7 @@ func TestNestedTestDeclarationsPublishTheRefusal(t *testing.T) {
 			dm := analysis.NewDocumentManager()
 			doc := dm.Open("file:///test.nomi", c.src)
 			var got []string
-			for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors) {
+			for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, doc.Analysis.TypeErrors) {
 				got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
 			}
 			found, inner := false, c.inner == ""
@@ -632,7 +632,7 @@ func TestImplOnlyImportPublishesWhatTheProgramUses(t *testing.T) {
 			t.Fatalf("%s: no analysis", name)
 		}
 		var got []string
-		for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors) {
+		for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Analysis, doc.Errors, doc.Analysis.TypeErrors) {
 			got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
 		}
 		return doc, got
