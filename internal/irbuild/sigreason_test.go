@@ -46,7 +46,7 @@ pub enum Owner.Nested {
 }
 
 // Handler is a LOWERED row: a module-level alias is transparent (typealias.go).
-// u: Literal<Int, Int> is a LOWERED row too, a boxed generic interface. w: #{}
+// u: Literal<Int, Int> is a LOWERED row too, a boxed generic interface. w: .{}
 // supplies the refused half: a record with no fields has no representation.
 typealias Handler (String) -> String
 
@@ -68,11 +68,11 @@ fn every(
   _o: Ordering,
   _p: Decimal,
   _r: Handler,
-  _s: #{x: Int},
+  _s: .{x: Int},
   _t: List<Ordering>,
   _u: Literal<Int, Int>,
   _v: Iter<Int>,
-  _w: #{}
+  _w: .{}
 ) -> Int {
   0
 }

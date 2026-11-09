@@ -161,6 +161,30 @@ The SQL is kept apart from `email`: the statement holds the SQL around each
 parameter and the values to bind. Each column is read into its field by a
 reader for the column's type (`text_null` for a nullable `TEXT` column).
 
+The SQL is sent with each run of spaces, line breaks and comments as one
+space, so each part is one line. Each part is written as a raw backtick
+string, so a quoted name reads as it does in the `.sql` file:
+
+```nomi
+`SELECT u.email, max(o.id) AS "last_order" FROM users u LEFT JOIN orders o ON o.user_id = u.id`
+```
+
+The migrations in `schema.nomi` are raw strings too, line for line as
+their files have them:
+
+```nomi
+sqlkit.Migration{
+    path: "db/migrations/20261102090000_orders_shipped_on.sql",
+    sql: `
+        ALTER TABLE orders ADD COLUMN shipped_on DATE;
+
+        `,
+}
+```
+
+Text a raw string cannot hold exactly, one with a backtick, a carriage
+return or a space at the end of a line, is written with escapes instead.
+
 The generated file imports what its signatures name: a type of the schema
 (`User`, `schema.User`, `OrderStatus`), one of std's (`Instant`, `Date`,
 `Uuid`, ...), or the prelude's. Any other type comes from an `-- import:`
@@ -194,7 +218,7 @@ each `@name` is written as `?1`, `?2`, ... in order, the form std/sql's
 | `-> Maybe<T>` | `Result<Maybe<T>, sql.Error>` | `Ok(None)` | `Err(.RowCount)` |
 | `-> List<T>` | `Result<List<T>, sql.Error>` | `Ok([])` | all |
 | `-> Rows<T>` | `Rows<T>`, read with `Rows.fold` | | streamed |
-| none | `Result<List<#{...}>, sql.Error>`, anonymous rows of the columns | `Ok([])` | all |
+| none | `Result<List<.{...}>, sql.Error>`, anonymous rows of the columns | `Ok([])` | all |
 | `-> Changed`, the SQL returns no rows | `Result<sqlkit.Changed, sql.Error>`, the number of rows changed | | |
 | `-> Unit`, the SQL returns no rows | `Result<Unit, sql.Error>`, the count ignored | | |
 

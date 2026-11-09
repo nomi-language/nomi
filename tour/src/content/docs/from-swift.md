@@ -13,24 +13,35 @@ owner rather than as a method.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
-## What differs
+## Will trip you up
 
 | Swift | Nomi |
 |---|---|
 | `let x = 1`, `var x` | `x = 1`. There is no `var`; a later `x = ...` binds the name again. |
-| `struct Coffee { let size: Size }` | `struct Coffee { size: Size }`, one field per line |
-| `enum Size { case small, large }` | `enum Size`, one capitalized variant per line: `Small`, `Large` |
-| `case .withdraw(let amount):` | `.Withdraw(amount) -> ..` |
+| `coffee.price()` | `Priced.price(coffee)`, or `T.price(item)` in a generic |
+| `xs.filter { $0 > 1 }` | `Iter.filter(xs, &(&1 > 1))` |
+| `(a, b)`, `pair.0` | `(a, b)`, `pair.first` |
 | `Int?`, `if let x = maybe`, `guard let` | `Maybe<Int>`; `case`, `if Some(x) = maybe { .. }`, or a postfix `?` |
 | `throws`, `try`, `do / catch` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
+| `Double(x)`, `x as! Coffee` | `Int.to_float(x)`. Nomi's `x as T` is Swift's upcasting `as` only: it states a type the value already fits (`[] as List<String>`) |
+| Vapor's `configure(_ app:)`, which sets up services on the `Application`, or an app that hands them down with `.environment(..)` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
+
+## Spelled differently
+
+| Swift | Nomi |
+|---|---|
+| `struct Coffee: Equatable { let size: Size }` | `struct Coffee { size: Size }`, one field per line. `==` and hashing work field by field with nothing declared. |
+| `enum Size { case small, large }` | `enum Size`, one capitalized variant per line: `Small`, `Large` |
+| `case .withdraw(let amount):` | `.Withdraw(amount) -> ..` |
 | `protocol Priced { func price() -> Int }` | `interface Priced { fn price(value: self) -> Int }` |
 | `extension Coffee: Priced { .. }` | `impl Priced for Coffee { fn price(coffee: Coffee) -> Int { .. } }` |
-| `coffee.price()` | `Priced.price(coffee)`, or `T.price(item)` in a generic |
-| `func total<T: Priced>(..)` | `fn total<T>(..) where T: Priced` |
+| `func total(_ items: [any Priced])` | `fn total(items: List<Priced>)`: a `List<Coffee>` passes as it is |
+| `func larger<T: Comparable>(_ a: T, _ b: T) -> T` | `fn larger<T>(a: T, b: T) -> T where T: Comparable`: a type parameter when the type comes back |
 | `[1, 2]`, `["a": 1]`, `Set([1])` | `[1, 2]`, `%{"a" => 1}`, `%[1]` |
-| `xs.filter { $0 > 1 }` | `Iter.filter(xs, &(&1 > 1))` |
+| `defer { file.close() }` | `defer Reader.close_quietly(r)`: one call, run when the block ends. The checker requires it for a resource, and `defer on error` runs only when the function fails. |
 | `async let`, `TaskGroup` | `Task.spawn` and `Task.await` inside `concurrent { .. }` |
-| `XCTAssertEqual(a, b)` | `test "name" { assert a == b }` |
+| `#expect(a == b)`, `XCTAssertEqual(a, b)` | `test "name" { assert a == b }` |
+| Vapor's `app.get("users", ":id")`, then `req.parameters.get("id", as: Int.self)` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 ## The same program
 
@@ -58,7 +69,7 @@ func parseSize(_ text: String) throws -> Size {
     }
 }
 
-func total<T: Priced>(_ items: [T]) -> Int { items.reduce(0) { $0 + $1.price() } }
+func total(_ items: [any Priced]) -> Int { items.reduce(0) { $0 + $1.price() } }
 
 func firstLarge(_ coffees: [Coffee]) -> Coffee? { coffees.first { $0.size == .large } }
 ```
@@ -70,14 +81,10 @@ enum Size {
     Large
 }
 
-derive Equatable for Size
-
 struct Coffee {
     size: Size
     shots: Int = 1
 }
-
-derive Equatable for Coffee
 
 interface Priced {
     fn price(value: self) -> Int
@@ -102,8 +109,8 @@ fn parse_size(text: String) -> Result<Size, String> {
     }
 }
 
-fn total<T>(items: List<T>) -> Int where T: Priced {
-    Iter.reduce(items, 0, fn sum, item -> sum + T.price(item))
+fn total(items: List<Priced>) -> Int {
+    Iter.sum_by(items, Priced.price)
 }
 
 fn first_large(coffees: List<Coffee>) -> Maybe<Coffee> {

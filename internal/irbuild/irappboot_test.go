@@ -248,8 +248,8 @@ fn main() {
 func TestIRAppBoot_AnonymousBootRuns(t *testing.T) {
 	verifyDeferProgram(t, `import std::io
 
-fn boot() -> Result<#{port: Int, execution: Context}, String> {
-  Ok(#{port: 8080, execution: Context.root()})
+fn boot() -> Result<.{port: Int, execution: Context}, String> {
+  Ok(.{port: 8080, execution: Context.root()})
 }
 
 fn main() {

@@ -2,7 +2,7 @@
 //# forced write replaces the oldest item.
 
 /// A buffer of at most `capacity` items, read oldest first. It is a value:
-/// each operation answers the buffer after it.
+/// each operation returns the buffer after it.
 pub opaque struct Buffer<T> {
     capacity: Int
     items: List<T>
@@ -17,7 +17,7 @@ pub enum Error {
 impl Buffer<T> {
     /// An empty buffer that holds at most `capacity` items.
     pub fn new(capacity: Int) -> Buffer<T> {
-        Buffer{capacity, items: []}
+        .{capacity, items: []}
     }
 
     /// `buffer` with `item` after its newest, or `Full` when it holds
@@ -26,7 +26,7 @@ impl Buffer<T> {
         if Buffer.is_full(buffer) {
             Err(.Full)
         } else {
-            Ok(#{..buffer, items: [..buffer.items, item]})
+            Ok(.{..buffer, items: [..buffer.items, item]})
         }
     }
 
@@ -39,20 +39,20 @@ impl Buffer<T> {
             buffer.items
         }
 
-        #{..buffer, items: [..kept, item]}
+        .{..buffer, items: [..kept, item]}
     }
 
     /// The oldest item and the buffer without it, or `Empty`.
     pub fn read(buffer: Buffer<T>) -> Result<(T, Buffer<T>), Error> {
         case buffer.items {
-            [oldest, ..rest] -> Ok((oldest, #{..buffer, items: rest}))
+            [oldest, ..rest] -> Ok((oldest, .{..buffer, items: rest}))
             [] -> Err(.Empty)
         }
     }
 
     /// `buffer` with no items, at the same capacity.
     pub fn clear(buffer: Buffer<T>) -> Buffer<T> {
-        #{..buffer, items: []}
+        .{..buffer, items: []}
     }
 
     fn is_full(buffer: Buffer<T>) -> Bool {

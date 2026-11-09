@@ -37,8 +37,16 @@ run() { # label command...
   fi
 }
 
+# On a Mac with Xcode's command line tools, link with the system linker,
+# which writes chained fixups: nomi reaches main about 1 ms sooner. The
+# Makefile's build-cli and build-lsp make the same choice and say why.
 do_cli() {
-  run "go install" go install -C "$ROOT" ./cmd/nomi ./cmd/nomi-lsp &&
+  local env=() flags=()
+  if [[ "$(uname -s)" == Darwin ]] && xcode-select -p >/dev/null 2>&1; then
+    env=(CGO_ENABLED=1)
+    flags=(-ldflags=-linkmode=external)
+  fi
+  run "go install" env ${env[@]+"${env[@]}"} go install -C "$ROOT" ${flags[@]+"${flags[@]}"} ./cmd/nomi ./cmd/nomi-lsp &&
     echo "dev-editors: installed nomi and nomi-lsp from $ROOT"
 }
 

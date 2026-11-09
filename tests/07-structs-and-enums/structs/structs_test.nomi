@@ -42,7 +42,7 @@ test "struct literals expose named fields" {
 
 test "struct update preserves omitted fields" {
     user = User{name: "Alice", age: 30}
-    updated = Struct.update(user, #{name: "Bob"})
+    updated = Struct.update(user, .{name: "Bob"})
 
     assert updated.name == "Bob"
     assert updated.age == 30
@@ -54,8 +54,8 @@ test "nested struct update merges a `..` field update" {
         address: Address{city: "Boston", zip: "02101"},
     }
 
-    moved = Struct.update(person, #{address: #{.., city: "NYC"}})
-    replaced = Struct.update(person, #{address: Address{city: "NYC", zip: "10001"}})
+    moved = Struct.update(person, .{address: .{.., city: "NYC"}})
+    replaced = Struct.update(person, .{address: Address{city: "NYC", zip: "10001"}})
 
     assert moved.address.city == "NYC"
     assert moved.address.zip == "02101"
@@ -90,8 +90,8 @@ test "struct literals support field defaults and punning" {
 
 test "struct call form builds from anonymous struct values" {
     f1 = Foo{a: 1, b: "x"}
-    f2 = Foo(#{a: 2, b: "y"})
-    d = Defaulted(#{a: 7})
+    f2 = Foo(.{a: 2, b: "y"})
+    d = Defaulted(.{a: 7})
 
     assert f1.a == 1
     assert f1.b == "x"

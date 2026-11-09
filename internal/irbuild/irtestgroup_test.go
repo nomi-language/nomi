@@ -114,9 +114,9 @@ fn show(suffix: String) -> String {
 
 group "group" {
   boot boot(Startup{args: ["group"]})
-  setup #{n: 1, word: "one"}
+  setup .{n: 1, word: "one"}
 
-  test "reads the app and the setup value", #{n, word} {
+  test "reads the app and the setup value", .{n, word} {
     io.print(show("!"))
     assert App.label == "booted"
     assert n == 1
@@ -127,7 +127,7 @@ group "group" {
     assert value.n == 1
   }
 
-  test "binds the value with a nested pattern", #{n: count, word} {
+  test "binds the value with a nested pattern", .{n: count, word} {
     assert count == 1
     assert word == "one"
   }
@@ -168,13 +168,13 @@ fn main() {}
 
 group "group" {
   boot boot()
-  setup #{word: "one"}
+  setup .{word: "one"}
 
-  test "a failing qualified call shows its rows", #{word} {
+  test "a failing qualified call shows its rows", .{word} {
     assert String.length(word) == 5
   }
 
-  test "a failing app read", #{word} {
+  test "a failing app read", .{word} {
     assert App.label == word
   }
 }

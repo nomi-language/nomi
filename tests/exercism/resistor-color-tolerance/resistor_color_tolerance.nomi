@@ -26,8 +26,6 @@ pub enum Magnitude {
     Gigaohms
 }
 
-derive Equatable for Magnitude
-
 impl Display for Magnitude {
     fn to_string(unit: Magnitude) -> String {
         case unit {
@@ -46,8 +44,6 @@ pub struct Label {
     tolerance: Maybe<Decimal>
 }
 
-derive Equatable for Label
-
 impl Display for Label {
     fn to_string(label: Label) -> String {
         case label.tolerance {
@@ -62,17 +58,13 @@ impl Display for Label {
 /// for any other count of bands, or a band whose color cannot stand there.
 pub fn label(bands: List<Color>) -> Maybe<Label> {
     case bands {
-        [.Black] ->
-            Some(#{value: 0d, unit: .Ohms, tolerance: None})
-
-        [first, second, multiplier, tolerance] ->
-            make([first, second], multiplier, tolerance)
+        [.Black] -> Some(.{value: 0d, unit: .Ohms, tolerance: None})
+        [first, second, multiplier, tolerance] -> make([first, second], multiplier, tolerance)
 
         [first, second, third, multiplier, tolerance] ->
             make([first, second, third], multiplier, tolerance)
 
-        _ ->
-            None
+        _ -> None
     }
 }
 
@@ -89,7 +81,7 @@ fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label
     percent = tolerance_of(tolerance)?
     ohms = number * Int.pow(10, zeros)
     (value, unit) = in_largest_unit(ohms)
-    Some(#{value, unit, tolerance: Some(percent)})
+    Some(.{value, unit, tolerance: Some(percent)})
 }
 
 /// The units above ohms, largest first, with how many ohms each is.

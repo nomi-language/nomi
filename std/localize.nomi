@@ -99,20 +99,14 @@ impl Display for NumberParseError {
     //
     fn to_string(e: NumberParseError) -> String {
         case e {
-            NumberParseError.Empty ->
-                "the text is empty"
+            NumberParseError.Empty -> "the text is empty"
 
             NumberParseError.Unexpected{at, text: ""} ->
                 "the text ends at ${at} before the number does"
 
-            NumberParseError.Unexpected{at, text} ->
-                "unexpected `${text}` at ${at}"
-
-            NumberParseError.Grouping{at} ->
-                "a group separator at ${at} where the locale puts none"
-
-            NumberParseError.OutOfRange ->
-                "the number is out of range"
+            NumberParseError.Unexpected{at, text} -> "unexpected `${text}` at ${at}"
+            NumberParseError.Grouping{at} -> "a group separator at ${at} where the locale puts none"
+            NumberParseError.OutOfRange -> "the number is out of range"
 
             NumberParseError.TooManyFractionDigits{max} ->
                 "the amount has more than ${max} digits after the decimal point"

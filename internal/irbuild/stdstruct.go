@@ -929,7 +929,7 @@ func stdStructKindOfGoType(t reflect.Type) kind {
 // surface for a type a program writes down: `d: DateTime` needs `DateTime`
 // imported. It is NOT the whole surface for a type the CHECKER solved. A file
 // whose only mention of std/compiler is `compiler.check(src)` never names
-// `Diagnostic` at all, and the `fn diagnostic ->` in `Iter.any` over the result
+// `Diagnostic` at all, and the `fn diagnostic ->` in `Iter.any_match` over the result
 // still has that type (as in
 // tests/15-app-and-defer/os_env_boot_only_test.nomi).
 //

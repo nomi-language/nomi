@@ -23,8 +23,6 @@ pub enum Value {
     Text String
 }
 
-derive Equatable for Value
-
 /// A graph: its nodes and edges, each with its attributes, and the graph's
 /// own attributes. An edge is keyed by its two nodes in order, so `b -- a`
 /// is the edge `("a", "b")`.
@@ -41,8 +39,6 @@ pub enum Error {
     InvalidAttribute
     NodeNameNotAlphanumeric
 }
-
-derive Equatable for Error
 
 impl Display for Error {
     fn to_string(error: Error) -> String {
@@ -66,7 +62,8 @@ enum Statement {
 /// the braces. A line that starts with `//` or `#` is a comment.
 pub fn parse(text: String) -> Result<Graph, Error> {
     lines =
-        String.lines(text)
+        text
+        |> String.lines()
         |> Iter.map(String.trim)
         |> Iter.filter(fn line -> line != "" and not is_comment(line))
         |> Iter.to_list()
@@ -75,7 +72,7 @@ pub fn parse(text: String) -> Result<Graph, Error> {
 
     statements = body |> Iter.map(statement) |> Result.collect()?
 
-    empty: Graph = #{nodes: %{}, edges: %{}, attrs: %{}}
+    empty: Graph = .{nodes: %{}, edges: %{}, attrs: %{}}
 
     Ok(Iter.reduce(statements, empty, add))
 }
@@ -91,8 +88,7 @@ fn statement(line: String) -> Result<Statement, Error> {
     Some(line) = String.strip_suffix(line, ";") else { return Err(.InvalidGraph) }
 
     (subject, attributes) = case String.split(line, "[") {
-        [subject] ->
-            (subject, %{})
+        [subject] -> (subject, %{})
 
         [subject, list] -> {
             Some(inner) = list |> String.trim() |> String.strip_suffix("]") else {
@@ -102,13 +98,11 @@ fn statement(line: String) -> Result<Statement, Error> {
             (subject, attributes_in(inner)?)
         }
 
-        _ ->
-            return Err(.InvalidAttribute)
+        _ -> return Err(.InvalidAttribute)
     }
 
     case String.words(subject) {
-        [] ->
-            Ok(.GraphAttributes(attributes))
+        [] -> Ok(.GraphAttributes(attributes))
 
         [name] -> {
             if not is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
@@ -116,15 +110,15 @@ fn statement(line: String) -> Result<Statement, Error> {
             Ok(.Node{name, attributes})
         }
 
-        words ->
-            Ok(.Edges{names: edge_names(words)?, attributes})
+        words -> Ok(.Edges{names: edge_names(words)?, attributes})
     }
 }
 
 /// The attributes of `name=value, ...`, the text between a statement's
 /// brackets.
 fn attributes_in(list: String) -> Result<Map<String, Value>, Error> {
-    String.split(list, ",")
+    list
+    |> String.split(",")
     |> Iter.map(fn pair -> {
         case pair |> String.trim() |> String.split("=") {
             [name, value] when name != "" and value != "" -> Ok((name, value_of(value)))
@@ -155,35 +149,32 @@ fn edge_names(words: List<String>) -> Result<List<String>, Error> {
     (names, links) =
         words
         |> Iter.with_index()
-        |> Iter.partition(fn (index, _word) -> index % 2 == 0)
+        |> Iter.partition(&(&1.first % 2 == 0))
 
     names = names |> Iter.map(.second) |> Iter.to_list()
 
     valid = Iter.count(names) == Iter.count(links) + 1
-        and Iter.all(links, fn (_index, word) -> word == "--")
-        and Iter.all(names, is_alphanumeric)
+        and Iter.all_match(links, &(&1.second == "--"))
+        and Iter.all_match(names, is_alphanumeric)
 
     if valid { Ok(names) } else { Err(.InvalidEdge) }
 }
 
 fn is_alphanumeric(name: String) -> Bool {
-    String.to_codepoints(name) |> Iter.all(fn c -> Codepoint.is_letter(c) or Codepoint.is_digit(c))
+    name
+    |> String.to_codepoints()
+    |> Iter.all_match(fn c -> Codepoint.is_letter(c) or Codepoint.is_digit(c))
 }
 
 /// `graph` with `statement`'s nodes, edges or attributes added. Attributes
 /// given again for the same node, edge or graph replace those given before.
 fn add(graph: Graph, statement: Statement) -> Graph {
     case statement {
-        .GraphAttributes(attributes) ->
-            #{..graph, attrs: Map.merge(graph.attrs, attributes)}
-
-        .Node{name, attributes} ->
-            #{..graph, nodes: with_attributes(graph.nodes, name, attributes)}
+        .GraphAttributes(attributes) -> .{..graph, attrs: Map.merge(graph.attrs, attributes)}
+        .Node{name, attributes} -> .{..graph, nodes: with_attributes(graph.nodes, name, attributes)}
 
         .Edges{names, attributes} -> {
-            nodes = Iter.reduce(names, graph.nodes, fn nodes, name -> {
-                with_attributes(nodes, name, %{})
-            })
+            nodes = Iter.reduce(names, graph.nodes, &with_attributes(&1, &2, %{}))
 
             edges =
                 names
@@ -194,7 +185,7 @@ fn add(graph: Graph, statement: Statement) -> Graph {
                     with_attributes(edges, (a, b), attributes)
                 })
 
-            #{..graph, nodes, edges}
+            .{..graph, nodes, edges}
         }
     }
 }
@@ -232,7 +223,7 @@ test "parse" {
                 a;
             }
             """,
-            #{
+            .{
                 nodes: %{"a" => %{}},
                 edges: %{},
                 attrs: %{},
@@ -245,7 +236,7 @@ test "parse" {
                 a [color=green];
             }
             """,
-            #{
+            .{
                 nodes: %{"a" => %{"color" => .Text("green")}},
                 edges: %{},
                 attrs: %{},
@@ -258,7 +249,7 @@ test "parse" {
                 a -- b;
             }
             """,
-            #{
+            .{
                 nodes: %{"a" => %{}, "b" => %{}},
                 edges: %{("a", "b") => %{}},
                 attrs: %{},
@@ -271,7 +262,7 @@ test "parse" {
                 [foo=1];
             }
             """,
-            #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
+            .{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
         ),
         (
             "graph with comments",
@@ -282,7 +273,7 @@ test "parse" {
                 [foo=1];
             }
             """,
-            #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
+            .{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
         ),
         (
             "graph with nodes, edges, and attributes",
@@ -297,7 +288,7 @@ test "parse" {
                 [bar=true];
             }
             """,
-            #{
+            .{
                 nodes: %{
                     "a" => %{"color" => .Text("green")},
                     "b" => %{"label" => .Text("Beta!")},
@@ -318,7 +309,7 @@ test "parse" {
                 a -- b -- c -- d [style=dotted];
             }
             """,
-            #{
+            .{
                 nodes: %{"a" => %{}, "b" => %{}, "c" => %{}, "d" => %{}},
                 edges: %{
                     ("a", "b") => %{"style" => .Text("dotted")},
@@ -337,7 +328,7 @@ test "parse" {
                 b -- a [color=blue];
             }
             """,
-            #{
+            .{
                 nodes: %{"a" => %{}, "b" => %{}},
                 edges: %{("a", "b") => %{"color" => .Text("blue")}},
                 attrs: %{},

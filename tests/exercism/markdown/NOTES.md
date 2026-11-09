@@ -14,3 +14,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/markdown.
 - A heading is ``Regex`^(#{1,6}) (.*)$` ``, so seven `#`s fall through to a paragraph with no level check. The literal's type makes a match's groups a `(String, String)`, so the heading arm destructures them, and the `_` arm is the line that is not a heading.
 - Bold and italic are two `String.replace` pipe stages over the text, each a `Regex` with a lazy group that the replacement names as `$1`, bold first so that `__` is not read as two italic marks.
 - The canonical cases are one `subtests` table. The canonical data replaces "with h7 header level", which expected the line back unchanged, with "h7 header level is a paragraph" (`reimplements`); the table holds only the replacement.
+
+## Friction
+
+None.

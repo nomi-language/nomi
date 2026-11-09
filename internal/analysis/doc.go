@@ -438,4 +438,101 @@
 // The formatter keeps a parenthesized body's parentheses, which it drops
 // elsewhere, since they change the meaning: `&(f(&1))` is no partial and
 // `&f(&1)` is one.
+//
+// # Advice
+//
+// Advice is a diagnostic about a program that checks and means the same
+// either way, so it is never an error and the checker does not report it.
+// A redundant `value as Type` is recorded during the check
+// (FileAnalysis.RedundantAscriptions). A type parameter that style rule 52
+// writes as an interface value is found after it by InterfaceValueHints
+// (interface_value_hint.go), from the file's nodes and analysis: a
+// function's (or an inherent impl function's) type parameter that its
+// signature names once, as one parameter's whole type, under one interface
+// bound whose functions the body calls only as an interface value can
+// (`T.name(value)`, nothing returning or taking a second `self`), with the
+// parameter only passed, piped or interpolated, and no call in the file
+// passing the function explicit type arguments. A call in another file is
+// not looked for, which would read the whole program on each edit; such a
+// call is redundant and fails at the call after the fix. Each hint carries
+// a parser.Fix that drops the type parameter and its bound, writes the
+// parameter's type as the bound and each `T.` owner as the interface.
+//
+// The language server publishes advice as hints (internal/lsp
+// diagnostics.go) and offers each fix as a quick fix. `nomi check` writes
+// the interface-value hints as warnings that fail no file
+// (vmhost.Program.Advice), from Check only, so `nomi run` and `nomi test`
+// say nothing of them; a kept program holds its advice, so a check that
+// reads it reports what a fresh one does. Neither reports advice about a
+// std file.
+//
+// # The stdlib's state
+//
+// Building the stdlib's base modules from their interfaces (std/shared.go)
+// runs every sweep over about fifty modules' declarations. Its result is
+// the same in every process of one binary, so std keeps it as bytes beside
+// its artifact and a later process reads it back whole
+// ([EncodeStdState], [DecodeStdState], state_codec.go) instead of running
+// the sweeps and forming the [StdBase] again.
+//
+// What is written is stdState: each module's [FileAnalysis], the nodes its
+// build checked and the interface nodes it was given, the base, the
+// errors, stdBootWhys' entries for the modules' functions (installing the
+// facts stores them) and bodyGenerations. Everything they reach is written,
+// every field of every type, exported or not: the builders a file keeps for
+// rebuilding its bodies, the program, the scopes, symbols and types, the
+// type registries and the node-keyed maps. The encoder and decoder of each
+// type are generated from the package's types by stategen
+// (state_codec_gen.go; `go generate ./internal/analysis`), so a field
+// added anywhere the state reaches is written once the generator runs, and
+// TestGeneratedStateCodecIsCurrent fails until it does. The generator
+// refuses a field it cannot write unless it lists it: a function field is a
+// hook (state_codec.go: a builder's loader, which the decoder is given; a
+// default's setter, which the finished inference never calls again; the
+// program's errors closure, whose answer for the stdlib is its Errors; the
+// once table's inference, written as whether it ran), a field a finished
+// build leaves empty, or one the stdlib's build never sets.
+//
+// Each file's kept declarations (what rebuilding its bodies reads: the
+// builder, the declarations' share of the references and definitions) are
+// written after the rest, and a process reads them only when something
+// first asks for a file's (FileDecls.keptDecls, stateRest), which only
+// checking a std module's bodies does. They go on with the decoder the
+// state was read with, so they share its objects.
+//
+// Identity is kept. A pointer to a struct, a map and a slice that is not
+// empty are written once and then by their number, keyed by address and
+// type (a struct and its first field share an address) and a slice's
+// length too, so what the build shares the decoded state shares. A package-level pointer, map or Type, as the package started
+// (stateGlobals, the singleton primitive types, the fallback Bool and
+// Ordering, pendingDefault), is written by its place in that table and
+// read back as the process's own. AST nodes go through
+// internal/ast/astcodec in the same stream, sharing its pointer table, so a
+// map keyed by a FuncDef keys the decoded node the decoded nodes hold.
+// Strings are written once each, in a table, and a path under the
+// directory the stdlib was found in is written relative to it, so a state
+// reads back wherever a process finds the stdlib.
+//
+// A build installs the canonical std types for the process
+// (installCanonicalStdTypes), and the state points at whichever Bool the
+// registries saw. So only a process whose base build installed them, its
+// first build, writes a state ([EncodeStdState] refuses otherwise), and
+// reading one installs them from the decoded modules, as that build did.
+//
+// The format is bound to the code that wrote it: the generated codec
+// writes the fields in declaration order with no names. [StdStateFormat]
+// names that code: the format's version and digests of the generated
+// codec and of internal/ast/astcodec's, which stategen and codecgen stamp
+// into the files they write (stateCodecDigest, astcodec.CodecDigest). std
+// keys a cached state by the binary's build ID and its artifact's checksum,
+// and an embedded one, which a process of internal/irbuild/stdbundlegen
+// wrote for the binary that embeds it, by the artifact's head and checksum
+// and the format; it checks its own CRC-32, and builds the base modules
+// with the sweeps when a state is missing, stale or does not decode. A
+// path is written with slashes, so a state written on one system reads on
+// another. The
+// stdlib's tests hold a state read back to the build it was written from,
+// field by field and pointer by pointer ([CheckStdStateRoundTrip],
+// TestStdState_ReadsBackAsTheBuild), and a process's stdlib read from a
+// state to the one analyzed from source (TestShared_ModulesAreLoadsModules).
 package analysis

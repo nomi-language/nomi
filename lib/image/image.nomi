@@ -91,11 +91,8 @@ impl Display for Error {
     //
     fn to_string(error: Error) -> String {
         case error {
-            .UnsupportedFormat ->
-                "not a JPEG, PNG or WebP image"
-
-            .Corrupt{message} ->
-                "the image is corrupt: ${message}"
+            .UnsupportedFormat -> "not a JPEG, PNG or WebP image"
+            .Corrupt{message} -> "the image is corrupt: ${message}"
 
             .TooLarge{width, height} ->
                 "the image is ${width} by ${height} pixels, more than allowed"

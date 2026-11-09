@@ -256,7 +256,7 @@ fn main() {
 
     [Locale`en`, Locale`pl`]
     |> Iter.each(fn locale -> {
-        lines |> Iter.each(fn line -> io.print(Phrase.format(line, locale)))
+        lines |> Iter.each(&io.print(Phrase.format(&1, locale)))
     })
 }
 
@@ -409,7 +409,7 @@ fn main() {
 
     [Locale`en`, Locale`pl`]
     |> Iter.each(fn locale -> {
-        lines |> Iter.each(fn line -> io.print(Phrase.format(line, locale)))
+        lines |> Iter.each(&io.print(Phrase.format(&1, locale)))
     })
 }
 

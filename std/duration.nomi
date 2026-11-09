@@ -524,11 +524,8 @@ fn sixty(text: String, at: Int) -> Result<Int, NumberParseError> {
     end = digits_end(text, at)
 
     case {
-        end - at < 2 ->
-            Err(unexpected(text, end))
-
-        end - at > 2 ->
-            Err(unexpected(text, at + 2))
+        end - at < 2 -> Err(unexpected(text, end))
+        end - at > 2 -> Err(unexpected(text, at + 2))
 
         _ -> {
             value = number(text, at, 2) |> Maybe.with_default(0)
@@ -547,22 +544,16 @@ fn sixty(text: String, at: Int) -> Result<Int, NumberParseError> {
 // end the text.
 fn fraction(text: String, at: Int) -> Result<Int, NumberParseError> {
     case String.slice(text, at, at + 1) {
-        "" ->
-            Ok(0)
+        "" -> Ok(0)
 
         "." -> {
             end = digits_end(text, at + 1)
             count = end - at - 1
 
             case {
-                count == 0 ->
-                    Err(unexpected(text, at + 1))
-
-                end < String.length(text) ->
-                    Err(unexpected(text, end))
-
-                count > 9 ->
-                    Err(NumberParseError.TooManyFractionDigits{max: 9})
+                count == 0 -> Err(unexpected(text, at + 1))
+                end < String.length(text) -> Err(unexpected(text, end))
+                count > 9 -> Err(NumberParseError.TooManyFractionDigits{max: 9})
 
                 _ -> {
                     digits = String.drop(text, at + 1) |> String.pad_end(9, "0")
@@ -575,7 +566,6 @@ fn fraction(text: String, at: Int) -> Result<Int, NumberParseError> {
             }
         }
 
-        _ ->
-            Err(unexpected(text, at))
+        _ -> Err(unexpected(text, at))
     }
 }

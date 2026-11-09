@@ -13,10 +13,9 @@ from a few lines of your own to a library such as htmx or Stimulus,
 served as static files beside the pages.
 
 **A JavaScript frontend.** React, Vue, Svelte or any other framework runs
-in the browser, built by Vite, webpack or any bundler, and Nomi serves its
-JSON API and its built files from one executable. Pick this when the interface holds a lot of
-client-side state, or when your team already works in one of these
-frameworks.
+in the browser, and Nomi serves its JSON API and its built files from one
+executable. Pick this when the interface holds a lot of client-side state,
+or when your team already works in one of these frameworks.
 
 **Nomi in the page.** `nomi build --web` compiles a Nomi program to
 WebAssembly, and a page runs it or calls its functions. Pick this for logic
@@ -73,7 +72,7 @@ fn signup(request: Request) -> Response {
 
     if not String.contains(email, "@") {
         page = layout("Sign up", signup_form(email, Some("That is not an email address.")))
-        return #{..Response.html(page), status: Status.unprocessable_entity}
+        return .{..Response.html(page), status: Status.unprocessable_entity}
     }
 
     Response.redirect(request, "/welcome", Status.see_other)
@@ -117,8 +116,7 @@ it.
 
 Keep the frontend in a `web/` folder beside the Nomi code. Its bundler
 writes the built files into `web/dist`, and the Nomi program embeds that
-folder. The example is a React app built with Vite; the end of this
-section gives the settings for other tools.
+folder. The example is a React app built with Vite.
 
 ```tree
 todo/
@@ -139,8 +137,8 @@ JSON types and their handlers. `nomi types` writes `web/src/api.ts`, and
 
 ### The API
 
-An API handler returns a response with a `Json` body. A type the frontend reads
-derives `ToJson`, and is `pub` so that `nomi types` declares it:
+An API handler returns a response with a `Json` body. A type the frontend
+reads derives `ToJson`, and is `pub` so that `nomi types` declares it:
 
 ```nomi-run
 import {
@@ -163,7 +161,7 @@ pub fn list_todos(Request) -> Response {
         Todo{id: 2, title: "Write the page", done: False},
     ]
 
-    Response{body: .Json(ToJson.to_json(todos))}
+    Response.json(todos)
 }
 
 fn main() {
@@ -190,10 +188,10 @@ export interface Todo {
 ```
 
 Run it from the npm scripts that start and build the frontend, so
-`api.ts` is rewritten from the Nomi code each time. After a Nomi type changes, the
-next `npm run types`, `dev` or `build` rewrites `api.ts`; your editor then
-shows the TypeScript code that no longer fits, and `npm run build` fails
-on it. npm runs scripts from inside `web/`, so the path goes up a level:
+`api.ts` is rewritten from the Nomi code each time. After a Nomi type
+changes, your editor shows the TypeScript code that no longer fits, and
+`npm run build` fails on it. npm runs scripts from inside `web/`, so the
+path goes up a level:
 
 ```json
 {
@@ -227,26 +225,9 @@ port 8080, and `npm run dev` in `web/` serves the frontend on the dev
 server's own port with hot reloading. Open that port while you work; port
 8080 serves the frontend as it was at the last build. The dev server
 forwards every `/api` request to Nomi, so the page calls the API on its
-own origin and needs no CORS headers. A frontend served from another origin needs them:
-wrap the API with [`http.cors`](/http/#middleware) and list that origin.
-
-In Vite the forwarding is `server.proxy`. The config also adds a
-compression plugin for the release build, described below. Install it
-with `npm install -D vite-plugin-compression2`:
-
-```ts
-// web/vite.config.ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import { compression } from "vite-plugin-compression2";
-
-export default defineConfig({
-  plugins: [react(), compression()],
-  server: {
-    proxy: { "/api": "http://localhost:8080" },
-  },
-});
-```
+own origin and needs no CORS headers. A frontend served from another
+origin needs them: wrap the API with [`http.cors`](/http/#middleware) and
+list that origin.
 
 `app.nomi` embeds `web/dist`. Until the first `npm run build` writes it,
 `nomi run` warns that `web/dist` does not exist and serves the API with an
@@ -275,7 +256,7 @@ struct App {
     server: Supervisor
 }
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(Startup) -> Result<App, String> {
     Ok(App{server: Supervisor.new(max_running: 256)})
 }
 
@@ -312,7 +293,7 @@ pub fn list_todos(Request) -> Response {
         Todo{id: 2, title: "Write the page", done: False},
     ]
 
-    Response{body: .Json(ToJson.to_json(todos))}
+    Response.json(todos)
 }
 
 // FILE: web/dist/index.html
@@ -323,35 +304,22 @@ pub fn list_todos(Request) -> Response {
 page route such as `/settings` or `/users/jane.doe`, so the client-side
 router takes it from there. A file that exists is served as itself, and a
 missing `/assets/x.js` stays a 404, since a browser asks for HTML only
-when it navigates. Every file goes out
-with its SHA-256 as its `ETag`, so a browser asking again for an
-unchanged `index.html` gets a 304 with no body.
-A bundler puts a hash of each file's contents in its name, and Vite
-writes those files under `assets`, so `immutable: ["assets/**"]` lets a
-browser keep them for a year. Each
-entry is a glob over the file's path in the tree
-([`path.matches`](/reference/path/#pathmatches)). An entry with no
-wildcard names a file or a folder, and a folder covers everything in it,
-so `["assets"]` works too. Match only files with a hash in their names,
-since a browser will not ask for them again for a year. The compression
-plugin writes a `.br` and a `.gz` copy beside each file, and the server
-sends the compressed copy to any browser that accepts it
+when it navigates. Every file goes out with its SHA-256 as its `ETag`, so
+a browser asking again for an unchanged `index.html` gets a 304 with no
+body.
+
+`immutable` lists the files a browser may keep for a year without asking
+again. Each entry is a glob over the file's path in the tree
+([`path.matches`](/reference/path/#pathmatches)), and an entry with no
+wildcard names a file or a folder and everything in it, so `["assets"]`
+works too. Match only files with a hash of their contents in their names,
+as a bundler writes them. When a `.br` or `.gz` copy sits beside a file,
+the server sends it to any browser that accepts it
 ([reference](/reference/http/#httpserve_embedded)).
 
-Other tools work the same way, each with its own output folder, dev
-proxy and hashed files:
-
-- webpack writes `dist/` and proxies with `devServer.proxy`. Name its
-  output `assets/[name].[contenthash].js` and use `immutable: ["assets"]`.
-- Angular writes `dist/<project>/browser/`, proxies with
-  `proxy.conf.json`, and hashes the files at its root:
-  `immutable: ["*-*.js", "*-*.css"]`.
-- Create React App writes `build/`, proxies with `"proxy"` in
-  `package.json`, and hashes `static/**`.
-- SvelteKit's static adapter writes `build/` and hashes
-  `_app/immutable/**`.
-- Next's static export, `output: 'export'` in `next.config.js`, writes
-  `out/` and hashes `_next/static/**`.
+The [tooling reference](/tooling/building/#frontend-builds) gives each
+bundler's output folder, dev proxy and hashed paths, and the Vite config
+this example uses.
 
 A static export with a page per route, from Next or a prerendering
 SvelteKit, writes `/about` as `about.html`, and the server serves that

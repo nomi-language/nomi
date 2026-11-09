@@ -157,8 +157,9 @@ func (bl *irScalarBuilder) stdUnretainedPlan(f *stdFunc) *irQualPlan {
 	if len(inst.view.params) != len(f.params) {
 		return nil
 	}
-	if f.why != stdIterSigWhy {
-		// An Iter has no kind in the index (stdIterSigWhy); every other
+	if f.why != stdProgSigWhy {
+		// An Iter or a std interface value has no kind in the index
+		// (stdProgSigWhy); every other
 		// signature is the one the index resolved.
 		if inst.view.result != f.result {
 			return nil
@@ -197,7 +198,7 @@ func (g *gen) irStdSiblingSym(f *stdFunc) *ir.Symbol {
 // Most rows are rt functions; std/io's and String.normalize live in their own
 // host packages.
 func irScalarHost(f *stdFunc) bool {
-	_, row := stdlibHostFuncs[f.key]
+	_, row := stdlibHostFunc(f.key)
 	return row && !f.rtFrame && f.rtCall != ""
 }
 

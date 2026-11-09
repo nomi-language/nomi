@@ -19,7 +19,7 @@ fn echo(request: Request) -> Response {
 }
 
 fn handshake(method: Method, headers: List<(String, String)>) -> Request {
-    #{..http_testing.request(method, "/ws"), host: Some("example.com"), headers: Headers(headers)}
+    .{..http_testing.request(method, "/ws"), host: Some("example.com"), headers: Headers(headers)}
 }
 
 once good = [
@@ -78,7 +78,7 @@ fn stacked(handler: Handler, logger: Logger) -> (Request) -> Response {
 }
 
 test "middleware leaves the upgrade working" {
-    asking = #{
+    asking = .{
         ..handshake(Method.Get, good),
         headers: Headers(good + [("Accept-Encoding", "gzip")]),
     }

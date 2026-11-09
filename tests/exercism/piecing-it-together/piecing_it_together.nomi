@@ -36,13 +36,9 @@ pub enum Error {
     ContradictoryData
 }
 
-derive Equatable for Format
-
-derive Equatable for Error
-
 /// The one puzzle `clues` describe: `InsufficientData` when more than one
 /// fits them, and `ContradictoryData` when none does.
-//! assert jigsaw_data(#{pieces: Some(6), rows: Some(3)}) |> Result.map(.columns) == Ok(2)
+//! assert jigsaw_data(.{pieces: Some(6), rows: Some(3)}) |> Result.map(.columns) == Ok(2)
 //
 pub fn jigsaw_data(clues: Clues) -> Result<Jigsaw, Error> {
     Some(rows) = row_candidates(clues) else { return Err(.InsufficientData) }
@@ -79,7 +75,7 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw {
         .Greater -> .Landscape
     }
 
-    Jigsaw{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
+    .{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
 }
 
 /// Whether `jigsaw` agrees with every part `clues` knows.
@@ -92,16 +88,19 @@ fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool {
             (clues.rows, jigsaw.rows),
             (clues.columns, jigsaw.columns),
         ]
-        |> Iter.all(fn (known, actual) -> agrees(known, actual))
+        |> Iter.all_match(fn (known, actual) -> agrees(known, actual))
 
-    ratio_agrees = Iter.all(clues.aspect_ratio, &Float.equal_within(&1, jigsaw.aspect_ratio, 1e-9))
+    ratio_agrees = Iter.all_match(
+        clues.aspect_ratio,
+        &Float.equal_within(&1, jigsaw.aspect_ratio, 1e-9),
+    )
 
     counts_agree and ratio_agrees and agrees(clues.format, jigsaw.format)
 }
 
 /// Whether `actual` is the `known` value, when there is one.
 fn agrees<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable {
-    Iter.all(known, &(&1 == actual))
+    Iter.all_match(known, &(&1 == actual))
 }
 
 /// The row counts worth trying: the known one, or every count up to a bound
@@ -109,26 +108,16 @@ fn agrees<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable {
 /// endlessly many puzzles fit.
 fn row_candidates(clues: Clues) -> Maybe<List<Int>> {
     case clues {
-        #{rows: Some(rows)} ->
-            Some([rows])
+        .{rows: Some(rows)} -> Some([rows])
+        .{pieces: Some(pieces)} -> Some(up_to(pieces))
+        .{border: Some(border)} -> Some(up_to(border))
+        .{inside: Some(inside)} -> Some(up_to(inside + 2))
 
-        #{pieces: Some(pieces)} ->
-            Some(up_to(pieces))
-
-        #{border: Some(border)} ->
-            Some(up_to(border))
-
-        #{inside: Some(inside)} ->
-            Some(up_to(inside + 2))
-
-        #{columns: Some(columns), aspect_ratio: Some(ratio)} ->
+        .{columns: Some(columns), aspect_ratio: Some(ratio)} ->
             nearest(Int.to_float(columns) / ratio) |> Maybe.map(up_to)
 
-        #{columns: Some(columns), format: Some(.Square or .Landscape)} ->
-            Some(up_to(columns))
-
-        _ ->
-            None
+        .{columns: Some(columns), format: Some(.Square or .Landscape)} -> Some(up_to(columns))
+        _ -> None
     }
 }
 
@@ -140,10 +129,9 @@ fn up_to(bound: Int) -> List<Int> {
 /// puzzle of so many rows, or `None` when no known part settles them.
 fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
     case clues {
-        #{columns: Some(columns)} ->
-            Some(fn _rows -> [columns])
+        .{columns: Some(columns)} -> Some(fn _rows -> [columns])
 
-        #{pieces: Some(pieces)} ->
+        .{pieces: Some(pieces)} ->
             Some(fn rows -> {
                 if pieces % rows == 0 {
                     [pieces / rows]
@@ -152,13 +140,12 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
                 }
             })
 
-        #{aspect_ratio: Some(ratio)} ->
+        .{aspect_ratio: Some(ratio)} ->
             Some(fn rows -> Iter.to_list(nearest(Int.to_float(rows) * ratio)))
 
-        #{format: Some(.Square)} ->
-            Some(fn rows -> [rows])
+        .{format: Some(.Square)} -> Some(fn rows -> [rows])
 
-        #{border: Some(border)} ->
+        .{border: Some(border)} ->
             Some(fn rows -> {
                 if rows == 1 {
                     [border]
@@ -167,7 +154,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
                 }
             })
 
-        #{inside: Some(inside)} ->
+        .{inside: Some(inside)} ->
             Some(fn rows -> {
                 if rows > 2 and inside % (rows - 2) == 0 {
                     [inside / (rows - 2) + 2]
@@ -176,8 +163,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
                 }
             })
 
-        _ ->
-            None
+        _ -> None
     }
 }
 

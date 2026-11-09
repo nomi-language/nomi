@@ -124,7 +124,7 @@ func addTypeSuggestions(fa *FileAnalysis, typeIndex map[string][]string, name st
 // by every module that imports it. Restricting to owner-like kinds keeps impl
 // methods and variant constructors out.
 //
-// With std's sources installed (SetStdSources) the index is theirs, every
+// With std's exports installed (SetStdExports) the index is theirs, every
 // public module's, whichever modules this process built: the same modules
 // the "import `std::http.Method`" help of an unbound name names.
 func buildStdlibTypeIndex(fa *FileAnalysis) map[string][]string {

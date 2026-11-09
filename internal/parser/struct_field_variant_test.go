@@ -8,16 +8,16 @@ import (
 )
 
 // A struct pattern's field may hold a variant named through the file that
-// declares its type: `#{err: sql.Error.Closed}`. The identifier before the
+// declares its type: `.{err: sql.Error.Closed}`. The identifier before the
 // `.` is the file, not a name the field binds.
 func TestStructPatternField_ModuleQualifiedVariant(t *testing.T) {
 	for _, tc := range []struct {
 		arm, module, variant string
 		payload              bool
 	}{
-		{"#{err: sql.Error.Closed}", "sql.Error", "Closed", false},
+		{".{err: sql.Error.Closed}", "sql.Error", "Closed", false},
 		{"Slot{shape: shapes.Shape.Square(n), bag}", "shapes.Shape", "Square", true},
-		{"#{c: json.Json.Case.Snake}", "json.Json.Case", "Snake", false},
+		{".{c: json.Json.Case.Snake}", "json.Json.Case", "Snake", false},
 	} {
 		sp, ok := caseArmPattern(t, tc.arm).(*ast.StructPattern)
 		if !ok || len(sp.Fields) == 0 {
@@ -46,11 +46,11 @@ func TestStructPatternField_ModuleQualifiedVariant(t *testing.T) {
 
 	// A bare name still renames the field, and a name before `or` still
 	// starts the alternatives.
-	sp := caseArmPattern(t, "#{x: y}").(*ast.StructPattern)
+	sp := caseArmPattern(t, ".{x: y}").(*ast.StructPattern)
 	if sp.Fields[0].Binding != "y" || sp.Fields[0].Pattern != nil {
-		t.Fatalf("`#{x: y}`: got %#v", sp.Fields[0])
+		t.Fatalf("`.{x: y}`: got %#v", sp.Fields[0])
 	}
-	sp = caseArmPattern(t, "#{x: a or b}").(*ast.StructPattern)
+	sp = caseArmPattern(t, ".{x: a or b}").(*ast.StructPattern)
 	orPatternOf(t, sp.Fields[0].Pattern, 2)
 }
 
@@ -58,8 +58,8 @@ func TestStructPatternField_ModuleQualifiedVariant(t *testing.T) {
 // a dangling `.`, or with something other than a name after its `.`.
 func TestStructPatternField_MalformedValueIsRejected(t *testing.T) {
 	for _, tc := range []struct{ arm, want string }{
-		{"#{err: sql.}", "expected field name in struct pattern"},
-		{"#{err: sql.(x)}", "expected field name in struct pattern"},
+		{".{err: sql.}", "expected field name in struct pattern"},
+		{".{err: sql.(x)}", "expected field name in struct pattern"},
 	} {
 		err := parseError(t, "fn main() {\n    x = case v {\n        "+tc.arm+" -> 0\n    }\n}\n")
 		if !strings.Contains(err.Error(), tc.want) {

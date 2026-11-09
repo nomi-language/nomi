@@ -48,7 +48,7 @@ func TestAppFieldsAppWithoutAContext(t *testing.T) {
 // it; it has no name a read could use.
 func TestAppFieldsAnonymousBootReadsNothing(t *testing.T) {
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
- fn boot() -> Result<#{execution: Context, port: Int}, String> { Ok(#{execution: Context.root(), port: 3}) }
+ fn boot() -> Result<.{execution: Context, port: Int}, String> { Ok(.{execution: Context.root(), port: 3}) }
  fn main() { _ = 1 }
  `))
 }
@@ -114,7 +114,7 @@ func TestAppFieldsUnbootedStructIsNotAnApplicationType(t *testing.T) {
 
 func TestAppFieldsBootValidation(t *testing.T) {
 	for schema, want := range map[string]string{
-		`#{a: Context, b: Context}`: "at most one Context-typed field",
+		`.{a: Context, b: Context}`: "at most one Context-typed field",
 		`Int`:                       "boot must return `Result<App, E>`",
 		`(Context, Int)`:            "boot must return `Result<App, E>`",
 	} {
@@ -136,7 +136,7 @@ func TestAppFieldsBootValidation(t *testing.T) {
  fn main() {}
  `), bootSignatureMsg)
 	expectErrorT(t, buildProjectForDefaultConfig(` struct Ctx { n: Int }
- fn boot(_startup: Ctx) -> Result<#{execution: Context}, String> { Ok(#{execution: Context.root()}) }
+ fn boot(_startup: Ctx) -> Result<.{execution: Context}, String> { Ok(.{execution: Context.root()}) }
  fn main() {}
  `), bootSignatureMsg)
 }

@@ -49,7 +49,7 @@ func TestMismatchErrorsSpanTheOffendingPart(t *testing.T) {
 			"Kvs key type: expected String, got Int", "4:14-4:15"},
 		{"struct call form with a non-record argument",
 			"struct P {\n    x: Int\n}\n\nfn main() {\n    _ = P(1)\n}\n",
-			"P expects an anonymous struct literal #{...} matching its fields, got Int", "6:11-6:12"},
+			"P expects an anonymous struct literal .{...} matching its fields, got Int", "6:11-6:12"},
 		{"bound alias entry that is not an interface",
 			"typealias Both Display and Int\n\nfn f<T>(x: T) -> T where T: Both {\n    x\n}\n\nfn main() {\n    _ = f(1)\n}\n",
 			"interface-bound alias entry must be an interface, got Int", "1:28-1:31"},

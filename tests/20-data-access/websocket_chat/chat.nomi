@@ -27,8 +27,7 @@ fn hold(members: Map<Int, WebSocket>, message: Room) -> Map<Int, WebSocket> {
             Map.put(members, WebSocket.id(ws), ws)
         }
 
-        .Leave(id) ->
-            Map.remove(members, id)
+        .Leave(id) -> Map.remove(members, id)
 
         .Say(text) -> {
             members
@@ -60,8 +59,7 @@ pub fn join(request: Request) -> Response {
                     _ = Actor.cast(App.room, Room.Say(text))
                 }
 
-                .Binary(_) ->
-                    Unit
+                .Binary(_) -> Unit
             }
         })
 

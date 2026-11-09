@@ -151,14 +151,12 @@ impl Display for Error {
     //
     fn to_string(e: Error) -> String {
         case e {
-            Error.Empty ->
-                "a locale tag cannot be empty"
+            Error.Empty -> "a locale tag cannot be empty"
 
             Error.Underscore{suggestion} ->
                 "a locale tag separates subtags with `-`, not `_`: write `${suggestion}` (Locale.from_posix reads a POSIX value)"
 
-            Error.Malformed{text} ->
-                "`${text}` is not a well-formed BCP 47 tag"
+            Error.Malformed{text} -> "`${text}` is not a well-formed BCP 47 tag"
 
             Error.UnknownSubtag{subtag} ->
                 "`${subtag}` is not a known language, script or region subtag"
@@ -348,11 +346,8 @@ impl Locale {
             ["unreachable", file, reason] ->
                 Err(LoadError.Unreachable{locale: Locale(file), reason})
 
-            ["unreadable", file, reason] ->
-                Err(LoadError.Unreadable{locale: Locale(file), reason})
-
-            _ ->
-                Ok(Unit)
+            ["unreadable", file, reason] -> Err(LoadError.Unreadable{locale: Locale(file), reason})
+            _ -> Ok(Unit)
         }
     }
 

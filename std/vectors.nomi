@@ -158,8 +158,7 @@ impl Comparable for Vector<T> where T: Comparable {
 
             Some((ha, ta)) ->
                 case Vector.next_item(b) {
-                    None ->
-                        Greater
+                    None -> Greater
 
                     Some((hb, tb)) ->
                         case Comparable.compare(ha, hb) {

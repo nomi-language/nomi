@@ -275,20 +275,11 @@ impl Localize for Noun {
 impl Equatable for Argument {
     fn equal(a: Argument, b: Argument) -> Bool {
         case (a, b) {
-            (Argument.Integer(x), Argument.Integer(y)) ->
-                x == y
-
-            (Argument.Floating(x), Argument.Floating(y)) ->
-                x == y
-
-            (Argument.Exact(x), Argument.Exact(y)) ->
-                x == y
-
-            (Argument.Text(x), Argument.Text(y)) ->
-                x == y
-
-            (Argument.Variant(x), Argument.Variant(y)) ->
-                x == y
+            (Argument.Integer(x), Argument.Integer(y)) -> x == y
+            (Argument.Floating(x), Argument.Floating(y)) -> x == y
+            (Argument.Exact(x), Argument.Exact(y)) -> x == y
+            (Argument.Text(x), Argument.Text(y)) -> x == y
+            (Argument.Variant(x), Argument.Variant(y)) -> x == y
 
             (Argument.Localized{shown: x, name: m, localize: _}, Argument.Localized{
                 shown: y,
@@ -297,17 +288,10 @@ impl Equatable for Argument {
             }) ->
                 x == y and m == n
 
-            (Argument.Named(x), Argument.Named(y)) ->
-                x == y
-
-            (Argument.Items(x), Argument.Items(y)) ->
-                x == y
-
-            (Argument.Day(x), Argument.Day(y)) ->
-                x == y
-
-            (Argument.Clock(x), Argument.Clock(y)) ->
-                x == y
+            (Argument.Named(x), Argument.Named(y)) -> x == y
+            (Argument.Items(x), Argument.Items(y)) -> x == y
+            (Argument.Day(x), Argument.Day(y)) -> x == y
+            (Argument.Clock(x), Argument.Clock(y)) -> x == y
 
             (Argument.Moment{key: x, shown: _, localize: _}, Argument.Moment{
                 key: y,
@@ -316,14 +300,9 @@ impl Equatable for Argument {
             }) ->
                 x == y
 
-            (Argument.Amount(x), Argument.Amount(y)) ->
-                x == y
-
-            (Argument.Nested(x), Argument.Nested(y)) ->
-                x == y
-
-            _ ->
-                False
+            (Argument.Amount(x), Argument.Amount(y)) -> x == y
+            (Argument.Nested(x), Argument.Nested(y)) -> x == y
+            _ -> False
         }
     }
 }
@@ -597,11 +576,11 @@ fn variant(name: String) -> Argument {
 
 /// An enum argument, by its variant's name, that a placeholder with no
 /// function also formats, with its `Localize`.
-fn localized_variant<T>(name: String, value: T) -> Argument where T: Localize {
+fn localized_variant(name: String, value: Localize) -> Argument {
     Argument.Localized{
         shown: Debug.inspect(value),
         name,
-        localize: fn locale -> T.localize(value, locale),
+        localize: fn locale -> Localize.localize(value, locale),
     }
 }
 
@@ -661,10 +640,10 @@ fn nested(value: Phrase) -> Argument {
 
 /// An argument of any other type, which a placeholder formats with its
 /// `Localize`.
-fn localized<T>(value: T) -> Argument where T: Localize {
+fn localized(value: Localize) -> Argument {
     Argument.Localized{
         shown: Debug.inspect(value),
         name: "",
-        localize: fn locale -> T.localize(value, locale),
+        localize: fn locale -> Localize.localize(value, locale),
     }
 }

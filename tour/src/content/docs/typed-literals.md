@@ -188,7 +188,7 @@ run must work out its result from the text alone. If it prints, reads a file
 or the clock, or never finishes, a backtick literal of that type is a compile
 error that tells you to use double quotes instead. When the program runs,
 such a literal is built once, the first time it is reached, so a literal
-inside a loop is reused on later passes.
+in a function that runs many times is built only once.
 
 If `from_fragments` cannot fail, as with `Html` and `Box` above, the compiler
 doesn't run it. The literal is built each time it is reached, and both kinds

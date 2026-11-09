@@ -77,50 +77,24 @@ pub fn of(declared: String) -> Maybe<Family> {
     calendar = Some("std::calendar")
 
     case name {
-        "" ->
-            None
-
-        "BOOLEAN" ->
-            Some(family("bool", "SqlBool", "Bool", None))
-
-        "BOOL" ->
-            Some(family("bool", "SqlBool", "Bool", None))
-
-        "DECIMAL" ->
-            Some(family("numeric", "SqlNumeric", "Decimal", None))
-
-        "NUMERIC" ->
-            Some(family("numeric", "SqlNumeric", "Decimal", None))
-
-        "DATE" ->
-            Some(family("date", "SqlDate", "Date", calendar))
-
-        "TIME" ->
-            Some(family("time", "SqlTime", "Time", calendar))
-
-        "DATETIME" ->
-            Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
-
-        "TIMESTAMP" ->
-            Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
+        "" -> None
+        "BOOLEAN" -> Some(family("bool", "SqlBool", "Bool", None))
+        "BOOL" -> Some(family("bool", "SqlBool", "Bool", None))
+        "DECIMAL" -> Some(family("numeric", "SqlNumeric", "Decimal", None))
+        "NUMERIC" -> Some(family("numeric", "SqlNumeric", "Decimal", None))
+        "DATE" -> Some(family("date", "SqlDate", "Date", calendar))
+        "TIME" -> Some(family("time", "SqlTime", "Time", calendar))
+        "DATETIME" -> Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
+        "TIMESTAMP" -> Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
 
         "TIMESTAMPTZ" ->
             Some(family("timestamptz", "SqlTimestamptz", "Instant", Some("std::instant")))
 
-        "UUID" ->
-            Some(family("uuid", "SqlUuid", "Uuid", Some("std::uuid")))
-
-        "JSON" ->
-            Some(family("json", "SqlJson", "Json", Some("std::json")))
-
-        "JSONB" ->
-            Some(family("json", "SqlJson", "Json", Some("std::json")))
-
-        "BLOB" ->
-            Some(family("bytes", "SqlBytes", "Bytes", None))
-
-        _ ->
-            by_affinity(name)
+        "UUID" -> Some(family("uuid", "SqlUuid", "Uuid", Some("std::uuid")))
+        "JSON" -> Some(family("json", "SqlJson", "Json", Some("std::json")))
+        "JSONB" -> Some(family("json", "SqlJson", "Json", Some("std::json")))
+        "BLOB" -> Some(family("bytes", "SqlBytes", "Bytes", None))
+        _ -> by_affinity(name)
     }
 }
 
@@ -160,8 +134,7 @@ pub fn precision_and_scale(declared: String) -> Maybe<(Int, Int)> {
             }
         }
 
-        _ ->
-            None
+        _ -> None
     }
 }
 
@@ -195,8 +168,7 @@ pub fn postgres(type_name: String) -> Maybe<String> {
     name = String.trim(type_name)
 
     case String.strip_suffix(name, "[]") {
-        Some(element) ->
-            return postgres(element) |> Maybe.map(fn e -> "${e}[]")
+        Some(element) -> return postgres(element) |> Maybe.map(fn e -> "${e}[]")
 
         None -> {}
     }
@@ -213,8 +185,7 @@ pub fn postgres(type_name: String) -> Maybe<String> {
             String.trim(head + tail)
         }
 
-        _ ->
-            name
+        _ -> name
     }
 
     case base {

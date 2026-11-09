@@ -38,7 +38,7 @@ func TestDiscard_ReadAsAValueIsRejected(t *testing.T) {
 		"set element":           "fn f() -> (Int) -> Set<Int> { %[_] }\n",
 		"vector element":        "fn f() -> (Int) -> Vector<Int> { #[_] }\n",
 		"map value":             "fn f() -> (Int) -> Map<String, Int> { %{\"k\" => _} }\n",
-		"struct spread":         "fn f(p: Point) -> Point { #{.._, x: 1} }\n",
+		"struct spread":         "fn f(p: Point) -> Point { .{.._, x: 1} }\n",
 		"pipe operand":          "fn f() -> (Int) -> Int { _ |> add(1) }\n",
 		"operator operand":      "fn f() -> (Int) -> Bool { _ > 2 }\n",
 		"struct field":          "fn f() -> (Int) -> Point { Point{x: _, y: 0} }\n",

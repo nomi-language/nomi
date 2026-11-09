@@ -31,8 +31,8 @@ func TestRegexLiteral_TypeNamesItsCaptureGroups(t *testing.T) {
 		{"Regex`(a)+(b)*`", "Regex<(String, Maybe<String>)>"},
 		{"Regex`(?:(a))?(b)`", "Regex<(Maybe<String>, String)>"},
 		{"Regex`((a)?)`", "Regex<(String, Maybe<String>)>"},
-		{"Regex`(?P<year>\\d{4})-(?P<month>\\d\\d)?`", "Regex<#{year: String, month: Maybe<String>}>"},
-		{"Regex`(?P<year>\\d{4})`", "Regex<#{year: String}>"},
+		{"Regex`(?P<year>\\d{4})-(?P<month>\\d\\d)?`", "Regex<.{year: String, month: Maybe<String>}>"},
+		{"Regex`(?P<year>\\d{4})`", "Regex<.{year: String}>"},
 		{"Regex`(?P<key>\\w+)=(\\w+)`", "Regex<(String, String)>"},
 		// A name a field cannot have, or a keyword, makes a tuple.
 		{"Regex`(?P<Key>\\w+)=(?P<value>\\w+)`", "Regex<(String, String)>"},
@@ -62,7 +62,7 @@ func TestRegexLiteral_CapturesAnswerTheCaptureType(t *testing.T) {
 		"}\n\n" +
 		"fn f() -> Unit {\n" +
 		"  a: Maybe<(String, Maybe<String>)> = String.captures(\"x\", Regex`(\\w)(\\d)?`)\n" +
-		"  b: List<#{key: String, value: String}> = String.captures_all(\"a=1\", Regex`(?P<key>\\w)=(?P<value>\\d)`)\n" +
+		"  b: List<.{key: String, value: String}> = String.captures_all(\"a=1\", Regex`(?P<key>\\w)=(?P<value>\\d)`)\n" +
 		"  c: Maybe<String> = first(Regex`(\\d)`, \"1\")\n" +
 		"  d: Maybe<List<Maybe<String>>> = String.captures(\"x\", Regex.compile(\"(x)\")!)\n" +
 		"  e: Bool = String.contains(\"x\", Regex`(x)`) and String.contains(\"x\", Regex.compile(\"x\")!)\n" +

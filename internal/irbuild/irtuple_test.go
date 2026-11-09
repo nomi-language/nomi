@@ -22,7 +22,7 @@ func TestVM_TupleFunctionPart(t *testing.T) {
 		"record = 6",
 		"record destructured = 6",
 		"debug = (1, <function>)",
-		"record debug = #{f: <function>, n: 3}",
+		"record debug = .{f: <function>, n: 3}",
 		"nested debug = (Pt{x: 1}, <function>)",
 		"",
 	}, "\n")

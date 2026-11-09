@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# forced write replaces the oldest item.
 
 /// A buffer of at most `capacity` items, read oldest first. It is a value:
-/// each operation answers the buffer after it.
+/// each operation returns the buffer after it.
 pub opaque struct Buffer<T> {
     capacity: Int
     items: List<T>
@@ -30,7 +30,7 @@ pub enum Error {
 impl Buffer<T> {
     /// An empty buffer that holds at most `capacity` items.
     pub fn new(capacity: Int) -> Buffer<T> {
-        Buffer{capacity, items: []}
+        .{capacity, items: []}
     }
 
     /// `buffer` with `item` after its newest, or `Full` when it holds
@@ -39,7 +39,7 @@ impl Buffer<T> {
         if Buffer.is_full(buffer) {
             Err(.Full)
         } else {
-            Ok(#{..buffer, items: [..buffer.items, item]})
+            Ok(.{..buffer, items: [..buffer.items, item]})
         }
     }
 
@@ -52,20 +52,20 @@ impl Buffer<T> {
             buffer.items
         }
 
-        #{..buffer, items: [..kept, item]}
+        .{..buffer, items: [..kept, item]}
     }
 
     /// The oldest item and the buffer without it, or `Empty`.
     pub fn read(buffer: Buffer<T>) -> Result<(T, Buffer<T>), Error> {
         case buffer.items {
-            [oldest, ..rest] -> Ok((oldest, #{..buffer, items: rest}))
+            [oldest, ..rest] -> Ok((oldest, .{..buffer, items: rest}))
             [] -> Err(.Empty)
         }
     }
 
     /// `buffer` with no items, at the same capacity.
     pub fn clear(buffer: Buffer<T>) -> Buffer<T> {
-        #{..buffer, items: []}
+        .{..buffer, items: []}
     }
 
     fn is_full(buffer: Buffer<T>) -> Bool {
@@ -87,11 +87,9 @@ enum Step {
     Overwrite Int
 }
 
-derive Equatable for Step
-
 /// Runs each step's operation on a buffer of `capacity`, in turn, and
-/// answers the steps as they happened. A run that does what every step says
-/// answers the steps it was given.
+/// returns the steps as they happened. A run that does what every step says
+/// returns the steps it was given.
 fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
     (_buffer, happened) =
         steps
@@ -109,11 +107,8 @@ fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
                         Err(_) -> (buffer, .ReadFails)
                     }
 
-                .Clear ->
-                    (Buffer.clear(buffer), .Clear)
-
-                .Overwrite(item) ->
-                    (Buffer.overwrite(buffer, item), .Overwrite(item))
+                .Clear -> (Buffer.clear(buffer), .Clear)
+                .Overwrite(item) -> (Buffer.overwrite(buffer, item), .Overwrite(item))
             }
         })
 
@@ -196,9 +191,9 @@ test result: ok. 14 passed, 0 failed
 
 ## How it's written
 
-- `Buffer<T>` is a value, an opaque struct of its capacity and its items oldest first. Each operation answers the buffer after it: `write` a `Result<Buffer<T>, Error>`, `read` a `Result<(T, Buffer<T>), Error>` with the item and the rest, and `clear` and `overwrite` a `Buffer<T>`, since they cannot fail. There is no array and no read or write position to wrap around: the items are a `List`, and the ring is what the operations promise, not how the items are stored.
+- `Buffer<T>` is a value, an opaque struct of its capacity and its items oldest first. Each operation returns the buffer after it: `write` a `Result<Buffer<T>, Error>`, `read` a `Result<(T, Buffer<T>), Error>` with the item and the rest, and `clear` and `overwrite` a `Buffer<T>`, since they cannot fail. There is no array and no read or write position to wrap around: the items are a `List`, and the ring is what the operations promise, not how the items are stored.
 - The errors are an `Error` enum, `Full` and `Empty`.
 - The operations are functions of `impl Buffer<T>`, called `Buffer.write(buffer, 1)` after `import circular_buffer.Buffer`. Each names the block's `T` in its signature and declares no type parameter of its own, so a call takes `T` from its buffer, or, for `Buffer.new(capacity)`, from the type the result is expected to have. `is_full` is private to the block.
-- The canonical cases are lists of operations, each with whether it should succeed. The test file turns each into a `Step` (`Write(1)`, `WriteFails(2)`, `Read(1)`, `ReadFails`, `Clear`, `Overwrite(3)`), and `replay` runs the steps on a buffer and answers the steps as they happened. A buffer that behaves answers the steps it was given, so each row asserts `replay(capacity, steps) == steps`, and a failure shows the list with the step that went another way.
+- The canonical cases are lists of operations, each with whether it should succeed. The test file turns each into a `Step` (`Write(1)`, `WriteFails(2)`, `Read(1)`, `ReadFails`, `Clear`, `Overwrite(3)`), and `replay` runs the steps on a buffer and returns the steps as they happened. A buffer that behaves returns the steps it was given, so each row asserts `replay(capacity, steps) == steps`, and a failure shows the list with the step that went another way.
 - `replay` is one `Iter.map_reduce` whose state is the buffer and whose output is each step as it happened. A failed write or read keeps the buffer as it was.
 - The 14 canonical cases are one `subtests` table named by the description column. The first row qualifies its first step, `Step.Write(1)`, and the steps after it are bare.

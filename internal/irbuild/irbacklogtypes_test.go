@@ -37,8 +37,8 @@ struct Conf {
   retries: Int
 }
 
-fn conf_defaults() -> #{retries: Int, host: String} {
-  #{retries: 3, host: "h"}
+fn conf_defaults() -> .{retries: Int, host: String} {
+  .{retries: 3, host: "h"}
 }
 
 enum Color {

@@ -5,15 +5,15 @@ test "parse" {
         ("empty input", "", Err(.TreeMissing)),
         ("tree with no nodes", "()", Err(.TreeWithNoNodes)),
         ("node without tree", ";", Err(.TreeMissing)),
-        ("node without properties", "(;)", Ok(#{properties: %{}, children: []})),
-        ("single node tree", "(;A[B])", Ok(#{
+        ("node without properties", "(;)", Ok(.{properties: %{}, children: []})),
+        ("single node tree", "(;A[B])", Ok(.{
                 properties: %{"A" => ["B"]},
                 children: [],
             })),
         (
             "multiple properties",
             "(;A[b]C[d])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["b"], "C" => ["d"]},
                 children: [],
             }),
@@ -24,10 +24,10 @@ test "parse" {
         (
             "two nodes",
             "(;A[B];B[C])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["B"]},
                 children: [
-                    #{
+                    .{
                         properties: %{"B" => ["C"]},
                         children: [],
                     },
@@ -37,14 +37,14 @@ test "parse" {
         (
             "two child trees",
             "(;A[B](;B[C])(;C[D]))",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["B"]},
                 children: [
-                    #{
+                    .{
                         properties: %{"B" => ["C"]},
                         children: [],
                     },
-                    #{
+                    .{
                         properties: %{"C" => ["D"]},
                         children: [],
                     },
@@ -54,7 +54,7 @@ test "parse" {
         (
             "multiple property values",
             "(;A[b][c][d])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["b", "c", "d"]},
                 children: [],
             }),
@@ -62,7 +62,7 @@ test "parse" {
         (
             "within property values, whitespace characters such as tab are converted to spaces",
             "(;A[hello\t\tworld])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["hello  world"]},
                 children: [],
             }),
@@ -70,7 +70,7 @@ test "parse" {
         (
             "within property values, newlines remain as newlines",
             "(;A[hello\n\nworld])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["hello\n\nworld"]},
                 children: [],
             }),
@@ -78,7 +78,7 @@ test "parse" {
         (
             "escaped closing bracket within property value becomes just a closing bracket",
             "(;A[\\]])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["]"]},
                 children: [],
             }),
@@ -86,7 +86,7 @@ test "parse" {
         (
             "escaped backslash in property value becomes just a backslash",
             "(;A[\\\\])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["\\"]},
                 children: [],
             }),
@@ -94,10 +94,10 @@ test "parse" {
         (
             "opening bracket within property value doesn't need to be escaped",
             "(;A[x[y\\]z][foo]B[bar];C[baz])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["x[y]z", "foo"], "B" => ["bar"]},
                 children: [
-                    #{
+                    .{
                         properties: %{"C" => ["baz"]},
                         children: [],
                     },
@@ -107,10 +107,10 @@ test "parse" {
         (
             "semicolon in property value doesn't need to be escaped",
             "(;A[a;b][foo]B[bar];C[baz])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["a;b", "foo"], "B" => ["bar"]},
                 children: [
-                    #{
+                    .{
                         properties: %{"C" => ["baz"]},
                         children: [],
                     },
@@ -120,10 +120,10 @@ test "parse" {
         (
             "parentheses in property value don't need to be escaped",
             "(;A[x(y)z][foo]B[bar];C[baz])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["x(y)z", "foo"], "B" => ["bar"]},
                 children: [
-                    #{
+                    .{
                         properties: %{"C" => ["baz"]},
                         children: [],
                     },
@@ -133,7 +133,7 @@ test "parse" {
         (
             "escaped tab in property value is converted to space",
             "(;A[hello\\\tworld])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["hello world"]},
                 children: [],
             }),
@@ -141,7 +141,7 @@ test "parse" {
         (
             "escaped newline in property value is converted to nothing at all",
             "(;A[hello\\\nworld])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["helloworld"]},
                 children: [],
             }),
@@ -149,7 +149,7 @@ test "parse" {
         (
             "escaped t and n in property value are just letters, not whitespace",
             "(;A[\\t = t and \\n = n])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["t = t and n = n"]},
                 children: [],
             }),
@@ -157,7 +157,7 @@ test "parse" {
         (
             "mixing various kinds of whitespace and escaped characters in property value",
             "(;A[\\]b\nc\\\nd\t\te\\\\ \\\n\\]])",
-            Ok(#{
+            Ok(.{
                 properties: %{"A" => ["]b\ncd  e\\ ]"]},
                 children: [],
             }),

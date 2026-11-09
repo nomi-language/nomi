@@ -33,8 +33,9 @@ impl Matrix {
             |> String.lines()
             |> Iter.map(parse_row)
             |> Result.collect()?
+            |> Iter.to_vector()
 
-        Ok(Matrix{rows: Iter.to_vector(rows)})
+        Ok(.{rows})
     }
 
     /// The numbers of row `index`, counted from 1, or `None` past the last.

@@ -340,8 +340,7 @@ impl Unique {
                 [rfc3339(Instant.from_nanos(Int.floor_div(Instant.as_nanos(now), n) * n))]
             }
 
-            None ->
-                []
+            None -> []
         }
 
         key_of([kind, unique.key] + bucket)
@@ -450,8 +449,7 @@ impl Schedule {
                 Instant.from_nanos((Int.floor_div(Instant.as_nanos(at), n) + 1) * n)
             }
 
-            .Cron{cron, zone} ->
-                cron_next(cron, zone, at)
+            .Cron{cron, zone} -> cron_next(cron, zone, at)
         }
     }
 }
@@ -645,8 +643,7 @@ impl CheckedLiteral<String, Cron> for Cron {
         case statics {
             [text] ->
                 case Cron.parse(text) {
-                    Ok(_) ->
-                        Ok(Unit)
+                    Ok(_) -> Ok(Unit)
 
                     Err(error) ->
                         Err(LiteralError{fragment: 0, offset: error.offset, message: error.message})
@@ -659,8 +656,7 @@ impl CheckedLiteral<String, Cron> for Cron {
                     message: "a cron expression takes no slots",
                 })
 
-            [] ->
-                Err(LiteralError{fragment: 0, offset: 0, message: "a cron expression is empty"})
+            [] -> Err(LiteralError{fragment: 0, offset: 0, message: "a cron expression is empty"})
         }
     }
 
@@ -757,15 +753,13 @@ fn field(piece: Piece, f: Field) -> Result<Set<Int>, CronError> {
 // an optional `/step`.
 fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
     (range, step) = case String.split(item.text, "/") {
-        [range] ->
-            (range, None)
+        [range] -> (range, None)
 
         [range, step_text] -> {
             at = item.offset + String.length(range) + 1
 
             case digits(step_text) {
-                Some(n) when n >= 1 ->
-                    (range, Some(n))
+                Some(n) when n >= 1 -> (range, Some(n))
 
                 _ ->
                     return Err(
@@ -777,8 +771,7 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
             }
         }
 
-        _ ->
-            return Err(CronError{offset: item.offset, message: "${item.text} has more than one /"})
+        _ -> return Err(CronError{offset: item.offset, message: "${item.text} has more than one /"})
     }
 
     (low, high) = if range == "*" {
@@ -808,8 +801,7 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError> {
                 (a, b)
             }
 
-            _ ->
-                return Err(CronError{offset: item.offset, message: "${range} is not a range"})
+            _ -> return Err(CronError{offset: item.offset, message: "${range} is not a range"})
         }
     }
 
@@ -848,7 +840,7 @@ fn value(text: String, offset: Int, f: Field) -> Result<Int, CronError> {
 fn digits(text: String) -> Maybe<Int> {
     points = String.to_codepoints(text)
 
-    if points != [] and Iter.all(points, &Codepoint.is_digit(&1)) {
+    if points != [] and Iter.all_match(points, &Codepoint.is_digit(&1)) {
         String.to_int(text)
     } else {
         None
@@ -858,7 +850,7 @@ fn digits(text: String) -> Maybe<Int> {
 // Whether some day of `days` falls in some month of `months`, in a leap
 // year.
 fn falls_in(days: Set<Int>, months: Set<Int>) -> Bool {
-    Iter.any(months, fn month -> Iter.any(days, fn day -> day <= days_in(2000, month)))
+    Iter.any_match(months, fn month -> Iter.any_match(days, fn day -> day <= days_in(2000, month)))
 }
 
 // A wall-clock reading to the minute, as plain numbers, for the cron
@@ -928,7 +920,7 @@ fn next_day(w: Wall) -> Wall {
     if w.day >= days_in(w.year, w.month) {
         next_month(w)
     } else {
-        #{..w, day: w.day + 1, hour: 0, minute: 0}
+        .{..w, day: w.day + 1, hour: 0, minute: 0}
     }
 }
 
@@ -936,7 +928,7 @@ fn next_hour(w: Wall) -> Wall {
     if w.hour == 23 {
         next_day(w)
     } else {
-        #{..w, hour: w.hour + 1, minute: 0}
+        .{..w, hour: w.hour + 1, minute: 0}
     }
 }
 
@@ -944,7 +936,7 @@ fn next_minute(w: Wall) -> Wall {
     if w.minute == 59 {
         next_hour(w)
     } else {
-        #{..w, minute: w.minute + 1}
+        .{..w, minute: w.minute + 1}
     }
 }
 
@@ -957,20 +949,11 @@ fn days_in(year: Int, month: Int) -> Int {
                 28
             }
 
-        4 ->
-            30
-
-        6 ->
-            30
-
-        9 ->
-            30
-
-        11 ->
-            30
-
-        _ ->
-            31
+        4 -> 30
+        6 -> 30
+        9 -> 30
+        11 -> 30
+        _ -> 31
     }
 }
 
@@ -1005,8 +988,7 @@ fn resolve(w: Wall, zone: String) -> Instant {
     naive = NaiveDateTime.new(w.year, w.month, w.day, w.hour, w.minute)!
 
     case DateTime.in_zone(naive, zone, Disambiguation.Reject) {
-        Ok(reading) ->
-            Anchored.to_instant(reading)
+        Ok(reading) -> Anchored.to_instant(reading)
 
         Err(.Ambiguous(_)) ->
             Anchored.to_instant(DateTime.in_zone(naive, zone, Disambiguation.Earlier)!)
@@ -1298,8 +1280,7 @@ impl Handler for Job<A> where A: FromJson {
 
     fn run(handler: Job<A>, args: Json) -> Result<Unit, Failure> {
         case FromJson.from_json<A>(args) {
-            Ok(value) ->
-                handler.handler(value)
+            Ok(value) -> handler.handler(value)
 
             Err(error) ->
                 Err(Failure.Discard("arguments do not decode as ${handler.kind}: ${error}"))
@@ -1377,7 +1358,7 @@ pub fn backoff(attempt: Int) -> Duration {
 //! now = Instant.from_seconds(0)
 //! assert settle_for(claimed, Ok(Unit), now) == Settle.Completed
 //! assert settle_for(claimed, Err(.Retry("x")), now) == Settle.Retry{at: now + backoff(2), error: "x"}
-//! assert settle_for(#{..claimed, attempt: 3}, Err(.Retry("x")), now) == Settle.Discarded("x")
+//! assert settle_for(.{..claimed, attempt: 3}, Err(.Retry("x")), now) == Settle.Discarded("x")
 //! assert settle_for(claimed, Err(.Discard("bad")), now) == Settle.Discarded("bad")
 //! snooze = Failure.Snooze{message: "busy", after: Duration.seconds(60)}
 //!
@@ -1388,14 +1369,9 @@ pub fn backoff(attempt: Int) -> Duration {
 //
 pub fn settle_for(claimed: Claimed, answer: Result<Unit, Failure>, now: Instant) -> Settle {
     case answer {
-        Ok(_) ->
-            Settle.Completed
-
-        Err(.Discard(message)) ->
-            Settle.Discarded(message)
-
-        Err(.Snooze{message, after}) ->
-            Settle.Snoozed{at: now + after, error: message}
+        Ok(_) -> Settle.Completed
+        Err(.Discard(message)) -> Settle.Discarded(message)
+        Err(.Snooze{message, after}) -> Settle.Snoozed{at: now + after, error: message}
 
         Err(.Retry(message)) ->
             if claimed.attempt >= claimed.max_attempts {
@@ -1458,13 +1434,11 @@ pub fn enqueue_due(
     now: Instant,
 ) -> Result<Maybe<Enqueued>, sql.Error> {
     case Queue.last_tick(queue, schedule.name)? {
-        None ->
-            Queue.record_tick(queue, schedule.name, now, None)
+        None -> Queue.record_tick(queue, schedule.name, now, None)
 
         Some(last) -> {
             case latest_tick(schedule, last, now) {
-                None ->
-                    Ok(None)
+                None -> Ok(None)
 
                 Some(tick) -> {
                     on_time = Schedule.next_after(schedule, last) == tick
@@ -1484,7 +1458,7 @@ pub fn enqueue_due(
 
 // The job for `schedule`'s tick at `tick`.
 fn tick_job(schedule: Schedule, tick: Instant) -> NewJob {
-    #{
+    .{
         ..schedule.job,
         run_at: Some(tick),
         unique_key: Some(key_of([schedule.job.kind, "schedule:${schedule.name}", rfc3339(tick)])),
@@ -1513,8 +1487,7 @@ fn latest_tick(schedule: Schedule, after: Instant, now: Instant) -> Maybe<Instan
             if Instant.is_before(after, tick) { tick }
         }
 
-        .Cron{} ->
-            latest_within(schedule, after, now, Duration.minutes(1))
+        .Cron{} -> latest_within(schedule, after, now, Duration.minutes(1))
     }
 }
 
@@ -1595,8 +1568,7 @@ fn schedule_one(worker: Worker, schedule: Schedule, now: Instant) {
                 [log.string("schedule", schedule.name), log.any("id", enqueued.id)],
             )
 
-        Ok(_) ->
-            Unit
+        Ok(_) -> Unit
 
         Err(error) ->
             log.warn(
@@ -1629,11 +1601,8 @@ fn claim_loop(worker: Worker, handlers: Map<String, Handler>, kinds: List<String
     ])
 
     case next {
-        .Stop ->
-            shut_down(worker)
-
-        .Wait ->
-            claim_loop(worker, handlers, kinds, tat)
+        .Stop -> shut_down(worker)
+        .Wait -> claim_loop(worker, handlers, kinds, tat)
 
         .Claim -> {
             if not hold_for_rate(worker, tat) {
@@ -1687,8 +1656,7 @@ fn idle(worker: Worker) -> Bool {
 // closed the wake channel meanwhile.
 fn hold_for_rate(worker: Worker, tat: Instant) -> Bool {
     case worker.rate {
-        None ->
-            True
+        None -> True
 
         Some(rate) -> {
             allowed = tat - interval(rate) * (rate.burst - 1)
@@ -1719,8 +1687,7 @@ fn hold_for_rate(worker: Worker, tat: Instant) -> Bool {
 // The rate's next theoretical arrival time once a job has started.
 fn charge(rate: Maybe<Rate>, tat: Instant) -> Instant {
     case rate {
-        None ->
-            tat
+        None -> tat
 
         Some(r) -> {
             now = Instant.now()
@@ -1744,19 +1711,15 @@ fn interval(rate: Rate) -> Duration {
 // claim found nothing due.
 fn tidy(worker: Worker) {
     case Queue.rescue(worker.queue) {
-        Ok(0) ->
-            Unit
-
-        Ok(n) ->
-            log.info(worker.logger, "jobs: rescued", [log.int("count", n)])
+        Ok(0) -> Unit
+        Ok(n) -> log.info(worker.logger, "jobs: rescued", [log.int("count", n)])
 
         Err(error) ->
             log.warn(worker.logger, "jobs: rescue failed", [log.string("error", "${error}")])
     }
 
     case Queue.prune(worker.queue) {
-        Ok(_) ->
-            Unit
+        Ok(_) -> Unit
 
         Err(error) ->
             log.warn(worker.logger, "jobs: prune failed", [log.string("error", "${error}")])
@@ -1769,8 +1732,7 @@ fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed)
     started = Instant.now()
 
     answer = case Map.get(handlers, claimed.kind) {
-        Some(handler) ->
-            renewing(worker, claimed, fn -> run_one(handler, claimed.args))
+        Some(handler) -> renewing(worker, claimed, fn -> run_one(handler, claimed.args))
 
         None ->
             Err(
@@ -1786,8 +1748,7 @@ fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed)
     report(worker, claimed, how, took)
 
     case Queue.settle(worker.queue, worker.id, claimed, how) {
-        Ok(True) ->
-            Unit
+        Ok(True) -> Unit
 
         Ok(False) ->
             log.warn(worker.logger, "jobs: settle found the job taken over", fields(claimed))
@@ -1826,8 +1787,7 @@ fn renew_until(worker: Worker, claimed: Claimed, stop: Receiver<Unit>) {
 
     if go_on {
         case Queue.renew(worker.queue, worker.id, claimed, worker.lease) {
-            Ok(_) ->
-                Unit
+            Ok(_) -> Unit
 
             Err(error) ->
                 log.warn(
@@ -1902,8 +1862,7 @@ fn shut_down(worker: Worker) {
     _ = Supervisor.flush(worker.runs, Wait.UpTo(worker.grace))
 
     case Queue.release(worker.queue, worker.id) {
-        Ok(n) ->
-            log.info(worker.logger, "jobs: released", [log.int("count", n)])
+        Ok(n) -> log.info(worker.logger, "jobs: released", [log.int("count", n)])
 
         Err(error) ->
             log.warn(worker.logger, "jobs: release failed", [log.string("error", "${error}")])

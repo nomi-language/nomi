@@ -130,7 +130,7 @@ fn main() {
         ranged = http_testing.request(Method.Get, "/a.txt")
         [
             get("/a.txt"),
-            show(serve(#{..ranged, headers: Headers.set(ranged.headers, "Range", "bytes=1-3")})),
+            show(serve(.{..ranged, headers: Headers.set(ranged.headers, "Range", "bytes=1-3")})),
             get("/docs"),
             get("/docs/"),
             get("/docs/index.html"),
@@ -166,7 +166,7 @@ import std::http_testing
 import std::io.{self, Reader}
 
 fn posted(body: Reader) -> Request {
-    #{
+    .{
         ..http_testing.request(Method.Post, "/"),
         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
         body: Body.Stream(body),
@@ -186,7 +186,7 @@ fn main() {
     io.print("huge ${Request.post_form(posted(huge))}")
     io.print("left ${Bytes.length(Reader.read_all(huge)!)}")
 
-    upload = #{
+    upload = .{
         ..http_testing.request(Method.Post, "/upload"),
         headers: Headers[("Content-Type", "multipart/form-data; boundary=b")],
         body: Body.Stream(Reader.from_bytes(String.to_bytes(String.repeat("x", 33_554_433)))),

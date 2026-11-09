@@ -311,7 +311,7 @@ func SeqFindCtl[T any](fr *Frame, src Seq[T], f func(fr *Frame, item T) (bool, C
 	return out
 }
 
-// SeqAnyCtl is `Iter.any(src, pred)` whose predicate can `break` or
+// SeqAnyCtl is `Iter.any_match(src, pred)` whose predicate can `break` or
 // `continue`.
 //
 // What has accumulated before any element matched is False, so a bare
@@ -340,7 +340,7 @@ func SeqAnyCtl[T any](fr *Frame, src Seq[T], f func(fr *Frame, item T) (bool, Ct
 	return out
 }
 
-// SeqAllCtl is `Iter.all(src, pred)` whose predicate can `break` or
+// SeqAllCtl is `Iter.all_match(src, pred)` whose predicate can `break` or
 // `continue`.
 //
 // What has accumulated before any element failed is True, so a bare `break`

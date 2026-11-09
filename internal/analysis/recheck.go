@@ -519,7 +519,7 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 		switch {
 		case fa == nil:
 			return nil, "the program does not reach the file"
-		case fa.kept == nil:
+		case fa.keptDecls() == nil:
 			return nil, "the file's declarations were not kept"
 		case len(prev.Syntax[key]) > 0:
 			return nil, "the old text has a syntax error"
@@ -706,7 +706,7 @@ func shiftableKept(fa *FileAnalysis, shift positionMap) string {
 	if !shift.moves() {
 		return ""
 	}
-	k := fa.kept
+	k := fa.keptDecls()
 	bad := ""
 	check := func(what string, line, col int) {
 		if _, _, ok := shift.at(line, col); !ok && bad == "" {
@@ -742,7 +742,7 @@ func shiftableKept(fa *FileAnalysis, shift positionMap) string {
 // names no source), or when the file defines it at its own position (an
 // import's binding, which names the imported file).
 func shiftDeclarations(p *CheckedProgram, fa *FileAnalysis, shift positionMap, nodes map[ast.Node]bool) {
-	k := fa.kept
+	k := fa.keptDecls()
 	path := fa.FilePath
 	at := func(pos Pos) Pos {
 		pos.Line, pos.Col, _ = shift.at(pos.Line, pos.Col)

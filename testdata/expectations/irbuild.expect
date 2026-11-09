@@ -11,14 +11,14 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 383
+records 381
 declared-cases 0
-failing 87
-C assert_subject_test.nomi@8cbc70b189c27641
+failing 86
+C assert_subject_test.nomi@dadb44e4a8cd5872
 E 1
 N 0
-H 6a50f062f9d7443c1f858a8d308a2c9690304003808c9083a5e0f3df9b686778
-S -- assert_subject_test.nomi 1111 --
+H ea2c94caa8bd40549f69c92bb1b116486d19f399da9728a7d095656772c86cfc
+S -- assert_subject_test.nomi 1123 --
 S
 S import {
 S   std::assertions.AssertionFailure
@@ -37,7 +37,7 @@ S   Ok(n)
 S }
 S
 S fn checked(xs: List<Int>) -> Result<Bool, AssertionFailure> {
-S   held = testing.check(xs |> Iter.any(fn x -> x > 2))?
+S   held = testing.check(xs |> Iter.any_match(fn x -> x > 2))?
 S   Ok(held)
 S }
 S
@@ -61,7 +61,7 @@ S
 S test "a failing piped check reports its pipeline" {
 S   result = testing.check(
 S     [1, 2]
-S     |> Iter.any(fn x -> x > 2)
+S     |> Iter.any_match(fn x -> x > 2)
 S   )
 S   assert result == Ok(True)
 S }
@@ -82,7 +82,7 @@ T   line 45: assertion failed
 T     assert result == Ok(True)
 T     values:
 T       result
-T         = Err(AssertionFailure{actual: None, binding: None, details: [], expression: "[1, 2]\n|> Iter.any(fn x -> x > 2)", keyword: "check", line: 41, reason: "check failed", subtests: [], values: [AssertionValue{expression: "[1, 2]\n|> Iter.any(fn x -> x > 2)", pipeline: [AssertionPipelineStage{expression: "[1, 2]", value: "[1, 2]"}, AssertionPipelineStage{expression: "[1, 2]\n|> Iter.any(fn x -> x > 2)", value: "False"}], value: "False"}]})
+T         = Err(AssertionFailure{actual: None, binding: None, details: [], expression: "[1, 2]\n|> Iter.any_match(fn x -> x > 2)", keyword: "check", line: 41, reason: "check failed", subtests: [], values: [AssertionValue{expression: "[1, 2]\n|> Iter.any_match(fn x -> x > 2)", pipeline: [AssertionPipelineStage{expression: "[1, 2]", value: "[1, 2]"}, AssertionPipelineStage{expression: "[1, 2]\n|> Iter.any_match(fn x -> x > 2)", value: "False"}], value: "False"}]})
 T FAIL <dir>/assert_subject_test.nomi :: a failing shape assertion shows the value
 T   line 49: refute failed
 T     refute find(1)
@@ -825,6 +825,28 @@ S
 T ok <dir>/control_test.nomi :: statement blocks declare types
 T test result: ok. 1 passed, 0 failed
 T
+C control_test.nomi@62d27034c3ac50d8
+E 0
+N 0
+H 1c14dc042c932cbf955cc105ca99669e6262f99f9131f61fdb7369f91cf3a4dd
+S -- control_test.nomi 207 --
+S struct Defaulted {
+S   a: Int
+S   b: String = "default"
+S }
+S
+S test "a literal argument" {
+S   d = Defaulted(.{a: 7})
+S   e = Defaulted(.{a: 1, b: "x"})
+S   assert d.a == 7
+S   assert d.b == "default"
+S   assert e.b == "x"
+S }
+S
+S
+T ok <dir>/control_test.nomi :: a literal argument
+T test result: ok. 1 passed, 0 failed
+T
 C control_test.nomi@6432ccb7301eb3e6
 E 1
 N 0
@@ -973,28 +995,6 @@ T    |
 T 15 | }
 T    | ^
 T
-C control_test.nomi@6f99216c40c64a62
-E 0
-N 0
-H 1c14dc042c932cbf955cc105ca99669e6262f99f9131f61fdb7369f91cf3a4dd
-S -- control_test.nomi 207 --
-S struct Defaulted {
-S   a: Int
-S   b: String = "default"
-S }
-S
-S test "a literal argument" {
-S   d = Defaulted(#{a: 7})
-S   e = Defaulted(#{a: 1, b: "x"})
-S   assert d.a == 7
-S   assert d.b == "default"
-S   assert e.b == "x"
-S }
-S
-S
-T ok <dir>/control_test.nomi :: a literal argument
-T test result: ok. 1 passed, 0 failed
-T
 C control_test.nomi@776fc0910c141eda
 E 0
 N 0
@@ -1045,7 +1045,25 @@ T ok <dir>/control_test.nomi :: a namespaced type's impl function
 T ok <dir>/control_test.nomi :: a stdlib module's type-owned function
 T test result: ok. 3 passed, 0 failed
 T
-C control_test.nomi@83617e100f92cddc
+C control_test.nomi@83edb197ebc4e0d2
+E 0
+N 0
+H d7b562c04689ee075c4e79326f2ecfc44d86aafa65cd1de026b9ee82131c391f
+S -- control_test.nomi 217 --
+S import std::iter.Iter as It
+S import std::strings.String as Str
+S
+S test "aliased owners" {
+S   assert It.count([1, 2]) == 2
+S   assert It.map([1, 2], fn x -> x + 1) |> It.to_list() == [2, 3]
+S   assert Str.length("abc") == 3
+S }
+S
+S
+T ok <dir>/control_test.nomi :: aliased owners
+T test result: ok. 1 passed, 0 failed
+T
+C control_test.nomi@885b9f97d64e3971
 E 1
 N 0
 H 490d512489db51dc38562f1f400fc6988d6d53f3687b96254380f85ff710fab7
@@ -1060,9 +1078,9 @@ S   if x > 2 { assert x == 3 } else { assert x == 0 }
 S }
 S
 S group "grouped" {
-S   setup #{n: 5}
+S   setup .{n: 5}
 S
-S   test "third, grouped", #{n} {
+S   test "third, grouped", .{n} {
 S     assert n == 5
 S   }
 S }
@@ -1091,24 +1109,6 @@ T     values:
 T       y
 T         = 1
 T test result: FAILED. 4 passed, 1 failed
-T
-C control_test.nomi@83edb197ebc4e0d2
-E 0
-N 0
-H d7b562c04689ee075c4e79326f2ecfc44d86aafa65cd1de026b9ee82131c391f
-S -- control_test.nomi 217 --
-S import std::iter.Iter as It
-S import std::strings.String as Str
-S
-S test "aliased owners" {
-S   assert It.count([1, 2]) == 2
-S   assert It.map([1, 2], fn x -> x + 1) |> It.to_list() == [2, 3]
-S   assert Str.length("abc") == 3
-S }
-S
-S
-T ok <dir>/control_test.nomi :: aliased owners
-T test result: ok. 1 passed, 0 failed
 T
 C control_test.nomi@8b7d3826a16338b3
 E 0
@@ -2152,6 +2152,54 @@ T ok <dir>/group_test.nomi :: given / reads the argument
 T   boot [given]
 T test result: ok. 2 passed, 0 failed
 T
+C group_test.nomi@315dd6250d4ce075
+E 1
+N 0
+H d2828260e9fe2cf37a29fbd48d677362d38216981faf9116c3810a922ccf609f
+S -- group_test.nomi 392 --
+S pub struct App {
+S   context: Context
+S   label: String
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   Ok(App{context: Context.root(), label: "booted"})
+S }
+S
+S fn main() {}
+S
+S group "group" {
+S   boot boot()
+S   setup .{word: "one"}
+S
+S   test "a failing qualified call shows its rows", .{word} {
+S     assert String.length(word) == 5
+S   }
+S
+S   test "a failing app read", .{word} {
+S     assert App.label == word
+S   }
+S }
+S
+S
+T FAIL <dir>/group_test.nomi :: group / a failing qualified call shows its rows
+T   line 17: assertion failed
+T     assert String.length(word) == 5
+T     values:
+T       word
+T         = "one"
+T       String.length(word)
+T         = 3
+T FAIL <dir>/group_test.nomi :: group / a failing app read
+T   line 21: assertion failed
+T     assert App.label == word
+T     values:
+T       App.label
+T         = "booted"
+T       word
+T         = "one"
+T test result: FAILED. 0 passed, 2 failed
+T
 C group_test.nomi@409542478e52facc
 E 1
 N 0
@@ -2353,8 +2401,8 @@ T
 C group_test.nomi@7151abe373597728
 E 0
 N 0
-H e019c6e21c78ff249c81afe7868bda70b47a34ab26570bb52c25d9e725941521
-S -- counter_app.nomi 6145 --
+H 9a198491bbbf15706e250833efc0062187a477d001243c2c0b345002b83e7ae1
+S -- counter_app.nomi 6096 --
 S //# A single long-lived worker owning mutable state, driven by messages.
 S //#
 S //# This is the shape you reach for when several callers need to share
@@ -2447,8 +2495,7 @@ S /// the group's whole workload runs at once.
 S fn serve(inbox: Channel<Request>) -> Unit {
 S     _final = Iter.loop(0, fn count -> {
 S         case Receiver.receive(inbox.receiver) {
-S             Some(Request.Increment(n)) ->
-S                 count + n
+S             Some(Request.Increment(n)) -> count + n
 S
 S             Some(Request.Get{reply}) -> {
 S                 // Best-effort: a caller that gave up is not worth crashing over.
@@ -2457,12 +2504,9 @@ S                 count
 S             }
 S
 S             // Stands in for a handler with a bug in it.
-S             Some(Request.Explode) ->
-S                 count / 0
-S
+S             Some(Request.Explode) -> count / 0
 S             // The inbox closed and drained: no more work is coming.
-S             None ->
-S                 break count
+S             None -> break count
 S         }
 S     })
 S
@@ -2600,166 +2644,7 @@ T ok <dir>/group_test.nomi :: a message-driven worker / a handler that breaks re
 T ok <dir>/group_test.nomi :: a message-driven worker / a call observes every cast queued before it
 T test result: ok. 4 passed, 0 failed
 T --- stderr ---
-T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
-T
-C group_test.nomi@8bd0736262860a8b
-E 0
-N 0
-H 0a5fde324db6f998faf15d5b5166759a09335b74e58d8dd0afe02f5bdbacb723
-S -- group_test.nomi 732 --
-S import std::io
-S
-S pub struct App {
-S   context: Context
-S   label: String
-S }
-S
-S pub fn boot(startup: Startup) -> Result<App, String> {
-S   io.print("boot ${startup.args}")
-S   Ok(App{context: Context.root(), label: "booted"})
-S }
-S
-S fn main() {}
-S
-S fn show(suffix: String) -> String {
-S   App.label + suffix
-S }
-S
-S group "group" {
-S   boot boot(Startup{args: ["group"]})
-S   setup #{n: 1, word: "one"}
-S
-S   test "reads the app and the setup value", #{n, word} {
-S     io.print(show("!"))
-S     assert App.label == "booted"
-S     assert n == 1
-S     assert word == "one"
-S   }
-S
-S   test "binds the value with a name", value {
-S     assert value.n == 1
-S   }
-S
-S   test "binds the value with a nested pattern", #{n: count, word} {
-S     assert count == 1
-S     assert word == "one"
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: group / reads the app and the setup value
-T   boot [group]
-T   booted!
-T ok <dir>/group_test.nomi :: group / binds the value with a name
-T   boot [group]
-T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
-T   boot [group]
-T test result: ok. 3 passed, 0 failed
-T
-C group_test.nomi@9508f50ade3ba078
-E 1
-N 0
-H 86c694c0d6fcd854c516c6b100dc30720c2c6251fa0554221af75252529dfc07
-S -- group_test.nomi 1907 --
-S import {
-S   std::channels.{Channel, Receiver, Sender}
-S   std::duration.Duration
-S   std::supervisors.Supervisor
-S   std::tasks.{Outcome, Task}
-S   std::testing.Clock
-S   std::timer
-S }
-S
-S pub struct App {
-S   context: Context
-S   work: Supervisor
-S   alerts: Channel<String>
-S }
-S
-S fn report(message: String) -> Unit {
-S   case Sender.send(App.alerts.sender, message) {
-S     Ok(_) -> Unit
-S     Err(_) -> Unit
-S   }
-S }
-S
-S fn slow() -> Unit {
-S   timer.sleep(Duration.seconds(30))
-S   report("SHOULD NOT ARRIVE")
-S }
-S
-S fn drain() -> List<String> {
-S   Sender.close(App.alerts.sender)
-S   Iter.loop([], fn seen ->
-S     case Receiver.receive(App.alerts.receiver) {
-S       Some(message) -> [message, ..seen]
-S       None -> break seen
-S     }
-S   )
-S }
-S
-S pub fn boot() -> Result<App, String> {
-S   Ok(App{
-S     context: Context.root(),
-S     work: Supervisor.new(max_running: 2),
-S     alerts: Channel.buffered<String>(8),
-S   })
-S }
-S
-S fn main() {}
-S
-S group "tasks" {
-S   clock Clock.Virtual
-S
-S   boot boot()
-S
-S   test "a cancelled task reports Cancelled" {
-S     doomed = Supervisor.spawn(App.work, fn -> slow())
-S     Task.cancel(doomed)
-S     cancelled: Outcome<Unit> = .Cancelled
-S     assert Task.outcome(doomed) == cancelled
-S   }
-S
-S   test "a failing outcome comparison shows its rows" {
-S     done = Supervisor.spawn(App.work, fn -> report("quick"))
-S     _ = Supervisor.flush(App.work)
-S     cancelled: Outcome<Unit> = .Cancelled
-S     assert Task.outcome(done) == cancelled
-S   }
-S
-S   test "any and all over a drained list" {
-S     _ = Supervisor.spawn(App.work, fn -> report("audited 7"))
-S     _ = Supervisor.flush(App.work)
-S     seen = drain()
-S     assert Iter.any(seen, fn m -> m == "audited 7")
-S     assert Iter.all(seen, fn m -> String.contains(m, "audited"))
-S     refute Iter.any(seen, fn m -> m == "missing")
-S   }
-S
-S   test "a failing any shows its operand" {
-S     _ = Supervisor.spawn(App.work, fn -> report("x"))
-S     _ = Supervisor.flush(App.work)
-S     assert drain() |> Iter.all(fn m -> m == "y")
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: tasks / a cancelled task reports Cancelled
-T FAIL <dir>/group_test.nomi :: tasks / a failing outcome comparison shows its rows
-T   line 64: assertion failed
-T     assert Task.outcome(done) == cancelled
-T     values:
-T       done
-T         = <task>
-T       Task.outcome(done)
-T         = Completed(Unit)
-T       cancelled
-T         = Cancelled
-T ok <dir>/group_test.nomi :: tasks / any and all over a drained list
-T FAIL <dir>/group_test.nomi :: tasks / a failing any shows its operand
-T   line 79: assertion failed
-T     assert drain() |> Iter.all(fn m -> m == "y")
-T test result: FAILED. 2 passed, 2 failed
+T nomi: background task errored (attempt 1): line 102: division by zero — retrying in <jitter>
 T
 C group_test.nomi@a6837664e3d183e1
 E 1
@@ -2894,43 +2779,6 @@ S
 T ok <dir>/group_test.nomi :: group / reads the app
 T   boot
 T test result: ok. 1 passed, 0 failed
-T
-C group_test.nomi@b45dfa70823c1f8d
-E 1
-N 0
-H c464234807d138df71835ef584ef546a06681f04271760e87fa6ceecf0694321
-S -- group_test.nomi 393 --
-S pub struct App {
-S   context: Context
-S   label: String
-S }
-S
-S pub fn boot() -> Result<App, String> {
-S   Ok(#App{context: Context.root(), label: "booted"})
-S }
-S
-S fn main() {}
-S
-S group "group" {
-S   boot boot()
-S   setup #{word: "one"}
-S
-S   test "a failing qualified call shows its rows", #{word} {
-S     assert String.length(word) == 5
-S   }
-S
-S   test "a failing app read", #{word} {
-S     assert App.label == word
-S   }
-S }
-S
-S
-T --- stderr ---
-T error: expected '[' after `#App`
-T  --> <dir>/group_test.nomi:7:6
-T   |
-T 7 |   Ok(#App{context: Context.root(), label: "booted"})
-T   |      ^^^^
 T
 C group_test.nomi@b92fb3daf6bd0c1c
 E 0
@@ -3075,6 +2923,60 @@ T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual tim
 T   slow work done
 T test result: ok. 2 passed, 0 failed
 T
+C group_test.nomi@ccb578bd7bf24121
+E 0
+N 0
+H 0a5fde324db6f998faf15d5b5166759a09335b74e58d8dd0afe02f5bdbacb723
+S -- group_test.nomi 732 --
+S import std::io
+S
+S pub struct App {
+S   context: Context
+S   label: String
+S }
+S
+S pub fn boot(startup: Startup) -> Result<App, String> {
+S   io.print("boot ${startup.args}")
+S   Ok(App{context: Context.root(), label: "booted"})
+S }
+S
+S fn main() {}
+S
+S fn show(suffix: String) -> String {
+S   App.label + suffix
+S }
+S
+S group "group" {
+S   boot boot(Startup{args: ["group"]})
+S   setup .{n: 1, word: "one"}
+S
+S   test "reads the app and the setup value", .{n, word} {
+S     io.print(show("!"))
+S     assert App.label == "booted"
+S     assert n == 1
+S     assert word == "one"
+S   }
+S
+S   test "binds the value with a name", value {
+S     assert value.n == 1
+S   }
+S
+S   test "binds the value with a nested pattern", .{n: count, word} {
+S     assert count == 1
+S     assert word == "one"
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: group / reads the app and the setup value
+T   boot [group]
+T   booted!
+T ok <dir>/group_test.nomi :: group / binds the value with a name
+T   boot [group]
+T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
+T   boot [group]
+T test result: ok. 3 passed, 0 failed
+T
 C group_test.nomi@cfa2f45065a16d41
 E 1
 N 0
@@ -3164,54 +3066,6 @@ T         = Duration(1000000000)
 T ok <dir>/group_test.nomi :: channel equality / a closed channel answers None
 T test result: FAILED. 2 passed, 4 failed
 T
-C group_test.nomi@d2c8d8dbaab75fe8
-E 1
-N 0
-H d2828260e9fe2cf37a29fbd48d677362d38216981faf9116c3810a922ccf609f
-S -- group_test.nomi 392 --
-S pub struct App {
-S   context: Context
-S   label: String
-S }
-S
-S pub fn boot() -> Result<App, String> {
-S   Ok(App{context: Context.root(), label: "booted"})
-S }
-S
-S fn main() {}
-S
-S group "group" {
-S   boot boot()
-S   setup #{word: "one"}
-S
-S   test "a failing qualified call shows its rows", #{word} {
-S     assert String.length(word) == 5
-S   }
-S
-S   test "a failing app read", #{word} {
-S     assert App.label == word
-S   }
-S }
-S
-S
-T FAIL <dir>/group_test.nomi :: group / a failing qualified call shows its rows
-T   line 17: assertion failed
-T     assert String.length(word) == 5
-T     values:
-T       word
-T         = "one"
-T       String.length(word)
-T         = 3
-T FAIL <dir>/group_test.nomi :: group / a failing app read
-T   line 21: assertion failed
-T     assert App.label == word
-T     values:
-T       App.label
-T         = "booted"
-T       word
-T         = "one"
-T test result: FAILED. 0 passed, 2 failed
-T
 C group_test.nomi@d2cd0f72afdb4ada
 E 0
 N 0
@@ -3268,75 +3122,141 @@ S
 T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
 T test result: ok. 1 passed, 0 failed
 T
-C group_test.nomi@e4204a715390286e
+C group_test.nomi@ff04253c82504d20
 E 1
 N 0
-H 47faf9166dcb242771c3077d7f9da1fe76241096b6000f2aa2647231f44cb069
-S -- group_test.nomi 372 --
-S pub struct App {
-S   context: Context
-S   label: String
+H 38ebf20d2379c1aaf325b45a6d4045cf1a700a9f81eb1446cee3a0620af3d924
+S -- group_test.nomi 1931 --
+S import {
+S   std::channels.{Channel, Receiver, Sender}
+S   std::duration.Duration
+S   std::supervisors.Supervisor
+S   std::tasks.{Outcome, Task}
+S   std::testing.Clock
+S   std::timer
 S }
 S
-S pub fn boot() -> App {
-S   App{context: Context.root(), label: "booted"}
+S pub struct App {
+S   context: Context
+S   work: Supervisor
+S   alerts: Channel<String>
+S }
+S
+S fn report(message: String) -> Unit {
+S   case Sender.send(App.alerts.sender, message) {
+S     Ok(_) -> Unit
+S     Err(_) -> Unit
+S   }
+S }
+S
+S fn slow() -> Unit {
+S   timer.sleep(Duration.seconds(30))
+S   report("SHOULD NOT ARRIVE")
+S }
+S
+S fn drain() -> List<String> {
+S   Sender.close(App.alerts.sender)
+S   Iter.loop([], fn seen ->
+S     case Receiver.receive(App.alerts.receiver) {
+S       Some(message) -> [message, ..seen]
+S       None -> break seen
+S     }
+S   )
+S }
+S
+S pub fn boot() -> Result<App, String> {
+S   Ok(App{
+S     context: Context.root(),
+S     work: Supervisor.new(max_running: 2),
+S     alerts: Channel.buffered<String>(8),
+S   })
 S }
 S
 S fn main() {}
 S
-S group "group" {
-S   boot boot()
-S   setup #{word: "one"}
+S group "tasks" {
+S   clock Clock.Virtual
 S
-S   test "a failing qualified call shows its rows", #{word} {
-S     assert String.length(word) == 5
+S   boot boot()
+S
+S   test "a cancelled task reports Cancelled" {
+S     doomed = Supervisor.spawn(App.work, fn -> slow())
+S     Task.cancel(doomed)
+S     cancelled: Outcome<Unit> = .Cancelled
+S     assert Task.outcome(doomed) == cancelled
 S   }
 S
-S   test "a failing app read", #{word} {
-S     assert App.label == word
+S   test "a failing outcome comparison shows its rows" {
+S     done = Supervisor.spawn(App.work, fn -> report("quick"))
+S     _ = Supervisor.flush(App.work)
+S     cancelled: Outcome<Unit> = .Cancelled
+S     assert Task.outcome(done) == cancelled
+S   }
+S
+S   test "any and all over a drained list" {
+S     _ = Supervisor.spawn(App.work, fn -> report("audited 7"))
+S     _ = Supervisor.flush(App.work)
+S     seen = drain()
+S     assert Iter.any_match(seen, fn m -> m == "audited 7")
+S     assert Iter.all_match(seen, fn m -> String.contains(m, "audited"))
+S     refute Iter.any_match(seen, fn m -> m == "missing")
+S   }
+S
+S   test "a failing any shows its operand" {
+S     _ = Supervisor.spawn(App.work, fn -> report("x"))
+S     _ = Supervisor.flush(App.work)
+S     assert drain() |> Iter.all_match(fn m -> m == "y")
 S   }
 S }
 S
 S
-T FAIL <dir>/group_test.nomi
-T error: boot must return `Result<App, E>`: the application struct, or the error that stops the program
-T  --> <dir>/group_test.nomi:6:18
-T   |
-T 6 | pub fn boot() -> App {
-T   |                  ^^^
-T   = help: declare `-> Result<App, String>`, or another error type, and wrap the value boot returns in `Ok(...)`
-T test result: FAILED. 0 passed, 1 failed
+T ok <dir>/group_test.nomi :: tasks / a cancelled task reports Cancelled
+T FAIL <dir>/group_test.nomi :: tasks / a failing outcome comparison shows its rows
+T   line 64: assertion failed
+T     assert Task.outcome(done) == cancelled
+T     values:
+T       done
+T         = <task>
+T       Task.outcome(done)
+T         = Completed(Unit)
+T       cancelled
+T         = Cancelled
+T ok <dir>/group_test.nomi :: tasks / any and all over a drained list
+T FAIL <dir>/group_test.nomi :: tasks / a failing any shows its operand
+T   line 79: assertion failed
+T     assert drain() |> Iter.all_match(fn m -> m == "y")
+T test result: FAILED. 2 passed, 2 failed
 T
-C internal/irbuild/testdata/anon_recursive.nomi@29e78859094b0e3f
+C internal/irbuild/testdata/anon_recursive.nomi@c97e1443620b211f
 E 0
 N 0
 H a23c9e491c7f53f7ce9ea426ce849525c4373091b668c3c8606ad8859a3b4670
 T declared
 T
-C internal/irbuild/testdata/anon_struct.nomi@a71bdf0051a42a5b
+C internal/irbuild/testdata/anon_struct.nomi@df7616c395f40fa0
 E 1
 N 0
-H 2e6f53b9d2f1ee20dc45573e72230e5ddb3aada88a183d9e8a68814f68757f1b
+H 7b0e9b56f33d147c8252ba888849bdedf161bfcb0e995a82eddd4e912e947f89
 T FAIL <dir>/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
 T   30
 T   Hi Bob, you are 42
 T   Hi Carol, you are 30
-T   #{n: 1, name: Ada}
-T   #{count: 3, outer: #{inner: 1, label: hi}}
+T   .{n: 1, name: Ada}
+T   .{count: 3, outer: .{inner: 1, label: hi}}
 T   1
 T   x is ten, y is 20
 T   30
 T   line 65: assertion failed
-T     assert no(#{a: 1, a0: 2})
+T     assert no(.{a: 1, a0: 2})
 T     values:
-T       #{a: 1, a0: 2}
-T         = #{a: 1, a0: 2}
+T       .{a: 1, a0: 2}
+T         = .{a: 1, a0: 2}
 T test result: FAILED. 0 passed, 1 failed
 T
-C internal/irbuild/testdata/anon_vs_nominal.nomi@5fa3eda70b06f8b3
+C internal/irbuild/testdata/anon_vs_nominal.nomi@a7d878ec99db4650
 E 1
 N 0
-H 3218aa8daf7b47d3a242cea5e5bf6e2da4a866643cf907bac6767d479fe09ee0
+H b813ff7d607b987755e95d3c1dcea0da51f9426ee828b21d08f848cdae5273f1
 T FAIL <dir>/anon_vs_nominal.nomi :: a record and a same-shaped nominal struct stay apart
 T   3
 T   3
@@ -3350,7 +3270,7 @@ T   line 43: assertion failed
 T     assert no_record(rec)
 T     values:
 T       rec
-T         = #{x: 1, y: 2}
+T         = .{x: 1, y: 2}
 T test result: FAILED. 0 passed, 2 failed
 T
 C internal/irbuild/testdata/app_fields.nomi@dc357982cc45f9d2
@@ -3570,7 +3490,7 @@ T twice via alias and qualified agree: True
 T has = True
 T qualified label = Grace
 T
-C internal/irbuild/testdata/binding_else.nomi@be7348399e58977e
+C internal/irbuild/testdata/binding_else.nomi@752ed6a3b2e26069
 E 0
 N 0
 H ddb3a7f32adc053740915d334b839cf4976f2100a1297d100472d9d8bf3c0ceb
@@ -3613,7 +3533,7 @@ T (200, 100)
 T (200, 100)
 T 6
 T
-C internal/irbuild/testdata/block_local_types.nomi@c839289acce5f30d
+C internal/irbuild/testdata/block_local_types.nomi@a0cc6b4f2c6bc3f5
 E 0
 N 0
 H 0dba865b4176980092287ec36e28c291e155d82d8e2b151bfa33cac66d414fc6
@@ -4009,7 +3929,7 @@ T strings = ab
 T second_ctor = 99
 T both = 41
 T
-C internal/irbuild/testdata/check_project.nomi@0c27a08e34dda18b
+C internal/irbuild/testdata/check_project.nomi@d2393d6de189723a
 E 0
 N 0
 H 19845bdd207b1256a62fdd3a196cdc90f7743bfd4ac294e00e18aba02eaaaa67
@@ -4271,10 +4191,10 @@ T dbg line 83: "first\nsecond\tthird" = "first\nsecond\tthird"
 T h=first
 T second	third
 T
-C internal/irbuild/testdata/dbg_surfaces.nomi@20d20181c501be60
+C internal/irbuild/testdata/dbg_surfaces.nomi@51bbeeb85628353f
 E 1
 N 0
-H aaad34e2e70bc0c9a3c3ec94acb8ddf40bf9fdcf54bc1d377269e2c0b9ac7673
+H 3de5a81fb065903fd9ce5a1a7279c04eaa8b00244dd97c12d3907f2a966747b2
 T ok <dir>/dbg_surfaces.nomi :: dbg renders a struct in declaration order
 T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
 T FAIL <dir>/dbg_surfaces.nomi :: the values row for the same struct sorts it
@@ -4304,7 +4224,7 @@ T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
 T   dbg line 107: (1, "two") = (1, "two")
 T   dbg line 108: Some(42) = Some(42)
 T   dbg line 109: None = None
-T   dbg line 110: #{a: 1, a0: 2} = #{a: 1, a0: 2}
+T   dbg line 110: .{a: 1, a0: 2} = .{a: 1, a0: 2}
 T   dbg line 111: double = <function>
 T ok <dir>/dbg_surfaces.nomi :: a dbg in a test body prints above its own result line
 T   dbg line 116: 7 = 7
@@ -4353,7 +4273,7 @@ T Some(Pt{zz: 1, a: 2})
 T [Some(1), None]
 T Some([1, 2])
 T
-C internal/irbuild/testdata/debug_display_surfaces.nomi@6d3350fd6ab32635
+C internal/irbuild/testdata/debug_display_surfaces.nomi@2e2ede5b0ea7d271
 E 1
 N 0
 H ad3e6da8200d697bd96c99780718a4e78bfec624fcc5ef25c7d9e07f56ef249d
@@ -4984,7 +4904,7 @@ T plus = 42
 T twice = 42
 T weighted = 35
 T
-C internal/irbuild/testdata/fn_destructure_shapes.nomi@d926bf95912d5196
+C internal/irbuild/testdata/fn_destructure_shapes.nomi@80c596232dca75f9
 E 0
 N 0
 H 43c21f38fa7d6c3e2371478e70d98ada256539b982c125d1e7ab59605f9be8c7
@@ -5006,7 +4926,7 @@ T lambda_anon = [102, 304]
 T lambda_tuple = [9, 17]
 T seeded = (3, 0)
 T
-C internal/irbuild/testdata/fn_destructure_variant.nomi@4dcf93d551b8e505
+C internal/irbuild/testdata/fn_destructure_variant.nomi@21de7aee1e10732f
 E 0
 N 0
 H bab6d26e819c4594bf8ae2a51eb505455e8f758e9dc93da295699d9874e43f9f
@@ -5030,7 +4950,7 @@ T match-here = e|w9|lnorigin
 T match-there = whole 9
 T local = mine
 T
-C internal/irbuild/testdata/foreignstd/main.nomi@0bcc4b269921978b
+C internal/irbuild/testdata/foreignstd/main.nomi@9751965d9e388d41
 E 0
 N 0
 H de4bbdbd6a317158cbf7d2bf652450ee23db8708cfd568a4f530ea61902e7133
@@ -5206,7 +5126,7 @@ T 42
 T #[Pt{zz: 1, a: 2}]
 T #[Pt{zz: 1, a: 2}]
 T
-C internal/irbuild/testdata/generic_struct.nomi@a389b2c26da96fb3
+C internal/irbuild/testdata/generic_struct.nomi@4c4364a3492a7d95
 E 1
 N 0
 H f8c71f94619cd526676dc0910e938d0dc7591e08fab7fa263c00a54119579c90
@@ -5540,10 +5460,10 @@ T ok <dir>/io_files.nomi :: a write whose parent is not a directory reports NotA
 T ok <dir>/io_files.nomi :: io.Error values compare by variant and payload
 T test result: ok. 7 passed, 0 failed
 T
-C internal/irbuild/testdata/io_inspect_surfaces.nomi@660825e416c3794f
+C internal/irbuild/testdata/io_inspect_surfaces.nomi@04fca6958dd69461
 E 0
 N 0
-H b63ea208bdeb9f0bcb6fc769a19e45c834d92c63561024d52cf905683605260a
+H f2453bd5b4941ed3dfccae2d74ace9ed09f3e4cab045bf0f3211465d7e3ab78b
 T "hi"
 T hi
 T 42
@@ -5555,7 +5475,7 @@ T [Rev{zeta: 1, alpha: 2}]
 T (1, "two")
 T Some(42)
 T None
-T #{a: 1, a0: 2}
+T .{a: 1, a0: 2}
 T ["a", "b"]
 T
 C internal/irbuild/testdata/iter_adapter_ctrl.nomi@66b887f7c11c2f67
@@ -5756,7 +5676,7 @@ T [[(0, 2), (1, 3)], [(2, 4), (3, 5)]]
 T [1, 2, 1]
 T [1, 2, 1]
 T
-C internal/irbuild/testdata/iter_terminals.nomi@8c73baa89318b21b
+C internal/irbuild/testdata/iter_terminals.nomi@a4715dd3719232d5
 E 0
 N 0
 H 560183231f2adff9bc44049f2b97bab2854e296068c8ea09dff2503f17a222cf
@@ -6876,7 +6796,7 @@ H 4ff5f12ba4d28d29fcee8a449e73034b0ec4f7a2134aefd130f4c2e296216f05
 T label=staged
 T tier=7
 T
-C internal/irbuild/testdata/ranges.nomi@bf743d9eb65f6610
+C internal/irbuild/testdata/ranges.nomi@d04f4b8543832015
 E 0
 N 0
 H a70248c59fc13f38a409040f940d68d8b2ea979d8787ccdefd975015a12d5649
@@ -6997,7 +6917,7 @@ T suffixed = ERR compiler.run_file entry point must omit .nomi
 T escaping = ERR compiler.run_file entry point must stay under the current project root
 T missing = True
 T
-C internal/irbuild/testdata/samename/main.nomi@d63376a99db49328
+C internal/irbuild/testdata/samename/main.nomi@ece3492d9608d318
 E 0
 N 0
 H ddd898a401560e7a05ba77a00c36bb29c3a4458930c344aced6399c54a5391f0
@@ -7032,7 +6952,7 @@ T 7
 T 1,a
 T 9
 T
-C internal/irbuild/testdata/sets.nomi@a8868cc29166bd48
+C internal/irbuild/testdata/sets.nomi@91351efe2480af14
 E 0
 N 0
 H 5c595f1756bbb1c559c067b091005bae6ddd1e708f8cb5915f5bc6d5b8180028
@@ -7157,7 +7077,7 @@ T very high 9
 T high 2
 T custom odd
 T
-C internal/irbuild/testdata/sibling_field_defaults/main.nomi@6481f09cd70ac89e
+C internal/irbuild/testdata/sibling_field_defaults/main.nomi@59ffdf0327f1e54c
 E 0
 N 0
 H e9d4036f32d20a896cab52de8d1486f79b7ad16812f0c988108defdcf8a8569b
@@ -7237,7 +7157,7 @@ N 0
 H 10159baf262b43a92d95db59dae1f72c645127301661e0a3ce4e38b295a97c58
 T 7
 T
-C internal/irbuild/testdata/sibsig/main.nomi@6824af61c72a686b
+C internal/irbuild/testdata/sibsig/main.nomi@bcc0cdd58c9b6b24
 E 0
 N 0
 H 4ba26f738837ee409183b7cdb7bb9bd70c8ff22e1fb9a4a2c1a522c6f17af274
@@ -7275,9 +7195,9 @@ T
 C internal/irbuild/testdata/single_variant_binding.nomi@144985f13fafc2d1
 E 0
 N 0
-H c68b7df9c370ba9ddb708a6dcc4da3d8515d0119de0582a7debb1092e232dc63
+H c984e61710f711f75d516c83b5c571b73154d20826c29e4fd7c4ea2262a9fe29
 T 3
-T #{a: 1, b: "x"}
+T .{a: 1, b: "x"}
 T held
 T Circle{r: 2}
 T ada
@@ -7607,10 +7527,10 @@ T display = decode error at user[3]: expected Int, got String
 T seg_display = Field(k)
 T empty.display = decode error at <root>: expected List, got Int
 T
-C internal/irbuild/testdata/struct_forms.nomi@80c22b2cc7379b4b
+C internal/irbuild/testdata/struct_forms.nomi@32eaa4fd88b74b2f
 E 0
 N 0
-H 8c976f40bb05389281de0aa19c8361ef526d36dad39d9956408d92d679ed4cdb
+H 9aa05952e46c54bcbad3d616b5d7b388169e04b772232a79fc804202bdcc6af8
 T x=2 y=1
 T swapped x=1 y=2
 T Ada/36
@@ -7619,10 +7539,10 @@ T 1s
 T 7/default
 T 8/named
 T 1q
-T #{a: 1, a0: 2}
-T #{a: 1, a0: 2}
+T .{a: 1, a0: 2}
+T .{a: 1, a0: 2}
 T
-C internal/irbuild/testdata/struct_spread.nomi@807333dce63eea88
+C internal/irbuild/testdata/struct_spread.nomi@a25a5886c0ba6723
 E 0
 N 0
 H 97bedf62b271eb64e4a5567e54f8d0f3a0dc2cfed1c2478422dcec73c55ebe43
@@ -7636,7 +7556,7 @@ T   (built)
 T once Point{x: 1, y: 6}
 T stacked Point{x: 11, y: 12}
 T
-C internal/irbuild/testdata/struct_spread_deep.nomi@3f958b65c7cb68c8
+C internal/irbuild/testdata/struct_spread_deep.nomi@e044275140c2ae8e
 E 0
 N 0
 H a3b86857f401fda091b4b2adaaeed68817eac9da60e4b0a7d49ac70e6678f5f8
@@ -7656,7 +7576,7 @@ T generic Inner{a: 9, b: 2}/old
 T origin Outer{inner: Inner{a: 1, b: 2}, k: 3}
 T other Outer{inner: Inner{a: 100, b: 200}, k: 40}
 T
-C internal/irbuild/testdata/struct_update.nomi@f23e466bb5504d20
+C internal/irbuild/testdata/struct_update.nomi@c8c02f13225abde7
 E 0
 N 0
 H 9cbef515b2b0579a3ea417f400a8ba8ab9229f73322050383262fb73ebf9f47e
@@ -7866,7 +7786,7 @@ T       double(3)
 T         = 6
 T test result: FAILED. 0 passed, 1 failed
 T
-C internal/irbuild/testdata/tests_group.nomi@d04196a2537c826a
+C internal/irbuild/testdata/tests_group.nomi@d33e386db2d4951d
 E 0
 N 0
 H 2dcd1622d08a6dd0c1b0d02cf6a213ac40f6443439f0868d73b06877c254f9b2
@@ -7879,7 +7799,7 @@ T ok <dir>/tests_group.nomi :: unit / a setup may answer Unit
 T ok <dir>/tests_group.nomi :: a file-scope case stands beside a group
 T test result: ok. 7 passed, 0 failed
 T
-C internal/irbuild/testdata/tests_group_failure.nomi@6ed3abae5385aa82
+C internal/irbuild/testdata/tests_group_failure.nomi@004214304bb3851b
 E 1
 N 0
 H f0458c75870cc51eb58519f87249477d85be6feeec75d35c854303ba253ffa4a
@@ -8324,7 +8244,7 @@ T other
 T [(1, a), (2, b)]
 T seven=7 then []
 T
-C internal/irbuild/testdata/type_alias.nomi@e659ec74c3bcb600
+C internal/irbuild/testdata/type_alias.nomi@97d87955f89fb1a3
 E 0
 N 0
 H 0258b0e55ea1803d891509c9f95680bf6203f2064d720669cc082653fa0bbaca
@@ -8628,11 +8548,11 @@ T   line 27: division by zero
 T ok <dir>/virtual_clock_trap.nomi :: a fault under a virtual clock / the next case still runs
 T test result: FAILED. 1 passed, 1 failed
 T
-C iter_test.nomi@081b11f1020de137
+C iter_test.nomi@20a4b987ff4aea98
 E 1
 N 0
-H 91330d377fd3c5b2e460b9cd400a8a3b7fc0083a4134ede8ee739afb429e9f65
-S -- iter_test.nomi 717 --
+H 6890ccaeb51b30022c91ab74fd189fb3af73de13031119337bf2fcba7200c538
+S -- iter_test.nomi 723 --
 S fn double(n: Int) -> Int {
 S   n * 2
 S }
@@ -8649,7 +8569,7 @@ S }
 S
 S test "a predicate call records its source" {
 S   xs = [2, 4, 5]
-S   assert Iter.all(xs, fn x -> x % 2 == 0)
+S   assert Iter.all_match(xs, fn x -> x % 2 == 0)
 S }
 S
 S test "a multi-line call leaves the cursor on its last line" {
@@ -8675,7 +8595,7 @@ T ok <dir>/iter_test.nomi :: a count in a subject
 T ok <dir>/iter_test.nomi :: a pipeline bound before the assertion
 T FAIL <dir>/iter_test.nomi :: a predicate call records its source
 T   line 17: assertion failed
-T     assert Iter.all(xs, fn x -> x % 2 == 0)
+T     assert Iter.all_match(xs, fn x -> x % 2 == 0)
 T     values:
 T       xs
 T         = [2, 4, 5]
@@ -8694,11 +8614,11 @@ T         = 5
 T ok <dir>/iter_test.nomi :: a folded count in a subject
 T test result: FAILED. 3 passed, 3 failed
 T
-C leftovers_test.nomi@d581cf5b34d886cf
+C leftovers_test.nomi@2a04500c1d092350
 E 1
 N 0
-H e62f2cce421551fe751cc72d56a512fddc7aa01491ebaf98d7c198386212a5ee
-S -- leftovers_test.nomi 671 --
+H 6e47a0582328a7c0cdbb8adad44a8247b6c2c54b8f4a63b7ddcba052d2e2cac8
+S -- leftovers_test.nomi 677 --
 S fn double(n: Int) -> Int {
 S   n * 2
 S }
@@ -8713,7 +8633,7 @@ S   assert ok
 S }
 S
 S test "a piped binding refuted bare" {
-S   small = [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any(fn x -> x > 4)
+S   small = [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any_match(fn x -> x > 4)
 S   refute small
 S }
 S
@@ -8755,13 +8675,13 @@ T FAIL <dir>/leftovers_test.nomi :: a piped binding refuted bare
 T   line 16: refute failed
 T     refute small
 T     defined as:
-T       [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any(fn x -> x > 4)
+T       [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any_match(fn x -> x > 4)
 T     pipeline values:
 T       [1, 2, 3]
 T         = [1, 2, 3]
 T       [1, 2, 3] |> Iter.map(fn x -> x * 2)
 T         = <iter>
-T       [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any(fn x -> x > 4)
+T       [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any_match(fn x -> x > 4)
 T         = True
 T ok <dir>/leftovers_test.nomi :: a piped binding that passes
 T FAIL <dir>/leftovers_test.nomi :: a piped binding over a pattern
@@ -8986,6 +8906,63 @@ T 0
 T --- stderr ---
 T line 5: division by zero
 T
+C main_test.nomi@02bbc98cb7129a87
+E 0
+N 0
+H e3ff9fd0dd286eaa2caa9003b080eb9b08af37d0886182f47ca76cc95e6f7ada
+S -- main_test.nomi 331 --
+S import shapes.{self, sum_of}
+S
+S test "a list into another file's Iter parameter" {
+S   assert shapes.sum_of([1, 2, 3]) == 6
+S   assert sum_of([4, 5]) == 9
+S   assert [1, 2] |> shapes.sum_of() == 3
+S }
+S
+S test "an Iter from another file" {
+S   assert shapes.sum_of(shapes.evens(4)) == 12
+S   assert shapes.evens(3) |> Iter.to_list() == [0, 2, 4]
+S }
+S
+S -- shapes.nomi 504 --
+S pub struct Box {
+S   at: .{x: Int, y: Int}
+S   size: Int = 1
+S }
+S
+S pub fn make(x: Int) -> Box {
+S   Box{at: .{x, y: x * 2}}
+S }
+S
+S pub fn width(b: Box) -> Int {
+S   b.at.x + b.size
+S }
+S
+S pub fn corner(b: Box) -> .{x: Int, y: Int} {
+S   b.at
+S }
+S
+S pub fn px(p: .{x: Int, y: Int}) -> Int {
+S   p.x * 10 + p.y
+S }
+S
+S pub fn ok_only(n: Int) -> Result<Int, Infallible> {
+S   Ok(n)
+S }
+S
+S pub fn evens(n: Int) -> Iter<Int> {
+S   0..n |> Iter.map(fn x -> x * 2)
+S }
+S
+S pub fn sum_of(xs: Iter<Int>) -> Int {
+S   Iter.reduce(xs, 0, fn acc, x -> acc + x)
+S }
+S
+S
+T ok <dir>/main_test.nomi :: a list into another file's Iter parameter
+T ok <dir>/main_test.nomi :: an Iter from another file
+T test result: ok. 2 passed, 0 failed
+T
 C main_test.nomi@1a3303b097c5590c
 E 1
 N 0
@@ -9115,131 +9092,6 @@ T ok <dir>/main_test.nomi :: a list into another file's Iter parameter
 T ok <dir>/main_test.nomi :: a list into another file's generic Iter parameter
 T test result: ok. 2 passed, 0 failed
 T
-C main_test.nomi@782f6c7476769132
-E 0
-N 0
-H f951b7ef1f3f22ee24a37ff9178b9b6e60cb0330e106f8bb6ba49f3706385d02
-S -- main_test.nomi 551 --
-S import shapes.{self, Box}
-S
-S test "a struct with a record field from another file" {
-S   b = shapes.make(3)
-S   assert shapes.width(b) == 4
-S   assert b.at.y == 6
-S   assert shapes.width(Box{at: #{x: 1, y: 0}, size: 5}) == 6
-S }
-S
-S test "records in another file's signatures" {
-S   assert shapes.corner(shapes.make(2)) == #{x: 2, y: 4}
-S   assert shapes.px(#{x: 1, y: 2}) == 12
-S   assert shapes.px(shapes.corner(shapes.make(1))) == 12
-S }
-S
-S test "Infallible in another file's signature" {
-S   v = case shapes.ok_only(3) {
-S     Ok(n) -> n
-S     Err(_) -> 0
-S   }
-S   assert v == 3
-S }
-S
-S -- shapes.nomi 504 --
-S pub struct Box {
-S   at: #{x: Int, y: Int}
-S   size: Int = 1
-S }
-S
-S pub fn make(x: Int) -> Box {
-S   Box{at: #{x, y: x * 2}}
-S }
-S
-S pub fn width(b: Box) -> Int {
-S   b.at.x + b.size
-S }
-S
-S pub fn corner(b: Box) -> #{x: Int, y: Int} {
-S   b.at
-S }
-S
-S pub fn px(p: #{x: Int, y: Int}) -> Int {
-S   p.x * 10 + p.y
-S }
-S
-S pub fn ok_only(n: Int) -> Result<Int, Infallible> {
-S   Ok(n)
-S }
-S
-S pub fn evens(n: Int) -> Iter<Int> {
-S   0..n |> Iter.map(fn x -> x * 2)
-S }
-S
-S pub fn sum_of(xs: Iter<Int>) -> Int {
-S   Iter.reduce(xs, 0, fn acc, x -> acc + x)
-S }
-S
-S
-T ok <dir>/main_test.nomi :: a struct with a record field from another file
-T ok <dir>/main_test.nomi :: records in another file's signatures
-T ok <dir>/main_test.nomi :: Infallible in another file's signature
-T test result: ok. 3 passed, 0 failed
-T
-C main_test.nomi@96763a9c760c9895
-E 0
-N 0
-H e3ff9fd0dd286eaa2caa9003b080eb9b08af37d0886182f47ca76cc95e6f7ada
-S -- main_test.nomi 331 --
-S import shapes.{self, sum_of}
-S
-S test "a list into another file's Iter parameter" {
-S   assert shapes.sum_of([1, 2, 3]) == 6
-S   assert sum_of([4, 5]) == 9
-S   assert [1, 2] |> shapes.sum_of() == 3
-S }
-S
-S test "an Iter from another file" {
-S   assert shapes.sum_of(shapes.evens(4)) == 12
-S   assert shapes.evens(3) |> Iter.to_list() == [0, 2, 4]
-S }
-S
-S -- shapes.nomi 504 --
-S pub struct Box {
-S   at: #{x: Int, y: Int}
-S   size: Int = 1
-S }
-S
-S pub fn make(x: Int) -> Box {
-S   Box{at: #{x, y: x * 2}}
-S }
-S
-S pub fn width(b: Box) -> Int {
-S   b.at.x + b.size
-S }
-S
-S pub fn corner(b: Box) -> #{x: Int, y: Int} {
-S   b.at
-S }
-S
-S pub fn px(p: #{x: Int, y: Int}) -> Int {
-S   p.x * 10 + p.y
-S }
-S
-S pub fn ok_only(n: Int) -> Result<Int, Infallible> {
-S   Ok(n)
-S }
-S
-S pub fn evens(n: Int) -> Iter<Int> {
-S   0..n |> Iter.map(fn x -> x * 2)
-S }
-S
-S pub fn sum_of(xs: Iter<Int>) -> Int {
-S   Iter.reduce(xs, 0, fn acc, x -> acc + x)
-S }
-S
-S
-T ok <dir>/main_test.nomi :: a list into another file's Iter parameter
-T ok <dir>/main_test.nomi :: an Iter from another file
-T test result: ok. 2 passed, 0 failed
-T
 C main_test.nomi@a67b648fc4cae762
 E 0
 N 0
@@ -9310,6 +9162,74 @@ T ok <dir>/main_test.nomi :: a top-level fn as an adapter
 T ok <dir>/main_test.nomi :: an imported fn
 T ok <dir>/main_test.nomi :: an owner-qualified impl fn
 T test result: ok. 4 passed, 0 failed
+T
+C main_test.nomi@f7da3a99afad30f4
+E 0
+N 0
+H f951b7ef1f3f22ee24a37ff9178b9b6e60cb0330e106f8bb6ba49f3706385d02
+S -- main_test.nomi 551 --
+S import shapes.{self, Box}
+S
+S test "a struct with a record field from another file" {
+S   b = shapes.make(3)
+S   assert shapes.width(b) == 4
+S   assert b.at.y == 6
+S   assert shapes.width(Box{at: .{x: 1, y: 0}, size: 5}) == 6
+S }
+S
+S test "records in another file's signatures" {
+S   assert shapes.corner(shapes.make(2)) == .{x: 2, y: 4}
+S   assert shapes.px(.{x: 1, y: 2}) == 12
+S   assert shapes.px(shapes.corner(shapes.make(1))) == 12
+S }
+S
+S test "Infallible in another file's signature" {
+S   v = case shapes.ok_only(3) {
+S     Ok(n) -> n
+S     Err(_) -> 0
+S   }
+S   assert v == 3
+S }
+S
+S -- shapes.nomi 504 --
+S pub struct Box {
+S   at: .{x: Int, y: Int}
+S   size: Int = 1
+S }
+S
+S pub fn make(x: Int) -> Box {
+S   Box{at: .{x, y: x * 2}}
+S }
+S
+S pub fn width(b: Box) -> Int {
+S   b.at.x + b.size
+S }
+S
+S pub fn corner(b: Box) -> .{x: Int, y: Int} {
+S   b.at
+S }
+S
+S pub fn px(p: .{x: Int, y: Int}) -> Int {
+S   p.x * 10 + p.y
+S }
+S
+S pub fn ok_only(n: Int) -> Result<Int, Infallible> {
+S   Ok(n)
+S }
+S
+S pub fn evens(n: Int) -> Iter<Int> {
+S   0..n |> Iter.map(fn x -> x * 2)
+S }
+S
+S pub fn sum_of(xs: Iter<Int>) -> Int {
+S   Iter.reduce(xs, 0, fn acc, x -> acc + x)
+S }
+S
+S
+T ok <dir>/main_test.nomi :: a struct with a record field from another file
+T ok <dir>/main_test.nomi :: records in another file's signatures
+T ok <dir>/main_test.nomi :: Infallible in another file's signature
+T test result: ok. 3 passed, 0 failed
 T
 C pattern_test.nomi@5d11bd6826ef4b24
 E 1
@@ -9556,7 +9476,7 @@ T       3 < 4
 T ok <dir>/pattern_test.nomi :: a passing bare name
 T test result: FAILED. 4 passed, 7 failed
 T
-C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@28dd79b2a50c7b22
+C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@f9580f6665c330d3
 E 0
 N 0
 H 5021b367003179fc2b49a2322a84aea55c7880ec1461fcbec43b7bf84f8e5451
@@ -9569,7 +9489,7 @@ T ok <dir>/inline_annotations_test.nomi :: annotation mismatches are rejected
 T ok <dir>/inline_annotations_test.nomi :: annotated bindings expose the annotated hover signature
 T test result: ok. 7 passed, 0 failed
 T
-C tests/01-foundations/once_bindings/once_bindings_test.nomi@4f78a1c3bfb3fed9
+C tests/01-foundations/once_bindings/once_bindings_test.nomi@4ef7d0218cfe4275
 E 0
 N 0
 H 35398e1f58e3d2d2065c10f2038e7159668120627ce6f971296cf5d79500ed31
@@ -9582,7 +9502,7 @@ T ok <dir>/once_bindings_test.nomi :: impl block once bindings are rejected
 T ok <dir>/once_bindings_test.nomi :: compiler hover can assert once signatures with a marker
 T test result: ok. 7 passed, 0 failed
 T
-C tests/02-testing/assertion_context/assertion_context_test.nomi@dd5cee8c8fc5d07d
+C tests/02-testing/assertion_context/assertion_context_test.nomi@2facf211a0100d16
 E 0
 N 0
 H 90525e6a79cb3167561d0b459c0513681fefb1f295cd7f27d65db64823b80fc6
@@ -9600,7 +9520,7 @@ T ok <dir>/dbg_test.nomi :: dbg expression prints source and returns value
 T ok <dir>/dbg_test.nomi :: dbg pipe stage prints source and passes the value through
 T test result: ok. 2 passed, 0 failed
 T
-C tests/03-tooling-and-diagnostics/formatting_test.nomi@1a821cb7d247cd81
+C tests/03-tooling-and-diagnostics/formatting_test.nomi@3b59b58794808795
 E 0
 N 0
 H 87e33a9a852ce0988ab214be2ae4be8516c91906447ed1feee4f44af456bd563
@@ -9639,7 +9559,7 @@ T ok <dir>/naive_datetime_test.nomi :: naive datetime differences return duratio
 T ok <dir>/naive_datetime_test.nomi :: naive datetime construction validates component combinations
 T test result: ok. 10 passed, 0 failed
 T
-C tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi@1952f88717d06e72
+C tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi@9b331456871262ca
 E 0
 N 0
 H 755efa6e91cbf37cee6da132c48d6e12561cac0d96d35acda66e76d8a59e8535
@@ -9649,7 +9569,7 @@ T ok <dir>/anonymous_structs_test.nomi :: anonymous struct parameters match by f
 T ok <dir>/anonymous_structs_test.nomi :: anonymous struct parameter mismatches report diagnostics
 T test result: ok. 4 passed, 0 failed
 T
-C tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi@89ee15f5b6b891e6
+C tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi@72374e583dab70d9
 E 0
 N 0
 H 92bd0d2641b7a03171076b0eb9cd1cf113633622fe3964569279c3ae641cb339
@@ -9707,7 +9627,7 @@ H 35acb010380e426fc3b27cc2e71d0bbda566f541b00832d9e8a3a77839c69ee2
 T ok <dir>/generics_test.nomi :: generic structs enums interfaces and functions preserve types
 T test result: ok. 1 passed, 0 failed
 T
-C tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi@aa830a67f14c0362
+C tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi@c0426543cd63872f
 E 0
 N 0
 H 06b4791bfbd074593fb0d61aa7018e23008fe76120aeb437fb42ab7dc805b2ec
@@ -9726,7 +9646,7 @@ T ok <dir>/interface_defaults_test.nomi :: interface method-local generics must 
 T ok <dir>/interface_defaults_test.nomi :: derive where clauses reject unsatisfied receiver arguments
 T test result: ok. 13 passed, 0 failed
 T
-C tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi@db77e64d1f3fcad3
+C tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi@4acd00c443c1f60b
 E 0
 N 0
 H a25ade1c072643689d8df8e46de85effcbc3d2816153227f5188cf3b80cbfdce
@@ -9808,7 +9728,7 @@ T [INFO] hello, Ada
 T [WARN] config checked
 T console ready
 T
-C tests/16-concurrency/supervisors/supervisors_test.nomi@d106d873602cf917
+C tests/16-concurrency/supervisors/supervisors_test.nomi@edfb18957bf6465d
 E 0
 N 0
 H d2caeccdfc0a9c5e2d9a1ecff6e49c162eb0c8e7eaa586b4fe9f2ddebefe06fe

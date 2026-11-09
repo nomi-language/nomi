@@ -20,8 +20,6 @@ pub struct Tree {
     children: List<Tree> = []
 }
 
-derive Equatable for Tree
-
 impl Tree {
     /// `tree` seen from the node labelled `from`: that node is the root, and
     /// each node on the way from it to the old root is a child of the node
@@ -43,14 +41,14 @@ impl Tree {
 /// `tree`, whose old parent is `above` re-hung as a tree (none at the old
 /// root), rerooted at the node labelled `label`.
 fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree> {
-    if tree.label == label { return Some(#{..tree, children: [..tree.children, ..above]}) }
+    if tree.label == label { return Some(.{..tree, children: [..tree.children, ..above]}) }
 
     Iter.find_map(tree.children, fn child -> {
         siblings =
             tree.children
             |> Iter.filter(&(&1.label != child.label))
 
-        reroot(child, label, [#{..tree, children: [..siblings, ..above]}])
+        reroot(child, label, [.{..tree, children: [..siblings, ..above]}])
     })
 }
 
@@ -69,45 +67,45 @@ import pov.Tree
 /// `tree` with every node's children in label order. The canonical data
 /// leaves the order of children open, so the tests compare trees this way.
 fn in_label_order(tree: Tree) -> Tree {
-    #{..tree, children: tree.children |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
+    .{..tree, children: tree.children |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
 }
 
 once singleton = Tree{label: "x"}
 
 once parent_and_siblings = Tree{
     label: "parent",
-    children: [#{label: "a"}, #{label: "x"}, #{label: "b"}, #{label: "c"}],
+    children: [.{label: "a"}, .{label: "x"}, .{label: "b"}, .{label: "c"}],
 }
 
 once parent_with_kids = Tree{
     label: "parent",
     children: [
-        #{
+        .{
             label: "x",
-            children: [#{label: "kid-0"}, #{label: "kid-1"}],
+            children: [.{label: "kid-0"}, .{label: "kid-1"}],
         },
-        #{label: "sibling-0"},
-        #{label: "sibling-1"},
+        .{label: "sibling-0"},
+        .{label: "sibling-1"},
     ],
 }
 
 once cousins = Tree{
     label: "grandparent",
     children: [
-        #{
+        .{
             label: "parent",
             children: [
-                #{
+                .{
                     label: "x",
-                    children: [#{label: "kid-0"}, #{label: "kid-1"}],
+                    children: [.{label: "kid-0"}, .{label: "kid-1"}],
                 },
-                #{label: "sibling-0"},
-                #{label: "sibling-1"},
+                .{label: "sibling-0"},
+                .{label: "sibling-1"},
             ],
         },
-        #{
+        .{
             label: "uncle",
-            children: [#{label: "cousin-0"}, #{label: "cousin-1"}],
+            children: [.{label: "cousin-0"}, .{label: "cousin-1"}],
         },
     ],
 }
@@ -122,17 +120,17 @@ test "Reroot a tree so that its root is the specified node." {
         ),
         (
             "Can reroot a tree with a parent and one sibling",
-            #{
+            .{
                 label: "parent",
-                children: [#{label: "x"}, #{label: "sibling"}],
+                children: [.{label: "x"}, .{label: "sibling"}],
             },
             "x",
-            Some(#{
+            Some(.{
                 label: "x",
                 children: [
-                    #{
+                    .{
                         label: "parent",
-                        children: [#{label: "sibling"}],
+                        children: [.{label: "sibling"}],
                     },
                 ],
             }),
@@ -141,30 +139,30 @@ test "Reroot a tree so that its root is the specified node." {
             "Can reroot a tree with a parent and many siblings",
             parent_and_siblings,
             "x",
-            Some(#{
+            Some(.{
                 label: "x",
                 children: [
-                    #{
+                    .{
                         label: "parent",
-                        children: [#{label: "a"}, #{label: "b"}, #{label: "c"}],
+                        children: [.{label: "a"}, .{label: "b"}, .{label: "c"}],
                     },
                 ],
             }),
         ),
         (
             "Can reroot a tree with new root deeply nested in tree",
-            #{
+            .{
                 label: "level-0",
                 children: [
-                    #{
+                    .{
                         label: "level-1",
                         children: [
-                            #{
+                            .{
                                 label: "level-2",
                                 children: [
-                                    #{
+                                    .{
                                         label: "level-3",
-                                        children: [#{label: "x"}],
+                                        children: [.{label: "x"}],
                                     },
                                 ],
                             },
@@ -173,18 +171,18 @@ test "Reroot a tree so that its root is the specified node." {
                 ],
             },
             "x",
-            Some(#{
+            Some(.{
                 label: "x",
                 children: [
-                    #{
+                    .{
                         label: "level-3",
                         children: [
-                            #{
+                            .{
                                 label: "level-2",
                                 children: [
-                                    #{
+                                    .{
                                         label: "level-1",
-                                        children: [#{label: "level-0"}],
+                                        children: [.{label: "level-0"}],
                                     },
                                 ],
                             },
@@ -195,41 +193,41 @@ test "Reroot a tree so that its root is the specified node." {
         ),
         (
             "Moves children of the new root to same level as former parent",
-            #{
+            .{
                 label: "parent",
                 children: [
-                    #{
+                    .{
                         label: "x",
-                        children: [#{label: "kid-0"}, #{label: "kid-1"}],
+                        children: [.{label: "kid-0"}, .{label: "kid-1"}],
                     },
                 ],
             },
             "x",
-            Some(#{
+            Some(.{
                 label: "x",
-                children: [#{label: "kid-0"}, #{label: "kid-1"}, #{label: "parent"}],
+                children: [.{label: "kid-0"}, .{label: "kid-1"}, .{label: "parent"}],
             }),
         ),
         (
             "Can reroot a complex tree with cousins",
             cousins,
             "x",
-            Some(#{
+            Some(.{
                 label: "x",
                 children: [
-                    #{label: "kid-1"},
-                    #{label: "kid-0"},
-                    #{
+                    .{label: "kid-1"},
+                    .{label: "kid-0"},
+                    .{
                         label: "parent",
                         children: [
-                            #{label: "sibling-0"},
-                            #{label: "sibling-1"},
-                            #{
+                            .{label: "sibling-0"},
+                            .{label: "sibling-1"},
+                            .{
                                 label: "grandparent",
                                 children: [
-                                    #{
+                                    .{
                                         label: "uncle",
-                                        children: [#{label: "cousin-0"}, #{label: "cousin-1"}],
+                                        children: [.{label: "cousin-0"}, .{label: "cousin-1"}],
                                     },
                                 ],
                             },
@@ -253,7 +251,7 @@ test "Given two nodes, find the path between them" {
             "Can find path to parent",
             Tree{
                 label: "parent",
-                children: [#{label: "x"}, #{label: "sibling"}],
+                children: [.{label: "x"}, .{label: "sibling"}],
             },
             "x",
             "parent",
@@ -269,12 +267,12 @@ test "Given two nodes, find the path between them" {
         ),
         (
             "Can find path not involving root",
-            #{
+            .{
                 label: "grandparent",
                 children: [
-                    #{
+                    .{
                         label: "parent",
-                        children: [#{label: "x"}, #{label: "sibling-0"}, #{label: "sibling-1"}],
+                        children: [.{label: "x"}, .{label: "sibling-0"}, .{label: "sibling-1"}],
                     },
                 ],
             },
@@ -305,7 +303,7 @@ test result: ok. 15 passed, 0 failed
 
 ## How it's written
 
-- `Tree` is a struct of a `String` label and a `List<Tree>` of children, which default to none, so a leaf is `#{label: "x"}` and the tests write each canonical tree as nested literals.
+- `Tree` is a struct of a `String` label and a `List<Tree>` of children, which default to none, so a leaf is `.{label: "x"}` and the tests write each canonical tree as nested literals.
 - `Tree.from_pov` is one recursion, `reroot`, that carries the old parent re-hung as a tree: at each node it tries every child, handing it the node without that child and with the node's own old parent added as a child. At the target the carried tree becomes the last child. Nothing is changed in place; each attempt builds its own nodes, and the attempts that do not reach the target are dropped.
 - The carried parent is a `List<Tree>` of none or one rather than a `Maybe<Tree>`, so it joins the children with a spread, `[..tree.children, ..above]`, and needs no case at the old root.
 - A missing label is `None`, from `from_pov` and `path_to` alike. The canonical data's `null` names no error to report, and both lookups are of data the caller passes in.

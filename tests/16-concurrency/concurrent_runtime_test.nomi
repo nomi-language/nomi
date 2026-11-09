@@ -59,8 +59,7 @@ test "buffered rejects a capacity that is not a buffer" {
         }
         """
     ) {
-        Ok(_) ->
-            assert False
+        Ok(_) -> assert False
 
         Err(message) -> {
             assert "capacity must be at least 1" in message

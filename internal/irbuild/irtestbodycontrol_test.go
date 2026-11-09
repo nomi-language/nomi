@@ -441,9 +441,9 @@ test "second, walk-only" {
 }
 
 group "grouped" {
-  setup #{n: 5}
+  setup .{n: 5}
 
-  test "third, grouped", #{n} {
+  test "third, grouped", .{n} {
     assert n == 5
   }
 }

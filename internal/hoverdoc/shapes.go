@@ -9,19 +9,20 @@ import (
 )
 
 // Hover on syntax no symbol covers: the punctuation of a shape-symbol
-// literal or pattern, a variant's leading `.` and opening `(`, a pipe's
-// `|>` (pipes.go), the `&1` of an operator or a literal that makes it a
-// function (lambdas.go), an operator (operators.go), and a discard `_`
-// (discards.go).
+// literal or pattern, a variant's leading `.` and opening `(`, the `..` of a
+// literal's spread (spreads.go), a pipe's `|>` (pipes.go), the `&1` of an
+// operator or a literal that makes it a function (lambdas.go), an operator
+// (operators.go), and a discard `_` (discards.go).
 //
 // An editor asks for the hover of the character under the cursor, which on
 // `Point{`, `%[`, `.Circle{` or the `]` that ends a long literal is
 // punctuation no symbol covers. SyntaxAt answers there: every position of a
 // literal's head (the symbol, the name and the opening bracket) and its
-// closing bracket, the `..` of a pattern's `..rest`, and the `.` and `(` of
-// a variant, and both characters of a pipe's `|>`. An element, key, field
-// or value inside answers as it always did, since none of those positions
-// is one SyntaxAt claims.
+// closing bracket, the `..` of a pattern's `..rest` and of a literal's
+// spread (`.{..alice, age: 31}`, `[..xs, 1]`), the `.` and `(` of a
+// variant, and both characters of a pipe's `|>`. An element, key, field or
+// value inside, and a spread's head, answers as it always did, since none
+// of those positions is one SyntaxAt claims.
 
 // SyntaxAt is the hover at pos when pos is one of the positions above: the
 // markdown, and the start and length of the source text it describes. ok is
@@ -136,16 +137,21 @@ func (s *shapeSearch) visit(n ast.Node) {
 	switch n := n.(type) {
 	case *ast.StructLit:
 		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.structLit(n) })
+		s.structSpread(n)
 	case *ast.ListLit:
 		s.shape(n, n.Line, n.Col, n.TypeName, true, func() string { return s.collectionLit(n, n.TypeName) })
 	case *ast.ListSpreadLit:
 		s.shape(n, n.Line, n.Col, nil, true, func() string { return s.collectionLit(n, nil) })
+		s.collectionSpreads(n, "list", n.Spreads)
 	case *ast.VectorLit:
 		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
+		s.collectionSpreads(n, "vector", n.Spreads)
 	case *ast.SetLit:
 		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
+		s.collectionSpreads(n, "set", n.Spreads)
 	case *ast.MapLit:
 		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
+		s.collectionSpreads(n, "map", n.Spreads)
 	case *ast.TupleLit:
 		s.shape(n, n.Line, n.Col, nil, true, func() string { return s.collectionLit(n, nil) })
 	case *ast.ListPattern:
@@ -360,13 +366,13 @@ func (s *shapeSearch) notePipeStage(stage ast.Node) {
 
 // shapeWord leads a literal's type with the word for its shape when the
 // type is spelled in symbols only: `tuple (Int, String)`, `anonymous
-// struct #{x: Int}`. `Set<String>` and the other named collections say
+// struct .{x: Int}`. `Set<String>` and the other named collections say
 // their shape already.
 func shapeWord(t string) string {
 	switch {
 	case isTupleType(t):
 		return "tuple " + t
-	case strings.HasPrefix(t, "#{"):
+	case strings.HasPrefix(t, ".{"):
 		return "anonymous struct " + t
 	}
 	return t
@@ -436,7 +442,7 @@ func (s *shapeSearch) structLit(n *ast.StructLit) string {
 	return fence(shapeWord(displayValueType(ty)))
 }
 
-// targetStruct is the hover of a `#{` that builds the struct st because the
+// targetStruct is the hover of a `.{` that builds the struct st because the
 // position expected it: the struct, said to come from the expected type,
 // and its doc. A generic struct leads with its instantiation.
 func targetStruct(fa *analysis.FileAnalysis, st *analysis.StructType, pos analysis.Pos) string {

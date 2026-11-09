@@ -127,8 +127,7 @@ fn main() {
             )
         }
 
-        Err(message) ->
-            io.print("both_fields = UNEXPECTED " + message)
+        Err(message) -> io.print("both_fields = UNEXPECTED " + message)
     }
 
     // --- EVERY FAILURE ARM ---------------------------------------------------

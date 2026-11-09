@@ -17,8 +17,15 @@ func init() {
 
 // runNested is the VM as stdcompilerrun's engine: lower the source, run it,
 // and answer its stdout.
+//
+// The nested program is checked as the shared front end checks it
+// (stdcompiler.RunFrontEnd): its imports resolve against root, and the
+// project's files it imports are checked under root's nomi.toml, but the
+// source itself is no file of that project, so entry_points does not place
+// it. It gets no host tables of the caller's: a project file it imports
+// that declares a `go` binding is refused as unmet.
 func runNested(source, root string, virtualFiles, hostEnv map[string]string) (string, error) {
-	opts := []Option{WithProjectRoot(root)}
+	opts := []Option{WithProjectRoot(root), func(c *config) { c.standalone = true }}
 	if virtualFiles != nil {
 		opts = append(opts, WithVirtualFiles(virtualFiles))
 	}

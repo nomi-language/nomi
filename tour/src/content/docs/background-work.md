@@ -82,8 +82,9 @@ app struct. See [Where mutable state lives](#where-mutable-state-lives).
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- `Supervisor.new` outside `boot` and the functions it calls is an error
-  that explains the bound would be per call rather than per downstream.
+- `Supervisor.new` outside `boot` and the functions it calls is a compile
+  error, since its limit would then apply to each call instead of to the
+  whole program.
 - A supervised task's body must return `Unit`, since nobody has to await
   it. Its handle may be discarded with `_ =`.
 - A supervised task may open its own `concurrent` block. The block owns the
@@ -196,8 +197,8 @@ The difference is whether you must use the handle. A task owned by a
 task owned by a supervisor need not be, because the supervisor waits for it.
 
 For batches, `Supervisor.spawn_all` works like
-[`Task.spawn_all`](/concurrency/#running-a-batch). It takes no `max_running`, because the
-supervisor already has one:
+[`Task.spawn_all`](/concurrency/#running-a-batch). It takes no
+`max_running`, because the supervisor already has one:
 
 ```nomi
 _ = Supervisor.spawn_all(Config.notify, users, send_welcome)
@@ -309,28 +310,20 @@ too. Only the deadline is dropped.
 
 By default a supervisor restarts nothing. That default is
 `Restart.Temporary`, which only reports failures. Choose another restart
-rule when a failed task should run again:
+rule in `boot` when a failed task should run again:
 
 ```nomi
-fn boot() -> Result<Config, String> {
-    Ok(Config{
-        context: Context.root(),
-        // A long-lived worker: retry patiently through a long outage,
-        // and if it still can't run, take the process down so we get
-        // restarted clean.
-        workers: Supervisor.new(
-            max_running: 8,
-            restart: Restart.Transient,
-            backoff: Backoff.Exponential{
-                max_restarts: 60,
-                max_elapsed: Duration.hours(1),
-            },
-            on_give_up: GiveUp.Exit,
-        ),
-        // One-shot work: the built-in schedule, then give up and report it.
-        notify: Supervisor.new(max_running: 50, restart: Restart.Transient),
-    })
-}
+// One-shot work: the built-in schedule, then give up and report it.
+notify = Supervisor.new(max_running: 50, restart: Restart.Transient)
+
+// A long-lived worker: retry patiently through a long outage, and if it
+// still can't run, take the process down so it gets restarted clean.
+workers = Supervisor.new(
+    max_running: 8,
+    restart: Restart.Permanent,
+    backoff: Backoff.Exponential{max_restarts: 60, max_elapsed: Duration.hours(1)},
+    on_give_up: GiveUp.Exit,
+)
 ```
 
 `Restart.Transient` restarts a task that failed. A task that completed, or
@@ -341,19 +334,12 @@ that you cancelled, is not restarted.
 A restart happens when a task fails. For one-off work, a task that returns
 is done, and running it again would be a bug. A worker that should run until
 it is stopped is different. If it returns by itself, something went wrong.
+Nomi can't tell these apart, so you say which one you have.
 
-Nomi can't tell these apart, so you say which one you have:
-
-```nomi
-workers: Supervisor.new(
-    max_running: 8,
-    restart: Restart.Permanent,
-),
-```
-
-`Restart.Permanent` means the work should never end on its own. If a task
-returns, that counts as a failure, so it is reported and restarted. Without
-it, a worker that returned would stay stopped and nothing would report it.
+`Restart.Permanent`, as `workers` has above, means the work should never
+end on its own. If a task returns, that counts as a failure, so it is
+reported and restarted. Without it, a worker that returned would stay
+stopped and nothing would report it.
 
 Being cancelled isn't returning on its own, so shutdown still works. When
 shutdown or `Task.cancel` stops a permanent task, it is cancelled, not
@@ -384,14 +370,15 @@ process, such as a desktop app. Use `GiveUp.Report` there.
 A task can retry its own `Err` values in a loop. It can't catch a trap in
 its own code. The restart rule is the first thing that sees those.
 
-To test restart schedules, use [`clock Clock.Virtual`](/testing/#virtual-time). The
-waits are the same as in production, but they take no real time.
+To test restart schedules, use
+[`clock Clock.Virtual`](/testing/#virtual-time). The waits are the same as
+in production, but they take no real time.
 
 ## Testing background work
 
-Background work is hard to test. Your test calls the code, the code returns
-at once, and the work happens somewhere else. If you sleep for a while and
-hope, the test is slow and sometimes fails.
+A test of background work calls the code, the code returns at once, and
+the work happens somewhere else. A test that sleeps for a while and hopes is
+slow and sometimes fails.
 
 `Supervisor.flush` waits until the supervisor's tasks have finished. Without
 a limit it always returns `Flushed`, so the examples assign it to `_`:
@@ -459,8 +446,7 @@ enum Counter {
 
 fn handle(count: Int, message: Counter) -> Int {
     case message {
-        .Add(n) ->
-            count + n
+        .Add(n) -> count + n
 
         .Get{reply} -> {
             Reply.send(reply, count)
@@ -515,16 +501,17 @@ are needed.
 `Actor.cast` returns as soon as its message is queued. `Actor.call` builds
 its message around a new `Reply`, which the handler replies to with
 `Reply.send`, and waits for the reply up to a timeout, five seconds unless
-the call gives another (`timeout: Duration.seconds(1)`). Each call has its own `Reply`, so two callers can't get each
-other's replies, and a call that gets none returns `Err(CallError.TimedOut)`.
+the call gives another (`timeout: Duration.seconds(1)`). Each call has its
+own `Reply`, so two callers can't get each other's replies, and a call that
+gets none returns `Err(CallError.TimedOut)`.
 
 Each read costs two channel operations and a switch between tasks. If the
 state is mostly read, ask whether it needs to live in the program and change
 at all. A value you can compute again, or a row in a database you already
 query, needs none of this.
 
-This pattern is worth it when several callers change shared state and you
-need those changes to happen one at a time.
+Use an actor when several callers change shared state and the changes must
+happen one at a time.
 
 ## What background work can't promise
 

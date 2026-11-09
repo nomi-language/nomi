@@ -4,7 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// `Foo(#{a: 1, b: "x"})` — the struct CALL form.
+// `Foo(.{a: 1, b: "x"})` — the struct CALL form.
 //
 // # TWO argument shapes, and one field matcher
 //
@@ -12,7 +12,7 @@ import (
 // either of two shapes: an ANONYMOUS STRUCT LITERAL — a `*ast.StructLit`
 // with no TypeName, or the empty `*ast.Block` that `{}` parses as — or a
 // NON-LITERAL expression whose inferred type is a matching `AnonStructType`,
-// which is what makes `MyApp(defaults())` legal beside `MyApp(#{...})`.
+// which is what makes `MyApp(defaults())` legal beside `MyApp(.{...})`.
 //
 // The literal shape is re-spelled as the literal it already is and handed to
 // `structValue`. The record shape cannot be: there is no field-value NODE to
@@ -40,7 +40,7 @@ import (
 // record's fields into the struct's is wrong. It is not silently wrong when the
 // field types differ (Go rejects it) and it IS silently wrong when they do not,
 // which is why testdata/struct_forms.nomi builds a `Rev{z: Int, a: String}`
-// from `#{a: "s", z: 1}`: the two orders are reversed and the types cross.
+// from `.{a: "s", z: 1}`: the two orders are reversed and the types cross.
 //
 // Going through the literal path means no order is computed here at all.
 //
@@ -58,7 +58,7 @@ import (
 //
 // A missing required field is reported against the node handed to
 // `litFieldValues`. A plain `{}` is a block, never a record: the empty
-// record is `#{}`.
+// record is `.{}`.
 func anonArgAsLiteral(arg ast.Node) (*ast.StructLit, bool) {
 	switch a := arg.(type) {
 	case *ast.StructLit:

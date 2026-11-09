@@ -35,7 +35,7 @@ test "a document reads into a tree and writes back as the same tree" {
     assert thumb.name == Name{local: "thumb", space: "urn:media", prefix: "m"}
     assert Element.child(entry, "thumb", space: Some(atom)) == None
 
-    assert Iter.any(doc.children, fn node -> {
+    assert Iter.any_match(doc.children, fn node -> {
         node == Node.Instruction{target: "render", data: "fast"}
     })
 
@@ -171,8 +171,7 @@ test "a stream is read a token at a time" {
                 Ok(.Start{name, attributes}) when name.local == "item" ->
                     attributes |> Iter.map(fn a -> a.value) |> Iter.to_list()
 
-                _ ->
-                    []
+                _ -> []
             }
         })
         |> Iter.to_list()

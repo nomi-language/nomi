@@ -80,7 +80,13 @@ func (g *gen) irBoxedErasure(want, have kind) bool {
 // irBoxPlanFor is the plan that boxes have into want, or nil when have
 // enters want unboxed or not at all.
 func (g *gen) irBoxPlanFor(want, have kind) *irBoxPlan {
-	if !irExistentialKind(want) || g.stdModule != "" {
+	if !irExistentialKind(want) {
+		return nil
+	}
+	if g.stdModule != "" && !(g.stdCases && want.iface.stdOrigin != "") {
+		// A std module boxes nothing, but its cases are a program, which
+		// holds a std container or leaf as a std interface value
+		// (stdprogiface.go) as any program does.
 		return nil
 	}
 	d := want.iface

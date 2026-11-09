@@ -49,7 +49,7 @@ pub fn born_street(born: Born) -> String {
 
 /// `person` living on `street`, at the same house number and place.
 pub fn set_current_street(person: Person, street: String) -> Person {
-    #{..person, address: #{.., street}}
+    .{..person, address: .{.., street}}
 }
 
 /// `person` born in `month` of the same year, on the same day, or the
@@ -58,16 +58,16 @@ pub fn set_birth_month(person: Person, month: Int) -> Result<Person, calendar.Er
     on = person.born.on
     on = Date.new(Date.year(on), month, Date.day(on))?
 
-    Ok(#{..person, born: #{.., on}})
+    Ok(.{..person, born: .{.., on}})
 }
 
 /// `person` with `rename` applied to the street they were born on and the
 /// street they live on.
 pub fn rename_streets(person: Person, rename: (String) -> String) -> Person {
-    #{
+    .{
         ..person,
-        born: #{.., at: #{.., street: rename(person.born.at.street)}},
-        address: #{.., street: rename(person.address.street)},
+        born: .{.., at: .{.., street: rename(person.born.at.street)}},
+        address: .{.., street: rename(person.address.street)},
     }
 }
 
@@ -78,9 +78,9 @@ import {
 }
 
 once jane = Person{
-    name: #{fore_name: "Jane Joanna", sur_name: "Doe"},
-    born: #{
-        at: #{
+    name: .{fore_name: "Jane Joanna", sur_name: "Doe"},
+    born: .{
+        at: .{
             house_number: 22,
             street: "Implicit Street",
             place: "Lazy Town",
@@ -88,7 +88,7 @@ once jane = Person{
         },
         on: Date`1970-03-02`,
     },
-    address: #{
+    address: .{
         house_number: 1337,
         street: "Coder Street",
         place: "Hacker City",
@@ -104,7 +104,7 @@ test "setCurrentStreet" {
     moved = lens_person.set_current_street(jane, "Puppy Street")
 
     assert moved.address.street == "Puppy Street"
-    assert moved == #{..jane, address: #{.., street: "Puppy Street"}}
+    assert moved == .{..jane, address: .{.., street: "Puppy Street"}}
 }
 
 test "setBirthMonth" {
@@ -129,7 +129,7 @@ test "renameStreets current" {
 // Not canonical: the Haskell track's calendar clips a day past the month's
 // end; std/calendar refuses it.
 test "a birth month without the birth day is an error" {
-    born_on_the_31st = #{..jane, born: #{.., on: Date`1970-03-31`}}
+    born_on_the_31st = .{..jane, born: .{.., on: Date`1970-03-31`}}
 
     assert Err(_) = lens_person.set_birth_month(born_on_the_31st, 2)
 }
@@ -146,7 +146,7 @@ test result: ok. 6 passed, 0 failed
 
 ## How it's written
 
-- Adapted: the exercise asks for lenses, getter and setter pairs that compose, because in Haskell changing a field three records down means rebuilding each record on the way. Nomi's spread update does that rebuilding itself: `#{..person, address: #{.., street}}` replaces one nested field and keeps the rest, at any depth, and a field path such as `born.at.street` reads one. So the four functions are plain reads and updates, with no `Lens` type; a lens type would be a second spelling of what the update already says.
+- Adapted: the exercise asks for lenses, getter and setter pairs that compose, because in Haskell changing a field three records down means rebuilding each record on the way. Nomi's spread update does that rebuilding itself: `.{..person, address: .{.., street}}` replaces one nested field and keeps the rest, at any depth, and a field path such as `born.at.street` reads one. So the four functions are plain reads and updates, with no `Lens` type; a lens type would be a second spelling of what the update already says.
 - The records are four structs, `Person`, `Name`, `Born` and `Address`, with the Haskell track's fields in snake case, and the birth day a std/calendar `Date`.
 - `set_birth_month` answers a `Result`: `Date.new` refuses a day the new month does not have, where the Haskell track's `fromGregorian` clips it to the month's last day. The test file adds one case, marked not canonical, that sets February for a person born on the 31st.
 - `rename_streets` takes the renaming as a function and applies it to both streets in one update with two nested spreads.

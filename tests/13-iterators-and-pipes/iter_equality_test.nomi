@@ -1,7 +1,7 @@
 import std::compiler
 
 fn reports(source: String, text: String) -> Bool {
-    compiler.check(source) |> Iter.any(fn d -> text in d.message)
+    compiler.check(source) |> Iter.any_match(fn d -> text in d.message)
 }
 
 test "an Iter has no equality" {

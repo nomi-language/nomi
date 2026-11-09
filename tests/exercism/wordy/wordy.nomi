@@ -38,7 +38,7 @@ fn evaluate(total: Int, words: List<String>) -> Result<Int, Error> {
         ["minus", ..rest] -> operand(total, .Minus, rest)
         ["multiplied", "by", ..rest] -> operand(total, .Times, rest)
         ["divided", "by", ..rest] -> operand(total, .DividedBy, rest)
-        [word, ..] when String.to_int(word) |> Maybe.is_some() -> Err(.SyntaxError)
+        [word, ..] when String.to_int(word) is Some(_) -> Err(.SyntaxError)
         _ -> Err(.UnknownOperation)
     }
 }

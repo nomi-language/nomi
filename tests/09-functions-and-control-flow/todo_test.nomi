@@ -57,7 +57,7 @@ test "an unannotated binding of a todo asks for a type" {
         """
         |> compiler.check()
 
-    assert Iter.any(diagnostics, fn d -> {
+    assert Iter.any_match(diagnostics, fn d -> {
         "cannot infer a type for 'x' from `todo`" in d.message
     })
 }

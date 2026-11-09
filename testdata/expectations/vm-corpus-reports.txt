@@ -169,6 +169,7 @@
 17-typed-literals/toml_literal_test.nomi
 17-typed-literals/url_slots_test.nomi
 18-ffi-and-dynamic/dynamic_decoder_test.nomi
+18-ffi-and-dynamic/json_anon_struct_test.nomi
 18-ffi-and-dynamic/json_container_decode_test.nomi
 18-ffi-and-dynamic/json_decode_error_text_test.nomi
 18-ffi-and-dynamic/json_derive_defaults_test.nomi

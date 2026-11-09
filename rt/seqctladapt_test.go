@@ -262,7 +262,7 @@ func TestSeqAdapterCtlRunAnswer(t *testing.T) {
 }
 
 // TestSeqCtlTerminalsAndStages pins the per-operation meaning of the four
-// signals in drop_while, flat_map, find, any? and all?: what `break v`'s value
+// signals in drop_while, flat_map, find, any_match and all_match: what `break v`'s value
 // is for each, and that `continue` differs from a plain false answer.
 func TestSeqCtlTerminalsAndStages(t *testing.T) {
 	fr := NewFrame(nil)
@@ -348,7 +348,7 @@ func TestSeqCtlTerminalsAndStages(t *testing.T) {
 		}
 	}
 
-	// any? accumulates False until an element matches.
+	// any_match accumulates False until an element matches.
 	for _, tc := range []struct {
 		name string
 		f    func(*Frame, int64) (bool, Ctl)
@@ -363,7 +363,7 @@ func TestSeqCtlTerminalsAndStages(t *testing.T) {
 			t.Errorf("any %s gave %v, want %v", tc.name, got, tc.want)
 		}
 	}
-	// all? accumulates True until an element fails.
+	// all_match accumulates True until an element fails.
 	for _, tc := range []struct {
 		name string
 		f    func(*Frame, int64) (bool, Ctl)

@@ -24,7 +24,6 @@ pub struct User {
     balance: Float = 0.0
 }
 
-derive Equatable for User
 derive ToJson for User
 derive FromJson for User
 
@@ -33,7 +32,6 @@ pub struct Users {
     users: List<User>
 }
 
-derive Equatable for Users
 derive ToJson for Users
 derive FromJson for Users
 
@@ -82,11 +80,7 @@ impl RestApi {
     pub fn new(database: String) -> Result<RestApi, Error> {
         database: Users = Json.decode_as(database) |> Result.map_err(Error.InvalidJson)?
 
-        Ok(
-            RestApi{
-                users: database.users |> Iter.map(fn user -> (user.name, user)) |> Iter.to_map(),
-            }
-        )
+        Ok(.{users: database.users |> Iter.map(&(&1.name, &1)) |> Iter.to_map()})
     }
 
     /// Returns a `GET` of `url`: `/users` lists every user, or the users
@@ -100,8 +94,7 @@ impl RestApi {
                 query.users
             }
 
-            None ->
-                Map.keys(api.users)
+            None -> Map.keys(api.users)
         }
 
         users = names |> Iter.map(&find(api, &1)) |> Result.collect()?
@@ -137,8 +130,7 @@ impl RestApi {
                 Ok((Json.encode_as(answer), RestApi{users}))
             }
 
-            _ ->
-                Err(.NotFound(url))
+            _ -> Err(.NotFound(url))
         }
     }
 }
@@ -174,7 +166,7 @@ fn with_net(user: User, other: String, net: Float) -> User {
 
     owed = owed_by |> Map.values() |> Iter.sum()
     owing = owes |> Map.values() |> Iter.sum()
-    #{..user, owes, owed_by, balance: owed - owing}
+    .{..user, owes, owed_by, balance: owed - owing}
 }
 
 // FILE: rest_api_test.nomi
@@ -193,7 +185,7 @@ group "user management" {
     test "no users" {
         api = RestApi.new(`{"users":[]}`)?
         answer = RestApi.get(api, "/users")?
-        assert Json.decode_as<Users>(answer) == Ok(#{users: []})
+        assert Json.decode_as<Users>(answer) == Ok(.{users: []})
     }
 
     test "add user" {
@@ -201,7 +193,7 @@ group "user management" {
         (answer, _api) = RestApi.post(api, "/add", `{"user":"Adam"}`)?
         user: User = Json.decode_as(answer)?
 
-        assert user == #{name: "Adam", owes: %{}, owed_by: %{}, balance: 0.0}
+        assert user == .{name: "Adam", owes: %{}, owed_by: %{}, balance: 0.0}
     }
 
     test "get single user" {

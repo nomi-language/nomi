@@ -158,7 +158,7 @@ func TestDebugInfo_AVariableIsDeclaredAtItsName(t *testing.T) {
 }
 
 fn main() {
-  #{x, y: why} = P{x: 1, y: 2}
+  .{x, y: why} = P{x: 1, y: 2}
   m = case Some(x) {
     Some(n) as whole -> (n, whole)
     None -> (0, None)

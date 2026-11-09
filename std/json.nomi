@@ -108,12 +108,11 @@ impl Json {
                     Err(e) -> Err(Json.Error.Shape(e))
                 }
 
-            Err(e) ->
-                Err(Json.Error.Decode(e))
+            Err(e) -> Err(Json.Error.Decode(e))
         }
     }
 
-    /// Writes a `T` as compact JSON text in one step: `T.to_json`, then
+    /// Writes a value as compact JSON text in one step: `ToJson.to_json`, then
     /// `Json.encode`. It is the other direction of `Json.decode_as`, and
     /// `Json.decode_as` reads its text back as the same value.
     //! assert Json.encode_as([1, 2, 3]) == "[1,2,3]"
@@ -121,9 +120,11 @@ impl Json {
     //!
     //! text = Json.encode_as(%{"a" => [1, 2]})
     //! assert Json.decode_as<Map<String, List<Int>>>(text) == Ok(%{"a" => [1, 2]})
+    //!
+    //! assert Json.encode_as(.{error: "no todo 99"}) == `{"error":"no todo 99"}`
     //
-    pub fn encode_as<T>(value: T) -> String where T: ToJson {
-        Json.encode(T.to_json(value))
+    pub fn encode_as(value: ToJson) -> String {
+        Json.encode(ToJson.to_json(value))
     }
 
     /// Human-readable shape name used in `Json.ShapeError` messages.
@@ -151,8 +152,7 @@ fn decode_list<T>(
     decode_item: (Json) -> Result<T, Json.ShapeError>,
 ) -> Result<List<T>, Json.ShapeError> {
     case items {
-        [] ->
-            Ok(acc)
+        [] -> Ok(acc)
 
         [head, ..tail] ->
             case decode_item(head) {
@@ -294,12 +294,44 @@ impl Display for Json.ShapeError {
     }
 }
 
+/// A type whose values are written as JSON: `derive ToJson for T`, or an
+/// impl. An anonymous struct is ToJson when each of its fields is: it is
+/// written as an object keyed by its field names as written, a `None` field
+/// as `null`, as `derive ToJson` writes a struct with the same fields.
+//! assert Json.encode_as(.{id: 7, tags: ["a"], due: None}) == `{"due":null,"id":7,"tags":["a"]}`
+//
 pub interface ToJson {
     fn to_json(value: self) -> Json
 }
 
+/// A type whose values are read from JSON: `derive FromJson for T`, or an
+/// impl. An anonymous struct is FromJson when each of its fields is, and
+/// reads an object as `derive FromJson` reads a struct with the same fields:
+/// each field from the key of its name, a missing key of a `Maybe` field as
+/// `None`, and keys it has no field for ignored. A missing key of any other
+/// field is the error `<key>: expected <type>, got missing`.
+//! todo = Json.decode_as<.{title: String, order: Maybe<Int>}>(`{"title": "milk", "id": 3}`)
+//! assert todo == Ok(.{title: "milk", order: None})
+//!
+//! missing = Json.decode_as<.{title: String}>("{}") |> Result.map_err(&Display.to_string(&1))
+//! assert missing == Err("title: expected String, got missing")
+//
 pub interface FromJson {
     fn from_json(json: Json) -> Result<self, Json.ShapeError>
+}
+
+// A `Json` value is its own JSON, so a function that takes any `ToJson`
+// value, or decodes into any `FromJson` type, takes `Json` as well.
+impl ToJson for Json {
+    fn to_json(value: Json) -> Json {
+        value
+    }
+}
+
+impl FromJson for Json {
+    fn from_json(json: Json) -> Result<Json, Json.ShapeError> {
+        Ok(json)
+    }
 }
 
 impl ToJson for Int {
@@ -405,8 +437,7 @@ impl FromJson for Vector<T> where T: FromJson {
                     Err(e) -> Err(e)
                 }
 
-            _ ->
-                Err(shape_error_root("array", json))
+            _ -> Err(shape_error_root("array", json))
         }
     }
 }
@@ -430,8 +461,7 @@ impl FromJson for Set<T> where T: FromJson {
                     Err(e) -> Err(e)
                 }
 
-            _ ->
-                Err(shape_error_root("array", json))
+            _ -> Err(shape_error_root("array", json))
         }
     }
 }
@@ -448,8 +478,7 @@ impl ToJson for Maybe<T> where T: ToJson {
 impl FromJson for Maybe<T> where T: FromJson {
     fn from_json(json: Json) -> Result<Maybe<T>, Json.ShapeError> {
         case json {
-            Json.Null ->
-                Ok(None)
+            Json.Null -> Ok(None)
 
             _ ->
                 case T.from_json(json) {
@@ -472,8 +501,7 @@ impl FromJson for Map<String, V> where V: FromJson {
             Json.Obj(items) ->
                 Iter.reduce(items, Ok(%{}), fn state, (key, value) -> {
                     case state {
-                        Err(e) ->
-                            break Err(e)
+                        Err(e) -> break Err(e)
 
                         Ok(acc) ->
                             case V.from_json(value) {
@@ -483,8 +511,7 @@ impl FromJson for Map<String, V> where V: FromJson {
                     }
                 })
 
-            _ ->
-                Err(shape_error_root("object", json))
+            _ -> Err(shape_error_root("object", json))
         }
     }
 }
@@ -497,8 +524,7 @@ fn shape_error_text(expected: String, json: Json) -> Json.ShapeError {
         Json.String(text) ->
             Json.ShapeError{path: [], expected, got: "string ${Debug.inspect(text)}"}
 
-        _ ->
-            shape_error_root(expected, json)
+        _ -> shape_error_root(expected, json)
     }
 }
 
@@ -543,8 +569,7 @@ impl FromJson for Instant {
                 |> Result.map(&Anchored.to_instant(&1))
                 |> Result.map_err(fn _ -> shape_error_text(expected, json))
 
-            _ ->
-                Err(shape_error_root(expected, json))
+            _ -> Err(shape_error_root(expected, json))
         }
     }
 }
@@ -574,8 +599,7 @@ impl FromJson for Date {
             Json.String(text) ->
                 Date.parse(text) |> Result.map_err(fn _ -> shape_error_text(expected, json))
 
-            _ ->
-                Err(shape_error_root(expected, json))
+            _ -> Err(shape_error_root(expected, json))
         }
     }
 }
@@ -608,8 +632,7 @@ impl FromJson for NaiveDateTime {
                 NaiveDateTime.parse(text)
                 |> Result.map_err(fn _ -> shape_error_text(expected, json))
 
-            _ ->
-                Err(shape_error_root(expected, json))
+            _ -> Err(shape_error_root(expected, json))
         }
     }
 }
@@ -639,8 +662,7 @@ impl FromJson for Time {
             Json.String(text) ->
                 Time.parse(text) |> Result.map_err(fn _ -> shape_error_text(expected, json))
 
-            _ ->
-                Err(shape_error_root(expected, json))
+            _ -> Err(shape_error_root(expected, json))
         }
     }
 }
@@ -694,11 +716,13 @@ impl FromJson for Decimal {
 // from its JSON text with export_argument, at the parameter's type, and
 // encodes the result with export_result. The IR builder instantiates both
 // for each exported signature (internal/irbuild/exports.go); no Nomi code
-// calls them.
+// calls them. export_result calls `T.to_json` itself rather than
+// `Json.encode_as`, which takes a `ToJson` value: the instance knows the
+// type, so it dispatches statically and boxes nothing.
 fn export_argument<T>(text: String) -> Result<T, String> where T: FromJson {
     Json.decode_as<T>(text) |> Result.map_err(&Display.to_string(&1))
 }
 
 fn export_result<T>(value: T) -> String where T: ToJson {
-    Json.encode_as(value)
+    Json.encode(T.to_json(value))
 }

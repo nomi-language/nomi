@@ -780,11 +780,19 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			return
 		}
 		d.ifaceName = name
-		// `impl calendar.DateParts for Q`: the qualifier names std's
-		// interface, whatever this file declares under the bare name.
-		stdQualified := false
-		if std, key, named := g.qualifiedStdIface(ib.Interface); named {
-			d.iface, d.ifaceName, stdQualified = std, key, true
+		// `impl other.Shape for Sq`: the qualifier names a program
+		// module's interface, whatever this file declares under the bare
+		// name. A std module lowered with the program (`impl sql.ToSql for
+		// Status`) is one: its interface is the program's, the def the bare
+		// imported name reaches, so a value boxed as it in any file
+		// dispatches to this impl.
+		// `impl calendar.DateParts for Q`: the qualifier names a shared std
+		// interface.
+		qualified := false
+		if def, key, named := g.qualifiedModuleIface(ib.Interface); named {
+			d.iface, d.ifaceName, qualified = def, key, true
+		} else if std, key, named := g.qualifiedStdIface(ib.Interface); named {
+			d.iface, d.ifaceName, qualified = std, key, true
 		}
 		// A GENERIC interface, monomorphized at this block's type arguments.
 		// Asked FIRST, and the order is the whole safety argument: the template
@@ -792,7 +800,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		// refuse the very block this instantiation serves. The instance is
 		// the template at the block's type arguments, solved under the frame
 		// a generic receiver's instance was registered at. See ifaceinst.go.
-		if tpl := g.ifaceTemplate(name); tpl != nil && !stdQualified {
+		if tpl := g.ifaceTemplate(name); tpl != nil && !qualified {
 			inst, why, detail := g.ifaceInstanceFor(tpl, ib)
 			if why != "" {
 				d.lowerable, d.why, d.whyDetail = false, why, detail
@@ -846,7 +854,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 				d.instArgs = args
 			}
 		}
-		if d.iface == nil && !stdQualified {
+		if d.iface == nil && !qualified {
 			// A sibling file's interface resolves to a MIRROR, so an impl
 			// written here binds into the OWNER's dispatch table rather than a
 			// second one. See existential.go.

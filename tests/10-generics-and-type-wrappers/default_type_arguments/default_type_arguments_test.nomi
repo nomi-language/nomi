@@ -10,7 +10,7 @@ import {
 }
 
 fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
-    Iter.any(diagnostics, fn diagnostic -> text in diagnostic.message)
+    Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
 }
 
 fn label(t: Tagged<Int>) -> String {

@@ -101,7 +101,7 @@ pub type Expired
 pub opaque type Counter Int
 
 pub typealias Rule (String) -> Maybe<String>
-pub typealias Span #{start: Int, end: Int, line: Int}
+pub typealias Span .{start: Int, end: Int, line: Int}
 
 // ---------------------------------------------------------------------------
 // Interfaces and impls
@@ -146,7 +146,7 @@ fn bounded<T>(_items: List<T>) -> String where T: Drawable2 {
     "drawn"
 }
 
-fn process(_opts: List<#{retries: Int, timeout: Int, on_error: (String) -> Int}>) -> Int {
+fn process(_opts: List<.{retries: Int, timeout: Int, on_error: (String) -> Int}>) -> Int {
     0
 }
 
@@ -175,10 +175,10 @@ fn binding_forms() {
     Email(_) = Email("a@b.com")
 
     // Anon struct literal — short stays flat
-    _short_anon = #{a: 1, b: 2}
+    _short_anon = .{a: 1, b: 2}
 
     // Anon struct literal — user-written multi-line preserved
-    _long_anon = #{
+    _long_anon = .{
         a: 1,
         b: 2,
         c: 3,
@@ -256,23 +256,23 @@ fn pipe_chain(xs: List<Int>) -> List<Int> {
 // Anon struct types break at their column when long; outer container
 // (tuple, generic) stays inline. Function-type-with-Return wraps its
 // param list in a Group so a too-long signature breaks at the param list.
-pub type Tagged (String, #{tag: String, payload: Int})
+pub type Tagged (String, .{tag: String, payload: Int})
 
-pub type LongTuple (String, #{
+pub type LongTuple (String, .{
     status: Int,
     message: String,
     retryable: Bool,
     more_info: String,
 })
 
-pub typealias Pages List<#{
+pub typealias Pages List<.{
     status: Int,
     message: String,
     retryable: Bool,
     a_long_field: String,
 }>
 
-pub typealias Endpoint (#{
+pub typealias Endpoint (.{
     req: String,
     headers: Map<String, String>,
     body: String,

@@ -212,7 +212,7 @@ func (g *gen) irPatternAlwaysMatches(p ast.Node, k kind) bool {
 		if g.distinctSubPattern(v, k) {
 			return true
 		}
-		// `Wrapped(#{r})` for `type Wrapped Circle`: a distinct's destructure
+		// `Wrapped(.{r})` for `type Wrapped Circle`: a distinct's destructure
 		// matches when its inner pattern does, as nominalCaseTest tests it.
 		if k.tag != tagNamed || !irDistinctOverValue(k.def) || k.def.rtOpaque || (v.Binding != "" && v.Payload != nil) {
 			return false

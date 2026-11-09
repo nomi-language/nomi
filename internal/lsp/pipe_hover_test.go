@@ -117,9 +117,9 @@ func TestHover_PipeValueStages(t *testing.T) {
 }
 `, "`Int` → `f(Int)` → `Int`\n\n```nomi\nf: (n: Int) -> Int\n```\n\nThe piped value fills argument 1."},
 		{"a struct's call form", `fn main() {
-  io.inspect(#{x: 1, y: 2} ▮|> Point())
+  io.inspect(.{x: 1, y: 2} ▮|> Point())
 }
-`, "`#{x: Int, y: Int}` → `Point(…)` → `Point`\n\n```nomi\nstruct Point {\n    x: Int\n    y: Int\n}\n```\n\nBuilds the type from the piped value."},
+`, "`.{x: Int, y: Int}` → `Point(…)` → `Point`\n\n```nomi\nstruct Point {\n    x: Int\n    y: Int\n}\n```\n\nBuilds the type from the piped value."},
 		{"a distinct type's constructor", `fn main() {
   io.inspect("bob" ▮|> UserId())
 }

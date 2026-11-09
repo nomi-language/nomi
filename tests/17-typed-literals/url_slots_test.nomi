@@ -32,7 +32,7 @@ fn climbs(u: Url) -> Bool {
     |> Maybe.map(&("/" + &1))
     |> Maybe.with_default(path)
     |> String.split("/")
-    |> Iter.any(fn segment -> segment == "." or segment == "..")
+    |> Iter.any_match(fn segment -> segment == "." or segment == "..")
 }
 
 fn breaks(rule: (String) -> Bool) -> List<String> {

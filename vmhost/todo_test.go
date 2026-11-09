@@ -317,7 +317,7 @@ fn main() {
     io.print(todo + 1)
     box = Box{todo: t}
     io.print(box.todo.title)
-    io.print(#{todo}.todo)
+    io.print(.{todo}.todo)
     f = fn todo: Int -> todo * 10
     io.print(f(4))
     io.print(pick(Some(7)))

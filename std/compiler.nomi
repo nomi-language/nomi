@@ -51,6 +51,12 @@ pub struct RunFile {
 
 /// Checks `source` as a standalone Nomi entry file and returns every
 /// diagnostic as data.
+///
+/// The source is not a file of the current test project: its imports
+/// resolve against the project root, and the project files it imports are
+/// checked under the project's `nomi.toml`, but `entry_points` does not
+/// apply to the source itself, so it may declare a `fn main` wherever the
+/// calling test lives.
 //! import std::compiler
 //! import std::strings.String
 //!
@@ -68,6 +74,10 @@ pub struct RunFile {
 pub host fn check(source: String) -> List<Diagnostic>
 
 /// Runs `source` as a standalone Nomi entry file and captures stdout.
+///
+/// The source is placed in the current test project as `compiler.check`
+/// places it: imports resolve against the project root, and `entry_points`
+/// does not apply to the source.
 ///
 /// `Err(message)` is returned for parse, analysis, or runtime errors. A
 /// runtime error is what `nomi run` reports for the same source, including

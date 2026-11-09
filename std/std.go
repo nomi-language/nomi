@@ -9,7 +9,8 @@ import (
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/stdcache"
-	"hash/crc64"
+	"hash/crc32"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -333,22 +334,31 @@ func isEmbeddedStdlibSource(path string) bool {
 // Digest is a checksum of the stdlib this process analyzes: every embedded
 // module's path and source, the test-only fixtures included when they are
 // loaded. Something built from one stdlib checks it against another's before
-// it is used (internal/irbuild's std bundle).
+// it is used (internal/irbuild's std bundle, the std artifact). Every
+// process reads it at startup, so it is two CRC-32s, which the hardware
+// computes, over the sources read in place.
 var Digest = sync.OnceValue(func() string {
-	h := crc64.New(crc64.MakeTable(crc64.ECMA))
+	ieee, castagnoli := crc32.NewIEEE(), crc32.New(crc32.MakeTable(crc32.Castagnoli))
+	h := io.MultiWriter(ieee, castagnoli)
+	buf := make([]byte, 32<<10)
 	_ = fs.WalkDir(stdlibFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !isEmbeddedStdlibSource(path) {
 			return err
 		}
-		data, err := stdlibFS.ReadFile(path)
+		f, err := stdlibFS.Open(path)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(h, "%s\x00%d\x00", path, len(data))
-		h.Write(data)
-		return nil
+		defer f.Close()
+		info, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(h, "%s\x00%d\x00", path, info.Size())
+		_, err = io.CopyBuffer(h, f, buf)
+		return err
 	})
-	return fmt.Sprintf("%016x", h.Sum64())
+	return fmt.Sprintf("%08x%08x", ieee.Sum32(), castagnoli.Sum32())
 })
 
 // FixturesLoaded reports whether this process's stdlib holds the test-only

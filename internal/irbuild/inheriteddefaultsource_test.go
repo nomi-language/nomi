@@ -35,7 +35,7 @@ pub interface Powered {
     fn label(w: self) -> String
 
     fn origin(w: self) -> Point {
-        #{x: 7, y: String.length(Powered.label(w))}
+        .{x: 7, y: String.length(Powered.label(w))}
     }
 }
 `,

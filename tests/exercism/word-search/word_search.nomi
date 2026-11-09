@@ -43,8 +43,8 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
         |> Iter.find(fn (cell, step) -> reads(letters, spelling, cell, step))?
 
     Some(Span{
-        start: #{column: column + 1, row: row + 1},
-        end: #{column: column + 1 + across * last, row: row + 1 + down * last},
+        start: .{column: column + 1, row: row + 1},
+        end: .{column: column + 1 + across * last, row: row + 1 + down * last},
     })
 }
 
@@ -59,7 +59,7 @@ fn reads(
 ) -> Bool {
     spelling
     |> Iter.with_index()
-    |> Iter.all(fn (i, letter) -> {
+    |> Iter.all_match(fn (i, letter) -> {
         letter_at(letters, row + down * i, column + across * i) == Some(letter)
     })
 }

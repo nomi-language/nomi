@@ -77,7 +77,7 @@ func paramPatternHeadType(pattern ast.Node, reg *TypeRegistry, typeParams map[st
 		}
 	case *ast.StructPattern:
 		if p.TypeName == nil {
-			return nil, nil // anonymous struct `#{x, y}` — no type head
+			return nil, nil // anonymous struct `.{x, y}` — no type head
 		}
 		if qt, ok := p.TypeName.(*ast.QualifiedType); ok {
 			// `Outer.Inner{...}` may name a qualified struct type. Prefer the
@@ -375,7 +375,7 @@ func structFieldsOf(ty Type) []FieldDef {
 
 // paramWritten is a parameter as its function's signature writes it, for a
 // diagnostic that names one with no name of its own: a pattern with its
-// annotation (`#{id}: #{id: Uuid}`), or the type of one written as its type
+// annotation (`.{id}: .{id: Uuid}`), or the type of one written as its type
 // (`fn stats(Request)`). A named parameter is its name.
 func paramWritten(p ast.Param) string {
 	switch {

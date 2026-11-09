@@ -62,7 +62,10 @@ package std
 // The interfaces and facts are one artifact (stdArtifact, artifact.go): a
 // head naming its format version, Digest and the fixtures setting, a
 // CRC-32, each module's interface and parse errors, the index of what each
-// module imports, and the facts. A binary built with the nomi_stdbundle tag
+// module imports, what each exports to the help that names a missing
+// import (analysis.SetStdExports, which would otherwise parse every
+// module's source the first time a program's check, or the base build's
+// own discarded error, asks), and the facts. A binary built with the nomi_stdbundle tag
 // embeds it (std/stdiface.bin, written by internal/irbuild/stdbundlegen
 // beside the std bundle and supplied with `go build -overlay`); any other
 // binary keeps it in the artifact cache under its build ID
@@ -70,9 +73,28 @@ package std
 // stdlib and extracts the interfaces, runs Load for the facts, builds from
 // the interfaces as a later process does, and writes the artifact for the
 // next. An artifact that does not decode or build is made again.
-// NOMI_DEBUG_STD_BUNDLE=1 reports why one was not used. Building every
+// NOMI_DEBUG_STD_BUNDLE=1 reports why one was not used. The facts are
+// decoded on another goroutine while the base modules build
+// (decodeFactsAhead), each module's file named under the directory a build
+// finds the stdlib in (analysis.StdlibPath); installFacts decodes them
+// again when the build put the prelude elsewhere. Building every
 // module from interfaces takes about 53 ms, against 345 ms to analyze it
 // from source. TestShared_ModulesAreLoadsModules holds the result to Load's.
+//
+// # The base modules' state
+//
+// The base modules built (stdBaseModules with what they import), their
+// facts installed and their base formed, are kept as bytes beside the
+// artifact, and a process that finds them reads them back whole instead of
+// building the base modules (state.go; the analysis package doc, "The
+// stdlib's state"). The process that makes an artifact writes none, since
+// it analyzed the stdlib from source first; the next one, which builds the
+// base modules from the artifact, writes it. A binary built with the
+// nomi_stdbundle tag embeds one beside its artifact (std/stdstate.bin),
+// which stdbundlegen writes in a process of its own, so a release and the
+// browser read it on their first run. A module beyond the base is built
+// over the state as over a build's. NOMI_STD_STATE=off neither reads nor
+// writes one.
 //
 // # A module at a time
 //
@@ -119,18 +141,28 @@ package std
 // holds a copy of that declaration's symbol, typed when the module it names
 // was built earlier, which the eager build's order leaves untyped.
 //
-// On an Apple M2 Max a built `nomi` runs hello world with no program record
-// in about 44 ms, against 119 ms with every module built; the std setup
-// (the artifact read, the base modules' build, their facts and the base) is
-// about 18 ms of it. A machine decodes its CLDR data only when a frame
-// first reads it (cldrdata.NewLazyStore). Most of the remaining setup is
-// the base build's fresh memory (about 11 MB) and the sweeps over the base
-// modules' declarations.
+// On an Apple M2 Max shared with other work a built `nomi` runs hello world
+// with no program record in a median of 28 ms of wall time, against 44 ms
+// when it built the base modules and 113 ms before the import help read
+// the artifact (std_exports.go). The std setup is about 9 ms: reading the
+// base modules' state 7 ms (16 MB), which replaced their build (17 ms) and
+// their StdBase (5 ms), and the artifact and state files the rest; the
+// facts decode on another goroutine, needed only by a module built later.
+// The setup runs at a GC target of 400 (setupGC), and the state's decode
+// with the collector off. A release-style binary (nomi_stdbundle,
+// -trimpath) runs hello world on its first run, in an empty cache, in a
+// median of 32 ms reading its embedded state against 48 ms building the
+// base modules. The tour's wasm under node starts (its main makes the
+// stdlib) in about 149 ms, 80 ms of it the state's decode, against 230 ms
+// building them, and its first hello world, nomiWarm included, comes about
+// 125 ms sooner; the state adds 1.8 MB to the wasm, 0.7 MB gzipped. A machine decodes its CLDR data only when a frame
+// first reads it (cldrdata.NewLazyStore).
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"sort"
 	"strings"
@@ -167,8 +199,16 @@ type stdCore struct {
 	// while buildFromArtifact works them out, so no build installs them.
 	facts     *analysis.StdFacts
 	computing bool
-	deferred  *deferredBodies
-	cur       atomic.Pointer[StdLib]
+	// ahead is the facts being decoded while the first modules build, until
+	// installFacts takes them.
+	ahead    *factsAhead
+	deferred *deferredBodies
+	cur      atomic.Pointer[StdLib]
+	// loadErr is why the last build's loader failed (load).
+	loadErr error
+	// stateFrom is where the base modules' state was read from (state.go),
+	// "embedded" or a path, or "" when they were built.
+	stateFrom string
 }
 
 // deferredBodies is what a stdlib built from interfaces keeps to check a
@@ -374,21 +414,8 @@ func (c *stdCore) ensureLocked(names []string) (*StdLib, error) {
 	if len(missing) == 0 {
 		return cur, nil
 	}
-	var decodeErr error
-	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
-		name := embeddedStdlibName(modulePath)
-		data, ok := c.art.ifaces[name]
-		if !ok {
-			return nil, missingStdModule(name, modulePath)
-		}
-		fi, err := analysis.DecodeInterface(data)
-		if err != nil {
-			decodeErr = fmt.Errorf("std/%s: %w", name, err)
-			return nil, err
-		}
-		c.deferred.iface[name] = fi.Nodes
-		return fi.Nodes, nil
-	}
+	c.loadErr = nil
+	loader := c.load
 	entry := make([]ast.Node, 0, len(missing))
 	for i, name := range missing {
 		entry = append(entry, stdlibDependencyImport(name, i+1))
@@ -400,8 +427,8 @@ func (c *stdCore) ensureLocked(names []string) (*StdLib, error) {
 	} else {
 		cache, extended = analysis.BuildStdDeclarationsOver(entry, loader, have)
 	}
-	if decodeErr != nil {
-		return nil, decodeErr
+	if c.loadErr != nil {
+		return nil, c.loadErr
 	}
 	next := &StdLib{
 		Modules:      make(map[string]*analysis.Scope, len(have)+len(cache)),
@@ -448,6 +475,24 @@ func (c *stdCore) ensureLocked(names []string) (*StdLib, error) {
 	return next, nil
 }
 
+// load is the loader every build of c's modules is given: a module's
+// interface, decoded from the artifact, whose nodes it keeps for checking
+// the module's bodies later. A module that does not decode sets loadErr.
+func (c *stdCore) load(projectRoot string, modulePath []string) ([]ast.Node, error) {
+	name := embeddedStdlibName(modulePath)
+	data, ok := c.art.ifaces[name]
+	if !ok {
+		return nil, missingStdModule(name, modulePath)
+	}
+	fi, err := analysis.DecodeInterface(data)
+	if err != nil {
+		c.loadErr = fmt.Errorf("std/%s: %w", name, err)
+		return nil, err
+	}
+	c.deferred.iface[name] = fi.Nodes
+	return fi.Nodes, nil
+}
+
 // copyModules copies from's modules into to's maps.
 func copyModules(to, from *StdLib) {
 	for name, fa := range from.Files {
@@ -465,22 +510,18 @@ func (c *stdCore) installFacts(lib *StdLib, added []string) error {
 		if prelude == nil {
 			return fmt.Errorf("the stdlib has no prelude")
 		}
-		// A position names a module's file by the path the build gives it
-		// (analysis.ResolveModulePath), the prelude's beside every other
-		// module's; the facts name it by the module.
 		dir := filepath.Dir(prelude.FilePath)
-		var badName string
-		facts, err := analysis.DecodeStdFacts(c.art.facts, func(name string) string {
-			if module, ok := strings.CutPrefix(name, "@"); ok {
-				if _, ok := c.art.ifaces[module]; ok {
-					return filepath.Join(dir, filepath.FromSlash(module)) + ".nomi"
-				}
+		var facts *analysis.StdFacts
+		var err error
+		if ahead := c.ahead; ahead != nil {
+			c.ahead = nil
+			<-ahead.done
+			if ahead.dir == dir {
+				facts, err = ahead.facts, ahead.err
 			}
-			badName = name
-			return name
-		})
-		if err == nil && badName != "" {
-			err = fmt.Errorf("the stdlib's facts name %s, which is not a std module", badName)
+		}
+		if facts == nil && err == nil {
+			facts, err = c.decodeFacts(dir)
 		}
 		if err != nil {
 			return err
@@ -494,6 +535,60 @@ func (c *stdCore) installFacts(lib *StdLib, added []string) error {
 		}
 	}
 	return c.facts.InstallModules(lib.Files, added)
+}
+
+// decodeFacts decodes the artifact's facts with each module's file under
+// dir. A position names a module's file by the path the build gives it
+// (analysis.ResolveModulePath), the prelude's beside every other module's;
+// the facts name it by the module.
+func (c *stdCore) decodeFacts(dir string) (*analysis.StdFacts, error) {
+	var badName string
+	paths := map[string]string{}
+	facts, err := analysis.DecodeStdFacts(c.art.facts, func(name string) string {
+		if path, ok := paths[name]; ok {
+			return path
+		}
+		if module, ok := strings.CutPrefix(name, "@"); ok {
+			if _, ok := c.art.ifaces[module]; ok {
+				path := filepath.Join(dir, filepath.FromSlash(module)) + ".nomi"
+				paths[name] = path
+				return path
+			}
+		}
+		badName = name
+		return name
+	})
+	if err == nil && badName != "" {
+		err = fmt.Errorf("the stdlib's facts name %s, which is not a std module", badName)
+	}
+	return facts, err
+}
+
+// factsAhead is the artifact's facts decoded on another goroutine while the
+// base modules build, with each module's file under dir, where a build
+// finds the stdlib (analysis.StdlibPath, asked once through stdlibRoot).
+// installFacts takes them when the build put the prelude there, and
+// decodes them again otherwise.
+type factsAhead struct {
+	dir   string
+	facts *analysis.StdFacts
+	err   error
+	done  chan struct{}
+}
+
+// decodeFactsAhead starts decoding the facts (factsAhead), or answers nil
+// when the stdlib has no directory to name files under.
+func (c *stdCore) decodeFactsAhead() *factsAhead {
+	dir, err := stdlibRoot()
+	if err != nil {
+		return nil
+	}
+	a := &factsAhead{dir: dir, done: make(chan struct{})}
+	go func() {
+		defer close(a.done)
+		a.facts, a.err = c.decodeFacts(dir)
+	}()
+	return a
 }
 
 // Bodies checks module's bodies, when lib was built from interfaces and
@@ -673,7 +768,11 @@ func loadShared() *stdCore {
 	loadMu.Lock()
 	defer loadMu.Unlock()
 	loadCount.Add(1)
+	defer setupGC()()
 	art, from := readStdArtifact()
+	if art != nil {
+		artifactExports.Store(&art.exports)
+	}
 	var c *stdCore
 	var err error
 	if art != nil {
@@ -687,6 +786,7 @@ func loadShared() *stdCore {
 	}
 	if art == nil {
 		art = extractStdArtifact()
+		artifactExports.Store(&art.exports)
 		if _, err = coreFromArtifact(art, load()); err == nil {
 			writeStdArtifact(art)
 			// This process builds the stdlib from the artifact as every
@@ -701,6 +801,24 @@ func loadShared() *stdCore {
 	return c
 }
 
+// setupGCPercent is the collector's target while Shared is made. The base
+// modules' build allocates about 35 MB and keeps most of it, and at Go's
+// default target of 100 the collector runs about seven times while it
+// does, against two at this one.
+const setupGCPercent = 400
+
+// setupGC raises the collector's target to setupGCPercent for the setup
+// and answers what puts the process's own back: a higher target or none
+// (GOGC=off) is left as it is.
+func setupGC() (restore func()) {
+	prev := debug.SetGCPercent(setupGCPercent)
+	if prev < 0 || prev >= setupGCPercent {
+		debug.SetGCPercent(prev)
+		return func() {}
+	}
+	return func() { debug.SetGCPercent(prev) }
+}
+
 // lazyFromArtifact is the stdlib art holds with its base modules built. A
 // stdlib with errors (Errors) is built whole, so every module's diagnostics
 // name the paths a build gives them, and so is every stdlib under
@@ -709,12 +827,19 @@ func lazyFromArtifact(art *stdArtifact) (*stdCore, error) {
 	c := newStdCore(art)
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.ahead = c.decodeFactsAhead()
 	first := stdBaseModules
-	if os.Getenv("NOMI_STD_WHOLE") == "1" {
+	whole := os.Getenv("NOMI_STD_WHOLE") == "1"
+	// NOMI_STD_STATE=off builds the base modules and keeps no state, as a
+	// process with no cache does.
+	useState := !whole && os.Getenv("NOMI_STD_STATE") != "off"
+	if whole {
 		// Every module in one build, as before the stdlib was built a
 		// module at a time: what a lazily built stdlib's answers are
 		// compared with (TestStdLazyRunsAsWhole).
 		first = c.names
+	} else if useState && c.fromState() {
+		return c, nil
 	}
 	lib, err := c.ensureLocked(first)
 	if err != nil {
@@ -724,6 +849,8 @@ func lazyFromArtifact(art *stdArtifact) (*stdCore, error) {
 		if _, err := c.ensureLocked(c.names); err != nil {
 			return nil, err
 		}
+	} else if useState {
+		c.keepState(lib)
 	}
 	return c, nil
 }

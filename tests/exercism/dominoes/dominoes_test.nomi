@@ -5,7 +5,7 @@ import dominoes
 /// it holds each stone as often as `stones` does, either way round.
 fn is_chain_of(chain: List<(Int, Int)>, stones: List<(Int, Int)>) -> Bool {
     next = chain |> Iter.drop(1) |> Iter.concat(Iter.take(chain, 1))
-    linked = Iter.zip(chain, next) |> Iter.all(fn ((_a, b), (c, _d)) -> b == c)
+    linked = Iter.zip(chain, next) |> Iter.all_match(fn ((_a, b), (c, _d)) -> b == c)
     linked and has_same_stones(chain, stones)
 }
 

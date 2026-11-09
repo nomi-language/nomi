@@ -76,7 +76,7 @@ func cryptoCases() map[string][]hostCase {
 			{args: args(hBytes(sigP256), hInt(4), message), shapeOnly: true},
 			{args: args(hBytes("junk"), hInt(0), message)},
 		},
-		"signatures_host.verify": cases(
+		"signatures_host.is_valid": cases(
 			args(hBytes(sigEdPub), hInt(0), message, hBytes(edSig)),
 			args(hBytes(sigEdPub), hInt(0), hBytes("hellO"), hBytes(edSig)),
 			args(hBytes(sigEdPub), hInt(1), message, hBytes(edSig)),

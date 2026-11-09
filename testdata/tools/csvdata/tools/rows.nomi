@@ -20,8 +20,7 @@ fn main() -> Result<Unit, String> {
 
 fn report(paths: List<String>) -> Result<Unit, String> {
     case paths {
-        [] ->
-            Ok(Unit)
+        [] -> Ok(Unit)
 
         [path, ..rest] -> {
             text = case fs.read_text(path) {

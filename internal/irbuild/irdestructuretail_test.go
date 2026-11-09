@@ -33,7 +33,7 @@ fn tuple_tail() {
 }
 
 fn struct_tail() {
-  #{x: _, y: _} = point()
+  .{x: _, y: _} = point()
 }
 
 fn named_struct_tail() {

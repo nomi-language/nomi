@@ -332,7 +332,7 @@ fn f(xs: List<Int>) -> Result<Unit, AssertionFailure> {
             break
         })
         assert first == Unit
-        assert Iter.all(xs, fn x -> {
+        assert Iter.all_match(xs, fn x -> {
             if x > 5 {
                 return False
             }

@@ -148,8 +148,8 @@ test "functions" {
 test "tuples, records and fields" {
     pairs = [("a", Pt{x: 5})]
     named: List<(String, Named)> = pairs
-    records = [#{n: 1}]
-    shown_records: List<#{n: Display}> = records
+    records = [.{n: 1}]
+    shown_records: List<.{n: Display}> = records
     pts = [Pt{x: 8}]
     gallery = Gallery{items: pts}
 

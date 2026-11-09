@@ -16,7 +16,7 @@ pub enum Error {
 impl Game {
     /// A game with no rolls yet.
     pub fn new() -> Game {
-        #{rolls: []}
+        .{rolls: []}
     }
 
     /// The game after a roll that knocks down `pins`.
@@ -25,7 +25,7 @@ impl Game {
 
         Some(standing) = pins_standing(game.rolls, frame: 1) else { return Err(.GameOver) }
         if pins > standing { return Err(.TooManyPins) }
-        Ok(#{rolls: [..game.rolls, pins]})
+        Ok(.{rolls: [..game.rolls, pins]})
     }
 
     /// The total score of a finished game.
@@ -67,20 +67,14 @@ fn last_frame_standing(rolls: List<Int>) -> Maybe<Int> {
 /// frame is its pins, fill balls included.
 fn total(rolls: List<Int>, frame: Int) -> Int {
     case rolls {
-        _ when frame == 10 ->
-            Iter.sum(rolls)
-
-        [10, ..rest] ->
-            10 + bonus(rest, 2) + total(rest, frame: frame + 1)
+        _ when frame == 10 -> Iter.sum(rolls)
+        [10, ..rest] -> 10 + bonus(rest, 2) + total(rest, frame: frame + 1)
 
         [first, second, ..rest] when first + second == 10 ->
             10 + bonus(rest, 1) + total(rest, frame: frame + 1)
 
-        [first, second, ..rest] ->
-            first + second + total(rest, frame: frame + 1)
-
-        _ ->
-            unreachable "a finished game has two rolls in every frame that is not a strike"
+        [first, second, ..rest] -> first + second + total(rest, frame: frame + 1)
+        _ -> unreachable "a finished game has two rolls in every frame that is not a strike"
     }
 }
 

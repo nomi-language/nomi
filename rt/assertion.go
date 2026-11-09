@@ -469,7 +469,7 @@ func InspectSeq[T any](Seq[T]) string { return IterInspectText() }
 
 // InspectStruct is how a struct-shaped value reads in a `values:` row, as
 // the literal that builds it: `Point{x: 1, y: 2}`, and `Empty{}` for one
-// with no fields; an anonymous record (typeName "") is `#{x: 1}`. typeName
+// with no fields; an anonymous record (typeName "") is `.{x: 1}`. typeName
 // is the declared name with any module qualifier already removed — nothing
 // user-facing shows the qualifier (ShortTypeName). A struct-shaped enum
 // variant is the same shape under the variant's name: `Rect{height: "z", width: 1}`.
@@ -478,7 +478,7 @@ func InspectSeq[T any](Seq[T]) string { return IterInspectText() }
 // ordered by field name, which is the order `Debug.inspect` renders an
 // anonymous record in. Sorting the whole composed strings instead would put
 // `a0: 2` before `a: 1` (the digit sorts before the `:`), so one record would
-// read `#{a: 1, a0: 2}` from `Debug.inspect` and `#{a0: 2, a: 1}` in a `values:` row.
+// read `.{a: 1, a0: 2}` from `Debug.inspect` and `.{a0: 2, a: 1}` in a `values:` row.
 // RowText calls this, so a record has one rule.
 //
 // The slice is sorted in place. Callers build it for this call and drop it.
@@ -489,12 +489,12 @@ func InspectStruct(typeName string, fields []string) string {
 	return StructOpen(typeName) + strings.Join(fields, ", ") + "}"
 }
 
-// StructOpen is how a struct value's rendering opens: `#{` for an anonymous
+// StructOpen is how a struct value's rendering opens: `.{` for an anonymous
 // struct, and the name alone for a named one, `Point{`, as the literal
 // that builds it is written.
 func StructOpen(typeName string) string {
 	if typeName == "" {
-		return "#{"
+		return ".{"
 	}
 	return typeName + "{"
 }

@@ -65,6 +65,12 @@ type Config struct {
 	// being edited to evaluate its typed literals, and a binding typed but
 	// not yet read must not stop that.
 	AllowUnusedBindings bool
+	// StandaloneEntry marks an in-memory entry that is not one of the
+	// project's files: `compiler.run`'s nested program, which resolves
+	// imports against ProjectRoot but is not listed in its nomi.toml. The
+	// entry_points placement check skips the entry; the project files it
+	// imports are still held to it.
+	StandaloneEntry bool
 }
 
 // allowed reports whether the configuration drops e.
@@ -821,9 +827,10 @@ func (c *Checker) AnalyzeFileSource(path, src string, mode Mode) (*Project, erro
 }
 
 // CheckSource checks an in-memory entry named moduleName. Its siblings come
-// from Config.VirtualFiles.
+// from Config.VirtualFiles. It is placed against nomi.toml's entry_points
+// unless Config.StandaloneEntry says it is no file of the project.
 func (c *Checker) CheckSource(moduleName, src string, mode Mode) (*Project, error) {
-	return c.check(moduleName, moduleName, true, src, mode)
+	return c.check(moduleName, moduleName, !c.cfg.StandaloneEntry, src, mode)
 }
 
 // AnalyzeSource is CheckSource for a reader of the program's analyses, such
@@ -831,7 +838,7 @@ func (c *Checker) CheckSource(moduleName, src string, mode Mode) (*Project, erro
 // entry parsed, the error beside it carries the diagnostics, and it is nil
 // only when the entry did not parse.
 func (c *Checker) AnalyzeSource(moduleName, src string, mode Mode) (*Project, error) {
-	return c.analyze(moduleName, moduleName, true, src, mode)
+	return c.analyze(moduleName, moduleName, !c.cfg.StandaloneEntry, src, mode)
 }
 
 func (c *Checker) check(path, entryModRel string, placeEntry bool, src string, mode Mode) (*Project, error) {

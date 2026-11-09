@@ -495,11 +495,8 @@ fn insert_job(t: Table, conn: Conn, job: NewJob, tries: Int) -> Result<Enqueued,
                 """
 
             case Conn.query(conn, in_table(t.table, holder))? {
-                [row, ..] ->
-                    Ok(Enqueued{id: JobId(Row.get<Int>(row, "id")?), duplicate: True})
-
-                [] when tries > 1 ->
-                    insert_job(t, conn, job, tries - 1)
+                [row, ..] -> Ok(Enqueued{id: JobId(Row.get<Int>(row, "id")?), duplicate: True})
+                [] when tries > 1 -> insert_job(t, conn, job, tries - 1)
 
                 [] ->
                     Err(
@@ -575,14 +572,9 @@ fn relay_until(
             relay_until(heard, wake, stop)
         }
 
-        .Again ->
-            relay_until(heard, wake, stop)
-
-        .Failed ->
-            False
-
-        .Stopped ->
-            True
+        .Again -> relay_until(heard, wake, stop)
+        .Failed -> False
+        .Stopped -> True
     }
 }
 

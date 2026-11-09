@@ -28,8 +28,8 @@ func TestRender_TheSixRowDebugDisagreements(t *testing.T) {
 		{"String", `f"\.txt`, nil, want{row: `"f\"\\.txt"`, display: `f"\.txt`, debug: `"f\"\\.txt"`}},
 		{"struct", point, nil, want{row: "Point{x: 1, y: 2}", display: "Point{x: 1, y: 2}",
 			debugErr: "Debug on an unrepresented receiver (Point)"}},
-		{"record", record, nil, want{row: `#{d: 1.50, s: "a\"b"}`, display: `#{d: 1.50, s: "a\"b"}`,
-			debug: `#{d: 1.50d, s: "a\"b"}`}},
+		{"record", record, nil, want{row: `.{d: 1.50, s: "a\"b"}`, display: `.{d: 1.50, s: "a\"b"}`,
+			debug: `.{d: 1.50d, s: "a\"b"}`}},
 		{"hand impl", NewDistinctDesc("ids.Id", ptr(SlotInt)).Make(int64(5)),
 			func(v any) (string, bool, error) {
 				if r, ok := v.(*Record); ok && r.Desc.Name == "ids.Id" {

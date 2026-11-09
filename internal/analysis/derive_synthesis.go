@@ -2266,7 +2266,8 @@ func untypedFieldDerive(fa *FileAnalysis, f ast.StructField, typeName, ifaceName
 // structuralDeriveParts answers the parts of te when te is a tuple or
 // anonymous struct type that implements ifaceName when each part does: a
 // tuple for Equatable, Hashable, Comparable and Display, an anonymous
-// struct for all of them but Comparable, which it cannot implement.
+// struct for all of them but Comparable, which it cannot implement, and for
+// ToJson and FromJson.
 func structuralDeriveParts(te ast.TypeExpr, ifaceName string) ([]ast.TypeExpr, bool) {
 	switch t := te.(type) {
 	case *ast.FuncType:
@@ -2279,7 +2280,7 @@ func structuralDeriveParts(te ast.TypeExpr, ifaceName string) ([]ast.TypeExpr, b
 		}
 	case *ast.AnonStructType:
 		switch ifaceName {
-		case "Equatable", "Hashable", "Display":
+		case "Equatable", "Hashable", "Display", "ToJson", "FromJson":
 			parts := make([]ast.TypeExpr, len(t.Fields))
 			for i, f := range t.Fields {
 				parts[i] = f.TypeAnnotation
@@ -4168,6 +4169,19 @@ func toJsonCall(arg ast.Node, line, col int) ast.Node {
 }
 
 func fromJsonCallForType(target ast.TypeExpr, arg ast.Node, line, col int) ast.Node {
+	if typeExprHoldsAnonStruct(target) {
+		// An anonymous struct type is no expression to call through:
+		// `FromJson.from_json<.{x: Int}>(json)`.
+		if ta, ok := cloneTypeExpr(target, line, col); ok {
+			return &ast.Call{
+				Func:     fieldAccess(&ast.TypeIdent{Name: "FromJson", Line: line, Col: col}, "from_json", line, col),
+				TypeArgs: []ast.TypeExpr{ta},
+				Args:     []ast.Node{arg},
+				Line:     line,
+				Col:      col,
+			}
+		}
+	}
 	return &ast.Call{
 		Func: fieldAccess(cloneTypeExprNode(target, line, col), "from_json", line, col),
 		Args: []ast.Node{arg},
@@ -4329,8 +4343,42 @@ func cloneTypeExprNode(te ast.TypeExpr, line, col int) ast.Node {
 	}
 }
 
+// typeExprHoldsAnonStruct reports whether te is or holds an anonymous
+// struct type.
+func typeExprHoldsAnonStruct(te ast.TypeExpr) bool {
+	switch t := te.(type) {
+	case *ast.AnonStructType:
+		return true
+	case *ast.GenericType:
+		for _, p := range t.Params {
+			if typeExprHoldsAnonStruct(p) {
+				return true
+			}
+		}
+	case *ast.QualifiedType:
+		return typeExprHoldsAnonStruct(t.Member)
+	case *ast.FuncType:
+		for _, p := range t.Params {
+			if typeExprHoldsAnonStruct(p) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func cloneTypeExpr(te ast.TypeExpr, line, col int) (ast.TypeExpr, bool) {
 	switch t := te.(type) {
+	case *ast.AnonStructType:
+		fields := make([]ast.StructField, len(t.Fields))
+		for i, f := range t.Fields {
+			ft, ok := cloneTypeExpr(f.TypeAnnotation, line, col)
+			if !ok {
+				return nil, false
+			}
+			fields[i] = ast.StructField{Name: f.Name, TypeAnnotation: ft, Line: line, Col: col}
+		}
+		return &ast.AnonStructType{Fields: fields, Line: line, Col: col}, true
 	case *ast.SimpleType:
 		return &ast.SimpleType{Name: t.Name, Line: line, Col: col}, true
 	case *ast.GenericType:

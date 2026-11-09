@@ -84,9 +84,9 @@ fn in_tuple(n: Int) -> (String, Int) {
   ("a", twice(n))
 }
 
-fn in_record(n: Int) -> #{v: Int} {
+fn in_record(n: Int) -> .{v: Int} {
   twice = fn x -> x * 2
-  #{v: twice(n)}
+  .{v: twice(n)}
 }
 
 fn in_map(n: Int) -> Map<String, Int> {
@@ -130,9 +130,9 @@ fn in_list(n: Int) -> List<(String, Int)> {
   [("a", twice(n))]
 }
 
-fn in_record(n: Int) -> #{v: Int} {
+fn in_record(n: Int) -> .{v: Int} {
   twice = fn x: Int -> x * 2
-  #{v: twice(n)}
+  .{v: twice(n)}
 }
 
 fn wrong(_n: Int) -> (String, Int) {

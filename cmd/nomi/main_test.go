@@ -1168,9 +1168,9 @@ func TestTestCommand_RunsGroups(t *testing.T) {
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "math_test.nomi")
 	mustWrite(t, testPath, `group "math" {
-  setup #{base: 2}
+  setup .{base: 2}
 
-  test "assertions", #{base} {
+  test "assertions", .{base} {
     assert base + 2 == 4
     refute base == 5
   }
@@ -1707,7 +1707,7 @@ func TestTestCommand_AssertionFailureShowsPipelineValues(t *testing.T) {
 test "fails" {
   passes =
     [1, 2, 3]
-    |> Iter.any(fn n -> n == 4)
+    |> Iter.any_match(fn n -> n == 4)
 
   assert passes
 }
@@ -1718,7 +1718,7 @@ test "fails" {
 	}
 	if !strings.Contains(out, "pipeline values:") ||
 		!strings.Contains(out, "[1, 2, 3]") ||
-		!strings.Contains(out, "Iter.any") ||
+		!strings.Contains(out, "Iter.any_match") ||
 		!strings.Contains(out, "= False") {
 		t.Fatalf("expected assertion pipeline values, got:\n%s", out)
 	}
@@ -1934,7 +1934,7 @@ func TestTestCommand_AssertionFailureDoesNotLeakCallbackComparisons(t *testing.T
 
 test "fails" {
   items = [1, 2, 3]
-  assert Iter.any(items, fn n -> n == 4)
+  assert Iter.any_match(items, fn n -> n == 4)
 }
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -2466,15 +2466,15 @@ group "setup cleanup" {
   setup {
     conn = Conn{label: "db"}
     defer close(conn)
-    #{conn: conn}
+    .{conn: conn}
   }
 
-  test "one", #{conn} {
+  test "one", .{conn} {
     io.print("body one")
     assert conn.label == "db"
   }
 
-  test "two", #{conn} {
+  test "two", .{conn} {
     io.print("body two")
     assert conn.label == "db"
   }

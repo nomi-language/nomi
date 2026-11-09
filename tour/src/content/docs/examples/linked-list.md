@@ -28,29 +28,28 @@ pub opaque struct LinkedList<T> {
 impl LinkedList<T> {
     /// A list with no values.
     pub fn new() -> LinkedList<T> {
-        LinkedList{front: [], back: []}
+        .{front: [], back: []}
     }
 
     /// `list` with `value` after its last value.
     pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T> {
-        #{..list, back: [value, ..list.back]}
+        .{..list, back: [value, ..list.back]}
     }
 
     /// `list` with `value` before its first value.
     pub fn unshift(list: LinkedList<T>, value: T) -> LinkedList<T> {
-        #{..list, front: [value, ..list.front]}
+        .{..list, front: [value, ..list.front]}
     }
 
     /// The last value of `list` and the list without it, or `None` when it is
     /// empty.
     pub fn pop(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
         case list.back {
-            [last, ..back] ->
-                Some((last, #{..list, back}))
+            [last, ..back] -> Some((last, .{..list, back}))
 
             [] -> {
                 case Iter.reverse(list.front) {
-                    [last, ..back] -> Some((last, LinkedList{front: [], back}))
+                    [last, ..back] -> Some((last, .{front: [], back}))
                     [] -> None
                 }
             }
@@ -61,12 +60,11 @@ impl LinkedList<T> {
     /// is empty.
     pub fn shift(list: LinkedList<T>) -> Maybe<(T, LinkedList<T>)> {
         case list.front {
-            [first, ..front] ->
-                Some((first, #{..list, front}))
+            [first, ..front] -> Some((first, .{..list, front}))
 
             [] -> {
                 case Iter.reverse(list.back) {
-                    [first, ..front] -> Some((first, LinkedList{front, back: []}))
+                    [first, ..front] -> Some((first, .{front, back: []}))
                     [] -> None
                 }
             }
@@ -76,7 +74,7 @@ impl LinkedList<T> {
     /// `list` without the first value equal to `value`; the same values when
     /// there is none.
     pub fn delete(list: LinkedList<T>, value: T) -> LinkedList<T> where T: Equatable {
-        LinkedList{front: list |> Iter.to_list() |> List.remove(value), back: []}
+        .{front: list |> Iter.to_list() |> List.remove(value), back: []}
     }
 }
 
@@ -105,8 +103,6 @@ enum Step {
     Delete Int
 }
 
-derive Equatable for Step
-
 /// Runs each step's operation on an empty list, in turn, and answers the
 /// steps as they happened. A list that does what every step says answers the
 /// steps it was given.
@@ -115,11 +111,8 @@ fn replay(steps: List<Step>) -> List<Step> {
         steps
         |> Iter.map_reduce(LinkedList.new(), fn list, step -> {
             case step {
-                .Push(value) ->
-                    (LinkedList.push(list, value), Step.Push(value))
-
-                .Unshift(value) ->
-                    (LinkedList.unshift(list, value), .Unshift(value))
+                .Push(value) -> (LinkedList.push(list, value), Step.Push(value))
+                .Unshift(value) -> (LinkedList.unshift(list, value), .Unshift(value))
 
                 .Pop(_) or .PopFails -> {
                     case LinkedList.pop(list) {
@@ -135,11 +128,8 @@ fn replay(steps: List<Step>) -> List<Step> {
                     }
                 }
 
-                .Count(_) ->
-                    (list, .Count(Iter.count(list)))
-
-                .Delete(value) ->
-                    (LinkedList.delete(list, value), .Delete(value))
+                .Count(_) -> (list, .Count(Iter.count(list)))
+                .Delete(value) -> (LinkedList.delete(list, value), .Delete(value))
             }
         })
 

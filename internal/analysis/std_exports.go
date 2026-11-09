@@ -14,16 +14,19 @@ import (
 // The std modules a name a file does not bind could come from, for the
 // help that names the import to write ("import `std::http.Method`"). A
 // process builds only the std modules its programs reach, so the answer is
-// read from std's sources, which package std installs (SetStdSources), and
-// only when a diagnostic asks: each source is parsed once per process, and
-// nothing is checked. Internal modules (internalStdModules) are never
-// suggested, and neither is a module with no public declarations.
+// what every std module exports (StdModuleExport), which package std
+// installs (SetStdExports): read from the std artifact it builds the
+// stdlib from, which records each module's when it extracts the module's
+// interface, or else from std's sources, each parsed once per process. It
+// is read only when a diagnostic asks, and nothing is checked. Internal
+// modules (internalStdModules) are never suggested, and neither is a
+// module with no public declarations.
 
 var (
-	stdSourcesMu sync.Mutex
-	stdSources   func() map[string]string
-	stdIndexOnce *sync.Once
-	stdIndex     *stdExportIndex
+	stdExportsMu   sync.Mutex
+	stdExportsFunc func() map[string]StdModuleExport
+	stdIndexOnce   *sync.Once
+	stdIndex       *stdExportIndex
 )
 
 // stdExportIndex is, for each public std type name, the modules that
@@ -33,55 +36,83 @@ type stdExportIndex struct {
 	modules map[string]bool
 }
 
-// SetStdSources installs sources, which answers each std module's source
-// by module name (`http` for std/http.nomi). Package std calls it.
-func SetStdSources(sources func() map[string]string) {
-	stdSourcesMu.Lock()
-	defer stdSourcesMu.Unlock()
-	stdSources, stdIndexOnce, stdIndex = sources, nil, nil
-	if sources != nil {
+// StdModuleExport is what one std module offers the import help: the
+// public types it declares, in declaration order, and whether it declares
+// anything public.
+type StdModuleExport struct {
+	Types  []string
+	Public bool
+}
+
+// StdModuleExportOf is what module, whose declarations are nodes, exports
+// to the import help. An internal module and the prelude export nothing.
+func StdModuleExportOf(module string, nodes []ast.Node) StdModuleExport {
+	var out StdModuleExport
+	if _, internal := internalStdModules[module]; internal || module == "prelude" {
+		return out
+	}
+	for _, n := range nodes {
+		if name, pub := stdExportedType(n); pub {
+			out.Public = true
+			out.Types = append(out.Types, name)
+		} else if stdNodePublic(n) {
+			out.Public = true
+		}
+	}
+	return out
+}
+
+// StdExportsFromSources is what each module of sources, by module name
+// (`http` for std/http.nomi), exports to the import help, each source
+// parsed. A source that does not parse exports nothing.
+func StdExportsFromSources(sources map[string]string) map[string]StdModuleExport {
+	out := make(map[string]StdModuleExport, len(sources))
+	for module, src := range sources {
+		nodes, err := parser.Parse(lexer.Lex(src))
+		if err != nil {
+			continue
+		}
+		out[module] = StdModuleExportOf(module, nodes)
+	}
+	return out
+}
+
+// SetStdExports installs exports, which answers what each std module
+// exports to the import help, by module name. Package std calls it.
+func SetStdExports(exports func() map[string]StdModuleExport) {
+	stdExportsMu.Lock()
+	defer stdExportsMu.Unlock()
+	stdExportsFunc, stdIndexOnce, stdIndex = exports, nil, nil
+	if exports != nil {
 		stdIndexOnce = new(sync.Once)
 	}
 }
 
 func stdExports() *stdExportIndex {
-	stdSourcesMu.Lock()
-	once, sources := stdIndexOnce, stdSources
-	stdSourcesMu.Unlock()
+	stdExportsMu.Lock()
+	once, exports := stdIndexOnce, stdExportsFunc
+	stdExportsMu.Unlock()
 	if once == nil {
 		return nil
 	}
 	once.Do(func() {
-		idx := buildStdExportIndex(sources())
-		stdSourcesMu.Lock()
+		idx := buildStdExportIndex(exports())
+		stdExportsMu.Lock()
 		stdIndex = idx
-		stdSourcesMu.Unlock()
+		stdExportsMu.Unlock()
 	})
-	stdSourcesMu.Lock()
-	defer stdSourcesMu.Unlock()
+	stdExportsMu.Lock()
+	defer stdExportsMu.Unlock()
 	return stdIndex
 }
 
-func buildStdExportIndex(sources map[string]string) *stdExportIndex {
+func buildStdExportIndex(exports map[string]StdModuleExport) *stdExportIndex {
 	idx := &stdExportIndex{types: map[string][]string{}, modules: map[string]bool{}}
-	for module, src := range sources {
-		if _, internal := internalStdModules[module]; internal || module == "prelude" {
-			continue
+	for module, e := range exports {
+		for _, name := range e.Types {
+			idx.types[name] = append(idx.types[name], module)
 		}
-		nodes, err := parser.Parse(lexer.Lex(src))
-		if err != nil {
-			continue
-		}
-		public := false
-		for _, n := range nodes {
-			if name, pub := stdExportedType(n); pub {
-				public = true
-				idx.types[name] = append(idx.types[name], module)
-			} else if stdNodePublic(n) {
-				public = true
-			}
-		}
-		if public {
+		if e.Public {
 			idx.modules[module] = true
 		}
 	}
@@ -125,7 +156,7 @@ func stdNodePublic(n ast.Node) bool {
 }
 
 // stdTypeModules are the public std modules that export a type named
-// name, in name order; none when std's sources are not installed.
+// name, in name order; none when std's exports are not installed.
 func stdTypeModules(name string) []string {
 	if idx := stdExports(); idx != nil {
 		return idx.types[name]

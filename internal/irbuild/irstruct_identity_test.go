@@ -289,8 +289,8 @@ func irStructKeys(sv *rt.Record) []string {
 // construction of one struct must name the same fields in the same ORDER,
 // whatever order the source wrote them in. A producer that took them off the
 // literal would disagree between two literals of one struct: `shapes.Status` is
-// constructed many times, and `Point` is written `#{x: 1, y: 2}` in one file
-// and `#{x, y}` in another.
+// constructed many times, and `Point` is written `.{x: 1, y: 2}` in one file
+// and `.{x, y}` in another.
 //
 // The order is part of the claim, because the operands are declaration-ordered
 // and the names are parallel to them. A set comparison would pass a producer
@@ -440,10 +440,10 @@ func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 			"fn f(p: Point) -> Outer {\n  Outer{p: p}\n}\n", true},
 		{"a Map of Iters", point + "\n\nstruct Outer {\n  p: Point\n  runs: Map<String, Iter<Int>> = %{}\n}",
 			"fn f(p: Point) -> Outer {\n  Outer{p: p}\n}\n", true},
-		{"a Map of records holding an Iter", point + "\n\nstruct Outer {\n  p: Point\n  runs: Map<String, #{a: Iter<Int>}> = %{}\n}",
+		{"a Map of records holding an Iter", point + "\n\nstruct Outer {\n  p: Point\n  runs: Map<String, .{a: Iter<Int>}> = %{}\n}",
 			"fn f(p: Point) -> Outer {\n  Outer{p: p}\n}\n", false},
 		{"an anonymous struct", "",
-			"fn f(n: Int) -> #{x: Int} {\n  #{x: n}\n}\n", true},
+			"fn f(n: Int) -> .{x: Int} {\n  .{x: n}\n}\n", true},
 		{"a struct as a call argument", point +
 			"\n\nfn g(_p: Point) -> Int {\n  1\n}",
 			"fn f(n: Int) -> Int {\n  g(Point{x: n, y: 2})\n}\n", true},

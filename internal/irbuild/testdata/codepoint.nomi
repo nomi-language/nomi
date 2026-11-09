@@ -130,8 +130,7 @@ fn show_bool(m: Maybe<Bool>) -> String {
 /// an empty list are the same base case.
 fn join_points(cps: List<Codepoint>) -> String {
     case List.head(cps) {
-        None ->
-            "."
+        None -> "."
 
         Some(cp) -> {
             rest = case List.tail(cps) {

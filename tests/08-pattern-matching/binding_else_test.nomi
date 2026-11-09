@@ -86,7 +86,7 @@ fn check(n: Int) -> Check {
 
 fn describe(n: Int) -> String {
     .Valid{addr, score} = check(n) else {
-        .Invalid(_) -> #{addr: "unknown", score: 0}
+        .Invalid(_) -> .{addr: "unknown", score: 0}
     }
 
     "${addr}:${score}"

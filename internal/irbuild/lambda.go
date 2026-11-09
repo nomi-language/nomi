@@ -276,10 +276,10 @@ func (g *gen) bindDestructured(nomi string, src expr, at ast.Node) {
 func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) bool {
 	if p.TypeName == nil {
 		if src.k.tag == tagAnonStruct {
-			// `#{x, y} = point` over a RECORD. See anonstruct.go.
+			// `.{x, y} = point` over a RECORD. See anonstruct.go.
 			return g.destructureAnonStruct(p, src, at)
 		}
-		// `fn #{x, y}: Point ->` — an anonymous struct pattern over a NAMED struct.
+		// `fn .{x, y}: Point ->` — an anonymous struct pattern over a NAMED struct.
 		// A different feature from the record above: the pattern's field set is
 		// a SUBSET of a DECLARATION's rather than the whole of a record's type,
 		// so the field list comes from the def and the match is against a type
@@ -485,7 +485,7 @@ func (g *gen) destructureField(f ast.StructPatternField, fe expr, at ast.Node) b
 	return true
 }
 
-// destructureAnonStruct binds `#{x, y: p} = record` — destructureStruct with the
+// destructureAnonStruct binds `.{x, y: p} = record` — destructureStruct with the
 // field list read from the interned record kind rather than from a declaration.
 func (g *gen) destructureAnonStruct(p *ast.StructPattern, src expr, at ast.Node) bool {
 	ok := true

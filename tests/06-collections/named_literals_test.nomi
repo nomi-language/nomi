@@ -1,5 +1,5 @@
 // The collection literals start with their shape's symbol, `#[...]`,
-// `%[...]` and `%{...}`, and `#{...}` is a struct with no type name.
+// `%[...]` and `%{...}`, and `.{...}` is a struct with no type name.
 type Kvs Map<String, Int>
 
 type Ids List<Int>
@@ -43,13 +43,13 @@ test "each collection renders as it is written" {
     assert Debug.inspect(#[1, 2]) == "#[1, 2]"
     assert Debug.inspect(%["a"]) == "%[\"a\"]"
     assert Debug.inspect(%{"a" => 1}) == "%{\"a\" => 1}"
-    assert Debug.inspect(#{x: 1, y: "b"}) == "#{x: 1, y: \"b\"}"
+    assert Debug.inspect(.{x: 1, y: "b"}) == ".{x: 1, y: \"b\"}"
     assert "${#[1]} ${%[2]} ${%{3 => 4}}" == "#[1] %[2] %{3 => 4}"
 }
 
 test "a punned field alone is a struct" {
     name = "Ada"
-    p = #{name}
+    p = .{name}
 
     assert p.name == "Ada"
 }
@@ -68,8 +68,8 @@ test "a brace after a map-shaped name attaches a map, and an empty one is the em
 }
 
 test "an empty brace builds the struct its position expects from the defaults" {
-    assert depth_of(#{}) == 2
-    assert Settings{} == #{depth: 2, label: "plain"}
+    assert depth_of(.{}) == 2
+    assert Settings{} == .{depth: 2, label: "plain"}
 }
 
 test "the spreads take the new heads" {
@@ -81,13 +81,13 @@ test "the spreads take the new heads" {
     assert #[1, ..v] == #[1, 2]
     assert %[..s, 2] == %[1, 2]
     assert %{..m, "b" => 2} == %{"a" => 1, "b" => 2}
-    assert #{..#{x: 1, y: 2}, y: 3} == #{x: 1, y: 3}
+    assert .{...{x: 1, y: 2}, y: 3} == .{x: 1, y: 3}
 }
 
 test "map and struct patterns" {
     m = %{"k" => 5}
     %{"k" => v} = m else { return }
-    #{x, y} = #{x: 1, y: 2}
+    .{x, y} = .{x: 1, y: 2}
 
     assert v == 5
     assert x + y == 3

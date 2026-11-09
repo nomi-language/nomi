@@ -25,13 +25,13 @@ func TestFormat_ParenthesisedPunFieldIsPunnedAtOnce(t *testing.T) {
 		},
 		{
 			name: "anonymous struct",
-			src:  "fn f(t: Int) {\n    #{t: (t)}\n}\n",
-			want: "fn f(t: Int) {\n    #{t}\n}\n",
+			src:  "fn f(t: Int) {\n    .{t: (t)}\n}\n",
+			want: "fn f(t: Int) {\n    .{t}\n}\n",
 		},
 		{
 			name: "struct update",
-			src:  "fn f(b: A, t: Int) {\n    #{..b, t: (t)}\n}\n",
-			want: "fn f(b: A, t: Int) {\n    #{..b, t}\n}\n",
+			src:  "fn f(b: A, t: Int) {\n    .{..b, t: (t)}\n}\n",
+			want: "fn f(b: A, t: Int) {\n    .{..b, t}\n}\n",
 		},
 		{
 			name: "map entry keeps the key and value",

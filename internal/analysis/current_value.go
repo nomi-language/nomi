@@ -9,11 +9,11 @@ import (
 )
 
 // A bare `..` (*ast.CurrentValue) is the spread of an update literal with no
-// head: `#{.., city: "NYC"}`, `%{.., "k" => v}`, `%[.., x]`, `[t, ..]`. It
+// head: `.{.., city: "NYC"}`, `%{.., "k" => v}`, `%[.., x]`, `[t, ..]`. It
 // stands for the value already at the field or key the literal is written
 // at, so
 //
-//	#{..user, address: #{.., city: "NYC"}}
+//	.{..user, address: .{.., city: "NYC"}}
 //
 // changes `address.city` and keeps the rest of `address`. A nested literal
 // without `..` is a whole new value of the field's type.
@@ -62,7 +62,7 @@ func (c *checker) checkCurrentValue(n *ast.CurrentValue) Type {
 	at, ok := c.currentValues[n]
 	if !ok {
 		c.report(errAt(n, "a bare `..` has no value to update here").
-			WithHint("a bare `..` stands for the value already at a field or key of an update, as in `#{..user, address: #{.., city: \"NYC\"}}`; anywhere else, name the base: `#{..base, field: value}`"))
+			WithHint("a bare `..` stands for the value already at a field or key of an update, as in `.{..user, address: .{.., city: \"NYC\"}}`; anywhere else, name the base: `.{..base, field: value}`"))
 		return nil
 	}
 	return at.ty
@@ -153,7 +153,7 @@ func (c *checker) wholeValueHint(lit *ast.StructLit, ty Type) string {
 		for i, f := range lit.Fields {
 			names[i] = f.Name + ": …"
 		}
-		suggestion = "#{.., " + strings.Join(names, ", ") + "}"
+		suggestion = ".{.., " + strings.Join(names, ", ") + "}"
 	}
 	return fmt.Sprintf("a brace without `..` is a whole new %s; to change only the fields written, write `%s`", formatTypeForError(ty), suggestion)
 }
@@ -168,6 +168,8 @@ func (c *checker) markStructUpdatePatch(call *ast.Call) {
 	if ti, ok := fa.Object.(*ast.TypeIdent); !ok || ti.Name != "Struct" {
 		return
 	}
+	var patch *ast.StructLit
+	var original ast.Node
 	for _, arg := range call.Args {
 		if na, ok := arg.(*ast.NamedArg); ok {
 			arg = na.Value
@@ -177,7 +179,15 @@ func (c *checker) markStructUpdatePatch(call *ast.Call) {
 				c.structUpdatePatches = map[*ast.StructLit]bool{}
 			}
 			c.structUpdatePatches[lit] = true
+			patch = lit
+		} else {
+			original = arg
 		}
+	}
+	// The patch updates the original, so a nested spread naming the
+	// original's field is redundant there as in `.{..original, ...}`.
+	if patch != nil && original != nil && len(call.Args) == 2 {
+		c.recordUpdatePath(patch, original)
 	}
 }
 

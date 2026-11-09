@@ -9,16 +9,16 @@ import {
 }
 
 fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
-    Iter.any(diagnostics, fn diagnostic -> text in diagnostic.message)
+    Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
 }
 
 struct Post {
     title: String
 }
 
-once admin = #{
+once admin = .{
     home: Route`GET /admin/{$}`,
-    user: `GET /admin/users/{id}` as Route<#{id: Uuid}>,
+    user: `GET /admin/users/{id}` as Route<.{id: Uuid}>,
     tags: [] as List<String>,
 }
 

@@ -229,5 +229,5 @@ test result: ok. 7 passed, 0 failed
 
 - The numbers are a `Vector` of their words from "no" to "ten", read by the bottle count, and `green_bottles` adds "green bottle" or "green bottles". A verse's first two lines start with that phrase capitalized, and its last line uses the phrase for one bottle fewer, so "no green bottles" and "one green bottle" come out of the same two functions as every other count.
 - The counts sung are `Iter.iterate` down from the start, taken `take_down` times.
-- `recite` answers lines, as the canonical data does, with an empty line between two verses: `Iter.intersperse([""])` puts a verse of one empty line between each two verses, and `Iter.flatten` joins them.
+- `recite` returns lines, as the canonical data does, with an empty line between two verses: `Iter.intersperse([""])` puts a verse of one empty line between each two verses, and `Iter.flatten` joins them.
 - The canonical groups, single verses and multiple verses, are one test each, holding one `subtests` table of the canonical lines written out.

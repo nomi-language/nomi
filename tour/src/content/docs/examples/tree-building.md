@@ -26,8 +26,6 @@ pub struct Node {
     children: List<Node> = []
 }
 
-derive Equatable for Node
-
 /// Why the records do not make a tree.
 pub enum Error {
     RootHasParent
@@ -52,22 +50,18 @@ pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error> {
     ids_in_order =
         sorted
         |> Iter.with_index()
-        |> Iter.all(fn (index, record) -> record.id == index)
+        |> Iter.all_match(fn (index, record) -> record.id == index)
 
     if not ids_in_order { return Err(.InvalidRecord) }
 
     case sorted {
-        [] ->
-            Ok(None)
+        [] -> Ok(None)
+        [root, ..] when root.parent != 0 -> Err(.RootHasParent)
 
-        [root, ..] when root.parent != 0 ->
-            Err(.RootHasParent)
-
-        [_root, ..rest] when Iter.any(rest, fn record -> record.parent >= record.id) ->
+        [_root, ..rest] when Iter.any_match(rest, fn record -> record.parent >= record.id) ->
             Err(.InvalidRecord)
 
-        [_root, ..rest] ->
-            Ok(Some(node(0, Iter.group_by(rest, .parent))))
+        [_root, ..rest] -> Ok(Some(node(0, Iter.group_by(rest, .parent))))
     }
 }
 
@@ -76,7 +70,7 @@ pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error> {
 fn node(id: Int, children: Map<Int, List<Record>>) -> Node {
     replies = Map.get(children, id) |> Maybe.with_default([])
 
-    #{id, children: replies |> Iter.map(&node(&1.id, children)) |> Iter.to_list()}
+    .{id, children: replies |> Iter.map(&node(&1.id, children)) |> Iter.to_list()}
 }
 
 // FILE: tree_building_test.nomi
@@ -84,63 +78,63 @@ import tree_building.{self, Node, Record}
 
 /// A node with no replies.
 fn leaf(id: Int) -> Node {
-    #{id}
+    .{id}
 }
 
 test "build tree" {
     cases: List<(String, List<Record>, Maybe<Node>)> = [
         ("empty list", [], None),
-        ("single record", [#{id: 0, parent: 0}], Some(leaf(0))),
+        ("single record", [.{id: 0, parent: 0}], Some(leaf(0))),
         (
             "three records in order",
-            [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 2, parent: 0}],
-            Some(#{id: 0, children: [leaf(1), leaf(2)]}),
+            [.{id: 0, parent: 0}, .{id: 1, parent: 0}, .{id: 2, parent: 0}],
+            Some(.{id: 0, children: [leaf(1), leaf(2)]}),
         ),
         (
             "three records in reverse order",
-            [#{id: 2, parent: 0}, #{id: 1, parent: 0}, #{id: 0, parent: 0}],
-            Some(#{id: 0, children: [leaf(1), leaf(2)]}),
+            [.{id: 2, parent: 0}, .{id: 1, parent: 0}, .{id: 0, parent: 0}],
+            Some(.{id: 0, children: [leaf(1), leaf(2)]}),
         ),
         (
             "more than two children",
-            [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 2, parent: 0}, #{id: 3, parent: 0}],
-            Some(#{id: 0, children: [leaf(1), leaf(2), leaf(3)]}),
+            [.{id: 0, parent: 0}, .{id: 1, parent: 0}, .{id: 2, parent: 0}, .{id: 3, parent: 0}],
+            Some(.{id: 0, children: [leaf(1), leaf(2), leaf(3)]}),
         ),
         (
             "binary tree",
             [
-                #{id: 5, parent: 1},
-                #{id: 3, parent: 2},
-                #{id: 2, parent: 0},
-                #{id: 4, parent: 1},
-                #{id: 1, parent: 0},
-                #{id: 0, parent: 0},
-                #{id: 6, parent: 2},
+                .{id: 5, parent: 1},
+                .{id: 3, parent: 2},
+                .{id: 2, parent: 0},
+                .{id: 4, parent: 1},
+                .{id: 1, parent: 0},
+                .{id: 0, parent: 0},
+                .{id: 6, parent: 2},
             ],
-            Some(#{
+            Some(.{
                 id: 0,
                 children: [
-                    #{id: 1, children: [leaf(4), leaf(5)]},
-                    #{id: 2, children: [leaf(3), leaf(6)]},
+                    .{id: 1, children: [leaf(4), leaf(5)]},
+                    .{id: 2, children: [leaf(3), leaf(6)]},
                 ],
             }),
         ),
         (
             "unbalanced tree",
             [
-                #{id: 5, parent: 2},
-                #{id: 3, parent: 2},
-                #{id: 2, parent: 0},
-                #{id: 4, parent: 1},
-                #{id: 1, parent: 0},
-                #{id: 0, parent: 0},
-                #{id: 6, parent: 2},
+                .{id: 5, parent: 2},
+                .{id: 3, parent: 2},
+                .{id: 2, parent: 0},
+                .{id: 4, parent: 1},
+                .{id: 1, parent: 0},
+                .{id: 0, parent: 0},
+                .{id: 6, parent: 2},
             ],
-            Some(#{
+            Some(.{
                 id: 0,
                 children: [
-                    #{id: 1, children: [leaf(4)]},
-                    #{id: 2, children: [leaf(3), leaf(5), leaf(6)]},
+                    .{id: 1, children: [leaf(4)]},
+                    .{id: 2, children: [leaf(3), leaf(5), leaf(6)]},
                 ],
             }),
         ),
@@ -155,63 +149,63 @@ test "invalid records" {
     cases: List<(String, List<Record>, String)> = [
         (
             "one root node and has parent",
-            [#{id: 0, parent: 1}],
+            [.{id: 0, parent: 1}],
             "node parent_id should be smaller than its record_id",
         ),
         (
             "root node has parent",
-            [#{id: 0, parent: 1}, #{id: 1, parent: 0}],
+            [.{id: 0, parent: 1}, .{id: 1, parent: 0}],
             "node parent_id should be smaller than its record_id",
         ),
         (
             "no root node",
-            [#{id: 1, parent: 0}, #{id: 2, parent: 0}],
+            [.{id: 1, parent: 0}, .{id: 2, parent: 0}],
             "record id is invalid or out of order",
         ),
         (
             "duplicate node",
-            [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 1, parent: 0}],
+            [.{id: 0, parent: 0}, .{id: 1, parent: 0}, .{id: 1, parent: 0}],
             "record id is invalid or out of order",
         ),
         (
             "duplicate root",
-            [#{id: 0, parent: 0}, #{id: 0, parent: 0}],
+            [.{id: 0, parent: 0}, .{id: 0, parent: 0}],
             "record id is invalid or out of order",
         ),
         (
             "non-continuous",
-            [#{id: 2, parent: 0}, #{id: 4, parent: 2}, #{id: 1, parent: 0}, #{id: 0, parent: 0}],
+            [.{id: 2, parent: 0}, .{id: 4, parent: 2}, .{id: 1, parent: 0}, .{id: 0, parent: 0}],
             "record id is invalid or out of order",
         ),
         (
             "cycle directly",
             [
-                #{id: 5, parent: 2},
-                #{id: 3, parent: 2},
-                #{id: 2, parent: 2},
-                #{id: 4, parent: 1},
-                #{id: 1, parent: 0},
-                #{id: 0, parent: 0},
-                #{id: 6, parent: 3},
+                .{id: 5, parent: 2},
+                .{id: 3, parent: 2},
+                .{id: 2, parent: 2},
+                .{id: 4, parent: 1},
+                .{id: 1, parent: 0},
+                .{id: 0, parent: 0},
+                .{id: 6, parent: 3},
             ],
             "record id is invalid or out of order",
         ),
         (
             "cycle indirectly",
             [
-                #{id: 5, parent: 2},
-                #{id: 3, parent: 2},
-                #{id: 2, parent: 6},
-                #{id: 4, parent: 1},
-                #{id: 1, parent: 0},
-                #{id: 0, parent: 0},
-                #{id: 6, parent: 3},
+                .{id: 5, parent: 2},
+                .{id: 3, parent: 2},
+                .{id: 2, parent: 6},
+                .{id: 4, parent: 1},
+                .{id: 1, parent: 0},
+                .{id: 0, parent: 0},
+                .{id: 6, parent: 3},
             ],
             "record id is invalid or out of order",
         ),
         (
             "higher id parent of lower id",
-            [#{id: 0, parent: 0}, #{id: 2, parent: 0}, #{id: 1, parent: 2}],
+            [.{id: 0, parent: 0}, .{id: 2, parent: 0}, .{id: 1, parent: 2}],
             "record id is invalid or out of order",
         ),
     ]
@@ -231,9 +225,9 @@ test result: ok. 16 passed, 0 failed
 ## How it's written
 
 - The exercise is a refactoring of slow code that each track supplies; there is no slow version here, only the tree built directly.
-- `Record` and `Node` are structs. `Node`'s `children` defaults to `[]`, so a leaf is `#{id}`, and `derive Equatable` lets the tests compare whole trees.
+- `Record` and `Node` are structs. `Node`'s `children` defaults to `[]`, so a leaf is `.{id}`, and the tests compare whole trees with `==`, which compares a struct field by field with no `derive Equatable`.
 - `build_tree` returns `Result<Maybe<Node>, Error>`: no records is `Ok(None)`, the canonical empty answer, not an error. `Error` has two variants for the canonical two messages, given by its `Display`.
-- The records are sorted by id once. They are valid ids exactly when the sorted record at each index has that index as its id, which `Iter.with_index` and `Iter.all` check in one pass; that catches a missing root, a duplicate and a gap alike.
+- The records are sorted by id once. They are valid ids exactly when the sorted record at each index has that index as its id, which `Iter.with_index` and `Iter.all_match` check in one pass; that catches a missing root, a duplicate and a gap alike.
 - The canonical data splits the remaining rules oddly, and the solution follows it: a root whose parent is not 0 is the "parent_id should be smaller" error, but any other record whose parent is not lower than its id, a cycle included, is "record id is invalid or out of order". These are three arms of one `case` on the sorted list, two with `when` guards.
 - Once every parent is lower than its child, the records cannot form a cycle, so the tree is built by `Iter.group_by` on the parent, which keeps each parent's children in id order, and a recursive `node` from the root.
 - The valid and invalid cases are two `subtests` tables. The invalid table asserts each error's message, which is what the canonical data gives. `leaf` keeps the expected trees short.

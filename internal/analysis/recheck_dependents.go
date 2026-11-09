@@ -187,7 +187,7 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 		if fresh[key] {
 			continue
 		}
-		if fa.kept == nil {
+		if fa.keptDecls() == nil {
 			return nil, "a file's declarations were not kept"
 		}
 		if holdsFrom(fa, fresh, paths, impls) {

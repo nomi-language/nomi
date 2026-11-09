@@ -458,7 +458,7 @@ fn main() {
 
 fn main() {
     d: Display = 1
-    rs = [#{x: 1, d}]
+    rs = [.{x: 1, d}]
 
     io.inspect(
         rs
@@ -504,7 +504,7 @@ fn main() {
 }
 
 test "record param" {
-    assert nums.px(#{x: 1, y: 2}) == 1
+    assert nums.px(.{x: 1, y: 2}) == 1
 }
 // FILE: nums.nomi
 pub fn evens() -> Iter<Int> {
@@ -515,7 +515,7 @@ pub fn sum_of(xs: Iter<Int>) -> Int {
     Iter.reduce(xs, 0, fn acc, x -> acc + x)
 }
 
-pub fn px(p: #{x: Int, y: Int}) -> Int {
+pub fn px(p: .{x: Int, y: Int}) -> Int {
     p.x
 }
 `,
@@ -844,10 +844,10 @@ fn main() {
 type Stack List<Int>
 
 fn main() {
-    c = #{r: 1, q: Stack([1])}
+    c = .{r: 1, q: Stack([1])}
 
     n = case c {
-        #{q: Stack[a, ..]} -> a
+        .{q: Stack[a, ..]} -> a
         _ -> 0
     }
 
@@ -947,11 +947,11 @@ fn main() {
 }
 // FILE: shapes.nomi
 pub struct Box {
-    at: #{x: Int, y: Int}
+    at: .{x: Int, y: Int}
 }
 
 pub fn make() -> Box {
-    Box{at: #{x: 1, y: 2}}
+    Box{at: .{x: 1, y: 2}}
 }
 
 pub fn width(b: Box) -> Int {
@@ -997,7 +997,7 @@ struct H {
 fn main() {
     c = Circle{r: 1}
     h = H{it: [Shape.Dot], n: 1}
-    h2 = #{..h, it: [c]}
+    h2 = .{..h, it: [c]}
     io.inspect(Iter.count(h2.it))
 }
 `,
@@ -1023,7 +1023,7 @@ struct H {
 fn main() {
     c = Circle{r: 1}
     h = H{it: [Shape.Dot], n: 1}
-    h2 = Struct.update(updates: #{it: [c]}, original: h)
+    h2 = Struct.update(updates: .{it: [c]}, original: h)
     io.inspect(Iter.count(h2.it))
 }
 `,
@@ -1091,7 +1091,7 @@ enum Shape {
 
 fn f(s: Shape) -> Int {
     case s {
-        .Rec(#{w, h}) -> w + h
+        .Rec(.{w, h}) -> w + h
         _ -> 0
     }
 }
@@ -1207,7 +1207,7 @@ test "an assertion binding that rebinds a name" {
 }
 
 test "a pipe binding whose stage holds a pipe" {
-    ok = [1, 2] |> Iter.any(fn x: Int -> x |> double() > 2)
+    ok = [1, 2] |> Iter.any_match(fn x: Int -> x |> double() > 2)
     assert ok
 }
 `,
@@ -1223,7 +1223,7 @@ fn double(n: Int) -> Int {
 test "testing.check over a pipe whose stage holds a pipe" {
     assert testing.check(
         [1, 2]
-        |> Iter.any(fn x: Int -> x |> double() > 2)
+        |> Iter.any_match(fn x: Int -> x |> double() > 2)
     )
 }
 `,
@@ -1290,9 +1290,9 @@ fn pick(b: Bool) -> Bool {
 
 fn main() {
     p = P{x: 1}
-    q = Struct.update(if pick(True) { p } else { p }, #{x: 2})
+    q = Struct.update(if pick(True) { p } else { p }, .{x: 2})
     io.inspect(q.x)
-    r = Struct.update(updates: #{x: 3}, original: if pick(False) { p } else { p })
+    r = Struct.update(updates: .{x: 3}, original: if pick(False) { p } else { p })
     io.inspect(r.x)
 }
 `,

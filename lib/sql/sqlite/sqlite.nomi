@@ -257,7 +257,7 @@ fn cell(kind: Int) -> Cell {
 }
 
 fn text_cell(text: String) -> Cell {
-    #{..cell(3), text}
+    .{..cell(3), text}
 }
 
 /// The cell parameter `?position` is written as: what its declared type
@@ -279,44 +279,19 @@ fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error> {
                 message: "parameter ?${position} is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text",
             })
 
-        .Null ->
-            Ok(cell(0))
-
-        .Int(n) ->
-            Ok(#{..cell(1), int: n})
-
-        .Float(x) ->
-            Ok(#{..cell(2), float: x})
-
-        .Decimal(d) ->
-            Ok(#{..cell(5), text: "${d}"})
-
-        .Text(s) ->
-            Ok(text_cell(s))
-
-        .Bool(b) ->
-            Ok(#{..cell(1), int: if b { 1 } else { 0 }})
-
-        .Bytes(b) ->
-            Ok(#{..cell(4), bytes: b})
-
-        .Date(d) ->
-            Ok(text_cell("${d}"))
-
-        .Time(t) ->
-            Ok(text_cell("${t}"))
-
-        .Timestamp(t) ->
-            Ok(text_cell(String.replace("${t}", "T", " ")))
-
-        .Timestamptz(i) ->
-            Ok(text_cell(utc_text(i)))
-
-        .Uuid(id) ->
-            Ok(text_cell("${id}"))
-
-        .Json(j) ->
-            Ok(text_cell(Json.encode(j)))
+        .Null -> Ok(cell(0))
+        .Int(n) -> Ok(.{..cell(1), int: n})
+        .Float(x) -> Ok(.{..cell(2), float: x})
+        .Decimal(d) -> Ok(.{..cell(5), text: "${d}"})
+        .Text(s) -> Ok(text_cell(s))
+        .Bool(b) -> Ok(.{..cell(1), int: if b { 1 } else { 0 }})
+        .Bytes(b) -> Ok(.{..cell(4), bytes: b})
+        .Date(d) -> Ok(text_cell("${d}"))
+        .Time(t) -> Ok(text_cell("${t}"))
+        .Timestamp(t) -> Ok(text_cell(String.replace("${t}", "T", " ")))
+        .Timestamptz(i) -> Ok(text_cell(utc_text(i)))
+        .Uuid(id) -> Ok(text_cell("${id}"))
+        .Json(j) -> Ok(text_cell(Json.encode(j)))
     }
 }
 
@@ -350,32 +325,18 @@ fn to_value(declared: String, c: Cell) -> Value {
     plain = stored(c)
 
     typed = case (affinity(declared), plain) {
-        ("BOOL", .Int(n)) ->
-            Some(Value.Bool(n != 0))
-
-        ("DECIMAL", .Text(s)) ->
-            String.to_decimal(s) |> Maybe.map(Value.Decimal)
-
-        ("DATE", .Text(s)) ->
-            Date.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Date)
-
-        ("TIME", .Text(s)) ->
-            Time.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Time)
+        ("BOOL", .Int(n)) -> Some(Value.Bool(n != 0))
+        ("DECIMAL", .Text(s)) -> String.to_decimal(s) |> Maybe.map(Value.Decimal)
+        ("DATE", .Text(s)) -> Date.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Date)
+        ("TIME", .Text(s)) -> Time.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Time)
 
         ("TIMESTAMP", .Text(s)) ->
             NaiveDateTime.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
 
-        ("TIMESTAMPTZ", .Text(s)) ->
-            instant(s) |> Maybe.map(Value.Timestamptz)
-
-        ("UUID", .Text(s)) ->
-            Uuid.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
-
-        ("JSON", .Text(s)) ->
-            Json.decode(s) |> Result.to_maybe() |> Maybe.map(Value.Json)
-
-        _ ->
-            None
+        ("TIMESTAMPTZ", .Text(s)) -> instant(s) |> Maybe.map(Value.Timestamptz)
+        ("UUID", .Text(s)) -> Uuid.parse(s) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
+        ("JSON", .Text(s)) -> Json.decode(s) |> Result.to_maybe() |> Maybe.map(Value.Json)
+        _ -> None
     }
 
     Maybe.with_default(typed, plain)
@@ -383,25 +344,17 @@ fn to_value(declared: String, c: Cell) -> Value {
 
 fn stored(c: Cell) -> Value {
     case c.kind {
-        1 ->
-            Value.Int(c.int)
-
-        2 ->
-            Value.Float(c.float)
-
-        3 ->
-            Value.Text(c.text)
-
-        4 ->
-            Value.Bytes(c.bytes)
+        1 -> Value.Int(c.int)
+        2 -> Value.Float(c.float)
+        3 -> Value.Text(c.text)
+        4 -> Value.Bytes(c.bytes)
 
         5 ->
             String.to_decimal(c.text)
             |> Maybe.map(Value.Decimal)
             |> Maybe.with_default(Value.Text(c.text))
 
-        _ ->
-            Value.Null
+        _ -> Value.Null
     }
 }
 
@@ -429,8 +382,7 @@ fn affinity(declared: String) -> String {
 /// text with an offset is read too.
 fn instant(text: String) -> Maybe<Instant> {
     case OffsetDateTime.parse(String.replace(text, " ", "T")) {
-        Ok(odt) ->
-            Some(OffsetDateTime.to_instant(odt))
+        Ok(odt) -> Some(OffsetDateTime.to_instant(odt))
 
         Err(_) ->
             NaiveDateTime.parse(text)

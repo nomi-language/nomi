@@ -112,29 +112,14 @@ impl Toml.Value {
     /// stands for a value.
     pub fn text(value: Toml.Value) -> String {
         case value {
-            .String(s) ->
-                toml_host.quote(s)
-
-            .Int(n) ->
-                "${n}"
-
-            .Float(x) ->
-                toml_host.float(x)
-
-            .Bool(b) ->
-                if b { "true" } else { "false" }
-
-            .Date(d) ->
-                "${d}"
-
-            .Time(t) ->
-                "${t}"
-
-            .NaiveDateTime(t) ->
-                "${t}"
-
-            .OffsetDateTime(t) ->
-                "${t}"
+            .String(s) -> toml_host.quote(s)
+            .Int(n) -> "${n}"
+            .Float(x) -> toml_host.float(x)
+            .Bool(b) -> if b { "true" } else { "false" }
+            .Date(d) -> "${d}"
+            .Time(t) -> "${t}"
+            .NaiveDateTime(t) -> "${t}"
+            .OffsetDateTime(t) -> "${t}"
 
             .Array(items) -> {
                 texts =

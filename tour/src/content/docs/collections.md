@@ -14,8 +14,8 @@ something gives you a new collection, and the original stays as it was.
 Collections that work this way are called persistent.
 
 A collection literal starts with a symbol that says its shape. `#` marks a
-vector `#[1, 2]`, and also an anonymous struct `#{x: 1}` ([Structs, Enums
-and Distinct Types](/structs-enums-distinct/)). `%` marks the shapes that
+vector, `#[1, 2]`, as `.` marks a struct with no name, `.{x: 1}` ([Structs,
+Enums and Distinct Types](/structs-enums-distinct/)). `%` marks the shapes that
 find a value by hashing it: a map `%{"a" => 1}` and a set `%[1, 2]`. A list,
 the commonest collection, has no symbol: `[1, 2]`, and a tuple is its
 parentheses with a comma inside, `(1, "a")`.
@@ -37,7 +37,7 @@ codepoints, and so is a `String`, which gives one character at a time.
 
 The general operations live on `Iter` and work on all of them: `Iter.map`,
 `Iter.filter`, `Iter.take`, `Iter.reduce`, `Iter.sum`, `Iter.count`,
-`Iter.min`, `Iter.max` and more. Each collection type keeps only the operations specific to
+`Iter.count_by`, `Iter.chunk_equal`, `Iter.min`, `Iter.max` and more. Each collection type keeps only the operations specific to
 it, such as `Map.get` or `List.head`.
 
 ```nomi-run
@@ -381,9 +381,8 @@ dbg line 2: Iter.to_list(1..5) = [1, 2, 3, 4]
 dbg line 3: Iter.to_list(1..=5) = [1, 2, 3, 4, 5]
 -->
 
-So does a range of [`Codepoint`](/reference/code_points/) values. A codepoint is
-the number of one character. An ASCII character in single quotes, such as
-`'a'`, is a codepoint:
+So does a range of [`Codepoint`](/reference/code_points/) values, written
+with [codepoint literals](/scalars-and-strings/#text-model) such as `'a'`:
 
 ```nomi-run
 fn main() {

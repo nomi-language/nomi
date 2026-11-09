@@ -20,15 +20,13 @@ pub opaque struct Rational {
     denominator: Int
 }
 
-derive Equatable for Rational
-
 impl Rational {
     /// `numerator / denominator` in lowest terms. The denominator is a
     /// divisor the caller chose, so a zero one traps as `/` does: the
     /// reduction divides by it.
     pub fn new(numerator: Int, denominator: Int) -> Rational {
         common = Int.gcd(numerator, denominator) * Int.sign(denominator)
-        Rational{numerator: numerator / common, denominator: denominator / common}
+        .{numerator: numerator / common, denominator: denominator / common}
     }
 
     pub fn numerator(r: Rational) -> Int {
@@ -40,7 +38,7 @@ impl Rational {
     }
 
     pub fn abs(r: Rational) -> Rational {
-        Rational{numerator: Int.abs(r.numerator), denominator: r.denominator}
+        .{..r, numerator: Int.abs(r.numerator)}
     }
 
     /// `r` to the power `exponent`. A negative exponent raises the
@@ -264,7 +262,7 @@ test result: ok. 43 passed, 0 failed
 
 ## How it's written
 
-- `Rational` is an opaque struct that is always in lowest terms with a positive denominator. `Rational.new` is the only way to make one, so `derive Equatable` compares two rationals by their fields, and `1/2 == 2/4` holds because both are stored as `1/2`.
+- `Rational` is an opaque struct that is always in lowest terms with a positive denominator. `Rational.new` is the only way to make one, so `==`, with no `Equatable` of its own, compares two rationals by their fields, and `1/2 == 2/4` holds because both are stored as `1/2`.
 - `Rational.new` reduces by dividing both parts by their greatest common divisor times the denominator's sign, which also moves a minus sign to the numerator. A zero denominator makes that divisor zero, so it traps as `/` does: the denominator is a divisor the caller chose (style §29). The canonical data has no zero denominator.
 - The four operations are `Add`, `Subtract`, `Multiply` and `Divide` impls, so the tests write `a + b` and `a / b`. Each builds its result with `Rational.new`, which reduces it. The impl functions name their parameters `lhs` and `rhs`, as the interfaces do; the checker requires the interface's names.
 - `Rational.pow` raises the reciprocal for a negative exponent, with `Int.pow` on each part. `Rational.raise` raises a `Float` to a rational power through `Float.pow` and the exponent as a `Float`.

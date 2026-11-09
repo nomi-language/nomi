@@ -11,7 +11,7 @@ import (
 func TestParamNameMessages_NameAPatternParameterAsWritten(t *testing.T) {
 	const decls = `import std::uuid.Uuid
 
-fn post(request: Int, #{id}: #{id: Uuid}) -> String {
+fn post(request: Int, .{id}: .{id: Uuid}) -> String {
   "${request} ${id}"
 }
 
@@ -19,7 +19,7 @@ fn typed(n: Int, Int) -> Int {
   n
 }
 
-fn defaulted(#{id}: #{id: Int} = "x") -> Int {
+fn defaulted(.{id}: .{id: Int} = "x") -> Int {
   id
 }
 
@@ -28,9 +28,9 @@ fn show<T>((x, y): (T, Int)) -> String {
 }
 `
 	for _, c := range []struct{ name, body, want string }{
-		{"missing pattern argument", "_ = 1 |> post()", "missing argument 2, `#{id}: #{id: Uuid}`"},
+		{"missing pattern argument", "_ = 1 |> post()", "missing argument 2, `.{id}: .{id: Uuid}`"},
 		{"missing type-only argument", "_ = 1 |> typed()", "missing argument 2, `Int`"},
-		{"pattern default", "_ = defaulted(#{id: 1})", "default value for parameter `#{id}: #{id: Int}` is String, expected #{id: Int}"},
+		{"pattern default", "_ = defaulted(.{id: 1})", "default value for parameter `.{id}: .{id: Int}` is String, expected .{id: Int}"},
 		{"bound hint", "_ = show((1, 2))", "require it in the signature: `fn show<T>((x, y): (T, Int)) -> String where T: Display`"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

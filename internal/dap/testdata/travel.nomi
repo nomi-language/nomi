@@ -7,8 +7,8 @@ fn square(n: Int) -> Int {
 
 fn sum_squares(n: Int, acc: Int) -> Int {
     case n {
-        0 ->
-            acc
+        // The base case.
+        0 -> acc
 
         _ -> {
             sq = square(n)

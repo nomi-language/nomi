@@ -298,11 +298,12 @@ func (bl *irScalarBuilder) ifaceContainerCall(t *ast.Call, args irQualArgs, ifac
 	if _, local := bl.g.types[iface]; local {
 		return no()
 	}
-	if d, isIface := bl.g.ifaceNamed(iface); isIface && d != nil && bl.g.stdInstCur == nil {
+	if d, isIface := bl.g.ifaceNamed(iface); isIface && d != nil && bl.g.stdInstCur == nil && !bl.g.stdCases {
 		// A local interface is dispatched through its own table. A std
-		// instance's module may declare the interface its container impl
-		// implements (`ToJson.to_json(item)` in `List.to_json<List<Note>>`),
-		// and that impl is the template checked below.
+		// instance's module, or the module whose cases these are, may
+		// declare the interface its container impl implements
+		// (`ToJson.to_json(item)` in `List.to_json<List<Note>>`), and that
+		// impl is the template checked below.
 		return no()
 	}
 	self := args.kinds[0]
@@ -679,6 +680,12 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			}
 		}
 	}
+	if ti.Name == "ToJson" && method == "to_json" {
+		// Only std's ToJson admits a record (irrecordjson.go).
+		if v, rk, mobile, ok, handled := bl.recordToJsonCall(t); handled {
+			return v, rk, mobile, ok
+		}
+	}
 	if ti.Name == "Comparable" && method == "compare" {
 		if _, local := bl.g.types["Comparable"]; !local {
 			if v, rk, mobile, ok, handled := bl.tupleCompareCall(t); handled {
@@ -978,6 +985,13 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 		return p
 	}
 	if d, isIface := bl.g.ifaceNamed(owner); isIface && d != nil {
+		if pd := bl.g.stdProgOwnIface(d); pd != nil {
+			// `ToJson.to_json(value)` in a std instance over a value its
+			// caller holds as ToJson: dispatched through the caller's def.
+			if p := bl.stdProgErasedPlanOf(t, args, pd, owner, method); p != nil {
+				return p
+			}
+		}
 		return bl.concreteInterfacePlan(t, args, d, method)
 	}
 	if p := bl.stdProgErasedPlan(t, args, owner, method); p != nil {
@@ -1558,7 +1572,7 @@ func (bl *irScalarBuilder) stdFilePlan(t *ast.Call, args irQualArgs, std, method
 // generated adapter passes the call's runtime frame, so a cancellation reaches
 // the rt function as it does in Go.
 func irFrameHost(f *stdFunc) bool {
-	_, row := stdlibHostFuncs[f.key]
+	_, row := stdlibHostFunc(f.key)
 	return row && f.rtFrame
 }
 

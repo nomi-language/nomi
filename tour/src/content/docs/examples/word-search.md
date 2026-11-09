@@ -56,8 +56,8 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
         |> Iter.find(fn (cell, step) -> reads(letters, spelling, cell, step))?
 
     Some(Span{
-        start: #{column: column + 1, row: row + 1},
-        end: #{column: column + 1 + across * last, row: row + 1 + down * last},
+        start: .{column: column + 1, row: row + 1},
+        end: .{column: column + 1 + across * last, row: row + 1 + down * last},
     })
 }
 
@@ -72,7 +72,7 @@ fn reads(
 ) -> Bool {
     spelling
     |> Iter.with_index()
-    |> Iter.all(fn (i, letter) -> {
+    |> Iter.all_match(fn (i, letter) -> {
         letter_at(letters, row + down * i, column + across * i) == Some(letter)
     })
 }
@@ -106,25 +106,25 @@ test "search" {
             %{"clojure" => None},
         ),
         ("Should locate one word written left to right", ["clojurermt"], ["clojure"], %{
-            "clojure" => Some(#{start: #{column: 1, row: 1}, end: #{column: 7, row: 1}}),
+            "clojure" => Some(.{start: .{column: 1, row: 1}, end: .{column: 7, row: 1}}),
         }),
         (
             "Should locate the same word written left to right in a different position",
             ["mtclojurer"],
             ["clojure"],
             %{
-                "clojure" => Some(#{start: #{column: 3, row: 1}, end: #{column: 9, row: 1}}),
+                "clojure" => Some(.{start: .{column: 3, row: 1}, end: .{column: 9, row: 1}}),
             },
         ),
         ("Should locate a different left to right word", ["coffeelplx"], ["coffee"], %{
-            "coffee" => Some(#{start: #{column: 1, row: 1}, end: #{column: 6, row: 1}}),
+            "coffee" => Some(.{start: .{column: 1, row: 1}, end: .{column: 6, row: 1}}),
         }),
         (
             "Should locate that different left to right word in a different position",
             ["xcoffeezlp"],
             ["coffee"],
             %{
-                "coffee" => Some(#{start: #{column: 2, row: 1}, end: #{column: 7, row: 1}}),
+                "coffee" => Some(.{start: .{column: 2, row: 1}, end: .{column: 7, row: 1}}),
             },
         ),
         (
@@ -132,7 +132,7 @@ test "search" {
             ["jefblpepre", "tclojurerm"],
             ["clojure"],
             %{
-                "clojure" => Some(#{start: #{column: 2, row: 2}, end: #{column: 8, row: 2}}),
+                "clojure" => Some(.{start: .{column: 2, row: 2}, end: .{column: 8, row: 2}}),
             },
         ),
         (
@@ -140,11 +140,11 @@ test "search" {
             ["camdcimgtc", "jefblpepre", "clojurermt"],
             ["clojure"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 3}, end: #{column: 7, row: 3}}),
+                "clojure" => Some(.{start: .{column: 1, row: 3}, end: .{column: 7, row: 3}}),
             },
         ),
         ("Should locate a left to right word in ten line grid", puzzle, ["clojure"], %{
-            "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
+            "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
         }),
         (
             "Should locate that left to right word in a different position in a ten line grid",
@@ -162,7 +162,7 @@ test "search" {
             ],
             ["clojure"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 9}, end: #{column: 7, row: 9}}),
+                "clojure" => Some(.{start: .{column: 1, row: 9}, end: .{column: 7, row: 9}}),
             },
         ),
         (
@@ -181,7 +181,7 @@ test "search" {
             ],
             ["fortran"],
             %{
-                "fortran" => Some(#{start: #{column: 1, row: 7}, end: #{column: 7, row: 7}}),
+                "fortran" => Some(.{start: .{column: 1, row: 7}, end: .{column: 7, row: 7}}),
             },
         ),
         (
@@ -200,20 +200,20 @@ test "search" {
             ],
             ["fortran", "clojure"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "fortran" => Some(#{start: #{column: 1, row: 7}, end: #{column: 7, row: 7}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "fortran" => Some(.{start: .{column: 1, row: 7}, end: .{column: 7, row: 7}}),
             },
         ),
         ("Should locate a single word written right to left", ["rixilelhrs"], ["elixir"], %{
-            "elixir" => Some(#{start: #{column: 6, row: 1}, end: #{column: 1, row: 1}}),
+            "elixir" => Some(.{start: .{column: 6, row: 1}, end: .{column: 1, row: 1}}),
         }),
         (
             "Should locate multiple words written in different horizontal directions",
             puzzle,
             ["elixir", "clojure"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "elixir" => Some(#{start: #{column: 6, row: 5}, end: #{column: 1, row: 5}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
             },
         ),
         (
@@ -221,9 +221,9 @@ test "search" {
             puzzle,
             ["clojure", "elixir", "ecmascript"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "elixir" => Some(#{start: #{column: 6, row: 5}, end: #{column: 1, row: 5}}),
-                "ecmascript" => Some(#{start: #{column: 10, row: 1}, end: #{column: 10, row: 10}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
+                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
             },
         ),
         (
@@ -231,10 +231,10 @@ test "search" {
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "elixir" => Some(#{start: #{column: 6, row: 5}, end: #{column: 1, row: 5}}),
-                "ecmascript" => Some(#{start: #{column: 10, row: 1}, end: #{column: 10, row: 10}}),
-                "rust" => Some(#{start: #{column: 9, row: 5}, end: #{column: 9, row: 2}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
+                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
+                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
             },
         ),
         (
@@ -242,11 +242,11 @@ test "search" {
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "elixir" => Some(#{start: #{column: 6, row: 5}, end: #{column: 1, row: 5}}),
-                "ecmascript" => Some(#{start: #{column: 10, row: 1}, end: #{column: 10, row: 10}}),
-                "rust" => Some(#{start: #{column: 9, row: 5}, end: #{column: 9, row: 2}}),
-                "java" => Some(#{start: #{column: 1, row: 1}, end: #{column: 4, row: 4}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
+                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
+                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
+                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
             },
         ),
         (
@@ -254,12 +254,12 @@ test "search" {
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "elixir" => Some(#{start: #{column: 6, row: 5}, end: #{column: 1, row: 5}}),
-                "ecmascript" => Some(#{start: #{column: 10, row: 1}, end: #{column: 10, row: 10}}),
-                "rust" => Some(#{start: #{column: 9, row: 5}, end: #{column: 9, row: 2}}),
-                "java" => Some(#{start: #{column: 1, row: 1}, end: #{column: 4, row: 4}}),
-                "lua" => Some(#{start: #{column: 8, row: 9}, end: #{column: 6, row: 7}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
+                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
+                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
+                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
+                "lua" => Some(.{start: .{column: 8, row: 9}, end: .{column: 6, row: 7}}),
             },
         ),
         (
@@ -267,13 +267,13 @@ test "search" {
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "elixir" => Some(#{start: #{column: 6, row: 5}, end: #{column: 1, row: 5}}),
-                "ecmascript" => Some(#{start: #{column: 10, row: 1}, end: #{column: 10, row: 10}}),
-                "rust" => Some(#{start: #{column: 9, row: 5}, end: #{column: 9, row: 2}}),
-                "java" => Some(#{start: #{column: 1, row: 1}, end: #{column: 4, row: 4}}),
-                "lua" => Some(#{start: #{column: 8, row: 9}, end: #{column: 6, row: 7}}),
-                "lisp" => Some(#{start: #{column: 3, row: 6}, end: #{column: 6, row: 3}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
+                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
+                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
+                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
+                "lua" => Some(.{start: .{column: 8, row: 9}, end: .{column: 6, row: 7}}),
+                "lisp" => Some(.{start: .{column: 3, row: 6}, end: .{column: 6, row: 3}}),
             },
         ),
         (
@@ -281,14 +281,14 @@ test "search" {
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp", "ruby"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "elixir" => Some(#{start: #{column: 6, row: 5}, end: #{column: 1, row: 5}}),
-                "ecmascript" => Some(#{start: #{column: 10, row: 1}, end: #{column: 10, row: 10}}),
-                "rust" => Some(#{start: #{column: 9, row: 5}, end: #{column: 9, row: 2}}),
-                "java" => Some(#{start: #{column: 1, row: 1}, end: #{column: 4, row: 4}}),
-                "lua" => Some(#{start: #{column: 8, row: 9}, end: #{column: 6, row: 7}}),
-                "lisp" => Some(#{start: #{column: 3, row: 6}, end: #{column: 6, row: 3}}),
-                "ruby" => Some(#{start: #{column: 8, row: 6}, end: #{column: 5, row: 9}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
+                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
+                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
+                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
+                "lua" => Some(.{start: .{column: 8, row: 9}, end: .{column: 6, row: 7}}),
+                "lisp" => Some(.{start: .{column: 3, row: 6}, end: .{column: 6, row: 3}}),
+                "ruby" => Some(.{start: .{column: 8, row: 6}, end: .{column: 5, row: 9}}),
             },
         ),
         (
@@ -296,14 +296,14 @@ test "search" {
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp", "ruby", "haskell"],
             %{
-                "clojure" => Some(#{start: #{column: 1, row: 10}, end: #{column: 7, row: 10}}),
-                "elixir" => Some(#{start: #{column: 6, row: 5}, end: #{column: 1, row: 5}}),
-                "ecmascript" => Some(#{start: #{column: 10, row: 1}, end: #{column: 10, row: 10}}),
-                "rust" => Some(#{start: #{column: 9, row: 5}, end: #{column: 9, row: 2}}),
-                "java" => Some(#{start: #{column: 1, row: 1}, end: #{column: 4, row: 4}}),
-                "lua" => Some(#{start: #{column: 8, row: 9}, end: #{column: 6, row: 7}}),
-                "lisp" => Some(#{start: #{column: 3, row: 6}, end: #{column: 6, row: 3}}),
-                "ruby" => Some(#{start: #{column: 8, row: 6}, end: #{column: 5, row: 9}}),
+                "clojure" => Some(.{start: .{column: 1, row: 10}, end: .{column: 7, row: 10}}),
+                "elixir" => Some(.{start: .{column: 6, row: 5}, end: .{column: 1, row: 5}}),
+                "ecmascript" => Some(.{start: .{column: 10, row: 1}, end: .{column: 10, row: 10}}),
+                "rust" => Some(.{start: .{column: 9, row: 5}, end: .{column: 9, row: 2}}),
+                "java" => Some(.{start: .{column: 1, row: 1}, end: .{column: 4, row: 4}}),
+                "lua" => Some(.{start: .{column: 8, row: 9}, end: .{column: 6, row: 7}}),
+                "lisp" => Some(.{start: .{column: 3, row: 6}, end: .{column: 6, row: 3}}),
+                "ruby" => Some(.{start: .{column: 8, row: 6}, end: .{column: 5, row: 9}}),
                 "haskell" => None,
             },
         ),

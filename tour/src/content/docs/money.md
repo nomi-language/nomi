@@ -139,7 +139,7 @@ import {
 
 fn main() {
     total = Money`10.00 USD`
-    third = #{..total, amount: total.amount |> Decimal.divide(3d, 6, .HalfEven)}
+    third = .{..total, amount: total.amount |> Decimal.divide(3d, 6, .HalfEven)}
     io.print(third)
     io.print(Money.round(third))
 
@@ -165,6 +165,31 @@ long list of rounded amounts add up to a little more than the exact total.
 Rounding to even sends half the ties down and half up, so the errors cancel
 out. Pass `mode:` for another rule, such as `.HalfUp`, when a law or a
 contract asks for it.
+
+Three rounded thirds of $10.00 make $9.99, so a bill split that way loses a
+cent. `Money.split` gives parts that sum to the amount exactly, the leftover
+cent going to the first part, and `Money.allocate` splits by ratios:
+
+```nomi-run
+import {
+    std::io
+    std::money.Money
+}
+
+fn main() {
+    io.print(Money.split(Money`10.00 USD`, 3))
+    io.print(Money.allocate(Money`10.00 USD`, [70, 30]))
+}
+
+```
+<!-- expect
+[3.34 USD, 3.33 USD, 3.33 USD]
+[7.00 USD, 3.00 USD]
+-->
+
+A plain `Decimal` splits the same way, to the number of digits you name:
+`Decimal.split(100d, 3, 2)` is `[33.34d, 33.33d, 33.33d]`, and
+`Decimal.allocate` takes ratios.
 
 ## Custom currencies
 

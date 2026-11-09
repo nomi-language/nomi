@@ -66,8 +66,7 @@ pub fn f(r: Result<Int, String>) -> Int {
             io.print("got ${n}")
             n
 
-        Err(_) ->
-            0
+        Err(_) -> 0
     }
 }
 `,
@@ -80,8 +79,7 @@ pub fn f(r: Result<Int, String>) -> Int {
             n
         }
 
-        Err(_) ->
-            0
+        Err(_) -> 0
     }
 }
 `,
@@ -95,8 +93,7 @@ pub fn f(r: Result<Int, String>) -> Int {
         Ok(n) -> io.print("got ${n}")
               n
 
-        Err(_) ->
-            0
+        Err(_) -> 0
     }
 }
 `,
@@ -109,8 +106,7 @@ pub fn f(r: Result<Int, String>) -> Int {
             n
         }
 
-        Err(_) ->
-            0
+        Err(_) -> 0
     }
 }
 `,

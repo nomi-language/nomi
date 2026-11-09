@@ -710,7 +710,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.tupleMakeWant(tl, want)
 	}
 	if sl, isRecord := at.(*ast.StructLit); isRecord && sl.TypeName == nil && sl.Spread == nil && want.tag == tagAnonStruct && bl.g.targetStruct(sl) == nil {
-		// `#{a: []}` where a `#{a: List<Int>}` is expected: each field's value
+		// `.{a: []}` where a `.{a: List<Int>}` is expected: each field's value
 		// is lowered against its field type, as a tuple's items are.
 		return bl.recordMakeOf(sl, want)
 	}

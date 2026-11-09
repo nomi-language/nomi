@@ -30,8 +30,7 @@ fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<(String, Result<T, Error
                 body(db)
             }
 
-            Err(error) ->
-                Err(Error.Database{error})
+            Err(error) -> Err(Error.Database{error})
         }
 
         (name, result)
@@ -174,7 +173,7 @@ test "apply runs each migration once, in order, and records it with its checksum
 test "a migration whose text changed is refused before anything runs" {
     answers = on_each(fn db -> {
         _ = migrate.apply(db, [users, orders])?
-        edited = #{..users, sql: "CREATE TABLE users (id INTEGER PRIMARY KEY, mail TEXT)"}
+        edited = .{..users, sql: "CREATE TABLE users (id INTEGER PRIMARY KEY, mail TEXT)"}
         refused = migrate.apply(db, [edited, orders, seed])
         Ok((refused, recorded(db)?, count(db, "users")?))
     })
@@ -191,7 +190,7 @@ test "a migration whose text changed is refused before anything runs" {
 }
 
 test "a failing migration keeps the ones before it and leaves itself and the rest out" {
-    broken = #{..orders, sql: "CREATE TABL orders (id INTEGER)"}
+    broken = .{..orders, sql: "CREATE TABL orders (id INTEGER)"}
 
     answers = on_each(fn db -> {
         failed = case migrate.apply(db, [users, broken, seed]) {
@@ -210,7 +209,7 @@ test "a failing migration keeps the ones before it and leaves itself and the res
 }
 
 test "status sorts the migrations by where they stand, and creates nothing" {
-    edited = #{..orders, sql: "CREATE TABLE orders (id INTEGER PRIMARY KEY)"}
+    edited = .{..orders, sql: "CREATE TABLE orders (id INTEGER PRIMARY KEY)"}
 
     answers = on_each(fn db -> {
         fresh = migrate.status(db, [users, orders])?
@@ -348,7 +347,7 @@ test "two processes that migrate one Postgres database at once run each migratio
     }
 
     // One run did both; the other waited for its lock and found nothing to do.
-    assert runs |> Iter.all(fn r -> Result.is_ok(r))
+    assert runs |> Iter.all_match(fn r -> Result.is_ok(r))
 
     ran =
         runs

@@ -44,7 +44,7 @@ fn main() {
         if x >= y { break }
         Point{x: x + 3, y: y - 1}
     }))
-    io.inspect(Iter.loop(Point{x: 1, y: 1}, fn #{x, y}: Point -> {
+    io.inspect(Iter.loop(Point{x: 1, y: 1}, fn .{x, y}: Point -> {
         if x > 30 { break Point{x, y: y + 100} }
         Point{x: x * 2, y}
     }))

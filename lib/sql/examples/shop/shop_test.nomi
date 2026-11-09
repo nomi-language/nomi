@@ -90,7 +90,9 @@ group "the shop" {
         assert rows |> Iter.map(fn r -> r.id) |> Iter.to_list() == [second, first]
 
         assert rows
-            |> Iter.all(fn r -> r.email == "ada@example.com" and r.status == OrderStatus.Pending)
+            |> Iter.all_match(fn r -> {
+                r.email == "ada@example.com" and r.status == OrderStatus.Pending
+            })
     }
 
     test "an outer join's columns are Maybe, and an aggregate counts", db {

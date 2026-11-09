@@ -41,17 +41,10 @@ pub fn delivery_date(
     year = Date.year(today)
 
     case parse(description)? {
-        .Now ->
-            Ok(meeting_start + Hours(2))
-
-        .Asap when NaiveDateTime.hour(meeting_start) < 13 ->
-            Ok(at(today, 17))
-
-        .Asap ->
-            Ok(at(today + Days(1), 13))
-
-        .EndOfWeek ->
-            Ok(end_of_week(today))
+        .Now -> Ok(meeting_start + Hours(2))
+        .Asap when NaiveDateTime.hour(meeting_start) < 13 -> Ok(at(today, 17))
+        .Asap -> Ok(at(today + Days(1), 13))
+        .EndOfWeek -> Ok(end_of_week(today))
 
         .Month(month) -> {
             due_year = if Date.month(today) < month {

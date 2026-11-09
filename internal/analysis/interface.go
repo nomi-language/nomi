@@ -152,7 +152,7 @@ func clearAttachedTests(n ast.Node) {
 // is written does, so an interface written by another format is a miss.
 const (
 	interfaceMagic   = "NOMIIF"
-	interfaceVersion = 3
+	interfaceVersion = 4
 )
 
 // Encode writes fi as bytes.

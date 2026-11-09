@@ -27,7 +27,7 @@ pub enum Error {
 impl School {
     /// A school with no students.
     pub fn new() -> School {
-        School{grades: %{}}
+        .{grades: %{}}
     }
 
     /// `school` with `name` enrolled in `grade`, or `AlreadyEnrolled` when
@@ -36,7 +36,7 @@ impl School {
         if name in school.grades {
             Err(.AlreadyEnrolled)
         } else {
-            Ok(School{grades: Map.put(school.grades, name, grade)})
+            Ok(.{grades: Map.put(school.grades, name, grade)})
         }
     }
 
@@ -44,7 +44,7 @@ impl School {
     pub fn roster(school: School) -> List<String> {
         school.grades
         |> Iter.sort_by(fn (name, grade) -> (grade, name))
-        |> Iter.map(fn (name, _grade) -> name)
+        |> Iter.map(.first)
         |> Iter.to_list()
     }
 
@@ -52,7 +52,7 @@ impl School {
     pub fn grade(school: School, grade: Int) -> List<String> {
         school.grades
         |> Iter.filter(fn (_name, in_grade) -> in_grade == grade)
-        |> Iter.map(fn (name, _grade) -> name)
+        |> Iter.map(.first)
         |> Iter.sort()
     }
 }

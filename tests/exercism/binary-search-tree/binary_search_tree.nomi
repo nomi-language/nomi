@@ -7,8 +7,6 @@ pub enum Tree<T> {
     Node {left: Tree<T>, value: T, right: Tree<T>}
 }
 
-derive Equatable for Tree<T>
-
 impl Tree<T> {
     /// The tree that inserting `values` one after another into an empty
     /// tree builds.
@@ -20,8 +18,7 @@ impl Tree<T> {
     /// to the right of a smaller one.
     pub fn insert(tree: Tree<T>, value: T) -> Tree<T> where T: Comparable {
         case tree {
-            .Leaf ->
-                .Node{left: .Leaf, value, right: .Leaf}
+            .Leaf -> .Node{left: .Leaf, value, right: .Leaf}
 
             .Node{left, value: here, right} when value <= here ->
                 .Node{left: Tree.insert(left, value), value: here, right}

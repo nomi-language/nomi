@@ -167,12 +167,14 @@ buildinfo() {
 }
 
 # `nomi` and `nomi-lsp` embed the stdlib's lowering (internal/irbuild's std
-# bundle) and its interfaces and facts (std/shared.go), so they never
-# analyze or lower std at startup. stdbundlegen makes both once, natively,
-# from this tree, and writes a `go build -overlay` file that supplies them
-# under the nomi_stdbundle tag. Neither depends on the target platform; each
-# records the stdlib's digest, and the bundle the host-function digest, a
-# binary checks it against.
+# bundle), its interfaces and facts (std/shared.go) and its base modules'
+# state (std/state.go), so they never analyze or lower std at startup and
+# do not build the base modules on their first run. stdbundlegen makes all
+# three once, natively, from this tree, and writes a `go build -overlay`
+# file that supplies them under the nomi_stdbundle tag. None depends on the
+# target platform; each records the stdlib's digest, the bundle the
+# host-function digest and the state its codec's, a binary checks it
+# against.
 bundle_dir="$tools_dir/stdbundle"
 mkdir -p "$bundle_dir"
 go run -C "$module_dir" ./internal/irbuild/stdbundlegen "$bundle_dir"

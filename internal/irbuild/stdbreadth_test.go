@@ -122,7 +122,7 @@ func TestIOHostPackageIsTheFourthAndCarriesNoCompilerCode(t *testing.T) {
 		t.Fatalf("%s is not in hostPackages, so hostCallName cannot resolve its symbols", ioHostPath)
 	}
 	for _, name := range []string{"fs_host.read_text", "fs_host.write", "fs_host.open", "fs_host.list"} {
-		h, ok := stdlibHostFuncs[name]
+		h, ok := stdlibHostRegistry().funcs[name]
 		if !ok {
 			t.Errorf("%s is not bound", name)
 			continue

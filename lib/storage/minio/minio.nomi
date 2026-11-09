@@ -54,8 +54,7 @@ pub fn start() -> Result<Minio, String> {
     }
 
     child = case process.spawn(command) {
-        Ok(child) ->
-            child
+        Ok(child) -> child
 
         Err(e) -> {
             fs.remove_all_quietly(data)
@@ -66,8 +65,7 @@ pub fn start() -> Result<Minio, String> {
     server = Minio{config, child, data}
 
     case wait_live(endpoint, 100) |> Result.flat_map(fn _ -> create_bucket(config)) {
-        Ok(_) ->
-            Ok(server)
+        Ok(_) -> Ok(server)
 
         Err(e) -> {
             stop(server)
@@ -144,7 +142,7 @@ fn create_bucket(config: Config) -> Result<Unit, String> {
 /// Create `bucket` on `config`'s server and let anyone read its objects
 /// with a bucket policy, since MinIO keeps no object ACLs.
 fn public_bucket(config: Config, bucket: String) -> Result<Config, String> {
-    public = #{..config, bucket}
+    public = .{..config, bucket}
     create_bucket(public)?
 
     policy = """
@@ -152,7 +150,7 @@ fn public_bucket(config: Config, bucket: String) -> Result<Config, String> {
         "Action": ["s3:GetObject"], "Resource": ["arn:aws:s3:::${bucket}/*"]}]}
         """
 
-    url = #{..Url.join_path(config.endpoint, [bucket]), query: Some("policy=")}
+    url = .{..Url.join_path(config.endpoint, [bucket]), query: Some("policy=")}
     _ = signed(public, Request{method: Method.Put, url, body: Body.Text(policy)})?
     Ok(public)
 }

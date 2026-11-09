@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -30,8 +31,20 @@ type stdArtifact struct {
 	// depth (analysis.StdModuleImports), by module name: what a stdlib
 	// built a module at a time builds with it.
 	imports map[string][]string
+	// exports holds what each module exports to the import help
+	// (analysis.StdModuleExport), by module name: what a diagnostic naming
+	// the import a file lacks reads, which would otherwise parse every
+	// module's source.
+	exports map[string]analysis.StdModuleExport
 	// facts is analysis.StdFacts, encoded; nil until worked out.
 	facts []byte
+	// sum is the CRC-32 of the artifact's body as it was read or last
+	// written, which names it to the base modules' state built from it
+	// (state.go).
+	sum uint32
+	// embedded is set on the artifact the binary embeds, whose base
+	// modules' state the binary embeds too (state.go).
+	embedded bool
 }
 
 // The artifact's layout:
@@ -42,13 +55,14 @@ type stdArtifact struct {
 //	uint32 the CRC-32 of the rest, then the rest:
 //	uvarint the module count, and per module in name order its name, its
 //	interface's bytes, its parse error count and each error's line, column
-//	and message, and its imports' count and each import's name; then the
-//	facts' bytes.
+//	and message, its imports' count and each import's name, and whether it
+//	exports anything public, its public types' count and each type's name;
+//	then the facts' bytes.
 const (
 	stdArtifactMagic = "NOMISTDI"
 	// stdArtifactVersion versions the layout above; the interfaces and the
 	// facts carry versions of their own.
-	stdArtifactVersion = 2
+	stdArtifactVersion = 3
 	// stdArtifactUnused is how long a cached artifact no process has used
 	// is kept: each build of the compiler writes its own.
 	stdArtifactUnused = 24 * time.Hour
@@ -81,12 +95,16 @@ func extractStdArtifact() *stdArtifact {
 		}
 		art.ifaces[name] = analysis.ExtractInterface("std/"+name, "", nodes).Encode()
 		art.imports[name] = analysis.StdModuleImports(name, nodes)
+		if len(errs) == 0 && !strings.Contains(name, "/") {
+			// A test-only fixture is no module a program imports.
+			art.exports[name] = analysis.StdModuleExportOf(name, nodes)
+		}
 	}
 	return art
 }
 
 func newStdArtifact() *stdArtifact {
-	return &stdArtifact{ifaces: map[string][]byte{}, syntax: map[string][]parser.ParseError{}, imports: map[string][]string{}}
+	return &stdArtifact{ifaces: map[string][]byte{}, syntax: map[string][]parser.ParseError{}, imports: map[string][]string{}, exports: map[string]analysis.StdModuleExport{}}
 }
 
 // thisStdArtifactHead is the head of an artifact this process reads and
@@ -130,10 +148,24 @@ func encodeStdArtifact(art *stdArtifact) []byte {
 		for _, imp := range art.imports[name] {
 			body = appendString(body, imp)
 		}
+		e, ok := art.exports[name]
+		switch {
+		case !ok:
+			body = append(body, 0)
+		case !e.Public:
+			body = append(body, 1)
+		default:
+			body = append(body, 2)
+		}
+		body = binary.AppendUvarint(body, uint64(len(e.Types)))
+		for _, t := range e.Types {
+			body = appendString(body, t)
+		}
 	}
 	body = appendString(body, string(art.facts))
 	out := thisStdArtifactHead()
-	out = binary.LittleEndian.AppendUint32(out, crc32.ChecksumIEEE(body))
+	art.sum = crc32.ChecksumIEEE(body)
+	out = binary.LittleEndian.AppendUint32(out, art.sum)
 	return append(out, body...)
 }
 
@@ -184,6 +216,7 @@ func decodeStdArtifact(data []byte) (*stdArtifact, error) {
 	}
 	r := &artifactReader{b: data}
 	art := newStdArtifact()
+	art.sum = sum
 	for n := r.uv(); n > 0 && r.err == nil; n-- {
 		name := string(r.bytes())
 		art.ifaces[name] = r.bytes()
@@ -194,6 +227,15 @@ func decodeStdArtifact(data []byte) (*stdArtifact, error) {
 		}
 		for m := r.uv(); m > 0 && r.err == nil; m-- {
 			art.imports[name] = append(art.imports[name], string(r.bytes()))
+		}
+		kind := r.uv()
+		var e analysis.StdModuleExport
+		for m := r.uv(); m > 0 && r.err == nil; m-- {
+			e.Types = append(e.Types, string(r.bytes()))
+		}
+		if kind > 0 {
+			e.Public = kind == 2
+			art.exports[name] = e
 		}
 	}
 	art.facts = r.bytes()
@@ -224,6 +266,7 @@ func readStdArtifact() (*stdArtifact, string) {
 	if len(embeddedStdInterfaces) > 0 {
 		art, err := decodeStdArtifact(embeddedStdInterfaces)
 		if err == nil {
+			art.embedded = true
 			return art, "embedded"
 		}
 		fmt.Fprintf(os.Stderr, "nomi: the std interfaces this binary embeds are not its own, so it extracts them: %v\n", err)

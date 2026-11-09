@@ -152,6 +152,13 @@ go install ./cmd/nomi-lsp     # the language server editors launch
 make build                    # all of the above plus tour wasm and editor queries
 ```
 
+On a Mac with Xcode's command line tools, `make build-cli`, `build-lsp` and
+`dev-editors` link `nomi` and `nomi-lsp` with `CGO_ENABLED=1
+-ldflags=-linkmode=external`: the system linker writes chained fixups, so
+`nomi` reaches `main` about 1 ms sooner. On macOS cgo picks no different std
+files. Releases are cross-built with `CGO_ENABLED=0` on one Linux runner and
+keep Go's linker, and so does every `nomi-vm`, which gains nothing measurable.
+
 The stdlib is embedded with `//go:embed`, so after editing `std/`
 rebuild both `nomi` and `nomi-lsp`, and restart the running language server
 (reinstalling the Zed dev extension restarts it). When the server has no
@@ -168,7 +175,8 @@ and caches the stdlib's interfaces and facts and its lowering, a std
 bundle, under its build ID in `os.UserCacheDir()/nomi/artifacts/std/`
 (`NOMI_ARTIFACT_CACHE` replaces the directory; `off` keeps none), so each
 new build of `nomi` pays one slower first run (about 0.8 s for hello
-world). `scripts/build-tour-wasm.sh` and `scripts/release.sh` embed both
+world), and the base modules' state on its second.
+`scripts/build-tour-wasm.sh` and `scripts/release.sh` embed all three
 instead (the `nomi_stdbundle` tag). Under `go test` the cache is under
 the system temp directory, for the test and every process it starts.
 Details: [the std bundle](internal/irbuild/doc.go).
@@ -228,6 +236,9 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
   `TestShared_LazyModulesAreEagerModules` (`std/shared_test.go`),
   `TestStdLazyRunsAsWholeSample`, `NOMI_STD_WHOLE=1`
   (`cmd/nomi/std_lazy_test.go`).
+- The stdlib's state reads back as the build it was written from, field by
+  field: `TestStdState_ReadsBackAsTheBuild`, `TestStdState_AProcessReadsIt`
+  (`std/state_test.go`), `NOMI_STD_STATE=off`.
 - `nomi fmt` keeps meaning: `FuzzFormatKeepsMeaning`, `knownFormatGaps`
   (`vmhost/format_meaning_test.go`).
 - An incremental check matches a full one: `FuzzIncrementalMatchesFull`
@@ -410,6 +421,11 @@ until you do).
   `go generate ./internal/ast` and `go generate ./internal/ast/astcodec` (the
   interface codec; its package doc, "File interfaces");
   `TestGeneratedChildrenAreCurrent` and `TestGeneratedCodecIsCurrent` fail
+  until you do. After changing a field of any type the stdlib's built
+  analysis holds (a `FileAnalysis`, a symbol, a type, a node), run
+  `go generate ./internal/analysis` (the stdlib's state codec; the
+  analysis package doc, "The stdlib's state");
+  `TestGeneratedStateCodecIsCurrent` (`internal/analysis/stategen`) fails
   until you do.
 - No fake symbols: a new concept gets its own representation at every layer.
 - No workarounds for type information the checker should provide; fix the

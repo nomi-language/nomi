@@ -37,7 +37,7 @@ test "sets support insertion and algebra operations" {
         Set.difference(a, b)
         |> Set.size()
 
-    assert Set.is_subset(%[1, 2], a)
+    assert Set.is_subset_of(%[1, 2], a)
 
     assert inserted == 4
     assert union_size == 4

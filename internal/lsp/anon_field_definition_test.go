@@ -17,13 +17,13 @@ import (
 // them, or where the type expression the value was declared with names
 // them. A field access, a field accessor and a destructuring pattern refer
 // there, across files too.
-const anonFieldRoutes = `pub once public = #{
+const anonFieldRoutes = `pub once public = .{
     home: "/",
     post_reaction_toggle: "/api/posts/{id}/reactions",
 }
 
-pub fn make(n: Int) -> #{id: Int, label: String} {
-    #{id: n, label: "x"}
+pub fn make(n: Int) -> .{id: Int, label: String} {
+    .{id: n, label: "x"}
 }
 `
 
@@ -31,21 +31,21 @@ const anonFieldMain = `import std::io
 import std::regex.Regex
 import routes
 
-fn show(p: #{id: Int}) -> Int {
+fn show(p: .{id: Int}) -> Int {
     p.id
 }
 
 fn main() {
     io.print(routes.public.post_reaction_toggle)
     io.print(routes.public.home)
-    local = #{count: 1, name: "n"}
-    updated = #{..local, count: 2}
+    local = .{count: 1, name: "n"}
+    updated = .{..local, count: 2}
     io.print(updated.name)
-    _ = show(#{id: local.count})
+    _ = show(.{id: local.count})
     m = routes.make(1)
     io.print(m.label)
     io.print([local] |> Iter.map(.name) |> Iter.to_list() |> String.join(","))
-    #{home} = routes.public
+    .{home} = routes.public
     io.print(home)
     io.print(updated.count)
     date = String.captures("2024-05", Regex` + "`(?P<year>\\d{4})-(?P<month>\\d\\d)`" + `)!

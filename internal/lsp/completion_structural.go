@@ -13,8 +13,8 @@ import (
 
 // structFieldCandidates offers the fields a struct literal has not written
 // yet, `Point{x: 1, ` offering `y`, with their types. The literal's type is
-// its named type, its spread's (`#{..base, `), or the type its position
-// expects (`a: Address = #{‸}`). Fields without a default rank first, in
+// its named type, its spread's (`.{..base, `), or the type its position
+// expects (`a: Address = .{‸}`). Fields without a default rank first, in
 // declaration order. A patch (a spread, or a literal with no type name at a
 // field under one) needs no field, so its fields keep declaration order.
 func (r *completionRequest) structFieldCandidates() []candidate {

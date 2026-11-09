@@ -146,8 +146,8 @@ fn first(s: Shape<Int>) -> Int {
 
 fn main() {
     io.print("${first(Shape.UserId(3))} ${first(4 |> Shape.UserId())} ${first(Shape.Val(5))}")
-    io.print("${first(Shape.Circle(#{r: 6}))} ${first(#{r: 8} |> Shape.Circle())} ${first(Shape.Expired)}")
-    io.print("${first(Shape.Rect(#{w: 12}))} ${first(#{w: 13} |> Shape.Rect())}")
+    io.print("${first(Shape.Circle(.{r: 6}))} ${first(.{r: 8} |> Shape.Circle())} ${first(Shape.Expired)}")
+    io.print("${first(Shape.Rect(.{w: 12}))} ${first(.{w: 13} |> Shape.Rect())}")
     t: Shape<String> = Shape.UserId(9)
     io.print(Debug.inspect(t))
     xs = [Shape.UserId(10), Shape.Val("a")]

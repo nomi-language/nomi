@@ -79,6 +79,6 @@ fn main() {
     console.inspect(Some(42))
     none: Maybe<Int> = None
     console.inspect(none)
-    console.inspect(#{a: 1, a0: 2})
+    console.inspect(.{a: 1, a0: 2})
     console.inspect(["a", "b"])
 }

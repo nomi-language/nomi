@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/camicia.
 
 ## Choices
 
-- `simulate_game` answers a `Game`, a struct of a `Status` enum (`Finished` or `Loop`) and the two counts, where the canonical data writes `"finished"` and `"loop"`.
+- `simulate_game` returns a `Game`, a struct of a `Status` enum (`Finished` or `Loop`) and the two counts, where the canonical data writes `"finished"` and `"loop"`.
 - Cards stay the canonical strings. `penalty` is the one place that knows a card: `J`, `Q`, `K` and `A` make the other player pay 1 to 4 cards, and every other card is a number card worth 0.
 - A trick is `play`, a tail-recursive function over whose turn it is, the pile so far (newest card first), how many cards the player on turn still owes, and who played the payment card they owe for. A payment card hands the debt to the other player; the last card of a debt ends the trick for that card's player; a player with no card to play ends it for the other.
 - The hands are a `Hands` struct of the two decks, with a private `Side` enum and `hand` and `with_hand` to read and replace one side. The collector puts the pile under their deck in the order it was played, which is `Iter.reverse` of the pile as `play` built it.

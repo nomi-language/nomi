@@ -40,8 +40,8 @@ import {
 //# - Each `Matcher` function returns one of these operations with the
 //#   matcher first (`is_contained_in`, `is_prefix_of`, `is_suffix_of`,
 //#   `split_in`, `replace_in`, `find_all_in`, `find_in`). A type of your own
-//#   implements it to become searchable, and a generic function of your own
-//#   takes any matcher with `where M: Matcher`.
+//#   implements it to become searchable, and a function of your own takes
+//#   any matcher as a `Matcher` parameter.
 //# - `String.contains` is String's `Contains` impl at the same three types,
 //#   chosen by the needle's type, so a `String` also satisfies
 //#   `where C: Contains<String>`.
@@ -53,7 +53,8 @@ import {
 //#   groups as the regex's capture type
 //#   ([capture types](/reference/regex/#capture-types)).
 //# - `String.split` and the other `Matcher` search functions are generic, so
-//#   naming one as a value needs a function type to settle `M`:
+//#   a call with a `String` or a `Regex` runs as that type's search directly,
+//#   and naming one as a value needs a function type to settle `M`:
 //#   `split: (String, String) -> List<String> = String.split`.
 //#
 //# ## Graphemes
@@ -514,7 +515,7 @@ impl String {
     //! assert String.captures("b", Regex`(a)|(b)`) == Some((None, Some("b")))
     //! assert String.captures("v12", Regex`v(\d+)`) == Some("12")
     //! date = Regex`(?P<year>\d{4})-(?P<month>\d\d)?`
-    //! assert String.captures("2024-", date) == Some(#{year: "2024", month: None})
+    //! assert String.captures("2024-", date) == Some(.{year: "2024", month: None})
     //! assert String.captures("no address", Regex`(\w+)@(\w+)`) == None
     //! assert String.captures("a1", Regex.compile("(\\w)(\\d)")?) == Some([Some("a"), Some("1")])
     //

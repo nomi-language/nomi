@@ -13,10 +13,10 @@ enum Step {
 }
 
 /// Runs `steps` on a new account, stopping at the first refused one, and
-/// answers the balance after them or the refusal.
+/// returns the balance after them or the refusal.
 fn replay(steps: List<Step>) -> Result<Int, Error> {
     bank_account.with_account(fn account -> {
-        _ = steps |> Iter.map(fn step -> run(account, step)) |> Result.collect()?
+        _ = steps |> Iter.map(&run(account, &1)) |> Result.collect()?
         Account.balance(account)
     })
 }
@@ -94,7 +94,7 @@ test "Can handle concurrent transactions" {
     })
 
     assert opened == Ok(Unit)
-    assert transactions |> Iter.all(Result.is_ok)
+    assert transactions |> Iter.all_match(Result.is_ok)
     assert balance == Ok(0)
 }
 

@@ -52,5 +52,5 @@ fn enum_of(number: Int, line: String) -> Result<String, String> {
 }
 
 fn is_snake_case(word: String) -> Bool {
-    word != "" and Iter.all(word, fn c -> c in "abcdefghijklmnopqrstuvwxyz_")
+    word != "" and Iter.all_match(word, fn c -> c in "abcdefghijklmnopqrstuvwxyz_")
 }

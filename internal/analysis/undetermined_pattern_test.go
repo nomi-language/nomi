@@ -3,6 +3,8 @@ package analysis_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/analysis"
 )
 
 // A name a pattern binds to a type nothing in the file fixes is an error at
@@ -45,7 +47,8 @@ func TestUndeterminedPatternBinding_Rejected(t *testing.T) {
 }
 
 // A pattern name whose type something on the binding or a later use fixes,
-// or whose type only holds a free variable no value has, stays accepted.
+// or a case arm's name whose type only holds a free variable no value has,
+// stays accepted.
 func TestUndeterminedPatternBinding_Accepted(t *testing.T) {
 	bodies := []string{
 		// The fallback is part of the binding and fixes the payload.
@@ -56,14 +59,14 @@ func TestUndeterminedPatternBinding_Accepted(t *testing.T) {
 		// The matched value is typed.
 		"none: Maybe<Int> = None\n  Ok(z) = Maybe.to_result(none, \"x\") else { return }\n  dbg z",
 		"Ok(z) = Maybe.to_result<Int, String>(None, \"x\") else { return }\n  dbg z",
-		// The name's type holds a free variable, and is a value like `None`.
-		"(a, b) = (None, 1)\n  dbg a\n  dbg b",
-		"Some(a) = Some(None) else { return }\n  dbg a",
-		"Ok(xs) = Ok([]) else { return }\n  dbg xs",
+		// A destructured name whose wholly unresolved type a later use fixes.
+		"(a, b) = (None, 1)\n  dbg a == Some(2)\n  dbg b",
+		// A case arm's name whose type holds a free variable, a value like `None`.
+		"case Some(None) {\n    Some(a) -> {\n      dbg a\n      Unit\n    }\n    None -> Unit\n  }",
 		// Nothing is bound.
 		"case Maybe.to_result(None, \"x\") {\n    Ok(_) -> Unit\n    Err(e) -> {\n      dbg e\n      Unit\n    }\n  }",
 		// A lambda parameter whose later lines fix what a destructure bound.
-		"pairs = Iter.reduce([1, 2], ([], []), fn state, item -> {\n    (ts, fs) = state\n    ([item, ..ts], fs)\n  })\n  dbg pairs",
+		"pairs = Iter.reduce([1, 2], ([], []), fn state, item -> {\n    (ts, fs) = state\n    ([item, ..ts], [Int.to_string(item), ..fs])\n  })\n  dbg pairs",
 	}
 	for _, body := range bodies {
 		t.Run(body, func(t *testing.T) {
@@ -82,4 +85,86 @@ func TestUndeterminedPatternBinding_CallIsNotRepeated(t *testing.T) {
 	if len(got) != 1 || !strings.HasPrefix(got[0].Message, "the type of 'z' is not determined") {
 		t.Fatalf("want one error at z, got:\n  %s", describeErrors(errs))
 	}
+}
+
+// A destructuring binding is held to the rule `name = value` is: a name it
+// binds to a wholly unresolved type is refused, as `box = read()` is, where
+// a case arm's name of that type is accepted. `(box, _) = read()` binds box
+// to a `Box<?>` when only read's result names its T; the builder could not
+// lower the call that takes it.
+func TestUndeterminedDestructure_Rejected(t *testing.T) {
+	decls := `struct Box<T> {
+  value: Maybe<T>
+}
+
+type Wrap<T> Box<T>
+
+fn read<T>() -> (Box<T>, Bool) {
+  (Box{value: None}, True)
+}
+
+fn pair<T>() -> .{box: Box<T>, n: Int} {
+  .{box: Box{value: None}, n: 1}
+}
+
+fn wrapped<T>() -> Wrap<T> {
+  Wrap(Box{value: None})
+}
+
+fn show<T>(handler: (Box<T>) -> String) -> String {
+`
+	cases := []struct {
+		name, body string
+		line, col  int
+		binding    string
+	}{
+		{"a tuple destructure of a generic result", "  (box, _) = read()\n  handler(box)", 20, 4, "box"},
+		{"a struct destructure of a generic result", "  .{box, n} = pair()\n  dbg n\n  handler(box)", 20, 5, "box"},
+		{"a distinct destructure of a generic result", "  Wrap(box) = wrapped()\n  handler(box)", 20, 8, "box"},
+		{"a tuple of None", "  (a, b) = (None, 1)\n  dbg a\n  dbg b\n  handler(Box{value: None})", 20, 4, "a"},
+		{"a binding with else", "  Some(a) = Some(None) else { return \"\" }\n  dbg a\n  handler(Box{value: None})", 20, 8, "a"},
+		{"an empty list", "  Ok(xs) = Ok([]) else { return \"\" }\n  dbg xs\n  handler(Box{value: None})", 20, 6, "xs"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := decls + tc.body + "\n}\n"
+			errs := checkWithStdlib(src)
+			var got []analysis.TypeError
+			for _, e := range errs {
+				if strings.Contains(e.Message, "determined") {
+					got = append(got, e)
+				}
+			}
+			if len(got) != 1 {
+				t.Fatalf("the checker admits this destructure, or reports it more than once; want one error at %s:\n%s\n  %s",
+					tc.binding, src, describeErrors(errs))
+			}
+			want := "binding '" + tc.binding + "' type is not locally determined: it has unsolved type parameter(s) — " +
+				"give the call a type argument (`f<T>(…)`) or annotate the matched value (`v: T = …`)"
+			if got[0].Message != want {
+				t.Fatalf("message = %q\nwant      %q", got[0].Message, want)
+			}
+			if got[0].Line != tc.line || got[0].Col != tc.col {
+				t.Fatalf("at %d:%d, want %d:%d", got[0].Line, got[0].Col, tc.line, tc.col)
+			}
+		})
+	}
+}
+
+// Naming the type argument, as the error says, determines the binding.
+func TestUndeterminedDestructure_TypeArgumentDetermines(t *testing.T) {
+	src := `struct Box<T> {
+  value: Maybe<T>
+}
+
+fn read<T>() -> (Box<T>, Bool) {
+  (Box{value: None}, True)
+}
+
+fn show<T>(handler: (Box<T>) -> String) -> String {
+  (box, _) = read<T>()
+  handler(box)
+}
+`
+	expectNoErrorsT(t, checkWithStdlib(src))
 }

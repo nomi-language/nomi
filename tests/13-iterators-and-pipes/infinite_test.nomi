@@ -117,8 +117,8 @@ test "terminals that can stop early finish on an infinite source" {
 
     assert Iter.first(nat) == Some(0)
     assert Iter.find(nat, &(&1 * &1 > 50)) == Some(8)
-    assert Iter.any(nat, &(&1 == 7))
-    refute Iter.all(nat, &(&1 < 7))
+    assert Iter.any_match(nat, &(&1 == 7))
+    refute Iter.all_match(nat, &(&1 < 7))
     assert Iter.contains(nat, 1_000)
     assert Iter.get(nat, 4) == Some(4)
     refute Iter.is_empty(nat)

@@ -132,7 +132,7 @@ func TestLiteralDiagnostics_ValidRegexHoversItsValue(t *testing.T) {
 func TestLiteralDiagnostics_RegexHoverShowsItsCaptureType(t *testing.T) {
 	for _, tc := range []struct{ lit, want string }{
 		{"Regex`(\\d+)-(\\w+)?`", "Regex<(String, Maybe<String>)>"},
-		{"Regex`(?P<year>\\d{4})`", "Regex<#{year: String}>"},
+		{"Regex`(?P<year>\\d{4})`", "Regex<.{year: String}>"},
 		{"Regex\"(a)\"", "Result<Regex<String>, String>"},
 	} {
 		src := "import std::regex.Regex\n\nfn main() {\n    _ = " + tc.lit + "\n}\n"

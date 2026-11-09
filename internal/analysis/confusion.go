@@ -132,7 +132,7 @@ func typeHeadName(t Type) string {
 	if i := strings.IndexByte(s, '<'); i >= 0 {
 		s = s[:i]
 	}
-	if s == "" || !unicode.IsUpper(rune(s[0])) || strings.ContainsAny(s, " ()#{}[]") {
+	if s == "" || !unicode.IsUpper(rune(s[0])) || strings.ContainsAny(s, " ().{}[]") {
 		return ""
 	}
 	return s

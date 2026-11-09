@@ -31,7 +31,7 @@ test "a pipeline bound before the assertion" {
 
 test "a predicate call records its source" {
   xs = [2, 4, 5]
-  assert Iter.all(xs, fn x -> x % 2 == 0)
+  assert Iter.all_match(xs, fn x -> x % 2 == 0)
 }
 
 test "a multi-line call leaves the cursor on its last line" {

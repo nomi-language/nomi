@@ -49,7 +49,7 @@ pub fn character() -> Generator<Character> {
             unreachable "Generator.list(6) draws six scores"
         }
 
-        #{
+        .{
             strength,
             dexterity,
             constitution,
@@ -92,7 +92,7 @@ fn is_valid(character: Character) -> Bool {
         character.charisma,
     ]
 
-    Iter.all(abilities, is_in_range)
+    Iter.all_match(abilities, is_in_range)
         and character.hitpoints == 10 + dnd_character.modifier(character.constitution)
 }
 
@@ -123,13 +123,13 @@ test "ability modifier" {
 test "random ability is within range" {
     assert dnd_character.ability()
         |> draws()
-        |> Iter.all(is_in_range)
+        |> Iter.all_match(is_in_range)
 }
 
 test "random character is valid" {
     assert dnd_character.character()
         |> draws()
-        |> Iter.all(is_valid)
+        |> Iter.all_match(is_valid)
 }
 
 test "each ability is only calculated once" {
@@ -150,7 +150,7 @@ test result: ok. 19 passed, 0 failed
 
 ## How it's written
 
-- Randomness is `std/random`'s: `ability` and `character` answer a `Generator`, a recipe that `Generator.step` runs against a `Seed`. Nothing here reads entropy, so the tests draw from fixed seeds and every run checks the same 200 characters.
+- Randomness is `std::random`'s: `ability` and `character` return a `Generator`, a recipe that `Generator.step` runs against a `Seed`. Nothing here reads entropy, so the tests draw from fixed seeds and every run checks the same 200 characters.
 - An ability is `Generator.int(1, 6)` drawn four times with `Generator.list`, then sorted, the lowest dropped with `Iter.drop(1)`, and the rest summed.
 - A character is six abilities drawn with `Generator.list(6)` and taken apart with a binding `else` on one list pattern, in the order the struct declares them. The `else` is `unreachable`, since `Generator.list(6)` always draws six.
 - `Character` is a struct, so an ability is a field read and is calculated once by construction. The two canonical "each ability is only calculated once" cases (strength alone, and every ability) are one test: the same seed draws an equal character twice.

@@ -14,17 +14,17 @@ import (
 //
 // Every row holds a real rt function value, and both the emitted call text and
 // the signature are read off that value — so the only way a row can be wrong is
-// for the Go signature not to project onto scalar kinds at all. init collects
-// those rather than panicking (a compiler that will not start over a registry
-// defect is worse than one that refuses the affected call); this is where they
-// become loud.
+// for the Go signature not to project onto scalar kinds at all. The registry
+// collects those rather than panicking (a compiler that will not start over a
+// registry defect is worse than one that refuses the affected call); this is
+// where they become loud.
 func TestStdlibBindingsProject(t *testing.T) {
-	if len(stdlibBindingErrors) > 0 {
+	if len(stdlibHostRegistry().errors) > 0 {
 		t.Fatalf("stdlib bindings that do not project onto scalar kinds:\n  %s",
-			strings.Join(stdlibBindingErrors, "\n  "))
+			strings.Join(stdlibHostRegistry().errors, "\n  "))
 	}
-	if len(stdlibHostFuncs) != len(stdlibbindings.RtFuncs()) {
-		t.Fatalf("registry has %d rows for %d RtFuncs bindings", len(stdlibHostFuncs), len(stdlibbindings.RtFuncs()))
+	if len(stdlibHostRegistry().funcs) != len(stdlibbindings.RtFuncs()) {
+		t.Fatalf("registry has %d rows for %d RtFuncs bindings", len(stdlibHostRegistry().funcs), len(stdlibbindings.RtFuncs()))
 	}
 	// The derived call text must name a REGISTERED host package and nothing
 	// else. A method value or a closure would produce a plausible-looking wrong
@@ -43,7 +43,7 @@ func TestStdlibBindingsProject(t *testing.T) {
 				"name must be its last element", hp.path, hp.local)
 		}
 	}
-	for key, h := range stdlibHostFuncs {
+	for key, h := range stdlibHostRegistry().funcs {
 		local, _, ok := strings.Cut(h.call, ".")
 		if !ok || strings.Count(h.call, ".") != 1 || !locals[local] {
 			t.Errorf("%s: derived call %q is not a plain symbol in a registered host package", key, h.call)
@@ -51,6 +51,27 @@ func TestStdlibBindingsProject(t *testing.T) {
 		if h.pkg == "" {
 			t.Errorf("%s: derived call %q carries no import path", key, h.call)
 		}
+	}
+}
+
+// TestStdlibHostFuncIsTheRegistryRow holds the row a lowering projects on
+// demand (stdlibHostFunc) to the whole registry's: the same projection for a
+// bound key, and no row for a key the registry lacks.
+func TestStdlibHostFuncIsTheRegistryRow(t *testing.T) {
+	reg := stdlibHostRegistry()
+	for _, b := range stdlibbindings.RtFuncs() {
+		got, ok := stdlibHostFunc(b.Name)
+		want, bound := reg.funcs[b.Name]
+		if ok != bound {
+			t.Errorf("%s: stdlibHostFunc answers %t, the registry %t", b.Name, ok, bound)
+			continue
+		}
+		if ok && fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Errorf("%s: stdlibHostFunc projects %v, the registry %v", b.Name, got, want)
+		}
+	}
+	if _, ok := stdlibHostFunc("no.such.host_fn"); ok {
+		t.Error("stdlibHostFunc answers a key no RtFuncs row binds")
 	}
 }
 
@@ -319,7 +340,7 @@ func TestKeyCollapseReasonStillEvaluates(t *testing.T) {
 // and serve nothing.
 func TestStdlibHostFuncsAreReachable(t *testing.T) {
 	idx := stdlibLowering()
-	for key := range stdlibHostFuncs {
+	for key := range stdlibHostRegistry().funcs {
 		f := idx.byKey[key]
 		if f == nil || f.rtCall == "" {
 			continue // reported by TestStdlibRegistryMatchesStdSource
@@ -748,10 +769,11 @@ func TestStdlibRefusalNamesAreDistinct(t *testing.T) {
 		"stdlib function without a body",
 		"stdlib function reaching the front end",
 		"stdlib generic function",
-		// A monomorphic function whose signature names an Iter
-		// (`Reader.lines`): a program builds it for itself, as it builds a
-		// generic one.
-		"stdlib function whose signature names an Iter",
+		// A monomorphic function whose signature has a kind only inside a
+		// program: an Iter (`Reader.lines`) or a std interface held as a
+		// value (`String.split(s, separator: Matcher)`). A program builds it
+		// for itself, as it builds a generic one.
+		"stdlib function whose signature has a kind only in a program",
 		// A `host fn` carrying a declared parameter default. Kept apart from
 		// `stdlib host function` because the two are not the same amount of
 		// work in the same direction: that one is waiting on an rt symbol, and
@@ -816,7 +838,7 @@ func stdSigIdentity(ks []kind) string {
 
 func TestStdlibRegistryMatchesStdSource(t *testing.T) {
 	idx := stdlibLowering()
-	for key, row := range stdlibHostFuncs {
+	for key, row := range stdlibHostRegistry().funcs {
 		f, declared := idx.byKey[key]
 		if !declared {
 			t.Errorf("registry row %q names no stdlib declaration", key)

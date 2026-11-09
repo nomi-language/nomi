@@ -39,7 +39,7 @@ func TestPositionalStructLit_ParseErrors(t *testing.T) {
 		"Point{x = 1}":   "expected `,` or `}` after the field `x`",
 		"Point{=}":       "expected field name in struct literal",
 		"Point{a.b c.d}": "expected `,` or `}` after the value",
-		"#{1, 2}":        "expected field name in struct literal",
+		".{1, 2}":        "expected field name in struct literal",
 	} {
 		_, err := Parse(lexer.Lex(src))
 		if err == nil || !containsMessage(err, want) {

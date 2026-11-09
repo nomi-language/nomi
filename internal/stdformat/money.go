@@ -141,6 +141,15 @@ func FFIMoneyMixed(operation, a, b string) rt.Unit {
 	return rt.Unit{}
 }
 
+// FFIRefused is `money_format.money_refused` and `decimal.decimal_refused`:
+// the trap a `Money` or `Decimal` function raises for an argument the caller
+// chose and could have checked, such as `Money.split` into no parts:
+// `Money.split: n must be positive, got 0`.
+func FFIRefused(operation, reason string) rt.Unit {
+	rt.Trap(operation + ": " + reason)
+	return rt.Unit{}
+}
+
 // MixedText is the trap `Money.add` raises for amounts in two currencies:
 // `Money.add: the amounts are in two currencies, EUR and PLN`.
 func MixedText(operation, a, b string) string {

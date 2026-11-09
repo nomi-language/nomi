@@ -32,7 +32,7 @@ fn main() {
     io.inspect(ns)
     io.inspect(h == H{p: Pair(1, 2), ns: Ns([3]), kv: Kv(%{"a" => 4})})
     io.inspect(h == H{p: Pair(1, 3), ns: Ns([3]), kv: Kv(%{"a" => 4})})
-    io.inspect(Struct.update(h, #{p: Pair(5, 6)}))
+    io.inspect(Struct.update(h, .{p: Pair(5, 6)}))
     io.inspect(Map.get(%{h => 1}, h))
     {
         type Local (Int, Int)

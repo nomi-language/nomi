@@ -8,6 +8,7 @@ import (
 	goformat "go/format"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"text/template"
 )
 
@@ -112,7 +113,7 @@ func main() {
 		stdos.Args = []string{stdos.Args[0]}
 	}
 	if mode == "" || targetPath == "" {
-		stdfmt.Fprintln(stdos.Stderr, "usage: nomi-ffi-wrapper --nomi-wrapper-mode <check|vmrun|vmtest> <entry.nomi> [line]")
+		stdfmt.Fprintln(stdos.Stderr, "usage: nomi-ffi-wrapper --nomi-wrapper-mode <check|vmrun|vmtest> <entry.nomi> [line] [format] [run]")
 		stdos.Exit(1)
 	}
 	// ffirun launches the compiled wrapper from WrapperDir so every mode starts
@@ -288,6 +289,16 @@ func runTestFileVM(testPath string, args []string, format nomivmhost.TestFormat)
 		opts.Line = line
 		opts.LineSet = true
 	}
+	// 'nomi test --run' passes its pattern after the format.
+	if len(args) > 2 && args[2] != "" {
+		run, err := nomivmhost.CompileTestRun(args[2])
+		if err != nil {
+			stdfmt.Fprintf(stdos.Stderr, "nomi test: %v\n", err)
+			stdfmt.Printf("%s %d %d %d\n", ffiTestResultMarker, 0, 1, 0)
+			stdos.Exit(1)
+		}
+		opts.Run = run
+	}
 	rep := nomivmhost.NewTestReportFormat(stdos.Stdout, format)
 	// A case's own output is reported under the case. In json mode stdout
 	// carries only records, so a write outside every case goes to stderr.
@@ -429,23 +440,25 @@ func nomiWithoutVersions(path string) string {
 `
 
 // templateHash is SHA256(wrapperTemplate)[0:12] — the short version
-// embedded in the wrapper header and recorded in hash.json. Computed
-// once at init time.
-var templateHash = computeTemplateHash()
+// embedded in the wrapper header and recorded in hash.json, computed
+// on first use.
+var templateHash = sync.OnceValue(computeTemplateHash)
 
 func computeTemplateHash() string {
 	sum := sha256.Sum256([]byte(wrapperTemplate))
 	return hex.EncodeToString(sum[:])[:12]
 }
 
-// wrapperTmpl is the parsed template, ready for Execute. Parsing
-// once at init time keeps codegen on the warm path branch-free.
-var wrapperTmpl = template.Must(template.New("wrapper").Funcs(template.FuncMap{
-	"funcValue":     wrapperFuncValue,
-	"lineDirective": wrapperLineDirective,
-	"quote":         strconv.Quote,
-	"typePrototype": wrapperTypePrototype,
-}).Parse(wrapperTemplate))
+// wrapperTmpl is the parsed template, ready for Execute, parsed on first
+// use rather than at init, which every nomi command would pay.
+var wrapperTmpl = sync.OnceValue(func() *template.Template {
+	return template.Must(template.New("wrapper").Funcs(template.FuncMap{
+		"funcValue":     wrapperFuncValue,
+		"lineDirective": wrapperLineDirective,
+		"quote":         strconv.Quote,
+		"typePrototype": wrapperTypePrototype,
+	}).Parse(wrapperTemplate))
+})
 
 // renderWrapper executes the wrapper template with the supplied
 // discovered packages and project path, returning the bytes of the
@@ -511,14 +524,14 @@ func renderMainRelocated(projectPath, shown string, packages []DiscoveredPackage
 		Compiler:           kind.Compiler,
 		Reactor:            kind.Reactor,
 		Relocated:          relocate != nil,
-		TemplateHash:       templateHash,
+		TemplateHash:       templateHash(),
 		ProjectPath:        shown,
 		Packages:           packages,
 		HasEntryScopedKeys: wrapperHasEntryScopedKeys(packages),
 		Adapters:           adapters,
 	}
 	var buf bytes.Buffer
-	if err := wrapperTmpl.Execute(&buf, data); err != nil {
+	if err := wrapperTmpl().Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("rendering wrapper template: %w", err)
 	}
 	out, err := goformat.Source(buf.Bytes())

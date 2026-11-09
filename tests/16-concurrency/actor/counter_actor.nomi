@@ -19,16 +19,14 @@ pub struct App {
 
 fn handle(count: Int, message: Counter) -> Int {
     case message {
-        .Add(n) ->
-            count + n
+        .Add(n) -> count + n
 
         .Get{reply} -> {
             Reply.send(reply, count)
             count
         }
 
-        .Stall{reply: _} ->
-            count
+        .Stall{reply: _} -> count
     }
 }
 

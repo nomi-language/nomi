@@ -153,8 +153,7 @@ impl Address {
         trimmed = String.trim(text)
 
         case String.strip_suffix(trimmed, ">") {
-            None ->
-                Address.new(trimmed)
+            None -> Address.new(trimmed)
 
             Some(before) ->
                 case String.split(before, "<") {
@@ -220,8 +219,7 @@ fn unquote(name: String) -> String {
         |> Maybe.flat_map(fn rest -> String.strip_suffix(rest, "\""))
 
     case inner {
-        None ->
-            name
+        None -> name
 
         Some(quoted) -> {
             (out, _) = Iter.reduce(quoted, ("", False), fn (out, escaped), g -> {
@@ -270,11 +268,8 @@ fn email_problem(email: String) -> Result<Unit, String> {
             domain_problem(domain)
         }
 
-        [_] ->
-            Err("it has no @")
-
-        _ ->
-            Err("it has more than one @")
+        [_] -> Err("it has no @")
+        _ -> Err("it has more than one @")
     }
 }
 
@@ -283,7 +278,7 @@ fn local_problem(local: String) -> Result<Unit, String> {
         Err("nothing comes before the @")
     } else if byte_length(local) > 64 {
         Err("the part before the @ is longer than 64 bytes")
-    } else if Iter.any(String.split(local, "."), fn atom -> atom == "") {
+    } else if Iter.any_match(String.split(local, "."), fn atom -> atom == "") {
         Err("the part before the @ starts or ends with a dot, or has two together")
     } else {
         case Iter.find(local, fn g -> not (g == "." or is_atext(g))) {
@@ -367,17 +362,13 @@ impl Display for Error {
             .InvalidAddress{address, reason} ->
                 "invalid email address ${String.to_literal(address)}: ${reason}"
 
-            .InvalidMessage{reason} ->
-                "invalid message: ${reason}"
-
-            .Network{reason} ->
-                "sending mail: ${reason}"
+            .InvalidMessage{reason} -> "invalid message: ${reason}"
+            .Network{reason} -> "sending mail: ${reason}"
 
             .Rejected{command, code, reply} ->
                 "the mail server rejected ${command}: ${code} ${reply}"
 
-            .Protocol{reason} ->
-                "mail server: ${reason}"
+            .Protocol{reason} -> "mail server: ${reason}"
         }
     }
 }
@@ -441,7 +432,7 @@ pub opaque struct Smtp {
 //!     text: Some("hi"),
 //! }
 //!
-//! rejected = #{..message, to: [Address.new("reject-me@example.com")?]}
+//! rejected = .{..message, to: [Address.new("reject-me@example.com")?]}
 //! credentials = Credentials{username: "u", password: "p"}
 //!
 //! answers = with_smtp_server(fn server -> {
@@ -450,9 +441,9 @@ pub opaque struct Smtp {
 //!     [
 //!         Mailer.send(smtp(config), message),
 //!         Mailer.send(smtp(config), rejected),
-//!         Mailer.send(smtp(#{..config, security: Security.StartTls}), message),
-//!         Mailer.send(smtp(#{..config, security: Security.StartTlsIfOffered}), message),
-//!         Mailer.send(smtp(#{..config, credentials: Some(credentials)}), message),
+//!         Mailer.send(smtp(.{..config, security: Security.StartTls}), message),
+//!         Mailer.send(smtp(.{..config, security: Security.StartTlsIfOffered}), message),
+//!         Mailer.send(smtp(.{..config, credentials: Some(credentials)}), message),
 //!     ]
 //! })
 //!
@@ -466,7 +457,7 @@ pub opaque struct Smtp {
 //!
 //! wrong = with_smtp_server(starttls: True, credentials: Some(credentials), fn server -> {
 //!     config = SmtpServer.config(server)
-//!     Mailer.send(smtp(#{..config, credentials: Some(#{..credentials, password: "x"})}), message)
+//!     Mailer.send(smtp(.{..config, credentials: Some(.{..credentials, password: "x"})}), message)
 //! })
 //!
 //! assert Err(Error.Rejected{command: "AUTH PLAIN", code: 535, reply: _}) = wrong
@@ -522,7 +513,7 @@ pub fn deliver(
 fn tls_config(config: SmtpConfig) -> ClientConfig {
     case config.tls.server_name {
         Some(_) -> config.tls
-        None -> #{..config.tls, server_name: Some(config.host)}
+        None -> .{..config.tls, server_name: Some(config.host)}
     }
 }
 
@@ -611,7 +602,7 @@ fn secure(
     config: SmtpConfig,
 ) -> Result<(Session, List<String>), Error> {
     wants = config.security == Security.StartTls or config.security == Security.StartTlsIfOffered
-    offered = Iter.any(extensions, fn e -> e == "STARTTLS")
+    offered = Iter.any_match(extensions, fn e -> e == "STARTTLS")
 
     if wants and offered {
         expect(session, command(session, "STARTTLS")?, [220], "STARTTLS")?
@@ -724,8 +715,7 @@ fn read_lines(session: Session, lines: List<String>) -> Result<Reply, Error> {
     }
 
     code = case String.to_int(String.take(line, 3)) {
-        Some(n) when String.length(line) >= 3 ->
-            n
+        Some(n) when String.length(line) >= 3 -> n
 
         _ ->
             return Err(
@@ -786,14 +776,14 @@ fn check_message(message: Message) -> Result<Unit, Error> {
 fn check_header(name: String, value: String) -> Result<Unit, Error> {
     if name == "" {
         invalid("a header has an empty name")
-    } else if Iter.any(name, fn g -> {
+    } else if Iter.any_match(name, fn g -> {
         c = code_of(g)
         c < 33 or c > 126 or g == ":"
     }) {
         invalid("the header name ${String.to_literal(name)} holds a character a name cannot")
     } else if Iter.contains(reserved_headers(), String.lowercase(name)) {
         invalid("the header ${name} is written from the message's fields, not its headers")
-    } else if Iter.any(value, is_control) {
+    } else if Iter.any_match(value, is_control) {
         invalid("the ${name} header's value holds a line break or another control character")
     } else {
         Ok(Unit)
@@ -803,7 +793,7 @@ fn check_header(name: String, value: String) -> Result<Unit, Error> {
 // A grapheme that holds a control character other than tab.
 fn is_control(g: String) -> Bool {
     String.to_codepoints(g)
-    |> Iter.any(fn cp -> {
+    |> Iter.any_match(fn cp -> {
         c = Codepoint.to_int(cp)
         (c < 32 and c != 9) or c == 127
     })
@@ -824,7 +814,7 @@ fn check_attachment(attachment: Attachment) -> Result<Unit, Error> {
         )
     }
 
-    if Iter.any(name, is_control) {
+    if Iter.any_match(name, is_control) {
         return invalid(
             "the attachment filename ${String.to_literal(name)} holds a control character"
         )
@@ -833,8 +823,8 @@ fn check_attachment(attachment: Attachment) -> Result<Unit, Error> {
     case String.split(attachment.content_type, "/") {
         [kind, sub] when kind != ""
             and sub != ""
-            and Iter.all(kind, is_token_char)
-            and Iter.all(sub, is_token_char) ->
+            and Iter.all_match(kind, is_token_char)
+            and Iter.all_match(sub, is_token_char) ->
             Ok(Unit)
 
         _ ->
@@ -970,7 +960,7 @@ fn html_part(markup: String) -> (List<String>, String) {
 fn attachment_part(attachment: Attachment) -> (List<String>, String) {
     name = attachment.filename
 
-    (type_line, disposition) = if Iter.all(name, fn g -> {
+    (type_line, disposition) = if Iter.all_match(name, fn g -> {
         c = code_of(g)
         c >= 32 and c <= 126 and g != "\"" and g != "\\"
     }) {
@@ -1050,10 +1040,10 @@ pub fn quoted_printable(text: String) -> String {
 // Printable ASCII with no `=?` (which a reader would take for an encoded
 // word) and no word too long to fold.
 fn is_plain(text: String) -> Bool {
-    Iter.all(text, fn g -> {
+    Iter.all_match(text, fn g -> {
         c = code_of(g)
         c >= 32 and c <= 126
-    }) and not String.contains(text, "=?") and Iter.all(String.split(text, " "), fn word -> {
+    }) and not String.contains(text, "=?") and Iter.all_match(String.split(text, " "), fn word -> {
         String.length(word) <= 900
     })
 }
@@ -1106,7 +1096,7 @@ fn mailbox(address: Address) -> String {
         ""
     } else if String.trim(name) == name
         and not String.contains(name, "  ")
-        and Iter.all(name, fn g -> g == " " or is_atext(g)) {
+        and Iter.all_match(name, fn g -> g == " " or is_atext(g)) {
         name
     } else if is_plain(name) {
         "\"${String.replace(String.replace(name, "\\", "\\\\"), "\"", "\\\"")}\""

@@ -159,8 +159,7 @@ impl WebSocket {
         got = http_host.ws_receive(ws.handle) |> Result.map_err(error_of)?
 
         case got {
-            None ->
-                Ok(None)
+            None -> Ok(None)
 
             Some(data) -> {
                 payload = Bytes.slice(data, 1, Bytes.length(data))
@@ -212,8 +211,7 @@ impl WebSocket {
                 WebSocket.each(ws, handle)
             }
 
-            None ->
-                Ok(Unit)
+            None -> Ok(Unit)
         }
     }
 
@@ -324,8 +322,7 @@ pub fn accept(
     on_open: (WebSocket) -> Unit,
 ) -> Response {
     case handshake(request, options) {
-        Err(refused) ->
-            refused
+        Err(refused) -> refused
 
         Ok((key, protocol)) -> {
             chosen = case protocol {
@@ -368,10 +365,10 @@ pub fn accept(
 //!
 //! r = http_testing.request(Method.Get, "/")
 //! refute websocket.is_upgrade(r)
-//! assert websocket.is_upgrade(#{..r, headers: Headers[("Upgrade", "WebSocket")]})
+//! assert websocket.is_upgrade(.{..r, headers: Headers[("Upgrade", "WebSocket")]})
 //
 pub fn is_upgrade(request: Request) -> Bool {
-    tokens(request.headers, "Upgrade") |> Iter.any(fn t -> String.lowercase(t) == "websocket")
+    tokens(request.headers, "Upgrade") |> Iter.any_match(fn t -> String.lowercase(t) == "websocket")
 }
 
 /// Connects to `url`, `ws://` or `wss://`, and runs the handshake. An
@@ -423,7 +420,7 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
     address = net.join_host_port(host, port)
 
     conn = if secure {
-        named = #{
+        named = .{
             ..options.tls,
             server_name: Some(Maybe.with_default(options.tls.server_name, host)),
         }
@@ -471,7 +468,7 @@ fn handshake(
         return Err(refused)
     }
 
-    upgrading = Iter.any(tokens(request.headers, "Connection"), fn t -> {
+    upgrading = Iter.any_match(tokens(request.headers, "Connection"), fn t -> {
         String.lowercase(t) == "upgrade"
     })
 
@@ -510,11 +507,8 @@ fn handshake(
 /// one; a request with none is not from a browser and passes.
 fn origin_allowed(request: Request, allowed: List<Origin>) -> Bool {
     case Headers.get(request.headers, "Origin") {
-        None ->
-            True
-
-        Some("") ->
-            True
+        None -> True
+        Some("") -> True
 
         Some(text) ->
             case Origin.parse(text) {

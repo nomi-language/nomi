@@ -164,3 +164,32 @@ fn main() {
 `, "3 is small\n42 is medium\n500 is large\n25\n19\nSome(40)\nNone\n7\n0\n-5\n13\n"+
 		"arm done\nblock done\none\nblock done\nother\nsmall\nbig\n[1, 2, 3]\n[]\n")
 }
+
+// A block bound to a name written as std's Display: the block's Int, String
+// or branching tail is boxed as the interface the binding names.
+func TestIRBlockBinding_AnInterfaceTypedValue(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+fn show(n: Int) -> String {
+    d: Display = {
+        doubled = n * 2
+        if doubled > 10 {
+            "big"
+        } else {
+            doubled
+        }
+    }
+    "${d}"
+}
+
+fn main() {
+    d: Display = {
+        x = 2
+        x + 3
+    }
+    io.print("${d}")
+    io.print(show(2))
+    io.print(show(20))
+}
+`, "5\n4\nbig\n")
+}

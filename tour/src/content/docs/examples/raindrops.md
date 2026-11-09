@@ -82,4 +82,4 @@ test result: ok. 18 passed, 0 failed
 - The table is tuples, not structs: for a three-row local table a tuple is
   the right size. The filter and the map take each row apart in the lambda
   (`fn (factor, _sound) ->`, `fn (_factor, sound) ->`) rather than reading
-  `.0` and `.1`, since the table is a `once` away from them (style §10).
+  `.first` and `.second`, since the table is a `once` away from them (style §10).

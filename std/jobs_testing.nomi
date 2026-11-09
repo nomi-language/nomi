@@ -155,7 +155,7 @@ impl Queue for Inline {
         updated =
             Iter.map(state.jobs, fn job -> {
                 if Set.contains(picked, job.id) {
-                    #{
+                    .{
                         ..job,
                         state: .Running,
                         attempt: job.attempt + 1,
@@ -168,7 +168,7 @@ impl Queue for Inline {
             })
             |> Iter.to_list()
 
-        put(inline, #{..state, jobs: updated})
+        put(inline, .{..state, jobs: updated})
 
         claimed =
             updated
@@ -194,7 +194,7 @@ impl Queue for Inline {
         lease: Duration,
     ) -> Result<Bool, sql.Error> {
         now = Instant.now()
-        held(inline, worker, job, fn stored -> #{..stored, locked_until: Some(now + lease)})
+        held(inline, worker, job, fn stored -> .{..stored, locked_until: Some(now + lease)})
     }
 
     fn settle(
@@ -206,14 +206,13 @@ impl Queue for Inline {
         now = Instant.now()
 
         held(inline, worker, job, fn stored -> {
-            unlocked = #{..stored, locked_by: None, locked_until: None}
+            unlocked = .{..stored, locked_by: None, locked_until: None}
 
             case how {
-                .Completed ->
-                    #{..unlocked, state: .Completed, finished_at: Some(now)}
+                .Completed -> .{..unlocked, state: .Completed, finished_at: Some(now)}
 
                 .Retry{at, error} ->
-                    #{
+                    .{
                         ..unlocked,
                         state: .Available,
                         run_at: at,
@@ -221,7 +220,7 @@ impl Queue for Inline {
                     }
 
                 .Snoozed{at, error} ->
-                    #{
+                    .{
                         ..unlocked,
                         state: .Available,
                         run_at: at,
@@ -230,7 +229,7 @@ impl Queue for Inline {
                     }
 
                 .Discarded(error) ->
-                    #{
+                    .{
                         ..unlocked,
                         state: .Discarded,
                         finished_at: Some(now),
@@ -246,7 +245,7 @@ impl Queue for Inline {
         Ok(
             change_where(inline, fn job -> {
                 job.state == .Running and job.locked_by == Some(worker)
-            }, fn job -> #{
+            }, fn job -> .{
                 ..job,
                 state: .Available,
                 attempt: job.attempt - 1,
@@ -269,7 +268,7 @@ impl Queue for Inline {
 
         Ok(
             change_where(inline, expired, fn job -> {
-                unlocked = #{
+                unlocked = .{
                     ..job,
                     locked_by: None,
                     locked_until: None,
@@ -279,9 +278,9 @@ impl Queue for Inline {
                 }
 
                 if job.attempt >= job.max_attempts {
-                    #{..unlocked, state: .Discarded, finished_at: Some(now)}
+                    .{..unlocked, state: .Discarded, finished_at: Some(now)}
                 } else {
-                    #{..unlocked, state: .Available, run_at: now}
+                    .{..unlocked, state: .Available, run_at: now}
                 }
             })
         )
@@ -299,14 +298,14 @@ impl Queue for Inline {
         }
 
         kept = state.jobs |> Iter.filter(fn job -> not old(job)) |> Iter.to_list()
-        put(inline, #{..state, jobs: kept})
+        put(inline, .{..state, jobs: kept})
         Ok(Iter.count(state.jobs) - Iter.count(kept))
     }
 
     fn watch(inline: Inline, supervisor: Supervisor, wake: Sender<Unit>) -> Unit {
         _ = supervisor
         state = take(inline)
-        put(inline, #{..state, watchers: state.watchers + [wake]})
+        put(inline, .{..state, watchers: state.watchers + [wake]})
     }
 
     fn last_tick(inline: Inline, schedule: String) -> Result<Maybe<Instant>, sql.Error> {
@@ -327,7 +326,7 @@ impl Queue for Inline {
         }
 
         if later {
-            put(inline, #{..state, ticks: Map.put(state.ticks, schedule, tick)})
+            put(inline, .{..state, ticks: Map.put(state.ticks, schedule, tick)})
         } else {
             put(inline, state)
         }
@@ -372,7 +371,7 @@ fn store(inline: Inline, job: NewJob) -> Enqueued {
                 finished_at: None,
             }
 
-            put(inline, #{..state, next_id: state.next_id + 1, jobs: state.jobs + [stored]})
+            put(inline, .{..state, next_id: state.next_id + 1, jobs: state.jobs + [stored]})
             Iter.each(state.watchers, &jobs.wake(&1))
             Enqueued{id: stored.id, duplicate: False}
         }
@@ -462,8 +461,7 @@ fn run_due(
             run_due(queue, by_kind, kinds, done + [ran])
         }
 
-        _ ->
-            done
+        _ -> done
     }
 }
 
@@ -1084,8 +1082,7 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)> {
                             "the second record_tick of one tick did not answer the first one's job as a duplicate",
                         )?
 
-                    _ ->
-                        return Err("record_tick with a job answered no enqueue")
+                    _ -> return Err("record_tick with a job answered no enqueue")
                 }
 
                 expect(
@@ -1159,13 +1156,13 @@ fn change_where(
     change: (StoredJob) -> StoredJob,
 ) -> Int {
     state = take(inline)
-    count = state.jobs |> Iter.filter(matches) |> Iter.count()
+    count = Iter.count_by(state.jobs, matches)
 
     updated =
         state.jobs
         |> Iter.map(fn job -> if matches(job) { change(job) } else { job })
         |> Iter.to_list()
 
-    put(inline, #{..state, jobs: updated})
+    put(inline, .{..state, jobs: updated})
     count
 }

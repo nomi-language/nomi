@@ -18,7 +18,7 @@ import (
 // std/http's `Route<P>` is the one checked literal whose type follows from its
 // text when nothing else gives it, as a Regex literal's captures do
 // (regex_literal.go): a route with no expected type has a `String` field per
-// wildcard, `Route<#{id: String}>`, and `Route<Unit>` with none.
+// wildcard, `Route<.{id: String}>`, and `Route<Unit>` with none.
 
 // freshHandlerSignature is ft with each type parameter it mentions replaced
 // by a fresh type variable, so two literals of one generic handler are typed
@@ -175,7 +175,7 @@ func routeCalleeHint(callee ast.Node, want, have Type) string {
 // the call that another argument solves on its own. The literal is then
 // checked against the solved type, as an annotation would give it:
 // `Route.to_with("PATCH /todos/{id}", update)` takes P from update's
-// `#{id: Int}`, and the route is a `Route<#{id: Int}>` held to it, where
+// `.{id: Int}`, and the route is a `Route<.{id: Int}>` held to it, where
 // checked first it would have defaulted to a String field per wildcard and
 // refused the handler. An argument solves a parameter on its own when its
 // type does not hang on the slot it fills: a name of a value whose type has
@@ -304,7 +304,7 @@ func (c *checker) monomorphicValueType(pos Pos) Type {
 // stage calling calleeTy, is expected to have when the stage's other
 // arguments solve its parameter's type parameters on their own: `"PATCH
 // /todos/{id}" |> Route.to_with(update)` checks the route as
-// `Route<#{id: Int}>`, as `Route.to_with("PATCH /todos/{id}", update)`
+// `Route<.{id: Int}>`, as `Route.to_with("PATCH /todos/{id}", update)`
 // does (deferCheckedLiterals). The head is checked before the stage, so
 // only an argument naming a value of known type counts; its type is read
 // from its symbol, and the argument is checked with the stage. nil when

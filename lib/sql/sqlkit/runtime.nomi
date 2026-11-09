@@ -34,8 +34,8 @@ pub fn statement(parts: List<String>, params: List<Value>) -> Statement {
 }
 
 /// A parameter's value.
-pub fn bind<T>(value: T) -> Value where T: ToSql {
-    T.to_sql(value)
+pub fn bind(value: ToSql) -> Value {
+    ToSql.to_sql(value)
 }
 
 /// The value of the column at `position` as a `T`, with the error naming
@@ -44,8 +44,7 @@ fn read<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> where
     first = Row.get_position<T>(row, position)
 
     case first {
-        Ok(v) ->
-            Ok(v)
+        Ok(v) -> Ok(v)
 
         Err(e) -> {
             // An expression's value has whatever storage class SQLite gave it:
@@ -70,16 +69,14 @@ fn read<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> where
 /// The values a number may also be read as.
 fn widenings(value: Value) -> List<Value> {
     case value {
-        .Int(n) ->
-            [Value.Float(Int.to_float(n)), Value.Decimal(Int.to_decimal(n))]
+        .Int(n) -> [Value.Float(Int.to_float(n)), Value.Decimal(Int.to_decimal(n))]
 
         .Float(x) ->
             shortest(x)
             |> Maybe.map(fn d -> [Value.Decimal(d)])
             |> Maybe.with_default([])
 
-        _ ->
-            []
+        _ -> []
     }
 }
 
@@ -159,8 +156,7 @@ fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, s
 
         .Float(x) ->
             case exact(x, scale) {
-                Some(d) ->
-                    Ok(d)
+                Some(d) -> Ok(d)
 
                 None ->
                     Err(
@@ -178,8 +174,7 @@ fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, s
             }
         }
 
-        _ ->
-            return Ok(row)
+        _ -> return Ok(row)
     }
 
     case scaled {
@@ -198,27 +193,23 @@ fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, s
             )
         }
 
-        Err(message) ->
-            Err(sql.Error.Database{code: "sqlkit", message})
+        Err(message) -> Err(sql.Error.Database{code: "sqlkit", message})
     }
 }
 
 fn named(query: String, e: sql.Error) -> sql.Error {
     case e {
-        sql.Error.UnexpectedNull{query: _, column} ->
-            sql.Error.UnexpectedNull{query, column}
+        sql.Error.UnexpectedNull{query: _, column} -> sql.Error.UnexpectedNull{query, column}
 
         sql.Error.Decode{query: _, column, expected, found} ->
             sql.Error.Decode{query, column, expected, found}
 
-        sql.Error.MissingColumn{query: _, column} ->
-            sql.Error.MissingColumn{query, column}
+        sql.Error.MissingColumn{query: _, column} -> sql.Error.MissingColumn{query, column}
 
         sql.Error.ColumnPosition{query: _, position, count} ->
             sql.Error.ColumnPosition{query, position, count}
 
-        other ->
-            other
+        other -> other
     }
 }
 

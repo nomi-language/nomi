@@ -41,8 +41,8 @@ fn inc(x: Int) -> Int {
 		{"a tuple at a program interface", `total((1, 2))`,
 			"(Int, Int) does not implement Shape (required by `where T: Shape`)\n" +
 				"help: no impl can be written for a tuple, which implements only Equatable, Hashable, Comparable and Display, each when every element does; declare a struct of your own that implements `Shape`"},
-		{"an anonymous struct at a program interface", `total(#{a: 1})`,
-			"#{a: Int} does not implement Shape (required by `where T: Shape`)\n" +
+		{"an anonymous struct at a program interface", `total(.{a: 1})`,
+			".{a: Int} does not implement Shape (required by `where T: Shape`)\n" +
 				"help: no impl can be written for an anonymous struct"},
 		{"a function at a program interface", `total(inc)`,
 			"(Int) -> Int does not implement Shape (required by `where T: Shape`)\n" +
@@ -57,9 +57,9 @@ fn inc(x: Int) -> Int {
 				"help: `(F, Int)` holds `(Int) -> Int`, and a function value has no equality"},
 		{"a nested tuple with a struct without Hashable", `h((1, ("a", F{f: inc})))`,
 			"(Int, (String, F)) does not implement Hashable (required by `where T: Hashable`)"},
-		{"an anonymous struct with a struct without Hashable", `h(#{q: F{f: inc}})`,
-			"#{q: F} does not implement Hashable (required by `where T: Hashable`)\n" +
-				"help: `#{q: F}` holds `(Int) -> Int`, and a function value has no equality"},
+		{"an anonymous struct with a struct without Hashable", `h(.{q: F{f: inc}})`,
+			".{q: F} does not implement Hashable (required by `where T: Hashable`)\n" +
+				"help: `.{q: F}` holds `(Int) -> Int`, and a function value has no equality"},
 		{"a tuple with a function", `h((1, inc))`,
 			"(Int, (Int) -> Int) does not implement Hashable (required by `where T: Hashable`)"},
 	}
@@ -108,13 +108,13 @@ fn d<T>(_x: T) -> Int where T: Display {
 		`h((P{a: 1}, 2))`,
 		`h(Some((1, 2)))`,
 		`h([(1, 2)])`,
-		`h(#{a: 1, b: "x"})`,
+		`h(.{a: 1, b: "x"})`,
 		`e((1, [P{a: 1}]))`,
 		`e([(1, 2)])`,
 		`c((1, "a"))`,
 		`c([(1, "a")])`,
 		`d((1, "a"))`,
-		`d(#{a: 1})`,
+		`d(.{a: 1})`,
 	} {
 		t.Run(body, func(t *testing.T) {
 			src := decls + "\nfn run() -> Int {\n  " + body + "\n}\n"
@@ -163,8 +163,8 @@ fn inc(x: Int) -> Int {
 		{"a tuple at a program interface", `_ = sh((1, 2))`,
 			"argument 1: expected Shape, got (Int, Int)\n" +
 				"help: no impl can be written for a tuple, which implements only Equatable, Hashable, Comparable and Display, each when every element does; declare a struct of your own that implements `Shape`"},
-		{"an anonymous struct at a program interface", `_ = sh(#{a: 1})`,
-			"argument 1: expected Shape, got #{a: Int}\n" +
+		{"an anonymous struct at a program interface", `_ = sh(.{a: 1})`,
+			"argument 1: expected Shape, got .{a: Int}\n" +
 				"help: no impl can be written for an anonymous struct"},
 		{"a tuple with a function at Display", `_ = show((1, inc))`,
 			"help: `(Int, (Int) -> Int)` is Display when each part is, and `(Int) -> Int` is not: a function value has no `Display`"},
@@ -211,13 +211,13 @@ fn show(d: Display) -> String {
 	for _, stmt := range []string{
 		`_ = hh((1, 2))`,
 		`_ = hh((P{a: 1}, "x"))`,
-		`_ = hh(#{a: 1, b: (2, 3)})`,
+		`_ = hh(.{a: 1, b: (2, 3)})`,
 		`_ = eq((1, 2), (1, 2))`,
-		`_ = eq(#{a: 1}, 3)`,
+		`_ = eq(.{a: 1}, 3)`,
 		`_ = show((1, "a"))`,
-		`_ = show(#{a: 1})`,
+		`_ = show(.{a: 1})`,
 		"xs: List<Hashable> = [(1, 2), 3]\n  _ = xs",
-		"ds: List<Display> = [(1, \"x\"), #{b: 2.5}]\n  _ = ds",
+		"ds: List<Display> = [(1, \"x\"), .{b: 2.5}]\n  _ = ds",
 		"m: Map<Hashable, Int> = %{(1, 2) => 1, 3 => 4}\n  _ = m",
 		"e: Equatable = (P{a: 1}, [1])\n  _ = e",
 	} {

@@ -119,7 +119,7 @@ fn ensure_small(n: Int) -> Result<Int, AssertionFailure> {
 }
 
 fn checked(xs: List<Int>) -> Result<Bool, AssertionFailure> {
-  held = testing.check(xs |> Iter.any(fn x -> x > 2))?
+  held = testing.check(xs |> Iter.any_match(fn x -> x > 2))?
   Ok(held)
 }
 
@@ -143,7 +143,7 @@ test "a check over a pipe inside an ordinary fn" {
 test "a failing piped check reports its pipeline" {
   result = testing.check(
     [1, 2]
-    |> Iter.any(fn x -> x > 2)
+    |> Iter.any_match(fn x -> x > 2)
   )
   assert result == Ok(True)
 }

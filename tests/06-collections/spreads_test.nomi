@@ -69,7 +69,7 @@ test "a bare spread stands anywhere, and a map entry after spreads updates what 
 
     extra = %{"ada" => %{"q2" => 7}, "cy" => %{"q1" => 1}}
 
-    updated = #{
+    updated = .{
         ..team,
         members: ["Ada", .., "Cy"],
         scores: %{"bo" => %{"q1" => 2}, .., ..extra, "ada" => %{.., "q3" => 9}},

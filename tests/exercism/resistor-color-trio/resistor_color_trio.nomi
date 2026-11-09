@@ -44,7 +44,7 @@ fn in_largest_unit(ohms: Int) -> Resistance {
     [Magnitude.Kiloohms, .Megaohms, .Gigaohms]
     |> Iter.reduce(Resistance{value: ohms, unit: .Ohms}, fn resistance, unit -> {
         if resistance.value != 0 and resistance.value % 1000 == 0 {
-            #{value: resistance.value / 1000, unit}
+            .{value: resistance.value / 1000, unit}
         } else {
             resistance
         }

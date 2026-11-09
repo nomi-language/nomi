@@ -48,7 +48,7 @@ pub opaque struct Factory {
 impl Factory {
     /// A factory that draws names from `seed`.
     pub fn new(seed: Seed) -> Factory {
-        Factory{seed, given: %[]}
+        .{seed, given: %[]}
     }
 
     /// A new robot with a name no robot of this factory has had, or
@@ -59,7 +59,7 @@ impl Factory {
         (name, seed) = Generator.step(names(), factory.seed)
 
         if name in factory.given {
-            Factory.build(#{..factory, seed})
+            Factory.build(.{..factory, seed})
         } else {
             Ok((Robot{name}, Factory{seed, given: Set.insert(factory.given, name)}))
         }
@@ -94,13 +94,11 @@ import {
 /// Whether `name` is two uppercase letters and three digits.
 fn is_well_formed(name: String) -> Bool {
     case String.to_codepoints(name) {
-        [a, b, c, d, e] -> {
-            is_letter = &Range.contains('A'..='Z', &1)
-            Iter.all([a, b], is_letter) and Iter.all([c, d, e], Codepoint.is_digit)
-        }
+        [a, b, c, d, e] ->
+            Iter.all_match([a, b], &(&1 in 'A'..='Z'))
+                and Iter.all_match([c, d, e], Codepoint.is_digit)
 
-        _ ->
-            False
+        _ -> False
     }
 }
 

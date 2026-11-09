@@ -12,12 +12,12 @@ enum Operation {
 
 /// A node with no subtrees.
 fn leaf(value: Int) -> Tree<Int> {
-    #{value, left: None, right: None}
+    .{value, left: None, right: None}
 }
 
 /// The tree every canonical case starts from.
 fn initial_tree() -> Tree<Int> {
-    #{value: 1, left: Some(#{value: 2, left: None, right: Some(leaf(3))}), right: Some(leaf(4))}
+    .{value: 1, left: Some(.{value: 2, left: None, right: Some(leaf(3))}), right: Some(leaf(4))}
 }
 
 /// The zipper on the initial tree after each operation in turn, or `None`
@@ -46,50 +46,50 @@ test "the tree after the operations" {
         (
             "set_value",
             [.Left, .SetValue(5)],
-            #{
+            .{
                 value: 1,
-                left: Some(#{value: 5, left: None, right: Some(leaf(3))}),
+                left: Some(.{value: 5, left: None, right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_value after traversing up",
             [.Left, .Right, .Up, .SetValue(5)],
-            #{
+            .{
                 value: 1,
-                left: Some(#{value: 5, left: None, right: Some(leaf(3))}),
+                left: Some(.{value: 5, left: None, right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_left with leaf",
             [.Left, .SetLeft(Some(leaf(5)))],
-            #{
+            .{
                 value: 1,
-                left: Some(#{value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
+                left: Some(.{value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
         (
             "set_right with null",
             [.Left, .SetRight(None)],
-            #{value: 1, left: Some(leaf(2)), right: Some(leaf(4))},
+            .{value: 1, left: Some(leaf(2)), right: Some(leaf(4))},
         ),
         (
             "set_right with subtree",
-            [.SetRight(Some(#{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
-            #{
+            [.SetRight(Some(.{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
+            .{
                 value: 1,
-                left: Some(#{value: 2, left: None, right: Some(leaf(3))}),
-                right: Some(#{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
+                left: Some(.{value: 2, left: None, right: Some(leaf(3))}),
+                right: Some(.{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
             },
         ),
         (
             "set_value on deep focus",
             [.Left, .Right, .SetValue(5)],
-            #{
+            .{
                 value: 1,
-                left: Some(#{value: 2, left: None, right: Some(leaf(5))}),
+                left: Some(.{value: 2, left: None, right: Some(leaf(5))}),
                 right: Some(leaf(4)),
             },
         ),

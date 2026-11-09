@@ -231,7 +231,7 @@ test "the suite closes every connection it opens" {
     })
 
     assert Iter.count(fakes) == Iter.count(sql_testing.rules())
-    assert Iter.all(fakes, Fake.is_closed)
+    assert Iter.all_match(fakes, Fake.is_closed)
 }
 
 // A driver that sends rollback and ignores it: everything it rolls back
@@ -396,7 +396,7 @@ fn is_all_closed(conn: Conn) -> Bool {
         is_closed(Conn.commit(conn)),
         is_closed(Conn.rollback(conn)),
     ]
-    |> Iter.all(fn closed -> closed)
+    |> Iter.all_match(fn closed -> closed)
 }
 
 test "close ends every transaction, refuses everything after, and a second close is a no-op" {

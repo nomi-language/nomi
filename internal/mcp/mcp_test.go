@@ -178,7 +178,7 @@ func TestMCP_SearchStd(t *testing.T) {
 		// left out (String.join's separator).
 		{"List<T> -> Int", "Iter.count"},
 		{"List<String> -> String", "String.join"},
-		{"Set<Int>, (Int) -> Bool -> Bool", "Iter.any"},
+		{"Set<Int>, (Int) -> Bool -> Bool", "Iter.any_match"},
 		// A result that implements the interface asked for.
 		{"List<T> -> Iter<T>", "Iter.reverse"},
 	} {

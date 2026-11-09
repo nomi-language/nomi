@@ -225,8 +225,8 @@ func (d *programDemands) read(fa *FileAnalysis) fileDemands {
 // project build kept. A stdlib module built from its interface keeps its
 // declarations too, but its demands are every body's (std.Shared).
 func (d *programDemands) manifest(fa *FileAnalysis) map[string]map[string][]Recording {
-	if _, isStd := stdlibModuleForPath(fa.FilePath); d.entry != nil && fa != d.entry && fa.kept != nil && !isStd {
-		return fa.kept.manifest
+	if _, isStd := stdlibModuleForPath(fa.FilePath); d.entry != nil && fa != d.entry && fa.keptDecls() != nil && !isStd {
+		return fa.keptDecls().manifest
 	}
 	return fa.ImplManifest
 }

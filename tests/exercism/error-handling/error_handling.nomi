@@ -11,8 +11,6 @@ pub enum Error {
     Io io.Error
 }
 
-derive Equatable for Error
-
 /// The number `text` writes, or `None` when it writes none.
 pub fn number(text: String) -> Maybe<Int> {
     String.to_int(text)

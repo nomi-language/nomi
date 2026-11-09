@@ -43,9 +43,11 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -104,8 +106,16 @@ type KeptUnit struct {
 // own: the caller lowers the whole program. Undefined, when set, is the
 // linkage name the file's lowering named and no module defines: an
 // instance of another file's generic declaration no kept object holds,
-// which a lowering that reads that file with its bodies can make.
-type FileMiss struct{ Why, Undefined string }
+// which a lowering that reads that file with its bodies can make. Dropped,
+// when set, holds each linkage name the file no longer makes (an instance
+// of its generic declaration whose body changed) that kept objects of
+// files not lowered again name, with the paths of those files: one of
+// them lowered again after the file, reading it with its bodies, asks
+// for the name again and makes it.
+type FileMiss struct {
+	Why, Undefined string
+	Dropped        map[string][]string
+}
 
 func (m *FileMiss) Error() string { return "irbuild: the file cannot be lowered on its own: " + m.Why }
 
@@ -154,6 +164,9 @@ type keptState struct {
 	synthRefused []string
 	// why says why the lowering cannot be kept, "" when it can.
 	why string
+	// dangling is danglingLinks of the lowering's modules once PrepareKeep
+	// has started it on another goroutine.
+	dangling chan []string
 }
 
 type keptUnitState struct {
@@ -255,8 +268,29 @@ func (r *Result) Keep() (*KeptLowering, error) {
 		}
 	}
 	out.InstanceFiles = sortedSet(files)
-	out.Dangling = danglingLinks(r.IRModules())
+	if k.dangling != nil {
+		out.Dangling = <-k.dangling
+		k.dangling <- out.Dangling
+	} else {
+		out.Dangling = danglingLinks(r.IRModules())
+	}
 	return out, nil
+}
+
+// PrepareKeep starts the slowest part of Keep, the walk of every module's
+// encoding for the names they leave undefined (most of it the stdlib's), on
+// another goroutine, so a caller about to keep the lowering does the rest
+// of its work beside it. Keep takes the result. It reads the lowering's IR
+// only, as Keep's other readers do.
+func (r *Result) PrepareKeep() {
+	k := r.kept
+	if k == nil || k.why != "" || k.dangling != nil {
+		return
+	}
+	ch := make(chan []string, 1)
+	k.dangling = ch
+	mods := r.IRModules()
+	go func() { ch <- danglingLinks(mods) }()
 }
 
 // encodeWithFiles is m as an object and the files its positions are in.
@@ -277,9 +311,23 @@ func danglingLinks(mods []*ir.Module) []string {
 			defined[l] = true
 		}
 	}
+	// Each module's walk is its own, so they run on several goroutines.
+	syms := make([][]*ir.Symbol, len(mods))
+	var wg sync.WaitGroup
+	workers := min(runtime.GOMAXPROCS(0), len(mods), 4)
+	for w := range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := w; i < len(mods); i += workers {
+				syms[i] = ir.ModuleSymbols(mods[i])
+			}
+		}()
+	}
+	wg.Wait()
 	named := map[string]bool{}
-	for _, m := range mods {
-		for _, s := range ir.ModuleSymbols(m) {
+	for _, list := range syms {
+		for _, s := range list {
 			if s.Link() != "" && !defined[s.Link()] {
 				named[s.Link()] = true
 			}
@@ -330,7 +378,7 @@ func DeclFingerprints(nodes []ast.Node) map[string][32]byte {
 // old ones, and is a miss. A *FileMiss says the file cannot be lowered on
 // its own.
 func LowerFile(p *Program, kept *KeptLowering, moved bool) (res *Result, err error) {
-	return LowerFileAmong(p, kept, moved, nil)
+	return LowerFileAmong(p, kept, moved, nil, nil)
 }
 
 // LowerFileAmong is LowerFile for one of several files lowered on their
@@ -342,11 +390,14 @@ func LowerFile(p *Program, kept *KeptLowering, moved bool) (res *Result, err err
 // longer has, an impl it no longer declares) is dropped rather than a
 // miss, when no kept object of a file outside the edit, or of one already
 // lowered again, names it; a file still to be lowered is checked when its
-// turn comes. A file the program's check reads with
+// turn comes. Nor is a dropped linkage name in asked, which a file this
+// edit lowers later asks for again (an instance of a generic declaration
+// whose body changed); the caller makes sure one does (Result.Undefined).
+// A file the program's check reads with
 // its bodies (analysis.ProgramInterfaces.SetBodies) is lowered as a linked
 // library is, so the file can ask it for an instance of a generic
 // declaration no kept object holds; Rekeep keeps what it lowered.
-func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering map[string]bool) (res *Result, err error) {
+func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, asked map[string]bool) (res *Result, err error) {
 	if len(p.Modules) == 0 {
 		return nil, miss("no file")
 	}
@@ -514,22 +565,41 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering map[s
 		}
 		if len(dropped) > 0 {
 			gone := setOf(dropped)
-			for i, u := range kept.Units {
-				if i == old || decoded[i] == nil || relowering[u.Path] {
-					continue
-				}
-				for _, s := range ir.ModuleSymbols(decoded[i]) {
-					if gone[s.Link()] {
-						return nil, miss("%s names %s, which %s no longer makes", u.Key, s.Link(), f.Name)
-					}
-				}
-			}
 			for _, m := range instances {
 				for _, s := range ir.ModuleSymbols(m) {
 					if gone[s.Link()] {
 						return nil, miss("an instance names %s, which %s no longer makes", s.Link(), f.Name)
 					}
 				}
+			}
+			// The kept objects of files not lowered again that name what F
+			// no longer makes (an instance of F's generic declaration whose
+			// body changed, which the file asked F for), unless a file
+			// lowered later asks for it again: the miss names each such
+			// name and the files that name it (FileMiss.Dropped).
+			fm := &FileMiss{}
+			for i, u := range kept.Units {
+				if i == old || decoded[i] == nil || relowering[u.Path] {
+					continue
+				}
+				for _, s := range ir.ModuleSymbols(decoded[i]) {
+					link := s.Link()
+					if !gone[link] || asked[link] {
+						continue
+					}
+					if fm.Why == "" {
+						fm.Why = fmt.Sprintf("%s names %s, which %s no longer makes", u.Key, link, f.Name)
+					}
+					if fm.Dropped == nil {
+						fm.Dropped = map[string][]string{}
+					}
+					if !slices.Contains(fm.Dropped[link], u.Path) {
+						fm.Dropped[link] = append(fm.Dropped[link], u.Path)
+					}
+				}
+			}
+			if fm.Dropped != nil {
+				return nil, fm
 			}
 		}
 	}
@@ -607,6 +677,29 @@ type relowered struct {
 	// linked are the modules of the files read with their bodies, which
 	// hold the instances the file asked them for.
 	linked []*ir.Module
+}
+
+// Undefined is a linkage name among links that no module of the program
+// res links defines, or "": after the last file of a relink, the names a
+// file's lowering dropped as asked (LowerFileAmong) must be defined again.
+func (r *Result) Undefined(links []string) string {
+	if len(links) == 0 {
+		return ""
+	}
+	defined := map[string]bool{}
+	for _, mods := range [][]*ir.Module{r.IR, r.irLibraries} {
+		for _, m := range mods {
+			for _, link := range definedLinks(m) {
+				defined[link] = true
+			}
+		}
+	}
+	for _, link := range links {
+		if !defined[link] {
+			return link
+		}
+	}
+	return ""
 }
 
 // Rekeep is kept with the file LowerFile relowered into res replaced by

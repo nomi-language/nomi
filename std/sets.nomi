@@ -68,11 +68,11 @@ impl Set<T> {
     }
 
     /// True if every element of `a` is also in `b`.
-    //! assert Set.is_subset(%[1, 2], %[1, 2, 3])
-    //! refute Set.is_subset(%[1, 4], %[1, 2, 3])
+    //! assert Set.is_subset_of(%[1, 2], %[1, 2, 3])
+    //! refute Set.is_subset_of(%[1, 4], %[1, 2, 3])
     //
-    pub fn is_subset<T>(a: Set<T>, b: Set<T>) -> Bool {
-        Iter.to_list(a) |> Iter.all(&Set.contains(b, &1))
+    pub fn is_subset_of<T>(a: Set<T>, b: Set<T>) -> Bool {
+        Iter.to_list(a) |> Iter.all_match(&Set.contains(b, &1))
     }
 }
 

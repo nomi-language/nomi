@@ -89,7 +89,9 @@ func implTablesFor(impls map[string]map[string]bool, idx *ProjectImplIndex) Impl
 // every FA holds every file's impls and only `ImplFiles` says where an impl was
 // written. `impl Renderer for Point` in svg.nomi resolves `Renderer` in
 // svg.nomi's scope — which is the whole point, since ascii.nomi resolves the
-// same spelling to a different declaration.
+// same spelling to a different declaration. A header that qualifies its
+// interface (`impl calendar.DateParts for Q`) resolves it in the module's
+// scope, since svg.nomi may declare a `DateParts` of its own.
 func PopulateImplIfaceOrigins(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis) {
 	if idx == nil {
 		return
@@ -107,7 +109,8 @@ func PopulateImplIfaceOrigins(idx *ProjectImplIndex, filesByKey map[string]*File
 					continue
 				}
 				noteStdlibWork(idx.ImplFiles[fn])
-				origin := declaringOriginOfInterface(filesByKey[idx.ImplFiles[fn]], ifaceName)
+				home := filesByKey[idx.ImplFiles[fn]]
+				origin := declaringOriginOfImplInterface(home, fn, ifaceName)
 				if origin == OriginUnresolved {
 					continue
 				}
@@ -125,6 +128,24 @@ func PopulateImplIfaceOrigins(idx *ProjectImplIndex, filesByKey map[string]*File
 			}
 		}
 	}
+}
+
+// declaringOriginOfImplInterface is the Origin of the interface the impl
+// block holding fn names, resolved in fa, the file that writes the block:
+// through the module its header qualifies the interface with (`impl
+// calendar.DateParts for Q` beside fa's own `interface DateParts` names
+// std/calendar's), else by name in fa's scope.
+func declaringOriginOfImplInterface(fa *FileAnalysis, fn *ast.FuncDef, name string) string {
+	if fa == nil {
+		return OriginUnresolved
+	}
+	if module := fa.ImplBlockInterfaceModule[fn]; module != "" {
+		if it := interfaceThrough(fa, module, name); it != nil {
+			return it.Origin
+		}
+		return OriginUnresolved
+	}
+	return declaringOriginOfInterface(fa, name)
 }
 
 // declaringOriginOfInterface finds the Origin of the interface `name` denotes

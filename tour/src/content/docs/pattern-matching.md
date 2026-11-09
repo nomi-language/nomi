@@ -225,7 +225,8 @@ The first arm reads `width` and `height`, and passes the whole rectangle to
 the value it names, so `sq` is a `Shape`.
 
 `as` works anywhere a pattern does, including `if`, bindings, parameters and
-inside other patterns.
+inside other patterns. After a value in an expression, `as` states a type
+instead ([Type annotations](/bindings-and-expressions/#type-annotations)).
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -303,13 +304,13 @@ fn closes(c: Codepoint) -> Bool {
 
 fn main() {
     blocks = [Block.Item("milk"), .Text("note"), .Item("eggs")]
-    dbg blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count()
+    dbg blocks |> Iter.count_by(&(&1 is .Item(_)))
     dbg closes(']')
     dbg not Some(3) is None
 }
 ```
 <!-- expect
-dbg line 12: blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count() = 2
+dbg line 12: blocks |> Iter.count_by(&(&1 is .Item(_))) = 2
 dbg line 13: closes(']') = True
 dbg line 14: not Some(3) is None = True
 -->

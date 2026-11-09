@@ -12,3 +12,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/armstrong-numbers.
 - Each digit is raised with `Int.pow` in a capture, `&Int.pow(&1, width)`.
 - The sum is bound as `total` and compared on its own line, rather than piped into a `then &(&1 == number)` stage.
 - The eleven canonical cases are one `subtests` table, the 33-digit and 39-digit Armstrong numbers included: an `Int` is exact at any size, so `is_armstrong` takes them as it takes 153.
+
+## Friction
+
+None.

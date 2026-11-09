@@ -3,6 +3,7 @@ package vmhost
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/gob"
 	"errors"
 	"os"
 	"path/filepath"
@@ -79,16 +80,34 @@ func OpenCacheFor(path, kind string) *Cache {
 const loadKind = "load"
 
 // Checked reports whether the cache holds the program as its files are now,
-// which a program is kept only when it checks cleanly.
-func (c *Cache) Checked() bool {
+// which a program is kept only when it checks cleanly. When it does, the
+// program's advice (Program.Advice), kept with it, goes where opts'
+// WithWarnings says, as Check writes a fresh program's.
+func (c *Cache) Checked(opts ...Option) bool {
 	if c == nil {
 		return false
 	}
-	if c.entry.Payload() != nil {
+	cfg := newConfig(opts)
+	if data := c.entry.Payload(); data != nil {
+		a, err := decodeArtifact(data)
+		if err != nil || a.entry != c.path {
+			return false
+		}
+		writeAdvice(cfg, a.advice)
 		return true
 	}
-	_, ok := c.relink(newConfig(nil))
+	p, ok := c.relink(cfg)
+	if ok {
+		writeAdvice(cfg, p.Advice())
+	}
 	return ok
+}
+
+// writeAdvice writes ds where cfg's WithWarnings says, when there are any.
+func writeAdvice(cfg config, ds Diagnostics) {
+	if f := cfg.warnings; f != nil && len(ds) > 0 {
+		f(ds)
+	}
 }
 
 // Program is the kept program, ready to run or test, or false when there
@@ -133,6 +152,7 @@ func (c *Cache) Program(opts ...Option) (*Program, bool) {
 	res := &irbuild.Result{HasMain: im.HasMain, IR: im.Modules}
 	p := newProgram(prog, res, map[string]string{}, cfg)
 	p.tablesOnce.Do(func() { p.tables = [2][]string{a.phrases, a.nouns} })
+	p.advice = &a.advice
 	if p.entry == nil || !p.runsClean() {
 		return nil, false
 	}
@@ -178,6 +198,8 @@ func (p *Program) keep(checked bool) {
 	if c == nil || !p.cfg.cacheable() || irbuild.DeclinesPlanted() {
 		return
 	}
+	// The slowest part of the file record (keepFiles) starts first.
+	p.res.PrepareKeep()
 	if (!checked && p.Unsupported() != nil) || !p.runsClean() {
 		return
 	}
@@ -186,7 +208,9 @@ func (p *Program) keep(checked bool) {
 	if len(p.Warnings()) > 0 {
 		return
 	}
-	a := artifact{entry: p.prog.Entry().Path, root: p.prog.Root, hasTests: p.prog.HasTests}
+	// A program with advice is, with its advice, which a check that finds
+	// it kept writes as a fresh check does.
+	a := artifact{entry: p.prog.Entry().Path, root: p.prog.Root, hasTests: p.prog.HasTests, advice: p.Advice()}
 	a.phrases, a.nouns = p.phraseTables()
 	if a.entry != c.path {
 		return
@@ -198,9 +222,21 @@ func (p *Program) keep(checked bool) {
 		}
 		a.image = image
 	}
-	trees, files := p.inputs()
-	c.entry.Store(trees, files, a.encode())
-	p.keepFiles(c)
+	payload := a.encode()
+	if payload == nil {
+		return
+	}
+	// The file record is written beside the load's, on another goroutine:
+	// its lowering's walk and its facts take longer than the load's write.
+	files := c.fileEntry()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		p.keepFiles(files)
+	}()
+	trees, inputs := p.inputs()
+	c.entry.Store(trees, inputs, payload)
+	<-done
 }
 
 // runsClean reports whether nothing the program's main, boot and test cases
@@ -332,6 +368,9 @@ type artifact struct {
 	entry, root    string
 	hasTests       bool
 	phrases, nouns []string
+	// advice is the program's advice (Program.Advice), as a fresh check
+	// writes it.
+	advice Diagnostics
 	// image is the program's IR (cacheImage), or empty for a program with
 	// neither main nor tests, which is kept only to say it checks.
 	image []byte
@@ -339,7 +378,7 @@ type artifact struct {
 
 const (
 	artifactMagic   = "NOMILOAD"
-	artifactVersion = 1
+	artifactVersion = 2
 )
 
 func (a artifact) encode() []byte {
@@ -359,6 +398,11 @@ func (a artifact) encode() []byte {
 			putString(&b, s)
 		}
 	}
+	var advice bytes.Buffer
+	if len(a.advice) > 0 && gob.NewEncoder(&advice).Encode(a.advice) != nil {
+		return nil
+	}
+	putString(&b, advice.String())
 	putUvarint(&b, uint64(len(a.image)))
 	b.Write(a.image)
 	return b.Bytes()
@@ -401,6 +445,11 @@ func decodeArtifact(data []byte) (a artifact, err error) {
 		n := uv()
 		for i := uint64(0); i < n && err == nil; i++ {
 			*list = append(*list, str())
+		}
+	}
+	if advice := str(); err == nil && advice != "" {
+		if gob.NewDecoder(strings.NewReader(advice)).Decode(&a.advice) != nil {
+			return a, errBadArtifact
 		}
 	}
 	n := uv()

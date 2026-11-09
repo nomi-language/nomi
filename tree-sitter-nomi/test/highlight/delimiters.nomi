@@ -83,21 +83,21 @@ fn dot_variant_literal() -> Shape {
     //              ^ type
 }
 
-fn record() -> #{a: Int, b: Int} {
+fn record() -> .{a: Int, b: Int} {
     //          ^ punctuation.bracket
     //                         ^ punctuation.bracket
     //                           ^ punctuation.bracket
-    #{a: 1, b: 2}
+    .{a: 1, b: 2}
     // <- type
     //          ^ type
 }
 
-fn take(r: #{a: Int}) -> Int {
+fn take(r: .{a: Int}) -> Int {
     r.a
 }
 
 fn record_argument() -> Int {
-    take(#{a: 1})
+    take(.{a: 1})
     //  ^ punctuation.bracket
     //    ^ type
     //         ^ type
@@ -105,7 +105,7 @@ fn record_argument() -> Int {
 }
 
 fn record_binding() -> Int {
-    r = #{a: 1, b: 2}
+    r = .{a: 1, b: 2}
     //   ^ type
     //              ^ type
     r.a + r.b
@@ -125,13 +125,13 @@ fn map_construction() -> Kvs {
 }
 
 fn struct_update(user: User) -> User {
-    #{..user, name: "x"}
+    .{..user, name: "x"}
     // <- type
     //                 ^ type
 }
 
 fn bare_update(user: User) -> User {
-    #{..user, geo: #{.., city: "NYC"}, tags: [0, ..]}
+    .{..user, geo: .{.., city: "NYC"}, tags: [0, ..]}
     // <- type
     //              ^ type
     //                              ^ type
@@ -264,8 +264,7 @@ fn blocks(xs: List<Int>, n: Int) -> Int {
             n
         }
 
-        _ ->
-            total
+        _ -> total
     }
 }
 
@@ -294,7 +293,7 @@ fn bindings(pair: (Int, Int), user: User, m: Map<String, Int>) -> Int {
     (a, b) = pair
     // <- type
     //   ^ type
-    #{name, geo} = user
+    .{name, geo} = user
     // <- type
     //         ^ type
     %{"k" => v} = m else { return 0 }
@@ -308,13 +307,13 @@ fn nested_bindings(nested: ((Int, Int), Int), p: Point) -> Int {
     // <- type
     //    ^ type
     //        ^ type
-    #{x: _c, y} as q = p
+    .{x: _c, y} as q = p
     // <- type
     //        ^ type
     a + b + c + y + q.x
 }
 
-fn else_bindings(found: Maybe<(Int, List<Int>)>, r: Result<#{a: Int}, String>) -> Int {
+fn else_bindings(found: Maybe<(Int, List<Int>)>, r: Result<.{a: Int}, String>) -> Int {
     Some((n, [first, .._rest])) = found else {
         //   ^ type
         //                  ^ type
@@ -322,7 +321,7 @@ fn else_bindings(found: Maybe<(Int, List<Int>)>, r: Result<#{a: Int}, String>) -
         return 0
     }
 
-    Ok(#{a: 1} as whole) = r else {
+    Ok(.{a: 1} as whole) = r else {
         //   ^ type
         _ -> return 1
     }
@@ -401,8 +400,8 @@ test "pattern assertion" {
     //                             ^ type
     //                              ^ type
     assert m + first == 3
-    rec: Result<#{a: Int, b: Int}, String> = Ok(#{a: 1, b: 2})
-    assert Ok(#{a: 1, b}) = rec
+    rec: Result<.{a: Int, b: Int}, String> = Ok(.{a: 1, b: 2})
+    assert Ok(.{a: 1, b}) = rec
     //       ^ type
     //         ^ type
     //                 ^ type

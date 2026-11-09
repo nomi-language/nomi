@@ -57,8 +57,7 @@ pub fn parse(
     )
 
     case read {
-        Err(e) ->
-            Err(e)
+        Err(e) -> Err(e)
 
         Ok(digits) -> {
             case String.to_decimal(digits) {
@@ -78,6 +77,12 @@ pub fn require_same(operation: String, a: Currency, b: Currency) -> Unit {
     } else {
         money_mixed(operation, label(a), label(b))
     }
+}
+
+/// Traps with `operation`, a colon and `reason`: an argument the caller
+/// chose and could have checked, such as `Money.split` into no parts.
+pub fn refuse(operation: String, reason: String) -> Unit {
+    money_refused(operation, reason)
 }
 
 fn label(c: Currency) -> String {
@@ -108,3 +113,5 @@ host fn money_parse_raw(
 ) -> Result<String, NumberParseError>
 
 host fn money_mixed(operation: String, a: String, b: String) -> Unit
+
+host fn money_refused(operation: String, reason: String) -> Unit

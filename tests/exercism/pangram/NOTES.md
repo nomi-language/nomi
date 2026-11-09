@@ -10,10 +10,10 @@ Adapted from Exercism problem-specifications (MIT), exercises/pangram.
 ## Choices
 
 - The sentence becomes a `Set<Codepoint>` and the check is
-  `Iter.all('a'..='z', ...)` over a codepoint range. Codepoint literals and
+  `Iter.all_match('a'..='z', ...)` over a codepoint range. Codepoint literals and
   ranges are what style §20 recommends for ASCII enumeration.
-  `Set.is_subset(Iter.to_set('a'..='z'), letters)` works as well; I picked
-  `Iter.all` because it reads as the problem statement. The predicate is
+  `Set.is_subset_of(Iter.to_set('a'..='z'), letters)` works as well; I picked
+  `Iter.all_match` because it reads as the problem statement. The predicate is
   `&(&1 in letters)`, a capture.
 - Case is ignored with `String.fold_case`, the function for comparing
   without case, rather than `String.lowercase`.

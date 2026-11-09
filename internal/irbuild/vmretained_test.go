@@ -572,7 +572,7 @@ func (s *vmShaper) argFor(f *ir.Func, t ir.Temp, leaf *probeLeaf, depth int) any
 					}
 				}
 				// A functional update's base is a struct even when nothing
-				// projects out of it; `Struct.update(app, #{...})` states no
+				// projects out of it; `Struct.update(app, .{...})` states no
 				// field it reads. The machine requires the base to carry every
 				// field the update replaces.
 				if m, ok := instruction.(*ir.Make); ok && m.Kind() == ir.MakeUpdate {

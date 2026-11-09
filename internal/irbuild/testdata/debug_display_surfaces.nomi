@@ -22,7 +22,7 @@
 // dispatch in it (rt.InspectStruct sorts the composed `name: value` strings).
 // With `Point{x, y}` those two are the same
 // string and the difference is invisible; with `zeta` before `alpha` they are
-// `#{zeta: 1, alpha: 2}` and `#{alpha: 2, zeta: 1}` and only one wiring passes.
+// `.{zeta: 1, alpha: 2}` and `.{alpha: 2, zeta: 1}` and only one wiring passes.
 //
 // # A hand-written `impl Debug` is the other distinguishing input
 //

@@ -55,7 +55,10 @@ import (
 // own `impl Sized for List<Int>` does not resolve through another file's
 // `Sized`, and under a block import of std's `Duration` a file's own
 // `Duration.seconds` does not resolve (TestOwnerDecl_BlockImportRebindsAStdType
-// in internal/irbuild). An empty file's interface holds no nodes rather
+// in internal/irbuild); and a type function the program's entry declares
+// names no module for the runtime to load, though a file's build reads
+// the entry by its module key (TestTheEntryProvidesNoTypeMethod). An
+// empty file's interface holds no nodes rather
 // than an empty list, so a check against interfaces passes over it as
 // discovery passes over the empty source.
 
@@ -364,6 +367,56 @@ func TestUndefinedTypeOwnerReadsNoOtherFile(t *testing.T) {
 	}
 	if !strings.Contains(want, "undefined type or variant 'Box'") {
 		t.Fatalf("the reproducer no longer names an undefined Box:\n%s", want)
+	}
+}
+
+// TestTheEntryProvidesNoTypeMethod holds a file that calls a type function
+// the program's entry declares (`String.shout`, from the entry's
+// `impl Shout for String`) to the same check from source and against
+// interfaces. The program's check builds the entry under "" and records no
+// module to load for the call; checked against interfaces, the file's
+// build read the entry as the module `main` and recorded it.
+// FuzzCheckFromInterfacesMatchesFull found it.
+func TestTheEntryProvidesNoTypeMethod(t *testing.T) {
+	p := incrementalProject{name: "entry type method", entry: "main", texts: map[string]string{
+		"main": `import {
+    std::io
+    shout.{Shout}
+    use
+}
+
+impl Shout for String {
+    fn shout(s: String) -> String {
+        s + "!"
+    }
+}
+
+fn main() {
+    io.inspect(use.loud("y"))
+}
+`,
+		"shout": `pub interface Shout {
+    fn shout(x: self) -> String
+}
+`,
+		"use": `import shout.{Shout}
+
+pub fn loud(_heard: Shout) -> String {
+    String.shout("x")
+}
+`,
+	}}
+	full := fullCheck(p, p.texts)
+	for key, errs := range full.Errors {
+		if len(errs) > 0 {
+			t.Fatalf("the project does not check: %s: %v", key, errs)
+		}
+	}
+	if dump := analysis.DumpProgramForTest(full); strings.Contains(dump, "type method module main") {
+		t.Fatalf("the program's check records the entry as a type method's module:\n%s", dump)
+	}
+	if diff := fromInterfacesDiff(p, p.texts); diff != "" {
+		t.Errorf("checked against interfaces, the program differs:\n%s", diff)
 	}
 }
 

@@ -17,8 +17,11 @@
 //#
 //# The amount keeps every digit it has: adding, subtracting and multiplying
 //# by a count are exact, and only `Money.round` and `Money.multiply_by`, a
-//# product with a Decimal rate, round, to the currency's minor digits. Two amounts in different currencies do not add: `+` and `-`
-//# trap and name both. Std has no exchange rates;
+//# product with a Decimal rate, round, to the currency's minor digits.
+//# `Money.split` and `Money.allocate` divide an amount into parts that sum
+//# to it exactly, a bill shared three ways or 70 to 30. Two amounts in
+//# different currencies do not add: `+` and `-` trap and name both. Std has
+//# no exchange rates;
 //# a library that has them converts and checks the currency first.
 //# `Money.format` writes an amount as a reader of a locale writes it, and
 //# `Money.parse_in` reads one back, strictly by default.
@@ -44,6 +47,7 @@ import {
     strings.String
     subtract.Subtract
     summable.Summable
+    unit.Unit
 }
 
 /// An exact amount in a currency. Two amounts are equal when their
@@ -105,8 +109,7 @@ impl Display for Error {
                     currency.Error.NotIso{code} ->
                         "`${code}` is not an ISO 4217 currency: a custom currency names its minor digits, as Money`${amount} ${code}:2`"
 
-                    other ->
-                        Display.to_string(other)
+                    other -> Display.to_string(other)
                 }
 
             Error.Interpolated ->
@@ -314,6 +317,74 @@ impl Money {
         Ok(Money{amount, currency})
     }
 
+    /// The amount split into `n` parts that sum to it exactly and differ by
+    /// at most one minor unit: a bill shared by `n` people. The leftover
+    /// units go one each to the first parts, so the larger parts come first,
+    /// as `Money.allocate` gives them out. It is `Money.allocate` with `n`
+    /// equal ratios. A non-positive `n` traps: `Money.split: n must be
+    /// positive, got 0`.
+    //! assert Money.split(Money`100.00 EUR`, 3) == [Money`33.34 EUR`, Money`33.33 EUR`, Money`33.33 EUR`]
+    //! assert Money.split(Money`5 JPY`, 2) == [Money`3 JPY`, Money`2 JPY`]
+    //! assert Money.split(Money`-0.05 USD`, 2) == [Money`-0.03 USD`, Money`-0.02 USD`]
+    //! assert Money.split(Money`0.01 EUR`, 3) == [Money`0.01 EUR`, Money`0.00 EUR`, Money`0.00 EUR`]
+    //
+    pub fn split(money: Money, n: Int) -> List<Money> {
+        if n <= 0 { money_format.refuse("Money.split", "n must be positive, got ${n}") }
+
+        Decimal.split(money.amount, n, Currency.minor_digits(money.currency))
+        |> Money.all_in(money.currency)
+    }
+
+    /// The amount split into parts proportional to `ratios`, one part per
+    /// ratio, that sum to it exactly: a payment shared 70 to 30, or a
+    /// discount spread over a cart's lines by their prices. Each part is its
+    /// share rounded toward zero to a minor unit; the units left over go one
+    /// each to the parts in the order of `ratios`, skipping a zero ratio, so
+    /// a zero ratio's part is always zero. This is Fowler's `allocate`, as
+    /// Ruby Money and Dinero.js give it, and `Decimal.allocate` at the
+    /// currency's minor digits.
+    ///
+    /// A minor unit is the currency's (a cent in `EUR`, a yen in `JPY`), or
+    /// the amount's last digit when it has more: `0.125 EUR` is split in
+    /// thousandths, so the parts still sum to it. A part has that many
+    /// digits. An empty list of ratios, a negative ratio, or ratios that are
+    /// all zero trap, naming the problem: `Money.allocate: the ratios are
+    /// all zero`.
+    //! assert Money.allocate(Money`100.00 EUR`, [1, 1, 1]) == [
+    //!     Money`33.34 EUR`,
+    //!     Money`33.33 EUR`,
+    //!     Money`33.33 EUR`,
+    //! ]
+    //!
+    //! assert Money.allocate(Money`0.05 USD`, [3, 7]) == [Money`0.02 USD`, Money`0.03 USD`]
+    //! assert Money.allocate(Money`10 EUR`, [70, 0, 30]) == [Money`7 EUR`, Money`0 EUR`, Money`3 EUR`]
+    //! assert Money.allocate(Money`0.01 EUR`, [0, 1, 1]) == [Money`0 EUR`, Money`0.01 EUR`, Money`0 EUR`]
+    //! assert Money.allocate(Money`0.125 EUR`, [1, 1]) == [Money`0.063 EUR`, Money`0.062 EUR`]
+    //! assert Money.allocate(Money`-1 USD`, [1, 2]) == [Money`-0.34 USD`, Money`-0.66 USD`]
+    //
+    pub fn allocate(money: Money, ratios: List<Int>) -> List<Money> {
+        if Iter.is_empty(ratios) { money_format.refuse("Money.allocate", "there are no ratios") }
+
+        case Iter.find(ratios, fn r -> r < 0) {
+            Some(r) -> money_format.refuse("Money.allocate", "the ratio ${r} is negative")
+            None -> Unit
+        }
+
+        if Iter.all_match(ratios, fn r -> r == 0) {
+            money_format.refuse("Money.allocate", "the ratios are all zero")
+        }
+
+        Decimal.allocate(money.amount, ratios, Currency.minor_digits(money.currency))
+        |> Money.all_in(money.currency)
+    }
+
+    // Each amount of `amounts` in `currency`.
+    fn all_in(amounts: List<Decimal>, currency: Currency) -> List<Money> {
+        amounts
+        |> Iter.map(fn amount -> Money{amount, currency})
+        |> Iter.to_list()
+    }
+
     /// Whether the amount is the sum of no amounts, `Money.empty_sum()`.
     fn is_empty(money: Money) -> Bool {
         money.currency == Currency`XXX` and Decimal.is_zero(money.amount)
@@ -410,7 +481,7 @@ impl Literal for Money {
     //! assert Money"12.50" == Err(Error.NoCurrency{amount: "12.50"})
     //
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Money, Error> {
-        interpolated = Iter.any(fragments, fn frag -> {
+        interpolated = Iter.any_match(fragments, fn frag -> {
             case frag {
                 .Static(_) -> False
                 .Dynamic(_) -> True
@@ -445,8 +516,7 @@ impl Literal for Money {
                 }
             }
 
-            _ ->
-                Err(Error.Malformed{text: body})
+            _ -> Err(Error.Malformed{text: body})
         }
     }
 }

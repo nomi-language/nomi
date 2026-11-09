@@ -280,7 +280,7 @@ pub fn check_key(key: String) -> Result<Unit, Error> {
     }
 
     segments = String.split(key, "/")
-    if Iter.any(segments, fn s -> s == "") { return bad("it has an empty segment") }
+    if Iter.any_match(segments, fn s -> s == "") { return bad("it has an empty segment") }
 
     if Some(long) = Iter.find(segments, fn s -> byte_length(s) > 255) {
         return bad("a segment is ${byte_length(long)} bytes, over 255")
@@ -429,10 +429,9 @@ fn follow(store: Store, options: ListOptions, done: Listing) -> Result<Listing, 
 
     case listed.next {
         Some(token) when Some(token) != options.continuation ->
-            follow(store, #{..options, continuation: Some(token)}, all)
+            follow(store, .{..options, continuation: Some(token)}, all)
 
-        _ ->
-            Ok(all)
+        _ -> Ok(all)
     }
 }
 
@@ -473,7 +472,7 @@ pub fn check_content_type(content_type: String) -> Result<Unit, Error> {
 
     if length == 0
         or length > 255
-        or Iter.any(content_type, fn c -> not String.contains(printable, c)) {
+        or Iter.any_match(content_type, fn c -> not String.contains(printable, c)) {
         Err(Error.InvalidContentType{content_type})
     } else {
         Ok(Unit)
@@ -611,8 +610,7 @@ impl Store for Local {
                 Ok(Some(Info{size: meta.size, content_type, modified: meta.modified}))
             }
 
-            Ok(_) ->
-                Ok(None)
+            Ok(_) -> Ok(None)
 
             Err(e) ->
                 case missing(key, e) {
@@ -627,8 +625,7 @@ impl Store for Local {
         object = Local.object_path(local, key)
 
         is_file = case fs.metadata(object) {
-            Ok(meta) ->
-                meta.kind == Kind.File
+            Ok(meta) -> meta.kind == Kind.File
 
             Err(e) ->
                 case missing(key, e) {
@@ -640,8 +637,7 @@ impl Store for Local {
         if is_file { fs.remove(object) |> Result.map_err(fn e -> from_io(key, e))? }
 
         case fs.remove(Local.type_path(local, key)) {
-            Ok(_) ->
-                Ok(Unit)
+            Ok(_) -> Ok(Unit)
 
             Err(e) ->
                 case missing(key, e) {
@@ -676,14 +672,9 @@ impl Store for Local {
                     Ok(entry) when entry.kind == Kind.File ->
                         local_entry(base, entry.path, options.prefix)
 
-                    Ok(_) ->
-                        Ok(None)
-
-                    Err(.NotFound{path}) when path == local.root ->
-                        Ok(None)
-
-                    Err(e) ->
-                        Err(from_io(options.prefix, e))
+                    Ok(_) -> Ok(None)
+                    Err(.NotFound{path}) when path == local.root -> Ok(None)
+                    Err(e) -> Err(from_io(options.prefix, e))
                 }
             })
             |> Result.collect()?
@@ -697,7 +688,7 @@ impl Store for Local {
 // which leaves out the types directory and a put's temporary files.
 fn local_entry(base: String, file: String, prefix: String) -> Result<Maybe<Entry>, Error> {
     segments = String.split(String.drop(file, String.length(base)), "/")
-    if Iter.any(segments, fn s -> String.starts_with(s, ".")) { return Ok(None) }
+    if Iter.any_match(segments, fn s -> String.starts_with(s, ".")) { return Ok(None) }
     key = segments |> Iter.map(key_segment) |> String.join("/")
     if not String.starts_with(key, prefix) { return Ok(None) }
     meta = fs.metadata(file) |> Result.map_err(fn e -> from_io(key, e))?
@@ -724,8 +715,7 @@ fn key_segment(name: String) -> String {
             })
             |> String.join(""))
 
-        [] ->
-            name
+        [] -> name
     }
 }
 
@@ -867,7 +857,7 @@ pub fn handler(store: Store, param: String = "key") -> (Request) -> Response {
                         )
 
                 if typed {
-                    #{
+                    .{
                         ..response,
                         headers: Headers.set(
                             response.headers,
@@ -882,20 +872,14 @@ pub fn handler(store: Store, param: String = "key") -> (Request) -> Response {
 
             Err(error) ->
                 case error {
-                    .NotFound{} ->
-                        Response.error(Status.not_found, "404 page not found")
-
-                    .InvalidKey{} ->
-                        Response.error(Status.not_found, "404 page not found")
-
-                    .Denied{} ->
-                        Response.error(Status.forbidden, "forbidden")
+                    .NotFound{} -> Response.error(Status.not_found, "404 page not found")
+                    .InvalidKey{} -> Response.error(Status.not_found, "404 page not found")
+                    .Denied{} -> Response.error(Status.forbidden, "forbidden")
 
                     .Unavailable{} ->
                         Response.error(Status.service_unavailable, "service unavailable")
 
-                    _ ->
-                        Response.error(Status.internal_server_error, "internal server error")
+                    _ -> Response.error(Status.internal_server_error, "internal server error")
                 }
         }
     }

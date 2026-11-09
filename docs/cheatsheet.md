@@ -69,13 +69,15 @@ test result: ok. 1 passed, 0 failed
 - A tuple is its parentheses with a comma inside: `(a, b)`; `(x)` only
   groups. Passed as a call's one argument it keeps its own parentheses,
   `f((a, b))`, and a function type taking one tuple is `((A, B)) -> C`.
-- Every other literal but a list starts with its shape's symbol: `#` for an
-  anonymous struct or a vector (`#{x: 1}`, `#[1, 2]`), `%` for a map or a
-  set. A plain `{` is always a block.
+- Every other literal but a list starts with its shape's symbol: `.` for a
+  struct with no name (`.{x: 1}`), `#` for a vector (`#[1, 2]`), `%` for a
+  map or a set. `.{x: 1}` drops the struct's name as `.Circle{radius: 1.0}`
+  drops the enum's: it builds the struct its position expects, or an
+  anonymous one. A plain `{` is always a block.
 - Patterns use the same forms as literals.
 - Types are written without a symbol, except anonymous structs:
   `List<Int>`, `Vector<T>`, `Map<K, V>`, `Set<T>`, `(Int, String)`,
-  `#{x: Int}`.
+  `.{x: Int}`.
 - Strings interpolate with `${...}`. A backtick string is raw: no escapes and
   no interpolation. A type name before a backtick string is a typed literal,
   checked at compile time: ``Regex`\d+` ``, ``Url`https://nomi-lang.org` ``.
@@ -104,7 +106,7 @@ test result: ok. 1 passed, 0 failed
 | list | `[1, 2]` | `Ids[1, 2]` |
 | vector | `#[1, 2]` | `#Path[1, 2]` |
 | tuple | `(1, "x")` | `Pair(1, "x")` |
-| struct | `Point{x: 1}`, `#{x: 1}` | `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` |
+| struct | `Point{x: 1}`, `.{x: 1}` | `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` |
 | map | `%{"a" => 1}` | `%Kvs{"a" => 1}` |
 | set | `%[1, 2]` | `%Tags["a"]` |
 
@@ -116,7 +118,7 @@ struct Point {
 
 test "literals" {
     point = Point{x: 1}
-    moved = #{..point, y: 5}
+    moved = .{..point, y: 5}
     (count, name) = (2, "Ada")
     pair = (2, "Ada")
 

@@ -3,7 +3,7 @@ title: Coming from Kotlin
 description: What carries over from Kotlin to Nomi, what differs, and the same program written in both.
 ---
 
-Much of Kotlin carries over: `val` by default, data classes, sealed
+Much of Kotlin carries over: `val` bindings, data classes, sealed
 hierarchies matched by an exhaustive `when`, named arguments with defaults,
 lambdas with inferred parameters, string templates, and structured
 concurrency. What differs most: nothing is mutable at all, nullable types
@@ -12,24 +12,34 @@ methods or extension functions: a function is called through its owner.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
-## What differs
+## Will trip you up
 
 | Kotlin | Nomi |
 |---|---|
 | `val x = 1`, `var x` | `x = 1`. There is no `var`; a later `x = ...` binds the name again. |
-| `data class Account(val owner: String)` | `struct Account { owner: String }`, one field per line |
-| `account.copy(balance = 5)` | `#{..account, balance: 5}` |
+| `list.map { it.name }` | `Iter.map(list, .name)`: there are no method calls on a value |
+| `fun String.shout() = ..`, `"a".shout()` | A plain function, `shout("a")`, or one in `impl` called through its type |
+| `String?`, `?.`, `?:` | `Maybe<String>`, `Maybe.map`, `Maybe.with_default`, or `Maybe.otherwise` when the fallback may be missing too |
+| `throw`, `runCatching` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
+| `x.toDouble()`, `x as Shape` | `Int.to_float(x)`. Nomi's `x as T` never casts or throws: it only states a type the value already fits (`[] as List<String>`) |
+| `file.use { .. }` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
+| Spring's constructor injection, or Koin or Ktor's `dependencies { provide { .. } }` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`, with nothing injected. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
+
+## Spelled differently
+
+| Kotlin | Nomi |
+|---|---|
+| `data class Account(val owner: String)` | `struct Account { owner: String }`, one field per line. `==` compares the fields, as a data class's `equals` does. |
+| `account.copy(balance = 5)` | `.{..account, balance: 5}` |
 | `sealed class Event` with subclasses | `enum Event`, one variant per line: `Deposit Int` |
 | `when (e) { is Deposit -> .. }` | `case e { .Deposit(amount) -> .. }`, which must cover every variant |
-| `String?`, `?.`, `?:` | `Maybe<String>`, `Maybe.map`, `Maybe.with_default` |
-| `throw`, `runCatching` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
-| `fun String.shout() = ..`, `"a".shout()` | A plain function, `shout("a")`, or one in `impl` called through its type |
-| `list.map { it.name }` | `Iter.map(list, .name)` |
-| `Pair(a, b)`, `a to b` | `(a, b)` |
+| `Pair(a, b)`, `a to b` | `(a, b)`, read as `.first` and `.second` as a `Pair` is |
 | `listOf(1, 2)`, `mapOf("a" to 1)` | `[1, 2]`, `%{"a" => 1}` |
-| `interface` with default methods | `interface`, with each implementation in `impl Interface for Type { .. }` |
+| `interface` with default methods | `interface`, where a default an impl may replace is an `open fn`; each implementation goes in `impl Interface for Type { .. }` |
+| `TODO("parse")` | `todo "parse"` |
 | `coroutineScope { launch { .. } }` | `concurrent { Task.spawn(fn -> ..) }` |
 | `@Test fun t()` | `test "name" { assert .. }` |
+| Ktor's `get("/users/{id}") { call.parameters["id"] }`, Spring's `@GetMapping("/users/{id}")` with `@PathVariable id: Long` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 Named arguments and defaults work as in Kotlin: `area(5, height: 4)`.
 
@@ -66,8 +76,6 @@ struct Account {
     balance: Int = 0
 }
 
-derive Equatable for Account
-
 enum Event {
     Deposit Int
     Withdraw Int
@@ -82,7 +90,7 @@ fn apply(account: Account, event: Event) -> Result<Account, String> {
     if balance < 0 {
         Err("short by ${-balance}")
     } else {
-        Ok(#{..account, balance})
+        Ok(.{..account, balance})
     }
 }
 
@@ -111,5 +119,5 @@ test result: ok. 1 passed, 0 failed
 -->
 
 `Iter.try_reduce` is the fold that stops at the first `Err`, which Kotlin
-spells with `mapCatching`. `#{..account, balance}` is `copy`: a new value
+spells with `mapCatching`. `.{..account, balance}` is `copy`: a new value
 with one field replaced.

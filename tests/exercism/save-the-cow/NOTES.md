@@ -13,7 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/save-the-cow.
 - Guessing after the game is over is an `Err`, one `Error` variant per outcome, whose `Display` gives the canonical messages.
 - A guess is a `Codepoint`, since the game works letter by letter (style §20), and `masked_word` maps each letter of the word to itself or `_`.
 - The test file's `play` folds the guesses with `Iter.try_reduce(guesses, Game.new(word), Game.guess)`, which stops at the first refused guess and answers its `Err`.
- The cases are two `subtests` tables, one for the games that end in a state and one for the refused guesses.
+- The cases are two `subtests` tables, one for the games that end in a state and one for the refused guesses.
 
 ## Friction
 

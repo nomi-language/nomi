@@ -53,9 +53,22 @@ import (
 // (analysis/manifest.go), and a std module lowered with the program
 // (programStdModules) is excluded: its interfaces are the program's own.
 //
-// Only a program's gens build these defs. The stdlib lowered once for the
-// process holds no program symbol, so a shared std body taking one of these
-// interfaces still declines.
+// Only a program's gens build these defs: its files, the std modules
+// lowered with it, and a shared std module's own cases (stdCases). The
+// stdlib lowered once for the process holds no program symbol, so a shared
+// std function whose signature names one of these interfaces
+// (`String.split(s, separator: Matcher)`) is not retained there: the index
+// marks it stdProgSigWhy, and a program builds it as an instance with no
+// type arguments (stdinst.go). That instance's gen has no defs of its own.
+// Its caller is stdProgCaller, and every def it asks for is the caller's:
+// by origin and name (stdProgIfaceAt), which the program's std scope
+// answers first, since a program may read std's declarations from the
+// stored interfaces while the instance reads the shared analysis's; and
+// for an interface the instance's own module declares (`ToJson` in
+// `Json.encode_as`), in place of the module's local def (stdProgOwnIface).
+// A std type the instance holds as one is recorded, and its thunks built,
+// by the caller (stdProgBinds), so the parameter, the body's dispatch and
+// the dispatch entries name one def and the program's symbols.
 
 // stdIfaceMethodToken is a std interface method's dispatch symbol in the
 // program table: the declaration and the method's name.
@@ -67,6 +80,9 @@ type stdIfaceMethodToken struct {
 // programSymbol interns token in the program's one table for symbols no unit
 // declares: the first unit's, or this gen's when there is no program.
 func (g *gen) programSymbol(token any, name string) *ir.Symbol {
+	if c := g.stdProgCaller; c != nil {
+		return c.programSymbol(token, name)
+	}
 	if g.reg != nil && len(g.reg.gens) > 0 && g.reg.gens[0] != nil {
 		return g.reg.gens[0].irTypes().Symbol(token, name)
 	}
@@ -86,12 +102,16 @@ func (g *gen) stdProgMethodSym(d *ifaceDef, m *ifaceMethod) *ir.Symbol {
 	return g.programSymbol(stdIfaceMethodToken{decl: d.decl, method: m.name}, d.nomi+"."+m.name)
 }
 
-// stdProgBuilds reports whether this gen builds defs for std interfaces:
-// a program's own gens and the std modules lowered with it, never the
-// stdlib lowered once for the process or a std generic instance built for
-// a program, whose bodies are std's.
+// stdProgBuilds reports whether this gen has defs for std interfaces:
+// a program's own gens, the std modules lowered with it and a shared std
+// module's cases (stdCases), and a std instance built for one of those,
+// which uses its caller's (stdProgCaller); never the stdlib lowered once
+// for the process.
 func (g *gen) stdProgBuilds() bool {
-	return (g.stdModule == "" || g.programStd) && g.stdInstCur == nil
+	if g.stdProgCaller != nil {
+		return true
+	}
+	return (g.stdModule == "" || g.programStd || g.stdCases) && g.stdInstCur == nil
 }
 
 // stdProgIfaceNamed is the def of the std interface a bare name names in
@@ -116,6 +136,40 @@ func (g *gen) stdProgIfaceNamed(name string) *ifaceDef {
 	return g.stdProgIfaceOf(resolvedTypeSymbol(g.fa, name))
 }
 
+// stdProgOwnIface is, in a std instance built for a program
+// (stdProgCaller), the caller's def of d, an interface the instance's own
+// std module declares, when a program holds it as a value through its own
+// def (stdProgIfaceOf), or nil: a value of it crosses the call as the
+// caller's existential, so the instance's parameters and body name the
+// same kind.
+func (g *gen) stdProgOwnIface(d *ifaceDef) *ifaceDef {
+	c := g.stdProgCaller
+	if c == nil || d == nil || d.decl == nil || g.stdModule == "" || isProgramStd(g.stdModule) {
+		return nil
+	}
+	pd := c.stdProgIfaceAt("std/"+g.stdModule, d.decl.Name)
+	if pd == nil || !pd.lowerable {
+		return nil
+	}
+	return pd
+}
+
+// stdProgHere is k, a kind another gen resolved, with a std interface it
+// holds as a value (not a generic one's instance) replaced by this gen's
+// def of the same declaration. A std instance with such a parameter is
+// built once for the program, at its first caller's def, and each file
+// passes the value at its own: the VM's existential is the value, and the
+// dispatch symbols are the program's.
+func (g *gen) stdProgHere(k kind) kind {
+	if k.tag != tagIface || k.iface == nil || k.iface.stdOrigin == "" || k.iface.instOf != nil || k.iface.decl == nil {
+		return k
+	}
+	if d := g.stdProgIfaceAt(k.iface.stdOrigin, k.iface.decl.Name); d != nil && d.lowerable {
+		return existential(d)
+	}
+	return k
+}
+
 // stdProgQualifiedIface is the def of the std interface a module-qualified
 // name (`matcher.Matcher`) names, read through the qualifier's scope, or
 // nil.
@@ -133,6 +187,18 @@ func (g *gen) stdProgQualifiedIface(qualifier, name string) *ifaceDef {
 func (g *gen) stdProgIfaceOf(sym *analysis.Symbol) *ifaceDef {
 	if sym == nil {
 		return nil
+	}
+	if c := g.stdProgCaller; c != nil {
+		// An instance's interface value is its caller's, so the call and
+		// the body agree on its kind. The instance reads std's declarations
+		// from the shared lowering's analysis, so the declaration is found
+		// again by its origin and name, as the caller projects a checked
+		// type (stdProgSolved).
+		it, isIface := sym.Type.(*analysis.InterfaceType)
+		if !isIface {
+			return nil
+		}
+		return c.stdProgIfaceAt(it.Origin, it.Name)
 	}
 	decl, isDecl := sym.Node.(*ast.InterfaceDef)
 	it, isIface := sym.Type.(*analysis.InterfaceType)
@@ -310,6 +376,11 @@ func (g *gen) stdProgIfaceForImpl(ib *ast.ImplBlock) *ifaceDef {
 // entries are recorded (stdProgHeldImpls). A std container or leaf type
 // enters boxed instead, and its entries are its box's (irBoxPlan).
 func (g *gen) stdProgBinds(d *ifaceDef, k kind) bool {
+	if c := g.stdProgCaller; c != nil {
+		// A std instance records nothing of its own: its caller builds the
+		// thunks and records the entries, as for a value it holds itself.
+		return c.stdProgBinds(d, k)
+	}
 	if typ := g.stdProgHeldType(k); typ != nil {
 		for _, m := range d.order {
 			// A function no erased receiver can dispatch (`Steppable.step_by`'s
@@ -328,10 +399,10 @@ func (g *gen) stdProgBinds(d *ifaceDef, k kind) bool {
 		g.stdProgHeld[d][k] = true
 		return true
 	}
-	impl := g.implsByIface[d.nomi][k]
+	impl := g.implsByIface[g.implsKey(d)][k]
 	if impl == nil || impl.stdIface != d {
 		impl = nil
-		for _, cand := range g.instImpls[d.nomi][k] {
+		for _, cand := range g.instImpls[g.implsKey(d)][k] {
 			if cand.stdIface == d {
 				impl = cand
 			}
@@ -515,7 +586,15 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 		v, rk, _, ok = bl.tupleHashOf(at, sh.paramTemps[0], have)
 		handled = true
 	}
-	if !handled && g.stdProgBareNames(d) {
+	if irRetainedRecordKind(have) && d.stdOrigin == "std/json" && d.decl.Name == "ToJson" && m.name == "to_json" && len(params) == 1 {
+		// A record's JSON is its fields' (irrecordjson.go).
+		v, rk, ok = bl.recordToJsonOf(at, sh.paramTemps[0], have, m.result, "")
+		handled = true
+	}
+	if !handled && (g.stdProgBareNames(d) || g.stdCases) {
+		// A std container's impl is a template instantiated at the call,
+		// which a std module's cases reach under their module's own name
+		// for its interface (`ToJson` in std/json's cases) too.
 		v, rk, _, ok, handled = bl.ifaceContainerCall(at, args, d.decl.Name, m.name)
 	}
 	if !handled {
@@ -558,9 +637,15 @@ func (g *gen) stdProgImplOf(d *ifaceDef, m *ifaceMethod, kinds []kind) *stdFunc 
 	if d.instOf != nil {
 		decl = d.instOf
 	}
+	views := g.std.views
+	if g.stdInsts != nil {
+		// A std module's cases gen indexes the modules before its own;
+		// the lowering's views hold every module, its own among them.
+		views = g.stdInsts.std.views
+	}
 	var fs []*stdFunc
 	for _, f := range g.std.byIface[decl.Name+"."+m.name][kinds[m.shape.recvAt()]] {
-		v := g.std.views[f.module]
+		v := views[f.module]
 		if v == nil {
 			continue
 		}
@@ -706,11 +791,23 @@ func (g *gen) stdProgIfaceAt(origin, name string) *ifaceDef {
 	if !g.stdProgBuilds() || !strings.HasPrefix(origin, "std/") {
 		return nil
 	}
+	module := strings.TrimPrefix(origin, "std/")
+	if g.fa != nil {
+		// The program's own std scope first: the declaration a file's
+		// import reaches (stdProgIfaceNamed), which may have been read from
+		// the stdlib's stored interfaces rather than the shared analysis,
+		// so the two routes reach one def.
+		if scope := g.fa.Program().StdlibModuleScopes[module]; scope != nil {
+			if d := g.stdProgIfaceOf(resolvedScopeSymbol(scope, name)); d != nil {
+				return d
+			}
+		}
+	}
 	lib := stdAnchorLib()
 	if lib == nil {
 		return nil
 	}
-	owner := lib.Files[strings.TrimPrefix(origin, "std/")]
+	owner := lib.Files[module]
 	if owner == nil {
 		return nil
 	}

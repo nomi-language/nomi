@@ -17,27 +17,27 @@ failing 55
 C anon_struct.nomi
 E 1
 N 1
-H 3b6c36e3cdeb5700cc6ce19e1035c568875572f68c8f7f7957bd15c09901c681
+H cf1e2f6a7172ca8805c845fe72327a85abd11307c96cd2676f63958c718ff53f
 T FAIL <root>/internal/irbuild/testdata/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
 T   30
 T   Hi Bob, you are 42
 T   Hi Carol, you are 30
-T   #{n: 1, name: Ada}
-T   #{count: 3, outer: #{inner: 1, label: hi}}
+T   .{n: 1, name: Ada}
+T   .{count: 3, outer: .{inner: 1, label: hi}}
 T   1
 T   x is ten, y is 20
 T   30
 T   line 65: assertion failed
-T     assert no(#{a: 1, a0: 2})
+T     assert no(.{a: 1, a0: 2})
 T     values:
-T       #{a: 1, a0: 2}
-T         = #{a: 1, a0: 2}
+T       .{a: 1, a0: 2}
+T         = .{a: 1, a0: 2}
 T test result: FAILED. 0 passed, 1 failed
 T
 C anon_vs_nominal.nomi
 E 1
 N 2
-H 60d169d6bc7825602caf308b933bb013dd8f4d93d992504cc2d3490cfa0e8c5e
+H 02ac90acdeeaeebc7fba4606d39376030fdf837330461b985c21d8499df33def
 T FAIL <root>/internal/irbuild/testdata/anon_vs_nominal.nomi :: a record and a same-shaped nominal struct stay apart
 T   3
 T   3
@@ -51,7 +51,7 @@ T   line 43: assertion failed
 T     assert no_record(rec)
 T     values:
 T       rec
-T         = #{x: 1, y: 2}
+T         = .{x: 1, y: 2}
 T test result: FAILED. 0 passed, 2 failed
 T
 C assert_boundary.nomi
@@ -193,7 +193,7 @@ T
 C dbg_surfaces.nomi
 E 1
 N 9
-H 2bed84f0aa3ef3e21bba2e17661ea665f0be4b013d006c125a156ca32732d50b
+H 143ca3e2bd4836bdfc548735d902c43035bbaeac2084f3af27475cf9cb8d1d59
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg renders a struct in declaration order
 T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same struct sorts it
@@ -223,7 +223,7 @@ T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
 T   dbg line 107: (1, "two") = (1, "two")
 T   dbg line 108: Some(42) = Some(42)
 T   dbg line 109: None = None
-T   dbg line 110: #{a: 1, a0: 2} = #{a: 1, a0: 2}
+T   dbg line 110: .{a: 1, a0: 2} = .{a: 1, a0: 2}
 T   dbg line 111: double = <function>
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: a dbg in a test body prints above its own result line
 T   dbg line 116: 7 = 7

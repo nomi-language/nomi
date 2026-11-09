@@ -35,7 +35,7 @@ import (
 //
 // The report does the compaction, not this: rt.WriteAssertionFailure strips a
 // preceding stage's text off an observed VALUE's pipeline rows and leaves a
-// BINDING's alone, so the same stage list prints `|> Iter.any(...)` in one
+// BINDING's alone, so the same stage list prints `|> Iter.any_match(...)` in one
 // place and the whole two-line prefix in the other. Feeding either one
 // pre-compacted would produce a green differential and wrong text against the
 // other.

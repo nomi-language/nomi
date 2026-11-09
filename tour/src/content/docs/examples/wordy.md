@@ -51,7 +51,7 @@ fn evaluate(total: Int, words: List<String>) -> Result<Int, Error> {
         ["minus", ..rest] -> operand(total, .Minus, rest)
         ["multiplied", "by", ..rest] -> operand(total, .Times, rest)
         ["divided", "by", ..rest] -> operand(total, .DividedBy, rest)
-        [word, ..] when String.to_int(word) |> Maybe.is_some() -> Err(.SyntaxError)
+        [word, ..] when String.to_int(word) is Some(_) -> Err(.SyntaxError)
         _ -> Err(.UnknownOperation)
     }
 }
@@ -138,7 +138,6 @@ test result: ok. 28 passed, 0 failed
 - Errors are an `Error` enum. A number where an operator belongs is a syntax error and any other word is an unknown operation, which is the distinction the canonical cases draw.
 - Division by zero is `Error.DivisionByZero`, through `Int.to_non_zero` and `Int.divide`, instead of the trap `/` raises. The canonical data has no such case; the test file adds one, marked as not canonical.
 - Division is its own `divide` function. A binding `else` on `Int.to_non_zero(b)` answers `Error.DivisionByZero`, and `Int.divide(a, divisor)` divides by the `NonZeroInt`, which picks `Int`'s `Divide<NonZeroInt, Int>` impl. Keeping it out of `apply` keeps each arm there on one line.
-
 - Guards use binding `else` (`[first, ..rest] = String.words(problem) else { ... }`) so the success path stays unindented. The style guide uses a binding `else`, not `Maybe.to_result` with `?`, when the value is bound for the lines that follow, as every guard here is.
 - The 27 canonical cases are one `subtests` table.
 - The trailing `?` comes off through `Maybe.flat_map(&String.strip_suffix(&1, "?"))`, a capture rather than `fn rest -> ...`.

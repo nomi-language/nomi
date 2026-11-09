@@ -206,10 +206,9 @@ Ok(42)
 
 This runs from any directory, as a `.nomi` file or as a `#!` script. The Go
 function must still use the types in [Go and Nomi types](#go-and-nomi-types).
-A function that returns
-a concrete type such as `*gzip.Reader`, or a generic one such as
-`slices.Max`, needs a small adapter of your own, like `urltools` above. You can't bind a package that is internal
-to the standard library, such as `internal/abi`.
+A function that returns a concrete type such as `*gzip.Reader`, or a generic
+one such as `slices.Max`, needs a small adapter of your own, like `urltools`
+above.
 
 ## Shipping a binding
 

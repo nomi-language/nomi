@@ -53,10 +53,10 @@ cancelled task stops it.
 A handler is a plain function from a `Request` to a `Response`. A
 [`Router`](/reference/http/#struct-router) picks the handler for each
 request by a `Route`, a method and a path pattern. A route's type says
-what its wildcards hold: `Route<#{id: Uuid}>` for `GET /posts/{id}`, and
-a plain `Route` (`Route<Unit>`) for a route with none. `Route.to_with` hands the handler the
-parameters, each wildcard parsed into its field's type, and `Route.to`
-takes a route with none. A request whose wildcard does not parse gets a
+what its wildcards hold: `Route<.{id: Uuid}>` for `GET /posts/{id}`, and
+a plain `Route` (`Route<Unit>`) for a route with none. `Route.to_with`
+hands the handler the parameters, each wildcard parsed into its field's
+type, and `Route.to` takes a route with none. A request whose wildcard does not parse gets a
 404, as one no route matches does, and one that matches only under another
 method a 405. `Route.path_with` fills the parameters into a link. Since a
 handler is a function, a test calls it, or the router, with a request and
@@ -68,33 +68,36 @@ import {
     std::http_testing
 }
 
-fn show(_: Request, user: #{id: Int}) -> Response {
+fn show(Request, user: .{id: Int}) -> Response {
     Response{body: .Text("user ${user.id}")}
 }
 
 fn main() {
-    user: Route<#{id: Int}> = "GET /users/{id}"
+    user: Route<.{id: Int}> = "GET /users/{id}"
     router = Router.new([Route.to_with(user, show)])!
     found = Router.serve(router, http_testing.request(.Get, "/users/7"))
     dbg Response.text(found)
     dbg Router.serve(router, http_testing.request(.Get, "/users/ann")).status
-    dbg "${Route.path_with(user, #{id: 8})}"
+    dbg "${Route.path_with(user, .{id: 8})}"
 }
 ```
 <!-- expect
 dbg line 14: Response.text(found) = Ok("user 7")
 dbg line 15: Router.serve(router, http_testing.request(.Get, "/users/ann")).status = Status(404)
-dbg line 16: "${Route.path_with(user, #{id: 8})}" = "/users/8"
+dbg line 16: "${Route.path_with(user, .{id: 8})}" = "/users/8"
 -->
 
 A route literal written as an argument takes its parameters from the
 handler beside it: with the `show` above, `Route.to_with("GET
-/users/{id}", show)` is a `Route<#{id: Int}>`, and so is `"GET
+/users/{id}", show)` is a `Route<.{id: Int}>`, and so is `"GET
 /users/{id}" |> Route.to_with(show)`. With nothing to say what its
 parameters are, such as a lambda handler that states no types, a route
 literal has a `String` field per wildcard: ``Route`GET /users/{id}` `` is
-a `Route<#{id: String}>`.
-`Request.path_value` reads a wildcard's text from the request too.
+a `Route<.{id: String}>`.
+`Request.path_value` reads a wildcard's text from the request too. A
+query parameter is not part of the route:
+`Url.query_values(request.url) |> Query.get("page")` returns the first
+`page` of `/posts?page=2` as a `Maybe<String>`.
 
 `http_testing.form_request(.Post, "/signup", [("email", "ada@example.com")])`
 builds a request that posts a form, as
@@ -114,12 +117,12 @@ segment, such as `/token}`:
 import std::http.Route
 
 fn main() {
-    post: Route<#{post_id: Int}> = "GET /posts/{id}"
+    post: Route<.{post_id: Int}> = "GET /posts/{id}"
     dbg post
 }
 ```
 <!-- expect
-main.nomi:4:48: `Route` literal "GET /posts/{id}" is invalid: the pattern has `{id}`, but `#{post_id: Int}` has no field `id`
+main.nomi:4:48: `Route` literal "GET /posts/{id}" is invalid: the pattern has `{id}`, but `.{post_id: Int}` has no field `id`
 -->
 
 `Router.new` still returns an `Err` for two routes that match the same
@@ -177,7 +180,7 @@ What a slot in an attribute, a URL or a
 A handler may return any value whose type implements
 [`ToResponse`](/reference/http/#interface-toresponse): a `Response`, an
 `Html` page, or a `Result` of two such types. A lambda handler that only
-ever answers `Ok(...)` names no error type, and the one it leaves open is
+ever returns `Ok(...)` names no error type, and the one it leaves open is
 `Infallible`, the type with no values. The handler's type,
 `(Request) -> ToResponse`, is named
 [`http.Handler`](/reference/http/#type-handler), which `Router.new`,
@@ -205,11 +208,8 @@ enum AppError {
 impl ToResponse for AppError {
     fn to_response(error: AppError) -> Response {
         case error {
-            .NotFound ->
-                Response.not_found()
-
-            .BadInput{reason} ->
-                Response.error(Status.bad_request, reason)
+            .NotFound -> Response.not_found()
+            .BadInput{reason} -> Response.error(Status.bad_request, reason)
 
             .Internal{reason} -> {
                 log.error(logger, reason)
@@ -227,13 +227,19 @@ fn find_user(id: Int) -> Result<String, AppError> {
     }
 }
 
-fn show(_: Request, user: #{id: String}) -> Result<Html, AppError> {
-    id =
-        String.to_int(user.id)
-        |> Maybe.to_result(AppError.BadInput{reason: "not a number: ${user.id}"})?
-
-    name = find_user(id)?
+fn show(Request, user: .{id: Int}) -> Result<Html, AppError> {
+    name = find_user(user.id)?
     Ok(Html"<h1>${name}</h1>")
+}
+
+fn rename(request: Request, user: .{id: Int}) -> Result<Html, AppError> {
+    name = find_user(user.id)?
+
+    renamed =
+        Request.form_value(request, "name")
+        |> Maybe.to_result(AppError.BadInput{reason: "the form has no name"})?
+
+    Ok(Html"<h1>${name} is now ${renamed}</h1>")
 }
 
 fn health(Request) -> Response {
@@ -241,17 +247,22 @@ fn health(Request) -> Response {
 }
 
 fn main() {
-    router = Router.new([Route.to("GET /health", health), Route.to_with("GET /users/{id}", show)])!
-    answer = fn target: String -> Router.serve(router, http_testing.request(.Get, target))
-    dbg Response.text(answer("/users/7"))
-    dbg answer("/users/8").status
-    dbg Response.text(answer("/users/x"))
+    router = Router.new([
+        Route.to("GET /health", health),
+        Route.to_with("GET /users/{id}", show),
+        Route.to_with("POST /users/{id}", rename),
+    ])!
+
+    get = fn target: String -> Router.serve(router, http_testing.request(.Get, target))
+    dbg Response.text(get("/users/7"))
+    dbg get("/users/8").status
+    dbg Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", [])))
 }
 ```
 <!-- expect
-dbg line 57: Response.text(answer("/users/7")) = Ok("<h1>Ada</h1>")
-dbg line 58: answer("/users/8").status = Status(404)
-dbg line 59: Response.text(answer("/users/x")) = Ok("not a number: x\n")
+dbg line 65: Response.text(get("/users/7")) = Ok("<h1>Ada</h1>")
+dbg line 66: get("/users/8").status = Status(404)
+dbg line 67: Response.text(Router.serve(router, http_testing.form_request(.Post, "/users/7", []))) = Ok("the form has no name\n")
 -->
 
 ## Serving
@@ -274,11 +285,11 @@ struct App {
     web: Supervisor
 }
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(Startup) -> Result<App, String> {
     Ok(App{web: Supervisor.new(max_running: 256)})
 }
 
-fn show(_: Request, user: #{id: String}) -> Response {
+fn show(Request, user: .{id: String}) -> Response {
     Response{body: .Text("user ${user.id}")}
 }
 
@@ -298,8 +309,8 @@ The page cannot listen on a port, so this one does not run here.
 [embeds](/building-and-shipping/#executables), so a built server needs no
 folder beside it.
 
-[Frontends](/frontends/) shows a React or Vue app built with Vite and served
-this way, with a Nomi JSON API behind it.
+[Frontends](/frontends/) shows a React or Vue app served this way, with a
+Nomi JSON API behind it.
 
 A handler that reads a posted form with `Request.form` reads at most
 10 MB of it, and `Request.multipart_form` at most 32 MB; a larger body is
@@ -307,10 +318,55 @@ A handler that reads a posted form with `Request.form` reads at most
 `Request.json_as<T>` decodes it as JSON into a `T`, under the 10 MB
 limit too. A body that is not JSON of that shape is
 `Error.MalformedBody`, and `http.Error` implements `ToResponse`, so a
-handler returning `Result<Response, http.Error>` answers it with a 400
+handler returning `Result<Response, http.Error>` turns it into a 400
 through `?`. `Server{max_body: Some(n)}` sets one limit for every
 request, and `upload |> http.limit_body(n)` one for a route, such as an
 upload route that needs more.
+
+A JSON API handler decodes the body into a type that derives `FromJson`,
+and a body without a `title` gets a 400:
+
+```nomi-run
+import {
+    std::http.{self, Request, Response, Status, ToResponse}
+    std::http_testing
+    std::json.{FromJson, ToJson}
+}
+
+struct NewTodo {
+    title: String
+}
+
+derive FromJson for NewTodo
+
+struct Todo {
+    id: Int
+    title: String
+}
+
+derive ToJson for Todo
+
+fn create_todo(request: Request) -> Result<Response, http.Error> {
+    input: NewTodo = Request.json_as(request)?
+    todo = Todo{id: 1, title: input.title}
+    Ok(Response.json(todo, status: Status.created))
+}
+
+test "a todo is created from its JSON" {
+    post = fn text: String -> .{..http_testing.request(.Post, "/todos"), body: .Text(text)}
+
+    created = ToResponse.to_response(create_todo(post(`{"title": "milk"}`)))
+    assert created.status == Status.created
+    assert Response.text(created) == Ok(`{"id":1,"title":"milk"}`)
+
+    refused = ToResponse.to_response(create_todo(post(`{"name": "milk"}`)))
+    assert refused.status == Status.bad_request
+}
+```
+<!-- expect
+ok a todo is created from its JSON
+test result: ok. 1 passed, 0 failed
+-->
 
 ## Middleware
 
@@ -393,7 +449,7 @@ fn main() {
 
     get = fn token: String, path: String -> {
         request = http_testing.request(.Get, path)
-        app(#{..request, headers: Headers[("Authorization", "Bearer ${token}")]})
+        app(.{..request, headers: Headers[("Authorization", "Bearer ${token}")]})
     }
 
     dbg Response.text(get("bob", "/dashboard"))
@@ -494,7 +550,7 @@ fn main() {
     dbg Response.text(app(Request.add_cookie(http_testing.request(.Get, "/dashboard"), cookie)))
     dbg app(http_testing.request(.Get, "/dashboard")).status
 
-    forged = #{
+    forged = .{
         ..http_testing.form_request(.Post, "/sign-out", []),
         headers: Headers[("Sec-Fetch-Site", "cross-site")],
     }
@@ -611,16 +667,13 @@ struct App {
     room: Actor<Room>
 }
 
-fn boot(_startup: Startup) -> Result<App, String> {
+fn boot(Startup) -> Result<App, String> {
     web = Supervisor.new(max_running: 256)
 
     room = Actor.start(web, %{}, fn members: Map<Int, WebSocket>, message: Room -> {
         case message {
-            .Join(ws) ->
-                Map.put(members, WebSocket.id(ws), ws)
-
-            .Leave(id) ->
-                Map.remove(members, id)
+            .Join(ws) -> Map.put(members, WebSocket.id(ws), ws)
+            .Leave(id) -> Map.remove(members, id)
 
             .Say(text) -> {
                 Iter.each(Map.values(members), fn ws -> {

@@ -187,6 +187,13 @@
 // so each outcome is the whole stdlib's (filing another module's
 // declaration of one spelling may refuse it, `addOverload`).
 //
+// Reading the bundle and decoding its shared section's IR and outcomes
+// needs no stdlib, so a caller about to check and lower a program starts
+// it on another goroutine (PrefetchStdBundle, which vmhost's lowering
+// calls) while the front end builds the stdlib's analysis, and the first
+// lowering takes the result (`takeStdBundleRead`). Restoring reads the
+// stdlib and runs on the lowering's goroutine.
+//
 // A process decodes the bundle once and restores a module when the shared
 // stdlib has built it (`stdlibIndex.withModules`, run by `stdlibLowering`
 // when std.Shared has grown): it builds the module's view as
@@ -203,7 +210,8 @@
 // A binary built with the `nomi_stdbundle` tag embeds a bundle that
 // internal/irbuild/stdbundlegen lowers from the same tree just before the
 // build and supplies with `go build -overlay`, with the stdlib's interfaces
-// and facts beside it (std/shared.go). No bundle file is in the source
+// and facts (std/shared.go) and the base modules' state (std/state.go)
+// beside it. No bundle file is in the source
 // tree, and the tag without the overlay does not compile.
 // scripts/build-tour-wasm.sh and scripts/release.sh build that way. Any
 // other binary uses the artifact cache (internal/artifactcache:
@@ -292,8 +300,13 @@
 // generic interface default that one file asked another's block for, which
 // calls an instance the declaring file's lowering dropped when the
 // default's body changed; the asking file, lowered after, makes both
-// again. A file the check read with its bodies is lowered as a linked
-// library is, so the file can ask it for an instance no kept object holds,
+// again. A name kept objects of files not lowered again name is dropped
+// too when the caller says a file it lowers later asks for it again
+// (`asked`); otherwise the miss's [FileMiss].Dropped lists each such name
+// and the files that name it, so the caller can lower one of them again
+// and check with [Result.Undefined] that the name came back. A file the
+// check read with its bodies is lowered as a linked library is, so the
+// file can ask it for an instance no kept object holds,
 // and [Rekeep] adds each function that module makes and the file's object
 // lacks to that object (`mergeLinked`), so a later edit carries or drops it
 // by its declaration. The module of a file with no object is kept beside
@@ -360,9 +373,11 @@
 // `Bytes`) is boxed under its type's name (`irBoxPlan`), and so is a tuple
 // or anonymous record (`h: Hashable = (1, 2)`, `irStructuralBoxes`), whose
 // `Hashable.hash` thunk is the derive mix a direct call lowers
-// (`tupleHashOf`, irtuplehash.go) and whose Display is a container's
+// (`tupleHashOf`, irtuplehash.go), whose Display is a container's
 // structural rendering (`irDisplayErasedContainer`, the VM's
-// `displayStructural`).
+// `displayStructural`), and whose `ToJson.to_json` thunk is the object of
+// its fields a direct call lowers (`recordToJsonOf`, irrecordjson.go, which
+// also lowers a bounded `T.from_json` at a record).
 //
 // Each dispatch entry is a thunk the program builds once per file, type
 // and function, whose body is the call `Iface.method(...)`, so std's impl
@@ -380,8 +395,11 @@
 // other interface, hash with the VM's `hash_value` (internal/vm/keys.go),
 // which has only to agree with `==`. `Display`, `Comparable` and `Debug`
 // keep their `stdIfaceSpecs` rows, `Struct` and `Iter` their own
-// representations, and the stdlib lowered once for the process builds no
-// such def, so a shared std body taking one declines.
+// representations. The stdlib lowered once for the process builds no such
+// def, so a std function that takes or returns one (`String.split(s,
+// separator: Matcher)`, `Json.encode_as(value: ToJson)`) is built per
+// program as an instance with no type arguments, whose interface is its
+// caller's def (stdprogiface.go, stdProgSigWhy).
 //
 // # Equality bounds
 //

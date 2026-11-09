@@ -116,20 +116,6 @@ Use the interface's name when two interfaces have a function with the same
 name, or in generic code that knows only the interface (see
 [Interface-bounded generics](#interface-bounded-generics)).
 
-An interface is also a type, and a value of it is called through the
-interface's name. Where a value's type is written as an interface, the
-branches of an `if` or `case` may be different types that implement it:
-`pet: Speech = if quiet { Cat{name: "Tom"} } else { Dog{name: "Rex"} }`,
-then `Speech.speak(pet)`. Without the `: Speech`, the branches must have one
-type.
-
-A collection of them converts the same way: a `List<Dog>` passes where a
-`List<Speech>` is expected, and a `Maybe<Dog>` where a `Maybe<Speech>` is,
-with nothing copied, since each `Dog` already is a `Speech`. A value that
-would have to be wrapped first, such as a `List<Maybe<Dog>>` as a
-`List<Display>`, is an error that names the `Iter.map` to write
-([Type argument conversion](/spec/type-relations/#type-argument-conversion)).
-
 To sum up the rule for every call:
 
 - A function declared in an `impl Type` or `impl Interface` block is called
@@ -160,6 +146,40 @@ Spec: [Function Name Collisions](/spec/interfaces-implementations-and-derive/#fu
 [Matching an impl to its interface](/spec/interfaces-implementations-and-derive/#matching-an-impl-to-its-interface).
 
 </div>
+
+## Interfaces as types
+
+An interface is also a type. A parameter used only through one interface
+takes the interface as its type, and any implementor passes:
+
+```nomi
+fn introduce(pet: Speech) -> String {
+    "Meet the pet: ${Speech.speak(pet)}"
+}
+```
+
+`introduce` takes a `Dog` or a `Cat`. Inside it, `pet` is called through the
+interface's name.
+
+Write a type parameter instead when the caller's type comes back, in the
+result or another parameter, as [`advance`](#interface-bounded-generics) does
+below. `nomi check` suggests the interface for a type parameter used once,
+under one bound.
+
+Where a value's type is written as an interface, the branches of an `if` or
+`case` may be different types that implement it:
+`pet: Speech = if quiet { Cat{name: "Tom"} } else { Dog{name: "Rex"} }`,
+then `Speech.speak(pet)`. Without the `: Speech`, the branches must have one
+type.
+
+Collections convert the same way: a `List<Dog>` passes where a
+`List<Speech>` is expected, and a `Maybe<Dog>` where a `Maybe<Speech>` is,
+with nothing copied, since each `Dog` already is a `Speech`. A value that
+would have to be wrapped first, such as a `List<Maybe<Dog>>` as a
+`List<Display>`, is an error that names the `Iter.map` to write
+([Type argument conversion](/spec/type-relations/#type-argument-conversion)).
+
+Spec: [Interface values](/spec/interfaces-implementations-and-derive/#interface-values).
 
 ## Default functions
 
@@ -303,6 +323,17 @@ hidden
 
 Without the `where self` clause, `"${value}"` in that default is an error:
 `` `value` is a `self`, and Scale does not require Display of its implementors ``.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+A default bounded by `where self: Distinct<Decimal>` serves every distinct
+type over `Decimal`. In it, the pattern `self(n)` unwraps the value and
+`self(x)` wraps a `Decimal` back up, so `type Celsius Decimal` and
+`type Fahrenheit Decimal` can share one `fn scale(self(n), by: Decimal) -> self`.
+See [Defaults over distinct types](/spec/interfaces-implementations-and-derive/#defaults-over-distinct-types).
+
+</div>
 
 ## Universal `Debug`
 
@@ -532,8 +563,6 @@ doesn't have to say so.
 
 - The bitwise operators dispatch the same way: `&&&` through `BitwiseAnd`,
   `|||` through `BitwiseOr`, and so on.
-- `%` has no interface. It works on `Int` only, and a type of your own
-  can't implement it.
 - `==` uses a hand-written `Equatable` when there is one and compares
   structurally otherwise. `<` and the other comparisons need `Comparable`.
 - A type with a `+` over its own values can implement `Summable`, whose
@@ -692,7 +721,9 @@ dbg line 11: Coin.variants() = [Penny, Nickel, Dime, Quarter]
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- A derive sits in the same file as its type.
+- A derive sits in the same file as its type, or in that file's partner
+  test, where it exists only while the tests run
+  ([Testing](/testing/)).
 - Each field's type must implement the interface. `derive Hashable for
   Outer` with a field of type `Inner` needs `Inner` to implement `Hashable`
   too.
@@ -711,66 +742,6 @@ Spec: [Derive](/spec/interfaces-implementations-and-derive/#derive),
 [Derivable interfaces](/spec/interfaces-implementations-and-derive/#derivable-interfaces).
 
 </div>
-
-## Defaults over distinct types
-
-A distinct type wraps another type. Every distinct type implements
-`Distinct<T>`, where `T` is the type it wraps: `Celsius` below wraps
-`Decimal`, so it is a `Distinct<Decimal>`.
-
-A default with `where self: Distinct<T>` can unwrap `self` with the pattern
-`self(n)`, and wrap a value with `self(x)`. This lets several wrapper types
-share one function body. For `Celsius`, `self(n)` unwraps a `Celsius` and
-`self(x)` makes one.
-
-```nomi-run
-import std::io
-
-type Celsius Decimal
-type Fahrenheit Decimal
-
-interface Temperature {
-    fn unit(t: self) -> String
-
-    fn label(self(n) as t) -> String where self: Distinct<Decimal> {
-        "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
-    }
-
-    fn scale(self(n), by: Decimal) -> self where self: Distinct<Decimal> {
-        self(n * by)
-    }
-}
-
-impl Temperature for Celsius {
-    fn unit(_t: Celsius) -> String {
-        "C"
-    }
-}
-
-impl Temperature for Fahrenheit {
-    fn unit(_t: Fahrenheit) -> String {
-        "F"
-    }
-}
-
-fn main() {
-    io.print(Temperature.label(Celsius(21.456d)))
-    io.print(Temperature.label(Fahrenheit(70d)))
-    io.inspect(Celsius.scale(Celsius(10d), 2d))
-}
-```
-<!-- expect
-21.5 C
-70.0 F
-Celsius(20d)
--->
-
-`self(n)` also works in a `case` arm and in a binding (`self(m) = other`).
-`self` on its own is the wrapping function, which you can pass around:
-`Iter.map(ns, self)`.
-
-A type that isn't a distinct type over `Decimal` must write these functions
-itself, as with any `where self` bound.
 
 ## One impl per type and interface
 
@@ -836,40 +807,12 @@ Spec: [Several instantiations for one type](/spec/interfaces-implementations-and
 
 ## Why not structural field matching?
 
-Why not write `fn greet(v: #{name: String})` and accept any struct with a
-`name` field? TypeScript, Go and OCaml each allow something like this.
-
-Nomi doesn't. A parameter of type `#{x: Int, y: Int}` accepts only values with
-exactly those fields. It rejects an anonymous struct with more fields. It also
-rejects a named struct, such as a `Point`, even if its fields match.
-
-Two fields with the same name often mean different things. An `id: String`
-on a `User`, an `Order` and an `Invoice` is three different kinds of id. A
-function that accepted all three by accident would hide mistakes. Nomi gives
-you three explicit ways instead:
-
-1. Declare an interface. A function such as `fn name(value: self) -> String`
-   gives every type that implements it the same way to get a name. Each type
-   opts in with an `impl` block.
-2. Build an anonymous struct at the call, such as
-   `distance(#{x: p.x, y: p.y}, #{x: q.x, y: q.y})`. The call shows exactly
-   which fields it passes.
-3. Declare a type for the purpose and a function that converts to it, such
-   as `fn to_coord(p: Point) -> Coord2D { … }`.
-
-Use an interface when several types should share the behavior for a long
-time. Build an anonymous struct when one call needs a different shape.
-Declare a type and a conversion when the conversion means something in your
-program.
-
-For the same reason, a type implements an interface only through an `impl`
-block. In Go, a type implements any interface whose functions it happens to
-have. In Nomi, the `impl` block shows that the type means to, and you can
-search for it.
-
-Calls are qualified for the same reason too. A bare name could be a local
-binding or a function in the file. `Type.fn(value)`, `Iface.fn(value)` and
-`file.fn(value)` each say where the function comes from.
+A parameter of type `.{x: Int, y: Int}` accepts only values with exactly those
+fields, never a `Point` or a wider struct that happens to have them. Two
+fields with the same name often mean different things, such as the `id` of a
+`User` and of an `Order`, so a function that took both by accident would hide
+a mistake. To share behavior across types, declare an interface, and each
+type opts in with an `impl` block.
 
 ## See it in action
 

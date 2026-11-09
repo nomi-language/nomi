@@ -34,16 +34,16 @@ fn main() {
     io.print(hh((1, 2)))
     io.print(hh((P{a: 1}, "x")) == Hashable.hash((P{a: 1}, "x")))
     io.print(hh((1, (2, 3))) == Hashable.hash((1, (2, 3))))
-    io.print(hh(#{a: 1, b: 2}) == Hashable.hash(#{a: 1, b: 2}))
+    io.print(hh(.{a: 1, b: 2}) == Hashable.hash(.{a: 1, b: 2}))
     io.print(eq((1, 2), (1, 2)))
     io.print(eq((1, 2), (1, 3)))
     io.print(eq((1, 2), 3))
-    io.print(eq(#{a: 1}, #{a: 1}))
+    io.print(eq(.{a: 1}, .{a: 1}))
     io.print(show((1, "a")))
-    io.print(show(#{a: 1, b: (2.5, "z")}))
+    io.print(show(.{a: 1, b: (2.5, "z")}))
     xs: List<Hashable> = [(1, 2), 3]
     io.print(xs |> Iter.map(fn x -> Hashable.hash(x)) |> Iter.to_list())
-    ds: List<Display> = [(1, "x"), #{b: 2.5}, 3]
+    ds: List<Display> = [(1, "x"), .{b: 2.5}, 3]
     io.print(ds |> Iter.map(fn d -> "${d}") |> Iter.to_list())
     m: Map<Hashable, Int> = %{(1, 2) => 1, 3 => 4}
     io.print(Map.size(m))
@@ -59,9 +59,9 @@ False
 False
 True
 (1, a)
-#{a: 1, b: (2.5, z)}
+.{a: 1, b: (2.5, z)}
 [33, 3]
-[(1, x), #{b: 2.5}, 3]
+[(1, x), .{b: 2.5}, 3]
 2
 `
 	if got != want {

@@ -2,6 +2,7 @@ package vmhost
 
 import (
 	"errors"
+	"maps"
 	"path/filepath"
 	"strings"
 
@@ -24,14 +25,21 @@ import (
 // keys of the program's files. A lowering that names an instance of
 // another file's generic declaration no kept object holds is made again
 // from a check of the file that reads that file with its bodies (recheck),
-// up to four such files. why says why it could not lower the file as a
-// whole lowering would, which is then the answer.
-func relowerOne(check *analysis.FileCheck, key, path, root string, hasTests bool, kept *irbuild.KeptLowering, moved bool, relowering, files map[string]bool,
-	recheck func(bodies map[string]bool) *analysis.FileCheck, logf func(string, ...any)) (res *irbuild.Result, next *irbuild.KeptLowering, used *analysis.FileCheck, why string) {
-	bodies := map[string]bool{}
+// up to four such files; bodies, when set, are files read with their
+// bodies from the start, for which check is a check that does. asked are
+// the linkage names a file lowered later asks for again
+// (irbuild.LowerFileAmong). why says why it could not lower the file as a
+// whole lowering would, which is then the answer; dropped, when set with
+// it, is irbuild.FileMiss.Dropped.
+func relowerOne(check *analysis.FileCheck, key, path, root string, hasTests bool, kept *irbuild.KeptLowering, moved bool, relowering, asked, files, bodies map[string]bool,
+	recheck func(bodies map[string]bool) *analysis.FileCheck, logf func(string, ...any)) (res *irbuild.Result, next *irbuild.KeptLowering, used *analysis.FileCheck, dropped map[string][]string, why string) {
+	bodies = maps.Clone(bodies)
+	if bodies == nil {
+		bodies = map[string]bool{}
+	}
 	for {
 		var err error
-		res, err = irbuild.LowerFileAmong(irbuild.FileProgram(check, key, path, root, hasTests), kept, moved, relowering)
+		res, err = irbuild.LowerFileAmong(irbuild.FileProgram(check, key, path, root, hasTests), kept, moved, relowering, asked)
 		var fm *irbuild.FileMiss
 		if errors.As(err, &fm) {
 			if t := templateFile(fm.Undefined, files); t != "" && t != key && !bodies[t] && len(bodies) < 4 && recheck != nil {
@@ -40,18 +48,18 @@ func relowerOne(check *analysis.FileCheck, key, path, root string, hasTests bool
 				check = recheck(bodies)
 				continue
 			}
-			return nil, nil, nil, fm.Why
+			return nil, nil, nil, fm.Dropped, fm.Why
 		}
 		if err != nil {
-			return nil, nil, nil, err.Error()
+			return nil, nil, nil, nil, err.Error()
 		}
 		break
 	}
 	next, err := res.Rekeep(kept)
 	if err != nil {
-		return nil, nil, nil, err.Error()
+		return nil, nil, nil, nil, err.Error()
 	}
-	return res, next, check, ""
+	return res, next, check, nil, ""
 }
 
 // relinkedProgram is the program res, the last file's lowering linked with

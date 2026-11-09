@@ -2,7 +2,7 @@
 Bare spread in a nested struct update
 ================================================================================
 
-once u = #{..user, address: #{.., city: "NYC"}}
+once u = .{..user, address: .{.., city: "NYC"}}
 
 --------------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ once t = %{..team, "address" => %{.., "city" => "Atlanta"}}
 Bare spread as a list tail and a set head
 ================================================================================
 
-once a = #{..account, transactions: [t, ..], seen: %[.., 3]}
+once a = .{..account, transactions: [t, ..], seen: %[.., 3]}
 
 --------------------------------------------------------------------------------
 
@@ -73,7 +73,7 @@ once a = #{..account, transactions: [t, ..], seen: %[.., 3]}
 Bare spread at either end of a vector
 ================================================================================
 
-once a = #{..log, recent: #[.., e], first: #[e, ..]}
+once a = .{..log, recent: #[.., e], first: #[e, ..]}
 
 --------------------------------------------------------------------------------
 
@@ -140,9 +140,9 @@ once s = %[..base, 3, 4]
 Broken bare spread keeps its comma
 ================================================================================
 
-once u = #{
+once u = .{
   ..user,
-  address: #{
+  address: .{
     ..,
     city: "NYC",
   },

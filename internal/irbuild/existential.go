@@ -634,11 +634,11 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 	//
 	// Additive in the safe direction: this can only turn a "no" into a "yes" for
 	// an impl THIS gen registered and marked lowerable, never the reverse.
-	impl := g.implsByIface[d.nomi][k]
+	impl := g.implsByIface[g.implsKey(d)][k]
 	if impl != nil && impl.lowerable && (d.instOf == nil || impl.iface == d) {
 		return true
 	}
-	for _, impl := range g.instImpls[d.nomi][k] {
+	for _, impl := range g.instImpls[g.implsKey(d)][k] {
 		// One of k's impls of a generic interface at several arguments:
 		// the one at d's.
 		if impl.lowerable && impl.iface == d {

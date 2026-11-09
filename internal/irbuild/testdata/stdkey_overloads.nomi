@@ -75,8 +75,7 @@ fn run() -> Result<Unit, Error> {
             io.print("div_neg = " + Int.to_string(Int.divide(-10, nz)))
         }
 
-        None ->
-            io.print("div = unreachable: 3 is not zero")
+        None -> io.print("div = unreachable: 3 is not zero")
     }
 
     // --- the operator impls that carry their instantiation ------------------

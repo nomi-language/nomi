@@ -1917,28 +1917,47 @@ func implBlockReceiverQualifier(blk *ast.ImplBlock) string {
 // the impl's file: through the module a header qualifies it with
 // (`impl json.ToJson for User`), else by name.
 func implBlockInterfaceType(fa *FileAnalysis, te ast.TypeExpr) *InterfaceType {
+	return interfaceThrough(fa, implBlockInterfaceQualifier(te), TypeExprBaseName(te))
+}
+
+// implBlockInterfaceQualifier is the module an impl header qualifies its
+// interface with (`calendar` in `impl calendar.DateParts for Q`), as the
+// builder records it in ImplBlockInterfaceModule; "" when it names the
+// interface bare.
+func implBlockInterfaceQualifier(te ast.TypeExpr) string {
+	if q, ok := te.(*ast.QualifiedType); ok && !ast.IsPublic(q.Module) {
+		return q.Module
+	}
+	return ""
+}
+
+// interfaceThrough is the interface name denotes in fa: in the scope of
+// the module fa binds to module when an impl header qualifies the
+// interface with it, so an interface of fa's own with the same name is
+// not the one meant, else in fa's own scope.
+func interfaceThrough(fa *FileAnalysis, module, name string) *InterfaceType {
 	if fa == nil || fa.ModuleScope == nil {
 		return nil
 	}
-	if q, ok := te.(*ast.QualifiedType); ok && !ast.IsPublic(q.Module) {
-		mod := fa.ModuleScope.Lookup(q.Module)
-		for mod != nil && mod.Resolved != nil {
-			mod = mod.Resolved
-		}
-		if mod == nil || mod.Kind != SymbolModule || mod.ModuleScope == nil {
-			return nil
-		}
-		sym := mod.ModuleScope.Lookup(TypeExprBaseName(q.Member))
-		for sym != nil && sym.Resolved != nil {
-			sym = sym.Resolved
-		}
-		if sym == nil {
-			return nil
-		}
-		it, _ := sym.Type.(*InterfaceType)
-		return it
+	if module == "" {
+		return lookupInterfaceType(fa, nil, name)
 	}
-	return lookupInterfaceType(fa, nil, TypeExprBaseName(te))
+	mod := fa.ModuleScope.Lookup(module)
+	for mod != nil && mod.Resolved != nil {
+		mod = mod.Resolved
+	}
+	if mod == nil || mod.Kind != SymbolModule || mod.ModuleScope == nil {
+		return nil
+	}
+	sym := mod.ModuleScope.Lookup(name)
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil {
+		return nil
+	}
+	it, _ := sym.Type.(*InterfaceType)
+	return it
 }
 
 func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord, pathOf func(key string) string) []TypeError {

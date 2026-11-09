@@ -40,8 +40,7 @@ fn node(text: List<Codepoint>) -> Result<(Tree, List<Codepoint>), Error> {
             ([child], rest)
         }
 
-        _ ->
-            variations(rest, [])?
+        _ -> variations(rest, [])?
     }
 
     Ok((Tree{properties, children}, rest))
@@ -59,11 +58,8 @@ fn variations(
             variations(rest, found + [tree])
         }
 
-        [')', ..rest] ->
-            Ok((found, rest))
-
-        _ ->
-            Err(.Malformed)
+        [')', ..rest] -> Ok((found, rest))
+        _ -> Err(.Malformed)
     }
 }
 
@@ -101,8 +97,7 @@ fn read_values(
             read_values(rest, found + [value])
         }
 
-        _ ->
-            Ok((found, text))
+        _ -> Ok((found, text))
     }
 }
 

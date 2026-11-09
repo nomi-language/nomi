@@ -31,7 +31,13 @@ pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
         length < 0 -> Err(.NegativeLength)
         length == 0 -> Err(.ZeroLength)
         length > size -> Err(.LengthTooLarge)
-        _ -> series |> Iter.windows(length) |> Iter.map(String.join) |> Iter.to_list() |> Ok()
+
+        _ ->
+            series
+            |> Iter.windows(length)
+            |> Iter.map(String.join)
+            |> Iter.to_list()
+            |> Ok()
     }
 }
 

@@ -34,8 +34,6 @@ impl Nucleotide {
     }
 }
 
-derive Equatable for Nucleotide
-derive Hashable for Nucleotide
 derive Variants for Nucleotide
 
 /// How many times each nucleotide occurs in `strand`, with every nucleotide

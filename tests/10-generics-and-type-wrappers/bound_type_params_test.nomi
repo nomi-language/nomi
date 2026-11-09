@@ -48,11 +48,8 @@ test "a nested instantiation keeps its own type argument through an inferred scr
             }
         }
 
-        Some(Request.Stop) ->
-            0
-
-        None ->
-            0
+        Some(Request.Stop) -> 0
+        None -> 0
     }
 
     assert got == 7
@@ -67,11 +64,8 @@ test "an annotated scrutinee agrees with an inferred one" {
             out.slot
         }
 
-        Some(Request.Stop) ->
-            0
-
-        None ->
-            0
+        Some(Request.Stop) -> 0
+        None -> 0
     }
 
     assert got == 7

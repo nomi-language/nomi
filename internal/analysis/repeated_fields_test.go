@@ -43,19 +43,19 @@ func TestRepeatedFields_RejectedAtTheSecondName(t *testing.T) {
 		msg  string
 	}{
 		{"named literal", "    _p = Point{x: 1, y: 1, y: 3}", 0, 28, "field 'y' is given twice in this Point literal"},
-		{"call-form literal", "    _p = Point(#{x: 1, y: 1, y: 3})", 0, 30, "field 'y' is given twice in this struct literal"},
-		{"target-typed literal", "    _p: Point = #{x: 1, y: 1, y: 3}", 0, 31, "field 'y' is given twice in this struct literal"},
-		{"anonymous literal", "    _p = #{x: 1, x: 2}", 0, 18, "field 'x' is given twice in this struct literal"},
+		{"call-form literal", "    _p = Point(.{x: 1, y: 1, y: 3})", 0, 30, "field 'y' is given twice in this struct literal"},
+		{"target-typed literal", "    _p: Point = .{x: 1, y: 1, y: 3}", 0, 31, "field 'y' is given twice in this struct literal"},
+		{"anonymous literal", "    _p = .{x: 1, x: 2}", 0, 18, "field 'x' is given twice in this struct literal"},
 		{"dot variant literal", "    _s: Shape = .Rect{w: 1, w: 2, h: 3}", 0, 29, "field 'w' is given twice in this Rect literal"},
 		{"qualified variant literal", "    _s = Shape.Rect{w: 1, w: 2, h: 3}", 0, 27, "field 'w' is given twice in this Shape.Rect literal"},
-		{"spread update", "    p = Point{x: 1, y: 1}\n    _q = #{..p, y: 1, y: 2}", 1, 23, "field 'y' is given twice in this struct literal"},
-		{"nested patch under a spread", "    p = #{a: #{x: 1, y: 1}}\n    _q = #{..p, a: #{y: 1, y: 2}}", 1, 28, "field 'y' is given twice in this struct literal"},
-		{"Struct.update patch", "    p = Point{x: 1, y: 1}\n    _q = Struct.update(p, #{y: 1, y: 2})", 1, 35, "field 'y' is given twice in this struct literal"},
+		{"spread update", "    p = Point{x: 1, y: 1}\n    _q = .{..p, y: 1, y: 2}", 1, 23, "field 'y' is given twice in this struct literal"},
+		{"nested patch under a spread", "    p = .{a: .{x: 1, y: 1}}\n    _q = .{..p, a: .{y: 1, y: 2}}", 1, 28, "field 'y' is given twice in this struct literal"},
+		{"Struct.update patch", "    p = Point{x: 1, y: 1}\n    _q = Struct.update(p, .{y: 1, y: 2})", 1, 35, "field 'y' is given twice in this struct literal"},
 		{"named pattern", "    p = Point{x: 1, y: 1}\n    case p {\n        Point{x: 1, x: 2} -> 1\n        _ -> 2\n    }", 2, 21, "field 'x' is given twice in this Point pattern"},
 		{"named pattern with bindings", "    p = Point{x: 1, y: 1}\n    case p {\n        Point{x: a, x: _b} -> a\n    }", 2, 21, "field 'x' is given twice in this Point pattern"},
 		{"variant pattern", "    s: Shape = .Rect{w: 1, h: 3}\n    case s {\n        .Rect{w: 1, w: 2, h} -> h\n        _ -> 2\n    }", 2, 21, "field 'w' is given twice in this Rect pattern"},
-		{"anonymous pattern", "    p = Point{x: 1, y: 1}\n    case p {\n        #{x: 1, x: 2} -> 1\n        _ -> 2\n    }", 2, 17, "field 'x' is given twice in this struct pattern"},
-		{"destructuring binding", "    #{x: a, x: _b} = Point{x: 1, y: 2}\n    a", 0, 13, "field 'x' is given twice in this struct pattern"},
+		{"anonymous pattern", "    p = Point{x: 1, y: 1}\n    case p {\n        .{x: 1, x: 2} -> 1\n        _ -> 2\n    }", 2, 17, "field 'x' is given twice in this struct pattern"},
+		{"destructuring binding", "    .{x: a, x: _b} = Point{x: 1, y: 2}\n    a", 0, 13, "field 'x' is given twice in this struct pattern"},
 		{"named argument", "    f(a: 1, a: 2, b: 3)", 0, 13, "parameter 'a' already has a value"},
 	}
 	for _, tc := range cases {
@@ -80,8 +80,8 @@ func TestRepeatedFields_RejectedAtTheSecondName(t *testing.T) {
 func TestRepeatedFields_SpreadMayRepeatItsBase(t *testing.T) {
 	src := repeatedFieldsDecls + `fn run() -> Int {
     p = Point{x: 1, y: 1}
-    q = #{..p, y: 5}
-    r = Struct.update(q, #{y: 6})
+    q = .{..p, y: 5}
+    r = Struct.update(q, .{y: 6})
     r.y
 }
 `
@@ -151,7 +151,7 @@ func TestRepeatedDeclaredNames_RejectedAtTheSecondName(t *testing.T) {
 			2, 26, "parameter 'value' is declared twice in `fn name`; the first is at line 2"},
 		{"lambda parameter", "fn run() -> Int {\n    f = fn a: Int, a: Int -> a\n    f(1, 2)\n}\n",
 			2, 20, "parameter 'a' is declared twice in this lambda; the first is at line 2"},
-		{"anonymous record type", "fn f(_r: #{a: Int, a: String}) -> Int {\n    1\n}\n",
+		{"anonymous record type", "fn f(_r: .{a: Int, a: String}) -> Int {\n    1\n}\n",
 			1, 20, "duplicate field 'a' in anon struct type"},
 	}
 	for _, tc := range cases {

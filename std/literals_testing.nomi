@@ -47,8 +47,7 @@ pub fn build_each<I, T>(
     build: (List<Fragment<I>>) -> T,
 ) -> Result<List<T>, LiteralError> {
     case check(statics) {
-        Err(e) ->
-            Err(e)
+        Err(e) -> Err(e)
 
         Ok(_) ->
             Ok(

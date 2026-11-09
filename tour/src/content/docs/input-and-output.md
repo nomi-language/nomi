@@ -8,7 +8,8 @@ and [`std::process`](/reference/process/). It prints to standard output,
 reports problems on standard error, reads standard input, reads its
 arguments and environment, and runs other programs. When it ends, its exit
 status tells the shell whether it worked. Reading and writing files is the
-[Files](/files/) chapter.
+[Files](/files/) chapter, and [HTTP](/http/) covers sending requests and
+serving them.
 
 ## Printing
 
@@ -23,14 +24,14 @@ fn main() {
     io.print("hello")
     io.write("no newline, ")
     io.write("so this continues the line\n")
-    io.inspect(#{name: "Ada", langs: ["en", "fr"]})
+    io.inspect(.{name: "Ada", langs: ["en", "fr"]})
     io.print((1, "x"))
 }
 ```
 <!-- expect
 hello
 no newline, so this continues the line
-#{langs: ["en", "fr"], name: "Ada"}
+.{langs: ["en", "fr"], name: "Ada"}
 (1, x)
 -->
 
@@ -138,7 +139,8 @@ fn main() {
 
 `nomi run args.nomi a b` prints `2 arguments: a, b`. Only `boot` sees
 `Startup`, so the rest of the program reads the environment through the app
-struct, and a test can give it different arguments with its own `boot`.
+struct, and a test can give it different arguments on its group's `boot`
+line.
 
 ## Exit codes
 
@@ -239,7 +241,5 @@ build step would. `process.spawn(command)` starts the program and returns
 it as a `Child`, whose input you write and whose output you read as it
 goes. `defer Child.kill(child)` on the next line kills it if it is still
 running when the function ends.
-
-[HTTP](/http/) covers sending requests and serving them.
 
 [Concurrency](/concurrency/) is next. It runs several tasks at once.

@@ -562,7 +562,7 @@ Remainder and the hashed literals
 
 once a = n % m
 once b = n % (m)
-once c = n % #{m: 1}.m
+once c = n % .{m: 1}.m
 once d = %{1 => 2}
 once e = %[1]
 

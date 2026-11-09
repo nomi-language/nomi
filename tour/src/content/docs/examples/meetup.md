@@ -57,7 +57,7 @@ fn days_on(year: Int, month: Int, weekday: Weekday) -> Vector<Date> {
 
 /// The one of `days` that falls from the 13th to the 19th.
 fn teenth(days: Vector<Date>) -> Date {
-    Some(day) = Iter.find(days, fn day -> Date.day(day) in 13..=19) else {
+    Some(day) = Iter.find(days, &(Date.day(&1) in 13..=19)) else {
         unreachable "the 13th to the 19th are seven days, so one falls on every weekday"
     }
     day

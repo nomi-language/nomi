@@ -6,9 +6,9 @@ import "testing"
 // and one whose parameters cannot be read as text is an error at it.
 func TestTargetLiteral_RouteParameters(t *testing.T) {
 	for _, c := range []struct{ body, want string }{
-		{"    r = Route`GET /users/{id}/{rest...}`\n    n: Int = r\n    n\n", "type mismatch: expected Int, got Route<#{id: String, rest: String}>"},
+		{"    r = Route`GET /users/{id}/{rest...}`\n    n: Int = r\n    n\n", "type mismatch: expected Int, got Route<.{id: String, rest: String}>"},
 		{"    r = Route`GET /`\n    n: Int = r\n    n\n", "type mismatch: expected Int, got Route"},
-		{"    r: Route<#{id: Bool}> = \"GET /flags/{id}\"\n    _ = r\n    1\n", "a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse`"},
+		{"    r: Route<.{id: Bool}> = \"GET /flags/{id}\"\n    _ = r\n    1\n", "a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse`"},
 	} {
 		src := "import std::http.Route\n\nfn f() -> Int {\n" + c.body + "}\n"
 		found := false
@@ -32,8 +32,8 @@ func TestTargetLiteral_RouteParameters(t *testing.T) {
 // the literal.
 func TestTargetLiteral_RouteArgumentTypedByTheHandler(t *testing.T) {
 	const head = "import std::http.{Body, Entry, Request, Response, Route}\n\n" +
-		"fn update(_: Request, item: #{id: Int}) -> Response {\n    Response{body: Body.Text(\"${item.id + 1}\")}\n}\n\n" +
-		"fn flag(_: Request, _: #{id: Bool}) -> Response {\n    Response{body: Body.Text(\"flag\")}\n}\n\n" +
+		"fn update(_: Request, item: .{id: Int}) -> Response {\n    Response{body: Body.Text(\"${item.id + 1}\")}\n}\n\n" +
+		"fn flag(_: Request, _: .{id: Bool}) -> Response {\n    Response{body: Body.Text(\"flag\")}\n}\n\n" +
 		"fn f() -> List<Entry> {\n    "
 	// What the project gives with no route at all (the test loader's
 	// prelude) is not the route's.
@@ -49,7 +49,7 @@ func TestTargetLiteral_RouteArgumentTypedByTheHandler(t *testing.T) {
 		{"[Route.to_with(Route`PATCH /todos/{id}`, update)]", "", 0},
 		{`["PATCH /todos/{id}" |> Route.to_with(update)]`, "", 0},
 		{"[Route`PATCH /todos/{id}` |> Route.to_with(update)]", "", 0},
-		{`[Route.to_with("GET /n/{id}", fn _: Request, p: #{id: Int} -> Response{body: Body.Text("${p.id + 1}")})]`, "", 0},
+		{`[Route.to_with("GET /n/{id}", fn _: Request, p: .{id: Int} -> Response{body: Body.Text("${p.id + 1}")})]`, "", 0},
 		{`[Route.to_with("GET /n/{id}", fn _, p -> Response{body: Body.Text(p.id + "!")})]`, "", 0},
 		{`[Route.to_with("GET /n/{id}", fn _, p -> Response{body: Body.Text("${p.id + 1}")})]`, "binary + type mismatch: String vs Int", 0},
 		{`[Route.to_with("GET /flags/{id}", flag)]`, "a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse`", 20},

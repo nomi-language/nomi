@@ -40,6 +40,8 @@ type Program struct {
 	// sources are the texts of the program's in-memory files by module path,
 	// which a diagnostic quotes its source line from (a file on disk is read).
 	sources map[string]string
+	// advice is Advice once computed.
+	advice *Diagnostics
 	// hosts are the host tables every machine binds beside its own stdlib
 	// adapters: std/compiler's, then the tables WithHosts gave.
 	hosts []HostTable

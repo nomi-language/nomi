@@ -49,8 +49,7 @@ enum Tree {
 impl Iter for Tree {
     fn each_while(t: Tree, yield: (Int) -> Bool) -> Bool {
         case t {
-            .Leaf ->
-                True
+            .Leaf -> True
 
             .Node(left, value, right) ->
                 if each_while(left, yield) {

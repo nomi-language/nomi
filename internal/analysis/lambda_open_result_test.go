@@ -13,12 +13,12 @@ import (
 func TestLambdaOpenResult_OkOnlyHandlerChecks(t *testing.T) {
 	src := `import std::http.{Body, Response, Route, Router, Status}
 
-fn page(params: #{id: Int}) -> Response {
+fn page(params: .{id: Int}) -> Response {
   Response{body: Body.Text("edit ${params.id}")}
 }
 
 fn main() {
-  admin_post_edit: Route<#{id: Int}> = "POST /admin/posts/{id}/edit"
+  admin_post_edit: Route<.{id: Int}> = "POST /admin/posts/{id}/edit"
   _router = Router.new([
     Route.to_with(admin_post_edit, fn _request, params -> Ok(page(params))),
     Route.to("GET /gone", fn _ -> Err(Response.error(Status.not_found, "gone"))),

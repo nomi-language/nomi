@@ -64,7 +64,7 @@ test "predicate-named functions and bindings stay callable" {
         |> Iter.filter(is_even)
         |> Iter.to_list()
 
-    has_even = Iter.any(nums, is_even)
+    has_even = Iter.any_match(nums, is_even)
     is_empty = Iter.is_empty(nums)
 
     assert is_even(4)

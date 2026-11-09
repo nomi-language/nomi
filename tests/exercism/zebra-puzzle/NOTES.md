@@ -16,7 +16,6 @@ Adapted from Exercism problem-specifications (MIT), exercises/zebra-puzzle.
 - `orders` is a `once` of the 120 permutations of the five houses, computed once and shared by every stage. They come from std's `Iter.permutations`.
 - `resident` finds the nationality in a house with a `case` of conditions, one arm per nationality (style §27).
 
-
 ## Friction
 
 None.

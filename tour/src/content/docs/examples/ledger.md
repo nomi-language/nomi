@@ -75,7 +75,7 @@ pub fn format_entries(currency: Currency, style: Style, entries: List<Entry>) ->
 fn format_entry(currency: Currency, style: Style, entry: Entry) -> String {
     locale = Style.locale(style)
     date = Date.format_fields(entry.date, locale, DateFields`yMMdd`)
-    change = Money{amount: Int.to_decimal(entry.cents) * 0.01d, currency}
+    change = Money{amount: Int.to_decimal(entry.cents) / 100d, currency}
     row(date, truncate(entry.description), format_change(change, style))
 }
 
@@ -134,7 +134,7 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -146,8 +146,8 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                #{date: Date`2015-01-02`, description: "Get present", cents: 1000},
-                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                .{date: Date`2015-01-02`, description: "Get present", cents: 1000},
+                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -160,8 +160,8 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                #{date: Date`2015-01-02`, description: "Get present", cents: 1000},
-                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                .{date: Date`2015-01-02`, description: "Get present", cents: 1000},
+                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -174,9 +174,9 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                #{date: Date`2015-01-01`, description: "Something", cents: 0},
-                #{date: Date`2015-01-01`, description: "Something", cents: -1},
-                #{date: Date`2015-01-01`, description: "Something", cents: 1},
+                .{date: Date`2015-01-01`, description: "Something", cents: 0},
+                .{date: Date`2015-01-01`, description: "Something", cents: -1},
+                .{date: Date`2015-01-01`, description: "Something", cents: 1},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -190,7 +190,7 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                #{
+                .{
                     date: Date`2015-01-01`,
                     description: "Freude schoner Gotterfunken",
                     cents: -123456,
@@ -206,7 +206,7 @@ test "ledger" {
             Currency`EUR`,
             .American,
             [
-                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -218,7 +218,7 @@ test "ledger" {
             Currency`USD`,
             .Dutch,
             [
-                #{date: Date`2015-03-12`, description: "Buy present", cents: 123456},
+                .{date: Date`2015-03-12`, description: "Buy present", cents: 123456},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -230,7 +230,7 @@ test "ledger" {
             Currency`EUR`,
             .Dutch,
             [
-                #{date: Date`2015-03-12`, description: "Buy present", cents: 123456},
+                .{date: Date`2015-03-12`, description: "Buy present", cents: 123456},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -242,7 +242,7 @@ test "ledger" {
             Currency`USD`,
             .Dutch,
             [
-                #{date: Date`2015-03-12`, description: "Buy present", cents: -12345},
+                .{date: Date`2015-03-12`, description: "Buy present", cents: -12345},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -254,7 +254,7 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                #{date: Date`2015-03-12`, description: "Buy present", cents: -12345},
+                .{date: Date`2015-03-12`, description: "Buy present", cents: -12345},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -266,8 +266,8 @@ test "ledger" {
             Currency`USD`,
             .American,
             [
-                #{date: Date`2015-01-01`, description: "Get present", cents: 1000},
-                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                .{date: Date`2015-01-01`, description: "Get present", cents: 1000},
+                .{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",

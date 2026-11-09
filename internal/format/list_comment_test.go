@@ -103,7 +103,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"anonymous struct", `fn main() {
-    x = #{
+    x = .{
         a: 1, // the first
         b, // the second
     }
@@ -226,7 +226,7 @@ var listCommentCases = []struct {
 `},
 	{"anonymous struct pattern", `fn main() {
     y = case xs {
-        #{
+        .{
             a, // the first
             b: c,
             // the end
@@ -292,7 +292,7 @@ var listCommentCases = []struct {
 }
 `},
 	{"struct destructure", `fn main() {
-    #{
+    .{
         // the first
         a,
         b: c, // the second
@@ -536,8 +536,8 @@ func TestListComment_KeepsMeaningOnFoundLayouts(t *testing.T) {
 			// A struct spread's comments, two comments after one item,
 			// and comments in parentheses around a parameter, a
 			// destructured name, a `with` value and a variant's payload.
-			"fn main() {\n    also_same = #{.. // c1\n           user, address: #{..user.address, city: \"NYC\"}}\n    f = fn ( // a23\n     _acc1) = 1, e2 -> e2\n    (numbers, (\n    // b10\n  errors)) = pair\n    with App.clock = ( // a9\nFakeClock{at: 1})\n    y = case xs {\n        .Dynamic( // a3\n         v) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n   // b1\n             value: self // c2\n            , // a3\n\tstyle: String) -> String // t4\n}\n",
-			"fn main() {\n    also_same = #{\n        ..user, // c1\n        address: #{..user.address, city: \"NYC\"},\n    }\n\n    f = fn\n        // a23\n        _acc1 = 1,\n        e2\n    -> e2\n\n    (\n        numbers,\n        // b10\n        errors\n    ) = pair\n\n    with App.clock = (\n        // a9\n        FakeClock{at: 1}\n    )\n\n    y = case xs {\n        .Dynamic(\n            // a3\n            v\n        ) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n        // b1\n        value: self, // c2\n        // a3\n        style: String,\n    ) -> String // t4\n}\n",
+			"fn main() {\n    also_same = .{.. // c1\n           user, address: .{..user.address, city: \"NYC\"}}\n    f = fn ( // a23\n     _acc1) = 1, e2 -> e2\n    (numbers, (\n    // b10\n  errors)) = pair\n    with App.clock = ( // a9\nFakeClock{at: 1})\n    y = case xs {\n        .Dynamic( // a3\n         v) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n   // b1\n             value: self // c2\n            , // a3\n\tstyle: String) -> String // t4\n}\n",
+			"fn main() {\n    also_same = .{\n        ..user, // c1\n        address: .{..user.address, city: \"NYC\"},\n    }\n\n    f = fn\n        // a23\n        _acc1 = 1,\n        e2\n    -> e2\n\n    (\n        numbers,\n        // b10\n        errors\n    ) = pair\n\n    with App.clock = (\n        // a9\n        FakeClock{at: 1}\n    )\n\n    y = case xs {\n        .Dynamic(\n            // a3\n            v\n        ) -> v\n    }\n}\n\ninterface Formatted {\n    fn format(\n        // b1\n        value: self, // c2\n        // a3\n        style: String,\n    ) -> String // t4\n}\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

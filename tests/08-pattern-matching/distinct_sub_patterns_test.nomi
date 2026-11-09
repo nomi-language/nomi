@@ -37,22 +37,16 @@ fn fallback(m: Maybe<(Pair, Int)>) -> Int {
 
 fn variant(e: E) -> Int {
     case e {
-        .Circle{p: Pair(a, _)} ->
-            a
-
-        .Rec{p: Pair(a, "r")} ->
-            a * 10
+        .Circle{p: Pair(a, _)} -> a
+        .Rec{p: Pair(a, "r")} -> a * 10
 
         .Dist(Pair(a, _) as whole) ->
             case whole {
                 Pair(b, _) -> a + b
             }
 
-        .TP((Pair(a, _), b)) ->
-            a + b
-
-        _ ->
-            0
+        .TP((Pair(a, _), b)) -> a + b
+        _ -> 0
     }
 }
 
@@ -70,9 +64,9 @@ fn kvs(m: Map<String, Kvs>) -> Int {
     }
 }
 
-fn record_stack(c: #{r: Int, q: Stack}) -> Int {
+fn record_stack(c: .{r: Int, q: Stack}) -> Int {
     case c {
-        #{q: Stack[a, ..]} -> a
+        .{q: Stack[a, ..]} -> a
         _ -> 0
     }
 }
@@ -106,8 +100,8 @@ test "list and map distinct sub-patterns" {
     assert top(Stack([])) == -1
     assert kvs(%{"k" => Kvs(%{"a" => 6})}) == 6
     assert kvs(%{"k" => Kvs(%{"b" => 6})}) == 0
-    assert record_stack(#{r: 1, q: Stack([8])}) == 8
-    assert record_stack(#{r: 1, q: Stack([])}) == 0
+    assert record_stack(.{r: 1, q: Stack([8])}) == 8
+    assert record_stack(.{r: 1, q: Stack([])}) == 0
 }
 
 fn label(Pair(n, s)) -> String {

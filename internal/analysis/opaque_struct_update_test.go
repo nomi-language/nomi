@@ -12,7 +12,7 @@ import (
 // (`tests/10-generics-and-type-wrappers/opaque_types/counter.nomi`)
 // promises that outside callers "cannot rewrite the `value` field
 // independently of `increments`, and cannot otherwise desync the two
-// numbers"; `Struct.update(c, #{value: -999})` would do exactly that.
+// numbers"; `Struct.update(c, .{value: -999})` would do exactly that.
 //
 // The rule is on the PATCH, not on `Struct.update`'s receiver: a patch may not
 // name a field of an opaque struct from outside that struct's defining file.
@@ -43,7 +43,7 @@ pub fn value(c: Counter) -> Int { c.value }
 pub fn increments(c: Counter) -> Int { c.increments }
 
 pub fn set_value_inside(c: Counter, v: Int) -> Counter {
-  Struct.update(c, #{value: v})
+  Struct.update(c, .{value: v})
 }
 `
 
@@ -92,7 +92,7 @@ func TestOpaqueUpdate_DirectPatchFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
 fn wreck(c: Counter) -> Counter {
-  Struct.update(c, #{value: -999})
+  Struct.update(c, .{value: -999})
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -105,7 +105,7 @@ func TestOpaqueUpdate_PipedPatchFromOutsideIsRefused(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}
 
 fn wreck(c: Counter) -> Counter {
-  c |> Struct.update(#{value: -999})
+  c |> Struct.update(.{value: -999})
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -124,7 +124,7 @@ struct Box {
 }
 
 fn wreck(b: Box) -> Box {
-  Struct.update(b, #{inner: #{.., value: -999}})
+  Struct.update(b, .{inner: .{.., value: -999}})
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -139,7 +139,7 @@ func TestOpaqueUpdate_ThroughAUserPartialParameterIsRefused(t *testing.T) {
 import patcher
 
 fn wreck(c: Counter) -> Counter {
-  patcher.apply(c, #{value: -999})
+  patcher.apply(c, .{value: -999})
 }
 `)
 	files["patcher.nomi"] = `pub fn apply<T>(x: T, p: Partial<T>) -> T where T: Struct {
@@ -191,7 +191,7 @@ func TestOpaqueUpdate_NonOpaqueStructFromAnotherFileStillWorks(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import open.{Open}
 
 fn ok(o: Open) -> Open {
-  Struct.update(o, #{a: 42})
+  Struct.update(o, .{a: 42})
 }
 `))
 	opaqueExpectNoErrors(t, errs)
@@ -236,7 +236,7 @@ struct Box {
 }
 
 fn ok(b: Box) -> Box {
-  Struct.update(b, #{inner: counter.new()})
+  Struct.update(b, .{inner: counter.new()})
 }
 `))
 	opaqueExpectNoErrors(t, errs)
@@ -254,7 +254,7 @@ struct Box {
 }
 
 fn ok(b: Box) -> Box {
-  Struct.update(b, #{label: "y"})
+  Struct.update(b, .{label: "y"})
 }
 `))
 	opaqueExpectNoErrors(t, errs)

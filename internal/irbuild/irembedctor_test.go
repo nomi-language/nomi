@@ -32,9 +32,9 @@ fn area(s: Shape) -> Float {
 }
 
 fn main() {
-  a = Shape.Circle(#{radius: 2.0})
-  b = Shape.Circle(#{})
-  c = #{radius: 2.5} |> Shape.Circle()
+  a = Shape.Circle(.{radius: 2.0})
+  b = Shape.Circle(.{})
+  c = .{radius: 2.5} |> Shape.Circle()
   e = Shape.Circle{radius: 1.0}
   io.inspect(a)
   io.inspect(b)
@@ -60,10 +60,10 @@ fn area(s: Shape) -> Float {
 }
 
 fn main() {
-  a = Shape.Rectangle(#{width: 4.0, height: 5.0})
-  b = Shape.Rectangle(#{height: 2.0})
-  c = #{width: 1.0, height: 3.0} |> Shape.Rectangle()
-  e: Shape = .Rectangle(#{height: 4.0})
+  a = Shape.Rectangle(.{width: 4.0, height: 5.0})
+  b = Shape.Rectangle(.{height: 2.0})
+  c = .{width: 1.0, height: 3.0} |> Shape.Rectangle()
+  e: Shape = .Rectangle(.{height: 4.0})
   io.inspect(a)
   io.inspect(b)
   io.print(area(c))
@@ -97,7 +97,7 @@ fn main() {
   gone = Session.Expired
   io.inspect(gone)
   io.print(label(gone))
-  io.print(label(Session.Live(#{since: 3})))
+  io.print(label(Session.Live(.{since: 3})))
 }
 `, "Expired\nexpired\nlive since 3\n")
 }

@@ -59,7 +59,7 @@ func TestTodoIsANameWhereANameStands(t *testing.T) {
 		"fn main() {\n    todo = 1\n}",
 		"struct S {\n    todo: Int\n}",
 		"enum E {\n    A{todo: Int}\n}",
-		"fn main() {\n    s = S{todo: 1}\n    t = #{todo}\n    S{todo} = s\n}",
+		"fn main() {\n    s = S{todo: 1}\n    t = .{todo}\n    S{todo} = s\n}",
 		"fn main() {\n    case x {\n        Some(todo) -> todo\n        None -> 0\n    }\n}",
 		"fn main() {\n    f = fn todo: Int -> todo + 1\n    _ = x.todo\n}",
 		"import std::list.{todo}",

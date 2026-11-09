@@ -14,7 +14,7 @@
 //#
 //# signature = signatures.sign(key, message)
 //#
-//# assert signatures.verify(PrivateKey.public_key(key), message, signature)
+//# assert signatures.is_valid(PrivateKey.public_key(key), message, signature)
 //# ```
 //#
 //# Keys are read and written as PEM, the `-----BEGIN PRIVATE KEY-----`
@@ -58,7 +58,7 @@ impl Display for KeyKind {
 }
 
 /// How a signature is made and checked. Each key kind has its own; `sign`
-/// and `verify` use the first one listed for it.
+/// and `is_valid` use the first one listed for it.
 pub enum Scheme {
     /// Ed25519, for an Ed25519 key: 64 bytes.
     Ed25519
@@ -315,7 +315,7 @@ pub fn sign(key: PrivateKey, message: Bytes) -> Bytes {
 //! key = PrivateKey.generate_ecdsa_p256()
 //! message = String.to_bytes("hello")
 //! der = signatures.sign_with(key, Scheme.EcdsaSha256Der, message)!
-//! assert signatures.verify_with(PrivateKey.public_key(key), Scheme.EcdsaSha256Der, message, der)
+//! assert signatures.is_valid_with(PrivateKey.public_key(key), Scheme.EcdsaSha256Der, message, der)
 //!
 //! assert signatures.sign_with(key, Scheme.RsaPssSha256, message)
 //!     == Err("an ECDSA P-256 key does not sign with RsaPssSha256")
@@ -343,11 +343,11 @@ pub fn sign_with(key: PrivateKey, scheme: Scheme, message: Bytes) -> Result<Byte
 //!     "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b"
 //! )!
 //!
-//! assert signatures.verify(key, Bytes.from_list([]), signature)
-//! refute signatures.verify(key, String.to_bytes("x"), signature)
+//! assert signatures.is_valid(key, Bytes.from_list([]), signature)
+//! refute signatures.is_valid(key, String.to_bytes("x"), signature)
 //
-pub fn verify(key: PublicKey, message: Bytes, signature: Bytes) -> Bool {
-    signatures_host.verify(key.der, scheme_number(usual_scheme(key.kind)), message, signature)
+pub fn is_valid(key: PublicKey, message: Bytes, signature: Bytes) -> Bool {
+    signatures_host.is_valid(key.der, scheme_number(usual_scheme(key.kind)), message, signature)
 }
 
 /// Whether `signature` is `message` signed by the private key of `key`
@@ -357,15 +357,15 @@ pub fn verify(key: PublicKey, message: Bytes, signature: Bytes) -> Bool {
 //! key = PrivateKey.generate_ed25519()
 //! message = String.to_bytes("hello")
 //! signature = signatures.sign(key, message)
-//! assert signatures.verify_with(PrivateKey.public_key(key), Scheme.Ed25519, message, signature)
-//! refute signatures.verify_with(PrivateKey.public_key(key), Scheme.EcdsaSha256, message, signature)
+//! assert signatures.is_valid_with(PrivateKey.public_key(key), Scheme.Ed25519, message, signature)
+//! refute signatures.is_valid_with(PrivateKey.public_key(key), Scheme.EcdsaSha256, message, signature)
 //
-pub fn verify_with(key: PublicKey, scheme: Scheme, message: Bytes, signature: Bytes) -> Bool {
+pub fn is_valid_with(key: PublicKey, scheme: Scheme, message: Bytes, signature: Bytes) -> Bool {
     scheme_kind(scheme) == key.kind
-        and signatures_host.verify(key.der, scheme_number(scheme), message, signature)
+        and signatures_host.is_valid(key.der, scheme_number(scheme), message, signature)
 }
 
-/// The scheme `sign` and `verify` use for a kind.
+/// The scheme `sign` and `is_valid` use for a kind.
 fn usual_scheme(kind: KeyKind) -> Scheme {
     case kind {
         .Ed25519 -> .Ed25519

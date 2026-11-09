@@ -79,6 +79,7 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, buildUselessReturnActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildLimitInfiniteActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(snap.Analysis.TypeErrors)...), params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, typeErrorFixes(snapInterfaceValueHints(snap, nil)), params.Context.Diagnostics)...)
 		actions = append(actions, s.missingTranslationActions(snap.Nodes, snap.Analysis, params.Range, params.Context.Diagnostics)...)
 	}
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)

@@ -153,7 +153,7 @@ func TestABraceIsNeverAMap(t *testing.T) {
 	if err == nil {
 		t.Errorf("a brace holding `=>` parses")
 	}
-	wantShape(t, "x = a % #{b: 1}.b", "")
+	wantShape(t, "x = a % .{b: 1}.b", "")
 	wantShape(t, "x = a % b", "")
 	wantShape(t, "x = a % (b)", "")
 }
@@ -166,7 +166,7 @@ func TestLambdaPositions(t *testing.T) {
 		"f = fn x: Int = 1 -> x",
 		"f = fn (a, b) -> a + b",
 		"f = fn Duration(ns) -> ns",
-		"f = fn #{x, y} -> x + y",
+		"f = fn .{x, y} -> x + y",
 		"f = fn #[x, ..] -> x",
 		"f = fn %{\"k\" => v} -> v",
 		"f = fn x -> {\n    x + 1\n}",
@@ -263,7 +263,7 @@ func TestOldSpellingsAreErrors(t *testing.T) {
 		"f = |x| x + 1",
 		"m = {\"a\" => 1}",
 		"x = #(1, 2)",
-		"s = #{1, 2}",
+		"s = .{1, 2}",
 		"p = {x: 1}",
 		"fn f(p: {x: Int}) -> Int { p.x }",
 	} {
@@ -365,12 +365,12 @@ func TestShapeSymbolLiterals(t *testing.T) {
 	wantKinds(t, "s = %[..s, x]", "set-spread")
 	wantKinds(t, "m = %{\"hello\" => 7}", "map")
 	wantKinds(t, "m = %{}", "map")
-	wantKinds(t, "p = #{x: 1, y: 2}", "struct")
-	wantKinds(t, "p = #{}", "struct")
-	wantKinds(t, "p = #{..base, x: 1}", "struct-update")
+	wantKinds(t, "p = .{x: 1, y: 2}", "struct")
+	wantKinds(t, "p = .{}", "struct")
+	wantKinds(t, "p = .{..base, x: 1}", "struct-update")
 	wantKinds(t, "t = (1, 2)", "tuple")
 	// A lone punned field is a struct: a block opens with a plain `{`.
-	wantKinds(t, "p = #{name}", "struct")
+	wantKinds(t, "p = .{name}", "struct")
 	wantKinds(t, "p = {name}", "block")
 	wantKinds(t, "x = {\n    y = 1\n    y\n}", "block")
 	// A list keeps its brackets.
@@ -402,7 +402,7 @@ func TestNamedShapeLiterals(t *testing.T) {
 	wantKinds(t, "p = Point{x: %{1 => 2}}", "struct Point map")
 	wantKinds(t, "p = Point{f: fn x -> case x {\n    1 -> 2\n    _ -> 3\n}}", "struct Point block")
 	wantParseError(t, "k = %Kvs{..m, \"a\" => 1}", "map spread `..` has no named form; write `%{..base, key => value}`")
-	wantParseError(t, "p = Point{..q, x: 1}", "struct spread `..` has no named form; write `#{..base, field: value}`")
+	wantParseError(t, "p = Point{..q, x: 1}", "struct spread `..` has no named form; write `.{..base, field: value}`")
 	wantParseError(t, "v = #Path[..v, 1]", "vector spread `..` has no named form; write `#[..base, item]`")
 	wantParseError(t, "s = %Tags[..s, 1]", "set spread `..` has no named form; write `%[..base, item]`")
 	wantParseError(t, "p = #Point", "expected '[' after `#Point`")
@@ -422,13 +422,13 @@ func TestStructLiteralsInConditions(t *testing.T) {
 }
 
 func TestShapeSymbolPatternsAndTypes(t *testing.T) {
-	wantKinds(t, "x = case p {\n    #{x, y} -> x\n    _ -> 0\n}", "struct-pattern")
-	wantKinds(t, "x = case p {\n    #{x: 0, y} -> y\n    _ -> 0\n}", "struct-pattern")
-	wantKinds(t, "#{x, y} = p", "struct-destructure")
+	wantKinds(t, "x = case p {\n    .{x, y} -> x\n    _ -> 0\n}", "struct-pattern")
+	wantKinds(t, "x = case p {\n    .{x: 0, y} -> y\n    _ -> 0\n}", "struct-pattern")
+	wantKinds(t, ".{x, y} = p", "struct-destructure")
 	wantKinds(t, "Point{x, y} = p", "struct-pattern Point")
-	wantKinds(t, "fn f(#{x, y}: Point) -> Int { x }", "struct-pattern block")
+	wantKinds(t, "fn f(.{x, y}: Point) -> Int { x }", "struct-pattern block")
 	wantKinds(t, "fn f(Point{x, y}) -> Int { x }", "struct-pattern Point block")
-	wantKinds(t, "fn f(p: #{x: Int, y: List<#{z: Int}>}) -> Int { p.x }", "struct-type struct-type block")
+	wantKinds(t, "fn f(p: .{x: Int, y: List<.{z: Int}>}) -> Int { p.x }", "struct-type struct-type block")
 	wantKinds(t, "x = case m {\n    %{\"k\" => v} -> v\n    _ -> 0\n}", "map-pattern")
 	wantKinds(t, "x = case m {\n    %Kvs{\"k\" => v} -> v\n    _ -> 0\n}", "map-pattern Kvs")
 	wantKinds(t, "x = case j {\n    %.Obj{\"k\" => v} -> v\n    _ -> 0\n}", "map-pattern .Obj")
@@ -565,7 +565,7 @@ func TestOldCollectionSpellingsFail(t *testing.T) {
 
 // A type over an anonymous struct is written as a struct.
 func TestShapeSymbolRefusals(t *testing.T) {
-	wantParseError(t, "type Wrap #{x: Int}", "a type over an anonymous struct is a struct: write `struct Wrap { ... }`")
-	wantParseError(t, "s = #{1, 2}", "expected field name in struct literal")
+	wantParseError(t, "type Wrap .{x: Int}", "a type over an anonymous struct is a struct: write `struct Wrap { ... }`")
+	wantParseError(t, "s = .{1, 2}", "expected field name in struct literal")
 	wantParseError(t, "s = % [1, 2]", "unexpected `%`: a map or set literal writes `%` right before its `{` or `[`")
 }

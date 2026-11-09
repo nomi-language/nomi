@@ -138,8 +138,11 @@
 // diagnostic, no warning, no declined body, and nothing its main, boot or
 // test cases reach that a machine cannot run (Program.runsClean). So a hit
 // says the program checks, and a kept program reports nothing a fresh load
-// would word differently. The record holds the entry, the root, the phrase
-// tables and one IR image (cacheImage): what main and boot reach
+// would word differently. A program with advice (Program.Advice) is kept,
+// and the record holds the advice, which a check that reads the record
+// writes as a fresh check does. The record holds the entry, the root, the
+// phrase tables, the advice and one IR image (cacheImage): what main and
+// boot reach
 // (vm.PruneImage) for a program without tests, every module for a file
 // with tests. Positions keep their paths. A hit decodes the image into a
 // [Program] whose analysis holds only the entry (parsed again for a test
@@ -167,10 +170,13 @@
 // reductions over them), its body summary and whether it declares keyword
 // declarations; per program the lowering kept per file
 // (irbuild.KeptLowering), the missing-impl supply (analysis.ProgramSupply)
-// and the application types. When the program record misses only because
-// `.nomi` sources changed, came or went (progcache.Entry.ChangedSources),
-// the command relinks: it checks and lowers only the files the edit
-// reaches, against the others' stored interfaces and kept objects.
+// and the application types; and per file its advice, which depends on its
+// own signatures and bodies alone, so a relink works out the advice of the
+// files it checks again and keeps the others'. When the program record
+// misses only because `.nomi` sources changed, came or went
+// (progcache.Entry.ChangedSources), the command relinks: it checks and
+// lowers only the files the edit reaches, against the others' stored
+// interfaces and kept objects.
 // filerecord.go's file comment lists the steps. These hold beyond them:
 //
 //   - More than maxRelowered files and a quarter of the program (a hub's
@@ -187,6 +193,18 @@
 //     redone with that file's bodies (ProgramInterfaces.SetBodies), and the
 //     instance is kept in that file's object, where a whole lowering puts it
 //     (Result.Rekeep).
+//   - A body edit of a generic declaration drops the instances of it its
+//     file's object held for other files. When kept objects of files not
+//     lowered again name them (irbuild.FileMiss.Dropped), the relink starts
+//     again with one such file per instance added, lowered after the edited
+//     file and reading it with its bodies, so it asks for the instance again
+//     and the instance goes back into the edited file's object. The other
+//     files that name an instance are not lowered again: their objects name
+//     it by its linkage name, which the new instance keeps. The relink is a
+//     miss if a dropped instance is not defined after the last file
+//     (Result.Undefined). At 5k generated lines an edit of core/util's
+//     `first_or`, which seven files call at Int, lowers two files and runs
+//     in about 0.18 s, against 0.45 s whole.
 //
 // The entry imports every unit no other unit imports, so any leaf interface
 // edit rechecks it, and its check registers most of the program. At 50k

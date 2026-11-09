@@ -8,7 +8,7 @@ import std::io
 //  1. THE RENDERED NAME IS THE BARE DECLARATION NAME. Two instantiations of one
 //     template must BOTH render as `Box`. An instance def carrying `Box<Int>`
 //     as its Nomi name (which is what stdgenstruct.go's genStructNames chooses
-//     for the STD family) would render `Box<Int>#{item: 1}` instead.
+//     for the STD family) would render `Box<Int>.{item: 1}` instead.
 //
 //     Read from a FAILING assertion's `values:` row, the surface where the
 //     name is observable. A passing assertion renders nothing, which is why

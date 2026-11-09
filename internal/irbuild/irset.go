@@ -92,7 +92,7 @@ func (bl *irScalarBuilder) setCallPlan(t *ast.Call, args irQualArgs, method stri
 		return nil
 	}
 	switch method {
-	case "size", "contains", "insert", "remove", "union", "intersection", "difference", "is_subset":
+	case "size", "contains", "insert", "remove", "union", "intersection", "difference", "is_subset_of":
 	default:
 		return nil
 	}

@@ -267,7 +267,7 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 					if s[0] == "_" {
 						return name + "{..}"
 					}
-					return name + strings.TrimPrefix(s[0], "#")
+					return name + strings.TrimPrefix(s[0], ".")
 				}
 			default:
 				ctor.subTypes = []Type{payload}
@@ -328,7 +328,7 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 		}
 		return []patCtor{structCtor(tt.Name, tt.Fields, subs)}
 	case *AnonStructType:
-		return []patCtor{structCtor("#", tt.Fields, nil)}
+		return []patCtor{structCtor(".", tt.Fields, nil)}
 	case *ListType:
 		return seqCtors(tt.Elem, column, "[")
 	}

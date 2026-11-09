@@ -116,7 +116,7 @@ const (
 	// start. `Inclusive` is the `..=` form and is canonically false when there
 	// is no end. Owners: rangeLit, rangeFromCall.
 	MakeRange
-	// MakeUpdate copies a struct or record and replaces named fields: `#{..base,
+	// MakeUpdate copies a struct or record and replaces named fields: `.{..base,
 	// f: v}`. Operand 0 is the base and `Names` is parallel to the remaining
 	// operands, in source order. Owner: structSpreadLit.
 	MakeUpdate

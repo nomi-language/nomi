@@ -9,6 +9,8 @@ import {
     float.Float
     hashable.Hashable
     int.Int
+    iter.Iter
+    lists.List
     locale.Locale
     localize.NumberParseError
     maybe.Maybe.{self, None, Some}
@@ -20,6 +22,7 @@ import {
     strings.String
     subtract.Subtract
     summable.Summable
+    unit.Unit
 }
 
 //# Operations on the arbitrary-precision, exact base-10 `Decimal` type:
@@ -31,7 +34,8 @@ import {
 //# one that ends exact, with no trailing zeros (`10.00d / 4d` is `2.5d`).
 //# `Decimal.divide` rounds to a scale and mode you name, `Decimal.divide_exact`
 //# returns `None` for a quotient that does not end, and `Decimal.sqrt` and
-//# `Decimal.round` round as `Decimal.divide` does.
+//# `Decimal.round` round as `Decimal.divide` does. `Decimal.split` and
+//# `Decimal.allocate` divide an amount into parts that sum to it exactly.
 //#
 //# `Decimal.format` and `Decimal.format_percent` write a decimal as a reader
 //# of a locale writes it, and `Decimal.parse_in` and
@@ -177,6 +181,78 @@ impl Decimal {
         d == 0d
     }
 
+    /// `d` split into `n` parts that sum to it exactly and differ by at most
+    /// one unit of the `scale`th digit after the point: a bill shared by `n`
+    /// people. The leftover units go one each to the first parts, so the
+    /// larger parts come first. It is `Decimal.allocate` with `n` equal
+    /// ratios.
+    ///
+    /// `scale` is the least number of digits after the point a part has:
+    /// when `d` has more, it is split in units of its own last digit, so
+    /// `0.125d` split two ways at scale 2 is `0.063d` and `0.062d`, which
+    /// still sum to it. A non-positive `n` or a negative `scale` traps:
+    /// `Decimal.split: n must be positive, got 0`.
+    //! assert Decimal.split(100d, 3, 2) == [33.34d, 33.33d, 33.33d]
+    //! assert Display.to_string(Decimal.split(100d, 3, 2)) == "[33.34, 33.33, 33.33]"
+    //! assert Decimal.split(-0.05d, 2, 2) == [-0.03d, -0.02d]
+    //! assert Decimal.split(10d, 4, 0) == [3d, 3d, 2d, 2d]
+    //! assert Decimal.split(0.125d, 2, 2) == [0.063d, 0.062d]
+    //
+    pub fn split(d: Decimal, n: Int, scale: Int) -> List<Decimal> {
+        if n <= 0 { decimal_refused("Decimal.split", "n must be positive, got ${n}") }
+
+        if scale < 0 {
+            decimal_refused("Decimal.split", "scale must not be negative, got ${scale}")
+        }
+
+        allocated(
+            d,
+            Iter.repeat(1)
+            |> Iter.take(n)
+            |> Iter.to_list(),
+            scale,
+        )
+    }
+
+    /// `d` split into parts proportional to `ratios`, one part per ratio,
+    /// that sum to it exactly: a payment shared 70 to 30, or a discount
+    /// spread over a cart's lines by their prices. Each part is its share
+    /// rounded toward zero to a unit of the `scale`th digit after the point;
+    /// the units left over go one each to the parts in the order of
+    /// `ratios`, skipping a zero ratio, so a zero ratio's part is always
+    /// zero. This is Fowler's `allocate`. A negative `d` is split as its
+    /// magnitude is, and each part takes its sign.
+    ///
+    /// `scale` is the least number of digits after the point a part has:
+    /// when `d` has more, it is split in units of its own last digit, so the
+    /// parts still sum to it, and each part has that many digits. An empty
+    /// list of ratios, a negative ratio, ratios that are all zero, or a
+    /// negative `scale` trap, naming the problem: `Decimal.allocate: the
+    /// ratios are all zero`.
+    //! assert Decimal.allocate(0.05d, [3, 7], 2) == [0.02d, 0.03d]
+    //! assert Decimal.allocate(10d, [70, 0, 30], 2) == [7d, 0d, 3d]
+    //! assert Decimal.allocate(-1d, [1, 2], 2) == [-0.34d, -0.66d]
+    //! assert Decimal.allocate(1.5d, [1, 1], 0) == [0.8d, 0.7d]
+    //
+    pub fn allocate(d: Decimal, ratios: List<Int>, scale: Int) -> List<Decimal> {
+        if Iter.is_empty(ratios) { decimal_refused("Decimal.allocate", "there are no ratios") }
+
+        case Iter.find(ratios, fn r -> r < 0) {
+            Some(r) -> decimal_refused("Decimal.allocate", "the ratio ${r} is negative")
+            None -> Unit
+        }
+
+        if Iter.all_match(ratios, fn r -> r == 0) {
+            decimal_refused("Decimal.allocate", "the ratios are all zero")
+        }
+
+        if scale < 0 {
+            decimal_refused("Decimal.allocate", "scale must not be negative, got ${scale}")
+        }
+
+        allocated(d, ratios, scale)
+    }
+
     /// `d` as a reader of `locale` writes it, with as many digits after the
     /// decimal point as its scale has, at least `min_fraction` and at most
     /// `max_fraction` (0 <= min_fraction <= max_fraction <= 100, else a
@@ -289,8 +365,7 @@ impl Decimal {
     // The Decimal of the number text the Go half read.
     fn lift(read: Result<String, NumberParseError>) -> Result<Decimal, NumberParseError> {
         case read {
-            Err(e) ->
-                Err(e)
+            Err(e) -> Err(e)
 
             Ok(text) -> {
                 case String.to_decimal(text) {
@@ -301,6 +376,36 @@ impl Decimal {
         }
     }
 }
+
+// `d` in parts proportional to `ratios`, which are not empty, not negative
+// and not all zero, summing to it exactly: each part's share of the units of
+// the larger of `scale` and `d`'s own scale rounded toward zero, and the
+// units left over one each to the nonzero ratios in order. The sign is set
+// apart, so a negative amount splits as its magnitude does.
+fn allocated(d: Decimal, ratios: List<Int>, scale: Int) -> List<Decimal> {
+    digits = Int.max(scale, Decimal.scale(d))
+    unit = Decimal.pow(10d, digits)
+    units = Decimal.to_int(d * unit)
+    sign = if units < 0 { -1 } else { 1 }
+    magnitude = Int.abs(units)
+    total = Iter.sum(ratios)
+    left = magnitude - Iter.sum_by(ratios, fn r -> magnitude * r / total)
+
+    // How many nonzero ratios come up to and including each one.
+    ranks = Iter.scan(ratios, 0, fn seen, r -> if r > 0 { seen + 1 } else { seen })
+
+    Iter.zip(ratios, ranks)
+    |> Iter.map(fn (r, rank) -> {
+        extra = if r > 0 and rank <= left { 1 } else { 0 }
+        part = sign * (magnitude * r / total + extra)
+        Decimal.divide(Int.to_decimal(part), unit, digits, RoundingMode.Unnecessary)
+    })
+    |> Iter.to_list()
+}
+
+// Traps with `operation`, a colon and `reason`: an argument the caller chose
+// and could have checked, such as `Decimal.split` into no parts.
+host fn decimal_refused(operation: String, reason: String) -> Unit
 
 host fn decimal_format(
     locale: Locale,

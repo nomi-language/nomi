@@ -19,8 +19,6 @@ pub enum Tree<T> {
     Node {left: Tree<T>, value: T, right: Tree<T>}
 }
 
-derive Equatable for Tree<T>
-
 /// Why two traversals describe no tree.
 pub enum Error {
     DifferentLengths
@@ -50,8 +48,7 @@ pub fn tree_from_traversals<T>(
 /// pre-order.
 fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable {
     case preorder {
-        [] ->
-            .Leaf
+        [] -> .Leaf
 
         [root, ..rest] -> {
             left_inorder =

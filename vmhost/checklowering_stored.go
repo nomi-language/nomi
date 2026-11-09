@@ -182,7 +182,7 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 		key := f.Key
 		recheck := func(bodies map[string]bool) *analysis.FileCheck { return in.Check(key, bodies) }
 		var why string
-		if res, kept, _, why = relowerOne(check, f.Key, f.Path, in.Root, tests, kept, f.Iface != base.ifaces[f.Key], relowering, files, recheck, func(string, ...any) {}); why != "" {
+		if res, kept, _, _, why = relowerOne(check, f.Key, f.Path, in.Root, tests, kept, f.Iface != base.ifaces[f.Key], relowering, nil, files, nil, recheck, func(string, ...any) {}); why != "" {
 			return nil, false, nil
 		}
 		relowering[f.Path] = false

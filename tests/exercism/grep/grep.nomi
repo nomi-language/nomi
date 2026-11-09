@@ -20,9 +20,6 @@ pub enum Flag {
     WholeLine
 }
 
-derive Equatable for Flag
-derive Hashable for Flag
-
 /// The lines of `files` that contain `pattern`, in file order, as `flags`
 /// say. With more than one file each line starts with its file's name.
 /// A file that cannot be read is the error reading it gave.

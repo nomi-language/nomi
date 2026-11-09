@@ -21,8 +21,7 @@ Two indexed reads, both in `letter_at`; no indexed update.
 | Read | Where | Result | Real use for a miss? |
 |---|---|---|---|
 | `letters \|> Vector.get(row)?` | `letter_at` | compared `== Some(letter)` in `reads` | Yes: a step can go above the first row or below the last |
-| `\|> Vector.get(column)` | `letter_at` |
- same | Yes: a step can go left of the first column or right of the last |
+| `\|> Vector.get(column)` | `letter_at` | same | Yes: a step can go left of the first column or right of the last |
 
 ## Friction
 

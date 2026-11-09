@@ -24,7 +24,7 @@ func TestNamedLiterals_ParseWithoutTheSymbol(t *testing.T) {
 		"if binding":        "fn main() {\n    if Point{x, y} = p {\n        dbg x\n    }\n}\n",
 		"case head, parens": "fn main() {\n    case (Point{x: 1}) {\n        _ -> 1\n    }\n}\n",
 		"if head, parens":   "fn main() {\n    if p == (Point{x: 1}) {\n        dbg 1\n    }\n}\n",
-		"inside a call":     "fn main() {\n    if Iter.any(ps, fn q -> q == Point{x: 1}) {\n        dbg 1\n    }\n}\n",
+		"inside a call":     "fn main() {\n    if Iter.any_match(ps, fn q -> q == Point{x: 1}) {\n        dbg 1\n    }\n}\n",
 		"head variant":      "fn main() {\n    if s == .Paid {\n        dbg 1\n    }\n}\n",
 		"head is variant":   "fn main() {\n    if s is .Paid {\n        dbg 1\n    }\n}\n",
 		"head type name":    "fn main() {\n    case s {\n        Paid -> 1\n    }\n}\n",

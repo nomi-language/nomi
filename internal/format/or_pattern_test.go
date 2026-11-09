@@ -35,10 +35,10 @@ func TestFormat_OrPatternNormalizesSpacingAndParens(t *testing.T) {
 // after an `or` stays there.
 func TestFormat_OrPatternBreaksOnePerLine(t *testing.T) {
 	src := "fn f(e: Event) -> Int {\n    case e {\n        .KeyboardPressed{code} or .KeyboardReleased{code} or .KeyboardRepeated{code} or .KeyboardHeld{code} -> code\n        _ -> 0\n    }\n}\n"
-	want := "fn f(e: Event) -> Int {\n    case e {\n        .KeyboardPressed{code} or\n            .KeyboardReleased{code} or\n            .KeyboardRepeated{code} or\n            .KeyboardHeld{code} ->\n            code\n\n        _ ->\n            0\n    }\n}\n"
+	want := "fn f(e: Event) -> Int {\n    case e {\n        .KeyboardPressed{code} or\n            .KeyboardReleased{code} or\n            .KeyboardRepeated{code} or\n            .KeyboardHeld{code} ->\n            code\n\n        _ -> 0\n    }\n}\n"
 	formatsKeepingMeaning(t, src, want)
 
-	commented := "fn f(c: Color) -> Int {\n    case c {\n        .Red or // warm\n            .Green ->\n            1\n\n        _ ->\n            0\n    }\n}\n"
+	commented := "fn f(c: Color) -> Int {\n    case c {\n        .Red or // warm\n            .Green ->\n            1\n\n        _ -> 0\n    }\n}\n"
 	if got := formatTwice(t, commented); got != commented {
 		t.Errorf("got:\n%s\nwant:\n%s", got, commented)
 	}

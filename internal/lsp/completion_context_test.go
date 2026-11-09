@@ -44,7 +44,7 @@ func TestClassifyCompletion(t *testing.T) {
 		{"return type", "fn f() -> ‸ {}\n", ctxType},
 		{"struct literal field", "fn f() {\n  p = Point{x: 1, ‸}\n}\n", ctxStructField},
 		{"struct literal field, unclosed", "fn f() {\n  p = Point{x: 1, ‸\n}\n", ctxStructField},
-		{"struct update field", "fn f() {\n  p = #{..base, ‸}\n}\n", ctxStructField},
+		{"struct update field", "fn f() {\n  p = .{..base, ‸}\n}\n", ctxStructField},
 		{"literal head after #", "fn f() {\n  p = #Po‸\n}\n", ctxShapeHead},
 		{"literal head after %", "fn f() {\n  p = %Ta‸\n}\n", ctxShapeHead},
 		{"qualified literal head", "fn f() {\n  p = #geo.Po‸\n}\n", ctxShapeHead},

@@ -76,7 +76,7 @@ fn nested(xs: List<(Maybe<Int>, String)>, m: Map<String, Kind>, l: Line) -> Int 
     a + b + c
 }
 
-fn param(#{start, end} as tx: Tx) -> Int {
+fn param(.{start, end} as tx: Tx) -> Int {
     start + end + tx.start
 }
 

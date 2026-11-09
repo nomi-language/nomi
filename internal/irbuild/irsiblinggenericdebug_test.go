@@ -24,7 +24,7 @@ func TestIRSiblingGenericDebug_InstanceImplsAreTheOwnersInstances(t *testing.T) 
 		"#7\n" +
 		"#x\n" +
 		"(Span{start: 1, stop: 2}, 9)\n" +
-		"#{s: tagged}\n" +
+		".{s: tagged}\n" +
 		"[Span{start: 1, stop: 2}]\n" +
 		"[Span{start: \"p\", stop: \"q\"}]\n" +
 		"[#1]\n" +

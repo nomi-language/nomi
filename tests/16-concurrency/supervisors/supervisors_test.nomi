@@ -39,7 +39,7 @@ group "named task groups" {
         _ = Supervisor.flush(Config.notify)
 
         assert drain_alerts()
-            |> Iter.any(&String.contains(&1, "no address"))
+            |> Iter.any_match(&String.contains(&1, "no address"))
     }
 
     test "a batch is bounded by the group's own limit" {

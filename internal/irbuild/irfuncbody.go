@@ -612,6 +612,12 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			// constructor as a value, as in the TypeIdent arm above.
 			return bl.ownerFuncRef(t)
 		}
+		if bl.moduleQualifiedIfaceOwner(t.Object) {
+			// `other.Shape.area`: another file's interface function as a
+			// value. dottedTypeQualifier answers for types only; the body
+			// is the qualified call, which resolves as the written one does.
+			return bl.ownerFuncRef(t)
+		}
 		if bl.stdQualifiedOwnerDef(t.Object) != nil {
 			// `json.Json.Null`: a std enum's variant through its module's
 			// qualifier.
@@ -1425,7 +1431,7 @@ func (g *gen) irMonoTemplate(sig *fnSig) *monoTemplate {
 	return sig.irMono
 }
 
-// structCallForm builds the struct call form `Foo(#{a: 1})` as the brace
+// structCallForm builds the struct call form `Foo(.{a: 1})` as the brace
 // literal `Foo{a: 1}`: the argument's fields in written order, then the
 // omitted fields' defaults. A record VALUE argument is read field by field
 // (structFromRecord). A generic struct's call form is built at the instance
@@ -3206,7 +3212,7 @@ func (bl *irScalarBuilder) annotatedValue(value ast.Node, te ast.TypeExpr) (ir.T
 	if existential {
 		// The VM's existential is the concrete value, so the binding holds
 		// it unchanged at the interface's kind, the checker's type for the
-		// name: a record or tuple built from it (`#{d: d}`) then has the
+		// name: a record or tuple built from it (`.{d: d}`) then has the
 		// kind the checker gives it.
 		v, k, _, ok := bl.lowerTypedOperand(value, want)
 		if ok && k != want && bl.g.irBoxedErasure(want, k) {

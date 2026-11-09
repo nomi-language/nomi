@@ -184,7 +184,7 @@ func computeHashes(projectRoot string, discovered []DiscoveredPackage, allRequir
 	return hashRecord{
 		GoMod:      sha256Hex(goModBytes),
 		GoSum:      sha256Hex(goSumBytes),
-		Template:   "sha256:" + templateHash, // already in hex
+		Template:   "sha256:" + templateHash(), // already in hex
 		Discovered: sha256Hex([]byte(combined)),
 		Shapes:     sha256Hex([]byte(adapterShapesHashInput(discovered))),
 		Compiler:   compilerID,

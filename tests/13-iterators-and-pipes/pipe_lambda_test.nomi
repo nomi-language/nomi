@@ -18,7 +18,7 @@ test "then stages compose with regular pipe stages" {
 test "a then stage's braced body holds its own pipe" {
     count =
         [1, 2, 3, 4]
-        |> then fn xs -> { xs |> Iter.filter(fn x -> x > 2) |> Iter.count() }
+        |> then fn xs -> { xs |> Iter.count_by(fn x -> x > 2) }
         |> then fn n -> n * 10
 
     assert count == 20

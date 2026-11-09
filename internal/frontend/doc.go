@@ -182,8 +182,10 @@
 // or that names a public std module, gets help that names its import
 // (`import std::http.Method`; stdTypeImportHint, stdModuleImportHint,
 // analysis's std_exports.go). A process builds only the std modules it
-// reaches, so the answer comes from std's sources, which package std installs
-// (analysis.SetStdSources) and the first such diagnostic parses once. A
+// reaches, so the answer is what each std module exports, which package std
+// installs (analysis.SetStdExports): the std artifact's record of it, or,
+// in a process with no artifact, the sources the first such diagnostic
+// parses once. A
 // name two or three modules export lists each import; four or more get none
 // (`Wide` in TestStdImportHints). Internal modules and the prelude are
 // never named. The language server's "Add import" fix (FindMissingImports)
@@ -266,4 +268,22 @@
 //     and sizes without reading them and record no input, so an edit to an
 //     embedded file, or a new file under an embedded directory, rechecks
 //     nothing until the declaring file is edited.
+//
+// # Test cases and their selection
+//
+// The case list `nomi test` runs is the front end's (tests.go):
+// CollectTestCases walks the entry's declarations into TestCases, each
+// named as the report prints it after `file :: ` (TestCase.FullName). A
+// group's `subtests` block makes one case per row and test, named with the
+// row's label (ast.GroupRowLabels, the copy irbuild's list shares), so a
+// row's cases exist before anything runs. SelectTests narrows the list by
+// TestOptions: `--line` (FilterTestCases), then `--run`, a regexp matched
+// against FullName. The VM runs only the selected cases, and a case boots
+// its own group, so a row none of whose cases is selected never boots. The
+// rows of a `subtests` statement in a body are values the body computes,
+// not cases, and run with their test. `nomi test` reads the same list from
+// each file's source alone (SourceSelectsTestLine, SourceSelectsTests) to
+// report a selection that names nothing and to skip a file `--run` selects
+// nothing in; the FFI wrapper gets the pattern as an argument and selects
+// with the same SelectTests.
 package frontend

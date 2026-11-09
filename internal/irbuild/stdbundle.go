@@ -57,6 +57,8 @@ import (
 	"hash/crc32"
 	"os"
 	"path/filepath"
+	"reflect"
+	goruntime "runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -66,6 +68,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -98,28 +101,25 @@ var stdBundleState struct {
 // bundle or the cached one, else lowered and written to the cache.
 func loadStdlibIndex() *stdlibIndex {
 	st := &stdBundleState
-	if len(embeddedStdBundle) > 0 {
-		idx, shared, listed, err := decodeStdBundleSections(embeddedStdBundle)
+	r := takeStdBundleRead()
+	if r.from == "embedded" {
+		idx, err := restoreStdShared(r.recs)
 		if err == nil {
-			st.from, st.shared, st.listed = "embedded", shared, listed
+			st.from, st.shared, st.listed = "embedded", r.shared, r.listed
 			return idx
 		}
 		fmt.Fprintf(os.Stderr, "nomi: the std bundle this binary embeds is not its own, so it lowers the stdlib: %v\n", err)
+		r = &stdBundleRead{path: stdBundlePath()}
+		r.readCache()
 	}
-	st.path = stdBundlePath()
-	if st.path != "" {
-		data, err := os.ReadFile(st.path)
+	st.path = r.path
+	if r.from == "cache" {
+		idx, err := restoreStdShared(r.recs)
 		if err == nil {
-			idx, shared, listed, err := decodeStdBundleSections(data)
-			if err == nil {
-				st.from, st.shared, st.listed = "cache", shared, listed
-				if info, err := os.Stat(st.path); err == nil {
-					artifactcache.Touch(st.path, info)
-				}
-				return idx
-			}
-			stdBundleDebug("%s not used: %v", st.path, err)
+			st.from, st.shared, st.listed = "cache", r.shared, r.listed
+			return idx
 		}
+		stdBundleDebug("%s not used: %v", st.path, err)
 	}
 	st.from = "lowered"
 	idx, shared, err := lowerStdBundle()
@@ -142,6 +142,97 @@ func loadStdlibIndex() *stdlibIndex {
 		return dec
 	}
 	return idx
+}
+
+// stdBundleRead is a bundle found and its shared section's records decoded,
+// which needs no stdlib, so it can run while the stdlib builds
+// (PrefetchStdBundle): the embedded bundle when it decodes, else the cached
+// one when it does. Restoring the records (restoreStdShared) reads the
+// stdlib.
+type stdBundleRead struct {
+	// from is "embedded" or "cache", or "" when neither decoded.
+	from           string
+	shared, listed []byte
+	recs           []*stdModuleRecord
+	// path is where this binary's bundle is cached, "" for no cache; unset
+	// when the embedded bundle decoded.
+	path string
+}
+
+// readStdBundle reads and decodes the bundle loadStdlibIndex restores.
+func readStdBundle() *stdBundleRead {
+	r := &stdBundleRead{}
+	if len(embeddedStdBundle) > 0 {
+		recs, shared, listed, err := readStdBundleSections(embeddedStdBundle)
+		if err == nil {
+			r.from, r.recs, r.shared, r.listed = "embedded", recs, shared, listed
+			return r
+		}
+		fmt.Fprintf(os.Stderr, "nomi: the std bundle this binary embeds is not its own, so it lowers the stdlib: %v\n", err)
+	}
+	r.path = stdBundlePath()
+	r.readCache()
+	return r
+}
+
+// readCache reads and decodes the bundle cached at r.path.
+func (r *stdBundleRead) readCache() {
+	if r.path == "" {
+		return
+	}
+	data, err := os.ReadFile(r.path)
+	if err != nil {
+		return
+	}
+	recs, shared, listed, err := readStdBundleSections(data)
+	if err != nil {
+		stdBundleDebug("%s not used: %v", r.path, err)
+		return
+	}
+	r.from, r.recs, r.shared, r.listed = "cache", recs, shared, listed
+	if info, err := os.Stat(r.path); err == nil {
+		artifactcache.Touch(r.path, info)
+	}
+}
+
+// stdBundlePrefetch is the bundle read PrefetchStdBundle started, which the
+// first loadStdlibIndex takes.
+var stdBundlePrefetch struct {
+	mu sync.Mutex
+	// taken is set once a load has taken the read or made its own, after
+	// which no read is started ahead.
+	taken bool
+	read  chan *stdBundleRead
+}
+
+// PrefetchStdBundle starts reading and decoding the std bundle on another
+// goroutine, unless the process has read it already, so the first lowering
+// finds it decoded: a caller about to check and lower a program calls it
+// first, and the read runs while the stdlib's analysis builds (std.Shared).
+func PrefetchStdBundle() {
+	p := &stdBundlePrefetch
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.taken || p.read != nil {
+		return
+	}
+	read := make(chan *stdBundleRead, 1)
+	p.read = read
+	go func() { read <- readStdBundle() }()
+}
+
+// takeStdBundleRead is the read PrefetchStdBundle started, waiting for it,
+// or a read made now.
+func takeStdBundleRead() *stdBundleRead {
+	p := &stdBundlePrefetch
+	p.mu.Lock()
+	read := p.read
+	p.read, p.taken = nil, true
+	p.mu.Unlock()
+	if read != nil {
+		return <-read
+	}
+	return readStdBundle()
 }
 
 // writeStdBundle writes a bundle of shared and listed (nil for none) to
@@ -331,28 +422,24 @@ func restoreStdModule(v *stdModuleView, rec *stdModuleRecord) ([]*stdFunc, []*st
 // cells. The listed section is stdbundlelisted.go's.
 
 // stdHostDigest is a checksum of the host function registry the lowering
-// reads (stdlibHostFuncs): a binary whose registry differs lowers std
-// differently.
+// reads (stdlibHostFunc): a binary whose registry differs lowers std
+// differently. It sums each RtFuncs row's name, Go symbol and Go signature,
+// from which the row's projection is computed, so a process reading a
+// bundle projects none of the rows it does not call.
 var stdHostDigest = sync.OnceValue(func() string {
-	names := make([]string, 0, len(stdlibHostFuncs))
-	for name := range stdlibHostFuncs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
 	var b strings.Builder
-	for _, name := range names {
-		h := stdlibHostFuncs[name]
-		fmt.Fprintf(&b, "%s=%s %s %t (", name, h.call, h.pkg, h.takesFrame)
-		for _, p := range h.params {
-			writePortableKind(&b, p)
-			b.WriteByte(',')
+	for _, row := range stdlibbindings.RtFuncs() {
+		b.WriteString(row.Name)
+		b.WriteByte('=')
+		rv := reflect.ValueOf(row.Fn)
+		if rv.Kind() == reflect.Func {
+			if fn := goruntime.FuncForPC(rv.Pointer()); fn != nil {
+				b.WriteString(fn.Name())
+			}
 		}
-		b.WriteString(") ")
-		writePortableKind(&b, h.result)
+		b.WriteByte(' ')
+		b.WriteString(rv.Type().String())
 		b.WriteByte('\n')
-	}
-	for _, e := range stdlibBindingErrors {
-		b.WriteString(e + "\n")
 	}
 	return fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(b.String())))
 })
@@ -739,17 +826,25 @@ func decodeStdBundle(data []byte) (*stdlibIndex, error) {
 	return idx, nil
 }
 
-// decodeStdBundleSections is decodeStdBundle answering the sections too.
-func decodeStdBundleSections(data []byte) (idx *stdlibIndex, shared, listed []byte, err error) {
+// readStdBundleSections checks data and decodes its shared section's
+// records, answering the sections too.
+func readStdBundleSections(data []byte) (recs []*stdModuleRecord, shared, listed []byte, err error) {
+	defer func() {
+		// The reader bounds-checks what it reads; a panic is a bug in this
+		// file, and the bundle is still only a cache.
+		if r := recover(); r != nil {
+			recs, err = nil, fmt.Errorf("decoding the std bundle: %v", r)
+		}
+	}()
 	shared, listed, err = splitStdBundle(data)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	idx, err = decodeStdShared(shared)
+	recs, err = readSharedSection(shared)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return idx, shared, listed, nil
+	return recs, shared, listed, nil
 }
 
 // decodeStdShared builds the stdlib index from a shared section, with the
@@ -768,6 +863,16 @@ func decodeStdShared(data []byte) (idx *stdlibIndex, err error) {
 	if err != nil {
 		return nil, err
 	}
+	return restoreStdShared(recs)
+}
+
+// restoreStdShared is decodeStdShared from a shared section's records.
+func restoreStdShared(recs []*stdModuleRecord) (idx *stdlibIndex, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			idx, err = nil, fmt.Errorf("decoding the std bundle: %v", r)
+		}
+	}()
 	lib := std.Shared()
 	names := lib.ModuleNames()
 	lowered := map[string]bool{}

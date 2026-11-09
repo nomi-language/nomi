@@ -37,7 +37,7 @@
 ">>>" @operator
 "=" @operator
 "->" @operator
-"#{" @punctuation.bracket
+".{" @punctuation.bracket
 "#[" @punctuation.bracket
 "%{" @punctuation.bracket
 "%[" @punctuation.bracket
@@ -374,8 +374,8 @@
   (identifier) @variable.member)
 
 ; Struct update fields. The `:` in the pattern restricts this to the labeled
-; `#{..base, x: 9}`, where `x` is a field name and nothing else. A punned
-; `#{..base, x}` is deliberately left to the `(identifier) @variable` catch-all
+; `.{..base, x: 9}`, where `x` is a field name and nothing else. A punned
+; `.{..base, x}` is deliberately left to the `(identifier) @variable` catch-all
 ; at the top of this file, because that `x` is a variable read: it must be in
 ; scope or the program does not compile, and that is the part a reader can get
 ; wrong. It also keeps the captures agreeing with the semantic tokens editors
@@ -503,7 +503,7 @@
   binding: (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
 ; A destructure's nested pattern (`((_a, b), c) = pair`,
-; `#{x: Some(_n), y} = q else { ... }`), spelled as an expression.
+; `.{x: Some(_n), y} = q else { ... }`), spelled as an expression.
 (destructuring_binding
   pattern: [
     (call_expression (identifier) @comment)
@@ -558,7 +558,7 @@
 (map_pattern
   "=>" . (identifier) @comment
   (#match? @comment "^\\s*_($|[^_])"))
-; A punned field binds its name (`#{_w}`); a labeled one binds its pattern.
+; A punned field binds its name (`.{_w}`); a labeled one binds its pattern.
 (pattern_field
   . name: (identifier) @comment .
   (#match? @comment "^\\s*_($|[^_])"))
@@ -723,7 +723,7 @@
 ; Delimiters. The delimiters of data shape are @type, the colour of a struct
 ; name: a literal that builds a value (a struct's, map's or struct update's
 ; braces, a list's, vector's or set's brackets, a tuple's parentheses, each
-; with the `#` or `%` that starts it: `#{`, `Point{`, `%{`, `%Kvs{`, `#[`,
+; with the `.`, `#` or `%` that starts it: `.{`, `Point{`, `%{`, `%Kvs{`, `#[`,
 ; `%[`), a constructor call's parentheses, and every pattern's
 ; delimiters (tuple, list, vector, set, struct, map and variant-payload
 ; patterns, wherever they appear). Every other delimiter is program structure and keeps
@@ -732,17 +732,17 @@
 ; the expression it looks like (`Some((n, [a])) = found else {...}`,
 ; `assert Err(_) = r`) parses as the literal and call nodes below, so it
 ; takes @type with no rule of its own.
-(anon_struct ["#{" "}"] @type)
-(struct_update ["#{" "}"] @type)
+(anon_struct [".{" "}"] @type)
+(struct_update [".{" "}"] @type)
 (struct_construction ["{" "}"] @type)
 (map_construction ["%{" "%" "{" "}"] @type)
 (list ["[" "]"] @type)
 (vector ["#[" "#" "[" "]"] @type)
 (set ["%[" "%" "[" "]"] @type)
 (tuple_expression ["(" ")"] @type)
-(struct_pattern ["#{" "{" "}"] @type)
+(struct_pattern [".{" "{" "}"] @type)
 (map_pattern ["%{" "%" "{" "}"] @type)
-(destructuring_binding ["(" "#{" "%{" "%" ")" "{" "}"] @type)
+(destructuring_binding ["(" ".{" "%{" "%" ")" "{" "}"] @type)
 (tuple_pattern ["(" ")"] @type)
 (list_pattern ["[" "]"] @type)
 (vector_pattern ["#[" "#" "[" "]"] @type)

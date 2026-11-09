@@ -97,7 +97,7 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"a call of a type parameter's function", "import std::json.{Json, FromJson}\n\nfn f<T>(xs: List<Json>) -> List<Result<T, Json.ShapeError>> where T: FromJson {\n    Iter.map(xs, &T.from_json(&1)) |> Iter.to_list()\n}\n", "(Json) -> Result<T, Json.ShapeError>"},
 		{"named struct", "fn f() -> (Int) -> Point { &Point{x: &1, y: 0} }\n", "(Int) -> Point"},
 		{"named struct, two parameters", "fn f() -> (Int, Int) -> Point { &Point{y: &1, x: &2} }\n", "(Int, Int) -> Point"},
-		{"anonymous struct where a Point is expected", "fn f() -> (Int) -> Point { &#{x: &1, y: 0} }\n", "(Int) -> Point"},
+		{"anonymous struct where a Point is expected", "fn f() -> (Int) -> Point { &.{x: &1, y: 0} }\n", "(Int) -> Point"},
 		{"generic struct", "fn f() -> (String) -> Box<String> { &Box{v: &1} }\n", "(String) -> Box<String>"},
 		{"struct-shaped variant", "fn f() -> (Float) -> Shape { &Shape.Circle{radius: &1} }\n", "(Float) -> Shape"},
 		{"dot struct-shaped variant", "fn f() -> (Float) -> Shape { &.Circle{radius: &1} }\n", "(Float) -> Shape"},

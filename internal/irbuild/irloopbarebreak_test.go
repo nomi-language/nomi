@@ -37,7 +37,7 @@ fn main() {
     // An else binding: the pattern fails once five elements are dropped.
     b = Iter.loop(Tally{label: "t", count: 0}, fn t -> {
         Some(_) = first_even(Iter.drop([1, 3, 2, 5, 4], t.count) |> Iter.to_list()) else { break }
-        #{..t, count: t.count + 1}
+        .{..t, count: t.count + 1}
     })
     io.inspect(b)
     // A case arm, bare and in a block.
@@ -63,9 +63,9 @@ fn main() {
         case t.count % 2 {
             0 -> {
                 if t.count >= 4 { break }
-                #{..t, count: t.count + 1}
+                .{..t, count: t.count + 1}
             }
-            _ -> #{..t, count: t.count + 1}
+            _ -> .{..t, count: t.count + 1}
         }
     })
     io.inspect(e)
@@ -145,10 +145,10 @@ fn open(inputs: List<String>) -> Account {
         (rest, account) = state
         Some(input) = List.head(rest) else { break }
         case parse_amount(input) {
-            Ok(amount) -> break (rest, #{..account, balance: amount})
+            Ok(amount) -> break (rest, .{..account, balance: amount})
             Err(msg) -> {
                 io.print(msg)
-                (Iter.drop(rest, 1) |> Iter.to_list(), #{..account, name: "${account.name}!"})
+                (Iter.drop(rest, 1) |> Iter.to_list(), .{..account, name: "${account.name}!"})
             }
         }
     })

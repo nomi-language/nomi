@@ -33,8 +33,7 @@ fn sum(tree: Tree) -> Int {
 
 fn depth(tree: Tree) -> Int {
     case tree {
-        Tree.Leaf(_) ->
-            1
+        Tree.Leaf(_) -> 1
 
         Tree.Node(kids) ->
             1 + (kids
@@ -49,8 +48,7 @@ fn total(dir: Dir) -> Int {
 
 fn eval(expr: Expr) -> Int {
     case expr {
-        Expr.Num(n) ->
-            n
+        Expr.Num(n) -> n
 
         Expr.Block(stmts) ->
             stmts |> Iter.map(fn stmt -> eval(stmt.body)) |> Iter.reduce(0, fn sum, n -> sum + n)

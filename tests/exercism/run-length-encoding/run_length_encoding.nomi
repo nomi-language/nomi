@@ -6,7 +6,7 @@ import std::regex.Regex
 /// the character once. A character that is not repeated keeps no count.
 pub fn encode(text: String) -> String {
     text
-    |> Iter.chunk_by(fn letter -> letter)
+    |> Iter.chunk_equal()
     |> Iter.map(encode_run)
     |> String.join()
 }

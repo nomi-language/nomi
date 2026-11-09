@@ -58,8 +58,7 @@ func TestFormat_WidthBrokenListStaysBroken(t *testing.T) {
 				"}\n",
 			"fn decode(r: Result<Int, String>) -> Result<Int, Shape> {\n" +
 				"    case r {\n" +
-				"        Ok(parsed) ->\n" +
-				"            Ok(parsed)\n" +
+				"        Ok(parsed) -> Ok(parsed)\n" +
 				"\n" +
 				"        Err(_) ->\n" +
 				"            Err(\n" +
@@ -96,7 +95,7 @@ func TestFormat_WidthBrokenListStaysBroken(t *testing.T) {
 // The same holds for a struct literal's fields, a function's parameters,
 // the short form of an `if` and a case arm's body below its `->`.
 func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
-	src := "fn record_sum((p_rather_long_rather_long_rather_long): #{x_rather_long: Int, y_rather_long_rather_long_rather_long_rather_long: Int}) -> Int {\n" +
+	src := "fn record_sum((p_rather_long_rather_long_rather_long): .{x_rather_long: Int, y_rather_long_rather_long_rather_long_rather_long: Int}) -> Int {\n" +
 		"    p_rather_long_rather_long_rather_long.x\n" +
 		"}\n" +
 		"\n" +
@@ -106,16 +105,16 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 		"\n" +
 		"fn label2(check: Check) -> String {\n" +
 		"    .Valid{addr} = check else {\n" +
-		"        .Invalid(_) -> #{addr_rather_long_rather_long_rather_long_rather_long: \"unknown\", score_rather_long_rather_long_rather_long: 0}\n" +
+		"        .Invalid(_) -> .{addr_rather_long_rather_long_rather_long_rather_long: \"unknown\", score_rather_long_rather_long_rather_long: 0}\n" +
 		"    }\n" +
 		"    addr\n" +
 		"}\n" +
 		"\n" +
 		"fn main() {\n" +
-		"    p = #{address_rather_long: Address{street_rather_long_rather_long_rather_long: \"1 Main\", city_rather_long: \"Springfield\"}}\n" +
+		"    p = .{address_rather_long: Address{street_rather_long_rather_long_rather_long: \"1 Main\", city_rather_long: \"Springfield\"}}\n" +
 		"}\n"
 	want := "fn record_sum(\n" +
-		"    p_rather_long_rather_long_rather_long: #{\n" +
+		"    p_rather_long_rather_long_rather_long: .{\n" +
 		"        x_rather_long: Int,\n" +
 		"        y_rather_long_rather_long_rather_long_rather_long: Int,\n" +
 		"    },\n" +
@@ -137,7 +136,7 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 		"fn label2(check: Check) -> String {\n" +
 		"    .Valid{addr} = check else {\n" +
 		"        .Invalid(_) ->\n" +
-		"            #{\n" +
+		"            .{\n" +
 		"                addr_rather_long_rather_long_rather_long_rather_long: \"unknown\",\n" +
 		"                score_rather_long_rather_long_rather_long: 0,\n" +
 		"            }\n" +
@@ -147,7 +146,7 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 		"}\n" +
 		"\n" +
 		"fn main() {\n" +
-		"    p = #{\n" +
+		"    p = .{\n" +
 		"        address_rather_long: Address{\n" +
 		"            street_rather_long_rather_long_rather_long: \"1 Main\",\n" +
 		"            city_rather_long: \"Springfield\",\n" +
@@ -160,12 +159,12 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 // And for the short form of a pattern binding's `else` block.
 func TestFormat_WidthBrokenElseBlockStaysBroken(t *testing.T) {
 	src := "fn whole(c: Check) -> Int {\n" +
-		"    .Valid(r_rather_long) = c else { #{addr_rather_long_rather_long_rather_long_rather_long: \"none\", score_rather_long_rather_long: -1} }\n" +
+		"    .Valid(r_rather_long) = c else { .{addr_rather_long_rather_long_rather_long_rather_long: \"none\", score_rather_long_rather_long: -1} }\n" +
 		"    r_rather_long.score\n" +
 		"}\n"
 	want := "fn whole(c: Check) -> Int {\n" +
 		"    .Valid(r_rather_long) = c else {\n" +
-		"        #{\n" +
+		"        .{\n" +
 		"            addr_rather_long_rather_long_rather_long_rather_long: \"none\",\n" +
 		"            score_rather_long_rather_long: -1,\n" +
 		"        }\n" +
@@ -178,9 +177,9 @@ func TestFormat_WidthBrokenElseBlockStaysBroken(t *testing.T) {
 // And for a block of one statement, whose short form is `{ stmt }`. Found
 // by FuzzFormatKeepsMeaning: the inner block forces the literal broken.
 func TestFormat_BrokenBlockStaysBroken(t *testing.T) {
-	src := "{#{a:\"\",a:{0;\"\"}}}\n"
+	src := "{.{a:\"\",a:{0;\"\"}}}\n"
 	want := "{\n" +
-		"    #{\n" +
+		"    .{\n" +
 		"        a: \"\",\n" +
 		"        a: {\n" +
 		"            0\n" +
@@ -209,8 +208,7 @@ func TestFormat_WidthBrokenMapPatternStaysBroken(t *testing.T) {
 		"        } ->\n" +
 		"            v\n" +
 		"\n" +
-		"        _ ->\n" +
-		"            \"?\"\n" +
+		"        _ -> \"?\"\n" +
 		"    }\n" +
 		"}\n"
 	formatsKeepingMeaning(t, src, want)

@@ -27,7 +27,7 @@ pub fn prime(n: Int) -> Maybe<Int> {
 fn is_prime(number: Int) -> Bool {
     Iter.from(2)
     |> Iter.take_while(fn d -> d * d <= number)
-    |> Iter.all(fn d -> number % d != 0)
+    |> Iter.all_match(fn d -> number % d != 0)
 }
 
 // FILE: nth_prime_test.nomi
@@ -55,5 +55,5 @@ test result: ok. 5 passed, 0 failed
 
 - `prime` returns `Maybe<Int>`: there is no zeroth prime, and `None` says so without an error type for the one way to fail.
 - The primes are a lazy pipe, `Iter.from(2) |> Iter.filter(is_prime) |> Iter.get(n - 1)`, rather than a sieve: the sieve needs a limit chosen in advance, and the 10,001st prime takes well under a second by trial division.
-- `is_prime` tries divisors up to the square root with `Iter.take_while` and `Iter.all`, which stops at the first divisor.
+- `is_prime` tries divisors up to the square root with `Iter.take_while` and `Iter.all_match`, which stops at the first divisor.
 - The five canonical cases are one `subtests` table.

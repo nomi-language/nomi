@@ -11,7 +11,7 @@ are called through their owner rather than as methods on a value.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
-## What differs
+## Will trip you up
 
 | TypeScript | Nomi |
 |---|---|
@@ -19,19 +19,28 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `xs.length`, `s.trim()`, `xs.map(f)` | `Iter.count(xs)`, `String.trim(s)`, `Iter.map(xs, f)`: there are no method calls. |
 | `x?: T`, `T \| undefined`, `null` | `Maybe<T>`: `Some(v)` or `None` |
 | `throw new Error(..)`, `try { .. }` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
-| `{ name: "Ada" }` | `User{name: "Ada"}` for a declared struct, `#{name: "Ada"}` for an anonymous one |
-| `{ ...user, age: 41 }` | `#{..user, age: 41}` |
-| `{ kind: "circle"; r: number } \| ..` | `enum Shape { Circle {radius: Float} .. }` |
 | `switch (s.kind) { case "circle": .. }` | `case s { .Circle{radius} -> .. }`, which must cover every variant |
-| `[a, b]` as a pair, `Record<string, number>` | `(a, b)`, `Map<String, Int>` written `%{"a" => 1}` |
-| `xs.filter(f).map(g)` | `xs \|> Iter.filter(f) \|> Iter.map(g) \|> Iter.to_list()` |
-| `async` / `await`, `Promise.all` | `Task.spawn` and `Task.await` inside `concurrent { .. }` |
+| `[a, b]` as a pair, `pair[0]` | `(a, b)`, `pair.first` |
+| `x as Item` | Also `x as Item`, but checked: it states a type the value already fits (`[] as List<String>`) and converts nothing |
+| `number`, where `7 / 2` is `3.5` | `Int`, exact at any size, and `Float`, a 64-bit float. Neither converts to the other on its own. `/` on two `Int`s truncates toward zero, so `7 / 2` is `3`; convert an operand with `Int.to_float` for a `Float` result. |
+| `0.1 + 0.2 !== 0.3`, or a library such as decimal.js for money | `1.50d` is a `Decimal`, which is exact: `0.1d + 0.2d == 0.3d`. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Money](/money/). |
 | `===` | `==`, which compares values structurally |
+| `async` / `await`, `Promise.all` | `Task.spawn` and `Task.await` inside `concurrent { .. }` |
+| `try { .. } finally { f.close() }`, `using` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
+| A module-level singleton, `export const db = ..`, or a DI container | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
+
+## Spelled differently
+
+| TypeScript | Nomi |
+|---|---|
+| `{ name: "Ada" }` | `User{name: "Ada"}` for a declared struct, `.{name: "Ada"}` for an anonymous one |
+| `{ ...user, age: 41 }` | `.{..user, age: 41}` |
+| `{ kind: "circle"; r: number } \| ..` | `enum Shape { Circle {radius: Float} .. }` |
+| `Record<string, number>` | `Map<String, Int>`, written `%{"a" => 1}` |
+| `xs.filter(f).map(g)` | `xs \|> Iter.filter(f) \|> Iter.map(g) \|> Iter.to_list()` |
 | `export function` | `pub fn` |
 | `describe` / `it` | `test "name" { assert .. }` beside the code |
-
-`number` splits in two: `Int` is exact at any size and `Float` is a 64-bit
-float, and neither converts to the other on its own.
+| Express's `app.get("/users/:id", ..)`, with `req.params.id` a string | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 A TypeScript frontend can share a Nomi backend's JSON shapes: `nomi types`
 writes a TypeScript declaration for each, and [Frontends](/frontends/#a-javascript-frontend)
@@ -63,7 +72,7 @@ function parseQty(text: string): number {
 struct Item {
     name: String
     price: Int
-    qty: Int = 1
+    qty = 1
 }
 
 fn total(items: List<Item>) -> Int {
@@ -102,6 +111,7 @@ ok the same program
 test result: ok. 1 passed, 0 failed
 -->
 
-A field default, `qty: Int = 1`, takes the place of an optional property
-and `??`. `cheapest` returns `None` for an empty list instead of
-`undefined`, and the caller's `case` or `?` has to handle it.
+A field default, `qty = 1`, takes the place of an optional property and
+`??`; the field's type comes from the default. `cheapest` returns `None`
+for an empty list instead of `undefined`, and the caller's `case` or `?`
+has to handle it.

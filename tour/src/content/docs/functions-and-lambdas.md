@@ -185,7 +185,7 @@ runs.
 ## Default parameter values
 
 ```nomi-run
-fn greet(name: String, greeting: String = "Hello") -> String {
+fn greet(name: String, greeting = "Hello") -> String {
     "${greeting}, ${name}!"
 }
 
@@ -211,8 +211,8 @@ A parameter can have a default value. A caller can leave that argument out,
 or pass a value to replace the default.
 
 A parameter with a default can leave its type off when the default says
-it, as the lambda's `y = 10` does: `greeting = "Hello"` would make
-`greeting` a `String` too. An empty list or `None` says no type, so a
+it: `greeting = "Hello"` makes `greeting` a `String`, and the lambda's
+`y = 10` makes `y` an `Int`. An empty list or `None` says no type, so a
 parameter with one of those as its default keeps the type written.
 
 Passed to a function such as `Iter.map`, `greet` still fills `greeting` from

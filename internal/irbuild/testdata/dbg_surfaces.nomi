@@ -107,7 +107,7 @@ test "dbg over containers and prelude instances" {
     _pair = dbg (1, "two")
     _some = dbg Some(42)
     _none: Maybe<Int> = dbg None
-    _rec = dbg #{a: 1, a0: 2}
+    _rec = dbg .{a: 1, a0: 2}
     _fn = dbg double
     refute no_rev(Rev{zeta: 0, alpha: 0})
 }

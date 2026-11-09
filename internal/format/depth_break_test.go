@@ -36,8 +36,8 @@ func TestFormat_DepthBreakLeavesElementsToThemselves(t *testing.T) {
 		},
 		{
 			"struct three deep",
-			"fn main() {\n    deep = Struct.update(w, #{label: \"two\", person: #{address: #{zip: \"99999\"}}})\n}\n",
-			"fn main() {\n    deep = Struct.update(w, #{\n        label: \"two\",\n        person: #{address: #{zip: \"99999\"}},\n    })\n}\n",
+			"fn main() {\n    deep = Struct.update(w, .{label: \"two\", person: .{address: .{zip: \"99999\"}}})\n}\n",
+			"fn main() {\n    deep = Struct.update(w, .{\n        label: \"two\",\n        person: .{address: .{zip: \"99999\"}},\n    })\n}\n",
 		},
 		{
 			"struct holding a list of structs",
@@ -64,8 +64,8 @@ func TestFormat_DepthBreakLeavesElementsToThemselves(t *testing.T) {
 // A literal broken for its depth keeps its comments: the comments before a
 // closing bracket.
 func TestFormat_DepthBreakKeepsComments(t *testing.T) {
-	src := "fn main() {\n    x = Some([[#{a: [1, 2] // end\n    }]])\n}\n"
-	want := "fn main() {\n    x = Some([\n        [\n            #{\n                a: [1, 2], // end\n            },\n        ],\n    ])\n}\n"
+	src := "fn main() {\n    x = Some([[.{a: [1, 2] // end\n    }]])\n}\n"
+	want := "fn main() {\n    x = Some([\n        [\n            .{\n                a: [1, 2], // end\n            },\n        ],\n    ])\n}\n"
 	formatsKeepingMeaning(t, src, want)
 }
 

@@ -6,7 +6,7 @@ import "testing"
 // over a list whose element is an interface value: the Maybe is instantiated
 // at the existential element, as `Map.get` and a hand-written `Maybe<Named>`
 // already were, and the found value dispatches to its own impl. The stages
-// beside them (`filter`, `any`, `all`, `count`, `map` with a capturing
+// beside them (`filter`, `any_match`, `all_match`, `count`, `map` with a capturing
 // closure) are here so a change to the element's kind cannot break them
 // unnoticed.
 func TestIterMaybeTerminalsOverInterfaceElements(t *testing.T) {
@@ -54,8 +54,8 @@ fn main() {
     empty: List<Named> = []
     io.print(shown(empty |> Iter.first()))
     io.print(xs |> Iter.filter(fn n -> Named.name(n) != "x") |> Iter.map(&Named.name(&1)) |> String.join(","))
-    io.print(Bool.to_string(xs |> Iter.any(fn n -> Named.name(n) == "y")))
-    io.print(Bool.to_string(xs |> Iter.all(fn n -> Named.name(n) == "y")))
+    io.print(Bool.to_string(xs |> Iter.any_match(fn n -> Named.name(n) == "y")))
+    io.print(Bool.to_string(xs |> Iter.all_match(fn n -> Named.name(n) == "y")))
     io.print(Int.to_string(xs |> Iter.count()))
     p = "<"
     io.print(xs |> Iter.map(fn n -> p + Named.name(n)) |> String.join(""))

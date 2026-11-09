@@ -1762,7 +1762,7 @@ func TestLambdaTupleDestructureMultiParams(t *testing.T) {
 }
 
 func TestLambdaStructDestructureParam(t *testing.T) {
-	expr := parseExpr(t, "fn #{x, y} -> x + y")
+	expr := parseExpr(t, "fn .{x, y} -> x + y")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -1790,7 +1790,7 @@ func TestLambdaStructDestructureParam(t *testing.T) {
 }
 
 func TestLambdaStructDestructureRenameParam(t *testing.T) {
-	expr := parseExpr(t, "fn #{name: n, age: a} -> n")
+	expr := parseExpr(t, "fn .{name: n, age: a} -> n")
 	lam, ok := expr.(*ast.Lambda)
 	if !ok {
 		t.Fatalf("expected *ast.Lambda, got %T", expr)
@@ -2969,7 +2969,7 @@ func TestTryIsAName(t *testing.T) {
 }
 
 func TestStructDestructurePunning(t *testing.T) {
-	nodes := parse(t, "#{x, y} = point")
+	nodes := parse(t, ".{x, y} = point")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -2989,7 +2989,7 @@ func TestStructDestructurePunning(t *testing.T) {
 }
 
 func TestStructDestructureRename(t *testing.T) {
-	nodes := parse(t, "#{x: a, y: b} = point")
+	nodes := parse(t, ".{x: a, y: b} = point")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
@@ -3024,7 +3024,7 @@ func TestPatternAssertionBindingEnumPattern(t *testing.T) {
 
 func TestCaseAnonStructPattern(t *testing.T) {
 	expr := parseExpr(t, `case point {
-	#{x: 1} -> "one"
+	.{x: 1} -> "one"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3045,7 +3045,7 @@ func TestCaseAnonStructPattern(t *testing.T) {
 
 func TestCaseAnonStructPatternBinding(t *testing.T) {
 	expr := parseExpr(t, `case point {
-	#{x, y} -> x + y
+	.{x, y} -> x + y
 	_ -> 0
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3068,11 +3068,11 @@ func TestCaseAnonStructPatternBinding(t *testing.T) {
 }
 
 // `_` in a struct-pattern field position is a wildcard — accepts any
-// value for that field without binding. Both anon (`#{a: _}`) and
+// value for that field without binding. Both anon (`.{a: _}`) and
 // variant-qualified (`Foo.Bar{a: _}`) struct patterns accept it.
 func TestCaseStructPatternWildcardField(t *testing.T) {
 	expr := parseExpr(t, `case point {
-  #{x: 1, y: _} -> "x=1"
+  .{x: 1, y: _} -> "x=1"
   _ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3096,7 +3096,7 @@ func TestCaseStructPatternWildcardField(t *testing.T) {
 
 func TestCaseStructPatternFloat(t *testing.T) {
 	expr := parseExpr(t, `case point {
-	#{score: 3.14} -> "pi"
+	.{score: 3.14} -> "pi"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3118,7 +3118,7 @@ func TestCaseStructPatternFloat(t *testing.T) {
 
 func TestCaseStructPatternNegativeInt(t *testing.T) {
 	expr := parseExpr(t, `case point {
-	#{x: -1} -> "negative"
+	.{x: -1} -> "negative"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3306,7 +3306,7 @@ func TestParser_StructLit_TypePrefixed_StillWorks(t *testing.T) {
 // A LITERAL BODY ATTACHES TO A MODULE-QUALIFIED NAME. Without that, none of
 // these parsed as a literal: the chain stopped at the member access and the
 // body became a separate anonymous struct or list, which the checker then
-// reported as `non-final expression has type #{r: Int}`.
+// reported as `non-final expression has type .{r: Int}`.
 //
 // The boundary is the LITERAL-ATTACH forms specifically. `shapes.Shape.Square(4)`
 // worked throughout because a call is a postfix form; `{` and `[` are only
@@ -5568,11 +5568,11 @@ func TestParseRawTaggedTriple(t *testing.T) {
 
 // TestParser_AnonStructTypeInTuple verifies that an anonymous struct type
 // can appear as an element of a distinct-tuple type:
-// `type Tagged (String, #{name: String, age: Int})`. The InnerTypeExpr is a
+// `type Tagged (String, .{name: String, age: Int})`. The InnerTypeExpr is a
 // tuple-form FuncType (Return == nil) whose second element is an
 // AnonStructType with two StructField entries, no defaults.
 func TestParser_AnonStructTypeInTuple(t *testing.T) {
-	nodes := parse(t, "type Tagged (String, #{name: String, age: Int})\n")
+	nodes := parse(t, "type Tagged (String, .{name: String, age: Int})\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5614,7 +5614,7 @@ func TestParser_AnonStructTypeInTuple(t *testing.T) {
 // TestParser_AnonStructTypeInFunctionParam verifies an anon struct type as
 // a function parameter annotation.
 func TestParser_AnonStructTypeInFunctionParam(t *testing.T) {
-	nodes := parse(t, "fn greet(p: #{name: String, age: Int}) -> String { p.name }\n")
+	nodes := parse(t, "fn greet(p: .{name: String, age: Int}) -> String { p.name }\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5641,10 +5641,10 @@ func TestParser_AnonStructTypeInFunctionParam(t *testing.T) {
 }
 
 // TestParser_AnonStructTypeInGenericArg verifies an anon struct type as a
-// generic type argument: `List<#{x: Int, y: Int}>`. The function param's
+// generic type argument: `List<.{x: Int, y: Int}>`. The function param's
 // TypeAnnotation is a GenericType whose Params[0] is the AnonStructType.
 func TestParser_AnonStructTypeInGenericArg(t *testing.T) {
-	nodes := parse(t, "fn first(_xs: List<#{x: Int, y: Int}>) -> Int { 0 }\n")
+	nodes := parse(t, "fn first(_xs: List<.{x: Int, y: Int}>) -> Int { 0 }\n")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(nodes))
 	}
@@ -5699,11 +5699,11 @@ func TestParser_AnonStructType_RejectedAtTopLevelType(t *testing.T) {
 
 // TestParser_AnonStructType_RequiresSeparatorBetweenFields pins the rule
 // that adjacent fields must be separated by a comma or a newline. Run-on
-// fields like `#{a: Int b: Int}` are rejected — they're indistinguishable
+// fields like `.{a: Int b: Int}` are rejected — they're indistinguishable
 // from a field type that happens to start with another identifier, and
 // reading them is unpleasant.
 func TestParser_AnonStructType_RequiresSeparatorBetweenFields(t *testing.T) {
-	tokens := lexer.Lex("fn f(p: #{a: Int b: Int}) -> Int { p.a }\n")
+	tokens := lexer.Lex("fn f(p: .{a: Int b: Int}) -> Int { p.a }\n")
 	_, err := Parse(tokens)
 	if err == nil {
 		t.Fatal("expected parse error, got nil")
@@ -6140,7 +6140,7 @@ func TestParseTestsSetupExpression(t *testing.T) {
 	nodes, err := Parse(lexer.Lex(`group "fixture" {
   setup Config{name: "Ada"}
 
-  test "reads setup", #{name} {
+  test "reads setup", .{name} {
     assert name == "Ada"
   }
 }

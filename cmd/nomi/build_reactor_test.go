@@ -36,7 +36,7 @@ derive ToJson for Shape
 derive FromJson for Shape
 
 export fn moved(p: Point, dx: Int) -> Point {
-    #{..p, x: p.x + dx}
+    .{..p, x: p.x + dx}
 }
 
 export fn grow(s: Shape) -> Shape {

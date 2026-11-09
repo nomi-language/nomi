@@ -103,8 +103,7 @@ impl Display for Error {
             Error.NotIso{code} ->
                 "`${code}` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`${code}:2`"
 
-            Error.Digits{digits} ->
-                "a currency has 0 to 18 minor digits, not ${digits}"
+            Error.Digits{digits} -> "a currency has 0 to 18 minor digits, not ${digits}"
         }
     }
 }

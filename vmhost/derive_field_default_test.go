@@ -38,7 +38,7 @@ var deriveFieldDefaults = []struct {
 	{"range", "v: List<Int> = 1..=3 |> Iter.to_list()", "[1, 2, 3]"},
 	{"call", "v: Map<String, Int> = Map.put(%{}, \"a\", 1)", "%{\"a\" => 1}"},
 	{"struct literal", "v: Inner = Inner{a: 1}", "Inner{a: 1}"},
-	{"struct update", "v: Inner = #{..Inner{a: 1}, a: 2}", "Inner{a: 2}"},
+	{"struct update", "v: Inner = .{..Inner{a: 1}, a: 2}", "Inner{a: 2}"},
 	{"dot variant", "v: Color = .Red", "Red"},
 }
 

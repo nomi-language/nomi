@@ -19,8 +19,7 @@ fn handle(req: Request) -> Result<Response, String> {
         |> Maybe.with_default("?")
 
     case req.path {
-        "/" ->
-            Ok(text(200, "hello ${req.method} n=${n}"))
+        "/" -> Ok(text(200, "hello ${req.method} n=${n}"))
 
         "/echo" ->
             Ok(Response{
@@ -38,8 +37,7 @@ fn handle(req: Request) -> Result<Response, String> {
             Err("refused request ${index}")
         }
 
-        _ ->
-            Ok(text(404, "not found"))
+        _ -> Ok(text(404, "not found"))
     }
 }
 

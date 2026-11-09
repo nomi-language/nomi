@@ -4,7 +4,7 @@
 // That is the discriminator, and its wrong answer is a field read that names
 // nothing rather than a comparison that comes out badly: main.nomi holds a
 // mirror of BOTH declarations under one Nomi name, and the structural
-// comparator built for `#{x: Int, y: Int}` reads `x` off a struct that
+// comparator built for `.{x: Int, y: Int}` reads `x` off a struct that
 // has only `lat`. Nominal identity is (declaring file, name) — in the builder
 // the `*typeDef` POINTER, and across the boundary the declaration NODE the
 // mirror carries verbatim.

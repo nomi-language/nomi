@@ -100,7 +100,7 @@ func Types() []TypeBinding {
 // beside it — `stdregex.Compile` against `stdregex.FFICompile` — is not
 // interchangeable with it in either direction: measured, 13 of 14 rt-shaped symbols
 // either error at this boundary or hand Nomi a different value (a struct where
-// the declaration says a tuple, `#{tag, ok, err}` where it says a Result). The
+// the declaration says a tuple, `.{tag, ok, err}` where it says a Result). The
 // VM's generated adapters call the FFI-shaped half.
 func Funcs() []Binding {
 	return []Binding{
@@ -184,6 +184,7 @@ func Funcs() []Binding {
 		{Name: "decimal.decimal_format_percent", Fn: stdformat.FFIFormatDecimalPercent, PanicsPropagate: true},
 		{Name: "decimal.decimal_parse_in", Fn: stdformat.FFIParseDecimal},
 		{Name: "decimal.decimal_parse_percent_in", Fn: stdformat.FFIParseDecimalPercent},
+		{Name: "decimal.decimal_refused", Fn: stdformat.FFIRefused, PanicsPropagate: true},
 		{Name: "float.float_format", Fn: stdformat.FFIFormatFloat, PanicsPropagate: true},
 		{Name: "float.float_format_percent", Fn: stdformat.FFIFormatFloatPercent, PanicsPropagate: true},
 		{Name: "float.float_parse_in", Fn: stdformat.FFIParseFloat},
@@ -199,6 +200,7 @@ func Funcs() []Binding {
 		{Name: "money_format.money_format_raw", Fn: stdformat.FFIFormatMoney},
 		{Name: "money_format.money_mixed", Fn: stdformat.FFIMoneyMixed, PanicsPropagate: true},
 		{Name: "money_format.money_parse_raw", Fn: stdformat.FFIParseMoney},
+		{Name: "money_format.money_refused", Fn: stdformat.FFIRefused, PanicsPropagate: true},
 		{Name: "locale.locale_fallbacks", Fn: stdlocale.FFIFallbacks},
 		{Name: "locale.locale_from_posix_raw", Fn: stdlocale.FFIFromPosix},
 		{Name: "locale.locale_language", Fn: stdlocale.FFILanguage},
@@ -347,7 +349,7 @@ func RtFuncs() []Binding {
 		{Name: "signatures_host.ed25519_public_from_bytes", Fn: stdhttp.SigEd25519PublicFromBytes},
 		{Name: "signatures_host.ed25519_public_bytes", Fn: stdhttp.SigEd25519PublicBytes},
 		{Name: "signatures_host.sign", Fn: stdhttp.SigSign},
-		{Name: "signatures_host.verify", Fn: stdhttp.SigVerify},
+		{Name: "signatures_host.is_valid", Fn: stdhttp.SigIsValid},
 		{Name: "http_host.seal", Fn: rt.Seal},
 		{Name: "http_host.open_sealed", Fn: rt.Open},
 		{Name: "base64.standard", Fn: rt.Base64Encode},

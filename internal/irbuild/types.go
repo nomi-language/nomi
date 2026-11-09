@@ -1129,7 +1129,7 @@ func (g *gen) settleLowerable(order []*typeDef) {
 // cannot be confused with an `Enum.Variant` reading.
 //
 // An *ast.AnonStructType names a RECORD — structural like the tuple form, and
-// canonicalized by field name so `#{x: Int, y: Int}` and `#{y: Int, x: Int}` are
+// canonicalized by field name so `.{x: Int, y: Int}` and `.{y: Int, x: Int}` are
 // one kind. See anonstruct.go.
 //
 // A SelfType or any other GenericType is by construction outside the subset;
@@ -1426,6 +1426,11 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		return named(d)
 	}
 	if d, found := g.ifaces[st.Name]; found {
+		if pd := g.stdProgOwnIface(d); pd != nil {
+			// A std instance's own module's interface held as a value is
+			// its caller's def, as another module's is (stdprogiface.go).
+			return existential(pd)
+		}
 		// An interface-typed position is an EXISTENTIAL: the concrete type is
 		// erased and only the interface survives. See impl.go.
 		if d.lowerable {

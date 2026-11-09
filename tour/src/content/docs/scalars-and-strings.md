@@ -158,8 +158,7 @@ decimal literal ends in `d`.
 rounded half-even, so `10d / 3d` is `3.333333333333333333333333333333333d`,
 and a quotient that ends is exact with no trailing zeros: `10.00d / 4d` is
 `2.5d`. To round to a number of places, name them and the rounding:
-`Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven)` is `3.33d` (import
-`std::decimal.RoundingMode` to name one).
+`Decimal.divide(10d, 3d, 2, .HalfEven)` is `3.33d`.
 
 ## String interpolation and concatenation
 
@@ -190,18 +189,18 @@ Interpolation turns each value into text with
 printing it.
 
 `${` is the only special sequence in a string. To write a literal `${`,
-write `\${`. A `$` on its own, `#` and `#{` are ordinary text:
+write `\${`. A `$` on its own is ordinary text:
 
 ```nomi-run
 import std::io
 
 fn main() {
-    io.print("echo \${HOME} costs $5 #{not a struct}")
+    io.print("echo \${HOME} costs $5")
 }
 
 ```
 <!-- expect
-echo ${HOME} costs $5 #{not a struct}
+echo ${HOME} costs $5
 -->
 
 To split text:
@@ -517,7 +516,7 @@ text (`$$` is a literal `$`):
 ```nomi-run
 import std::regex.Regex
 
-fn main() -> Result<Unit, String> {
+fn main() {
     text = "Order 1042 shipped 2026-10-25, order 977 on 2026-10-26"
     date = Regex`(\d{4})-(\d{2})-(\d{2})`
 
@@ -529,11 +528,7 @@ fn main() -> Result<Unit, String> {
     dbg String.replace(text, Regex`\d{3,4} `, "# ")
     dbg String.replace(text, date, "$3/$2/$1")
 
-    word = "order"
-    orders = Regex"(?i)${word} \\d+"?
-    dbg String.find_all(text, orders)
-
-    Ok(Unit)
+    dbg String.find_all(text, Regex`(?i)order \d+`)
 }
 ```
 <!-- expect
@@ -544,14 +539,13 @@ dbg line 10: String.captures(text, date) = Some(("2026", "10", "25"))
 dbg line 11: String.split("a, b,c ,  d", Regex`\s*,\s*`) = ["a", "b", "c", "d"]
 dbg line 12: String.replace(text, Regex`\d{3,4} `, "# ") = "Order # shipped 2026-10-25, order # on 2026-10-26"
 dbg line 13: String.replace(text, date, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
-dbg line 17: String.find_all(text, orders) = ["Order 1042", "order 977"]
+dbg line 15: String.find_all(text, Regex`(?i)order \d+`) = ["Order 1042", "order 977"]
 -->
 
-A pattern built from a value is written in double quotes, as
-`Regex"(?i)${word} \\d+"` (`(?i)` ignores case). The compiler can't check
-it, since the value is known only when the program runs, so it is a
-`Result` that you unwrap with `?` or `case`. Inside double quotes a backslash
-starts an escape, so the pattern's `\d` is written `\\d`.
+`(?i)` at the start of a pattern ignores case. A pattern in double quotes,
+as `Regex"\\d+"`, is compiled when the program runs, so it is a `Result`
+that you unwrap with `?` or `case`. Inside double quotes a backslash starts
+an escape, so the pattern's `\d` is written `\\d`.
 
 ## See it in action
 

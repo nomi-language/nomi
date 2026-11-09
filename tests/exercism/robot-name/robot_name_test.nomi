@@ -6,13 +6,11 @@ import {
 /// Whether `name` is two uppercase letters and three digits.
 fn is_well_formed(name: String) -> Bool {
     case String.to_codepoints(name) {
-        [a, b, c, d, e] -> {
-            is_letter = &Range.contains('A'..='Z', &1)
-            Iter.all([a, b], is_letter) and Iter.all([c, d, e], Codepoint.is_digit)
-        }
+        [a, b, c, d, e] ->
+            Iter.all_match([a, b], &(&1 in 'A'..='Z'))
+                and Iter.all_match([c, d, e], Codepoint.is_digit)
 
-        _ ->
-            False
+        _ -> False
     }
 }
 

@@ -270,7 +270,7 @@ test "a piped binding asserted bare" {
 }
 
 test "a piped binding refuted bare" {
-  small = [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any(fn x -> x > 4)
+  small = [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any_match(fn x -> x > 4)
   refute small
 }
 

@@ -231,11 +231,8 @@ pub fn relative(from: String, to: String) -> Maybe<String> {
 /// The relative path between two lists of names, the first name first.
 fn climb(from: List<String>, to: List<String>) -> Maybe<String> {
     case (from, to) {
-        ([a, ..from_rest], [b, ..to_rest]) when a == b ->
-            climb(from_rest, to_rest)
-
-        _ when Iter.contains(from, "..") ->
-            None
+        ([a, ..from_rest], [b, ..to_rest]) when a == b -> climb(from_rest, to_rest)
+        _ when Iter.contains(from, "..") -> None
 
         _ -> {
             up = from |> Iter.map(fn _ -> "..") |> Iter.to_list()
@@ -275,11 +272,8 @@ pub fn matches(pattern: String, p: String) -> Bool {
 
 fn match_names(patterns: List<String>, names: List<String>) -> Bool {
     case (patterns, names) {
-        ([], []) ->
-            True
-
-        (["**", ..rest], []) ->
-            match_names(rest, [])
+        ([], []) -> True
+        (["**", ..rest], []) -> match_names(rest, [])
 
         (["**", ..rest], [name, ..more]) ->
             if match_names(rest, names) {
@@ -296,8 +290,7 @@ fn match_names(patterns: List<String>, names: List<String>) -> Bool {
                 False
             }
 
-        _ ->
-            False
+        _ -> False
     }
 }
 
@@ -309,11 +302,8 @@ fn matches_hidden(pattern: String, name: String) -> Bool {
 /// Whether one name matches one pattern name, codepoint by codepoint.
 fn match_name(pattern: List<Codepoint>, name: List<Codepoint>) -> Bool {
     case (pattern, name) {
-        ([], []) ->
-            True
-
-        (['*', ..rest], []) ->
-            match_name(rest, [])
+        ([], []) -> True
+        (['*', ..rest], []) -> match_name(rest, [])
 
         (['*', ..rest], [_, ..more]) ->
             if match_name(rest, name) {
@@ -322,8 +312,7 @@ fn match_name(pattern: List<Codepoint>, name: List<Codepoint>) -> Bool {
                 match_name(pattern, more)
             }
 
-        (['?', ..rest], [_, ..more]) ->
-            match_name(rest, more)
+        (['?', ..rest], [_, ..more]) -> match_name(rest, more)
 
         (['[', ..set], [c, ..more]) ->
             case in_set(set, c) {
@@ -332,11 +321,8 @@ fn match_name(pattern: List<Codepoint>, name: List<Codepoint>) -> Bool {
                 None -> c == '[' and match_name(set, more)
             }
 
-        ([want, ..rest], [c, ..more]) when want == c ->
-            match_name(rest, more)
-
-        _ ->
-            False
+        ([want, ..rest], [c, ..more]) when want == c -> match_name(rest, more)
+        _ -> False
     }
 }
 
@@ -350,23 +336,18 @@ fn in_set(set: List<Codepoint>, c: Codepoint) -> Maybe<(Bool, List<Codepoint>)> 
                 None -> None
             }
 
-        _ ->
-            set_items(set, c, False)
+        _ -> set_items(set, c, False)
     }
 }
 
 fn set_items(items: List<Codepoint>, c: Codepoint, found: Bool) -> Maybe<(Bool, List<Codepoint>)> {
     case items {
-        [] ->
-            None
-
-        [']', ..rest] ->
-            Some((found, rest))
+        [] -> None
+        [']', ..rest] -> Some((found, rest))
 
         [low, '-', high, ..rest] when high != ']' ->
             set_items(rest, c, found or (c >= low and c <= high))
 
-        [item, ..rest] ->
-            set_items(rest, c, found or c == item)
+        [item, ..rest] -> set_items(rest, c, found or c == item)
     }
 }

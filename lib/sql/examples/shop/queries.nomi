@@ -13,7 +13,7 @@ import {
 /// The user with this email, if any.
 pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
     statement = runtime.statement(
-        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [`SELECT id, email, name, created_at FROM users WHERE email = `, ``],
         [runtime.bind(email)],
     )
 
@@ -28,7 +28,7 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
 /// Add a user, returning its id.
 pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
     statement = runtime.statement(
-        ["INSERT INTO users (email, name) VALUES (", ", ", ") RETURNING id"],
+        [`INSERT INTO users (email, name) VALUES (`, `, `, `) RETURNING id`],
         [runtime.bind(email), runtime.bind(name)],
     )
 
@@ -38,7 +38,7 @@ pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result
 /// Place an order for a user.
 pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
     statement = runtime.statement(
-        ["INSERT INTO orders (user_id, total) VALUES (", ", ", ") RETURNING id"],
+        [`INSERT INTO orders (user_id, total) VALUES (`, `, `, `) RETURNING id`],
         [runtime.bind(user_id), runtime.bind(total)],
     )
 
@@ -52,7 +52,7 @@ pub fn set_status(
     status: OrderStatus,
 ) -> Result<sqlkit.Changed, sql.Error> {
     statement = runtime.statement(
-        ["UPDATE orders SET status = ", " WHERE id = ", ""],
+        [`UPDATE orders SET status = `, ` WHERE id = `, ``],
         [runtime.bind(status), runtime.bind(id)],
     )
 
@@ -62,7 +62,7 @@ pub fn set_status(
 /// One order.
 pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
     statement = runtime.statement(
-        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ", ""],
+        [`SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = `, ``],
         [runtime.bind(id)],
     )
 
@@ -77,7 +77,7 @@ pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
 }
 
 /// A user's orders, newest first, each with the user's email.
-pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<#{
+pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<.{
     id: Int,
     status: OrderStatus,
     total: Decimal,
@@ -86,14 +86,14 @@ pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<
 }>, sql.Error> {
     statement = runtime.statement(
         [
-            "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ",
-            " ORDER BY o.placed_at DESC, o.id DESC LIMIT ",
-            "",
+            `SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = `,
+            ` ORDER BY o.placed_at DESC, o.id DESC LIMIT `,
+            ``,
         ],
         [runtime.bind(user_id), runtime.bind(limit)],
     )
 
-    runtime.list(conn, "orders_for_user", statement, fn row -> Ok(#{
+    runtime.list(conn, "orders_for_user", statement, fn row -> Ok(.{
             id: runtime.int<Int>("orders_for_user", row, 0)?,
             status: runtime.text<OrderStatus>("orders_for_user", row, 1)?,
             total: runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2)?,
@@ -104,19 +104,19 @@ pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<
 
 /// Every user with the number of orders they placed, including those who
 /// placed none.
-pub fn order_counts(conn: sql.Conn) -> Result<List<#{
+pub fn order_counts(conn: sql.Conn) -> Result<List<.{
     email: String,
     last_order: Maybe<Int>,
     orders: Int,
 }>, sql.Error> {
     statement = runtime.statement(
         [
-            "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+            `SELECT u.email, max(o.id) AS "last_order", count(o.id) AS "orders" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email`,
         ],
         [],
     )
 
-    runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
+    runtime.list(conn, "order_counts", statement, fn row -> Ok(.{
             email: runtime.text<String>("order_counts", row, 0)?,
             last_order: runtime.value_null<Int>("order_counts", row, 1)?,
             orders: runtime.value<Int>("order_counts", row, 2)?,
@@ -129,8 +129,8 @@ pub fn order_counts(conn: sql.Conn) -> Result<List<#{
 pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerRevenue>, sql.Error> {
     statement = runtime.statement(
         [
-            "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ",
-            " GROUP BY u.id, u.email ORDER BY revenue DESC",
+            `SELECT u.id AS user_id, u.email, count(*) AS "order_count", CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= `,
+            ` GROUP BY u.id, u.email ORDER BY revenue DESC`,
         ],
         [runtime.bind(since)],
     )
@@ -146,7 +146,7 @@ pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerReve
 /// Every order, streamed.
 pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
     statement = runtime.statement(
-        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id"],
+        [`SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id`],
         [],
     )
 
@@ -162,14 +162,14 @@ pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
 
 /// One order's status: a query of one column reads it as the enum.
 pub fn order_status(conn: sql.Conn, id: Int) -> Result<OrderStatus, sql.Error> {
-    statement = runtime.statement(["SELECT status FROM orders WHERE id = ", ""], [runtime.bind(id)])
+    statement = runtime.statement([`SELECT status FROM orders WHERE id = `, ``], [runtime.bind(id)])
 
     runtime.one(conn, "order_status", statement, fn row -> runtime.text("order_status", row, 0))
 }
 
 /// An order's status, if there is such an order.
 pub fn status_if_placed(conn: sql.Conn, id: Int) -> Result<Maybe<OrderStatus>, sql.Error> {
-    statement = runtime.statement(["SELECT status FROM orders WHERE id = ", ""], [runtime.bind(id)])
+    statement = runtime.statement([`SELECT status FROM orders WHERE id = `, ``], [runtime.bind(id)])
 
     runtime.optional(conn, "status_if_placed", statement, fn row -> {
         runtime.text("status_if_placed", row, 0)
@@ -179,7 +179,7 @@ pub fn status_if_placed(conn: sql.Conn, id: Int) -> Result<Maybe<OrderStatus>, s
 /// The status of each of a user's orders, oldest first.
 pub fn statuses_for_user(conn: sql.Conn, user_id: Int) -> Result<List<OrderStatus>, sql.Error> {
     statement = runtime.statement(
-        ["SELECT status FROM orders WHERE user_id = ", " ORDER BY id"],
+        [`SELECT status FROM orders WHERE user_id = `, ` ORDER BY id`],
         [runtime.bind(user_id)],
     )
 
@@ -190,7 +190,7 @@ pub fn statuses_for_user(conn: sql.Conn, user_id: Int) -> Result<List<OrderStatu
 
 /// Every order's status, streamed.
 pub fn all_statuses(conn: sql.Conn) -> sqlkit.Rows<OrderStatus> {
-    statement = runtime.statement(["SELECT status FROM orders ORDER BY id"], [])
+    statement = runtime.statement([`SELECT status FROM orders ORDER BY id`], [])
 
     runtime.rows(conn, "all_statuses", statement, fn row -> runtime.text("all_statuses", row, 0))
 }

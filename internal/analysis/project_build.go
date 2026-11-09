@@ -995,7 +995,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	for i, fb := range built {
 		ft := typed[i]
 		recordImplTypeArgs(fb.fa, ft.reg, fb.nodes)
-		if k := fb.fa.kept; k != nil {
+		if k := fb.fa.keptDecls(); k != nil {
 			k.typeErrors = append(slices.Clone(fb.fa.TypeErrors[ft.from:]), ft.declErrs...)
 		}
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, ft.declErrs...)

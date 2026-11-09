@@ -43,11 +43,8 @@ fn search(
     goal: Int,
 ) -> Result<Outcome, Error> {
     case Iter.find(frontier, fn (one, two) -> one == goal or two == goal) {
-        Some((one, two)) when one == goal ->
-            Ok(#{moves, goal_bucket: .One, other_bucket: two})
-
-        Some((one, _two)) ->
-            Ok(#{moves, goal_bucket: .Two, other_bucket: one})
+        Some((one, two)) when one == goal -> Ok(.{moves, goal_bucket: .One, other_bucket: two})
+        Some((one, _two)) -> Ok(.{moves, goal_bucket: .Two, other_bucket: one})
 
         None -> {
             next =

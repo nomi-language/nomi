@@ -518,8 +518,7 @@ func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
             z + 1
         }
 
-        _ ->
-            n
+        _ -> n
     }
 }
 `,

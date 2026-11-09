@@ -332,3 +332,37 @@ pub fn f() {
       name: (identifier)
       (parameters)
       (body))))
+
+================================================================================
+A line starting with a struct literal is a new statement
+================================================================================
+
+import std::io.{self, print}
+
+fn main() {
+    x = a
+    .{y: 1}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier))
+    (import_names
+      (import_self)
+      (import_entry
+        (identifier))))
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (identifier))
+      (anon_struct
+        (anon_struct_field
+          (identifier)
+          (integer))))))

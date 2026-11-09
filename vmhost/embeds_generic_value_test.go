@@ -46,7 +46,7 @@ struct Holder<T> {
 fn describe(s: Shape) -> String {
   case s {
     Shape.Circle{r} -> "circle ${r}"
-    Shape.Wrapped(#{r}) -> "wrapped ${r}"
+    Shape.Wrapped(.{r}) -> "wrapped ${r}"
     Shape.Dot -> "dot"
   }
 }
@@ -244,10 +244,10 @@ fn main() {
   vw: Vector<Shape> = v
   io.inspect(vw)
   io.inspect(v == #[Shape.Dot])
-  r = #{a: c, n: 1}
-  rw: #{a: Shape, n: Int} = r
+  r = .{a: c, n: 1}
+  rw: .{a: Shape, n: Int} = r
   io.inspect(rw)
-  io.inspect(r == #{a: Shape.Dot, n: 1})
+  io.inspect(r == .{a: Shape.Dot, n: 1})
 }
 `)
 	if err != nil {
@@ -260,7 +260,7 @@ False
 True
 #[Circle{r: 1}]
 False
-#{a: Circle{r: 1}, n: 1}
+.{a: Circle{r: 1}, n: 1}
 False
 `
 	if out != want {

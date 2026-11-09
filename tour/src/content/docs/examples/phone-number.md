@@ -31,15 +31,17 @@ pub enum Error {
 pub fn clean(phrase: String) -> Result<String, Error> {
     codepoints = String.to_codepoints(phrase)
 
-    if Iter.any(codepoints, Codepoint.is_letter) { return Err(.Letters) }
+    if Iter.any_match(codepoints, Codepoint.is_letter) { return Err(.Letters) }
 
-    if not Iter.all(codepoints, fn cp -> Codepoint.is_digit(cp) or is_separator(cp)) {
+    if not Iter.all_match(codepoints, fn cp -> Codepoint.is_digit(cp) or is_separator(cp)) {
         return Err(.Punctuation)
     }
 
-    digits = codepoints |> Iter.map(Codepoint.to_digit) |> Maybe.values()
-
-    digits = national(digits)?
+    digits =
+        codepoints
+        |> Iter.map(Codepoint.to_digit)
+        |> Maybe.values()
+        |> national()?
 
     case digits {
         [0, ..] -> Err(.AreaCodeStartsWithZero)

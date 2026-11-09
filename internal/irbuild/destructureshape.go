@@ -13,7 +13,7 @@ import (
 // distinct `Duration(x)`, a typed `Point{x, y}` and a single-variant enum in
 // both its tuple and brace spellings. This file handles the other two:
 //
-//	#{x, y}: Point       an ANONYMOUS STRUCT pattern over a NAMED struct.
+//	.{x, y}: Point       an ANONYMOUS STRUCT pattern over a NAMED struct.
 //	(a, b): (Int, Int) a TUPLE pattern, over an interned tagTuple whose
 //	                    components are addressed by position, as `case`'s
 //	                    tupleArm matches one.
@@ -27,7 +27,7 @@ import (
 //
 // destructureAnonStruct reads its field list from the interned RECORD kind, so
 // the pattern's field set is the whole of the value's type. Over a NAMED struct
-// the pattern's field set is a SUBSET of a DECLARATION's — `#{x}: Point` is legal
+// the pattern's field set is a SUBSET of a DECLARATION's — `.{x}: Point` is legal
 // and names one of two fields — and the match is against a type the pattern does
 // not name. Same node, two field sources, dispatched on src.k.
 //

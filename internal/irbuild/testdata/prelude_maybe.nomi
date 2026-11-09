@@ -48,8 +48,7 @@ fn depth(m: Maybe<Maybe<Int>>) -> String {
                 None -> "some none"
             }
 
-        None ->
-            "none"
+        None -> "none"
     }
 }
 

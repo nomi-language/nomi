@@ -111,7 +111,7 @@ func (g *gen) erasedImplResolves(d *ifaceDef, m *ifaceMethod, recv kind) bool {
 	if !g.hasTID(recv) {
 		return false
 	}
-	if impl := g.implsByIface[d.nomi][recv]; impl != nil && impl.lowerable {
+	if impl := g.implsByIface[g.implsKey(d)][recv]; impl != nil && impl.lowerable {
 		if it := impl.items[m.name]; it != nil && it.lowerable && len(it.params) == len(m.params) {
 			return true
 		}

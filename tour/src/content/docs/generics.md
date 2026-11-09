@@ -99,10 +99,16 @@ Without the `where` clause, `Iter.sort` is an error:
 To require more than one interface, join them with `and`:
 
 ```nomi ignore
-fn describe<T>(value: T) -> String where T: Display and Debug
+fn largest_label<T>(xs: List<T>) -> String where T: Comparable and Display
 ```
 
 `T` must implement every interface listed.
+
+A type parameter is for a type that comes back, in the result or another
+parameter, as `T` does in `first_two_sorted`. A parameter used only through
+one interface takes the interface as its type instead, as
+[Interfaces & Dispatch](/interfaces-and-dispatch/#interfaces-as-types)
+shows.
 
 ## Bounds on declarations
 

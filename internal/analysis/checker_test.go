@@ -739,11 +739,11 @@ fn f() -> Bool {
 // mismatches, so this test asserts the no-error path rather than a positive
 // type error.
 func TestCheckPipeTrailingLambdaMiddleDefault(t *testing.T) {
-	src := `fn pick(x: #{name: String}, _mode: Int = 0, f: (#{name: String}) -> String) -> String {
+	src := `fn pick(x: .{name: String}, _mode: Int = 0, f: (.{name: String}) -> String) -> String {
   f(x)
 }
 fn use_it() -> String {
-  user = #{name: "alice"}
+  user = .{name: "alice"}
   user |> pick(fn u -> u.name)
 }`
 	_, errs := checkSource(src)
@@ -1806,9 +1806,9 @@ func TestCheckPatternStructNilExpectedTy(t *testing.T) {
 
 func TestCheckPatternStructAnonymous(t *testing.T) {
 	src := `fn demo() -> String {
-  s = #{ name: "Alice", age: 30 }
+  s = .{ name: "Alice", age: 30 }
   case s {
-    #{name, age} -> name
+    .{name, age} -> name
   }
 }`
 	fa, errs := checkSource(src)
@@ -2090,7 +2090,7 @@ func TestCheckStructDestructureValid(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
 fn main() {
   p = Point{ x: 1, y: 2 }
-  #{x, y} = p
+  .{x, y} = p
 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2120,7 +2120,7 @@ fn main() {
 
 func TestCheckStructDestructureNotStruct(t *testing.T) {
 	src := `fn main() {
-  #{x} = 42
+  .{x} = 42
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "struct destructure requires a struct type")
@@ -2130,7 +2130,7 @@ func TestCheckStructDestructureUnknownField(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
 fn main() {
   p = Point{ x: 1, y: 2 }
-  #{z} = p
+  .{z} = p
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "field z not found in type Point")
@@ -2138,8 +2138,8 @@ fn main() {
 
 func TestCheckStructDestructureAnonymous(t *testing.T) {
 	src := `fn main() {
-  s = #{ name: "Alice", age: 30 }
-  #{name, age} = s
+  s = .{ name: "Alice", age: 30 }
+  .{name, age} = s
 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2519,7 +2519,7 @@ fn demo() -> Int {
 }
 
 // ---------------------------------------------------------------------------
-// Nominal struct call-form: Foo(#{a: 1, b: "x"}) coerces an anon-struct
+// Nominal struct call-form: Foo(.{a: 1, b: "x"}) coerces an anon-struct
 // argument into the nominal struct. Parallels Pair((1, "x")) for tuple-distinct
 // and Kvs(some_map) for map-distinct. Scope is constructor-only — broader
 // anon-struct -> nominal-struct coercion is intentionally out of scope.
@@ -2528,7 +2528,7 @@ fn demo() -> Int {
 func TestCheck_NominalStruct_CallForm_OK(t *testing.T) {
 	src := `struct Foo { a: Int; b: String }
 fn main() {
-  f = Foo(#{a: 1, b: "x"})
+  f = Foo(.{a: 1, b: "x"})
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2546,7 +2546,7 @@ fn main() {
 func TestCheck_NominalStruct_CallForm_FieldNameMismatch(t *testing.T) {
 	src := `struct Foo { a: Int; b: String }
 fn main() {
-  f = Foo(#{wrong: 1})
+  f = Foo(.{wrong: 1})
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2559,7 +2559,7 @@ fn main() {
 func TestCheck_NominalStruct_CallForm_FieldTypeMismatch(t *testing.T) {
 	src := `struct Foo { a: Int; b: String }
 fn main() {
-  f = Foo(#{a: "x", b: "y"})
+  f = Foo(.{a: "x", b: "y"})
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2573,7 +2573,7 @@ fn main() {
 func TestCheck_NominalStruct_CallForm_MissingField(t *testing.T) {
 	src := `struct Foo { a: Int; b: String }
 fn main() {
-  f = Foo(#{a: 1})
+  f = Foo(.{a: 1})
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2582,12 +2582,12 @@ fn main() {
 	expectError(t, errs, "b")
 }
 
-// Defaulted fields are not required: `Foo(#{a: 1})` with `b: String = "x"`
+// Defaulted fields are not required: `Foo(.{a: 1})` with `b: String = "x"`
 // type-checks cleanly because the default value covers `b`.
 func TestCheck_NominalStruct_CallForm_DefaultedFieldOmitted_OK(t *testing.T) {
 	src := `struct Foo { a: Int; b: String = "x" }
 fn main() {
-  f = Foo(#{a: 1})
+  f = Foo(.{a: 1})
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2596,7 +2596,7 @@ fn main() {
 func TestCheck_NominalStruct_CallForm_TooManyArgs(t *testing.T) {
 	src := `struct Foo { a: Int; b: String }
 fn main() {
-  f = Foo(#{a: 1}, #{b: "y"})
+  f = Foo(.{a: 1}, .{b: "y"})
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2617,12 +2617,12 @@ fn main() {
 	expectError(t, errs, "anonymous struct literal")
 }
 
-// Empty struct: the empty record `#{}` builds a zero-field struct and an
+// Empty struct: the empty record `.{}` builds a zero-field struct and an
 // all-defaulted one through the call form.
 func TestCheck_NominalStruct_CallForm_EmptyStruct_OK(t *testing.T) {
 	src := `struct Empty {}
 fn main() {
-  e = Empty(#{})
+  e = Empty(.{})
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2631,19 +2631,19 @@ fn main() {
 func TestCheck_NominalStruct_CallForm_AllDefaultedStruct_OK(t *testing.T) {
 	src := `struct AllDefaults { a: Int = 1 }
 fn main() {
-  d = AllDefaults(#{})
+  d = AllDefaults(.{})
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 // Generic structs go through the same call-form recognizer as non-generic
-// ones — a malformed `Box(#{wrong: 1})` must be rejected, not silently
+// ones — a malformed `Box(.{wrong: 1})` must be rejected, not silently
 // accepted by the legacy fall-through.
 func TestCheck_GenericStruct_CallForm_OK(t *testing.T) {
 	src := `struct Box<T> { v: T }
 fn main() {
-  b = Box(#{v: 1})
+  b = Box(.{v: 1})
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2652,7 +2652,7 @@ fn main() {
 func TestCheck_GenericStruct_CallForm_FieldNameMismatch(t *testing.T) {
 	src := `struct Box<T> { v: T }
 fn main() {
-  b = Box(#{wrong: 1})
+  b = Box(.{wrong: 1})
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -2664,7 +2664,7 @@ fn main() {
 func TestCheck_GenericStruct_CallForm_MissingField(t *testing.T) {
 	src := `struct Box<T> { v: T }
 fn main() {
-  b = Box(#{})
+  b = Box(.{})
 
 }`
 	_, errs := checkSource(src)
@@ -2680,7 +2680,7 @@ fn main() {
 func TestCheck_NominalStruct_NoBroadCoercion(t *testing.T) {
 	src := `struct Foo { a: Int; b: String }
 fn main() {
-  f: Foo = #{a: 1, b: "x"}
+  f: Foo = .{a: 1, b: "x"}
 }`
 	_, errs := checkSource(src)
 	if len(errs) == 0 {
@@ -3883,11 +3883,11 @@ func TestNaming_FunctionSnakeCase_OK(t *testing.T) {
 // ALWAYS snake_case with no nominal/anonymous distinction, but
 // checkNamingConventions walks top-level decls only, and an anon struct's
 // fields live in an expression or a type expression — so neither position was
-// ever visited and `#{userName: 1}` type-checked and ran.
+// ever visited and `.{userName: 1}` type-checked and ran.
 //
 // The two positions are checked in two different places and a fix to one does
 // NOT cover the other: the LITERAL is checked in checker.checkStructLit, the
-// TYPE in ResolveTypeExpr. A parameter annotated `#{is_ok: Int, ok_PRED: Int}`
+// TYPE in ResolveTypeExpr. A parameter annotated `.{is_ok: Int, ok_PRED: Int}`
 // reaches the IR builder with no literal anywhere, which is why both are pinned.
 //
 // `ok_PRED` is the spelling that motivated this: `internal/irbuild` spells a
@@ -3896,7 +3896,7 @@ func TestNaming_FunctionSnakeCase_OK(t *testing.T) {
 
 func TestNaming_AnonStructLiteralField_Rejected(t *testing.T) {
 	src := `fn f() -> Int {
-  a = #{userName: 1}
+  a = .{userName: 1}
   a.userName
 }`
 	_, errs := checkSource(src)
@@ -3904,7 +3904,7 @@ func TestNaming_AnonStructLiteralField_Rejected(t *testing.T) {
 }
 
 func TestNaming_AnonStructTypeField_Rejected(t *testing.T) {
-	src := `fn width(box: #{userName: Int}) -> Int {
+	src := `fn width(box: .{userName: Int}) -> Int {
   box.userName
 }`
 	_, errs := checkSource(src)
@@ -3915,7 +3915,7 @@ func TestNaming_AnonStructPredicateSuffix_OK(t *testing.T) {
 	// A trailing `?` IS snake_case (spec §2 *Naming Conventions*, the predicate convention), so the
 	// rule must not reject it — only the `_PRED` spelling that collides with it.
 	src := `fn f() -> Int {
-  a = #{is_ok: 1, count: 2}
+  a = .{is_ok: 1, count: 2}
   a.count
 }`
 	_, errs := checkSource(src)
@@ -3924,7 +3924,7 @@ func TestNaming_AnonStructPredicateSuffix_OK(t *testing.T) {
 
 func TestNaming_AnonStructPredCollisionField_Rejected(t *testing.T) {
 	src := `fn f() -> Int {
-  a = #{is_ok: 1, ok_PRED: 2}
+  a = .{is_ok: 1, ok_PRED: 2}
   a.ok_PRED
 }`
 	_, errs := checkSource(src)
@@ -4087,7 +4087,7 @@ myVar + y }`
 
 func TestNaming_StructDestructureMixedCase_Rejected(t *testing.T) {
 	src := `struct Person { name: String; age: Int }
-fn f(p: Person) -> Int { #{name: nameAlias, age} = p
+fn f(p: Person) -> Int { .{name: nameAlias, age} = p
 age }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "snake_case")
@@ -4707,15 +4707,15 @@ fn main() {
 // TestChecker_AnonStructType_FunctionParam exercises an anonymous struct
 // type as a function parameter annotation. Build + Check should succeed:
 // `greet`'s param type resolves to *analysis.AnonStructType with one
-// FieldDef, and the call site's anon struct literal `#{name: "World"}`
+// FieldDef, and the call site's anon struct literal `.{name: "World"}`
 // unifies with that param type via TypesEqual (already structural).
 func TestChecker_AnonStructType_FunctionParam(t *testing.T) {
-	src := `fn greet(p: #{name: String}) -> String {
+	src := `fn greet(p: .{name: String}) -> String {
   p.name
 }
 
 fn demo() -> String {
-  greet(#{name: "World"})
+  greet(.{name: "World"})
 }
 `
 	fa, errs := checkSource(src)
@@ -4748,11 +4748,11 @@ fn demo() -> String {
 // struct-type-field behavior. Resolving an anon struct type expression
 // registers a self-referential SymbolField at each field name's position,
 // matching what checkStructLit does for anon struct *literals*. Without
-// this, hover on `name` in `fn greet(p: #{name: String})` shows nothing
-// while hover on `name` in `#{name: "Bob"}` shows `name: String` — an
+// this, hover on `name` in `fn greet(p: .{name: String})` shows nothing
+// while hover on `name` in `.{name: "Bob"}` shows `name: String` — an
 // LSP-visible asymmetry.
 func TestChecker_AnonStructType_FieldNameRegistered(t *testing.T) {
-	src := `fn greet(p: #{name: String, age: Int}) -> String {
+	src := `fn greet(p: .{name: String, age: Int}) -> String {
   p.name
 }
 `
@@ -4796,7 +4796,7 @@ func TestChecker_AnonStructType_FieldNameRegistered(t *testing.T) {
 // Without this, the type checker's name-keyed equality relation would
 // silently pick whichever entry the map iteration landed on last.
 func TestChecker_AnonStructType_DuplicateFieldNameRejected(t *testing.T) {
-	src := `fn f(_p: #{a: Int, a: String}) -> Int { 0 }
+	src := `fn f(_p: .{a: Int, a: String}) -> Int { 0 }
 `
 	_, errs := checkSource(src)
 	expectError(t, errs, "duplicate field 'a'")
@@ -4808,7 +4808,7 @@ func TestChecker_AnonStructType_DuplicateFieldNameRejected(t *testing.T) {
 // name-keyed equality relation never sees a duplicate either side.
 func TestChecker_AnonStructLit_DuplicateFieldNameRejected(t *testing.T) {
 	src := `fn demo() -> Int {
-  s = #{a: 1, a: 2}
+  s = .{a: 1, a: 2}
   s.a
 }
 `
@@ -4820,12 +4820,12 @@ func TestChecker_AnonStructLit_DuplicateFieldNameRejected(t *testing.T) {
 // argument with fields in a different order than the parameter type still
 // type-checks. Equality is over the field set, not the field list.
 func TestChecker_AnonStructParam_AcceptsReorderedArg(t *testing.T) {
-	src := `fn f(p: #{a: Int, b: String}) -> String {
+	src := `fn f(p: .{a: Int, b: String}) -> String {
   p.b
 }
 
 fn demo() -> String {
-  f(#{b: "x", a: 1})
+  f(.{b: "x", a: 1})
 }
 `
 	_, errs := checkSource(src)
@@ -4835,14 +4835,14 @@ fn demo() -> String {
 // TestChecker_AnonStructInTuple_FieldOrderIgnored pins that nested anon
 // struct shapes inside a tuple type compare order-insensitively too.
 func TestChecker_AnonStructInTuple_FieldOrderIgnored(t *testing.T) {
-	src := `fn f(p: (Int, #{x: Int, y: Int})) -> Int {
+	src := `fn f(p: (Int, .{x: Int, y: Int})) -> Int {
   case p {
     (n, _) -> n
   }
 }
 
 fn demo() -> Int {
-  f((42, #{y: 2, x: 1}))
+  f((42, .{y: 2, x: 1}))
 }
 `
 	_, errs := checkSource(src)
@@ -4854,12 +4854,12 @@ fn demo() -> Int {
 // Without ContainsTypeParam / Substitute / unifyFull traversal, T stays
 // unbound and the call site silently fails to enforce the constraint.
 func TestChecker_GenericFn_AnonStructParam_InfersTypeArg(t *testing.T) {
-	src := `fn first<T>(p: #{head: T, tail: List<T>}) -> T {
+	src := `fn first<T>(p: .{head: T, tail: List<T>}) -> T {
   p.head
 }
 
 fn demo() -> Int {
-  first(#{head: 1, tail: [2, 3]})
+  first(.{head: 1, tail: [2, 3]})
 }
 `
 	_, errs := checkSource(src)
@@ -4870,12 +4870,12 @@ fn demo() -> Int {
 // negative side: when the anon-struct argument forces T to two different
 // types, inference must fail.
 func TestChecker_GenericFn_AnonStructParam_RejectsTypeMismatch(t *testing.T) {
-	src := `fn first<T>(p: #{head: T, tail: List<T>}) -> T {
+	src := `fn first<T>(p: .{head: T, tail: List<T>}) -> T {
   p.head
 }
 
 fn demo() -> Int {
-  first(#{head: 1, tail: ["a", "b"]})
+  first(.{head: 1, tail: ["a", "b"]})
 }
 `
 	_, errs := checkSource(src)
@@ -4890,10 +4890,10 @@ fn demo() -> Int {
 func TestChecker_AnonStructParam_GenericPayloadInfersTypeArg(t *testing.T) {
 	src := `enum Maybe<T> { Some(T); None }
 
-fn f(_p: #{head: Maybe<Int>}) -> Int { 0 }
+fn f(_p: .{head: Maybe<Int>}) -> Int { 0 }
 
 fn demo() -> Int {
-  f(#{head: Maybe.None})
+  f(.{head: Maybe.None})
 }
 `
 	_, errs := checkSource(src)
@@ -5040,7 +5040,7 @@ fn take(_x: Box<String>) {}`,
 		// `Box{}` all checked clean, and `Point{x: "s"}` and `Holder{p: 3}`
 		// did too. StructLitValidation routed that path through
 		// `checkStructLitAgainstStruct` — the validator the CALL form
-		// `Box(#{bogus: 1})` already used, pinned by
+		// `Box(.{bogus: 1})` already used, pinned by
 		// TestCheck_GenericStruct_CallForm_FieldNameMismatch — so the two
 		// spellings now report the same thing, which is what this row
 		// asserts. `want` names the field-NAME diagnostic; the missing-field
@@ -5196,7 +5196,7 @@ func TestCheckFileIsNotAValueEvenWhenEmpty(t *testing.T) {
 // not fit the annotation is the binding's mismatch.
 func TestCheckGenericStructLitFieldTakesAnnotation(t *testing.T) {
 	const decl = "struct Box<T> {\n  v: T\n}\n\n"
-	_, errs := checkSource(decl + "fn main() {\n  f: Box<(Int) -> Int> = Box{v: fn x -> x + 1}\n  g: Box<(Int) -> Int> = Box(#{v: fn x -> x * 2})\n  _ = f\n  _ = g\n}\n")
+	_, errs := checkSource(decl + "fn main() {\n  f: Box<(Int) -> Int> = Box{v: fn x -> x + 1}\n  g: Box<(Int) -> Int> = Box(.{v: fn x -> x * 2})\n  _ = f\n  _ = g\n}\n")
 	expectNoErrors(t, errs)
 	for _, tc := range []struct{ value, want string }{
 		{`Box{v: "s"}`, "type mismatch: expected Box<(Int) -> Int>, got Box<String>"},

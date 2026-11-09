@@ -597,16 +597,16 @@ pub fn sum_money(amounts: List<Money>) -> Money {
 
 /// A place on a page, held as a record.
 pub struct Spot {
-    at: #{x: Int, y: Int}
+    at: .{x: Int, y: Int}
 }
 
 /// The spot at n.
 pub fn spot(n: Int) -> Spot {
-    Spot{at: #{x: n, y: n + 1}}
+    Spot{at: .{x: n, y: n + 1}}
 }
 
 /// Where a spot is.
-pub fn place(s: Spot) -> #{x: Int, y: Int} {
+pub fn place(s: Spot) -> .{x: Int, y: Int} {
     s.at
 }
 

@@ -98,11 +98,11 @@ test "an enum's variant shapes render through Debug" {
 }
 
 test "Struct is a universal interface for named and anonymous structs" {
-    shapes: List<Struct> = [Dog{name: "Fido"}, Cat{lives: 9}, #{tag: "anon"}]
-    moved = Struct.update(Dog{name: "Rex"}, #{name: "Max"})
+    shapes: List<Struct> = [Dog{name: "Fido"}, Cat{lives: 9}, .{tag: "anon"}]
+    moved = Struct.update(Dog{name: "Rex"}, .{name: "Max"})
 
     assert Debug.inspect(echo_struct(Dog{name: "Rex"})) == "Dog{name: \"Rex\"}"
-    assert Debug.inspect(echo_struct(#{x: 1, y: 2})) == "#{x: 1, y: 2}"
+    assert Debug.inspect(echo_struct(.{x: 1, y: 2})) == ".{x: 1, y: 2}"
     assert count_shapes(shapes) == 3
     assert moved.name == "Max"
 }

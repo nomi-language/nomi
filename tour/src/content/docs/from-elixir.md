@@ -12,7 +12,7 @@ than `{:error, _}` tuples, and there are no atoms or processes with mailboxes.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
-## What differs
+## Will trip you up
 
 | Elixir | Nomi |
 |---|---|
@@ -22,17 +22,26 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `{:ok, v}`, `{:error, e}` | `Ok(v)`, `Err(e)`, and a postfix `?` instead of `with` |
 | `nil` | `None`, from `Maybe<T>` |
 | `:atom` | An enum variant: `.Ready` |
-| `{a, b}` | `(a, b)` |
-| `%{name: "Ada"}` (atom keys) | `#{name: "Ada"}`, an anonymous struct |
-| `%User{name: "Ada"}` | `User{name: "Ada"}`: `#` is a struct, `%` a map or set |
-| `"#{x}"` | `"${x}"` |
+| `{a, b}`, `elem(t, 0)` | `(a, b)`, `t.first` |
+| `%{name: "Ada"}` (atom keys) | `.{name: "Ada"}`, an anonymous struct |
 | `cond do`, `if .. do` | `if .. { } else if .. { }`. Without `else` it is `Some(x)` or `None`, where Elixir's is `x` or `nil`. |
+| `7 / 2` is `3.5`; `div(7, 2)`, `rem(-7, 3)` | `/` on two `Int`s is `div`: `7 / 2` is `3`, truncated toward zero. `%` is `rem`: `-7 % 3` is `-1`. Convert an operand with `Int.to_float` for a `Float` result. |
+| `spawn`, `send`, `receive` | `Task.spawn` in `concurrent { .. }`, and channels |
+| `File.open(path, fn file -> .. end)` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
+
+## Spelled differently
+
+| Elixir | Nomi |
+|---|---|
+| `%User{name: "Ada"}` | `User{name: "Ada"}`; `%` starts a map or set |
+| `"#{x}"` | `"${x}"` |
 | `when` guards | `when` guards, the same |
 | `defp` | A declaration without `pub` |
 | `alias MyApp.Db.Posts`, then `Posts.find(1)` | `import db::posts`, then `posts.find(1)`: a file is used by its path's last part. `import db` imports the directory, and `db::posts.find(1)` reaches the file through it. |
-| `spawn`, `send`, `receive` | `Task.spawn` in `concurrent { .. }`, and channels |
 | `Supervisor` | `Supervisor.new` in `boot` |
+| The application callback, `start/2`, which starts the supervision tree; settings read with `Application.get_env` | `fn boot() -> Result<App, String>` builds an `App` struct, and starts any supervisors, before `main` runs. Any function reads a field as `App.repo`. A test replaces one with `with App.repo = ..`. See [App Fields](/app-fields/). |
 | `ExUnit` | `test "name" { assert .. }` |
+| Phoenix's `get "/users/:id", UserController, :show`, with `%{"id" => id}` a string | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 ## The same program
 

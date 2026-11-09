@@ -158,7 +158,7 @@ fn as_binding(pair: (Int, Int)) -> Int {
 }
 
 fn struct_as_binding(q: Point) -> Int {
-    #{x: _c, y} as p = q
+    .{x: _c, y} as p = q
     //   ^ comment
     //       ^ variable
     y + p.x
@@ -181,7 +181,7 @@ fn nested_destructure(pair: ((Int, Int), Int)) -> Int {
 }
 
 fn struct_else(q: Slot) -> Int {
-    #{x: Some(_n), y} = q else {
+    .{x: Some(_n), y} = q else {
         //    ^ comment
         return 0
     }

@@ -54,7 +54,7 @@ test "keeps strings" {
 test "keeps lists" {
     lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
 
-    assert strain.keep(lists, &List.contains(&1, 5)) == [
+    assert strain.keep(lists, &(5 in &1)) == [
         [5, 5, 5],
         [5, 1, 2],
         [1, 5, 2],
@@ -85,7 +85,7 @@ test "discards strings" {
 test "discards lists" {
     lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
 
-    assert strain.discard(lists, &List.contains(&1, 5)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
+    assert strain.discard(lists, &(5 in &1)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
 }
 ```
 <!-- expect
@@ -103,4 +103,4 @@ test result: ok. 14 passed, 0 failed
 - `keep` is a `case` over `[]` and `[head, ..tail]`, with a `when` guard on the arm that keeps the head. Each kept item is consed onto what the rest keeps, so the order is the input's with no reverse.
 - `discard` is `keep` with the predicate negated, `&(not predicate(&1))`, so the walk is written once.
 - Both are generic over the item type, which the canonical data asks for with integers, strings and lists of integers. The integer cases are two `subtests` tables, one per function, whose predicate column is a function value, `(Int) -> Bool`; the string and list cases are one test each, since a table's columns have one type.
-- The canonical predicates are written as captures (`&(&1 % 2 == 1)`, `&String.starts_with(&1, "z")`, `&List.contains(&1, 5)`), and the constant ones as `fn _x -> True`.
+- The canonical predicates are written as captures (`&(&1 % 2 == 1)`, `&String.starts_with(&1, "z")`, `&(5 in &1)`), and the constant ones as `fn _x -> True`.

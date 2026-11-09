@@ -127,13 +127,13 @@ test "iter search predicates short circuit" {
     assert found == Some(101)
 
     assert Iter.from(0)
-        |> Iter.any(&(&1 == 50))
+        |> Iter.any_match(&(&1 == 50))
 
     assert [2, 4, 6]
-        |> Iter.all(fn x -> x % 2 == 0)
+        |> Iter.all_match(fn x -> x % 2 == 0)
 
     refute [2, 3, 4]
-        |> Iter.all(fn x -> x % 2 == 0)
+        |> Iter.all_match(fn x -> x % 2 == 0)
 }
 
 test "iter flattening materializes nested lists" {
@@ -247,8 +247,7 @@ enum Tree {
 impl Iter for Tree {
     fn each_while(t: Tree, yield: (Int) -> Bool) -> Bool {
         case t {
-            .Leaf ->
-                True
+            .Leaf -> True
 
             .Node(left, value, right) ->
                 if each_while(left, yield) {

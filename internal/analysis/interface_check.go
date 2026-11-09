@@ -36,7 +36,11 @@ import (
 //
 // F that is not the program's entry is built as a file its build reaches
 // (buildInputs.roots) from an entry with no declarations, so that it is
-// checked as a file other than the entry, as in the program.
+// checked as a file other than the entry, as in the program. That build
+// reads the program's entry, when F's closure holds it or it declares an
+// impl F can see, by its module key, where the program builds it under "";
+// what the program's check records of no file because it is the entry's
+// (the module a type function comes from) F's check drops too.
 
 // errNotInClosure is the loader's answer for a file a check against
 // interfaces does not read.
@@ -815,6 +819,17 @@ func (pi *ProgramInterfaces) check(key string, closure map[string]bool, relevant
 		}
 	}
 	sort.Strings(out.Bodies)
+	if key != pi.sp.Entry {
+		// The program's entry provides no type method: the program's
+		// check builds it under "" and records no module for a function
+		// it declares (recordTypeMethodModule). This build reaches the
+		// entry as a file like any other, by its module key, when it is in
+		// F's closure or declares an impl F can see.
+		delete(fa.TypeMethodModules, pi.sp.Entry)
+		for _, k := range out.Bodies {
+			delete(files[k].TypeMethodModules, pi.sp.Entry)
+		}
+	}
 	MarkTailCalls(nodes)
 	if _, ok := pi.headers[key]; !ok {
 		// Its impl headers, which a check of another file asks for, are

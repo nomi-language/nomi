@@ -78,8 +78,7 @@ derive Equatable for Error
 impl Display for Error {
     fn to_string(e: Error) -> String {
         case e {
-            Error.Empty ->
-                "a bit pattern needs at least one bit: `0`, `1`, `x` or a field letter"
+            Error.Empty -> "a bit pattern needs at least one bit: `0`, `1`, `x` or a field letter"
 
             Error.Character{index, found} ->
                 "`${found}` at index ${index} is not a bit: a bit pattern is written in `0`, `1`, `x`, one lowercase field letter and `_`"
@@ -122,11 +121,8 @@ impl Bits {
         scan = Iter.reduce(String.to_codepoints(text), start, fn acc, cp -> read_bit(acc, cp))
 
         case scan.failure {
-            Some(e) ->
-                Err(e)
-
-            None when scan.width == 0 ->
-                Err(Error.Empty)
+            Some(e) -> Err(e)
+            None when scan.width == 0 -> Err(Error.Empty)
 
             None ->
                 Ok(
@@ -242,9 +238,9 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan {
     found = Display.to_string(cp)
     index = s.index + 1
 
-    if found == "_" { return #{..s, index} }
+    if found == "_" { return .{..s, index} }
 
-    shifted = #{
+    shifted = .{
         ..s,
         index,
         width: s.width + 1,
@@ -255,31 +251,24 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan {
     }
 
     case found {
-        "0" ->
-            #{..shifted, mask: shifted.mask ||| 1}
-
-        "1" ->
-            #{..shifted, mask: shifted.mask ||| 1, value: shifted.value ||| 1}
-
-        "x" ->
-            shifted
+        "0" -> .{..shifted, mask: shifted.mask ||| 1}
+        "1" -> .{..shifted, mask: shifted.mask ||| 1, value: shifted.value ||| 1}
+        "x" -> shifted
 
         _ when not Codepoint.is_lower(cp) or Codepoint.to_int(cp) > 127 ->
-            #{..s, failure: Some(Error.Character{index: s.index, found})}
+            .{..s, failure: Some(Error.Character{index: s.index, found})}
 
         _ ->
             case s.field {
-                None ->
-                    #{..shifted, field: Some(found), field_mask: 1, closed: False}
+                None -> .{..shifted, field: Some(found), field_mask: 1, closed: False}
 
                 Some(field) when field != found ->
-                    #{..s, failure: Some(Error.SecondField{index: s.index, field, found})}
+                    .{..s, failure: Some(Error.SecondField{index: s.index, field, found})}
 
                 Some(field) when s.closed ->
-                    #{..s, failure: Some(Error.SplitField{index: s.index, field})}
+                    .{..s, failure: Some(Error.SplitField{index: s.index, field})}
 
-                Some(_) ->
-                    #{..shifted, field_mask: shifted.field_mask ||| 1, closed: False}
+                Some(_) -> .{..shifted, field_mask: shifted.field_mask ||| 1, closed: False}
             }
     }
 }

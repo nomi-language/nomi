@@ -74,11 +74,11 @@ func TestCaseExhaustive_CompoundScrutineesRejected(t *testing.T) {
 			"non-exhaustive case on List<Maybe<Int>>: missing [None, ..]",
 		},
 		"struct with a literal field": {
-			"fn f(p: Point) -> Int {\n  case p {\n    #{x: 0, y} -> y\n  }\n}",
+			"fn f(p: Point) -> Int {\n  case p {\n    .{x: 0, y} -> y\n  }\n}",
 			"non-exhaustive case: add a `_` arm",
 		},
 		"struct with an enum field": {
-			"fn f(s: Slot) -> Int {\n  case s {\n    #{name, value: Some(v)} -> v\n  }\n}",
+			"fn f(s: Slot) -> Int {\n  case s {\n    .{name, value: Some(v)} -> v\n  }\n}",
 			"non-exhaustive case on Slot: missing Slot{value: None, ..}",
 		},
 		"distinct over an enum": {
@@ -118,9 +118,9 @@ func TestCaseExhaustive_CompoundScrutineesAccepted(t *testing.T) {
 		"list by length":               "fn f(xs: List<Int>) -> Int {\n  case xs {\n    [] -> 0\n    [a] -> a\n    [a, b, ..rest] -> a + b\n  }\n}",
 		"list head and tail":           "fn f(xs: List<Int>) -> Int {\n  case xs {\n    [] -> 0\n    [h, ..t] -> h\n  }\n}",
 		"list of Maybes":               "fn f(xs: List<Maybe<Int>>) -> Int {\n  case xs {\n    [] -> 0\n    [Some(a), ..rest] -> a\n    [None, ..rest] -> 0\n  }\n}",
-		"struct binding fields":        "fn f(p: Point) -> Int {\n  case p {\n    #{x, y} -> x + y\n  }\n}",
-		"struct with enum field":       "fn f(s: Slot) -> Int {\n  case s {\n    #{name, value: Some(v)} -> v\n    #{name, value: None} -> 0\n  }\n}",
-		"struct literal field and _":   "fn f(p: Point) -> Int {\n  case p {\n    #{x: 0, y} -> y\n    _ -> 0\n  }\n}",
+		"struct binding fields":        "fn f(p: Point) -> Int {\n  case p {\n    .{x, y} -> x + y\n  }\n}",
+		"struct with enum field":       "fn f(s: Slot) -> Int {\n  case s {\n    .{name, value: Some(v)} -> v\n    .{name, value: None} -> 0\n  }\n}",
+		"struct literal field and _":   "fn f(p: Point) -> Int {\n  case p {\n    .{x: 0, y} -> y\n    _ -> 0\n  }\n}",
 		"distinct over an enum":        "fn f(w: Wrapped) -> Int {\n  case w {\n    Wrapped(Some(v)) -> v\n    Wrapped(None) -> 0\n  }\n}",
 		"map naming a key and _":       "fn f(m: Map<String, Int>) -> Int {\n  case m {\n    %{\"a\" => v} -> v\n    _ -> 0\n  }\n}",
 	} {

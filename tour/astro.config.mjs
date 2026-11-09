@@ -127,7 +127,7 @@ const referenceItems = [
 		'vectors',
 		'websocket',
 		'xml',
-	].map((name) => ({ label: `std/${name}`, link: `/reference/${name}/` })),
+	].map((name) => ({ label: `std::${name}`, link: `/reference/${name}/` })),
 ];
 
 // The public origin the site is served from. Starlight registers

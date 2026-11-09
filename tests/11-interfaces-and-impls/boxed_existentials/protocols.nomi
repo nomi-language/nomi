@@ -68,7 +68,7 @@ impl Show for Result<T, String> where T: Show {
 
 impl Has<Int> for List<Int> {
     fn count_of(xs: List<Int>, x: Int) -> Int {
-        xs |> Iter.filter(&(&1 == x)) |> Iter.count()
+        Iter.count_by(xs, &(&1 == x))
     }
 }
 

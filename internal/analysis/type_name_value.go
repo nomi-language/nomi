@@ -22,7 +22,7 @@ import (
 // A type name called with arguments is construction, and only for the
 // types that have one:
 //
-//   - a struct takes its record: `Point(#{x: 1})`;
+//   - a struct takes its record: `Point(.{x: 1})`;
 //   - a distinct type takes the value it wraps: `Email("a@b.c")`.
 //
 // A distinct is unwrapped by destructuring (`Id(n) = id`), never by calling
@@ -252,7 +252,7 @@ func (c *checker) calleeNamedType(callee ast.Node, calleeTy Type) (typeNameRef, 
 		if st, isStruct := calleeTy.(*StructType); isStruct {
 			// A struct declared in a block is not in the module's
 			// registry; its name's symbol carries the type. Without this
-			// arm `Cell(#{c: 1})` was checked as an ordinary call, which
+			// arm `Cell(.{c: 1})` was checked as an ordinary call, which
 			// left a generic struct's type arguments unsolved.
 			return ref, st, true
 		}

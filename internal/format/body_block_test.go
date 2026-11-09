@@ -41,7 +41,7 @@ func TestFormat_FlattensBodyThatIsOneBlock(t *testing.T) {
 		{
 			"a braced case arm",
 			"fn k(x: Int) -> Int {\n    case x {\n        0 -> {\n            {\n                b = 3\n                b\n            }\n        }\n        _ -> 1\n    }\n}\n",
-			"fn k(x: Int) -> Int {\n    case x {\n        0 -> {\n            b = 3\n            b\n        }\n\n        _ ->\n            1\n    }\n}\n",
+			"fn k(x: Int) -> Int {\n    case x {\n        0 -> {\n            b = 3\n            b\n        }\n\n        _ -> 1\n    }\n}\n",
 		},
 		{
 			"a lambda body",

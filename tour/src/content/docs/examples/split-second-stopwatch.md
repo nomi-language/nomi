@@ -22,8 +22,6 @@ pub enum State {
     Stopped
 }
 
-derive Equatable for State
-
 /// A command the stopwatch's state does not allow.
 pub enum Error {
     AlreadyRunning
@@ -56,21 +54,21 @@ pub opaque struct Stopwatch {
 impl Stopwatch {
     /// A stopwatch in the ready state, with no time and no laps.
     pub fn new() -> Stopwatch {
-        Stopwatch{state: .Ready, current: no_time, laps: []}
+        .{state: .Ready, current: no_time, laps: []}
     }
 
     /// Starts timing from the ready state, or resumes it from the stopped one.
     pub fn start(watch: Stopwatch) -> Result<Stopwatch, Error> {
         case watch.state {
             .Running -> Err(.AlreadyRunning)
-            .Ready or .Stopped -> Ok(#{..watch, state: .Running})
+            .Ready or .Stopped -> Ok(.{..watch, state: .Running})
         }
     }
 
     /// Pauses a running stopwatch.
     pub fn stop(watch: Stopwatch) -> Result<Stopwatch, Error> {
         case watch.state {
-            .Running -> Ok(#{..watch, state: .Stopped})
+            .Running -> Ok(.{..watch, state: .Stopped})
             .Ready or .Stopped -> Err(.StopWhenNotRunning)
         }
     }
@@ -79,7 +77,7 @@ impl Stopwatch {
     /// laps, and starts the next from no time.
     pub fn lap(watch: Stopwatch) -> Result<Stopwatch, Error> {
         case watch.state {
-            .Running -> Ok(#{..watch, current: no_time, laps: watch.laps + [watch.current]})
+            .Running -> Ok(.{..watch, current: no_time, laps: watch.laps + [watch.current]})
             .Ready or .Stopped -> Err(.LapWhenNotRunning)
         }
     }
@@ -96,7 +94,7 @@ impl Stopwatch {
     /// runs, and nothing changes otherwise.
     pub fn advance(watch: Stopwatch, by: Duration) -> Stopwatch {
         case watch.state {
-            .Running -> #{..watch, current: watch.current + by}
+            .Running -> .{..watch, current: watch.current + by}
             .Ready or .Stopped -> watch
         }
     }
@@ -143,8 +141,6 @@ enum Step {
     Total Duration
     PreviousLaps List<Duration>
 }
-
-derive Equatable for Step
 
 /// Runs each step on a new stopwatch, in turn, and answers the steps as
 /// they happened. A run that does what every step says answers the steps it

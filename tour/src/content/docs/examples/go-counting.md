@@ -25,8 +25,6 @@ pub enum Owner {
     Neither
 }
 
-derive Equatable for Owner
-
 /// An area of connected empty points and who owns it: the player whose
 /// stones alone border it, or neither.
 pub struct Territory {
@@ -51,14 +49,14 @@ pub fn territory(board: List<String>, x: Int, y: Int) -> Result<Territory, Strin
     case Map.get(points, (x, y)) {
         None -> Err("Invalid coordinate")
         Some(" ") -> Ok(fill(points, (x, y)))
-        Some(_) -> Ok(#{owner: .Neither, points: %[]})
+        Some(_) -> Ok(.{owner: .Neither, points: %[]})
     }
 }
 
 /// Every territory of the board, gathered by owner.
 pub fn territories(board: List<String>) -> Territories {
     points = read(board)
-    empty: Territories = #{black: %[], white: %[], neither: %[]}
+    empty: Territories = .{black: %[], white: %[], neither: %[]}
 
     points
     |> Iter.filter(fn (_point, stone) -> stone == " ")
@@ -92,7 +90,7 @@ fn fill(points: Map<Point, String>, start: Point) -> Territory {
         _ -> .Neither
     }
 
-    #{owner, points: area}
+    .{owner, points: area}
 }
 
 /// Grows `area` from the points of `frontier` through empty neighbours,
@@ -104,8 +102,7 @@ fn spread(
     borders: Set<String>,
 ) -> (Set<Point>, Set<String>) {
     case frontier {
-        [] ->
-            (area, borders)
+        [] -> (area, borders)
 
         [(x, y), ..rest] -> {
             around =
@@ -132,14 +129,14 @@ fn spread(
 }
 
 fn is_claimed(found: Territories, point: Point) -> Bool {
-    [found.black, found.white, found.neither] |> Iter.any(&Set.contains(&1, point))
+    [found.black, found.white, found.neither] |> Iter.any_match(&(point in &1))
 }
 
 fn add(found: Territories, territory: Territory) -> Territories {
     case territory.owner {
-        .Black -> #{..found, black: Set.union(found.black, territory.points)}
-        .White -> #{..found, white: Set.union(found.white, territory.points)}
-        .Neither -> #{..found, neither: Set.union(found.neither, territory.points)}
+        .Black -> .{..found, black: Set.union(found.black, territory.points)}
+        .White -> .{..found, white: Set.union(found.white, territory.points)}
+        .Neither -> .{..found, neither: Set.union(found.neither, territory.points)}
     }
 }
 
@@ -163,16 +160,16 @@ test "territory" {
             "Black corner territory on 5x5 board",
             0,
             1,
-            Ok(#{owner: .Black, points: %[(0, 0), (0, 1), (1, 0)]}),
+            Ok(.{owner: .Black, points: %[(0, 0), (0, 1), (1, 0)]}),
         ),
-        ("White center territory on 5x5 board", 2, 3, Ok(#{owner: .White, points: %[(2, 3)]})),
+        ("White center territory on 5x5 board", 2, 3, Ok(.{owner: .White, points: %[(2, 3)]})),
         (
             "Open corner territory on 5x5 board",
             1,
             4,
-            Ok(#{owner: .Neither, points: %[(0, 3), (0, 4), (1, 4)]}),
+            Ok(.{owner: .Neither, points: %[(0, 3), (0, 4), (1, 4)]}),
         ),
-        ("A stone and not a territory on 5x5 board", 1, 1, Ok(#{owner: .Neither, points: %[]})),
+        ("A stone and not a territory on 5x5 board", 1, 1, Ok(.{owner: .Neither, points: %[]})),
         ("Invalid because X is too low for 5x5 board", -1, 1, Err("Invalid coordinate")),
         ("Invalid because X is too high for 5x5 board", 5, 1, Err("Invalid coordinate")),
         ("Invalid because Y is too low for 5x5 board", 1, -1, Err("Invalid coordinate")),
@@ -189,7 +186,7 @@ test "territories" {
         (
             "One territory is the whole board",
             [" "],
-            #{black: %[], white: %[], neither: %[(0, 0)]},
+            .{black: %[], white: %[], neither: %[(0, 0)]},
         ),
         (
             "Two territory rectangular board",
@@ -197,12 +194,12 @@ test "territories" {
                 " BW ",
                 " BW ",
             ],
-            #{black: %[(0, 0), (0, 1)], white: %[(3, 0), (3, 1)], neither: %[]},
+            .{black: %[(0, 0), (0, 1)], white: %[(3, 0), (3, 1)], neither: %[]},
         ),
         (
             "Two region rectangular board",
             [" B "],
-            #{black: %[(0, 0), (2, 0)], white: %[], neither: %[]},
+            .{black: %[(0, 0), (2, 0)], white: %[], neither: %[]},
         ),
     ]
 

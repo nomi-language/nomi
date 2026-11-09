@@ -290,7 +290,7 @@ func relowerAnalyzed(cfg config, abs, src string, a *analyzedlowering.Analyzed, 
 			}
 		}
 		var err error
-		if res, err = irbuild.LowerFileAmong(one, kept, moved[path], relowering); err != nil {
+		if res, err = irbuild.LowerFileAmong(one, kept, moved[path], relowering, nil); err != nil {
 			return nil, false
 		}
 		relowering[path] = false

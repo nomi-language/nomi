@@ -76,8 +76,10 @@ checked, and a summary last.
   no end.
 - `severity` is `error`, which stops the program, or `warning`, which
   fails no file and is not counted in the summary: an `embed` pattern
-  whose folder does not exist yet (code `embed-missing`). `code` names a
-  diagnostic's class when it has one (`unused-import`).
+  whose folder does not exist yet (code `embed-missing`), or a type
+  parameter the style guide writes as an interface value, with the fix
+  that does (code `interface-value-parameter`, from `nomi check` only).
+  `code` names a diagnostic's class when it has one (`unused-import`).
 - `hints` are the `help:` lines, and `related` the other places the error
   names, each with its own `file`, span and `message`.
 - `fix`, when present, is the rewrite the error knows: its `edits` replace
@@ -638,6 +640,27 @@ nothing starts there, `nomi test` runs nothing and exits non-zero with
 `no test at <file>:<N>` and the nearest test's first line; with
 `--format json` that error is a `"type":"file"` failure record.
 
+`nomi test --run <regexp>` runs only the tests whose names the regular
+expression matches (Go's RE2 syntax, as `go test -run` takes it). The name
+is the one the report prints after `<file> :: `: `parses a date`,
+`dates / parses a date` for a test in a group, `double //! test line 4` for
+an attached test, and `todo api [sqlite] / creates a todo` for a test in a
+group's `subtests` block. The pattern is matched anywhere in the name, so
+`--run 'creates'` runs that test for every row, `--run '\[sqlite\]'` runs
+the sqlite row's tests, and `--run '^dates / '` runs one group. A row
+whose tests all miss is never booted. The rows of a `subtests` statement
+in a test's body are computed as the test runs, so they are not selected
+on their own: a test that matches runs all its rows. The ` / ` between a
+group and its test is part of the name, with its spaces, and a pattern
+does not split on it.
+
+`--run` and `--line` both narrow: `--line 12 --run sqlite` runs the test
+on line 12 for the sqlite row only. A file in which the pattern selects
+no test is not loaded. The count, the summary line and the exit status
+cover only the tests that ran. A pattern that selects nothing is an error,
+`no test matches --run "<regexp>"`, not an empty pass, and a
+`"type":"file"` failure record with `--format json`.
+
 ### `nomi test --watch`
 
 `nomi test --watch [path]`, with any of the other flags, runs the tests,
@@ -858,8 +881,7 @@ fn page(name: String, avatar: Maybe<String>) -> Html {
             <img src="${url}" alt="">
             """
 
-        None ->
-            title
+        None -> title
     }
 }
 ```
@@ -891,14 +913,32 @@ value-producing lambda body that does not fit, and a call it ends closes
 with `})`. A braced body written with its contents below the `{` stays that
 way (the [formatter's package doc](../internal/format/doc.go) says why).
 
-**`case` arms.** When every arm fits on one line as `pattern -> body` and no
-body is a block, the arms sit on consecutive lines. Otherwise every arm
-breaks: a block body keeps `-> {` on the pattern's line, and so does a
-triple-quoted body its `"""`, any other body goes on the next line one indent
-in, and one blank line separates every two arms. A triple-quoted body breaks
-the arms as a block does.
-Blank lines the source put between arms are ignored, and a comment stays
-above its arm.
+**`case` arms.** Each arm is laid out on its own. An arm that fits on one
+line as `pattern -> body`, with a body that is not a block or a
+triple-quoted string, stays on that line. Any other arm breaks: a block body
+keeps `-> {` on the pattern's line, and so does a triple-quoted body its
+`"""`, and any other body, such as a stacked pipeline, goes on the next line
+one indent in. One-line arms sit on consecutive lines, and a broken arm has
+a blank line before and after it, as a statement that spans lines does:
+
+```nomi
+fn slices(digits: String, length: Int) -> Result<List<String>, String> {
+    case {
+        length < 1 -> Err("too short")
+        length > String.length(digits) -> Err("too long")
+
+        _ ->
+            digits
+            |> Iter.windows(length)
+            |> Iter.map(String.join)
+            |> Iter.to_list()
+            |> Ok()
+    }
+}
+```
+
+A binding `else` with arms lays them out the same way. Blank lines the
+source put between arms are ignored, and a comment stays above its arm.
 
 **Trailing commas.** A multi-line call has a trailing comma after its last
 argument when it has more than one argument, and none when it has one.
@@ -1009,6 +1049,34 @@ A file's contents are read when the program reads that file, never all at once. 
 A pattern whose folder or file does not exist yet, such as a frontend's `web/dist` before its first `npm run build`, is a warning in `nomi run`, `nomi check`, `nomi test`, the REPL and the editor: the program compiles with that path as an empty directory, and a read under it returns `NotFound`. `nomi build`, for every target, refuses it as an error, so a release never carries an empty frontend. A program with such a warning is not kept in the artifact cache, so each run reports it, and the next run after the folder appears embeds its files.
 
 Only the declarations a program reaches go into its build, so an `embed` nothing reads costs nothing, and a program with none is unchanged. The files count toward the compiled program's size, so a `wasip1/wasm` module's 4 MiB limit (above) includes them. `nomi run --watch` does not watch embedded files: a change to one is picked up at the next run.
+
+### Frontend builds
+
+A JavaScript frontend's static build is embedded and served with `http.file_server_embedded` ([Frontends](/frontends/#a-javascript-frontend)). Each bundler needs three settings to match: the folder it writes, which the `embed` names and `Files.sub` makes the served root; a dev proxy that forwards `/api` to the Nomi server, so the page calls the API on its own origin; and the paths of the files whose names carry a hash of their contents, which `immutable:` lists.
+
+| Bundler | Output folder | Dev proxy | `immutable:` |
+|---|---|---|---|
+| Vite | `dist/` | `server.proxy` in `vite.config.ts` | `["assets/**"]` |
+| webpack | `dist/` | `devServer.proxy` | `["assets"]`, with output named `assets/[name].[contenthash].js` |
+| Angular | `dist/<project>/browser/` | `proxy.conf.json` | `["*-*.js", "*-*.css"]`, the hashed files at its root |
+| Create React App | `build/` | `"proxy"` in `package.json` | `["static/**"]` |
+| SvelteKit, static adapter | `build/` | `server.proxy`, as Vite | `["_app/immutable/**"]` |
+| Next, `output: 'export'` in `next.config.js` | `out/` | — | `["_next/static/**"]` |
+
+`http.file_server_embedded` sends a `.br` or `.gz` copy that sits beside a file to a browser that accepts it. In Vite, a compression plugin (`npm install -D vite-plugin-compression2`) writes those copies. A React app's `web/vite.config.ts`, with the proxy to a Nomi server on port 8080:
+
+```ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { compression } from "vite-plugin-compression2";
+
+export default defineConfig({
+  plugins: [react(), compression()],
+  server: {
+    proxy: { "/api": "http://localhost:8080" },
+  },
+});
+```
 
 ### Capability classes
 
@@ -1303,7 +1371,7 @@ above it offers `loadRuntime(reactor)`, which compiles the module once;
 to a program whose `exports` are the load's signatures and whose
 `call(name, ...args)` JSON-encodes the arguments, calls `nomi_call`, and
 resolves with `ok` or rejects with an `Error` carrying `error`; and
-`runtime.run(nomic, #{stdin, args, env})`, which loads into a fresh instance,
+`runtime.run(nomic, .{stdin, args, env})`, which loads into a fresh instance,
 calls `nomi_main`, and resolves with its exit status and output. Without
 `nomic`, `load()` and `run()` call `nomi_load` with length 0, so they use
 the program built into the module, and reject with that error result on a
@@ -1436,6 +1504,7 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
   - write a tuple read by number by its ordinal, `t.0` as `t.first`;
   - name a struct literal's values written without field names, in declaration order;
   - write missing functions, fields and `case` arms, each filled with `todo`, so the result checks.
+  - write a type parameter used once as a parameter's type, under one bound, as an interface value (`fn label<T>(value: T) where T: Named` becomes `fn label(value: Named)`), which the server reports as a hint.
 
   Its refactors include "Remove type annotation" on a field or parameter whose default already has the written type (`limit: Int = 10` becomes `limit = 10`), and "Add type annotation", which writes the type a default gives (`limit = 10` becomes `limit: Int = 10`). Neither is offered as a fix or run by fix-all.
 - Debugger: `nomi dap`; see [Debugging](#debugging).

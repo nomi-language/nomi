@@ -18,7 +18,7 @@ import (
 // bodies as any generic std function is (`Iter.frequencies`).
 func irIterOwnArity(method string) (int, bool) {
 	switch method {
-	case "map", "filter", "reduce", "scan", "map_reduce", "take", "sort_with", "sort_by", "any", "all", "each_while", "find", "zip", "concat", "get", "partition", "group_by",
+	case "map", "filter", "reduce", "scan", "map_reduce", "take", "sort_with", "sort_by", "any_match", "all_match", "each_while", "find", "zip", "concat", "get", "partition", "group_by",
 		"drop", "take_while", "drop_while", "each", "flat_map", "chunks", "chunk_by", "join":
 		return 2, true
 	case "to_list", "count", "is_empty", "sort", "first", "last", "reverse", "with_index", "known_count", "is_infinite",
@@ -213,7 +213,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			result = seqKindIn(bl.g, elem)
 		}
 	}
-	if method == "any" || method == "all" || method == "each_while" || method == "find" || method == "partition" {
+	if method == "any_match" || method == "all_match" || method == "each_while" || method == "find" || method == "partition" {
 		// Native iterPredicate: a one-parameter Bool function over the element.
 		fk := args.kinds[1]
 		if fk.tag != tagFunc || len(funcParams(fk)) != 1 || funcParams(fk)[0] != elem || funcResult(fk) != kindBool {
@@ -272,7 +272,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	}
 	// A callback lowered under a signalling form makes its operation the
 	// signalling one.
-	signalling := (method == "map" || method == "filter" || irSeededIterMethod(method) || method == "find" || method == "any" || method == "all") &&
+	signalling := (method == "map" || method == "filter" || irSeededIterMethod(method) || method == "find" || method == "any_match" || method == "all_match") &&
 		len(args.temps) > 1 && bl.iterSignalling(args, 1)
 	appendOp := func(at ast.Node, op ir.IterOp, over ir.IterDomain, k kind, operands ...ir.Temp) ir.Temp {
 		n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), op, over, operands...)
@@ -434,10 +434,10 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	case "is_empty":
 		return appendOp(t, ir.IterEmpty, ir.IterOverSeq, kindBool, src), kindBool, false, true
 	}
-	if method == "any" {
+	if method == "any_match" {
 		return appendOp(t, ir.IterAny, ir.IterOverSeq, kindBool, src, args.temps[1]), kindBool, false, true
 	}
-	if method == "all" {
+	if method == "all_match" {
 		return appendOp(t, ir.IterAll, ir.IterOverSeq, kindBool, src, args.temps[1]), kindBool, false, true
 	}
 	if method == "each_while" {

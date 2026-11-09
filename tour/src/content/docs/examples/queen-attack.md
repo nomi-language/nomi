@@ -27,7 +27,7 @@ impl Queen {
             row > 7 -> Err(.RowNotOnBoard)
             column < 0 -> Err(.ColumnNotPositive)
             column > 7 -> Err(.ColumnNotOnBoard)
-            _ -> Ok(Queen{row, column})
+            _ -> Ok(.{row, column})
         }
     }
 

@@ -8,11 +8,13 @@ run. You can put tests next to the code they check, or in a file whose name
 ends in `_test.nomi`. `shapes_test.nomi` beside `shapes.nomi` can use that
 file's private declarations, so nothing needs `pub` just to be tested.
 It can also `derive` an interface for that file's types, such as
-`derive FromJson for Shape`, which exists only while the tests run.
+`derive Equatable for Shape`, which exists only while the tests run.
 
 `nomi test` runs them. Anything a test prints, `dbg` included, appears under
 its `ok` or `FAIL` line. `nomi test --watch` runs the tests again each time
 you save a `.nomi` file under the path, or a file the tests import.
+`nomi test --run 'parses'` runs only the tests whose names the regular
+expression matches, as the report prints them.
 
 ## Assertions
 
@@ -361,8 +363,7 @@ import std::io
 
 fn parse_count(text: String) -> Int {
     case String.to_int(text) {
-        Some(n) ->
-            n
+        Some(n) -> n
 
         None -> {
             io.eprint("warning: ${text} is not a number, counting 0")
@@ -411,8 +412,7 @@ fn main() {
             }
         }
 
-        _ ->
-            io.print("hello, stranger")
+        _ -> io.print("hello, stranger")
     }
 }
 
@@ -445,33 +445,7 @@ An input line the program never reads fails the test, and standard error is
 not compared. The [`io.replay`](/reference/io/#ioreplay) reference has the
 rest of the rules.
 
-A program that reads nothing gets a script of output lines only. The second
-line below expects one leading space.
-
-```nomi-run
-import std::io
-
-fn main() {
-    io.print("-10.0 C |   14.0 F")
-    io.print(" -5.0 C |   23.0 F")
-}
-
-test "converts to Fahrenheit" {
-    assert io.replay(
-        """
-        -10.0 C |   14.0 F
-         -5.0 C |   23.0 F
-        """,
-        main,
-    )
-}
-```
-<!-- expect
--10.0 C |   14.0 F
- -5.0 C |   23.0 F
-ok converts to Fahrenheit
-test result: ok. 1 passed, 0 failed
--->
+A program that reads nothing gets a script of output lines only.
 
 ## Groups and setup
 
@@ -481,9 +455,9 @@ value through a pattern after its name.
 
 ```nomi-run
 group "user labels" {
-    setup #{name: "Ada", role: "admin"}
+    setup .{name: "Ada", role: "admin"}
 
-    test "setup value is explicit", #{name, role} {
+    test "setup value is explicit", .{name, role} {
         assert name == "Ada"
         assert role == "admin"
     }
@@ -502,7 +476,7 @@ test result: ok. 2 passed, 0 failed
 A test sees only the value `setup` returns. Names bound inside the `setup`
 block don't reach the tests.
 
-The value can be anything. A test can bind a record with `#{name, role}`, a
+The value can be anything. A test can bind a record with `.{name, role}`, a
 tuple with `(left, right)`, or the whole value with a name, as in
 `test "loads rows", db { ... }`. The pattern has to match every value setup
 can produce, so a pattern such as `Some(n)` is an error. Bind a name instead,
@@ -516,7 +490,8 @@ groups side by side. Put the part they share in an ordinary function.
 
 - A group holds at most one `clock`, one `boot` and one `setup`. For each
   test they run in that order, wherever they are written, then the test's
-  body. Nothing carries from one test to the next.
+  body; `nomi fmt` moves them to the top of the group in that order.
+  Nothing carries from one test to the next.
 - A `defer` in the setup runs when the test it served finishes.
 - A `with` line in the setup stays in force for the test's body, so setup
   is where a group installs fakes.
@@ -577,6 +552,7 @@ and counts each row's tests before anything runs. A row of tuples names
 itself by a String column given after the pattern, as in
 `subtests [("memory", 1), ("sqlite", 4)], (store, workers), store`. The block
 holds everything in the group, so nothing in it runs without a row.
+`nomi test --run '\[sqlite\]'` runs one row's tests, and boots only that row.
 
 Spec: [Subtests in a group](/spec/tests/#subtests-in-a-group).
 
@@ -616,10 +592,6 @@ the clock only moves when the program is waiting.
 as above. If you import `std::testing` instead, write
 `clock testing.Clock.Virtual`.
 
-A group's `clock`, `boot` and `setup` lines can be in any order. They always
-run clock first, then boot, then setup. `nomi fmt` moves them to the top of
-the group in that order.
-
 Tests outside a group with a `clock` line use the real clock.
 
 Under the fake clock, a test that can never finish is reported as a deadlock.
@@ -628,14 +600,12 @@ timeout, such as `Supervisor.flush`.
 
 The fake clock is off by default because it changes how a test behaves:
 
-- Waiting on something outside the program, such as reading input or a real
-  network call, never lets the clock move. The test is reported as deadlocked.
-- Background work still running when a test ends is an error. It does not
-  carry on into the next test.
+- A wait on input or the network never moves the clock, so it deadlocks.
+- Background work still running when a test ends is an error.
 - `Instant.now` starts at midnight UTC on 1 January 2000.
 
-The first two usually point to a problem in the test. Still, they change
-behaviour, so each group opts in.
+The first two usually point to a problem in the test. They still change
+behavior, so each group opts in.
 
 ## Long-running tests and the debugger
 

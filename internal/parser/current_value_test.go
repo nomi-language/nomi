@@ -15,12 +15,12 @@ import (
 
 func TestParseCurrentValue_Struct(t *testing.T) {
 	for _, src := range []string{
-		`#{.., city: "NYC"}`,
-		`#{.., city: "NYC",}`,
-		`#{.., city}`,
-		"#{\n  ..,\n  city: \"NYC\",\n}",
-		"#{\n  .., // keep\n  city: \"NYC\",\n}",
-		`#{..}`,
+		`.{.., city: "NYC"}`,
+		`.{.., city: "NYC",}`,
+		`.{.., city}`,
+		".{\n  ..,\n  city: \"NYC\",\n}",
+		".{\n  .., // keep\n  city: \"NYC\",\n}",
+		`.{..}`,
 	} {
 		t.Run(src, func(t *testing.T) {
 			lit, ok := parseExpr(t, src).(*ast.StructLit)
@@ -100,7 +100,7 @@ func TestParseSetSpread(t *testing.T) {
 }
 
 func TestParseCurrentValue_OnlyFirstInStruct(t *testing.T) {
-	err := parseError(t, `#{a: 1, ..}`)
+	err := parseError(t, `.{a: 1, ..}`)
 	if !strings.Contains(err.Error(), "struct spread `..` must be the first element") {
 		t.Errorf("%v", err)
 	}

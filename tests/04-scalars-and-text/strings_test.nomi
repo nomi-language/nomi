@@ -132,9 +132,9 @@ test "one group is its text, and a pattern with none answers Unit" {
 test "a pattern whose every group is named gives a struct" {
     date = Regex`(?P<year>\d{4})-(?P<month>\d\d)(?:-(?P<day>\d\d))?`
 
-    assert String.captures("on 2024-05", date) == Some(#{year: "2024", month: "05", day: None})
+    assert String.captures("on 2024-05", date) == Some(.{year: "2024", month: "05", day: None})
 
-    #{year, month, day} = String.captures("2024-05-17", date)!
+    .{year, month, day} = String.captures("2024-05-17", date)!
     assert year == "2024"
     assert month == "05"
     assert day == Some("17")
@@ -195,7 +195,7 @@ test "captures_all gives the groups of every match, left to right" {
     pairs =
         "x=1 y=2"
         |> String.captures_all(Regex`(?P<name>\w)=(?P<value>\d)`)
-        |> Iter.map(fn #{name, value} -> name + value)
+        |> Iter.map(fn .{name, value} -> name + value)
         |> Iter.to_list()
 
     assert pairs == ["x1", "y2"]

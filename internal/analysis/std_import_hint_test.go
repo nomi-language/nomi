@@ -8,8 +8,8 @@ import (
 // withStdSources installs sources as std's for the test.
 func withStdSources(t *testing.T, sources map[string]string) {
 	t.Helper()
-	SetStdSources(func() map[string]string { return sources })
-	t.Cleanup(func() { SetStdSources(nil) })
+	SetStdExports(func() map[string]StdModuleExport { return StdExportsFromSources(sources) })
+	t.Cleanup(func() { SetStdExports(nil) })
 }
 
 // A type name the file does not bind is answered with the import that

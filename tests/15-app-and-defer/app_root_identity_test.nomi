@@ -1,7 +1,7 @@
 import std::compiler.{self, Diagnostic}
 
 fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
-    Iter.any(diagnostics, fn diagnostic -> text in diagnostic.message)
+    Iter.any_match(diagnostics, fn diagnostic -> text in diagnostic.message)
 }
 
 test "an ordinary named application exposes scoped fields" {
@@ -73,8 +73,8 @@ test "an anonymous application boots, and code that reads no field runs under it
           std::io
         }
 
-        fn boot() -> Result<#{tag: String, execution: Context}, String> {
-          Ok(#{tag: "anonymous", execution: Context.root()})
+        fn boot() -> Result<.{tag: String, execution: Context}, String> {
+          Ok(.{tag: "anonymous", execution: Context.root()})
         }
 
         fn main() {

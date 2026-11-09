@@ -18,7 +18,7 @@ import (
 // patterns.
 func irNominalCaseKind(k kind) bool {
 	if irRetainedRecordKind(k) {
-		// An anonymous record's `#{x: 10, y}` pattern reads its fields the
+		// An anonymous record's `.{x: 10, y}` pattern reads its fields the
 		// same way; the checker types the pattern against the record.
 		return true
 	}

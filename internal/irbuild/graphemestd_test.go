@@ -84,7 +84,7 @@ func TestGraphemeCountIsNotACodepointCount(t *testing.T) {
 // graphemeLengthBinding is the rt/host function bound to
 // `strings.String.length`, or nil when there is none.
 //
-// Read off internal/stdlibbindings rather than off stdlibHostFuncs, because
+// Read off internal/stdlibbindings rather than off stdlibHostRegistry, because
 // the registry keeps the derived NAME and this needs the callable value.
 func graphemeLengthBinding() any {
 	for _, b := range stdlibbindings.RtFuncs() {

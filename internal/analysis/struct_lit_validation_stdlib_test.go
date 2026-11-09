@@ -17,7 +17,7 @@ import (
 //
 // They are here rather than beside the others because `checkSource` builds a
 // file with no stdlib, so `Debug` does not resolve in it at all. Each was
-// measured in both spellings at the twin — `Cfg{f: v}` and `Cfg(#{f: v})` —
+// measured in both spellings at the twin — `Cfg{f: v}` and `Cfg(.{f: v})` —
 // and both accepted all five.
 func TestCheck_StructLit_StdlibTypedFieldsStayLenient(t *testing.T) {
 	cases := []struct {
@@ -62,7 +62,7 @@ func TestCheck_StructLit_StdlibTypedFieldsStayLenient(t *testing.T) {
 // wrote down the unbound parameter:
 //
 //	Box{v: 1}     hovered  v: Int
-//	Box(#{v: 1})   hovered  v: T
+//	Box(.{v: 1})   hovered  v: T
 //
 // Sharing the validator put both on one call site after the loop. This test
 // is what kills that mutant: removing the mint branch from
@@ -77,8 +77,8 @@ func TestCheck_StructLit_FieldLabelHoverAgreesAcrossSpellings(t *testing.T) {
 	}{
 		// `  _a = Box{v: 1}` — the label `v` starts at column 12.
 		{name: "literal-attach", src: "struct Box<T> {\n  v: T\n}\nfn main() {\n  _a = Box{v: 1}\n}\n", line: 5, col: 12},
-		// `  _a = Box(#{v: 1})` — one column further, past the `(#`.
-		{name: "constructor-call record form", src: "struct Box<T> {\n  v: T\n}\nfn main() {\n  _a = Box(#{v: 1})\n}\n", line: 5, col: 14},
+		// `  _a = Box(.{v: 1})` — one column further, past the `(#`.
+		{name: "constructor-call record form", src: "struct Box<T> {\n  v: T\n}\nfn main() {\n  _a = Box(.{v: 1})\n}\n", line: 5, col: 14},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

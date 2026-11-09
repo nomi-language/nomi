@@ -57,19 +57,19 @@ impl Zero for Maybe<T> where T: Zero {
 
 impl Holds<T> for List<T> where T: Equatable {
     fn holds(xs: List<T>, x: T) -> Bool {
-        xs |> Iter.any(fn y -> y == x)
+        xs |> Iter.any_match(fn y -> y == x)
     }
 }
 
 impl Holds<Int> for Vector<Int> {
     fn holds(v: Vector<Int>, x: Int) -> Bool {
-        v |> Iter.any(fn y -> y == x)
+        v |> Iter.any_match(fn y -> y == x)
     }
 }
 
 impl Holds<String> for Vector<Int> {
     fn holds(v: Vector<Int>, x: String) -> Bool {
-        v |> Iter.any(fn y -> Int.to_string(y) == x)
+        v |> Iter.any_match(fn y -> Int.to_string(y) == x)
     }
 }
 

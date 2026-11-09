@@ -2,7 +2,7 @@
 //# scalars.
 //#
 //# `"${t}"` renders a tuple as `(Display(a), Display(b), ...)` and a record as
-//# `#{f: Display(v), ...}`: each part through its own Display impl, std's for
+//# `.{f: Display(v), ...}`: each part through its own Display impl, std's for
 //# `Maybe`, `Result`, `Set` and the collections, the program's for its own
 //# types. `Display.to_string(t)` and `io.print(t)` give the same text.
 
@@ -92,9 +92,9 @@ test "a nested tuple renders each level by Display" {
 }
 
 test "an anonymous record holding a Maybe renders the variant" {
-    r: #{a: Int, b: Maybe<Int>} = #{a: 1, b: None}
-    assert "${r}" == "#{a: 1, b: None}"
-    assert "${#{g: Greeter{name: "Di"}, n: 3}}" == "#{g: hi Di, n: 3}"
+    r: .{a: Int, b: Maybe<Int>} = .{a: 1, b: None}
+    assert "${r}" == ".{a: 1, b: None}"
+    assert "${.{g: Greeter{name: "Di"}, n: 3}}" == ".{g: hi Di, n: 3}"
 }
 
 test "a list of tuples holding a Maybe renders each tuple" {

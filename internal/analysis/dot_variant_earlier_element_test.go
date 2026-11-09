@@ -223,11 +223,11 @@ func TestDotVariant_AVariantAgainstANonEnumIsStillReported(t *testing.T) {
 func TestStructLit_EarlierElementSetsTheStruct(t *testing.T) {
 	decls := "struct Key {\n  a: Int\n  b: Int\n}\n\n"
 	cases := map[string]string{
-		"list":           "  xs = [Key{a: 1, b: 2}, #{a: 3, b: 4}]\n  _ = xs",
-		"vector":         "  xs = #[Key{a: 1, b: 2}, #{a: 3, b: 4}]\n  _ = xs",
-		"map values":     "  m = %{\"k\" => Key{a: 1, b: 2}, \"j\" => #{a: 3, b: 4}}\n  _ = m",
-		"list of tuples": "  ts = [(Key{a: 1, b: 2}, \"x\"), (#{a: 3, b: 4}, \"y\")]\n  _ = ts",
-		"payload":        "  ms = [Some(Key{a: 1, b: 2}), Some(#{a: 3, b: 4})]\n  _ = ms",
+		"list":           "  xs = [Key{a: 1, b: 2}, .{a: 3, b: 4}]\n  _ = xs",
+		"vector":         "  xs = #[Key{a: 1, b: 2}, .{a: 3, b: 4}]\n  _ = xs",
+		"map values":     "  m = %{\"k\" => Key{a: 1, b: 2}, \"j\" => .{a: 3, b: 4}}\n  _ = m",
+		"list of tuples": "  ts = [(Key{a: 1, b: 2}, \"x\"), (.{a: 3, b: 4}, \"y\")]\n  _ = ts",
+		"payload":        "  ms = [Some(Key{a: 1, b: 2}), Some(.{a: 3, b: 4})]\n  _ = ms",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -244,8 +244,8 @@ func TestStructLit_EarlierElementSetsTheStruct(t *testing.T) {
 func TestStructLit_EarlierElementStillChecksTheFields(t *testing.T) {
 	decls := "struct Key {\n  a: Int\n  b: Int\n}\n\n"
 	for name, c := range map[string]struct{ body, want string }{
-		"anonymous first": {"  xs = [#{a: 3, b: 4}, Key{a: 1, b: 2}]\n  _ = xs", "list element type mismatch"},
-		"unknown field":   {"  xs = [Key{a: 1, b: 2}, #{a: 3, c: 4}]\n  _ = xs", "c"},
+		"anonymous first": {"  xs = [.{a: 3, b: 4}, Key{a: 1, b: 2}]\n  _ = xs", "list element type mismatch"},
+		"unknown field":   {"  xs = [Key{a: 1, b: 2}, .{a: 3, c: 4}]\n  _ = xs", "c"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(decls + "fn main() {\n" + c.body + "\n}\n")

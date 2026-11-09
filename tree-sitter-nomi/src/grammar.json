@@ -4619,7 +4619,7 @@
         "members": [
           {
             "type": "STRING",
-            "value": "#{"
+            "value": ".{"
           },
           {
             "type": "CHOICE",
@@ -5386,7 +5386,7 @@
         "members": [
           {
             "type": "STRING",
-            "value": "#{"
+            "value": ".{"
           },
           {
             "type": "CHOICE",
@@ -5487,7 +5487,7 @@
         "members": [
           {
             "type": "STRING",
-            "value": "#{"
+            "value": ".{"
           },
           {
             "type": "SYMBOL",
@@ -6653,7 +6653,7 @@
           "members": [
             {
               "type": "STRING",
-              "value": "#{"
+              "value": ".{"
             },
             {
               "type": "SEQ",
@@ -9003,7 +9003,7 @@
             "members": [
               {
                 "type": "STRING",
-                "value": "#{"
+                "value": ".{"
               },
               {
                 "type": "CHOICE",

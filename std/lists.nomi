@@ -65,7 +65,7 @@ import {
 //#
 //# Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 //#
-//# Iter.any(xs, p) / Iter.all(xs, p) / Iter.contains(xs, x)
+//# Iter.any_match(xs, p) / Iter.all_match(xs, p) / Iter.contains(xs, x)
 //#
 //# Iter.sort(xs) / Iter.sort_by(xs, key) / Iter.sort_with(xs, cmp)
 //#
@@ -174,8 +174,7 @@ impl List<T> {
     //
     pub fn starts_with<T>(list: List<T>, prefix: List<T>) -> Bool where T: Equatable {
         case prefix {
-            [] ->
-                True
+            [] -> True
 
             [p, ..ps] ->
                 case list {
@@ -305,8 +304,7 @@ impl Comparable for List<T> where T: Comparable {
 
             .Some((ha, ta)) ->
                 case list_next(b) {
-                    .None ->
-                        Greater
+                    .None -> Greater
 
                     .Some((hb, tb)) ->
                         case Comparable.compare(ha, hb) {

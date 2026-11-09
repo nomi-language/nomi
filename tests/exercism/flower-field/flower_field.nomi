@@ -33,10 +33,7 @@ fn flowers_in_row(row: Int, line: String) -> Iter<(Int, Int)> {
 fn annotate_square(flowers: Set<(Int, Int)>, (row, column): (Int, Int), square: String) -> String {
     if square == "*" { return square }
 
-    count =
-        neighbours
-        |> Iter.filter(fn (dr, dc) -> (row + dr, column + dc) in flowers)
-        |> Iter.count()
+    count = Iter.count_by(neighbours, fn (dr, dc) -> (row + dr, column + dc) in flowers)
 
     if count == 0 {
         " "

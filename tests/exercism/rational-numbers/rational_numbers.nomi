@@ -7,15 +7,13 @@ pub opaque struct Rational {
     denominator: Int
 }
 
-derive Equatable for Rational
-
 impl Rational {
     /// `numerator / denominator` in lowest terms. The denominator is a
     /// divisor the caller chose, so a zero one traps as `/` does: the
     /// reduction divides by it.
     pub fn new(numerator: Int, denominator: Int) -> Rational {
         common = Int.gcd(numerator, denominator) * Int.sign(denominator)
-        Rational{numerator: numerator / common, denominator: denominator / common}
+        .{numerator: numerator / common, denominator: denominator / common}
     }
 
     pub fn numerator(r: Rational) -> Int {
@@ -27,7 +25,7 @@ impl Rational {
     }
 
     pub fn abs(r: Rational) -> Rational {
-        Rational{numerator: Int.abs(r.numerator), denominator: r.denominator}
+        .{..r, numerator: Int.abs(r.numerator)}
     }
 
     /// `r` to the power `exponent`. A negative exponent raises the

@@ -140,7 +140,7 @@ func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 		"decimal.Decimal.Remainder<Decimal, Decimal>.remainder",
 	}
 	for _, key := range keys {
-		if _, bound := stdlibHostFuncs[key]; bound {
+		if _, bound := stdlibHostRegistry().funcs[key]; bound {
 			t.Errorf("%s has an internal/stdlibbindings row. A row is a named rt "+
 				"symbol of exactly the Nomi arity, so it cannot carry the CALL'S LINE, "+
 				"and every fault it reaches would blame whatever constant the rt symbol "+
@@ -151,8 +151,8 @@ func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 	}
 	// The positive control: the map is populated and this loop is reading a real
 	// index rather than a nil one, which would make every miss above vacuous.
-	if len(stdlibHostFuncs) == 0 {
-		t.Fatal("stdlibHostFuncs is empty, so every absence asserted above is vacuous")
+	if len(stdlibHostRegistry().funcs) == 0 {
+		t.Fatal("stdlibHostRegistry is empty, so every absence asserted above is vacuous")
 	}
 	// The SHAPE control, from the std index rather than from the registry: each
 	// key above must name a declaration, or its absence from the registry says

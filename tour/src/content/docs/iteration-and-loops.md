@@ -54,8 +54,8 @@ Each round, the function returns the state for the next round. A bare `break`
 ends the loop with the current state as its result. `break value` ends it with
 `value`, which has the same type as the state.
 
-The state is a single value. To carry more than one thing, use a tuple or a
-struct. The Fibonacci loop carries a pair, and its parameter is a pattern that
+The state is a single value. To carry more than one thing, use a
+[tuple](/structs-enums-distinct/#tuples) or a struct. The Fibonacci loop carries a pair, and its parameter is a pattern that
 takes the pair apart.
 
 `continue` ends the round early and starts the next one with the same state.
@@ -177,13 +177,14 @@ it.
 
 - Only these functions' callbacks take `break` and `continue`: `Iter.map`,
   `scan`, `filter`, `take_while`, `drop_while`, `flat_map`, `iterate`,
-  `reduce`, `map_reduce`, `each`, `find`, `any`, `all`, `Iter.loop`, and
+  `reduce`, `map_reduce`, `each`, `find`, `any_match`, `all_match`,
+  `Iter.loop`, and
   `Map.map_values` and `Map.map_keys`. In any other lambda they are an
   error.
 - `continue` takes no value. To carry a new value forward, make it the
   callback's result.
-- A bare `break` in `find`, `any` and `all` returns `None`, `False` and
-  `True`.
+- A bare `break` in `find`, `any_match` and `all_match` returns `None`,
+  `False` and `True`.
 - A `defer` in a callback runs at the end of each round, before the next
   one starts.
 
@@ -397,23 +398,11 @@ choice. Recursion is for steps that `Iter` doesn't describe well.
   operand of `return`, and the right side of `and` and `or`.
 - A call inside a lambda is in the lambda's tail position, not the outer
   function's. A default and the operand of `?` are never in tail position.
-- A pending `defer` cancels a tail call, since the deferred call runs after
-  it returns. Recursion that registers a `defer` each round keeps a frame
-  per round and counts toward the limit.
+- A pending `defer` cancels a tail call, so recursion that defers each
+  round keeps a frame per round.
 - Each task has its own 100,000-call limit.
 - A function that always calls itself with the arguments it was given is a
   compile error: ``every path through grow calls grow(x) with the arguments it was given, so it never returns``.
-
-```nomi
-fn leave(n: Int) {
-    dbg n
-}
-
-fn down(n: Int) -> Int {
-    defer leave(n) // keeps each frame until leave runs
-    if n == 0 { 0 } else { down(n - 1) }
-}
-```
 
 Spec: [Tail-call optimization](/spec/functions-and-closures/#tail-call-optimization),
 [Recursion depth](/spec/functions-and-closures/#recursion-depth).

@@ -978,7 +978,7 @@ func emitNode(n ast.Node) Doc {
 		}
 		return emitBindingValue(Concat(parts...), v.Value)
 	case *ast.StructDestructure:
-		// #{x, y} = expr  or  #{x: a, y: b} = expr — anonymous only.
+		// .{x, y} = expr  or  .{x: a, y: b} = expr — anonymous only.
 		// Reuse emitPattern by wrapping in a StructPattern with no TypeName.
 		pat := &ast.StructPattern{Fields: v.Fields}
 		return emitBindingValue(emitPattern(pat), v.Value)
@@ -2530,7 +2530,7 @@ func bracedList(open, close string, elems []Doc, lastComma bool) Doc {
 }
 
 // emitStructLit renders a struct literal, nominal (`User{...}`) or with no
-// type name (`#{...}`). Field punning — where the parser synthesizes
+// type name (`.{...}`). Field punning — where the parser synthesizes
 // Value=Ident{Name:FieldName} — is re-emitted as just the field name.
 //
 // Width-based, except that a literal whose source breaks the line after
@@ -2683,30 +2683,35 @@ func emitStructFieldValWithLeading(f ast.StructFieldVal) Doc {
 }
 
 // emitCase renders a case expression. It always breaks, one arm per line,
-// and lays the arms out together in one of two ways:
+// and lays out each arm on its own:
 //
-//   - Flat, when every arm fits on its line as `<pattern> -> <body>` and no
-//     arm is a block: the arms sit on consecutive lines with no blank line
-//     between them.
+//   - An arm that fits on its line as `<pattern> -> <body>`, and whose body
+//     is not a block or a triple-quoted literal, stays on that line.
 //
-//   - Broken, otherwise: an arm whose body is a block keeps `-> {` on the
-//     pattern's line with the block always broken, even around one
-//     statement; every other arm puts its body on the next line, one indent
-//     in; and one blank line separates every two arms:
+//   - Any other arm breaks: a block body keeps `-> {` on the pattern's line
+//     with the block always broken, even around one statement, and so does
+//     a triple-quoted body its `"""`; every other body goes on the next
+//     line, one indent in.
 //
-//     case <scrutinee> {
-//     <pattern> [when <guard>] ->
-//     <body>
+// A broken arm has a blank line before and after it, as a statement that
+// spans lines does in a block, and one-line arms sit on consecutive lines:
 //
-//     <pattern> -> {
-//     <statements>
-//     }
-//     }
+//	case <scrutinee> {
+//	    <pattern> -> <body>
+//	    <pattern> -> <body>
 //
-// In both layouts the source's blank lines between arms are ignored, and a
-// comment stays directly above its arm. The arms start at a column known only
-// at render time, so the decision is made there (WithIndent), measuring each
-// arm from that column.
+//	    <pattern> [when <guard>] ->
+//	        <body that spans lines>
+//
+//	    <pattern> -> {
+//	        <statements>
+//	    }
+//	}
+//
+// The source's blank lines between arms are ignored, and a comment stays
+// directly above its arm. The arms start at a column known only at render
+// time, so the decision is made there (WithIndent), measuring each arm from
+// that column.
 func emitCase(v *ast.Case) Doc {
 	parts := []Doc{Text("case")}
 	if _, grouped := v.Value.(*ast.GroupedExpr); grouped && v.StagePrefix {
@@ -2729,40 +2734,41 @@ func emitCase(v *ast.Case) Doc {
 
 // emitCaseArms lays out case arms, each on its own line after a HardLine,
 // followed by endTrivia, the comments between the last arm and the `}`.
-// When every arm fits on its line and none has a block or triple-quoted body,
-// the arms sit on consecutive lines; otherwise each arm breaks and a blank
-// line separates them.
+// An arm that fits on its line, with no block or triple-quoted body, stays
+// on it (caseArmFits); any other arm breaks, with a blank line between it
+// and each neighbour.
 func emitCaseArms(branches []ast.CaseBranch, endTrivia []ast.Trivia) Doc {
 	return WithIndent(func(indent, width int) Doc {
-		flat := true
+		oneLine := make([]bool, len(branches))
 		for i := range branches {
-			b := &branches[i]
-			// A block or triple-quoted body spans lines, as a block does:
-			// every arm breaks, and blank lines separate them.
-			if _, isBlock := b.Body.(*ast.Block); isBlock || isTripleLiteral(b.Body) {
-				flat = false
-				break
-			}
-			rem := width - indent
-			line := caseArmLine(b, false)
-			if caseArmKeepsBroken(b, line) || !fitsWalk(line, &rem, false) {
-				flat = false
-				break
-			}
+			oneLine[i] = caseArmFits(&branches[i], width-indent)
 		}
 		body := make([]Doc, 0, len(branches)*3)
 		for i := range branches {
-			if i > 0 && !flat {
+			if i > 0 && (!oneLine[i] || !oneLine[i-1]) {
 				body = append(body, HardLine())
 			}
 			b := &branches[i]
-			body = append(body, HardLine(), emitCaseArmTrivia(b, caseArmLine(b, !flat)))
+			body = append(body, HardLine(), emitCaseArmTrivia(b, caseArmLine(b, !oneLine[i])))
 		}
 		if len(endTrivia) > 0 {
 			body = append(body, emitEndTrivia(endTrivia))
 		}
 		return Concat(body...)
 	})
+}
+
+// caseArmFits reports whether arm b stays on one line, `<pattern> ->
+// <body>`, in rem columns. A block or triple-quoted body spans lines, as a
+// block does, and so does a body that keeps its break below the `->`
+// (caseArmKeepsBroken) or holds one that breaks whatever the width, such as
+// a stacked pipeline.
+func caseArmFits(b *ast.CaseBranch, rem int) bool {
+	if _, isBlock := b.Body.(*ast.Block); isBlock || isTripleLiteral(b.Body) {
+		return false
+	}
+	line := caseArmLine(b, false)
+	return !caseArmKeepsBroken(b, line) && fitsWalk(line, &rem, false)
 }
 
 // caseArmKeepsBroken reports whether arm b keeps its body on the line below
@@ -4358,14 +4364,14 @@ func emitFuncDefParam(p ast.Param) Doc {
 
 // emitTypeExpr renders a TypeExpr as a Doc. Each type-expression node has
 // its own case so nested anon structs participate in the width budget no
-// matter how deeply they sit (`List<#{...}>`, `(String, #{...})`,
-// `(Int, #{...}) -> R`, `mod.Foo<#{...}>`).
+// matter how deeply they sit (`List<.{...}>`, `(String, .{...})`,
+// `(Int, .{...}) -> R`, `mod.Foo<.{...}>`).
 //
 // Containers (GenericType, FuncType, QualifiedType) are intentionally
 // *not* wrapped in their own Group — they render as flat text glue with
 // recursive emitTypeExpr calls. This keeps the "outer container stays
 // inline, inner anon struct flows multi-line" shape — same approach
-// Prettier takes for `Promise<#{...}>` in TypeScript. Long containers of
+// Prettier takes for `Promise<.{...}>` in TypeScript. Long containers of
 // only-simple types (`(VeryLongTypeA, VeryLongTypeB, ...)`) therefore
 // don't auto-break at the container; they spill, same as before this
 // change. The escape hatch when that bites is a `typealias` for the
@@ -4490,14 +4496,14 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 // shared brace-list helper since the layout is identical to a struct-
 // shaped enum variant payload.
 func emitAnonStructType(t *ast.AnonStructType) Doc {
-	return emitBracedStructFieldsWithEndTrivia("#{", t.Fields, t.EndTrivia)
+	return emitBracedStructFieldsWithEndTrivia(".{", t.Fields, t.EndTrivia)
 }
 
 // emitBracedStructFieldsWithEndTrivia renders a braced list of struct
-// fields after open, `#{` for an anonymous struct type and `{` for a
+// fields after open, `.{` for an anonymous struct type and `{` for a
 // struct-shaped enum variant. Width-based, with a preserve-user-multi-line escape:
 //
-//	flat:                #{a: Int, b: String}
+//	flat:                .{a: Int, b: String}
 //	broken (auto):       {
 //	                       a: Int,
 //	                       b: String,
@@ -4513,7 +4519,7 @@ func emitAnonStructType(t *ast.AnonStructType) Doc {
 // Trailing comma appears in any broken form (matches named struct
 // declarations). Empty body renders as `{}` for resilience.
 //
-// Used by both anonymous struct type expressions (`fn f(p: #{a: Int}) -> R`)
+// Used by both anonymous struct type expressions (`fn f(p: .{a: Int}) -> R`)
 // and struct-shaped enum variant payloads (`HttpError {status: Int, ...}`)
 // so the brace-bounded-fields layout stays identical wherever it appears.
 //
@@ -6441,12 +6447,12 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, b
 
 // shapeOpen is the opening of a literal or pattern of a built-in shape: its
 // symbol, the name of the type built on the shape when there is one, and its
-// bracket. `#{`, `Point{`, `.Circle{`, `%Kvs{`, `#Path[`.
-// structOpen is a struct literal's or pattern's opening: `#{` for the
+// bracket. `.{`, `Point{`, `.Circle{`, `%Kvs{`, `#Path[`.
+// structOpen is a struct literal's or pattern's opening: `.{` for the
 // unnamed form, and the name alone for a named one, `Point{`.
 func structOpen(name ast.TypeExpr) string {
 	if name == nil {
-		return "#{"
+		return ".{"
 	}
 	return name.TypeString() + "{"
 }

@@ -29,8 +29,6 @@ pub enum Error {
     AmountAboveBalance
 }
 
-derive Equatable for Error
-
 impl Display for Error {
     fn to_string(error: Error) -> String {
         case error {
@@ -83,7 +81,7 @@ impl Account {
 }
 
 /// Runs `body` with a new account, not yet open, whose teller runs as a
-/// task beside it, and answers what `body` answers. The teller stops when
+/// task beside it, and returns what `body` returns. The teller stops when
 /// `body` returns.
 pub fn with_account<T>(body: (Account) -> T) -> T {
     inbox = Channel.buffered<Request>(16)
@@ -116,31 +114,22 @@ fn ask<T>(account: Account, request: (Channel<T>) -> Request) -> T {
 
 /// The teller: answers requests one at a time until the inbox closes. The
 /// balance is the loop's state, `None` while the account is not open.
-fn serve(inbox: Receiver<Request>) -> Unit {
-    _final = Iter.loop(None, fn balance -> {
+fn serve(inbox: Receiver<Request>) {
+    _ = Iter.loop(None, fn balance -> {
         case Receiver.receive(inbox) {
             Some(request) -> handle(balance, request)
             None -> break balance
         }
     })
-
-    Unit
 }
 
-/// Answers `request` against `balance` and answers the balance after it.
+/// Answers `request` against `balance` and returns the balance after it.
 fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int> {
     case request {
-        .Open{reply} ->
-            answer(reply, balance, opened(balance))
-
-        .Close{reply} ->
-            answer(reply, balance, closed(balance))
-
-        .Deposit{amount, reply} ->
-            answer(reply, balance, deposited(balance, amount))
-
-        .Withdraw{amount, reply} ->
-            answer(reply, balance, withdrawn(balance, amount))
+        .Open{reply} -> answer(reply, balance, opened(balance))
+        .Close{reply} -> answer(reply, balance, closed(balance))
+        .Deposit{amount, reply} -> answer(reply, balance, deposited(balance, amount))
+        .Withdraw{amount, reply} -> answer(reply, balance, withdrawn(balance, amount))
 
         .Balance{reply} -> {
             _ = Sender.send(reply.sender, Maybe.to_result(balance, .AccountNotOpen))
@@ -149,7 +138,7 @@ fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int> {
     }
 }
 
-/// Sends `reply` whether `next` succeeded, and answers the balance after
+/// Sends `reply` whether `next` succeeded, and returns the balance after
 /// it: the new one, or `balance` unchanged.
 fn answer(
     reply: Channel<Result<Unit, Error>>,
@@ -206,10 +195,10 @@ enum Step {
 }
 
 /// Runs `steps` on a new account, stopping at the first refused one, and
-/// answers the balance after them or the refusal.
+/// returns the balance after them or the refusal.
 fn replay(steps: List<Step>) -> Result<Int, Error> {
     bank_account.with_account(fn account -> {
-        _ = steps |> Iter.map(fn step -> run(account, step)) |> Result.collect()?
+        _ = steps |> Iter.map(&run(account, &1)) |> Result.collect()?
         Account.balance(account)
     })
 }
@@ -287,7 +276,7 @@ test "Can handle concurrent transactions" {
     })
 
     assert opened == Ok(Unit)
-    assert transactions |> Iter.all(Result.is_ok)
+    assert transactions |> Iter.all_match(Result.is_ok)
     assert balance == Ok(0)
 }
 
@@ -307,10 +296,10 @@ test result: ok. 18 passed, 0 failed
 
 ## How it's written
 
-- Adapted: the exercise asks for a mutable account object whose methods change its balance, safely under concurrent calls. Nomi values are immutable, so the balance is the state of one task, the teller, which answers requests one at a time (`std/tasks` and `std/channels`). An `Account` is the teller's inbox, and each operation sends a request with its own reply channel and waits for the answer. Two tasks never touch the balance, so there is nothing to lock.
+- Adapted: the exercise asks for a mutable account object whose methods change its balance, safely under concurrent calls. Nomi values are immutable, so the balance is the state of one task, the teller, which handles requests one at a time (`std::tasks` and `std::channels`). An `Account` is the teller's inbox, and each operation sends a request with its own reply channel and waits for the answer. Two tasks never touch the balance, so there is nothing to lock.
 - `Account` is an opaque type over the `Sender` half of the teller's inbox, and the operations are its functions (`Account.deposit(account, 1)`). Code outside the file cannot take it apart, so `Request` stays private.
-- `with_account(body)` makes an account that is not open yet, runs its teller beside `body` inside a `concurrent` block, closes the inbox when `body` returns, and answers what `body` answers. A teller cannot outlive the block that spawned it, so the account is scoped to `body` rather than returned.
-- The teller is an `Iter.loop` whose state is the balance, `None` while the account is not open. `handle` answers one request with the pure functions `opened`, `closed`, `deposited` and `withdrawn`, which check in the canonical order: not open, then a non-positive amount, then an amount above the balance.
+- `with_account(body)` makes an account that is not open yet, runs its teller beside `body` inside a `concurrent` block, closes the inbox when `body` returns, and returns what `body` returns. A teller cannot outlive the block that spawned it, so the account is scoped to `body` rather than returned.
+- The teller is an `Iter.loop` whose state is the balance, `None` while the account is not open. `handle` handles one request with the pure functions `opened`, `closed`, `deposited` and `withdrawn`, which check in the canonical order: not open, then a non-positive amount, then an amount above the balance.
 - The four canonical errors are an `Error` enum with an `impl Display` giving the canonical messages, which one test checks.
 - The canonical cases are lists of operations ending in the one whose result is expected. The test file's `replay` runs a case's operations as `Step`s on a new account, stopping at the first refused one, and then asks the balance, so each row is the operations before the final balance check and the expected `Result<Int, Error>`. A case that ends in a refused operation never reaches the balance check.
 - The 16 sequential cases are one `subtests` table named by the description column. "Can handle concurrent transactions" is its own test: 1000 tasks (100 running at once, `Task.spawn_all`) each deposit 1 and withdraw 1, and the balance is 0 after.

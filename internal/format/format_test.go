@@ -1031,25 +1031,24 @@ func TestFormat_Case_LongArmWraps(t *testing.T) {
 	if !strings.Contains(got, wantSubstr) {
 		t.Errorf("expected long arm body wrap, got:\n%s", got)
 	}
-	// The arms break together: the short arm moves its body down too, and a
-	// blank line separates the two.
-	wantShort := "extra_options)\n\n    _ ->\n        default()\n"
+	// Only the long arm breaks: the short arm stays on one line, after a
+	// blank line.
+	wantShort := "extra_options)\n\n    _ -> default()\n"
 	if !strings.Contains(got, wantShort) {
-		t.Errorf("short arm should break with the long one, got:\n%s", got)
+		t.Errorf("short arm should stay on one line after the long one, got:\n%s", got)
 	}
 }
 
 func TestFormat_Case_MultipleStatementsInArmBody(t *testing.T) {
 	// Arm body as an explicit block with multiple statements keeps `-> {` on
-	// the pattern's line; the block makes the other arm break too.
+	// the pattern's line; the other arm stays on one line, after a blank line.
 	src := `x = case y {
     0 -> {
         z = 1
         z + 1
     }
 
-    _ ->
-        0
+    _ -> 0
 }
 `
 	got, _ := Format(src)
@@ -1101,7 +1100,7 @@ func TestFormat_StructLit_Long_Breaks(t *testing.T) {
 }
 
 func TestFormat_AnonStructLit(t *testing.T) {
-	src := `x = #{name: "Alice", age: 30}` + "\n"
+	src := `x = .{name: "Alice", age: 30}` + "\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1126,7 +1125,7 @@ func TestFormat_StructLit_PreservesUserMultiLine(t *testing.T) {
 // TestFormat_AnonStructLit_PreservesUserMultiLine: same rule for an
 // anonymous struct literal — multi-line shape is preserved.
 func TestFormat_AnonStructLit_PreservesUserMultiLine(t *testing.T) {
-	src := `x = #{
+	src := `x = .{
     name: "Alice",
     age: 30,
 }
@@ -1141,7 +1140,7 @@ func TestFormat_AnonStructLit_PreservesUserMultiLine(t *testing.T) {
 // the user wrote multi-line stay multi-line. Symmetric with the literal
 // rule.
 func TestFormat_AnonStructType_PreservesUserMultiLine(t *testing.T) {
-	src := `fn greet(p: #{
+	src := `fn greet(p: .{
     name: String,
     age: Int,
 }) -> String {
@@ -1867,7 +1866,7 @@ func TestFormat_TestBootLine(t *testing.T) {
   clock Clock.Virtual
   boot   server.boot( startup() )
   setup Fixture{port: 3000}
-  test "reads active app", #{port} {
+  test "reads active app", .{port} {
     assert Config.port == port
   }
 }
@@ -1878,7 +1877,7 @@ func TestFormat_TestBootLine(t *testing.T) {
     boot server.boot(startup())
     setup Fixture{port: 3000}
 
-    test "reads active app", #{port} {
+    test "reads active app", .{port} {
         assert Config.port == port
     }
 }
@@ -1895,7 +1894,7 @@ func TestFormat_TestGroupLinesKeepComments(t *testing.T) {
     // about setup
     setup Fixture{a: 1} // after setup
 
-    test "t", #{a} {
+    test "t", .{a} {
         assert a == 1
     }
 }
@@ -1980,7 +1979,7 @@ func TestFormat_GroupSubtestsBlock(t *testing.T) {
 // The comments above a moved line, and the one after it, move with it.
 func TestFormat_TestGroupLinesReorderedKeepComments(t *testing.T) {
 	src := `group "g" {
-    test "t", #{a} {
+    test "t", .{a} {
         assert a == 1
     }
 
@@ -2005,7 +2004,7 @@ func TestFormat_TestGroupLinesReorderedKeepComments(t *testing.T) {
     // about setup
     setup Fixture{a: 1} // after setup
 
-    test "t", #{a} {
+    test "t", .{a} {
         assert a == 1
     }
     // end of group
@@ -2048,7 +2047,7 @@ func TestFormat_TestSetupExpression(t *testing.T) {
         User.fixture()
     }
 
-    test "reads setup", #{name} {
+    test "reads setup", .{name} {
         assert name == "Ada"
     }
 }
@@ -2056,7 +2055,7 @@ func TestFormat_TestSetupExpression(t *testing.T) {
 	want := `group "fixture" {
     setup User.fixture()
 
-    test "reads setup", #{name} {
+    test "reads setup", .{name} {
         assert name == "Ada"
     }
 }
@@ -2097,7 +2096,7 @@ func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
         }
     }
 
-    test "reads setup", #{name} {
+    test "reads setup", .{name} {
         assert name == "Ada"
     }
 }
@@ -2108,7 +2107,7 @@ func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
         role: "admin",
     }
 
-    test "reads setup", #{name} {
+    test "reads setup", .{name} {
         assert name == "Ada"
     }
 }
@@ -3165,7 +3164,7 @@ func TestFormat_StringLit_LiteralDollarBrace(t *testing.T) {
 
 // A `#{` in a string is ordinary text and needs no escape.
 func TestFormat_StringLit_HashBraceIsText(t *testing.T) {
-	src := `x = "cost: #{n} ##"` + "\n"
+	src := `x = "cost: .{n} ##"` + "\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("round-trip failed:\n got: %q\nwant: %q", got, src)
@@ -3675,8 +3674,7 @@ SELECT *
             <img src="${url}" alt="">
             """
 
-        None ->
-            Html"<span>${initial}</span>"
+        None -> Html"<span>${initial}</span>"
     }
 }
 `,
@@ -4210,25 +4208,25 @@ func TestFormat_TupleDestructure_Wildcard(t *testing.T) {
 }
 
 func TestFormat_StructDestructure_Punning(t *testing.T) {
-	// Anonymous struct destructure with punning: #{x, y} = expr.
+	// Anonymous struct destructure with punning: .{x, y} = expr.
 	src := `fn main() {
-  #{x, y} = point
+  .{x, y} = point
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, "#{x, y} = point") {
+	if !strings.Contains(got, ".{x, y} = point") {
 		t.Errorf("struct destructure with punning not emitted correctly, got:\n%s", got)
 	}
 }
 
 func TestFormat_StructDestructure_WithRename(t *testing.T) {
-	// Anonymous struct destructure with rename: #{x: a, y: b} = expr.
+	// Anonymous struct destructure with rename: .{x: a, y: b} = expr.
 	src := `fn main() {
-  #{x: a, y: b} = point
+  .{x: a, y: b} = point
 }
 `
 	got, _ := Format(src)
-	if !strings.Contains(got, "#{x: a, y: b} = point") {
+	if !strings.Contains(got, ".{x: a, y: b} = point") {
 		t.Errorf("struct destructure with rename not emitted correctly, got:\n%s", got)
 	}
 }
@@ -5047,9 +5045,9 @@ func TestFormat_OpaqueOnStructPrivatePreserved(t *testing.T) {
 
 // Round-trip an anonymous struct type used as a tuple element of a
 // distinct-tuple type. The formatter delegates to TypeString(), so this
-// pins the canonical shape `#{name: String, age: Int}`.
+// pins the canonical shape `.{name: String, age: Int}`.
 func TestFormat_AnonStructType_TupleDistinct(t *testing.T) {
-	src := "type Tagged (String, #{name: String, age: Int})\n"
+	src := "type Tagged (String, .{name: String, age: Int})\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -5058,7 +5056,7 @@ func TestFormat_AnonStructType_TupleDistinct(t *testing.T) {
 
 // Round-trip an anonymous struct type as a function parameter annotation.
 func TestFormat_AnonStructType_FunctionParam(t *testing.T) {
-	src := "fn greet(p: #{name: String}) -> String {\n    p.name\n}\n"
+	src := "fn greet(p: .{name: String}) -> String {\n    p.name\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q\nwant %q", got, src)
@@ -5072,9 +5070,9 @@ func TestFormat_AnonStructType_FunctionParam(t *testing.T) {
 // list around the anon struct — never inside it. Now the anon struct
 // participates in the width budget like other braced bodies.
 func TestFormat_AnonStructType_LongFnParam_Breaks(t *testing.T) {
-	src := "fn process(_opts: #{retries: Int, timeout: Int, on_error: (Error) -> Unit, max_concurrency: Int, backoff_ms: Int}) -> Result<Int, Error> {\n    Ok(0)\n}\n"
+	src := "fn process(_opts: .{retries: Int, timeout: Int, on_error: (Error) -> Unit, max_concurrency: Int, backoff_ms: Int}) -> Result<Int, Error> {\n    Ok(0)\n}\n"
 	got, _ := Format(src)
-	if !strings.Contains(got, "opts: #{\n") {
+	if !strings.Contains(got, "opts: .{\n") {
 		t.Errorf("expected anon struct to break, got:\n%s", got)
 	}
 	if !strings.Contains(got, "\n        retries: Int,\n") {
@@ -5089,7 +5087,7 @@ func TestFormat_AnonStructType_LongFnParam_Breaks(t *testing.T) {
 // fn params still fit flat; the new rule is width-based, not always-broken.
 // Acts as a regression guard against an over-aggressive break rule.
 func TestFormat_AnonStructType_ShortFnParam_StaysFlat(t *testing.T) {
-	src := "fn greet(p: #{name: String, age: Int}) -> String {\n    p.name\n}\n"
+	src := "fn greet(p: .{name: String, age: Int}) -> String {\n    p.name\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got:\n%s\nwant:\n%s", got, src)
@@ -5100,11 +5098,11 @@ func TestFormat_AnonStructType_ShortFnParam_StaysFlat(t *testing.T) {
 // inside a distinct-type tuple breaks under width pressure even though it
 // is not at the top of its emitTypeExpr call. The tuple itself stays flat
 // (no Group on the tuple type) and the anon struct breaks at its column.
-// Mirrors Prettier's `Promise<#{...}>` behaviour — outer container stays
+// Mirrors Prettier's `Promise<.{...}>` behaviour — outer container stays
 // inline, inner anon struct flows multi-line inside it.
 func TestFormat_AnonStructType_NestedInTuple_Breaks(t *testing.T) {
-	src := "pub type MyTuple (String, #{status: Int, message: String, retryable: Bool, a_long_field: String, another_field: Int})\n"
-	want := `pub type MyTuple (String, #{
+	src := "pub type MyTuple (String, .{status: Int, message: String, retryable: Bool, a_long_field: String, another_field: Int})\n"
+	want := `pub type MyTuple (String, .{
     status: Int,
     message: String,
     retryable: Bool,
@@ -5119,15 +5117,15 @@ func TestFormat_AnonStructType_NestedInTuple_Breaks(t *testing.T) {
 }
 
 // TestFormat_AnonStructType_NestedInGeneric_Breaks: same rule for an anon
-// struct inside a generic type argument like `List<#{...}>` — the generic's
+// struct inside a generic type argument like `List<.{...}>` — the generic's
 // `Name<` and `>` stay inline, the anon struct breaks inside. Uses a
 // typealias rather than a fn to avoid an enclosing param-list Group whose
 // own break decision would race with the anon struct's (Wadler's `fits`
 // computes total flat width and would force the outer Group broken before
 // the inner one even gets a chance to break alone).
 func TestFormat_AnonStructType_NestedInGeneric_Breaks(t *testing.T) {
-	src := "pub typealias Pages List<#{status: Int, message: String, retryable: Bool, a_long_field: String, another_field: Int}>\n"
-	want := `pub typealias Pages List<#{
+	src := "pub typealias Pages List<.{status: Int, message: String, retryable: Bool, a_long_field: String, another_field: Int}>\n"
+	want := `pub typealias Pages List<.{
     status: Int,
     message: String,
     retryable: Bool,
@@ -5151,9 +5149,9 @@ func TestFormat_AnonStructType_NestedInGeneric_Breaks(t *testing.T) {
 // indent fits flat and stays there. No trailing comma — function-type
 // syntax does not permit it.
 func TestFormat_AnonStructType_NestedInFuncType_Breaks(t *testing.T) {
-	src := "pub typealias Handler (#{req: String, headers: Map<String, String>, body: String}) -> Result<String, Int>\n"
+	src := "pub typealias Handler (.{req: String, headers: Map<String, String>, body: String}) -> Result<String, Int>\n"
 	want := `pub typealias Handler (
-    #{req: String, headers: Map<String, String>, body: String}
+    .{req: String, headers: Map<String, String>, body: String}
 ) -> Result<String, Int>
 `
 	got, _ := Format(src)
@@ -5602,7 +5600,7 @@ func TestFormat_InterfaceBody_TrailingComment_Preserved(t *testing.T) {
 // struct types in parameter position. Pre-fix: separator loop silently
 // consumed COMMENT/BLANK_LINE — `nomi fmt -w` dropped the comment.
 func TestFormat_AnonStructType_TrailingComment_Preserved(t *testing.T) {
-	src := "fn greet(p: #{\n    name: String,\n    age: Int,\n    // trailing comment\n}) -> String {\n    p.name\n}\n"
+	src := "fn greet(p: .{\n    name: String,\n    age: Int,\n    // trailing comment\n}) -> String {\n    p.name\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5644,7 +5642,7 @@ func TestFormat_StructLit_TrailingComment_Preserved(t *testing.T) {
 // struct literals. Pre-fix: parser rejected with "expected field name in
 // struct literal".
 func TestFormat_AnonStructLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n    p = #{\n        name: \"alice\",\n        age: 30,\n        // trailing comment\n    }\n\n    p\n}\n"
+	src := "fn main() {\n    p = .{\n        name: \"alice\",\n        age: 30,\n        // trailing comment\n    }\n\n    p\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5813,7 +5811,7 @@ func TestFormat_InterfaceBody_InterMethodComment_Preserved(t *testing.T) {
 // Inter-field comment round-trips through anon-struct types in param
 // position. New StructField.LeadingComments slot.
 func TestFormat_AnonStructType_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn greet(p: #{\n    name: String,\n    // a comment between two anon-type fields\n    age: Int,\n}) -> String {\n    p.name\n}\n"
+	src := "fn greet(p: .{\n    name: String,\n    // a comment between two anon-type fields\n    age: Int,\n}) -> String {\n    p.name\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5855,7 +5853,7 @@ func TestFormat_StructLit_InterFieldComment_Preserved(t *testing.T) {
 // Same StructFieldVal.LeadingComments slot (StructLit is the shared
 // AST node for nominal and anonymous literals).
 func TestFormat_AnonStructLit_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn main() {\n    p = #{\n        name: \"alice\",\n        // a comment between two anon-literal fields\n        age: 30,\n    }\n\n    p\n}\n"
+	src := "fn main() {\n    p = .{\n        name: \"alice\",\n        // a comment between two anon-literal fields\n        age: 30,\n    }\n\n    p\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)

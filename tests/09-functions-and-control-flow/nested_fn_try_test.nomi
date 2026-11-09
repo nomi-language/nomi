@@ -51,8 +51,7 @@ test "a nested fn's `?` inside a named fn" {
 test "a recursive nested fn with `?`" {
     fn total(xs: List<String>) -> Result<Int, String> {
         case xs {
-            [] ->
-                Ok(0)
+            [] -> Ok(0)
 
             [x, ..rest] -> {
                 n = parse(x)?

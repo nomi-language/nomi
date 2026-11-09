@@ -9,7 +9,7 @@ import (
 )
 
 // An `embeds` of a distinct over a value matches its payload pattern against
-// the distinct's inner value, as the checker types it: `Shape.Wrapped(#{r})`
+// the distinct's inner value, as the checker types it: `Shape.Wrapped(.{r})`
 // is a struct pattern over Circle for `type Wrapped Circle`. Each position a
 // pattern is tested in runs, matched and not: a tail `case`, a pattern `if`,
 // an `else` that leaves and one that supplies the payload, a variant payload
@@ -57,14 +57,14 @@ enum Holder {
 
 fn tail_case(s: Shape) -> String {
   case s {
-    Shape.Wrapped(#{r: 1}) -> "case one"
-    Shape.Wrapped(#{r}) -> "case ${r}"
+    Shape.Wrapped(.{r: 1}) -> "case one"
+    Shape.Wrapped(.{r}) -> "case ${r}"
     _ -> "case miss"
   }
 }
 
 fn tail_if(s: Shape) -> String {
-  if Shape.Wrapped(#{r}) = s {
+  if Shape.Wrapped(.{r}) = s {
     "if ${r}"
   } else {
     "if miss"
@@ -72,14 +72,14 @@ fn tail_if(s: Shape) -> String {
 }
 
 fn else_leaves(s: Shape) -> String {
-  Shape.Wrapped(#{r}) = s else {
+  Shape.Wrapped(.{r}) = s else {
     return "else miss"
   }
   "else ${r}"
 }
 
 fn else_fallback(s: Shape) -> String {
-  Shape.Wrapped(#{r}) = s else {
+  Shape.Wrapped(.{r}) = s else {
     Circle{r: 0}
   }
   "fallback ${r}"
@@ -87,14 +87,14 @@ fn else_fallback(s: Shape) -> String {
 
 fn nested(h: Holder) -> String {
   case h {
-    .Hold(Shape.Wrapped(#{r})) -> "nested ${r}"
+    .Hold(Shape.Wrapped(.{r})) -> "nested ${r}"
     _ -> "nested miss"
   }
 }
 
 fn mid_case(s: Shape) -> String {
   n = case s {
-    Shape.Wrapped(#{r}) -> r
+    Shape.Wrapped(.{r}) -> r
     _ -> -1
   }
   "mid ${n}"
@@ -137,7 +137,7 @@ fn distinct(s: Shape) -> String {
 
 fn again(s: Shape) -> String {
   case s {
-    Shape.Again(Wrapped(#{r})) -> "again ${r}"
+    Shape.Again(Wrapped(.{r})) -> "again ${r}"
     _ -> "again miss"
   }
 }
@@ -150,7 +150,7 @@ fn pair_fallback(s: Shape) -> String {
 }
 
 fn again_fallback(s: Shape) -> String {
-  Shape.Again(Wrapped(#{r})) = s else {
+  Shape.Again(Wrapped(.{r})) = s else {
     Wrapped(Circle{r: 0})
   }
   "again fallback ${r}"
@@ -245,23 +245,23 @@ enum Shape {
 }
 
 test "assert matched" {
-  assert Shape.Wrapped(#{r}) = Shape.Wrapped(Circle{r: 2})
+  assert Shape.Wrapped(.{r}) = Shape.Wrapped(Circle{r: 2})
   io.print("assert ${r}")
 }
 
 test "assert missed" {
-  assert Shape.Wrapped(#{r: _}) = Shape.Dot
+  assert Shape.Wrapped(.{r: _}) = Shape.Dot
 }
 
 test "case" {
   w = Shape.Wrapped(Circle{r: 7})
   a = case w {
-    Shape.Wrapped(#{r}) -> "wrapped ${r}"
+    Shape.Wrapped(.{r}) -> "wrapped ${r}"
     _ -> "dot"
   }
   d = Shape.Dot
   b = case d {
-    Shape.Wrapped(#{r}) -> "wrapped ${r}"
+    Shape.Wrapped(.{r}) -> "wrapped ${r}"
     _ -> "dot"
   }
   io.print("${a}, ${b}")
@@ -281,7 +281,7 @@ test "case" {
 		"  assert 2",
 		"FAIL main_test.nomi :: assert missed",
 		"  line 20: pattern did not match",
-		"    assert Shape.Wrapped(#{r: _}) = Shape.Dot",
+		"    assert Shape.Wrapped(.{r: _}) = Shape.Dot",
 		"    actual: Dot",
 		"ok main_test.nomi :: case",
 		"  wrapped 7, dot",
@@ -323,7 +323,7 @@ struct Holder {
 
 fn maybe(m: Maybe<Shape>) -> String {
   case m {
-    Some(Shape.Wrapped(#{r})) -> "some ${r}"
+    Some(Shape.Wrapped(.{r})) -> "some ${r}"
     Some(_) -> "some dot"
     None -> "none"
   }
@@ -347,14 +347,14 @@ fn plain(m: Maybe<Plain>) -> String {
 
 fn list(xs: List<Shape>) -> String {
   case xs {
-    [Shape.Wrapped(#{r}), ..] -> "list ${r}"
+    [Shape.Wrapped(.{r}), ..] -> "list ${r}"
     _ -> "list miss"
   }
 }
 
 fn tuple(t: (Shape, Int)) -> String {
   case t {
-    (Shape.Wrapped(#{r}), n) -> "tuple ${r + n}"
+    (Shape.Wrapped(.{r}), n) -> "tuple ${r + n}"
     (_, n) -> "tuple ${n}"
   }
 }

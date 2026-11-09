@@ -405,8 +405,8 @@ pub struct User {
 Each column's SQL type picks its field's Nomi type, and a nullable column
 is a `Maybe`. A query file names a row as `User` or `schema.User`; when it
 imports a type of its own called `User`, the bare name means that type and
-`schema.User` is the row. `queries.nomi` holds a function for each query, which takes
-the connection first and wraps its result in a `Result`:
+`schema.User` is the row. `queries.nomi` holds a function for each query,
+which takes the connection first and wraps its result in a `Result`:
 
 ```nomi
 pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error>
@@ -463,7 +463,7 @@ fn main() -> Result<Unit, Error> {
     counts = queries.order_counts(db)?
 
     Iter.each(counts, fn c -> {
-        last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")
+        last = c.last_order |> Maybe.map(&"${&1}") |> Maybe.with_default("none")
         io.print("${c.email}: orders ${c.orders}, last order ${last}")
     })
 
@@ -577,7 +577,7 @@ import {
 /// The user with this email, if any.
 pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
     statement = runtime.statement(
-        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [`SELECT id, email, name, created_at FROM users WHERE email = `, ``],
         [runtime.bind(email)],
     )
 
@@ -592,7 +592,7 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
 /// Add a user, returning its id.
 pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
     statement = runtime.statement(
-        ["INSERT INTO users (email, name) VALUES (", ", ", ") RETURNING id"],
+        [`INSERT INTO users (email, name) VALUES (`, `, `, `) RETURNING id`],
         [runtime.bind(email), runtime.bind(name)],
     )
 
@@ -602,7 +602,7 @@ pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result
 /// Place an order for a user.
 pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
     statement = runtime.statement(
-        ["INSERT INTO orders (user_id, total) VALUES (", ", ", ") RETURNING id"],
+        [`INSERT INTO orders (user_id, total) VALUES (`, `, `, `) RETURNING id`],
         [runtime.bind(user_id), runtime.bind(total)],
     )
 
@@ -616,7 +616,7 @@ pub fn set_status(
     status: OrderStatus,
 ) -> Result<sqlkit.Changed, sql.Error> {
     statement = runtime.statement(
-        ["UPDATE orders SET status = ", " WHERE id = ", ""],
+        [`UPDATE orders SET status = `, ` WHERE id = `, ``],
         [runtime.bind(status), runtime.bind(id)],
     )
 
@@ -625,19 +625,19 @@ pub fn set_status(
 
 /// Every user with the number of orders they placed, including those who
 /// placed none.
-pub fn order_counts(conn: sql.Conn) -> Result<List<#{
+pub fn order_counts(conn: sql.Conn) -> Result<List<.{
     email: String,
     last_order: Maybe<Int>,
     orders: Int,
 }>, sql.Error> {
     statement = runtime.statement(
         [
-            "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+            `SELECT u.email, max(o.id) AS "last_order", count(o.id) AS "orders" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email`,
         ],
         [],
     )
 
-    runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
+    runtime.list(conn, "order_counts", statement, fn row -> Ok(.{
             email: runtime.text<String>("order_counts", row, 0)?,
             last_order: runtime.value_null<Int>("order_counts", row, 1)?,
             orders: runtime.value<Int>("order_counts", row, 2)?,
@@ -717,7 +717,25 @@ impl sqlkit.SqlText for OrderStatus
 pub once migrations: List<sqlkit.Migration> = [
     sqlkit.Migration{
         path: "db/migrations/20261019120000_users_and_orders.sql",
-        sql: "CREATE TABLE users (\n    id          INTEGER PRIMARY KEY,\n    email       TEXT NOT NULL UNIQUE,\n    name        TEXT,\n    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE orders (\n    id          INTEGER PRIMARY KEY,\n    user_id     INTEGER NOT NULL REFERENCES users (id),\n    status      TEXT NOT NULL DEFAULT 'pending'\n                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),\n    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.\n    total       DECIMAL(12, 2) NOT NULL,\n    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n",
+        sql: `
+            CREATE TABLE users (
+                id          INTEGER PRIMARY KEY,
+                email       TEXT NOT NULL UNIQUE,
+                name        TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE orders (
+                id          INTEGER PRIMARY KEY,
+                user_id     INTEGER NOT NULL REFERENCES users (id),
+                status      TEXT NOT NULL DEFAULT 'pending'
+                            CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),
+                -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.
+                total       DECIMAL(12, 2) NOT NULL,
+                placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            `,
     },
 ]
 
@@ -772,6 +790,21 @@ test result: ok. 3 passed, 0 failed
 A query function takes any `Conn`, so it runs inside a
 [transaction](#transactions) as a direct statement does.
 
+A program that [boots](/app-fields/) opens the connection in `boot`,
+migrates, and keeps it in an app field, so code reads it as `App.db`:
+
+```nomi
+fn boot(Startup) -> Result<App, Error> {
+    db = sqlite.open("shop.db")?
+    defer sql.close_quietly(db)
+    sqlkit.migrate(db, schema.migrations)?
+    Ok(App{db})
+}
+```
+
+A plain `defer` is right here. A call deferred in `boot` runs after `main`
+returns, so the connection stays open while the program runs.
+
 <div class="tour-details">
 <p class="tour-details-label">What sqlkit checks, and more</p>
 
@@ -784,8 +817,7 @@ covers what the chapter leaves out:
   and column, before it writes anything;
 - every SQL type and the Nomi type it reads as, and how a `DECIMAL` keeps
   its scale;
-- testing with the schema, and keeping the connection in an app field in a
-  program that [boots](/app-fields/);
+- testing with the schema;
 - other layouts and several databases in `nomi.toml`.
 
 [`lib/sql/examples/shop`](https://github.com/nomi-language/nomi/tree/main/lib/sql/examples/shop)

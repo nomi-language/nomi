@@ -15,8 +15,9 @@ pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int {
         |> Iter.take(maximum_weight + 1)
         |> Iter.to_vector()
 
-    best = Iter.reduce(items, nothing, consider)
-    Vector.get(best, maximum_weight)!
+    items
+    |> Iter.reduce(nothing, consider)
+    |> Vector.get(maximum_weight)!
 }
 
 /// The best value for each capacity from 0 to the maximum once `item` may be

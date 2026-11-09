@@ -420,8 +420,6 @@ The stopping in [Errors cancel siblings](#errors-cancel-siblings) happens
 because a `?` sees an `Err`, or because a task breaks. Here, nothing uses
 `?` on the results, so each `Err` is a value in the list.
 
----
-
 ## Cancelling one task
 
 `Task.cancel` stops one task and leaves the others running. A cancelled task
@@ -602,7 +600,7 @@ A task ends in one of three ways:
 | Outcome | Meaning |
 | --- | --- |
 | Completed | The function returned normally. |
-| Cancelled | Something stopped it: `Task.cancel`, or shutdown. |
+| Cancelled | Something stopped it: `Task.cancel`, a deadline, or shutdown. |
 | Failed | It broke. |
 
 `Task.await` returns the value of a completed task. If the task was
@@ -644,7 +642,5 @@ So programs can still crash, but an owner always sees the failure:
 Nomi values are immutable, so a task that dies halfway can't leave in-memory
 data half written. Writes it made outside the program, to a file or a
 database, stay made.
-
----
 
 [Calling Go](/calling-go/) is next. It calls functions from Go packages.

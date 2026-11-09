@@ -6,7 +6,7 @@
 // This program is what makes that keying FALSIFIABLE instead of asserted. Both
 // Points reach the builder, each with its own structural comparator; a bare-name
 // key would let one declaration answer for the other, and the comparator built
-// for `#{x: Int, y: Int}` would be applied to `#{lat: Float, lon: Float}`.
+// for `.{x: Int, y: Int}` would be applied to `.{lat: Float, lon: Float}`.
 // Each Point's rows below come from its own comparator.
 //
 // The comparison of two same-named types, `shapes.Point ==

@@ -57,7 +57,7 @@ fn main() {
     tracer = Tracer.new()
 
     client = Client.new(ClientOptions{
-        tls: Some(#{
+        tls: Some(.{
             ..trusted,
             server_name: Some("localhost"),
             verify: Some(fn s: ConnectionState -> if s.server_name == "localhost" { Ok(Unit) } else { Err("wrong name") }),
@@ -69,10 +69,10 @@ fn main() {
     io.print("served ${Response.text(response)!}")
     io.print("response tls ${response.tls |> Maybe.map(fn s -> s.handshake_complete)}")
     events = Tracer.events(tracer)
-    io.print("traced ${Iter.any(events, fn e -> e == TraceEvent.TlsStart)} ${Iter.any(events, fn e -> e == TraceEvent.FirstResponseByte)}")
+    io.print("traced ${Iter.any_match(events, fn e -> e == TraceEvent.TlsStart)} ${Iter.any_match(events, fn e -> e == TraceEvent.FirstResponseByte)}")
 
     refusing = Client.new(ClientOptions{
-        tls: Some(#{..trusted, server_name: Some("localhost"), verify: Some(fn _s: ConnectionState -> Err("no thanks"))}),
+        tls: Some(.{..trusted, server_name: Some("localhost"), verify: Some(fn _s: ConnectionState -> Err("no thanks"))}),
     })
 
     refused = Client.fetch(refusing, Request{url}) |> Result.map(fn _ -> "fetched") |> Result.map_err(fn e -> String.contains("${e}", "no thanks"))
@@ -106,7 +106,7 @@ fn main() {
     _ = Supervisor.spawn(App.web, fn -> net.serve(secure, fn c: Connection -> {
         _ = Writer.write_text(Connection.writer(c), "wrapped\n")
     }, App.web))
-    (sconn, keys) = Writer.collect(fn log -> tls.dial(net.Listener.address(secure), #{..trusted, server_name: Some("localhost"), key_log: Some(log)})!)
+    (sconn, keys) = Writer.collect(fn log -> tls.dial(net.Listener.address(secure), .{..trusted, server_name: Some("localhost"), key_log: Some(log)})!)
     io.print("key log ${String.contains(Bytes.to_string(keys)!, "SECRET")}")
     io.print("wrap ${Reader.read_line(Connection.reader(sconn))! |> Maybe.with_default("-")}")
     Connection.close(sconn)

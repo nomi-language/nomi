@@ -145,13 +145,13 @@ var primitiveTypes = map[string]*PrimitiveType{
 // (e.g. `Response { status: Int = 200 }`); anonymous-struct fields, enum
 // struct-variant fields, and any other non-defaulted slot leave it false.
 // The flag drives the call-form constructor's missing-required-field
-// check: `Foo(#{a: 1})` is OK iff every absent field has HasDefault==true.
+// check: `Foo(.{a: 1})` is OK iff every absent field has HasDefault==true.
 //
 // Line and Col are where source declares a field of an anonymous struct:
-// where an anonymous struct TYPE names it (`#{logger: String}` in a
+// where an anonymous struct TYPE names it (`.{logger: String}` in a
 // signature or annotation), the position resolveTypeExpr records the field's
 // symbol at, or where the anonymous LITERAL the type was inferred from labels
-// it (`#{logger: "x"}`), where checkStructLit records it. A literal checked
+// it (`.{logger: "x"}`), where checkStructLit records it. A literal checked
 // against that type points its labels there (recordAnonLitFieldLabels), and a
 // field access refers there (anonFieldRef). They are zero for every other
 // field: nominal struct fields have their own declaration symbols. File is
@@ -400,7 +400,7 @@ func (t *AnonStructType) String() string {
 	for i, f := range t.Fields {
 		fields[i] = fmt.Sprintf("%s: %s", f.Name, f.Type.String())
 	}
-	return fmt.Sprintf("#{%s}", strings.Join(fields, ", "))
+	return fmt.Sprintf(".{%s}", strings.Join(fields, ", "))
 }
 
 func (t *AnonStructType) typeTag() {}

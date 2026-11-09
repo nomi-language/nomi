@@ -18,36 +18,36 @@ import (
 // struct field's type, a typealias's target, a `once`'s annotation and a
 // generic's type argument. The signature is the contract, so a use reaches
 // the type's field even where the body returns a literal labelling it too.
-const anonTypeRoutes = `pub typealias Row #{id: Int, tag: String}
+const anonTypeRoutes = `pub typealias Row .{id: Int, tag: String}
 
 pub struct Holder {
-    inner: #{id: Int, note: String}
+    inner: .{id: Int, note: String}
 }
 
 pub struct Box<T> {
     value: T
 }
 
-pub once settings: #{port: Int} = #{port: 80}
+pub once settings: .{port: Int} = .{port: 80}
 
-pub fn make(id: Int) -> #{id: Int, label: String} {
-    #{id, label: "x"}
+pub fn make(id: Int) -> .{id: Int, label: String} {
+    .{id, label: "x"}
 }
 
-pub fn take(p: #{id: Int, size: Int}) -> Int {
+pub fn take(p: .{id: Int, size: Int}) -> Int {
     p.size
 }
 
 pub fn row() -> Row {
-    #{id: 1, tag: "t"}
+    .{id: 1, tag: "t"}
 }
 
 pub fn holder() -> Holder {
-    Holder{inner: #{id: 1, note: "n"}}
+    Holder{inner: .{id: 1, note: "n"}}
 }
 
-pub fn boxed() -> Box<#{id: Int, code: Int}> {
-    Box{value: #{id: 1, code: 2}}
+pub fn boxed() -> Box<.{id: Int, code: Int}> {
+    Box{value: .{id: 1, code: 2}}
 }
 `
 
@@ -64,7 +64,7 @@ fn main() {
     io.print(routes.holder().inner.note)
     io.print("${routes.boxed().value.code}")
     io.print("${routes.settings.port}")
-    io.print("${routes.take(#{id: 1, size: 2})}")
+    io.print("${routes.take(.{id: 1, size: 2})}")
     io.print(shown(routes.row()))
     m = routes.make(2)
     io.print(m.label)

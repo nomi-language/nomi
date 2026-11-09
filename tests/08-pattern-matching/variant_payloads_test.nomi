@@ -232,8 +232,8 @@ enum Box {
 
 fn box_area(b: Box) -> Int {
     case b {
-        .Sized(#{w: 1, h}) -> h
-        .Sized(#{w, h}) -> w * h
+        .Sized(.{w: 1, h}) -> h
+        .Sized(.{w, h}) -> w * h
         .Empty -> 0
     }
 }
@@ -243,7 +243,7 @@ test "a struct-shaped variant's payload matches a record pattern" {
     assert box_area(Box.Sized{w: 1, h: 3}) == 3
     assert box_area(Box.Empty) == 0
 
-    .Sized(#{w, h: _}) = Box.Sized{w: 4, h: 5} else { return }
+    .Sized(.{w, h: _}) = Box.Sized{w: 4, h: 5} else { return }
 
     assert w == 4
 

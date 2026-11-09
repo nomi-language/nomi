@@ -49,13 +49,9 @@ pub enum Error {
     ContradictoryData
 }
 
-derive Equatable for Format
-
-derive Equatable for Error
-
 /// The one puzzle `clues` describe: `InsufficientData` when more than one
 /// fits them, and `ContradictoryData` when none does.
-//! assert jigsaw_data(#{pieces: Some(6), rows: Some(3)}) |> Result.map(.columns) == Ok(2)
+//! assert jigsaw_data(.{pieces: Some(6), rows: Some(3)}) |> Result.map(.columns) == Ok(2)
 //
 pub fn jigsaw_data(clues: Clues) -> Result<Jigsaw, Error> {
     Some(rows) = row_candidates(clues) else { return Err(.InsufficientData) }
@@ -92,7 +88,7 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw {
         .Greater -> .Landscape
     }
 
-    Jigsaw{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
+    .{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
 }
 
 /// Whether `jigsaw` agrees with every part `clues` knows.
@@ -105,16 +101,19 @@ fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool {
             (clues.rows, jigsaw.rows),
             (clues.columns, jigsaw.columns),
         ]
-        |> Iter.all(fn (known, actual) -> agrees(known, actual))
+        |> Iter.all_match(fn (known, actual) -> agrees(known, actual))
 
-    ratio_agrees = Iter.all(clues.aspect_ratio, &Float.equal_within(&1, jigsaw.aspect_ratio, 1e-9))
+    ratio_agrees = Iter.all_match(
+        clues.aspect_ratio,
+        &Float.equal_within(&1, jigsaw.aspect_ratio, 1e-9),
+    )
 
     counts_agree and ratio_agrees and agrees(clues.format, jigsaw.format)
 }
 
 /// Whether `actual` is the `known` value, when there is one.
 fn agrees<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable {
-    Iter.all(known, &(&1 == actual))
+    Iter.all_match(known, &(&1 == actual))
 }
 
 /// The row counts worth trying: the known one, or every count up to a bound
@@ -122,26 +121,16 @@ fn agrees<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable {
 /// endlessly many puzzles fit.
 fn row_candidates(clues: Clues) -> Maybe<List<Int>> {
     case clues {
-        #{rows: Some(rows)} ->
-            Some([rows])
+        .{rows: Some(rows)} -> Some([rows])
+        .{pieces: Some(pieces)} -> Some(up_to(pieces))
+        .{border: Some(border)} -> Some(up_to(border))
+        .{inside: Some(inside)} -> Some(up_to(inside + 2))
 
-        #{pieces: Some(pieces)} ->
-            Some(up_to(pieces))
-
-        #{border: Some(border)} ->
-            Some(up_to(border))
-
-        #{inside: Some(inside)} ->
-            Some(up_to(inside + 2))
-
-        #{columns: Some(columns), aspect_ratio: Some(ratio)} ->
+        .{columns: Some(columns), aspect_ratio: Some(ratio)} ->
             nearest(Int.to_float(columns) / ratio) |> Maybe.map(up_to)
 
-        #{columns: Some(columns), format: Some(.Square or .Landscape)} ->
-            Some(up_to(columns))
-
-        _ ->
-            None
+        .{columns: Some(columns), format: Some(.Square or .Landscape)} -> Some(up_to(columns))
+        _ -> None
     }
 }
 
@@ -153,10 +142,9 @@ fn up_to(bound: Int) -> List<Int> {
 /// puzzle of so many rows, or `None` when no known part settles them.
 fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
     case clues {
-        #{columns: Some(columns)} ->
-            Some(fn _rows -> [columns])
+        .{columns: Some(columns)} -> Some(fn _rows -> [columns])
 
-        #{pieces: Some(pieces)} ->
+        .{pieces: Some(pieces)} ->
             Some(fn rows -> {
                 if pieces % rows == 0 {
                     [pieces / rows]
@@ -165,13 +153,12 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
                 }
             })
 
-        #{aspect_ratio: Some(ratio)} ->
+        .{aspect_ratio: Some(ratio)} ->
             Some(fn rows -> Iter.to_list(nearest(Int.to_float(rows) * ratio)))
 
-        #{format: Some(.Square)} ->
-            Some(fn rows -> [rows])
+        .{format: Some(.Square)} -> Some(fn rows -> [rows])
 
-        #{border: Some(border)} ->
+        .{border: Some(border)} ->
             Some(fn rows -> {
                 if rows == 1 {
                     [border]
@@ -180,7 +167,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
                 }
             })
 
-        #{inside: Some(inside)} ->
+        .{inside: Some(inside)} ->
             Some(fn rows -> {
                 if rows > 2 and inside % (rows - 2) == 0 {
                     [inside / (rows - 2) + 2]
@@ -189,8 +176,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
                 }
             })
 
-        _ ->
-            None
+        _ -> None
     }
 }
 
@@ -206,8 +192,8 @@ test "jigsaw data" {
     cases: List<(String, Clues, Jigsaw)> = [
         (
             "1000 pieces puzzle with 1.6 aspect ratio",
-            #{pieces: Some(1000), aspect_ratio: Some(1.6)},
-            #{
+            .{pieces: Some(1000), aspect_ratio: Some(1.6)},
+            .{
                 pieces: 1000,
                 border: 126,
                 inside: 874,
@@ -219,8 +205,8 @@ test "jigsaw data" {
         ),
         (
             "square puzzle with 32 rows",
-            #{rows: Some(32), format: Some(.Square)},
-            #{
+            .{rows: Some(32), format: Some(.Square)},
+            .{
                 pieces: 1024,
                 border: 124,
                 inside: 900,
@@ -232,8 +218,8 @@ test "jigsaw data" {
         ),
         (
             "400 pieces square puzzle with only inside pieces and aspect ratio",
-            #{inside: Some(324), aspect_ratio: Some(1.0)},
-            #{
+            .{inside: Some(324), aspect_ratio: Some(1.0)},
+            .{
                 pieces: 400,
                 border: 76,
                 inside: 324,
@@ -245,8 +231,8 @@ test "jigsaw data" {
         ),
         (
             "1500 pieces landscape puzzle with 30 rows and 1.6 aspect ratio",
-            #{rows: Some(30), aspect_ratio: Some(1.6666666666666667)},
-            #{
+            .{rows: Some(30), aspect_ratio: Some(1.6666666666666667)},
+            .{
                 pieces: 1500,
                 border: 156,
                 inside: 1344,
@@ -258,8 +244,8 @@ test "jigsaw data" {
         ),
         (
             "300 pieces portrait puzzle with 70 border pieces",
-            #{pieces: Some(300), border: Some(70), format: Some(.Portrait)},
-            #{
+            .{pieces: Some(300), border: Some(70), format: Some(.Portrait)},
+            .{
                 pieces: 300,
                 border: 70,
                 inside: 230,
@@ -297,8 +283,8 @@ test result: ok. 7 passed, 0 failed
 
 ## How it's written
 
-- What is known is a `Clues` struct whose seven fields are `Maybe`s that default to `None`, so a case writes only what it knows: `#{rows: Some(32), format: Some(.Square)}`. The answer is a `Jigsaw` with every field filled, or `Error.InsufficientData` or `Error.ContradictoryData`.
-- A puzzle is settled by its rows and columns, so `jigsaw_data` searches them rather than solving each combination of clues by its own formula. `row_candidates` gives the known row count, or every count up to a bound some known part sets (the pieces, the border, the inside pieces plus two, or the columns with a ratio or a format that keeps the rows at most the columns). `column_rule` answers a function from a row count to the column counts worth trying, from the first known part that settles the columns. `puzzle` builds the whole puzzle from rows and columns, and `fits` keeps those that agree with every clue. A clue agrees when it is `None` or matches, which is `Iter.all` over the `Maybe`, an `Iter` of none or one value.
+- What is known is a `Clues` struct whose seven fields are `Maybe`s that default to `None`, so a case writes only what it knows: `.{rows: Some(32), format: Some(.Square)}`. The answer is a `Jigsaw` with every field filled, or `Error.InsufficientData` or `Error.ContradictoryData`.
+- A puzzle is settled by its rows and columns, so `jigsaw_data` searches them rather than solving each combination of clues by its own formula. `row_candidates` gives the known row count, or every count up to a bound some known part sets (the pieces, the border, the inside pieces plus two, or the columns with a ratio or a format that keeps the rows at most the columns). `column_rule` answers a function from a row count to the column counts worth trying, from the first known part that settles the columns. `puzzle` builds the whole puzzle from rows and columns, and `fits` keeps those that agree with every clue. A clue agrees when it is `None` or matches, which is `Iter.all_match` over the `Maybe`, an `Iter` of none or one value.
 - The search stops at the second fitting puzzle with `Iter.take(2)`: none is a contradiction, one is the answer, two are too many. When nothing bounds the rows or settles the columns, endlessly many puzzles fit and the answer is `InsufficientData` before any search.
 - The aspect ratio is compared within 1e-9, since it is a `Float` computed as columns over rows and the canonical data writes 5/3 as `1.6666666666666667`.
 - The five complete puzzles are one `subtests` table named by the description column; the two errors are plain tests.

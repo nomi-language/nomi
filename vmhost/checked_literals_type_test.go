@@ -72,7 +72,7 @@ func TestCheckedLiteral_CheckTypeSeesTheTypeArguments(t *testing.T) {
 	}
 	for _, c := range []struct{ line, message string }{
 		{"    a: Pat<Int> = \"nope\"", "`Pat` literal \"nope\" is invalid: got [Int]"},
-		{"    a: Pat<#{id: Maybe<Int>, name: String}> = \"nope\"", "`Pat` literal \"nope\" is invalid: got [#{id: Maybe<Int>, name: String}]"},
+		{"    a: Pat<.{id: Maybe<Int>, name: String}> = \"nope\"", "`Pat` literal \"nope\" is invalid: got [.{id: Maybe<Int>, name: String}]"},
 		{"    a: Pat<String> = \"bad\"", "`Pat` literal \"bad\" is invalid: bad pattern"},
 		{"    a: Pat<Int> = Pat`nope`", "typed literal Pat`nope` is invalid: got [Int]"},
 	} {

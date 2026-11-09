@@ -61,7 +61,7 @@ fn decimal_payload(m: Maybe<Decimal>) -> String {
 
 fn field(p: Price) -> String {
   case p {
-    #{amount: 1.50d, weight: 2.0} -> "field both"
+    .{amount: 1.50d, weight: 2.0} -> "field both"
     Price{amount: 1.5d} -> "field amount"
     _ -> "field miss"
   }

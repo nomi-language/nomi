@@ -13,7 +13,7 @@ pub fn later() -> Int {
 
 pub fn apply(todo: Int) -> Int {
     //       ^^^^ variable.parameter
-    _ = #{todo: 1}
+    _ = .{todo: 1}
     //    ^^^^ variable.other.member
     todo
 }

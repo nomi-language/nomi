@@ -95,7 +95,7 @@ func TestOrPattern_Nested(t *testing.T) {
 	}
 	orPatternOf(t, sp.Fields[0].Pattern, 2)
 
-	sp, ok = caseArmPattern(t, "#{x: a or b}").(*ast.StructPattern)
+	sp, ok = caseArmPattern(t, ".{x: a or b}").(*ast.StructPattern)
 	if !ok {
 		t.Fatal("want an anonymous struct pattern")
 	}

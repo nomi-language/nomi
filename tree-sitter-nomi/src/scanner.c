@@ -469,6 +469,11 @@ static bool scan_subtests_stage_keyword(TSLexer *lexer) {
     int32_t c = lexer->lookahead;
     bool pattern = is_ident_char(c) || c == '[' || c == '(' || c == '#' ||
         c == '%' || c == '"' || c == '\'' || c == '`';
+    if (c == '.') {
+        // A struct pattern, `.{a, b}`.
+        advance(lexer);
+        pattern = lexer->lookahead == '{';
+    }
     if (!pattern) return false;
     lexer->result_symbol = SUBTESTS_STAGE_KEYWORD;
     return true;

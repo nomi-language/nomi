@@ -361,10 +361,10 @@ func ecdsaFixed(der []byte) ([]byte, error) {
 	return out, nil
 }
 
-// SigVerify is `signatures_host.verify`: whether signature is message's
+// SigIsValid is `signatures_host.is_valid`: whether signature is message's
 // under the PKIX key der with scheme. A signature of the wrong shape, or a
 // scheme the key's kind does not have, is False.
-func SigVerify(der rt.Bytes, scheme int64, message, signature rt.Bytes) bool {
+func SigIsValid(der rt.Bytes, scheme int64, message, signature rt.Bytes) bool {
 	key := parsePublic(der)
 	digest := sha256.Sum256([]byte(message))
 	sig := []byte(signature)

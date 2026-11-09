@@ -76,11 +76,8 @@ fn main() {
             io.print("path.second = " + seg(second))
         }
 
-        [] ->
-            io.print("path = UNEXPECTED empty")
-
-        [_, ..] ->
-            io.print("path = UNEXPECTED length")
+        [] -> io.print("path = UNEXPECTED empty")
+        [_, ..] -> io.print("path = UNEXPECTED length")
     }
 
     // --- Tag ORDER, independent of the list ----------------------------------

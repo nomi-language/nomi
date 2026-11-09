@@ -274,7 +274,7 @@ test "two schedulers on their own connections enqueue each tick once" {
         Task.await(first) + Task.await(second)
     }
 
-    assert Iter.all(answers, &Result.is_ok(&1))
+    assert Iter.all_match(answers, &Result.is_ok(&1))
     assert count(db, Sql"SELECT count(*) AS n FROM nomi_jobs") == Ok(5)
     assert count(db, Sql"SELECT count(DISTINCT run_at) AS n FROM nomi_jobs") == Ok(5)
 }

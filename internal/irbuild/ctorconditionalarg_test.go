@@ -26,8 +26,8 @@ fn pick(n: Int) -> Maybe<Color> {
 
 fn score(n: Int) -> Result<Score, String> {
     Ok(case n {
-        1 -> #{color: .Red, n}
-        _ -> #{color: .Blue, n}
+        1 -> .{color: .Red, n}
+        _ -> .{color: .Blue, n}
     })
 }
 

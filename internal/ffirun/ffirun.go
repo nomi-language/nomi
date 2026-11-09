@@ -305,22 +305,26 @@ const ffiTestResultMarker = "__NOMI_FFI_TEST_RESULT"
 // where a test's own output goes in that mode — is forwarded to this
 // process's stderr instead of being merged into the stream.
 func RunTestVM(r *Result, testAbsPath string, line int, lineSet bool, format string) (passed, failed, blocked int, err error) {
-	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, format, 0, os.Stdout, os.Stderr, os.Stdin)
+	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, "", format, 0, os.Stdout, os.Stderr, os.Stdin)
 }
 
 // RunTestCapturedVM is RunTestCaptured on the VM.
 func RunTestCapturedVM(r *Result, testAbsPath string, line int, lineSet bool, stdout io.Writer, stdin io.Reader) (passed, failed, blocked int, err error) {
-	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, "text", 0, stdout, os.Stderr, stdin)
+	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, "", "text", 0, stdout, os.Stderr, stdin)
 }
 
-// RunTestVMWith is RunTestVM with the streams supplied by the caller, and
-// each case stopped once it has run for timeout, zero meaning no limit (the
-// wrapper reads it from TestTimeoutEnv).
-func RunTestVMWith(r *Result, testAbsPath string, line int, lineSet bool, format string, timeout time.Duration, stdout, stderr io.Writer, stdin io.Reader) (passed, failed, blocked int, err error) {
-	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, format, timeout, stdout, stderr, stdin)
+// RunTestVMWith is RunTestVM with the streams supplied by the caller, only
+// the cases whose names the regular expression run matches when it is not
+// empty (`nomi test --run`), and each case stopped once it has run for
+// timeout, zero meaning no limit (the wrapper reads it from TestTimeoutEnv).
+func RunTestVMWith(r *Result, testAbsPath string, line int, lineSet bool, run, format string, timeout time.Duration, stdout, stderr io.Writer, stdin io.Reader) (passed, failed, blocked int, err error) {
+	return runTestMode(r, "vmtest", testAbsPath, line, lineSet, run, format, timeout, stdout, stderr, stdin)
 }
 
-func runTestMode(r *Result, mode, testAbsPath string, line int, lineSet bool, format string, timeout time.Duration, stdout, stderr io.Writer, stdin io.Reader) (int, int, int, error) {
+// runTestMode runs the wrapper as `<mode> <file> [line] [format] [run]`,
+// positional: an empty word for a line not given, the format ("text" or
+// "json") whenever a word follows it, and the trailing empty words left off.
+func runTestMode(r *Result, mode, testAbsPath string, line int, lineSet bool, run, format string, timeout time.Duration, stdout, stderr io.Writer, stdin io.Reader) (int, int, int, error) {
 	if r == nil || r.FastPath {
 		return 0, 0, 0, fmt.Errorf("ffirun: RunTest called on a FastPath result")
 	}
@@ -330,14 +334,17 @@ func runTestMode(r *Result, mode, testAbsPath string, line int, lineSet bool, fo
 	}
 	args := []string{wrapperModeFlag, mode, testAbsPath}
 	json := format == "json"
-	switch {
-	case json && lineSet:
-		args = append(args, strconv.Itoa(line), format)
-	case json:
-		args = append(args, "", format)
-	case lineSet:
-		args = append(args, strconv.Itoa(line))
+	extra := []string{"", "", run}
+	if lineSet {
+		extra[0] = strconv.Itoa(line)
 	}
+	if json || run != "" {
+		extra[1] = format
+	}
+	for len(extra) > 0 && extra[len(extra)-1] == "" {
+		extra = extra[:len(extra)-1]
+	}
+	args = append(args, extra...)
 	cmd := exec.Command(wrapperBin, args...)
 	cmd.Dir = r.WrapperDir
 	userCwd, _ := os.Getwd()

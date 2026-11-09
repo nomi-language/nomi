@@ -289,7 +289,7 @@ func (*SelfType) typeExpr()            {}
 func (n *SelfType) TypeString() string { return "self" }
 
 // AnonStructType is an anonymous struct type expression like
-// `#{name: String, age: Int}`. It can appear in any type-expression slot
+// `.{name: String, age: Int}`. It can appear in any type-expression slot
 // (function parameter type, struct field type, tuple element type, generic
 // type argument, …) but not as the bare RHS of a top-level `type Foo`
 // declaration — that form is reserved for the `struct` keyword. The
@@ -319,7 +319,7 @@ func (*AnonStructType) NodeType() string { return "AnonStructType" }
 func (n *AnonStructType) LineNum() int   { return n.Line }
 func (*AnonStructType) typeExpr()        {}
 func (n *AnonStructType) TypeString() string {
-	s := "#{"
+	s := ".{"
 	for i, f := range n.Fields {
 		if i > 0 {
 			s += ", "
@@ -1468,7 +1468,7 @@ type StructLit struct {
 	// named form; the parser keeps them so it can.
 	Positional []StructFieldVal
 	// Spread holds the head expression of a struct-update literal,
-	// `#{..base, field: value}` — the `base`. Nil for every other struct
+	// `.{..base, field: value}` — the `base`. Nil for every other struct
 	// literal. It is only ever set on the anonymous form (TypeName == nil):
 	// the head carries the result type, so `Cfg{..base}` has no meaning and
 	// the parser does not produce it. Fields then hold only the overrides,
@@ -1482,7 +1482,7 @@ type StructLit struct {
 	// EndTrivia holds trailing comments / blank lines between the last
 	// field and the closing `}`. Covers both nominal struct literals
 	// (`Foo{a: 1, // comment\n}`) and the anonymous literal form
-	// (`#{a: 1, // comment\n}`) since they share this AST node.
+	// (`.{a: 1, // comment\n}`) since they share this AST node.
 	EndTrivia []Trivia
 	Line      int
 	Col       int
@@ -1694,7 +1694,7 @@ type TupleDestructure struct {
 func (*TupleDestructure) NodeType() string { return "TupleDestructure" }
 func (n *TupleDestructure) LineNum() int   { return n.Line }
 
-// StructDestructure binds struct fields to names: #{x, y} = expr or #{x: a, y: b} = expr
+// StructDestructure binds struct fields to names: .{x, y} = expr or .{x: a, y: b} = expr
 type StructDestructure struct {
 	TriviaCarrier
 	SpanCarrier
@@ -2834,9 +2834,9 @@ func (*Tap) NodeType() string { return "Tap" }
 func (n *Tap) LineNum() int   { return n.Line }
 
 // CurrentValue is a bare `..` written as the spread of an update literal:
-// `#{.., city: "NYC"}`, `%{.., "k" => v}`, `%[.., x]` or `[t, ..]`. It stands
+// `.{.., city: "NYC"}`, `%{.., "k" => v}`, `%[.., x]` or `[t, ..]`. It stands
 // for the value already at the field or key the literal is written at, so
-// `#{..user, address: #{.., city: "NYC"}}` changes only `address.city`. It is
+// `.{..user, address: .{.., city: "NYC"}}` changes only `address.city`. It is
 // only ever the Spread of a StructLit or the head of a Spread of a list,
 // vector, set or map literal; the checker decides whether that position has
 // a current value.

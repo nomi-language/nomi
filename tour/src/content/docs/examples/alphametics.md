@@ -35,7 +35,7 @@ pub fn solve(puzzle: String) -> Maybe<Map<String, Int>> {
     letters =
         [..addends, (String.trim(right), -1)]
         |> Iter.flat_map(fn (word, sign) -> places(word, sign))
-        |> Iter.group_by(fn (name, _value, _leading) -> name)
+        |> Iter.group_by(.first)
         |> Iter.map(fn (name, uses) -> letter(name, uses))
         |> Iter.sort_by(.Descending, fn letter -> Int.abs(letter.weight))
 
@@ -55,10 +55,10 @@ fn places(word: String, sign: Int) -> List<(String, Int, Bool)> {
 }
 
 fn letter(name: String, uses: List<(String, Int, Bool)>) -> Letter {
-    Letter{
+    .{
         name,
         weight: uses |> Iter.map(fn (_name, value, _leading) -> value) |> Iter.sum(),
-        leading: Iter.any(uses, fn (_name, _value, leading) -> leading),
+        leading: Iter.any_match(uses, fn (_name, _value, leading) -> leading),
     }
 }
 
@@ -73,7 +73,7 @@ fn assign(
     total: Int,
     digits: Map<String, Int>,
 ) -> Maybe<Map<String, Int>> {
-    [letter, ..rest] = letters else { return if total == 0 { Some(digits) } else { None } }
+    [letter, ..rest] = letters else { return if total == 0 { digits } }
 
     0..=9
     |> Iter.filter(fn digit -> {
@@ -178,7 +178,7 @@ test result: ok. 10 passed, 0 failed
 
 ## How it's written
 
-- `solve` answers `Maybe<Map<String, Int>>`, each letter's digit or `None`, as the canonical data maps letters to digits or gives `null`.
+- `solve` returns `Maybe<Map<String, Int>>`, each letter's digit or `None`, as the canonical data maps letters to digits or gives `null`.
 - The puzzle becomes one equation. Each letter's `weight` is the sum of its place values, positive in the addends and negative in the result (`S` in `SEND + MORE == MONEY` weighs 1000, `M` 1000 - 10000), so a solution is digits whose weighted sum is zero. The 199 addends of the largest case fold into ten weights before the search starts, and the search never reads the words again.
 - The search is a depth-first backtrack over the letters, heaviest first. After each digit, `is_reachable` checks that the letters left could still bring the total back to zero, at most nine times each positive weight up and nine times each negative weight down, and the search backs out when they cannot. Taking the heavy letters first makes that bound cut early: the 199-addend case visits about 2,800 assignments and runs in about 30 ms on the VM. An earlier version took the letters by their lowest column and checked the total modulo that column's place value, as a column-by-column solver does; in the 199-addend puzzle all ten letters end some word, so every letter sits in the units column, it could not prune until the last letter, and it took 4.7 seconds.
 - A letter that leads a word of more than one letter is marked `leading` and never gets 0.

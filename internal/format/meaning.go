@@ -185,8 +185,8 @@ func astSkipField(name string) bool {
 }
 
 // bindGroupedNames rewrites, in place, a variant or struct field pattern
-// whose payload is a parenthesized name, `Some((n))` or `#{x: (n)}`, to the
-// binding the parser builds for `Some(n)` and `#{x: n}`. The two bind the
+// whose payload is a parenthesized name, `Some((n))` or `.{x: (n)}`, to the
+// binding the parser builds for `Some(n)` and `.{x: n}`. The two bind the
 // same name to the same value; the formatter writes the second.
 func bindGroupedNames(v reflect.Value) {
 	switch v.Kind() {

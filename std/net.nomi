@@ -202,26 +202,13 @@ impl Error {
     /// tls.Error's.
     pub fn from_parts(parts: List<String>) -> Error {
         case parts {
-            ["Refused", address] ->
-                Error.Refused{address}
-
-            ["Unreachable", address] ->
-                Error.Unreachable{address}
-
-            ["Reset", address] ->
-                Error.Reset{address}
-
-            ["AddressInUse", address] ->
-                Error.AddressInUse{address}
-
-            ["Timeout", address] ->
-                Error.Timeout{address}
-
-            ["Closed"] ->
-                Error.Closed
-
-            ["InvalidAddress", address, reason] ->
-                Error.InvalidAddress{address, reason}
+            ["Refused", address] -> Error.Refused{address}
+            ["Unreachable", address] -> Error.Unreachable{address}
+            ["Reset", address] -> Error.Reset{address}
+            ["AddressInUse", address] -> Error.AddressInUse{address}
+            ["Timeout", address] -> Error.Timeout{address}
+            ["Closed"] -> Error.Closed
+            ["InvalidAddress", address, reason] -> Error.InvalidAddress{address, reason}
 
             ["Dns", host, reason, server, not_found, timeout] ->
                 if timeout == "true" {
@@ -235,11 +222,8 @@ impl Error {
                     }
                 }
 
-            ["Other", op, address, reason] ->
-                Error.Other{op, address, reason}
-
-            _ ->
-                Error.Tls{error: tls.Error.from_parts(parts)}
+            ["Other", op, address, reason] -> Error.Other{op, address, reason}
+            _ -> Error.Tls{error: tls.Error.from_parts(parts)}
         }
     }
 
@@ -359,7 +343,7 @@ fn int(text: String) -> Int {
 
 /// The addresses of `host`, as the system resolver returns.
 //! assert net.lookup_host("localhost")
-//! |> Result.map(fn xs -> Iter.any(xs, fn a -> a == "127.0.0.1" or a == "::1")) == Ok(True)
+//! |> Result.map(fn xs -> Iter.any_match(xs, fn a -> a == "127.0.0.1" or a == "::1")) == Ok(True)
 //
 pub fn lookup_host(host: String) -> Result<List<String>, Error> {
     lookup("host", host)
@@ -438,8 +422,7 @@ fn srv_records(parts: List<String>) -> List<Srv> {
                 weight: int(weight),
             }, ..srv_records(rest)]
 
-        _ ->
-            []
+        _ -> []
     }
 }
 
@@ -525,7 +508,6 @@ fn accept_each(listener: Listener, handler: (Connection) -> Unit, supervisor: Su
             accept_each(listener, handler, supervisor)
         }
 
-        Err(_) ->
-            Unit
+        Err(_) -> Unit
     }
 }

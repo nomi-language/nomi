@@ -16,3 +16,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/dot-dsl.
 - The four canonical errors are an `Error` enum with an `impl Display` giving the canonical messages. The error cases assert the message, `"${error}"`, so the table reads as the canonical data does.
 - The canonical inputs are lists of lines; each is a `"""` string here. "invalid edge type" ends its last line with a space, which would be invisible at the end of a `"""` line, so it is an ordinary string with `\n`.
 - The cases are two `subtests` tables, the graphs and the errors, since they assert different things.
+
+## Friction
+
+None.

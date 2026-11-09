@@ -356,7 +356,7 @@
         },
         {
           "comment": "As a pipe stage `subtests` is a keyword when a pattern follows it; `|> subtests(x)` stays a name.",
-          "match": "(?<=\\|>)[ \\t]*(subtests)\\b(?=[ \\t]+[A-Za-z0-9_\\[(#%\"'`])",
+          "match": "(?<=\\|>)[ \\t]*(subtests)\\b(?=[ \\t]+(?:[A-Za-z0-9_\\[(#%\"'`]|\\.\\{))",
           "captures": {
             "1": {
               "name": "keyword.control.nomi"
@@ -509,9 +509,14 @@
     "punctuation": {
       "patterns": [
         {
-          "comment": "`#` starts an anonymous struct or a vector literal: `#{`, `#[`, or a named vector with its type right after it, `#Path[`, `#.Items[`. A tuple, `(1, \"x\")`, and a named struct or tuple have no `#`: `Point{x: 1}`, `Pair(1, \"x\")`.",
+          "comment": "`.{` starts a struct whose name the position gives, or an anonymous one, as `.Circle{` elides a variant's owner.",
           "name": "punctuation.section.nomi",
-          "match": "#(?=[{\\[.A-Z]|[a-z_][A-Za-z0-9_]*(?:::[a-z_][A-Za-z0-9_]*)*\\.[A-Z])"
+          "match": "\\.(?=\\{)"
+        },
+        {
+          "comment": "`#` starts a vector literal: `#[`, or a named vector with its type right after it, `#Path[`, `#.Items[`. A tuple, `(1, \"x\")`, and a named struct or tuple have no symbol: `Point{x: 1}`, `Pair(1, \"x\")`.",
+          "name": "punctuation.section.nomi",
+          "match": "#(?=[\\[.A-Z]|[a-z_][A-Za-z0-9_]*(?:::[a-z_][A-Za-z0-9_]*)*\\.[A-Z])"
         },
         {
           "name": "punctuation.separator.nomi",

@@ -6,10 +6,12 @@ package vmhost
 // Beside the program's record (cache.go), a load that keeps a program also
 // keeps a record of its files (kind "files"): each project file's
 // interface (analysis.StoredInterface), the SHA-256 of its text, its facts
-// for the program's reductions over bodies (analysis.FileFacts), the
-// program's lowering kept per file (irbuild.KeptLowering), the supply side
-// of its missing-impl check (analysis.ProgramSupply), and the application
-// types the program's check worked out. When the program's record misses
+// for the program's reductions over bodies (analysis.FileFacts) and its
+// advice (fileAdvice), which a relink keeps for a file it does not check
+// again and works out for one it does; the program's lowering kept per
+// file (irbuild.KeptLowering), the supply side of its missing-impl check
+// (analysis.ProgramSupply), and the application types the program's check
+// worked out. When the program's record misses
 // because sources changed, came or went and nothing else did (the
 // manifest and every other input as they were: progcache's
 // ChangedSources), relink checks and lowers just the files the edit
@@ -38,7 +40,11 @@ package vmhost
 //     others (irbuild.LowerFileAmong), after the files it imports among
 //     them, which declines whatever it cannot answer as a whole lowering
 //     would; an instance of another file's generic declaration no kept
-//     object holds is made from that file read with its bodies.
+//     object holds is made from that file read with its bodies;
+//   - an instance a file's lowering drops because its generic body
+//     changed, which kept objects of other files name, is asked for again
+//     by one of those files, added to the files lowered again
+//     (chooseAskers), and must be defined once the last file is lowered.
 //
 // The program that links runs as a kept program does, after the same
 // checks that it reaches nothing a machine cannot run. Both records are
@@ -66,6 +72,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/irbuild"
+	"github.com/nomi-language/nomi/internal/progcache"
 )
 
 // filesKind names the record of a program's files beside its load record.
@@ -93,9 +100,13 @@ type keptFile struct {
 	Facts *analysis.FileFacts
 	// Keyword says the file declares keyword declarations.
 	Keyword bool
+	// Advice is the file's advice (fileAdvice), which depends on its own
+	// signatures and bodies alone, so a relink that does not check the
+	// file again keeps it.
+	Advice Diagnostics
 }
 
-const fileRecordMagic = "NOMIFILES3"
+const fileRecordMagic = "NOMIFILES4"
 
 func (r *fileRecord) encode() []byte {
 	var b bytes.Buffer
@@ -128,8 +139,9 @@ func Relinks() int64 { return relinks.Load() }
 
 // keepFiles writes p's file record beside its load record, when its front
 // end can give its files' interfaces and its lowering can be kept.
-func (p *Program) keepFiles(c *Cache) {
-	if c.fileEntry() == nil {
+// files is the record's entry (Cache.fileEntry), which the caller opened.
+func (p *Program) keepFiles(files *progcache.Entry) {
+	if files == nil {
 		return
 	}
 	pi := p.prog.Interfaces()
@@ -142,7 +154,7 @@ func (p *Program) keepFiles(c *Cache) {
 	}
 	kept, err := p.res.Keep()
 	if err != nil {
-		c.files.Logf("not kept: %v", err)
+		files.Logf("not kept: %v", err)
 		return
 	}
 	rec := &fileRecord{Entry: p.prog.Entry().Path, Root: p.prog.Root, HasTests: p.prog.HasTests,
@@ -169,6 +181,10 @@ func (p *Program) keepFiles(c *Cache) {
 		}
 	}
 	namer := analysis.NewFactsNamer(project, entryKey)
+	advice := map[string]Diagnostics{}
+	for _, d := range p.Advice() {
+		advice[d.Path] = append(advice[d.Path], d)
+	}
 	for key, si := range stored {
 		m := byPath[si.Path]
 		data, err := os.ReadFile(si.Path)
@@ -176,7 +192,8 @@ func (p *Program) keepFiles(c *Cache) {
 			return
 		}
 		rec.Files[key] = keptFile{Iface: si, Sum: sha256.Sum256(data), Body: appWalkOf(m.FA, m.Nodes),
-			Keyword: declaresKeywords(m.Nodes), Facts: analysis.FileFactsOf(key, m.FA, m.Nodes, namer, len(rec.AppTypes) > 0)}
+			Keyword: declaresKeywords(m.Nodes), Facts: analysis.FileFactsOf(key, m.FA, m.Nodes, namer, len(rec.AppTypes) > 0),
+			Advice: advice[si.Path]}
 	}
 	if fa := p.prog.Entry().FA; fa != nil {
 		rec.Supply = analysis.SupplyOf(fa)
@@ -185,8 +202,8 @@ func (p *Program) keepFiles(c *Cache) {
 	if payload == nil {
 		return
 	}
-	trees, files := p.inputs()
-	c.files.Store(trees, files, payload)
+	trees, inputs := p.inputs()
+	files.Store(trees, inputs, payload)
 }
 
 // declaresKeywords reports whether nodes hold a keyword declaration's
@@ -430,129 +447,171 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 			}
 		}
 	}
-	keys := make([]string, 0, len(recheck))
-	for key := range recheck {
-		if rec.Files[key].Keyword {
-			why = key + " declares keyword declarations and reads a changed file"
-			return nil, false
-		}
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	keys = importOrder(keys, pi)
-	if len(keys) > maxRelowered && len(keys)*4 > len(reach) {
-		why = fmt.Sprintf("the edit reaches %d of the program's %d files", len(keys), len(reach))
-		return nil, false
-	}
-	kept, err := irbuild.DecodeKeptLowering(rec.Kept)
-	if err != nil {
-		why = "the kept lowering does not read"
-		return nil, false
-	}
-	var res *irbuild.Result
-	newRec := *rec
-	newRec.Files = map[string]keptFile{}
-	for key, f := range rec.Files {
-		if want[key] {
-			newRec.Files[key] = f
-		}
-	}
 	supply := rec.Supply
 	if implsChanged {
 		supply = pi.Supply(entryKey)
-		newRec.Supply = supply
-	}
-	checks := map[string]*analysis.FileCheck{}
-	facts := map[string]*analysis.FileFacts{}
-	for key, f := range newRec.Files {
-		if f.Facts == nil {
-			why = key + " has no facts"
-			return nil, false
-		}
-		facts[key] = f.Facts
 	}
 	appTypes := len(rec.AppTypes) > 0
-	var std analysis.StdContext
-	for _, key := range keys {
-		check := pi.Check(key)
-		if len(check.Build)+len(check.Check)+len(check.EntryChecks)+len(check.FrontEnd) > 0 {
-			why = key + " has diagnostics"
+	var keys []string
+	var res *irbuild.Result
+	var kept *irbuild.KeptLowering
+	var newRec fileRecord
+	// A lowering that drops an instance of a changed generic declaration
+	// that kept objects of files not lowered again name
+	// (irbuild.FileMiss.Dropped) starts again with one of those files per
+	// instance lowered too, after the declaring file and reading it with
+	// its bodies, so that it asks for the instance again: asked holds the
+	// instances, and askers the files read with their bodies by each file
+	// lowered for them.
+	checked := map[string]*analysis.FileCheck{}
+	checkedFacts := map[string]*analysis.FileFacts{}
+	asked := map[string]bool{}
+	askers := map[string]map[string]bool{}
+	for again := true; again; {
+		again = false
+		keys = make([]string, 0, len(recheck))
+		for key := range recheck {
+			if rec.Files[key].Keyword {
+				why = key + " declares keyword declarations and reads a changed file"
+				return nil, false
+			}
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		keys = importOrder(keys, pi)
+		if len(keys) > maxRelowered && len(keys)*4 > len(reach) {
+			why = fmt.Sprintf("the edit reaches %d of the program's %d files", len(keys), len(reach))
 			return nil, false
 		}
-		if fe.SyntaxErrors() {
-			why = "a file does not parse"
+		kept, err = irbuild.DecodeKeptLowering(rec.Kept)
+		if err != nil {
+			why = "the kept lowering does not read"
 			return nil, false
 		}
-		was, isKept := rec.Files[key]
-		if appTypes {
-			sum, errs := analysis.AppWalkSummary(check.FA, check.Nodes)
-			if !isKept || len(errs) > 0 || sum != was.Body {
-				why = key + "'s application-field walk changed, and the program has an application type"
+		newRec = *rec
+		newRec.Files = map[string]keptFile{}
+		for key, f := range rec.Files {
+			if want[key] {
+				newRec.Files[key] = f
+			}
+		}
+		newRec.Supply = supply
+		facts := map[string]*analysis.FileFacts{}
+		for key, f := range newRec.Files {
+			if f.Facts == nil {
+				why = key + " has no facts"
+				return nil, false
+			}
+			facts[key] = f.Facts
+		}
+		var std analysis.StdContext
+		for _, key := range keys {
+			check := checked[key]
+			if check != nil {
+				facts[key] = checkedFacts[key]
+				std, _ = analysis.StdContextOf(check.FA)
+				continue
+			}
+			check = pi.Check(key)
+			if len(check.Build)+len(check.Check)+len(check.EntryChecks)+len(check.FrontEnd) > 0 {
+				why = key + " has diagnostics"
+				return nil, false
+			}
+			if fe.SyntaxErrors() {
+				why = "a file does not parse"
+				return nil, false
+			}
+			was, isKept := rec.Files[key]
+			if appTypes {
+				sum, errs := analysis.AppWalkSummary(check.FA, check.Nodes)
+				if !isKept || len(errs) > 0 || sum != was.Body {
+					why = key + "'s application-field walk changed, and the program has an application type"
+					return nil, false
+				}
+			}
+			nodes := map[string][]ast.Node{key: check.Nodes}
+			for k, n := range check.FileNodes {
+				nodes[k] = n
+			}
+			facts[key] = analysis.FileFactsOf(key, check.FA, check.Nodes, analysis.NewFactsNamer(nodes, entryKey), appTypes)
+			checked[key], checkedFacts[key] = check, facts[key]
+			if s, ok := analysis.StdContextOf(check.FA); ok {
+				std = s
+			} else {
+				why = "the program is not built over the stdlib's base"
 				return nil, false
 			}
 		}
-		nodes := map[string][]ast.Node{key: check.Nodes}
-		for k, n := range check.FileNodes {
-			nodes[k] = n
-		}
-		facts[key] = analysis.FileFactsOf(key, check.FA, check.Nodes, analysis.NewFactsNamer(nodes, entryKey), appTypes)
-		checks[key] = check
-		if s, ok := analysis.StdContextOf(check.FA); ok {
-			std = s
-		} else {
-			why = "the program is not built over the stdlib's base"
+		red := analysis.ReduceFacts(facts, supply, std)
+		if !red.Clean(appTypes) {
+			why = "the program's reductions over bodies find something"
 			return nil, false
 		}
+		pathOf := func(key string) string {
+			if p := addedPaths[key]; p != "" {
+				return p
+			}
+			return rec.Files[key].Iface.Path
+		}
+		relowering := map[string]bool{}
+		for _, key := range keys {
+			relowering[pathOf(key)] = true
+		}
+		for _, key := range removedKeys {
+			kept.RemoveUnit(rec.Files[key].Iface.Path)
+		}
+		for _, key := range addedKeys {
+			kept.AddUnit(key, addedPaths[key])
+		}
+		for _, key := range keys {
+			path := pathOf(key)
+			withBodies := func(bodies map[string]bool) *analysis.FileCheck {
+				pi.SetBodies(bodies)
+				defer pi.SetBodies(nil)
+				return pi.Check(key)
+			}
+			check := checked[key]
+			if askers[key] != nil {
+				check = withBodies(askers[key])
+			}
+			var dropped map[string][]string
+			if res, kept, check, dropped, why = relowerOne(check, key, path, rec.Root, rec.HasTests, kept, moved[key], relowering, asked, reach, askers[key], withBodies, c.files.Logf); why != "" {
+				if !chooseAskers(dropped, key, byPath, reach, asked, askers, recheck) {
+					return nil, false
+				}
+				c.files.Logf("lowering again files that name what %s no longer makes: %s", key, why)
+				why, again = "", true
+				break
+			}
+			relowering[path] = false
+			f := newRec.Files[key]
+			si, ok := pi.StoredOf(key)
+			if !ok {
+				return nil, false
+			}
+			f.Iface, f.Facts = si, facts[key]
+			if sum, ok := sums[key]; ok {
+				f.Sum = sum
+			}
+			if !isKeptFile(rec, key) {
+				f.Keyword = keyword[key]
+			}
+			if appTypes {
+				f.Body = appWalkOf(check.FA, check.Nodes)
+			}
+			f.Advice = nil
+			if ownedBy(rec.Root, path) {
+				f.Advice = fileAdvice(path, check.FA, check.Nodes, func() string {
+					data, _ := os.ReadFile(path)
+					return string(data)
+				})
+			}
+			newRec.Files[key] = f
+		}
 	}
-	red := analysis.ReduceFacts(facts, supply, std)
-	if !red.Clean(appTypes) {
-		why = "the program's reductions over bodies find something"
+	if link := res.Undefined(slices.Sorted(maps.Keys(asked))); link != "" {
+		why = "no file lowered again asked for " + link + " again"
 		return nil, false
-	}
-	pathOf := func(key string) string {
-		if p := addedPaths[key]; p != "" {
-			return p
-		}
-		return rec.Files[key].Iface.Path
-	}
-	relowering := map[string]bool{}
-	for _, key := range keys {
-		relowering[pathOf(key)] = true
-	}
-	for _, key := range removedKeys {
-		kept.RemoveUnit(rec.Files[key].Iface.Path)
-	}
-	for _, key := range addedKeys {
-		kept.AddUnit(key, addedPaths[key])
-	}
-	for _, key := range keys {
-		path := pathOf(key)
-		recheck := func(bodies map[string]bool) *analysis.FileCheck {
-			pi.SetBodies(bodies)
-			defer pi.SetBodies(nil)
-			return pi.Check(key)
-		}
-		var check *analysis.FileCheck
-		if res, kept, check, why = relowerOne(checks[key], key, path, rec.Root, rec.HasTests, kept, moved[key], relowering, reach, recheck, c.files.Logf); why != "" {
-			return nil, false
-		}
-		relowering[path] = false
-		f := newRec.Files[key]
-		si, ok := pi.StoredOf(key)
-		if !ok {
-			return nil, false
-		}
-		f.Iface, f.Facts = si, facts[key]
-		if sum, ok := sums[key]; ok {
-			f.Sum = sum
-		}
-		if !isKeptFile(rec, key) {
-			f.Keyword = keyword[key]
-		}
-		if appTypes {
-			f.Body = appWalkOf(check.FA, check.Nodes)
-		}
-		newRec.Files[key] = f
 	}
 	src := ""
 	if rec.HasTests {
@@ -565,6 +624,12 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	if p, ok = relinkedProgram(res, c.path, src, rec.Root, rec.HasTests, cfg); !ok {
 		return nil, false
 	}
+	byFile := map[string]Diagnostics{}
+	for _, f := range newRec.Files {
+		byFile[f.Iface.Path] = f.Advice
+	}
+	advice := joinAdvice(byFile)
+	p.advice = &advice
 	if p.entry == nil && (p.HasMain() || rec.HasTests) || !p.runsClean() || p.Unsupported() != nil {
 		why = "the program reaches something a machine cannot run"
 		return nil, false
@@ -574,19 +639,59 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	newRec.Kept = kept.Encode()
 	trees, files := c.files.Inputs()
 	if cfg.cacheable() {
-		a := artifact{entry: c.path, root: rec.Root, hasTests: rec.HasTests}
+		a := artifact{entry: c.path, root: rec.Root, hasTests: rec.HasTests, advice: advice}
 		a.phrases, a.nouns = p.phraseTables()
 		if p.HasMain() || rec.HasTests {
 			if image, err := p.cacheImage(); err == nil {
 				a.image = image
 			}
 		}
-		c.entry.Store(trees, files, a.encode())
+		if payload := a.encode(); payload != nil {
+			c.entry.Store(trees, files, payload)
+		}
 		if payload := newRec.encode(); payload != nil {
 			c.files.Store(trees, files, payload)
 		}
 	}
 	return p, true
+}
+
+// chooseAskers adds to recheck, for each linkage name in dropped (the
+// instances the file with key decl no longer makes that kept objects of
+// files not lowered again name: irbuild.FileMiss.Dropped), one of the
+// files that name it, unless one already chosen does, to be lowered again
+// reading decl with its bodies (askers), and adds the name to asked. It
+// reports false when a name has no such file of the program.
+func chooseAskers(dropped map[string][]string, decl string, byPath map[string]string, reach, asked map[string]bool, askers map[string]map[string]bool, recheck map[string]bool) bool {
+	if len(dropped) == 0 {
+		return false
+	}
+	for _, link := range slices.Sorted(maps.Keys(dropped)) {
+		var keys []string
+		for _, path := range dropped[link] {
+			if k, ok := byPath[path]; ok && reach[k] {
+				keys = append(keys, k)
+			}
+		}
+		if len(keys) == 0 {
+			return false
+		}
+		sort.Strings(keys)
+		chosen := keys[0]
+		for _, k := range keys {
+			if askers[k][decl] {
+				chosen = k
+				break
+			}
+		}
+		if askers[chosen] == nil {
+			askers[chosen] = map[string]bool{}
+		}
+		askers[chosen][decl] = true
+		recheck[chosen] = true
+		asked[link] = true
+	}
+	return true
 }
 
 // sameHeaderFiles reports whether two lists of a file's impl headers name

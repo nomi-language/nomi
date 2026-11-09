@@ -263,8 +263,7 @@ struct Lines {
 impl Iter<Result<String, Error>> for Lines {
     fn each_while(lines: Lines, yield: (Result<String, Error>) -> Bool) -> Bool {
         case fs_host.open(lines.path) {
-            Err(e) ->
-                yield(Err(e))
+            Err(e) -> yield(Err(e))
 
             Ok(r) -> {
                 defer Reader.close_quietly(r)
@@ -282,8 +281,7 @@ struct Chunks {
 impl Iter<Result<Bytes, Error>> for Chunks {
     fn each_while(chunks: Chunks, yield: (Result<Bytes, Error>) -> Bool) -> Bool {
         case fs_host.open(chunks.path) {
-            Err(e) ->
-                yield(Err(e))
+            Err(e) -> yield(Err(e))
 
             Ok(r) -> {
                 defer Reader.close_quietly(r)
@@ -573,8 +571,7 @@ fn decoded(dir: String, coded: String) -> Result<Entry, Error> {
     }
 
     case String.strip_prefix(coded, "!") {
-        Some(name) ->
-            Err(Error.InvalidPath{path: joined(name), reason: "the name is not UTF-8"})
+        Some(name) -> Err(Error.InvalidPath{path: joined(name), reason: "the name is not UTF-8"})
 
         None -> {
             (kind, name) = case (
@@ -605,8 +602,7 @@ fn decoded(dir: String, coded: String) -> Result<Entry, Error> {
 /// ```nomi
 /// sources =
 ///     fs.walk("src")
-///     |> Iter.filter(fn e -> Result.map(e, fn e -> e.kind == fs.Kind.File) == Ok(True))
-///     |> Iter.count()
+///     |> Iter.count_by(fn e -> Result.map(e, fn e -> e.kind == fs.Kind.File) == Ok(True))
 /// ```
 //! import std::fs_testing.{self, Sandbox}
 //!
@@ -654,8 +650,7 @@ fn walk_entries(
     yield: (Result<Entry, Error>) -> Bool,
 ) -> Bool {
     case entries {
-        [] ->
-            True
+        [] -> True
 
         [Ok(entry), ..rest] ->
             if not yield(Ok(entry)) {
@@ -754,8 +749,7 @@ pub fn glob(pattern: String) -> Result<List<String>, Error> {
 /// first that has one.
 fn glob_split(names: List<String>, fixed: List<String>) -> (List<String>, List<String>) {
     case names {
-        [] ->
-            (fixed, [])
+        [] -> (fixed, [])
 
         [name, ..rest] ->
             if is_wild(name) {
@@ -955,8 +949,7 @@ fn metadata_of(path: String, fields: List<Int>) -> Result<Metadata, Error> {
         [kind, size, modified, mode] ->
             Ok(Metadata{kind: kind_at(kind), size, modified: Instant.from_nanos(modified), mode})
 
-        _ ->
-            Err(Error.Other{operation: "metadata", path, code: "EINVAL"})
+        _ -> Err(Error.Other{operation: "metadata", path, code: "EINVAL"})
     }
 }
 

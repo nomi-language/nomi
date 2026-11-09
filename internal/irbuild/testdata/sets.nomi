@@ -30,7 +30,7 @@ import std::io
 //     and for nothing else.
 //   - `Display` against `Debug`. `to_string` renders elements with
 //     `Display.to_string` and `inspect` with `Debug.inspect`, so the String set
-//     is the discriminating one: `#{a, b}` versus `{"a", "b"}`. An empty or bare
+//     is the discriminating one: `.{a, b}` versus `{"a", "b"}`. An empty or bare
 //     `TypeName` on a compiled Set misses every impl SILENTLY and renders the
 //     anonymous struct form instead of either.
 //   - a Set CROSSING A SIGNATURE BOUNDARY, in both directions. `size_of` takes
@@ -83,8 +83,8 @@ fn main() {
     io.print("union = ${Iter.to_list(Set.union(%[1, 2], %[2, 3]))}")
     io.print("intersection = ${Iter.to_list(Set.intersection(%[1, 2, 3], %[3, 1]))}")
     io.print("difference = ${Iter.to_list(Set.difference(%[1, 2, 3], %[2]))}")
-    io.print("subset = ${Set.is_subset(%[1, 2], %[1, 2, 3])}")
-    io.print("not_subset = ${Set.is_subset(%[1, 4], %[1, 2, 3])}")
+    io.print("subset = ${Set.is_subset_of(%[1, 2], %[1, 2, 3])}")
+    io.print("not_subset = ${Set.is_subset_of(%[1, 4], %[1, 2, 3])}")
     io.print("list_to_set = ${Iter.to_list(Iter.to_set([5, 5, 6]))}")
 
     pair = (1, 2)

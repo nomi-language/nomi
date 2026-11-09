@@ -117,7 +117,7 @@ func TestCompletion_ValueMembersAreFieldsOnly(t *testing.T) {
 		},
 		{
 			"anonymous struct",
-			"fn f() -> Int {\n    cfg = #{name: \"a\", port: 1}\n    cfg." + cursorMark + "\n}\n",
+			"fn f() -> Int {\n    cfg = .{name: \"a\", port: 1}\n    cfg." + cursorMark + "\n}\n",
 			[]string{"name", "port"},
 			nil,
 		},

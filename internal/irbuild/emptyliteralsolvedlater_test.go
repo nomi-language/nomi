@@ -26,7 +26,7 @@ fn make() -> Set<Int> {
 fn main() {
     io.inspect(make())
     io.inspect(Hold{v: (1, %[]).second})
-    r = #{f: %[], g: 0}
+    r = .{f: %[], g: 0}
     io.inspect(Hold{v: r.f})
 }
 `

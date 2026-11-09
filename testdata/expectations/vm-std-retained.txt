@@ -585,6 +585,7 @@ io.nomi:Writer.close_quietly	ran
 io.nomi:Writer.commit	ran
 io.nomi:Writer.from_fn	ran
 io.nomi:Writer.inspect	ran
+io.nomi:Writer.print	ran
 io.nomi:Writer.release	ran
 io.nomi:code_text	ran
 io.nomi:io.File.read arity 1	ran
@@ -611,8 +612,10 @@ json.nomi:Json.Error.to_string	ran
 json.nomi:Json.ShapeError.inspect	ran
 json.nomi:Json.ShapeError.to_string	ran
 json.nomi:Json.equal	ran
+json.nomi:Json.from_json	ran
 json.nomi:Json.inspect	ran
 json.nomi:Json.kind	ran
+json.nomi:Json.to_json	ran
 json.nomi:Json.to_string	ran
 json.nomi:NaiveDateTime.from_json	ran
 json.nomi:NaiveDateTime.to_json	ran
@@ -657,6 +660,7 @@ localize.nomi:String.localize	ran
 money_format.nomi:format	ran
 money_format.nomi:label	ran
 money_format.nomi:parse	ran
+money_format.nomi:refuse	ran
 money_format.nomi:require_same	ran
 phrase_format.nomi:format	ran
 phrase_format.nomi:load	ran

@@ -7,7 +7,7 @@ import (
 )
 
 func TestInterpolationNestedCodeAndAppFieldRead(t *testing.T) {
-	nodes := parse(t, `fn main() { _ = "outer ${#{label: "inner ${MyApp.port}"}.label}" }`)
+	nodes := parse(t, `fn main() { _ = "outer ${.{label: "inner ${MyApp.port}"}.label}" }`)
 	fn := nodes[0].(*ast.FuncDef)
 	binding := fn.Body.Stmts[0].(*ast.Binding)
 	outer := binding.Value.(*ast.StringInterp)

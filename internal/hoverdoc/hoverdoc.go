@@ -668,7 +668,7 @@ func displayValueTypeWithReceiver(t analysis.Type, receiver string) string {
 		for i, f := range v.Fields {
 			parts[i] = f.Name + ": " + displayValueTypeWithReceiver(f.Type, receiver)
 		}
-		return "#{" + strings.Join(parts, ", ") + "}"
+		return ".{" + strings.Join(parts, ", ") + "}"
 	default:
 		return t.String()
 	}
@@ -1152,7 +1152,7 @@ func renderParamPattern(n ast.Node) string {
 		if p.TypeName != nil {
 			b.WriteString(p.TypeName.TypeString())
 		} else {
-			b.WriteString("#")
+			b.WriteString(".")
 		}
 		b.WriteString("{")
 		for i, f := range p.Fields {

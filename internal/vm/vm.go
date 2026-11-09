@@ -449,7 +449,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Set.union":           setHost("Set.union"),
 		"Set.intersection":    setHost("Set.intersection"),
 		"Set.difference":      setHost("Set.difference"),
-		"Set.is_subset":       setHost("Set.is_subset"),
+		"Set.is_subset_of":    setHost("Set.is_subset_of"),
 		"Vector.length":       vectorHost("Vector.length"),
 		"Vector.get":          vectorHost("Vector.get"),
 		"Vector.push":         vectorHost("Vector.push"),

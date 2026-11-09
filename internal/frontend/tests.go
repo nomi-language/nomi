@@ -3,6 +3,7 @@ package frontend
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -79,10 +80,21 @@ func (tc TestCase) LastLine() int {
 	return tc.Line
 }
 
-// TestOptions selects cases.
+// TestOptions selects cases. Line with LineSet is `nomi test --line N`;
+// Run is `nomi test --run <regexp>`, or nil for every case. Both narrow.
 type TestOptions struct {
 	Line    int
 	LineSet bool
+	Run     *regexp.Regexp
+}
+
+// CompileTestRun reads a `--run` pattern: an RE2 regular expression.
+func CompileTestRun(pattern string) (*regexp.Regexp, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --run %q: %w", pattern, err)
+	}
+	return re, nil
 }
 
 // TestResult is one case's outcome.
@@ -111,14 +123,11 @@ func (e *DuplicateTestNameError) Error() string {
 	return fmt.Sprintf("duplicate test name %q at line %d; first declared at line %d", e.Name, e.Line, e.FirstLine)
 }
 
-// SelectTests collects nodes' cases and applies opts' line filter. When the
-// selection holds duplicate names it answers those as failed results instead,
-// and nothing should run.
+// SelectTests collects nodes' cases and applies opts' line and name filters.
+// When the selection holds duplicate names it answers those as failed results
+// instead, and nothing should run.
 func SelectTests(nodes []ast.Node, opts TestOptions) (cases []TestCase, duplicates []TestResult) {
-	cases = CollectTestCases(nodes)
-	if opts.LineSet {
-		cases = FilterTestCases(cases, opts.Line)
-	}
+	cases = filterTests(CollectTestCases(nodes), opts)
 	if d := DuplicateTestNames(cases); len(d) > 0 {
 		return nil, d
 	}
@@ -347,6 +356,40 @@ func collectTestCasesInBlock(decl *ast.TestDecl, namePrefix []string, setupPrefi
 			collectTestCasesInBlock(child, names, localSetup, localGroupLines, localClock, nil, out)
 		}
 	}
+}
+
+// filterTests is cases narrowed by opts' line filter, then by its name
+// filter. Run selects a case when it matches the case's FullName, the name a
+// report prints after `file :: `: `todo api [sqlite] / creates a todo` for a
+// test under a group's `subtests` row, so a row whose cases all miss is
+// never booted. The rows of a `subtests` statement in a test's body are not
+// cases (the body computes them as it runs), so they run with their test,
+// every row, and cannot be selected on their own.
+func filterTests(cases []TestCase, opts TestOptions) []TestCase {
+	if opts.LineSet {
+		cases = FilterTestCases(cases, opts.Line)
+	}
+	if opts.Run == nil {
+		return cases
+	}
+	var named []TestCase
+	for _, tc := range cases {
+		if opts.Run.MatchString(tc.FullName()) {
+			named = append(named, tc)
+		}
+	}
+	return named
+}
+
+// SourceSelectsTests reports whether opts selects a case in src, as
+// SelectTests over the loaded file does. A parse error is err; loading the
+// file reports it.
+func SourceSelectsTests(src string, opts TestOptions) (bool, error) {
+	nodes, err := parser.Parse(lexer.Lex(src))
+	if err != nil {
+		return false, err
+	}
+	return len(filterTests(CollectTestCases(nodes), opts)) > 0, nil
 }
 
 // FilterTestCases is `--line N`: the cases whose declaration spans N (or

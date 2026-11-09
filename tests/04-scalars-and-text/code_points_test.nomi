@@ -53,9 +53,9 @@ test "codepoint ranges skip surrogate values" {
 
 test "is_letter is Unicode general category L" {
     // ASCII, Latin-1, Cyrillic, CJK and title-case letters.
-    assert String.to_codepoints("Azéжд中ǅ") |> Iter.all(Codepoint.is_letter)
+    assert String.to_codepoints("Azéжд中ǅ") |> Iter.all_match(Codepoint.is_letter)
     // A digit, a space and an emoji.
-    refute String.to_codepoints("7 🙂") |> Iter.any(Codepoint.is_letter)
+    refute String.to_codepoints("7 🙂") |> Iter.any_match(Codepoint.is_letter)
 
     assert Some(combining_acute) = Int.to_codepoint(0x0301)
 
@@ -63,7 +63,7 @@ test "is_letter is Unicode general category L" {
 }
 
 test "is_digit and to_digit read ASCII digits only" {
-    assert String.to_codepoints("0459") |> Iter.all(Codepoint.is_digit)
+    assert String.to_codepoints("0459") |> Iter.all_match(Codepoint.is_digit)
 
     assert String.to_codepoints("0459") |> Iter.map(Codepoint.to_digit) |> Iter.to_list() == [
         Some(0),
@@ -73,28 +73,28 @@ test "is_digit and to_digit read ASCII digits only" {
     ]
 
     // Full-width ０ and １, Arabic-Indic ٣, a letter and a space.
-    refute String.to_codepoints("０１٣a ") |> Iter.any(Codepoint.is_digit)
+    refute String.to_codepoints("０１٣a ") |> Iter.any_match(Codepoint.is_digit)
 
     assert String.to_codepoints("０１٣a ")
         |> Iter.map(Codepoint.to_digit)
-        |> Iter.all(Maybe.is_none)
+        |> Iter.all_match(Maybe.is_none)
 }
 
 test "is_whitespace is Unicode White_Space" {
     // Space, tab, newline, carriage return, no-break space U+00A0 and the
     // ideographic space U+3000.
-    assert String.to_codepoints(" \t\n\r\u{a0}\u{3000}") |> Iter.all(Codepoint.is_whitespace)
+    assert String.to_codepoints(" \t\n\r\u{a0}\u{3000}") |> Iter.all_match(Codepoint.is_whitespace)
     // A letter, a digit, an emoji and the zero-width space U+200B.
-    refute String.to_codepoints("a7🙂\u{200b}") |> Iter.any(Codepoint.is_whitespace)
+    refute String.to_codepoints("a7🙂\u{200b}") |> Iter.any_match(Codepoint.is_whitespace)
 }
 
 test "is_upper and is_lower are general categories Lu and Ll" {
-    assert String.to_codepoints("AÉЖ") |> Iter.all(Codepoint.is_upper)
-    refute String.to_codepoints("AÉЖ") |> Iter.any(Codepoint.is_lower)
-    assert String.to_codepoints("aéжß") |> Iter.all(Codepoint.is_lower)
-    refute String.to_codepoints("aéжß") |> Iter.any(Codepoint.is_upper)
+    assert String.to_codepoints("AÉЖ") |> Iter.all_match(Codepoint.is_upper)
+    refute String.to_codepoints("AÉЖ") |> Iter.any_match(Codepoint.is_lower)
+    assert String.to_codepoints("aéжß") |> Iter.all_match(Codepoint.is_lower)
+    refute String.to_codepoints("aéжß") |> Iter.any_match(Codepoint.is_upper)
     // CJK has no case, nor do digits and emoji, and title-case ǅ (category
     // Lt) is neither upper nor lower.
-    refute String.to_codepoints("中7🙂ǅ") |> Iter.any(Codepoint.is_upper)
-    refute String.to_codepoints("中7🙂ǅ") |> Iter.any(Codepoint.is_lower)
+    refute String.to_codepoints("中7🙂ǅ") |> Iter.any_match(Codepoint.is_upper)
+    refute String.to_codepoints("中7🙂ǅ") |> Iter.any_match(Codepoint.is_lower)
 }

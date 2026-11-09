@@ -1,13 +1,13 @@
 // A bare `..` updates the value already at a field or key.
 //
-// Inside an update (`#{..base, ...}`, a bare-`..` literal, or the literal
+// Inside an update (`.{..base, ...}`, a bare-`..` literal, or the literal
 // patch of `Struct.update`), the value at a field or key may be a literal
 // that writes `..` with no base. The `..` stands for the value already at
 // that position, so the literal is that value with the changes written:
 //
-//   #{..user, address: #{.., city: "NYC"}}          // address.city changes
+//   .{..user, address: .{.., city: "NYC"}}          // address.city changes
 //   %{..team, "home" => %{.., "city" => "Atlanta"}} // the map at "home" gains a key
-//   #{..account, log: [t, ..]}                      // t, then the old list
+//   .{..account, log: [t, ..]}                      // t, then the old list
 //
 // A literal without `..` is a whole new value and replaces the old one. A map
 // key the base lacks has no old value: the `..` then starts from an empty
@@ -80,7 +80,7 @@ fn ada() -> Person {
 
 // whether a diagnostic at line:col reads exactly message, before any help
 fn at(diagnostics: List<Diagnostic>, line: Int, col: Int, message: String) -> Bool {
-    Iter.any(diagnostics, fn d -> {
+    Iter.any_match(diagnostics, fn d -> {
         d.line == line
             and d.col == col
             and (d.message == message or String.starts_with(d.message, message + "\nhelp: "))
@@ -89,14 +89,14 @@ fn at(diagnostics: List<Diagnostic>, line: Int, col: Int, message: String) -> Bo
 
 // --- structs --------------------------------------------------------------
 test "a `..` literal at a struct field changes only the fields it writes" {
-    moved = #{..ada(), address: #{.., city: "NYC"}}
+    moved = .{..ada(), address: .{.., city: "NYC"}}
 
     assert Display.to_string(moved.address) == "Address{street: 1 Main, city: NYC, zip: BA1}"
     assert moved.name == "Ada"
 }
 
 test "a brace without `..` replaces the field whole" {
-    replaced = #{..ada(), address: #{street: "2 Elm", city: "NYC"}}
+    replaced = .{..ada(), address: .{street: "2 Elm", city: "NYC"}}
 
     // `zip` takes its default: the brace is a new Address, not an update.
     assert Display.to_string(replaced.address) == "Address{street: 2 Elm, city: NYC, zip: 00000}"
@@ -108,9 +108,9 @@ test "updates nest three deep" {
         floor: Floor{geo: Geo{lat: 5, city: "Oslo"}, rooms: 9},
     }
 
-    moved = #{
+    moved = .{
         ..b,
-        floor: #{.., geo: #{.., city: "Bergen"}},
+        floor: .{.., geo: .{.., city: "Bergen"}},
     }
 
     assert Display.to_string(moved)
@@ -119,27 +119,27 @@ test "updates nest three deep" {
 
 // --- collections at a field ---------------------------------------------
 test "a list field takes `[x, ..]`, the new element then the old list" {
-    p = #{..ada(), tags: ["logic", ..]}
+    p = .{..ada(), tags: ["logic", ..]}
 
     assert p.tags == ["logic", "math"]
 }
 
-test "a set field takes `#{.., x}`, the old set then the new element" {
-    p = #{..ada(), seen: %[.., 3, 1]}
+test "a set field takes `.{.., x}`, the old set then the new element" {
+    p = .{..ada(), seen: %[.., 3, 1]}
 
     assert Iter.to_list(p.seen) == [1, 2, 3]
 }
 
 test "a vector field takes `..` at either end" {
-    p = #{..ada(), recent: #[.., 9]}
-    q = #{..ada(), recent: #[6, ..]}
+    p = .{..ada(), recent: #[.., 9]}
+    q = .{..ada(), recent: #[6, ..]}
 
     assert p.recent == #[7, 8, 9]
     assert q.recent == #[6, 7, 8]
 }
 
 test "a map field takes `%{.., k => v}`, merged over the old map" {
-    p = #{..ada(), notes: %{.., "lang" => "fr", "tz" => "CET"}}
+    p = .{..ada(), notes: %{.., "lang" => "fr", "tz" => "CET"}}
 
     assert p.notes == %{"lang" => "fr", "tz" => "CET"}
 }
@@ -170,7 +170,7 @@ test "a missing key starts from an empty collection" {
 
 test "a missing key builds a struct from the fields written and the defaults" {
     geos = %{"oslo" => Geo{lat: 60, city: "Oslo"}}
-    moved = %{..geos, "oslo" => #{.., lat: 59}, "rome" => #{.., city: "Rome"}}
+    moved = %{..geos, "oslo" => .{.., lat: 59}, "rome" => .{.., city: "Rome"}}
 
     assert Display.to_string(moved)
         == "%{oslo => Geo{lat: 59, city: Oslo}, rome => Geo{lat: 0, city: Rome}}"
@@ -183,10 +183,10 @@ test "a whole missing chain is built" {
 
     grown = %{
         ..sites,
-        "hq" => %{.., "f1" => #{.., rooms: 4}},
+        "hq" => %{.., "f1" => .{.., rooms: 4}},
         "lab" => %{
             ..,
-            "f1" => #{.., geo: #{.., lat: 7}},
+            "f1" => .{.., geo: .{.., lat: 7}},
         },
     }
 
@@ -205,14 +205,14 @@ test "a set spread names its base too" {
 test "Struct.update takes `..` at its patch's fields, in a pipeline" {
     moved =
         ada()
-        |> Struct.update(#{name: "Ada L", address: #{.., zip: "BA2"}, tags: ["cs", ..]})
+        |> Struct.update(.{name: "Ada L", address: .{.., zip: "BA2"}, tags: ["cs", ..]})
 
-    assert moved == #{..ada(), name: "Ada L", address: #{.., zip: "BA2"}, tags: ["cs", ..]}
+    assert moved == .{..ada(), name: "Ada L", address: .{.., zip: "BA2"}, tags: ["cs", ..]}
     assert Display.to_string(moved.address) == "Address{street: 1 Main, city: Bath, zip: BA2}"
 }
 
 test "Struct.update with the patch named first" {
-    moved = Struct.update(updates: #{address: #{.., city: "York"}, name: "A"}, original: ada())
+    moved = Struct.update(updates: .{address: .{.., city: "York"}, name: "A"}, original: ada())
 
     assert moved.address.city == "York"
     assert moved.address.street == "1 Main"
@@ -220,26 +220,26 @@ test "Struct.update with the patch named first" {
 }
 
 test "an update in an assertion subject" {
-    assert Struct.update(ada(), #{address: #{.., city: "NYC"}}).address.city == "NYC"
+    assert Struct.update(ada(), .{address: .{.., city: "NYC"}}).address.city == "NYC"
 
-    assert #{..ada(), address: #{.., city: "NYC"}}
-        == Struct.update(ada(), #{address: #{.., city: "NYC"}})
+    assert .{..ada(), address: .{.., city: "NYC"}}
+        == Struct.update(ada(), .{address: .{.., city: "NYC"}})
 }
 
 test "a failing assertion shows the updated value" {
     w = Wrap{p: Pair{a: 1, b: 2}}
-    assert Err(failure) = testing.check(Struct.update(w, #{p: #{.., a: 5}}) == w)
+    assert Err(failure) = testing.check(Struct.update(w, .{p: .{.., a: 5}}) == w)
 
     // The patch's row shows each `..` field as the value it became.
     assert AssertionFailure.format(failure) == """
         line 231: check failed
-          check Struct.update(w, #{p: #{.., a: 5}}) == w
+          check Struct.update(w, .{p: .{.., a: 5}}) == w
           values:
             w
               = Wrap{p: Pair{a: 1, b: 2}}
-            #{p: #{.., a: 5}}
-              = #{p: Pair{a: 5, b: 2}}
-            Struct.update(w, #{p: #{.., a: 5}})
+            .{p: .{.., a: 5}}
+              = .{p: Pair{a: 5, b: 2}}
+            Struct.update(w, .{p: .{.., a: 5}})
               = Wrap{p: Pair{a: 5, b: 2}}
             w
               = Wrap{p: Pair{a: 1, b: 2}}
@@ -261,8 +261,8 @@ test "a brace without `..` at an update must be whole" {
 
         fn main() {
           p = Person{address: Address{street: "1 Main", city: "Bath"}}
-          dbg #{..p, address: #{city: "NYC"}}
-          dbg Struct.update(p, #{address: #{city: "NYC"}})
+          dbg .{..p, address: .{city: "NYC"}}
+          dbg Struct.update(p, .{address: .{city: "NYC"}})
         }
         """
     )
@@ -275,17 +275,17 @@ test "a brace without `..` at an update must be whole" {
 test "a bare `..` outside a field or key of an update has no value" {
     diagnostics = compiler.check(
         """
-        fn take(a: #{x: Int}) -> Int {
+        fn take(a: .{x: Int}) -> Int {
           a.x
         }
 
         fn main() {
           m = %{"a" => %{"x" => 1}}
-          _a = #{.., x: 1}
-          _b = [#{.., x: 1}]
+          _a = .{.., x: 1}
+          _b = [.{.., x: 1}]
           _c = m + %{.., "a" => %{"y" => 2}}
           _d = Map.merge(m, %{.., "a" => %{"y" => 2}})
-          _e = take(#{.., x: 1})
+          _e = take(.{.., x: 1})
           _f = [1, ..]
           _g = #[.., 1]
         }
@@ -314,7 +314,7 @@ test "a missing key needs a default for every field not written" {
 
         fn main() {
           m = %{"a" => Address{street: "s", city: "c"}}
-          _a = %{..m, "b" => #{.., city: "x"}}
+          _a = %{..m, "b" => .{.., city: "x"}}
         }
         """
     )
@@ -340,7 +340,7 @@ test "a bare `..` cannot reach inside a Maybe" {
 
         fn main() {
           p = Person{address: None}
-          _a = #{..p, address: #{.., city: "x"}}
+          _a = .{..p, address: .{.., city: "x"}}
         }
         """
     )
@@ -358,10 +358,10 @@ test "a `..` at a position of another kind is refused" {
 
         fn main() {
           p = Person{tags: [], n: 1}
-          _a = #{..p, tags: %[.., "x"]}
-          _b = #{..p, n: [1, ..]}
-          _c = #{..p, tags: #{..}}
-          _d = #{..p, tags: [..]}
+          _a = .{..p, tags: %[.., "x"]}
+          _b = .{..p, n: [1, ..]}
+          _c = .{..p, tags: .{..}}
+          _d = .{..p, tags: [..]}
         }
         """
     )
@@ -392,9 +392,9 @@ test "an opaque struct's fields stay closed through a nested `..`" {
 
                 fn main() {
                   b = Box{inner: counter.new(), label: "x"}
-                  _a = #{..b, inner: #{.., value: 9}}
-                  _b = Struct.update(b, #{inner: #{.., value: 9}})
-                  _c = #{..b, label: "y", inner: counter.new()}
+                  _a = .{..b, inner: .{.., value: 9}}
+                  _b = Struct.update(b, .{inner: .{.., value: 9}})
+                  _c = .{..b, label: "y", inner: counter.new()}
                 }
                 """,
             "counter" => """
@@ -430,7 +430,7 @@ test "hover inside a `..` literal reads the field of the old value" {
 
         fn main() {
           p = Person{address: Address{street: "1 Main", city: "Bath"}}
-          _a = #{..p, address: #{.., ciˇty: "NYC"}}
+          _a = .{..p, address: .{.., ciˇty: "NYC"}}
         }
         """
     )

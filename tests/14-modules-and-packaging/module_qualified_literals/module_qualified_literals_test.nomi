@@ -7,8 +7,8 @@
 //#
 //# A parser that stops the chain at the member access takes the body as
 //# a separate literal: `shapes.Shape.Ring{r: 1}` then reports `non-final
-//# expression has type #{r: Int}`, and a std enum's struct variant reports
-//# `return type mismatch: expected Error, got #{reason: String}`. The
+//# expression has type .{r: Int}`, and a std enum's struct variant reports
+//# `return type mismatch: expected Error, got .{reason: String}`. The
 //# neighbouring `dotted_type_names` fixture looks like it covers this and
 //# does not: `Probe.Reading` is ONE name containing a dot, so its literals
 //# start at an uppercase segment and take a different parser path.
@@ -77,8 +77,8 @@ struct Slot {
 fn describe(slot: Slot) -> Int {
     case slot {
         Slot{shape: shapes.Shape.Square(n), bag: _} -> n
-        #{shape: shapes.Shape.Ring{r}, bag: shapes.Bag.Items[first, .._rest]} -> r + first
-        #{shape: shapes.Shape.Ring{r}, bag: _} -> r
+        .{shape: shapes.Shape.Ring{r}, bag: shapes.Bag.Items[first, .._rest]} -> r + first
+        .{shape: shapes.Shape.Ring{r}, bag: _} -> r
     }
 }
 
@@ -91,7 +91,7 @@ test "a struct pattern field names a variant through its module" {
 test "a module-qualified field variant in an if condition and a binding with else" {
     slot = Slot{shape: shapes.Shape.Square(9), bag: shapes.Bag.Items([])}
 
-    got = if #{shape: shapes.Shape.Square(n), bag: _} = slot {
+    got = if .{shape: shapes.Shape.Square(n), bag: _} = slot {
         n
     } else {
         0

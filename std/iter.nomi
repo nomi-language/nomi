@@ -12,9 +12,9 @@
 //#
 //# The **terminals** are also type functions on `Iter` —
 //# `Iter.reduce(xs, f)` — over any `Iter<T>`. The `Iter` interface itself is
-//# just the `#{ each_while, known_count, is_infinite }` protocol. Terminals come in two kinds:
-//# - Streaming: `reduce`, `each`, `find`, `any`, `all`, `is_empty` produce a
-//# scalar; no concrete collection is ever built.
+//# just the `.{ each_while, known_count, is_infinite }` protocol. Terminals come in two kinds:
+//# - Streaming: `reduce`, `each`, `find`, `any_match`, `all_match`,
+//# `is_empty` produce a scalar; no concrete collection is ever built.
 //# - Materializing: `to_list`/`to_vector`/`to_set`/`sort`, plus `to_map`,
 //# consume the iterator and produce a concrete collection. `String.join`
 //# joins an `Iter<String>` into one string.
@@ -38,9 +38,9 @@
 //# ```
 //#
 //# Bound them with `Iter.take(n)` or `Iter.take_while(pred)` before such a
-//# terminal, or use one that stops early: `Iter.find`, `any`, `all`,
-//# `first`, `get`, `contains`, `is_empty`, or a `reduce` whose callback can
-//# `break`.
+//# terminal, or use one that stops early: `Iter.find`, `any_match`,
+//# `all_match`, `first`, `get`, `contains`, `is_empty`, or a `reduce` whose
+//# callback can `break`.
 //#
 //# `is_infinite` is True for `Iter.repeat`, `Iter.from`, `Iter.iterate`
 //# (whose step cannot `break`), `Range.from`, `Range.naturals`,
@@ -50,7 +50,7 @@
 //#
 //# | Adapter | Infinite when |
 //# |---|---|
-//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `flat_map` | the source is, unless the callback can `break` |
+//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `chunk_equal`, `flat_map` | the source is, unless the callback can `break` |
 //# | `chunks(n)` | the source is and `n > 0` |
 //# | `cycle` | the source is, or knows a count above zero |
 //# | `concat(a, b)` | either is |
@@ -66,11 +66,11 @@
 //# `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`,
 //# `transpose`, `permutations`, `combinations`, `sort`, `sort_by`,
 //# `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`,
-//# `min_by`, `max_by`, `sum`, `sum_by`, `product`, `product_by`,
+//# `min_by`, `max_by`, `sum`, `sum_by`, `product`, `product_by`, `count_by`,
 //# `String.join`, `Maybe.values`,
 //# `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and
 //# `reduce`, `each` and `map_reduce` when their callback cannot `break`. The
-//# ones that may stop early do not: `first`, `find`, `any`, `all`,
+//# ones that may stop early do not: `first`, `find`, `any_match`, `all_match`,
 //# `contains`, `get`, `is_empty`, `each_while`, `Maybe.collect`,
 //# `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback
 //# can `break`.
@@ -113,13 +113,13 @@
 //# - **Adapters** are lazy and return an `Iter`: `map`, `filter`, `reject`,
 //#   `scan`, `take`, `drop`, `take_while`, `drop_while`, `flat_map`, `zip`,
 //#   `cycle`, `concat`, `intersperse`, `with_index`, `chunks`, `windows`,
-//#   `chunk_by`, `permutations`, `combinations`. Each is built once, when the
-//#   chain is built, not per element, so a pipeline fuses.
+//#   `chunk_by`, `chunk_equal`, `permutations`, `combinations`. Each is
+//#   built once, when the chain is built, not per element, so a pipeline fuses.
 //# - **Terminals** consume the source and return a value: `reduce`,
 //#   `try_reduce`, `map_reduce`, `find`, `find_index`, `find_map`, `each`,
-//#   `any`, `all`, `contains`, `is_empty`, `first`, `last`, `get`, `count`,
-//#   `min`, `max`, `min_by`, `max_by`, `sum`, `product`, `sort`, `sort_by`,
-//#   `sort_with`, `partition`, `group_by`, `frequencies`.
+//#   `any_match`, `all_match`, `contains`, `is_empty`, `first`, `last`, `get`,
+//#   `count`, `count_by`, `min`, `max`, `min_by`, `max_by`, `sum`, `product`,
+//#   `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`.
 //# - **Materializers and constructors** consume a source into a collection,
 //#   or seed one: `to_list`, `to_vector`, `to_set`, `to_map`, `reverse`,
 //#   `flatten`, `transpose`, `from`, `repeat`, `iterate`.
@@ -129,8 +129,8 @@
 //# `Iter.count` is O(1) on a source that stores or can compute its count
 //# (`List`, `Vector`, `Map`, `Set`, `Maybe`, a bounded range whose element
 //# type can count steps, through `known_count`) and an O(n) fold otherwise.
-//# The short-circuit terminals (`find`, `any`, `all`, `is_empty`, `first`)
-//# end on an infinite source when the predicate permits; the full-consuming
+//# The short-circuit terminals (`find`, `any_match`, `all_match`, `is_empty`,
+//# `first`) end on an infinite source when the predicate permits; the full-consuming
 //# ones (`count`, `reduce`, `last`, `sort`, `to_list`, ...) trap on a source
 //# that is `Iter.is_infinite`, and never finish on one that never ends
 //# without saying so. `break` and `continue` work in every `Iter` callback.
@@ -300,8 +300,8 @@ impl Iter<T> {
     // Terminals. Owner functions over any `Iter<T>` — `Iter.reduce(xs, 0, f)`,
     // `Iter.find(xs, p)`, `Iter.to_list(xs)`, … — live beside the protocol
     // functions `each_while` and `known_count`. Streaming terminals (`reduce`/
-    // `find`/`each`/`any`/`all`/`is_empty`/…) produce a scalar without building a
-    // collection; materializing terminals (`to_list`/`to_set`/`sort`/…) consume the
+    // `find`/`each`/`any_match`/`all_match`/`is_empty`/…) produce a scalar
+    // without building a collection; materializing terminals (`to_list`/`to_set`/`sort`/…) consume the
     // iterator and produce a concrete collection.
     //
     // Every streaming terminal below is `reduce` plus a callback, and `reduce`'s
@@ -466,8 +466,7 @@ impl Iter<T> {
                         next -> next
                     }
 
-                Err(_) ->
-                    state
+                Err(_) -> state
             }
         })
     }
@@ -553,10 +552,10 @@ impl Iter<T> {
     /// Returns true if any element matches the predicate. Short-circuits on the
     /// first match.
     //
-    //! assert Iter.any([1, 2, 3], &(&1 > 2))
-    //! refute Iter.any([1, 2], &(&1 > 99))
+    //! assert Iter.any_match([1, 2, 3], &(&1 > 2))
+    //! refute Iter.any_match([1, 2], &(&1 > 99))
     //
-    pub fn any<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
+    pub fn any_match<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
         reduce(source, False, fn _acc, item -> {
             if f(item) {
                 break True
@@ -588,10 +587,10 @@ impl Iter<T> {
     /// Returns true if all elements match the predicate. Vacuously true for an
     /// empty iterator. Short-circuits on the first miss.
     //
-    //! assert Iter.all([2, 4, 6], &(&1 > 0))
-    //! refute Iter.all([2, -4, 6], &(&1 > 0))
+    //! assert Iter.all_match([2, 4, 6], &(&1 > 0))
+    //! refute Iter.all_match([2, -4, 6], &(&1 > 0))
     //
-    pub fn all<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
+    pub fn all_match<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
         reduce(source, True, fn _acc, item -> {
             if f(item) {
                 True
@@ -964,8 +963,7 @@ impl Iter<T> {
     //! rises =
     //!     [3, 5, 4, 8]
     //!     |> Iter.windows(2)
-    //!     |> Iter.filter(fn w -> w == Iter.sort(w))
-    //!     |> Iter.count()
+    //!     |> Iter.count_by(fn w -> w == Iter.sort(w))
     //!
     //! assert rises == 2
     //! assert Iter.from(1) |> Iter.windows(3) |> Iter.first() == Some([1, 2, 3])
@@ -981,9 +979,10 @@ impl Iter<T> {
     }
 
     /// Lazy: yields adjacent runs whose elements produce equal keys. Unlike
-    /// `group_by`, this never reorders or merges non-adjacent elements.
+    /// `group_by`, this never reorders or merges non-adjacent elements. To
+    /// group runs of equal elements themselves, use `Iter.chunk_equal`.
     //
-    //! assert [1, 1, 2, 2, 1] |> Iter.chunk_by(fn x -> x) |> Iter.to_list() == [[1, 1], [2, 2], [1]]
+    //! assert [1, 2, 4, 5, 3] |> Iter.chunk_by(&(&1 % 2)) |> Iter.to_list() == [[1], [2, 4], [5, 3]]
     //!
     //! assert ["ant", "ape", "bee", "bat", "cat"]
     //!     |> Iter.chunk_by(&String.contains(&1, "a"))
@@ -992,6 +991,21 @@ impl Iter<T> {
     //
     pub fn chunk_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Iter<List<T>> where K: Equatable {
         Seq{run: fn yield: (List<T>) -> Bool -> chunk_by_each(source, key_fn, yield)}
+    }
+
+    /// Lazy: yields each run of equal neighbouring elements as a List, so
+    /// `Iter.chunk_equal(xs)` is `Iter.chunk_by(xs, fn x -> x)`. Equal
+    /// elements that are not neighbours land in separate runs; for one group
+    /// per value, use `Iter.group_by` or `Iter.frequencies`. A run is never
+    /// empty, and an empty source yields none. It is infinite when `source`
+    /// is.
+    //
+    //! assert [1, 1, 2, 2, 1] |> Iter.chunk_equal() |> Iter.to_list() == [[1, 1], [2, 2], [1]]
+    //! assert "aaabcc" |> Iter.chunk_equal() |> Iter.map(Iter.count) |> Iter.to_list() == [3, 1, 2]
+    //! assert Iter.from(0) |> Iter.chunk_equal() |> Iter.first() == Some([0])
+    //
+    pub fn chunk_equal<T>(source: Iter<T>) -> Iter<List<T>> where T: Equatable {
+        chunk_by(source, fn item -> item)
     }
 
     /// Lazy: every ordering of the elements of `items`, each as a List, in
@@ -1168,6 +1182,21 @@ impl Iter<T> {
         }
     }
 
+    /// Returns the number of elements for which `pred` holds, consuming the
+    /// whole iterator: `Iter.count_by(xs, pred)` is
+    /// `Iter.filter(xs, pred) |> Iter.count()`. It calls `pred` once per
+    /// element and traps on an infinite source.
+    //
+    //! assert Iter.count_by([1, 2, 3, 4, 5], &(&1 > 2)) == 3
+    //! assert Iter.count_by("banana", &(&1 == "a")) == 3
+    //! assert Iter.count_by([True, False, True], fn yes -> yes) == 2
+    //! none: List<Int> = []
+    //! assert Iter.count_by(none, &(&1 > 0)) == 0
+    //
+    pub fn count_by<T>(source: Iter<T>, pred: (T) -> Bool) -> Int {
+        reduce(source, 0, fn n, item -> if pred(item) { n + 1 } else { n })
+    }
+
     /// Returns the least element, or `None` for an empty source. Of equal
     /// least elements, the first wins. Consumes the whole iterator.
     //
@@ -1269,7 +1298,7 @@ impl Iter<T> {
     /// `Iter.sum_by(xs, key)` is exactly `Iter.map(xs, key) |> Iter.sum()`.
     /// Consumes the whole iterator, so it traps on an infinite source.
     //
-    //! orders = [#{id: 1, total: 5}, #{id: 2, total: 7}]
+    //! orders = [.{id: 1, total: 5}, .{id: 2, total: 7}]
     //! assert Iter.sum_by(orders, .total) == 12
     //! assert Iter.sum_by(["ab", "c"], String.length) == 3
     //! assert Iter.sum_by([1.5, 2.5], &(&1 * 2.0)) == 8.0
@@ -1308,7 +1337,7 @@ impl Iter<T> {
     /// `Iter.map(xs, key) |> Iter.product()`. Consumes the whole iterator,
     /// so it traps on an infinite source.
     //
-    //! sides = [#{w: 2, h: 3}, #{w: 4, h: 1}]
+    //! sides = [.{w: 2, h: 3}, .{w: 4, h: 1}]
     //! assert Iter.product_by(sides, .w) == 8
     //! assert Iter.product_by(1..=3, &(&1 + 1)) == 24
     //! none: List<Int> = []
@@ -1333,8 +1362,7 @@ fn slide<T>(window: List<T>, item: T, size: Int) -> List<T> {
             }
         }
 
-        [] ->
-            [item]
+        [] -> [item]
     }
 }
 

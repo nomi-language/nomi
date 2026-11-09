@@ -78,8 +78,8 @@ func TestFormat_BindingElse_MultiStatementBlockBreaks(t *testing.T) {
 	}
 }
 
-// Arms are laid out as a case's: on consecutive lines when every arm fits,
-// each broken with a blank line between them otherwise.
+// Arms are laid out as a case's: an arm that fits stays on one line, and
+// one that does not breaks, with a blank line between it and its neighbours.
 func TestFormat_BindingElse_Arms(t *testing.T) {
 	src := "fn f(r: Result<Int, E>) -> Result<Int, String> {\n    Ok(port) = r else { Err(.Empty) -> 8080\n Err(e) -> return Err(\"bad port\") }\n    Ok(port)\n}\n"
 	want := "fn f(r: Result<Int, E>) -> Result<Int, String> {\n    Ok(port) = r else {\n        Err(.Empty) -> 8080\n        Err(e) -> return Err(\"bad port\")\n    }\n\n    Ok(port)\n}\n"
@@ -88,7 +88,7 @@ func TestFormat_BindingElse_Arms(t *testing.T) {
 	}
 
 	broken := "fn f(r: Result<Int, E>) -> Result<Int, String> {\n    Ok(port) = r else {\n        Err(.Empty) -> {\n            io.print(\"empty\")\n            8080\n        }\n        Err(e) -> return Err(\"bad port\")\n    }\n    Ok(port)\n}\n"
-	wantBroken := "fn f(r: Result<Int, E>) -> Result<Int, String> {\n    Ok(port) = r else {\n        Err(.Empty) -> {\n            io.print(\"empty\")\n            8080\n        }\n\n        Err(e) ->\n            return Err(\"bad port\")\n    }\n\n    Ok(port)\n}\n"
+	wantBroken := "fn f(r: Result<Int, E>) -> Result<Int, String> {\n    Ok(port) = r else {\n        Err(.Empty) -> {\n            io.print(\"empty\")\n            8080\n        }\n\n        Err(e) -> return Err(\"bad port\")\n    }\n\n    Ok(port)\n}\n"
 	if got := formatTwice(t, broken); got != wantBroken {
 		t.Errorf("got:\n%s\nwant:\n%s", got, wantBroken)
 	}

@@ -25,7 +25,7 @@ pub struct Stats {
 impl Stats {
     /// `stats` after one more operation that carried `bytes` bytes.
     fn add(stats: Stats, bytes: Int) -> Stats {
-        Stats{bytes: stats.bytes + bytes, operations: stats.operations + 1}
+        .{bytes: stats.bytes + bytes, operations: stats.operations + 1}
     }
 }
 
@@ -34,13 +34,13 @@ impl Stats {
 /// answers the meter after it.
 pub struct MeteredReader {
     reader: Reader
-    stats: Stats = #{}
+    stats: Stats = .{}
 }
 
 impl MeteredReader {
     /// A meter over `reader` that has counted nothing.
     pub fn new(reader: Reader) -> MeteredReader {
-        MeteredReader{reader}
+        .{reader}
     }
 
     /// The next bytes of the stream, at most `max`, or `None` at its end,
@@ -54,7 +54,7 @@ impl MeteredReader {
         data = Reader.read(meter.reader, max)?
         bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)
 
-        Ok((data, #{..meter, stats: Stats.add(meter.stats, bytes)}))
+        Ok((data, .{..meter, stats: Stats.add(meter.stats, bytes)}))
     }
 }
 
@@ -62,13 +62,13 @@ impl MeteredReader {
 /// counts reads.
 pub struct MeteredWriter {
     writer: Writer
-    stats: Stats = #{}
+    stats: Stats = .{}
 }
 
 impl MeteredWriter {
     /// A meter over `writer` that has counted nothing.
     pub fn new(writer: Writer) -> MeteredWriter {
-        MeteredWriter{writer}
+        .{writer}
     }
 
     /// Writes `data` and answers the meter after the write. An error is the
@@ -76,7 +76,7 @@ impl MeteredWriter {
     pub fn write(meter: MeteredWriter, data: Bytes) -> Result<MeteredWriter, io.Error> {
         Writer.write(meter.writer, data)?
 
-        Ok(#{..meter, stats: Stats.add(meter.stats, Bytes.length(data))})
+        Ok(.{..meter, stats: Stats.add(meter.stats, Bytes.length(data))})
     }
 }
 
@@ -92,8 +92,7 @@ fn read_to_end(meter: MeteredReader, max: Int) -> Result<(Bytes, MeteredReader),
     (data, meter) = MeteredReader.read(meter, max)?
 
     case data {
-        None ->
-            Ok((Bytes.from_list([]), meter))
+        None -> Ok((Bytes.from_list([]), meter))
 
         Some(bytes) -> {
             (rest, meter) = read_to_end(meter, max)?

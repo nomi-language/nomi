@@ -20,8 +20,6 @@ pub enum State {
     Lose
 }
 
-derive Equatable for State
-
 /// A guess the game no longer takes.
 pub enum Error {
     AlreadyWon
@@ -52,7 +50,7 @@ pub opaque struct Game {
 impl Game {
     /// A new game whose secret is `word`, with no letters revealed.
     pub fn new(word: String) -> Game {
-        Game{
+        .{
             word: String.to_codepoints(word),
             revealed: %[],
             remaining_failures: allowed_failures,
@@ -68,8 +66,8 @@ impl Game {
             .Win -> Err(.AlreadyWon)
             .Lose -> Err(.AlreadyLost)
             .Ongoing when is_hidden(game, letter) -> Ok(reveal(game, letter))
-            .Ongoing when game.remaining_failures == 0 -> Ok(#{..game, state: .Lose})
-            .Ongoing -> Ok(#{..game, remaining_failures: game.remaining_failures - 1})
+            .Ongoing when game.remaining_failures == 0 -> Ok(.{..game, state: .Lose})
+            .Ongoing -> Ok(.{..game, remaining_failures: game.remaining_failures - 1})
         }
     }
 
@@ -102,9 +100,9 @@ fn is_hidden(game: Game, letter: Codepoint) -> Bool {
 /// `game` with `letter` revealed, won when that reveals the whole word.
 fn reveal(game: Game, letter: Codepoint) -> Game {
     revealed = Set.insert(game.revealed, letter)
-    won = Iter.all(game.word, &(&1 in revealed))
+    won = Iter.all_match(game.word, &(&1 in revealed))
 
-    #{..game, revealed, state: if won { .Win } else { .Ongoing }}
+    .{..game, revealed, state: if won { .Win } else { .Ongoing }}
 }
 
 // FILE: save_the_cow_test.nomi
@@ -191,4 +189,4 @@ test result: ok. 10 passed, 0 failed
 - Guessing after the game is over is an `Err`, one `Error` variant per outcome, whose `Display` gives the canonical messages.
 - A guess is a `Codepoint`, since the game works letter by letter (style §20), and `masked_word` maps each letter of the word to itself or `_`.
 - The test file's `play` folds the guesses with `Iter.try_reduce(guesses, Game.new(word), Game.guess)`, which stops at the first refused guess and answers its `Err`.
- The cases are two `subtests` tables, one for the games that end in a state and one for the refused guesses.
+- The cases are two `subtests` tables, one for the games that end in a state and one for the refused guesses.

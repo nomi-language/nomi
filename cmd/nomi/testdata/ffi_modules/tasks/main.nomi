@@ -38,8 +38,7 @@ fn main() -> Result<Unit, String> {
                 break
             }
 
-            Ok(command) ->
-                step(command, tasks)
+            Ok(command) -> step(command, tasks)
 
             Err(e) -> {
                 Console.write_line(App.console, "error: ${e}")

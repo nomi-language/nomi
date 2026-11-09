@@ -19,8 +19,8 @@ func TestFormatAscription(t *testing.T) {
 			"fn main() {\n    x = (y as Int) + 1\n}\n",
 		},
 		{
-			"once admin = #{tags: [] as List<String>, user: `GET /u/{id}` as Route<#{id: Uuid}>}\n",
-			"once admin = #{tags: [] as List<String>, user: `GET /u/{id}` as Route<#{id: Uuid}>}\n",
+			"once admin = .{tags: [] as List<String>, user: `GET /u/{id}` as Route<.{id: Uuid}>}\n",
+			"once admin = .{tags: [] as List<String>, user: `GET /u/{id}` as Route<.{id: Uuid}>}\n",
 		},
 	}
 	for _, c := range cases {

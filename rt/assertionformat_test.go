@@ -131,12 +131,12 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		// to the same column. Here it is the expression header.
 		name: "multi-line expression",
 		failure: &AssertionFailure{
-			Line: 12, Keyword: "check", Expr: "[1, 2, 3]\n|> Iter.any(fn n -> n == 4)",
+			Line: 12, Keyword: "check", Expr: "[1, 2, 3]\n|> Iter.any_match(fn n -> n == 4)",
 			Reason: "check failed",
 		},
 		want: "line 12: check failed\n" +
 			"  check [1, 2, 3]\n" +
-			"  |> Iter.any(fn n -> n == 4)",
+			"  |> Iter.any_match(fn n -> n == 4)",
 	}, {
 		// A blank line inside the source, such as the one between two case
 		// arms, is printed empty rather than as the indent alone.
@@ -229,10 +229,10 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			Line: 55, Keyword: "check", Expr: "has_four", Reason: "check failed",
 			Binding: &AssertionBindingContext{
 				Name: "has_four",
-				Expr: "[1, 2, 3]\n|> Iter.any(fn n -> n == 4)",
+				Expr: "[1, 2, 3]\n|> Iter.any_match(fn n -> n == 4)",
 				Pipeline: []AssertionPipelineStage{
 					{Expr: "[1, 2, 3]", Value: "[1, 2, 3]"},
-					{Expr: "[1, 2, 3]\n|> Iter.any(fn n -> n == 4)", Value: "False"},
+					{Expr: "[1, 2, 3]\n|> Iter.any_match(fn n -> n == 4)", Value: "False"},
 				},
 			},
 		},
@@ -240,12 +240,12 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"  check has_four\n" +
 			"  defined as:\n" +
 			"    [1, 2, 3]\n" +
-			"    |> Iter.any(fn n -> n == 4)\n" +
+			"    |> Iter.any_match(fn n -> n == 4)\n" +
 			"  pipeline values:\n" +
 			"    [1, 2, 3]\n" +
 			"      = [1, 2, 3]\n" +
 			"    [1, 2, 3]\n" +
-			"    |> Iter.any(fn n -> n == 4)\n" +
+			"    |> Iter.any_match(fn n -> n == 4)\n" +
 			"      = False",
 	}, {
 		// An observed value's pipeline is compacted: a stage whose expression is
@@ -253,22 +253,22 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		// the block reads as a pipeline rather than repeating its own prefix.
 		name: "observed pipeline is compacted",
 		failure: &AssertionFailure{
-			Line: 73, Keyword: "check", Expr: "[1, 2, 3]\n|> Iter.any(fn n -> n == 4)",
+			Line: 73, Keyword: "check", Expr: "[1, 2, 3]\n|> Iter.any_match(fn n -> n == 4)",
 			Reason: "check failed",
 			Values: []AssertionValueContext{{
 				Pipeline: []AssertionPipelineStage{
 					{Expr: "[1, 2, 3]", Value: "[1, 2, 3]"},
-					{Expr: "[1, 2, 3]\n|> Iter.any(fn n -> n == 4)", Value: "False"},
+					{Expr: "[1, 2, 3]\n|> Iter.any_match(fn n -> n == 4)", Value: "False"},
 				},
 			}},
 		},
 		want: "line 73: check failed\n" +
 			"  check [1, 2, 3]\n" +
-			"  |> Iter.any(fn n -> n == 4)\n" +
+			"  |> Iter.any_match(fn n -> n == 4)\n" +
 			"  pipeline values:\n" +
 			"    [1, 2, 3]\n" +
 			"      = [1, 2, 3]\n" +
-			"    |> Iter.any(fn n -> n == 4)\n" +
+			"    |> Iter.any_match(fn n -> n == 4)\n" +
 			"      = False",
 	}, {
 		// Compaction is by the immediately preceding stage only, so a stage that

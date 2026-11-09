@@ -62,7 +62,7 @@ enum Slot<T> {
 fn main() {
     f: Box<(Int) -> Int> = Box{v: fn x -> x + 1}
     io.inspect(f.v(2))
-    c: Box<(Int) -> Int> = Box(#{v: fn x -> x * 10})
+    c: Box<(Int) -> Int> = Box(.{v: fn x -> x * 10})
     io.inspect(c.v(2))
     h: Pair<Int, (Int) -> String> = Pair{a: 1, b: fn n -> "n=${n}"}
     io.print(h.b(h.a))

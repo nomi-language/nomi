@@ -200,7 +200,7 @@ Request.Pattern | covered | phase 2 | `Request.pattern: Maybe<String>`
 Request.Context | covered | phase 2 | `Request.context: Context` (the server's per-request context)
 Request.WithContext | mapped | phase 2 | The call runs under the context in force (`with App.context = ...`, `Context.with_timeout`)
 Request.Clone | mapped | phase 2 | Values are immutable; nothing to copy
-Request.ProtoAtLeast | covered | phase 2 | `Protocol.at_least(protocol, major, minor) -> Bool`
+Request.ProtoAtLeast | covered | phase 2 | `Protocol.is_at_least(protocol, major, minor) -> Bool`
 Request.UserAgent | covered | phase 2 | `Request.user_agent(request) -> Maybe<String>`
 Request.Cookies | covered | phase 3 | `Request.cookies(request) -> List<Cookie>`
 Request.CookiesNamed | covered | phase 3 | `Request.cookies_named(request, name) -> List<Cookie>`
@@ -236,7 +236,7 @@ Response.Request | mapped | phase 2 | `Response.url: Maybe<Url>`, the URL after 
 Response.TLS | covered | phase 6 | `Response.tls: Maybe<tls.ConnectionState>`
 Response.Cookies | covered | phase 3 | `Response.cookies(response) -> List<Cookie>`
 Response.Location | covered | phase 2 | `Response.location(response) -> Result<Maybe<Url>, Error>`
-Response.ProtoAtLeast | covered | phase 2 | `Protocol.at_least`
+Response.ProtoAtLeast | covered | phase 2 | `Protocol.is_at_least`
 Response.Write | covered | phase 6 | `Response.write_to(response, w) -> Result<Unit, Error>`
 ResponseController | mapped | phase 3 | Its operations are fields of `Response` or functions on `Request`
 ResponseController.Flush | covered | phase 3 | `Writer.flush(w)` inside a producer

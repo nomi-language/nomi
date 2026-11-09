@@ -133,8 +133,7 @@ impl Dynamic {
         sub: (Dynamic) -> Result<T, Error>,
     ) -> Result<T, Error> {
         case Dynamic.field(d, name) {
-            Err(e) ->
-                Err(e)
+            Err(e) -> Err(e)
 
             Ok(inner) ->
                 case sub(inner) {
@@ -153,8 +152,7 @@ impl Dynamic {
     /// (out-of-bounds, non-list) pass through unchanged.
     pub fn at_index<T>(d: Dynamic, i: Int, sub: (Dynamic) -> Result<T, Error>) -> Result<T, Error> {
         case Dynamic.index(d, i) {
-            Err(e) ->
-                Err(e)
+            Err(e) -> Err(e)
 
             Ok(inner) ->
                 case sub(inner) {
@@ -208,8 +206,7 @@ impl Display for Error {
         // (root first); reduce walks left-to-right and prepends the right
         // separator for each segment.
         path_str = case e.path {
-            [] ->
-                "<root>"
+            [] -> "<root>"
 
             _ ->
                 Iter.reduce(e.path, "", fn acc, seg -> {

@@ -368,7 +368,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 		return irRetainedEnumKind(k.def)
 	}
 	if k.tag == tagAnonStruct && !irKindReaches(k, outer) && irRetainedRecordKind(k) {
-		// `spare: #{context: Context}`: a record of retained values that
+		// `spare: .{context: Context}`: a record of retained values that
 		// reaches no type this walk is deciding, held as the record. An
 		// application struct a boot returns in its `Ok` may hold one, as it
 		// did when boot returned the struct bare.
@@ -638,7 +638,7 @@ func irRetainedValueKind(k kind) bool {
 func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
 	if t.TypeName == nil {
 		if st := bl.g.targetStruct(t); st != nil {
-			// A target-typed brace literal (`a: Address = #{...}`) builds the
+			// A target-typed brace literal (`a: Address = .{...}`) builds the
 			// nominal struct the checker chose, exactly as `Address{...}`.
 			k := bl.g.project(st)
 			if k.tag != tagNamed || k.def == nil {

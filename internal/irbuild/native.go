@@ -107,7 +107,7 @@ const (
 	// unboundedly many Go types. See collections.go.
 	tagList
 	tagTuple
-	// tagAnonStruct is `#{x: Int, y: String}` — a RECORD, structural like the
+	// tagAnonStruct is `.{x: Int, y: String}` — a RECORD, structural like the
 	// tuple beside it and canonicalized by field name rather than by position.
 	// Its identity is the interned *compKind, which additionally carries the
 	// field NAMES: a tuple's components are addressed by index and a record's
@@ -425,6 +425,11 @@ type gen struct {
 	// stdlib positions, as a shared std module's are, so a trap inside it is
 	// reported at the program's call (ownPos).
 	programStd bool
+	// stdCases is set on the gen that lowers a shared std module's own
+	// `//!` and `test` cases (stdtests.go): those are a program, which holds
+	// std interfaces as values through its own defs (stdProgBuilds), though
+	// the module's declarations are the shared lowering's.
+	stdCases bool
 	// skipLint is set on the gen lowering one module of the embedded stdlib
 	// when lintEmbeddedStdlib is off; irLint and irLintAdded then do nothing.
 	skipLint bool
@@ -647,6 +652,11 @@ type gen struct {
 	// stdprogiface.go.
 	stdProgIfaces map[*ast.InterfaceDef]*ifaceDef
 	stdProgHeld   map[*ifaceDef]map[kind]bool
+	// stdProgCaller is, in a std instance gen, the program's gen whose call
+	// asked for the instance. A std interface held as a value in the
+	// instance's signature or body is that gen's def, and its dispatch
+	// symbols are the program's (stdProgOwner).
+	stdProgCaller *gen
 	// stdSrc is the analysis of the std file whose interface declaration
 	// this gen is resolving, while it does (withStdSrc), and nil otherwise.
 	// srcFA answers it: the declaration's nodes and positions are that

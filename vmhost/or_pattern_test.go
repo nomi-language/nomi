@@ -63,7 +63,7 @@ fn ev(e: Ev) -> String {
 fn shape(s: Shape) -> String {
     case s {
         .Circle{r} or .Square{r} -> "round-ish ${r}"
-        .Rect(#{w: 0.0, h: x} or #{w: x, h: 0.0}) -> "flat ${x}"
+        .Rect(.{w: 0.0, h: x} or .{w: x, h: 0.0}) -> "flat ${x}"
         .Rect(_) or .Point -> "other"
     }
 }

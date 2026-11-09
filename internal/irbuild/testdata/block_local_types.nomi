@@ -91,7 +91,7 @@ fn nominal_vs_anon() -> String {
     }
 
     nominal = Pair{a: 1, b: 2}
-    anon = #{a: 3, b: 4}
+    anon = .{a: 3, b: 4}
     "${nominal.a + nominal.b} ${anon.a + anon.b}"
 }
 

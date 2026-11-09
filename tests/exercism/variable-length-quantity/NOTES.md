@@ -14,3 +14,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/variable-length-qu
 - The one error is `Err("incomplete sequence")`, the canonical message, as grains does: an `Error` enum would add a type for one variant.
 - Bytes are `List<Byte>`, as the canonical `List<u8>` is, written in hex in the tests (`0x7F`), as the canonical data's comments ask of a track's tests. An Int literal where a `Byte` is expected is one, so the tables' types are written once on `cases` and every byte is a plain literal. Encoding turns each digit, always below 128, into a Byte with `Int.to_byte(digit)!`; decoding reads a byte's bits back with `Byte.to_int`.
 - The encode and decode groups are one `subtests` table each, named by the description column.
+
+## Friction
+
+None.

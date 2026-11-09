@@ -142,6 +142,11 @@ type FileDecls struct {
 	// it. ImplBlockReceiver holds the base name alone, which this file's
 	// scope may bind to a type of its own (implReceiverOrigin).
 	ImplBlockReceiverModule map[*ast.FuncDef]string
+	// ImplBlockInterfaceModule is ImplBlockReceiverModule for the header's
+	// interface: the module an `impl calendar.DateParts for Q` names it
+	// through, which an interface of this file's own with the same name
+	// is not (PopulateImplIfaceOrigins).
+	ImplBlockInterfaceModule map[*ast.FuncDef]string
 	// ImplBlockReceiverExtern and ImplBlockInterfaceKeyExtern are the
 	// `host fn` parallel of ImplBlockReceiver and ImplBlockInterfaceKey,
 	// which are FuncDef-typed and so exclude the `host fn` items of an
@@ -152,8 +157,12 @@ type FileDecls struct {
 	ImplBlockInterfaceKeyExtern map[*ast.ExternFunc]string
 	// kept is what a project build kept of the declarations for
 	// rebuildBodies; nil for a file built any other way and for a stdlib
-	// file.
+	// file. Read it through keptDecls.
 	kept *keptDecls
+	// keptRest is set on a file read from the stdlib's state, whose kept
+	// declarations are read from it when something first asks for them
+	// (keptDecls; state_codec.go).
+	keptRest *stateRest
 	// bootFromFacts is set on a stdlib module built from its interface
 	// whose facts are installed (StdFacts.InstallModules): the boot-only
 	// check reads its functions' calls from the facts, not its bodies.
@@ -178,7 +187,7 @@ type FileBodies struct {
 	// References maps each identifier's position to the symbol it refers to.
 	References map[Pos]*Symbol
 	// PunnedFieldLabels maps the position of a punned struct-literal field,
-	// the `context` of `App{context}` or `#{context}`, to the field it
+	// the `context` of `App{context}` or `.{context}`, to the field it
 	// labels. One token there is both the field's label and a read of the
 	// variable, and References holds the variable. Find References and
 	// rename read this map for the field. Nil until a punned label is
@@ -275,7 +284,7 @@ type FileBodies struct {
 	// opens its function. Nil until the first record.
 	OperatorImpls map[*ast.Binary]*OperatorImpl
 	// TargetStructs maps a brace literal with no type name and no spread
-	// (`#{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
+	// (`.{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
 	// because the position expected that struct (checkTargetTypedStructLit).
 	// The IR builder lowers such a literal exactly as the named literal
 	// `Address{...}`; a brace literal absent from this map is an anonymous
@@ -498,7 +507,7 @@ func cloneManifest(m map[string]map[string][]Recording) map[string]map[string][]
 // their own, which is then laid over fa.References: nothing typeDecls does
 // reads References.
 func (fa *FileAnalysis) typingDecls(typeDecls func()) {
-	k := fa.kept
+	k := fa.keptDecls()
 	if k == nil || k.typing {
 		// A step already under way records what this one does: an alias
 		// another file builds at its first lookup (projectAliases) may reach
@@ -523,7 +532,7 @@ func (fa *FileAnalysis) typingDecls(typeDecls func()) {
 // symbol is one the bodies walk defined.
 func (fa *FileAnalysis) attachDeclType(pos Pos, sym *Symbol, typ Type) {
 	sym.Type = typ
-	if k := fa.kept; k != nil && k.typing && k.definitions[pos] != sym {
+	if k := fa.keptDecls(); k != nil && k.typing && k.definitions[pos] != sym {
 		k.typed = append(k.typed, keptType{pos, sym.Name, sym.Kind, typ})
 	}
 }
@@ -572,7 +581,7 @@ func (fa *FileAnalysis) walkBodiesAgain(nodes []ast.Node) bool {
 // bodies bind no name in its module scope, which every build in the process
 // reads, so its deferred walk leaves the symbols as they are.
 func (fa *FileAnalysis) walkBodies(nodes []ast.Node, resetSymbols bool) bool {
-	k := fa.kept
+	k := fa.keptDecls()
 	if k == nil {
 		return false
 	}

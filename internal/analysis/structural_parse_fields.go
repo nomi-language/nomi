@@ -6,7 +6,7 @@ import "fmt"
 // writes, and by an anonymous struct whose every field implements `Parse` and
 // `Display`, which no impl can say: the compiler supplies the record's
 // functions (internal/irbuild/irparsefields.go). It is the bound on std/http's
-// `Route.to_with` and `Route.path_with`, so `Route<#{id: Uuid}>` reads its
+// `Route.to_with` and `Route.path_with`, so `Route<.{id: Uuid}>` reads its
 // parameters and writes them into links.
 
 // isParseFields reports whether iface is std/parse's ParseFields.

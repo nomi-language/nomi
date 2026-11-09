@@ -273,7 +273,7 @@ derive Equatable for CipherSuite
 
 impl CipherSuite {
     /// The suites Go's TLS uses by default: Go's `CipherSuites`.
-    //! assert Iter.any(CipherSuite.secure(), fn s -> s.name == "TLS_AES_128_GCM_SHA256")
+    //! assert Iter.any_match(CipherSuite.secure(), fn s -> s.name == "TLS_AES_128_GCM_SHA256")
     //
     pub fn secure() -> List<CipherSuite> {
         http_host.cipher_suites(False) |> Iter.map(CipherSuite.of_parts) |> Iter.to_list()
@@ -307,8 +307,7 @@ impl CipherSuite {
                     |> Iter.to_list(),
                 }
 
-            _ ->
-                CipherSuite{id: 0, name: "", insecure: False, versions: []}
+            _ -> CipherSuite{id: 0, name: "", insecure: False, versions: []}
         }
     }
 }
@@ -416,8 +415,7 @@ fn verify_hook(verify: Maybe<(ConnectionState) -> Result<Unit, String>>) -> (
         Some(check) ->
             fn parts -> {
                 case check(ConnectionState.of_parts(parts)) {
-                    Ok(_) ->
-                        ""
+                    Ok(_) -> ""
 
                     Err(reason) ->
                         if reason == "" {
@@ -428,8 +426,7 @@ fn verify_hook(verify: Maybe<(ConnectionState) -> Result<Unit, String>>) -> (
                 }
             }
 
-        None ->
-            fn _ -> ""
+        None -> fn _ -> ""
     }
 }
 
@@ -506,8 +503,7 @@ impl ServerConfig {
                             choose(ClientHello.of_handle(hello)) |> Maybe.map(fn c -> c.handle)
                         }
 
-                    None ->
-                        fn _ -> None
+                    None -> fn _ -> None
                 },
                 Maybe.is_some(config.certificate_for),
                 verify_hook(config.verify),
@@ -529,8 +525,7 @@ fn with_certificates(
         [first, ..rest] ->
             with_certificates(http_host.tls_with_certificate(config, first.handle), rest)
 
-        [] ->
-            config
+        [] -> config
     }
 }
 
@@ -652,11 +647,8 @@ impl Error {
                     |> Iter.to_list(),
                 }
 
-            ["NotTls", reason] ->
-                Error.NotTls{reason}
-
-            ["Certificate", reason] ->
-                Error.Certificate{reason}
+            ["NotTls", reason] -> Error.NotTls{reason}
+            ["Certificate", reason] -> Error.Certificate{reason}
 
             _ ->
                 Error.Handshake{

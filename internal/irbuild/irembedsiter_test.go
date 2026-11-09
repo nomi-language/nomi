@@ -49,9 +49,9 @@ fn main() {
     io.print(total(pi) + pn)
     h = H{}
     io.print(total(h.it))
-    h2 = #{..h, it: [c, c, c]}
+    h2 = .{..h, it: [c, c, c]}
     io.print(total(h2.it))
-    h3 = Struct.update(updates: #{it: [c]}, original: h)
+    h3 = Struct.update(updates: .{it: [c]}, original: h)
     io.print(total(h3.it))
     m: Iter<Maybe<Shape>> = [Some(c), None]
     io.print(Iter.count(m))

@@ -46,6 +46,29 @@ back. The annotation `user: User` tells `decode_as` which type to read, since
 no argument says so. [`std::json`](/reference/json/) has the other options,
 and how enums and `Maybe` fields map to JSON.
 
+A shape used in one place needs no struct. An anonymous struct is JSON when
+each field is, as a struct deriving both with no options: its field names
+are the keys, and a missing `Maybe` field reads as `None`.
+
+```nomi-run
+import std::json.Json
+
+fn main() -> Result<Unit, Json.Error> {
+    reply = Json.encode_as(.{error: "no todo 99"})
+    dbg reply
+
+    todo = Json.decode_as<.{title: String, order: Maybe<Int>}>(`{"title": "milk"}`)?
+    dbg todo
+
+    Ok(Unit)
+}
+
+```
+<!-- expect
+dbg line 5: reply = "{\"error\":\"no todo 99\"}"
+dbg line 8: todo = .{order: None, title: "milk"}
+-->
+
 A frontend written in TypeScript can share these shapes. `nomi types` writes
 a TypeScript declaration for each `pub` type of the named files and
 directories that crosses as JSON, and for each type those reach. Were `User`
@@ -156,10 +179,10 @@ fn print_users(users: Dynamic, count: Int) {
 }
 
 fn main() -> Result<Unit, String> {
-    text = fs.read_text("users.json") |> Result.map_err(fn e -> "${e}")?
-    users = Json.decode(text) |> Result.map_err(fn e -> "${e}")? |> Json.to_dynamic()
+    text = fs.read_text("users.json") |> Result.map_err(&"${&1}")?
+    users = Json.decode(text) |> Result.map_err(&"${&1}")? |> Json.to_dynamic()
 
-    count = Dynamic.as_list(users) |> Result.map_err(fn e -> "${e}")? |> Iter.count()
+    count = Dynamic.as_list(users) |> Result.map_err(&"${&1}")? |> Iter.count()
     print_users(users, count)
     Ok(Unit)
 }
@@ -217,13 +240,13 @@ dbg line 12: csv.decode("a,\"b") = Err(Syntax{message: "a quoted field is not cl
 JSON, URLs and HTTP headers carry text, so bytes travel in them encoded.
 [`std::base64`](/reference/base64/) and [`std::hex`](/reference/hex/) write
 bytes as text and read them back, a decode returning a `Result`.
-[`std::url`](/reference/url/) percent-encodes text for a query or a path, and
-[`std::hash`](/reference/hash/) signs data with an HMAC:
+A [`Url"..."`](/reference/url/) literal percent-encodes each slot for a
+query or a path, and [`std::hash`](/reference/hash/) signs data with an HMAC:
 
 ```nomi
 signature = hash.hmac_sha256(key, body) |> base64.encode_url(padded: False)
 
-link = "/search?q=${url.escape_query(term)}"
+link = Url"/search?q=${term}"
 ```
 
 Make a key with `random.secure_bytes(32)`, never with a seeded `Generator`.

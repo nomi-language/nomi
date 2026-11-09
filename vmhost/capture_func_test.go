@@ -71,7 +71,7 @@ fn main() {
     io.inspect(mk(x: 6))
     swap: (Int, Int) -> Point = &Point{y: &1, x: &2}
     io.inspect(swap(1, 2))
-    anon: (Int) -> Point = &#{x: &1, y: 7}
+    anon: (Int) -> Point = &.{x: &1, y: 7}
     io.inspect(anon(3))
     box: (String) -> Box<String> = &Box{v: &1}
     io.inspect(box("b"))

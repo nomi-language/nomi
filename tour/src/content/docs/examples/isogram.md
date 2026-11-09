@@ -23,8 +23,7 @@ pub fn is_isogram(phrase: String) -> Bool {
         |> Iter.filter(Codepoint.is_letter)
         |> Iter.to_list()
 
-    distinct = Iter.to_set(letters)
-    Iter.count(letters) == Set.size(distinct)
+    letters |> Iter.to_set() |> Set.size() == Iter.count(letters)
 }
 
 // FILE: isogram_test.nomi

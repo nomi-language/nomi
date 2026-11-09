@@ -153,7 +153,9 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes, cases []ast
 		offer[c] = true
 	}
 	newCasesGen := func(in *programBuild) *gen {
-		return newStdGenIn(v.module, v.path, v.pkg, nodes, fa, v.cands, offer, v.onces, std, in)
+		g := newStdGenIn(v.module, v.path, v.pkg, nodes, fa, v.cands, offer, v.onces, std, in)
+		g.stdCases = true
+		return g
 	}
 	if listed := listedStdModulesOfCases(cases); len(listed) > 0 {
 		return generateStdlibTestIRWithProgramStd(v, nodes, cases, fa, listed, newCasesGen, extra, link, dc.hooks)
@@ -163,6 +165,13 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes, cases []ast
 	insts := newStdInstances(std, dc)
 	g.stdInsts = insts
 	g.lowerStdCases(cases)
+	if g.irMod != nil {
+		// The module's own impls are the shared lowering's; a std type the
+		// cases hold as a std interface value, unboxed or boxed, dispatches
+		// through entries they record.
+		g.stdProgHeldImpls()
+		g.irRecordBoxedImpls()
+	}
 	var irMods []*ir.Module
 	if g.irMod != nil {
 		irMods = append(irMods, g.irMod)
@@ -281,10 +290,15 @@ func generateStdlibTestIRWithProgramStd(v *stdModuleView, nodes, cases []ast.Nod
 //
 // A lambda in the test body is built by a child builder, which is not
 // itself a test body (its `return` leaves the lambda), so the test is
-// whichever enclosing builder is one.
+// whichever enclosing builder is one. Every body the module's cases gen
+// builds is the cases': a test body, or a thunk that dispatches a std type
+// a case holds as a std interface value (stdProgThunk).
 func (bl *irScalarBuilder) stdTestOwnType() bool {
 	if bl.g.stdModule == "" {
 		return false
+	}
+	if bl.g.stdCases {
+		return true
 	}
 	for scope := bl; scope != nil; scope = scope.parent {
 		if scope.inTest {

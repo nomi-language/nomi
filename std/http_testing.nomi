@@ -126,7 +126,7 @@ pub fn request(method: Method, target: String) -> Request {
 //! assert Request.form_value(r, "email") == Some("ada@example.com")
 //
 pub fn form_request(method: Method, target: String, fields: List<(String, String)>) -> Request {
-    #{
+    .{
         ..request(method, target),
         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
         body: Body.Form(Query(fields)),
@@ -175,8 +175,7 @@ pub fn chunks(response: Response) -> List<Bytes> {
             }
         }
 
-        other ->
-            [Body.read_all(other) |> Result.with_default(String.to_bytes(""))]
+        other -> [Body.read_all(other) |> Result.with_default(String.to_bytes(""))]
     }
 }
 
@@ -189,7 +188,7 @@ pub fn chunks(response: Response) -> List<Bytes> {
 //! page = String.repeat("hello ", 500)
 //! app = (fn _ -> Response{body: Body.Text(page)}) |> http.compress()
 //! r = http_testing.request(Method.Get, "/")
-//! sent = app(#{..r, headers: Headers[("Accept-Encoding", "gzip")]})
+//! sent = app(.{..r, headers: Headers[("Accept-Encoding", "gzip")]})
 //! assert Headers.get(sent.headers, "Content-Encoding") == Some("gzip")
 //! assert http_testing.decompressed(sent) == Ok(String.to_bytes(page))
 //
@@ -269,7 +268,7 @@ pub fn with_server<T>(
             Some(ServerConfig{certificates: [certificate]}),
             Client.new(ClientOptions{
                 tls: Some(ClientConfig{roots: Roots.Pem(cert)}),
-                transport: #{..Transport.default, force_http2: http2},
+                transport: .{..Transport.default, force_http2: http2},
             }),
             Some(Certificate.info(certificate)),
         )
@@ -277,7 +276,7 @@ pub fn with_server<T>(
         (
             None,
             Client.new(ClientOptions{
-                transport: #{
+                transport: .{
                     ..Transport.default,
                     protocols: Some(Protocols{http1: False, http2: False, unencrypted_http2: True}),
                 },
@@ -294,7 +293,7 @@ pub fn with_server<T>(
         None -> Some(Protocols{http1: True, http2: False})
     }
 
-    listener = http.listen(#{..server, address: "127.0.0.1:0", tls: config, protocols})!
+    listener = http.listen(.{..server, address: "127.0.0.1:0", tls: config, protocols})!
     scheme = if tls { "https" } else { "http" }
     url = Url.parse("${scheme}://${Listener.address(listener)}")!
 
@@ -324,8 +323,7 @@ pub fn with_server<T>(
 //!                 _ = WebSocket.send_text(ws, String.uppercase(text))
 //!             }
 //!
-//!             _ ->
-//!                 Unit
+//!             _ -> Unit
 //!         }
 //!     })
 //! }
@@ -360,7 +358,7 @@ pub fn open_websocket<T>(
 
     handshake = Headers(required + extra)
 
-    response = ToResponse.to_response(handler(#{..base, headers: handshake}))
+    response = ToResponse.to_response(handler(.{..base, headers: handshake}))
 
     on_connection = case response.upgrade {
         Some(f) -> f

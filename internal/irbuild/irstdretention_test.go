@@ -139,7 +139,7 @@ fn main() {
   io.inspect(lookup(xs, "a"))
   io.inspect(lookup(xs, "z"))
   io.inspect(values(xs, "a"))
-  io.inspect(Iter.any(xs, fn entry -> entry_value(entry) == "2"))
+  io.inspect(Iter.any_match(xs, fn entry -> entry_value(entry) == "2"))
   io.inspect(values(put(xs, "a", "9"), "a"))
   io.inspect(Iter.count(put(xs, "c", "4")))
 }
@@ -202,7 +202,7 @@ fn project() -> Project {
 }
 
 fn configured(p: Project) -> Project {
-  #{..p, manifest: Some("[module]\nname = \"demo\"\n")}
+  .{..p, manifest: Some("[module]\nname = \"demo\"\n")}
 }
 
 fn has_manifest(p: Project) -> Bool {

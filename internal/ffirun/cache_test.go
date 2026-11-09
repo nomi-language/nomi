@@ -201,9 +201,9 @@ func TestCache_TemplateBumpRegens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read hash.json: %v", err)
 	}
-	bumped := strings.Replace(string(hashBytes), templateHash, "0000000000ff", 1)
+	bumped := strings.Replace(string(hashBytes), templateHash(), "0000000000ff", 1)
 	if bumped == string(hashBytes) {
-		t.Fatalf("could not locate templateHash %q in hash.json content:\n%s", templateHash, hashBytes)
+		t.Fatalf("could not locate templateHash %q in hash.json content:\n%s", templateHash(), hashBytes)
 	}
 	if err := os.WriteFile(hashPath, []byte(bumped), 0o644); err != nil {
 		t.Fatalf("write tampered hash.json: %v", err)
@@ -338,7 +338,7 @@ func TestCache_RoundTripHash(t *testing.T) {
 	want := hashRecord{
 		GoMod:      "sha256:" + strings.Repeat("a", 64),
 		GoSum:      "sha256:" + strings.Repeat("b", 64),
-		Template:   "sha256:" + templateHash,
+		Template:   "sha256:" + templateHash(),
 		Discovered: "sha256:" + strings.Repeat("c", 64),
 		Compiler:   "sha256:" + strings.Repeat("d", 64),
 	}

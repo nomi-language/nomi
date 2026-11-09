@@ -139,7 +139,7 @@ func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, line, col in
 	return true
 }
 
-// structBinding lowers `#{x, y: b} = value` over an anonymous record or a
+// structBinding lowers `.{x, y: b} = value` over an anonymous record or a
 // retained struct: each named field is read off the held subject and bound.
 // A field sub-pattern declines.
 func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {

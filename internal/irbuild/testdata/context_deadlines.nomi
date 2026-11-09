@@ -155,7 +155,6 @@ fn further(a: Context, b: Context) -> Bool {
                 None -> False
             }
 
-        None ->
-            False
+        None -> False
     }
 }

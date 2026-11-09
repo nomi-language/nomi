@@ -323,7 +323,7 @@ func decodeSemanticTokenData(data []protocol.UInteger) []decodedSemanticToken {
 }
 
 // TestStructDestructure_PunningHasNoFieldCollision verifies that a punning
-// struct destructure (`#{x, y} = point`) registers exactly one symbol per
+// struct destructure (`.{x, y} = point`) registers exactly one symbol per
 // binding position — the SymbolBinding — and does not also register a
 // SymbolField at the same position. The two used to coexist: the analyzer's
 // builder put a SymbolBinding in Definitions and the checker put a
@@ -332,8 +332,8 @@ func decodeSemanticTokenData(data []protocol.UInteger) []decodedSemanticToken {
 // from one LSP run to the next.
 func TestStructDestructure_PunningHasNoFieldCollision(t *testing.T) {
 	src := `fn main() {
-  point = #{x: 10, y: 20}
-  #{x, y} = point
+  point = .{x: 10, y: 20}
+  .{x, y} = point
 }
 `
 	tokens := lexer.Lex(src)

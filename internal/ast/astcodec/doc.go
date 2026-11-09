@@ -8,7 +8,13 @@
 // and requires it to survive.
 //
 // A pointer the tree holds twice is written once and then by its number,
-// so a decoded tree shares what the encoded one shares. Decoding bytes the
+// and so is a slice that is not empty (keyed by its elements' address, its
+// length and its type), so a decoded tree shares what the encoded one
+// shares. Another codec can
+// write nodes into the same stream, through one Encoder and its pointer
+// table, with the exported Value, Len and Struct<Name> methods: the
+// analysis's state codec does (internal/analysis package doc, "The
+// stdlib's state"). Decoding bytes the
 // encoder did not write, or bytes cut short, is an error, never a panic.
 // The two unexported fields the analysis sets on a checked tree,
 // TaggedString's expansion and template (an `Html` literal's expansion,

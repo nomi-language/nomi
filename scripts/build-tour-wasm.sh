@@ -49,11 +49,14 @@ echo "==> nomi wasm"
 # (internal/tourgo/doc.go, "Modules the tour links").
 #
 # The std bundle too, also matched by the rebuild: the wasm embeds the
-# stdlib's lowering (internal/irbuild/stdbundle.go) and its interfaces and
-# facts (std/shared.go), so a page never analyzes or lowers std.
-# stdbundlegen makes both natively from this tree in a temporary directory
-# with a `go build -overlay` file that supplies them under the
-# nomi_stdbundle tag; nothing is written into the source tree.
+# stdlib's lowering (internal/irbuild/stdbundle.go), its interfaces and
+# facts (std/shared.go) and its base modules' state (std/state.go), so a
+# page never analyzes or lowers std and does not build the base modules.
+# stdbundlegen makes all three natively from this tree in a temporary
+# directory with a `go build -overlay` file that supplies them under the
+# nomi_stdbundle tag; nothing is written into the source tree. The state's
+# encoding differs from run to run, so the rebuild takes it from the staged
+# wasm (vmhost/tour_bundle_test.go says why that is still exact).
 BUNDLE_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUNDLE_DIR"' EXIT
 go run -C "$ROOT" ./internal/irbuild/stdbundlegen "$BUNDLE_DIR"

@@ -62,9 +62,9 @@ test "unit and values holding it key sets and maps" {
     assert Set.size(tagged) == 2
 
     records =
-        [#{name: "r", marker: Unit}, #{name: "r", marker: Unit}, #{name: "s", marker: Unit}]
+        [.{name: "r", marker: Unit}, .{name: "r", marker: Unit}, .{name: "s", marker: Unit}]
         |> Iter.to_set()
 
     assert Set.size(records) == 2
-    assert #{name: "s", marker: Unit} in records
+    assert .{name: "s", marker: Unit} in records
 }

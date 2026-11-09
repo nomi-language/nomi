@@ -90,8 +90,7 @@ fn start() -> Counter {
 fn serve(inbox: Channel<Request>) -> Unit {
     _final = Iter.loop(0, fn count -> {
         case Receiver.receive(inbox.receiver) {
-            Some(Request.Increment(n)) ->
-                count + n
+            Some(Request.Increment(n)) -> count + n
 
             Some(Request.Get{reply}) -> {
                 // Best-effort: a caller that gave up is not worth crashing over.
@@ -100,12 +99,9 @@ fn serve(inbox: Channel<Request>) -> Unit {
             }
 
             // Stands in for a handler with a bug in it.
-            Some(Request.Explode) ->
-                count / 0
-
+            Some(Request.Explode) -> count / 0
             // The inbox closed and drained: no more work is coming.
-            None ->
-                break count
+            None -> break count
         }
     })
 

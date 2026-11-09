@@ -33,7 +33,7 @@ test "a value never becomes SQL text, whatever it holds" {
     s = Sql"SELECT id FROM users WHERE name = ${hostile}"
     assert s.parts == ["SELECT id FROM users WHERE name = ", ""]
     assert s.params == [Value.Text(hostile)]
-    refute Iter.any(s.parts, &String.contains(&1, "DROP"))
+    refute Iter.any_match(s.parts, &String.contains(&1, "DROP"))
     assert "${s}" == "SELECT id FROM users WHERE name = ?1"
 }
 

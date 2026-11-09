@@ -14,7 +14,7 @@ impl Equatable for Tag {
 // Every value in `wanted` is in `c`, for any collection that implements
 // `Contains`.
 fn all_present<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T> {
-    Iter.all(wanted, &C.contains(c, &1))
+    Iter.all_match(wanted, &C.contains(c, &1))
 }
 
 test "a set holds its members" {

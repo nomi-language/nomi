@@ -294,16 +294,16 @@ fn main() {
     off = SmtpConfig{host: "127.0.0.1", port: OFF_PORT, security: Security.Off}
     io.print("off ${show(Mailer.send(mail.smtp(off), message))}")
 
-    rejected = #{..message, to: [Address.new("reject@example.com")!], cc: [], bcc: []}
+    rejected = .{..message, to: [Address.new("reject@example.com")!], cc: [], bcc: []}
     io.print("rejected ${show(Mailer.send(mail.smtp(off), rejected))}")
 
     wrong = Some(Credentials{username: "user", password: "wrong"})
-    io.print("wrong password ${show(Mailer.send(mail.smtp(#{..starttls, credentials: wrong}), message))}")
+    io.print("wrong password ${show(Mailer.send(mail.smtp(.{..starttls, credentials: wrong}), message))}")
 
-    untrusted = #{..starttls, tls: ClientConfig{}}
+    untrusted = .{..starttls, tls: ClientConfig{}}
     io.print("untrusted ${show(Mailer.send(mail.smtp(untrusted), message))}")
 
-    required = #{..off, security: Security.StartTls}
+    required = .{..off, security: Security.StartTls}
     io.print("required ${show(Mailer.send(mail.smtp(required), message))}")
 }
 `

@@ -11,11 +11,9 @@ enum Step {
     Overwrite Int
 }
 
-derive Equatable for Step
-
 /// Runs each step's operation on a buffer of `capacity`, in turn, and
-/// answers the steps as they happened. A run that does what every step says
-/// answers the steps it was given.
+/// returns the steps as they happened. A run that does what every step says
+/// returns the steps it was given.
 fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
     (_buffer, happened) =
         steps
@@ -33,11 +31,8 @@ fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
                         Err(_) -> (buffer, .ReadFails)
                     }
 
-                .Clear ->
-                    (Buffer.clear(buffer), .Clear)
-
-                .Overwrite(item) ->
-                    (Buffer.overwrite(buffer, item), .Overwrite(item))
+                .Clear -> (Buffer.clear(buffer), .Clear)
+                .Overwrite(item) -> (Buffer.overwrite(buffer, item), .Overwrite(item))
             }
         })
 

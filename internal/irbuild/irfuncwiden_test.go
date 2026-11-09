@@ -76,7 +76,7 @@ fn main() {
     io.print(Map.map_values(m, c))
     fs = [cnt_int]
     Iter.each(fs, fn f -> io.print(Map.map_values(m, f)))
-    held = #{count: cnt_int}
+    held = .{count: cnt_int}
     io.print(Map.map_values(m, held.count))
     f: (List<Int>) -> Int = cnt_int
     io.print(f([1]))

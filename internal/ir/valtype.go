@@ -57,7 +57,7 @@ const (
 	KindDistinct
 	// KindTuple is `(A, B, ...)`; Elems are the components in order.
 	KindTuple
-	// KindRecord is an anonymous struct `#{x: A, y: B}`; Names are the field
+	// KindRecord is an anonymous struct `.{x: A, y: B}`; Names are the field
 	// names in canonical (sorted) order and Elems their types, parallel.
 	KindRecord
 	KindList
@@ -577,7 +577,7 @@ func (t *ValType) write(b *strings.Builder) {
 	case KindTuple:
 		args("(", ")")
 	case KindRecord:
-		b.WriteString("#{")
+		b.WriteString(".{")
 		for i, e := range t.elems {
 			if i > 0 {
 				b.WriteString(", ")

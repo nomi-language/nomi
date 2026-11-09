@@ -19,8 +19,8 @@ test "a signature verifies only its message under its key" {
             signature = signatures.sign(key, message)
 
             (
-                signatures.verify(public, message, signature),
-                signatures.verify(public, tampered, signature),
+                signatures.is_valid(public, message, signature),
+                signatures.is_valid(public, tampered, signature),
             )
         })
         |> Iter.to_list()
@@ -46,8 +46,8 @@ test "keys round trip through PEM and DER, and never print their bytes" {
     a = signatures.sign_with(key, Scheme.RsaPssSha256, message)!
     b = signatures.sign_with(key, Scheme.RsaPssSha256, message)!
     assert a != b
-    assert signatures.verify_with(public, Scheme.RsaPssSha256, message, a)
-    refute signatures.verify(public, message, a)
+    assert signatures.is_valid_with(public, Scheme.RsaPssSha256, message, a)
+    refute signatures.is_valid(public, message, a)
 }
 
 test "a key of another algorithm or a broken PEM is an Err" {

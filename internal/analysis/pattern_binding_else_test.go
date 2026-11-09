@@ -116,13 +116,13 @@ func TestPatternBindingElse_FallbackTypesTheInnerPattern(t *testing.T) {
 
 fn describe(c: Check) -> String {
     .Valid{addr, score} = c else {
-        .Invalid(_) -> #{addr: "unknown", score: 0}
+        .Invalid(_) -> .{addr: "unknown", score: 0}
     }
     "${addr}:${score}"
 }
 
 fn whole(c: Check) -> Int {
-    .Valid(r) = c else { #{addr: "none", score: -1} }
+    .Valid(r) = c else { .{addr: "none", score: -1} }
     r.score
 }
 `
@@ -173,7 +173,7 @@ func TestPatternBindingElse_Errors(t *testing.T) {
 }`, "19:15: non-exhaustive `else` on Result: missing Err"},
 		"non-exhaustive struct-variant arms": {`fn f(c: Check) -> Int {
     .Valid{score} = c else {
-        .Invalid("x") -> #{addr: "", score: 0}
+        .Invalid("x") -> .{addr: "", score: 0}
     }
     score
 }`, "19:23: non-exhaustive `else` on Check: missing Invalid"},
@@ -324,12 +324,12 @@ fn main() -> Result<Unit, String> {
 
 // A `case` arm types a struct-shaped variant's paren payload as a binding's
 // `else` fallback does: the record of its fields. `.Valid(r)` binds r to it
-// and `.Valid(#{addr, score})` matches it, so the arm's body is checked
+// and `.Valid(.{addr, score})` matches it, so the arm's body is checked
 // against those types.
 func TestStructVariantParenPayload_IsTheRecordOfItsFields(t *testing.T) {
 	ok := elseDecls + `fn f(c: Check) -> String {
     case c {
-        .Valid(#{addr, score: 0}) -> addr
+        .Valid(.{addr, score: 0}) -> addr
         .Valid(r) -> "${r.addr}:${r.score}"
         .Invalid(s) -> s
     }

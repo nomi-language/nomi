@@ -87,15 +87,15 @@ fn score(hand: String) -> Result<Score, Error> {
 
     Ok(
         case (counts, straight(ranks), flush) {
-            ([4, 1], _, _) -> #{category: .FourOfAKind, ranks}
-            ([3, 2], _, _) -> #{category: .FullHouse, ranks}
-            ([3, 1, 1], _, _) -> #{category: .ThreeOfAKind, ranks}
-            ([2, 2, 1], _, _) -> #{category: .TwoPair, ranks}
-            ([2, 1, 1, 1], _, _) -> #{category: .OnePair, ranks}
-            (_, Some(high), True) -> #{category: .StraightFlush, ranks: high}
-            (_, Some(high), False) -> #{category: .Straight, ranks: high}
-            (_, None, True) -> #{category: .Flush, ranks}
-            (_, None, False) -> #{category: .HighCard, ranks}
+            ([4, 1], _, _) -> .{category: .FourOfAKind, ranks}
+            ([3, 2], _, _) -> .{category: .FullHouse, ranks}
+            ([3, 1, 1], _, _) -> .{category: .ThreeOfAKind, ranks}
+            ([2, 2, 1], _, _) -> .{category: .TwoPair, ranks}
+            ([2, 1, 1, 1], _, _) -> .{category: .OnePair, ranks}
+            (_, Some(high), True) -> .{category: .StraightFlush, ranks: high}
+            (_, Some(high), False) -> .{category: .Straight, ranks: high}
+            (_, None, True) -> .{category: .Flush, ranks}
+            (_, None, False) -> .{category: .HighCard, ranks}
         }
     )
 }
@@ -130,9 +130,9 @@ fn card(text: String) -> Maybe<Card> {
 
 /// The rank of a numbered card, 2 to 10.
 fn pip_rank(digits: String) -> Maybe<Int> {
-    Some(n) = String.to_int(digits) else { return None }
+    n = String.to_int(digits)?
 
-    if n in 2..=10 { Some(n) } else { None }
+    if n in 2..=10 { n }
 }
 
 // FILE: poker_test.nomi

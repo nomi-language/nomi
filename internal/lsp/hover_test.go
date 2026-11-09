@@ -214,13 +214,13 @@ func TestHover_FuncDestructureParams(t *testing.T) {
 		"enum Wrapper {\n\tOnly Int\n}\n" +
 		"fn subtract(Dur(x), Dur(y)) -> Dur { Dur(x - y) }\n" +
 		"fn sum_point(Point{x, y}) -> Int { x + y }\n" +
-		"fn scale_point(#{x, y}: Point) -> Int { x * y }\n" +
+		"fn scale_point(.{x, y}: Point) -> Int { x * y }\n" +
 		"fn add_pair((a, b): (Int, Int)) -> Int { a + b }\n" +
 		"fn unwrap(Wrapper.Only(n)) -> Int { n }"
 	wants := map[string]string{
 		"subtract":    "```nomi\nfn subtract(Dur(x), Dur(y)) -> Dur\n```",
 		"sum_point":   "```nomi\nfn sum_point(Point{x, y}) -> Int\n```",
-		"scale_point": "```nomi\nfn scale_point(#{x, y}: Point) -> Int\n```",
+		"scale_point": "```nomi\nfn scale_point(.{x, y}: Point) -> Int\n```",
 		"add_pair":    "```nomi\nfn add_pair((a, b): (Int, Int)) -> Int\n```",
 		"unwrap":      "```nomi\nfn unwrap(Wrapper.Only(n)) -> Int\n```",
 	}
@@ -806,10 +806,10 @@ func TestHover_TestGroupSetupBindingInNestedTest(t *testing.T) {
 
 group "config" {
   setup {
-    #{cfg: Config{env: "test"}}
+    .{cfg: Config{env: "test"}}
   }
 
-  test "uses cfg", #{cfg} {
+  test "uses cfg", .{cfg} {
     assert cfg.env == "test"
   }
 }
@@ -2717,10 +2717,10 @@ func TestHover_Test_ContextPattern(t *testing.T) {
 func TestHover_TestSetup_RecordContext(t *testing.T) {
 	src := "group \"child\" {\n" +
 		"  setup {\n" +
-		"    #{inherited: \"parent\", value: 2, child_only: \"ready\"}\n" +
+		"    .{inherited: \"parent\", value: 2, child_only: \"ready\"}\n" +
 		"  }\n" +
 		"\n" +
-		"  test \"uses setup\", #{inherited, value, child_only} { assert child_only == \"ready\" }\n" +
+		"  test \"uses setup\", .{inherited, value, child_only} { assert child_only == \"ready\" }\n" +
 		"}"
 	file := checkedFile(src)
 
@@ -2730,7 +2730,7 @@ func TestHover_TestSetup_RecordContext(t *testing.T) {
 		t.Fatal("expected a symbol at the `setup` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nsetup: Unit -> #{inherited: String, value: Int, child_only: String}\n```\n\nRuns before each test in `group \"child\"`, after the group's boot. A test binds the returned value with a pattern after its name."
+	expected := "```nomi\nsetup: Unit -> .{inherited: String, value: Int, child_only: String}\n```\n\nRuns before each test in `group \"child\"`, after the group's boot. A test binds the returned value with a pattern after its name."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2739,10 +2739,10 @@ func TestHover_TestSetup_RecordContext(t *testing.T) {
 func TestHover_MultilineTestContextDoesNotLeakIntoTestTitle(t *testing.T) {
 	src := "group \"child\" {\n" +
 		"  setup {\n" +
-		"    #{inherited: \"parent\", value: 2, child_only: \"ready\"}\n" +
+		"    .{inherited: \"parent\", value: 2, child_only: \"ready\"}\n" +
 		"  }\n" +
 		"\n" +
-		"  test \"uses child setup\", #{\n" +
+		"  test \"uses child setup\", .{\n" +
 		"    inherited,\n" +
 		"    value,\n" +
 		"    child_only,\n" +

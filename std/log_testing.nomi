@@ -76,8 +76,7 @@ fn record(line: String) -> Maybe<Record> {
                 fields: fields |> Iter.flat_map(fn f -> field(f)) |> Iter.to_list(),
             })
 
-        _ ->
-            None
+        _ -> None
     }
 }
 
@@ -92,22 +91,14 @@ fn level_named(name: String) -> Level {
 
 fn field(encoded: Json) -> Maybe<Field> {
     case encoded {
-        .Arr([.String(key), .String("int"), .Int(n)]) ->
-            Some(Field{key, value: Value.Int(n)})
-
-        .Arr([.String(key), .String("float"), .Float(x)]) ->
-            Some(Field{key, value: Value.Float(x)})
+        .Arr([.String(key), .String("int"), .Int(n)]) -> Some(Field{key, value: Value.Int(n)})
+        .Arr([.String(key), .String("float"), .Float(x)]) -> Some(Field{key, value: Value.Float(x)})
 
         .Arr([.String(key), .String("float"), .Int(n)]) ->
             Some(Field{key, value: Value.Float(Int.to_float(n))})
 
-        .Arr([.String(key), .String("bool"), .Bool(b)]) ->
-            Some(Field{key, value: Value.Bool(b)})
-
-        .Arr([.String(key), .String(_), .String(s)]) ->
-            Some(Field{key, value: Value.Text(s)})
-
-        _ ->
-            None
+        .Arr([.String(key), .String("bool"), .Bool(b)]) -> Some(Field{key, value: Value.Bool(b)})
+        .Arr([.String(key), .String(_), .String(s)]) -> Some(Field{key, value: Value.Text(s)})
+        _ -> None
     }
 }

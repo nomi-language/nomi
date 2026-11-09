@@ -105,7 +105,7 @@ test "two schedulers stepping one schedule at once store each tick once" {
         })
         |> Iter.to_list()
 
-    assert Iter.all(answers, fn (first, second) -> {
+    assert Iter.all_match(answers, fn (first, second) -> {
         first is Ok(Some(Enqueued{duplicate: False}))
             and second is Ok(Some(Enqueued{duplicate: True}))
     })
@@ -241,7 +241,7 @@ test "a kept key outlives its job, and a live one does not" {
 }
 
 fn kinds(kind: String) -> Int {
-    Inline.jobs(App.shared) |> Iter.filter(fn job -> job.kind == kind) |> Iter.count()
+    Inline.jobs(App.shared) |> Iter.count_by(fn job -> job.kind == kind)
 }
 
 group "schedules on two workers over one queue" {

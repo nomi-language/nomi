@@ -94,7 +94,7 @@ fn deposit(account: Account, input: Receiver<String>) -> Account {
         case parse(text) {
             Ok(amount) -> {
                 io.print("deposit ${amount}")
-                break #{..acc, balance: amount}
+                break .{..acc, balance: amount}
             }
             Err(msg) -> {
                 io.print(msg)
@@ -189,8 +189,8 @@ fn main() {
     io.inspect(break_or_next())
     io.inspect(bare_arms(feed(["ab", "skip", "cde"])))
     io.inspect(block_arms(feed(["ab", "skip", "cde"])))
-    io.inspect(deposit(#{owner: "ann", balance: 1}, feed(["x", "y", "40", "50"])))
-    io.inspect(deposit(#{owner: "bob", balance: 1}, feed(["x"])))
+    io.inspect(deposit(.{owner: "ann", balance: 1}, feed(["x", "y", "40", "50"])))
+    io.inspect(deposit(.{owner: "bob", balance: 1}, feed(["x"])))
     bare_break(feed(["a", "stop", "b"]))
     io.inspect(if_else(feed(["ab", "skip", "cde"])))
     io.inspect(if_else_bare(feed(["a", "b"])))

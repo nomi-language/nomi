@@ -127,8 +127,7 @@ label = ‸case {
         "big ${y}"
     }
 
-    _ ->
-        "small"
+    _ -> "small"
 }
 
 io.print(label)`), toIfElse, toCase},
@@ -268,8 +267,7 @@ label = case m {
             _ -> "less"
         }
 
-    None ->
-        "none"
+    None -> "none"
 }
 
 io.print(label)`))
@@ -460,7 +458,7 @@ io.print(label)`)
 }
 
 func TestIfCase_StructLiteralConditionConverts(t *testing.T) {
-	// A struct literal starts with `#`, so it reads the same in an `if`
+	// A struct literal starts with its name or `.`, so it reads the same in an `if`
 	// condition as in a case arm, and the conversion is offered.
 	src := fnMainAfter("struct P {\n    x: Int\n}\n\n", `p = P{x: 1}
 

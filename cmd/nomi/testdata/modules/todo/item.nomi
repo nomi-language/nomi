@@ -21,7 +21,7 @@ impl Item {
     }
 
     pub fn complete(item: Item) -> Item {
-        #{..item, done: True}
+        .{..item, done: True}
     }
 }
 

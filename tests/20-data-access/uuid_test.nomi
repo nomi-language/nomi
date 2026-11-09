@@ -76,7 +76,7 @@ fn generated(count: Int, make: () -> Result<Uuid, random.Error>) -> List<Uuid> {
 test "v4 has version 4 and the RFC 9562 variant" {
     ids = generated(50, Uuid.v4)
     assert Iter.count(ids) == 50
-    assert Iter.all(ids, &is_shaped(&1, 4))
+    assert Iter.all_match(ids, &is_shaped(&1, 4))
 }
 
 test "v4 values differ" {
@@ -86,7 +86,7 @@ test "v4 values differ" {
 test "v7 has version 7 and the RFC 9562 variant" {
     ids = generated(50, Uuid.v7)
     assert Iter.count(ids) == 50
-    assert Iter.all(ids, &is_shaped(&1, 7))
+    assert Iter.all_match(ids, &is_shaped(&1, 7))
 }
 
 group "v7 under a virtual clock" {

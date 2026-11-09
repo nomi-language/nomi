@@ -11,7 +11,7 @@ import (
 
 // TestProgramOfModulesAnswersEachTab holds a block that names modules (a
 // project whose go.mod requires the csvdata module under
-// csvdata/, as the tour's Generating code chapter lays it out)
+// csvdata/, as testdata/tools lays it out)
 // to an analysis of its files as written under a directory: a call in
 // main.nomi into the table the generator wrote hovers with its function,
 // and the other module's own file, analyzed as its module's, has tokens.

@@ -116,8 +116,8 @@ impl PluralCategory {
     //! assert PluralCategory.cardinal(1, Locale`ja`) == PluralCategory.Other
     //! assert PluralCategory.cardinal(Int.pow(10, 30), Locale`fr`) == PluralCategory.Many
     //
-    pub fn cardinal<N>(value: N, locale: Locale) -> PluralCategory where N: PluralOperand {
-        PluralCategory.of(plural_cardinal_tag(locale, "${N.plural_operand(value)}"))
+    pub fn cardinal(value: PluralOperand, locale: Locale) -> PluralCategory {
+        PluralCategory.of(plural_cardinal_tag(locale, "${PluralOperand.plural_operand(value)}"))
     }
 
     /// The ordinal category `value` selects in `locale`: the form of "1st",

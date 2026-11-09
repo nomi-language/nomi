@@ -23,8 +23,7 @@ test "an omitted field takes its declared default across a file boundary" {
             assert max_elapsed == 900
         }
 
-        Backoff.Off ->
-            assert False
+        Backoff.Off -> assert False
     }
 }
 
@@ -35,8 +34,7 @@ test "naming no fields at all takes every default" {
             assert max_elapsed == 900
         }
 
-        Backoff.Off ->
-            assert False
+        Backoff.Off -> assert False
     }
 }
 
@@ -67,8 +65,7 @@ fn describe(b: Backoff = .Exponential{max_restarts: 7}) -> String {
         Backoff.Exponential{max_restarts, max_elapsed} ->
             Display.to_string(max_restarts) + "/" + Display.to_string(max_elapsed)
 
-        Backoff.Off ->
-            "off"
+        Backoff.Off -> "off"
     }
 }
 

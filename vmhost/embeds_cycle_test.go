@@ -205,16 +205,16 @@ derive Display for Shape
 
 fn depth(s: Shape) -> Int {
   case s {
-    Shape.Circle(#{r: _, inner: Some(next)}) -> 1 + depth(next)
-    Shape.Circle(#{r: _, inner: None}) -> 1
+    Shape.Circle(.{r: _, inner: Some(next)}) -> 1 + depth(next)
+    Shape.Circle(.{r: _, inner: None}) -> 1
     Shape.Dot -> 0
   }
 }
 
 fn nested_two(s: Shape) -> String {
   case s {
-    Shape.Circle(#{r, inner: Some(Shape.Circle(#{r: r2, inner: _}))}) -> "two ${r} ${r2}"
-    Shape.Circle(#{r, inner: Some(Shape.Dot)}) -> "dot under ${r}"
+    Shape.Circle(.{r, inner: Some(Shape.Circle(.{r: r2, inner: _}))}) -> "two ${r} ${r2}"
+    Shape.Circle(.{r, inner: Some(Shape.Dot)}) -> "dot under ${r}"
     Shape.Circle(c) -> "one ${c.r}"
     Shape.Dot -> "dot"
   }
@@ -287,7 +287,7 @@ enum Shape {
 
 fn total(s: Shape) -> Int {
   case s {
-    Shape.Wrapped(#{r, kids}) -> kids |> Iter.map(fn k -> total(k)) |> Iter.reduce(r, fn acc, n -> acc + n)
+    Shape.Wrapped(.{r, kids}) -> kids |> Iter.map(fn k -> total(k)) |> Iter.reduce(r, fn acc, n -> acc + n)
     Shape.Dot -> 0
   }
 }
@@ -314,9 +314,9 @@ enum Fruit {
 
 fn weigh(s: Loop) -> Int {
   case s {
-    Loop.Ring(#{r, other: Some(Fruit.Apple(#{w, other: Some(inner)}))}) -> r + w + weigh(inner)
-    Loop.Ring(#{r, other: Some(Fruit.Apple(#{w, other: None}))}) -> r + w
-    Loop.Ring(#{r, other: _}) -> r
+    Loop.Ring(.{r, other: Some(Fruit.Apple(.{w, other: Some(inner)}))}) -> r + w + weigh(inner)
+    Loop.Ring(.{r, other: Some(Fruit.Apple(.{w, other: None}))}) -> r + w
+    Loop.Ring(.{r, other: _}) -> r
     Loop.Stop -> 0
   }
 }

@@ -62,20 +62,14 @@ impl Display for Error {
     //
     fn to_string(error: Error) -> String {
         case error {
-            .Read{path, message} ->
-                "cannot read the migrations at `${path}`: ${message}"
+            .Read{path, message} -> "cannot read the migrations at `${path}`: ${message}"
 
             .Changed{path} ->
                 "the migration `${path}` changed after it was applied: its checksum is not the one `nomi_migrations` recorded; leave an applied migration as it is and write the change as a new one"
 
-            .Failed{path, error} ->
-                "the migration `${path}` failed, and was not applied: ${error}"
-
-            .Database{error} ->
-                "migrating: ${error}"
-
-            .Adopt{message} ->
-                message
+            .Failed{path, error} -> "the migration `${path}` failed, and was not applied: ${error}"
+            .Database{error} -> "migrating: ${error}"
+            .Adopt{message} -> message
         }
     }
 }
@@ -186,8 +180,7 @@ pub fn apply(conn: Conn, migrations: List<Migration>) -> Result<List<String>, Er
     tx = Conn.begin(conn) |> Result.map_err(database)?
 
     pending = case prepare(tx, migrations) {
-        Ok(p) ->
-            p
+        Ok(p) -> p
 
         Err(e) -> {
             _ = Conn.rollback(tx)
@@ -285,8 +278,7 @@ fn adopted(tx: Conn, migrations: List<Migration>) -> Result<List<String>, Error>
         |> Result.map_err(database)?
 
     (version, dirty) = case rows {
-        [] ->
-            return Ok([])
+        [] -> return Ok([])
 
         [row, ..] -> {
             v = Row.get<Int>(row, "version") |> Result.map_err(database)?
@@ -308,7 +300,7 @@ fn adopted(tx: Conn, migrations: List<Migration>) -> Result<List<String>, Error>
         |> Iter.map(fn m -> number_of(m) |> Result.map(fn n -> (n, m)))
         |> Result.collect()?
 
-    if not (numbered |> Iter.any(fn (n, _) -> n == version)) {
+    if not (numbered |> Iter.any_match(fn (n, _) -> n == version)) {
         return Err(
             Error.Adopt{
                 message: "golang-migrate is at version ${version}, and no migration has that number",
@@ -343,8 +335,7 @@ fn number_of(m: Migration) -> Result<Int, Error> {
     digits = Matcher.find_in(Regex`^[0-9]+`, version_of(m))
 
     case digits |> Maybe.flat_map(fn d -> String.to_int(d)) {
-        Some(n) ->
-            Ok(n)
+        Some(n) -> Ok(n)
 
         None ->
             Err(
@@ -368,8 +359,7 @@ fn prepare(tx: Conn, migrations: List<Migration>) -> Result<List<Migration>, Err
     })
 
     case changed {
-        Some(m) ->
-            return Err(Error.Changed{path: m.path})
+        Some(m) -> return Err(Error.Changed{path: m.path})
 
         None -> {}
     }
@@ -412,8 +402,7 @@ fn lock(tx: Conn) -> Result<Unit, Error> {
             Ok(Unit)
         }
 
-        .Other(_) ->
-            create_table(tx)
+        .Other(_) -> create_table(tx)
     }
 }
 
@@ -456,8 +445,7 @@ fn table_exists(conn: Conn, name: String) -> Result<Bool, Error> {
         .Postgres ->
             Sql"SELECT count(*) AS n FROM pg_tables WHERE schemaname = current_schema() AND tablename = ${name}"
 
-        _ ->
-            Sql"SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ${name}"
+        _ -> Sql"SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ${name}"
     }
 
     rows = Conn.query(conn, statement) |> Result.map_err(database)?
@@ -472,8 +460,7 @@ fn table_exists(conn: Conn, name: String) -> Result<Bool, Error> {
 // that fails. Returns the versions run and the failure, if one stopped it.
 fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> (List<String>, Maybe<Error>) {
     case pending {
-        [] ->
-            (ran, None)
+        [] -> (ran, None)
 
         [first, ..rest] -> {
             version = version_of(first)

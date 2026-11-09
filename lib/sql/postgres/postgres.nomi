@@ -249,11 +249,8 @@ impl Listener {
                     Sender.close(sender)
                 }
 
-            Err(.Closed) ->
-                Sender.close(sender)
-
-            Err(.Timeout) ->
-                Sender.close(sender)
+            Err(.Closed) -> Sender.close(sender)
+            Err(.Timeout) -> Sender.close(sender)
 
             Err(e) -> {
                 _ = deliver(listener, sender, Err(e))
@@ -281,8 +278,7 @@ fn deliver(
     ])
 
     case sent {
-        Some(_) ->
-            True
+        Some(_) -> True
 
         None ->
             if listener_closed_raw(listener.handle) {
@@ -401,7 +397,7 @@ fn item(kind: Int) -> Item {
 }
 
 fn text_item(kind: Int, text: String) -> Item {
-    #{..item(kind), text}
+    .{..item(kind), text}
 }
 
 /// The item a value that is not an array is written as. An `Int` past a
@@ -409,50 +405,24 @@ fn text_item(kind: Int, text: String) -> Item {
 /// `NUMERIC` column takes and a `BIGINT` one refuses.
 fn to_item(value: Value) -> Maybe<Item> {
     case value {
-        .Null ->
-            Some(item(0))
+        .Null -> Some(item(0))
 
         .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
             Some(text_item(5, "${n}"))
 
-        .Int(n) ->
-            Some(#{..item(1), int: n})
-
-        .Float(x) ->
-            Some(#{..item(2), float: x})
-
-        .Text(s) ->
-            Some(text_item(3, s))
-
-        .Bytes(b) ->
-            Some(#{..item(4), bytes: b})
-
-        .Decimal(d) ->
-            Some(text_item(5, "${d}"))
-
-        .Bool(b) ->
-            Some(#{..item(6), int: if b { 1 } else { 0 }})
-
-        .Date(d) ->
-            Some(text_item(7, "${d}"))
-
-        .Time(t) ->
-            Some(text_item(8, "${t}"))
-
-        .Timestamp(t) ->
-            Some(text_item(9, "${t}"))
-
-        .Timestamptz(i) ->
-            Some(#{..item(10), int: Instant.as_nanos(i)})
-
-        .Uuid(id) ->
-            Some(text_item(11, "${id}"))
-
-        .Json(j) ->
-            Some(text_item(12, Json.encode(j)))
-
-        .Array(_) ->
-            None
+        .Int(n) -> Some(.{..item(1), int: n})
+        .Float(x) -> Some(.{..item(2), float: x})
+        .Text(s) -> Some(text_item(3, s))
+        .Bytes(b) -> Some(.{..item(4), bytes: b})
+        .Decimal(d) -> Some(text_item(5, "${d}"))
+        .Bool(b) -> Some(.{..item(6), int: if b { 1 } else { 0 }})
+        .Date(d) -> Some(text_item(7, "${d}"))
+        .Time(t) -> Some(text_item(8, "${t}"))
+        .Timestamp(t) -> Some(text_item(9, "${t}"))
+        .Timestamptz(i) -> Some(.{..item(10), int: Instant.as_nanos(i)})
+        .Uuid(id) -> Some(text_item(11, "${id}"))
+        .Json(j) -> Some(text_item(12, Json.encode(j)))
+        .Array(_) -> None
     }
 }
 
@@ -515,8 +485,7 @@ fn to_value(c: Cell) -> Value {
                 |> Iter.to_list()
             )
 
-        _ ->
-            scalar(c.kind, c.int, c.float, c.text, c.bytes)
+        _ -> scalar(c.kind, c.int, c.float, c.text, c.bytes)
     }
 }
 

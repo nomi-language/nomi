@@ -153,7 +153,7 @@ func TestIn_AnElementMissingTheImplsBoundIsOneError(t *testing.T) {
 
 impl Contains for Bag<T> where T: Comparable {
     fn contains(c: Bag<T>, x: T) -> Bool {
-        Iter.any(c.items, &(Comparable.compare(&1, x) == .Equal))
+        Iter.any_match(c.items, &(Comparable.compare(&1, x) == .Equal))
     }
 }
 

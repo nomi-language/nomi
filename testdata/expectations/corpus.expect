@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 713
-declared-cases 4026
+records 714
+declared-cases 4032
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1225,12 +1225,12 @@ T
 C 07-structs-and-enums/nested_update/nested_update_test.nomi
 E 0
 N 23
-H e8454e680cb007a4fef00aff38098156068ebf55daf0aa8ea4c2347d7478bdd7
+H 43ffde58b24744fcbfa475d669f841832ba0f302fb00e03d0eb5aea8cdf7dc0a
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a struct field changes only the fields it writes
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a brace without `..` replaces the field whole
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: updates nest three deep
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a list field takes `[x, ..]`, the new element then the old list
-T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a set field takes `#{.., x}`, the old set then the new element
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a set field takes `.{.., x}`, the old set then the new element
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a vector field takes `..` at either end
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a map field takes `%{.., k => v}`, merged over the old map
 T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a present key updates the value there
@@ -3741,14 +3741,14 @@ T
 C 16-concurrency/message_loop/message_loop_test.nomi
 E 0
 N 4
-H de13dfe5bf2085442747e05a09ef6ba7f221179eed5edf2ce834e85117586478
+H 897de3aa3251024f2ea4cdbfee28b5c6e17c12ed3892a91e440820873cb757b3
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / messages accumulate into state a caller can read back
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / each caller gets its own reply
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a handler that breaks restarts the worker with fresh state
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a call observes every cast queued before it
 T test result: ok. 4 passed, 0 failed
 T --- stderr ---
-T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
+T nomi: background task errored (attempt 1): line 102: division by zero — retrying in <jitter>
 T
 C 16-concurrency/select_test.nomi
 E 0
@@ -3985,6 +3985,18 @@ H 31ca40b86e95276419a7d560e35f54ec7aa5e53fba9aa770eab5797b4627352a
 T ok <root>/tests/18-ffi-and-dynamic/inline_go_block_app/main_test.nomi :: local Go package functions are available
 T ok <root>/tests/18-ffi-and-dynamic/inline_go_block_app/main_test.nomi :: local Go package types can back opaque Nomi types
 T test result: ok. 2 passed, 0 failed
+T
+C 18-ffi-and-dynamic/json_anon_struct_test.nomi
+E 0
+N 6
+H ae3fca67ee4bff842c70eca5d1278c8e67d65436a2917edd1d273eff1b05d256
+T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct encodes as an object of its fields
+T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: a None field encodes as null
+T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct decodes from an object, a missing Maybe field as None
+T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: a decode error names the field that does not read
+T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: anonymous structs nest in each other, in containers and in a named struct
+T ok <root>/tests/18-ffi-and-dynamic/json_anon_struct_test.nomi :: an anonymous struct reads back what it writes
+T test result: ok. 6 passed, 0 failed
 T
 C 18-ffi-and-dynamic/json_container_decode_test.nomi
 E 0
@@ -5815,8 +5827,8 @@ T
 C exercism/piecing-it-together/piecing_it_together.nomi
 E 0
 N 1
-H c8c38407ba253f3aa384f894fa06c85b9e4421fa68024824fd5c39f366c400e1
-T ok <root>/tests/exercism/piecing-it-together/piecing_it_together.nomi :: jigsaw_data //! test line 45
+H 9ed4f7163f2aed26ef710d7acd96e1ffa24c700c49aae47ed5f76c12e785e533
+T ok <root>/tests/exercism/piecing-it-together/piecing_it_together.nomi :: jigsaw_data //! test line 41
 T test result: ok. 1 passed, 0 failed
 T
 C exercism/piecing-it-together/piecing_it_together_test.nomi

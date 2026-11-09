@@ -15,8 +15,9 @@ import (
 //
 //   - a tuple is Equatable, Hashable, Comparable and Display when every
 //     element is;
-//   - an anonymous struct is Equatable, Hashable and Display when every field
-//     is, and Struct always; it is never Comparable;
+//   - an anonymous struct is Equatable, Hashable, Display, and std/json's
+//     ToJson and FromJson when every field is, and Struct always; it is
+//     never Comparable;
 //   - a function is none of these;
 //   - every type is Debug.
 //
@@ -45,6 +46,7 @@ func structuralConformance(t Type, iface *InterfaceType, part func(Type) bool) (
 	case isStdInterfaceNamed(iface, "Comparable") && !anon:
 	case isStdInterfaceNamed(iface, "Comparable"):
 		return false, false
+	case anon && isStdJsonIface(iface):
 	default:
 		return false, true
 	}
@@ -168,6 +170,16 @@ func isStdInterfaceNamed(iface *InterfaceType, name string) bool {
 	return false
 }
 
+// isStdJsonIface reports whether iface is std/json's ToJson or FromJson,
+// which an anonymous struct meets through its fields: its JSON is an object
+// keyed by its field names (internal/irbuild/irrecordjson.go).
+func isStdJsonIface(iface *InterfaceType) bool {
+	if iface == nil || iface.Name != "ToJson" && iface.Name != "FromJson" {
+		return false
+	}
+	return iface.Origin == "" || iface.Origin == "std/json"
+}
+
 // structuralBoundHelp is boundHelp for a tuple, an anonymous struct or a
 // function type that does not meet bound: for one of std's interfaces it
 // meets through its parts, the first part that does not, with that part's
@@ -189,13 +201,14 @@ func (c *checker) structuralBoundHelp(concrete Type, bound *InterfaceType) (help
 		if isStdInterfaceNamed(bound, "Comparable") {
 			return "", false
 		}
-		kind, part, ifaces = "an anonymous struct", "field", "Struct, and Equatable, Hashable and Display"
+		kind, part, ifaces = "an anonymous struct", "field", "Struct, and Equatable, Hashable, Display, ToJson and FromJson"
 	case *FuncType:
 		return fmt.Sprintf("a function value implements no interface but Debug; pass a value of a type that implements `%s`", bound.Name), true
 	default:
 		return "", false
 	}
-	if !isStructuralIface(bound) {
+	_, anon := resolved.(*AnonStructType)
+	if !isStructuralIface(bound) && !(anon && isStdJsonIface(bound)) {
 		return fmt.Sprintf("no impl can be written for %s, which implements only %s, each when every %s does; declare a struct of your own that implements `%s`", kind, ifaces, part, bound.Name), true
 	}
 	parts, _ := displayParts(resolved)
@@ -237,6 +250,16 @@ func (c *checker) mismatchHint(want, have Type) string {
 				_, help := c.typeParamBoundOwner(tp, iface.String())
 				return help
 			}
+		case *StructType, *EnumType, *DistinctType, *PrimitiveType:
+			// A value of a type that does not implement the interface: the
+			// help a bound gives the same type (`derive`, an impl block, or
+			// the types that implement a std interface), so a parameter
+			// written as an interface value explains a wrong argument as a
+			// type parameter bounded by it does.
+			if h := mismatchHint(want, have); h != "" {
+				return h
+			}
+			return c.boundHelp(have, iface)
 		}
 	}
 	return mismatchHint(want, have)

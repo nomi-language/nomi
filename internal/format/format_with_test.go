@@ -81,7 +81,7 @@ func TestFormat_WithInSetup(t *testing.T) {
         Fixture{a: 1}
     }
 
-    test "t", #{a} {
+    test "t", .{a} {
         assert a == 1
     }
 }
@@ -92,7 +92,7 @@ func TestFormat_WithInSetup(t *testing.T) {
         Fixture{a: 1}
     }
 
-    test "t", #{a} {
+    test "t", .{a} {
         assert a == 1
     }
 }

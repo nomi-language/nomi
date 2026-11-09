@@ -194,8 +194,7 @@ pub fn entry(text: String) -> (String, List<String>) {
         |> String.join()
 
     case String.split(last, ".") |> Iter.to_list() {
-        [module] ->
-            (dir + module, ["self"])
+        [module] -> (dir + module, ["self"])
 
         [module, ..rest] -> {
             items = String.join(rest, ".") |> sqltext.cut_prefix("{") |> sqltext.cut_suffix("}")
@@ -209,8 +208,7 @@ pub fn entry(text: String) -> (String, List<String>) {
             (dir + module, names)
         }
 
-        [] ->
-            (text, ["self"])
+        [] -> (text, ["self"])
     }
 }
 
@@ -279,8 +277,7 @@ pub fn schema(db: Database, tables: List<Table>, module: String) -> Result<Schem
                         ),
                     ]
 
-                None ->
-                    []
+                None -> []
             }
         })
         |> Iter.to_list()
@@ -322,7 +319,7 @@ fn is_enum_column(c: TableColumn) -> Bool {
 /// The schema file: the row structs, the enums and the migrations.
 pub fn schema_file(s: Schema, migrations: List<(String, String)>, digest: String) -> String {
     columns = s.tables |> Iter.flat_map(fn t -> t.columns) |> Iter.to_list()
-    any_enum = Iter.any(columns, is_enum_column)
+    any_enum = Iter.any_match(columns, is_enum_column)
 
     plain =
         columns
@@ -342,13 +339,12 @@ pub fn schema_file(s: Schema, migrations: List<(String, String)>, digest: String
                     |> Iter.map(fn n -> (m, n))
                     |> Iter.to_list()
 
-                None ->
-                    []
+                None -> []
             }
         })
         |> Iter.to_list()
 
-    sql_value = Iter.any(plain, fn f -> f == None)
+    sql_value = Iter.any_match(plain, fn f -> f == None)
 
     base = if any_enum {
         [("sqlkit", "self"), ("sqlkit::runtime", "self"), ("std::sql", "self")]
@@ -377,7 +373,7 @@ pub fn schema_file(s: Schema, migrations: List<(String, String)>, digest: String
 }
 
 fn migration_source(path: String, text: String) -> String {
-    "    sqlkit.Migration{\n        path: ${quote(path)},\n        sql: ${quote(text)},\n    },\n"
+    "    sqlkit.Migration{\n        path: ${quote(path)},\n        sql: ${sql_literal(text, "            ")},\n    },\n"
 }
 
 fn table_source(s: Schema, table: Table) -> String {
@@ -670,16 +666,14 @@ fn resolve(r: Resolver, text: String) -> Result<List<(String, String)>, (String,
         |> Iter.reject(&Iter.contains(prelude, &1))
         |> Iter.map(fn n -> {
             case Map.get(r.imported, n) {
-                Some(entry) ->
-                    Ok(entry)
+                Some(entry) -> Ok(entry)
 
                 None ->
                     if Iter.contains(r.schema, n) {
                         Ok((r.schema_module, n))
                     } else {
                         case Map.get(std_types, n) {
-                            Some(m) ->
-                                Ok((m, n))
+                            Some(m) -> Ok((m, n))
 
                             None ->
                                 Err(
@@ -722,14 +716,9 @@ fn qualified_import(
     }
 
     case (Map.get(r.modules, module), module) {
-        (Some(path), _) ->
-            Ok((path, "self"))
-
-        (None, "sql") ->
-            Ok(("std::sql", "self"))
-
-        (None, "sqlkit") ->
-            Ok(("sqlkit", "self"))
+        (Some(path), _) -> Ok((path, "self"))
+        (None, "sql") -> Ok(("std::sql", "self"))
+        (None, "sqlkit") -> Ok(("sqlkit", "self"))
 
         _ -> {
             hint = if Iter.contains(r.schema, name) {
@@ -767,8 +756,7 @@ fn generated(r: Resolver, text: String) -> (String, List<(String, String)>) {
                     (["${last_segment(m)}.${t.text}", ..parts], [(m, "self"), ..imports])
                 }
 
-            _ ->
-                ([t.text, ..parts], imports)
+            _ -> ([t.text, ..parts], imports)
         }
     })
 
@@ -823,8 +811,7 @@ fn function(
     }
 
     columns = case d {
-        Ok(cs) ->
-            cs
+        Ok(cs) -> cs
 
         Err(e) -> {
             reported = "reported by ${s.db.dialect} for `${q.name}`"
@@ -858,8 +845,7 @@ fn function(
     case (row, fields) {
         (Some(t), [only]) when scalar -> {
             case nullability_problem(q, final_shape, t, only) {
-                Some(p) ->
-                    return Err([p])
+                Some(p) -> return Err([p])
 
                 None -> {}
             }
@@ -926,12 +912,10 @@ fn shadowing(r: Resolver, row: Maybe<String>) -> String {
                     |> String.join()
                 }
 
-                _ ->
-                    ""
+                _ -> ""
             }
 
-        None ->
-            ""
+        None -> ""
     }
 }
 
@@ -1000,8 +984,7 @@ fn interpolated_name(text: String) -> String {
 /// The shape the declared result type names, and its row type.
 fn shape_of(r: Resolver, q: Query) -> Result<(Shape, Maybe<String>), Problem> {
     case q.result {
-        None ->
-            Ok((Shape.Many, None))
+        None -> Ok((Shape.Many, None))
 
         Some(text) -> {
             if text == "Unit" { return Ok((Shape.Ignored, None)) }
@@ -1124,7 +1107,7 @@ pub fn is_row_name(text: String) -> Bool {
 
     first != ""
         and first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        and Iter.all(text, fn c -> {
+        and Iter.all_match(text, fn c -> {
             c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
         })
         and not Iter.contains(prelude, text)
@@ -1232,8 +1215,7 @@ fn described_shape(
                 )
             )
 
-        (found, _, _) ->
-            Ok(found)
+        (found, _, _) -> Ok(found)
     }
 }
 
@@ -1347,8 +1329,7 @@ fn field_of(
             (Some(text), imports)
         }
 
-        None ->
-            (None, [])
+        None -> (None, [])
     }
 
     type_text = case type_override {
@@ -1379,8 +1360,7 @@ fn field_of(
                 Err(found) -> (field, [], Some(at(found.first, found.second)))
             }
 
-        (None, Some(_)) ->
-            (field, written_imports, None)
+        (None, Some(_)) -> (field, written_imports, None)
     }
 }
 
@@ -1427,7 +1407,7 @@ fn field_type(field: Field) -> String {
 
 fn anonymous_type(fields: List<Field>) -> String {
     inner = fields |> Iter.map(fn f -> "${f.name}: ${field_type(f)}") |> String.join(", ")
-    "#{${inner}}"
+    ".{${inner}}"
 }
 
 /// The generated function's text.
@@ -1448,7 +1428,9 @@ fn function_source(
 
     params = q.params |> Iter.map(fn p -> "${p.name}: ${p.type_text}") |> Iter.to_list()
     signature = signature_source(q.name, ["conn: sql.Conn", ..params], shape, row, fields)
-    quoted_parts = parts |> Iter.map(quote) |> Iter.to_list()
+    // A part's lines sit at a list item's indent: a part that spans lines
+    // puts the parts one a line (statement_source).
+    quoted_parts = parts |> Iter.map(&sql_literal(&1, "            ")) |> Iter.to_list()
 
     binds =
         markers
@@ -1459,11 +1441,8 @@ fn function_source(
     name = quote(q.name)
 
     body = case shape {
-        .Changed ->
-            "    runtime.exec(conn, statement)\n"
-
-        .Ignored ->
-            "    runtime.run(conn, statement)\n"
+        .Changed -> "    runtime.exec(conn, statement)\n"
+        .Ignored -> "    runtime.run(conn, statement)\n"
 
         _ -> {
             reader = case shape {
@@ -1495,7 +1474,7 @@ fn function_source(
                 None -> {
                     open = case row {
                         Some(t) -> "${t}{"
-                        None -> "#{"
+                        None -> ".{"
                     }
 
                     lines =
@@ -1522,7 +1501,8 @@ fn fits(line: String) -> Bool {
 fn listed_source(indent: String, head: String, items: List<String>, tail: String) -> String {
     one = "${indent}${head}${String.join(items, ", ")}${tail}"
 
-    if fits(one) or Iter.is_empty(items) {
+    if (fits(one) and not Iter.any_match(items, &String.contains(&1, "\n")))
+        or Iter.is_empty(items) {
         "${one}\n"
     } else {
         lines = items |> Iter.map(fn item -> "${indent}    ${item},\n") |> String.join()
@@ -1542,7 +1522,9 @@ fn statement_source(parts: List<String>, binds: List<String>) -> String {
         ", ",
     )}])"
 
-    if fits(one) {
+    spans_lines = Iter.any_match(parts, &String.contains(&1, "\n"))
+
+    if fits(one) and not spans_lines {
         "${one}\n\n"
     } else {
         "    statement = runtime.statement(\n" + listed_source(
@@ -1571,7 +1553,7 @@ fn signature_source(
     if fits(one) { return "${one}\n" }
 
     anonymous = row == None and not Iter.is_empty(fields)
-    opened = "-> ${result_open(shape)}#{"
+    opened = "-> ${result_open(shape)}.{"
 
     if anonymous and fits("${head} ${opened}") {
         return "${head} ${opened}\n${broken_fields(fields)}}${result_close(shape)} {\n"
@@ -1591,7 +1573,7 @@ fn broken_fields(fields: List<Field>) -> String {
     fields |> Iter.map(fn f -> "    ${f.name}: ${field_type(f)},\n") |> String.join()
 }
 
-// The result type before and after an anonymous row's `#{...}`.
+// The result type before and after an anonymous row's `.{...}`.
 fn result_open(shape: Shape) -> String {
     case shape {
         .One -> "Result<"
@@ -1698,6 +1680,131 @@ pub fn quote(s: String) -> String {
     "\"${escaped}\""
 }
 
+/// SQL text as a Nomi string literal that shows it as written: a raw
+/// backtick string, and `quote(s)` when a raw string cannot hold it
+/// exactly. A raw string that spans lines puts its lines and its
+/// closing backtick at `indent`, where `nomi fmt` puts them, so the cut of
+/// a multi-line string gives back `s`.
+///
+/// `quote` writes text with a backtick or a carriage return, a one-line
+/// text with a tab, and a multi-line one with a space or tab at the end of
+/// a line: an editor that trims trailing spaces would change the SQL.
+/// Any literal whose value, cut as the lexer cuts it, is not `s` is
+/// written by `quote` too.
+//! assert codegen.sql_literal("SELECT 1", "") == "`SELECT 1`"
+//! assert codegen.sql_literal("", "") == "``"
+//! assert codegen.sql_literal("SELECT \"a\"", "") == "`SELECT \"a\"`"
+//! assert codegen.sql_literal("a\nb\n", "  ") == "`\n  a\n  b\n\n  `"
+//! assert codegen.sql_literal("a`b", "") == "\"a`b\""
+//
+pub fn sql_literal(s: String, indent: String) -> String {
+    quoted = quote(s)
+
+    if String.contains(s, "`") or String.contains(s, "\r") { return quoted }
+
+    lines = String.split(s, "\n")
+
+    literal = case lines {
+        [_] ->
+            if String.contains(s, "\t") {
+                None
+            } else {
+                Some("`${s}`")
+            }
+
+        _ ->
+            if Iter.any_match(lines, ends_in_blank) {
+                None
+            } else {
+                body =
+                    lines
+                    |> Iter.map(fn line -> if line == "" { "" } else { indent + line })
+                    |> String.join("\n")
+
+                Some("`\n${body}\n${indent}`")
+            }
+    }
+
+    case literal {
+        Some(raw) when raw_value(raw) == Some(s) -> raw
+        _ -> quoted
+    }
+}
+
+fn ends_in_blank(line: String) -> Bool {
+    String.ends_with(line, " ") or String.ends_with(line, "\t")
+}
+
+/// The value of a raw backtick literal as the lexer reads it, or None for
+/// text that is not one. A literal that spans lines is cut as a
+/// triple-quoted string is: the line break after the opening backtick
+/// goes, the least indentation of its lines that are not blank and of the
+/// closing line goes from every line, and the closing line goes.
+//! assert codegen.raw_value("`a\"b`") == Some("a\"b")
+//! assert codegen.raw_value("`\n    a\n      b\n    `") == Some("a\n  b")
+//! assert codegen.raw_value("`\n    a\n  `") == Some("  a")
+//! assert codegen.raw_value("\"a\"") == None
+//
+pub fn raw_value(literal: String) -> Maybe<String> {
+    body = String.strip_prefix(literal, "`") |> Maybe.flat_map(&String.strip_suffix(&1, "`"))
+
+    case body {
+        None -> None
+        Some(b) when String.contains(b, "`") -> None
+        Some(b) when not String.contains(b, "\n") -> Some(b)
+
+        Some(b) -> {
+            lines = String.split(
+                String.strip_prefix(b, "\n")
+                |> Maybe.with_default(b),
+                "\n",
+            )
+
+            last = Iter.count(lines) - 1
+
+            baseline =
+                lines
+                |> Iter.with_index()
+                |> Iter.filter(fn (i, line) -> i == last or blanks_of(line) != line)
+                |> Iter.map(fn (_, line) -> blanks_of(line))
+                |> Iter.min_by(String.length)
+                |> Maybe.with_default("")
+
+            kept = if last == 0 {
+                lines
+            } else {
+                Iter.take(lines, last) |> Iter.to_list()
+            }
+
+            kept |> Iter.map(&cut_blanks(&1, baseline)) |> String.join("\n") |> Some()
+        }
+    }
+}
+
+// The spaces and tabs a line starts with.
+fn blanks_of(line: String) -> String {
+    String.to_codepoints(line)
+    |> Iter.take_while(is_blank)
+    |> Iter.to_list()
+    |> String.from_codepoints()
+}
+
+fn is_blank(cp: Codepoint) -> Bool {
+    Codepoint.to_int(cp) == 32 or Codepoint.to_int(cp) == 9
+}
+
+// A line less the start it shares with `baseline`, as the lexer strips it.
+fn cut_blanks(line: String, baseline: String) -> String {
+    points = String.to_codepoints(line)
+
+    shared =
+        Iter.zip(points, String.to_codepoints(baseline))
+        |> Iter.take_while(fn (a, b) -> a == b)
+        |> Iter.count()
+
+    points |> Iter.drop(shared) |> Iter.to_list() |> String.from_codepoints()
+}
+
 // --- names -----------------------------------------------------------
 /// The enum a `CHECK (column IN (...))` column reads as: its table's row
 /// struct and the column, so `orders.status` is `OrderStatus`.
@@ -1739,7 +1846,7 @@ fn singular_pascal(table: String) -> String {
 /// or the table's name in the singular.
 //! db = databases.defaults("main")
 //! assert codegen.row_name(db, "users") == "User"
-//! assert codegen.row_name(#{..db, tables: %{"people" => "Person"}}, "people") == "Person"
+//! assert codegen.row_name(.{..db, tables: %{"people" => "Person"}}, "people") == "Person"
 //
 pub fn row_name(db: Database, table: String) -> String {
     Map.get(db.tables, table) |> Maybe.with_default(singular_pascal(table))
@@ -1752,7 +1859,7 @@ fn is_type_name(text: String) -> Bool {
 
     first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         and first != ""
-        and Iter.all(text, fn c -> {
+        and Iter.all_match(text, fn c -> {
             c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
         })
 }
@@ -1762,7 +1869,7 @@ fn has_valid_enum_values(values: List<String>) -> Bool {
     names = values |> Iter.map(String.pascal_case) |> Iter.to_list()
 
     Iter.count(Iter.to_set(names)) == Iter.count(names)
-        and Iter.all(names, fn n -> {
+        and Iter.all_match(names, fn n -> {
             n != "" and not String.slice(n, 0, 1) in "0123456789"
         })
 }

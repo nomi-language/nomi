@@ -221,15 +221,15 @@ test "issuer, audience and a missing expiry" {
 
     assert jwt.verify(token, verifier) == Err(JwtError.MissingClaim("exp"))
 
-    assert jwt.verify(token, verifier, #{..open, audience: Some("web"), issuer: Some("auth")})
+    assert jwt.verify(token, verifier, .{..open, audience: Some("web"), issuer: Some("auth")})
         |> Result.is_ok()
 
-    assert jwt.verify(token, verifier, #{..open, audience: Some("admin")})
+    assert jwt.verify(token, verifier, .{..open, audience: Some("admin")})
         == Err(JwtError.WrongAudience)
 
     assert jwt.verify(token, verifier, open) == Err(JwtError.WrongAudience)
 
-    assert jwt.verify(token, verifier, #{..open, audience: Some("api"), issuer: Some("other")})
+    assert jwt.verify(token, verifier, .{..open, audience: Some("api"), issuer: Some("other")})
         == Err(JwtError.WrongIssuer)
 }
 

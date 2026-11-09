@@ -134,7 +134,7 @@ func appendPatternField(out []string, f ast.StructPatternField) []string {
 //
 // Same rule, same reason: a destructuring parameter this builder refused still
 // puts its names in the body's scope in the source, so leaving them unbound
-// reports the refusal again at every use: `fn scale_point(#{x, y}: Point)`
+// reports the refusal again at every use: `fn scale_point(.{x, y}: Point)`
 // would report one refused pattern three times.
 func (g *gen) bindPatternNamesInvalid(pat ast.Node) {
 	for _, name := range patternBinders(pat) {

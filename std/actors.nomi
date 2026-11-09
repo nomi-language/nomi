@@ -20,8 +20,7 @@
 //#
 //# counter = Actor.start(App.workers, 0, fn count, message -> {
 //#     case message {
-//#         .Add(n) ->
-//#             count + n
+//#         .Add(n) -> count + n
 //#
 //#         .Get{reply} -> {
 //#             Reply.send(reply, count)
@@ -127,8 +126,7 @@ impl Actor<M> {
         sent = Sender.send(actor.inbox.sender, message(Reply{sender: answer.sender}))
 
         case sent {
-            Err(_) ->
-                Err(CallError.Stopped)
+            Err(_) -> Err(CallError.Stopped)
 
             Ok(_) ->
                 case Receiver.receive_within(answer.receiver, timeout) {

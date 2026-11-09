@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"unsafe"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -43,6 +44,25 @@ func (e *Encoder) Uint(v uint64)   { e.uint(v) }
 func (e *Encoder) Int(v int64)     { e.int(v) }
 func (e *Encoder) String(s string) { e.string(s) }
 func (e *Encoder) Bool(b bool)     { e.bool(b) }
+
+// Pointers answers every pointer written so far, in the order of their
+// numbers: what a Decoder's Pointers answers, pointer for pointer, once it
+// has read the same bytes.
+func (e *Encoder) Pointers() []any {
+	out := make([]any, len(e.ids))
+	for p, id := range e.ids {
+		out[id] = p
+	}
+	return out
+}
+
+// Len writes a slice's length, telling a nil slice from an empty one.
+func (e *Encoder) Len(isNil bool, n int) { e.len(isNil, n) }
+
+// Value writes v, nil or a value of one of the forms an interface field
+// may hold (a node, by pointer or by value), as an interface field is
+// written.
+func (e *Encoder) Value(v any) { e.value(v) }
 
 func (e *Encoder) uint(v uint64) { e.buf = binary.AppendUvarint(e.buf, v) }
 func (e *Encoder) int(v int64)   { e.buf = binary.AppendVarint(e.buf, v) }
@@ -83,6 +103,50 @@ func (e *Encoder) ptr(p any) bool {
 	e.ids[p] = id
 	e.uint(1)
 	return true
+}
+
+// sharedLen reads the length of a slice the encoder wrote by its number
+// when it shared the elements of one written before (Encoder.slice), -1
+// for a nil slice: no element follows it, so it is checked against the
+// whole data rather than what is left of it.
+func (d *Decoder) sharedLen() int {
+	n := d.uint()
+	if n == 0 {
+		return -1
+	}
+	if n-1 > uint64(len(d.buf)) {
+		d.fail("a slice longer than the data")
+	}
+	return int(n - 1)
+}
+
+// SliceLen is sharedLen, for another codec that shares slices as this one
+// does.
+func (d *Decoder) SliceLen() int { return d.sharedLen() }
+
+// fits fails unless n elements, which take a byte each at least, follow.
+func (d *Decoder) fits(n int) {
+	if n > len(d.buf)-d.off {
+		d.fail("a slice longer than the data")
+	}
+}
+
+// Fits is fits, for another codec.
+func (d *Decoder) Fits(n int) { d.fits(n) }
+
+// sliceKey is a slice's identity: its elements' address, its length and
+// its type.
+type sliceKey struct {
+	p unsafe.Pointer
+	n int
+	t string
+}
+
+// slice writes a slice of n elements at p, of type t, by its number, and
+// reports whether this is its first time, when the caller writes its
+// elements: slices that share their elements read back sharing them.
+func (e *Encoder) slice(p unsafe.Pointer, n int, t string) bool {
+	return e.ptr(sliceKey{p, n, t})
 }
 
 func (e *Encoder) bigInt(v *big.Int) {
@@ -180,10 +244,60 @@ func (d *Decoder) Int() int64     { return d.int() }
 func (d *Decoder) String() string { return d.string() }
 func (d *Decoder) Bool() bool     { return d.bool() }
 
+// Len reads a slice's length, -1 for a nil slice.
+func (d *Decoder) Len() int { return d.len() }
+
+// Pointers answers every pointer read so far, in the order of their
+// numbers.
+func (d *Decoder) Pointers() []any { return d.refs }
+
+// Reserve makes room for n pointers, the number the Encoder wrote, so
+// reading them grows nothing.
+func (d *Decoder) Reserve(n int) {
+	if n > len(d.buf) {
+		d.fail("more pointers than bytes")
+	}
+	d.refs = make([]any, 0, n)
+}
+
+// PointerCount is how many pointers have been written.
+func (e *Encoder) PointerCount() int { return len(e.ids) }
+
+// Value reads what Encoder.Value wrote.
+func (d *Decoder) Value() any { return d.value() }
+
+// Fail stops the decoding as a corrupt one: Run answers an error saying
+// msg.
+func (d *Decoder) Fail(msg string) { d.fail(msg) }
+
+// Next answers the next n bytes, which the caller reads itself.
+func (d *Decoder) Next(n int) []byte {
+	if n < 0 || n > len(d.buf)-d.off {
+		d.fail("a short run of bytes")
+	}
+	b := d.buf[d.off : d.off+n]
+	d.off += n
+	return b
+}
+
+// Remaining is how many bytes are left to read.
+func (d *Decoder) Remaining() int { return len(d.buf) - d.off }
+
 // Done reports whether every byte has been read.
 func (d *Decoder) Done() bool { return d.off == len(d.buf) }
 
 func (d *Decoder) uint() uint64 {
+	// Most numbers are a byte.
+	if d.off < len(d.buf) {
+		if b := d.buf[d.off]; b < 0x80 {
+			d.off++
+			return uint64(b)
+		}
+	}
+	return d.uintSlow()
+}
+
+func (d *Decoder) uintSlow() uint64 {
 	v, n := binary.Uvarint(d.buf[d.off:])
 	if n <= 0 {
 		d.fail("a bad unsigned number")

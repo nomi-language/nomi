@@ -81,7 +81,7 @@ fn main() {
         io.print("second ${Reader.read_line(body)}")
     })
 
-    broken = http.reverse_proxy(#{..ReverseProxy.to(Url.parse("http://127.0.0.1:1")!), on_error_log: Some(fn text: String -> io.print("logged ${String.contains(text, "refused")}"))})
+    broken = http.reverse_proxy(.{..ReverseProxy.to(Url.parse("http://127.0.0.1:1")!), on_error_log: Some(fn text: String -> io.print("logged ${String.contains(text, "refused")}"))})
     http_testing.with_server(broken, fn server -> {
         io.print("broken ${Client.get(server.client, server.url) |> Result.map(fn r -> r.status)}")
     })

@@ -43,7 +43,7 @@ fn aliquot_sum(number: Int) -> Int {
     divisors =
         1..=Int.sqrt(number)
         |> Iter.filter(fn d -> number % d == 0)
-        |> Iter.map(fn d -> divisor_pair(number, d))
+        |> Iter.map(&divisor_pair(number, &1))
         |> Iter.sum()
 
     divisors - number

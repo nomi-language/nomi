@@ -444,10 +444,10 @@ group "numbers" {
 func TestCollect_MultilineTestContextBindingsUseTheirOwnLines(t *testing.T) {
 	src := `group "setup semantics" {
   setup {
-    #{inherited: "parent", value: "child", child_only: "ready"}
+    .{inherited: "parent", value: "child", child_only: "ready"}
   }
 
-  test "setup binds its record", #{
+  test "setup binds its record", .{
     inherited,
     value,
     child_only,

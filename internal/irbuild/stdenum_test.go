@@ -300,7 +300,7 @@ func TestStdEnumSpecsAreReachable(t *testing.T) {
 // neither is still an error.
 func stdEnumGatesABoundSignature(s *stdEnumSpec, programs []corpusFile) (string, bool) {
 	want := s.nomi
-	for key, h := range stdlibHostFuncs {
+	for key, h := range stdlibHostRegistry().funcs {
 		named := h.result.nomi() == want
 		for _, p := range h.params {
 			named = named || p.nomi() == want

@@ -20,8 +20,7 @@ fn main() {
             io.print(Debug.inspect((re, 1)))
         }
 
-        .Err(e) ->
-            io.print(e)
+        .Err(e) -> io.print(e)
     }
 
     io.print(Debug.inspect(Regex.compile("a`b")))

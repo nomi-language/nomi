@@ -88,8 +88,8 @@ folder holds:
 - `index.html`: the page
 
 While you work, `nomi run --web app.nomi` serves the page at
-`http://localhost:8000/`, or the next free port (`--port` picks one). Each time you save, it rebuilds and reloads the
-page. If the build fails, the error shows on the page until you fix it.
+`http://localhost:8000/`, or the next free port (`--port` picks one). Each
+time you save, it rebuilds and reloads the page. If the build fails, the error shows on the page until you fix it.
 `--open` opens the page in your browser.
 
 To use your own page, scripts or images, put them in a folder named `web/`
@@ -147,7 +147,7 @@ export fn new_game(word: String) -> Game {
 }
 
 export fn guess(game: Game, letter: String) -> Game {
-    #{..game, guesses: [letter, ..game.guesses]}
+    .{..game, guesses: [letter, ..game.guesses]}
 }
 ```
 

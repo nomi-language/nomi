@@ -70,8 +70,7 @@ fn main() -> Result<Unit, String> {
     case databases.problems(config) {
         [] -> {}
 
-        problems ->
-            return Err(String.join(problems, "\n"))
+        problems -> return Err(String.join(problems, "\n"))
     }
 
     dbs = databases.read(config)
@@ -116,8 +115,7 @@ fn distinct(files: List<Generated>) -> Result<Unit, String> {
                 "two of the module's files would be generated as ${p}: give each database its own `out` or `schema` in nomi.toml, and each query file its own name"
             )
 
-        None ->
-            Ok(Unit)
+        None -> Ok(Unit)
     }
 }
 
@@ -234,8 +232,7 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
     tokens = queries |> Iter.map(fn q -> sqltext.tokens(q.sql)) |> Iter.to_list()
 
     found = case db.dialect {
-        .Sqlite ->
-            sqlite_found(migrations, tokens)?
+        .Sqlite -> sqlite_found(migrations, tokens)?
 
         .Postgres ->
             postgres_found(
@@ -328,8 +325,7 @@ fn sqlite_found(migrations: List<Input>, tokens: List<List<Token>>) -> Result<Fo
     Iter.each(tables, fn t -> {
         Iter.each(t.columns, fn c -> {
             case decimal_warning(t.name, c) {
-                Some(w) ->
-                    io.print("warning: ${c.migration}:${c.line}: ${w}")
+                Some(w) -> io.print("warning: ${c.migration}:${c.line}: ${w}")
 
                 None -> {}
             }
@@ -354,8 +350,7 @@ fn postgres_found(
     tokens: List<List<Token>>,
 ) -> Result<Found, String> {
     url = case Map.get(App.env, db.dev_url_env) {
-        Some(u) when u != "" ->
-            u
+        Some(u) when u != "" -> u
 
         _ ->
             return Err(
@@ -407,8 +402,7 @@ fn postgres_table(t: pg.Table, migrations: List<Input>) -> Table {
             line = line_of_word(column_text, c.name, t.name)
 
             declared = case types.postgres(c.type_name) {
-                Some(d) ->
-                    d
+                Some(d) -> d
 
                 None -> {
                     if Iter.is_empty(c.values) and c.type_name != "citext" {
@@ -451,8 +445,7 @@ fn postgres_columns(name: String, s: pg.Statement) -> Result<List<Column>, Query
         s.columns
         |> Iter.map(fn c -> {
             declared = case types.postgres(c.type_name) {
-                Some(d) ->
-                    d
+                Some(d) -> d
 
                 None -> {
                     if c.table == "" and c.type_name != "citext" {
@@ -547,8 +540,7 @@ fn decimal_warning(table: String, c: TableColumn) -> Maybe<String> {
                 "`${table}.${c.name}` is ${c.type_name}, but SQLite stores a DECIMAL as a 64-bit float, exact to 15 digits, and the driver refuses a longer value: declare at most DECIMAL(15, s), or keep the amount as INTEGER minor units (cents)"
             )
 
-        _ ->
-            None
+        _ -> None
     }
 }
 
@@ -678,14 +670,9 @@ fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<St
             read_values(words, i + 1, [value, ..acc])
         }
 
-        Some(t) when t.text == "," ->
-            read_values(words, i + 1, acc)
-
-        Some(t) when t.text == ")" and not Iter.is_empty(acc) ->
-            Some(Iter.reverse(acc))
-
-        _ ->
-            None
+        Some(t) when t.text == "," -> read_values(words, i + 1, acc)
+        Some(t) when t.text == ")" and not Iter.is_empty(acc) -> Some(Iter.reverse(acc))
+        _ -> None
     }
 }
 

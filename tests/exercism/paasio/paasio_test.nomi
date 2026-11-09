@@ -9,8 +9,7 @@ fn read_to_end(meter: MeteredReader, max: Int) -> Result<(Bytes, MeteredReader),
     (data, meter) = MeteredReader.read(meter, max)?
 
     case data {
-        None ->
-            Ok((Bytes.from_list([]), meter))
+        None -> Ok((Bytes.from_list([]), meter))
 
         Some(bytes) -> {
             (rest, meter) = read_to_end(meter, max)?

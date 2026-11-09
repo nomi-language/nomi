@@ -130,6 +130,65 @@ func (g *gen) moduleQualifiedIface(t *ast.QualifiedType) (*ifaceDef, bool) {
 	return g.moduleQualifiedIfaceNamed(qualifier, name)
 }
 
+// qualifiedModuleIface is qualifiedStdIface for a program module's
+// interface an impl header names through its qualifier (`impl other.Shape
+// for Sq`), read through the qualifier's scope so a file's own interface
+// of the same name does not shadow it. key is the name its impls are
+// filed under in implsByIface (implsKey).
+func (g *gen) qualifiedModuleIface(te ast.TypeExpr) (def *ifaceDef, key string, ok bool) {
+	qt, isQualified := te.(*ast.QualifiedType)
+	if !isQualified {
+		return nil, "", false
+	}
+	qualifier, name, named := qualifiedTypeParts(qt)
+	if !named || ast.IsPublic(qualifier) {
+		return nil, "", false
+	}
+	def, ok = g.moduleQualifiedIfaceNamed(qualifier, name)
+	if !ok {
+		return nil, "", false
+	}
+	return def, g.implsKey(def), true
+}
+
+// moduleQualifiedIfaceOwner reports whether n, the owner of a reference
+// `<qualifier>.<Name>.member`, names an interface a program module exports
+// through a qualifier this body does not bind as a value.
+func (bl *irScalarBuilder) moduleQualifiedIfaceOwner(n ast.Node) bool {
+	fa, isFA := n.(*ast.FieldAccess)
+	if !isFA || fa.Field == nil {
+		return false
+	}
+	q, isIdent := ast.QualifierIdent(fa.Object)
+	if !isIdent {
+		return false
+	}
+	if _, local := bl.bound[q.Name]; local || irQualIsLocal(bl, q.Name) {
+		return false
+	}
+	_, ok := bl.g.moduleQualifiedIfaceNamed(q.Name, fa.Field.Name)
+	return ok
+}
+
+// implsKey is the name the impls of d are filed under in implsByIface and
+// instImpls: its bare name, or for a sibling file's interface whose bare
+// name reaches another interface in this file (`other.Shape` beside a
+// `Shape` of this file's own), the declaring file's key and the name, so
+// the two interfaces' impls for one type do not collide, as stdIfaceKey
+// keeps a std interface's apart.
+func (g *gen) implsKey(d *ifaceDef) string {
+	if d == nil {
+		return ""
+	}
+	if d.foreign == "" || d.stdOrigin != "" || d.stdShared {
+		return d.nomi
+	}
+	if bare, found := g.ifaceNamed(d.nomi); found && bare != d {
+		return stdIfaceKey(d.foreign, d.nomi)
+	}
+	return d.nomi
+}
+
 // moduleQualifiedIfaceNamed is moduleQualifiedIface reached from the two
 // segments of a call's owner (`storage.Store`, of `storage.Store.exists(s,
 // "x")`). The def is registered in g.ifaces under the dotted spelling, so the

@@ -63,7 +63,7 @@ func (dm *DocumentManager) rebuildStoredBodies(sp *storedProgram, key, oldText s
 	fa, nodes := c.FA, c.Nodes
 	newText := pf.text
 	switch {
-	case fa == nil || fa.kept == nil:
+	case fa == nil || fa.keptDecls() == nil:
 		return "the file's declarations were not kept", false
 	case len(c.Bodies) > 0:
 		return "the check read another file's bodies", false

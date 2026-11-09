@@ -62,7 +62,7 @@ func TestRTKernels_RecordedRenderings(t *testing.T) {
 			"%{\"b\" => 1, \"a\" => 2}", "", "%{\"b\" => 1, \"a\" => 2}", "", true},
 		{"Set", newSet([]any{int64(3), int64(1)}), "%[3, 1]", "", "%[3, 1]", "", true},
 		{"tuple", rtTuple(int64(1), "a"), "(1, \"a\")", "", "(1, \"a\")", "", true},
-		{"anonymous record", rtStruct("", "y", int64(2), "x", "s"), "#{x: \"s\", y: 2}", "", "#{x: \"s\", y: 2}", "", true},
+		{"anonymous record", rtStruct("", "y", int64(2), "x", "s"), ".{x: \"s\", y: 2}", "", ".{x: \"s\", y: 2}", "", true},
 		{"Some", some(int64(1)), "Some(1)", "", "Some(1)", "", true},
 		{"None", noneValue, "None", "", "None", "", true},
 		{"Ok", rtVariant("results.Result", "Ok", "a"), "Ok(\"a\")", "", "Ok(\"a\")", "<results.Result impl>", true},

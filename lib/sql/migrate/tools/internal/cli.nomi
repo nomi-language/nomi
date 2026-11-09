@@ -46,8 +46,8 @@ pub fn options(
 fn read(tool: String, args: List<String>, so_far: Options) -> Result<Options, String> {
     case args {
         [] -> Ok(so_far)
-        ["--dir", dir, ..rest] -> read(tool, rest, #{..so_far, dir})
-        ["--url", url, ..rest] -> read(tool, rest, #{..so_far, url})
+        ["--dir", dir, ..rest] -> read(tool, rest, .{..so_far, dir})
+        ["--url", url, ..rest] -> read(tool, rest, .{..so_far, url})
         [other, ..] -> Err("unknown argument `${other}`\n${usage(tool)}")
     }
 }

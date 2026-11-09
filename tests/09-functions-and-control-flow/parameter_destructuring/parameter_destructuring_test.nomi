@@ -22,7 +22,7 @@ fn sum_point(Point{x, y}) -> Int {
     x + y
 }
 
-fn scale_point(#{x, y}: Point) -> Int {
+fn scale_point(.{x, y}: Point) -> Int {
     x * y
 }
 

@@ -65,8 +65,7 @@ derive Equatable for Error
 impl Display for Error {
     fn to_string(e: Error) -> String {
         case e {
-            Error.Length{length} ->
-                "a UUID is 36 characters or 16 bytes, not ${length}"
+            Error.Length{length} -> "a UUID is 36 characters or 16 bytes, not ${length}"
 
             Error.Separator{index, found} ->
                 "expected `-` at index ${index} of a UUID, found `${found}`"
@@ -246,8 +245,7 @@ impl FromJson for Uuid {
                     got: "string ${Debug.inspect(text)}",
                 })
 
-            _ ->
-                Err(shape_error_root(expected, json))
+            _ -> Err(shape_error_root(expected, json))
         }
     }
 }
@@ -297,8 +295,7 @@ fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> (Int, Int, Int, 
     }
 
     case hex_value(Codepoint.to_int(cp)) {
-        None ->
-            (next, high, low, Some(Error.Digit{index, found}))
+        None -> (next, high, low, Some(Error.Digit{index, found}))
 
         Some(digit) ->
             if index < 19 {

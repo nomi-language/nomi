@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -133,6 +134,15 @@ directory missing one of them was assembled some other way. Fix: %s`,
 // did. An uncompressed nomi.wasm left beside it fails too: nothing serves it,
 // and a stale one would sit there unread by every row.
 //
+// The one input the rebuild takes from the staged wasm is the stdlib's
+// base modules' state it embeds (std/state.go), since no two processes
+// write it alike: its encoding walks maps in Go's random order. The script
+// makes it with the bundle and the interfaces, from the same tree, so a
+// rebuild over the staged state that equals the staged wasm is this tree's
+// code, and the state is that code's. Its key (the artifact it was built
+// from and its codec's digest) is in it, so a state another tree made does
+// not equal either.
+//
 // Rebuilding is what makes the nomi.wasm row exact rather than a heuristic:
 // Go's output for a given source tree, toolchain and module directory is
 // deterministic, verified here by building twice into different paths and
@@ -158,8 +168,8 @@ func TestTourWasmBundleIsTheCurrentSources(t *testing.T) {
 	}
 
 	t.Run("nomi.wasm.gz", func(t *testing.T) {
-		fresh := buildTourWasmTwice(t)
 		staged := gunzipStaged(t, "nomi.wasm.gz")
+		fresh := buildTourWasmTwice(t, stagedStdState(t, staged))
 		compareStaged(t, staged, fresh,
 			"a fresh GOOS=js GOARCH=wasm build of ./cmd/nomi-wasm")
 	})
@@ -246,13 +256,13 @@ Fix: %s`,
 // were not, an unequal hash would be uninformative and this test would be a
 // flake generator rather than a gate. Cached, the pair costs well under a
 // second.
-func buildTourWasmTwice(t *testing.T) string {
+func buildTourWasmTwice(t *testing.T, state []byte) string {
 	t.Helper()
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.wasm")
 	second := filepath.Join(dir, "second.wasm")
-	buildTourWasm(t, first)
-	buildTourWasm(t, second)
+	buildTourWasm(t, first, state)
+	buildTourWasm(t, second, state)
 	firstSum, _ := hashFile(t, first)
 	secondSum, _ := hashFile(t, second)
 	if firstSum != secondSum {
@@ -266,7 +276,10 @@ meaningless and the gate is reporting that instead of a false verdict.`,
 	return first
 }
 
-func buildTourWasm(t *testing.T, out string) {
+// buildTourWasm builds the tour's wasm as the script does, embedding state
+// as the stdlib's base modules' state instead of the one stdbundlegen
+// writes (TestTourWasmBundleIsTheCurrentSources says why).
+func buildTourWasm(t *testing.T, out string, state []byte) {
 	t.Helper()
 	// -C first, and an absolute -o, because -C changes the working
 	// directory for everything after it.
@@ -305,6 +318,9 @@ func buildTourWasm(t *testing.T, out string) {
 	if output, err := gen.CombinedOutput(); err != nil {
 		t.Fatalf("go run ./internal/irbuild/stdbundlegen: %v\n%s", err, output)
 	}
+	if err := os.WriteFile(filepath.Join(bundle, "stdstate.bin"), state, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cmd := exec.Command("go", "build", "-C", "..", "-trimpath", "-buildvcs=false",
 		"-tags", "nomi_stdbundle", "-overlay", filepath.Join(bundle, "overlay.json"), "-o", abs, "./cmd/nomi-wasm")
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm", "GOWORK="+work)
@@ -316,6 +332,155 @@ func buildTourWasm(t *testing.T, out string) {
 	if err := wasmmem.CapFile(abs); err != nil {
 		t.Fatalf("cap the rebuilt wasm's memory: %v", err)
 	}
+}
+
+// stagedStdState is the stdlib's base modules' state the wasm at path
+// embeds: in its memory as its data segments lay it out, the bytes from
+// std/state.go's magic, followed by their length and the artifact's magic,
+// to the end of that length.
+func stagedStdState(t *testing.T, path string) []byte {
+	t.Helper()
+	module, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mem, err := wasmDataImage(module)
+	if err != nil {
+		t.Fatalf("the staged wasm's data: %v", err)
+	}
+	const magic, artifactMagic = "NOMISTDS", "NOMISTDI"
+	for from := 0; ; {
+		i := bytes.Index(mem[from:], []byte(magic))
+		if i < 0 {
+			break
+		}
+		i += from
+		from = i + 1
+		head := i + len(magic) + 4
+		if head+len(artifactMagic) > len(mem) || string(mem[head:head+len(artifactMagic)]) != artifactMagic {
+			continue
+		}
+		n := int(binary.LittleEndian.Uint32(mem[i+len(magic):]))
+		if head+n > len(mem) {
+			continue
+		}
+		return mem[i : head+n]
+	}
+	t.Fatalf("the staged wasm embeds no std state. Fix: %s", rebuildInstruction)
+	return nil
+}
+
+// wasmDataImage lays a wasm module's active data segments out at their
+// offsets in one memory image.
+func wasmDataImage(module []byte) ([]byte, error) {
+	if len(module) < 8 || string(module[:4]) != "\x00asm" {
+		return nil, fmt.Errorf("not a wasm module")
+	}
+	r := &wasmReader{b: module[8:]}
+	for len(r.b) > 0 && r.err == nil {
+		id := r.byte()
+		section := r.bytes(r.uleb())
+		if id != 11 || r.err != nil {
+			continue
+		}
+		return dataSegmentsImage(&wasmReader{b: section})
+	}
+	if r.err != nil {
+		return nil, r.err
+	}
+	return nil, fmt.Errorf("no data section")
+}
+
+func dataSegmentsImage(r *wasmReader) ([]byte, error) {
+	var mem []byte
+	for count := r.uleb(); count > 0 && r.err == nil; count-- {
+		flags := r.uleb()
+		if flags == 2 {
+			r.uleb() // the memory's index
+		}
+		var offset int64
+		if flags != 1 {
+			if r.byte() != 0x41 { // i32.const
+				return nil, fmt.Errorf("a data segment's offset is not a constant")
+			}
+			offset = r.sleb()
+			if r.byte() != 0x0b { // end
+				return nil, fmt.Errorf("a data segment's offset does not end")
+			}
+		}
+		data := r.bytes(r.uleb())
+		if flags == 1 || r.err != nil {
+			continue // passive
+		}
+		if end := int(offset) + len(data); end > len(mem) {
+			mem = append(mem, make([]byte, end-len(mem))...)
+		}
+		copy(mem[offset:], data)
+	}
+	return mem, r.err
+}
+
+// wasmReader reads a wasm module's encoding, failing on the first
+// malformed value.
+type wasmReader struct {
+	b   []byte
+	err error
+}
+
+func (r *wasmReader) fail() {
+	if r.err == nil {
+		r.err = fmt.Errorf("malformed wasm")
+	}
+	r.b = nil
+}
+
+func (r *wasmReader) byte() byte {
+	if len(r.b) == 0 {
+		r.fail()
+		return 0
+	}
+	c := r.b[0]
+	r.b = r.b[1:]
+	return c
+}
+
+func (r *wasmReader) bytes(n uint64) []byte {
+	if n > uint64(len(r.b)) {
+		r.fail()
+		return nil
+	}
+	v := r.b[:n]
+	r.b = r.b[n:]
+	return v
+}
+
+func (r *wasmReader) uleb() uint64 {
+	var v uint64
+	for shift := 0; shift < 64 && r.err == nil; shift += 7 {
+		c := r.byte()
+		v |= uint64(c&0x7f) << shift
+		if c&0x80 == 0 {
+			return v
+		}
+	}
+	r.fail()
+	return 0
+}
+
+func (r *wasmReader) sleb() int64 {
+	var v int64
+	for shift := 0; shift < 64 && r.err == nil; shift += 7 {
+		c := r.byte()
+		v |= int64(c&0x7f) << shift
+		if c&0x80 == 0 {
+			if shift+7 < 64 && c&0x40 != 0 {
+				v |= -1 << (shift + 7)
+			}
+			return v
+		}
+	}
+	r.fail()
+	return 0
 }
 
 func goEnv(t *testing.T, name string) string {

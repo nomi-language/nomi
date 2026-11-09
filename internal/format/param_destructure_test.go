@@ -55,7 +55,7 @@ func TestFmt_Tuple_KeepsAnnotation(t *testing.T) {
 }
 
 func TestFmt_AnonStruct_KeepsAnnotation(t *testing.T) {
-	fmtContains(t, "fn f(#{x, y}: Point) -> Int { x + y }\n", "{x, y}: Point")
+	fmtContains(t, "fn f(.{x, y}: Point) -> Int { x + y }\n", "{x, y}: Point")
 }
 
 func TestFmt_Distinct_KeepsMismatchedAnnotation(t *testing.T) {
@@ -153,7 +153,7 @@ func TestFmt_RoundTrip_Stable(t *testing.T) {
 		"fn f(Dur(x)) -> Int {\n    x\n}\n",
 		"fn f((a, b): (Int, Int)) -> Int {\n    a + b\n}\n",
 		"fn f(Point{x, y}) -> Int {\n    x + y\n}\n",
-		"fn f(#{x, y}: Point) -> Int {\n    x + y\n}\n",
+		"fn f(.{x, y}: Point) -> Int {\n    x + y\n}\n",
 	}
 	for _, src := range cases {
 		got, err := Format(src)

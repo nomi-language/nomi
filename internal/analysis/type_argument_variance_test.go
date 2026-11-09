@@ -49,7 +49,7 @@ func TestTypeArgumentVariance_CovariantConverts(t *testing.T) {
 		"Result":            `x: Result<Int, String> = Ok(1); y: Result<Display, String> = x; dbg Result.is_ok(y)`,
 		"nested":            `xs = [[1]]; ys: List<List<Display>> = xs; dbg Iter.count(ys)`,
 		"tuple element":     `xs = [("a", Pt{x: 1})]; ys: List<(String, Named)> = xs; dbg Iter.count(ys)`,
-		"record field":      `xs = [#{n: 1}]; ys: List<#{n: Display}> = xs; dbg Iter.count(ys)`,
+		"record field":      `xs = [.{n: 1}]; ys: List<.{n: Display}> = xs; dbg Iter.count(ys)`,
 		"function result":   `fs = [number]; gs: List<(Int) -> Display> = fs; dbg Iter.count(gs)`,
 		"function argument": `fs = [shown]; gs: List<(Int) -> String> = fs; dbg Iter.count(gs)`,
 		"argument":          `xs = [1]; dbg take(xs)`,

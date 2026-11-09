@@ -62,7 +62,7 @@ export fn new_game(word: String) -> Game {
 }
 
 export fn guess(game: Game, letter: String) -> Game {
-    #{..game, guesses: [letter, ..game.guesses]}
+    .{..game, guesses: [letter, ..game.guesses]}
 }
 
 export fn outcome(game: Game) -> Outcome {

@@ -149,15 +149,14 @@ pub fn problems(config: Json) -> List<String> {
         table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
 
         case text(table, "dialect") {
-            Some(g) when not Iter.any(dialects(), fn (n, _) -> n == g) ->
+            Some(g) when not Iter.any_match(dialects(), fn (n, _) -> n == g) ->
                 [
                     "nomi.toml: `[sqlkit.database.${name}]` names the dialect ${Debug.inspect(
                         g
                     )}; sqlkit knows \"sqlite\" and \"postgres\"",
                 ]
 
-            _ ->
-                []
+            _ -> []
         }
     })
     |> Iter.to_list()
@@ -180,7 +179,7 @@ pub fn defaults(name: String) -> Database {
 /// The path from the module root of the generated file `name` (without
 /// `.nomi`) of db.
 //! assert databases.out_file(databases.defaults("main"), "schema") == "schema.nomi"
-//! assert databases.out_file(#{..databases.defaults("main"), out: "src/db/"}, "q") == "src/db/q.nomi"
+//! assert databases.out_file(.{..databases.defaults("main"), out: "src/db/"}, "q") == "src/db/q.nomi"
 //
 pub fn out_file(db: Database, name: String) -> String {
     "${String.replace(module_of(db, name), "::", "/")}.nomi"
@@ -188,7 +187,7 @@ pub fn out_file(db: Database, name: String) -> String {
 
 /// The import path, from the module root, of the generated file `name`:
 /// its directories and its name joined by `::`.
-//! assert databases.module_of(#{..databases.defaults("main"), out: "src/db/"}, "q") == "src::db::q"
+//! assert databases.module_of(.{..databases.defaults("main"), out: "src/db/"}, "q") == "src::db::q"
 //
 pub fn module_of(db: Database, name: String) -> String {
     dir = sqltext.cut_suffix(db.out, "/")
@@ -227,7 +226,6 @@ fn text_map(json: Json, key: String) -> Map<String, String> {
             })
             |> Iter.to_map()
 
-        _ ->
-            %{}
+        _ -> %{}
     }
 }

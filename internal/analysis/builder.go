@@ -3371,7 +3371,17 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		// nested name the base name keeps.
 		module = q.Module
 	}
+	ifaceModule := ""
+	if n.Interface != nil {
+		ifaceModule = implBlockInterfaceQualifier(n.Interface)
+	}
 	for _, fn := range implBlockFuncDefs(n) {
+		if ifaceModule != "" {
+			if b.file.ImplBlockInterfaceModule == nil {
+				b.file.ImplBlockInterfaceModule = make(map[*ast.FuncDef]string)
+			}
+			b.file.ImplBlockInterfaceModule[fn] = ifaceModule
+		}
 		b.file.ImplBlockReceiver[fn] = recv
 		if ifaceKey != "" {
 			b.file.ImplBlockInterfaceKey[fn] = ifaceKey
@@ -3761,8 +3771,8 @@ func (b *builder) registerImplDefaults(scope *Scope) {
 	}
 }
 
-// IsPunnedField reports whether a struct-literal field is punned, `#{x}` for
-// `#{x: x}`: the parser gives the label and the variable read one position.
+// IsPunnedField reports whether a struct-literal field is punned, `.{x}` for
+// `.{x: x}`: the parser gives the label and the variable read one position.
 func IsPunnedField(f ast.StructFieldVal) bool {
 	id, ok := f.Value.(*ast.Ident)
 	return ok && f.Line > 0 && id.Line == f.Line && id.Col == f.Col
@@ -4985,7 +4995,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		b.registerStructLitFieldRefs(n, scope)
 		// The struct-update spread's head is an ordinary expression, so
 		// it binds and resolves like any other — this is what makes
-		// `#{..p, x: 9}` count as a read of `p`, and what gives hover on
+		// `.{..p, x: 9}` count as a read of `p`, and what gives hover on
 		// the head.
 		if n.Spread != nil {
 			b.walkNode(n.Spread, scope)

@@ -42,8 +42,10 @@ const usage = `usage:
   nomi <file> [args]                    the same as nomi run, for a file that ends in
                                         .nomi or starts with #!; with a first line of
                                         #!/usr/bin/env nomi it runs as an executable script
-  nomi test [path] [--line N] [--format text|json] [--timeout <duration>] [--watch]
-                                        run test files on the VM; --watch runs them
+  nomi test [path] [--line N] [--run <regexp>] [--format text|json] [--timeout <duration>] [--watch]
+                                        run test files on the VM; --run runs only the
+                                        cases whose names (as the report prints them,
+                                        after "file :: ") the regexp matches; --watch runs them
                                         again whenever a .nomi file under path, or a
                                         file the tests load, changes; a case that runs
                                         longer than --timeout (default 10s, 0 for none)
@@ -498,12 +500,13 @@ func ownLines(err error) bool {
 // case `nomi test` would report BLOCKED is an error here.
 //
 // A program the artifact cache keeps checked cleanly, and its files are as
-// they were then, so it is not checked again (vmhost.Cache).
+// they were then, so it is not checked again (vmhost.Cache); its advice,
+// kept with it, is written as a fresh check writes it.
 //
 // warn takes the program's warnings (vmhost.WithWarnings).
 func checkFile(absPath string, warn vmhost.Option) error {
 	cache := vmhost.OpenCache(absPath)
-	if cache.Checked() {
+	if cache.Checked(warn) {
 		return nil
 	}
 	res, err := ffirun.Prepare(absPath)
@@ -700,7 +703,7 @@ func runTest(args []string) error {
 
 func isStdlibTestPath(path string) bool { return vmcmd.IsStdlibPath(path) }
 
-const testUsage = "usage: nomi test [path] [--line N] [--format text|json] [--timeout <duration>] [--watch]"
+const testUsage = "usage: nomi test [path] [--line N] [--run <regexp>] [--format text|json] [--timeout <duration>] [--watch]"
 
 // testArgs is `nomi test`'s parsed command line. Flags may appear in any order
 // around the path.
@@ -732,6 +735,20 @@ func parseTestArgs(args []string) (testArgs, error) {
 			}
 			parsed.opts.Line = line
 			parsed.opts.LineSet = true
+		case arg == "--run" || strings.HasPrefix(arg, "--run="):
+			value, inline := strings.CutPrefix(arg, "--run=")
+			if !inline {
+				i++
+				if i >= len(args) {
+					return usage()
+				}
+				value = args[i]
+			}
+			re, err := vmhost.CompileTestRun(value)
+			if err != nil {
+				return testArgs{}, fmt.Errorf("nomi test: %w", err)
+			}
+			parsed.opts.Run = re
 		case arg == "--watch":
 			parsed.watch = true
 		case arg == "--timeout" || strings.HasPrefix(arg, "--timeout="):

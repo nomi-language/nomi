@@ -7,8 +7,7 @@ fn sum_numbers(line: String) -> Int {
 
 fn count_non_empty_lines(text: String) -> Int {
     String.lines(text)
-    |> Iter.filter(fn line -> String.trim(line) != "")
-    |> Iter.count()
+    |> Iter.count_by(fn line -> String.trim(line) != "")
 }
 
 test "words splits a line of numbers on any whitespace" {

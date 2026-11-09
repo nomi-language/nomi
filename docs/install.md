@@ -19,6 +19,13 @@ go install -C nomi ./cmd/nomi ./cmd/nomi-lsp
 nomi --version
 ```
 
+On a Mac with Xcode's command line tools, `nomi` starts about 1 ms faster
+linked by the system linker, which `make build` and `make dev-editors` do:
+
+```sh
+CGO_ENABLED=1 go install -C nomi -ldflags=-linkmode=external ./cmd/nomi ./cmd/nomi-lsp
+```
+
 `go install` writes `nomi` and `nomi-lsp` to `$(go env GOPATH)/bin`, usually
 `~/go/bin`, which must be on `PATH`. Editors find the language server as
 `nomi-lsp` and the debugger as `nomi dap`, so these two binaries are all an

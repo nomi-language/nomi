@@ -19,12 +19,10 @@ pub opaque struct Complex {
     imaginary: Float
 }
 
-derive Equatable for Complex
-
 impl Complex {
     /// `real + imaginary * i`.
     pub fn new(real: Float, imaginary: Float) -> Complex {
-        Complex{real, imaginary}
+        .{real, imaginary}
     }
 
     /// The real part of `z`.
@@ -44,13 +42,13 @@ impl Complex {
 
     /// `z` with its imaginary part negated.
     pub fn conjugate(z: Complex) -> Complex {
-        Complex{real: z.real, imaginary: -z.imaginary}
+        .{..z, imaginary: -z.imaginary}
     }
 
     /// `e` to the power `z`: `e^a * (cos(b) + i * sin(b))`.
     pub fn exp(z: Complex) -> Complex {
         scale = Float.exp(z.real)
-        Complex{real: scale * Float.cos(z.imaginary), imaginary: scale * Float.sin(z.imaginary)}
+        .{real: scale * Float.cos(z.imaginary), imaginary: scale * Float.sin(z.imaginary)}
     }
 
     /// Whether each part of `a` is within `tolerance` of the same part of
@@ -62,25 +60,25 @@ impl Complex {
 
     /// `x` as a complex number with no imaginary part.
     pub fn from_real(x: Float) -> Complex {
-        Complex{real: x, imaginary: 0.0}
+        .{real: x, imaginary: 0.0}
     }
 }
 
 impl Add<Complex, Complex> for Complex {
     fn add(lhs: Complex, rhs: Complex) -> Complex {
-        Complex{real: lhs.real + rhs.real, imaginary: lhs.imaginary + rhs.imaginary}
+        .{real: lhs.real + rhs.real, imaginary: lhs.imaginary + rhs.imaginary}
     }
 }
 
 impl Subtract<Complex, Complex> for Complex {
     fn subtract(lhs: Complex, rhs: Complex) -> Complex {
-        Complex{real: lhs.real - rhs.real, imaginary: lhs.imaginary - rhs.imaginary}
+        .{real: lhs.real - rhs.real, imaginary: lhs.imaginary - rhs.imaginary}
     }
 }
 
 impl Multiply<Complex, Complex> for Complex {
     fn multiply(lhs: Complex, rhs: Complex) -> Complex {
-        Complex{
+        .{
             real: lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
             imaginary: lhs.imaginary * rhs.real + lhs.real * rhs.imaginary,
         }
@@ -92,7 +90,7 @@ impl Divide<Complex, Complex> for Complex {
     fn divide(lhs: Complex, rhs: Complex) -> Complex {
         denominator = rhs.real * rhs.real + rhs.imaginary * rhs.imaginary
 
-        Complex{
+        .{
             real: (lhs.real * rhs.real + lhs.imaginary * rhs.imaginary) / denominator,
             imaginary: (lhs.imaginary * rhs.real - lhs.real * rhs.imaginary) / denominator,
         }
@@ -400,10 +398,10 @@ test result: ok. 40 passed, 0 failed
 
 ## How it's written
 
-- `Complex` is an opaque struct of two `Float`s, built with `Complex.new(real, imaginary)` and read with `Complex.real` and `Complex.imaginary`. `derive Equatable` compares both parts exactly, which the cases with whole-number results use.
+- `Complex` is an opaque struct of two `Float`s, built with `Complex.new(real, imaginary)` and read with `Complex.real` and `Complex.imaginary`. `==` compares both parts exactly, as it compares any struct, which the cases with whole-number results use.
 - The arithmetic is the operator interfaces, as rational-numbers does it: `impl Add<Complex, Complex> for Complex` and the same for `Subtract`, `Multiply` and `Divide`, so the tests write `z1 + z2`.
 - The canonical cases that mix a real number with a complex one are four more impls on `Complex` with a `Float` right-hand side and four on `Float` with a `Complex` right-hand side, so `Complex.new(1.0, 2.0) + 5.0` and `5.0 + Complex.new(1.0, 2.0)` both work. Each lifts the `Float` with `Complex.from_real` and uses the complex operator.
-- `exp` is `e^a * (cos(b) + i * sin(b))` from std/float's `exp`, `cos` and `sin`.
+- `exp` is `e^a * (cos(b) + i * sin(b))` from std::float's `exp`, `cos` and `sin`.
 - The canonical data asks for a tolerance on results that are not whole numbers. `Complex.equal_within` holds both parts to it through `Float.equal_within`, and the division, exponential and mixed cases use it with `1e-12`.
-- The canonical inputs write pi and e as the strings `"pi"` and `"e"`, and ln(2) as `"ln(2)"`. The tests write std/float's `Float.pi` and `Float.e`, and `Float.log(2.0)`.
+- The canonical inputs write pi and e as the strings `"pi"` and `"e"`, and ln(2) as `"ln(2)"`. The tests write std::float's `Float.pi` and `Float.e`, and `Float.log(2.0)`.
 - Each canonical group is a test with one `subtests` table; the four arithmetic tests sit in a `group "Arithmetic"`, as the canonical data nests them. The mixed cases are one table whose actual column is the expression itself (`5.0 * Complex.new(2.0, 5.0)`), since the rows mix operand types.

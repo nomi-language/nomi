@@ -38,8 +38,8 @@ text = text.replace("@number", "@constant.numeric")
 text = text.replace("@module", "@namespace")
 text = text.replace("(codepoint) @string.special", "(codepoint) @constant.character")
 text = text.replace(
-    '(string_interpolation\n  "#{" @punctuation.special\n  "}" @punctuation.special)',
-    '(string_interpolation\n  "#{" @constant.character.escape\n  "}" @constant.character.escape)',
+    '(string_interpolation\n  ".{" @punctuation.special\n  "}" @punctuation.special)',
+    '(string_interpolation\n  ".{" @constant.character.escape\n  "}" @constant.character.escape)',
 )
 text = text.replace("Zed's query priority", "Helix's query priority")
 text = text.replace("Zed's last-wins priority", "Helix's last-wins priority")

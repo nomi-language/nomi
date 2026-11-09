@@ -92,8 +92,7 @@ fn loop_else_both_break() -> Int {
 
 fn unwrap(r: Result<Int, Infallible>) -> Int {
     case r {
-        Ok(v) ->
-            v
+        Ok(v) -> v
 
         Err(e) ->
             case e {
@@ -200,7 +199,7 @@ test "a case subject in a function reports its rows" {
     assert Err(failure) = case_subject(1)
 
     assert AssertionFailure.format(failure) == """
-        line 129: assertion failed
+        line 128: assertion failed
           assert case x {
               1 -> False
               _ -> x > 0
@@ -219,7 +218,7 @@ test "a Type witness is a row" {
     assert Err(failure) = testing.check(has(Context.root(), t))
 
     assert AssertionFailure.format(failure) == """
-        line 219: check failed
+        line 218: check failed
           check has(Context.root(), t)
           values:
             Context.root()
@@ -242,7 +241,7 @@ test "a nested block may rebind a name, and the outer one keeps its definition" 
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
-        line 242: check failed
+        line 241: check failed
           check ok
           defined as:
             id(1) == 2
@@ -259,18 +258,18 @@ test "an assertion binding and a pattern may rebind a name" {
 }
 
 test "a pipe binding whose stage holds a pipe records its spine" {
-    ok = [1, 2] |> Iter.any(fn x: Int -> x |> double() > 10)
+    ok = [1, 2] |> Iter.any_match(fn x: Int -> x |> double() > 10)
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
-        line 263: check failed
+        line 262: check failed
           check ok
           defined as:
-            [1, 2] |> Iter.any(fn x: Int -> x |> double() > 10)
+            [1, 2] |> Iter.any_match(fn x: Int -> x |> double() > 10)
           pipeline values:
             [1, 2]
               = [1, 2]
-            [1, 2] |> Iter.any(fn x: Int -> x |> double() > 10)
+            [1, 2] |> Iter.any_match(fn x: Int -> x |> double() > 10)
               = False
         """
 }

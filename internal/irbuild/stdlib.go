@@ -102,32 +102,79 @@ type hostFn struct {
 	takesFrame bool
 }
 
-var (
-	stdlibHostFuncs = map[string]hostFn{}
-	// stdlibBindingErrors names every binding whose Go signature does not
-	// project onto scalar kinds. Collected rather than panicked: a compiler that
-	// refuses to start over a registry defect is worse than one that refuses the
-	// affected call, and TestStdlibBindingsProject fails on any entry — so the
-	// failure is loud where loudness helps and degrades to a REFUSAL, never to a
-	// wrong answer, everywhere else.
-	stdlibBindingErrors []string
-)
+// The registry is built on first use, never at init: projecting every row
+// reads each rt function's Go signature and symbol (about 0.4 ms), and a
+// lowering asks for a few rows. stdlibHostFunc projects one row the first
+// time a lowering asks for it; stdlibHostRegistry projects them all, for the
+// tests.
 
-func init() {
+// hostRow is one RtFuncs name and the function bound to it, projected the
+// first time stdlibHostFunc asks for it. A name bound twice keeps its first
+// function, as stdlibHostRegistry does.
+type hostRow struct {
+	fn   any
+	once sync.Once
+	h    hostFn
+	ok   bool
+}
+
+// stdlibHostRows indexes RtFuncs by name.
+var stdlibHostRows = sync.OnceValue(func() map[string]*hostRow {
+	rows := stdlibbindings.RtFuncs()
+	byName := make(map[string]*hostRow, len(rows))
+	for _, b := range rows {
+		if _, dup := byName[b.Name]; !dup {
+			byName[b.Name] = &hostRow{fn: b.Fn}
+		}
+	}
+	return byName
+})
+
+// stdlibHostFunc is the registry's row for a std `host fn` key: the rt
+// function's projection, or false for a key no RtFuncs row binds and for
+// one whose Go signature does not project.
+func stdlibHostFunc(key string) (hostFn, bool) {
+	r := stdlibHostRows()[key]
+	if r == nil {
+		return hostFn{}, false
+	}
+	r.once.Do(func() {
+		h, err := hostFnFor(r.fn)
+		r.h, r.ok = h, err == ""
+	})
+	return r.h, r.ok
+}
+
+// hostRegistry is every RtFuncs row projected, and the bindings whose Go
+// signature does not project onto scalar kinds. The errors are collected
+// rather than panicked: a compiler that refuses to start over a registry
+// defect is worse than one that refuses the affected call, and
+// TestStdlibBindingsProject fails on any entry, so the failure is loud where
+// loudness helps and degrades to a refusal, never to a wrong answer,
+// everywhere else.
+type hostRegistry struct {
+	funcs  map[string]hostFn
+	errors []string
+}
+
+// stdlibHostRegistry projects every RtFuncs row.
+var stdlibHostRegistry = sync.OnceValue(func() hostRegistry {
+	reg := hostRegistry{funcs: map[string]hostFn{}}
 	for _, b := range stdlibbindings.RtFuncs() {
 		h, err := hostFnFor(b.Fn)
 		if err != "" {
-			stdlibBindingErrors = append(stdlibBindingErrors, b.Name+": "+err)
+			reg.errors = append(reg.errors, b.Name+": "+err)
 			continue
 		}
-		if prev, dup := stdlibHostFuncs[b.Name]; dup {
-			stdlibBindingErrors = append(stdlibBindingErrors,
+		if prev, dup := reg.funcs[b.Name]; dup {
+			reg.errors = append(reg.errors,
 				b.Name+": bound twice, to "+prev.call+" and "+h.call)
 			continue
 		}
-		stdlibHostFuncs[b.Name] = h
+		reg.funcs[b.Name] = h
 	}
-}
+	return reg
+})
 
 // hostFnFor projects an rt function value onto the builder's view of it.
 func hostFnFor(fn any) (hostFn, string) {
@@ -2030,7 +2077,7 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 }
 
 func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Param, ret ast.TypeExpr, pub, generic, blocked bool, fd *ast.FuncDef, anchors stdAnchors) *stdCandidate {
-	iterSig := false
+	progSig := false
 	f := &stdFunc{
 		key:      stdKey(module, recv, ifaceKey, name),
 		ifaceKey: ifaceKey,
@@ -2059,8 +2106,8 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		}
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
 		if k == kindInvalid {
-			if fd != nil && fd.Body != nil && isIterType(p.TypeAnnotation) {
-				iterSig = true
+			if fd != nil && fd.Body != nil && stdProgSigType(p.TypeAnnotation, anchors) {
+				progSig = true
 			} else {
 				blocked = true
 			}
@@ -2088,8 +2135,8 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		f.result = stdTypeKind(ret, anchors)
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
 		if f.result == kindInvalid {
-			if fd != nil && fd.Body != nil && isIterType(ret) {
-				iterSig = true
+			if fd != nil && fd.Body != nil && stdProgSigType(ret, anchors) {
+				progSig = true
 			} else {
 				blocked = true
 			}
@@ -2109,8 +2156,8 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		f.why = "stdlib generic function"
 	case blocked:
 		f.why = "stdlib function outside the scalar subset"
-	case iterSig:
-		f.why = stdIterSigWhy
+	case progSig:
+		f.why = stdProgSigWhy
 	case fd == nil && defaulted > 0:
 		// A `host fn` whose declared default THIS BUILDER MAY NOT READ, and the
 		// reason is which side owns the value.
@@ -2152,7 +2199,7 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 	case fd == nil:
 		// A `host fn`: retained when internal/stdlibbindings answers it. See
 		// the note above hostFn.
-		if h, mapped := stdlibHostFuncs[f.key]; mapped {
+		if h, mapped := stdlibHostFunc(f.key); mapped {
 			if !stdSignatureMatches(h, f) {
 				f.why = "stdlib host function"
 				break

@@ -68,8 +68,7 @@ fn words(n: Int) -> String {
             }
         }
 
-        None ->
-            below_hundred(n)
+        None -> below_hundred(n)
     }
 }
 

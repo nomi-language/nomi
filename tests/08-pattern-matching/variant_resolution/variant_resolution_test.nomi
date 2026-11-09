@@ -185,8 +185,7 @@ fn classify_input(s: String) -> Result<Input, String> {
 
 fn classify_input_case(s: String) -> Result<Input, String> {
     case s {
-        "q" ->
-            Ok(.Quit)
+        "q" -> Ok(.Quit)
 
         other -> {
             guess =

@@ -158,7 +158,7 @@ impl Conn for Fake {
 
     fn each_row(conn: Fake, statement: Statement, f: (Row) -> Bool) -> Result<Unit, sql.Error> {
         rows = run(conn, statement)?
-        _ = Iter.all(rows, f)
+        _ = Iter.all_match(rows, f)
         Ok(Unit)
     }
 
@@ -192,14 +192,14 @@ impl Conn for Fake {
 
                 level = Level{id: state.next_id, effects: []}
 
-                put(conn, #{
+                put(conn, .{
                     ..state,
                     log: state.log + [line],
                     levels: state.levels + [level],
                     next_id: state.next_id + 1,
                 })
 
-                Ok(#{..conn, id: level.id})
+                Ok(.{..conn, id: level.id})
             }
         }
     }
@@ -229,7 +229,7 @@ impl Conn for Fake {
                     effects: inner |> Iter.flat_map(.effects) |> Iter.to_list(),
                 }
 
-                put(tx, #{..state, log: state.log + [line], levels: outer + [merged]})
+                put(tx, .{..state, log: state.log + [line], levels: outer + [merged]})
                 Ok(Unit)
             }
 
@@ -257,11 +257,10 @@ impl Conn for Fake {
                 }
 
                 levels = Iter.take(state.levels, index) |> Iter.to_list()
-                put(tx, #{..state, log: state.log + [line], levels})
+                put(tx, .{..state, log: state.log + [line], levels})
             }
 
-            _ ->
-                put(tx, state)
+            _ -> put(tx, state)
         }
 
         Ok(Unit)
@@ -287,7 +286,7 @@ impl Conn for Fake {
         if state.closed {
             put(conn, state)
         } else {
-            put(conn, #{
+            put(conn, .{
                 ..state,
                 log: state.log + ["CLOSE"],
                 levels: Iter.take(state.levels, 1) |> Iter.to_list(),
@@ -353,13 +352,13 @@ fn run(fake: Fake, statement: Statement) -> Result<List<Row>, sql.Error> {
         return Err(sql.Error.Finished)
     }
 
-    sent = #{..state, log: state.log + ["${statement}"], statements: state.statements + [statement]}
+    sent = .{..state, log: state.log + ["${statement}"], statements: state.statements + [statement]}
     visible = state.levels |> Iter.flat_map(.effects) |> Iter.to_list()
     answer = fake.answer
     result = answer(statement, visible)
 
     case result {
-        Ok(_) -> put(fake, #{..sent, levels: with_effect(state.levels, statement)})
+        Ok(_) -> put(fake, .{..sent, levels: with_effect(state.levels, statement)})
         Err(_) -> put(fake, sent)
     }
 
@@ -373,7 +372,7 @@ fn with_effect(levels: List<Level>, statement: Statement) -> List<Level> {
     |> Iter.with_index()
     |> Iter.map(fn (index, level) -> {
         if index == last {
-            #{..level, effects: level.effects + [statement]}
+            .{..level, effects: level.effects + [statement]}
         } else {
             level
         }
@@ -588,9 +587,9 @@ fn parent_violation(statement: Statement, visible: List<Statement>) -> Result<Un
 
     if c >= 10 {
         Err(violation(ConstraintKind.Check, "nomi_conformance_c_small", table, Some("c")))
-    } else if Iter.any(parents, fn p -> int_param(p, 0) == id) {
+    } else if Iter.any_match(parents, fn p -> int_param(p, 0) == id) {
         Err(violation(ConstraintKind.Unique, "${table}_pkey", table, Some("id")))
-    } else if Iter.any(parents, fn p -> int_param(p, 1) == k) {
+    } else if Iter.any_match(parents, fn p -> int_param(p, 1) == k) {
         Err(violation(ConstraintKind.Unique, "${table}_k_key", table, Some("k")))
     } else {
         Ok(Unit)
@@ -603,7 +602,7 @@ fn child_violation(statement: Statement, visible: List<Statement>) -> Result<Uni
     table = "nomi_conformance_children"
     parent_id = int_param(statement, 1)
 
-    has_parent = Iter.any(visible, fn s -> {
+    has_parent = Iter.any_match(visible, fn s -> {
         is_shaped(s, insert_parent(0, 0, 0)) and int_param(s, 0) == parent_id
     })
 
@@ -820,11 +819,8 @@ fn expect_constraint(
         }) when found == kind and found_name == name ->
             Ok(Unit)
 
-        Err(e) ->
-            Err("`${statement}` answered `${e}`, not the ${kind} constraint `${name}`")
-
-        Ok(_) ->
-            Err("`${statement}` answered Ok, not the ${kind} constraint `${name}`")
+        Err(e) -> Err("`${statement}` answered `${e}`, not the ${kind} constraint `${name}`")
+        Ok(_) -> Err("`${statement}` answered Ok, not the ${kind} constraint `${name}`")
     }
 }
 

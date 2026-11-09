@@ -89,7 +89,7 @@ once m = f(%{..base, "b" => 2})
 Nested map update inside a struct update
 ================================================================================
 
-once c = #{..cfg, prefs: %{..cfg.prefs, "theme" => "dark"}}
+once c = .{..cfg, prefs: %{..cfg.prefs, "theme" => "dark"}}
 
 --------------------------------------------------------------------------------
 

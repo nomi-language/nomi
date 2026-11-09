@@ -242,8 +242,8 @@ func TestIRBacklogCalls_StructCallFormWithALiteral(t *testing.T) {
 }
 
 test "a literal argument" {
-  d = Defaulted(#{a: 7})
-  e = Defaulted(#{a: 1, b: "x"})
+  d = Defaulted(.{a: 7})
+  e = Defaulted(.{a: 1, b: "x"})
   assert d.a == 7
   assert d.b == "default"
   assert e.b == "x"

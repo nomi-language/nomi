@@ -70,13 +70,13 @@ group "random birthdates" {
 
     test "generate requested number of birthdates" {
         assert 1..=20
-            |> Iter.all(fn size -> {
+            |> Iter.all_match(fn size -> {
                 Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
             })
     }
 
     test "years are not leap years", birthdates {
-        refute birthdates |> Iter.any(fn date -> date |> Date.year() |> Date.is_leap_year())
+        refute birthdates |> Iter.any_match(fn date -> date |> Date.year() |> Date.is_leap_year())
     }
 
     test "months are random", birthdates {

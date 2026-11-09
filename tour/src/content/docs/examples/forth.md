@@ -72,8 +72,7 @@ fn run(
     tokens: List<String>,
 ) -> Result<List<Int>, Error> {
     case tokens {
-        [] ->
-            Ok(stack)
+        [] -> Ok(stack)
 
         [":", name, ..rest] -> {
             if String.to_int(name) |> Maybe.is_some() { return Err(.IllegalOperation) }

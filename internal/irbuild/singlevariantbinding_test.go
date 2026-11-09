@@ -12,7 +12,7 @@ func TestSingleVariantBinding_RunsOnTheVM(t *testing.T) {
 	}
 	path := fixture("single_variant_binding.nomi")
 	const want = "3\n" +
-		"#{a: 1, b: \"x\"}\n" +
+		".{a: 1, b: \"x\"}\n" +
 		"held\n" +
 		"Circle{r: 2}\n" +
 		"ada\n"

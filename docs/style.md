@@ -63,7 +63,7 @@ impl RetryPolicy {
     }
 
     pub fn with_attempts(policy: RetryPolicy, attempts: Int) -> RetryPolicy {
-        #{..policy, attempts}
+        .{..policy, attempts}
     }
 }
 
@@ -200,7 +200,7 @@ differ; within one owner, pick a name that describes the path, such as
 Name a function, binding or field that returns a `Bool` for what it asks. A
 state or an adjective takes `is_` or `has_`: `is_empty`, `is_valid`,
 `is_leap_year`, `has_children`. A verb stays bare: `Set.contains`,
-`String.starts_with`, `Iter.any`, `path.matches`. A `?` after an expression
+`String.starts_with`, `Iter.any_match`, `path.matches`. A `?` after an expression
 propagates a failure (§29), so it is no part of a name.
 
 ### 5. Leave a binding's type off when inference settles it
@@ -361,7 +361,7 @@ Iter.to_set([1, 2, 3])
 - A `|>` chain can feed equality or ordering directly:
   `xs |> Iter.to_list() == [1, 2, 3]`.
 - A `|>` chain can be an operand of `and` or `or` directly:
-  `Iter.is_empty(run) or Iter.windows(list, Iter.count(run)) |> Iter.any(&(&1 == run))`.
+  `Iter.is_empty(run) or Iter.windows(list, Iter.count(run)) |> Iter.any_match(&(&1 == run))`.
   Don't bind it first: a binding runs the chain even when the other operand
   already decides the result, and the operator would not.
 - For arithmetic, concatenation and other expression-building operators, bind
@@ -676,17 +676,19 @@ someone reorders the enum.
 
 ### 16. Leave out a struct literal's type name where the context names it
 
-`#{...}`, a struct literal with no type name after the `#`, builds the struct
-its position expects (spec §4 *Target-typed construction*; tour:
-[Structs, Enums & Distinct Types](/structs-enums-distinct/#structs)), so where an
-annotation, a parameter, a field or a return type already names the struct,
-write `#{...}` rather than `Point{...}`:
+A variant leaves out its enum with a dot where the position names the enum:
+`Shape.Circle{radius}` is `.Circle{radius}`. A struct leaves out its name the
+same way: `Point{x: 0}` is `.{x: 0}`, which builds the struct its position
+expects (spec §4 *Target-typed construction*; tour:
+[Structs, Enums & Distinct Types](/structs-enums-distinct/#structs)). So where
+an annotation, a parameter, a field or a return type already names the
+struct, write `.{...}` rather than `Point{...}`:
 
 ```nomi
-ada = Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
+ada = Person{name: "Ada", address: .{street: "1 Main", city: "Bath"}}
 
 fn origin() -> Point {
-    #{x: 0, y: 0}
+    .{x: 0, y: 0}
 }
 ```
 
@@ -695,7 +697,7 @@ the literal's own line: an argument to a function defined far away, an
 element deep inside a nested call, or a literal whose struct shares field
 names with another struct the reader might expect. `Address{...}` at the
 top of an expression also says what is being built before the fields do, so
-keep it on an unannotated binding (`home = Address{...}`), where `#{...}`
+keep it on an unannotated binding (`home = Address{...}`), where `.{...}`
 would make an anonymous struct instead.
 
 The same holds for a variant. Where the expected type already names its enum
@@ -714,14 +716,14 @@ fn sign(style: Style) -> CurrencySign {
 
 A struct pattern works the same way. Where the value being matched already
 has the struct's type (a `case` subject, the right side of a binding, a
-typed parameter), write `#{...}`, not `Order{...}`:
+typed parameter), write `.{...}`, not `Order{...}`:
 
 ```nomi
 fn describe(order: Order) -> String {
     case order {
-        #{status: .Paid, total} when total > 100 -> "big order"
-        #{status: .Paid} -> "paid"
-        #{status: .Refunded} -> "refunded"
+        .{status: .Paid, total} when total > 100 -> "big order"
+        .{status: .Paid} -> "paid"
+        .{status: .Refunded} -> "refunded"
     }
 }
 ```
@@ -736,7 +738,7 @@ parameter's type.
 Use a tuple, `(a, b)`, for a small, local pairing whose positions are
 obvious (spec §4 *Tuples*; tour:
 [Structs, Enums & Distinct Types](/structs-enums-distinct/#tuples)): a function returning two values, a map entry. Switch to an anonymous
-struct, `#{x: 1, y: 2}` (or a struct), once a slot is updated, or read by
+struct, `.{x: 1, y: 2}` (or a struct), once a slot is updated, or read by
 position far from where the tuple was built. A named field reads better than
 `.second`, and an anonymous struct takes a spread update, which a tuple does
 not. Past four items, use a struct: `.fifth` makes the reader count, and a
@@ -747,16 +749,16 @@ fn divide(x: Int, y: Int) -> (Int, Int) {
     (x / y, x % y)
 }
 
-fn step(point: #{x: Int, y: Int}) -> #{x: Int, y: Int} {
-    #{..point, y: point.y + 1}
+fn step(point: .{x: Int, y: Int}) -> .{x: Int, y: Int} {
+    .{..point, y: point.y + 1}
 }
 ```
 
 To change part of a nested value inside an update (spec §4 *Struct
 Updates*), write the bare `..`
-(`#{..user, address: #{.., city: "NYC"}}`) rather than repeating the path as a
-base (`#{..user.address, city: "NYC"}`); write a literal without `..` only
-when the field gets a whole new value.
+(`.{..user, address: .{.., city: "NYC"}}`; repeating the path as a base,
+`.{..user.address, city: "NYC"}`, is a compile error). Write a literal
+without `..` only when the field gets a whole new value.
 
 ### 18. Read a distinct's value by destructuring
 
@@ -792,7 +794,7 @@ repeat: an anonymous struct, a function type, a long tuple.
 
 ```nomi
 typealias Rule (String) -> Maybe<String>
-typealias Span #{start: Int, end: Int, line: Int}
+typealias Span .{start: Int, end: Int, line: Int}
 ```
 
 When the thing deserves a name, a domain concept that functions take and
@@ -1228,8 +1230,8 @@ if name in reserved {
 }
 ```
 
-not `Iter.any(reserved, fn r -> r == name)`, which spells out the comparison
-`in` makes. Keep `Iter.any` for a predicate other than `==`, and
+not `Iter.any_match(reserved, fn r -> r == name)`, which spells out the comparison
+`in` makes. Keep `Iter.any_match` for a predicate other than `==`, and
 `Iter.contains` for a lazy pipeline, which has no `Contains` impl. A
 predicate that only tests membership needs no lambda:
 `Iter.reject(&(&1 in seen))`. Name the function (`Set.contains`) only where
@@ -1262,10 +1264,7 @@ flowers =
     })
     |> Iter.to_set()
 
-count =
-    neighbours
-    |> Iter.filter(fn (dr, dc) -> (row + dr, column + dc) in flowers)
-    |> Iter.count()
+count = Iter.count_by(neighbours, fn (dr, dc) -> (row + dr, column + dc) in flowers)
 ```
 
 Keep a `Vector<Vector<T>>` read with `Vector.get` when the code reads whole
@@ -1599,7 +1598,7 @@ assert "  ADA LOVELACE  "
 
 assert values
     |> Iter.map(normalize)
-    |> Iter.all(is_valid)
+    |> Iter.all_match(is_valid)
 ```
 
 ### 41. Check a table of inputs with `subtests`
@@ -1805,7 +1804,7 @@ group "signup" {
 ```
 
 A test that needs a different startup builds it from the shared one:
-`#{..test_support.startup(), args: ["--dry-run"]}`. Groups do not nest; write
+`.{..test_support.startup(), args: ["--dry-run"]}`. Groups do not nest; write
 sibling groups, and share setup between them through a function.
 
 Put a group's `setup` at its top, after `clock` and `boot`, where a reader
@@ -2057,3 +2056,6 @@ A function taking an interface value passes where a function of the
 concrete type is expected, so `Result.map_err(text)` works on any error
 that implements `Display` (spec §5 *Assignability*). A struct or an enum of
 your own enters its interface unboxed, so the two forms cost the same.
+
+`nomi check` and the editor suggest this rewrite, with a fix, for a type
+parameter used once as a parameter's type under one bound.

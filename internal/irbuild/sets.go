@@ -75,7 +75,7 @@ var setFuncs = map[string]setFn{
 	"union":        {rtCall: "rt.SetUnion", args: 2, sets: 2, result: "set", ops: true},
 	"intersection": {rtCall: "rt.SetIntersection", args: 2, sets: 2, result: "set", ops: true},
 	"difference":   {rtCall: "rt.SetDifference", args: 2, sets: 2, result: "set", ops: true},
-	"is_subset":    {rtCall: "rt.SetSubset", args: 2, sets: 2, result: "bool", ops: true},
+	"is_subset_of": {rtCall: "rt.SetSubset", args: 2, sets: 2, result: "bool", ops: true},
 }
 
 // setKindOf is the Set kind for element kind elem, or kindInvalid.

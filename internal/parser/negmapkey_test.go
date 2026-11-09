@@ -135,10 +135,10 @@ func TestCaseMapPatternDottedVariantKey(t *testing.T) {
 // Empty braces must not be misclassified as a map pattern by the speculative
 // key-expression disambiguation (no `=>`, so it stays a struct pattern).
 func TestEmptyBraceNotMapPattern(t *testing.T) {
-	expr := parseExpr(t, "case m {\n #{} -> \"empty\"\n _ -> \"no\"\n}")
+	expr := parseExpr(t, "case m {\n .{} -> \"empty\"\n _ -> \"no\"\n}")
 	c := expr.(*ast.Case)
 	if _, ok := c.Branches[0].Pattern.(*ast.MapPattern); ok {
-		t.Fatalf("empty #{} must not parse as a MapPattern, got %T", c.Branches[0].Pattern)
+		t.Fatalf("empty .{} must not parse as a MapPattern, got %T", c.Branches[0].Pattern)
 	}
 }
 
@@ -221,7 +221,7 @@ func TestTypePrefixedMapPatternVariantKey(t *testing.T) {
 	}
 }
 
-// Nested path (enum payload): a tuple key inside `Some(#{...})`.
+// Nested path (enum payload): a tuple key inside `Some(.{...})`.
 func TestEnumPayloadMapPatternTupleKey(t *testing.T) {
 	expr := parseExpr(t, "case x {\n Some(%{(1, 2) => v}) -> v\n _ -> \"no\"\n}")
 	c := expr.(*ast.Case)
@@ -235,9 +235,9 @@ func TestEnumPayloadMapPatternTupleKey(t *testing.T) {
 	}
 }
 
-// Disambiguation: `#{x}` (single field pun) stays a struct pattern.
+// Disambiguation: `.{x}` (single field pun) stays a struct pattern.
 func TestCaseBraceStructPunStaysStruct(t *testing.T) {
-	expr := parseExpr(t, "case m {\n #{x} -> x\n _ -> \"no\"\n}")
+	expr := parseExpr(t, "case m {\n .{x} -> x\n _ -> \"no\"\n}")
 	c := expr.(*ast.Case)
 	sp, ok := c.Branches[0].Pattern.(*ast.StructPattern)
 	if !ok {
@@ -248,10 +248,10 @@ func TestCaseBraceStructPunStaysStruct(t *testing.T) {
 	}
 }
 
-// Disambiguation: `#{x: 1}` (field with literal value pattern) stays a struct
+// Disambiguation: `.{x: 1}` (field with literal value pattern) stays a struct
 // pattern (the `:` separator, not `=>`).
 func TestCaseBraceStructFieldStaysStruct(t *testing.T) {
-	expr := parseExpr(t, "case m {\n #{x: 1} -> x\n _ -> \"no\"\n}")
+	expr := parseExpr(t, "case m {\n .{x: 1} -> x\n _ -> \"no\"\n}")
 	c := expr.(*ast.Case)
 	sp, ok := c.Branches[0].Pattern.(*ast.StructPattern)
 	if !ok {
@@ -262,9 +262,9 @@ func TestCaseBraceStructFieldStaysStruct(t *testing.T) {
 	}
 }
 
-// Disambiguation: multi-field struct pattern `#{x, y}` stays a struct pattern.
+// Disambiguation: multi-field struct pattern `.{x, y}` stays a struct pattern.
 func TestCaseBraceMultiFieldStaysStruct(t *testing.T) {
-	expr := parseExpr(t, "case m {\n #{x, y} -> x\n _ -> \"no\"\n}")
+	expr := parseExpr(t, "case m {\n .{x, y} -> x\n _ -> \"no\"\n}")
 	c := expr.(*ast.Case)
 	sp, ok := c.Branches[0].Pattern.(*ast.StructPattern)
 	if !ok {
@@ -275,7 +275,7 @@ func TestCaseBraceMultiFieldStaysStruct(t *testing.T) {
 	}
 }
 
-// Disambiguation in the destructure-binding form: `#{x} = expr` stays a struct
+// Disambiguation in the destructure-binding form: `.{x} = expr` stays a struct
 // destructure, while `%{k => v} = expr` is a binding of a map pattern.
 func TestMapDestructureExpressionKey(t *testing.T) {
 	nodes := parse(t, "%{(1, 2) => v} = m")
@@ -293,7 +293,7 @@ func TestMapDestructureExpressionKey(t *testing.T) {
 }
 
 func TestStructDestructureStaysStruct(t *testing.T) {
-	nodes := parse(t, "#{x, y} = m")
+	nodes := parse(t, ".{x, y} = m")
 	if _, ok := nodes[0].(*ast.StructDestructure); !ok {
 		t.Fatalf("expected StructDestructure, got %T", nodes[0])
 	}
@@ -354,9 +354,9 @@ func TestLambdaMapParamScalarKey(t *testing.T) {
 	}
 }
 
-// Disambiguation: a multi-field struct param `fn #{x, y} ->` stays a struct pattern.
+// Disambiguation: a multi-field struct param `fn .{x, y} ->` stays a struct pattern.
 func TestLambdaStructParamStaysStruct(t *testing.T) {
-	p := lambdaParam0(t, "fn #{x, y} -> x")
+	p := lambdaParam0(t, "fn .{x, y} -> x")
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("param destructure: expected *ast.StructPattern, got %T", p.Destructure)
@@ -366,9 +366,9 @@ func TestLambdaStructParamStaysStruct(t *testing.T) {
 	}
 }
 
-// Disambiguation: a renamed struct field param `fn #{x: a} ->` stays a struct pattern.
+// Disambiguation: a renamed struct field param `fn .{x: a} ->` stays a struct pattern.
 func TestLambdaStructParamRenameStaysStruct(t *testing.T) {
-	p := lambdaParam0(t, "fn #{x: a} -> a")
+	p := lambdaParam0(t, "fn .{x: a} -> a")
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("param destructure: expected *ast.StructPattern, got %T", p.Destructure)

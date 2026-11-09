@@ -12,8 +12,16 @@ var explanations = map[string]string{
 	"embed-missing": "An `embed` pattern names a folder or path that does not exist yet, such as a frontend's " +
 		"`web/dist` before its first build. `nomi run`, `check` and `test` embed it as an empty folder and warn; " +
 		"`nomi build` refuses. Create it (run the frontend's build), or fix the pattern if the path is wrong.",
+	"interface-value-parameter": "Advice, not an error: a function's type parameter is used only as one parameter's type, " +
+		"under one interface bound, so the parameter can take the interface as its type (`fn label(value: Named)` for " +
+		"`fn label<T>(value: T) where T: Named`). `nomi check` warns and passes the file; the fix writes the interface value " +
+		"and calls `Named.name(value)` for `T.name(value)`. Keep the type parameter when the caller's type matters past the call.",
 	"redundant-prelude-import": "An import names something the prelude already gives every file " +
 		"(`Maybe`, `Result`, `List`, `Iter`, ...). Remove it.",
+	"redundant-nested-spread": "A nested struct update spells the value its field already holds as a path: " +
+		"`.{..ada, address: .{..ada.address, city: \"NYC\"}}`. Inside an update a bare `..` stands for that value, " +
+		"so write `.{..ada, address: .{.., city: \"NYC\"}}`; the fix does. A spread naming another value " +
+		"(`..bob.address`) or a base that is a call is not affected.",
 	"unused-binding": "A binding or parameter is never read. Remove it, or name it with a leading `_` " +
 		"(`_ = f()`, `_unused`) to say the value is ignored on purpose.",
 	"unreleased-resource": "A resource the function acquires (a file reader or writer, a spawned process, a connection, " +

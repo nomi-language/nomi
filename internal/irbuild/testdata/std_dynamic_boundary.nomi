@@ -91,8 +91,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("index err: " + Display.to_string(e))
             }
 
-        Err(e) ->
-            io.print("tags err: " + Display.to_string(e))
+        Err(e) -> io.print("tags err: " + Display.to_string(e))
     }
 
     case Dynamic.field(root, "tags") {
@@ -102,8 +101,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("index oob err: " + Display.to_string(e))
             }
 
-        Err(e) ->
-            io.print("tags err: " + Display.to_string(e))
+        Err(e) -> io.print("tags err: " + Display.to_string(e))
     }
 
     // A negative index takes the out-of-bounds arm, not a third one.
@@ -155,8 +153,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_int err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_int: no field")
+        Err(_) -> io.print("as_int: no field")
     }
 
     case Dynamic.field(root, "score") {
@@ -166,8 +163,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_int fractional err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_int fractional: no field")
+        Err(_) -> io.print("as_int fractional: no field")
     }
 
     // as_float widens an Int the way `Float(n)` would, and refuses a String.
@@ -178,8 +174,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_float err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_float: no field")
+        Err(_) -> io.print("as_float: no field")
     }
 
     case Dynamic.field(root, "age") {
@@ -189,8 +184,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_float widened err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_float widened: no field")
+        Err(_) -> io.print("as_float widened: no field")
     }
 
     case Dynamic.field(root, "name") {
@@ -200,8 +194,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_float on String err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_float on String: no field")
+        Err(_) -> io.print("as_float on String: no field")
     }
 
     // as_bool is strict: no truthiness.
@@ -212,8 +205,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_bool err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_bool: no field")
+        Err(_) -> io.print("as_bool: no field")
     }
 
     case Dynamic.field(root, "age") {
@@ -223,8 +215,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_bool on Int err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_bool on Int: no field")
+        Err(_) -> io.print("as_bool on Int: no field")
     }
 
     // --- the two CONTAINER results ------------------------------------------
@@ -253,12 +244,10 @@ fn main() -> Unit {
                         })
                     )
 
-                Err(e) ->
-                    io.print("as_list err: " + Display.to_string(e))
+                Err(e) -> io.print("as_list err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_list: no field")
+        Err(_) -> io.print("as_list: no field")
     }
 
     case Dynamic.field(root, "name") {
@@ -268,8 +257,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_list on String err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_list on String: no field")
+        Err(_) -> io.print("as_list on String: no field")
     }
 
     case Dynamic.field(root, "nested") {
@@ -279,8 +267,7 @@ fn main() -> Unit {
                 Err(e) -> io.print("as_dict err: " + Display.to_string(e))
             }
 
-        Err(_) ->
-            io.print("as_dict: no field")
+        Err(_) -> io.print("as_dict: no field")
     }
 
     case Dynamic.as_dict(Json.to_dynamic(Json.Int(3))) {

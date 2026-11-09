@@ -325,7 +325,9 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 	if snap.Open {
 		diags = append(diags, s.lowering.diagnostics(snap.URI)...)
 	}
-	if hints := redundantAscriptionDiagnostics(snap.Analysis, snap.Nodes); len(hints) > 0 {
+	hints := redundantAscriptionDiagnostics(snap.Analysis, snap.Nodes)
+	hints = append(hints, interfaceValueDiagnostics(snap.URI, snapInterfaceValueHints(snap, tokens))...)
+	if len(hints) > 0 {
 		lines := newLineIndex(snap.Content)
 		for _, d := range hints {
 			d.Range = lines.utf16Range(d.Range)
@@ -562,6 +564,35 @@ func widenParseErrors(tokens func() []token.Token, diags []protocol.Diagnostic) 
 	for i, e := range analysis.CompleteSpansFrom(tokens, points) {
 		diags[i].Range = errorRange(e.Line, e.Col, e.EndLine, e.EndCol)
 	}
+}
+
+// snapInterfaceValueHints are the advice of snap's document that a type
+// parameter can be an interface value (analysis.InterfaceValueHints, which
+// gives a std file, the source tree's or a materialized copy, none).
+// tokens, when not nil, answers the document's tokens.
+func snapInterfaceValueHints(snap *analysis.DocSnapshot, tokens func() []token.Token) []analysis.TypeError {
+	if snap == nil || snap.Analysis == nil {
+		return nil
+	}
+	if tokens == nil {
+		tokens = func() []token.Token { return lexer.Lex(snap.Content) }
+	}
+	return analysis.InterfaceValueHints(snap.Analysis, snap.Nodes, tokens)
+}
+
+// interfaceValueDiagnostics reports each type parameter that can be an
+// interface value as a hint, not an error, since the program means the
+// same either way. The range is the type parameter's name; the code action
+// offers its fix (typeErrorFixes).
+func interfaceValueDiagnostics(uri string, hints []analysis.TypeError) []protocol.Diagnostic {
+	diags := typeErrorsToDiagnosticsIn(uri, hints)
+	severity := protocol.DiagnosticSeverityHint
+	source := "nomi"
+	for i := range diags {
+		diags[i].Severity = &severity
+		diags[i].Source = &source
+	}
+	return diags
 }
 
 // redundantAscriptionDiagnostics marks each `value as Type` of nodes whose

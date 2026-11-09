@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -21,8 +22,16 @@ import (
 // The test reporter and the failure renderer are rt's, so every runner —
 // `nomi test`, the FFI wrapper, an embedder — prints the same lines.
 
-// TestOptions selects cases: Line with LineSet is `nomi test --line N`.
+// TestOptions selects cases: Line with LineSet is `nomi test --line N`, and
+// Run is `nomi test --run <regexp>`, matched against a case's name as a
+// report prints it after `file :: `.
 type TestOptions = frontend.TestOptions
+
+// CompileTestRun reads a `nomi test --run` pattern, an RE2 regular
+// expression, for TestOptions.Run.
+func CompileTestRun(pattern string) (*regexp.Regexp, error) {
+	return frontend.CompileTestRun(pattern)
+}
 
 // TestReport is what Test reports into.
 type TestReport = rt.TestReporter

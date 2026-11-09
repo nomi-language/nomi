@@ -29,7 +29,7 @@ fn example_time() -> Instant {
 
 // A signed request without its signature, as the canonical request saw it.
 fn unsigned(request: Request) -> Request {
-    #{..request, headers: Headers.remove(request.headers, "Authorization")}
+    .{..request, headers: Headers.remove(request.headers, "Authorization")}
 }
 
 fn empty_hash() -> String {
@@ -179,7 +179,7 @@ fn store_of(c: Config) -> Store {
 }
 
 test "a put sends a signed PUT to the path-style URL with its headers" {
-    c = #{..config(), acl: Some("public-read"), cache_control: Some("max-age=60")}
+    c = .{..config(), acl: Some("public-read"), cache_control: Some("max-age=60")}
 
     ran = http_testing.run(ok_answer, fn -> {
         Store.put(store_of(c), "posts/a.jpg", String.to_bytes("jpeg"), "image/jpeg")
@@ -221,7 +221,7 @@ test "the signed host keeps the endpoint's port" {
 }
 
 test "virtual-host addressing puts the bucket in the host" {
-    c = #{..config(Url`https://nyc3.digitaloceanspaces.com`), addressing: Addressing.VirtualHost}
+    c = .{..config(Url`https://nyc3.digitaloceanspaces.com`), addressing: Addressing.VirtualHost}
     ran = http_testing.run(ok_answer, fn -> Store.get(store_of(c), "a/b.txt"))
     assert [request] = ran.requests
     assert "${request.url}" == "https://photos.nyc3.digitaloceanspaces.com/a/b.txt"
@@ -246,7 +246,7 @@ test "get, info and delete send GET, HEAD and DELETE" {
 }
 
 test "an unsigned payload is not hashed" {
-    c = #{..config(), payload: Payload.Unsigned}
+    c = .{..config(), payload: Payload.Unsigned}
 
     ran = http_testing.run(ok_answer, fn -> {
         Store.put(store_of(c), "a.txt", String.to_bytes("x"), "text/plain")
@@ -277,7 +277,7 @@ test "get reads the type, size and date from the response" {
 }
 
 test "a public base is where url points" {
-    c = #{..config(), public_base: Some(Url`https://cdn.example.com/`)}
+    c = .{..config(), public_base: Some(Url`https://cdn.example.com/`)}
     assert "${Store.url(store_of(c), "a/b.jpg")!}" == "https://cdn.example.com/a/b.jpg"
     assert "${Store.url(store_of(config()), "a/b.jpg")!}" == "http://localhost:9000/photos/a/b.jpg"
 }
@@ -370,7 +370,7 @@ test "a missing bucket is not a missing object to delete" {
 
 test "network failures are Unavailable and a bad certificate is not" {
     failing = fn error: http.Error -> {
-        c = #{..config(), retries: 0}
+        c = .{..config(), retries: 0}
         http_testing.run(fn _ -> Err(error), fn -> Store.get(store_of(c), "a.txt")).value
     }
 
@@ -428,7 +428,7 @@ group "retries" {
     }
 
     test "retries of 0 calls once" {
-        c = #{..config(), retries: 0}
+        c = .{..config(), retries: 0}
         ran = http_testing.run(flaky(5, 500), fn -> Store.delete(store_of(c), "a.txt"))
         assert ran.value is Err(.Unavailable{})
         assert Iter.count(ran.requests) == 1
@@ -439,17 +439,17 @@ test "a config that cannot work is refused" {
     good = config()
 
     [
-        #{..good, endpoint: Url`ftp://localhost:9000`},
-        #{..good, endpoint: Url`https://example.com/base`},
-        #{..good, endpoint: Url`https://example.com?x=1`},
-        #{..good, bucket: "ab"},
-        #{..good, bucket: "Photos"},
-        #{..good, bucket: "-photos"},
-        #{..good, region: ""},
-        #{..good, credentials: Credentials{access_key: "", secret_key: "x"}},
-        #{..good, timeout: Duration.seconds(0)},
-        #{..good, retries: -1},
-        #{
+        .{..good, endpoint: Url`ftp://localhost:9000`},
+        .{..good, endpoint: Url`https://example.com/base`},
+        .{..good, endpoint: Url`https://example.com?x=1`},
+        .{..good, bucket: "ab"},
+        .{..good, bucket: "Photos"},
+        .{..good, bucket: "-photos"},
+        .{..good, region: ""},
+        .{..good, credentials: Credentials{access_key: "", secret_key: "x"}},
+        .{..good, timeout: Duration.seconds(0)},
+        .{..good, retries: -1},
+        .{
             ..good,
             endpoint: Url`https://s3.example.com`,
             bucket: "my.photos",
@@ -462,7 +462,7 @@ test "a config that cannot work is refused" {
 }
 
 test "presigned URLs are on the endpoint and bounded to 7 days" {
-    c = #{..config(), public_base: Some(Url`https://cdn.example.com/`)}
+    c = .{..config(), public_base: Some(Url`https://cdn.example.com/`)}
     assert Ok(get) = s3.presign_get(c, "a/b.jpg", Duration.minutes(5))
 
     assert String.starts_with(
@@ -557,13 +557,11 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error> {
             .Delete ->
                 Store.delete(memory, key) |> Result.map(fn _ -> Response{status: Status.no_content})
 
-            _ ->
-                Ok(Response{status: Status.method_not_allowed})
+            _ -> Ok(Response{status: Status.method_not_allowed})
         }
 
         case answer {
-            Ok(response) ->
-                Ok(response)
+            Ok(response) -> Ok(response)
 
             Err(.NotFound{}) ->
                 Ok(Response{status: Status.not_found, body: error_body("NoSuchKey", "no key")})
@@ -710,7 +708,7 @@ test "the store passes the conformance suite against a fake server" {
     open = fn -> {
         n = Receiver.receive(buckets.receiver)!
         _ = Sender.send(buckets.sender, n + 1)
-        s3.store(#{..config(), bucket: "bucket${n}"})
+        s3.store(.{..config(), bucket: "bucket${n}"})
     }
 
     ran = http_testing.run(fake_s3(Memory.new()), fn -> storage_testing.conformance(open))
@@ -738,7 +736,7 @@ test "a key is sent and signed with each byte outside A-Z a-z 0-9 - _ . ~ escape
 }
 
 test "a public URL escapes each segment of the key" {
-    c = #{..config(), public_base: Some(Url`https://cdn.example.com/`)}
+    c = .{..config(), public_base: Some(Url`https://cdn.example.com/`)}
     u = Store.url(store_of(c), "a(1) b/50%.jpg")!
     assert u.path == "/a(1) b/50%.jpg"
     assert "${u}" == "https://cdn.example.com/a%281%29%20b/50%25.jpg"

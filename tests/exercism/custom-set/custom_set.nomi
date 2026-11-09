@@ -6,8 +6,6 @@ pub opaque struct CustomSet<T> {
     items: List<T>
 }
 
-derive Equatable for CustomSet<T>
-
 impl CustomSet<T> {
     /// The set of `values`, each kept once.
     pub fn from(values: List<T>) -> CustomSet<T> where T: Comparable {
@@ -26,29 +24,29 @@ impl CustomSet<T> {
 
     /// Whether every value of `set` is in `other`.
     pub fn is_subset(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        Iter.all(set.items, &CustomSet.contains(other, &1))
+        Iter.all_match(set.items, &CustomSet.contains(other, &1))
     }
 
     /// Whether `set` and `other` share no value.
     pub fn is_disjoint(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        not Iter.any(set.items, &CustomSet.contains(other, &1))
+        not Iter.any_match(set.items, &CustomSet.contains(other, &1))
     }
 
     /// `set` with `element` in it.
     pub fn add(set: CustomSet<T>, element: T) -> CustomSet<T> where T: Comparable {
-        CustomSet{items: insert(set.items, element)}
+        .{items: insert(set.items, element)}
     }
 
     /// The values in both `set` and `other`.
     pub fn intersection(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
-        CustomSet{
+        .{
             items: set.items |> Iter.filter(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
 
     /// The values in `set` that are not in `other`.
     pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
-        CustomSet{
+        .{
             items: set.items |> Iter.reject(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
@@ -63,8 +61,7 @@ impl CustomSet<T> {
 /// `element` in its place, or unchanged when it holds `element` already.
 fn insert<T>(items: List<T>, element: T) -> List<T> where T: Comparable {
     case items {
-        [] ->
-            [element]
+        [] -> [element]
 
         [first, ..rest] ->
             case Comparable.compare(element, first) {

@@ -100,7 +100,7 @@ Each line sees the values set by the lines above it.
 
 `with` replaces whole fields of the app struct. To change one part of a
 field, build an updated copy of it:
-`with App.database = #{..App.database, host: "localhost"}`.
+`with App.database = .{..App.database, host: "localhost"}`.
 
 ```nomi-run
 import {
@@ -281,8 +281,13 @@ pub fn open(path: String) -> Result<SqliteStore, sql.Error> {
 }
 ```
 
-The checker asks for it: a `?` between opening a value and handing it on,
-with nothing that releases it on that path, is an error.
+The checker holds these rules for every resource. An opened value that is
+neither released by a `defer` nor returned is an error. So is a `?` between opening a value and
+handing it on, with nothing that releases it on that path, and a path that
+returns normally without the value, such as `return Ok(None)`, unless it
+calls the release first. A value that a plain `defer` releases can't leave
+its block, since it is closed by the time anything outside sees it.
+[Files](/files/#streams) shows the errors.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -376,17 +381,15 @@ fn configure(deployment: String) -> Config {
     base = Config{deployment}
 
     case deployment {
-        "prod" ->
-            Struct.update(base, #{max_connections: 20})
+        "prod" -> Struct.update(base, .{max_connections: 20})
 
         "test" ->
             Struct.update(
                 base,
-                #{database_url: "postgres://localhost/myapp_test", max_connections: 2},
+                .{database_url: "postgres://localhost/myapp_test", max_connections: 2},
             )
 
-        _ ->
-            base
+        _ -> base
     }
 }
 
@@ -397,7 +400,7 @@ fn boot(startup: Startup) -> Result<Config, String> {
     database_url =
         Map.get(startup.env, "DATABASE_URL") |> Maybe.with_default(configured.database_url)
 
-    Ok(Struct.update(configured, #{database_url}))
+    Ok(Struct.update(configured, .{database_url}))
 }
 
 fn main() {
@@ -441,9 +444,8 @@ Spec: [Context](/spec/program-execution/#context),
 Code that reads app fields, such as `Config.env`, needs a `boot` to run. In
 a test, the group calls `boot` on a `boot` line, passing a `Startup` if
 `boot` takes one. Code that reads no app field needs no `boot` line.
-
-Each test starts fresh: `boot` runs, then the group's `setup`, then the
-test's body.
+[Testing](/testing/#groups-and-setup) covers groups, `setup` and the order
+they run in for each test.
 
 ```nomi-run
 import std::io
@@ -528,14 +530,13 @@ test result: ok. 2 passed, 0 failed
 -->
 
 When the program itself runs, `boot` still gets the real arguments. The
-default is used only by a `boot` line that passes nothing.
+default is used only by a `boot` line that passes nothing. To run the same
+tests under several boots, put the group's lines in a `subtests` block
+([Testing](/testing/#subtests-in-a-group)).
 
 In a larger project, tests live in their own file. They import the file that
-holds `main` and call its boot, as `server.boot` below.
-
-A `with` line in `setup` stays in force for the whole test, so `setup` is a
-good place to swap in a fake. A `defer` in `boot` or `setup` runs when the
-test finishes:
+holds `main` and call its boot, as `server.boot` below. Its `setup` swaps
+in a fake mailer with a `with` line:
 
 ```nomi
 // server_test.nomi
@@ -630,7 +631,8 @@ ok postgres without a URL stops the program
 test result: ok. 1 passed, 0 failed
 -->
 
-Outside a test, `boot` can only be called on a group's `boot` line.
+Only a test and a group's `boot` line can call an entry's `boot`. Anywhere
+else, a call of it, or a use of it as a value, is an error.
 
 [Input & Output](/input-and-output/) is next. It prints, reads input and
 sets the exit status.

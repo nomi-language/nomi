@@ -16,8 +16,6 @@ pub enum Error {
     AmountAboveBalance
 }
 
-derive Equatable for Error
-
 impl Display for Error {
     fn to_string(error: Error) -> String {
         case error {
@@ -70,7 +68,7 @@ impl Account {
 }
 
 /// Runs `body` with a new account, not yet open, whose teller runs as a
-/// task beside it, and answers what `body` answers. The teller stops when
+/// task beside it, and returns what `body` returns. The teller stops when
 /// `body` returns.
 pub fn with_account<T>(body: (Account) -> T) -> T {
     inbox = Channel.buffered<Request>(16)
@@ -103,31 +101,22 @@ fn ask<T>(account: Account, request: (Channel<T>) -> Request) -> T {
 
 /// The teller: answers requests one at a time until the inbox closes. The
 /// balance is the loop's state, `None` while the account is not open.
-fn serve(inbox: Receiver<Request>) -> Unit {
-    _final = Iter.loop(None, fn balance -> {
+fn serve(inbox: Receiver<Request>) {
+    _ = Iter.loop(None, fn balance -> {
         case Receiver.receive(inbox) {
             Some(request) -> handle(balance, request)
             None -> break balance
         }
     })
-
-    Unit
 }
 
-/// Answers `request` against `balance` and answers the balance after it.
+/// Answers `request` against `balance` and returns the balance after it.
 fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int> {
     case request {
-        .Open{reply} ->
-            answer(reply, balance, opened(balance))
-
-        .Close{reply} ->
-            answer(reply, balance, closed(balance))
-
-        .Deposit{amount, reply} ->
-            answer(reply, balance, deposited(balance, amount))
-
-        .Withdraw{amount, reply} ->
-            answer(reply, balance, withdrawn(balance, amount))
+        .Open{reply} -> answer(reply, balance, opened(balance))
+        .Close{reply} -> answer(reply, balance, closed(balance))
+        .Deposit{amount, reply} -> answer(reply, balance, deposited(balance, amount))
+        .Withdraw{amount, reply} -> answer(reply, balance, withdrawn(balance, amount))
 
         .Balance{reply} -> {
             _ = Sender.send(reply.sender, Maybe.to_result(balance, .AccountNotOpen))
@@ -136,7 +125,7 @@ fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int> {
     }
 }
 
-/// Sends `reply` whether `next` succeeded, and answers the balance after
+/// Sends `reply` whether `next` succeeded, and returns the balance after
 /// it: the new one, or `balance` unchanged.
 fn answer(
     reply: Channel<Result<Unit, Error>>,

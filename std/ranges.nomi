@@ -127,8 +127,7 @@ impl Contains for Range<T> where T: Comparable {
                 }
             }
 
-            None ->
-                x >= c.start
+            None -> x >= c.start
         }
     }
 }
@@ -153,8 +152,7 @@ impl Display for Range<T> {
                 start_str + sep + Debug.inspect(e)
             }
 
-            None ->
-                start_str + ".."
+            None -> start_str + ".."
         }
     }
 }
@@ -194,8 +192,7 @@ impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
                     r.start < e
                 }
 
-            None ->
-                True
+            None -> True
         }
 
         if in_bounds == False {
@@ -204,8 +201,7 @@ impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
             case step {
                 // No further step exists (the element type saturated): `r.start` is
                 // the last element.
-                None ->
-                    yield(r.start)
+                None -> yield(r.start)
 
                 Some(next) -> {
                     moved = next < r.start or next > r.start
@@ -251,8 +247,7 @@ impl Iter for Range<T> where T: Discrete {
                 }
             }
 
-            None ->
-                None
+            None -> None
         }
     }
 
@@ -265,8 +260,7 @@ impl Iter for Range<T> where T: Discrete {
                     r.start >= e
                 }
 
-            None ->
-                False
+            None -> False
         }
 
         if done {
@@ -274,8 +268,7 @@ impl Iter for Range<T> where T: Discrete {
         } else {
             case Discrete.next(r.start) {
                 // The element type saturated: `r.start` is the last element.
-                None ->
-                    yield(r.start)
+                None -> yield(r.start)
 
                 Some(next) ->
                     if yield(r.start) {

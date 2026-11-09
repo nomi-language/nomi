@@ -165,10 +165,10 @@ func TestDeriveChecksEachPartOfATupleOrAnonymousStructField(t *testing.T) {
 		{"Equatable", "(Int, P)", false},
 		{"Comparable", "(Int, P)", false},
 		{"Display", "(Int, P)", false},
-		{"Hashable", "#{a: Int, p: P}", false},
-		{"Equatable", "#{a: Int, p: (P, Int)}", false},
+		{"Hashable", ".{a: Int, p: P}", false},
+		{"Equatable", ".{a: Int, p: (P, Int)}", false},
 		{"Hashable", "(Int, String)", true},
-		{"Equatable", "#{a: Int, b: (String, Int)}", true},
+		{"Equatable", ".{a: Int, b: (String, Int)}", true},
 	} {
 		p, keys := plain, "\nfn keys(p: P) -> Map<P, Int> {\n    %{p => 1}\n}\n"
 		help := "add `derive " + tc.iface + "` to `P` or write an `impl " + tc.iface + " for P` block"

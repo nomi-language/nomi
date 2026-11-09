@@ -179,7 +179,7 @@ func pageDescription(tourDir, link string) string {
 	return ""
 }
 
-const llmsSummary = "Nomi is a statically typed, fully immutable, functional-first language. Calls are qualified (`String.trim(s)`, never `s.trim()`), a named struct is built by its name (`Point{x: 1}`) and other literals start with their shape's symbol (`#{x: 1}`, `%{\"a\" => 1}`), errors are `Maybe` and `Result` values with a postfix `?`, and tasks run inside `concurrent` blocks. It runs on a bytecode VM written in Go."
+const llmsSummary = "Nomi is a statically typed, fully immutable, functional-first language. Calls are qualified (`String.trim(s)`, never `s.trim()`), a named struct is built by its name (`Point{x: 1}`) and other literals start with their shape's symbol (`.{x: 1}`, `%{\"a\" => 1}`), errors are `Maybe` and `Result` values with a postfix `?`, and tasks run inside `concurrent` blocks. It runs on a bytecode VM written in Go."
 
 // comingFrom is the sidebar group of guides for someone who writes another
 // language.

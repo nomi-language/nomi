@@ -13,15 +13,15 @@ func TestPipeStage_TakesTheExpectedTypeAsTheDirectCallDoes(t *testing.T) {
 `
 	for name, body := range map[string]string{
 		"direct": `fn f() -> Maybe<P> {
-    Maybe.map(Some(1), fn x -> #{x})
+    Maybe.map(Some(1), fn x -> .{x})
 }
 `,
 		"pipe": `fn f() -> Maybe<P> {
-    Some(1) |> Maybe.map(fn x -> #{x})
+    Some(1) |> Maybe.map(fn x -> .{x})
 }
 `,
 		"pipe into an annotated binding": `fn f() -> Maybe<P> {
-    p: Maybe<P> = Some(1) |> Maybe.map(fn x -> #{x})
+    p: Maybe<P> = Some(1) |> Maybe.map(fn x -> .{x})
     p
 }
 `,
@@ -43,11 +43,11 @@ func TestPipeStage_ExpectedTypeStillRejectsALiteralThatDoesNotFit(t *testing.T) 
 `
 	for name, body := range map[string]string{
 		"direct": `fn f() -> Maybe<P> {
-    Maybe.map(Some(1), fn x -> #{y: x})
+    Maybe.map(Some(1), fn x -> .{y: x})
 }
 `,
 		"pipe": `fn f() -> Maybe<P> {
-    Some(1) |> Maybe.map(fn x -> #{y: x})
+    Some(1) |> Maybe.map(fn x -> .{y: x})
 }
 `,
 	} {

@@ -110,13 +110,13 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		// another file's implementing type: that block's own function.
 		return p
 	}
-	impl := bl.g.implsByIface[d.nomi][recv]
+	impl := bl.g.implsByIface[bl.g.implsKey(d)][recv]
 	if impl == nil {
 		if p := bl.stdRecvIfacePlan(t, args, d, method, recv); p != nil {
 			// `Show.show([1, 2])`: an impl over a std container.
 			return p
 		}
-		if defs := bl.g.instImpls[d.nomi][recv]; len(defs) > 0 {
+		if defs := bl.g.instImpls[bl.g.implsKey(d)][recv]; len(defs) > 0 {
 			// `Holds.holds(b, 1)` where Box implements Holds at several
 			// type arguments: the call's own.
 			impl, _ = bl.pickInstImpl(t, defs, method, args)

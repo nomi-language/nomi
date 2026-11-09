@@ -3,6 +3,7 @@ package std
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -53,13 +54,21 @@ func TestShared_ModulesAreLoadsModules(t *testing.T) {
 	if got, want := len(lib.Errors), len(full.Errors); got != want {
 		t.Errorf("the stdlib from interfaces has errors in %d modules, Load's in %d", got, want)
 	}
-	for _, name := range sortedNames(full.Files) {
+	requireLoadsModules(t, lib, full)
+}
+
+// requireLoadsModules holds each module lib has built to full's, Load's:
+// its declarations before its bodies are checked, and its whole analysis
+// after.
+func requireLoadsModules(t *testing.T, lib, full *StdLib) {
+	t.Helper()
+	for _, name := range sortedNames(lib.Files) {
 		got, want := analysis.DumpDeclarationsForTest(lib.Files[name]), analysis.DumpDeclarationsForTest(full.Files[name])
 		if d := firstDifference(got, want); got != want && d != "" {
 			t.Errorf("std/%s declares other than Load's before its bodies are checked:\n%s", name, d)
 		}
 	}
-	for _, name := range sortedNames(full.Files) {
+	for _, name := range sortedNames(lib.Files) {
 		if err := lib.Bodies(name); err != nil {
 			t.Fatalf("std/%s: %v", name, err)
 		}
@@ -167,6 +176,32 @@ func TestStdArtifact_RefusesAStaleOrCorruptOne(t *testing.T) {
 	for name, bad := range cases {
 		if _, err := decodeStdArtifact(bad); err == nil {
 			t.Errorf("an artifact with %s changed decodes", name)
+		}
+	}
+}
+
+// TestStdArtifact_ExportsAreTheSources holds the artifact's record of what
+// each module exports to the import help, decoded, to what parsing std's
+// sources answers, which a process with no artifact reads.
+func TestStdArtifact_ExportsAreTheSources(t *testing.T) {
+	art, err := decodeStdArtifact(encodeStdArtifact(extractStdArtifact()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := analysis.StdExportsFromSources(moduleSources())
+	if len(want) == 0 {
+		t.Fatal("std's sources export nothing")
+	}
+	if !reflect.DeepEqual(art.exports, want) {
+		for name, e := range want {
+			if !reflect.DeepEqual(art.exports[name], e) {
+				t.Errorf("std/%s: the artifact records %+v, its source %+v", name, art.exports[name], e)
+			}
+		}
+		for name := range art.exports {
+			if _, ok := want[name]; !ok {
+				t.Errorf("the artifact records std/%s, which has no flat source", name)
+			}
 		}
 	}
 }

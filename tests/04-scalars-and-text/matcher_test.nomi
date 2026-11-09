@@ -82,13 +82,13 @@ test "find works over Unicode text" {
 test "find is the first element find_all returns" {
     texts = ["", "abc", "banana", "order 66, aisle 7", "café crème", "a1b22c"]
 
-    assert Iter.all(texts, &first_agrees(&1, "an"))
-    assert Iter.all(texts, &first_agrees(&1, ""))
-    assert Iter.all(texts, &first_agrees(&1, "z"))
-    assert Iter.all(texts, fn t -> first_agrees(t, Regex`\d+`))
-    assert Iter.all(texts, fn t -> first_agrees(t, Regex`a*`))
-    assert Iter.all(texts, fn t -> first_agrees(t, Regex`a|an`))
-    assert Iter.all(texts, fn t -> first_agrees(t, Regex`\p{L}+`))
+    assert Iter.all_match(texts, &first_agrees(&1, "an"))
+    assert Iter.all_match(texts, &first_agrees(&1, ""))
+    assert Iter.all_match(texts, &first_agrees(&1, "z"))
+    assert Iter.all_match(texts, fn t -> first_agrees(t, Regex`\d+`))
+    assert Iter.all_match(texts, fn t -> first_agrees(t, Regex`a*`))
+    assert Iter.all_match(texts, fn t -> first_agrees(t, Regex`a|an`))
+    assert Iter.all_match(texts, fn t -> first_agrees(t, Regex`\p{L}+`))
 }
 
 fn first_agrees<M>(text: String, m: M) -> Bool where M: Matcher {

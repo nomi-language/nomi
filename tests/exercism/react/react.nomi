@@ -29,19 +29,17 @@ pub enum Error {
     NotAnInput String
 }
 
-derive Equatable for Error
-
 impl Reactor {
     /// A reactor with no cells.
     pub fn new() -> Reactor {
-        Reactor{values: %{}, inputs: %[], computed: [], callbacks: %{}}
+        .{values: %{}, inputs: %[], computed: [], callbacks: %{}}
     }
 
     /// `reactor` with an input cell `name` holding `value`.
     pub fn input(reactor: Reactor, name: String, value: Int) -> Result<Reactor, Error> {
         if name in reactor.values { return Err(.Duplicate(name)) }
 
-        Ok(#{
+        Ok(.{
             ..reactor,
             values: Map.put(reactor.values, name, value),
             inputs: Set.insert(reactor.inputs, name),
@@ -58,13 +56,13 @@ impl Reactor {
     ) -> Result<Reactor, Error> {
         if name in reactor.values { return Err(.Duplicate(name)) }
 
-        if Some(unknown) = Iter.find(inputs, &(not Map.contains(reactor.values, &1))) {
+        if Some(unknown) = Iter.find(inputs, &(not &1 in reactor.values)) {
             return Err(.UnknownCell(unknown))
         }
 
         cell = Computed{name, inputs, compute}
 
-        Ok(#{
+        Ok(.{
             ..reactor,
             values: Map.put(reactor.values, name, value_of(cell, reactor.values)),
             computed: [..reactor.computed, cell],
@@ -102,7 +100,7 @@ impl Reactor {
             |> Iter.map(fn (callback, cell) -> (callback, Map.get(values, cell)!))
             |> Iter.to_map()
 
-        Ok((#{..reactor, values}, fired))
+        Ok((.{..reactor, values}, fired))
     }
 
     /// `reactor` with the callback `callback` watching the cell `cell`.
@@ -113,14 +111,14 @@ impl Reactor {
     ) -> Result<Reactor, Error> {
         if not cell in reactor.values { return Err(.UnknownCell(cell)) }
 
-        Ok(#{..reactor, callbacks: Map.put(reactor.callbacks, callback, cell)})
+        Ok(.{..reactor, callbacks: Map.put(reactor.callbacks, callback, cell)})
     }
 
     /// `reactor` without the callback `callback` on `cell`; the same
     /// reactor when it is not there.
     pub fn remove_callback(reactor: Reactor, cell: String, callback: String) -> Reactor {
         if Map.get(reactor.callbacks, callback) == Some(cell) {
-            #{..reactor, callbacks: Map.remove(reactor.callbacks, callback)}
+            .{..reactor, callbacks: Map.remove(reactor.callbacks, callback)}
         } else {
             reactor
         }

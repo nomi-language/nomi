@@ -57,11 +57,11 @@ leave that field out when you build the struct. When the default says the
 type, the type can go: `age = 0` is an `Int` field. An empty list or `None`
 says no type, so `tags: List<String> = []` keeps it.
 
-You can often leave out the type name too, and write just `#{...}`: when the
+You can often leave out the type name too, and write just `.{...}`: when the
 code around the literal already says which struct it needs, the literal
 builds that struct. That happens with a type annotation, a parameter, a field, a
 return type, or an earlier element of the same list or map
-(`[Address{...}, #{...}]`):
+(`[Address{...}, .{...}]`):
 
 ```nomi-run
 struct Address {
@@ -76,7 +76,7 @@ struct Person {
 
 fn main() {
     // The annotation names Person, and Person's field names Address.
-    ada: Person = #{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
+    ada: Person = .{name: "Ada", address: .{street: "1 Main", city: "Bath"}}
     dbg ada
 }
 
@@ -85,7 +85,7 @@ fn main() {
 dbg line 14: ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
 -->
 
-When nothing says which struct is needed, a `#{...}` literal is an anonymous
+When nothing says which struct is needed, a `.{...}` literal is an anonymous
 struct. A plain `{` always opens a block. In the head of an `if` or `case`, a
 named literal goes in parentheses, `case (User{name: "Ada"}) { ... }`, since
 there the `{` after a name opens the body.
@@ -98,9 +98,9 @@ there the `{` after a name opens the body.
 - A default runs once for each construction that leaves its field out.
 - Each field is named once: `User{name: "Al", name: "Bo"}` is an error.
 - A struct also has a call form taking an anonymous struct:
-  `User(#{name: "Ada"})`, which a pipe can feed.
-- `#{...}` stays anonymous where an interface or a type parameter is
-  expected, since neither names one struct: `a: Display = #{street: "x"}`
+  `User(.{name: "Ada"})`, which a pipe can feed.
+- `.{...}` stays anonymous where an interface or a type parameter is
+  expected, since neither names one struct: `a: Display = .{street: "x"}`
   is a type mismatch.
 
 Spec: [Structs](/spec/types/#structs),
@@ -113,26 +113,26 @@ Spec: [Structs](/spec/types/#structs),
 
 ```nomi-run
 fn main() {
-    point = #{x: 10, y: 20}
+    point = .{x: 10, y: 20}
     dbg point
     dbg point.x + point.y
 }
 
 ```
 <!-- expect
-dbg line 3: point = #{x: 10, y: 20}
+dbg line 3: point = .{x: 10, y: 20}
 dbg line 4: point.x + point.y = 30
 -->
 
 An anonymous struct is a quick record with no declared type. Its type is just
-its fields, written the way the value is: here `#{x: Int, y: Int}`. You read
+its fields, written the way the value is: here `.{x: Int, y: Int}`. You read
 its fields the same way. Punning works here too: with a binding `name` in scope,
-`#{name}` is `#{name: name}`.
+`.{name}` is `.{name: name}`.
 
 ## Updating a struct
 
 A value never changes. To change a field, you build a new value from the old
-one. `#{..base, field: value}` copies `base` and replaces the fields you write
+one. `.{..base, field: value}` copies `base` and replaces the fields you write
 after it:
 
 ```nomi-run
@@ -143,29 +143,29 @@ struct User {
 
 fn main() {
     alice = User{name: "Alice", age: 30}
-    older = #{..alice, age: 31}
+    older = .{..alice, age: 31}
     dbg older
 
-    point = #{x: 10, y: 20}
-    dbg #{..point, x: 9}
+    point = .{x: 10, y: 20}
+    dbg .{..point, x: 9}
 
     // Punning works after a spread: `age` means `age: age`.
     age = 32
-    dbg #{..alice, age}
+    dbg .{..alice, age}
 }
 
 ```
 <!-- expect
 dbg line 9: older = User{name: "Alice", age: 31}
-dbg line 12: #{..point, x: 9} = #{x: 9, y: 20}
-dbg line 16: #{..alice, age} = User{name: "Alice", age: 32}
+dbg line 12: .{..point, x: 9} = .{x: 9, y: 20}
+dbg line 16: .{..alice, age} = User{name: "Alice", age: 32}
 -->
 
 The result has the same type as `base`. Update a `User` and you get a `User`;
 update an anonymous struct and you get an anonymous struct. So you do not write
 the type name: `User{..alice, age: 31}` is an error.
 
-To change a field inside a nested struct, there are two ways:
+To change a field inside a nested struct, write `..` with nothing after it:
 
 ```nomi-run
 struct Address {
@@ -179,30 +179,28 @@ struct Person {
 }
 
 fn main() {
-    ada = Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
-    dbg #{..ada, address: #{..ada.address, city: "NYC"}}
-    dbg #{..ada, address: #{.., city: "NYC"}}
+    ada = Person{name: "Ada", address: .{street: "1 Main", city: "Bath"}}
+    dbg .{..ada, address: .{.., city: "NYC"}}
 }
 
 ```
 <!-- expect
-dbg line 13: #{..ada, address: #{..ada.address, city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
-dbg line 14: #{..ada, address: #{.., city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
+dbg line 13: .{..ada, address: .{.., city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
 -->
 
-The first line spreads `ada.address` by name. The second writes a `..` with
-nothing after it, which means the value the field already holds. Both change
-the city and keep the street.
+The `..` means the value the field already holds, so this changes the city and
+keeps the street. Spelling that value out, `.{..ada.address, city: "NYC"}`, is
+an error that asks for the `..`.
 
 [`Struct.update`](/reference/structs/) does the same as a function call. It
 takes the changes as an argument:
-`Struct.update(ada, #{address: #{.., city: "NYC"}})`. Use it when the changes
+`Struct.update(ada, .{address: .{.., city: "NYC"}})`. Use it when the changes
 are computed, or as a step in a pipe.
 
 Anything else you put in a field replaces the whole value. That includes a
-`#{...}` literal without `..`. So `#{..ada, address: #{city: "NYC"}}` is an error,
+`.{...}` literal without `..`. So `.{..ada, address: .{city: "NYC"}}` is an error,
 because it builds a new `Address` with no street. The compiler says
-`missing field 'street' of Address` and suggests `#{.., city: "NYC"}`.
+`missing field 'street' of Address` and suggests `.{.., city: "NYC"}`.
 
 The same `..` works for a map's values and for list fields (`[t, ..]`), as the
 [collections chapter](/collections/#spreads) shows.
@@ -499,9 +497,9 @@ dbg line 22: describe(.West) = "left"
 -->
 
 `Direction.North` always works. When the compiler already knows the code needs
-a `Direction`, you can write just `.North`. For a variant with fields, the `#`
-goes in front of the dot: `.Rectangle{width: 4.0, height: 5.0}`, as in
-`Shape.Rectangle{...}`.
+a `Direction`, you can write just `.North`. A variant with fields drops its
+enum the same way: `.Rectangle{width: 4.0, height: 5.0}` is
+`Shape.Rectangle{...}`, as a struct's `.{...}` drops the struct's name.
 
 That works in the arms of a `case` on a `Direction`, as above. `case` is
 covered in [Pattern Matching](/pattern-matching/). It also works for an
@@ -523,7 +521,7 @@ it: `walk = [Direction.North, .East]`.
 - In a comparison one side must name the enum: `.Red == .Green` is an
   error.
 - A struct variant has no positional form: `Shape.Rectangle(4.0, 5.0)` is
-  an error. `Shape.Rectangle(#{width: 4.0, height: 5.0})` works.
+  an error. `Shape.Rectangle(.{width: 4.0, height: 5.0})` works.
 - Only a struct variant's fields take defaults. `Circle Float = 3.14` is an
   error.
 
@@ -546,7 +544,7 @@ impl User {
     }
 
     fn rename(user: User, first: String) -> User {
-        #{..user, first}
+        .{..user, first}
     }
 }
 
@@ -688,7 +686,7 @@ anywhere. There is no wrapping and no conversion: `too_short` is an ordinary
 function, and the list holds it as a `Rule`. `Maybe.values` keeps the `Some`
 returns and drops the `None`s.
 
-The point is shorter signatures. `problems` takes a `List<Rule>` instead of a
+An alias shortens signatures: `problems` takes a `List<Rule>` instead of a
 `List<(String) -> Maybe<String>>`. Reach for an alias to shorten a long
 anonymous shape like this one: a function type, an anonymous struct or a long
 tuple. An alias takes no type parameters. You cannot write an `impl` for it,

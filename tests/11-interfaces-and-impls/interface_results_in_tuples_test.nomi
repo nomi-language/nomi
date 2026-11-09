@@ -95,7 +95,7 @@ test "a tuple held in a variable enters as a literal does" {
 test "an annotated binding, a record and a declared result" {
     pair: (String, (Int) -> ToAnswer) = ("a", failing)
     assert first(pair, 1) == 404
-    record: #{name: String, handler: (Int) -> ToAnswer} = #{name: "r", handler: failing}
+    record: .{name: String, handler: (Int) -> ToAnswer} = .{name: "r", handler: failing}
     assert ToAnswer.to_answer(record.handler(8)).code == 8
     assert first(bypassed("x"), 2) == 404
 }

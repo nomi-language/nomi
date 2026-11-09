@@ -78,8 +78,7 @@ fn connect(path: String) -> Result<sqlite.Conn, String> {
     )
 
     case created {
-        Ok(_) ->
-            Ok(conn)
+        Ok(_) -> Ok(conn)
 
         Err(e) -> {
             sqlite.close(conn)

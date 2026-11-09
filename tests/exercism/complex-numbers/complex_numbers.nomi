@@ -6,12 +6,10 @@ pub opaque struct Complex {
     imaginary: Float
 }
 
-derive Equatable for Complex
-
 impl Complex {
     /// `real + imaginary * i`.
     pub fn new(real: Float, imaginary: Float) -> Complex {
-        Complex{real, imaginary}
+        .{real, imaginary}
     }
 
     /// The real part of `z`.
@@ -31,13 +29,13 @@ impl Complex {
 
     /// `z` with its imaginary part negated.
     pub fn conjugate(z: Complex) -> Complex {
-        Complex{real: z.real, imaginary: -z.imaginary}
+        .{..z, imaginary: -z.imaginary}
     }
 
     /// `e` to the power `z`: `e^a * (cos(b) + i * sin(b))`.
     pub fn exp(z: Complex) -> Complex {
         scale = Float.exp(z.real)
-        Complex{real: scale * Float.cos(z.imaginary), imaginary: scale * Float.sin(z.imaginary)}
+        .{real: scale * Float.cos(z.imaginary), imaginary: scale * Float.sin(z.imaginary)}
     }
 
     /// Whether each part of `a` is within `tolerance` of the same part of
@@ -49,25 +47,25 @@ impl Complex {
 
     /// `x` as a complex number with no imaginary part.
     pub fn from_real(x: Float) -> Complex {
-        Complex{real: x, imaginary: 0.0}
+        .{real: x, imaginary: 0.0}
     }
 }
 
 impl Add<Complex, Complex> for Complex {
     fn add(lhs: Complex, rhs: Complex) -> Complex {
-        Complex{real: lhs.real + rhs.real, imaginary: lhs.imaginary + rhs.imaginary}
+        .{real: lhs.real + rhs.real, imaginary: lhs.imaginary + rhs.imaginary}
     }
 }
 
 impl Subtract<Complex, Complex> for Complex {
     fn subtract(lhs: Complex, rhs: Complex) -> Complex {
-        Complex{real: lhs.real - rhs.real, imaginary: lhs.imaginary - rhs.imaginary}
+        .{real: lhs.real - rhs.real, imaginary: lhs.imaginary - rhs.imaginary}
     }
 }
 
 impl Multiply<Complex, Complex> for Complex {
     fn multiply(lhs: Complex, rhs: Complex) -> Complex {
-        Complex{
+        .{
             real: lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
             imaginary: lhs.imaginary * rhs.real + lhs.real * rhs.imaginary,
         }
@@ -79,7 +77,7 @@ impl Divide<Complex, Complex> for Complex {
     fn divide(lhs: Complex, rhs: Complex) -> Complex {
         denominator = rhs.real * rhs.real + rhs.imaginary * rhs.imaginary
 
-        Complex{
+        .{
             real: (lhs.real * rhs.real + lhs.imaginary * rhs.imaginary) / denominator,
             imaginary: (lhs.imaginary * rhs.real - lhs.real * rhs.imaginary) / denominator,
         }

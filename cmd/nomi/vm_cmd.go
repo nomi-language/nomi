@@ -107,18 +107,58 @@ func testVM(stop context.Context, root string, opts vmhost.TestOptions, format v
 			return errTestsFailed
 		}
 	}
+	fileOpts := opts
+	if opts.LineSet && len(files) > 1 {
+		fileOpts.LineSet = false
+	}
+	if opts.Run != nil {
+		selecting := filesSelectingTests(files, fileOpts)
+		if len(selecting) == 0 {
+			err := fmt.Errorf("no test matches --run %q", opts.Run.String())
+			if fileOpts.LineSet {
+				err = fmt.Errorf("no test at %s:%d matches --run %q", vmhost.DisplayPath(files[0]), opts.Line, opts.Run.String())
+			}
+			if format != vmhost.TestFormatJSON {
+				return fmt.Errorf("nomi test: %w", err)
+			}
+			failed := root
+			if len(files) == 1 {
+				failed = files[0]
+			}
+			rep.FailFile(failed, err)
+			rep.Summary()
+			return errTestsFailed
+		}
+		files = selecting
+	}
 	tester := &vmcmd.Tester{Out: out, ReportOut: stdout, Stderr: stderr, Stdin: stdin, Rep: rep, Format: format, Stop: stop, Timeout: timeout}
 	for _, file := range files {
-		fileOpts := opts
-		if opts.LineSet && len(files) > 1 {
-			fileOpts.LineSet = false
-		}
 		tester.File(file, fileOpts)
 	}
 	if rep.Summary() {
 		return errTestsFailed
 	}
 	return nil
+}
+
+// filesSelectingTests is the files in which opts (with its --run pattern)
+// selects a case, read from each file's source, so a file with none is not
+// loaded at all. A file that cannot be read or parsed is kept: loading it
+// reports why.
+func filesSelectingTests(files []string, opts vmhost.TestOptions) []string {
+	var kept []string
+	for _, file := range files {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			kept = append(kept, file)
+			continue
+		}
+		selected, err := frontend.SourceSelectsTests(string(src), opts)
+		if err != nil || selected {
+			kept = append(kept, file)
+		}
+	}
+	return kept
 }
 
 // noTestAtLine is the error for `--line line` selecting nothing in file, so

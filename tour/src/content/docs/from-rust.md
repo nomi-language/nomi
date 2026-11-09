@@ -6,33 +6,46 @@ description: What carries over from Rust to Nomi, what differs, and the same pro
 Much of Rust carries over: enums with payloads, exhaustive matching,
 `Option`-style and `Result` values with a postfix `?`, interfaces with
 `impl` blocks, generics with bounds, `derive`, and blocks that are
-expressions. What Rust spends on ownership, Nomi does not need. Every value
-is immutable, so values are shared freely and there are no references,
-lifetimes or `mut`.
+expressions. What differs most: every value is immutable, so values are
+shared freely and there are no ownership rules, borrows, lifetimes or
+`mut`, and functions are called through their owner rather than as methods.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
-## What differs
+## Will trip you up
 
 | Rust | Nomi |
 |---|---|
 | `let x = 1;`, `let mut x` | `x = 1`. Nothing is mutable; a later `x = ...` binds the name again. |
 | `xs.len()`, `s.trim()` | `Iter.count(xs)`, `String.trim(s)`: there are no method calls. |
+| `(1, "a")`, `t.0` | A tuple is `(1, "a")` as in Rust, but its items are read as `t.first`, `t.second`, ... |
+| `c.then(\|\| x)`; `if c { x }` needs `x: ()` | `if c { x }` is a `Maybe`: `Some(x)` or `None`. With a `Unit` branch it is a statement. |
+| `x as f64` | `Int.to_float(x)`. Nomi's `x as T` is no cast: it only states a type the value already fits (`[] as List<String>`) |
+| `impl Drop` | `defer close(x)` on the line after acquiring it; it runs when its block ends, and the checker requires one for a resource. `defer on error` runs only when the function fails. |
+| `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |
+| `#[derive(PartialEq, Eq, Hash, Debug)]` | Nothing: `==`, hashing and `dbg` work on every struct and enum, field by field. `derive Comparable for T` orders field by field, as `#[derive(PartialOrd, Ord)]` does. |
+| `fn f(x: &dyn Speak)`, `fn f(x: impl Speak)` | `fn f(x: Speak)`: a parameter used only through one interface takes it as its type. Write a type parameter when the type comes back, as in `fn larger<T>(a: T, b: T) -> T` |
+| A state struct built in `main`, passed with `.with_state(state)` and read through `State<AppState>` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`, with no extractor or parameter. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
+
+## Spelled differently
+
+| Rust | Nomi |
+|---|---|
 | `v.iter().map(f).collect()` | `xs \|> Iter.map(f) \|> Iter.to_list()` |
 | `match x { A => .. }` | `case x { A -> .. }`, with guards written `when` |
-| `Point { x: 1 }`, `(1, "a")` | `Point{x: 1}`; a tuple is `(1, "a")` as in Rust |
+| `Point { x: 1 }` | `Point{x: 1}` |
 | `vec![1, 2]`, `HashMap` | `[1, 2]` (a list) or `#[1, 2]` (a vector), `%{"a" => 1}` |
 | `Option<T>`, `.unwrap()` | `Maybe<T>`, a postfix `!` |
-| `c.then(\|\| x)`; `if c { x }` needs `x: ()` | `if c { x }` is a `Maybe`: `Some(x)` or `None`. With a `Unit` branch it is a statement. |
+| `.unwrap_or(x)`, `.or(other)`, `.or_else(f)` | `Maybe.with_default(m, x)`, `Maybe.otherwise(m, other)`, `Maybe.or_else(m, f)` |
 | `trait`, `fn f(&self)` | `interface`, `fn f(value: self)` |
 | `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied |
 | `Shape::new()`, `Shape::Circle { radius: 1 }` | `Shape.new()`, `Shape.Circle{radius: 1}` or `.Circle{radius: 1}` |
 | `format!("{x}")` | `"${x}"` |
-| `x as f64` | `Int.to_float(x)`. Nomi's `x as T` is no cast: it only states a type the value already fits (`[] as List<String>`) |
-| `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |
+| `todo!("parse")` | `todo "parse"` |
 | `tokio::spawn` | `Task.spawn` inside a `concurrent { .. }` block |
 | `#[test] fn t()` | `test "name" { assert .. }` |
 | `mod`, `use a::b` | A file is the unit of import: `import a.{b}`. A path is `::`-joined like Rust's (`import db::posts`), and the file is then used by its last part, `posts.find(1)`. Importing a directory, `import db`, is like `use crate::db`: `db::posts.find(1)` reaches the file. |
+| axum's `.route("/users/{id}", get(show))` with `Path(id): Path<u64>` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: .{id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 Statements end at a newline, with no semicolons.
 
@@ -79,8 +92,6 @@ impl Shape {
         }
     }
 }
-
-derive Equatable for Shape
 
 fn total_area(shapes: List<Shape>) -> Int {
     Iter.sum_by(shapes, Shape.area)

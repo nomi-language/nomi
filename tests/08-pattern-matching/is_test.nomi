@@ -80,9 +80,9 @@ test "is binds like ==" {
 
 test "is in lambdas and captures" {
     blocks = [Block.Item("a"), Block.Text("b"), Block.Item("c")]
-    assert (blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count()) == 2
+    assert (blocks |> Iter.count_by(&(&1 is .Item(_)))) == 2
     assert (blocks |> Iter.reject(&(&1 is .Item(_))) |> Iter.count()) == 1
-    assert (blocks |> Iter.filter(fn b -> b is .Text(_)) |> Iter.count()) == 1
+    assert (blocks |> Iter.count_by(fn b -> b is .Text(_))) == 1
     assert ([Some(1), None] |> Iter.reject(&(&1 is None)) |> Iter.to_list()) == [Some(1)]
 }
 

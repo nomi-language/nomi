@@ -40,45 +40,7 @@ type loweringGap struct {
 	src    string
 }
 
-var knownLoweringGaps = []loweringGap{
-	{
-		// `box = read()` is refused (its type is not locally determined),
-		// but a tuple pattern binds `box` with `read`'s T unsolved, and
-		// the call that takes it declines. Found writing std/sessions,
-		// which names the type argument (`read<T>(...)`).
-		name:   "an unsolved type argument bound by a tuple pattern",
-		fix:    "the checker: refuse the binding as it refuses `box = read()`",
-		reason: "a call through a value: handler",
-		noSkip: true,
-		src: `import std::io
-
-struct Box<T> {
-    value: Maybe<T>
-}
-
-struct Visit {
-    user: String
-}
-
-fn read<T>() -> (Box<T>, Bool) {
-    (Box{value: None}, True)
-}
-
-fn wrap<T>(handler: (Box<T>) -> String) -> String {
-    (box, _) = read()
-    handler(box)
-}
-
-fn show(box: Box<Visit>) -> String {
-    "${Maybe.is_some(box.value)}"
-}
-
-fn main() {
-    io.print(wrap(show))
-}
-`,
-	},
-}
+var knownLoweringGaps = []loweringGap{}
 
 // knownGapFor is the known gap every one of reasons matches, or nil.
 func knownGapFor(reasons []string) *loweringGap {

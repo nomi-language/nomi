@@ -21,16 +21,16 @@ struct Pair<A, B> {
     note: String = "none"
 }
 
-fn defaults() -> #{a: Int, b: String} {
-    #{a: 1, b: "x"}
+fn defaults() -> .{a: Int, b: String} {
+    .{a: 1, b: "x"}
 }
 
 fn main() {
-    io.inspect(Box(#{v: 1}))
-    io.inspect(Box(#{v: Some("a")}).v)
-    io.inspect(Pair(#{a: 1.5, b: [True]}))
+    io.inspect(Box(.{v: 1}))
+    io.inspect(Box(.{v: Some("a")}).v)
+    io.inspect(Pair(.{a: 1.5, b: [True]}))
     io.inspect(Pair(defaults()))
-    rec = #{v: (1, "z")}
+    rec = .{v: (1, "z")}
     io.inspect(Box(rec))
 }
 `

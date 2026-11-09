@@ -118,7 +118,7 @@ test "a flash message is read once" {
 
 test "clearing deletes the session and keeps its flash" {
     signed = get(signed_in(store, "ada"))
-    out = app(store)(#{..signed, method: Method.Post, url: #{..signed.url, path: "/sign-out"}})
+    out = app(store)(.{..signed, method: Method.Post, url: .{.., path: "/sign-out"}})
     assert Response.text(app(store)(get(out))) == Ok("nobody [Signed out.]")
 
     empty: Session<Visit> = Session.new(store)
@@ -145,7 +145,7 @@ test "a changed cookie reads as no session and is deleted" {
     )
 
     r = app(store)(
-        Request.add_cookie(http_testing.request(Method.Get, "/"), #{..cookie, value: forged})
+        Request.add_cookie(http_testing.request(Method.Get, "/"), .{..cookie, value: forged})
     )
 
     assert Response.text(r) == Ok("nobody []")
@@ -153,7 +153,7 @@ test "a changed cookie reads as no session and is deleted" {
 
     junk = Request.add_cookie(
         http_testing.request(Method.Get, "/"),
-        #{..cookie, value: "not sealed"},
+        .{..cookie, value: "not sealed"},
     )
 
     assert Response.text(app(store)(junk)) == Ok("nobody []")
@@ -162,7 +162,7 @@ test "a changed cookie reads as no session and is deleted" {
 test "a cookie sealed for one name does not open as another" {
     cookie = List.head(Response.cookies(signed_in(store, "ada")))!
     other = CookieStore{key, name: "other"}
-    request = Request.add_cookie(http_testing.request(Method.Get, "/"), #{..cookie, name: "other"})
+    request = Request.add_cookie(http_testing.request(Method.Get, "/"), .{..cookie, name: "other"})
     assert Response.text(app(other)(request)) == Ok("nobody []")
 }
 
@@ -197,7 +197,7 @@ test "a session too large for a cookie is a 500" {
 }
 
 test "a cross-site post never reaches the session" {
-    forged = #{
+    forged = .{
         ..http_testing.form_request(Method.Post, "/sign-in", [("user", "mallory")]),
         headers: Headers[("Sec-Fetch-Site", "cross-site")],
     }

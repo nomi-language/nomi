@@ -92,14 +92,14 @@ enum Wrap {
 }
 
 fn main() {
-  for_each = [Wrap.One(#{y: 1}), Wrap.Two(#{a: 2, b: "s"}), Wrap.Zero]
+  for_each = [Wrap.One(.{y: 1}), Wrap.Two(.{a: 2, b: "s"}), Wrap.Zero]
   for_each |> Iter.each(fn w -> case w {
     .One(p) -> io.inspect(p)
-    .Two(q) -> io.print(q == #{a: 2, b: "s"})
+    .Two(q) -> io.print(q == .{a: 2, b: "s"})
     .Zero -> io.print("zero")
   })
 }
-`, "#{y: 1}\nTrue\nzero\n"},
+`, ".{y: 1}\nTrue\nzero\n"},
 		{"a tuple slot of a hand-written Equatable compares through it", `import std::io
 
 struct Tag {

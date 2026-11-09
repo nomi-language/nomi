@@ -170,29 +170,29 @@ impl Session<T> {
     pub fn set<T>(session: Session<T>, value: T) -> Session<T> {
         state = case session.value {
             Some(_) -> session.state
-            None -> #{..session.state, created: now()}
+            None -> .{..session.state, created: now()}
         }
 
-        #{..session, value: Some(value), state}
+        .{..session, value: Some(value), state}
     }
 
     /// The session holding no value, as at signing out. Written, it deletes
     /// the cookie, unless it carries a flash message.
     pub fn clear<T>(session: Session<T>) -> Session<T> {
-        #{..session, value: None}
+        .{..session, value: None}
     }
 
     /// The session with `message` added to the flash messages the next
     /// request reads.
     pub fn add_flash<T>(session: Session<T>, message: String) -> Session<T> {
         state = session.state
-        #{..session, state: #{..state, outgoing: state.outgoing + [message]}}
+        .{..session, state: .{..state, outgoing: state.outgoing + [message]}}
     }
 
     /// The session with its `max_age` started again now, as at signing in
     /// when a session already held a value.
     pub fn renew<T>(session: Session<T>) -> Session<T> {
-        #{..session, state: #{..session.state, created: now()}}
+        .{..session, state: .{.., created: now()}}
     }
 }
 
@@ -294,7 +294,7 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
 
     case http_host.seal(key_bytes(store.key), plain, label(store)) {
         Ok(sealed) -> {
-            cookie = #{
+            cookie = .{
                 ..base_cookie(store),
                 value: base64.encode_url(sealed, padded: False),
                 max_age: MaxAge.Seconds(lifetime),
@@ -310,8 +310,7 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
             }
         }
 
-        Err(reason) ->
-            Response.error(Status.internal_server_error, reason)
+        Err(reason) -> Response.error(Status.internal_server_error, reason)
     }
 }
 
@@ -321,8 +320,7 @@ fn read<T>(request: Request, store: CookieStore) -> (Session<T>, Bool) where T: 
     at = now()
 
     case Request.cookie(request, store.name) {
-        None ->
-            (empty(store, at), False)
+        None -> (empty(store, at), False)
 
         Some(cookie) ->
             case open(store, cookie.value, at) {
@@ -366,8 +364,7 @@ fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where
                 |> Result.to_maybe()?
             )
 
-        None ->
-            None
+        None -> None
     }
 
     Some(Session{
@@ -399,8 +396,7 @@ fn strings_field(fields: Map<String, Json>, name: String) -> Maybe<List<String>>
                 }
             })
 
-        _ ->
-            None
+        _ -> None
     }
 }
 
@@ -414,7 +410,7 @@ fn idle_due<T>(session: Session<T>) -> Bool {
 
 // Whether `response` already sets the cookie `name`.
 fn writes(response: Response, name: String) -> Bool {
-    Response.cookies(response) |> Iter.any(fn c -> c.name == name)
+    Response.cookies(response) |> Iter.any_match(fn c -> c.name == name)
 }
 
 // `response` with `cookie` in place of any `Set-Cookie` of its name.
@@ -428,7 +424,7 @@ fn replace_cookie(response: Response, cookie: Cookie) -> Response {
     }
 
     kept = fields |> Iter.filter(other) |> Iter.to_list()
-    Response.set_cookie(#{..response, headers: Headers(kept)}, cookie)
+    Response.set_cookie(.{..response, headers: Headers(kept)}, cookie)
 }
 
 fn base_cookie(store: CookieStore) -> Cookie {
@@ -445,7 +441,7 @@ fn base_cookie(store: CookieStore) -> Cookie {
 
 // The cookie that deletes the session's.
 fn removal(store: CookieStore) -> Cookie {
-    #{..base_cookie(store), max_age: MaxAge.DeleteNow}
+    .{..base_cookie(store), max_age: MaxAge.DeleteNow}
 }
 
 // The additional data each cookie is sealed with: the format's version and

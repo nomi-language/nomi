@@ -164,50 +164,21 @@ derive Equatable for Error
 impl Display for Error {
     fn to_string(e: Error) -> String {
         case e {
-            Error.NotFound{path} ->
-                "${path}: not found"
-
-            Error.AlreadyExists{path} ->
-                "${path}: already exists"
-
-            Error.PermissionDenied{path} ->
-                "${path}: permission denied"
-
-            Error.NotADirectory{path} ->
-                "${path}: not a directory"
-
-            Error.IsADirectory{path} ->
-                "${path}: is a directory"
-
-            Error.DirectoryNotEmpty{path} ->
-                "${path}: directory not empty"
-
-            Error.InvalidPath{path, reason} ->
-                "invalid path \"${path}\": ${reason}"
-
-            Error.InvalidText{path, offset} ->
-                "${path}: not UTF-8 text at byte ${offset}"
-
-            Error.NoSpace{path} ->
-                "${path}: no space left on the device"
-
-            Error.ReadOnly{path} ->
-                "${path}: read-only file system"
-
-            Error.TooManyOpen ->
-                "too many open files"
-
-            Error.Closed ->
-                "the stream is closed"
-
-            Error.BrokenPipe ->
-                "broken pipe"
-
-            Error.TimedOut ->
-                "timed out"
-
-            Error.Unsupported{operation, target} ->
-                "${operation} is not supported on ${target}"
+            Error.NotFound{path} -> "${path}: not found"
+            Error.AlreadyExists{path} -> "${path}: already exists"
+            Error.PermissionDenied{path} -> "${path}: permission denied"
+            Error.NotADirectory{path} -> "${path}: not a directory"
+            Error.IsADirectory{path} -> "${path}: is a directory"
+            Error.DirectoryNotEmpty{path} -> "${path}: directory not empty"
+            Error.InvalidPath{path, reason} -> "invalid path \"${path}\": ${reason}"
+            Error.InvalidText{path, offset} -> "${path}: not UTF-8 text at byte ${offset}"
+            Error.NoSpace{path} -> "${path}: no space left on the device"
+            Error.ReadOnly{path} -> "${path}: read-only file system"
+            Error.TooManyOpen -> "too many open files"
+            Error.Closed -> "the stream is closed"
+            Error.BrokenPipe -> "broken pipe"
+            Error.TimedOut -> "timed out"
+            Error.Unsupported{operation, target} -> "${operation} is not supported on ${target}"
 
             Error.Other{operation, path, code} ->
                 "${operation} ${path}: ${code_text(code)} (${code})"
@@ -711,7 +682,7 @@ impl Writer {
     //! assert run.output == "one\n2\n"
     //! assert run.errors == "three\n"
     //
-    pub fn print<T>(w: Writer, value: T) -> Result<Unit, Error> where T: Display {
+    pub fn print(w: Writer, value: Display) -> Result<Unit, Error> {
         write_text(w, "${value}\n")
     }
 

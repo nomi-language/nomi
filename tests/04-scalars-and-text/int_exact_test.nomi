@@ -59,7 +59,7 @@ test "big values compare, hash and key maps by value" {
 
 test "big values live in structs, enums and patterns" {
     account = Account{id: 1, balance: Int.pow(10, 25)}
-    richer = Struct.update(account, #{balance: account.balance * 2})
+    richer = Struct.update(account, .{balance: account.balance * 2})
     assert richer.balance == 20_000_000_000_000_000_000_000_000
     assert account == Account{id: 1, balance: 10_000_000_000_000_000_000_000_000}
     assert Amount.Exact(Int.pow(2, 70)) == Amount.Exact(1_180_591_620_717_411_303_424)

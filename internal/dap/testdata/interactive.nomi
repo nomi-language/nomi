@@ -10,8 +10,8 @@ fn main() {
                 seen + 1
             }
 
-            _ ->
-                break seen
+            // End of input, or a read error.
+            _ -> break seen
         }
     })
 

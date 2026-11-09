@@ -65,8 +65,7 @@ pub fn tokens(text: String) -> List<Token> {
 
 fn scan(text: String, chars: Vector<String>, i: Int, acc: List<Token>) -> List<Token> {
     case Vector.get(chars, i) {
-        None ->
-            Iter.reverse(acc)
+        None -> Iter.reverse(acc)
 
         Some(c) -> {
             (kind, end) = token_at(chars, i, c)
@@ -171,7 +170,7 @@ pub struct Override {
 //!     ("n", Some(False), Some("Int"))
 //! )
 //!
-//! assert sqltext.override(#{..t, text: "\"n\""}) == None
+//! assert sqltext.override(.{..t, text: "\"n\""}) == None
 //
 pub fn override(token: Token) -> Maybe<Override> {
     if token.kind != Kind.Quoted { return None }
@@ -248,8 +247,7 @@ fn pieces(tokens: List<Token>) -> List<(Token, String)> {
                 [(last, _), ..] when last.kind != Kind.Space and seen < Iter.count(solid) ->
                     ([(token, " "), ..out], seen)
 
-                _ ->
-                    acc
+                _ -> acc
             }
         } else {
             ([(token, sent(token)), ..out], seen + 1)
@@ -364,8 +362,7 @@ pub fn select_items(tokens: List<Token>) -> List<List<Token>> {
                     (items, [token, ..current], depth + nesting(token), 1)
                 }
 
-            _ ->
-                acc
+            _ -> acc
         }
     })
 
@@ -486,8 +483,7 @@ pub fn cast_type(item: List<Token>) -> Maybe<String> {
             Some(text_of(trim(inside)))
         }
 
-        _ ->
-            None
+        _ -> None
     }
 }
 
@@ -572,7 +568,7 @@ fn is_keyword(word: String) -> Bool {
 /// Whether the SQL joins with `RIGHT` or `FULL`, whose left side may be
 /// NULL, which sqlkit does not track table by table.
 pub fn is_right_or_full_join(tokens: List<Token>) -> Bool {
-    Iter.any(tokens, fn t -> {
+    Iter.any_match(tokens, fn t -> {
         t.kind == Kind.Word
             and (String.uppercase(t.text) == "RIGHT" or String.uppercase(t.text) == "FULL")
     })
@@ -589,7 +585,7 @@ pub fn is_name(word: String) -> Bool {
 
     word != ""
         and not first in "0123456789"
-        and Iter.all(word, fn c -> {
+        and Iter.all_match(word, fn c -> {
             c in "abcdefghijklmnopqrstuvwxyz0123456789_"
         })
 }

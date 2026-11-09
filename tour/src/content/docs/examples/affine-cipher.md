@@ -91,16 +91,16 @@ group "encode" {
     test "encodes" {
         [
             ("encode yes", "yes", Key{a: 5, b: 7}, "xbt"),
-            ("encode no", "no", #{a: 15, b: 18}, "fu"),
-            ("encode OMG", "OMG", #{a: 21, b: 3}, "lvz"),
-            ("encode O M G", "O M G", #{a: 25, b: 47}, "hjp"),
-            ("encode mindblowingly", "mindblowingly", #{a: 11, b: 15}, "rzcwa gnxzc dgt"),
-            ("encode numbers", "Testing,1 2 3, testing.", #{a: 3, b: 4}, "jqgjc rw123 jqgjc rw"),
-            ("encode deep thought", "Truth is fiction.", #{a: 5, b: 17}, "iynia fdqfb ifje"),
+            ("encode no", "no", .{a: 15, b: 18}, "fu"),
+            ("encode OMG", "OMG", .{a: 21, b: 3}, "lvz"),
+            ("encode O M G", "O M G", .{a: 25, b: 47}, "hjp"),
+            ("encode mindblowingly", "mindblowingly", .{a: 11, b: 15}, "rzcwa gnxzc dgt"),
+            ("encode numbers", "Testing,1 2 3, testing.", .{a: 3, b: 4}, "jqgjc rw123 jqgjc rw"),
+            ("encode deep thought", "Truth is fiction.", .{a: 5, b: 17}, "iynia fdqfb ifje"),
             (
                 "encode all the letters",
                 "The quick brown fox jumps over the lazy dog.",
-                #{a: 17, b: 33},
+                .{a: 17, b: 33},
                 "swxtj npvyk lruol iejdc blaxk swxmh qzglf",
             ),
         ]
@@ -110,7 +110,7 @@ group "encode" {
     }
 
     test "encode with a not coprime to m" {
-        assert affine_cipher.encode("This is a test.", #{a: 6, b: 17}) == Err(.NotCoprime)
+        assert affine_cipher.encode("This is a test.", .{a: 6, b: 17}) == Err(.NotCoprime)
     }
 }
 
@@ -121,26 +121,26 @@ group "decode" {
             (
                 "decode a sentence",
                 "qdwju nqcro muwhn odqun oppmd aunwd o",
-                #{a: 19, b: 16},
+                .{a: 19, b: 16},
                 "anobstacleisoftenasteppingstone",
             ),
-            ("decode numbers", "odpoz ub123 odpoz ub", #{a: 25, b: 7}, "testing123testing"),
+            ("decode numbers", "odpoz ub123 odpoz ub", .{a: 25, b: 7}, "testing123testing"),
             (
                 "decode all the letters",
                 "swxtj npvyk lruol iejdc blaxk swxmh qzglf",
-                #{a: 17, b: 33},
+                .{a: 17, b: 33},
                 "thequickbrownfoxjumpsoverthelazydog",
             ),
             (
                 "decode with no spaces in input",
                 "swxtjnpvyklruoliejdcblaxkswxmhqzglf",
-                #{a: 17, b: 33},
+                .{a: 17, b: 33},
                 "thequickbrownfoxjumpsoverthelazydog",
             ),
             (
                 "decode with too many spaces",
                 "vszzm    cly   yd cg    qdp",
-                #{a: 15, b: 16},
+                .{a: 15, b: 16},
                 "jollygreengiant",
             ),
         ]
@@ -150,7 +150,7 @@ group "decode" {
     }
 
     test "decode with a not coprime to m" {
-        assert affine_cipher.decode("Test", #{a: 13, b: 5}) == Err(.NotCoprime)
+        assert affine_cipher.decode("Test", .{a: 13, b: 5}) == Err(.NotCoprime)
     }
 }
 ```
@@ -169,4 +169,4 @@ test result: ok. 16 passed, 0 failed
 - `encode` checks the key with `_ = inverse(key.a)?` before it starts, since it does not need the inverse.
 - `translate` takes the step as a function, `fn i -> key.a * i + key.b` or `fn y -> a_inverse * (y - key.b)`, so encoding and decoding share it. `Int.modulo` brings a negative result back into `0..26`, where `%` would leave it negative.
 - Letters go to numbers through a map, a `once` that pipes `Iter.zip(alphabet, 0..letter_count)` into `Iter.to_map()`, written stacked to start from the pairs, and back with `Vector.get(...)!`, which cannot miss because the index is reduced mod 26.
-- Each table names `Key` in its first row only (`Key{a: 5, b: 7}`); the rows after it write `#{a: 15, b: 18}`, which the first row makes a `Key`, so the table needs no annotation.
+- Each table names `Key` in its first row only (`Key{a: 5, b: 7}`); the rows after it write `.{a: 15, b: 18}`, which the first row makes a `Key`, so the table needs no annotation.

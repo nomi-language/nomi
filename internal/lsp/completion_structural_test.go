@@ -31,13 +31,13 @@ func TestCompletion_StructLiteralOffersUnwrittenFields(t *testing.T) {
 		{"named literal", "fn f() -> Config {\n    Config{name: \"a\", " + cursorMark + "}\n}\n", []string{"host", "port"}},
 		{"unclosed literal", "fn f() -> Config {\n    Config{name: \"a\", " + cursorMark + "\n}\n", []string{"host", "port"}},
 		{"empty literal: required fields first", "fn f() -> Config {\n    Config{" + cursorMark + "}\n}\n", []string{"name", "host", "port"}},
-		{"struct update", "fn f(base: Config) -> Config {\n    #{..base, host: \"h\", " + cursorMark + "}\n}\n", []string{"name", "port"}},
+		{"struct update", "fn f(base: Config) -> Config {\n    .{..base, host: \"h\", " + cursorMark + "}\n}\n", []string{"name", "port"}},
 		{"struct variant shorthand", "fn f() -> Shape {\n    .Rect{" + cursorMark + "}\n}\n", []string{"w", "h"}},
-		{"anonymous literal against an expected type", "fn take(c: Config) -> Int {\n    c.port\n}\n\nfn f() -> Int {\n    take(#{name: \"a\", " + cursorMark + "})\n}\n", []string{"host", "port"}},
-		{"target-typed literal at an annotated binding", "fn f() -> Int {\n    c: Config = #{name: \"a\", " + cursorMark + "}\n    c.port\n}\n", []string{"host", "port"}},
-		{"target-typed literal at a struct field", "struct Server {\n    config: Config\n}\n\nfn f() -> Server {\n    Server{config: #{name: \"a\", " + cursorMark + "}}\n}\n", []string{"host", "port"}},
-		{"target-typed literal at a return", "fn f() -> Config {\n    #{host: \"h\", " + cursorMark + "}\n}\n", []string{"name", "port"}},
-		{"target-typed literal in a typed list", "fn f() -> List<Config> {\n    [#{name: \"a\", " + cursorMark + "}]\n}\n", []string{"host", "port"}},
+		{"anonymous literal against an expected type", "fn take(c: Config) -> Int {\n    c.port\n}\n\nfn f() -> Int {\n    take(.{name: \"a\", " + cursorMark + "})\n}\n", []string{"host", "port"}},
+		{"target-typed literal at an annotated binding", "fn f() -> Int {\n    c: Config = .{name: \"a\", " + cursorMark + "}\n    c.port\n}\n", []string{"host", "port"}},
+		{"target-typed literal at a struct field", "struct Server {\n    config: Config\n}\n\nfn f() -> Server {\n    Server{config: .{name: \"a\", " + cursorMark + "}}\n}\n", []string{"host", "port"}},
+		{"target-typed literal at a return", "fn f() -> Config {\n    .{host: \"h\", " + cursorMark + "}\n}\n", []string{"name", "port"}},
+		{"target-typed literal in a typed list", "fn f() -> List<Config> {\n    [.{name: \"a\", " + cursorMark + "}]\n}\n", []string{"host", "port"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

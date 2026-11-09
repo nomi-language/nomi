@@ -353,12 +353,12 @@ a type:
 - Give type arguments to a call: `Iter.to_map<String, Int>([])`. Use this
   when the value goes straight into a pipe or another call. `Iter.to_map`
   builds a map from pairs; [Collections](/collections/) covers it.
-- Write `as` after the value: `#{name: "Ada", tags: [] as List<String>}`.
+- Write `as` after the value: `.{name: "Ada", tags: [] as List<String>}`.
   Use this where no annotation fits, such as a field of an anonymous
   struct. `as` only states the type; it never converts a value.
 
-Without either, the compiler reports that the binding's type is not locally
-determined.
+Without one of these, the compiler reports that the binding's type is not
+locally determined.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -366,6 +366,9 @@ determined.
 - A binding is refused only when its type is wholly unknown: `xs = []`,
   `x = None`, `ch = Channel.buffered(4)`. `x = Ok(42)` is accepted as a
   `Result<Int, E>` whose error type is fixed later.
+- A destructuring binding is refused when a name it binds still has a
+  wholly unknown type once the file is checked: `(a, b) = (None, 1)` is an
+  error unless a later use of `a` fixes its type.
 - Type arguments work on any call, constructors included: `Some<Int>(42)`,
   `Channel.buffered<Int>(4)`.
 - A lambda bound with no annotation, `f = fn x -> x`, is
@@ -530,8 +533,9 @@ Inside a function body, Nomi works out types from how values are used:
 Inference stops at two boundaries.
 
 **Function signatures are written out.** Every `fn` writes its parameter
-types, and its return type unless it returns `Unit`. Leaving the return
-type off means the function returns `Unit`. Nomi never works out a
+types, and its return type unless it returns `Unit`. A parameter with a
+default may leave its type to the default, as in `limit = 10`. Leaving the
+return type off means the function returns `Unit`. Nomi never works out a
 signature from the body.
 
 This keeps a function's types visible where it is declared. Readers,
@@ -555,8 +559,8 @@ main.nomi:2:5: binding 'm' type is not locally determined: it has unsolved type 
 -->
 
 The second line would tell the compiler that `m` maps `String` to `Int`.
-Nomi rejects the first line anyway. This is a deliberate rule: someone
-reading from the top should know what `m` is without looking ahead. The fix
+Nomi rejects the first line anyway, so that someone reading from the top
+knows what `m` is without looking ahead. The fix
 is an annotation or a type argument, as in
 [Type annotations](#type-annotations).
 

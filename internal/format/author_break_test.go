@@ -83,8 +83,8 @@ func TestFormat_AuthorBreakAfterBracketKeepsALiteralBroken(t *testing.T) {
 		},
 		{
 			"struct with a spread first",
-			"fn main() {\n    p = #{\n        ..q, x: 1}\n}\n",
-			"fn main() {\n    p = #{\n        ..q,\n        x: 1,\n    }\n}\n",
+			"fn main() {\n    p = .{\n        ..q, x: 1}\n}\n",
+			"fn main() {\n    p = .{\n        ..q,\n        x: 1,\n    }\n}\n",
 		},
 		{
 			"list pattern",

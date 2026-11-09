@@ -181,7 +181,7 @@ func (f *StdFacts) InstallModules(files map[string]*FileAnalysis, modules []stri
 		whys[fd] = why
 	}
 	for name := range f.manifests {
-		if installing[name] && (files[name] == nil || files[name].kept == nil) {
+		if installing[name] && (files[name] == nil || files[name].keptDecls() == nil) {
 			return fmt.Errorf("std/%s was not built from its interface", name)
 		}
 	}
@@ -190,10 +190,10 @@ func (f *StdFacts) InstallModules(files map[string]*FileAnalysis, modules []stri
 		if fa == nil {
 			return fmt.Errorf("std/%s was not built", name)
 		}
-		if fa.kept == nil {
+		if fa.keptDecls() == nil {
 			return fmt.Errorf("std/%s was not built from its interface", name)
 		}
-		m := cloneManifest(fa.kept.manifest)
+		m := cloneManifest(fa.keptDecls().manifest)
 		for _, r := range f.manifests[name] {
 			if m == nil {
 				m = map[string]map[string][]Recording{}

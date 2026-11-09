@@ -244,8 +244,7 @@ pub fn conformance(root: String) -> List<ConformanceFailure> {
         dir = path.join(root, rule_dir(rule))
 
         case fs.create_dir(dir) {
-            Err(e) ->
-                [ConformanceFailure{rule, reason: "cannot make its directory: ${e}"}]
+            Err(e) -> [ConformanceFailure{rule, reason: "cannot make its directory: ${e}"}]
 
             Ok(_) ->
                 case check(dir) {
@@ -602,8 +601,7 @@ fn rule_closed(dir: String) -> Maybe<String> {
                 check("write after close", Writer.write_text(w, "x"), Err(Error.Closed)),
             ])
 
-        other ->
-            Some("setup: ${Debug.inspect(other)}")
+        other -> Some("setup: ${Debug.inspect(other)}")
     }
 }
 
@@ -861,8 +859,7 @@ fn rule_file(dir: String) -> Maybe<String> {
     }
 
     case fs.open_file(p, access: Access.Create) {
-        Err(e) ->
-            Some("open_file: ${e}")
+        Err(e) -> Some("open_file: ${e}")
 
         Ok(f) -> {
             defer File.close_quietly(f)
@@ -894,8 +891,7 @@ fn rule_file_read_only(dir: String) -> Maybe<String> {
     written = fs.write_text(p, "abc")
 
     case fs.open_file(p) {
-        Err(e) ->
-            Some("open_file: ${e}")
+        Err(e) -> Some("open_file: ${e}")
 
         Ok(f) -> {
             defer File.close_quietly(f)

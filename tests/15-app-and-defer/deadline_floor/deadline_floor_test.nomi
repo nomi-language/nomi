@@ -31,11 +31,11 @@ fn escape_program(attempt: String) -> String {
       struct Config {
         context: Context
 
-        spare: #{context: Context}
+        spare: .{context: Context}
       }
 
       fn boot() -> Result<Config, String> {
-        Ok(Config{context: Context.root(), spare: #{context: Context.root()}})
+        Ok(Config{context: Context.root(), spare: .{context: Context.root()}})
       }
 
       fn inner() {

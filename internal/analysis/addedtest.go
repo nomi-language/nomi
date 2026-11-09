@@ -24,7 +24,7 @@ import (
 //
 // ok is false when fa was not kept, and nothing is changed.
 func (fa *FileAnalysis) CheckAddedTest(test *ast.TestDecl) (copied *FileAnalysis, errs []TypeError, restore func(), ok bool) {
-	k := fa.kept
+	k := fa.keptDecls()
 	if k == nil || k.builder == nil || fa.ModuleScope == nil {
 		return nil, nil, nil, false
 	}

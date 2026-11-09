@@ -161,11 +161,10 @@ fn step(path: String, s: State, number: Int, line: String) -> State {
             done = finish(path, s)
 
             case annotation(path, number, line, rest) {
-                Ok(q) ->
-                    #{..done, current: Some(q), in_doc: True, lines: [], skipping: False}
+                Ok(q) -> .{..done, current: Some(q), in_doc: True, lines: [], skipping: False}
 
                 Err(p) ->
-                    #{
+                    .{
                         ..done,
                         current: None,
                         in_doc: False,
@@ -178,25 +177,21 @@ fn step(path: String, s: State, number: Int, line: String) -> State {
 
         None ->
             case s.current {
-                None when s.skipping ->
-                    s
-
-                None ->
-                    before_queries(path, s, number, line)
+                None when s.skipping -> s
+                None -> before_queries(path, s, number, line)
 
                 Some(_) when s.in_doc and String.starts_with(line, "--") ->
-                    #{..s, lines: [doc_line(line), ..s.lines]}
+                    .{..s, lines: [doc_line(line), ..s.lines]}
 
                 Some(q) when s.in_doc ->
-                    #{
+                    .{
                         ..s,
-                        current: Some(#{..q, doc: Iter.reverse(s.lines), sql_line: number}),
+                        current: Some(.{..q, doc: Iter.reverse(s.lines), sql_line: number}),
                         in_doc: False,
                         lines: [line],
                     }
 
-                Some(_) ->
-                    #{..s, lines: [line, ..s.lines]}
+                Some(_) -> .{..s, lines: [line, ..s.lines]}
             }
     }
 }
@@ -205,7 +200,7 @@ fn step(path: String, s: State, number: Int, line: String) -> State {
 fn before_queries(path: String, s: State, number: Int, line: String) -> State {
     case String.strip_prefix(line, "-- import:") {
         Some(entry) when String.trim(entry) != "" ->
-            #{..s, imports: [String.trim(entry), ..s.imports]}
+            .{..s, imports: [String.trim(entry), ..s.imports]}
 
         Some(_) -> {
             p = problem(
@@ -216,20 +211,20 @@ fn before_queries(path: String, s: State, number: Int, line: String) -> State {
                 [],
             )
 
-            #{..s, problems: [p, ..s.problems]}
+            .{..s, problems: [p, ..s.problems]}
         }
 
         None ->
             if String.trim(line) == "" or String.starts_with(String.trim(line), "--") {
                 s
-            } else if s.problems |> Iter.any(fn p -> p.message == sql_first()) {
+            } else if s.problems |> Iter.any_match(fn p -> p.message == sql_first()) {
                 s
             } else {
                 p = problem(path, number, 1, sql_first(), [
                     "start each query with its annotation: `-- query: name(params) -> Row`",
                 ])
 
-                #{..s, problems: [p, ..s.problems]}
+                .{..s, problems: [p, ..s.problems]}
             }
     }
 }
@@ -246,25 +241,24 @@ fn doc_line(line: String) -> String {
 // The query being read, ended: its SQL is its lines up to the `;`.
 fn finish(path: String, s: State) -> State {
     case s.current {
-        None ->
-            s
+        None -> s
 
         Some(q) -> {
             // A query with only doc lines has its SQL start after them.
             (q, text) = if s.in_doc {
                 (
-                    #{..q, doc: Iter.reverse(s.lines), sql_line: q.line + Iter.count(s.lines) + 1},
+                    .{..q, doc: Iter.reverse(s.lines), sql_line: q.line + Iter.count(s.lines) + 1},
                     "",
                 )
             } else {
                 (q, s.lines |> Iter.reverse() |> String.join("\n"))
             }
 
-            base = #{..s, current: None, in_doc: False, lines: []}
+            base = .{..s, current: None, in_doc: False, lines: []}
 
             case statement(path, q, text) {
-                Ok(sql) -> #{..base, done: [#{..q, sql}, ..s.done]}
-                Err(p) -> #{..base, problems: [p, ..s.problems]}
+                Ok(sql) -> .{..base, done: [.{..q, sql}, ..s.done]}
+                Err(p) -> .{..base, problems: [p, ..s.problems]}
             }
         }
     }
@@ -282,8 +276,7 @@ fn statement(path: String, q: Query, text: String) -> Result<String, Problem> {
     }
 
     end = case Iter.find(solid, fn t -> t.kind == Kind.Punct and t.text == ";") {
-        Some(t) ->
-            t
+        Some(t) -> t
 
         None ->
             return Err(problem(path, q.line, 1, "the SQL of `${q.name}` does not end in `;`", [
@@ -293,7 +286,7 @@ fn statement(path: String, q: Query, text: String) -> Result<String, Problem> {
 
     case Iter.find(solid, fn t -> t.start > end.start) {
         Some(t) -> {
-            (line, col) = place(#{..q, sql: text}, t.start)
+            (line, col) = place(.{..q, sql: text}, t.start)
 
             Err(problem(path, line, col, "`${q.name}` has SQL after the `;` that ends it", [
                     "a query is one statement: start the next with `-- query:`",
@@ -356,8 +349,7 @@ fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Q
                 (Some(String.trim(t)), col + 1)
             }
 
-            _ ->
-                return bad(after, "after the parameters of `${name}` comes `-> Row`, or nothing")
+            _ -> return bad(after, "after the parameters of `${name}` comes `-> Row`, or nothing")
         }
     }
 
@@ -413,8 +405,7 @@ fn parameters(
                     }
                 }
 
-                _ ->
-                    Err(problem(path, number, col, "a parameter is `name: Type`", [usage()]))
+                _ -> Err(problem(path, number, col, "a parameter is `name: Type`", [usage()]))
             }
         })
         |> Result.collect()
@@ -435,8 +426,7 @@ fn parameters(
         Some(p) ->
             Err(problem(path, number, p.col, "the parameter `${p.name}` is declared twice", []))
 
-        None ->
-            Ok(params)
+        None -> Ok(params)
     }
 }
 
@@ -465,11 +455,8 @@ fn split(chars: Vector<String>, from: Int, to: Int) -> List<(Int, String)> {
 // The index of the `)` that closes the bracket open before `i`.
 fn closing(chars: Vector<String>, i: Int, depth: Int) -> Maybe<Int> {
     case Vector.get(chars, i) {
-        None ->
-            None
-
-        Some(")") when depth == 0 ->
-            Some(i)
+        None -> None
+        Some(")") when depth == 0 -> Some(i)
 
         Some(c) when c == "(" or c == "<" or c == "[" or c == "{" ->
             closing(chars, i + 1, depth + 1)
@@ -477,8 +464,7 @@ fn closing(chars: Vector<String>, i: Int, depth: Int) -> Maybe<Int> {
         Some(c) when c == ")" or c == ">" or c == "]" or c == "}" ->
             closing(chars, i + 1, depth - 1)
 
-        Some(_) ->
-            closing(chars, i + 1, depth)
+        Some(_) -> closing(chars, i + 1, depth)
     }
 }
 

@@ -1,0 +1,117 @@
+import std::json.{FromJson, Json, ToJson}
+
+struct User {
+    name: String
+    tags: List<String>
+}
+
+derive Equatable for User
+derive ToJson for User
+derive FromJson for User
+
+struct Pinned {
+    at: .{x: Int, y: Int}
+    note: String
+}
+
+derive Equatable for Pinned
+derive ToJson for Pinned
+derive FromJson for Pinned
+
+fn encoded<T>(value: T) -> String where T: ToJson {
+    Json.encode(ToJson.to_json(value))
+}
+
+fn decoded<T>(text: String) -> Result<T, String> where T: FromJson {
+    case Json.decode(text) {
+        Ok(json) -> T.from_json(json) |> Result.map_err(&Display.to_string(&1))
+        Err(e) -> Err(Display.to_string(e))
+    }
+}
+
+fn shape_error<T>(result: Result<T, Json.Error>) -> String {
+    case result {
+        Ok(_) -> "decoded"
+        Err(e) -> Display.to_string(e)
+    }
+}
+
+test "an anonymous struct encodes as an object of its fields" {
+    assert Json.encode_as(.{error: "no todo 99"}) == `{"error":"no todo 99"}`
+    assert Json.encode(ToJson.to_json(.{a: 1})) == `{"a":1}`
+    assert encoded(.{b: True, a: [1, 2]}) == `{"a":[1,2],"b":true}`
+
+    assert Json.encode_as(.{
+        user: User{name: "a", tags: ["x"]},
+    }) == `{"user":{"name":"a","tags":["x"]}}`
+}
+
+test "a None field encodes as null" {
+    order: Maybe<Int> = None
+    assert Json.encode_as(.{order, title: "t"}) == `{"order":null,"title":"t"}`
+    assert Json.encode_as(.{order: Some(2)}) == `{"order":2}`
+    assert Json.encode_as(.{detail: None, error: "no"}) == `{"detail":null,"error":"no"}`
+}
+
+test "an anonymous struct decodes from an object, a missing Maybe field as None" {
+    assert Json.decode_as<.{title: String, order: Maybe<Int>}>(`{"title": "t", "order": 3}`)
+        == Ok(.{title: "t", order: Some(3)})
+
+    assert Json.decode_as<.{title: String, order: Maybe<Int>}>(`{"title": "t"}`)
+        == Ok(.{title: "t", order: None})
+
+    assert Json.decode_as<.{title: String, order: Maybe<Int>}>(`{"title": "t", "order": null}`)
+        == Ok(.{title: "t", order: None})
+
+    assert decoded<.{a: Int}>(`{"a": 1, "extra": [true]}`) == Ok(.{a: 1})
+}
+
+test "a decode error names the field that does not read" {
+    assert shape_error(Json.decode_as<.{title: String, order: Maybe<Int>}>(`{"order": 1}`))
+        == "title: expected String, got missing"
+
+    assert shape_error(Json.decode_as<.{title: String}>(`{"title": 1}`))
+        == "title: expected string, got int"
+
+    assert shape_error(Json.decode_as<.{title: String}>("[1]")) == "expected object, got array"
+
+    assert shape_error(Json.decode_as<.{p: .{x: Int}}>(`{"p": {"x": "no"}}`))
+        == "p.x: expected int, got string"
+
+    assert shape_error(Json.decode_as<List<.{x: Int}>>(`[{"x": 1}, {}]`))
+        == "[1].x: expected Int, got missing"
+}
+
+test "anonymous structs nest in each other, in containers and in a named struct" {
+    assert Json.encode_as(.{p: .{x: 1, y: 2}}) == `{"p":{"x":1,"y":2}}`
+    assert Json.encode_as([.{x: 1}, .{x: 2}]) == `[{"x":1},{"x":2}]`
+    assert Json.encode_as(Some(.{x: 1})) == `{"x":1}`
+    assert Json.encode_as(%{"k" => .{x: 1}}) == `{"k":{"x":1}}`
+    assert Json.encode_as(Pinned{at: .{x: 1, y: 2}, note: "n"}) == `{"at":{"x":1,"y":2},"note":"n"}`
+
+    assert Json.decode_as<.{p: .{x: Int, y: Int}}>(`{"p": {"x": 1, "y": 2}}`)
+        == Ok(.{p: .{x: 1, y: 2}})
+
+    assert Json.decode_as<List<.{x: Int}>>(`[{"x": 1}, {"x": 2}]`) == Ok([.{x: 1}, .{x: 2}])
+    assert Json.decode_as<Maybe<.{x: Int}>>(`{"x": 1}`) == Ok(Some(.{x: 1}))
+    assert Json.decode_as<Map<String, .{x: Int}>>(`{"k": {"x": 1}}`) == Ok(%{"k" => .{x: 1}})
+
+    assert Json.decode_as<Pinned>(`{"at": {"x": 1, "y": 2}, "note": "n"}`)
+        == Ok(Pinned{at: .{x: 1, y: 2}, note: "n"})
+
+    assert Json.decode_as<.{u: User}>(`{"u": {"name": "a", "tags": []}}`) == Ok(.{
+            u: User{name: "a", tags: []},
+        })
+}
+
+test "an anonymous struct reads back what it writes" {
+    value = .{
+        name: "n",
+        items: [.{id: 1, done: True}],
+        extra: Some(.{k: "v"}),
+    }
+
+    assert Json.decode_as<.{name: String, items: List<.{id: Int, done: Bool}>, extra: Maybe<.{k: String}>}>(
+        Json.encode_as(value)
+    ) == Ok(value)
+}

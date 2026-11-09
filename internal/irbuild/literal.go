@@ -482,7 +482,7 @@ func (g *gen) stdLiteralImpl(tag string, fd *ast.FuncDef, label string) (literal
 }
 
 // genericLiteralImpl is the handler fd at the instance a literal of a generic
-// type is, `Route<#{id: Uuid}>` for `impl CheckedLiteral<String, Route<P>>
+// type is, `Route<.{id: Uuid}>` for `impl CheckedLiteral<String, Route<P>>
 // for Route<P>`: the instance's impl item when this file declares the type,
 // and an instance of the std template when std does. The instance is the
 // literal's type as the checker solved it.

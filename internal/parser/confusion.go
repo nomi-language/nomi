@@ -53,7 +53,7 @@ func (p *Parser) confusedStmt() error {
 		if n1.Line != t.Line || n1.Type == token.EOF || n1.Type == token.NEWLINE || n1.Type == token.IDENT && n2.Type != token.DOT {
 			return ParseError{Line: t.Line, Col: t.Col,
 				Message: "a Nomi comment starts with `//`, not `#`",
-				Hints:   []string{"`#` starts a vector or struct literal: `#[1, 2]`, `#{x: 1}`"},
+				Hints:   []string{"`#` starts a vector literal: `#[1, 2]`, `#Path[...]`"},
 				Fix:     Replace("Write `//`", t.Line, t.Col, t.Line, t.Col+1, "//")}
 		}
 	}
@@ -133,9 +133,9 @@ func (p *Parser) confusedOperand() error {
 	case token.LBRACE:
 		if p.structFieldAt(1) {
 			return ParseError{Line: t.Line, Col: t.Col,
-				Message: "a struct literal starts with `#`: write `#{x: 1}`",
+				Message: "a struct literal starts with its name, or with `.` where the position gives it: write `.{x: 1}`",
 				Hints:   []string{"a plain `{` opens a block"},
-				Fix:     Replace("Write `#{`", t.Line, t.Col, t.Line, t.Col, "#")}
+				Fix:     Replace("Write `.{`", t.Line, t.Col, t.Line, t.Col, ".")}
 		}
 		if (n1.Type == token.STRING_LITERAL || n1.Type == token.STRING) && n2.Type == token.COLON {
 			fix := &Fix{Title: "Write a map literal", Edits: []Edit{{Start: Pos{t.Line, t.Col}, End: Pos{t.Line, t.Col}, Text: "%"}}}
@@ -163,8 +163,8 @@ func (p *Parser) confusedOperand() error {
 					Fix:     Replace("Write `"+n1.Lexeme+"{`", t.Line, t.Col, t.Line, t.Col+1, "")}
 			}
 			return ParseError{Line: t.Line, Col: t.Col,
-				Message: "a map's entries are `key => value`: write `%{\"x\" => 1}`, or `#{x: 1}` for a struct with field `x`",
-				Fix:     Replace("Write a struct literal `#{`", t.Line, t.Col, t.Line, t.Col+1, "#")}
+				Message: "a map's entries are `key => value`: write `%{\"x\" => 1}`, or `.{x: 1}` for a struct with field `x`",
+				Fix:     Replace("Write a struct literal `.{`", t.Line, t.Col, t.Line, t.Col+1, ".")}
 		}
 	}
 	return nil

@@ -43,10 +43,10 @@ func TestHover_NamedShapeLiteralHeads(t *testing.T) {
 	}
 }
 
-// A `#{` where a struct is expected offers its fields, as `Point{` does.
+// A `.{` where a struct is expected offers its fields, as `Point{` does.
 func TestCompletion_HashBraceOffersTheExpectedStructsFields(t *testing.T) {
 	const decls = "struct Point {\n    x: Int\n    y: Int\n}\n\n"
-	items := complete(t, decls+"fn f() -> Point {\n    #{x: 1, ‸}\n}\n")
+	items := complete(t, decls+"fn f() -> Point {\n    .{x: 1, ‸}\n}\n")
 	labelsInclude(t, items, "y")
 	labelsExclude(t, items, "x")
 }

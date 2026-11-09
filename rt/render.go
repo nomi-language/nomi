@@ -128,7 +128,7 @@ func DisplayText(v any) string {
 // vector's or map's elements, a variant's payload — rendered by elem, which is
 // the engine's Display over a nested value (a declared type's `impl Display`,
 // or this again). The spec's intrinsics table: `(Display(a), Display(b))`,
-// `#{f: Display(v)}`, `[Display(v1), ...]`, `Some(Display(v))`. DisplayText is
+// `.{f: Display(v)}`, `[Display(v1), ...]`, `Some(Display(v))`. DisplayText is
 // the assertion row's rendering, whose nested Strings are quoted.
 func DisplayTextWith(v any, elem func(any) string) string {
 	v = Unbox(v)
@@ -436,7 +436,7 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return "#{" + strings.Join(parts, ", ") + "}", nil
+		return ".{" + strings.Join(parts, ", ") + "}", nil
 	}
 	return "", fmt.Errorf("Debug on an unrepresented receiver (%s): a struct's "+
 		"Debug renders its fields in DECLARATION order through its dispatched impl, "+

@@ -14,3 +14,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/grep.
 - `matches` folds the case of both sides with `String.fold_case` for `-i`, compares the whole line or looks for the pattern in it for `-x`, and turns the answer over for `-v` with `found != (.Invert in flags)`.
 - `-l` answers the file's name once if any line matched and takes precedence over `-n`, as two canonical cases ask. With more than one file each line starts with its file's name.
 - Each canonical group is a test with one `subtests` table named by the description column.
+
+## Friction
+
+None.

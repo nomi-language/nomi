@@ -44,6 +44,10 @@ type config struct {
 	// allowUnusedBindings drops unused-binding errors. See
 	// WithUnusedBindingsAllowed.
 	allowUnusedBindings bool
+	// standalone marks an in-memory entry that is no file of the project
+	// at projectRoot: compiler.run's nested program (frontend.Config's
+	// StandaloneEntry).
+	standalone bool
 	// session is the REPL session a program is loaded for: it provides the
 	// session's host functions and keeps earlier inputs' imports legal.
 	session *Session
@@ -154,9 +158,10 @@ func WithEnv(env map[string]string) Option {
 
 // WithWarnings writes what the program compiles with and reports to w,
 // rendered as diagnostics, when Load or Check has checked it: each `embed`
-// pattern whose base does not exist yet (Program.Warnings). `nomi run`,
-// `nomi check` and `nomi test` pass the standard error. Without it they are
-// written nowhere; a build refuses them.
+// pattern whose base does not exist yet (Program.Warnings), and, from Check
+// only, the program's advice (Program.Advice). `nomi run`, `nomi check` and
+// `nomi test` pass the standard error. Without it they are written nowhere;
+// a build refuses the warnings and ignores the advice.
 func WithWarnings(w io.Writer) Option {
 	return WithWarningsTo(func(ds Diagnostics) { ds.Render(w) })
 }
@@ -193,6 +198,7 @@ func (c *config) frontendConfig() (frontend.Config, error) {
 		UnmetHint:           "answer them from a host table passed with vmhost.WithHosts.",
 		AllowUnusedImports:  c.session != nil,
 		AllowUnusedBindings: c.allowUnusedBindings,
+		StandaloneEntry:     c.standalone,
 	}, nil
 }
 
@@ -337,6 +343,9 @@ func lowerLocked(cfg config, analyze func() (*irbuild.Program, error)) (*Program
 		if err := cfg.loweringStopped(); err != nil {
 			return err
 		}
+		// The std bundle the lowering restores is read and decoded while
+		// the front end builds the stdlib's analysis.
+		irbuild.PrefetchStdBundle()
 		prog, err = analyze()
 		if err != nil {
 			return err
@@ -428,6 +437,11 @@ func Check(path string, opts ...Option) error {
 	}
 	if err := p.Unsupported(); err != nil {
 		return err
+	}
+	if f := cfg.warnings; f != nil {
+		if ds := p.Advice(); len(ds) > 0 {
+			f(ds)
+		}
 	}
 	p.keep(true)
 	return nil

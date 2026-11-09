@@ -31,13 +31,13 @@ impl Named for Post {
     }
 }
 
-once admin = #{
+once admin = .{
     home: Route` + "`GET /admin/{$}`" + `,
-    user: ` + "`GET /admin/users/{id}`" + ` as Route<#{id: Uuid}>,
+    user: ` + "`GET /admin/users/{id}`" + ` as Route<.{id: Uuid}>,
     tags: [] as List<String>,
 }
 
-fn user_route() -> Route<#{id: Uuid}> {
+fn user_route() -> Route<.{id: Uuid}> {
     admin.user
 }
 

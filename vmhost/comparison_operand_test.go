@@ -43,7 +43,7 @@ fn main() {
         io.print("withdrawal after deposit")
     }
     p = Point{x: 1, y: 2}
-    io.print("${p == #{x: 1, y: 2}} ${#{x: 2, y: 1} == p}")
+    io.print("${p == .{x: 1, y: 2}} ${.{x: 2, y: 1} == p}")
     io.print(describe(Ok(Txn{kind: .Deposit, amount: 5})))
     io.print(describe(Ok(Txn{kind: .Withdrawal, amount: 3})))
     io.print(describe(Err("x")))

@@ -212,8 +212,7 @@ test "a task inside within is confined too" {
             assert Result.is_ok(outside) == False
         }
 
-        Err(e) ->
-            assert Display.to_string(e) == "no error"
+        Err(e) -> assert Display.to_string(e) == "no error"
     }
 }
 

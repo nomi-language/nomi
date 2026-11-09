@@ -9,7 +9,7 @@ fn main() {
   Some(e) = m else { "none" }
   Ok((w, h)) = parse(text) else { (80, 24) }
   [first, ..rest] = xs else { return 0 }
-  .Valid(r) = c else { #{addr: "none", score: 0} }
+  .Valid(r) = c else { .{addr: "none", score: 0} }
   %{"a" => a} = m else { return 0 }
 }
 
@@ -164,10 +164,10 @@ fn f(m: Map<String, Int>, p: Point, xs: List<Int>) -> Int {
         %{"fallback" => fallback} -> return fallback
         _ -> return 80
     }
-    #{x: 0, y} = p else {
+    .{x: 0, y} = p else {
         return 0
     }
-    #{done: True, n} = p else {
+    .{done: True, n} = p else {
         return 0
     }
     [first, ..rest] = xs else {

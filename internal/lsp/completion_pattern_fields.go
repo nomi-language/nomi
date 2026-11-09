@@ -12,7 +12,7 @@ import (
 const ctxPatternField ctxKind = 100
 
 // classifyPatternField recognizes a field name being typed in a struct
-// pattern: `Point{‸}`, `Point{x, ‸}`, `.Rect{‸}`, `#{x, ‸} = p`, wherever a
+// pattern: `Point{‸}`, `Point{x, ‸}`, `.Rect{‸}`, `.{x, ‸} = p`, wherever a
 // pattern stands (a case arm, a destructuring binding, an `assert` pattern, a
 // parameter, a variant's payload).
 func classifyPatternField(ctx *completionContext) bool {
@@ -65,7 +65,7 @@ func (r *completionRequest) patternFieldCandidates() []candidate {
 }
 
 // patternType is the type of the value the pattern at hop matches: the type
-// its head names, or, for a head that names none (`#{x}`, `.Rect{w}`,
+// its head names, or, for a head that names none (`.{x}`, `.Rect{w}`,
 // `Rect{w}`), the type its position supplies.
 func (r *completionRequest) patternType(h *sentinelHit, hop int) analysis.Type {
 	switch p := firstOf(h.at(hop)).(type) {

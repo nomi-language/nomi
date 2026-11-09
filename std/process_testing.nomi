@@ -126,8 +126,7 @@ pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T> {
         any_args = a.args == None
 
         case a.error {
-            Some(error) ->
-                process_host.fake_refuse(fake, a.program, args, any_args, error)
+            Some(error) -> process_host.fake_refuse(fake, a.program, args, any_args, error)
 
             None ->
                 process_host.fake_answer(

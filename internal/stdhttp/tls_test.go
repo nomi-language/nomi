@@ -109,7 +109,7 @@ fn main() {
 
     starttls = net.listen("127.0.0.1:0")!
     _ = Supervisor.spawn(App.web, fn -> net.serve(starttls, fn c -> echo(tls.server(c, ServerConfig{certificates: [certificate]})!), App.web))
-    upgraded = tls.client(net.dial(net.Listener.address(starttls))!, #{..trusted, server_name: Some("localhost")})!
+    upgraded = tls.client(net.dial(net.Listener.address(starttls))!, .{..trusted, server_name: Some("localhost")})!
     _ = Writer.write_text(Connection.writer(upgraded), "starttls\n")
     io.print("upgraded ${Reader.read_line(Connection.reader(upgraded))! |> Maybe.with_default("-")} ${Iter.count(tls.state(upgraded)!.verified_chains)}")
     Connection.close(upgraded)
@@ -133,7 +133,7 @@ fn main() {
 
     secure = tls.listen("127.0.0.1:0", ServerConfig{certificates: [certificate], next_protocols: ["echo/1"]})!
     _ = Supervisor.spawn(App.web, fn -> net.serve(secure, echo, App.web))
-    sconn = tls.dial(net.Listener.address(secure), #{..trusted, next_protocols: ["echo/1"]})!
+    sconn = tls.dial(net.Listener.address(secure), .{..trusted, next_protocols: ["echo/1"]})!
     _ = Writer.write_text(Connection.writer(sconn), "pong\n")
     io.print("tls ${Reader.read_line(Connection.reader(sconn))! |> Maybe.with_default("-")}")
     state = tls.state(sconn)!

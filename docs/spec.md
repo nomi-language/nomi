@@ -238,9 +238,9 @@ even inside `fn f(derive: Int)`.
 | `=>` | map entry |
 | `=` | binding and declaration punctuation (below) |
 | `..` `..=` | ranges (§3); `..` is also a spread and a rest pattern |
-| `.` | field access, `.Variant`, field accessor |
+| `.` | field access, `.Variant`, field accessor; `.{` starts a struct literal, type or pattern with no name (§3) |
 | `::` | joins the segments of a file's path, with no space around it (§14) |
-| `#` | starts a vector or anonymous struct literal (§3) |
+| `#` | starts a vector literal (§3) |
 | `&` | a capture, and `&1`, `&2`, ... its parameters (§7) |
 | `,` `:` `;` | separators |
 | `(` `)` `[` `]` `{` `}` | brackets |
@@ -534,15 +534,19 @@ as a variant (`Some(1)`) or a distinct type (`UserId(5)`) is built by its
 name. A named tuple, a distinct type over a tuple, is built by its name
 with the elements as arguments: `Pair(1, "x")`. A tuple is its parentheses
 with a comma inside, `(1, "x")` (§4 *Tuples*). Every other literal of a
-built-in shape except a list starts with that shape's symbol: `#` for an
-anonymous struct and a vector and `%` for the hashed shapes (map, set). A type built on
-one of those shapes writes its name right after the symbol. The shape comes
+built-in shape except a list starts with that shape's symbol: `.` for a
+struct with no name, `#` for a vector and `%` for the hashed shapes (map,
+set). A struct's `.{x: 1}` leaves its name out with a dot, as `.Circle{radius:
+1.0}` leaves out its enum: the struct is the one the position expects, or an
+anonymous struct where none is expected. The `.` and the `{` are written
+together; `x.{` is no field access. A type built on a vector or a hashed
+shape writes its name right after the symbol. The shape comes
 from the tokens, never from what the name declares: a name with a `{` on its
 line opens a struct literal, `%Name{` a map literal.
 
 | Shape | Unnamed | Named | Pattern |
 |---|---|---|---|
-| struct | `#{x: 1}` | `Point{x: 1}`, `geo.Point{x: 1}`, `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` | `#{x, y}`, `Point{x, y}`, `.Circle{radius}` |
+| struct | `.{x: 1}` | `Point{x: 1}`, `geo.Point{x: 1}`, `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` | `.{x, y}`, `Point{x, y}`, `.Circle{radius}` |
 | tuple | `(a, b)` | `Pair(1, "x")` | `(a, b)`, `Pair(a, b)` |
 | vector | `#[1, 2]`, `#[]` | `#Path[1, 2]`, `#.Items[1, 2]` | `#[first, ..rest]`, `#[.., last]`, `#Path[a, ..]` |
 | list | `[1, 2]`, `[]` | `Ids[1, 2]`, `.Items[1, 2]` | `[first, ..rest]`, `[a, b]` |
@@ -560,7 +564,7 @@ line opens a struct literal, `%Name{` a map literal.
   it is a type mismatch. A name that names no type is an error.
 - The std collections have only the unnamed forms. `Vector[1]` and `Set[1]`
   are list literals naming a type that is not a list type, and so errors.
-- `%{` and `%Name{` always open a map literal, and `#{` and `Name{` a struct
+- `%{` and `%Name{` always open a map literal, and `.{` and `Name{` a struct
   literal, so `%Kvs{}` is always the empty map and `Point{}` always a
   struct built from its field defaults. Where an operand begins, `%{`, `%[`
   and `%Name` start a literal, with no space after the `%`; after an operand,
@@ -581,7 +585,7 @@ line opens a struct literal, `%Name{` a map literal.
 - Map keys are expressions: `%{key => 1}` reads the binding `key`, and a
   string key is quoted.
 - Types are written without a symbol, except a tuple's and an anonymous
-  struct's: `Vector<T>`, `Set<T>`, `Map<K, V>`, `(Int, Int)`, `#{x: Int}`.
+  struct's: `Vector<T>`, `Set<T>`, `Map<K, V>`, `(Int, Int)`, `.{x: Int}`.
 
 An empty literal takes its element types from the expected type. With none,
 its binding needs an annotation (§5 *Locally-determined bindings and
@@ -925,7 +929,7 @@ value.
   (§3 *Range literals*). It is opaque: its parts are reached through
   [std::ranges](/reference/ranges/). It implements `Iter<T>` when `T`
   implements `Discrete`.
-- `(A, B, ...)` is a tuple and `#{name: A, ...}` an anonymous struct
+- `(A, B, ...)` is a tuple and `.{name: A, ...}` an anonymous struct
   (below).
 - `(A, B) -> C` is a function type (§7).
 
@@ -985,33 +989,33 @@ function that takes one tuple is `((A, B)) -> C`: a `->` after the `)` makes
 the parentheses a parameter list. `() -> C` takes no parameters; there is no
 empty tuple.
 
-A tuple has no `#`, which an anonymous struct `#{...}` and a vector `#[...]`
-start with: `#(1, 2)`, as a value, a pattern or a type, is
+A tuple has no `#`, which a vector `#[...]` starts with: `#(1, 2)`, as a
+value, a pattern or a type, is
 `` a tuple is written without `#`: `(a, b)` ``, whose fix drops the `#`.
 
 #### Anonymous Structs
 
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#anonymous-structs).
 
-An anonymous struct is written `#{...}` with named fields and no type name.
-A lone field may be punned: `#{name}` is `#{name: name}`. Its type is its
-shape, written as the value is (`#{morning: String, night: String}`), and
+An anonymous struct is written `.{...}` with named fields and no type name.
+A lone field may be punned: `.{name}` is `.{name: name}`. Its type is its
+shape, written as the value is (`.{morning: String, night: String}`), and
 may stand in any type position: a parameter, a field, a type argument, a
 tuple item, a `typealias`.
 
 Two anonymous struct types are the same when their fields have the same
 names and types, in any order. There is no width subtyping: a parameter of
-type `#{x: Int}` takes exactly that shape, not one with more fields
-(`argument 1: expected #{x: Int}, got #{x: Int, y: Int}`) and not a nominal
+type `.{x: Int}` takes exactly that shape, not one with more fields
+(`argument 1: expected .{x: Int}, got .{x: Int, y: Int}`) and not a nominal
 struct with those fields. A field name shared by two types is not a shared
 meaning, so code that works across shapes declares an interface, builds an
 anonymous struct at the call, or converts explicitly.
 
-`type Foo #{...}` is the error
+`type Foo .{...}` is the error
 ``a type over an anonymous struct is a struct: write `struct Foo { ... }` with one field per line``.
-An empty `#{}` is a struct only where a struct type is expected (*Target-typed
+An empty `.{}` is a struct only where a struct type is expected (*Target-typed
 construction*); elsewhere it is
-`` an anonymous struct has at least one field; `#{}` builds only a struct its position expects ``.
+`` an anonymous struct has at least one field; `.{}` builds only a struct its position expects ``.
 
 #### List
 
@@ -1154,17 +1158,19 @@ struct Box<T> {
 }
 
 fn main() {
-    b = Box(#{v: 1}) // a Box<Int>
+    b = Box(.{v: 1}) // a Box<Int>
     dbg b == Box{v: 1, label: "box"} // True
-    dbg #{v: 2} |> Box() // Box{v: 2, label: "box"}
+    dbg .{v: 2} |> Box() // Box{v: 2, label: "box"}
 }
 ```
 
 #### Target-typed construction
 
-`#{...}`, a struct literal with no type name and no spread, builds the
-nominal struct its position expects. The positions that supply a struct are
-the ones that supply an enum to a `.Variant` (*Variant Resolution*):
+`.{...}`, a struct literal with no type name and no spread, builds the
+nominal struct its position expects. The dot stands for the name, as the dot
+of `.Circle{radius}` stands for `Shape`: `Point{x: 0}` is `.{x: 0}` where a
+`Point` is expected. The positions that supply a struct are the ones that
+supply an enum to a `.Variant` (*Variant Resolution*):
 
 - an annotated binding or `once`;
 - a struct field in construction, and a function or constructor argument;
@@ -1174,7 +1180,9 @@ the ones that supply an enum to a `.Variant` (*Variant Resolution*):
 - an operand of `==`, `!=`, `<`, `>`, `<=` or `>=`, against the other
   operand's type;
 - a generic position once its type argument is known
-  (`b: Box<Int> = #{v: 3}`, `Some(#{...})` under `Maybe<Address>`).
+  (`b: Box<Int> = .{v: 3}`, `Some(.{...})` under `Maybe<Address>`), the
+  enclosing function's own type parameters among them (`Some((x, .{...}))`
+  under `Maybe<(T, Box<T>)>` builds a `Box<T>`).
 
 ```nomi
 struct Address {
@@ -1189,11 +1197,11 @@ struct Person {
 }
 
 fn home() -> Address {
-    #{street: "1 Main", city: "Bath"}
+    .{street: "1 Main", city: "Bath"}
 }
 
 fn main() {
-    ada = Person{name: "Ada", address: #{street: "3 Main", city: "York"}}
+    ada = Person{name: "Ada", address: .{street: "3 Main", city: "York"}}
     dbg home().zip // "00000"
     dbg ada.address.city // "York"
 }
@@ -1205,19 +1213,19 @@ The literal follows the ordinary construction rules and builds exactly what
 `Address has no field 'zip'`. An opaque struct is built this way only in its
 defining file.
 
-Where no struct type is expected, `#{...}` is an anonymous struct. It stays
+Where no struct type is expected, `.{...}` is an anonymous struct. It stays
 anonymous where the expected type is an anonymous struct type, an interface,
 a type parameter or an enum, since none names one struct to build:
-`a: Display = #{street: "x", city: "y"}` is
-`type mismatch: expected Display, got #{street: String, city: String}`.
+`a: Display = .{street: "x", city: "y"}` is
+`type mismatch: expected Display, got .{street: String, city: String}`.
 
 #### Struct Updates
 
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#updating-a-struct).
 
 A struct update builds a new struct from an old one with some fields
-replaced. It is written as a literal, `#{..base, field: value}`, or as a
-call, `Struct.update(base, #{field: value})`. The two admit the same fields
+replaced. It is written as a literal, `.{..base, field: value}`, or as a
+call, `Struct.update(base, .{field: value})`. The two admit the same fields
 and the same nested `..` literals, and mean the same thing.
 
 ```nomi
@@ -1228,24 +1236,24 @@ struct Point {
 
 fn main() {
     p = Point{x: 1, y: 2}
-    dbg #{..p, x: 9} // Point{x: 9, y: 2}
-    dbg Struct.update(p, #{y: 0}) // Point{x: 1, y: 0}
+    dbg .{..p, x: 9} // Point{x: 9, y: 2}
+    dbg Struct.update(p, .{y: 0}) // Point{x: 1, y: 0}
 }
 ```
 
 The literal form takes exactly one spread, written first, and at least one
 field:
 
-- `#{..p}` is `` a struct spread with no fields is its base value; write `p` ``.
+- `.{..p}` is `` a struct spread with no fields is its base value; write `p` ``.
 - Two spreads, or a spread after a field, is
   `` struct spread `..` must be the first element ``.
 - A named form, `Point{..p, x: 1}`, is
-  `` struct spread `..` has no named form; write `#{..base, field: value}` — the spread head carries the type ``.
+  `` struct spread `..` has no named form; write `.{..base, field: value}` — the spread head carries the type ``.
 
 The result has the base's type: a nominal struct gives that struct, an
 anonymous struct an anonymous struct. The fields are checked as a struct
 literal's are, against the base's field types, except that a missing field
-is not an error. A punned field works after a spread: `#{..base, name}`.
+is not an error. A punned field works after a spread: `.{..base, name}`.
 
 `Struct.update(original: self, updates: Partial<self>) -> self` is the one
 function of `Struct`, the interface every struct, named or anonymous,
@@ -1274,19 +1282,32 @@ struct Person {
 
 fn main() {
     ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
-    moved = #{..ada, address: #{.., city: "York"}}
+    moved = .{..ada, address: .{.., city: "York"}}
     dbg moved.address // Address{street: "1 Main", city: "York"}
 }
 ```
 
-`#{..ada, address: #{city: "York"}}` is therefore a whole `Address` with no
+`.{..ada, address: .{city: "York"}}` is therefore a whole `Address` with no
 `street`, the error `missing field 'street' of Address`, whose help suggests
-`#{.., city: "York"}`. A diagnostic names the type the mistake is in:
-`#{..ada, address: #{.., zip: 1}}` is `Address has no field 'zip'`.
+`.{.., city: "York"}`. A diagnostic names the type the mistake is in:
+`.{..ada, address: .{.., zip: 1}}` is `Address has no field 'zip'`.
+
+The `..` is the one way to write the value already there. A nested struct
+update whose spread names that value as a path, the enclosing update's base
+followed by the field it is written at, is
+`` `..ada.address` is the value `address` already holds here: write `..` ``:
+`.{..ada, address: .{..ada.address, city: "York"}}` is an error, and so is
+`.{..ada, address: .{.., geo: .{..ada.address.geo, lat: 1}}}`, where the
+enclosing `..` is `ada.address`. The same holds in the literal patch of
+`Struct.update(ada, .{...})`. Paths compare by the bindings they name, not
+their text. A spread naming another value (`.{..bob.address, city: "York"}`)
+is a value like any other. A base that is not a binding or a chain of field
+reads of one, such as a call (`.{..load(), address: .{..load().address, ...}}`),
+has no such path, since a `..` would not run the call again.
 
 | At a field or key holding | Write | Means |
 |---|---|---|
-| a struct | `#{.., f: v}` | the struct with `f` replaced |
+| a struct | `.{.., f: v}` | the struct with `f` replaced |
 | a map | `%{.., k => v}` | `Map.merge(old, %{k => v})` |
 | a list | `[x, ..]` or `[.., x]` | `[x, ..old]` or `[..old, x]` |
 | a set | `%[.., x]` | `Set.union(old, %[x])` |
@@ -1300,18 +1321,18 @@ literal takes one: a second is ``list literal takes one bare `..` `` (or
 
 A bare `..` is legal only as the spread of a literal written at a field or
 key of a literal that is itself an update: one with a named spread
-(`#{..base, ...}`, `%{..base, ...}`), one with a bare `..`, or the literal
+(`.{..base, ...}`, `%{..base, ...}`), one with a bare `..`, or the literal
 patch of a `Struct.update` call. Anywhere else, at the top of a plain
 literal, in a list element, in an operand of `+` or `Map.merge`, in a call
-argument (`Some(#{.., ...})` included) or in a patch passed to another
+argument (`Some(.{.., ...})` included) or in a patch passed to another
 function, it is `` a bare `..` has no value to update here ``.
 
-A `..` must stand for a value of its literal's kind: `#{.., f: v}` at a list
+A `..` must stand for a value of its literal's kind: `.{.., f: v}` at a list
 field is `` struct spread `..` requires a struct, got List<Int> ``. A
 `Maybe` field has no `..` form, since it may hold no value; it takes a whole
-value: `#{..p, a: #{.., city: "x"}}` with `a: Maybe<A>` is
+value: `.{..p, a: .{.., city: "x"}}` with `a: Maybe<A>` is
 `` struct spread `..` requires a struct, got Maybe<A> ``. A field of interface type takes values only:
-`#{..stage, who: #{.., n: 2}}` is
+`.{..stage, who: .{.., n: 2}}` is
 `` struct spread `..` requires a struct, got Speaker ``. A field whose type
 is a type parameter takes a `..` literal once the argument is known.
 
@@ -1408,7 +1429,7 @@ enum Shape {
 fn main() {
     a = Shape.Circle(1.0)
     b = Shape.Rectangle{height: 3.0}
-    c = Shape.Rectangle(#{width: 1.0, height: 1.0})
+    c = Shape.Rectangle(.{width: 1.0, height: 1.0})
     d: Shape = .Point
     dbg [a, b, c, d] // [Circle(1.0), Rectangle{width: 2.0, height: 3.0}, Rectangle{width: 1.0, height: 1.0}, Point]
 }
@@ -1419,7 +1440,7 @@ A single-payload variant over a tuple also has a flat call:
 (`2 |> Shape.Segment(3)`), and a generic variant's type arguments are
 solved from them. A struct variant has no positional form:
 `Shape.Rectangle(4.0, 5.0)` is
-`` Shape.Rectangle is a struct-shaped variant and has no positional form; construct it with Shape.Rectangle{...} or Shape.Rectangle(#{...}) ``.
+`` Shape.Rectangle is a struct-shaped variant and has no positional form; construct it with Shape.Rectangle{...} or Shape.Rectangle(.{...}) ``.
 A struct variant's paren pattern matches the anonymous struct of its fields,
 so `.Rectangle(r)` binds that record.
 
@@ -1462,9 +1483,12 @@ declaration. The walk passes through:
 - a pattern, whose expected type is the scrutinee's (§10).
 
 A list, vector or set literal checked against `Iter<T>` checks each item
-against `T`. A callee parameter is pinned only to a type that names no type
-parameter: in `fn write<T>(b: Buffer<T>, item: T) -> Result<Buffer<T>, Error>`,
-`Err(.Full)` takes `E` as `Error` and leaves `T` to the arguments.
+against `T`. The expected type may name the enclosing function's own type
+parameters: in `fn write<T>(b: Buffer<T>, item: T) -> Result<Buffer<T>, Error>`,
+`Err(.Full)` takes `E` as `Error`, and in `fn pop<T>(...) -> Maybe<(T, Stack<T>)>`,
+`Some((x, .{items: []}))` takes its payload as `(T, Stack<T>)`, so the literal
+builds a `Stack<T>`. A callee parameter is not pinned to a type that names the
+callee's own parameters, as a recursive call's expected type would.
 
 The walk does not look at later uses, at unannotated bindings, or at a bare
 `.Variant` written as a pipe stage, which would need the type of the stage
@@ -1475,7 +1499,7 @@ left to right, and each element after the first is checked against the type
 the earlier ones give, when that type holds an enum or a named struct. A
 map's keys and values are two positions. So `[Color.Red, .Green]` is a
 `List<Color>`, `%{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`, and
-`[Point{x: 0, y: 0}, #{x: 1, y: 2}]` a `List<Point>`. The earlier element's
+`[Point{x: 0, y: 0}, .{x: 1, y: 2}]` a `List<Point>`. The earlier element's
 whole type is what a later one is checked against, so the rule reaches into
 nested literals: `[Some(Color.Red), Some(.Green)]` resolves. An element whose
 type is still open sets nothing and blocks nothing. A tuple's items are separate
@@ -1593,7 +1617,7 @@ accepted.
 takes the forms `V`'s own shape takes and widens the result into the enum:
 
 - A struct, inline or embedded: `Shape.Circle{radius: 2.0}` and
-  `Shape.Circle(#{radius: 2.0})`, prefix or piped, with defaults filling
+  `Shape.Circle(.{radius: 2.0})`, prefix or piped, with defaults filling
   omitted fields.
 - An embedded distinct that wraps a value: the distinct's call form,
   `Session.UserId("alice")`, from the wrapped value.
@@ -1726,7 +1750,7 @@ A type name is not a conversion, a function or a value:
 - Calling any other type name is that error too (`Dir(1)`, `Maybe(3)`). The
   type names with a call form are a struct and a distinct type. A pipe into a
   type name is the same call: `1 |> Point()` is
-  `Point expects an anonymous struct literal #{...} matching its fields, got Int`.
+  `Point expects an anonymous struct literal .{...} matching its fields, got Int`.
 - A type name standing as a value, `f = Int` or `Iter.map(xs, String)`, is
   `` `Int` is a type, not a value ``. The names that are values are a
   variant, a distinct constructor, a zero-sized type, `True`, `False`,
@@ -1752,7 +1776,7 @@ none.
 | `type Path Vector<Int>` | `#Path[1, 2]` | `Path(v)` |
 | `type Tags Set<String>` | `%Tags["a", "b"]` | `Tags(s)` |
 | `type Kvs Map<String, Int>` | `%Kvs{"a" => 1}` | `Kvs(m)` |
-| `struct User` | `User{name: "Ada"}` | `User(#{name: "Ada"})` |
+| `struct User` | `User{name: "Ada"}` | `User(.{name: "Ada"})` |
 | `type Expired` | `Expired` | `Expired` |
 
 The named literal checks each element: `Pair("x", 1)` is
@@ -1779,7 +1803,7 @@ functions. These are rejected:
 | `PositiveInt(5)`, `Date{...}`, `Status.Active` (construction) | rejected |
 | `PositiveInt(n) = p`, a `case` on its variants (destructuring) | rejected |
 | `d.year`, a named tuple's `p.first` (field and item access) | rejected |
-| `Struct.update(d, #{year: 1})`, `#{..d, year: 1}` (a patch naming a field) | rejected |
+| `Struct.update(d, .{year: 1})`, `.{..d, year: 1}` (a patch naming a field) | rejected |
 
 Inside the defining file every form works. An opaque enum's variants are
 unreachable outside it for construction, matching and payload access alike.
@@ -1819,14 +1843,14 @@ Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#type-aliase
 positions. The two are one type.
 
 ```nomi
-typealias Point #{x: Int, y: Int}
+typealias Point .{x: Int, y: Int}
 
 fn shift(p: Point) -> Point {
-    #{x: p.x + 1, y: p.y}
+    .{x: p.x + 1, y: p.y}
 }
 
 fn main() {
-    dbg shift(#{x: 1, y: 2}) // #{x: 2, y: 2}
+    dbg shift(.{x: 1, y: 2}) // .{x: 2, y: 2}
 }
 ```
 
@@ -2229,9 +2253,19 @@ destructure or a binding with `else`, must not have a wholly unknown type
 once the file is checked. `Ok(z) = Maybe.to_result(None, "none") else { return }`
 is
 ``the type of 'z' is not determined: nothing fixes the type the pattern binds it to — annotate the matched value (`v: T = …`) or give a call a type argument (`f<T>(…)`)``,
-unless the `else` fallback or a later use of `z` fixes it. A name whose type
-only contains an unknown part, as `a` in `(a, b) = (None, 1)`, is
-accepted.
+unless the `else` fallback or a later use of `z` fixes it.
+
+A destructuring binding (a tuple, struct, distinct or variant pattern
+followed by `=`, with or without `else`, or after `assert`) holds each name
+it binds to the rule a `name = value` binding is held to, once the file is
+checked: a name whose type is wholly unresolved is an error. With
+`fn read<T>() -> (Box<T>, Bool)`, `(box, _) = read()` binds `box` to a
+`Box<?>`, and is
+``binding 'box' type is not locally determined: it has unsolved type parameter(s) — give the call a type argument (`f<T>(…)`) or annotate the matched value (`v: T = …`)``;
+`(box, _) = read<Visit>()` is determined. `(a, b) = (None, 1)` is the same
+error unless a later use of `a` fixes its type. In a `case` arm or an
+`if Pattern = value`, a name whose type only contains an unknown part, as a
+`Maybe` that can only be `None`, is accepted.
 
 #### Determined type arguments
 
@@ -2318,9 +2352,9 @@ import {
     std::uuid.Uuid
 }
 
-once admin = #{
+once admin = .{
     home: Route`GET /admin/{$}`,
-    user: `GET /admin/users/{id}` as Route<#{id: Uuid}>,
+    user: `GET /admin/users/{id}` as Route<.{id: Uuid}>,
     tags: [] as List<String>,
 }
 
@@ -2463,7 +2497,7 @@ whose `Hashable` is not hashes by its type alone, so all its keys share a
 bucket. Every other value hashes structurally, as a derived `Hashable` does
 (§12 *Derive*): a tuple mixes its slots in order, so
 `Hashable.hash((1, 2)) == 33`, and an anonymous record its fields in name
-order, so `#{b: 2, a: 1}` hashes as `(1, 2)` does. Map equality and hashing
+order, so `.{b: 2, a: 1}` hashes as `(1, 2)` does. Map equality and hashing
 ignore order. An `impl Hashable` must give equal values equal hashes.
 
 A key or element needs equality, not an impl: `%{p => 1}`, `%[p]`,
@@ -2512,7 +2546,7 @@ unless they are `Equal`, then the second, and so on, and an element after
 the deciding one is never compared. `(1, "b") < (2, "a")`. Ordering a
 tuple with a non-`Comparable` element is a compile error naming the element
 type. An anonymous struct is never `Comparable`, since nothing declares it:
-``no impl of `Comparable` for `#{x: Int}` (required via ordering operator `<`); anonymous struct types cannot implement `Comparable` ``.
+``no impl of `Comparable` for `.{x: Int}` (required via ordering operator `<`); anonymous struct types cannot implement `Comparable` ``.
 Its equality is unaffected.
 
 #### NaN and the three comparison behaviours
@@ -2862,7 +2896,7 @@ A pattern whose head names a type gives the parameter that type, and needs
 no annotation, though one is allowed: a distinct `Duration(x)`, a named tuple
 `Pair(a, b)`, a named struct `Point{x, y}`, a single-variant enum's
 `E.V(x)`. A pattern with no
-type head needs one: a tuple, an anonymous struct pattern (`#{x, y}: Point`),
+type head needs one: a tuple, an anonymous struct pattern (`.{x, y}: Point`),
 a dot-leading variant (`.V(x): E`), and a generic distinct without type
 arguments.
 
@@ -2940,7 +2974,7 @@ A variant's
 payload, a distinct's wrapped value and a struct's record call are
 positional: `Some(value: 1)` is `no parameter named 'value'`. An
 interface-qualified call takes the interface function's own parameter names
-(`Display.to_string(value: 1)`, `Struct.update(updates: #{x: 2}, original: p)`).
+(`Display.to_string(value: 1)`, `Struct.update(updates: .{x: 2}, original: p)`).
 
 #### Lambdas at Call Sites
 
@@ -3450,7 +3484,7 @@ export fn new_game(word: String) -> Game {
 }
 
 export fn guess(game: Game, letter: String) -> Game {
-    #{..game, guesses: [letter, ..game.guesses]}
+    .{..game, guesses: [letter, ..game.guesses]}
 }
 ```
 
@@ -4017,7 +4051,7 @@ fn main() {
 
 ```nomi
 fn all_present<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T> {
-    Iter.all(wanted, &(&1 in c))
+    Iter.all_match(wanted, &(&1 in c))
 }
 
 fn main() {
@@ -4767,8 +4801,7 @@ fn open_app(kind: String, path: String) -> Result<App, sql.Error> {
             db
         }
 
-        _ ->
-            memory_store()
+        _ -> memory_store()
     }
 
     Ok(App{store})
@@ -4985,7 +5018,7 @@ fn main() {
 
 ### Struct Destructuring
 
-`Type{field: pattern, ...}` matches a struct. `#{field: pattern, ...}`
+`Type{field: pattern, ...}` matches a struct. `.{field: pattern, ...}`
 matches a struct or an anonymous struct.
 
 ```nomi
@@ -4998,7 +5031,7 @@ fn describe(user: User) -> String {
     case user {
         User{name: "Alice"} -> "found Alice"
         User{name, age} when age > 18 -> "adult: ${name}"
-        #{age: years} -> "minor of ${years}"
+        .{age: years} -> "minor of ${years}"
     }
 }
 
@@ -5012,8 +5045,8 @@ fn main() {
   pattern` matches it against the pattern.
 - A written type name must name the value's struct, directly or through a
   `typealias`. A typed pattern does not match an anonymous struct: `User{name}
-  = #{name: "Ada"}` is the error `struct pattern names User, but the value is
-  the anonymous struct #{name: String}`.
+  = .{name: "Ada"}` is the error `struct pattern names User, but the value is
+  the anonymous struct .{name: String}`.
 - A pattern names each field once: `User{age: 1, age: a}` is `field 'age' is
   given twice in this User pattern`, and an anonymous one says `this struct
   pattern`. A punned repeat (`User{age, age}`) also binds `age` twice: ``
@@ -5969,7 +6002,7 @@ interface Scale {
 
 #### Defaults over distinct types
 
-Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#defaults-over-distinct-types).
+Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#defaults-that-need-another-interface).
 
 In a default bounded by `where self: Distinct<T>` (§4 *Distinct Types*), the
 pattern `self(p)` takes a `self` value apart, binding what it wraps to `p`, and
@@ -6050,8 +6083,8 @@ impl Tagged for Event {
     }
 }
 
-fn tag_of<T>(x: T) -> Int where T: Tagged {
-    T.tag(x)
+fn tag_of(x: Tagged) -> Int {
+    Tagged.tag(x)
 }
 
 fn main() {
@@ -6310,7 +6343,7 @@ it in the signature: `fn wrap<T>(v: T) -> String where T: Display` ``.
   `==`.
 
 **At the call.** A type argument that does not satisfy a bound is an error:
-`sort([#{x: 1}])` is ``no impl of `Comparable` for `#{x: Int}`; anonymous
+`sort([.{x: 1}])` is ``no impl of `Comparable` for `.{x: Int}`; anonymous
 struct types cannot implement `Comparable` ``. The help offers what the program
 can write:
 
@@ -6318,10 +6351,11 @@ can write:
   and an impl block spelled with its required functions;
 - where the program declares neither the type nor the interface, a note that
   the orphan rule forbids the impl;
-- for an interface at most four types implement, their names: `String.split("a1b",
-  1)` is ``Int does not implement Matcher (required by `where M: Matcher`)``
-  with the help ``only std can implement `Matcher` for `Int`; `Codepoint`,
-  `Regex` and `String` implement it``;
+- for an interface at most four types implement, their names: with `fn
+  has<M>(text: String, m: M) -> Bool where M: Matcher`, `has("a1b", 1)` is
+  ``Int does not implement Matcher (required by `where M: Matcher`)`` with the
+  help ``only std can implement `Matcher` for `Int`; `Codepoint`, `Regex` and
+  `String` implement it``;
 - otherwise, to wrap the type: ``only std can implement `Comparable` for
   `Ordering`; wrap it in a type of your own that implements `Comparable` ``.
 
@@ -6334,7 +6368,15 @@ an interface the program declares. What each implements of std's:
 - An anonymous struct implements `Struct` and `Debug`, and `Equatable`,
   `Hashable` and `Display` when every field does. It implements std::parse's
   `ParseFields`, which reads named texts into its fields and writes them
-  back, when every field implements `Parse` and `Display`.
+  back, when every field implements `Parse` and `Display`. It implements
+  std::json's `ToJson` and `FromJson` when every field does, as a struct
+  that derives them with no options: an object keyed by its field names as
+  written, a `None` field written as `null` and a missing `Maybe` field read
+  as `None`, keys it has no field for ignored, and a missing key of any
+  other field the error `title: expected String, got missing`. So
+  `Response.json(.{error: "no todo 99"})` sends `{"error":"no todo 99"}`
+  and `Json.decode_as<.{title: String, order: Maybe<Int>}>(text)` reads a
+  request body. A tuple implements neither.
 - A function implements only `Debug`.
 
 The same rule decides a bound and an interface-typed position (*Interface
@@ -6548,11 +6590,19 @@ std's `Contains<T>` for `List` is generic in its type arguments, so it covers
 
 ### Interface values
 
+Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#interfaces-as-types).
+
 A value of interface type holds a value of any implementor. An interface
 requires nothing of its implementors but its own functions, so the interfaces
 a `Scale` value can be used at are `Scale`, `Debug`, `Equatable` and
 `Hashable`.
 
+- A value whose type does not implement the interface is the position's
+  mismatch, `` argument 2: expected Matcher, got Int ``, with the help a
+  bound gives the same type: `derive` or an impl block for a type the
+  program declares, and for a std interface and type, ``only std can
+  implement `Matcher` for `Int`; `Codepoint`, `Regex` and `String`
+  implement it``.
 - Any other use (`Display.to_string(other)`, `"${other}"`, `a < b`,
   `Iter.sort(scales)`, a generic call whose bound names another interface) is
   an error at the use: `` `other` is a `Scale`, and Scale does not require
@@ -6897,7 +6947,7 @@ terminal and the source, at the program's line:
 line 6: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 ```
 
-A terminal that may stop early (`first`, `find`, `any`, ...) does not trap.
+A terminal that may stop early (`first`, `find`, `any_match`, ...) does not trap.
 An iterator that never ends without saying so (a type that does not write
 `is_infinite`, a `take_while` whose predicate never fails) runs until
 something stops it. [std::iter](/reference/iter/) lists when each adapter is
@@ -7049,7 +7099,7 @@ Taught in [Iteration and Loops](/iteration-and-loops/#break-and-continue-in-iter
 `break` and `continue` work in the callbacks of a closed set of functions:
 `Iter.map`, `Iter.scan`, `Iter.filter`, `Iter.take_while`, `Iter.drop_while`,
 `Iter.flat_map`, `Iter.iterate`, `Iter.reduce`, `Iter.map_reduce`,
-`Iter.each`, `Iter.find`, `Iter.any`, `Iter.all`, `Map.map_values`,
+`Iter.each`, `Iter.find`, `Iter.any_match`, `Iter.all_match`, `Map.map_values`,
 `Map.map_keys` and `Iter.loop`.
 
 A callback's result is its result for this element. `continue` skips the
@@ -7063,7 +7113,7 @@ it.
 | `map` | this element's output, emitted | no output | stops; outputs so far |
 | `filter` | the keep decision (`break True` keeps it) | drops it | stops |
 | `reduce` | the accumulator | accumulator unchanged | the accumulator so far |
-| `find`, `any`, `all` | the predicate's result | skips | `None`, `False`, `True` |
+| `find`, `any_match`, `all_match` | the predicate's result | skips | `None`, `False`, `True` |
 | `drop_while` | the drop decision: `break False` emits this element and ends | drops it | ends with nothing more |
 | `flat_map` | this element's expansion, emitted | no output | stops |
 | `scan` | the new state, yielded | yields nothing, keeps the state | ends without yielding |
@@ -7496,7 +7546,7 @@ Taught in [App Fields, Defer & Context](/app-fields/#the-basic-shape).
 
 #### Boot and `Startup`
 
-An entry file may declare a boot, `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, for any struct `App` and any error type `E`. Boot builds the application value and returns it in `Ok`, or returns `Err` when the program cannot start. A boot that cannot fail still returns a `Result`, so adding a step that can fail does not change its signature. The struct in the `Ok` of an entry boot is an **application type**. Its name is not reserved and it needs no impl. A boot may also return an anonymous record (`fn boot() -> Result<#{n: Int}, String>`); its fields are published, but no read can name them.
+An entry file may declare a boot, `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, for any struct `App` and any error type `E`. Boot builds the application value and returns it in `Ok`, or returns `Err` when the program cannot start. A boot that cannot fail still returns a `Result`, so adding a step that can fail does not change its signature. The struct in the `Ok` of an entry boot is an **application type**. Its name is not reserved and it needs no impl. A boot may also return an anonymous record (`fn boot() -> Result<.{n: Int}, String>`); its fields are published, but no read can name them.
 
 An application type has at most one field of type `Context`, under any name. Boot receives no context; one that wants a `Context` field builds it with `Context.root()` or a deriver such as `Context.with_timeout(Context.root(), d)`. An application with no `Context` field runs under the root context.
 
@@ -7559,7 +7609,7 @@ fn in_region() {
 }
 ```
 
-`with` works in any block: a function body, an `if` or `case` arm, a block statement, a lambda body, a test body, a group's `setup`. It has no value and takes no block. To limit an override to part of a function, put the line in a block statement or a helper function. There is no override of the whole application value or of a nested field; replace a structured field with an update, `with App.database = #{..App.database, host: "localhost"}`.
+`with` works in any block: a function body, an `if` or `case` arm, a block statement, a lambda body, a test body, a group's `setup`. It has no value and takes no block. To limit an override to part of a function, put the line in a block statement or a helper function. There is no override of the whole application value or of a nested field; replace a structured field with an update, `with App.database = .{..App.database, host: "localhost"}`.
 
 | Violation | Error |
 |---|---|
@@ -7954,9 +8004,9 @@ Taught in [Testing](/testing/#groups-and-setup).
 
 ```nomi
 group "defaults" {
-    setup #{name: "No Name"}
+    setup .{name: "No Name"}
 
-    test "default user", #{name} {
+    test "default user", .{name} {
         user = users.default()
         assert user.name == name
     }
@@ -8010,7 +8060,7 @@ test "postgres needs a database URL" {
 
 **`setup`.** `setup expr`, or `setup { ... }` with statements before its final value, produces the value the group's tests receive. A setup whose last line is a statement, such as a `with` line, produces `Unit`; one whose last line is `assert x` produces what `ok = assert x` binds. `return value` in a setup ends the setup with that value, and the setup's type is the type its final value and every `return` agree on. A `with` line in `setup` stays in force for the body of the test it serves, so `setup` is where a group installs fakes. A `?` or a failed assertion in `setup` fails the test it serves with the same report it would give in the body, and the body does not run.
 
-A test binds the setup's value with a pattern after its name: a name (`test "loads rows", db`), a tuple (`(left, right)`) or a record (`#{name}`). A test with no pattern ignores the value. The pattern must match every value of the setup's type: `a test's pattern must match every setup value; bind it with a name or an irrefutable pattern and match it in the body`. Bindings inside `setup` do not reach the tests.
+A test binds the setup's value with a pattern after its name: a name (`test "loads rows", db`), a tuple (`(left, right)`) or a record (`.{name}`). A test with no pattern ignores the value. The pattern must match every value of the setup's type: `a test's pattern must match every setup value; bind it with a name or an irrefutable pattern and match it in the body`. Bindings inside `setup` do not reach the tests.
 
 ```nomi
 group "store" {
@@ -8137,7 +8187,7 @@ The rules:
 - `subtests` is a statement whose value is `Unit`, and it fails as an assertion does. In a function that returns `Result<_, AssertionFailure>`, a failure returns `Err(failure)`, whose `keyword` is `"subtests"`, whose `reason` is the count line (`2 of 3 subtests failed`), and whose `subtests` field lists each failed row as a `SubtestFailure` with its `row` and its `failure`. Where an assertion cannot stand, neither can `subtests`: in a function with another result (`` `subtests` can return AssertionFailure, but the enclosing function returns Int ``), in a lambda, in a `once` initializer (`` `subtests` cannot be used in the initializer of `once v`: a `once` has no function to return from ``) or in a default. It cannot be written in a `setup` (`` `subtests` cannot be used in a `setup`: a setup builds the value each test binds ``) or inside another `subtests` body (`` `subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case ``).
 - `subtests` is a keyword only where a statement starts with it, an expression starts on its line, and a comma follows that expression, or after `|>`. Anywhere else it is an ordinary name: `subtests = rows` and a function named `subtests` work.
 
-**Row names.** `subtests rows, pattern, name { body }` names each row. `name` is an expression of type `String`, written after the pattern and a comma, and evaluated once per row after the pattern binds and before the body runs, in the scope of the pattern's bindings. A binding only the name reads counts as used. The name ends where the body's `{` begins, and a struct literal, which starts with `#`, may stand in it (`Point{x, y} |> Point.describe()`). A `_` or `_`-prefixed name in the pattern discards a column either way.
+**Row names.** `subtests rows, pattern, name { body }` names each row. `name` is an expression of type `String`, written after the pattern and a comma, and evaluated once per row after the pattern binds and before the body runs, in the scope of the pattern's bindings. A binding only the name reads counts as used. The name ends where the body's `{` begins, and a struct literal, which starts with its name or `.`, may stand in it (`Point{x, y} |> Point.describe()`). A `_` or `_`-prefixed name in the pattern discards a column either way.
 
 - A name of another type is `` the name of a `subtests` row must be a String, got Int ``.
 - The name is evaluated on its own, so `return`, `break`, `continue`, `?` and an assertion directly in it are errors, such as `` `?` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs ``.
@@ -8204,7 +8254,7 @@ group "todo api" {
 }
 ```
 
-A case is named with its row after the group's name, in brackets: `todo api [memory] / boots the row's store`, then `todo api [sqlite] / boots the row's store`, rows in order and, within a row, the tests in order. A row that is a String is named by its text. `subtests rows, pattern, name { ... }` names a row by a column: `name` is a name the pattern binds to a String in every row, as in `subtests [("memory", 1), ("sqlite", 4)], (store, workers), store`. Any other row is named as a `values:` row renders it: `[2]`, `[("memory", 1)]`. A test inside may run a `subtests` statement of its own, whose rows count as that case's cases (*Cases* above), so the group's cases are its rows times its tests, each counted as its own statements' rows. `nomi test --line` at the `subtests` line, as at the group's, runs the whole group, and at a test, that test for every row.
+A case is named with its row after the group's name, in brackets: `todo api [memory] / boots the row's store`, then `todo api [sqlite] / boots the row's store`, rows in order and, within a row, the tests in order. A row that is a String is named by its text. `subtests rows, pattern, name { ... }` names a row by a column: `name` is a name the pattern binds to a String in every row, as in `subtests [("memory", 1), ("sqlite", 4)], (store, workers), store`. Any other row is named as a `values:` row renders it: `[2]`, `[("memory", 1)]`. A test inside may run a `subtests` statement of its own, whose rows count as that case's cases (*Cases* above), so the group's cases are its rows times its tests, each counted as its own statements' rows. `nomi test --line` at the `subtests` line, as at the group's, runs the whole group, and at a test, that test for every row. `nomi test --run` matches a case by this name, so a pattern naming a row, `--run '\[sqlite\]'`, runs that row alone.
 
 The rows are read when the tests are collected, before anything runs, because each row's cases are named and counted then. So:
 
@@ -8363,9 +8413,9 @@ pub interface CheckedLiteral<I, T> {
 Its literals are checked literals. A checked literal's type is `T` in every quote style, with or without slots; it is never a `Result`:
 
 - `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a raw literal's handler: a `check` that reaches an effect is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, and one that does not finish within the step limit is an error at the literal.
-- What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<#{id: Uuid}>` literal gets `["#{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
+- What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<.{id: Uuid}>` literal gets `[".{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
 - A generic type's impl, `impl CheckedLiteral<String, Route<P>> for Route<P>`, gives each literal fresh type arguments, which the expected type solves as it solves a generic call's.
-- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), ``Route`GET /users/{id}` `` is a `Route<#{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `#{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
+- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), ``Route`GET /users/{id}` `` is a `Route<.{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `.{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
 - An `Err(LiteralError{fragment, offset, message})` is a compile error carrying `message` at the character `offset` code points into static `fragment`, counted in the text as `check` received it. An offset at a static's end points at the `${` of the slot after it; fragment 0 and offset 0 point at the literal.
 - `build` runs when the program runs, gets the fragments `from_fragments` would get, and cannot fail: once `check` accepts the text, every slot value must build. A `build` that traps anyway traps where it runs.
 
@@ -8436,7 +8486,7 @@ fn main() {
 
 - The literal is checked as the tagged one is: its slots take the impl's slot type, `check` runs when the program is checked, and a refusal is an error at the place it names, labelled with the type: ``a `Url` literal "https://${host}/a" is invalid: a slot in the scheme, user or host cannot be escaped``.
 - Only a literal converts. A `String` value where a `Url` is expected is the ordinary mismatch, `` argument 1: expected Url, got String ``.
-- A checked literal, tagged or not, passed to a generic function where its parameter's type holds a type parameter that another argument solves on its own is checked after that argument, against the solved type. An argument solves it on its own when its type does not depend on its slot: a name of a value or function that is not generic, or a lambda whose parameters are all annotated. With `fn update(r: Request, p: #{id: Int}) -> Response`, `Route.to_with("PATCH /todos/{id}", update)` checks the route as a `Route<#{id: Int}>`. A lambda that leaves a parameter's type to the call, `fn r, p -> ...`, takes it from the literal, which is checked first, as written. The arguments still run in the order they are written. A literal piped into such a stage, `"PATCH /todos/{id}" |> Route.to_with(update)`, is typed the same way, though there only an argument that names a value counts, since the head is checked before the stage.
+- A checked literal, tagged or not, passed to a generic function where its parameter's type holds a type parameter that another argument solves on its own is checked after that argument, against the solved type. An argument solves it on its own when its type does not depend on its slot: a name of a value or function that is not generic, or a lambda whose parameters are all annotated. With `fn update(r: Request, p: .{id: Int}) -> Response`, `Route.to_with("PATCH /todos/{id}", update)` checks the route as a `Route<.{id: Int}>`. A lambda that leaves a parameter's type to the call, `fn r, p -> ...`, takes it from the literal, which is checked first, as written. The arguments still run in the order they are written. A literal piped into such a stage, `"PATCH /todos/{id}" |> Route.to_with(update)`, is typed the same way, though there only an argument that names a value counts, since the head is checked before the stage.
 - With no expected type, or one with no `CheckedLiteral` impl, the literal is a `String`, as always. A `Literal` impl does not make a literal typed by its position, since such a literal is its handler's result, usually a `Result` built when the program runs.
 - The literal keeps the form it was written in; `nomi fmt` does not add or remove a tag.
 

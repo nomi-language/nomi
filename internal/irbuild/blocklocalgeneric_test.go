@@ -36,7 +36,7 @@ fn main() {
         o: Opt<T>
     }
     io.inspect(Box{v: "s"})
-    io.inspect(Box(#{v: 1.5}))
+    io.inspect(Box(.{v: 1.5}))
     io.inspect(Box{v: Box{v: 2}}.v.v)
     case Opt.Has(Meters(3)) {
         .Has(Meters(n)) -> io.inspect(n)

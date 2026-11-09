@@ -19,8 +19,6 @@ pub opaque struct CustomSet<T> {
     items: List<T>
 }
 
-derive Equatable for CustomSet<T>
-
 impl CustomSet<T> {
     /// The set of `values`, each kept once.
     pub fn from(values: List<T>) -> CustomSet<T> where T: Comparable {
@@ -39,29 +37,29 @@ impl CustomSet<T> {
 
     /// Whether every value of `set` is in `other`.
     pub fn is_subset(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        Iter.all(set.items, &CustomSet.contains(other, &1))
+        Iter.all_match(set.items, &CustomSet.contains(other, &1))
     }
 
     /// Whether `set` and `other` share no value.
     pub fn is_disjoint(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        not Iter.any(set.items, &CustomSet.contains(other, &1))
+        not Iter.any_match(set.items, &CustomSet.contains(other, &1))
     }
 
     /// `set` with `element` in it.
     pub fn add(set: CustomSet<T>, element: T) -> CustomSet<T> where T: Comparable {
-        CustomSet{items: insert(set.items, element)}
+        .{items: insert(set.items, element)}
     }
 
     /// The values in both `set` and `other`.
     pub fn intersection(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
-        CustomSet{
+        .{
             items: set.items |> Iter.filter(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
 
     /// The values in `set` that are not in `other`.
     pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
-        CustomSet{
+        .{
             items: set.items |> Iter.reject(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
@@ -76,8 +74,7 @@ impl CustomSet<T> {
 /// `element` in its place, or unchanged when it holds `element` already.
 fn insert<T>(items: List<T>, element: T) -> List<T> where T: Comparable {
     case items {
-        [] ->
-            [element]
+        [] -> [element]
 
         [first, ..rest] ->
             case Comparable.compare(element, first) {
@@ -246,7 +243,7 @@ test result: ok. 40 passed, 0 failed
 
 ## How it's written
 
-- The exercise asks for a set built by hand, so `CustomSet<T>` does not wrap std's `Set`. It is an opaque struct over one `List<T>` kept in ascending order with no value twice. Every set of the same values then holds the same list, so `derive Equatable` is set equality, and the canonical "constructed from an array with duplicates" case needs no code of its own.
+- The exercise asks for a set built by hand, so `CustomSet<T>` does not wrap std's `Set`. It is an opaque struct over one `List<T>` kept in ascending order with no value twice. Every set of the same values then holds the same list, so `==`, which compares structs field by field, is set equality, and the canonical "constructed from an array with duplicates" case needs no code of its own.
 - Order and uniqueness are kept in one place, the private `insert`: a `case` on the list, then `Comparable.compare` with the head, whose three arms put the value before it, keep the list as it is, or carry on down the tail. `from` and `union` are `Iter.reduce` over `add`, so they keep the order too.
 - `intersection` and `difference` filter the first set's list, which is already in order, so they build the struct directly with the pipe inside its field (style §7).
 - The functions are in `impl CustomSet<T>`, generic over the block's `T`. The ones that only test membership ask for `T: Equatable`; the ones that build a set ask for `T: Comparable`.

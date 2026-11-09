@@ -2041,6 +2041,30 @@
 18-ffi-and-dynamic/inline_go_block_app/ffi.nomi:make_box	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/inline_go_block_app/ffi.nomi:make_box_raw	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/inline_go_block_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
+18-ffi-and-dynamic/json_anon_struct_test.nomi:.{detail: maybe.Maybe<Unit>, error: String}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:.{error: String}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:.{extra: maybe.Maybe<.{k: String}>, items: List<.{done: Bool, id: Int}>, name: String}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:.{order: maybe.Maybe<Int>, title: String}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:.{order: maybe.Maybe<Int>}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:.{p: .{x: Int, y: Int}}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:.{user: json_anon_struct_test.User}.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:List<.{x: Int}>.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:Map<String, .{x: Int}>.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:Pinned.equal	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:Pinned.from_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:Pinned.inspect	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:Pinned.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:User.equal	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:User.from_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:User.inspect	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:User.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:decoded	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:encoded	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:maybe.Maybe<.{x: Int}>.to_json	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
+18-ffi-and-dynamic/json_anon_struct_test.nomi:shape_error	ran
 18-ffi-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-ffi-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-ffi-and-dynamic/json_decode_error_text_test.nomi:decode_error	ran
@@ -2068,10 +2092,12 @@
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.from_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.inspect	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.to_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Set<String>.to_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.equal	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.from_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.inspect	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.to_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Vector<Int>.to_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:decoded	ran
 18-ffi-and-dynamic/json_test.nomi:describe_root	ran
 18-ffi-and-dynamic/json_test.nomi:extract_first_tag	ran
@@ -2285,6 +2311,7 @@
 19-locales/listed_locales/main.nomi:literal Locale`pl` at 22:48 failure	ran
 19-locales/listed_locales/main.nomi:main	ran
 19-locales/listed_locales/main.nomi:total	ran
+19-locales/listed_locales/main_test.nomi:Int.plural_operand	ran
 19-locales/listed_locales/main_test.nomi:literal Locale`de-AT` at 18:32 failure	ran
 19-locales/listed_locales/main_test.nomi:literal Locale`de-CH` at 17:32 failure	ran
 19-locales/listed_locales/main_test.nomi:literal Locale`de` at 11:32 failure	ran
@@ -2521,6 +2548,8 @@
 19-locales/phrase_functions_test.nomi:phrases	ran
 19-locales/phrase_functions_test.nomi:plain	ran
 19-locales/phrase_functions_test.nomi:weekday_and_day	ran
+19-locales/plural_test.nomi:Decimal.plural_operand	ran
+19-locales/plural_test.nomi:Int.plural_operand	ran
 19-locales/plural_test.nomi:cardinals_of	ran
 19-locales/plural_test.nomi:literal Locale`ar` at 51:61 failure	ran
 19-locales/plural_test.nomi:literal Locale`cy` at 71:48 failure	ran
@@ -2649,7 +2678,7 @@
 20-data-access/passwords_test.nomi:Reversed.hash	ran
 20-data-access/passwords_test.nomi:Reversed.inspect	ran
 20-data-access/passwords_test.nomi:Reversed.needs_rehash	ran
-20-data-access/passwords_test.nomi:Reversed.reads	ran
+20-data-access/passwords_test.nomi:Reversed.recognizes	ran
 20-data-access/passwords_test.nomi:Reversed.verify	ran
 20-data-access/passwords_test.nomi:fast	ran
 20-data-access/sessions_test.nomi:Visit.from_json	ran
@@ -2824,7 +2853,6 @@ exercism/bank-account/bank_account.nomi:Account.deposit	ran
 exercism/bank-account/bank_account.nomi:Account.inspect	ran
 exercism/bank-account/bank_account.nomi:Account.open	ran
 exercism/bank-account/bank_account.nomi:Account.withdraw	ran
-exercism/bank-account/bank_account.nomi:Error.equal	ran
 exercism/bank-account/bank_account.nomi:Error.inspect	ran
 exercism/bank-account/bank_account.nomi:Error.to_string	ran
 exercism/bank-account/bank_account.nomi:Request.inspect	ran
@@ -2842,7 +2870,6 @@ exercism/bank-account/bank_account.nomi:withdrawn	ran
 exercism/bank-account/bank_account_test.nomi:Step.inspect	ran
 exercism/bank-account/bank_account_test.nomi:replay	ran
 exercism/bank-account/bank_account_test.nomi:run	ran
-exercism/binary-search-tree/binary_search_tree.nomi:Tree.equal	ran
 exercism/binary-search-tree/binary_search_tree.nomi:Tree.from	ran
 exercism/binary-search-tree/binary_search_tree.nomi:Tree.insert	ran
 exercism/binary-search-tree/binary_search_tree.nomi:Tree.inspect	ran
@@ -2892,7 +2919,6 @@ exercism/circular-buffer/circular_buffer.nomi:Buffer.overwrite	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.read	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.write	ran
 exercism/circular-buffer/circular_buffer.nomi:Error.inspect	ran
-exercism/circular-buffer/circular_buffer_test.nomi:Step.equal	ran
 exercism/circular-buffer/circular_buffer_test.nomi:Step.inspect	ran
 exercism/circular-buffer/circular_buffer_test.nomi:replay	ran
 exercism/clock/clock.nomi:Clock.add	ran
@@ -2910,7 +2936,6 @@ exercism/complex-numbers/complex_numbers.nomi:Complex.add	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.conjugate	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.divide	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.divide	ran
-exercism/complex-numbers/complex_numbers.nomi:Complex.equal	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.equal_within	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.exp	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.from_real	ran
@@ -2926,7 +2951,6 @@ exercism/complex-numbers/complex_numbers.nomi:Float.add	ran
 exercism/complex-numbers/complex_numbers.nomi:Float.divide	ran
 exercism/complex-numbers/complex_numbers.nomi:Float.multiply	ran
 exercism/complex-numbers/complex_numbers.nomi:Float.subtract	ran
-exercism/connect/connect.nomi:Player.equal	ran
 exercism/connect/connect.nomi:Player.inspect	ran
 exercism/connect/connect.nomi:connects	ran
 exercism/connect/connect.nomi:reaches	ran
@@ -2938,7 +2962,6 @@ exercism/crypto-square/crypto_square.nomi:width	ran
 exercism/custom-set/custom_set.nomi:CustomSet.add	ran
 exercism/custom-set/custom_set.nomi:CustomSet.contains	ran
 exercism/custom-set/custom_set.nomi:CustomSet.difference	ran
-exercism/custom-set/custom_set.nomi:CustomSet.equal	ran
 exercism/custom-set/custom_set.nomi:CustomSet.from	ran
 exercism/custom-set/custom_set.nomi:CustomSet.inspect	ran
 exercism/custom-set/custom_set.nomi:CustomSet.intersection	ran
@@ -2967,12 +2990,10 @@ exercism/dominoes/dominoes.nomi:picks	ran
 exercism/dominoes/dominoes_test.nomi:has_same_stones	ran
 exercism/dominoes/dominoes_test.nomi:is_chain_of	ran
 exercism/dominoes/dominoes_test.nomi:unturned	ran
-exercism/dot-dsl/dot_dsl.nomi:Error.equal	ran
 exercism/dot-dsl/dot_dsl.nomi:Error.inspect	ran
 exercism/dot-dsl/dot_dsl.nomi:Error.to_string	ran
 exercism/dot-dsl/dot_dsl.nomi:Graph.inspect	ran
 exercism/dot-dsl/dot_dsl.nomi:Statement.inspect	ran
-exercism/dot-dsl/dot_dsl.nomi:Value.equal	ran
 exercism/dot-dsl/dot_dsl.nomi:Value.inspect	ran
 exercism/dot-dsl/dot_dsl.nomi:add	ran
 exercism/dot-dsl/dot_dsl.nomi:attributes_in	ran
@@ -2985,7 +3006,6 @@ exercism/dot-dsl/dot_dsl.nomi:value_of	ran
 exercism/dot-dsl/dot_dsl.nomi:with_attributes	ran
 exercism/dot-dsl/dot_dsl.nomi:with_attributes	ran
 exercism/eliuds-eggs/eliuds_eggs.nomi:egg_count	ran
-exercism/error-handling/error_handling.nomi:Error.equal	ran
 exercism/error-handling/error_handling.nomi:Error.inspect	ran
 exercism/error-handling/error_handling.nomi:number	ran
 exercism/error-handling/error_handling.nomi:parse	ran
@@ -3028,7 +3048,6 @@ exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2043-01-01T01:46:40` at 8:63 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-02T23:46:40` at 30:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-03T01:46:39` at 35:13 failure	ran
-exercism/go-counting/go_counting.nomi:Owner.equal	ran
 exercism/go-counting/go_counting.nomi:Owner.inspect	ran
 exercism/go-counting/go_counting.nomi:Territories.inspect	ran
 exercism/go-counting/go_counting.nomi:Territory.inspect	ran
@@ -3049,8 +3068,6 @@ exercism/grade-school/grade_school_test.nomi:enroll	ran
 exercism/grains/grains.nomi:grains_on	ran
 exercism/grains/grains.nomi:square	ran
 exercism/grains/grains.nomi:total	ran
-exercism/grep/grep.nomi:Flag.equal	ran
-exercism/grep/grep.nomi:Flag.hash	ran
 exercism/grep/grep.nomi:Flag.inspect	ran
 exercism/grep/grep.nomi:grep	ran
 exercism/grep/grep.nomi:matches	ran
@@ -3152,7 +3169,6 @@ exercism/linked-list/linked_list.nomi:LinkedList.pop	ran
 exercism/linked-list/linked_list.nomi:LinkedList.push	ran
 exercism/linked-list/linked_list.nomi:LinkedList.shift	ran
 exercism/linked-list/linked_list.nomi:LinkedList.unshift	ran
-exercism/linked-list/linked_list_test.nomi:Step.equal	ran
 exercism/linked-list/linked_list_test.nomi:Step.inspect	ran
 exercism/linked-list/linked_list_test.nomi:replay	ran
 exercism/list-ops/list_ops.nomi:append	ran
@@ -3300,8 +3316,6 @@ exercism/meetup/meetup_test.nomi:literal Date`2015-02-22` at 709:13 failure	ran
 exercism/micro-blog/micro_blog.nomi:truncate	ran
 exercism/nth-prime/nth_prime.nomi:is_prime	ran
 exercism/nth-prime/nth_prime.nomi:prime	ran
-exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.equal	ran
-exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.hash	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.inspect	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.parse	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.variants	ran
@@ -3354,9 +3368,7 @@ exercism/piecing-it-together/piecing_it_together.nomi:Clues.inside default	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.inspect	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.pieces default	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.rows default	ran
-exercism/piecing-it-together/piecing_it_together.nomi:Error.equal	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Error.inspect	ran
-exercism/piecing-it-together/piecing_it_together.nomi:Format.equal	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Format.inspect	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Jigsaw.inspect	ran
 exercism/piecing-it-together/piecing_it_together.nomi:agrees	ran
@@ -3384,7 +3396,6 @@ exercism/poker/poker.nomi:pip_rank	ran
 exercism/poker/poker.nomi:score	ran
 exercism/poker/poker.nomi:straight	ran
 exercism/pov/pov.nomi:Tree.children default	ran
-exercism/pov/pov.nomi:Tree.equal	ran
 exercism/pov/pov.nomi:Tree.from_pov	ran
 exercism/pov/pov.nomi:Tree.inspect	ran
 exercism/pov/pov.nomi:Tree.path_to	ran
@@ -3417,7 +3428,6 @@ exercism/rational-numbers/rational_numbers.nomi:Rational.abs	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.add	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.denominator	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.divide	ran
-exercism/rational-numbers/rational_numbers.nomi:Rational.equal	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.inspect	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.multiply	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.new	ran
@@ -3427,7 +3437,6 @@ exercism/rational-numbers/rational_numbers.nomi:Rational.raise	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.subtract	ran
 exercism/rational-numbers/rational_numbers_test.nomi:rational	ran
 exercism/react/react.nomi:Computed.inspect	ran
-exercism/react/react.nomi:Error.equal	ran
 exercism/react/react.nomi:Error.inspect	ran
 exercism/react/react.nomi:Reactor.add_callback	ran
 exercism/react/react.nomi:Reactor.compute	ran
@@ -3439,7 +3448,6 @@ exercism/react/react.nomi:Reactor.set_value	ran
 exercism/react/react.nomi:Reactor.value	ran
 exercism/react/react.nomi:value_of	ran
 exercism/react/react_test.nomi:Cell.inspect	ran
-exercism/react/react_test.nomi:Step.equal	ran
 exercism/react/react_test.nomi:Step.inspect	ran
 exercism/react/react_test.nomi:build	ran
 exercism/react/react_test.nomi:replay	ran
@@ -3455,10 +3463,8 @@ exercism/resistor-color-duo/resistor_color_duo.nomi:Color.inspect	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:digit	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:value	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Color.inspect	ran
-exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.equal	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.inspect	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.to_string	ran
-exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.equal	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.inspect	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.to_string	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:digit	ran
@@ -3486,13 +3492,11 @@ exercism/rest-api/rest_api.nomi:RestApi.get default 3	ran
 exercism/rest-api/rest_api.nomi:RestApi.inspect	ran
 exercism/rest-api/rest_api.nomi:RestApi.new	ran
 exercism/rest-api/rest_api.nomi:RestApi.post	ran
-exercism/rest-api/rest_api.nomi:User.equal	ran
 exercism/rest-api/rest_api.nomi:User.from_json	ran
 exercism/rest-api/rest_api.nomi:User.inspect	ran
 exercism/rest-api/rest_api.nomi:User.to_json	ran
 exercism/rest-api/rest_api.nomi:UserNames.from_json	ran
 exercism/rest-api/rest_api.nomi:UserNames.inspect	ran
-exercism/rest-api/rest_api.nomi:Users.equal	ran
 exercism/rest-api/rest_api.nomi:Users.from_json	ran
 exercism/rest-api/rest_api.nomi:Users.inspect	ran
 exercism/rest-api/rest_api.nomi:Users.to_json	ran
@@ -3532,7 +3536,6 @@ exercism/saddle-points/saddle_points.nomi:Position.inspect	ran
 exercism/saddle-points/saddle_points.nomi:column_minima	ran
 exercism/saddle-points/saddle_points.nomi:saddle_points	ran
 exercism/satellite/satellite.nomi:Error.inspect	ran
-exercism/satellite/satellite.nomi:Tree.equal	ran
 exercism/satellite/satellite.nomi:Tree.inspect	ran
 exercism/satellite/satellite.nomi:build	ran
 exercism/satellite/satellite.nomi:tree_from_traversals	ran
@@ -3545,7 +3548,6 @@ exercism/save-the-cow/save_the_cow.nomi:Game.masked_word	ran
 exercism/save-the-cow/save_the_cow.nomi:Game.new	ran
 exercism/save-the-cow/save_the_cow.nomi:Game.remaining_failures	ran
 exercism/save-the-cow/save_the_cow.nomi:Game.state	ran
-exercism/save-the-cow/save_the_cow.nomi:State.equal	ran
 exercism/save-the-cow/save_the_cow.nomi:State.inspect	ran
 exercism/save-the-cow/save_the_cow.nomi:is_hidden	ran
 exercism/save-the-cow/save_the_cow.nomi:reveal	ran
@@ -3589,7 +3591,6 @@ exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.peek	ran
 exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.pop	ran
 exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.push	ran
 exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.reverse	ran
-exercism/simple-linked-list/simple_linked_list_test.nomi:Step.equal	ran
 exercism/simple-linked-list/simple_linked_list_test.nomi:Step.inspect	ran
 exercism/simple-linked-list/simple_linked_list_test.nomi:replay	ran
 exercism/space-age/space_age.nomi:Planet.inspect	ran
@@ -3607,7 +3608,6 @@ exercism/spiral-matrix/spiral_matrix.nomi:step	ran
 exercism/spiral-matrix/spiral_matrix.nomi:turn	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Error.inspect	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Error.to_string	ran
-exercism/split-second-stopwatch/split_second_stopwatch.nomi:State.equal	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:State.inspect	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.advance	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.current_lap	ran
@@ -3620,64 +3620,63 @@ exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.start	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.state	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.stop	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.total	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:Step.equal	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:Step.inspect	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:command	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 157:29 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 191:74 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 65:74 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 66:63 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 191:31 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 197:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 201:32 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`11m22s` at 178:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 155:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 189:74 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 63:74 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 64:63 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 189:31 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 195:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 199:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`11m22s` at 176:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`11m22s` at 178:32 failure	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`11m22s` at 180:32 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`11m22s` at 182:32 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`13s` at 100:24 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`13s` at 97:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`14h8m30s` at 230:24 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`15s` at 158:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`15s` at 159:29 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 219:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 220:29 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 222:32 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 227:32 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 232:32 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m20s` at 119:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m28s` at 124:29 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 143:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 145:32 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 148:32 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 121:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 199:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 201:47 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`22s` at 164:31 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 131:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 76:31 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 76:54 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`32s` at 136:24 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`33s` at 164:62 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 133:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 146:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 148:49 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 99:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 223:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 224:29 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 227:52 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 232:52 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`55s` at 164:85 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5h25m25s` at 225:24 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 72:31 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 72:58 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 87:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 90:29 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 228:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 229:29 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 232:71 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8m22s` at 155:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8s` at 123:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8s` at 89:26 failure	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`9s` at 135:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`13s` at 95:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`13s` at 98:24 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`14h8m30s` at 228:24 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`15s` at 156:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`15s` at 157:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 217:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 218:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 220:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 225:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 230:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m20s` at 117:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m28s` at 122:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 141:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 143:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 146:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 119:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 197:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 199:47 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`22s` at 162:31 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 129:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 74:31 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 74:54 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`32s` at 134:24 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`33s` at 162:62 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 131:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 144:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 146:49 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 97:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 221:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 222:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 225:52 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 230:52 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`55s` at 162:85 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5h25m25s` at 223:24 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 70:31 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 70:58 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 85:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 88:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 226:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 227:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 230:71 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8m22s` at 153:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8s` at 121:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8s` at 87:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`9s` at 133:26 failure	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:replay	ran
 exercism/square-root/square_root.nomi:newton	ran
 exercism/square-root/square_root.nomi:square_root	ran
@@ -3762,7 +3761,6 @@ exercism/transpose/transpose.nomi:transpose	ran
 exercism/tree-building/tree_building.nomi:Error.inspect	ran
 exercism/tree-building/tree_building.nomi:Error.to_string	ran
 exercism/tree-building/tree_building.nomi:Node.children default	ran
-exercism/tree-building/tree_building.nomi:Node.equal	ran
 exercism/tree-building/tree_building.nomi:Node.inspect	ran
 exercism/tree-building/tree_building.nomi:Record.inspect	ran
 exercism/tree-building/tree_building.nomi:build_tree	ran
@@ -3809,7 +3807,6 @@ exercism/yacht/yacht.nomi:group_sizes	ran
 exercism/yacht/yacht.nomi:score	ran
 exercism/yacht/yacht.nomi:straight	ran
 exercism/yacht/yacht.nomi:yacht	ran
-exercism/zebra-puzzle/zebra_puzzle.nomi:Nationality.equal	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:Nationality.inspect	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:Solution.inspect	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:add_drinks	ran
@@ -3821,11 +3818,8 @@ exercism/zebra-puzzle/zebra_puzzle.nomi:is_next_to	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:owns_zebra	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:resident	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:solve	ran
-exercism/zipper/zipper.nomi:Crumb.equal	ran
 exercism/zipper/zipper.nomi:Crumb.inspect	ran
-exercism/zipper/zipper.nomi:Tree.equal	ran
 exercism/zipper/zipper.nomi:Tree.inspect	ran
-exercism/zipper/zipper.nomi:Zipper.equal	ran
 exercism/zipper/zipper.nomi:Zipper.from_tree	ran
 exercism/zipper/zipper.nomi:Zipper.inspect	ran
 exercism/zipper/zipper.nomi:Zipper.left	ran
@@ -4289,9 +4283,9 @@ std/http.nomi:Origin.to_string	NETWORK: declared in std/http, std/net or std/tls
 std/http.nomi:Part.file_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Part.form_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Part.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:Protocol.at_least	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Protocol.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Protocol.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocol.is_at_least	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Protocol.parse	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Protocol.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Protocols.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4366,6 +4360,7 @@ std/http.nomi:Response.headers default	NETWORK: declared in std/http, std/net or
 std/http.nomi:Response.html	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.json	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.json default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.location	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.not_found	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Response.protocol default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4848,14 +4843,14 @@ std/jwt.nomi:verify_as	ran
 std/jwt.nomi:verify_as default 3	ran
 std/log.nomi:Field.equal	ran
 std/log.nomi:Field.inspect	ran
-std/log.nomi:Level.at_least	ran
 std/log.nomi:Level.equal	ran
 std/log.nomi:Level.inspect	ran
+std/log.nomi:Level.is_at_least	ran
 std/log.nomi:Level.rank	ran
 std/log.nomi:Level.to_string	ran
 std/log.nomi:Logger.discard	ran
-std/log.nomi:Logger.enabled	ran
 std/log.nomi:Logger.inspect	ran
+std/log.nomi:Logger.is_enabled	ran
 std/log.nomi:Logger.json	ran
 std/log.nomi:Logger.json default 1	ran
 std/log.nomi:Logger.json default 2	ran
@@ -4914,6 +4909,8 @@ std/money.nomi:Error.inspect	ran
 std/money.nomi:Error.to_string	ran
 std/money.nomi:Money.abs	ran
 std/money.nomi:Money.add	ran
+std/money.nomi:Money.all_in	ran
+std/money.nomi:Money.allocate	ran
 std/money.nomi:Money.empty_sum	ran
 std/money.nomi:Money.equal	ran
 std/money.nomi:Money.format	ran
@@ -4936,10 +4933,11 @@ std/money.nomi:Money.parse_in default 4	ran
 std/money.nomi:Money.round	ran
 std/money.nomi:Money.round default 2	ran
 std/money.nomi:Money.sign	ran
+std/money.nomi:Money.split	ran
 std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.to_string	ran
-std/money.nomi:literal Currency`XXX` at 319:27 failure	ran
-std/money.nomi:literal Currency`XXX` at 379:52 failure	ran
+std/money.nomi:literal Currency`XXX` at 390:27 failure	ran
+std/money.nomi:literal Currency`XXX` at 450:52 failure	ran
 std/net.nomi:Connection.close	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_write	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -5016,7 +5014,7 @@ std/passwords.nomi:Pbkdf2.hash	ran
 std/passwords.nomi:Pbkdf2.inspect	ran
 std/passwords.nomi:Pbkdf2.length default	ran
 std/passwords.nomi:Pbkdf2.needs_rehash	ran
-std/passwords.nomi:Pbkdf2.reads	ran
+std/passwords.nomi:Pbkdf2.recognizes	ran
 std/passwords.nomi:Pbkdf2.salt_length default	ran
 std/passwords.nomi:Pbkdf2.verify	ran
 std/passwords.nomi:Phc.inspect	ran
@@ -5081,6 +5079,8 @@ std/phrase.nomi:decimal	ran
 std/phrase.nomi:float	ran
 std/phrase.nomi:integer	ran
 std/phrase.nomi:list	ran
+std/phrase.nomi:localized	ran
+std/phrase.nomi:localized_variant	ran
 std/phrase.nomi:moment	ran
 std/phrase.nomi:money	ran
 std/phrase.nomi:nested	ran
@@ -5206,6 +5206,8 @@ std/signatures.nomi:PublicKey.to_pem	ran
 std/signatures.nomi:PublicKey.to_string	ran
 std/signatures.nomi:Scheme.equal	ran
 std/signatures.nomi:Scheme.inspect	ran
+std/signatures.nomi:is_valid	ran
+std/signatures.nomi:is_valid_with	ran
 std/signatures.nomi:kind_of	ran
 std/signatures.nomi:private	ran
 std/signatures.nomi:public	ran
@@ -5215,8 +5217,6 @@ std/signatures.nomi:scheme_number	ran
 std/signatures.nomi:sign	ran
 std/signatures.nomi:sign_with	ran
 std/signatures.nomi:usual_scheme	ran
-std/signatures.nomi:verify	ran
-std/signatures.nomi:verify_with	ran
 std/sql.nomi:Bool.from_sql	ran
 std/sql.nomi:Bool.to_sql	ran
 std/sql.nomi:Bytes.from_sql	ran

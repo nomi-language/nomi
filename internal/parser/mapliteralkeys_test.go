@@ -153,7 +153,7 @@ func TestMapLiteral_Disambig_Block_Binding(t *testing.T) {
 }
 
 func TestMapLiteral_Disambig_AnonStruct(t *testing.T) {
-	expr := parseExpr(t, `#{x: 1}`)
+	expr := parseExpr(t, `.{x: 1}`)
 	sl, ok := expr.(*ast.StructLit)
 	if !ok {
 		t.Fatalf("expected *ast.StructLit (anon), got %T", expr)
@@ -172,9 +172,9 @@ func TestMapLiteral_Disambig_Block_BareIdent(t *testing.T) {
 	}
 }
 
-// `#{ x, y }` is anonymous-struct field punning, not a map.
+// `.{ x, y }` is anonymous-struct field punning, not a map.
 func TestMapLiteral_Disambig_AnonStruct_Punning(t *testing.T) {
-	expr := parseExpr(t, `#{ x, y }`)
+	expr := parseExpr(t, `.{ x, y }`)
 	sl, ok := expr.(*ast.StructLit)
 	if !ok {
 		t.Fatalf("expected *ast.StructLit (anon punning), got %T", expr)

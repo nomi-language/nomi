@@ -45,6 +45,6 @@ test result: ok. 4 passed, 0 failed
 ## How it's written
 
 - The number is shifted right one bit at a time with `Iter.iterate(number, &(&1 >>> 1))`, cut at zero, and each step's low bit, `&(&1 &&& 1)`, is summed. Every stage is one operator, so each is a capture.
-- The exercise forbids a built-in bit count, so the solution does not call `Int.bit_count(number)`, which answers the same.
+- The exercise forbids a built-in bit count, so the solution does not call `Int.bit_count(number)`, which returns the same.
 - A negative number counts as 0 eggs, since the chain stops before its first step. The exercise only has non-negative inputs.
 - The four cases are one `subtests` table.

@@ -17,7 +17,7 @@ impl Contains<String> for Shelf {
 // Every value in `wanted` is in `c`, for any collection that implements
 // `Contains`.
 fn all_in<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T> {
-    Iter.all(wanted, &(&1 in c))
+    Iter.all_match(wanted, &(&1 in c))
 }
 
 // `label` printed, then `value`.

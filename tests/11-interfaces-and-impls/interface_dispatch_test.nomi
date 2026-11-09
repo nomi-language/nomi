@@ -188,7 +188,6 @@ test "type hover lists contextual implementations for foreign types" {
             assert "`Numberish`" in info.markdown
         }
 
-        Err(message) ->
-            assert message == ""
+        Err(message) -> assert message == ""
     }
 }

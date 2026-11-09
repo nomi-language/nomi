@@ -200,7 +200,7 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 	return &protocol.CompletionList{IsIncomplete: r.incomplete, Items: items}, nil
 }
 
-// demoteMapSpreadField makes the slot after `#{..base, ` an expression
+// demoteMapSpreadField makes the slot after `.{..base, ` an expression
 // when base is a map: the next element is an entry's key, `key => value`,
 // not a field label.
 func (r *completionRequest) demoteMapSpreadField() {
@@ -226,8 +226,8 @@ func triggerCharacter(params *protocol.CompletionParams) string {
 // can lead anywhere, so the common `>` of a case arm's `->` or a comparison
 // and the `{` of a block cost nothing: `>` only completes the `|>` of a pipe
 // or the return type after a signature's `)` (`fn f() ->`), and `{`
-// only a struct literal's fields, whose `{` follows its `#` and type name
-// (`Point{`, `#{`; braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
+// only a struct literal's fields, whose `{` follows its type name or `.`
+// (`Point{`, `.{`; braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
 // and `:` only an annotation, whose `:` follows the annotated name.
 func triggerMayOpen(trigger, content string, off int) bool {
 	switch trigger {
@@ -251,7 +251,7 @@ func triggerMayOpen(trigger, content string, off int) bool {
 		// opens nothing.
 		return off >= 1 && content[off-1] == ','
 	case "}":
-		// Only the `}` an auto-pair plugin closes `Point{` or `#{` with, the
+		// Only the `}` an auto-pair plugin closes `Point{` or `.{` with, the
 		// cursor between the braces; a `}` closing a block opens nothing.
 
 		return off >= 2 && off < len(content) && content[off-1] == '{' && content[off] == '}' && braceMayOpenLiteral(content, off-1)
@@ -269,11 +269,11 @@ func triggerMayOpen(trigger, content string, off int) bool {
 }
 
 // braceMayOpenLiteral reports, from the text alone, whether the `{` at brace
-// can open a struct literal: right after the `#` of an anonymous one (`#{`),
+// can open a struct literal: right after the `.` of one with no name (`.{`),
 // or against a type or variant name (`Point{`, `geo.Point{`, `.Circle{`).
 // Any other `{` opens a block or a map, so it costs nothing.
 func braceMayOpenLiteral(content string, brace int) bool {
-	if brace >= 1 && content[brace-1] == '#' {
+	if brace >= 1 && content[brace-1] == '.' {
 		return true
 	}
 	i := brace

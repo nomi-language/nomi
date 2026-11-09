@@ -25,7 +25,10 @@ once digits = font |> glyphs() |> Iter.zip("0123456789") |> Iter.to_map()
 /// no digit reads as `?`.
 pub fn convert(rows: List<String>) -> Result<String, Error> {
     if Iter.count(rows) % 4 != 0 { return Err(.LinesNotMultipleOfFour) }
-    if Iter.any(rows, &(String.length(&1) % 3 != 0)) { return Err(.ColumnsNotMultipleOfThree) }
+
+    if Iter.any_match(rows, &(String.length(&1) % 3 != 0)) {
+        return Err(.ColumnsNotMultipleOfThree)
+    }
 
     rows
     |> Iter.chunks(4)

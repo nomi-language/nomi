@@ -19,8 +19,6 @@ enum Step {
     PreviousLaps List<Duration>
 }
 
-derive Equatable for Step
-
 /// Runs each step on a new stopwatch, in turn, and answers the steps as
 /// they happened. A run that does what every step says answers the steps it
 /// was given.

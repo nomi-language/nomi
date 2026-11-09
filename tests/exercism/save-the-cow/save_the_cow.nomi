@@ -7,8 +7,6 @@ pub enum State {
     Lose
 }
 
-derive Equatable for State
-
 /// A guess the game no longer takes.
 pub enum Error {
     AlreadyWon
@@ -39,7 +37,7 @@ pub opaque struct Game {
 impl Game {
     /// A new game whose secret is `word`, with no letters revealed.
     pub fn new(word: String) -> Game {
-        Game{
+        .{
             word: String.to_codepoints(word),
             revealed: %[],
             remaining_failures: allowed_failures,
@@ -55,8 +53,8 @@ impl Game {
             .Win -> Err(.AlreadyWon)
             .Lose -> Err(.AlreadyLost)
             .Ongoing when is_hidden(game, letter) -> Ok(reveal(game, letter))
-            .Ongoing when game.remaining_failures == 0 -> Ok(#{..game, state: .Lose})
-            .Ongoing -> Ok(#{..game, remaining_failures: game.remaining_failures - 1})
+            .Ongoing when game.remaining_failures == 0 -> Ok(.{..game, state: .Lose})
+            .Ongoing -> Ok(.{..game, remaining_failures: game.remaining_failures - 1})
         }
     }
 
@@ -89,7 +87,7 @@ fn is_hidden(game: Game, letter: Codepoint) -> Bool {
 /// `game` with `letter` revealed, won when that reveals the whole word.
 fn reveal(game: Game, letter: Codepoint) -> Game {
     revealed = Set.insert(game.revealed, letter)
-    won = Iter.all(game.word, &(&1 in revealed))
+    won = Iter.all_match(game.word, &(&1 in revealed))
 
-    #{..game, revealed, state: if won { .Win } else { .Ongoing }}
+    .{..game, revealed, state: if won { .Win } else { .Ongoing }}
 }

@@ -196,7 +196,11 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 		if reportOut == nil {
 			reportOut = t.Out
 		}
-		passed, failed, blocked, err := ffirun.RunTestVMWith(res, file, opts.Line, opts.LineSet,
+		run := ""
+		if opts.Run != nil {
+			run = opts.Run.String()
+		}
+		passed, failed, blocked, err := ffirun.RunTestVMWith(res, file, opts.Line, opts.LineSet, run,
 			t.Format.String(), t.Timeout, reportOut, t.Stderr, t.Stdin)
 		t.Rep.Add(passed, failed)
 		t.Rep.AddBlocked(blocked)

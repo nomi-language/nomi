@@ -13,3 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/grains.
 - `total` sums every square rather than using `2^64 - 1`, so it says what the board holds.
 - A square off the board is `Err` with the canonical message, a `String`, as collatz-conjecture does. There is one error, so an `Error` enum would add a type for one variant.
 - The seven counts are one `subtests` table and the three bad squares another, since they assert different shapes; both sit in the canonical group.
+
+## Friction
+
+None.

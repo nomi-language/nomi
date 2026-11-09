@@ -319,8 +319,7 @@ impl Iter<Result<Row, Error>> for RowIter {
                     None -> True
                 }
 
-            header ->
-                each_row(rows.records, header, yield)
+            header -> each_row(rows.records, header, yield)
         }
     }
 }
@@ -408,7 +407,8 @@ fn line(record: List<String>, options: WriteOptions) -> String {
 
 fn guard(field: String) -> String {
     formula =
-        ["=", "+", "-", "@", "\t", "\r"] |> Iter.any(fn start -> String.starts_with(field, start))
+        ["=", "+", "-", "@", "\t", "\r"]
+        |> Iter.any_match(fn start -> String.starts_with(field, start))
 
     if formula { "'${field}" } else { field }
 }

@@ -247,7 +247,7 @@ pub fn rules() -> List<String> {
 }
 
 /// The keys every function of a backend must refuse with `InvalidKey`.
-//! assert Iter.all(invalid_keys(), fn key -> Result.is_err(storage.check_key(key)))
+//! assert Iter.all_match(invalid_keys(), fn key -> Result.is_err(storage.check_key(key)))
 //
 pub fn invalid_keys() -> List<String> {
     [
@@ -272,7 +272,7 @@ pub fn invalid_keys() -> List<String> {
 /// punctuation character S3 allows, spaces, `%` escapes that are not
 /// escapes, and letters outside ASCII. The conformance suite puts, reads,
 /// deletes and links each under `conformance/`.
-//! assert Iter.all(odd_keys(), fn key -> storage.check_key("conformance/${key}") == Ok(Unit))
+//! assert Iter.all_match(odd_keys(), fn key -> storage.check_key("conformance/${key}") == Ok(Unit))
 //
 pub fn odd_keys() -> List<String> {
     [
@@ -340,11 +340,8 @@ fn round_trips(
             expect(info.content_type == content_type, "info answered the type ${info.content_type}")
         }
 
-        Ok(None) ->
-            Err("info answered None for a key just put")
-
-        Err(e) ->
-            Err("info ${key}: ${e}")
+        Ok(None) -> Err("info answered None for a key just put")
+        Err(e) -> Err("info ${key}: ${e}")
     }
 }
 
@@ -383,12 +380,11 @@ fn paged(store: Store, options: ListOptions, left: Int) -> Result<List<List<Stri
 
     case listed.next {
         Some(token) -> {
-            rest = paged(store, #{..options, continuation: Some(token)}, left - 1)?
+            rest = paged(store, .{..options, continuation: Some(token)}, left - 1)?
             Ok([here, ..rest])
         }
 
-        None ->
-            Ok([here])
+        None -> Ok([here])
     }
 }
 
@@ -416,11 +412,8 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
                     Err(.NotFound{key: named}) ->
                         expect(named == key, "get's NotFound named ${named}")?
 
-                    Err(e) ->
-                        return Err("get answered ${e}, not NotFound")
-
-                    Ok(_) ->
-                        return Err("get of a missing key answered an object")
+                    Err(e) -> return Err("get answered ${e}, not NotFound")
+                    Ok(_) -> return Err("get of a missing key answered an object")
                 }
 
                 expect(
@@ -579,11 +572,8 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)> {
                                     "url of ${key} answered the path ${u.path}",
                                 )?
 
-                            Err(.NoPublicUrl) ->
-                                Unit
-
-                            Err(e) ->
-                                return Err("url ${key}: ${e}")
+                            Err(.NoPublicUrl) -> Unit
+                            Err(e) -> return Err("url ${key}: ${e}")
                         }
 
                         Store.delete(store, key) |> Result.map_err(fn e -> "delete ${key}: ${e}")?

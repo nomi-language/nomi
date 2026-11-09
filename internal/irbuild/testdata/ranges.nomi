@@ -52,8 +52,7 @@ import std::io
 // --- rendering helpers, so every answer is one printed line -----------------
 fn show_ints(xs: List<Int>) -> String {
     case List.head(xs) {
-        None ->
-            "."
+        None -> "."
 
         Some(x) -> {
             rest = case List.tail(xs) {
@@ -357,6 +356,6 @@ fn main() {
         )
     )
 
-    io.print("${1..=5 |> Iter.any(&(&1 == 3))}")
-    io.print("${1..5 |> Iter.all(&(&1 < 5))}")
+    io.print("${1..=5 |> Iter.any_match(&(&1 == 3))}")
+    io.print("${1..5 |> Iter.all_match(&(&1 < 5))}")
 }

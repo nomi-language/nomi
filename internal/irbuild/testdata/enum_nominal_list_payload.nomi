@@ -33,8 +33,7 @@ fn width(s: Shape) -> Int {
 
 fn total(t: Tree) -> Int {
     case t {
-        Tree.Leaf(n) ->
-            n
+        Tree.Leaf(n) -> n
 
         Tree.Branch(groves) ->
             groves |> Iter.map(grove_total) |> Iter.reduce(0, fn acc, x -> acc + x)

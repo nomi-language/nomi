@@ -31,7 +31,7 @@ pub opaque struct Cipher {
 impl Cipher {
     /// The cipher with `key`, a non-empty string of lowercase letters.
     pub fn new(key: String) -> Cipher {
-        Cipher{key}
+        .{key}
     }
 
     /// A cipher with a random key of 100 lowercase letters drawn from
@@ -123,7 +123,7 @@ group "random key cipher" {
         letters = Cipher.key(cipher) |> String.to_codepoints()
 
         refute Iter.is_empty(letters)
-        assert Iter.all(letters, &(&1 in 'a'..='z'))
+        assert Iter.all_match(letters, &(&1 in 'a'..='z'))
     }
 }
 

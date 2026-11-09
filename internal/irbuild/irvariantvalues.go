@@ -549,7 +549,7 @@ func irRetainedPreludePayload(k kind) bool {
 	}
 	if (k != kindEmptySet && irRetainedSetKind(k)) || irRetainedRecordKind(k) {
 		// A set (`Maybe<Set<Int>>`) or an anonymous record
-		// (`Maybe<#{x: Int}>`), held as its record.
+		// (`Maybe<.{x: Int}>`), held as its record.
 		return true
 	}
 	if k.tag == tagNamed && k.def != nil && !k.def.isEnum && irRetainedStructKind(k.def) {
@@ -755,7 +755,7 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 			k = bl.g.templateInstanceOf(instantiate, ft.Return)
 		} else if ty := bl.g.checkedExprType(bl.checkedCallNode(call)); ty != nil {
 			// A struct-shaped or embedded variant's construction
-			// (`Shape.UserId(3)`, `Shape.Circle(#{r: 1})`) is checked as
+			// (`Shape.UserId(3)`, `Shape.Circle(.{r: 1})`) is checked as
 			// the embedded type's own construction and records no
 			// signature; its type is the instance.
 			k = bl.g.templateInstanceOf(instantiate, ty)
@@ -921,8 +921,8 @@ func irStructShapedVariant(v *variantDef) bool {
 	return v.kind == "struct" || (v.kind == "embedded" && v.embeds != nil && !v.embeds.isDistinct && !v.embeds.isEnum)
 }
 
-// variantCallForm builds the record call form `Shape.Rect(#{...})` or
-// `Shape.Circle(#{...})`, piped or not: a literal argument is the brace form's
+// variantCallForm builds the record call form `Shape.Rect(.{...})` or
+// `Shape.Circle(.{...})`, piped or not: a literal argument is the brace form's
 // fields, positioned at the call. A record value is declined.
 func (bl *irScalarBuilder) variantCallForm(call *ast.Call, d *typeDef, v *variantDef) (ir.Temp, kind, bool, bool) {
 	if len(call.Args) != 1 {

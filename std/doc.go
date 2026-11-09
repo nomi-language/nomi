@@ -252,7 +252,7 @@
 // std/passwords, std/signatures and std/jwt are Nomi. passwords' one
 // crossing is `hash.pbkdf2_sha256` (crypto/pbkdf2 in rt/digest.go), salted
 // from `random.secure_bytes`. A stored hash is a PHC string (`Phc`);
-// `verify` picks the first `PasswordHasher` whose `reads` accepts the
+// `verify` picks the first `PasswordHasher` whose `recognizes` accepts the
 // string's algorithm id, so a module adds an algorithm by implementing the
 // interface. lib/password_hashers adds Argon2id (written with std's `Phc`)
 // and bcrypt (its own `$2a$` encoding passed through) over
@@ -261,7 +261,7 @@
 //
 // std/signatures crosses into internal/stdhttp (its package doc,
 // "Signatures"). jwt uses `hash.hmac_sha256` for HS256 and
-// `signatures.sign_with` and `verify_with` for the rest; a key holds the one
+// `signatures.sign_with` and `is_valid_with` for the rest; a key holds the one
 // algorithm it was made for, which a token's `alg` must name.
 //
 // # Object storage

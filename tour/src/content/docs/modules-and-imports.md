@@ -272,7 +272,9 @@ Every kind of declaration can be `pub`: `pub fn`, `pub struct`, `pub enum`,
 `pub interface`, `pub type` and `pub once`.
 
 Privacy is per file, not per module. Two files in the same module still can't
-see each other's private declarations.
+see each other's private declarations. The one exception is a file's partner
+test, `math_test.nomi` for `math.nomi`, which can use them
+([Testing](/testing/)).
 
 Functions in an `impl Interface for Type` block don't take `pub`. If the
 interface is `pub`, other files can call them. If the interface is private,

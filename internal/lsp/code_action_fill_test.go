@@ -249,9 +249,9 @@ func TestFillArms_Missing(t *testing.T) {
 }
 
 func TestFillArms_Nested(t *testing.T) {
-	src := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int {\n    case a {\n        .Red ->\n            case b {\n                Some(.Red) -> 1\n                None -> 0\n            }\n\n        _ ->\n            2\n    }\n}\n"
+	src := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int {\n    case a {\n        .Red ->\n            case b {\n                Some(.Red) -> 1\n                None -> 0\n            }\n\n        _ -> 2\n    }\n}\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing arm .Some(value)")
-	want := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int {\n    case a {\n        .Red ->\n            case b {\n                Some(.Red) -> 1\n                None -> 0\n                .Some(value) -> todo\n            }\n\n        _ ->\n            2\n    }\n}\n"
+	want := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int {\n    case a {\n        .Red ->\n            case b {\n                Some(.Red) -> 1\n                None -> 0\n                .Some(value) -> todo\n            }\n\n        _ -> 2\n    }\n}\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}

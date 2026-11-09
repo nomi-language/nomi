@@ -21,8 +21,7 @@ pub fn distance(strand1: String, strand2: String) -> Result<Int, String> {
     }
 
     Iter.zip(strand1, strand2)
-    |> Iter.filter(fn (a, b) -> a != b)
-    |> Iter.count()
+    |> Iter.count_by(fn (a, b) -> a != b)
     |> Ok()
 }
 
@@ -58,7 +57,7 @@ test result: ok. 9 passed, 0 failed
   message is the useful part; an enum with a single variant would be a name
   for the same string.
 - The length check is an early `return Err(...)`, and the count is a
-  `zip`, `filter`, `count` pipeline ending in `|> Ok()`. Strings iterate by
+  `zip` piped into `Iter.count_by`, ending in `|> Ok()`. Strings iterate by
   grapheme, so `Iter.zip(strand1, strand2)` pairs the letters directly.
 - Every reimplemented error case uses its newest version, all with the
   message "strands must be of equal length". That leaves nine cases: five

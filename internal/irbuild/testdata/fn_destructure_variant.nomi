@@ -91,7 +91,7 @@ fn originx(Window.Frame{at: Origin{x, y: _}, scale: _}) -> Int {
 }
 
 // A written struct-shaped variant: the fields are the enum's own slots. Written
-// `#{hi, lo}` against a `#{lo, hi}` declaration so a by-position slot lookup
+// `.{hi, lo}` against a `.{lo, hi}` declaration so a by-position slot lookup
 // answers -7 here instead of 7.
 fn span(Cell.Span{hi, lo}) -> Int {
     hi - lo

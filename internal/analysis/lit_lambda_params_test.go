@@ -56,7 +56,7 @@ fn tuples() -> List<(String, (Day) -> String)> {
 }
 
 fn records() -> List<String> {
-  rs = [#{f: fn a, b: String -> "${a.n}${b}"}, #{f: fn _a: Day, b -> b}]
+  rs = [.{f: fn a, b: String -> "${a.n}${b}"}, .{f: fn _a: Day, b -> b}]
   _ = rs
   []
 }

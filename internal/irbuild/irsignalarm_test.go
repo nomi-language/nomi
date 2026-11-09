@@ -220,7 +220,7 @@ fn deposit(account: Account, input: Receiver<String>) -> Account {
             None -> break acc
         }
         case String.to_int(text) {
-            Some(n) -> #{..acc, balance: acc.balance + n}
+            Some(n) -> .{..acc, balance: acc.balance + n}
             None -> {
                 io.print("not a number: ${text}")
                 continue
@@ -303,7 +303,7 @@ fn early_state() -> Int {
 }
 
 fn main() {
-    a = deposit(#{owner: "ann", balance: 10}, feed(["5", "five", "40", "x", "70", "1"]))
+    a = deposit(.{owner: "ann", balance: 10}, feed(["5", "five", "40", "x", "70", "1"]))
     io.inspect(a)
     io.inspect(bare_arm(feed(["ab", "skip", "cde", "skip"])))
     io.inspect(bare_arm(feed(["ab", "skip", "stop", "zzz"])))

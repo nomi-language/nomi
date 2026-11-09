@@ -36,7 +36,7 @@ pub fn score(dice: List<Int>, category: Category) -> Int {
 
 /// The total of the dice showing `face`.
 fn face_total(dice: List<Int>, face: Int) -> Int {
-    count = dice |> Iter.filter(&(&1 == face)) |> Iter.count()
+    count = Iter.count_by(dice, &(&1 == face))
     face * count
 }
 

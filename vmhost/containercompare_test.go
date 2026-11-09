@@ -107,8 +107,8 @@ fn main() {
 // rather than a program the VM cannot run.
 func TestLoad_OrderingOverAnAnonymousStructIsACompileError(t *testing.T) {
 	for _, c := range []struct{ expr, want string }{
-		{"Iter.sort([#{a: 2}, #{a: 1}])", "types cannot implement `Comparable`"},
-		{"#{a: 2} < #{a: 1}", "types cannot implement `Comparable`"},
+		{"Iter.sort([.{a: 2}, .{a: 1}])", "types cannot implement `Comparable`"},
+		{".{a: 2} < .{a: 1}", "types cannot implement `Comparable`"},
 		{"[(1, Unit)] < [(1, Unit)]", "no impl of `Comparable` for `Unit`"},
 		{"Iter.sort([(1, Unit)])", "is Comparable when each element is, and `Unit` is not"},
 	} {

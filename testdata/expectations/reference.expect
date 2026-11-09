@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
 records 82
-declared-cases 947
+declared-cases 957
 failing 0
 C actors
 E 0
@@ -242,8 +242,8 @@ T ok Currency.is_iso
 T ok Error.to_string (impl Display for Error)
 C decimal
 E 0
-N 23
-H a16bc7782deb9267369d582a0f58be032b31b5276539d624538085cc7513bb72
+N 25
+H 252a81d7badc2da7cc3f5ef0836368e0013aad82564645db12acc7b1d392124d
 T ok Decimal.to_int
 T ok Decimal.to_float
 T ok Decimal.divide
@@ -257,6 +257,8 @@ T ok Decimal.abs
 T ok Decimal.negate
 T ok Decimal.sign
 T ok Decimal.is_zero
+T ok Decimal.split
+T ok Decimal.allocate
 T ok Decimal.format
 T ok Decimal.format_percent
 T ok Decimal.parse_in
@@ -432,8 +434,8 @@ T ok Html.concat
 T ok Html.each
 C http
 E 0
-N 73
-H 03688b947f7724a429c803df137b4033abb30c4417e1fcb5f6bd866b68e52bef
+N 75
+H 0877702dff421e0990f981bce5b78e7ac88fba7609666b34bcbc20595f5c25c1
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -447,7 +449,7 @@ T ok Headers.write_to
 T ok Body.read_all
 T ok FormPart.encode
 T ok FormPart.file_disposition
-T ok Protocol.at_least
+T ok Protocol.is_at_least
 T ok Protocol.parse
 T ok Request.form
 T ok Request.post_form
@@ -462,11 +464,13 @@ T ok Request.dump
 T ok Response.write_to
 T ok Response.set_cookie
 T ok Response.html
+T ok Response.json
 T ok Response.error
 T ok Response.redirect
 T ok Response.content
 T ok Response.with_headers
 T ok Response.with_default_headers
+T ok Response.json_as
 T ok interface ToResponse
 T ok Protocols.to_string (impl Display for Protocols)
 T ok http.stream
@@ -612,8 +616,8 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 59
-H e85a39dd4407189c82dff0790e0bcfdf3eb40d6d7a0b062344097ed79ac26e0b
+N 61
+H 88124ebf8feffadfb45f7b0aa6b3982579698736af92b93d3aea036d59f3f39e
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.scan
@@ -626,9 +630,9 @@ T ok Iter.sort_with
 T ok Iter.sort
 T ok Iter.sort_by
 T ok Iter.each
-T ok Iter.any
+T ok Iter.any_match
 T ok Iter.contains
-T ok Iter.all
+T ok Iter.all_match
 T ok Iter.is_empty
 T ok Iter.first
 T ok Iter.last
@@ -655,6 +659,7 @@ T ok Iter.flat_map
 T ok Iter.chunks
 T ok Iter.windows
 T ok Iter.chunk_by
+T ok Iter.chunk_equal
 T ok Iter.permutations
 T ok Iter.combinations
 T ok Iter.from
@@ -665,6 +670,7 @@ T ok Iter.flatten
 T ok Iter.transpose
 T ok Iter.reverse
 T ok Iter.count
+T ok Iter.count_by
 T ok Iter.min
 T ok Iter.max
 T ok Iter.min_by
@@ -703,13 +709,15 @@ T ok jobs_testing.conformance
 T ok jobs_testing.rules
 C json
 E 0
-N 5
-H b0f9b7cab9e76fde69b38305ff374ecb2363ad06c7a3f1c6aff1d1d0d237b3db
+N 7
+H 8db274a16debc2fd840d31f6907c5b1898bd2b0158b155f38dbf5e14c3420d7f
 T ok Json.decode
 T ok Json.encode
 T ok Json.to_dynamic
 T ok Json.decode_as
 T ok Json.encode_as
+T ok interface ToJson
+T ok interface FromJson
 C jwt
 E 0
 N 5
@@ -771,15 +779,15 @@ T ok NumberParseError.to_string (impl Display for NumberParseError)
 C log
 E 0
 N 8
-H 72f1fd6acf8c78c51d0d87bdd15c32c66ad5e38e2d9bd3b036bd90c2fbee24e0
+H 544a4a5f6c00ad817dfa17e407026891db5e5101273ebcb731c30b5a0abf4303
 T ok Level.rank
-T ok Level.at_least
+T ok Level.is_at_least
 T ok Level.to_string (impl Display for Level)
 T ok log.string
 T ok log.any
 T ok Logger.text
 T ok Logger.json
-T ok Logger.enabled
+T ok Logger.is_enabled
 C log_testing
 E 0
 N 1
@@ -853,8 +861,8 @@ T ok Maybe.values
 T ok Maybe.each_while (impl Iter for Maybe<T>)
 C money
 E 0
-N 18
-H 814942cba668504252f8b05a52a500ce6111c4430349d64dd63708be536bf4bc
+N 20
+H 15275d976c04292c2548615d4eb2e14457ad9bba64c4fd023310da9b98390d2d
 T ok struct Money
 T ok Money.format
 T ok Money.round
@@ -866,6 +874,8 @@ T ok Money.is_zero
 T ok Money.min
 T ok Money.max
 T ok Money.parse_in
+T ok Money.split
+T ok Money.allocate
 T ok Money.add (impl Add<Money, Money> for Money)
 T ok Money.subtract (impl Subtract<Money, Money> for Money)
 T ok Money.multiply (impl Multiply<Int, Money> for Money)
@@ -1010,14 +1020,14 @@ T ok sessions.write
 C sets
 E 0
 N 11
-H b196d351d7b4a5e157f3dacbb013d0dfc3d07b353c94b45a8cdc49bb603ac1e7
+H eedf290efadd845b056854c2ea6a2c33d0dee97f4866d124712980fcb04eb1ec
 T ok Set.insert
 T ok Set.remove
 T ok Set.size
 T ok Set.union
 T ok Set.intersection
 T ok Set.difference
-T ok Set.is_subset
+T ok Set.is_subset_of
 T ok Set.contains (impl Contains for Set<T>)
 T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
 T ok Set.empty_sum (impl Summable for Set<T>)
@@ -1025,7 +1035,7 @@ T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 C signatures
 E 0
 N 11
-H 3556277e3aebe6f25cbc8da8abcda2fbf42951e2708da0ffa31531d3a25c1db8
+H eedfc1142d0323e16ac8d7194b2e74f0356804b01593d73c94490961ba2207f6
 T ok PrivateKey.generate_ed25519
 T ok PrivateKey.generate_ecdsa_p256
 T ok PrivateKey.generate_rsa
@@ -1035,8 +1045,8 @@ T ok PrivateKey.to_pem
 T ok PublicKey.from_pem
 T ok signatures.sign
 T ok signatures.sign_with
-T ok signatures.verify
-T ok signatures.verify_with
+T ok signatures.is_valid
+T ok signatures.is_valid_with
 C sql
 E 0
 N 20

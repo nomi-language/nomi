@@ -188,7 +188,7 @@ module.exports = grammar({
     [$.enum_variant],
     // `Ok(n) = r` is a pattern_binding unless an `else` follows its value.
     [$.pattern_binding, $._else_binding_pattern],
-    // `#{y, x: _c}`: an anonymous struct (a struct pattern with `as`) and a
+    // `.{y, x: _c}`: an anonymous struct (a struct pattern with `as`) and a
     // destructure stay alive until the `=` decides.
     [$.anon_struct, $.destructuring_binding],
     // `((a, b) as inner, c) = pair`: a destructure's nested pattern reads as
@@ -842,7 +842,7 @@ module.exports = grammar({
     ),
 
     // `test "name" { }`, or `test "name", pattern { }` binding the group's
-    // setup value with any irrefutable pattern (`db`, `(a, b)`, `#{a, b}`).
+    // setup value with any irrefutable pattern (`db`, `(a, b)`, `.{a, b}`).
     test_declaration: $ => seq(
       'test',
       field('name', $.string),
@@ -1047,13 +1047,13 @@ module.exports = grammar({
       ')',
     )),
 
-    // Anonymous struct type, `#{x: Int, y: Int}`, as its value is written —
+    // Anonymous struct type, `.{x: Int, y: Int}`, as its value is written —
     // appears in any type-expression slot (function parameter type,
     // distinct-type tuple element, generic type argument, struct field type).
     // Field types are full type expressions; no defaults (`=`) are allowed in
     // type position.
     anon_struct_type: $ => prec(2, seq(
-      '#{',
+      '.{',
       optional(seq(
         $.anon_struct_type_field,
         repeat(seq(',', $.anon_struct_type_field)),
@@ -1070,7 +1070,7 @@ module.exports = grammar({
 
     // Body (block). Lambdas live in their own rule (`fn params -> body`). A
     // `{` always opens a block: a struct literal with no type name opens with
-    // `#{`.
+    // `.{`.
     body: $ => seq('{', statements($), '}'),
 
     // A lambda, `fn params -> body`. Its body runs to the end of its
@@ -1183,34 +1183,34 @@ module.exports = grammar({
 
     anon_struct_field: $ => prec(1, seq($._field_identifier, ':', $._expression)),
 
-    // A struct literal with no type name, `#{x: 1, y: 2}`: the struct its
-    // position expects, or an anonymous struct. A punned field (`#{x, y}`)
+    // A struct literal with no type name, `.{x: 1, y: 2}`: the struct its
+    // position expects, or an anonymous struct. A punned field (`.{x, y}`)
     // is a bare identifier child, as a struct update's punned field is: it
     // names a variable.
     anon_struct: $ => prec(6, seq(
-      '#{',
+      '.{',
       commaSep(choice($.anon_struct_field, $.identifier)),
       '}',
     )),
 
     map_entry: $ => prec(2, seq($._expression, '=>', $._expression)),
 
-    // Struct update by spread: `#{..base, f: v}` — copy `base`, override the
+    // Struct update by spread: `.{..base, f: v}` — copy `base`, override the
     // named fields. The result takes the spread head's type, so no type name is
     // written, and `..` at the first position inside the brace is the whole
-    // distinction from `anon_struct` (`#{f: v}`).
+    // distinction from `anon_struct` (`.{f: v}`).
     //
     // A collection literal takes spreads anywhere; a struct update does not.
     // Its order is pure notation, and base-then-overrides is the only order
     // under which "a later field wins" reads correctly. So: exactly one
-    // spread, and it is the FIRST element. `#{a: 1, ..b}` and `#{..a, ..b}`
+    // spread, and it is the FIRST element. `.{a: 1, ..b}` and `.{..a, ..b}`
     // are not accepted here and land in the surrounding block/ERROR recovery,
     // matching the Go parser's `struct spread ".." must be the first element`.
     //
     // A comma follows the spread and each field but the last, whose comma is
     // optional, as in every other brace literal.
     struct_update: $ => prec(6, seq(
-      '#{',
+      '.{',
       $.struct_update_spread,
       repeat(seq(',', $.struct_update_field)),
       optional(','),
@@ -1219,9 +1219,9 @@ module.exports = grammar({
 
     // The spread element. `head` is a full expression, matching the Go parser,
     // which calls `parseExpr(1)` after the `..` exactly as the list spread does
-    // — so `#{..config, tag: "x"}`, `#{..f(x), a: 1}` and `#{..a.b, c: 2}` all
+    // — so `.{..config, tag: "x"}`, `.{..f(x), a: 1}` and `.{..a.b, c: 2}` all
     // parse here and the checker, not the grammar, decides what is a struct.
-    // A `..` with no head (`#{.., city: "NYC"}`) is the bare spread: the value
+    // A `..` with no head (`.{.., city: "NYC"}`) is the bare spread: the value
     // already at the field or key the literal is written at. The token after
     // it, a `,` or the closing `}`, decides it.
     struct_update_spread: $ => prec.right(seq('..', optional(field('head', $._expression)))),
@@ -1229,7 +1229,7 @@ module.exports = grammar({
     map_update_spread: $ => prec.right(seq('..', optional(field('head', $._expression)))),
 
     // A field in an update, shaped like `struct_construction`'s field: it may
-    // be punned, `#{..base, x}` meaning `x: x`.
+    // be punned, `.{..base, x}` meaning `x: x`.
     struct_update_field: $ => choice(
       seq(field('field_name', $._field_identifier), ':', $._expression),
       field('field_name', $._field_identifier),
@@ -1278,7 +1278,7 @@ module.exports = grammar({
     // compete with the expression it looks like. A bare name is left out: it
     // always matches, and admitting it would let `x = if c { a } else { b }`
     // read its `else` as this rule's. A map pattern (`%{"k" => v}`), a
-    // struct pattern with no type name (`#{a, b}`) and a tuple of names are a
+    // struct pattern with no type name (`.{a, b}`) and a tuple of names are a
     // destructuring_binding that an `else` follows.
     //
     // Its dynamic precedence outranks pattern_binding's: where `else` is not
@@ -1315,7 +1315,7 @@ module.exports = grammar({
     // expression spelling, as else_binding's is, so a statement-leading
     // pattern never competes with the expression it looks like; an
     // expression statement is never followed by `as`, so the `as` commits.
-    // A struct pattern with no type name is an anon_struct (`#{x: _c, y} as p`).
+    // A struct pattern with no type name is an anon_struct (`.{x: _c, y} as p`).
     as_binding: $ => prec.right(seq(
       field('pattern', alias($._expression_as_pattern, $.as_pattern)),
       '=',
@@ -1341,7 +1341,7 @@ module.exports = grammar({
     // headless `{...}`: after `else {` a block and arms are both possible,
     // and the static precedence that makes a case arm's `(a, b)` a
     // tuple_pattern would make a block's `{ (80, 24) }` or
-    // `{ #{addr: "", score: 0} }` a pattern too. Those patterns still parse,
+    // `{ .{addr: "", score: 0} }` a pattern too. Those patterns still parse,
     // through the expression escape a case arm has.
     else_arm: $ => choice(
       prec.dynamic(20, seq(
@@ -1452,13 +1452,13 @@ module.exports = grammar({
         '=',
         field('value', $._expression),
       ),
-      // Struct: #{name, age} = expr  or  #{name: n, age: a} = expr.
+      // Struct: .{name, age} = expr  or  .{name: n, age: a} = expr.
       seq(
-        '#{',
+        '.{',
         commaSep1(choice(
           field('binding', $.identifier),
           // `_field_identifier`, as anon_struct_field's name is, so the two
-          // readings of `#{x: a` stay alive until `=` decides.
+          // readings of `.{x: a` stay alive until `=` decides.
           seq(field('field', $._field_identifier), ':', choice(
             field('binding', choice($.identifier, '_')),
             field('pattern', $._destructuring_subpattern),
@@ -1484,7 +1484,7 @@ module.exports = grammar({
     ),
 
     // A destructure's nested pattern other than a name, in its expression
-    // spelling: `((a, b) as inner, c) = pair`, `#{x: Some(a), y} = q else
+    // spelling: `((a, b) as inner, c) = pair`, `.{x: Some(a), y} = q else
     // { ... }`, `%{"k" => (a, b)} = m`.
     _destructuring_subpattern: $ => choice(
       alias($._expression_as_pattern, $.as_pattern),
@@ -1496,8 +1496,8 @@ module.exports = grammar({
       $.struct_construction,
       $.map_construction,
       $.anon_struct,
-      // A literal or a bare variant a field must equal, `#{x: 0, y} = p else
-      // { ... }` or `#{done: True, n} = s else { ... }`, which only a binding
+      // A literal or a bare variant a field must equal, `.{x: 0, y} = p else
+      // { ... }` or `.{done: True, n} = s else { ... }`, which only a binding
       // with `else` can use.
       $.integer,
       $.float,
@@ -1969,10 +1969,10 @@ module.exports = grammar({
       field('name', choice($.identifier, $.type_identifier)),
     )),
 
-    // A struct pattern, `#{x, y: pat}`, or one that names its type or
+    // A struct pattern, `.{x, y: pat}`, or one that names its type or
     // variant: `#Point{x, y}`, `#Shape.Circle{radius}`, `#.Circle{radius}`.
     struct_pattern: $ => prec(11, choice(
-      seq('#{', commaSep($.pattern_field), '}'),
+      seq('.{', commaSep($.pattern_field), '}'),
       $._named_struct_pattern,
     )),
 
@@ -2232,7 +2232,7 @@ module.exports = grammar({
     // `Point{x: 1, y}`, `geo.Point{..}`, a struct-shaped variant
     // `Shape.Circle{radius: 1.0}`, `Circle{..}` or `.Circle{..}`. A punned
     // field (`Point{x}`) means `x: x`. The literal with no name is
-    // `anon_struct` (`#{x: 1}`).
+    // `anon_struct` (`.{x: 1}`).
     struct_construction: $ => prec.dynamic(10, prec(10, seq(
       field('type', $._struct_name),
       token.immediate('{'),

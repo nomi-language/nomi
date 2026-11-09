@@ -40,7 +40,7 @@ struct Holder<T> {
 fn describe(s: Shape) -> String {
   case s {
     Shape.Circle{r} -> "circle ${r}"
-    Shape.Wrapped(#{r}) -> "wrapped ${r}"
+    Shape.Wrapped(.{r}) -> "wrapped ${r}"
     Shape.Dot -> "dot"
   }
 }

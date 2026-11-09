@@ -46,9 +46,9 @@ fn main() {
     dbg (1, "a") == t
     dbg t != (1, "b")
     dbg t == (1, "b")
-    a: Equatable = #{name: "n", n: 2}
-    dbg a == #{name: "n", n: 2}
-    dbg #{name: "n", n: 3} != a
+    a: Equatable = .{name: "n", n: 2}
+    dbg a == .{name: "n", n: 2}
+    dbg .{name: "n", n: 3} != a
     p: Equatable = Point{x: 1, y: 2}
     dbg p == Point{x: 1, y: two()}
     dbg Point{x: 2, y: 2} == p
@@ -86,8 +86,8 @@ fn main() {
 dbg line 26: (1, "a") == t = True
 dbg line 27: t != (1, "b") = True
 dbg line 28: t == (1, "b") = False
-dbg line 30: a == #{name: "n", n: 2} = True
-dbg line 31: #{name: "n", n: 3} != a = True
+dbg line 30: a == .{name: "n", n: 2} = True
+dbg line 31: .{name: "n", n: 3} != a = True
 dbg line 33: p == Point{x: 1, y: two()} = True
 dbg line 34: Point{x: 2, y: 2} == p = False
 dbg line 36: i == 3 = True

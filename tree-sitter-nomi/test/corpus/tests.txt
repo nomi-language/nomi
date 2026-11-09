@@ -156,9 +156,9 @@ Setup anonymous struct value bound by a struct pattern
 ================================================================================
 
 group "user labels" {
-  setup #{name: "Ada", role: "admin"}
+  setup .{name: "Ada", role: "admin"}
 
-  test "uses setup", #{name, role} {
+  test "uses setup", .{name, role} {
     assert name == "Ada"
   }
 }

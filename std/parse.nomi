@@ -63,7 +63,7 @@ impl Parse<String> for Int {
 
 /// Several named texts read at once: `Unit`, which has none, or an
 /// anonymous struct whose fields each implement `Parse` and `Display`,
-/// such as `#{id: Uuid, page: Int}`. The compiler supplies an anonymous
+/// such as `.{id: Uuid, page: Int}`. The compiler supplies an anonymous
 /// struct's functions; no other type implements it. Each list is in the
 /// order `field_names` gives, which is the fields' names in order.
 /// `read_fields` and `write_fields` are the functions to call.
@@ -94,9 +94,9 @@ impl ParseFields for Unit {
 /// The `P` whose fields are read from `texts` by name, or `None` when a
 /// field's text is missing or does not parse.
 //! texts = %{"id" => "7", "name" => "ann"}
-//! assert read_fields(texts) == Some(#{id: 7, name: "ann"})
-//! assert read_fields<#{id: Int}>(%{"id" => "x"}) == None
-//! assert read_fields<#{id: Int}>(%{"name" => "x"}) == None
+//! assert read_fields(texts) == Some(.{id: 7, name: "ann"})
+//! assert read_fields<.{id: Int}>(%{"id" => "x"}) == None
+//! assert read_fields<.{id: Int}>(%{"name" => "x"}) == None
 //
 pub fn read_fields<P>(texts: Map<String, String>) -> Maybe<P> where P: ParseFields {
     P.field_names()
@@ -107,7 +107,7 @@ pub fn read_fields<P>(texts: Map<String, String>) -> Maybe<P> where P: ParseFiel
 
 /// Each field of `fields` with its name and its `Display` text, in name
 /// order.
-//! assert write_fields(#{id: 7, name: "ann"}) == [("id", "7"), ("name", "ann")]
+//! assert write_fields(.{id: 7, name: "ann"}) == [("id", "7"), ("name", "ann")]
 //
 pub fn write_fields<P>(fields: P) -> List<(String, String)> where P: ParseFields {
     Iter.zip(P.field_names(), P.field_texts(fields)) |> Iter.to_list()

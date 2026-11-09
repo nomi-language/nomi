@@ -72,10 +72,10 @@ impl Level {
     }
 
     /// Whether `level` is `min` or above it.
-    //! assert Level.at_least(Level.Warn, Level.Info)
-    //! assert not Level.at_least(Level.Debug, Level.Info)
+    //! assert Level.is_at_least(Level.Warn, Level.Info)
+    //! assert not Level.is_at_least(Level.Debug, Level.Info)
     //
-    pub fn at_least(level: Level, min: Level) -> Bool {
+    pub fn is_at_least(level: Level, min: Level) -> Bool {
         Level.rank(level) >= Level.rank(min)
     }
 }
@@ -216,19 +216,19 @@ impl Logger {
 
     /// Whether the logger writes a record at `level`, for skipping work that
     /// only builds fields for a record it would drop.
-    //! assert not Logger.enabled(Logger.text(), Level.Debug)
+    //! assert not Logger.is_enabled(Logger.text(), Level.Debug)
     //
-    pub fn enabled(logger: Logger, level: Level) -> Bool {
+    pub fn is_enabled(logger: Logger, level: Level) -> Bool {
         case logger.sink {
             .Discard -> False
-            _ -> Level.at_least(level, logger.min)
+            _ -> Level.is_at_least(level, logger.min)
         }
     }
 }
 
 /// Writes a record at `level`, when the logger's minimum lets it through.
 pub fn log(logger: Logger, level: Level, message: String, fields: List<Field> = []) -> Unit {
-    if Logger.enabled(logger, level) {
+    if Logger.is_enabled(logger, level) {
         write(logger, Instant.now(), level, message, logger.fields + fields)
     }
 }

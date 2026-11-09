@@ -99,7 +99,7 @@ test "lenient parsing accepts more" {
 fn round_trips(locale: Locale) -> Bool {
     ints =
         [0, -7, 1234, 1234567890]
-        |> Iter.all(fn n -> Int.parse_in(Int.format(n, locale), locale) == Ok(n))
+        |> Iter.all_match(fn n -> Int.parse_in(Int.format(n, locale), locale) == Ok(n))
 
     decimal = Decimal.parse_in(Decimal.format(-1234.50d, locale), locale) == Ok(-1234.50d)
     ints and decimal
@@ -107,7 +107,7 @@ fn round_trips(locale: Locale) -> Bool {
 
 test "a format reads back as its value" {
     assert [Locale`en`, Locale`de`, Locale`fr`, Locale`hi`, Locale`ar-EG`, Locale`ja`]
-        |> Iter.all(&round_trips(&1))
+        |> Iter.all_match(&round_trips(&1))
 }
 
 test "a decimal's digits are limited and rounded as the options say" {

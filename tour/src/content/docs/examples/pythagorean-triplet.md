@@ -29,11 +29,7 @@ fn triplet(n: Int, a: Int) -> Maybe<(Int, Int, Int)> {
     bottom = 2 * (n - a)
     b = top / bottom
 
-    if top % bottom == 0 and a < b {
-        Some((a, b, n - a - b))
-    } else {
-        None
-    }
+    if top % bottom == 0 and a < b { (a, b, n - a - b) }
 }
 
 // FILE: pythagorean_triplet_test.nomi

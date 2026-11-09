@@ -23,7 +23,7 @@ test "keeps strings" {
 test "keeps lists" {
     lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
 
-    assert strain.keep(lists, &List.contains(&1, 5)) == [
+    assert strain.keep(lists, &(5 in &1)) == [
         [5, 5, 5],
         [5, 1, 2],
         [1, 5, 2],
@@ -54,5 +54,5 @@ test "discards strings" {
 test "discards lists" {
     lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
 
-    assert strain.discard(lists, &List.contains(&1, 5)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
+    assert strain.discard(lists, &(5 in &1)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
 }

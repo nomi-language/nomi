@@ -132,7 +132,7 @@ fn arm(n: Int) -> Result<Color, String> {
   Result.Ok(case n { 1 -> .Red; _ -> .Blue })
 }
 fn score(n: Int) -> Result<Score, String> {
-  Result.Ok(case n { 1 -> #{color: .Red, n}; _ -> #{color: .Blue, n} })
+  Result.Ok(case n { 1 -> .{color: .Red, n}; _ -> .{color: .Blue, n} })
 }
 fn nested(n: Int) -> Result<Color, String> {
   Result.Ok(if n == 1 { .Red } else if n == 2 { .Blue } else { .Red })

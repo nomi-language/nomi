@@ -8,7 +8,7 @@ import (
 )
 
 // THE SPREAD UPDATES DEEPLY WHERE A FIELD IS WRITTEN WITH `..`, so
-// `#{..base, inner: #{.., a: 9}}` and `Struct.update(base, #{inner: #{.., a: 9}})`
+// `.{..base, inner: .{.., a: 9}}` and `Struct.update(base, .{inner: .{.., a: 9}})`
 // are the same operation, and a brace without `..` is a whole value in both.
 //
 // `Struct.update` remains the form that takes a COMPUTED patch — a variable
@@ -39,7 +39,7 @@ struct Outer {
   k: Int
 }
 struct AnonOuter {
-  rec: #{a: Int, b: Int}
+  rec: .{a: Int, b: Int}
   k: Int
 }
 struct L3 {
@@ -94,36 +94,36 @@ var spreadDeepPatches = []struct {
 		name:  "a `..` literal at a nominal struct field",
 		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "inner: #{.., a: 9}",
+		patch: "inner: .{.., a: 9}",
 		ok:    true,
 	},
 	{
 		name:  "a `..` literal at an anonymous-typed field",
-		decl:  "  o = AnonOuter{rec: #{a: 1, b: 2}, k: 3}\n",
+		decl:  "  o = AnonOuter{rec: .{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "rec: #{.., a: 9}",
+		patch: "rec: .{.., a: 9}",
 		ok:    true,
 	},
 	{
 		// A COMPLETE brace at an anonymous-typed field is a whole value.
 		name:  "a COMPLETE brace at an anonymous-typed field",
-		decl:  "  o = AnonOuter{rec: #{a: 1, b: 2}, k: 3}\n",
+		decl:  "  o = AnonOuter{rec: .{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "rec: #{a: 9, b: 8}",
+		patch: "rec: .{a: 9, b: 8}",
 		ok:    true,
 	},
 	{
 		name:  "three levels deep",
 		decl:  "  o = L1{l2: L2{l3: L3{v: 1, w: 2}, m: 3}, n: 4}\n",
 		head:  "o",
-		patch: "l2: #{.., l3: #{.., v: 9}}",
+		patch: "l2: .{.., l3: .{.., v: 9}}",
 		ok:    true,
 	},
 	{
 		name:  "a deep update beside a shallow one",
 		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "inner: #{.., a: 9}, k: 4",
+		patch: "inner: .{.., a: 9}, k: 4",
 		ok:    true,
 	},
 	{
@@ -134,7 +134,7 @@ var spreadDeepPatches = []struct {
 		name:  "a `..` literal at a field generic over a struct, solved",
 		decl:  "  b: Box<Inner> = Box{item: Inner{a: 1, b: 2}, tag: \"t\"}\n",
 		head:  "b",
-		patch: "item: #{.., a: 9}",
+		patch: "item: .{.., a: 9}",
 		ok:    true,
 	},
 
@@ -143,21 +143,21 @@ var spreadDeepPatches = []struct {
 		name:  "a partial brace at a nominal struct field",
 		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "inner: #{a: 9}",
+		patch: "inner: .{a: 9}",
 		ok:    false,
 	},
 	{
 		name:  "a partial brace at an anonymous-typed field",
-		decl:  "  o = AnonOuter{rec: #{a: 1, b: 2}, k: 3}\n",
+		decl:  "  o = AnonOuter{rec: .{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "rec: #{a: 9}",
+		patch: "rec: .{a: 9}",
 		ok:    false,
 	},
 	{
 		name:  "a partial brace two levels down",
 		decl:  "  o = L1{l2: L2{l3: L3{v: 1, w: 2}, m: 3}, n: 4}\n",
 		head:  "o",
-		patch: "l2: #{.., l3: #{v: 9}}",
+		patch: "l2: .{.., l3: .{v: 9}}",
 		ok:    false,
 	},
 
@@ -178,10 +178,16 @@ var spreadDeepPatches = []struct {
 	},
 	{
 		name:  "a nested spread is a value",
+		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n  p = Outer{inner: Inner{a: 4, b: 5}, k: 6}\n",
+		head:  "o",
+		patch: "inner: .{..p.inner, a: 9}",
+		ok:    true,
+	},
+	{
+		name:  "a nested spread of the field's own value is refused",
 		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "inner: #{..o.inner, a: 9}",
-		ok:    true,
+		patch: "inner: .{..o.inner, a: 9}",
 	},
 	{
 		// AN INTERFACE-TYPED FIELD TAKES VALUES ONLY. `Partial<T>` stops
@@ -197,7 +203,7 @@ var spreadDeepPatches = []struct {
 		name:  "an interface-typed field REFUSES a brace",
 		decl:  "  s = Stage{who: Loud{n: 1}, seats: 3}\n",
 		head:  "s",
-		patch: "who: #{n: 2}",
+		patch: "who: .{n: 2}",
 		ok:    false,
 	},
 
@@ -206,42 +212,42 @@ var spreadDeepPatches = []struct {
 		name:  "an unknown field one level down",
 		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "inner: #{.., z: 1}",
+		patch: "inner: .{.., z: 1}",
 		ok:    false,
 	},
 	{
 		name:  "a wrong value type one level down",
 		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "inner: #{.., a: \"s\"}",
+		patch: "inner: .{.., a: \"s\"}",
 		ok:    false,
 	},
 	{
 		name:  "an unknown field three levels down",
 		decl:  "  o = L1{l2: L2{l3: L3{v: 1, w: 2}, m: 3}, n: 4}\n",
 		head:  "o",
-		patch: "l2: #{.., l3: #{.., zz: 1}}",
+		patch: "l2: .{.., l3: .{.., zz: 1}}",
 		ok:    false,
 	},
 	{
 		name:  "a brace at a field that is not struct-shaped",
 		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "k: #{a: 1}",
+		patch: "k: .{a: 1}",
 		ok:    false,
 	},
 	{
 		name:  "a `..` literal at a field that is not struct-shaped",
 		decl:  "  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n",
 		head:  "o",
-		patch: "k: #{.., a: 1}",
+		patch: "k: .{.., a: 1}",
 		ok:    false,
 	},
 	{
 		name:  "a `..` literal at an interface-typed field",
 		decl:  "  s = Stage{who: Loud{n: 1}, seats: 3}\n",
 		head:  "s",
-		patch: "who: #{.., n: 2}",
+		patch: "who: .{.., n: 2}",
 		ok:    false,
 	},
 }
@@ -257,9 +263,9 @@ func TestSpreadDeep_AgreesWithStructUpdate(t *testing.T) {
 	for _, tc := range spreadDeepPatches {
 		t.Run(tc.name, func(t *testing.T) {
 			spread := spreadDeepDecls + "fn main() {\n" + tc.decl +
-				"  _a = #{.." + tc.head + ", " + tc.patch + "}\n}\n"
+				"  _a = .{.." + tc.head + ", " + tc.patch + "}\n}\n"
 			update := spreadDeepDecls + "fn main() {\n" + tc.decl +
-				"  _a = Struct.update(" + tc.head + ", #{" + tc.patch + "})\n}\n"
+				"  _a = Struct.update(" + tc.head + ", .{" + tc.patch + "})\n}\n"
 
 			_, spreadErrs := checkSourceWithStdlib(spread)
 			_, updateErrs := checkSourceWithStdlib(update)
@@ -281,7 +287,7 @@ func TestSpreadDeep_AgreesWithStructUpdate(t *testing.T) {
 // --- the two diagnostics, which are what a user actually reads -------------
 
 // An unknown NESTED field must name the NESTED type. Before the depth existed
-// this read `field 'inner' of Outer: expected Inner, got #{z: Int}` — a message
+// this read `field 'inner' of Outer: expected Inner, got .{z: Int}` — a message
 // about the outer field, in which nothing says `z` is the problem.
 //
 // The text is asserted exactly, because "some diagnostic fired" is satisfied
@@ -289,7 +295,7 @@ func TestSpreadDeep_AgreesWithStructUpdate(t *testing.T) {
 func TestSpreadDeep_UnknownNestedFieldNamesTheNestedType(t *testing.T) {
 	const src = spreadDeepDecls + `fn main() {
   o = Outer{inner: Inner{a: 1, b: 2}, k: 3}
-  _a = #{..o, inner: #{.., z: 1}}
+  _a = .{..o, inner: .{.., z: 1}}
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -297,12 +303,12 @@ func TestSpreadDeep_UnknownNestedFieldNamesTheNestedType(t *testing.T) {
 }
 
 // A wrong nested VALUE type must name the nested FIELD. Before the depth this
-// read `field 'inner' of Outer: expected Inner, got #{a: String}`, which names
+// read `field 'inner' of Outer: expected Inner, got .{a: String}`, which names
 // `Outer.inner` and not `Inner.a`.
 func TestSpreadDeep_WrongNestedValueNamesTheNestedField(t *testing.T) {
 	const src = spreadDeepDecls + `fn main() {
   o = Outer{inner: Inner{a: 1, b: 2}, k: 3}
-  _a = #{..o, inner: #{.., a: "s"}}
+  _a = .{..o, inner: .{.., a: "s"}}
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -314,7 +320,7 @@ func TestSpreadDeep_WrongNestedValueNamesTheNestedField(t *testing.T) {
 func TestSpreadDeep_DiagnosticsCarryToDepth(t *testing.T) {
 	const src = spreadDeepDecls + `fn main() {
   o = L1{l2: L2{l3: L3{v: 1, w: 2}, m: 3}, n: 4}
-  _a = #{..o, l2: #{.., l3: #{.., v: "s"}}}
+  _a = .{..o, l2: .{.., l3: .{.., v: "s"}}}
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -339,7 +345,7 @@ func expectExactlyOne(t *testing.T, errs []analysis.TypeError, want string) {
 
 // --- the leak guard: depth exists only underneath a spread -----------------
 
-// `Outer{inner: #{a: 9}}` HAS NO BASE for `inner.b` to come from, so it is not
+// `Outer{inner: .{a: 9}}` HAS NO BASE for `inner.b` to come from, so it is not
 // a patch. Outside a spread a bare brace at a struct field builds that struct
 // (target typing), so a partial one is that struct's missing-field error.
 // This is the test that separates "the spread patches deeply" from "a bare
@@ -349,9 +355,9 @@ func expectExactlyOne(t *testing.T, errs []analysis.TypeError, want string) {
 // three and the `patch` parameter is what keeps them apart.
 func TestSpreadDeep_OrdinaryConstructionIsNotAPatch(t *testing.T) {
 	cases := []struct{ name, body, want string }{
-		{"the literal-attach form", "  _a = Outer{inner: #{a: 9}, k: 3}\n", "missing field 'b' of Inner"},
-		{"the record call form", "  _a = Outer(#{inner: #{a: 9}, k: 3})\n", "missing field 'b' of Inner"},
-		{"a nested construction", "  _a = L1{l2: #{l3: #{v: 9, w: 1}}, n: 1}\n", "missing field 'm' of L2"},
+		{"the literal-attach form", "  _a = Outer{inner: .{a: 9}, k: 3}\n", "missing field 'b' of Inner"},
+		{"the record call form", "  _a = Outer(.{inner: .{a: 9}, k: 3})\n", "missing field 'b' of Inner"},
+		{"a nested construction", "  _a = L1{l2: .{l3: .{v: 9, w: 1}}, n: 1}\n", "missing field 'm' of L2"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -367,7 +373,7 @@ func TestSpreadDeep_OrdinaryConstructionIsNotAPatch(t *testing.T) {
 // struct fields.
 func TestSpreadDeep_OrdinaryConstructionBuildsACompleteBrace(t *testing.T) {
 	const src = spreadDeepDecls + `fn main() {
-  _a = Outer{inner: #{a: 9, b: 8}, k: 3}
+  _a = Outer{inner: .{a: 9, b: 8}, k: 3}
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -392,7 +398,7 @@ struct Box {
 }
 
 fn wreck(b: Box) -> Box {
-  #{..b, inner: #{.., value: -999}}
+  .{..b, inner: .{.., value: -999}}
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -414,7 +420,7 @@ struct Crate {
 }
 
 fn wreck(c: Crate) -> Crate {
-  #{..c, box: #{.., inner: #{.., value: -999}}}
+  .{..c, box: .{.., inner: .{.., value: -999}}}
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")
@@ -427,12 +433,12 @@ func TestSpreadDeep_OpaqueNeighbourAndWholesaleReplacementStillWork(t *testing.T
 	cases := map[string]string{
 		// Patching the wrapper's own transparent field, with an opaque
 		// field sitting beside it untouched.
-		"a transparent field beside an opaque one": `  #{..b, label: "x"}`,
+		"a transparent field beside an opaque one": `  .{..b, label: "x"}`,
 		// Replacing the opaque field wholesale. The patch names `Box.inner`,
 		// which is Box's field and not Counter's, so nothing is exposed.
-		"replacing the opaque field wholesale": `  #{..b, inner: counter.new()}`,
+		"replacing the opaque field wholesale": `  .{..b, inner: counter.new()}`,
 		// A nested patch into a NON-opaque struct from another file.
-		"a nested patch into a non-opaque sibling type": `  #{..b, open: #{.., a: 9}}`,
+		"a nested patch into a non-opaque sibling type": `  .{..b, open: .{.., a: 9}}`,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -464,7 +470,7 @@ fn ok(b: Box) -> Box {
 // depth follows the substitution rather than guessing.
 func TestSpreadDeep_UnsolvedTypeParameterFieldTakesAValue(t *testing.T) {
 	const src = spreadDeepDecls + `fn patch_it<T>(b: Box<T>) -> Box<T> {
-  #{..b, item: #{.., a: 9}}
+  .{..b, item: .{.., a: 9}}
 }
 
 fn main() {
@@ -482,7 +488,7 @@ fn main() {
 // had broken `Box<T>` entirely.
 func TestSpreadDeep_UnsolvedTypeParameterFieldStillTakesItsValue(t *testing.T) {
 	const src = spreadDeepDecls + `fn patch_it<T>(b: Box<T>, v: T) -> Box<T> {
-  #{..b, item: v}
+  .{..b, item: v}
 }
 
 fn main() {
@@ -497,7 +503,7 @@ fn main() {
 // --- the editor side, which came for free and is pinned anyway -------------
 
 // THE NESTED FIELD LABEL CARRIES THE NESTED STRUCT'S FIELD TYPE, so hover on
-// the `city` in `#{..user, address: #{.., city: "NYC"}}` reads `city: String`
+// the `city` in `.{..user, address: .{.., city: "NYC"}}` reads `city: String`
 // against `Address.city`.
 //
 // It comes for free because the recursion is the validator:
@@ -520,7 +526,7 @@ fn main() {
 // So the assertion is on the POSITION, located by searching the source text
 // rather than by counting columns. Verified to fail under both mutants.
 func TestSpreadDeep_NestedFieldLabelHoversTheNestedType(t *testing.T) {
-	const patchLine = `  _n = #{..o, inner: #{.., a: 9}}`
+	const patchLine = `  _n = .{..o, inner: .{.., a: 9}}`
 	src := spreadDeepDecls + "fn main() {\n" +
 		"  o = Outer{inner: Inner{a: 1, b: 2}, k: 3}\n" +
 		patchLine + "\n}\n"
@@ -530,7 +536,7 @@ func TestSpreadDeep_NestedFieldLabelHoversTheNestedType(t *testing.T) {
 		t.Fatalf("expected no diagnostics, got %v", errs)
 	}
 
-	pos, ok := labelPos(t, src, patchLine, "#{.., a: 9}", "a")
+	pos, ok := labelPos(t, src, patchLine, ".{.., a: 9}", "a")
 	if !ok {
 		return
 	}

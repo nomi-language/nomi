@@ -83,7 +83,7 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
         |> Iter.map(fn (team, rows) -> {
             standing(team, Iter.map(rows, fn (_team, outcome) -> outcome))
         })
-        |> Iter.sort_by(fn s -> (s |> Standing.points() |> Reverse.of(), s.team))
+        |> Iter.sort_by(fn s -> (Reverse.of(Standing.points(s)), s.team))
 
     table = Iter.map(standings, fn s -> {
         numbers = [Standing.played(s), s.won, s.drawn, s.lost, Standing.points(s)]
@@ -103,7 +103,7 @@ fn parse_row(row: String) -> Result<List<(String, Outcome)>, Error> {
 }
 
 fn standing(team: String, outcomes: Iter<Outcome>) -> Standing {
-    Standing{
+    .{
         team,
         won: count(outcomes, .Win),
         drawn: count(outcomes, .Draw),
@@ -112,9 +112,7 @@ fn standing(team: String, outcomes: Iter<Outcome>) -> Standing {
 }
 
 fn count(outcomes: Iter<Outcome>, wanted: Outcome) -> Int {
-    outcomes
-    |> Iter.filter(&(&1 == wanted))
-    |> Iter.count()
+    Iter.count_by(outcomes, &(&1 == wanted))
 }
 
 /// A line of the table: the team's name in a column of 30, then each

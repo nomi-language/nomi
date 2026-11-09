@@ -66,4 +66,4 @@ pub host fn ed25519_public_bytes(der: Bytes) -> Bytes
 pub host fn sign(der: Bytes, scheme: Int, message: Bytes) -> Bytes
 
 /// Whether `signature` is `message`'s under a public key with a scheme.
-pub host fn verify(der: Bytes, scheme: Int, message: Bytes, signature: Bytes) -> Bool
+pub host fn is_valid(der: Bytes, scheme: Int, message: Bytes, signature: Bytes) -> Bool

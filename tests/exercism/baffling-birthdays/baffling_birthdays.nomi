@@ -36,7 +36,7 @@ pub fn estimated_probability_of_shared_birthday(
     |> Generator.map(has_shared_birthday)
     |> Generator.list(trials)
     |> Generator.map(fn shared -> {
-        hits = shared |> Iter.filter(fn yes -> yes) |> Iter.count()
+        hits = Iter.count_by(shared, fn yes -> yes)
         100.0 * Int.to_float(hits) / Int.to_float(trials)
     })
 }
@@ -46,8 +46,7 @@ pub fn estimated_probability_of_shared_birthday(
 /// repeat.
 fn repeats(birthdates: List<Date>, seen: Set<(Int, Int)>) -> Bool {
     case birthdates {
-        [] ->
-            False
+        [] -> False
 
         [date, ..rest] -> {
             day = (Date.month(date), Date.day(date))

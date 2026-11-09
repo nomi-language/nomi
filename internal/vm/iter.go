@@ -795,7 +795,7 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 // to the end, so an endless source can never give its answer: the
 // materializers and folds. One whose callback can `break` (a signalling
 // reduce, each or map_reduce) may stop on its own, and the short-circuiting
-// terminals (`first`, `find`, `any`, `all`, `get`, `is_empty`,
+// terminals (`first`, `find`, `any_match`, `all_match`, `get`, `is_empty`,
 // `each_while`) stop early by design.
 func mustReachEnd(n *ir.Iter) bool {
 	switch n.Op() {
@@ -876,7 +876,7 @@ func adapterOutcome(v any) (any, rt.Ctl) {
 }
 
 // ctlPredicate is a signalling Bool callback read as the (decision, Ctl) pair
-// rt's filter, take_while, drop_while, find, any? and all? drivers take. A
+// rt's filter, take_while, drop_while, find, any_match and all_match drivers take. A
 // `continue` or bare `break` carries no decision.
 func (m *Machine) ctlPredicate(f *functionValue, op ir.IterOp) func(*rt.Frame, any) (bool, rt.Ctl) {
 	return func(runtime *rt.Frame, item any) (bool, rt.Ctl) {

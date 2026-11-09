@@ -92,8 +92,7 @@ impl Store for FileStore {
 
     fn save(value: FileStore, task: TodoTask) -> Result<TodoTask, String> {
         case load_map(value.path) {
-            Err(e) ->
-                Err(e)
+            Err(e) -> Err(e)
 
             Ok(tasks) ->
                 case write_all(value.path, Map.put(tasks, task.id, task)) {
@@ -113,8 +112,7 @@ impl Store for FileStore {
 
 fn load_map(path: String) -> Result<Map<Int, TodoTask>, String> {
     case fs.read_text(path) {
-        Ok(content) ->
-            deserialize(content)
+        Ok(content) -> deserialize(content)
 
         Err(e) ->
             case e {
@@ -183,8 +181,7 @@ fn deserialize_one(line: String) -> Result<TodoTask, String> {
                 _ -> Err("malformed task line: '${line}'")
             }
 
-        _ ->
-            Err("expected 5 tab-separated fields, got: '${line}'")
+        _ -> Err("expected 5 tab-separated fields, got: '${line}'")
     }
 }
 

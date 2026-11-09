@@ -23,6 +23,8 @@ package codecgen
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -46,7 +48,7 @@ func Generate(astDir string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &gen{pkg: pkg, structs: map[string]*types.Struct{}}
+	g := &gen{pkg: pkg, structs: map[string]*types.Struct{}, slices: map[string]string{}}
 	return g.file()
 }
 
@@ -103,7 +105,9 @@ type gen struct {
 	forms []form
 	// structs are the struct types whose fields have a codec, by name.
 	structs map[string]*types.Struct
-	tmp     int
+	// slices are the slice types a decoder reads, by sliceName.
+	slices map[string]string
+	tmp    int
 }
 
 type form struct {
@@ -218,11 +222,11 @@ func (g *gen) encode(b *bytes.Buffer, e string, t types.Type) error {
 		return nil
 	case *types.Slice:
 		i := g.newVar("i")
-		fmt.Fprintf(b, "e.len(%s == nil, len(%s))\nfor %s := range %s {\n", e, e, i, e)
+		fmt.Fprintf(b, "e.len(%s == nil, len(%s))\nif len(%s) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(%s)), len(%s), %q) {\nfor %s := range %s {\n", e, e, e, e, e, types.TypeString(t, g.qualifier), i, e)
 		if err := g.encode(b, e+"["+i+"]", u.Elem()); err != nil {
 			return err
 		}
-		b.WriteString("}\n")
+		b.WriteString("}\n}\n")
 		return nil
 	}
 	return fmt.Errorf("a field of type %s", t)
@@ -271,15 +275,24 @@ func (g *gen) decode(b *bytes.Buffer, e string, t types.Type) error {
 			p, fresh, p, e, p, name, fresh, nx, name, nx, name, nx, e, nx)
 		return nil
 	case *types.Slice:
-		n, i := g.newVar("n"), g.newVar("i")
-		fmt.Fprintf(b, "if %s := d.len(); %s >= 0 {\n%s = make(%s, %s)\nfor %s := range %s {\n", n, n, e, types.TypeString(t, g.qualifier), n, i, e)
-		if err := g.decode(b, e+"["+i+"]", u.Elem()); err != nil {
+		n, i, r, fresh, x := g.newVar("n"), g.newVar("i"), g.newVar("r"), g.newVar("fresh"), g.newVar("x")
+		ty := types.TypeString(t, g.qualifier)
+		fmt.Fprintf(b, "if %s := d.sharedLen(); %s == 0 {\n%s = %s{}\n} else if %s > 0 {\nif %s, %s := d.ptr(); !%s {\n%s = d.sharedSlice%s(%s, %s)\n} else {\nd.fits(%s)\n%s := make(%s, %s)\nd.refs = append(d.refs, %s)\nfor %s := range %s {\n",
+			n, n, e, ty, n, r, fresh, fresh, e, g.sliceName(t), r, n, n, x, ty, n, x, i, x)
+		if err := g.decode(b, x+"["+i+"]", u.Elem()); err != nil {
 			return err
 		}
-		b.WriteString("}\n}\n")
+		fmt.Fprintf(b, "}\n%s = %s\n}\n}\n", e, x)
+		g.slices[g.sliceName(t)] = ty
 		return nil
 	}
 	return fmt.Errorf("a field of type %s", t)
+}
+
+// sliceName is a slice type's name in a generated function's.
+func (g *gen) sliceName(t types.Type) string {
+	r := strings.NewReplacer("[]", "S", "*", "P", ".", "_")
+	return r.Replace(types.TypeString(t, g.qualifier))
 }
 
 func (g *gen) qualifier(p *types.Package) string {
@@ -411,6 +424,10 @@ func (g *gen) file() ([]byte, error) {
 			}
 			fmt.Fprintf(&structs, "func (e *Encoder) struct%s(x *ast.%s) {\n%s}\n\n", name, name, eb.String())
 			fmt.Fprintf(&structs, "func (d *Decoder) struct%s(x *ast.%s) {\n%s}\n\n", name, name, db.String())
+			// Exported, for a codec of values that hold an AST struct in
+			// place (analysis's state codec).
+			fmt.Fprintf(&structs, "// Struct%s writes *x in place.\nfunc (e *Encoder) Struct%s(x *ast.%s) { e.struct%s(x) }\n\n", name, name, name, name)
+			fmt.Fprintf(&structs, "// Struct%s reads into *x what Encoder.Struct%s wrote.\nfunc (d *Decoder) Struct%s(x *ast.%s) { d.struct%s(x) }\n\n", name, name, name, name, name)
 		}
 	}
 
@@ -431,6 +448,7 @@ package astcodec
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -439,6 +457,17 @@ import (
 	out.Write(enc.Bytes())
 	out.Write(dec.Bytes())
 	out.Write(structs.Bytes())
+	// A slice read before, by its number: the same elements, which must
+	// be of its type and length.
+	var sliceNames []string
+	for name := range g.slices {
+		sliceNames = append(sliceNames, name)
+	}
+	sort.Strings(sliceNames)
+	for _, name := range sliceNames {
+		ty := g.slices[name]
+		fmt.Fprintf(&out, "func (d *Decoder) sharedSlice%s(r any, n int) %s {\nv, ok := r.(%s)\nif !ok || len(v) != n {\nd.fail(\"a shared slice of another type or length\")\n}\nreturn v\n}\n\n", name, ty, ty)
+	}
 	out.WriteString(`// forms holds a value of each form an interface field may hold, in tag
 // order, for the test that encodes a tree of every shape.
 var forms = []any{
@@ -449,5 +478,6 @@ var forms = []any{
 	if err != nil {
 		return nil, fmt.Errorf("formatting the generated file: %v\n%s", err, out.Bytes())
 	}
-	return src, nil
+	sum := sha256.Sum256(src)
+	return fmt.Appendf(src, "\n// CodecDigest is a digest of the code above it: a reader keys bytes this\n// codec wrote by it when the writer may be another binary.\nconst CodecDigest = %q\n", hex.EncodeToString(sum[:8])), nil
 }

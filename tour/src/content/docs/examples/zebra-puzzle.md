@@ -25,8 +25,6 @@ pub enum Nationality {
     Japanese
 }
 
-derive Equatable for Nationality
-
 /// The puzzle's two answers.
 pub struct Solution {
     drinks_water: Nationality

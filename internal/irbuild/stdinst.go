@@ -275,6 +275,12 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 			c.comps = map[string][]*compKind{}
 		}
 		g.preludeInsts, g.genStructInsts, g.genHostInsts, g.comps = c.preludeInsts, c.genStructInsts, c.genHostInsts, c.comps
+		switch {
+		case c.stdProgCaller != nil:
+			g.stdProgCaller = c.stdProgCaller
+		case c.stdProgBuilds():
+			g.stdProgCaller = c
+		}
 	}
 	frame := make(map[string]kind, len(tps))
 	for i, tp := range tps {
@@ -293,13 +299,14 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 	view.irArity = nil
 	view.irSlot = nil
 	view.why = ""
-	if len(tps) == 0 && f.why != stdIterSigWhy {
+	if len(tps) == 0 && f.why != stdProgSigWhy {
 		// A monomorphic body keeps the signature the index resolved for it,
 		// destructuring parameters included.
 		view.params = append([]kind(nil), f.params...)
 	} else {
 		// A generic signature names the instance's arguments, and an Iter
-		// has no kind outside a program (stdIterSigWhy).
+		// or a std interface held as a value has no kind outside a program
+		// (stdProgSigWhy).
 		view.params = make([]kind, len(inst.fd.Params))
 		for i, p := range inst.fd.Params {
 			if p.TypeAnnotation == nil {
@@ -314,7 +321,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 		}
 	}
 	view.result = f.result
-	if len(tps) != 0 || f.why == stdIterSigWhy {
+	if len(tps) != 0 || f.why == stdProgSigWhy {
 		view.result = kindUnit
 		if inst.fd.ReturnTypeExpr != nil {
 			view.result = g.typeOf(inst.fd.ReturnTypeExpr)
@@ -414,7 +421,7 @@ func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 // unretainedMono is stdUnretainedMonoBody with the functions whose answer is
 // being worked out, which answer false so a recursive pair terminates.
 func (s *stdInstances) unretainedMono(f *stdFunc, visiting map[*stdFunc]bool) bool {
-	if f == nil || (f.why != "" && f.why != stdIterSigWhy) || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
+	if f == nil || (f.why != "" && f.why != stdProgSigWhy) || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
 		len(f.decl.Decorators) > 0 || len(f.decl.TypeParams) > 0 {
 		return false
 	}
@@ -425,7 +432,7 @@ func (s *stdInstances) unretainedMono(f *stdFunc, visiting map[*stdFunc]bool) bo
 	if c.irBody != nil || visiting[f] {
 		return false
 	}
-	if f.why == stdIterSigWhy {
+	if f.why == stdProgSigWhy {
 		return true
 	}
 	visiting[f] = true
@@ -433,17 +440,56 @@ func (s *stdInstances) unretainedMono(f *stdFunc, visiting map[*stdFunc]bool) bo
 	return s.callsGenericSibling(f, visiting)
 }
 
-// stdIterSigWhy is the why of a monomorphic std function a parameter or
-// the result of which is an `Iter<T>` (`Reader.lines`, `Writer.write_all`).
-// An Iter value has no shared lowering, so the cache retains no such body
-// and a program builds it as an instance with no arguments
-// (stdUnretainedMonoBody), where the Iter is the builder's own sequence.
-const stdIterSigWhy = "stdlib function whose signature names an Iter"
+// stdProgSigWhy is the why of a monomorphic std function a parameter or
+// the result of which has a kind only inside a program (stdProgSigType):
+// an `Iter<T>` (`Reader.lines`, `Writer.write_all`), or a std interface
+// held as a value with no rt table (`String.split(s, separator:
+// Matcher)`, stdprogiface.go). Neither has a shared lowering, so the cache
+// retains no such body and a program builds it as an instance with no
+// arguments (stdUnretainedMonoBody), where the Iter is the builder's own
+// sequence and the interface is the program's def of it.
+const stdProgSigWhy = "stdlib function whose signature has a kind only in a program"
+
+// stdProgSigType reports a parameter or result type of a Nomi-bodied std
+// function that has a kind only inside a program (stdProgSigWhy).
+func stdProgSigType(t ast.TypeExpr, anchors stdAnchors) bool {
+	return isIterType(t) || stdIfaceValueType(t, anchors)
+}
 
 // isIterType reports a type written `Iter<T>`.
 func isIterType(t ast.TypeExpr) bool {
 	g, ok := t.(*ast.GenericType)
 	return ok && g.Name == "Iter"
+}
+
+// stdIfaceValueType reports a type written as the bare name of a std
+// interface a program holds as a value through its own def
+// (stdProgIfaceOf): not generic, not one with an rt table, std's `Struct`
+// or `Iter`, nor one of a std module lowered with the program, whose
+// interfaces are the program's own.
+func stdIfaceValueType(t ast.TypeExpr, anchors stdAnchors) bool {
+	st, ok := t.(*ast.SimpleType)
+	if !ok || anchors.fa == nil {
+		return false
+	}
+	sym := resolvedTypeSymbol(anchors.fa, st.Name)
+	if sym == nil {
+		return false
+	}
+	decl, isDecl := sym.Node.(*ast.InterfaceDef)
+	it, isIface := sym.Type.(*analysis.InterfaceType)
+	if !isDecl || !isIface || !strings.HasPrefix(it.Origin, "std/") || isProgramStd(strings.TrimPrefix(it.Origin, "std/")) {
+		return false
+	}
+	if decl.Name == structIfaceName || decl.Name == "Iter" || len(decl.TypeParams) > 0 || len(decl.WhereClauses) > 0 {
+		return false
+	}
+	for _, s := range stdIfaceSpecs {
+		if s.nomi == decl.Name && s.module == it.Origin {
+			return false
+		}
+	}
+	return true
 }
 
 // callsGenericSibling reports whether f's body names, as a bare or
@@ -831,7 +877,12 @@ func irKindsUnprojected(ks []kind) bool {
 // arguments typed by the instance's parameters as a direct call's are.
 func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	params := inst.view.params
+	params := make([]kind, len(inst.view.params))
+	for i, p := range inst.view.params {
+		// One instance serves the program, built at the first caller's
+		// defs; this file passes a std interface value at its own.
+		params[i] = bl.g.stdProgHere(p)
+	}
 	args := t.Args
 	if len(args) < len(params) && bl.stdInstPreCall != t {
 		// `Reader.chunks(r)`: each omitted trailing default a literal
@@ -953,12 +1004,13 @@ func (bl *irScalarBuilder) stdBareGenericFileFunc(id *ast.Ident) *stdFunc {
 
 // stdModuleInstFunc is the function `recv.name` of a std module that a
 // program instantiates for itself: a generic template, or a monomorphic
-// function whose signature names an Iter (`io.lines()`, stdIterSigWhy).
+// function whose signature names an Iter (`io.lines()`) or a std interface
+// held as a value (`String.split`), stdProgSigWhy.
 func stdModuleInstFunc(v *stdModuleView, recv, name string) *stdFunc {
 	if f := stdModuleGenericTemplate(v, recv, name); f != nil {
 		return f
 	}
-	if f := stdModuleMonoFunc(v, recv, name); f != nil && f.why == stdIterSigWhy {
+	if f := stdModuleMonoFunc(v, recv, name); f != nil && f.why == stdProgSigWhy {
 		return f
 	}
 	return nil
@@ -993,6 +1045,10 @@ func stdBareFileFunc(fa *analysis.FileAnalysis, id *ast.Ident) (string, string, 
 // call to a `host fn` of the receiver's inherent block (`concat(lhs, rhs)`
 // inside `impl Add<Vector<T>, Vector<T>> for Vector<T>`) is the owner-qualified
 // call it names, `Vector.concat(lhs, rhs)`, and lowers as that call does.
+// So is a bare call inside `impl Iter<T>` to an operation iterCall lowers
+// itself (irIterOwnArity): `chunk_by(...)` is `Iter.chunk_by(...)`. Its std
+// body (`chunk_by_each`, `flat_map_each`) reaches a module host fn that only
+// iterCall lowers, so instantiating the body would decline.
 func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, name string) (ir.Temp, kind, bool, bool, bool) {
 	g := bl.g
 	if g.stdModule == "" || g.stdInsts == nil {
@@ -1038,7 +1094,9 @@ func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, name string) (ir.T
 	if f == nil {
 		f = stdModuleInstFunc(v, "", name)
 	}
-	if callee, bare := t.Func.(*ast.Ident); f == nil && bare && g.implSelf != "" && stdModuleInherentHost(v, g.implSelf, name) {
+	_, iterOwn := irIterOwnArity(name)
+	iterOwn = iterOwn && g.implSelf == "Iter" && f != nil && f.recv == "Iter"
+	if callee, bare := t.Func.(*ast.Ident); bare && g.implSelf != "" && (iterOwn || f == nil && stdModuleInherentHost(v, g.implSelf, name)) {
 		// The field keeps the bare name's position, where the checker
 		// recorded the call's signature.
 		call := *t
@@ -1083,6 +1141,10 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	}
 	if v, rk, mobile, ok, handled := bl.parseFieldsCall(t, k, method); handled {
 		// `P.parse_fields(texts)` at an anonymous struct (irparsefields.go).
+		return v, rk, mobile, ok, true
+	}
+	if v, rk, mobile, ok, handled := bl.recordJsonKindCall(t, k, method); handled {
+		// `T.from_json(json)` at an anonymous struct (irrecordjson.go).
 		return v, rk, mobile, ok, true
 	}
 	if _, std := stdNamedRecv(k); std {

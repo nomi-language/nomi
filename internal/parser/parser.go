@@ -1545,12 +1545,12 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		return node, err
 	}
 
-	// Struct destructuring: #{ident, ident} = expr  or  #{ident: ident, ...} = expr
-	if p.peek().Type == token.HASH && p.peekAt(1).Type == token.LBRACE {
+	// Struct destructuring: .{ident, ident} = expr  or  .{ident: ident, ...} = expr
+	if p.atStructOpen(0) {
 		savedPos := p.pos
 		line := p.peek().Line
 		col := p.peek().Col
-		p.advance() // consume HASH
+		p.advance() // consume DOT
 		p.advance() // consume LBRACE
 		var lc listComments
 		p.listGap(&lc)
@@ -1802,7 +1802,7 @@ func (p *Parser) startsFuncDecl() bool {
 
 // startsLambda reports whether the `fn` at the cursor can only start a
 // lambda: `->` follows it, or a pattern no function name begins (`(a, b)`,
-// `#{`, `#[`, `%{`, `[`, `_`, `.Variant`), or a name followed by what follows a
+// `.{`, `#[`, `%{`, `[`, `_`, `.Variant`), or a name followed by what follows a
 // lambda parameter (`,`, `:`, `=`, `->`, `as`). A capitalized name, or a
 // `(` holding a parameter with its type (`fn (x: Int)`), stays a
 // declaration's here, so `fn Add(x: Int)` at the top level reports its name
@@ -2025,6 +2025,9 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 					col = dot + 1
 				}
 				break
+			}
+			if field.Type == token.LBRACE && adjacent(tok, field) {
+				return nil, errorAt(tok.Line, tok.Col, "a field name follows `.` after a value; `.{` starts a struct literal of its own, written where a value starts")
 			}
 			if field.Type != token.IDENT && field.Type != token.TYPE_IDENT {
 				return nil, errorAt(tok.Line, tok.Col, "expected field name after '.'")
@@ -3236,6 +3239,9 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		return p.parseCapture()
 
 	case token.DOT:
+		if p.atStructOpen(0) {
+			return p.parseStructSigilLit()
+		}
 		// Dot-leading variant shorthand: `.X`, `.X(args)`, `.X[...]`. Must
 		// be followed by an uppercase variant identifier (TYPE_IDENT).
 		// Resolution against an expected enum type happens in the
@@ -3597,8 +3603,11 @@ func (p *Parser) percentOpensLiteral(offset int) bool {
 		return false
 	}
 	switch next.Type {
-	case token.LBRACE, token.LBRACKET, token.TYPE_IDENT, token.DOT:
+	case token.LBRACE, token.LBRACKET, token.TYPE_IDENT:
 		return true
+	case token.DOT:
+		// `%.Obj{`, a variant's map; `%.{` is the remainder of a struct.
+		return p.peekAt(offset+2).Type == token.TYPE_IDENT
 	case token.IDENT:
 		// A module-qualified name, `%geo.Tags[...]`.
 		return p.peekAt(offset+2).Type == token.DOT && p.peekAt(offset+3).Type == token.TYPE_IDENT
@@ -3667,17 +3676,17 @@ func (p *Parser) literalNameSegments(first token.Token) ast.TypeExpr {
 	}
 }
 
-// parseHashLit parses a literal that starts with `#`: a struct `#{...}`
-// (the struct its position expects, or an anonymous struct), a vector
-// `#[...]`, or a vector naming its type, `#Path[...]`, `#.Items[...]`. A
-// tuple has no `#` (hashTupleError).
+// parseHashLit parses a literal that starts with `#`: a vector `#[...]`,
+// or a vector naming its type, `#Path[...]`, `#.Items[...]`. A tuple has no
+// `#` (hashTupleError), and a struct with no name starts with `.{`
+// (parseStructSigilLit).
 func (p *Parser) parseHashLit() (ast.Node, error) {
 	tok := p.peek()
 	switch p.peekAt(1).Type {
 	case token.LBRACE:
-		p.advance() // consume HASH
-		p.advance() // consume LBRACE
-		return p.parseAnonStructLit(tok, p.collectLeadingTrivia())
+		return nil, ParseError{Line: tok.Line, Col: tok.Col,
+			Message: "`#` starts a vector, `#[...]`; a struct whose name the position gives is `.{...}`",
+			Fix:     Replace("Write `.{`", tok.Line, tok.Col, tok.Line, tok.Col+1, ".")}
 	case token.LPAREN:
 		return nil, hashTupleError(tok)
 	case token.LBRACKET:
@@ -3726,6 +3735,25 @@ func (p *Parser) parsePercentLit() (ast.Node, error) {
 		return p.parseSetLit(tok, typeName)
 	}
 	return nil, errorAt(tok.Line, tok.Col, "expected '{' or '[' after `%%%s`", typeName.TypeString())
+}
+
+// atStructOpen reports whether the tokens at offset from the cursor are
+// `.{` with nothing between the dot and the brace: the start of a struct
+// whose name the position gives, as a literal or update `.{x: 1}`, a type
+// `.{name: String}` or a pattern `.{id}`. A struct elides its name with a
+// dot as an enum's variant elides its owner (`.Circle{radius}`).
+func (p *Parser) atStructOpen(offset int) bool {
+	dot, brace := p.peekAt(offset), p.peekAt(offset+1)
+	return dot.Type == token.DOT && brace.Type == token.LBRACE && adjacent(dot, brace)
+}
+
+// parseStructSigilLit parses a literal that starts with `.{`: a struct its
+// position expects, an anonymous struct, or an update `.{..base, x: 1}`.
+func (p *Parser) parseStructSigilLit() (ast.Node, error) {
+	tok := p.peek()
+	p.advance() // consume DOT
+	p.advance() // consume LBRACE
+	return p.parseAnonStructLit(tok, p.collectLeadingTrivia())
 }
 
 // tupleArityMessage is the error for a tuple written with fewer than two
@@ -3792,7 +3820,7 @@ func (p *Parser) parseParenExpr() (ast.Node, error) {
 func hashTupleError(hash token.Token) error {
 	return ParseError{Line: hash.Line, Col: hash.Col,
 		Message: "a tuple is written without `#`: `(a, b)`",
-		Hints:   []string{"`#` starts an anonymous struct `#{...}` or a vector `#[...]`; a tuple is its parentheses alone"},
+		Hints:   []string{"`#` starts a vector `#[...]`; a tuple is its parentheses alone"},
 		Fix:     Replace("Drop the `#`", hash.Line, hash.Col, hash.Line, hash.Col+1, "")}
 }
 
@@ -4915,7 +4943,11 @@ func (p *Parser) atSubtestsStage() bool {
 		return after.Line == next.Line && after.Col == next.Col+1 &&
 			(after.Type == token.LBRACE || after.Type == token.LBRACKET || after.Type == token.TYPE_IDENT)
 	}
-	return next.Type != token.MINUS && next.Type != token.DOT
+	if next.Type == token.DOT {
+		// A struct pattern, `.{a, b}`; a lone `.` is no pattern's start.
+		return p.atStructOpen(1)
+	}
+	return next.Type != token.MINUS
 }
 
 // subtestsStageStatementMsg is the error at a `|> subtests` stage whose
@@ -5494,7 +5526,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			}
 		case token.LPAREN, token.HASH, token.PERCENT, token.LBRACKET:
 			// A parenthesized pattern, a pattern starting with its shape's
-			// symbol (`#{...}`, `Point{...}`, `#[...]`,
+			// symbol (`.{...}`, `Point{...}`, `#[...]`,
 			// `%{...}`, `%[...]`) or a list `[...]`: parsed as they are
 			// nested in another pattern.
 			if pattern, err = p.parseSinglePatternInner(); err != nil {
@@ -5507,6 +5539,12 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			}
 			pattern = pat
 		case token.DOT:
+			if p.atStructOpen(0) {
+				if pattern, err = p.parseSinglePatternInner(); err != nil {
+					return nil, nil, err
+				}
+				break
+			}
 			// Dot-leading variant pattern: `.X`, `.X(args)`, `.X[...]`.
 			// The TypeExpr carrier is a
 			// *ast.DotVariantType, telling the analyzer to resolve the
@@ -5583,7 +5621,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 
 // parseBlockExpr parses a block expression, `{ stmts }`. A `{` in an
 // expression always opens one: a struct literal with no type name opens
-// with `#{` (parseHashLit), a map literal with `%{` and a lambda with
+// with `.{` (parseHashLit), a map literal with `%{` and a lambda with
 // `fn`.
 func (p *Parser) parseBlockExpr() (ast.Node, error) {
 	tok := p.peek()
@@ -5780,7 +5818,7 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 }
 
 // parseUpdateSpread parses the spread that opens an update literal,
-// `#{..base, ...}` or `%{..base, ...}`, from its `..` through the separators
+// `.{..base, ...}` or `%{..base, ...}`, from its `..` through the separators
 // after it. opening is the trivia after the literal's `{`; the comments in
 // it go above the spread, and the opening trivia answered is what is left
 // to lead the first field or entry.
@@ -5796,9 +5834,9 @@ func (p *Parser) parseUpdateSpread(opening []ast.Trivia) (updateSpread, []ast.Tr
 	afterDots := append(sameAfterDots, ownAfterDots...)
 	var head ast.Node
 	if p.bareSpreadEnds(token.RBRACE) || p.fieldAhead() {
-		// `#{.., city: "NYC"}`: no head. The value already at the
+		// `.{.., city: "NYC"}`: no head. The value already at the
 		// field or key this literal is written at is the base. A field
-		// right after the `..` (`#{.. city: "NYC"}`) is a bare spread
+		// right after the `..` (`.{.. city: "NYC"}`) is a bare spread
 		// missing its comma, which the caller reports, since no head
 		// is followed by a `:`.
 		head = &ast.CurrentValue{Line: spreadTok.Line, Col: spreadTok.Col}
@@ -5902,7 +5940,7 @@ func (p *Parser) spreadLabel(from, to int) string {
 }
 
 // parseAnonStructLit parses a struct literal with no type name,
-// `#{field: value, ...}`, after its `#{`; openTok is the `#`. opening is
+// `.{field: value, ...}`, after its `.{`; openTok is the `#`. opening is
 // the trivia after the `{`, which the caller has consumed; it leads the
 // first field, or is the literal's EndTrivia when it has none.
 func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (ast.Node, error) {
@@ -5910,7 +5948,7 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 	var endTrivia []ast.Trivia
 	var spread ast.Node
 	spreadLine, spreadCol := 0, 0
-	// Struct update by spread: `#{..base, field: value}`. This mirrors the
+	// Struct update by spread: `.{..base, field: value}`. This mirrors the
 	// list literal's spread (parseListLit, above): a bare `..` at element
 	// position is unambiguous against the infix range operator, because
 	// the infix form requires a left operand that would already have been
@@ -5943,8 +5981,8 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 				break
 			}
 		}
-		// A `..` reached HERE is either a second spread (`#{..a, ..b}`) or
-		// a spread after a field (`#{a: 1, ..b}`). One message for both,
+		// A `..` reached HERE is either a second spread (`.{..a, ..b}`) or
+		// a spread after a field (`.{a: 1, ..b}`). One message for both,
 		// the way parseListLit gives one message for `[1, ..xs, 2]` and
 		// `[1, ..xs, ..ys]`.
 		if p.peek().Type == token.DOTDOT {
@@ -6714,7 +6752,7 @@ func (p *Parser) parseQualifiedTypeDeclName(keyword string) (string, token.Token
 	nameTok := p.peek()
 	parts := []string{nameTok.Lexeme}
 	p.advance()
-	for !p.atEnd() && p.peek().Type == token.DOT {
+	for !p.atEnd() && p.peek().Type == token.DOT && !p.atStructOpen(0) {
 		p.advance()
 		if p.atEnd() || (p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT) {
 			return "", nameTok, errorAt(nameTok.Line, nameTok.Col, "expected type name after '.'")
@@ -6767,7 +6805,7 @@ func (p *Parser) parseDistinctDestructureTypePrefix() (ast.TypeExpr, string, int
 // or function types like "(T) -> U", "(T, T) -> T", "() -> Unit".
 func canStartTypeAnnotation(t token.TokenType) bool {
 	switch t {
-	case token.TYPE_IDENT, token.IDENT, token.SELF, token.LPAREN, token.HASH:
+	case token.TYPE_IDENT, token.IDENT, token.SELF, token.LPAREN, token.HASH, token.DOT:
 		return true
 	default:
 		return false
@@ -6794,12 +6832,18 @@ func (p *Parser) parseTypeAnnotation() (te ast.TypeExpr, err error) {
 			p.recordSpan(te, start)
 		}
 	}()
+	if p.atStructOpen(0) {
+		return p.parseAnonStructType()
+	}
 	if !p.atEnd() && p.peek().Type == token.HASH {
 		switch p.peekAt(1).Type {
 		case token.LPAREN:
 			return nil, hashTupleError(p.peek())
 		case token.LBRACE:
-			return p.parseAnonStructType()
+			tok := p.peek()
+			return nil, ParseError{Line: tok.Line, Col: tok.Col,
+				Message: "`#` starts a vector; an anonymous struct type is `.{name: Type}`",
+				Fix:     Replace("Write `.{`", tok.Line, tok.Col, tok.Line, tok.Col+1, ".")}
 		}
 	}
 	return p.parseTypeAnnotationInner()
@@ -6843,10 +6887,10 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 	}
 
 	// Handle Mod.Type / Type.Nested.Member — qualified type reference.
-	if !p.atEnd() && p.peek().Type == token.DOT {
+	if !p.atEnd() && p.peek().Type == token.DOT && !p.atStructOpen(0) {
 		var memberParts []string
 		var memberTok token.Token
-		for !p.atEnd() && p.peek().Type == token.DOT {
+		for !p.atEnd() && p.peek().Type == token.DOT && !p.atStructOpen(0) {
 			p.advance() // consume DOT
 			if p.atEnd() || (p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT) {
 				return nil, errorAt(tok.Line, tok.Col, "expected type name after '.'")
@@ -6982,11 +7026,11 @@ func (p *Parser) parseFuncTypeAnnotation() (_ ast.TypeExpr, grouped bool, _ erro
 }
 
 // parseAnonStructType parses an anonymous struct type expression like
-// `#{name: String, age: Int}`. The cursor is on the `#`.
+// `.{name: String, age: Int}`. The cursor is on the `#`.
 // Field names are snake_case identifiers; types are full type expressions.
 // Defaults (`=`) are not allowed — a default would be runtime data, not a
 // type. Adjacent fields must be separated by a comma or a newline (or
-// both); run-on fields like `#{a: Int b: Int}` are rejected. Trailing
+// both); run-on fields like `.{a: Int b: Int}` are rejected. Trailing
 // commas are permitted. Empty `%[]` is permitted.
 //
 // Spec §4: "Anonymous structs are structurally typed — the type is its
@@ -6995,7 +7039,7 @@ func (p *Parser) parseFuncTypeAnnotation() (_ ast.TypeExpr, grouped bool, _ erro
 // *analysis.AnonStructType).
 func (p *Parser) parseAnonStructType() (ast.TypeExpr, error) {
 	tok := p.peek()
-	p.advance() // consume HASH
+	p.advance() // consume DOT
 	p.advance() // consume LBRACE
 	// Skip plain NEWLINE / SEMICOLON only — COMMENT / BLANK_LINE is
 	// captured below so a trailing comment before `}` can land in
@@ -7933,7 +7977,7 @@ func (p *Parser) parseImportBlock(importTok token.Token) (ast.Node, error) {
 //	type Foo (A, B)  → tuple-distinct
 //	type Foo         → zero-sized
 //
-// Struct (`#{ name: T, ... }`) and enum (`{ A | B }`) shapes have their own
+// Struct (`.{ name: T, ... }`) and enum (`{ A | B }`) shapes have their own
 // top-level keywords (`struct`, `enum`) and entry points; encountering a
 // brace body here is a parse error with a hint pointing at those keywords.
 //
@@ -7960,7 +8004,7 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 	// name may be on a line after `type` (`type` then `Meters Int`), and
 	// the formatter joins them.
 	var innerTypeExpr ast.TypeExpr
-	if !p.atEnd() && p.peek().Type == token.HASH && p.peekAt(1).Type == token.LBRACE && p.peek().Line == p.tokens[p.pos-1].Line {
+	if p.atStructOpen(0) && p.peek().Line == p.tokens[p.pos-1].Line {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "a type over an anonymous struct is a struct: write `struct %s { ... }` with one field per line", name)
 	}
 	if !p.atEnd() && (p.peek().Type == token.TYPE_IDENT || p.peek().Type == token.IDENT || p.peek().Type == token.LPAREN || p.peek().Type == token.HASH) &&
@@ -8335,7 +8379,7 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 		// what the compiler knows. Say that rather than "expected field
 		// name", which is what a bare `..` used to get here.
 		if p.peek().Type == token.DOTDOT {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "struct spread `..` has no named form; write `#{..base, field: value}` — the spread head carries the type")
+			return nil, errorAt(p.peek().Line, p.peek().Col, "struct spread `..` has no named form; write `.{..base, field: value}` — the spread head carries the type")
 		}
 		positionalNext := p.positionalStructElement()
 		if !separated && (p.peek().Type == token.IDENT || positionalNext) {
@@ -8784,7 +8828,7 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		}
 		return &ast.TuplePattern{Patterns: patterns, Line: tok.Line, Col: tok.Col}, nil
 	case token.HASH:
-		// A struct `#{x, y}` or vector `#[a, ..rest]` pattern, or a
+		// A struct `.{x, y}` or vector `#[a, ..rest]` pattern, or a
 		// vector naming its type, `#Path[a, ..]`.
 		return p.parseHashPattern()
 	case token.PERCENT:
@@ -8861,6 +8905,11 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		p.advance()
 		return &ast.IdentPattern{Name: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
 	case token.DOT:
+		if p.atStructOpen(0) {
+			// A struct pattern whose name the position gives, `.{x, y}`.
+			p.advance() // consume DOT
+			return p.parseStructPatternBody(nil, tok.Line, tok.Col)
+		}
 		// Dot-leading variant pattern in nested position (e.g. `Ok(%.Obj{...})`).
 		if p.peekAt(1).Type != token.TYPE_IDENT {
 			return nil, errorAt(tok.Line, tok.Col, "expected variant name after '.'")
@@ -9067,13 +9116,17 @@ func (p *Parser) parseHeadedPattern(typeExpr ast.TypeExpr, line, col int) (ast.N
 }
 
 // parseHashPattern parses a pattern that starts with `#` (the cursor is on
-// it): a struct `#{x, y}`, a vector `#[first, ..rest]`, or a vector naming
+// it): a struct `.{x, y}`, a vector `#[first, ..rest]`, or a vector naming
 // its type, `#Path[a, ..]`. A tuple pattern has no `#` (hashTupleError).
 func (p *Parser) parseHashPattern() (ast.Node, error) {
 	tok := p.peek()
 	var typeName ast.TypeExpr
 	switch p.peekAt(1).Type {
-	case token.LBRACE, token.LPAREN, token.LBRACKET:
+	case token.LBRACE:
+		return nil, ParseError{Line: tok.Line, Col: tok.Col,
+			Message: "`#` starts a vector pattern, `#[...]`; a struct pattern whose name the position gives is `.{...}`",
+			Fix:     Replace("Write `.{`", tok.Line, tok.Col, tok.Line, tok.Col+1, ".")}
+	case token.LPAREN, token.LBRACKET:
 		p.advance() // consume HASH
 	default:
 		p.advance() // consume HASH
@@ -9083,8 +9136,6 @@ func (p *Parser) parseHashPattern() (ast.Node, error) {
 		}
 	}
 	switch {
-	case !p.atEnd() && p.peek().Type == token.LBRACE && typeName == nil:
-		return p.parseStructPatternBody(typeName, tok.Line, tok.Col)
 	case !p.atEnd() && p.peek().Type == token.LPAREN && typeName == nil:
 		return nil, hashTupleError(tok)
 	case !p.atEnd() && p.peek().Type == token.LBRACKET:
@@ -9395,11 +9446,11 @@ func (p *Parser) parseTypePrefixedListPattern(typeName ast.TypeExpr, line, col i
 
 // parseStructFieldValue parses a struct-pattern field's value (the part after
 // `field:`) and stores it on spf. A bare identifier is a rename binding
-// (`#{x: y}` binds field x to local y); anything else is a full nested pattern
+// (`.{x: y}` binds field x to local y); anything else is a full nested pattern
 // parsed via parseSinglePattern, so struct / enum / tuple / literal / wildcard
-// patterns nest arbitrarily in field position (`#{inner: Inner{v: vv}}`). An
+// patterns nest arbitrarily in field position (`.{inner: Inner{v: vv}}`). An
 // identifier followed by `or` starts an or-pattern, and one followed by `.`
-// names a file, as in the variant `#{err: sql.Error.Closed}`. The
+// names a file, as in the variant `.{err: sql.Error.Closed}`. The
 // COLON has already been consumed. Shared by the typed-struct pattern parser
 // (parseTypePrefixedBracePattern) and the case-branch anonymous-struct parser.
 func (p *Parser) parseStructFieldValue(spf *ast.StructPatternField) error {

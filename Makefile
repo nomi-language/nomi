@@ -76,12 +76,25 @@ start-tour: tour/node_modules/.package-lock.json
 tour/node_modules/.package-lock.json: tour/package-lock.json
 	PATH="$(NODE22_BIN):$$PATH" npm --prefix tour ci
 
+# On a Mac with Xcode's command line tools, nomi and nomi-lsp are linked by
+# the system linker (cgo on, -linkmode=external), which writes chained fixups
+# instead of the Go linker's rebase opcodes: nomi reaches main about 1 ms
+# sooner. On macOS cgo selects no different std files (net and os/user call
+# libSystem either way). scripts/dev-editors.sh's cli makes the same choice.
+# Releases and nomi-vm stay on Go's linker.
+ifeq ($(shell uname -s),Darwin)
+ifeq ($(shell xcode-select -p >/dev/null 2>&1 && echo yes),yes)
+LOCAL_LINK_ENV := CGO_ENABLED=1
+LOCAL_LINK_FLAGS := -ldflags=-linkmode=external
+endif
+endif
+
 build-lsp:
-	go install ./cmd/nomi-lsp
+	$(LOCAL_LINK_ENV) go install $(LOCAL_LINK_FLAGS) ./cmd/nomi-lsp
 
 build-cli:
-	go build -o nomi ./cmd/nomi
-	go install ./cmd/nomi
+	$(LOCAL_LINK_ENV) go build $(LOCAL_LINK_FLAGS) -o nomi ./cmd/nomi
+	$(LOCAL_LINK_ENV) go install $(LOCAL_LINK_FLAGS) ./cmd/nomi
 
 build-zed:
 	./scripts/sync-zed-grammar.sh

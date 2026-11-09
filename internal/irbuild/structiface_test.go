@@ -95,7 +95,7 @@ func TestStructIface_ANonStructIsNotErasedIntoTheMarker(t *testing.T) {
 	rec := g.anonStructKind([]string{"tag"}, []kind{kindString})
 	if !structIfaceSatisfiedBy(rec) {
 		t.Errorf("structIfaceSatisfiedBy(an anonymous struct) = false, want true: the spec says "+
-			"\"a named `struct` type or an anonymous `#{...}`\" satisfies Struct, and "+
-			"11/structural_interfaces writes `#{tag: \"anon\"}` into a `List<Struct>` (kind %v)", rec.tag)
+			"\"a named `struct` type or an anonymous `.{...}`\" satisfies Struct, and "+
+			"11/structural_interfaces writes `.{tag: \"anon\"}` into a `List<Struct>` (kind %v)", rec.tag)
 	}
 }

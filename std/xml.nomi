@@ -381,11 +381,8 @@ fn each_token(tokens: xml_host.Tokens, yield: (Result<Token, Error>) -> Bool) ->
                 False
             }
 
-        Ok(None) ->
-            True
-
-        Err(e) ->
-            yield(Err(e))
+        Ok(None) -> True
+        Err(e) -> yield(Err(e))
     }
 }
 
@@ -403,14 +400,9 @@ fn next_token(tokens: xml_host.Tokens) -> Result<Maybe<Token>, Error> {
                 )
             )
 
-        2 ->
-            Ok(Some(Token.End{name: name_of(xml_host.name(tokens))}))
-
-        3 ->
-            Ok(Some(Token.Text(xml_host.text(tokens))))
-
-        4 ->
-            Ok(Some(Token.Comment(xml_host.text(tokens))))
+        2 -> Ok(Some(Token.End{name: name_of(xml_host.name(tokens))}))
+        3 -> Ok(Some(Token.Text(xml_host.text(tokens))))
+        4 -> Ok(Some(Token.Comment(xml_host.text(tokens))))
 
         5 ->
             Ok(
@@ -419,19 +411,15 @@ fn next_token(tokens: xml_host.Tokens) -> Result<Maybe<Token>, Error> {
                 )
             )
 
-        6 ->
-            Ok(Some(Token.Doctype(xml_host.text(tokens))))
+        6 -> Ok(Some(Token.Doctype(xml_host.text(tokens))))
 
         _ ->
             case xml_host.stopped(tokens) {
                 [1, line, column] ->
                     Err(Error.Syntax{message: xml_host.message(tokens), line, column})
 
-                [2, ..] ->
-                    Err(Error.Io{error: xml_host.failure(tokens)})
-
-                _ ->
-                    Ok(None)
+                [2, ..] -> Err(Error.Io{error: xml_host.failure(tokens)})
+                _ -> Ok(None)
             }
     }
 }
@@ -474,11 +462,8 @@ fn read_root(tokens: xml_host.Tokens) -> Result<Element, Error> {
         Some(.Start{name, attributes, namespaces}) ->
             read_children(tokens, Element{name, attributes, namespaces}, [])
 
-        Some(_) ->
-            read_root(tokens)
-
-        None ->
-            Err(Error.Syntax{message: "the document has no root element", line: 1, column: 1})
+        Some(_) -> read_root(tokens)
+        None -> Err(Error.Syntax{message: "the document has no root element", line: 1, column: 1})
     }
 }
 
@@ -495,29 +480,23 @@ fn read_children(
             read_children(tokens, element, [Node.Element(child), ..reversed])
         }
 
-        Some(.End{}) ->
-            Ok(#{..element, children: Iter.reverse(reversed)})
+        Some(.End{}) -> Ok(.{..element, children: Iter.reverse(reversed)})
 
         Some(.Text(text)) ->
             case reversed {
                 [.Text(before), ..others] ->
                     read_children(tokens, element, [Node.Text(before + text), ..others])
 
-                _ ->
-                    read_children(tokens, element, [Node.Text(text), ..reversed])
+                _ -> read_children(tokens, element, [Node.Text(text), ..reversed])
             }
 
-        Some(.Comment(text)) ->
-            read_children(tokens, element, [Node.Comment(text), ..reversed])
+        Some(.Comment(text)) -> read_children(tokens, element, [Node.Comment(text), ..reversed])
 
         Some(.Instruction{target, data}) ->
             read_children(tokens, element, [Node.Instruction{target, data}, ..reversed])
 
-        Some(.Doctype(_)) ->
-            read_children(tokens, element, reversed)
-
-        None ->
-            Ok(element)
+        Some(.Doctype(_)) -> read_children(tokens, element, reversed)
+        None -> Ok(element)
     }
 }
 
@@ -571,7 +550,7 @@ pub struct WriteOptions {
 //!
 //! assert encode(a) == Ok("<a xmlns=\"urn:x\" q=\"1 &lt; 2 &amp; &quot;3&quot;\">&lt;&amp;&gt;</a>")
 //!
-//! assert decode(encode(a)!) == Ok(#{
+//! assert decode(encode(a)!) == Ok(.{
 //!         ..a,
 //!         namespaces: [Namespace{prefix: "", uri: "urn:x"}],
 //!     })
@@ -642,7 +621,7 @@ fn bind(scope: Scope, prefix: String, uri: String) -> Result<Scope, Error> {
         return Ok(scope)
     }
 
-    if Iter.any(scope.declared, fn n -> n.prefix == prefix) {
+    if Iter.any_match(scope.declared, fn n -> n.prefix == prefix) {
         return Err(
             Error.Invalid{
                 message: "the prefix ${Debug.inspect(prefix)} is bound to two namespaces on one element",
@@ -697,8 +676,7 @@ fn element_text(
 
     declared = Iter.reduce(element.namespaces, Ok(Scope{bindings, declared: []}), fn state, n -> {
         case state {
-            Err(e) ->
-                break Err(e)
+            Err(e) -> break Err(e)
 
             Ok(scope) -> {
                 if n.prefix != "" and not xml_host.is_name(n.prefix) {
@@ -728,8 +706,7 @@ fn element_text(
 
     (scope, attributes) = Iter.reduce(element.attributes, Ok((scope, [])), fn state, a -> {
         case state {
-            Err(e) ->
-                break Err(e)
+            Err(e) -> break Err(e)
 
             Ok((scope, written)) ->
                 case attribute_text(scope, a) {
@@ -763,7 +740,7 @@ fn element_text(
 
     if element.children == [] { return Ok("${open}/>") }
 
-    mixed = Iter.any(element.children, fn node -> {
+    mixed = Iter.any_match(element.children, fn node -> {
         case node {
             .Text(t) -> String.trim(t) != ""
             _ -> False
@@ -781,8 +758,7 @@ fn element_text(
 
     texts = Iter.reduce(children, Ok([]), fn state, node -> {
         case state {
-            Err(e) ->
-                break Err(e)
+            Err(e) -> break Err(e)
 
             Ok(done) ->
                 case node_text(node, scope.bindings, options, depth + 1, inline or mixed) {
@@ -843,11 +819,8 @@ fn node_text(
     inline: Bool,
 ) -> Result<String, Error> {
     case node {
-        .Element(e) ->
-            element_text(e, bindings, options, depth, inline)
-
-        .Text(t) ->
-            Ok(xml_host.escape_text(t))
+        .Element(e) -> element_text(e, bindings, options, depth, inline)
+        .Text(t) -> Ok(xml_host.escape_text(t))
 
         .Comment(c) ->
             if String.contains(c, "--") or String.ends_with(c, "-") {

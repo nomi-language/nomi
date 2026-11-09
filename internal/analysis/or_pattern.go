@@ -220,7 +220,7 @@ func patternText(n ast.Node) string {
 		if p.TypeName != nil {
 			b.WriteString(p.TypeName.TypeString())
 		} else {
-			b.WriteString("#")
+			b.WriteString(".")
 		}
 		b.WriteString("{")
 		for i, f := range p.Fields {

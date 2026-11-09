@@ -9,7 +9,7 @@
 //     alone prints a zero value here.
 //   - A NESTED ANONYMOUS literal MERGES and a NESTED NOMINAL one REPLACES.
 //     std/structs.nomi states both halves and the two lines below are adjacent
-//     on purpose: after lowering, `#{city: "NYC"}` and `Address{city: "NYC",
+//     on purpose: after lowering, `.{city: "NYC"}` and `Address{city: "NYC",
 //     zip: "10001"}` have the SAME KIND, so an implementation that recursed on
 //     the value's kind rather than on its SYNTAX makes these two rows agree.
 //     `zip` is what tells them apart — it survives the merge and is replaced by
@@ -66,15 +66,15 @@ fn main() {
     io.print("original ${show(original)}")
 
     // Omitted fields survive.
-    renamed = Struct.update(original, #{name: "Bob"})
+    renamed = Struct.update(original, .{name: "Bob"})
     io.print("renamed ${show(renamed)}")
 
     // A nested `..` literal MERGES: zip survives.
-    moved = Struct.update(original, #{address: #{.., city: "NYC"}})
+    moved = Struct.update(original, .{address: .{.., city: "NYC"}})
     io.print("moved ${show(moved)}")
 
     // A nested NOMINAL literal REPLACES: zip changes wholesale.
-    replaced = Struct.update(original, #{address: Address{city: "NYC", zip: "10001"}})
+    replaced = Struct.update(original, .{address: Address{city: "NYC", zip: "10001"}})
     io.print("replaced ${show(replaced)}")
 
     // The original is untouched by any of the three.
@@ -90,14 +90,14 @@ fn main() {
     // nested one so the recursion is not the only thing happening.
     w = Wrapper{label: "one", person: original}
 
-    deep = Struct.update(w, #{
+    deep = Struct.update(w, .{
         label: "two",
-        person: #{.., address: #{.., zip: "99999"}},
+        person: .{.., address: .{.., zip: "99999"}},
     })
 
     io.print("deep ${deep.label}/${show(deep.person)}")
 
     // Several fields at once, including one that is itself a patch target above.
-    both = Struct.update(original, #{name: "Cara", age: 41})
+    both = Struct.update(original, .{name: "Cara", age: 41})
     io.print("both ${show(both)}")
 }

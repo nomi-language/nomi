@@ -215,7 +215,7 @@ impl Statement {
     /// row of a multi-row `INSERT` or any other tuple. No statements is
     /// `()`, which is not SQL, so leave the list out when there is nothing
     /// to list.
-    //! users = [#{email: "ada@example.com", name: "Ada"}, #{email: "bob@example.com", name: "Bob"}]
+    //! users = [.{email: "ada@example.com", name: "Ada"}, .{email: "bob@example.com", name: "Bob"}]
     //!
     //! rows =
     //!     users
@@ -653,8 +653,7 @@ impl FromSql for List<T> where T: FromSql {
                 |> Result.collect()
                 |> Result.map_err(fn element -> "List<${element}>")
 
-            _ ->
-                Err("List")
+            _ -> Err("List")
         }
     }
 }
@@ -728,8 +727,7 @@ impl Row {
     //
     pub fn value_position(row: Row, position: Int) -> Result<Value, Error> {
         case Iter.get(row.values, position) {
-            Some(value) ->
-                Ok(value)
+            Some(value) -> Ok(value)
 
             None ->
                 Err(
@@ -894,8 +892,7 @@ impl Display for Error {
     //
     fn to_string(e: Error) -> String {
         case e {
-            Error.Connection{message} ->
-                "cannot reach the database: ${message}"
+            Error.Connection{message} -> "cannot reach the database: ${message}"
 
             Error.Constraint{kind, name, table, column} ->
                 "${kind} constraint `${name}`${place(table, column)} failed"
@@ -903,14 +900,12 @@ impl Display for Error {
             Error.Serialization{message} ->
                 "the transaction conflicted with another and was rolled back: ${message}"
 
-            Error.Database{code, message} ->
-                "database error ${code}: ${message}"
+            Error.Database{code, message} -> "database error ${code}: ${message}"
 
             Error.RowCount{query, expected, found} ->
                 "expected ${expected} rows, found ${found}, from `${query}`"
 
-            Error.UnexpectedNull{query, column} ->
-                "column `${column}` is NULL, from `${query}`"
+            Error.UnexpectedNull{query, column} -> "column `${column}` is NULL, from `${query}`"
 
             Error.Decode{query, column, expected, found} ->
                 "column `${column}` holds a ${found} value, not a ${expected}, from `${query}`"
@@ -921,14 +916,9 @@ impl Display for Error {
             Error.ColumnPosition{query, position, count} ->
                 "no column at position ${position} in a row of ${count} columns from `${query}`"
 
-            Error.Finished ->
-                "the transaction was already committed or rolled back"
-
-            Error.Closed ->
-                "the connection was closed"
-
-            Error.Timeout ->
-                "the database did not answer in time"
+            Error.Finished -> "the transaction was already committed or rolled back"
+            Error.Closed -> "the connection was closed"
+            Error.Timeout -> "the database did not answer in time"
         }
     }
 }

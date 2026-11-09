@@ -163,7 +163,7 @@ contexts:
         1: keyword.control.nomi
     # As a pipe stage it is a keyword when a pattern follows it
     # (`|> subtests (a, b) { ... }`); `|> subtests(x)` stays a name.
-    - match: '(?<=\|>)[ \t]*(subtests)\b(?=[ \t]+[A-Za-z0-9_\[(#%"''`])'
+    - match: '(?<=\|>)[ \t]*(subtests)\b(?=[ \t]+(?:[A-Za-z0-9_\[(#%"''`]|\.\{))'
       captures:
         1: keyword.control.nomi
     # `group` is a keyword only where a top-level line starts with it and the
@@ -231,11 +231,14 @@ contexts:
       scope: variable.other.nomi
 
   punctuation:
-    # `#` starts an anonymous struct or a vector literal: `#{`, `#[`, or a
-    # named vector with its type right after it, `#Path[`, `#.Items[`. A
-    # tuple, `(1, "x")`, and a named struct or tuple have no `#`:
-    # `Point{x: 1}`, `Pair(1, "x")`.
-    - match: '#(?=[\{\[.A-Z]|{{ident}}(?:::{{ident}})*\.[A-Z])'
+    # `.{` starts a struct whose name the position gives, or an anonymous
+    # one, as `.Circle{` elides a variant's owner.
+    - match: '\.(?=\{)'
+      scope: punctuation.section.nomi
+    # `#` starts a vector literal: `#[`, or a named vector with its type
+    # right after it, `#Path[`, `#.Items[`. A tuple, `(1, "x")`, and a named
+    # struct or tuple have no symbol: `Point{x: 1}`, `Pair(1, "x")`.
+    - match: '#(?=[\[.A-Z]|{{ident}}(?:::{{ident}})*\.[A-Z])'
       scope: punctuation.section.nomi
     - match: '[,.:;]'
       scope: punctuation.separator.nomi

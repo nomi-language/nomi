@@ -6,7 +6,7 @@ import std::io
 //
 // Three things are being pinned, and only the first is about types.
 //
-//  1. POLARITY. `any` is lowered as `not each_while(src, fn x -> not f(x))`, which
+//  1. POLARITY. `any_match` is lowered as `not each_while(src, fn x -> not f(x))`, which
 //     type-checks whichever way the two negations land. A predicate that
 //     matches in the MIDDLE, one that matches NOTHING, one that matches
 //     EVERYTHING, and an EMPTY source are four different answers; a
@@ -33,17 +33,17 @@ fn show(label: String, m: Maybe<Int>) {
 fn main() {
     none: List<Int> = []
 
-    // --- any?: polarity, all four answers ------------------------------------
-    io.print("${[1, 2, 3, 4] |> Iter.any(&(&1 == 3))}")
-    io.print("${[1, 2, 3, 4] |> Iter.any(&(&1 > 99))}")
-    io.print("${[1, 2, 3, 4] |> Iter.any(&(&1 > 0))}")
-    io.print("${none |> Iter.any(&(&1 > 0))}")
+    // --- any_match: polarity, all four answers ------------------------------
+    io.print("${[1, 2, 3, 4] |> Iter.any_match(&(&1 == 3))}")
+    io.print("${[1, 2, 3, 4] |> Iter.any_match(&(&1 > 99))}")
+    io.print("${[1, 2, 3, 4] |> Iter.any_match(&(&1 > 0))}")
+    io.print("${none |> Iter.any_match(&(&1 > 0))}")
 
-    // --- all?: polarity, including a first-element miss ----------------------
-    io.print("${[2, 4, 6] |> Iter.all(&(&1 > 0))}")
-    io.print("${[2, -4, 6] |> Iter.all(&(&1 > 0))}")
-    io.print("${[-1, 2] |> Iter.all(&(&1 > 0))}")
-    io.print("${none |> Iter.all(&(&1 > 0))}")
+    // --- all_match: polarity, including a first-element miss ----------------
+    io.print("${[2, 4, 6] |> Iter.all_match(&(&1 > 0))}")
+    io.print("${[2, -4, 6] |> Iter.all_match(&(&1 > 0))}")
+    io.print("${[-1, 2] |> Iter.all_match(&(&1 > 0))}")
+    io.print("${none |> Iter.all_match(&(&1 > 0))}")
 
     // --- empty? / not_empty? -------------------------------------------------
     io.print("${none |> Iter.is_empty()}")
@@ -115,12 +115,12 @@ fn main() {
 
     // --- early exit on a noisy FINITE source ---------------------------------
     // The list literal is eager, so all three `evaluating` lines come first;
-    // then exactly ONE mapped note, because `any` stops on the first match.
+    // then exactly ONE mapped note, because `any_match` stops on the first match.
     // A terminal that drained the source prints three.
     io.print(
         "${[note(1), note(2), note(3)]
         |> Iter.map(fn x -> note(x * 10))
-        |> Iter.any(&(&1 >= 10))}"
+        |> Iter.any_match(&(&1 >= 10))}"
     )
 
     show(
@@ -136,8 +136,8 @@ fn main() {
     // `Iter.from` never terminates on its own. Each of these answers only
     // because the terminal refuses the next element; a version that drained
     // would hang rather than print a wrong answer.
-    io.print("${Iter.from(1) |> Iter.any(&(&1 > 3))}")
-    io.print("${Iter.from(1) |> Iter.all(&(&1 < 3))}")
+    io.print("${Iter.from(1) |> Iter.any_match(&(&1 > 3))}")
+    io.print("${Iter.from(1) |> Iter.all_match(&(&1 < 3))}")
     io.print("${Iter.from(1) |> Iter.is_empty()}")
     io.print("${not (Iter.from(1) |> Iter.is_empty())}")
 

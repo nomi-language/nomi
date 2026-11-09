@@ -1,10 +1,10 @@
 // The struct CALL form takes a record VALUE, not only a record literal.
 //
-// `MyApp(#{context: c, port: 8080})` always worked. `MyApp(defaults())` — the
+// `MyApp(.{context: c, port: 8080})` always worked. `MyApp(defaults())` — the
 // same coercion with the field set arriving as a value — was a type error:
 // `checkStructCallForm` read the argument SYNTACTICALLY and reported
-// "MyApp expects an anonymous struct literal #{...} matching its fields, got
-// #{port: Int, context: Context}", naming as unacceptable a type that is
+// "MyApp expects an anonymous struct literal .{...} matching its fields, got
+// .{port: Int, context: Context}", naming as unacceptable a type that is
 // exactly MyApp's own field set.
 //
 // The restriction was the CHECKER's alone. The evaluator's constructor takes
@@ -17,8 +17,8 @@
 // Three properties are asserted together because each is a way the coercion
 // could be wrong and only one of them is visible by reading:
 //
-//   - FIELD ORDER. `Config` declares `#{host, port, retries}` and `defaults`
-//     returns `#{retries, host}` — a different order and a subset. The match
+//   - FIELD ORDER. `Config` declares `.{host, port, retries}` and `defaults`
+//     returns `.{retries, host}` — a different order and a subset. The match
 //     is by name, so neither matters. A positional copy would put a String
 //     where an Int goes.
 //   - DEFAULTS. `retries` is supplied and `port` is not, so `port` comes
@@ -36,8 +36,8 @@ struct Config {
 
 derive Display for Config
 
-fn defaults() -> #{retries: Int, host: String} {
-    #{retries: 3, host: "localhost"}
+fn defaults() -> .{retries: Int, host: String} {
+    .{retries: 3, host: "localhost"}
 }
 
 test "the struct call form accepts a record value" {

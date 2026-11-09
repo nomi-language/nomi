@@ -5,6 +5,7 @@ package astcodec
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -2098,12 +2099,16 @@ func (e *Encoder) structAnonStructType(x *ast.AnonStructType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Fields == nil, len(x.Fields))
-	for i1 := range x.Fields {
-		e.structStructField(&x.Fields[i1])
+	if len(x.Fields) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Fields)), len(x.Fields), "[]ast.StructField") {
+		for i1 := range x.Fields {
+			e.structStructField(&x.Fields[i1])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i4 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i4])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i7 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i7])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -2112,21 +2117,45 @@ func (e *Encoder) structAnonStructType(x *ast.AnonStructType) {
 func (d *Decoder) structAnonStructType(x *ast.AnonStructType) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Fields = make([]ast.StructField, n2)
-		for i3 := range x.Fields {
-			d.structStructField(&x.Fields[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Fields = []ast.StructField{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Fields = d.sharedSliceSast_StructField(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.StructField, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structStructField(&x6[i3])
+			}
+			x.Fields = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n5)
-		for i6 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Trivia, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structTrivia(&x12[i9])
+			}
+			x.EndTrivia = x12
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructAnonStructType writes *x in place.
+func (e *Encoder) StructAnonStructType(x *ast.AnonStructType) { e.structAnonStructType(x) }
+
+// StructAnonStructType reads into *x what Encoder.StructAnonStructType wrote.
+func (d *Decoder) StructAnonStructType(x *ast.AnonStructType) { d.structAnonStructType(x) }
 
 func (e *Encoder) structAsPattern(x *ast.AsPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2152,6 +2181,12 @@ func (d *Decoder) structAsPattern(x *ast.AsPattern) {
 	x.Col = int(d.int())
 }
 
+// StructAsPattern writes *x in place.
+func (e *Encoder) StructAsPattern(x *ast.AsPattern) { e.structAsPattern(x) }
+
+// StructAsPattern reads into *x what Encoder.StructAsPattern wrote.
+func (d *Decoder) StructAsPattern(x *ast.AsPattern) { d.structAsPattern(x) }
+
 func (e *Encoder) structAscription(x *ast.Ascription) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2173,6 +2208,12 @@ func (d *Decoder) structAscription(x *ast.Ascription) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructAscription writes *x in place.
+func (e *Encoder) StructAscription(x *ast.Ascription) { e.structAscription(x) }
+
+// StructAscription reads into *x what Encoder.StructAscription wrote.
+func (d *Decoder) StructAscription(x *ast.Ascription) { d.structAscription(x) }
 
 func (e *Encoder) structAssertion(x *ast.Assertion) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2196,6 +2237,12 @@ func (d *Decoder) structAssertion(x *ast.Assertion) {
 	x.Col = int(d.int())
 }
 
+// StructAssertion writes *x in place.
+func (e *Encoder) StructAssertion(x *ast.Assertion) { e.structAssertion(x) }
+
+// StructAssertion reads into *x what Encoder.StructAssertion wrote.
+func (d *Decoder) StructAssertion(x *ast.Assertion) { d.structAssertion(x) }
+
 func (e *Encoder) structAttachedTest(x *ast.AttachedTest) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2208,8 +2255,10 @@ func (e *Encoder) structAttachedTest(x *ast.AttachedTest) {
 	e.bool(x.Inline)
 	e.string(string(x.DocAfter))
 	e.len(x.After == nil, len(x.After))
-	for i4 := range x.After {
-		e.structAttachedTestAfter(&x.After[i4])
+	if len(x.After) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.After)), len(x.After), "[]ast.AttachedTestAfter") {
+		for i4 := range x.After {
+			e.structAttachedTestAfter(&x.After[i4])
+		}
 	}
 	e.int(int64(x.TrailingPromptBlanks))
 	e.int(int64(x.Line))
@@ -2232,10 +2281,19 @@ func (d *Decoder) structAttachedTest(x *ast.AttachedTest) {
 	x.Kind = string(d.string())
 	x.Inline = bool(d.bool())
 	x.DocAfter = string(d.string())
-	if n5 := d.len(); n5 >= 0 {
-		x.After = make([]ast.AttachedTestAfter, n5)
-		for i6 := range x.After {
-			d.structAttachedTestAfter(&x.After[i6])
+	if n5 := d.sharedLen(); n5 == 0 {
+		x.After = []ast.AttachedTestAfter{}
+	} else if n5 > 0 {
+		if r7, fresh8 := d.ptr(); !fresh8 {
+			x.After = d.sharedSliceSast_AttachedTestAfter(r7, n5)
+		} else {
+			d.fits(n5)
+			x9 := make([]ast.AttachedTestAfter, n5)
+			d.refs = append(d.refs, x9)
+			for i6 := range x9 {
+				d.structAttachedTestAfter(&x9[i6])
+			}
+			x.After = x9
 		}
 	}
 	x.TrailingPromptBlanks = int(d.int())
@@ -2244,6 +2302,12 @@ func (d *Decoder) structAttachedTest(x *ast.AttachedTest) {
 	x.EndLine = int(d.int())
 	x.EndCol = int(d.int())
 }
+
+// StructAttachedTest writes *x in place.
+func (e *Encoder) StructAttachedTest(x *ast.AttachedTest) { e.structAttachedTest(x) }
+
+// StructAttachedTest reads into *x what Encoder.StructAttachedTest wrote.
+func (d *Decoder) StructAttachedTest(x *ast.AttachedTest) { d.structAttachedTest(x) }
 
 func (e *Encoder) structBinary(x *ast.Binary) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2271,6 +2335,12 @@ func (d *Decoder) structBinary(x *ast.Binary) {
 	x.Col = int(d.int())
 }
 
+// StructBinary writes *x in place.
+func (e *Encoder) StructBinary(x *ast.Binary) { e.structBinary(x) }
+
+// StructBinary reads into *x what Encoder.StructBinary wrote.
+func (d *Decoder) StructBinary(x *ast.Binary) { d.structBinary(x) }
+
 func (e *Encoder) structBinding(x *ast.Binding) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2295,6 +2365,12 @@ func (d *Decoder) structBinding(x *ast.Binding) {
 	x.Col = int(d.int())
 }
 
+// StructBinding writes *x in place.
+func (e *Encoder) StructBinding(x *ast.Binding) { e.structBinding(x) }
+
+// StructBinding reads into *x what Encoder.StructBinding wrote.
+func (d *Decoder) StructBinding(x *ast.Binding) { d.structBinding(x) }
+
 func (e *Encoder) structBindingElse(x *ast.BindingElse) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2304,8 +2380,10 @@ func (e *Encoder) structBindingElse(x *ast.BindingElse) {
 		e.structBlock(x.Block)
 	}
 	e.len(x.Arms == nil, len(x.Arms))
-	for i4 := range x.Arms {
-		e.structCaseBranch(&x.Arms[i4])
+	if len(x.Arms) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Arms)), len(x.Arms), "[]ast.CaseBranch") {
+		for i4 := range x.Arms {
+			e.structCaseBranch(&x.Arms[i4])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -2326,10 +2404,19 @@ func (d *Decoder) structBindingElse(x *ast.BindingElse) {
 		d.structBlock(x3)
 		x.Block = x3
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.Arms = make([]ast.CaseBranch, n5)
-		for i6 := range x.Arms {
-			d.structCaseBranch(&x.Arms[i6])
+	if n5 := d.sharedLen(); n5 == 0 {
+		x.Arms = []ast.CaseBranch{}
+	} else if n5 > 0 {
+		if r7, fresh8 := d.ptr(); !fresh8 {
+			x.Arms = d.sharedSliceSast_CaseBranch(r7, n5)
+		} else {
+			d.fits(n5)
+			x9 := make([]ast.CaseBranch, n5)
+			d.refs = append(d.refs, x9)
+			for i6 := range x9 {
+				d.structCaseBranch(&x9[i6])
+			}
+			x.Arms = x9
 		}
 	}
 	x.Line = int(d.int())
@@ -2340,12 +2427,20 @@ func (d *Decoder) structBindingElse(x *ast.BindingElse) {
 	x.EndCol = int(d.int())
 }
 
+// StructBindingElse writes *x in place.
+func (e *Encoder) StructBindingElse(x *ast.BindingElse) { e.structBindingElse(x) }
+
+// StructBindingElse reads into *x what Encoder.StructBindingElse wrote.
+func (d *Decoder) StructBindingElse(x *ast.BindingElse) { d.structBindingElse(x) }
+
 func (e *Encoder) structBlock(x *ast.Block) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Stmts == nil, len(x.Stmts))
-	for i1 := range x.Stmts {
-		e.value(x.Stmts[i1])
+	if len(x.Stmts) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Stmts)), len(x.Stmts), "[]ast.Node") {
+		for i1 := range x.Stmts {
+			e.value(x.Stmts[i1])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -2356,12 +2451,21 @@ func (e *Encoder) structBlock(x *ast.Block) {
 func (d *Decoder) structBlock(x *ast.Block) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Stmts = make([]ast.Node, n2)
-		for i3 := range x.Stmts {
-			if v4 := d.value(); v4 != nil {
-				x.Stmts[i3] = v4.(ast.Node)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Stmts = []ast.Node{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Stmts = d.sharedSliceSast_Node(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Node, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.Node)
+				}
 			}
+			x.Stmts = x6
 		}
 	}
 	x.Line = int(d.int())
@@ -2369,6 +2473,12 @@ func (d *Decoder) structBlock(x *ast.Block) {
 	x.EndLine = int(d.int())
 	x.EndCol = int(d.int())
 }
+
+// StructBlock writes *x in place.
+func (e *Encoder) StructBlock(x *ast.Block) { e.structBlock(x) }
+
+// StructBlock reads into *x what Encoder.StructBlock wrote.
+func (d *Decoder) StructBlock(x *ast.Block) { d.structBlock(x) }
 
 func (e *Encoder) structBreak(x *ast.Break) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2388,21 +2498,33 @@ func (d *Decoder) structBreak(x *ast.Break) {
 	x.Col = int(d.int())
 }
 
+// StructBreak writes *x in place.
+func (e *Encoder) StructBreak(x *ast.Break) { e.structBreak(x) }
+
+// StructBreak reads into *x what Encoder.StructBreak wrote.
+func (d *Decoder) StructBreak(x *ast.Break) { d.structBreak(x) }
+
 func (e *Encoder) structCall(x *ast.Call) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.Func)
 	e.len(x.Args == nil, len(x.Args))
-	for i2 := range x.Args {
-		e.value(x.Args[i2])
+	if len(x.Args) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Args)), len(x.Args), "[]ast.Node") {
+		for i2 := range x.Args {
+			e.value(x.Args[i2])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i6 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i6])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i9 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i9])
+		}
 	}
 	e.len(x.TypeArgs == nil, len(x.TypeArgs))
-	for i9 := range x.TypeArgs {
-		e.value(x.TypeArgs[i9])
+	if len(x.TypeArgs) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeArgs)), len(x.TypeArgs), "[]ast.TypeExpr") {
+		for i15 := range x.TypeArgs {
+			e.value(x.TypeArgs[i15])
+		}
 	}
 	e.string(string(x.InferredDispatchTarget))
 	e.bool(x.IsTailCall)
@@ -2416,26 +2538,53 @@ func (d *Decoder) structCall(x *ast.Call) {
 	if v1 := d.value(); v1 != nil {
 		x.Func = v1.(ast.Node)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Args = make([]ast.Node, n3)
-		for i4 := range x.Args {
-			if v5 := d.value(); v5 != nil {
-				x.Args[i4] = v5.(ast.Node)
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Args = []ast.Node{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Args = d.sharedSliceSast_Node(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.Node, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				if v8 := d.value(); v8 != nil {
+					x7[i4] = v8.(ast.Node)
+				}
 			}
+			x.Args = x7
 		}
 	}
-	if n7 := d.len(); n7 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n7)
-		for i8 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i8])
+	if n10 := d.sharedLen(); n10 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n10 > 0 {
+		if r12, fresh13 := d.ptr(); !fresh13 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r12, n10)
+		} else {
+			d.fits(n10)
+			x14 := make([]ast.Trivia, n10)
+			d.refs = append(d.refs, x14)
+			for i11 := range x14 {
+				d.structTrivia(&x14[i11])
+			}
+			x.EndTrivia = x14
 		}
 	}
-	if n10 := d.len(); n10 >= 0 {
-		x.TypeArgs = make([]ast.TypeExpr, n10)
-		for i11 := range x.TypeArgs {
-			if v12 := d.value(); v12 != nil {
-				x.TypeArgs[i11] = v12.(ast.TypeExpr)
+	if n16 := d.sharedLen(); n16 == 0 {
+		x.TypeArgs = []ast.TypeExpr{}
+	} else if n16 > 0 {
+		if r18, fresh19 := d.ptr(); !fresh19 {
+			x.TypeArgs = d.sharedSliceSast_TypeExpr(r18, n16)
+		} else {
+			d.fits(n16)
+			x20 := make([]ast.TypeExpr, n16)
+			d.refs = append(d.refs, x20)
+			for i17 := range x20 {
+				if v21 := d.value(); v21 != nil {
+					x20[i17] = v21.(ast.TypeExpr)
+				}
 			}
+			x.TypeArgs = x20
 		}
 	}
 	x.InferredDispatchTarget = string(d.string())
@@ -2443,6 +2592,12 @@ func (d *Decoder) structCall(x *ast.Call) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructCall writes *x in place.
+func (e *Encoder) StructCall(x *ast.Call) { e.structCall(x) }
+
+// StructCall reads into *x what Encoder.StructCall wrote.
+func (d *Decoder) StructCall(x *ast.Call) { d.structCall(x) }
 
 func (e *Encoder) structCapture(x *ast.Capture) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2462,13 +2617,21 @@ func (d *Decoder) structCapture(x *ast.Capture) {
 	x.Col = int(d.int())
 }
 
+// StructCapture writes *x in place.
+func (e *Encoder) StructCapture(x *ast.Capture) { e.structCapture(x) }
+
+// StructCapture reads into *x what Encoder.StructCapture wrote.
+func (d *Decoder) StructCapture(x *ast.Capture) { d.structCapture(x) }
+
 func (e *Encoder) structCase(x *ast.Case) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.Value)
 	e.len(x.Branches == nil, len(x.Branches))
-	for i2 := range x.Branches {
-		e.structCaseBranch(&x.Branches[i2])
+	if len(x.Branches) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Branches)), len(x.Branches), "[]ast.CaseBranch") {
+		for i2 := range x.Branches {
+			e.structCaseBranch(&x.Branches[i2])
+		}
 	}
 	e.bool(x.StagePrefix)
 	e.int(int64(x.Line))
@@ -2481,16 +2644,31 @@ func (d *Decoder) structCase(x *ast.Case) {
 	if v1 := d.value(); v1 != nil {
 		x.Value = v1.(ast.Node)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Branches = make([]ast.CaseBranch, n3)
-		for i4 := range x.Branches {
-			d.structCaseBranch(&x.Branches[i4])
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Branches = []ast.CaseBranch{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Branches = d.sharedSliceSast_CaseBranch(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.CaseBranch, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				d.structCaseBranch(&x7[i4])
+			}
+			x.Branches = x7
 		}
 	}
 	x.StagePrefix = bool(d.bool())
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructCase writes *x in place.
+func (e *Encoder) StructCase(x *ast.Case) { e.structCase(x) }
+
+// StructCase reads into *x what Encoder.StructCase wrote.
+func (d *Decoder) StructCase(x *ast.Case) { d.structCase(x) }
 
 func (e *Encoder) structCaseBranch(x *ast.CaseBranch) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2522,6 +2700,12 @@ func (d *Decoder) structCaseBranch(x *ast.CaseBranch) {
 	x.EndCol = int(d.int())
 }
 
+// StructCaseBranch writes *x in place.
+func (e *Encoder) StructCaseBranch(x *ast.CaseBranch) { e.structCaseBranch(x) }
+
+// StructCaseBranch reads into *x what Encoder.StructCaseBranch wrote.
+func (d *Decoder) StructCaseBranch(x *ast.CaseBranch) { d.structCaseBranch(x) }
+
 func (e *Encoder) structCodepointLit(x *ast.CodepointLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2539,6 +2723,12 @@ func (d *Decoder) structCodepointLit(x *ast.CodepointLit) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructCodepointLit writes *x in place.
+func (e *Encoder) StructCodepointLit(x *ast.CodepointLit) { e.structCodepointLit(x) }
+
+// StructCodepointLit reads into *x what Encoder.StructCodepointLit wrote.
+func (d *Decoder) StructCodepointLit(x *ast.CodepointLit) { d.structCodepointLit(x) }
 
 func (e *Encoder) structConcurrentBlock(x *ast.ConcurrentBlock) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2567,6 +2757,12 @@ func (d *Decoder) structConcurrentBlock(x *ast.ConcurrentBlock) {
 	x.Col = int(d.int())
 }
 
+// StructConcurrentBlock writes *x in place.
+func (e *Encoder) StructConcurrentBlock(x *ast.ConcurrentBlock) { e.structConcurrentBlock(x) }
+
+// StructConcurrentBlock reads into *x what Encoder.StructConcurrentBlock wrote.
+func (d *Decoder) StructConcurrentBlock(x *ast.ConcurrentBlock) { d.structConcurrentBlock(x) }
+
 func (e *Encoder) structContinue(x *ast.Continue) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2585,6 +2781,12 @@ func (d *Decoder) structContinue(x *ast.Continue) {
 	x.Col = int(d.int())
 }
 
+// StructContinue writes *x in place.
+func (e *Encoder) StructContinue(x *ast.Continue) { e.structContinue(x) }
+
+// StructContinue reads into *x what Encoder.StructContinue wrote.
+func (d *Decoder) StructContinue(x *ast.Continue) { d.structContinue(x) }
+
 func (e *Encoder) structCurrentValue(x *ast.CurrentValue) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2598,6 +2800,12 @@ func (d *Decoder) structCurrentValue(x *ast.CurrentValue) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructCurrentValue writes *x in place.
+func (e *Encoder) StructCurrentValue(x *ast.CurrentValue) { e.structCurrentValue(x) }
+
+// StructCurrentValue reads into *x what Encoder.StructCurrentValue wrote.
+func (d *Decoder) StructCurrentValue(x *ast.CurrentValue) { d.structCurrentValue(x) }
 
 func (e *Encoder) structDbg(x *ast.Dbg) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2617,6 +2825,12 @@ func (d *Decoder) structDbg(x *ast.Dbg) {
 	x.Col = int(d.int())
 }
 
+// StructDbg writes *x in place.
+func (e *Encoder) StructDbg(x *ast.Dbg) { e.structDbg(x) }
+
+// StructDbg reads into *x what Encoder.StructDbg wrote.
+func (d *Decoder) StructDbg(x *ast.Dbg) { d.structDbg(x) }
+
 func (e *Encoder) structDecimalLit(x *ast.DecimalLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2633,13 +2847,21 @@ func (d *Decoder) structDecimalLit(x *ast.DecimalLit) {
 	x.Col = int(d.int())
 }
 
+// StructDecimalLit writes *x in place.
+func (e *Encoder) StructDecimalLit(x *ast.DecimalLit) { e.structDecimalLit(x) }
+
+// StructDecimalLit reads into *x what Encoder.StructDecimalLit wrote.
+func (d *Decoder) StructDecimalLit(x *ast.DecimalLit) { d.structDecimalLit(x) }
+
 func (e *Encoder) structDecorator(x *ast.Decorator) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Name))
 	e.len(x.Args == nil, len(x.Args))
-	for i1 := range x.Args {
-		e.value(x.Args[i1])
+	if len(x.Args) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Args)), len(x.Args), "[]ast.Node") {
+		for i1 := range x.Args {
+			e.value(x.Args[i1])
+		}
 	}
 	e.value(x.Options)
 	e.int(int64(x.Line))
@@ -2650,20 +2872,35 @@ func (d *Decoder) structDecorator(x *ast.Decorator) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Name = string(d.string())
-	if n2 := d.len(); n2 >= 0 {
-		x.Args = make([]ast.Node, n2)
-		for i3 := range x.Args {
-			if v4 := d.value(); v4 != nil {
-				x.Args[i3] = v4.(ast.Node)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Args = []ast.Node{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Args = d.sharedSliceSast_Node(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Node, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.Node)
+				}
 			}
+			x.Args = x6
 		}
 	}
-	if v5 := d.value(); v5 != nil {
-		x.Options = v5.(ast.Node)
+	if v8 := d.value(); v8 != nil {
+		x.Options = v8.(ast.Node)
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructDecorator writes *x in place.
+func (e *Encoder) StructDecorator(x *ast.Decorator) { e.structDecorator(x) }
+
+// StructDecorator reads into *x what Encoder.StructDecorator wrote.
+func (d *Decoder) StructDecorator(x *ast.Decorator) { d.structDecorator(x) }
 
 func (e *Encoder) structDefer(x *ast.Defer) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2688,6 +2925,12 @@ func (d *Decoder) structDefer(x *ast.Defer) {
 	x.OnLine = int(d.int())
 	x.OnCol = int(d.int())
 }
+
+// StructDefer writes *x in place.
+func (e *Encoder) StructDefer(x *ast.Defer) { e.structDefer(x) }
+
+// StructDefer reads into *x what Encoder.StructDefer wrote.
+func (d *Decoder) StructDefer(x *ast.Defer) { d.structDefer(x) }
 
 func (e *Encoder) structDistinctDestructure(x *ast.DistinctDestructure) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2726,6 +2969,16 @@ func (d *Decoder) structDistinctDestructure(x *ast.DistinctDestructure) {
 	x.Col = int(d.int())
 }
 
+// StructDistinctDestructure writes *x in place.
+func (e *Encoder) StructDistinctDestructure(x *ast.DistinctDestructure) {
+	e.structDistinctDestructure(x)
+}
+
+// StructDistinctDestructure reads into *x what Encoder.StructDistinctDestructure wrote.
+func (d *Decoder) StructDistinctDestructure(x *ast.DistinctDestructure) {
+	d.structDistinctDestructure(x)
+}
+
 func (e *Encoder) structDotVariant(x *ast.DotVariant) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2743,6 +2996,12 @@ func (d *Decoder) structDotVariant(x *ast.DotVariant) {
 	x.Col = int(d.int())
 	x.ResolvedEnum = string(d.string())
 }
+
+// StructDotVariant writes *x in place.
+func (e *Encoder) StructDotVariant(x *ast.DotVariant) { e.structDotVariant(x) }
+
+// StructDotVariant reads into *x what Encoder.StructDotVariant wrote.
+func (d *Decoder) StructDotVariant(x *ast.DotVariant) { d.structDotVariant(x) }
 
 func (e *Encoder) structDotVariantType(x *ast.DotVariantType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2762,6 +3021,12 @@ func (d *Decoder) structDotVariantType(x *ast.DotVariantType) {
 	x.ResolvedEnum = string(d.string())
 }
 
+// StructDotVariantType writes *x in place.
+func (e *Encoder) StructDotVariantType(x *ast.DotVariantType) { e.structDotVariantType(x) }
+
+// StructDotVariantType reads into *x what Encoder.StructDotVariantType wrote.
+func (d *Decoder) StructDotVariantType(x *ast.DotVariantType) { d.structDotVariantType(x) }
+
 func (e *Encoder) structEmbedDecl(x *ast.EmbedDecl) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -2774,8 +3039,10 @@ func (e *Encoder) structEmbedDecl(x *ast.EmbedDecl) {
 	}
 	e.int(int64(x.BodyCol))
 	e.len(x.Patterns == nil, len(x.Patterns))
-	for i4 := range x.Patterns {
-		e.structEmbedPattern(&x.Patterns[i4])
+	if len(x.Patterns) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Patterns)), len(x.Patterns), "[]ast.EmbedPattern") {
+		for i4 := range x.Patterns {
+			e.structEmbedPattern(&x.Patterns[i4])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -2798,10 +3065,19 @@ func (d *Decoder) structEmbedDecl(x *ast.EmbedDecl) {
 		x.Body = x3
 	}
 	x.BodyCol = int(d.int())
-	if n5 := d.len(); n5 >= 0 {
-		x.Patterns = make([]ast.EmbedPattern, n5)
-		for i6 := range x.Patterns {
-			d.structEmbedPattern(&x.Patterns[i6])
+	if n5 := d.sharedLen(); n5 == 0 {
+		x.Patterns = []ast.EmbedPattern{}
+	} else if n5 > 0 {
+		if r7, fresh8 := d.ptr(); !fresh8 {
+			x.Patterns = d.sharedSliceSast_EmbedPattern(r7, n5)
+		} else {
+			d.fits(n5)
+			x9 := make([]ast.EmbedPattern, n5)
+			d.refs = append(d.refs, x9)
+			for i6 := range x9 {
+				d.structEmbedPattern(&x9[i6])
+			}
+			x.Patterns = x9
 		}
 	}
 	x.Doc = string(d.string())
@@ -2811,11 +3087,19 @@ func (d *Decoder) structEmbedDecl(x *ast.EmbedDecl) {
 	x.NameCol = int(d.int())
 }
 
+// StructEmbedDecl writes *x in place.
+func (e *Encoder) StructEmbedDecl(x *ast.EmbedDecl) { e.structEmbedDecl(x) }
+
+// StructEmbedDecl reads into *x what Encoder.StructEmbedDecl wrote.
+func (d *Decoder) StructEmbedDecl(x *ast.EmbedDecl) { d.structEmbedDecl(x) }
+
 func (e *Encoder) structEmbeddedFiles(x *ast.EmbeddedFiles) {
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Files == nil, len(x.Files))
-	for i1 := range x.Files {
-		e.structEmbeddedFile(&x.Files[i1])
+	if len(x.Files) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Files)), len(x.Files), "[]ast.EmbeddedFile") {
+		for i1 := range x.Files {
+			e.structEmbeddedFile(&x.Files[i1])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -2823,49 +3107,78 @@ func (e *Encoder) structEmbeddedFiles(x *ast.EmbeddedFiles) {
 
 func (d *Decoder) structEmbeddedFiles(x *ast.EmbeddedFiles) {
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Files = make([]ast.EmbeddedFile, n2)
-		for i3 := range x.Files {
-			d.structEmbeddedFile(&x.Files[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Files = []ast.EmbeddedFile{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Files = d.sharedSliceSast_EmbeddedFile(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.EmbeddedFile, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structEmbeddedFile(&x6[i3])
+			}
+			x.Files = x6
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructEmbeddedFiles writes *x in place.
+func (e *Encoder) StructEmbeddedFiles(x *ast.EmbeddedFiles) { e.structEmbeddedFiles(x) }
+
+// StructEmbeddedFiles reads into *x what Encoder.StructEmbeddedFiles wrote.
+func (d *Decoder) StructEmbeddedFiles(x *ast.EmbeddedFiles) { d.structEmbeddedFiles(x) }
+
 func (e *Encoder) structEnumDef(x *ast.EnumDef) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.len(x.Decorators == nil, len(x.Decorators))
-	for i4 := range x.Decorators {
-		e.structDecorator(&x.Decorators[i4])
+	if len(x.Decorators) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Decorators)), len(x.Decorators), "[]ast.Decorator") {
+		for i7 := range x.Decorators {
+			e.structDecorator(&x.Decorators[i7])
+		}
 	}
 	e.string(string(x.Name))
 	e.bool(x.Public)
 	e.bool(x.Opaque)
 	e.len(x.TypeParams == nil, len(x.TypeParams))
-	for i7 := range x.TypeParams {
-		e.structTypeParam(&x.TypeParams[i7])
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i13 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i13])
+		}
 	}
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i10 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i10])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i19 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i19])
+		}
 	}
 	e.len(x.Variants == nil, len(x.Variants))
-	for i13 := range x.Variants {
-		e.structEnumVariant(&x.Variants[i13])
+	if len(x.Variants) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Variants)), len(x.Variants), "[]ast.EnumVariant") {
+		for i25 := range x.Variants {
+			e.structEnumVariant(&x.Variants[i25])
+		}
 	}
 	e.len(x.Items == nil, len(x.Items))
-	for i16 := range x.Items {
-		e.value(x.Items[i16])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i31 := range x.Items {
+			e.value(x.Items[i31])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i20 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i20])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i38 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i38])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -2875,57 +3188,126 @@ func (e *Encoder) structEnumDef(x *ast.EnumDef) {
 func (d *Decoder) structEnumDef(x *ast.EnumDef) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
+			}
+			x.AttachedTests = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.Decorators = make([]ast.Decorator, n5)
-		for i6 := range x.Decorators {
-			d.structDecorator(&x.Decorators[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.Decorators = []ast.Decorator{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.Decorators = d.sharedSliceSast_Decorator(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Decorator, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structDecorator(&x12[i9])
+			}
+			x.Decorators = x12
 		}
 	}
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
 	x.Opaque = bool(d.bool())
-	if n8 := d.len(); n8 >= 0 {
-		x.TypeParams = make([]ast.TypeParam, n8)
-		for i9 := range x.TypeParams {
-			d.structTypeParam(&x.TypeParams[i9])
-		}
-	}
-	if n11 := d.len(); n11 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n11)
-		for i12 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i12])
-		}
-	}
-	if n14 := d.len(); n14 >= 0 {
-		x.Variants = make([]ast.EnumVariant, n14)
-		for i15 := range x.Variants {
-			d.structEnumVariant(&x.Variants[i15])
-		}
-	}
-	if n17 := d.len(); n17 >= 0 {
-		x.Items = make([]ast.Node, n17)
-		for i18 := range x.Items {
-			if v19 := d.value(); v19 != nil {
-				x.Items[i18] = v19.(ast.Node)
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.TypeParam, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structTypeParam(&x18[i15])
 			}
+			x.TypeParams = x18
 		}
 	}
-	if n21 := d.len(); n21 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n21)
-		for i22 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i22])
+	if n20 := d.sharedLen(); n20 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n20 > 0 {
+		if r22, fresh23 := d.ptr(); !fresh23 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r22, n20)
+		} else {
+			d.fits(n20)
+			x24 := make([]ast.WhereConstraint, n20)
+			d.refs = append(d.refs, x24)
+			for i21 := range x24 {
+				d.structWhereConstraint(&x24[i21])
+			}
+			x.WhereClauses = x24
+		}
+	}
+	if n26 := d.sharedLen(); n26 == 0 {
+		x.Variants = []ast.EnumVariant{}
+	} else if n26 > 0 {
+		if r28, fresh29 := d.ptr(); !fresh29 {
+			x.Variants = d.sharedSliceSast_EnumVariant(r28, n26)
+		} else {
+			d.fits(n26)
+			x30 := make([]ast.EnumVariant, n26)
+			d.refs = append(d.refs, x30)
+			for i27 := range x30 {
+				d.structEnumVariant(&x30[i27])
+			}
+			x.Variants = x30
+		}
+	}
+	if n32 := d.sharedLen(); n32 == 0 {
+		x.Items = []ast.Node{}
+	} else if n32 > 0 {
+		if r34, fresh35 := d.ptr(); !fresh35 {
+			x.Items = d.sharedSliceSast_Node(r34, n32)
+		} else {
+			d.fits(n32)
+			x36 := make([]ast.Node, n32)
+			d.refs = append(d.refs, x36)
+			for i33 := range x36 {
+				if v37 := d.value(); v37 != nil {
+					x36[i33] = v37.(ast.Node)
+				}
+			}
+			x.Items = x36
+		}
+	}
+	if n39 := d.sharedLen(); n39 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n39 > 0 {
+		if r41, fresh42 := d.ptr(); !fresh42 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r41, n39)
+		} else {
+			d.fits(n39)
+			x43 := make([]ast.Trivia, n39)
+			d.refs = append(d.refs, x43)
+			for i40 := range x43 {
+				d.structTrivia(&x43[i40])
+			}
+			x.EndTrivia = x43
 		}
 	}
 	x.Doc = string(d.string())
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructEnumDef writes *x in place.
+func (e *Encoder) StructEnumDef(x *ast.EnumDef) { e.structEnumDef(x) }
+
+// StructEnumDef reads into *x what Encoder.StructEnumDef wrote.
+func (d *Decoder) StructEnumDef(x *ast.EnumDef) { d.structEnumDef(x) }
 
 func (e *Encoder) structEnumPattern(x *ast.EnumPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -2953,27 +3335,41 @@ func (d *Decoder) structEnumPattern(x *ast.EnumPattern) {
 	x.Col = int(d.int())
 }
 
+// StructEnumPattern writes *x in place.
+func (e *Encoder) StructEnumPattern(x *ast.EnumPattern) { e.structEnumPattern(x) }
+
+// StructEnumPattern reads into *x what Encoder.StructEnumPattern wrote.
+func (d *Decoder) StructEnumPattern(x *ast.EnumPattern) { d.structEnumPattern(x) }
+
 func (e *Encoder) structEnumVariant(x *ast.EnumVariant) {
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Name))
 	e.string(string(x.Kind))
 	e.value(x.DataTypeExpr)
 	e.len(x.Fields == nil, len(x.Fields))
-	for i2 := range x.Fields {
-		e.structStructField(&x.Fields[i2])
+	if len(x.Fields) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Fields)), len(x.Fields), "[]ast.StructField") {
+		for i2 := range x.Fields {
+			e.structStructField(&x.Fields[i2])
+		}
 	}
 	e.value(x.EmbeddedTypeExpr)
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i6 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i6])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i9 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i9])
+		}
 	}
 	e.len(x.LeadingComments == nil, len(x.LeadingComments))
-	for i9 := range x.LeadingComments {
-		e.structTrivia(&x.LeadingComments[i9])
+	if len(x.LeadingComments) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.LeadingComments)), len(x.LeadingComments), "[]ast.Trivia") {
+		for i15 := range x.LeadingComments {
+			e.structTrivia(&x.LeadingComments[i15])
+		}
 	}
 	e.len(x.Trailing == nil, len(x.Trailing))
-	for i12 := range x.Trailing {
-		e.structTrivia(&x.Trailing[i12])
+	if len(x.Trailing) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Trailing)), len(x.Trailing), "[]ast.Trivia") {
+		for i21 := range x.Trailing {
+			e.structTrivia(&x.Trailing[i21])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -2987,37 +3383,79 @@ func (d *Decoder) structEnumVariant(x *ast.EnumVariant) {
 	if v1 := d.value(); v1 != nil {
 		x.DataTypeExpr = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Fields = make([]ast.StructField, n3)
-		for i4 := range x.Fields {
-			d.structStructField(&x.Fields[i4])
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Fields = []ast.StructField{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Fields = d.sharedSliceSast_StructField(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.StructField, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				d.structStructField(&x7[i4])
+			}
+			x.Fields = x7
 		}
 	}
-	if v5 := d.value(); v5 != nil {
-		x.EmbeddedTypeExpr = v5.(ast.TypeExpr)
+	if v8 := d.value(); v8 != nil {
+		x.EmbeddedTypeExpr = v8.(ast.TypeExpr)
 	}
-	if n7 := d.len(); n7 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n7)
-		for i8 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i8])
+	if n10 := d.sharedLen(); n10 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n10 > 0 {
+		if r12, fresh13 := d.ptr(); !fresh13 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r12, n10)
+		} else {
+			d.fits(n10)
+			x14 := make([]ast.Trivia, n10)
+			d.refs = append(d.refs, x14)
+			for i11 := range x14 {
+				d.structTrivia(&x14[i11])
+			}
+			x.EndTrivia = x14
 		}
 	}
-	if n10 := d.len(); n10 >= 0 {
-		x.LeadingComments = make([]ast.Trivia, n10)
-		for i11 := range x.LeadingComments {
-			d.structTrivia(&x.LeadingComments[i11])
+	if n16 := d.sharedLen(); n16 == 0 {
+		x.LeadingComments = []ast.Trivia{}
+	} else if n16 > 0 {
+		if r18, fresh19 := d.ptr(); !fresh19 {
+			x.LeadingComments = d.sharedSliceSast_Trivia(r18, n16)
+		} else {
+			d.fits(n16)
+			x20 := make([]ast.Trivia, n16)
+			d.refs = append(d.refs, x20)
+			for i17 := range x20 {
+				d.structTrivia(&x20[i17])
+			}
+			x.LeadingComments = x20
 		}
 	}
-	if n13 := d.len(); n13 >= 0 {
-		x.Trailing = make([]ast.Trivia, n13)
-		for i14 := range x.Trailing {
-			d.structTrivia(&x.Trailing[i14])
+	if n22 := d.sharedLen(); n22 == 0 {
+		x.Trailing = []ast.Trivia{}
+	} else if n22 > 0 {
+		if r24, fresh25 := d.ptr(); !fresh25 {
+			x.Trailing = d.sharedSliceSast_Trivia(r24, n22)
+		} else {
+			d.fits(n22)
+			x26 := make([]ast.Trivia, n22)
+			d.refs = append(d.refs, x26)
+			for i23 := range x26 {
+				d.structTrivia(&x26[i23])
+			}
+			x.Trailing = x26
 		}
 	}
 	x.Doc = string(d.string())
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructEnumVariant writes *x in place.
+func (e *Encoder) StructEnumVariant(x *ast.EnumVariant) { e.structEnumVariant(x) }
+
+// StructEnumVariant reads into *x what Encoder.StructEnumVariant wrote.
+func (d *Decoder) StructEnumVariant(x *ast.EnumVariant) { d.structEnumVariant(x) }
 
 func (e *Encoder) structErrorNode(x *ast.ErrorNode) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -3039,6 +3477,12 @@ func (d *Decoder) structErrorNode(x *ast.ErrorNode) {
 	x.EndCol = int(d.int())
 }
 
+// StructErrorNode writes *x in place.
+func (e *Encoder) StructErrorNode(x *ast.ErrorNode) { e.structErrorNode(x) }
+
+// StructErrorNode reads into *x what Encoder.StructErrorNode wrote.
+func (d *Decoder) StructErrorNode(x *ast.ErrorNode) { d.structErrorNode(x) }
+
 func (e *Encoder) structExprStmt(x *ast.ExprStmt) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -3057,31 +3501,47 @@ func (d *Decoder) structExprStmt(x *ast.ExprStmt) {
 	x.Col = int(d.int())
 }
 
+// StructExprStmt writes *x in place.
+func (e *Encoder) StructExprStmt(x *ast.ExprStmt) { e.structExprStmt(x) }
+
+// StructExprStmt reads into *x what Encoder.StructExprStmt wrote.
+func (d *Decoder) StructExprStmt(x *ast.ExprStmt) { d.structExprStmt(x) }
+
 func (e *Encoder) structExternFunc(x *ast.ExternFunc) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Name))
 	e.bool(x.Public)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.len(x.TypeParams == nil, len(x.TypeParams))
-	for i4 := range x.TypeParams {
-		e.structTypeParam(&x.TypeParams[i4])
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i7 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i7])
+		}
 	}
 	e.len(x.Params == nil, len(x.Params))
-	for i7 := range x.Params {
-		e.structParam(&x.Params[i7])
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.Param") {
+		for i13 := range x.Params {
+			e.structParam(&x.Params[i13])
+		}
 	}
 	e.len(x.ParamsEndTrivia == nil, len(x.ParamsEndTrivia))
-	for i10 := range x.ParamsEndTrivia {
-		e.structTrivia(&x.ParamsEndTrivia[i10])
+	if len(x.ParamsEndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.ParamsEndTrivia)), len(x.ParamsEndTrivia), "[]ast.Trivia") {
+		for i19 := range x.ParamsEndTrivia {
+			e.structTrivia(&x.ParamsEndTrivia[i19])
+		}
 	}
 	e.value(x.ReturnTypeExpr)
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i14 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i14])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i26 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i26])
+		}
 	}
 	e.string(string(x.Doc))
 	e.bool(x.ImplFunction)
@@ -3109,45 +3569,90 @@ func (d *Decoder) structExternFunc(x *ast.ExternFunc) {
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
+			}
+			x.AttachedTests = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.TypeParams = make([]ast.TypeParam, n5)
-		for i6 := range x.TypeParams {
-			d.structTypeParam(&x.TypeParams[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.TypeParam, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structTypeParam(&x12[i9])
+			}
+			x.TypeParams = x12
 		}
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.Params = make([]ast.Param, n8)
-		for i9 := range x.Params {
-			d.structParam(&x.Params[i9])
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.Params = []ast.Param{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.Params = d.sharedSliceSast_Param(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.Param, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structParam(&x18[i15])
+			}
+			x.Params = x18
 		}
 	}
-	if n11 := d.len(); n11 >= 0 {
-		x.ParamsEndTrivia = make([]ast.Trivia, n11)
-		for i12 := range x.ParamsEndTrivia {
-			d.structTrivia(&x.ParamsEndTrivia[i12])
+	if n20 := d.sharedLen(); n20 == 0 {
+		x.ParamsEndTrivia = []ast.Trivia{}
+	} else if n20 > 0 {
+		if r22, fresh23 := d.ptr(); !fresh23 {
+			x.ParamsEndTrivia = d.sharedSliceSast_Trivia(r22, n20)
+		} else {
+			d.fits(n20)
+			x24 := make([]ast.Trivia, n20)
+			d.refs = append(d.refs, x24)
+			for i21 := range x24 {
+				d.structTrivia(&x24[i21])
+			}
+			x.ParamsEndTrivia = x24
 		}
 	}
-	if v13 := d.value(); v13 != nil {
-		x.ReturnTypeExpr = v13.(ast.TypeExpr)
+	if v25 := d.value(); v25 != nil {
+		x.ReturnTypeExpr = v25.(ast.TypeExpr)
 	}
-	if n15 := d.len(); n15 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n15)
-		for i16 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i16])
+	if n27 := d.sharedLen(); n27 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n27 > 0 {
+		if r29, fresh30 := d.ptr(); !fresh30 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r29, n27)
+		} else {
+			d.fits(n27)
+			x31 := make([]ast.WhereConstraint, n27)
+			d.refs = append(d.refs, x31)
+			for i28 := range x31 {
+				d.structWhereConstraint(&x31[i28])
+			}
+			x.WhereClauses = x31
 		}
 	}
 	x.Doc = string(d.string())
 	x.ImplFunction = bool(d.bool())
 	x.ImplLine = int(d.int())
 	x.ImplCol = int(d.int())
-	if v17 := d.value(); v17 != nil {
-		x.ImplIface = v17.(ast.TypeExpr)
+	if v32 := d.value(); v32 != nil {
+		x.ImplIface = v32.(ast.TypeExpr)
 	}
 	x.ImplIfaceInferred = bool(d.bool())
 	x.ImplIfaceSourceQualified = bool(d.bool())
@@ -3164,6 +3669,12 @@ func (d *Decoder) structExternFunc(x *ast.ExternFunc) {
 	x.ForeignNameLine = int(d.int())
 	x.ForeignNameCol = int(d.int())
 }
+
+// StructExternFunc writes *x in place.
+func (e *Encoder) StructExternFunc(x *ast.ExternFunc) { e.structExternFunc(x) }
+
+// StructExternFunc reads into *x what Encoder.StructExternFunc wrote.
+func (d *Decoder) StructExternFunc(x *ast.ExternFunc) { d.structExternFunc(x) }
 
 func (e *Encoder) structExternPackage(x *ast.ExternPackage) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -3191,6 +3702,12 @@ func (d *Decoder) structExternPackage(x *ast.ExternPackage) {
 	x.AliasCol = int(d.int())
 }
 
+// StructExternPackage writes *x in place.
+func (e *Encoder) StructExternPackage(x *ast.ExternPackage) { e.structExternPackage(x) }
+
+// StructExternPackage reads into *x what Encoder.StructExternPackage wrote.
+func (d *Decoder) StructExternPackage(x *ast.ExternPackage) { d.structExternPackage(x) }
+
 func (e *Encoder) structExternType(x *ast.ExternType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -3198,29 +3715,41 @@ func (e *Encoder) structExternType(x *ast.ExternType) {
 	e.bool(x.Public)
 	e.bool(x.Opaque)
 	e.len(x.TypeParams == nil, len(x.TypeParams))
-	for i1 := range x.TypeParams {
-		e.structTypeParam(&x.TypeParams[i1])
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i1 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i1])
+		}
 	}
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i4 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i4])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i7 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i7])
+		}
 	}
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i7 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i7])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i13 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i13])
+		}
 	}
 	e.len(x.Decorators == nil, len(x.Decorators))
-	for i10 := range x.Decorators {
-		e.structDecorator(&x.Decorators[i10])
+	if len(x.Decorators) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Decorators)), len(x.Decorators), "[]ast.Decorator") {
+		for i19 := range x.Decorators {
+			e.structDecorator(&x.Decorators[i19])
+		}
 	}
 	e.bool(x.HasBody)
 	e.len(x.Items == nil, len(x.Items))
-	for i13 := range x.Items {
-		e.value(x.Items[i13])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i25 := range x.Items {
+			e.value(x.Items[i25])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i17 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i17])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i32 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i32])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -3245,43 +3774,97 @@ func (d *Decoder) structExternType(x *ast.ExternType) {
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
 	x.Opaque = bool(d.bool())
-	if n2 := d.len(); n2 >= 0 {
-		x.TypeParams = make([]ast.TypeParam, n2)
-		for i3 := range x.TypeParams {
-			d.structTypeParam(&x.TypeParams[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.TypeParam, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structTypeParam(&x6[i3])
+			}
+			x.TypeParams = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n5)
-		for i6 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.WhereConstraint, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structWhereConstraint(&x12[i9])
+			}
+			x.WhereClauses = x12
 		}
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n8)
-		for i9 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i9])
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.AttachedTest, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structAttachedTest(&x18[i15])
+			}
+			x.AttachedTests = x18
 		}
 	}
-	if n11 := d.len(); n11 >= 0 {
-		x.Decorators = make([]ast.Decorator, n11)
-		for i12 := range x.Decorators {
-			d.structDecorator(&x.Decorators[i12])
+	if n20 := d.sharedLen(); n20 == 0 {
+		x.Decorators = []ast.Decorator{}
+	} else if n20 > 0 {
+		if r22, fresh23 := d.ptr(); !fresh23 {
+			x.Decorators = d.sharedSliceSast_Decorator(r22, n20)
+		} else {
+			d.fits(n20)
+			x24 := make([]ast.Decorator, n20)
+			d.refs = append(d.refs, x24)
+			for i21 := range x24 {
+				d.structDecorator(&x24[i21])
+			}
+			x.Decorators = x24
 		}
 	}
 	x.HasBody = bool(d.bool())
-	if n14 := d.len(); n14 >= 0 {
-		x.Items = make([]ast.Node, n14)
-		for i15 := range x.Items {
-			if v16 := d.value(); v16 != nil {
-				x.Items[i15] = v16.(ast.Node)
+	if n26 := d.sharedLen(); n26 == 0 {
+		x.Items = []ast.Node{}
+	} else if n26 > 0 {
+		if r28, fresh29 := d.ptr(); !fresh29 {
+			x.Items = d.sharedSliceSast_Node(r28, n26)
+		} else {
+			d.fits(n26)
+			x30 := make([]ast.Node, n26)
+			d.refs = append(d.refs, x30)
+			for i27 := range x30 {
+				if v31 := d.value(); v31 != nil {
+					x30[i27] = v31.(ast.Node)
+				}
 			}
+			x.Items = x30
 		}
 	}
-	if n18 := d.len(); n18 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n18)
-		for i19 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i19])
+	if n33 := d.sharedLen(); n33 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n33 > 0 {
+		if r35, fresh36 := d.ptr(); !fresh36 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r35, n33)
+		} else {
+			d.fits(n33)
+			x37 := make([]ast.Trivia, n33)
+			d.refs = append(d.refs, x37)
+			for i34 := range x37 {
+				d.structTrivia(&x37[i34])
+			}
+			x.EndTrivia = x37
 		}
 	}
 	x.Doc = string(d.string())
@@ -3300,6 +3883,12 @@ func (d *Decoder) structExternType(x *ast.ExternType) {
 	x.ForeignNameLine = int(d.int())
 	x.ForeignNameCol = int(d.int())
 }
+
+// StructExternType writes *x in place.
+func (e *Encoder) StructExternType(x *ast.ExternType) { e.structExternType(x) }
+
+// StructExternType reads into *x what Encoder.StructExternType wrote.
+func (d *Decoder) StructExternType(x *ast.ExternType) { d.structExternType(x) }
 
 func (e *Encoder) structFieldAccess(x *ast.FieldAccess) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -3332,15 +3921,23 @@ func (d *Decoder) structFieldAccess(x *ast.FieldAccess) {
 	x.Col = int(d.int())
 }
 
+// StructFieldAccess writes *x in place.
+func (e *Encoder) StructFieldAccess(x *ast.FieldAccess) { e.structFieldAccess(x) }
+
+// StructFieldAccess reads into *x what Encoder.StructFieldAccess wrote.
+func (d *Decoder) StructFieldAccess(x *ast.FieldAccess) { d.structFieldAccess(x) }
+
 func (e *Encoder) structFieldAccessor(x *ast.FieldAccessor) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Path == nil, len(x.Path))
-	for i1 := range x.Path {
-		if x.Path[i1] == nil {
-			e.uint(0)
-		} else if e.ptr(x.Path[i1]) {
-			e.structIdent(x.Path[i1])
+	if len(x.Path) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Path)), len(x.Path), "[]*ast.Ident") {
+		for i1 := range x.Path {
+			if x.Path[i1] == nil {
+				e.uint(0)
+			} else if e.ptr(x.Path[i1]) {
+				e.structIdent(x.Path[i1])
+			}
 		}
 	}
 	e.int(int64(x.Line))
@@ -3350,29 +3947,46 @@ func (e *Encoder) structFieldAccessor(x *ast.FieldAccessor) {
 func (d *Decoder) structFieldAccessor(x *ast.FieldAccessor) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Path = make([]*ast.Ident, n2)
-		for i3 := range x.Path {
-			if p4, fresh5 := d.ptr(); p4 != nil {
-				x.Path[i3] = p4.(*ast.Ident)
-			} else if fresh5 {
-				x6 := new(ast.Ident)
-				d.refs = append(d.refs, x6)
-				d.structIdent(x6)
-				x.Path[i3] = x6
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Path = []*ast.Ident{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Path = d.sharedSliceSPast_Ident(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]*ast.Ident, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if p7, fresh8 := d.ptr(); p7 != nil {
+					x6[i3] = p7.(*ast.Ident)
+				} else if fresh8 {
+					x9 := new(ast.Ident)
+					d.refs = append(d.refs, x9)
+					d.structIdent(x9)
+					x6[i3] = x9
+				}
 			}
+			x.Path = x6
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructFieldAccessor writes *x in place.
+func (e *Encoder) StructFieldAccessor(x *ast.FieldAccessor) { e.structFieldAccessor(x) }
+
+// StructFieldAccessor reads into *x what Encoder.StructFieldAccessor wrote.
+func (d *Decoder) StructFieldAccessor(x *ast.FieldAccessor) { d.structFieldAccessor(x) }
+
 func (e *Encoder) structFilePath(x *ast.FilePath) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Segments == nil, len(x.Segments))
-	for i1 := range x.Segments {
-		e.structPathSegment(&x.Segments[i1])
+	if len(x.Segments) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Segments)), len(x.Segments), "[]ast.PathSegment") {
+		for i1 := range x.Segments {
+			e.structPathSegment(&x.Segments[i1])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -3381,15 +3995,30 @@ func (e *Encoder) structFilePath(x *ast.FilePath) {
 func (d *Decoder) structFilePath(x *ast.FilePath) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Segments = make([]ast.PathSegment, n2)
-		for i3 := range x.Segments {
-			d.structPathSegment(&x.Segments[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Segments = []ast.PathSegment{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Segments = d.sharedSliceSast_PathSegment(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.PathSegment, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structPathSegment(&x6[i3])
+			}
+			x.Segments = x6
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructFilePath writes *x in place.
+func (e *Encoder) StructFilePath(x *ast.FilePath) { e.structFilePath(x) }
+
+// StructFilePath reads into *x what Encoder.StructFilePath wrote.
+func (d *Decoder) StructFilePath(x *ast.FilePath) { d.structFilePath(x) }
 
 func (e *Encoder) structFloatLit(x *ast.FloatLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -3409,16 +4038,26 @@ func (d *Decoder) structFloatLit(x *ast.FloatLit) {
 	x.Col = int(d.int())
 }
 
+// StructFloatLit writes *x in place.
+func (e *Encoder) StructFloatLit(x *ast.FloatLit) { e.structFloatLit(x) }
+
+// StructFloatLit reads into *x what Encoder.StructFloatLit wrote.
+func (d *Decoder) StructFloatLit(x *ast.FloatLit) { d.structFloatLit(x) }
+
 func (e *Encoder) structFuncDef(x *ast.FuncDef) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.len(x.Decorators == nil, len(x.Decorators))
-	for i4 := range x.Decorators {
-		e.structDecorator(&x.Decorators[i4])
+	if len(x.Decorators) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Decorators)), len(x.Decorators), "[]ast.Decorator") {
+		for i7 := range x.Decorators {
+			e.structDecorator(&x.Decorators[i7])
+		}
 	}
 	e.string(string(x.Name))
 	e.bool(x.Public)
@@ -3426,21 +4065,29 @@ func (e *Encoder) structFuncDef(x *ast.FuncDef) {
 	e.int(int64(x.ExportLine))
 	e.int(int64(x.ExportCol))
 	e.len(x.TypeParams == nil, len(x.TypeParams))
-	for i7 := range x.TypeParams {
-		e.structTypeParam(&x.TypeParams[i7])
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i13 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i13])
+		}
 	}
 	e.len(x.Params == nil, len(x.Params))
-	for i10 := range x.Params {
-		e.structParam(&x.Params[i10])
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.Param") {
+		for i19 := range x.Params {
+			e.structParam(&x.Params[i19])
+		}
 	}
 	e.len(x.ParamsEndTrivia == nil, len(x.ParamsEndTrivia))
-	for i13 := range x.ParamsEndTrivia {
-		e.structTrivia(&x.ParamsEndTrivia[i13])
+	if len(x.ParamsEndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.ParamsEndTrivia)), len(x.ParamsEndTrivia), "[]ast.Trivia") {
+		for i25 := range x.ParamsEndTrivia {
+			e.structTrivia(&x.ParamsEndTrivia[i25])
+		}
 	}
 	e.value(x.ReturnTypeExpr)
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i17 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i17])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i32 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i32])
+		}
 	}
 	if x.Body == nil {
 		e.uint(0)
@@ -3464,16 +4111,34 @@ func (e *Encoder) structFuncDef(x *ast.FuncDef) {
 func (d *Decoder) structFuncDef(x *ast.FuncDef) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
+			}
+			x.AttachedTests = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.Decorators = make([]ast.Decorator, n5)
-		for i6 := range x.Decorators {
-			d.structDecorator(&x.Decorators[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.Decorators = []ast.Decorator{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.Decorators = d.sharedSliceSast_Decorator(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Decorator, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structDecorator(&x12[i9])
+			}
+			x.Decorators = x12
 		}
 	}
 	x.Name = string(d.string())
@@ -3481,40 +4146,76 @@ func (d *Decoder) structFuncDef(x *ast.FuncDef) {
 	x.Export = bool(d.bool())
 	x.ExportLine = int(d.int())
 	x.ExportCol = int(d.int())
-	if n8 := d.len(); n8 >= 0 {
-		x.TypeParams = make([]ast.TypeParam, n8)
-		for i9 := range x.TypeParams {
-			d.structTypeParam(&x.TypeParams[i9])
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.TypeParam, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structTypeParam(&x18[i15])
+			}
+			x.TypeParams = x18
 		}
 	}
-	if n11 := d.len(); n11 >= 0 {
-		x.Params = make([]ast.Param, n11)
-		for i12 := range x.Params {
-			d.structParam(&x.Params[i12])
+	if n20 := d.sharedLen(); n20 == 0 {
+		x.Params = []ast.Param{}
+	} else if n20 > 0 {
+		if r22, fresh23 := d.ptr(); !fresh23 {
+			x.Params = d.sharedSliceSast_Param(r22, n20)
+		} else {
+			d.fits(n20)
+			x24 := make([]ast.Param, n20)
+			d.refs = append(d.refs, x24)
+			for i21 := range x24 {
+				d.structParam(&x24[i21])
+			}
+			x.Params = x24
 		}
 	}
-	if n14 := d.len(); n14 >= 0 {
-		x.ParamsEndTrivia = make([]ast.Trivia, n14)
-		for i15 := range x.ParamsEndTrivia {
-			d.structTrivia(&x.ParamsEndTrivia[i15])
+	if n26 := d.sharedLen(); n26 == 0 {
+		x.ParamsEndTrivia = []ast.Trivia{}
+	} else if n26 > 0 {
+		if r28, fresh29 := d.ptr(); !fresh29 {
+			x.ParamsEndTrivia = d.sharedSliceSast_Trivia(r28, n26)
+		} else {
+			d.fits(n26)
+			x30 := make([]ast.Trivia, n26)
+			d.refs = append(d.refs, x30)
+			for i27 := range x30 {
+				d.structTrivia(&x30[i27])
+			}
+			x.ParamsEndTrivia = x30
 		}
 	}
-	if v16 := d.value(); v16 != nil {
-		x.ReturnTypeExpr = v16.(ast.TypeExpr)
+	if v31 := d.value(); v31 != nil {
+		x.ReturnTypeExpr = v31.(ast.TypeExpr)
 	}
-	if n18 := d.len(); n18 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n18)
-		for i19 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i19])
+	if n33 := d.sharedLen(); n33 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n33 > 0 {
+		if r35, fresh36 := d.ptr(); !fresh36 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r35, n33)
+		} else {
+			d.fits(n33)
+			x37 := make([]ast.WhereConstraint, n33)
+			d.refs = append(d.refs, x37)
+			for i34 := range x37 {
+				d.structWhereConstraint(&x37[i34])
+			}
+			x.WhereClauses = x37
 		}
 	}
-	if p20, fresh21 := d.ptr(); p20 != nil {
-		x.Body = p20.(*ast.Block)
-	} else if fresh21 {
-		x22 := new(ast.Block)
-		d.refs = append(d.refs, x22)
-		d.structBlock(x22)
-		x.Body = x22
+	if p38, fresh39 := d.ptr(); p38 != nil {
+		x.Body = p38.(*ast.Block)
+	} else if fresh39 {
+		x40 := new(ast.Block)
+		d.refs = append(d.refs, x40)
+		d.structBlock(x40)
+		x.Body = x40
 	}
 	x.Doc = string(d.string())
 	x.AutoSynth = bool(d.bool())
@@ -3522,8 +4223,8 @@ func (d *Decoder) structFuncDef(x *ast.FuncDef) {
 	x.ImplLine = int(d.int())
 	x.ImplCol = int(d.int())
 	x.Expansion = d.expansion()
-	if v23 := d.value(); v23 != nil {
-		x.ImplIface = v23.(ast.TypeExpr)
+	if v41 := d.value(); v41 != nil {
+		x.ImplIface = v41.(ast.TypeExpr)
 	}
 	x.ImplIfaceInferred = bool(d.bool())
 	x.ImplIfaceSourceQualified = bool(d.bool())
@@ -3532,12 +4233,20 @@ func (d *Decoder) structFuncDef(x *ast.FuncDef) {
 	x.FnCol = int(d.int())
 }
 
+// StructFuncDef writes *x in place.
+func (e *Encoder) StructFuncDef(x *ast.FuncDef) { e.structFuncDef(x) }
+
+// StructFuncDef reads into *x what Encoder.StructFuncDef wrote.
+func (d *Decoder) StructFuncDef(x *ast.FuncDef) { d.structFuncDef(x) }
+
 func (e *Encoder) structFuncType(x *ast.FuncType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Params == nil, len(x.Params))
-	for i1 := range x.Params {
-		e.value(x.Params[i1])
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.TypeExpr") {
+		for i1 := range x.Params {
+			e.value(x.Params[i1])
+		}
 	}
 	e.value(x.Return)
 	e.int(int64(x.Line))
@@ -3547,28 +4256,45 @@ func (e *Encoder) structFuncType(x *ast.FuncType) {
 func (d *Decoder) structFuncType(x *ast.FuncType) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Params = make([]ast.TypeExpr, n2)
-		for i3 := range x.Params {
-			if v4 := d.value(); v4 != nil {
-				x.Params[i3] = v4.(ast.TypeExpr)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Params = []ast.TypeExpr{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Params = d.sharedSliceSast_TypeExpr(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.TypeExpr, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.TypeExpr)
+				}
 			}
+			x.Params = x6
 		}
 	}
-	if v5 := d.value(); v5 != nil {
-		x.Return = v5.(ast.TypeExpr)
+	if v8 := d.value(); v8 != nil {
+		x.Return = v8.(ast.TypeExpr)
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructFuncType writes *x in place.
+func (e *Encoder) StructFuncType(x *ast.FuncType) { e.structFuncType(x) }
+
+// StructFuncType reads into *x what Encoder.StructFuncType wrote.
+func (d *Decoder) StructFuncType(x *ast.FuncType) { d.structFuncType(x) }
 
 func (e *Encoder) structGenericType(x *ast.GenericType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Name))
 	e.len(x.Params == nil, len(x.Params))
-	for i1 := range x.Params {
-		e.value(x.Params[i1])
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.TypeExpr") {
+		for i1 := range x.Params {
+			e.value(x.Params[i1])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -3578,17 +4304,32 @@ func (d *Decoder) structGenericType(x *ast.GenericType) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Name = string(d.string())
-	if n2 := d.len(); n2 >= 0 {
-		x.Params = make([]ast.TypeExpr, n2)
-		for i3 := range x.Params {
-			if v4 := d.value(); v4 != nil {
-				x.Params[i3] = v4.(ast.TypeExpr)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Params = []ast.TypeExpr{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Params = d.sharedSliceSast_TypeExpr(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.TypeExpr, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.TypeExpr)
+				}
 			}
+			x.Params = x6
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructGenericType writes *x in place.
+func (e *Encoder) StructGenericType(x *ast.GenericType) { e.structGenericType(x) }
+
+// StructGenericType reads into *x what Encoder.StructGenericType wrote.
+func (d *Decoder) StructGenericType(x *ast.GenericType) { d.structGenericType(x) }
 
 func (e *Encoder) structGroupSubtests(x *ast.GroupSubtests) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -3597,8 +4338,10 @@ func (e *Encoder) structGroupSubtests(x *ast.GroupSubtests) {
 	e.value(x.Pattern)
 	e.value(x.Name)
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i4 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i4])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i4 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i4])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -3618,10 +4361,19 @@ func (d *Decoder) structGroupSubtests(x *ast.GroupSubtests) {
 	if v3 := d.value(); v3 != nil {
 		x.Name = v3.(ast.Node)
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n5)
-		for i6 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i6])
+	if n5 := d.sharedLen(); n5 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n5 > 0 {
+		if r7, fresh8 := d.ptr(); !fresh8 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r7, n5)
+		} else {
+			d.fits(n5)
+			x9 := make([]ast.Trivia, n5)
+			d.refs = append(d.refs, x9)
+			for i6 := range x9 {
+				d.structTrivia(&x9[i6])
+			}
+			x.EndTrivia = x9
 		}
 	}
 	x.Line = int(d.int())
@@ -3629,6 +4381,12 @@ func (d *Decoder) structGroupSubtests(x *ast.GroupSubtests) {
 	x.EndLine = int(d.int())
 	x.EndCol = int(d.int())
 }
+
+// StructGroupSubtests writes *x in place.
+func (e *Encoder) StructGroupSubtests(x *ast.GroupSubtests) { e.structGroupSubtests(x) }
+
+// StructGroupSubtests reads into *x what Encoder.StructGroupSubtests wrote.
+func (d *Decoder) StructGroupSubtests(x *ast.GroupSubtests) { d.structGroupSubtests(x) }
 
 func (e *Encoder) structGroupedExpr(x *ast.GroupedExpr) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -3648,6 +4406,12 @@ func (d *Decoder) structGroupedExpr(x *ast.GroupedExpr) {
 	x.Col = int(d.int())
 }
 
+// StructGroupedExpr writes *x in place.
+func (e *Encoder) StructGroupedExpr(x *ast.GroupedExpr) { e.structGroupedExpr(x) }
+
+// StructGroupedExpr reads into *x what Encoder.StructGroupedExpr wrote.
+func (d *Decoder) StructGroupedExpr(x *ast.GroupedExpr) { d.structGroupedExpr(x) }
+
 func (e *Encoder) structIdent(x *ast.Ident) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -3664,6 +4428,12 @@ func (d *Decoder) structIdent(x *ast.Ident) {
 	x.Col = int(d.int())
 }
 
+// StructIdent writes *x in place.
+func (e *Encoder) StructIdent(x *ast.Ident) { e.structIdent(x) }
+
+// StructIdent reads into *x what Encoder.StructIdent wrote.
+func (d *Decoder) StructIdent(x *ast.Ident) { d.structIdent(x) }
+
 func (e *Encoder) structIdentPattern(x *ast.IdentPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -3679,6 +4449,12 @@ func (d *Decoder) structIdentPattern(x *ast.IdentPattern) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructIdentPattern writes *x in place.
+func (e *Encoder) StructIdentPattern(x *ast.IdentPattern) { e.structIdentPattern(x) }
+
+// StructIdentPattern reads into *x what Encoder.StructIdentPattern wrote.
+func (d *Decoder) StructIdentPattern(x *ast.IdentPattern) { d.structIdentPattern(x) }
 
 func (e *Encoder) structIf(x *ast.If) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -3721,31 +4497,47 @@ func (d *Decoder) structIf(x *ast.If) {
 	x.Col = int(d.int())
 }
 
+// StructIf writes *x in place.
+func (e *Encoder) StructIf(x *ast.If) { e.structIf(x) }
+
+// StructIf reads into *x what Encoder.StructIf wrote.
+func (d *Decoder) StructIf(x *ast.If) { d.structIf(x) }
+
 func (e *Encoder) structImplBlock(x *ast.ImplBlock) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.value(x.Interface)
 	e.value(x.Receiver)
 	e.len(x.Generics == nil, len(x.Generics))
-	for i6 := range x.Generics {
-		e.structTypeParam(&x.Generics[i6])
+	if len(x.Generics) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Generics)), len(x.Generics), "[]ast.TypeParam") {
+		for i9 := range x.Generics {
+			e.structTypeParam(&x.Generics[i9])
+		}
 	}
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i9 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i9])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i15 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i15])
+		}
 	}
 	e.len(x.Items == nil, len(x.Items))
-	for i12 := range x.Items {
-		e.value(x.Items[i12])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i21 := range x.Items {
+			e.value(x.Items[i21])
+		}
 	}
 	e.bool(x.InferInterfaceMethods)
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i16 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i16])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i28 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i28])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -3759,43 +4551,88 @@ func (e *Encoder) structImplBlock(x *ast.ImplBlock) {
 func (d *Decoder) structImplBlock(x *ast.ImplBlock) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
-		}
-	}
-	if v4 := d.value(); v4 != nil {
-		x.Interface = v4.(ast.TypeExpr)
-	}
-	if v5 := d.value(); v5 != nil {
-		x.Receiver = v5.(ast.TypeExpr)
-	}
-	if n7 := d.len(); n7 >= 0 {
-		x.Generics = make([]ast.TypeParam, n7)
-		for i8 := range x.Generics {
-			d.structTypeParam(&x.Generics[i8])
-		}
-	}
-	if n10 := d.len(); n10 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n10)
-		for i11 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i11])
-		}
-	}
-	if n13 := d.len(); n13 >= 0 {
-		x.Items = make([]ast.Node, n13)
-		for i14 := range x.Items {
-			if v15 := d.value(); v15 != nil {
-				x.Items[i14] = v15.(ast.Node)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
 			}
+			x.AttachedTests = x6
+		}
+	}
+	if v7 := d.value(); v7 != nil {
+		x.Interface = v7.(ast.TypeExpr)
+	}
+	if v8 := d.value(); v8 != nil {
+		x.Receiver = v8.(ast.TypeExpr)
+	}
+	if n10 := d.sharedLen(); n10 == 0 {
+		x.Generics = []ast.TypeParam{}
+	} else if n10 > 0 {
+		if r12, fresh13 := d.ptr(); !fresh13 {
+			x.Generics = d.sharedSliceSast_TypeParam(r12, n10)
+		} else {
+			d.fits(n10)
+			x14 := make([]ast.TypeParam, n10)
+			d.refs = append(d.refs, x14)
+			for i11 := range x14 {
+				d.structTypeParam(&x14[i11])
+			}
+			x.Generics = x14
+		}
+	}
+	if n16 := d.sharedLen(); n16 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n16 > 0 {
+		if r18, fresh19 := d.ptr(); !fresh19 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r18, n16)
+		} else {
+			d.fits(n16)
+			x20 := make([]ast.WhereConstraint, n16)
+			d.refs = append(d.refs, x20)
+			for i17 := range x20 {
+				d.structWhereConstraint(&x20[i17])
+			}
+			x.WhereClauses = x20
+		}
+	}
+	if n22 := d.sharedLen(); n22 == 0 {
+		x.Items = []ast.Node{}
+	} else if n22 > 0 {
+		if r24, fresh25 := d.ptr(); !fresh25 {
+			x.Items = d.sharedSliceSast_Node(r24, n22)
+		} else {
+			d.fits(n22)
+			x26 := make([]ast.Node, n22)
+			d.refs = append(d.refs, x26)
+			for i23 := range x26 {
+				if v27 := d.value(); v27 != nil {
+					x26[i23] = v27.(ast.Node)
+				}
+			}
+			x.Items = x26
 		}
 	}
 	x.InferInterfaceMethods = bool(d.bool())
-	if n17 := d.len(); n17 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n17)
-		for i18 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i18])
+	if n29 := d.sharedLen(); n29 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n29 > 0 {
+		if r31, fresh32 := d.ptr(); !fresh32 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r31, n29)
+		} else {
+			d.fits(n29)
+			x33 := make([]ast.Trivia, n29)
+			d.refs = append(d.refs, x33)
+			for i30 := range x33 {
+				d.structTrivia(&x33[i30])
+			}
+			x.EndTrivia = x33
 		}
 	}
 	x.Doc = string(d.string())
@@ -3807,27 +4644,41 @@ func (d *Decoder) structImplBlock(x *ast.ImplBlock) {
 	x.SynthOriginCol = int(d.int())
 }
 
+// StructImplBlock writes *x in place.
+func (e *Encoder) StructImplBlock(x *ast.ImplBlock) { e.structImplBlock(x) }
+
+// StructImplBlock reads into *x what Encoder.StructImplBlock wrote.
+func (d *Decoder) StructImplBlock(x *ast.ImplBlock) { d.structImplBlock(x) }
+
 func (e *Encoder) structImplConformance(x *ast.ImplConformance) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.value(x.Interface)
 	e.len(x.Interfaces == nil, len(x.Interfaces))
-	for i5 := range x.Interfaces {
-		e.value(x.Interfaces[i5])
+	if len(x.Interfaces) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Interfaces)), len(x.Interfaces), "[]ast.TypeExpr") {
+		for i8 := range x.Interfaces {
+			e.value(x.Interfaces[i8])
+		}
 	}
 	e.value(x.Receiver)
 	e.value(x.Options)
 	e.len(x.Generics == nil, len(x.Generics))
-	for i11 := range x.Generics {
-		e.structTypeParam(&x.Generics[i11])
+	if len(x.Generics) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Generics)), len(x.Generics), "[]ast.TypeParam") {
+		for i17 := range x.Generics {
+			e.structTypeParam(&x.Generics[i17])
+		}
 	}
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i14 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i14])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i23 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i23])
+		}
 	}
 	e.bool(x.Derive)
 	e.string(string(x.Doc))
@@ -3838,39 +4689,75 @@ func (e *Encoder) structImplConformance(x *ast.ImplConformance) {
 func (d *Decoder) structImplConformance(x *ast.ImplConformance) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
-		}
-	}
-	if v4 := d.value(); v4 != nil {
-		x.Interface = v4.(ast.TypeExpr)
-	}
-	if n6 := d.len(); n6 >= 0 {
-		x.Interfaces = make([]ast.TypeExpr, n6)
-		for i7 := range x.Interfaces {
-			if v8 := d.value(); v8 != nil {
-				x.Interfaces[i7] = v8.(ast.TypeExpr)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
 			}
+			x.AttachedTests = x6
 		}
 	}
-	if v9 := d.value(); v9 != nil {
-		x.Receiver = v9.(ast.TypeExpr)
+	if v7 := d.value(); v7 != nil {
+		x.Interface = v7.(ast.TypeExpr)
 	}
-	if v10 := d.value(); v10 != nil {
-		x.Options = v10.(ast.Node)
-	}
-	if n12 := d.len(); n12 >= 0 {
-		x.Generics = make([]ast.TypeParam, n12)
-		for i13 := range x.Generics {
-			d.structTypeParam(&x.Generics[i13])
+	if n9 := d.sharedLen(); n9 == 0 {
+		x.Interfaces = []ast.TypeExpr{}
+	} else if n9 > 0 {
+		if r11, fresh12 := d.ptr(); !fresh12 {
+			x.Interfaces = d.sharedSliceSast_TypeExpr(r11, n9)
+		} else {
+			d.fits(n9)
+			x13 := make([]ast.TypeExpr, n9)
+			d.refs = append(d.refs, x13)
+			for i10 := range x13 {
+				if v14 := d.value(); v14 != nil {
+					x13[i10] = v14.(ast.TypeExpr)
+				}
+			}
+			x.Interfaces = x13
 		}
 	}
-	if n15 := d.len(); n15 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n15)
-		for i16 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i16])
+	if v15 := d.value(); v15 != nil {
+		x.Receiver = v15.(ast.TypeExpr)
+	}
+	if v16 := d.value(); v16 != nil {
+		x.Options = v16.(ast.Node)
+	}
+	if n18 := d.sharedLen(); n18 == 0 {
+		x.Generics = []ast.TypeParam{}
+	} else if n18 > 0 {
+		if r20, fresh21 := d.ptr(); !fresh21 {
+			x.Generics = d.sharedSliceSast_TypeParam(r20, n18)
+		} else {
+			d.fits(n18)
+			x22 := make([]ast.TypeParam, n18)
+			d.refs = append(d.refs, x22)
+			for i19 := range x22 {
+				d.structTypeParam(&x22[i19])
+			}
+			x.Generics = x22
+		}
+	}
+	if n24 := d.sharedLen(); n24 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n24 > 0 {
+		if r26, fresh27 := d.ptr(); !fresh27 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r26, n24)
+		} else {
+			d.fits(n24)
+			x28 := make([]ast.WhereConstraint, n24)
+			d.refs = append(d.refs, x28)
+			for i25 := range x28 {
+				d.structWhereConstraint(&x28[i25])
+			}
+			x.WhereClauses = x28
 		}
 	}
 	x.Derive = bool(d.bool())
@@ -3879,21 +4766,31 @@ func (d *Decoder) structImplConformance(x *ast.ImplConformance) {
 	x.Col = int(d.int())
 }
 
+// StructImplConformance writes *x in place.
+func (e *Encoder) StructImplConformance(x *ast.ImplConformance) { e.structImplConformance(x) }
+
+// StructImplConformance reads into *x what Encoder.StructImplConformance wrote.
+func (d *Decoder) StructImplConformance(x *ast.ImplConformance) { d.structImplConformance(x) }
+
 func (e *Encoder) structImportBlock(x *ast.ImportBlock) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Entries == nil, len(x.Entries))
-	for i1 := range x.Entries {
-		if x.Entries[i1] == nil {
-			e.uint(0)
-		} else if e.ptr(x.Entries[i1]) {
-			e.structImportStmt(x.Entries[i1])
+	if len(x.Entries) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Entries)), len(x.Entries), "[]*ast.ImportStmt") {
+		for i1 := range x.Entries {
+			if x.Entries[i1] == nil {
+				e.uint(0)
+			} else if e.ptr(x.Entries[i1]) {
+				e.structImportStmt(x.Entries[i1])
+			}
 		}
 	}
 	e.bool(x.Pub)
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i7 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i7])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i10 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i10])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -3902,45 +4799,75 @@ func (e *Encoder) structImportBlock(x *ast.ImportBlock) {
 func (d *Decoder) structImportBlock(x *ast.ImportBlock) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Entries = make([]*ast.ImportStmt, n2)
-		for i3 := range x.Entries {
-			if p4, fresh5 := d.ptr(); p4 != nil {
-				x.Entries[i3] = p4.(*ast.ImportStmt)
-			} else if fresh5 {
-				x6 := new(ast.ImportStmt)
-				d.refs = append(d.refs, x6)
-				d.structImportStmt(x6)
-				x.Entries[i3] = x6
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Entries = []*ast.ImportStmt{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Entries = d.sharedSliceSPast_ImportStmt(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]*ast.ImportStmt, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if p7, fresh8 := d.ptr(); p7 != nil {
+					x6[i3] = p7.(*ast.ImportStmt)
+				} else if fresh8 {
+					x9 := new(ast.ImportStmt)
+					d.refs = append(d.refs, x9)
+					d.structImportStmt(x9)
+					x6[i3] = x9
+				}
 			}
+			x.Entries = x6
 		}
 	}
 	x.Pub = bool(d.bool())
-	if n8 := d.len(); n8 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n8)
-		for i9 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i9])
+	if n11 := d.sharedLen(); n11 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n11 > 0 {
+		if r13, fresh14 := d.ptr(); !fresh14 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r13, n11)
+		} else {
+			d.fits(n11)
+			x15 := make([]ast.Trivia, n11)
+			d.refs = append(d.refs, x15)
+			for i12 := range x15 {
+				d.structTrivia(&x15[i12])
+			}
+			x.EndTrivia = x15
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructImportBlock writes *x in place.
+func (e *Encoder) StructImportBlock(x *ast.ImportBlock) { e.structImportBlock(x) }
+
+// StructImportBlock reads into *x what Encoder.StructImportBlock wrote.
+func (d *Decoder) StructImportBlock(x *ast.ImportBlock) { d.structImportBlock(x) }
+
 func (e *Encoder) structImportStmt(x *ast.ImportStmt) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.ModulePath == nil, len(x.ModulePath))
-	for i1 := range x.ModulePath {
-		e.value(x.ModulePath[i1])
+	if len(x.ModulePath) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.ModulePath)), len(x.ModulePath), "[]ast.Node") {
+		for i1 := range x.ModulePath {
+			e.value(x.ModulePath[i1])
+		}
 	}
 	e.int(int64(x.FileSegments))
 	e.len(x.Names == nil, len(x.Names))
-	for i5 := range x.Names {
-		e.value(x.Names[i5])
+	if len(x.Names) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Names)), len(x.Names), "[]ast.Node") {
+		for i8 := range x.Names {
+			e.value(x.Names[i8])
+		}
 	}
 	e.len(x.Aliases == nil, len(x.Aliases))
-	for i9 := range x.Aliases {
-		e.value(x.Aliases[i9])
+	if len(x.Aliases) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Aliases)), len(x.Aliases), "[]ast.Node") {
+		for i15 := range x.Aliases {
+			e.value(x.Aliases[i15])
+		}
 	}
 	e.value(x.ModuleAlias)
 	e.bool(x.Pub)
@@ -3949,8 +4876,10 @@ func (e *Encoder) structImportStmt(x *ast.ImportStmt) {
 	e.int(int64(x.SelfLine))
 	e.int(int64(x.SelfCol))
 	e.len(x.PathUses == nil, len(x.PathUses))
-	for i14 := range x.PathUses {
-		e.string(string(x.PathUses[i14]))
+	if len(x.PathUses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.PathUses)), len(x.PathUses), "[]string") {
+		for i23 := range x.PathUses {
+			e.string(string(x.PathUses[i23]))
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -3959,48 +4888,90 @@ func (e *Encoder) structImportStmt(x *ast.ImportStmt) {
 func (d *Decoder) structImportStmt(x *ast.ImportStmt) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.ModulePath = make([]ast.Node, n2)
-		for i3 := range x.ModulePath {
-			if v4 := d.value(); v4 != nil {
-				x.ModulePath[i3] = v4.(ast.Node)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.ModulePath = []ast.Node{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.ModulePath = d.sharedSliceSast_Node(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Node, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.Node)
+				}
 			}
+			x.ModulePath = x6
 		}
 	}
 	x.FileSegments = int(d.int())
-	if n6 := d.len(); n6 >= 0 {
-		x.Names = make([]ast.Node, n6)
-		for i7 := range x.Names {
-			if v8 := d.value(); v8 != nil {
-				x.Names[i7] = v8.(ast.Node)
+	if n9 := d.sharedLen(); n9 == 0 {
+		x.Names = []ast.Node{}
+	} else if n9 > 0 {
+		if r11, fresh12 := d.ptr(); !fresh12 {
+			x.Names = d.sharedSliceSast_Node(r11, n9)
+		} else {
+			d.fits(n9)
+			x13 := make([]ast.Node, n9)
+			d.refs = append(d.refs, x13)
+			for i10 := range x13 {
+				if v14 := d.value(); v14 != nil {
+					x13[i10] = v14.(ast.Node)
+				}
 			}
+			x.Names = x13
 		}
 	}
-	if n10 := d.len(); n10 >= 0 {
-		x.Aliases = make([]ast.Node, n10)
-		for i11 := range x.Aliases {
-			if v12 := d.value(); v12 != nil {
-				x.Aliases[i11] = v12.(ast.Node)
+	if n16 := d.sharedLen(); n16 == 0 {
+		x.Aliases = []ast.Node{}
+	} else if n16 > 0 {
+		if r18, fresh19 := d.ptr(); !fresh19 {
+			x.Aliases = d.sharedSliceSast_Node(r18, n16)
+		} else {
+			d.fits(n16)
+			x20 := make([]ast.Node, n16)
+			d.refs = append(d.refs, x20)
+			for i17 := range x20 {
+				if v21 := d.value(); v21 != nil {
+					x20[i17] = v21.(ast.Node)
+				}
 			}
+			x.Aliases = x20
 		}
 	}
-	if v13 := d.value(); v13 != nil {
-		x.ModuleAlias = v13.(ast.Node)
+	if v22 := d.value(); v22 != nil {
+		x.ModuleAlias = v22.(ast.Node)
 	}
 	x.Pub = bool(d.bool())
 	x.Braced = bool(d.bool())
 	x.IncludeParent = bool(d.bool())
 	x.SelfLine = int(d.int())
 	x.SelfCol = int(d.int())
-	if n15 := d.len(); n15 >= 0 {
-		x.PathUses = make([]string, n15)
-		for i16 := range x.PathUses {
-			x.PathUses[i16] = string(d.string())
+	if n24 := d.sharedLen(); n24 == 0 {
+		x.PathUses = []string{}
+	} else if n24 > 0 {
+		if r26, fresh27 := d.ptr(); !fresh27 {
+			x.PathUses = d.sharedSliceSstring(r26, n24)
+		} else {
+			d.fits(n24)
+			x28 := make([]string, n24)
+			d.refs = append(d.refs, x28)
+			for i25 := range x28 {
+				x28[i25] = string(d.string())
+			}
+			x.PathUses = x28
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructImportStmt writes *x in place.
+func (e *Encoder) StructImportStmt(x *ast.ImportStmt) { e.structImportStmt(x) }
+
+// StructImportStmt reads into *x what Encoder.StructImportStmt wrote.
+func (d *Decoder) StructImportStmt(x *ast.ImportStmt) { d.structImportStmt(x) }
 
 func (e *Encoder) structIntLit(x *ast.IntLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4022,30 +4993,46 @@ func (d *Decoder) structIntLit(x *ast.IntLit) {
 	x.Col = int(d.int())
 }
 
+// StructIntLit writes *x in place.
+func (e *Encoder) StructIntLit(x *ast.IntLit) { e.structIntLit(x) }
+
+// StructIntLit reads into *x what Encoder.StructIntLit wrote.
+func (d *Decoder) StructIntLit(x *ast.IntLit) { d.structIntLit(x) }
+
 func (e *Encoder) structInterfaceDef(x *ast.InterfaceDef) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.string(string(x.Name))
 	e.bool(x.Public)
 	e.len(x.TypeParams == nil, len(x.TypeParams))
-	for i4 := range x.TypeParams {
-		e.structTypeParam(&x.TypeParams[i4])
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i7 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i7])
+		}
 	}
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i7 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i7])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i13 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i13])
+		}
 	}
 	e.len(x.Methods == nil, len(x.Methods))
-	for i10 := range x.Methods {
-		e.structInterfaceMethod(&x.Methods[i10])
+	if len(x.Methods) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Methods)), len(x.Methods), "[]ast.InterfaceMethod") {
+		for i19 := range x.Methods {
+			e.structInterfaceMethod(&x.Methods[i19])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i13 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i13])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i25 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i25])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -4057,36 +5044,81 @@ func (e *Encoder) structInterfaceDef(x *ast.InterfaceDef) {
 func (d *Decoder) structInterfaceDef(x *ast.InterfaceDef) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
+			}
+			x.AttachedTests = x6
 		}
 	}
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
-	if n5 := d.len(); n5 >= 0 {
-		x.TypeParams = make([]ast.TypeParam, n5)
-		for i6 := range x.TypeParams {
-			d.structTypeParam(&x.TypeParams[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.TypeParam, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structTypeParam(&x12[i9])
+			}
+			x.TypeParams = x12
 		}
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n8)
-		for i9 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i9])
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.WhereConstraint, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structWhereConstraint(&x18[i15])
+			}
+			x.WhereClauses = x18
 		}
 	}
-	if n11 := d.len(); n11 >= 0 {
-		x.Methods = make([]ast.InterfaceMethod, n11)
-		for i12 := range x.Methods {
-			d.structInterfaceMethod(&x.Methods[i12])
+	if n20 := d.sharedLen(); n20 == 0 {
+		x.Methods = []ast.InterfaceMethod{}
+	} else if n20 > 0 {
+		if r22, fresh23 := d.ptr(); !fresh23 {
+			x.Methods = d.sharedSliceSast_InterfaceMethod(r22, n20)
+		} else {
+			d.fits(n20)
+			x24 := make([]ast.InterfaceMethod, n20)
+			d.refs = append(d.refs, x24)
+			for i21 := range x24 {
+				d.structInterfaceMethod(&x24[i21])
+			}
+			x.Methods = x24
 		}
 	}
-	if n14 := d.len(); n14 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n14)
-		for i15 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i15])
+	if n26 := d.sharedLen(); n26 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n26 > 0 {
+		if r28, fresh29 := d.ptr(); !fresh29 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r28, n26)
+		} else {
+			d.fits(n26)
+			x30 := make([]ast.Trivia, n26)
+			d.refs = append(d.refs, x30)
+			for i27 := range x30 {
+				d.structTrivia(&x30[i27])
+			}
+			x.EndTrivia = x30
 		}
 	}
 	x.Doc = string(d.string())
@@ -4096,21 +5128,33 @@ func (d *Decoder) structInterfaceDef(x *ast.InterfaceDef) {
 	x.EndCol = int(d.int())
 }
 
+// StructInterfaceDef writes *x in place.
+func (e *Encoder) StructInterfaceDef(x *ast.InterfaceDef) { e.structInterfaceDef(x) }
+
+// StructInterfaceDef reads into *x what Encoder.StructInterfaceDef wrote.
+func (d *Decoder) StructInterfaceDef(x *ast.InterfaceDef) { d.structInterfaceDef(x) }
+
 func (e *Encoder) structInterfaceMethod(x *ast.InterfaceMethod) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Name))
 	e.len(x.TypeParams == nil, len(x.TypeParams))
-	for i1 := range x.TypeParams {
-		e.structTypeParam(&x.TypeParams[i1])
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i1 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i1])
+		}
 	}
 	e.len(x.Params == nil, len(x.Params))
-	for i4 := range x.Params {
-		e.structParam(&x.Params[i4])
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.Param") {
+		for i7 := range x.Params {
+			e.structParam(&x.Params[i7])
+		}
 	}
 	e.len(x.ParamsEndTrivia == nil, len(x.ParamsEndTrivia))
-	for i7 := range x.ParamsEndTrivia {
-		e.structTrivia(&x.ParamsEndTrivia[i7])
+	if len(x.ParamsEndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.ParamsEndTrivia)), len(x.ParamsEndTrivia), "[]ast.Trivia") {
+		for i13 := range x.ParamsEndTrivia {
+			e.structTrivia(&x.ParamsEndTrivia[i13])
+		}
 	}
 	e.value(x.ReturnTypeExpr)
 	e.value(x.Body)
@@ -4118,8 +5162,10 @@ func (e *Encoder) structInterfaceMethod(x *ast.InterfaceMethod) {
 	e.bool(x.Extern)
 	e.string(string(x.Doc))
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i12 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i12])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i21 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i21])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -4129,42 +5175,84 @@ func (d *Decoder) structInterfaceMethod(x *ast.InterfaceMethod) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Name = string(d.string())
-	if n2 := d.len(); n2 >= 0 {
-		x.TypeParams = make([]ast.TypeParam, n2)
-		for i3 := range x.TypeParams {
-			d.structTypeParam(&x.TypeParams[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.TypeParam, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structTypeParam(&x6[i3])
+			}
+			x.TypeParams = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.Params = make([]ast.Param, n5)
-		for i6 := range x.Params {
-			d.structParam(&x.Params[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.Params = []ast.Param{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.Params = d.sharedSliceSast_Param(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Param, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structParam(&x12[i9])
+			}
+			x.Params = x12
 		}
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.ParamsEndTrivia = make([]ast.Trivia, n8)
-		for i9 := range x.ParamsEndTrivia {
-			d.structTrivia(&x.ParamsEndTrivia[i9])
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.ParamsEndTrivia = []ast.Trivia{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.ParamsEndTrivia = d.sharedSliceSast_Trivia(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.Trivia, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structTrivia(&x18[i15])
+			}
+			x.ParamsEndTrivia = x18
 		}
 	}
-	if v10 := d.value(); v10 != nil {
-		x.ReturnTypeExpr = v10.(ast.TypeExpr)
+	if v19 := d.value(); v19 != nil {
+		x.ReturnTypeExpr = v19.(ast.TypeExpr)
 	}
-	if v11 := d.value(); v11 != nil {
-		x.Body = v11.(ast.Node)
+	if v20 := d.value(); v20 != nil {
+		x.Body = v20.(ast.Node)
 	}
 	x.Open = bool(d.bool())
 	x.Extern = bool(d.bool())
 	x.Doc = string(d.string())
-	if n13 := d.len(); n13 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n13)
-		for i14 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i14])
+	if n22 := d.sharedLen(); n22 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n22 > 0 {
+		if r24, fresh25 := d.ptr(); !fresh25 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r24, n22)
+		} else {
+			d.fits(n22)
+			x26 := make([]ast.WhereConstraint, n22)
+			d.refs = append(d.refs, x26)
+			for i23 := range x26 {
+				d.structWhereConstraint(&x26[i23])
+			}
+			x.WhereClauses = x26
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructInterfaceMethod writes *x in place.
+func (e *Encoder) StructInterfaceMethod(x *ast.InterfaceMethod) { e.structInterfaceMethod(x) }
+
+// StructInterfaceMethod reads into *x what Encoder.StructInterfaceMethod wrote.
+func (d *Decoder) StructInterfaceMethod(x *ast.InterfaceMethod) { d.structInterfaceMethod(x) }
 
 func (e *Encoder) structIs(x *ast.Is) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4188,6 +5276,12 @@ func (d *Decoder) structIs(x *ast.Is) {
 	x.Col = int(d.int())
 }
 
+// StructIs writes *x in place.
+func (e *Encoder) StructIs(x *ast.Is) { e.structIs(x) }
+
+// StructIs reads into *x what Encoder.StructIs wrote.
+func (d *Decoder) StructIs(x *ast.Is) { d.structIs(x) }
+
 func (e *Encoder) structKeywordDecl(x *ast.KeywordDecl) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -4196,12 +5290,16 @@ func (e *Encoder) structKeywordDecl(x *ast.KeywordDecl) {
 	e.bool(x.Public)
 	e.bool(x.HasParams)
 	e.len(x.Params == nil, len(x.Params))
-	for i1 := range x.Params {
-		e.structParam(&x.Params[i1])
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.Param") {
+		for i1 := range x.Params {
+			e.structParam(&x.Params[i1])
+		}
 	}
 	e.len(x.ParamsEndTrivia == nil, len(x.ParamsEndTrivia))
-	for i4 := range x.ParamsEndTrivia {
-		e.structTrivia(&x.ParamsEndTrivia[i4])
+	if len(x.ParamsEndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.ParamsEndTrivia)), len(x.ParamsEndTrivia), "[]ast.Trivia") {
+		for i7 := range x.ParamsEndTrivia {
+			e.structTrivia(&x.ParamsEndTrivia[i7])
+		}
 	}
 	e.value(x.ReturnTypeExpr)
 	if x.Body == nil {
@@ -4225,28 +5323,46 @@ func (d *Decoder) structKeywordDecl(x *ast.KeywordDecl) {
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
 	x.HasParams = bool(d.bool())
-	if n2 := d.len(); n2 >= 0 {
-		x.Params = make([]ast.Param, n2)
-		for i3 := range x.Params {
-			d.structParam(&x.Params[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Params = []ast.Param{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Params = d.sharedSliceSast_Param(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Param, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structParam(&x6[i3])
+			}
+			x.Params = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.ParamsEndTrivia = make([]ast.Trivia, n5)
-		for i6 := range x.ParamsEndTrivia {
-			d.structTrivia(&x.ParamsEndTrivia[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.ParamsEndTrivia = []ast.Trivia{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.ParamsEndTrivia = d.sharedSliceSast_Trivia(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Trivia, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structTrivia(&x12[i9])
+			}
+			x.ParamsEndTrivia = x12
 		}
 	}
-	if v7 := d.value(); v7 != nil {
-		x.ReturnTypeExpr = v7.(ast.TypeExpr)
+	if v13 := d.value(); v13 != nil {
+		x.ReturnTypeExpr = v13.(ast.TypeExpr)
 	}
-	if p8, fresh9 := d.ptr(); p8 != nil {
-		x.Body = p8.(*ast.StringLit)
-	} else if fresh9 {
-		x10 := new(ast.StringLit)
-		d.refs = append(d.refs, x10)
-		d.structStringLit(x10)
-		x.Body = x10
+	if p14, fresh15 := d.ptr(); p14 != nil {
+		x.Body = p14.(*ast.StringLit)
+	} else if fresh15 {
+		x16 := new(ast.StringLit)
+		d.refs = append(d.refs, x16)
+		d.structStringLit(x16)
+		x.Body = x16
 	}
 	x.BodyTag = string(d.string())
 	x.BodyCol = int(d.int())
@@ -4257,12 +5373,20 @@ func (d *Decoder) structKeywordDecl(x *ast.KeywordDecl) {
 	x.NameCol = int(d.int())
 }
 
+// StructKeywordDecl writes *x in place.
+func (e *Encoder) StructKeywordDecl(x *ast.KeywordDecl) { e.structKeywordDecl(x) }
+
+// StructKeywordDecl reads into *x what Encoder.StructKeywordDecl wrote.
+func (d *Decoder) StructKeywordDecl(x *ast.KeywordDecl) { d.structKeywordDecl(x) }
+
 func (e *Encoder) structLambda(x *ast.Lambda) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Params == nil, len(x.Params))
-	for i1 := range x.Params {
-		e.structParam(&x.Params[i1])
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.Param") {
+		for i1 := range x.Params {
+			e.structParam(&x.Params[i1])
+		}
 	}
 	if x.Body == nil {
 		e.uint(0)
@@ -4280,19 +5404,28 @@ func (e *Encoder) structLambda(x *ast.Lambda) {
 func (d *Decoder) structLambda(x *ast.Lambda) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Params = make([]ast.Param, n2)
-		for i3 := range x.Params {
-			d.structParam(&x.Params[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Params = []ast.Param{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Params = d.sharedSliceSast_Param(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Param, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structParam(&x6[i3])
+			}
+			x.Params = x6
 		}
 	}
-	if p4, fresh5 := d.ptr(); p4 != nil {
-		x.Body = p4.(*ast.Block)
-	} else if fresh5 {
-		x6 := new(ast.Block)
-		d.refs = append(d.refs, x6)
-		d.structBlock(x6)
-		x.Body = x6
+	if p7, fresh8 := d.ptr(); p7 != nil {
+		x.Body = p7.(*ast.Block)
+	} else if fresh8 {
+		x9 := new(ast.Block)
+		d.refs = append(d.refs, x9)
+		d.structBlock(x9)
+		x.Body = x9
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
@@ -4302,17 +5435,27 @@ func (d *Decoder) structLambda(x *ast.Lambda) {
 	x.ArrowCol = int(d.int())
 }
 
+// StructLambda writes *x in place.
+func (e *Encoder) StructLambda(x *ast.Lambda) { e.structLambda(x) }
+
+// StructLambda reads into *x what Encoder.StructLambda wrote.
+func (d *Decoder) StructLambda(x *ast.Lambda) { d.structLambda(x) }
+
 func (e *Encoder) structListLit(x *ast.ListLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Items == nil, len(x.Items))
-	for i2 := range x.Items {
-		e.value(x.Items[i2])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i2 := range x.Items {
+			e.value(x.Items[i2])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i6 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i6])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i9 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i9])
+		}
 	}
 	e.string(string(x.EmbedsEnum))
 	e.int(int64(x.Line))
@@ -4325,18 +5468,36 @@ func (d *Decoder) structListLit(x *ast.ListLit) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Items = make([]ast.Node, n3)
-		for i4 := range x.Items {
-			if v5 := d.value(); v5 != nil {
-				x.Items[i4] = v5.(ast.Node)
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Items = []ast.Node{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Items = d.sharedSliceSast_Node(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.Node, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				if v8 := d.value(); v8 != nil {
+					x7[i4] = v8.(ast.Node)
+				}
 			}
+			x.Items = x7
 		}
 	}
-	if n7 := d.len(); n7 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n7)
-		for i8 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i8])
+	if n10 := d.sharedLen(); n10 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n10 > 0 {
+		if r12, fresh13 := d.ptr(); !fresh13 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r12, n10)
+		} else {
+			d.fits(n10)
+			x14 := make([]ast.Trivia, n10)
+			d.refs = append(d.refs, x14)
+			for i11 := range x14 {
+				d.structTrivia(&x14[i11])
+			}
+			x.EndTrivia = x14
 		}
 	}
 	x.EmbedsEnum = string(d.string())
@@ -4344,23 +5505,35 @@ func (d *Decoder) structListLit(x *ast.ListLit) {
 	x.Col = int(d.int())
 }
 
+// StructListLit writes *x in place.
+func (e *Encoder) StructListLit(x *ast.ListLit) { e.structListLit(x) }
+
+// StructListLit reads into *x what Encoder.StructListLit wrote.
+func (d *Decoder) StructListLit(x *ast.ListLit) { d.structListLit(x) }
+
 func (e *Encoder) structListPattern(x *ast.ListPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Heads == nil, len(x.Heads))
-	for i2 := range x.Heads {
-		e.value(x.Heads[i2])
+	if len(x.Heads) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Heads)), len(x.Heads), "[]ast.Node") {
+		for i2 := range x.Heads {
+			e.value(x.Heads[i2])
+		}
 	}
 	e.value(x.TailSpread)
 	e.len(x.Tails == nil, len(x.Tails))
-	for i7 := range x.Tails {
-		e.value(x.Tails[i7])
+	if len(x.Tails) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Tails)), len(x.Tails), "[]ast.Node") {
+		for i10 := range x.Tails {
+			e.value(x.Tails[i10])
+		}
 	}
 	e.bool(x.BareRest)
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i11 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i11])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i17 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i17])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -4372,46 +5545,83 @@ func (d *Decoder) structListPattern(x *ast.ListPattern) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Heads = make([]ast.Node, n3)
-		for i4 := range x.Heads {
-			if v5 := d.value(); v5 != nil {
-				x.Heads[i4] = v5.(ast.Node)
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Heads = []ast.Node{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Heads = d.sharedSliceSast_Node(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.Node, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				if v8 := d.value(); v8 != nil {
+					x7[i4] = v8.(ast.Node)
+				}
 			}
+			x.Heads = x7
 		}
 	}
-	if v6 := d.value(); v6 != nil {
-		x.TailSpread = v6.(ast.Node)
+	if v9 := d.value(); v9 != nil {
+		x.TailSpread = v9.(ast.Node)
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.Tails = make([]ast.Node, n8)
-		for i9 := range x.Tails {
-			if v10 := d.value(); v10 != nil {
-				x.Tails[i9] = v10.(ast.Node)
+	if n11 := d.sharedLen(); n11 == 0 {
+		x.Tails = []ast.Node{}
+	} else if n11 > 0 {
+		if r13, fresh14 := d.ptr(); !fresh14 {
+			x.Tails = d.sharedSliceSast_Node(r13, n11)
+		} else {
+			d.fits(n11)
+			x15 := make([]ast.Node, n11)
+			d.refs = append(d.refs, x15)
+			for i12 := range x15 {
+				if v16 := d.value(); v16 != nil {
+					x15[i12] = v16.(ast.Node)
+				}
 			}
+			x.Tails = x15
 		}
 	}
 	x.BareRest = bool(d.bool())
-	if n12 := d.len(); n12 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n12)
-		for i13 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i13])
+	if n18 := d.sharedLen(); n18 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n18 > 0 {
+		if r20, fresh21 := d.ptr(); !fresh21 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r20, n18)
+		} else {
+			d.fits(n18)
+			x22 := make([]ast.Trivia, n18)
+			d.refs = append(d.refs, x22)
+			for i19 := range x22 {
+				d.structTrivia(&x22[i19])
+			}
+			x.EndTrivia = x22
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructListPattern writes *x in place.
+func (e *Encoder) StructListPattern(x *ast.ListPattern) { e.structListPattern(x) }
+
+// StructListPattern reads into *x what Encoder.StructListPattern wrote.
+func (d *Decoder) StructListPattern(x *ast.ListPattern) { d.structListPattern(x) }
+
 func (e *Encoder) structListSpreadLit(x *ast.ListSpreadLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Items == nil, len(x.Items))
-	for i1 := range x.Items {
-		e.value(x.Items[i1])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i1 := range x.Items {
+			e.value(x.Items[i1])
+		}
 	}
 	e.len(x.Spreads == nil, len(x.Spreads))
-	for i5 := range x.Spreads {
-		e.structSpread(&x.Spreads[i5])
+	if len(x.Spreads) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Spreads)), len(x.Spreads), "[]ast.Spread") {
+		for i8 := range x.Spreads {
+			e.structSpread(&x.Spreads[i8])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -4420,39 +5630,69 @@ func (e *Encoder) structListSpreadLit(x *ast.ListSpreadLit) {
 func (d *Decoder) structListSpreadLit(x *ast.ListSpreadLit) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Items = make([]ast.Node, n2)
-		for i3 := range x.Items {
-			if v4 := d.value(); v4 != nil {
-				x.Items[i3] = v4.(ast.Node)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Items = []ast.Node{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Items = d.sharedSliceSast_Node(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Node, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.Node)
+				}
 			}
+			x.Items = x6
 		}
 	}
-	if n6 := d.len(); n6 >= 0 {
-		x.Spreads = make([]ast.Spread, n6)
-		for i7 := range x.Spreads {
-			d.structSpread(&x.Spreads[i7])
+	if n9 := d.sharedLen(); n9 == 0 {
+		x.Spreads = []ast.Spread{}
+	} else if n9 > 0 {
+		if r11, fresh12 := d.ptr(); !fresh12 {
+			x.Spreads = d.sharedSliceSast_Spread(r11, n9)
+		} else {
+			d.fits(n9)
+			x13 := make([]ast.Spread, n9)
+			d.refs = append(d.refs, x13)
+			for i10 := range x13 {
+				d.structSpread(&x13[i10])
+			}
+			x.Spreads = x13
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructListSpreadLit writes *x in place.
+func (e *Encoder) StructListSpreadLit(x *ast.ListSpreadLit) { e.structListSpreadLit(x) }
+
+// StructListSpreadLit reads into *x what Encoder.StructListSpreadLit wrote.
+func (d *Decoder) StructListSpreadLit(x *ast.ListSpreadLit) { d.structListSpreadLit(x) }
+
 func (e *Encoder) structMapLit(x *ast.MapLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Entries == nil, len(x.Entries))
-	for i2 := range x.Entries {
-		e.structMapEntry(&x.Entries[i2])
+	if len(x.Entries) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Entries)), len(x.Entries), "[]ast.MapEntry") {
+		for i2 := range x.Entries {
+			e.structMapEntry(&x.Entries[i2])
+		}
 	}
 	e.len(x.Spreads == nil, len(x.Spreads))
-	for i5 := range x.Spreads {
-		e.structSpread(&x.Spreads[i5])
+	if len(x.Spreads) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Spreads)), len(x.Spreads), "[]ast.Spread") {
+		for i8 := range x.Spreads {
+			e.structSpread(&x.Spreads[i8])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i8 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i8])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i14 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i14])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -4464,39 +5704,76 @@ func (d *Decoder) structMapLit(x *ast.MapLit) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Entries = make([]ast.MapEntry, n3)
-		for i4 := range x.Entries {
-			d.structMapEntry(&x.Entries[i4])
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Entries = []ast.MapEntry{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Entries = d.sharedSliceSast_MapEntry(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.MapEntry, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				d.structMapEntry(&x7[i4])
+			}
+			x.Entries = x7
 		}
 	}
-	if n6 := d.len(); n6 >= 0 {
-		x.Spreads = make([]ast.Spread, n6)
-		for i7 := range x.Spreads {
-			d.structSpread(&x.Spreads[i7])
+	if n9 := d.sharedLen(); n9 == 0 {
+		x.Spreads = []ast.Spread{}
+	} else if n9 > 0 {
+		if r11, fresh12 := d.ptr(); !fresh12 {
+			x.Spreads = d.sharedSliceSast_Spread(r11, n9)
+		} else {
+			d.fits(n9)
+			x13 := make([]ast.Spread, n9)
+			d.refs = append(d.refs, x13)
+			for i10 := range x13 {
+				d.structSpread(&x13[i10])
+			}
+			x.Spreads = x13
 		}
 	}
-	if n9 := d.len(); n9 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n9)
-		for i10 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i10])
+	if n15 := d.sharedLen(); n15 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n15 > 0 {
+		if r17, fresh18 := d.ptr(); !fresh18 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r17, n15)
+		} else {
+			d.fits(n15)
+			x19 := make([]ast.Trivia, n15)
+			d.refs = append(d.refs, x19)
+			for i16 := range x19 {
+				d.structTrivia(&x19[i16])
+			}
+			x.EndTrivia = x19
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructMapLit writes *x in place.
+func (e *Encoder) StructMapLit(x *ast.MapLit) { e.structMapLit(x) }
+
+// StructMapLit reads into *x what Encoder.StructMapLit wrote.
+func (d *Decoder) StructMapLit(x *ast.MapLit) { d.structMapLit(x) }
+
 func (e *Encoder) structMapPattern(x *ast.MapPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Entries == nil, len(x.Entries))
-	for i2 := range x.Entries {
-		e.structMapPatternEntry(&x.Entries[i2])
+	if len(x.Entries) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Entries)), len(x.Entries), "[]ast.MapPatternEntry") {
+		for i2 := range x.Entries {
+			e.structMapPatternEntry(&x.Entries[i2])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i5 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i5])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i8 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i8])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -4508,21 +5785,45 @@ func (d *Decoder) structMapPattern(x *ast.MapPattern) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Entries = make([]ast.MapPatternEntry, n3)
-		for i4 := range x.Entries {
-			d.structMapPatternEntry(&x.Entries[i4])
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Entries = []ast.MapPatternEntry{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Entries = d.sharedSliceSast_MapPatternEntry(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.MapPatternEntry, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				d.structMapPatternEntry(&x7[i4])
+			}
+			x.Entries = x7
 		}
 	}
-	if n6 := d.len(); n6 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n6)
-		for i7 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i7])
+	if n9 := d.sharedLen(); n9 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n9 > 0 {
+		if r11, fresh12 := d.ptr(); !fresh12 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r11, n9)
+		} else {
+			d.fits(n9)
+			x13 := make([]ast.Trivia, n9)
+			d.refs = append(d.refs, x13)
+			for i10 := range x13 {
+				d.structTrivia(&x13[i10])
+			}
+			x.EndTrivia = x13
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructMapPattern writes *x in place.
+func (e *Encoder) StructMapPattern(x *ast.MapPattern) { e.structMapPattern(x) }
+
+// StructMapPattern reads into *x what Encoder.StructMapPattern wrote.
+func (d *Decoder) StructMapPattern(x *ast.MapPattern) { d.structMapPattern(x) }
 
 func (e *Encoder) structNamedArg(x *ast.NamedArg) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4544,12 +5845,20 @@ func (d *Decoder) structNamedArg(x *ast.NamedArg) {
 	x.Col = int(d.int())
 }
 
+// StructNamedArg writes *x in place.
+func (e *Encoder) StructNamedArg(x *ast.NamedArg) { e.structNamedArg(x) }
+
+// StructNamedArg reads into *x what Encoder.StructNamedArg wrote.
+func (d *Decoder) StructNamedArg(x *ast.NamedArg) { d.structNamedArg(x) }
+
 func (e *Encoder) structOnceBinding(x *ast.OnceBinding) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.string(string(x.Name))
 	e.bool(x.Public)
@@ -4564,19 +5873,28 @@ func (e *Encoder) structOnceBinding(x *ast.OnceBinding) {
 func (d *Decoder) structOnceBinding(x *ast.OnceBinding) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
+			}
+			x.AttachedTests = x6
 		}
 	}
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
-	if v4 := d.value(); v4 != nil {
-		x.TypeAnnotation = v4.(ast.TypeExpr)
+	if v7 := d.value(); v7 != nil {
+		x.TypeAnnotation = v7.(ast.TypeExpr)
 	}
-	if v5 := d.value(); v5 != nil {
-		x.Value = v5.(ast.Node)
+	if v8 := d.value(); v8 != nil {
+		x.Value = v8.(ast.Node)
 	}
 	x.Doc = string(d.string())
 	x.Line = int(d.int())
@@ -4584,12 +5902,20 @@ func (d *Decoder) structOnceBinding(x *ast.OnceBinding) {
 	x.Expansion = d.expansion()
 }
 
+// StructOnceBinding writes *x in place.
+func (e *Encoder) StructOnceBinding(x *ast.OnceBinding) { e.structOnceBinding(x) }
+
+// StructOnceBinding reads into *x what Encoder.StructOnceBinding wrote.
+func (d *Decoder) StructOnceBinding(x *ast.OnceBinding) { d.structOnceBinding(x) }
+
 func (e *Encoder) structOrPattern(x *ast.OrPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Alternatives == nil, len(x.Alternatives))
-	for i1 := range x.Alternatives {
-		e.value(x.Alternatives[i1])
+	if len(x.Alternatives) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Alternatives)), len(x.Alternatives), "[]ast.Node") {
+		for i1 := range x.Alternatives {
+			e.value(x.Alternatives[i1])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -4598,17 +5924,32 @@ func (e *Encoder) structOrPattern(x *ast.OrPattern) {
 func (d *Decoder) structOrPattern(x *ast.OrPattern) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Alternatives = make([]ast.Node, n2)
-		for i3 := range x.Alternatives {
-			if v4 := d.value(); v4 != nil {
-				x.Alternatives[i3] = v4.(ast.Node)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Alternatives = []ast.Node{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Alternatives = d.sharedSliceSast_Node(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Node, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.Node)
+				}
 			}
+			x.Alternatives = x6
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructOrPattern writes *x in place.
+func (e *Encoder) StructOrPattern(x *ast.OrPattern) { e.structOrPattern(x) }
+
+// StructOrPattern reads into *x what Encoder.StructOrPattern wrote.
+func (d *Decoder) StructOrPattern(x *ast.OrPattern) { d.structOrPattern(x) }
 
 func (e *Encoder) structPatternBinding(x *ast.PatternBinding) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4645,6 +5986,12 @@ func (d *Decoder) structPatternBinding(x *ast.PatternBinding) {
 	x.Col = int(d.int())
 }
 
+// StructPatternBinding writes *x in place.
+func (e *Encoder) StructPatternBinding(x *ast.PatternBinding) { e.structPatternBinding(x) }
+
+// StructPatternBinding reads into *x what Encoder.StructPatternBinding wrote.
+func (d *Decoder) StructPatternBinding(x *ast.PatternBinding) { d.structPatternBinding(x) }
+
 func (e *Encoder) structPatternDestructure(x *ast.PatternDestructure) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -4671,6 +6018,12 @@ func (d *Decoder) structPatternDestructure(x *ast.PatternDestructure) {
 	x.Col = int(d.int())
 }
 
+// StructPatternDestructure writes *x in place.
+func (e *Encoder) StructPatternDestructure(x *ast.PatternDestructure) { e.structPatternDestructure(x) }
+
+// StructPatternDestructure reads into *x what Encoder.StructPatternDestructure wrote.
+func (d *Decoder) StructPatternDestructure(x *ast.PatternDestructure) { d.structPatternDestructure(x) }
+
 func (e *Encoder) structPlaceholder(x *ast.Placeholder) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -4686,6 +6039,12 @@ func (d *Decoder) structPlaceholder(x *ast.Placeholder) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructPlaceholder writes *x in place.
+func (e *Encoder) StructPlaceholder(x *ast.Placeholder) { e.structPlaceholder(x) }
+
+// StructPlaceholder reads into *x what Encoder.StructPlaceholder wrote.
+func (d *Decoder) StructPlaceholder(x *ast.Placeholder) { d.structPlaceholder(x) }
 
 func (e *Encoder) structPlaceholderParam(x *ast.PlaceholderParam) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4703,6 +6062,12 @@ func (d *Decoder) structPlaceholderParam(x *ast.PlaceholderParam) {
 	x.Col = int(d.int())
 }
 
+// StructPlaceholderParam writes *x in place.
+func (e *Encoder) StructPlaceholderParam(x *ast.PlaceholderParam) { e.structPlaceholderParam(x) }
+
+// StructPlaceholderParam reads into *x what Encoder.StructPlaceholderParam wrote.
+func (d *Decoder) StructPlaceholderParam(x *ast.PlaceholderParam) { d.structPlaceholderParam(x) }
+
 func (e *Encoder) structQualifiedType(x *ast.QualifiedType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -4710,8 +6075,10 @@ func (e *Encoder) structQualifiedType(x *ast.QualifiedType) {
 	e.int(int64(x.ModuleLine))
 	e.int(int64(x.ModuleCol))
 	e.len(x.Path == nil, len(x.Path))
-	for i1 := range x.Path {
-		e.structPathSegment(&x.Path[i1])
+	if len(x.Path) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Path)), len(x.Path), "[]ast.PathSegment") {
+		for i1 := range x.Path {
+			e.structPathSegment(&x.Path[i1])
+		}
 	}
 	e.value(x.Member)
 }
@@ -4722,16 +6089,31 @@ func (d *Decoder) structQualifiedType(x *ast.QualifiedType) {
 	x.Module = string(d.string())
 	x.ModuleLine = int(d.int())
 	x.ModuleCol = int(d.int())
-	if n2 := d.len(); n2 >= 0 {
-		x.Path = make([]ast.PathSegment, n2)
-		for i3 := range x.Path {
-			d.structPathSegment(&x.Path[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Path = []ast.PathSegment{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Path = d.sharedSliceSast_PathSegment(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.PathSegment, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structPathSegment(&x6[i3])
+			}
+			x.Path = x6
 		}
 	}
-	if v4 := d.value(); v4 != nil {
-		x.Member = v4.(ast.TypeExpr)
+	if v7 := d.value(); v7 != nil {
+		x.Member = v7.(ast.TypeExpr)
 	}
 }
+
+// StructQualifiedType writes *x in place.
+func (e *Encoder) StructQualifiedType(x *ast.QualifiedType) { e.structQualifiedType(x) }
+
+// StructQualifiedType reads into *x what Encoder.StructQualifiedType wrote.
+func (d *Decoder) StructQualifiedType(x *ast.QualifiedType) { d.structQualifiedType(x) }
 
 func (e *Encoder) structRangeLit(x *ast.RangeLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4757,6 +6139,12 @@ func (d *Decoder) structRangeLit(x *ast.RangeLit) {
 	x.Col = int(d.int())
 }
 
+// StructRangeLit writes *x in place.
+func (e *Encoder) StructRangeLit(x *ast.RangeLit) { e.structRangeLit(x) }
+
+// StructRangeLit reads into *x what Encoder.StructRangeLit wrote.
+func (d *Decoder) StructRangeLit(x *ast.RangeLit) { d.structRangeLit(x) }
+
 func (e *Encoder) structReturn(x *ast.Return) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -4775,6 +6163,12 @@ func (d *Decoder) structReturn(x *ast.Return) {
 	x.Col = int(d.int())
 }
 
+// StructReturn writes *x in place.
+func (e *Encoder) StructReturn(x *ast.Return) { e.structReturn(x) }
+
+// StructReturn reads into *x what Encoder.StructReturn wrote.
+func (d *Decoder) StructReturn(x *ast.Return) { d.structReturn(x) }
+
 func (e *Encoder) structSelfExpr(x *ast.SelfExpr) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -4788,6 +6182,12 @@ func (d *Decoder) structSelfExpr(x *ast.SelfExpr) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructSelfExpr writes *x in place.
+func (e *Encoder) StructSelfExpr(x *ast.SelfExpr) { e.structSelfExpr(x) }
+
+// StructSelfExpr reads into *x what Encoder.StructSelfExpr wrote.
+func (d *Decoder) StructSelfExpr(x *ast.SelfExpr) { d.structSelfExpr(x) }
 
 func (e *Encoder) structSelfType(x *ast.SelfType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4803,21 +6203,33 @@ func (d *Decoder) structSelfType(x *ast.SelfType) {
 	x.Col = int(d.int())
 }
 
+// StructSelfType writes *x in place.
+func (e *Encoder) StructSelfType(x *ast.SelfType) { e.structSelfType(x) }
+
+// StructSelfType reads into *x what Encoder.StructSelfType wrote.
+func (d *Decoder) StructSelfType(x *ast.SelfType) { d.structSelfType(x) }
+
 func (e *Encoder) structSetLit(x *ast.SetLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Items == nil, len(x.Items))
-	for i2 := range x.Items {
-		e.value(x.Items[i2])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i2 := range x.Items {
+			e.value(x.Items[i2])
+		}
 	}
 	e.len(x.Spreads == nil, len(x.Spreads))
-	for i6 := range x.Spreads {
-		e.structSpread(&x.Spreads[i6])
+	if len(x.Spreads) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Spreads)), len(x.Spreads), "[]ast.Spread") {
+		for i9 := range x.Spreads {
+			e.structSpread(&x.Spreads[i9])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i9 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i9])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i15 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i15])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -4829,45 +6241,82 @@ func (d *Decoder) structSetLit(x *ast.SetLit) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Items = make([]ast.Node, n3)
-		for i4 := range x.Items {
-			if v5 := d.value(); v5 != nil {
-				x.Items[i4] = v5.(ast.Node)
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Items = []ast.Node{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Items = d.sharedSliceSast_Node(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.Node, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				if v8 := d.value(); v8 != nil {
+					x7[i4] = v8.(ast.Node)
+				}
 			}
+			x.Items = x7
 		}
 	}
-	if n7 := d.len(); n7 >= 0 {
-		x.Spreads = make([]ast.Spread, n7)
-		for i8 := range x.Spreads {
-			d.structSpread(&x.Spreads[i8])
+	if n10 := d.sharedLen(); n10 == 0 {
+		x.Spreads = []ast.Spread{}
+	} else if n10 > 0 {
+		if r12, fresh13 := d.ptr(); !fresh13 {
+			x.Spreads = d.sharedSliceSast_Spread(r12, n10)
+		} else {
+			d.fits(n10)
+			x14 := make([]ast.Spread, n10)
+			d.refs = append(d.refs, x14)
+			for i11 := range x14 {
+				d.structSpread(&x14[i11])
+			}
+			x.Spreads = x14
 		}
 	}
-	if n10 := d.len(); n10 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n10)
-		for i11 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i11])
+	if n16 := d.sharedLen(); n16 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n16 > 0 {
+		if r18, fresh19 := d.ptr(); !fresh19 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r18, n16)
+		} else {
+			d.fits(n16)
+			x20 := make([]ast.Trivia, n16)
+			d.refs = append(d.refs, x20)
+			for i17 := range x20 {
+				d.structTrivia(&x20[i17])
+			}
+			x.EndTrivia = x20
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructSetLit writes *x in place.
+func (e *Encoder) StructSetLit(x *ast.SetLit) { e.structSetLit(x) }
+
+// StructSetLit reads into *x what Encoder.StructSetLit wrote.
+func (d *Decoder) StructSetLit(x *ast.SetLit) { d.structSetLit(x) }
+
 func (e *Encoder) structSetPattern(x *ast.SetPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Elems == nil, len(x.Elems))
-	for i2 := range x.Elems {
-		e.value(x.Elems[i2])
+	if len(x.Elems) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Elems)), len(x.Elems), "[]ast.Node") {
+		for i2 := range x.Elems {
+			e.value(x.Elems[i2])
+		}
 	}
 	e.bool(x.Spread)
 	e.value(x.Rest)
 	e.int(int64(x.SpreadLine))
 	e.int(int64(x.SpreadCol))
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i7 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i7])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i10 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i10])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -4879,29 +6328,53 @@ func (d *Decoder) structSetPattern(x *ast.SetPattern) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Elems = make([]ast.Node, n3)
-		for i4 := range x.Elems {
-			if v5 := d.value(); v5 != nil {
-				x.Elems[i4] = v5.(ast.Node)
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Elems = []ast.Node{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Elems = d.sharedSliceSast_Node(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.Node, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				if v8 := d.value(); v8 != nil {
+					x7[i4] = v8.(ast.Node)
+				}
 			}
+			x.Elems = x7
 		}
 	}
 	x.Spread = bool(d.bool())
-	if v6 := d.value(); v6 != nil {
-		x.Rest = v6.(ast.Node)
+	if v9 := d.value(); v9 != nil {
+		x.Rest = v9.(ast.Node)
 	}
 	x.SpreadLine = int(d.int())
 	x.SpreadCol = int(d.int())
-	if n8 := d.len(); n8 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n8)
-		for i9 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i9])
+	if n11 := d.sharedLen(); n11 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n11 > 0 {
+		if r13, fresh14 := d.ptr(); !fresh14 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r13, n11)
+		} else {
+			d.fits(n11)
+			x15 := make([]ast.Trivia, n11)
+			d.refs = append(d.refs, x15)
+			for i12 := range x15 {
+				d.structTrivia(&x15[i12])
+			}
+			x.EndTrivia = x15
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructSetPattern writes *x in place.
+func (e *Encoder) StructSetPattern(x *ast.SetPattern) { e.structSetPattern(x) }
+
+// StructSetPattern reads into *x what Encoder.StructSetPattern wrote.
+func (d *Decoder) StructSetPattern(x *ast.SetPattern) { d.structSetPattern(x) }
 
 func (e *Encoder) structSimpleType(x *ast.SimpleType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4919,6 +6392,12 @@ func (d *Decoder) structSimpleType(x *ast.SimpleType) {
 	x.Col = int(d.int())
 }
 
+// StructSimpleType writes *x in place.
+func (e *Encoder) StructSimpleType(x *ast.SimpleType) { e.structSimpleType(x) }
+
+// StructSimpleType reads into *x what Encoder.StructSimpleType wrote.
+func (d *Decoder) StructSimpleType(x *ast.SimpleType) { d.structSimpleType(x) }
+
 func (e *Encoder) structSpanCarrier(x *ast.SpanCarrier) {
 	e.structSpan(&x.Span)
 }
@@ -4926,6 +6405,12 @@ func (e *Encoder) structSpanCarrier(x *ast.SpanCarrier) {
 func (d *Decoder) structSpanCarrier(x *ast.SpanCarrier) {
 	d.structSpan(&x.Span)
 }
+
+// StructSpanCarrier writes *x in place.
+func (e *Encoder) StructSpanCarrier(x *ast.SpanCarrier) { e.structSpanCarrier(x) }
+
+// StructSpanCarrier reads into *x what Encoder.StructSpanCarrier wrote.
+func (d *Decoder) StructSpanCarrier(x *ast.SpanCarrier) { d.structSpanCarrier(x) }
 
 func (e *Encoder) structStringExpr(x *ast.StringExpr) {
 	e.value(x.Expr)
@@ -4937,12 +6422,20 @@ func (d *Decoder) structStringExpr(x *ast.StringExpr) {
 	}
 }
 
+// StructStringExpr writes *x in place.
+func (e *Encoder) StructStringExpr(x *ast.StringExpr) { e.structStringExpr(x) }
+
+// StructStringExpr reads into *x what Encoder.StructStringExpr wrote.
+func (d *Decoder) StructStringExpr(x *ast.StringExpr) { d.structStringExpr(x) }
+
 func (e *Encoder) structStringInterp(x *ast.StringInterp) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Parts == nil, len(x.Parts))
-	for i1 := range x.Parts {
-		e.value(x.Parts[i1])
+	if len(x.Parts) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Parts)), len(x.Parts), "[]ast.StringPart") {
+		for i1 := range x.Parts {
+			e.value(x.Parts[i1])
+		}
 	}
 	e.bool(x.Triple)
 	e.int(int64(x.Line))
@@ -4954,12 +6447,21 @@ func (e *Encoder) structStringInterp(x *ast.StringInterp) {
 func (d *Decoder) structStringInterp(x *ast.StringInterp) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Parts = make([]ast.StringPart, n2)
-		for i3 := range x.Parts {
-			if v4 := d.value(); v4 != nil {
-				x.Parts[i3] = v4.(ast.StringPart)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Parts = []ast.StringPart{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Parts = d.sharedSliceSast_StringPart(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.StringPart, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.StringPart)
+				}
 			}
+			x.Parts = x6
 		}
 	}
 	x.Triple = bool(d.bool())
@@ -4968,6 +6470,12 @@ func (d *Decoder) structStringInterp(x *ast.StringInterp) {
 	x.EndLine = int(d.int())
 	x.EndCol = int(d.int())
 }
+
+// StructStringInterp writes *x in place.
+func (e *Encoder) StructStringInterp(x *ast.StringInterp) { e.structStringInterp(x) }
+
+// StructStringInterp reads into *x what Encoder.StructStringInterp wrote.
+func (d *Decoder) StructStringInterp(x *ast.StringInterp) { d.structStringInterp(x) }
 
 func (e *Encoder) structStringLit(x *ast.StringLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -4993,6 +6501,12 @@ func (d *Decoder) structStringLit(x *ast.StringLit) {
 	x.EndCol = int(d.int())
 }
 
+// StructStringLit writes *x in place.
+func (e *Encoder) StructStringLit(x *ast.StringLit) { e.structStringLit(x) }
+
+// StructStringLit reads into *x what Encoder.StructStringLit wrote.
+func (d *Decoder) StructStringLit(x *ast.StringLit) { d.structStringLit(x) }
+
 func (e *Encoder) structStringText(x *ast.StringText) {
 	e.string(string(x.Value))
 }
@@ -5001,39 +6515,59 @@ func (d *Decoder) structStringText(x *ast.StringText) {
 	x.Value = string(d.string())
 }
 
+// StructStringText writes *x in place.
+func (e *Encoder) StructStringText(x *ast.StringText) { e.structStringText(x) }
+
+// StructStringText reads into *x what Encoder.StructStringText wrote.
+func (d *Decoder) StructStringText(x *ast.StringText) { d.structStringText(x) }
+
 func (e *Encoder) structStructDef(x *ast.StructDef) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.len(x.Decorators == nil, len(x.Decorators))
-	for i4 := range x.Decorators {
-		e.structDecorator(&x.Decorators[i4])
+	if len(x.Decorators) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Decorators)), len(x.Decorators), "[]ast.Decorator") {
+		for i7 := range x.Decorators {
+			e.structDecorator(&x.Decorators[i7])
+		}
 	}
 	e.string(string(x.Name))
 	e.bool(x.Public)
 	e.bool(x.Opaque)
 	e.len(x.TypeParams == nil, len(x.TypeParams))
-	for i7 := range x.TypeParams {
-		e.structTypeParam(&x.TypeParams[i7])
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i13 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i13])
+		}
 	}
 	e.len(x.WhereClauses == nil, len(x.WhereClauses))
-	for i10 := range x.WhereClauses {
-		e.structWhereConstraint(&x.WhereClauses[i10])
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i19 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i19])
+		}
 	}
 	e.len(x.Fields == nil, len(x.Fields))
-	for i13 := range x.Fields {
-		e.structStructField(&x.Fields[i13])
+	if len(x.Fields) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Fields)), len(x.Fields), "[]ast.StructField") {
+		for i25 := range x.Fields {
+			e.structStructField(&x.Fields[i25])
+		}
 	}
 	e.len(x.Items == nil, len(x.Items))
-	for i16 := range x.Items {
-		e.value(x.Items[i16])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i31 := range x.Items {
+			e.value(x.Items[i31])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i20 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i20])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i38 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i38])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -5043,51 +6577,114 @@ func (e *Encoder) structStructDef(x *ast.StructDef) {
 func (d *Decoder) structStructDef(x *ast.StructDef) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
+			}
+			x.AttachedTests = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.Decorators = make([]ast.Decorator, n5)
-		for i6 := range x.Decorators {
-			d.structDecorator(&x.Decorators[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.Decorators = []ast.Decorator{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.Decorators = d.sharedSliceSast_Decorator(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Decorator, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structDecorator(&x12[i9])
+			}
+			x.Decorators = x12
 		}
 	}
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
 	x.Opaque = bool(d.bool())
-	if n8 := d.len(); n8 >= 0 {
-		x.TypeParams = make([]ast.TypeParam, n8)
-		for i9 := range x.TypeParams {
-			d.structTypeParam(&x.TypeParams[i9])
-		}
-	}
-	if n11 := d.len(); n11 >= 0 {
-		x.WhereClauses = make([]ast.WhereConstraint, n11)
-		for i12 := range x.WhereClauses {
-			d.structWhereConstraint(&x.WhereClauses[i12])
-		}
-	}
-	if n14 := d.len(); n14 >= 0 {
-		x.Fields = make([]ast.StructField, n14)
-		for i15 := range x.Fields {
-			d.structStructField(&x.Fields[i15])
-		}
-	}
-	if n17 := d.len(); n17 >= 0 {
-		x.Items = make([]ast.Node, n17)
-		for i18 := range x.Items {
-			if v19 := d.value(); v19 != nil {
-				x.Items[i18] = v19.(ast.Node)
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.TypeParam, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structTypeParam(&x18[i15])
 			}
+			x.TypeParams = x18
 		}
 	}
-	if n21 := d.len(); n21 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n21)
-		for i22 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i22])
+	if n20 := d.sharedLen(); n20 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n20 > 0 {
+		if r22, fresh23 := d.ptr(); !fresh23 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r22, n20)
+		} else {
+			d.fits(n20)
+			x24 := make([]ast.WhereConstraint, n20)
+			d.refs = append(d.refs, x24)
+			for i21 := range x24 {
+				d.structWhereConstraint(&x24[i21])
+			}
+			x.WhereClauses = x24
+		}
+	}
+	if n26 := d.sharedLen(); n26 == 0 {
+		x.Fields = []ast.StructField{}
+	} else if n26 > 0 {
+		if r28, fresh29 := d.ptr(); !fresh29 {
+			x.Fields = d.sharedSliceSast_StructField(r28, n26)
+		} else {
+			d.fits(n26)
+			x30 := make([]ast.StructField, n26)
+			d.refs = append(d.refs, x30)
+			for i27 := range x30 {
+				d.structStructField(&x30[i27])
+			}
+			x.Fields = x30
+		}
+	}
+	if n32 := d.sharedLen(); n32 == 0 {
+		x.Items = []ast.Node{}
+	} else if n32 > 0 {
+		if r34, fresh35 := d.ptr(); !fresh35 {
+			x.Items = d.sharedSliceSast_Node(r34, n32)
+		} else {
+			d.fits(n32)
+			x36 := make([]ast.Node, n32)
+			d.refs = append(d.refs, x36)
+			for i33 := range x36 {
+				if v37 := d.value(); v37 != nil {
+					x36[i33] = v37.(ast.Node)
+				}
+			}
+			x.Items = x36
+		}
+	}
+	if n39 := d.sharedLen(); n39 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n39 > 0 {
+		if r41, fresh42 := d.ptr(); !fresh42 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r41, n39)
+		} else {
+			d.fits(n39)
+			x43 := make([]ast.Trivia, n39)
+			d.refs = append(d.refs, x43)
+			for i40 := range x43 {
+				d.structTrivia(&x43[i40])
+			}
+			x.EndTrivia = x43
 		}
 	}
 	x.Doc = string(d.string())
@@ -5095,12 +6692,20 @@ func (d *Decoder) structStructDef(x *ast.StructDef) {
 	x.Col = int(d.int())
 }
 
+// StructStructDef writes *x in place.
+func (e *Encoder) StructStructDef(x *ast.StructDef) { e.structStructDef(x) }
+
+// StructStructDef reads into *x what Encoder.StructStructDef wrote.
+func (d *Decoder) StructStructDef(x *ast.StructDef) { d.structStructDef(x) }
+
 func (e *Encoder) structStructDestructure(x *ast.StructDestructure) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Fields == nil, len(x.Fields))
-	for i1 := range x.Fields {
-		e.structStructPatternField(&x.Fields[i1])
+	if len(x.Fields) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Fields)), len(x.Fields), "[]ast.StructPatternField") {
+		for i1 := range x.Fields {
+			e.structStructPatternField(&x.Fields[i1])
+		}
 	}
 	e.value(x.Value)
 	e.int(int64(x.Line))
@@ -5110,18 +6715,33 @@ func (e *Encoder) structStructDestructure(x *ast.StructDestructure) {
 func (d *Decoder) structStructDestructure(x *ast.StructDestructure) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Fields = make([]ast.StructPatternField, n2)
-		for i3 := range x.Fields {
-			d.structStructPatternField(&x.Fields[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Fields = []ast.StructPatternField{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Fields = d.sharedSliceSast_StructPatternField(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.StructPatternField, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structStructPatternField(&x6[i3])
+			}
+			x.Fields = x6
 		}
 	}
-	if v4 := d.value(); v4 != nil {
-		x.Value = v4.(ast.Node)
+	if v7 := d.value(); v7 != nil {
+		x.Value = v7.(ast.Node)
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructStructDestructure writes *x in place.
+func (e *Encoder) StructStructDestructure(x *ast.StructDestructure) { e.structStructDestructure(x) }
+
+// StructStructDestructure reads into *x what Encoder.StructStructDestructure wrote.
+func (d *Decoder) StructStructDestructure(x *ast.StructDestructure) { d.structStructDestructure(x) }
 
 func (e *Encoder) structStructField(x *ast.StructField) {
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -5129,12 +6749,16 @@ func (e *Encoder) structStructField(x *ast.StructField) {
 	e.value(x.TypeAnnotation)
 	e.value(x.Default)
 	e.len(x.LeadingComments == nil, len(x.LeadingComments))
-	for i3 := range x.LeadingComments {
-		e.structTrivia(&x.LeadingComments[i3])
+	if len(x.LeadingComments) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.LeadingComments)), len(x.LeadingComments), "[]ast.Trivia") {
+		for i3 := range x.LeadingComments {
+			e.structTrivia(&x.LeadingComments[i3])
+		}
 	}
 	e.len(x.Trailing == nil, len(x.Trailing))
-	for i6 := range x.Trailing {
-		e.structTrivia(&x.Trailing[i6])
+	if len(x.Trailing) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Trailing)), len(x.Trailing), "[]ast.Trivia") {
+		for i9 := range x.Trailing {
+			e.structTrivia(&x.Trailing[i9])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -5150,16 +6774,34 @@ func (d *Decoder) structStructField(x *ast.StructField) {
 	if v2 := d.value(); v2 != nil {
 		x.Default = v2.(ast.Node)
 	}
-	if n4 := d.len(); n4 >= 0 {
-		x.LeadingComments = make([]ast.Trivia, n4)
-		for i5 := range x.LeadingComments {
-			d.structTrivia(&x.LeadingComments[i5])
+	if n4 := d.sharedLen(); n4 == 0 {
+		x.LeadingComments = []ast.Trivia{}
+	} else if n4 > 0 {
+		if r6, fresh7 := d.ptr(); !fresh7 {
+			x.LeadingComments = d.sharedSliceSast_Trivia(r6, n4)
+		} else {
+			d.fits(n4)
+			x8 := make([]ast.Trivia, n4)
+			d.refs = append(d.refs, x8)
+			for i5 := range x8 {
+				d.structTrivia(&x8[i5])
+			}
+			x.LeadingComments = x8
 		}
 	}
-	if n7 := d.len(); n7 >= 0 {
-		x.Trailing = make([]ast.Trivia, n7)
-		for i8 := range x.Trailing {
-			d.structTrivia(&x.Trailing[i8])
+	if n10 := d.sharedLen(); n10 == 0 {
+		x.Trailing = []ast.Trivia{}
+	} else if n10 > 0 {
+		if r12, fresh13 := d.ptr(); !fresh13 {
+			x.Trailing = d.sharedSliceSast_Trivia(r12, n10)
+		} else {
+			d.fits(n10)
+			x14 := make([]ast.Trivia, n10)
+			d.refs = append(d.refs, x14)
+			for i11 := range x14 {
+				d.structTrivia(&x14[i11])
+			}
+			x.Trailing = x14
 		}
 	}
 	x.Doc = string(d.string())
@@ -5167,24 +6809,36 @@ func (d *Decoder) structStructField(x *ast.StructField) {
 	x.Col = int(d.int())
 }
 
+// StructStructField writes *x in place.
+func (e *Encoder) StructStructField(x *ast.StructField) { e.structStructField(x) }
+
+// StructStructField reads into *x what Encoder.StructStructField wrote.
+func (d *Decoder) StructStructField(x *ast.StructField) { d.structStructField(x) }
+
 func (e *Encoder) structStructLit(x *ast.StructLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Fields == nil, len(x.Fields))
-	for i2 := range x.Fields {
-		e.structStructFieldVal(&x.Fields[i2])
+	if len(x.Fields) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Fields)), len(x.Fields), "[]ast.StructFieldVal") {
+		for i2 := range x.Fields {
+			e.structStructFieldVal(&x.Fields[i2])
+		}
 	}
 	e.len(x.Positional == nil, len(x.Positional))
-	for i5 := range x.Positional {
-		e.structStructFieldVal(&x.Positional[i5])
+	if len(x.Positional) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Positional)), len(x.Positional), "[]ast.StructFieldVal") {
+		for i8 := range x.Positional {
+			e.structStructFieldVal(&x.Positional[i8])
+		}
 	}
 	e.value(x.Spread)
 	e.int(int64(x.SpreadLine))
 	e.int(int64(x.SpreadCol))
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i9 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i9])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i15 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i15])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -5196,40 +6850,75 @@ func (d *Decoder) structStructLit(x *ast.StructLit) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Fields = make([]ast.StructFieldVal, n3)
-		for i4 := range x.Fields {
-			d.structStructFieldVal(&x.Fields[i4])
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Fields = []ast.StructFieldVal{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Fields = d.sharedSliceSast_StructFieldVal(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.StructFieldVal, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				d.structStructFieldVal(&x7[i4])
+			}
+			x.Fields = x7
 		}
 	}
-	if n6 := d.len(); n6 >= 0 {
-		x.Positional = make([]ast.StructFieldVal, n6)
-		for i7 := range x.Positional {
-			d.structStructFieldVal(&x.Positional[i7])
+	if n9 := d.sharedLen(); n9 == 0 {
+		x.Positional = []ast.StructFieldVal{}
+	} else if n9 > 0 {
+		if r11, fresh12 := d.ptr(); !fresh12 {
+			x.Positional = d.sharedSliceSast_StructFieldVal(r11, n9)
+		} else {
+			d.fits(n9)
+			x13 := make([]ast.StructFieldVal, n9)
+			d.refs = append(d.refs, x13)
+			for i10 := range x13 {
+				d.structStructFieldVal(&x13[i10])
+			}
+			x.Positional = x13
 		}
 	}
-	if v8 := d.value(); v8 != nil {
-		x.Spread = v8.(ast.Node)
+	if v14 := d.value(); v14 != nil {
+		x.Spread = v14.(ast.Node)
 	}
 	x.SpreadLine = int(d.int())
 	x.SpreadCol = int(d.int())
-	if n10 := d.len(); n10 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n10)
-		for i11 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i11])
+	if n16 := d.sharedLen(); n16 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n16 > 0 {
+		if r18, fresh19 := d.ptr(); !fresh19 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r18, n16)
+		} else {
+			d.fits(n16)
+			x20 := make([]ast.Trivia, n16)
+			d.refs = append(d.refs, x20)
+			for i17 := range x20 {
+				d.structTrivia(&x20[i17])
+			}
+			x.EndTrivia = x20
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructStructLit writes *x in place.
+func (e *Encoder) StructStructLit(x *ast.StructLit) { e.structStructLit(x) }
+
+// StructStructLit reads into *x what Encoder.StructStructLit wrote.
+func (d *Decoder) StructStructLit(x *ast.StructLit) { d.structStructLit(x) }
+
 func (e *Encoder) structStructPattern(x *ast.StructPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Fields == nil, len(x.Fields))
-	for i2 := range x.Fields {
-		e.structStructPatternField(&x.Fields[i2])
+	if len(x.Fields) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Fields)), len(x.Fields), "[]ast.StructPatternField") {
+		for i2 := range x.Fields {
+			e.structStructPatternField(&x.Fields[i2])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -5241,15 +6930,30 @@ func (d *Decoder) structStructPattern(x *ast.StructPattern) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Fields = make([]ast.StructPatternField, n3)
-		for i4 := range x.Fields {
-			d.structStructPatternField(&x.Fields[i4])
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Fields = []ast.StructPatternField{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Fields = d.sharedSliceSast_StructPatternField(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.StructPatternField, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				d.structStructPatternField(&x7[i4])
+			}
+			x.Fields = x7
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructStructPattern writes *x in place.
+func (e *Encoder) StructStructPattern(x *ast.StructPattern) { e.structStructPattern(x) }
+
+// StructStructPattern reads into *x what Encoder.StructStructPattern wrote.
+func (d *Decoder) StructStructPattern(x *ast.StructPattern) { d.structStructPattern(x) }
 
 func (e *Encoder) structSubtests(x *ast.Subtests) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -5264,8 +6968,10 @@ func (e *Encoder) structSubtests(x *ast.Subtests) {
 	}
 	e.bool(x.Piped)
 	e.len(x.StageLeading == nil, len(x.StageLeading))
-	for i7 := range x.StageLeading {
-		e.structTrivia(&x.StageLeading[i7])
+	if len(x.StageLeading) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.StageLeading)), len(x.StageLeading), "[]ast.Trivia") {
+		for i7 := range x.StageLeading {
+			e.structTrivia(&x.StageLeading[i7])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -5292,15 +6998,30 @@ func (d *Decoder) structSubtests(x *ast.Subtests) {
 		x.Body = x6
 	}
 	x.Piped = bool(d.bool())
-	if n8 := d.len(); n8 >= 0 {
-		x.StageLeading = make([]ast.Trivia, n8)
-		for i9 := range x.StageLeading {
-			d.structTrivia(&x.StageLeading[i9])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.StageLeading = []ast.Trivia{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.StageLeading = d.sharedSliceSast_Trivia(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Trivia, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structTrivia(&x12[i9])
+			}
+			x.StageLeading = x12
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructSubtests writes *x in place.
+func (e *Encoder) StructSubtests(x *ast.Subtests) { e.structSubtests(x) }
+
+// StructSubtests reads into *x what Encoder.StructSubtests wrote.
+func (d *Decoder) StructSubtests(x *ast.Subtests) { d.structSubtests(x) }
 
 func (e *Encoder) structTaggedString(x *ast.TaggedString) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -5309,8 +7030,10 @@ func (e *Encoder) structTaggedString(x *ast.TaggedString) {
 	e.bool(x.Raw)
 	e.bool(x.Triple)
 	e.len(x.Parts == nil, len(x.Parts))
-	for i1 := range x.Parts {
-		e.value(x.Parts[i1])
+	if len(x.Parts) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Parts)), len(x.Parts), "[]ast.StringPart") {
+		for i1 := range x.Parts {
+			e.value(x.Parts[i1])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -5323,18 +7046,33 @@ func (d *Decoder) structTaggedString(x *ast.TaggedString) {
 	x.Tag = string(d.string())
 	x.Raw = bool(d.bool())
 	x.Triple = bool(d.bool())
-	if n2 := d.len(); n2 >= 0 {
-		x.Parts = make([]ast.StringPart, n2)
-		for i3 := range x.Parts {
-			if v4 := d.value(); v4 != nil {
-				x.Parts[i3] = v4.(ast.StringPart)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Parts = []ast.StringPart{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Parts = d.sharedSliceSast_StringPart(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.StringPart, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.StringPart)
+				}
 			}
+			x.Parts = x6
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 	x.BodyCol = int(d.int())
 }
+
+// StructTaggedString writes *x in place.
+func (e *Encoder) StructTaggedString(x *ast.TaggedString) { e.structTaggedString(x) }
+
+// StructTaggedString reads into *x what Encoder.StructTaggedString wrote.
+func (d *Decoder) StructTaggedString(x *ast.TaggedString) { d.structTaggedString(x) }
 
 func (e *Encoder) structTap(x *ast.Tap) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -5380,6 +7118,12 @@ func (d *Decoder) structTap(x *ast.Tap) {
 	x.Col = int(d.int())
 }
 
+// StructTap writes *x in place.
+func (e *Encoder) StructTap(x *ast.Tap) { e.structTap(x) }
+
+// StructTap reads into *x what Encoder.StructTap wrote.
+func (d *Decoder) StructTap(x *ast.Tap) { d.structTap(x) }
+
 func (e *Encoder) structTestDecl(x *ast.TestDecl) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -5394,12 +7138,16 @@ func (e *Encoder) structTestDecl(x *ast.TestDecl) {
 	e.int(int64(x.ClockLine))
 	e.int(int64(x.ClockCol))
 	e.len(x.ClockLeading == nil, len(x.ClockLeading))
-	for i5 := range x.ClockLeading {
-		e.structTrivia(&x.ClockLeading[i5])
+	if len(x.ClockLeading) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.ClockLeading)), len(x.ClockLeading), "[]ast.Trivia") {
+		for i5 := range x.ClockLeading {
+			e.structTrivia(&x.ClockLeading[i5])
+		}
 	}
 	e.len(x.ClockTrailing == nil, len(x.ClockTrailing))
-	for i8 := range x.ClockTrailing {
-		e.structTrivia(&x.ClockTrailing[i8])
+	if len(x.ClockTrailing) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.ClockTrailing)), len(x.ClockTrailing), "[]ast.Trivia") {
+		for i11 := range x.ClockTrailing {
+			e.structTrivia(&x.ClockTrailing[i11])
+		}
 	}
 	e.value(x.Boot)
 	e.value(x.Setup)
@@ -5437,34 +7185,52 @@ func (d *Decoder) structTestDecl(x *ast.TestDecl) {
 	}
 	x.ClockLine = int(d.int())
 	x.ClockCol = int(d.int())
-	if n6 := d.len(); n6 >= 0 {
-		x.ClockLeading = make([]ast.Trivia, n6)
-		for i7 := range x.ClockLeading {
-			d.structTrivia(&x.ClockLeading[i7])
+	if n6 := d.sharedLen(); n6 == 0 {
+		x.ClockLeading = []ast.Trivia{}
+	} else if n6 > 0 {
+		if r8, fresh9 := d.ptr(); !fresh9 {
+			x.ClockLeading = d.sharedSliceSast_Trivia(r8, n6)
+		} else {
+			d.fits(n6)
+			x10 := make([]ast.Trivia, n6)
+			d.refs = append(d.refs, x10)
+			for i7 := range x10 {
+				d.structTrivia(&x10[i7])
+			}
+			x.ClockLeading = x10
 		}
 	}
-	if n9 := d.len(); n9 >= 0 {
-		x.ClockTrailing = make([]ast.Trivia, n9)
-		for i10 := range x.ClockTrailing {
-			d.structTrivia(&x.ClockTrailing[i10])
+	if n12 := d.sharedLen(); n12 == 0 {
+		x.ClockTrailing = []ast.Trivia{}
+	} else if n12 > 0 {
+		if r14, fresh15 := d.ptr(); !fresh15 {
+			x.ClockTrailing = d.sharedSliceSast_Trivia(r14, n12)
+		} else {
+			d.fits(n12)
+			x16 := make([]ast.Trivia, n12)
+			d.refs = append(d.refs, x16)
+			for i13 := range x16 {
+				d.structTrivia(&x16[i13])
+			}
+			x.ClockTrailing = x16
 		}
 	}
-	if v11 := d.value(); v11 != nil {
-		x.Boot = v11.(ast.Node)
+	if v17 := d.value(); v17 != nil {
+		x.Boot = v17.(ast.Node)
 	}
-	if v12 := d.value(); v12 != nil {
-		x.Setup = v12.(ast.Node)
+	if v18 := d.value(); v18 != nil {
+		x.Setup = v18.(ast.Node)
 	}
-	if v13 := d.value(); v13 != nil {
-		x.ContextPattern = v13.(ast.Node)
+	if v19 := d.value(); v19 != nil {
+		x.ContextPattern = v19.(ast.Node)
 	}
-	if p14, fresh15 := d.ptr(); p14 != nil {
-		x.Body = p14.(*ast.Block)
-	} else if fresh15 {
-		x16 := new(ast.Block)
-		d.refs = append(d.refs, x16)
-		d.structBlock(x16)
-		x.Body = x16
+	if p20, fresh21 := d.ptr(); p20 != nil {
+		x.Body = p20.(*ast.Block)
+	} else if fresh21 {
+		x22 := new(ast.Block)
+		d.refs = append(d.refs, x22)
+		d.structBlock(x22)
+		x.Body = x22
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
@@ -5475,6 +7241,12 @@ func (d *Decoder) structTestDecl(x *ast.TestDecl) {
 	x.SetupLine = int(d.int())
 	x.SetupCol = int(d.int())
 }
+
+// StructTestDecl writes *x in place.
+func (e *Encoder) StructTestDecl(x *ast.TestDecl) { e.structTestDecl(x) }
+
+// StructTestDecl reads into *x what Encoder.StructTestDecl wrote.
+func (d *Decoder) StructTestDecl(x *ast.TestDecl) { d.structTestDecl(x) }
 
 func (e *Encoder) structThen(x *ast.Then) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -5516,6 +7288,12 @@ func (d *Decoder) structThen(x *ast.Then) {
 	x.Col = int(d.int())
 }
 
+// StructThen writes *x in place.
+func (e *Encoder) StructThen(x *ast.Then) { e.structThen(x) }
+
+// StructThen reads into *x what Encoder.StructThen wrote.
+func (d *Decoder) StructThen(x *ast.Then) { d.structThen(x) }
+
 func (e *Encoder) structTodo(x *ast.Todo) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -5543,22 +7321,36 @@ func (d *Decoder) structTodo(x *ast.Todo) {
 	x.Col = int(d.int())
 }
 
+// StructTodo writes *x in place.
+func (e *Encoder) StructTodo(x *ast.Todo) { e.structTodo(x) }
+
+// StructTodo reads into *x what Encoder.StructTodo wrote.
+func (d *Decoder) StructTodo(x *ast.Todo) { d.structTodo(x) }
+
 func (e *Encoder) structTriviaCarrier(x *ast.TriviaCarrier) {
 	e.len(x.Leading == nil, len(x.Leading))
-	for i1 := range x.Leading {
-		e.structTrivia(&x.Leading[i1])
+	if len(x.Leading) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Leading)), len(x.Leading), "[]ast.Trivia") {
+		for i1 := range x.Leading {
+			e.structTrivia(&x.Leading[i1])
+		}
 	}
 	e.len(x.Trailing == nil, len(x.Trailing))
-	for i4 := range x.Trailing {
-		e.structTrivia(&x.Trailing[i4])
+	if len(x.Trailing) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Trailing)), len(x.Trailing), "[]ast.Trivia") {
+		for i7 := range x.Trailing {
+			e.structTrivia(&x.Trailing[i7])
+		}
 	}
 	e.len(x.DanglingBefore == nil, len(x.DanglingBefore))
-	for i7 := range x.DanglingBefore {
-		e.structTrivia(&x.DanglingBefore[i7])
+	if len(x.DanglingBefore) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.DanglingBefore)), len(x.DanglingBefore), "[]ast.Trivia") {
+		for i13 := range x.DanglingBefore {
+			e.structTrivia(&x.DanglingBefore[i13])
+		}
 	}
 	e.len(x.DanglingAfter == nil, len(x.DanglingAfter))
-	for i10 := range x.DanglingAfter {
-		e.structTrivia(&x.DanglingAfter[i10])
+	if len(x.DanglingAfter) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.DanglingAfter)), len(x.DanglingAfter), "[]ast.Trivia") {
+		for i19 := range x.DanglingAfter {
+			e.structTrivia(&x.DanglingAfter[i19])
+		}
 	}
 	if x.ItemComments == nil {
 		e.uint(0)
@@ -5568,39 +7360,81 @@ func (e *Encoder) structTriviaCarrier(x *ast.TriviaCarrier) {
 }
 
 func (d *Decoder) structTriviaCarrier(x *ast.TriviaCarrier) {
-	if n2 := d.len(); n2 >= 0 {
-		x.Leading = make([]ast.Trivia, n2)
-		for i3 := range x.Leading {
-			d.structTrivia(&x.Leading[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Leading = []ast.Trivia{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Leading = d.sharedSliceSast_Trivia(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Trivia, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structTrivia(&x6[i3])
+			}
+			x.Leading = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.Trailing = make([]ast.Trivia, n5)
-		for i6 := range x.Trailing {
-			d.structTrivia(&x.Trailing[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.Trailing = []ast.Trivia{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.Trailing = d.sharedSliceSast_Trivia(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Trivia, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structTrivia(&x12[i9])
+			}
+			x.Trailing = x12
 		}
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.DanglingBefore = make([]ast.Trivia, n8)
-		for i9 := range x.DanglingBefore {
-			d.structTrivia(&x.DanglingBefore[i9])
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.DanglingBefore = []ast.Trivia{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.DanglingBefore = d.sharedSliceSast_Trivia(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.Trivia, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structTrivia(&x18[i15])
+			}
+			x.DanglingBefore = x18
 		}
 	}
-	if n11 := d.len(); n11 >= 0 {
-		x.DanglingAfter = make([]ast.Trivia, n11)
-		for i12 := range x.DanglingAfter {
-			d.structTrivia(&x.DanglingAfter[i12])
+	if n20 := d.sharedLen(); n20 == 0 {
+		x.DanglingAfter = []ast.Trivia{}
+	} else if n20 > 0 {
+		if r22, fresh23 := d.ptr(); !fresh23 {
+			x.DanglingAfter = d.sharedSliceSast_Trivia(r22, n20)
+		} else {
+			d.fits(n20)
+			x24 := make([]ast.Trivia, n20)
+			d.refs = append(d.refs, x24)
+			for i21 := range x24 {
+				d.structTrivia(&x24[i21])
+			}
+			x.DanglingAfter = x24
 		}
 	}
-	if p13, fresh14 := d.ptr(); p13 != nil {
-		x.ItemComments = p13.(*ast.ItemComments)
-	} else if fresh14 {
-		x15 := new(ast.ItemComments)
-		d.refs = append(d.refs, x15)
-		d.structItemComments(x15)
-		x.ItemComments = x15
+	if p25, fresh26 := d.ptr(); p25 != nil {
+		x.ItemComments = p25.(*ast.ItemComments)
+	} else if fresh26 {
+		x27 := new(ast.ItemComments)
+		d.refs = append(d.refs, x27)
+		d.structItemComments(x27)
+		x.ItemComments = x27
 	}
 }
+
+// StructTriviaCarrier writes *x in place.
+func (e *Encoder) StructTriviaCarrier(x *ast.TriviaCarrier) { e.structTriviaCarrier(x) }
+
+// StructTriviaCarrier reads into *x what Encoder.StructTriviaCarrier wrote.
+func (d *Decoder) StructTriviaCarrier(x *ast.TriviaCarrier) { d.structTriviaCarrier(x) }
 
 func (e *Encoder) structTryOp(x *ast.TryOp) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -5620,23 +7454,33 @@ func (d *Decoder) structTryOp(x *ast.TryOp) {
 	x.Col = int(d.int())
 }
 
+// StructTryOp writes *x in place.
+func (e *Encoder) StructTryOp(x *ast.TryOp) { e.structTryOp(x) }
+
+// StructTryOp reads into *x what Encoder.StructTryOp wrote.
+func (d *Decoder) StructTryOp(x *ast.TryOp) { d.structTryOp(x) }
+
 func (e *Encoder) structTupleDestructure(x *ast.TupleDestructure) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Bindings == nil, len(x.Bindings))
-	for i1 := range x.Bindings {
-		if x.Bindings[i1] == nil {
-			e.uint(0)
-		} else if e.ptr(x.Bindings[i1]) {
-			e.structIdent(x.Bindings[i1])
+	if len(x.Bindings) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Bindings)), len(x.Bindings), "[]*ast.Ident") {
+		for i1 := range x.Bindings {
+			if x.Bindings[i1] == nil {
+				e.uint(0)
+			} else if e.ptr(x.Bindings[i1]) {
+				e.structIdent(x.Bindings[i1])
+			}
 		}
 	}
 	e.len(x.Discards == nil, len(x.Discards))
-	for i7 := range x.Discards {
-		if x.Discards[i7] == nil {
-			e.uint(0)
-		} else if e.ptr(x.Discards[i7]) {
-			e.structWildcardPattern(x.Discards[i7])
+	if len(x.Discards) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Discards)), len(x.Discards), "[]*ast.WildcardPattern") {
+		for i10 := range x.Discards {
+			if x.Discards[i10] == nil {
+				e.uint(0)
+			} else if e.ptr(x.Discards[i10]) {
+				e.structWildcardPattern(x.Discards[i10])
+			}
 		}
 	}
 	e.value(x.Value)
@@ -5647,45 +7491,71 @@ func (e *Encoder) structTupleDestructure(x *ast.TupleDestructure) {
 func (d *Decoder) structTupleDestructure(x *ast.TupleDestructure) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Bindings = make([]*ast.Ident, n2)
-		for i3 := range x.Bindings {
-			if p4, fresh5 := d.ptr(); p4 != nil {
-				x.Bindings[i3] = p4.(*ast.Ident)
-			} else if fresh5 {
-				x6 := new(ast.Ident)
-				d.refs = append(d.refs, x6)
-				d.structIdent(x6)
-				x.Bindings[i3] = x6
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Bindings = []*ast.Ident{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Bindings = d.sharedSliceSPast_Ident(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]*ast.Ident, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if p7, fresh8 := d.ptr(); p7 != nil {
+					x6[i3] = p7.(*ast.Ident)
+				} else if fresh8 {
+					x9 := new(ast.Ident)
+					d.refs = append(d.refs, x9)
+					d.structIdent(x9)
+					x6[i3] = x9
+				}
 			}
+			x.Bindings = x6
 		}
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.Discards = make([]*ast.WildcardPattern, n8)
-		for i9 := range x.Discards {
-			if p10, fresh11 := d.ptr(); p10 != nil {
-				x.Discards[i9] = p10.(*ast.WildcardPattern)
-			} else if fresh11 {
-				x12 := new(ast.WildcardPattern)
-				d.refs = append(d.refs, x12)
-				d.structWildcardPattern(x12)
-				x.Discards[i9] = x12
+	if n11 := d.sharedLen(); n11 == 0 {
+		x.Discards = []*ast.WildcardPattern{}
+	} else if n11 > 0 {
+		if r13, fresh14 := d.ptr(); !fresh14 {
+			x.Discards = d.sharedSliceSPast_WildcardPattern(r13, n11)
+		} else {
+			d.fits(n11)
+			x15 := make([]*ast.WildcardPattern, n11)
+			d.refs = append(d.refs, x15)
+			for i12 := range x15 {
+				if p16, fresh17 := d.ptr(); p16 != nil {
+					x15[i12] = p16.(*ast.WildcardPattern)
+				} else if fresh17 {
+					x18 := new(ast.WildcardPattern)
+					d.refs = append(d.refs, x18)
+					d.structWildcardPattern(x18)
+					x15[i12] = x18
+				}
 			}
+			x.Discards = x15
 		}
 	}
-	if v13 := d.value(); v13 != nil {
-		x.Value = v13.(ast.Node)
+	if v19 := d.value(); v19 != nil {
+		x.Value = v19.(ast.Node)
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructTupleDestructure writes *x in place.
+func (e *Encoder) StructTupleDestructure(x *ast.TupleDestructure) { e.structTupleDestructure(x) }
+
+// StructTupleDestructure reads into *x what Encoder.StructTupleDestructure wrote.
+func (d *Decoder) StructTupleDestructure(x *ast.TupleDestructure) { d.structTupleDestructure(x) }
+
 func (e *Encoder) structTupleLit(x *ast.TupleLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Items == nil, len(x.Items))
-	for i1 := range x.Items {
-		e.value(x.Items[i1])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i1 := range x.Items {
+			e.value(x.Items[i1])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -5694,24 +7564,41 @@ func (e *Encoder) structTupleLit(x *ast.TupleLit) {
 func (d *Decoder) structTupleLit(x *ast.TupleLit) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Items = make([]ast.Node, n2)
-		for i3 := range x.Items {
-			if v4 := d.value(); v4 != nil {
-				x.Items[i3] = v4.(ast.Node)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Items = []ast.Node{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Items = d.sharedSliceSast_Node(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Node, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.Node)
+				}
 			}
+			x.Items = x6
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructTupleLit writes *x in place.
+func (e *Encoder) StructTupleLit(x *ast.TupleLit) { e.structTupleLit(x) }
+
+// StructTupleLit reads into *x what Encoder.StructTupleLit wrote.
+func (d *Decoder) StructTupleLit(x *ast.TupleLit) { d.structTupleLit(x) }
+
 func (e *Encoder) structTuplePattern(x *ast.TuplePattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.Patterns == nil, len(x.Patterns))
-	for i1 := range x.Patterns {
-		e.value(x.Patterns[i1])
+	if len(x.Patterns) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Patterns)), len(x.Patterns), "[]ast.Node") {
+		for i1 := range x.Patterns {
+			e.value(x.Patterns[i1])
+		}
 	}
 	e.bool(x.Flat)
 	e.int(int64(x.Line))
@@ -5721,12 +7608,21 @@ func (e *Encoder) structTuplePattern(x *ast.TuplePattern) {
 func (d *Decoder) structTuplePattern(x *ast.TuplePattern) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.Patterns = make([]ast.Node, n2)
-		for i3 := range x.Patterns {
-			if v4 := d.value(); v4 != nil {
-				x.Patterns[i3] = v4.(ast.Node)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Patterns = []ast.Node{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Patterns = d.sharedSliceSast_Node(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Node, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.Node)
+				}
 			}
+			x.Patterns = x6
 		}
 	}
 	x.Flat = bool(d.bool())
@@ -5734,19 +7630,29 @@ func (d *Decoder) structTuplePattern(x *ast.TuplePattern) {
 	x.Col = int(d.int())
 }
 
+// StructTuplePattern writes *x in place.
+func (e *Encoder) StructTuplePattern(x *ast.TuplePattern) { e.structTuplePattern(x) }
+
+// StructTuplePattern reads into *x what Encoder.StructTuplePattern wrote.
+func (d *Decoder) StructTuplePattern(x *ast.TuplePattern) { d.structTuplePattern(x) }
+
 func (e *Encoder) structTypeAlias(x *ast.TypeAlias) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.string(string(x.Name))
 	e.bool(x.Public)
 	e.value(x.TargetTypeExpr)
 	e.len(x.Bounds == nil, len(x.Bounds))
-	for i5 := range x.Bounds {
-		e.value(x.Bounds[i5])
+	if len(x.Bounds) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Bounds)), len(x.Bounds), "[]ast.TypeExpr") {
+		for i8 := range x.Bounds {
+			e.value(x.Bounds[i8])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -5756,23 +7662,41 @@ func (e *Encoder) structTypeAlias(x *ast.TypeAlias) {
 func (d *Decoder) structTypeAlias(x *ast.TypeAlias) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
+			}
+			x.AttachedTests = x6
 		}
 	}
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
-	if v4 := d.value(); v4 != nil {
-		x.TargetTypeExpr = v4.(ast.TypeExpr)
+	if v7 := d.value(); v7 != nil {
+		x.TargetTypeExpr = v7.(ast.TypeExpr)
 	}
-	if n6 := d.len(); n6 >= 0 {
-		x.Bounds = make([]ast.TypeExpr, n6)
-		for i7 := range x.Bounds {
-			if v8 := d.value(); v8 != nil {
-				x.Bounds[i7] = v8.(ast.TypeExpr)
+	if n9 := d.sharedLen(); n9 == 0 {
+		x.Bounds = []ast.TypeExpr{}
+	} else if n9 > 0 {
+		if r11, fresh12 := d.ptr(); !fresh12 {
+			x.Bounds = d.sharedSliceSast_TypeExpr(r11, n9)
+		} else {
+			d.fits(n9)
+			x13 := make([]ast.TypeExpr, n9)
+			d.refs = append(d.refs, x13)
+			for i10 := range x13 {
+				if v14 := d.value(); v14 != nil {
+					x13[i10] = v14.(ast.TypeExpr)
+				}
 			}
+			x.Bounds = x13
 		}
 	}
 	x.Doc = string(d.string())
@@ -5780,33 +7704,49 @@ func (d *Decoder) structTypeAlias(x *ast.TypeAlias) {
 	x.Col = int(d.int())
 }
 
+// StructTypeAlias writes *x in place.
+func (e *Encoder) StructTypeAlias(x *ast.TypeAlias) { e.structTypeAlias(x) }
+
+// StructTypeAlias reads into *x what Encoder.StructTypeAlias wrote.
+func (d *Decoder) StructTypeAlias(x *ast.TypeAlias) { d.structTypeAlias(x) }
+
 func (e *Encoder) structTypeDef(x *ast.TypeDef) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.len(x.AttachedTests == nil, len(x.AttachedTests))
-	for i1 := range x.AttachedTests {
-		e.structAttachedTest(&x.AttachedTests[i1])
+	if len(x.AttachedTests) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.AttachedTests)), len(x.AttachedTests), "[]ast.AttachedTest") {
+		for i1 := range x.AttachedTests {
+			e.structAttachedTest(&x.AttachedTests[i1])
+		}
 	}
 	e.len(x.Decorators == nil, len(x.Decorators))
-	for i4 := range x.Decorators {
-		e.structDecorator(&x.Decorators[i4])
+	if len(x.Decorators) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Decorators)), len(x.Decorators), "[]ast.Decorator") {
+		for i7 := range x.Decorators {
+			e.structDecorator(&x.Decorators[i7])
+		}
 	}
 	e.string(string(x.Name))
 	e.bool(x.Public)
 	e.bool(x.Opaque)
 	e.len(x.TypeParams == nil, len(x.TypeParams))
-	for i7 := range x.TypeParams {
-		e.structTypeParam(&x.TypeParams[i7])
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i13 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i13])
+		}
 	}
 	e.value(x.InnerTypeExpr)
 	e.bool(x.HasBody)
 	e.len(x.Items == nil, len(x.Items))
-	for i11 := range x.Items {
-		e.value(x.Items[i11])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i20 := range x.Items {
+			e.value(x.Items[i20])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i15 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i15])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i27 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i27])
+		}
 	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
@@ -5818,43 +7758,88 @@ func (e *Encoder) structTypeDef(x *ast.TypeDef) {
 func (d *Decoder) structTypeDef(x *ast.TypeDef) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
-	if n2 := d.len(); n2 >= 0 {
-		x.AttachedTests = make([]ast.AttachedTest, n2)
-		for i3 := range x.AttachedTests {
-			d.structAttachedTest(&x.AttachedTests[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.AttachedTests = []ast.AttachedTest{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.AttachedTests = d.sharedSliceSast_AttachedTest(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.AttachedTest, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structAttachedTest(&x6[i3])
+			}
+			x.AttachedTests = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.Decorators = make([]ast.Decorator, n5)
-		for i6 := range x.Decorators {
-			d.structDecorator(&x.Decorators[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.Decorators = []ast.Decorator{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.Decorators = d.sharedSliceSast_Decorator(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Decorator, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structDecorator(&x12[i9])
+			}
+			x.Decorators = x12
 		}
 	}
 	x.Name = string(d.string())
 	x.Public = bool(d.bool())
 	x.Opaque = bool(d.bool())
-	if n8 := d.len(); n8 >= 0 {
-		x.TypeParams = make([]ast.TypeParam, n8)
-		for i9 := range x.TypeParams {
-			d.structTypeParam(&x.TypeParams[i9])
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.TypeParam, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structTypeParam(&x18[i15])
+			}
+			x.TypeParams = x18
 		}
 	}
-	if v10 := d.value(); v10 != nil {
-		x.InnerTypeExpr = v10.(ast.TypeExpr)
+	if v19 := d.value(); v19 != nil {
+		x.InnerTypeExpr = v19.(ast.TypeExpr)
 	}
 	x.HasBody = bool(d.bool())
-	if n12 := d.len(); n12 >= 0 {
-		x.Items = make([]ast.Node, n12)
-		for i13 := range x.Items {
-			if v14 := d.value(); v14 != nil {
-				x.Items[i13] = v14.(ast.Node)
+	if n21 := d.sharedLen(); n21 == 0 {
+		x.Items = []ast.Node{}
+	} else if n21 > 0 {
+		if r23, fresh24 := d.ptr(); !fresh24 {
+			x.Items = d.sharedSliceSast_Node(r23, n21)
+		} else {
+			d.fits(n21)
+			x25 := make([]ast.Node, n21)
+			d.refs = append(d.refs, x25)
+			for i22 := range x25 {
+				if v26 := d.value(); v26 != nil {
+					x25[i22] = v26.(ast.Node)
+				}
 			}
+			x.Items = x25
 		}
 	}
-	if n16 := d.len(); n16 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n16)
-		for i17 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i17])
+	if n28 := d.sharedLen(); n28 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n28 > 0 {
+		if r30, fresh31 := d.ptr(); !fresh31 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r30, n28)
+		} else {
+			d.fits(n28)
+			x32 := make([]ast.Trivia, n28)
+			d.refs = append(d.refs, x32)
+			for i29 := range x32 {
+				d.structTrivia(&x32[i29])
+			}
+			x.EndTrivia = x32
 		}
 	}
 	x.Doc = string(d.string())
@@ -5863,6 +7848,12 @@ func (d *Decoder) structTypeDef(x *ast.TypeDef) {
 	x.EndLine = int(d.int())
 	x.EndCol = int(d.int())
 }
+
+// StructTypeDef writes *x in place.
+func (e *Encoder) StructTypeDef(x *ast.TypeDef) { e.structTypeDef(x) }
+
+// StructTypeDef reads into *x what Encoder.StructTypeDef wrote.
+func (d *Decoder) StructTypeDef(x *ast.TypeDef) { d.structTypeDef(x) }
 
 func (e *Encoder) structTypeIdent(x *ast.TypeIdent) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -5879,6 +7870,12 @@ func (d *Decoder) structTypeIdent(x *ast.TypeIdent) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructTypeIdent writes *x in place.
+func (e *Encoder) StructTypeIdent(x *ast.TypeIdent) { e.structTypeIdent(x) }
+
+// StructTypeIdent reads into *x what Encoder.StructTypeIdent wrote.
+func (d *Decoder) StructTypeIdent(x *ast.TypeIdent) { d.structTypeIdent(x) }
 
 func (e *Encoder) structUnary(x *ast.Unary) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -5899,6 +7896,12 @@ func (d *Decoder) structUnary(x *ast.Unary) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructUnary writes *x in place.
+func (e *Encoder) StructUnary(x *ast.Unary) { e.structUnary(x) }
+
+// StructUnary reads into *x what Encoder.StructUnary wrote.
+func (d *Decoder) StructUnary(x *ast.Unary) { d.structUnary(x) }
 
 func (e *Encoder) structUnreachable(x *ast.Unreachable) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -5927,6 +7930,12 @@ func (d *Decoder) structUnreachable(x *ast.Unreachable) {
 	x.Col = int(d.int())
 }
 
+// StructUnreachable writes *x in place.
+func (e *Encoder) StructUnreachable(x *ast.Unreachable) { e.structUnreachable(x) }
+
+// StructUnreachable reads into *x what Encoder.StructUnreachable wrote.
+func (d *Decoder) StructUnreachable(x *ast.Unreachable) { d.structUnreachable(x) }
+
 func (e *Encoder) structUnwrap(x *ast.Unwrap) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
@@ -5945,21 +7954,33 @@ func (d *Decoder) structUnwrap(x *ast.Unwrap) {
 	x.Col = int(d.int())
 }
 
+// StructUnwrap writes *x in place.
+func (e *Encoder) StructUnwrap(x *ast.Unwrap) { e.structUnwrap(x) }
+
+// StructUnwrap reads into *x what Encoder.StructUnwrap wrote.
+func (d *Decoder) StructUnwrap(x *ast.Unwrap) { d.structUnwrap(x) }
+
 func (e *Encoder) structVectorLit(x *ast.VectorLit) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Items == nil, len(x.Items))
-	for i2 := range x.Items {
-		e.value(x.Items[i2])
+	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
+		for i2 := range x.Items {
+			e.value(x.Items[i2])
+		}
 	}
 	e.len(x.Spreads == nil, len(x.Spreads))
-	for i6 := range x.Spreads {
-		e.structSpread(&x.Spreads[i6])
+	if len(x.Spreads) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Spreads)), len(x.Spreads), "[]ast.Spread") {
+		for i9 := range x.Spreads {
+			e.structSpread(&x.Spreads[i9])
+		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i9 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i9])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i15 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i15])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -5971,49 +7992,88 @@ func (d *Decoder) structVectorLit(x *ast.VectorLit) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Items = make([]ast.Node, n3)
-		for i4 := range x.Items {
-			if v5 := d.value(); v5 != nil {
-				x.Items[i4] = v5.(ast.Node)
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Items = []ast.Node{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Items = d.sharedSliceSast_Node(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.Node, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				if v8 := d.value(); v8 != nil {
+					x7[i4] = v8.(ast.Node)
+				}
 			}
+			x.Items = x7
 		}
 	}
-	if n7 := d.len(); n7 >= 0 {
-		x.Spreads = make([]ast.Spread, n7)
-		for i8 := range x.Spreads {
-			d.structSpread(&x.Spreads[i8])
+	if n10 := d.sharedLen(); n10 == 0 {
+		x.Spreads = []ast.Spread{}
+	} else if n10 > 0 {
+		if r12, fresh13 := d.ptr(); !fresh13 {
+			x.Spreads = d.sharedSliceSast_Spread(r12, n10)
+		} else {
+			d.fits(n10)
+			x14 := make([]ast.Spread, n10)
+			d.refs = append(d.refs, x14)
+			for i11 := range x14 {
+				d.structSpread(&x14[i11])
+			}
+			x.Spreads = x14
 		}
 	}
-	if n10 := d.len(); n10 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n10)
-		for i11 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i11])
+	if n16 := d.sharedLen(); n16 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n16 > 0 {
+		if r18, fresh19 := d.ptr(); !fresh19 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r18, n16)
+		} else {
+			d.fits(n16)
+			x20 := make([]ast.Trivia, n16)
+			d.refs = append(d.refs, x20)
+			for i17 := range x20 {
+				d.structTrivia(&x20[i17])
+			}
+			x.EndTrivia = x20
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructVectorLit writes *x in place.
+func (e *Encoder) StructVectorLit(x *ast.VectorLit) { e.structVectorLit(x) }
+
+// StructVectorLit reads into *x what Encoder.StructVectorLit wrote.
+func (d *Decoder) StructVectorLit(x *ast.VectorLit) { d.structVectorLit(x) }
+
 func (e *Encoder) structVectorPattern(x *ast.VectorPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.value(x.TypeName)
 	e.len(x.Heads == nil, len(x.Heads))
-	for i2 := range x.Heads {
-		e.value(x.Heads[i2])
+	if len(x.Heads) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Heads)), len(x.Heads), "[]ast.Node") {
+		for i2 := range x.Heads {
+			e.value(x.Heads[i2])
+		}
 	}
 	e.bool(x.Spread)
 	e.value(x.Rest)
 	e.len(x.Tails == nil, len(x.Tails))
-	for i7 := range x.Tails {
-		e.value(x.Tails[i7])
+	if len(x.Tails) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Tails)), len(x.Tails), "[]ast.Node") {
+		for i10 := range x.Tails {
+			e.value(x.Tails[i10])
+		}
 	}
 	e.int(int64(x.SpreadLine))
 	e.int(int64(x.SpreadCol))
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
-	for i11 := range x.EndTrivia {
-		e.structTrivia(&x.EndTrivia[i11])
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i17 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i17])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -6025,37 +8085,70 @@ func (d *Decoder) structVectorPattern(x *ast.VectorPattern) {
 	if v1 := d.value(); v1 != nil {
 		x.TypeName = v1.(ast.TypeExpr)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.Heads = make([]ast.Node, n3)
-		for i4 := range x.Heads {
-			if v5 := d.value(); v5 != nil {
-				x.Heads[i4] = v5.(ast.Node)
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.Heads = []ast.Node{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.Heads = d.sharedSliceSast_Node(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.Node, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				if v8 := d.value(); v8 != nil {
+					x7[i4] = v8.(ast.Node)
+				}
 			}
+			x.Heads = x7
 		}
 	}
 	x.Spread = bool(d.bool())
-	if v6 := d.value(); v6 != nil {
-		x.Rest = v6.(ast.Node)
+	if v9 := d.value(); v9 != nil {
+		x.Rest = v9.(ast.Node)
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.Tails = make([]ast.Node, n8)
-		for i9 := range x.Tails {
-			if v10 := d.value(); v10 != nil {
-				x.Tails[i9] = v10.(ast.Node)
+	if n11 := d.sharedLen(); n11 == 0 {
+		x.Tails = []ast.Node{}
+	} else if n11 > 0 {
+		if r13, fresh14 := d.ptr(); !fresh14 {
+			x.Tails = d.sharedSliceSast_Node(r13, n11)
+		} else {
+			d.fits(n11)
+			x15 := make([]ast.Node, n11)
+			d.refs = append(d.refs, x15)
+			for i12 := range x15 {
+				if v16 := d.value(); v16 != nil {
+					x15[i12] = v16.(ast.Node)
+				}
 			}
+			x.Tails = x15
 		}
 	}
 	x.SpreadLine = int(d.int())
 	x.SpreadCol = int(d.int())
-	if n12 := d.len(); n12 >= 0 {
-		x.EndTrivia = make([]ast.Trivia, n12)
-		for i13 := range x.EndTrivia {
-			d.structTrivia(&x.EndTrivia[i13])
+	if n18 := d.sharedLen(); n18 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n18 > 0 {
+		if r20, fresh21 := d.ptr(); !fresh21 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r20, n18)
+		} else {
+			d.fits(n18)
+			x22 := make([]ast.Trivia, n18)
+			d.refs = append(d.refs, x22)
+			for i19 := range x22 {
+				d.structTrivia(&x22[i19])
+			}
+			x.EndTrivia = x22
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructVectorPattern writes *x in place.
+func (e *Encoder) StructVectorPattern(x *ast.VectorPattern) { e.structVectorPattern(x) }
+
+// StructVectorPattern reads into *x what Encoder.StructVectorPattern wrote.
+func (d *Decoder) StructVectorPattern(x *ast.VectorPattern) { d.structVectorPattern(x) }
 
 func (e *Encoder) structWildcardPattern(x *ast.WildcardPattern) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -6070,6 +8163,12 @@ func (d *Decoder) structWildcardPattern(x *ast.WildcardPattern) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructWildcardPattern writes *x in place.
+func (e *Encoder) StructWildcardPattern(x *ast.WildcardPattern) { e.structWildcardPattern(x) }
+
+// StructWildcardPattern reads into *x what Encoder.StructWildcardPattern wrote.
+func (d *Decoder) StructWildcardPattern(x *ast.WildcardPattern) { d.structWildcardPattern(x) }
 
 func (e *Encoder) structWith(x *ast.With) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
@@ -6102,6 +8201,12 @@ func (d *Decoder) structWith(x *ast.With) {
 	x.Col = int(d.int())
 }
 
+// StructWith writes *x in place.
+func (e *Encoder) StructWith(x *ast.With) { e.structWith(x) }
+
+// StructWith reads into *x what Encoder.StructWith wrote.
+func (d *Decoder) StructWith(x *ast.With) { d.structWith(x) }
+
 func (e *Encoder) structAttachedTestAfter(x *ast.AttachedTestAfter) {
 	e.bool(x.IsDoc)
 	e.string(string(x.Doc))
@@ -6113,6 +8218,12 @@ func (d *Decoder) structAttachedTestAfter(x *ast.AttachedTestAfter) {
 	x.Doc = string(d.string())
 	d.structTrivia(&x.Trivia)
 }
+
+// StructAttachedTestAfter writes *x in place.
+func (e *Encoder) StructAttachedTestAfter(x *ast.AttachedTestAfter) { e.structAttachedTestAfter(x) }
+
+// StructAttachedTestAfter reads into *x what Encoder.StructAttachedTestAfter wrote.
+func (d *Decoder) StructAttachedTestAfter(x *ast.AttachedTestAfter) { d.structAttachedTestAfter(x) }
 
 func (e *Encoder) structEmbedPattern(x *ast.EmbedPattern) {
 	e.string(string(x.Text))
@@ -6128,6 +8239,12 @@ func (d *Decoder) structEmbedPattern(x *ast.EmbedPattern) {
 	x.Width = int(d.int())
 }
 
+// StructEmbedPattern writes *x in place.
+func (e *Encoder) StructEmbedPattern(x *ast.EmbedPattern) { e.structEmbedPattern(x) }
+
+// StructEmbedPattern reads into *x what Encoder.StructEmbedPattern wrote.
+func (d *Decoder) StructEmbedPattern(x *ast.EmbedPattern) { d.structEmbedPattern(x) }
+
 func (e *Encoder) structEmbeddedFile(x *ast.EmbeddedFile) {
 	e.string(string(x.Path))
 	e.string(string(x.Source))
@@ -6142,41 +8259,86 @@ func (d *Decoder) structEmbeddedFile(x *ast.EmbeddedFile) {
 	x.Sum = string(d.string())
 }
 
+// StructEmbeddedFile writes *x in place.
+func (e *Encoder) StructEmbeddedFile(x *ast.EmbeddedFile) { e.structEmbeddedFile(x) }
+
+// StructEmbeddedFile reads into *x what Encoder.StructEmbeddedFile wrote.
+func (d *Decoder) StructEmbeddedFile(x *ast.EmbeddedFile) { d.structEmbeddedFile(x) }
+
 func (e *Encoder) structItemComments(x *ast.ItemComments) {
 	e.len(x.Before == nil, len(x.Before))
-	for i1 := range x.Before {
-		e.structTrivia(&x.Before[i1])
+	if len(x.Before) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Before)), len(x.Before), "[]ast.Trivia") {
+		for i1 := range x.Before {
+			e.structTrivia(&x.Before[i1])
+		}
 	}
 	e.len(x.Trailing == nil, len(x.Trailing))
-	for i4 := range x.Trailing {
-		e.structTrivia(&x.Trailing[i4])
+	if len(x.Trailing) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Trailing)), len(x.Trailing), "[]ast.Trivia") {
+		for i7 := range x.Trailing {
+			e.structTrivia(&x.Trailing[i7])
+		}
 	}
 	e.len(x.After == nil, len(x.After))
-	for i7 := range x.After {
-		e.structTrivia(&x.After[i7])
+	if len(x.After) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.After)), len(x.After), "[]ast.Trivia") {
+		for i13 := range x.After {
+			e.structTrivia(&x.After[i13])
+		}
 	}
 }
 
 func (d *Decoder) structItemComments(x *ast.ItemComments) {
-	if n2 := d.len(); n2 >= 0 {
-		x.Before = make([]ast.Trivia, n2)
-		for i3 := range x.Before {
-			d.structTrivia(&x.Before[i3])
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Before = []ast.Trivia{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Before = d.sharedSliceSast_Trivia(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.Trivia, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				d.structTrivia(&x6[i3])
+			}
+			x.Before = x6
 		}
 	}
-	if n5 := d.len(); n5 >= 0 {
-		x.Trailing = make([]ast.Trivia, n5)
-		for i6 := range x.Trailing {
-			d.structTrivia(&x.Trailing[i6])
+	if n8 := d.sharedLen(); n8 == 0 {
+		x.Trailing = []ast.Trivia{}
+	} else if n8 > 0 {
+		if r10, fresh11 := d.ptr(); !fresh11 {
+			x.Trailing = d.sharedSliceSast_Trivia(r10, n8)
+		} else {
+			d.fits(n8)
+			x12 := make([]ast.Trivia, n8)
+			d.refs = append(d.refs, x12)
+			for i9 := range x12 {
+				d.structTrivia(&x12[i9])
+			}
+			x.Trailing = x12
 		}
 	}
-	if n8 := d.len(); n8 >= 0 {
-		x.After = make([]ast.Trivia, n8)
-		for i9 := range x.After {
-			d.structTrivia(&x.After[i9])
+	if n14 := d.sharedLen(); n14 == 0 {
+		x.After = []ast.Trivia{}
+	} else if n14 > 0 {
+		if r16, fresh17 := d.ptr(); !fresh17 {
+			x.After = d.sharedSliceSast_Trivia(r16, n14)
+		} else {
+			d.fits(n14)
+			x18 := make([]ast.Trivia, n14)
+			d.refs = append(d.refs, x18)
+			for i15 := range x18 {
+				d.structTrivia(&x18[i15])
+			}
+			x.After = x18
 		}
 	}
 }
+
+// StructItemComments writes *x in place.
+func (e *Encoder) StructItemComments(x *ast.ItemComments) { e.structItemComments(x) }
+
+// StructItemComments reads into *x what Encoder.StructItemComments wrote.
+func (d *Decoder) StructItemComments(x *ast.ItemComments) { d.structItemComments(x) }
 
 func (e *Encoder) structMapEntry(x *ast.MapEntry) {
 	e.value(x.Key)
@@ -6192,6 +8354,12 @@ func (d *Decoder) structMapEntry(x *ast.MapEntry) {
 	}
 }
 
+// StructMapEntry writes *x in place.
+func (e *Encoder) StructMapEntry(x *ast.MapEntry) { e.structMapEntry(x) }
+
+// StructMapEntry reads into *x what Encoder.StructMapEntry wrote.
+func (d *Decoder) StructMapEntry(x *ast.MapEntry) { d.structMapEntry(x) }
+
 func (e *Encoder) structMapPatternEntry(x *ast.MapPatternEntry) {
 	e.value(x.Key)
 	e.value(x.Pattern)
@@ -6205,6 +8373,12 @@ func (d *Decoder) structMapPatternEntry(x *ast.MapPatternEntry) {
 		x.Pattern = v2.(ast.Node)
 	}
 }
+
+// StructMapPatternEntry writes *x in place.
+func (e *Encoder) StructMapPatternEntry(x *ast.MapPatternEntry) { e.structMapPatternEntry(x) }
+
+// StructMapPatternEntry reads into *x what Encoder.StructMapPatternEntry wrote.
+func (d *Decoder) StructMapPatternEntry(x *ast.MapPatternEntry) { d.structMapPatternEntry(x) }
 
 func (e *Encoder) structParam(x *ast.Param) {
 	e.string(string(x.Name))
@@ -6234,6 +8408,12 @@ func (d *Decoder) structParam(x *ast.Param) {
 	x.Col = int(d.int())
 }
 
+// StructParam writes *x in place.
+func (e *Encoder) StructParam(x *ast.Param) { e.structParam(x) }
+
+// StructParam reads into *x what Encoder.StructParam wrote.
+func (d *Decoder) StructParam(x *ast.Param) { d.structParam(x) }
+
 func (e *Encoder) structPathSegment(x *ast.PathSegment) {
 	e.string(string(x.Name))
 	e.int(int64(x.Line))
@@ -6245,6 +8425,12 @@ func (d *Decoder) structPathSegment(x *ast.PathSegment) {
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructPathSegment writes *x in place.
+func (e *Encoder) StructPathSegment(x *ast.PathSegment) { e.structPathSegment(x) }
+
+// StructPathSegment reads into *x what Encoder.StructPathSegment wrote.
+func (d *Decoder) StructPathSegment(x *ast.PathSegment) { d.structPathSegment(x) }
 
 func (e *Encoder) structSpan(x *ast.Span) {
 	e.int(int64(x.StartLine))
@@ -6259,6 +8445,12 @@ func (d *Decoder) structSpan(x *ast.Span) {
 	x.EndLine = int(d.int())
 	x.EndCol = int(d.int())
 }
+
+// StructSpan writes *x in place.
+func (e *Encoder) StructSpan(x *ast.Span) { e.structSpan(x) }
+
+// StructSpan reads into *x what Encoder.StructSpan wrote.
+func (d *Decoder) StructSpan(x *ast.Span) { d.structSpan(x) }
 
 func (e *Encoder) structSpread(x *ast.Spread) {
 	e.value(x.Head)
@@ -6276,16 +8468,26 @@ func (d *Decoder) structSpread(x *ast.Spread) {
 	x.Col = int(d.int())
 }
 
+// StructSpread writes *x in place.
+func (e *Encoder) StructSpread(x *ast.Spread) { e.structSpread(x) }
+
+// StructSpread reads into *x what Encoder.StructSpread wrote.
+func (d *Decoder) StructSpread(x *ast.Spread) { d.structSpread(x) }
+
 func (e *Encoder) structStructFieldVal(x *ast.StructFieldVal) {
 	e.string(string(x.Name))
 	e.value(x.Value)
 	e.len(x.LeadingComments == nil, len(x.LeadingComments))
-	for i2 := range x.LeadingComments {
-		e.structTrivia(&x.LeadingComments[i2])
+	if len(x.LeadingComments) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.LeadingComments)), len(x.LeadingComments), "[]ast.Trivia") {
+		for i2 := range x.LeadingComments {
+			e.structTrivia(&x.LeadingComments[i2])
+		}
 	}
 	e.len(x.Trailing == nil, len(x.Trailing))
-	for i5 := range x.Trailing {
-		e.structTrivia(&x.Trailing[i5])
+	if len(x.Trailing) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Trailing)), len(x.Trailing), "[]ast.Trivia") {
+		for i8 := range x.Trailing {
+			e.structTrivia(&x.Trailing[i8])
+		}
 	}
 	e.string(string(x.Source))
 	e.int(int64(x.Line))
@@ -6297,22 +8499,46 @@ func (d *Decoder) structStructFieldVal(x *ast.StructFieldVal) {
 	if v1 := d.value(); v1 != nil {
 		x.Value = v1.(ast.Node)
 	}
-	if n3 := d.len(); n3 >= 0 {
-		x.LeadingComments = make([]ast.Trivia, n3)
-		for i4 := range x.LeadingComments {
-			d.structTrivia(&x.LeadingComments[i4])
+	if n3 := d.sharedLen(); n3 == 0 {
+		x.LeadingComments = []ast.Trivia{}
+	} else if n3 > 0 {
+		if r5, fresh6 := d.ptr(); !fresh6 {
+			x.LeadingComments = d.sharedSliceSast_Trivia(r5, n3)
+		} else {
+			d.fits(n3)
+			x7 := make([]ast.Trivia, n3)
+			d.refs = append(d.refs, x7)
+			for i4 := range x7 {
+				d.structTrivia(&x7[i4])
+			}
+			x.LeadingComments = x7
 		}
 	}
-	if n6 := d.len(); n6 >= 0 {
-		x.Trailing = make([]ast.Trivia, n6)
-		for i7 := range x.Trailing {
-			d.structTrivia(&x.Trailing[i7])
+	if n9 := d.sharedLen(); n9 == 0 {
+		x.Trailing = []ast.Trivia{}
+	} else if n9 > 0 {
+		if r11, fresh12 := d.ptr(); !fresh12 {
+			x.Trailing = d.sharedSliceSast_Trivia(r11, n9)
+		} else {
+			d.fits(n9)
+			x13 := make([]ast.Trivia, n9)
+			d.refs = append(d.refs, x13)
+			for i10 := range x13 {
+				d.structTrivia(&x13[i10])
+			}
+			x.Trailing = x13
 		}
 	}
 	x.Source = string(d.string())
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
+
+// StructStructFieldVal writes *x in place.
+func (e *Encoder) StructStructFieldVal(x *ast.StructFieldVal) { e.structStructFieldVal(x) }
+
+// StructStructFieldVal reads into *x what Encoder.StructStructFieldVal wrote.
+func (d *Decoder) StructStructFieldVal(x *ast.StructFieldVal) { d.structStructFieldVal(x) }
 
 func (e *Encoder) structStructPatternField(x *ast.StructPatternField) {
 	e.string(string(x.Name))
@@ -6338,6 +8564,12 @@ func (d *Decoder) structStructPatternField(x *ast.StructPatternField) {
 	d.structItemComments(&x.Comments)
 }
 
+// StructStructPatternField writes *x in place.
+func (e *Encoder) StructStructPatternField(x *ast.StructPatternField) { e.structStructPatternField(x) }
+
+// StructStructPatternField reads into *x what Encoder.StructStructPatternField wrote.
+func (d *Decoder) StructStructPatternField(x *ast.StructPatternField) { d.structStructPatternField(x) }
+
 func (e *Encoder) structTrivia(x *ast.Trivia) {
 	e.int(int64(x.Kind))
 	e.string(string(x.Text))
@@ -6352,11 +8584,19 @@ func (d *Decoder) structTrivia(x *ast.Trivia) {
 	x.Col = int(d.int())
 }
 
+// StructTrivia writes *x in place.
+func (e *Encoder) StructTrivia(x *ast.Trivia) { e.structTrivia(x) }
+
+// StructTrivia reads into *x what Encoder.StructTrivia wrote.
+func (d *Decoder) StructTrivia(x *ast.Trivia) { d.structTrivia(x) }
+
 func (e *Encoder) structTypeParam(x *ast.TypeParam) {
 	e.string(string(x.Name))
 	e.len(x.Bounds == nil, len(x.Bounds))
-	for i1 := range x.Bounds {
-		e.value(x.Bounds[i1])
+	if len(x.Bounds) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Bounds)), len(x.Bounds), "[]ast.TypeExpr") {
+		for i1 := range x.Bounds {
+			e.value(x.Bounds[i1])
+		}
 	}
 	e.value(x.Default)
 	e.structItemComments(&x.Comments)
@@ -6366,27 +8606,44 @@ func (e *Encoder) structTypeParam(x *ast.TypeParam) {
 
 func (d *Decoder) structTypeParam(x *ast.TypeParam) {
 	x.Name = string(d.string())
-	if n2 := d.len(); n2 >= 0 {
-		x.Bounds = make([]ast.TypeExpr, n2)
-		for i3 := range x.Bounds {
-			if v4 := d.value(); v4 != nil {
-				x.Bounds[i3] = v4.(ast.TypeExpr)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Bounds = []ast.TypeExpr{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Bounds = d.sharedSliceSast_TypeExpr(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.TypeExpr, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.TypeExpr)
+				}
 			}
+			x.Bounds = x6
 		}
 	}
-	if v5 := d.value(); v5 != nil {
-		x.Default = v5.(ast.TypeExpr)
+	if v8 := d.value(); v8 != nil {
+		x.Default = v8.(ast.TypeExpr)
 	}
 	d.structItemComments(&x.Comments)
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
 
+// StructTypeParam writes *x in place.
+func (e *Encoder) StructTypeParam(x *ast.TypeParam) { e.structTypeParam(x) }
+
+// StructTypeParam reads into *x what Encoder.StructTypeParam wrote.
+func (d *Decoder) StructTypeParam(x *ast.TypeParam) { d.structTypeParam(x) }
+
 func (e *Encoder) structWhereConstraint(x *ast.WhereConstraint) {
 	e.string(string(x.Name))
 	e.len(x.Bounds == nil, len(x.Bounds))
-	for i1 := range x.Bounds {
-		e.value(x.Bounds[i1])
+	if len(x.Bounds) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Bounds)), len(x.Bounds), "[]ast.TypeExpr") {
+		for i1 := range x.Bounds {
+			e.value(x.Bounds[i1])
+		}
 	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -6394,16 +8651,239 @@ func (e *Encoder) structWhereConstraint(x *ast.WhereConstraint) {
 
 func (d *Decoder) structWhereConstraint(x *ast.WhereConstraint) {
 	x.Name = string(d.string())
-	if n2 := d.len(); n2 >= 0 {
-		x.Bounds = make([]ast.TypeExpr, n2)
-		for i3 := range x.Bounds {
-			if v4 := d.value(); v4 != nil {
-				x.Bounds[i3] = v4.(ast.TypeExpr)
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Bounds = []ast.TypeExpr{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Bounds = d.sharedSliceSast_TypeExpr(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.TypeExpr, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.TypeExpr)
+				}
 			}
+			x.Bounds = x6
 		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
+}
+
+// StructWhereConstraint writes *x in place.
+func (e *Encoder) StructWhereConstraint(x *ast.WhereConstraint) { e.structWhereConstraint(x) }
+
+// StructWhereConstraint reads into *x what Encoder.StructWhereConstraint wrote.
+func (d *Decoder) StructWhereConstraint(x *ast.WhereConstraint) { d.structWhereConstraint(x) }
+
+func (d *Decoder) sharedSliceSPast_Ident(r any, n int) []*ast.Ident {
+	v, ok := r.([]*ast.Ident)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSPast_ImportStmt(r any, n int) []*ast.ImportStmt {
+	v, ok := r.([]*ast.ImportStmt)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSPast_WildcardPattern(r any, n int) []*ast.WildcardPattern {
+	v, ok := r.([]*ast.WildcardPattern)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_AttachedTest(r any, n int) []ast.AttachedTest {
+	v, ok := r.([]ast.AttachedTest)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_AttachedTestAfter(r any, n int) []ast.AttachedTestAfter {
+	v, ok := r.([]ast.AttachedTestAfter)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_CaseBranch(r any, n int) []ast.CaseBranch {
+	v, ok := r.([]ast.CaseBranch)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_Decorator(r any, n int) []ast.Decorator {
+	v, ok := r.([]ast.Decorator)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_EmbedPattern(r any, n int) []ast.EmbedPattern {
+	v, ok := r.([]ast.EmbedPattern)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_EmbeddedFile(r any, n int) []ast.EmbeddedFile {
+	v, ok := r.([]ast.EmbeddedFile)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_EnumVariant(r any, n int) []ast.EnumVariant {
+	v, ok := r.([]ast.EnumVariant)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_InterfaceMethod(r any, n int) []ast.InterfaceMethod {
+	v, ok := r.([]ast.InterfaceMethod)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_MapEntry(r any, n int) []ast.MapEntry {
+	v, ok := r.([]ast.MapEntry)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_MapPatternEntry(r any, n int) []ast.MapPatternEntry {
+	v, ok := r.([]ast.MapPatternEntry)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_Node(r any, n int) []ast.Node {
+	v, ok := r.([]ast.Node)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_Param(r any, n int) []ast.Param {
+	v, ok := r.([]ast.Param)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_PathSegment(r any, n int) []ast.PathSegment {
+	v, ok := r.([]ast.PathSegment)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_Spread(r any, n int) []ast.Spread {
+	v, ok := r.([]ast.Spread)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_StringPart(r any, n int) []ast.StringPart {
+	v, ok := r.([]ast.StringPart)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_StructField(r any, n int) []ast.StructField {
+	v, ok := r.([]ast.StructField)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_StructFieldVal(r any, n int) []ast.StructFieldVal {
+	v, ok := r.([]ast.StructFieldVal)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_StructPatternField(r any, n int) []ast.StructPatternField {
+	v, ok := r.([]ast.StructPatternField)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_Trivia(r any, n int) []ast.Trivia {
+	v, ok := r.([]ast.Trivia)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_TypeExpr(r any, n int) []ast.TypeExpr {
+	v, ok := r.([]ast.TypeExpr)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_TypeParam(r any, n int) []ast.TypeParam {
+	v, ok := r.([]ast.TypeParam)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSast_WhereConstraint(r any, n int) []ast.WhereConstraint {
+	v, ok := r.([]ast.WhereConstraint)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
+}
+
+func (d *Decoder) sharedSliceSstring(r any, n int) []string {
+	v, ok := r.([]string)
+	if !ok || len(v) != n {
+		d.fail("a shared slice of another type or length")
+	}
+	return v
 }
 
 // forms holds a value of each form an interface field may hold, in tag
@@ -6520,3 +9000,7 @@ var forms = []any{
 	(*ast.WildcardPattern)(nil),
 	(*ast.With)(nil),
 }
+
+// CodecDigest is a digest of the code above it: a reader keys bytes this
+// codec wrote by it when the writer may be another binary.
+const CodecDigest = "a5de54dea5ba4667"

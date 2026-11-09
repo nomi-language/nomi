@@ -28,8 +28,9 @@ pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int {
         |> Iter.take(maximum_weight + 1)
         |> Iter.to_vector()
 
-    best = Iter.reduce(items, nothing, consider)
-    Vector.get(best, maximum_weight)!
+    items
+    |> Iter.reduce(nothing, consider)
+    |> Vector.get(maximum_weight)!
 }
 
 /// The best value for each capacity from 0 to the maximum once `item` may be
@@ -53,16 +54,16 @@ import knapsack.{self, Item}
 test "maximum value" {
     cases: List<(String, Int, List<Item>, Int)> = [
         ("no items", 100, [], 0),
-        ("one item, too heavy", 10, [#{weight: 100, value: 1}], 0),
+        ("one item, too heavy", 10, [.{weight: 100, value: 1}], 0),
         (
             "five items (cannot be greedy by weight)",
             10,
             [
-                #{weight: 2, value: 5},
-                #{weight: 2, value: 5},
-                #{weight: 2, value: 5},
-                #{weight: 2, value: 5},
-                #{weight: 10, value: 21},
+                .{weight: 2, value: 5},
+                .{weight: 2, value: 5},
+                .{weight: 2, value: 5},
+                .{weight: 2, value: 5},
+                .{weight: 10, value: 21},
             ],
             21,
         ),
@@ -70,11 +71,11 @@ test "maximum value" {
             "five items (cannot be greedy by value)",
             10,
             [
-                #{weight: 2, value: 20},
-                #{weight: 2, value: 20},
-                #{weight: 2, value: 20},
-                #{weight: 2, value: 20},
-                #{weight: 10, value: 50},
+                .{weight: 2, value: 20},
+                .{weight: 2, value: 20},
+                .{weight: 2, value: 20},
+                .{weight: 2, value: 20},
+                .{weight: 10, value: 50},
             ],
             80,
         ),
@@ -82,10 +83,10 @@ test "maximum value" {
             "example knapsack",
             10,
             [
-                #{weight: 5, value: 10},
-                #{weight: 4, value: 40},
-                #{weight: 6, value: 30},
-                #{weight: 4, value: 50},
+                .{weight: 5, value: 10},
+                .{weight: 4, value: 40},
+                .{weight: 6, value: 30},
+                .{weight: 4, value: 50},
             ],
             90,
         ),
@@ -93,14 +94,14 @@ test "maximum value" {
             "8 items",
             104,
             [
-                #{weight: 25, value: 350},
-                #{weight: 35, value: 400},
-                #{weight: 45, value: 450},
-                #{weight: 5, value: 20},
-                #{weight: 25, value: 70},
-                #{weight: 3, value: 8},
-                #{weight: 2, value: 5},
-                #{weight: 2, value: 5},
+                .{weight: 25, value: 350},
+                .{weight: 35, value: 400},
+                .{weight: 45, value: 450},
+                .{weight: 5, value: 20},
+                .{weight: 25, value: 70},
+                .{weight: 3, value: 8},
+                .{weight: 2, value: 5},
+                .{weight: 2, value: 5},
             ],
             900,
         ),
@@ -108,21 +109,21 @@ test "maximum value" {
             "15 items",
             750,
             [
-                #{weight: 70, value: 135},
-                #{weight: 73, value: 139},
-                #{weight: 77, value: 149},
-                #{weight: 80, value: 150},
-                #{weight: 82, value: 156},
-                #{weight: 87, value: 163},
-                #{weight: 90, value: 173},
-                #{weight: 94, value: 184},
-                #{weight: 98, value: 192},
-                #{weight: 106, value: 201},
-                #{weight: 110, value: 210},
-                #{weight: 113, value: 214},
-                #{weight: 115, value: 221},
-                #{weight: 118, value: 229},
-                #{weight: 120, value: 240},
+                .{weight: 70, value: 135},
+                .{weight: 73, value: 139},
+                .{weight: 77, value: 149},
+                .{weight: 80, value: 150},
+                .{weight: 82, value: 156},
+                .{weight: 87, value: 163},
+                .{weight: 90, value: 173},
+                .{weight: 94, value: 184},
+                .{weight: 98, value: 192},
+                .{weight: 106, value: 201},
+                .{weight: 110, value: 210},
+                .{weight: 113, value: 214},
+                .{weight: 115, value: 221},
+                .{weight: 118, value: 229},
+                .{weight: 120, value: 240},
             ],
             1458,
         ),
@@ -140,8 +141,8 @@ test result: ok. 7 passed, 0 failed
 
 ## How it's written
 
-- An item is a struct, `Item`, with the canonical data's `weight` and `value` fields, and the test rows write each as `#{weight: 2, value: 5}` under an annotated table.
+- An item is a struct, `Item`, with the canonical data's `weight` and `value` fields, and the test rows write each as `.{weight: 2, value: 5}` under an annotated table.
 - The answer is the 0/1 knapsack's dynamic programming: a `Vector` of the best value for every capacity from 0 to the limit, rebuilt once per item by `consider`. The capacity is the index, so `Iter.with_index` reads it beside the value. Trying every subset would be 2^15 subsets for the largest case; the table is 15 rows of 751 entries.
 - Each row is a new `Vector` built from the one before it, read through `best`, so no entry is overwritten before a later capacity reads it, the trap an in-place version must avoid by running the capacities downwards.
-- The fold names its step, `Iter.reduce(items, nothing, consider)` (style §33), and the empty row is `Iter.repeat(0)` cut to the limit plus one.
+- The fold names its step, `items |> Iter.reduce(nothing, consider)` (style §33), and the answer is the final row's entry for the limit, read in the same pipe. The empty row is `Iter.repeat(0)` cut to the limit plus one.
 - The seven current canonical cases are one `subtests` table named by the description column. The first "no items" case, whose items are a JSON object, is left out: the second, with an empty list, reimplements it.

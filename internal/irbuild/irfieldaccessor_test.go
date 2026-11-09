@@ -53,7 +53,7 @@ fn main() {
   hello = greet(User{name: "Cy", age: 1, address: Address{city: "Ayr"}, greet: fn s -> "hey ${s}"})
   io.print(hello("there"))
   io.print([(1, "a"), (2, "b")] |> Iter.map(.second) |> Iter.to_list())
-  points = [#{x: 1, y: 2}, #{x: 3, y: 4}]
+  points = [.{x: 1, y: 2}, .{x: 3, y: 4}]
   io.print(points |> Iter.map(.y) |> Iter.to_list())
 }
 `, "[Ann, Bob]\n[40, 30]\n[Bath, York]\n[Bob, Ann]\n[40, 30]\n[Ann, Bob]\n[Rye, Ely]\n[1, 2]\nhey there\n[a, b]\n[2, 4]\n")

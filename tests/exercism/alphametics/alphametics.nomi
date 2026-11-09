@@ -22,7 +22,7 @@ pub fn solve(puzzle: String) -> Maybe<Map<String, Int>> {
     letters =
         [..addends, (String.trim(right), -1)]
         |> Iter.flat_map(fn (word, sign) -> places(word, sign))
-        |> Iter.group_by(fn (name, _value, _leading) -> name)
+        |> Iter.group_by(.first)
         |> Iter.map(fn (name, uses) -> letter(name, uses))
         |> Iter.sort_by(.Descending, fn letter -> Int.abs(letter.weight))
 
@@ -42,10 +42,10 @@ fn places(word: String, sign: Int) -> List<(String, Int, Bool)> {
 }
 
 fn letter(name: String, uses: List<(String, Int, Bool)>) -> Letter {
-    Letter{
+    .{
         name,
         weight: uses |> Iter.map(fn (_name, value, _leading) -> value) |> Iter.sum(),
-        leading: Iter.any(uses, fn (_name, _value, leading) -> leading),
+        leading: Iter.any_match(uses, fn (_name, _value, leading) -> leading),
     }
 }
 
@@ -60,7 +60,7 @@ fn assign(
     total: Int,
     digits: Map<String, Int>,
 ) -> Maybe<Map<String, Int>> {
-    [letter, ..rest] = letters else { return if total == 0 { Some(digits) } else { None } }
+    [letter, ..rest] = letters else { return if total == 0 { digits } }
 
     0..=9
     |> Iter.filter(fn digit -> {

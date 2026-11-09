@@ -80,7 +80,7 @@ import "strconv"
 // `Signalling` reports that this operation's callback answers a CONTROL SIGNAL
 // rather than a plain value — `break`, `continue` or `return` inside an
 // `Iter.map`, `filter`, `take_while`, `drop_while`, `flat_map`, `each`,
-// `reduce`, `find`, `any`, `all` or `iterate` callback, which is the set
+// `reduce`, `find`, `any_match`, `all_match` or `iterate` callback, which is the set
 // `analysis/iter_sensitive.go`'s `iterCallbackSlots` sanctions apart from
 // `Iter.loop` (inlined) and `Map.map_values` / `map_keys` (host calls).
 //
@@ -332,8 +332,8 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	IterLast:  {name: "last", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterGet:   {name: "get", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
 	IterEach:  {name: "each", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
-	IterAny:   {name: "any", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
-	IterAll:   {name: "all", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	IterAny:   {name: "any_match", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	IterAll:   {name: "all_match", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	IterFind:  {name: "find", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	// `reduce` takes the source, the seed (the call's `from`) and the
 	// callback.

@@ -229,7 +229,7 @@ var mxFeatures = []mxFeature{
 	{name: "map spread", typ: "Map<String, Int>", expr: `%{..%{"a" => 1}, "b" => 2}`, want: `%{"a" => 1, "b" => 2}`},
 	{name: "empty map", typ: "Map<String, Int>", expr: "%{}", want: "%{}", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
 	{name: "tuple", typ: "(Int, String)", expr: `(1, "a")`, want: `(1, "a")`},
-	{name: "record", typ: "#{a: Int, b: String}", expr: `#{a: 1, b: "x"}`, want: `#{a: 1, b: "x"}`},
+	{name: "record", typ: ".{a: Int, b: String}", expr: `.{a: 1, b: "x"}`, want: `.{a: 1, b: "x"}`},
 	{name: "range", typ: "Range<Int>", expr: "1..4", want: "1..4"},
 	{name: "not", typ: "Bool", expr: `not 1 == 2 and not ([1] |> Iter.is_empty())`, want: "True"},
 	{name: "not stage", typ: "Bool", expr: `"" |> not String.contains("x")`, want: "True"},
@@ -439,12 +439,12 @@ var mxFeatures = []mxFeature{
 	{name: "pipe", typ: "Int", expr: `"abc" |> String.length()`, want: "3"},
 	{name: "then stage", typ: "Int", expr: "4 |> then fn n -> n * n", want: "16"},
 	{name: "field access", decls: mxPoint, typ: "Int", expr: "Point{x: 5}.x", want: "5"},
-	{name: "struct update", decls: mxPoint, typ: "Point", expr: "Struct.update(Point{x: 1}, #{y: 9})",
+	{name: "struct update", decls: mxPoint, typ: "Point", expr: "Struct.update(Point{x: 1}, .{y: 9})",
 		want: "Point{x: 1, y: 9}"},
 	{name: "struct spread", decls: mxPoint + "\n\nfn origin() -> Point {\n    Point{x: 0, y: 0}\n}", typ: "Point",
-		expr: "#{..origin(), x: 7}", want: "Point{x: 7, y: 0}"},
+		expr: ".{..origin(), x: 7}", want: "Point{x: 7, y: 0}"},
 	{name: "nested spread", decls: mxPoint + "\n\nstruct Line {\n    a: Point\n    b: Point\n}\n\nfn line0() -> Line {\n    Line{a: Point{x: 0}, b: Point{x: 1}}\n}",
-		typ: "Line", expr: "#{..line0(), a: #{.., x: 5}}", want: "Line{a: Point{x: 5, y: 2}, b: Point{x: 1, y: 2}}"},
+		typ: "Line", expr: ".{..line0(), a: .{.., x: 5}}", want: "Line{a: Point{x: 5, y: 2}, b: Point{x: 1, y: 2}}"},
 
 	// Patterns.
 	{name: "tuple pattern", typ: "String", expr: "case (1, \"a\") {\n    (n, s) -> \"${n}${s}\"\n}", want: `"1a"`, tags: tagNested},
@@ -674,7 +674,7 @@ var mxWraps = []*mxContext{
 	}),
 	wrapCtx("record field", true, mxFlows, func(b *mxBuild, n int) {
 		r := fmt.Sprintf("r%d", n)
-		b.expr = mxBlock(fmt.Sprintf("%s = #{f: %s, g: 0}", r, b.expr), r+".f")
+		b.expr = mxBlock(fmt.Sprintf("%s = .{f: %s, g: 0}", r, b.expr), r+".f")
 	}),
 	wrapCtx("enum payload", true, mxGives, func(b *mxBuild, n int) {
 		b.decls = append(b.decls, fmt.Sprintf("enum Pay%d {\n    Has %s\n    Gone\n}", n, mxPayload(b.typ)))

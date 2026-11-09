@@ -25,6 +25,14 @@ import (
 // every diagnostic the whole project produced.
 func buildSiblingProject(t *testing.T, entry string, siblings map[string]string) []analysis.TypeError {
 	t.Helper()
+	_, errs := buildSiblingProjectFA(t, entry, siblings)
+	return errs
+}
+
+// buildSiblingProjectFA is buildSiblingProject returning the entry's
+// analysis too.
+func buildSiblingProjectFA(t *testing.T, entry string, siblings map[string]string) (*analysis.FileAnalysis, []analysis.TypeError) {
+	t.Helper()
 	tmp := t.TempDir()
 	mainPath := filepath.Join(tmp, "main.nomi")
 	if err := os.WriteFile(mainPath, []byte(entry), 0o644); err != nil {
@@ -50,7 +58,7 @@ func buildSiblingProject(t *testing.T, entry string, siblings map[string]string)
 		errs = append(errs, sibFA.TypeErrors...)
 		errs = append(errs, analysis.CheckTypes(sibFA, sibNodes[key])...)
 	}
-	return errs
+	return fa, errs
 }
 
 func joinMessages(errs []analysis.TypeError) string {

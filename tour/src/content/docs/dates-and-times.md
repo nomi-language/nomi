@@ -187,10 +187,9 @@ dbg line 12: civil = 2026-03-08T12:00:00-04:00[America/New_York]
 dbg line 13: physical = 2026-03-08T13:00:00-04:00[America/New_York]
 -->
 
-Both answers are correct; they answer different questions. `+ Days(1)`
-keeps the clock reading, noon, and works out the new UTC offset.
-`+ Duration.hours(24)` moves the moment forward by exactly 24 hours. You
-pick the one you mean.
+Both results are correct for different questions. `+ Days(1)` keeps the
+clock reading, noon, and works out the new UTC offset.
+`+ Duration.hours(24)` moves the moment forward by exactly 24 hours.
 
 ## Showing a date to a person
 

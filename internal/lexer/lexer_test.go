@@ -136,8 +136,8 @@ func TestSingleCharOperators(t *testing.T) {
 		tok(token.RPAREN, ")"),
 		tok(token.EOF, ""),
 	})
-	assertTokens(t, "#{}", []token.Token{
-		tok(token.HASH, "#"),
+	assertTokens(t, ".{}", []token.Token{
+		tok(token.DOT, "."),
 		tok(token.LBRACE, "{"),
 		tok(token.RBRACE, "}"),
 		tok(token.EOF, ""),

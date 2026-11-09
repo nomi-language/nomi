@@ -56,7 +56,7 @@ import {
     io
     io.{Reader, Writer}
     iter.Iter
-    json.{FromJson, Json}
+    json.{FromJson, Json, ToJson}
     lists.List
     literals.{CheckedLiteral, Fragment, Literal, LiteralError}
     log.{self, Logger}
@@ -501,12 +501,12 @@ impl FormPart {
     //! encoded = FormPart.encode([FormPart.Field{name: "a", value: "1"}])
     //! assert String.starts_with(encoded.content_type, "multipart/form-data; boundary=")
     //
-    pub fn encode(parts: List<FormPart>) -> #{content_type: String, body: Bytes} {
+    pub fn encode(parts: List<FormPart>) -> .{content_type: String, body: Bytes} {
         flat = parts |> Iter.flat_map(FormPart.flat) |> Iter.to_list()
 
         case http_host.encode_multipart(flat) {
-            [content_type, body] -> #{content_type: Bytes.to_string(content_type)!, body}
-            _ -> #{content_type: "multipart/form-data", body: String.to_bytes("")}
+            [content_type, body] -> .{content_type: Bytes.to_string(content_type)!, body}
+            _ -> .{content_type: "multipart/form-data", body: String.to_bytes("")}
         }
     }
 
@@ -522,8 +522,7 @@ impl FormPart {
 
     fn flat(part: FormPart) -> List<Bytes> {
         case part {
-            .Field{name, value} ->
-                ["v", name, value] |> Iter.map(String.to_bytes) |> Iter.to_list()
+            .Field{name, value} -> ["v", name, value] |> Iter.map(String.to_bytes) |> Iter.to_list()
 
             .File{field, filename, content_type, content} ->
                 [..(["f", field, filename, content_type] |> Iter.map(String.to_bytes)), content]
@@ -563,7 +562,7 @@ fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm {
         [kind, name, value, ..rest] when text_of(kind) == "v" ->
             multipart_of(
                 rest,
-                #{..form, values: Query.add(form.values, text_of(name), text_of(value))},
+                .{..form, values: Query.add(form.values, text_of(name), text_of(value))},
             )
 
         [_, field, filename, count, ..rest] -> {
@@ -601,16 +600,14 @@ fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm {
                         [..Map.get(form.files, key) |> Maybe.with_default([]), file],
                     )
 
-                    multipart_of(remaining, #{..form, files})
+                    multipart_of(remaining, .{..form, files})
                 }
 
-                [] ->
-                    form
+                [] -> form
             }
         }
 
-        _ ->
-            form
+        _ -> form
     }
 }
 
@@ -662,8 +659,7 @@ fn copy_capped(r: Reader, w: Writer, left: Int) -> Result<Unit, io.Error> {
             copy_capped(r, w, left - Bytes.length(chunk))
         }
 
-        None ->
-            Ok(Unit)
+        None -> Ok(Unit)
     }
 }
 
@@ -683,10 +679,10 @@ impl Protocol {
     /// Whether the version is `major.minor` or later.
     //! import std::http.Protocol
     //!
-    //! assert Protocol.at_least(Protocol{major: 2, minor: 0}, 1, 1)
-    //! assert not Protocol.at_least(Protocol{major: 1, minor: 0}, 1, 1)
+    //! assert Protocol.is_at_least(Protocol{major: 2, minor: 0}, 1, 1)
+    //! assert not Protocol.is_at_least(Protocol{major: 1, minor: 0}, 1, 1)
     //
-    pub fn at_least(protocol: Protocol, major: Int, minor: Int) -> Bool {
+    pub fn is_at_least(protocol: Protocol, major: Int, minor: Int) -> Bool {
         protocol.major > major or protocol.major == major and protocol.minor >= minor
     }
 
@@ -781,7 +777,7 @@ impl Request {
     //! import std::http_testing
     //!
     //! posted = fn size: Int -> {
-    //!     #{
+    //!     .{
     //!         ..http_testing.request(Method.Post, "/"),
     //!         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
     //!         body: Body.Stream(Reader.from_text("a=${String.repeat("x", size - 2)}")),
@@ -845,7 +841,7 @@ impl Request {
     //!     overhead = Bytes.length(FormPart.encode([file("")]).body)
     //!     encoded = FormPart.encode([file(String.repeat("x", size - overhead))])
     //!
-    //!     #{
+    //!     .{
     //!         ..http_testing.request(Method.Post, "/upload"),
     //!         headers: Headers[("Content-Type", encoded.content_type)],
     //!         body: Body.Stream(Reader.from_bytes(encoded.body)),
@@ -880,7 +876,7 @@ impl Request {
     //!     FormPart.File{field: "doc", filename: "a.txt", content: String.to_bytes("abc")},
     //! ]
     //!
-    //! request = #{
+    //! request = .{
     //!     ..http_testing.request(Method.Post, "/upload"),
     //!     headers: Headers[("Content-Type", FormPart.encode(parts).content_type)],
     //!     body: Body.Multipart(parts),
@@ -908,7 +904,7 @@ impl Request {
     //! import std::http.{Body, Method, Request}
     //! import std::http_testing
     //!
-    //! posted = fn body: Body -> #{..http_testing.request(Method.Post, "/notes"), body}
+    //! posted = fn body: Body -> .{..http_testing.request(Method.Post, "/notes"), body}
     //!
     //! assert Request.text(posted(Body.Stream(Reader.from_text("hello")))) == Ok("hello")
     //!
@@ -935,12 +931,15 @@ impl Request {
     //! import std::http.{Body, Method, Request, Response, Status}
     //! import std::http_testing
     //!
-    //! posted = fn text: String -> #{..http_testing.request(Method.Post, "/todos"), body: Body.Text(text)}
+    //! posted = fn text: String -> .{..http_testing.request(Method.Post, "/todos"), body: Body.Text(text)}
     //!
     //! read: Result<Map<String, String>, Error> = Request.json_as(posted(`{"title": "milk"}`))
     //! assert read == Ok(%{"title" => "milk"})
     //!
     //! assert Request.json_as<List<Int>>(posted("[1,")) |> Result.is_err()
+    //!
+    //! todo = Request.json_as<.{title: String, order: Maybe<Int>}>(posted(`{"title": "milk"}`))
+    //! assert todo == Ok(.{title: "milk", order: None})
     //!
     //! create = fn request: Request -> {
     //!     fields = Request.json_as<Map<String, String>>(request)?
@@ -1006,7 +1005,7 @@ impl Request {
     pub fn add_cookie(request: Request, cookie: Cookie) -> Request {
         existing = Headers.get(request.headers, "Cookie") |> Maybe.with_default("")
         line = http_host.add_cookie(existing, Cookie.parts(cookie))
-        #{..request, headers: Headers.set(request.headers, "Cookie", line)}
+        .{..request, headers: Headers.set(request.headers, "Cookie", line)}
     }
 
     /// The request with a body that fails past `max` bytes, as Go's
@@ -1020,7 +1019,7 @@ impl Request {
             None -> max
         }
 
-        #{
+        .{
             ..request,
             body: Body.Stream(http_host.limit_body(Body.reader(request.body), max)),
             body_limit: Some(body_limit),
@@ -1045,7 +1044,7 @@ impl Request {
     //! r = Request.with_basic_auth(Request{url: Url`https://example.com`}, "ann", "pw")
     //! assert Request.basic_auth(r) == Some(("ann", "pw"))
     //!
-    //! lower = #{..r, headers: Headers[("Authorization", "basic YW5uOnB3")]}
+    //! lower = .{..r, headers: Headers[("Authorization", "basic YW5uOnB3")]}
     //! assert Request.basic_auth(lower) == Some(("ann", "pw"))
     //
     pub fn basic_auth(request: Request) -> Maybe<(String, String)> {
@@ -1061,7 +1060,7 @@ impl Request {
     /// `password`.
     pub fn with_basic_auth(request: Request, user: String, password: String) -> Request {
         token = base64.encode(String.to_bytes("${user}:${password}"))
-        #{..request, headers: Headers.set(request.headers, "Authorization", "Basic ${token}")}
+        .{..request, headers: Headers.set(request.headers, "Authorization", "Basic ${token}")}
     }
 
     /// The value a router matched for the wildcard `name`.
@@ -1075,8 +1074,7 @@ impl Request {
                 http_host.extend_read_deadline(incoming, Duration.as_nanos(by))
                 |> Result.map_err(fn reason -> Error.Protocol{reason})
 
-            None ->
-                Err(Error.Protocol{reason: "the request was not received by a server"})
+            None -> Err(Error.Protocol{reason: "the request was not received by a server"})
         }
     }
 
@@ -1168,8 +1166,7 @@ impl Request {
             Some(b) when String.starts_with(content_type, "multipart/") ->
                 Ok(multipart_parts(Body.reader(request.body), b))
 
-            _ ->
-                Err(Error.Form{reason: "request Content-Type isn't multipart/form-data"})
+            _ -> Err(Error.Form{reason: "request Content-Type isn't multipart/form-data"})
         }
     }
 
@@ -1179,7 +1176,7 @@ impl Request {
 
     /// The request with the wildcard `name` matched as `value`.
     pub fn with_path_value(request: Request, name: String, value: String) -> Request {
-        #{..request, path_values: Map.put(request.path_values, name, value)}
+        .{..request, path_values: Map.put(request.path_values, name, value)}
     }
 }
 
@@ -1299,7 +1296,7 @@ impl Response {
     pub fn set_cookie(response: Response, cookie: Cookie) -> Response {
         text = "${cookie}"
         if text == "" { return response }
-        #{..response, headers: Headers.add(response.headers, "Set-Cookie", text)}
+        .{..response, headers: Headers.add(response.headers, "Set-Cookie", text)}
     }
 
     /// A page or a fragment of one: a 200 whose body is `page`, sent as
@@ -1317,6 +1314,32 @@ impl Response {
     //
     pub fn html(page: Html) -> Response {
         Response{body: Body.Html(page)}
+    }
+
+    /// `value` as JSON: a response with `status`, 200 unless given, whose
+    /// body is `ToJson.to_json(value)`, sent as `application/json`. A `Json`
+    /// value is sent as it is, and an anonymous struct as an object of its
+    /// fields.
+    //! import std::http.{Response, Status}
+    //!
+    //! r = Response.json(%{"id" => 7, "done" => 0})
+    //! assert r.status == Status.ok
+    //! assert Headers.get(r.headers, "Content-Type") == Some("application/json")
+    //! assert Response.json_as<Map<String, Int>>(r) == Ok(%{"id" => 7, "done" => 0})
+    //!
+    //! created = Response.json(%Json.Obj{"id" => Json.Int(8)}, status: Status.created)
+    //! assert created.status == Status.created
+    //! assert Response.text(created) == Ok(`{"id":8}`)
+    //!
+    //! missing = Response.json(.{error: "no todo 99"}, status: Status.not_found)
+    //! assert Response.text(missing) == Ok(`{"error":"no todo 99"}`)
+    //
+    pub fn json(value: ToJson, status: Status = Status.ok) -> Response {
+        Response{
+            status,
+            headers: Headers[("Content-Type", "application/json")],
+            body: Body.Json(ToJson.to_json(value)),
+        }
     }
 
     /// A plain-text response with `status` and `message`, as Go's `Error`
@@ -1373,13 +1396,13 @@ impl Response {
     //! import std::http_testing
     //!
     //! request = http_testing.request(Method.Get, "/f")
-    //! ranged = #{..request, headers: Headers.set(request.headers, "Range", "bytes=1-2")}
+    //! ranged = .{..request, headers: Headers.set(request.headers, "Range", "bytes=1-2")}
     //! r = Response.content(ranged, "f.txt", None, String.to_bytes("hello"))
     //! assert r.status == Status.partial_content
     //! assert Response.text(r) == Ok("el")
     //!
     //! tagged = Headers[("ETag", "\"v1\"")]
-    //! again = #{..request, headers: Headers.set(request.headers, "If-None-Match", "\"v1\"")}
+    //! again = .{..request, headers: Headers.set(request.headers, "If-None-Match", "\"v1\"")}
     //!
     //! assert Response.content(again, "f.txt", None, String.to_bytes("hello"), headers: tagged).status
     //!     == Status.not_modified
@@ -1424,7 +1447,7 @@ impl Response {
             Headers.set(acc, name, text)
         })
 
-        #{..response, headers: set}
+        .{..response, headers: set}
     }
 
     /// `value` as a response, with each of `headers` the
@@ -1451,7 +1474,7 @@ impl Response {
             }
         })
 
-        #{..response, headers: added}
+        .{..response, headers: added}
     }
 
     /// The whole body as text.
@@ -1466,19 +1489,29 @@ impl Response {
         Body.read_all(response.body)
     }
 
-    /// The whole body read as JSON.
-    pub fn json(response: Response) -> Result<Json, Error> {
+    /// The whole body read as JSON into a `T`: `Response.text`, then
+    /// `Json.decode_as`. Text that is not JSON, or JSON that is not a `T`, is
+    /// `Error.Protocol`. It does not check the `Content-Type`. Give `T` with
+    /// a binding's annotation or as `Response.json_as<T>(response)`;
+    /// `Response.json_as<Json>` reads any JSON.
+    //! import std::http.{Body, Response}
+    //!
+    //! r = Response{body: Body.Text(`{"id": 7}`)}
+    //! assert Response.json_as<Map<String, Int>>(r) == Ok(%{"id" => 7})
+    //! assert Response.json_as<Json>(r) == Ok(%Json.Obj{"id" => Json.Int(7)})
+    //! assert Response.json_as<List<Int>>(r) |> Result.is_err()
+    //
+    pub fn json_as<T>(response: Response) -> Result<T, Error> where T: FromJson {
         text = Response.text(response)?
 
-        Json.decode(text)
+        Json.decode_as<T>(text)
         |> Result.map_err(fn e -> Error.Protocol{reason: "the body is not JSON: ${e}"})
     }
 
     /// The `Location` header resolved against the response's URL.
     pub fn location(response: Response) -> Result<Maybe<Url>, Error> {
         case Headers.get(response.headers, "Location") {
-            None ->
-                Ok(None)
+            None -> Ok(None)
 
             Some(text) -> {
                 parsed = case response.url {
@@ -1666,26 +1699,13 @@ impl Error {
 
     fn from_parts(parts: List<String>) -> Error {
         case parts {
-            ["InvalidUrl", url, reason] ->
-                Error.InvalidUrl{url, reason}
-
-            ["InvalidRequest", reason] ->
-                Error.InvalidRequest{reason}
-
-            ["Dns", host, reason] ->
-                Error.Dns{host, reason}
-
-            ["Connect", address, reason] ->
-                Error.Connect{address, reason}
-
-            ["Tls", reason] ->
-                Error.Tls{reason}
-
-            ["Timeout", during] ->
-                Error.Timeout{during}
-
-            ["Canceled"] ->
-                Error.Canceled
+            ["InvalidUrl", url, reason] -> Error.InvalidUrl{url, reason}
+            ["InvalidRequest", reason] -> Error.InvalidRequest{reason}
+            ["Dns", host, reason] -> Error.Dns{host, reason}
+            ["Connect", address, reason] -> Error.Connect{address, reason}
+            ["Tls", reason] -> Error.Tls{reason}
+            ["Timeout", during] -> Error.Timeout{during}
+            ["Canceled"] -> Error.Canceled
 
             ["TooManyRedirects", count] ->
                 Error.TooManyRedirects{count: String.to_int(count) |> Maybe.with_default(0)}
@@ -1693,17 +1713,10 @@ impl Error {
             ["BodyTooLarge", limit] ->
                 Error.BodyTooLarge{limit: String.to_int(limit) |> Maybe.with_default(0)}
 
-            ["Protocol", reason] ->
-                Error.Protocol{reason}
-
-            ["Listen", address, reason] ->
-                Error.Listen{address, reason}
-
-            ["Pattern", pattern, reason] ->
-                Error.Pattern{pattern, reason}
-
-            _ ->
-                Error.Protocol{reason: String.join(parts, ": ")}
+            ["Protocol", reason] -> Error.Protocol{reason}
+            ["Listen", address, reason] -> Error.Listen{address, reason}
+            ["Pattern", pattern, reason] -> Error.Pattern{pattern, reason}
+            _ -> Error.Protocol{reason: String.join(parts, ": ")}
         }
     }
 }
@@ -2008,8 +2021,7 @@ impl Client {
                         }
                     }
 
-                None ->
-                    fn _, _, _ -> ""
+                None -> fn _, _, _ -> ""
             },
             Maybe.is_some(t.on_proxy_connect),
             Maybe.with_default(t.http2.on_error_count, ignore_text),
@@ -2172,17 +2184,13 @@ fn send(
     headers = typed(request.headers, request.body)
 
     (kind, data, input) = case request.body {
-        .Empty ->
-            (0, String.to_bytes(""), Reader.from_bytes(String.to_bytes("")))
-
-        .Stream(r) ->
-            (2, String.to_bytes(""), r)
+        .Empty -> (0, String.to_bytes(""), Reader.from_bytes(String.to_bytes("")))
+        .Stream(r) -> (2, String.to_bytes(""), r)
 
         .Produce(_) ->
             return Err(Error.InvalidRequest{reason: "a request body cannot be Body.Produce"})
 
-        other ->
-            (1, Body.bytes_of(other), Reader.from_bytes(String.to_bytes("")))
+        other -> (1, Body.bytes_of(other), Reader.from_bytes(String.to_bytes("")))
     }
 
     http_host.send(
@@ -2227,8 +2235,7 @@ fn typed(headers: Headers, body: Body) -> Headers {
                 Headers.add(headers, "Content-Type", t)
             }
 
-        None ->
-            headers
+        None -> headers
     }
 }
 
@@ -2269,8 +2276,7 @@ fn send_following(
             send_following(handle, following, stream, max_body, redirects, sent)
         }
 
-        .Stop ->
-            Ok(exchange)
+        .Stop -> Ok(exchange)
 
         .Refuse(reason) -> {
             http_host.close_body(exchange)
@@ -2333,7 +2339,7 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
         |> Iter.reduce(headers, Headers.remove)
     }
 
-    Ok(Some(#{
+    Ok(Some(.{
             ..request,
             method: next_method,
             url: target,
@@ -2566,8 +2572,7 @@ fn accept(listener: Listener, handler: Handler, supervisor: Supervisor) -> Unit 
             accept(listener, handler, supervisor)
         }
 
-        None ->
-            Unit
+        None -> Unit
     }
 }
 
@@ -2632,7 +2637,7 @@ fn request_of(incoming: http_host.Incoming, context: Context) -> Request {
 fn served_url(target: Url, host: String, local_address: String, secure: Bool) -> Url {
     if target.host != "" or not String.starts_with(target.path, "/") { return target }
 
-    #{
+    .{
         ..target,
         scheme: if secure { "https" } else { "http" },
         host: if host == "" { local_address } else { host },
@@ -2731,13 +2736,13 @@ fn length_of(response: Response) -> Int {
 /// end. A pattern with no method matches every method.
 ///
 /// `P` is the route's path parameters: an anonymous struct with a field
-/// per wildcard, `Route<#{id: Uuid}>` for `GET /posts/{id}`, or `Unit` for
+/// per wildcard, `Route<.{id: Uuid}>` for `GET /posts/{id}`, or `Unit` for
 /// a route with none, which is the default: a `Route` is a `Route<Unit>`. A
 /// field's type implements `Parse` and `Display`, and a `{rest...}` field
 /// is a `String`. A literal with no expected type has
 /// a `String` field per wildcard, so ``Route`GET /users/{id}` `` is a
-/// `Route<#{id: String}>`; a typed one names its fields' types:
-/// `post: Route<#{id: Uuid}> = "GET /posts/{id}"`. `Route.to_with` hands a
+/// `Route<.{id: String}>`; a typed one names its fields' types:
+/// `post: Route<.{id: Uuid}> = "GET /posts/{id}"`. `Route.to_with` hands a
 /// handler the parsed parameters and `Route.path_with` fills them into a
 /// link. The parameters are a type only: a `Route` holds its text.
 ///
@@ -2756,7 +2761,7 @@ fn length_of(response: Response) -> Int {
 /// time goes through `Route.parse`.
 //! assert "${Route`GET /users/{id}`}" == "GET /users/{id}"
 //! assert Route.parse<Unit>("GET /a/{x}/{x}") |> Result.is_err()
-//! assert Route.parse<#{rest: String}>("/files/{rest...}/more") |> Result.is_err()
+//! assert Route.parse<.{rest: String}>("/files/{rest...}/more") |> Result.is_err()
 //! assert Route.parse<Unit>("GETX /complete-profile/token}") |> Result.is_err()
 //! assert Route.parse<Unit>("/a/%7Bliteral%7D") |> Result.is_ok()
 //
@@ -2792,8 +2797,8 @@ impl Route<P> {
     //! assert Err(Error.Pattern{reason: opening}) = Route.parse<Unit>("/files/v{n}")
     //! assert opening == "a `{` outside a wildcard; a wildcard is a whole segment, `{name}`"
     //!
-    //! assert Route.parse<#{id: Int}>("GET /items/{id}") |> Result.is_ok()
-    //! assert Err(Error.Pattern{reason: fields}) = Route.parse<#{id: Int}>("GET /items/{key}")
+    //! assert Route.parse<.{id: Int}>("GET /items/{id}") |> Result.is_ok()
+    //! assert Err(Error.Pattern{reason: fields}) = Route.parse<.{id: Int}>("GET /items/{key}")
     //! assert fields == "the pattern's wildcards are {key}, and the parameters' fields are id"
     //
     pub fn parse<P>(text: String) -> Result<Route<P>, Error> where P: ParseFields {
@@ -2812,7 +2817,7 @@ impl Route<P> {
     //! import std::http.{Body, Method, Request, Response, Route, Router}
     //! import std::http_testing
     //!
-    //! propfind = Route.with_method<#{name: String}>(Method.Other("PROPFIND"), "/files/{name}")!
+    //! propfind = Route.with_method<.{name: String}>(Method.Other("PROPFIND"), "/files/{name}")!
     //! assert "${propfind}" == "PROPFIND /files/{name}"
     //!
     //! router = Router.new([Route.to_with(propfind, fn _, p -> Response{body: Body.Text(p.name)})])!
@@ -2859,7 +2864,7 @@ impl Route<P> {
     /// `{rest...}` field's text escaped segment by segment, and the
     /// pattern's method and host left out.
     //! users = Route`GET /users/{name}/posts/{rest...}`
-    //! link = Route.path_with(users, #{name: "ann b", rest: "2024/a?b"})
+    //! link = Route.path_with(users, .{name: "ann b", rest: "2024/a?b"})
     //! assert "${link}" == "/users/ann%20b/posts/2024/a%3Fb"
     //
     pub fn path_with<P>(route: Route<P>, params: P) -> Url where P: ParseFields {
@@ -2881,8 +2886,7 @@ impl Route<P> {
                     Some((name, False)) ->
                         Map.get(values, name) |> Maybe.with_default("") |> url.escape_path_segment()
 
-                    None ->
-                        if segment == "{$}" { "" } else { segment }
+                    None -> if segment == "{$}" { "" } else { segment }
                 }
             })
 
@@ -2905,7 +2909,7 @@ impl Route<P> {
     //! import std::http.{Body, Method, Response, Route, Router, Status}
     //! import std::http_testing
     //!
-    //! item: Route<#{id: Int}> = "GET /items/{id}"
+    //! item: Route<.{id: Int}> = "GET /items/{id}"
     //!
     //! router = Router.new(
     //!     [Route.to_with(item, fn _, p -> Response{body: Body.Text("item ${p.id + 1}")})]
@@ -2959,20 +2963,19 @@ fn method_rule(text: String) -> Maybe<String> {
 
     if not String.contains(spaced, " ") or word == "" or String.contains(word, "/") {
         None
-    } else if Iter.any(route_methods(), &(&1 == word)) {
+    } else if Iter.any_match(route_methods(), &(&1 == word)) {
         None
     } else {
         upper = String.uppercase(word)
 
-        guess = if Iter.any(route_methods(), &(&1 == upper)) {
+        guess = if Iter.any_match(route_methods(), &(&1 == upper)) {
             Some(upper)
         } else {
             Iter.find(route_methods(), &one_edit_apart(upper, &1))
         }
 
         case guess {
-            Some(m) ->
-                Some("unknown method `${word}`; did you mean `${m}`?")
+            Some(m) -> Some("unknown method `${word}`; did you mean `${m}`?")
 
             None ->
                 Some(
@@ -2993,7 +2996,7 @@ fn one_edit_apart(a: String, b: String) -> Bool {
 
         Iter.count(differ) == 1
     } else if la == lb + 1 {
-        Iter.any(0..la, fn i -> String.take(a, i) + String.drop(a, i + 1) == b)
+        Iter.any_match(0..la, fn i -> String.take(a, i) + String.drop(a, i + 1) == b)
     } else if lb == la + 1 {
         one_edit_apart(b, a)
     } else {
@@ -3011,8 +3014,7 @@ fn brace_rule(text: String) -> Maybe<String> {
                 None -> Iter.find_map(segments, &brace_in_segment(&1, True))
             }
 
-        [] ->
-            None
+        [] -> None
     }
 }
 
@@ -3096,8 +3098,7 @@ fn route_path(text: String) -> String {
         [word, ..rest] when rest != [] and not String.contains(word, "/") ->
             String.join(rest, " ") |> String.trim()
 
-        _ ->
-            spaced
+        _ -> spaced
     }
 
     case String.split(after_method, "/") {
@@ -3145,12 +3146,12 @@ fn route_wildcards(text: String) -> List<(String, Bool, Int)> {
 
 /// The fields of the anonymous struct `spelling` names, each its name and
 /// its type's spelling, as a checked literal's `check_type` gets them:
-/// `#{id: Uuid, tags: Map<String, Int>}`. `Some([])` for `Unit`, and
+/// `.{id: Uuid, tags: Map<String, Int>}`. `Some([])` for `Unit`, and
 /// `None` for any other type.
 fn param_fields(spelling: String) -> Maybe<List<(String, String)>> {
     if spelling == "Unit" { return Some([]) }
 
-    if not String.starts_with(spelling, "#{") or not String.ends_with(spelling, "}") { return None }
+    if not String.starts_with(spelling, ".{") or not String.ends_with(spelling, "}") { return None }
 
     body = String.slice(spelling, 2, String.length(spelling) - 1)
 
@@ -3172,8 +3173,7 @@ fn param_fields(spelling: String) -> Maybe<List<(String, String)>> {
             [name, ..rest] when rest != [] ->
                 Some((String.trim(name), String.trim(String.join(rest, ":"))))
 
-            _ ->
-                None
+            _ -> None
         }
     })
     |> Maybe.collect()
@@ -3220,18 +3220,16 @@ fn params_error(text: String, params: String) -> Maybe<LiteralError> {
                             message: "`{${name}...}` matches the rest of the path, so its field is a `String`, not `${ty}`",
                         })
 
-                    Some(_) ->
-                        None
+                    Some(_) -> None
                 }
             })
 
             case missing {
-                Some(e) ->
-                    Some(e)
+                Some(e) -> Some(e)
 
                 None ->
                     Iter.find_map(fields, fn (f, _) -> {
-                        if Iter.any(wildcards, fn (name, _, _) -> name == f) {
+                        if Iter.any_match(wildcards, fn (name, _, _) -> name == f) {
                             None
                         } else {
                             Some(
@@ -3262,8 +3260,7 @@ impl CheckedLiteral<String, Route<P>> for Route<P> {
                             }
                         )
 
-                    None ->
-                        Ok(Unit)
+                    None -> Ok(Unit)
                 }
 
             [first, ..] ->
@@ -3275,8 +3272,7 @@ impl CheckedLiteral<String, Route<P>> for Route<P> {
                     }
                 )
 
-            [] ->
-                Ok(Unit)
+            [] -> Ok(Unit)
         }
     }
 
@@ -3290,8 +3286,7 @@ impl CheckedLiteral<String, Route<P>> for Route<P> {
                     None -> Ok(Unit)
                 }
 
-            _ ->
-                Ok(Unit)
+            _ -> Ok(Unit)
         }
     }
 
@@ -3387,7 +3382,7 @@ impl Router {
                 handler =
                     String.to_int(index) |> Maybe.flat_map(fn i -> Iter.get(router.handlers, i))
 
-                found = #{
+                found = .{
                     ..request,
                     pattern: Some(pattern),
                     path_values: pairs(values) |> Iter.to_map(),
@@ -3409,8 +3404,7 @@ impl Router {
                     body: Body.Text(body),
                 }
 
-            _ ->
-                Response{status: Status.internal_server_error}
+            _ -> Response{status: Status.internal_server_error}
         }
     }
 
@@ -3441,8 +3435,7 @@ fn from_go(parts: List<String>) -> Response {
                 body: Body.Text(body),
             }
 
-        _ ->
-            Response{status: Status.internal_server_error}
+        _ -> Response{status: Status.internal_server_error}
     }
 }
 
@@ -3481,12 +3474,9 @@ pub fn strip_prefix(handler: Handler, prefix: String) -> (Request) -> Response {
 
         case (String.strip_prefix(request.url.path, prefix), raw) {
             (Some(rest), Some(raw_path)) ->
-                ToResponse.to_response(
-                    handler(#{..request, url: #{..request.url, path: rest, raw_path}})
-                )
+                ToResponse.to_response(handler(.{..request, url: .{.., path: rest, raw_path}}))
 
-            _ ->
-                Response.not_found()
+            _ -> Response.not_found()
         }
     }
 }
@@ -3509,10 +3499,9 @@ pub fn allow_query_semicolons(handler: Handler) -> (Request) -> Response {
     fn request -> {
         rewritten = case request.url.query {
             Some(q) when String.contains(q, ";") ->
-                #{..request, url: #{..request.url, query: Some(String.replace(q, ";", "&"))}}
+                .{..request, url: .{.., query: Some(String.replace(q, ";", "&"))}}
 
-            _ ->
-                request
+            _ -> request
         }
 
         ToResponse.to_response(handler(rewritten))
@@ -3613,8 +3602,7 @@ impl Origin {
                 }
             }
 
-            Err(_) ->
-                refused
+            Err(_) -> refused
         }
     }
 }
@@ -3666,7 +3654,7 @@ impl CrossOrigin {
     //!
     //! post = http_testing.request(Method.Post, "/pay")
     //!
-    //! from = fn site: String -> #{
+    //! from = fn site: String -> .{
     //!     ..post,
     //!     headers: Headers[("Sec-Fetch-Site", site), ("Origin", "https://evil.example")],
     //! }
@@ -3677,7 +3665,7 @@ impl CrossOrigin {
     //! trusting = CrossOrigin{trusted_origins: [Origin`https://evil.example`]}
     //! assert CrossOrigin.check(trusting, from("cross-site")) == Ok(Unit)
     //!
-    //! no_origin = #{..post, headers: Headers[("Sec-Fetch-Site", ""), ("Origin", "")]}
+    //! no_origin = .{..post, headers: Headers[("Sec-Fetch-Site", ""), ("Origin", "")]}
     //! assert CrossOrigin.check(CrossOrigin{}, no_origin) == Ok(Unit)
     //
     pub fn check(options: CrossOrigin, request: Request) -> Result<Unit, Error> {
@@ -3702,7 +3690,7 @@ impl CrossOrigin {
 //! pay = fn _: Request -> Response{body: Body.Text("paid")}
 //! app = pay |> http.cross_origin_protection(CrossOrigin{bypass_patterns: ["POST /hooks/"]})
 //!
-//! post = fn path: String -> #{
+//! post = fn path: String -> .{
 //!     ..http_testing.request(Method.Post, path),
 //!     headers: Headers[("Sec-Fetch-Site", "cross-site")],
 //! }
@@ -3719,7 +3707,7 @@ pub fn cross_origin_protection(handler: Handler, options: CrossOrigin) -> (Reque
         |> Iter.to_list()
 
     fn request -> {
-        bypassed = Iter.any(bypass, fn built -> {
+        bypassed = Iter.any_match(bypass, fn built -> {
             case built {
                 Ok(router) -> Router.find(router, request) |> Maybe.is_some()
                 Err(_) -> False
@@ -3729,8 +3717,7 @@ pub fn cross_origin_protection(handler: Handler, options: CrossOrigin) -> (Reque
         if bypassed { return ToResponse.to_response(handler(request)) }
 
         case CrossOrigin.check(options, request) {
-            Ok(_) ->
-                ToResponse.to_response(handler(request))
+            Ok(_) -> ToResponse.to_response(handler(request))
 
             Err(Error.CrossOrigin{reason}) ->
                 case options.deny {
@@ -3738,8 +3725,7 @@ pub fn cross_origin_protection(handler: Handler, options: CrossOrigin) -> (Reque
                     None -> Response.error(Status.forbidden, reason)
                 }
 
-            Err(_) ->
-                Response.error(Status.forbidden, "cross-origin request refused")
+            Err(_) -> Response.error(Status.forbidden, "cross-origin request refused")
         }
     }
 }
@@ -3856,7 +3842,7 @@ pub struct Cors {
 //!         allowed_headers: ["Content-Type", "Authorization"],
 //!     })
 //!
-//! from = fn method: Method, origin: String -> #{
+//! from = fn method: Method, origin: String -> .{
 //!     ..http_testing.request(method, "/api/items"),
 //!     headers: Headers[("Origin", origin)],
 //! }
@@ -3873,7 +3859,7 @@ pub struct Cors {
 //! asking = from(Method.Options, "https://app.example.com")
 //!
 //! preflight = app(
-//!     #{..asking, headers: Headers.set(asking.headers, "Access-Control-Request-Method", "DELETE")}
+//!     .{..asking, headers: Headers.set(asking.headers, "Access-Control-Request-Method", "DELETE")}
 //! )
 //!
 //! assert preflight.status == Status.no_content
@@ -3888,7 +3874,7 @@ pub fn cors(handler: Handler, options: Cors) -> (Request) -> Response {
         origin = Headers.get(request.headers, "Origin")
 
         allowed = case origin {
-            Some(o) -> options.any_origin or Iter.any(options.origins, fn a -> "${a}" == o)
+            Some(o) -> options.any_origin or Iter.any_match(options.origins, fn a -> "${a}" == o)
             None -> False
         }
 
@@ -3917,8 +3903,7 @@ pub fn cors(handler: Handler, options: Cors) -> (Request) -> Response {
                 Some(d) ->
                     Headers.set(headers, "Access-Control-Max-Age", "${Duration.as_seconds(d)}")
 
-                None ->
-                    headers
+                None -> headers
             }
 
             return Response{status: Status.no_content, headers: age}
@@ -3931,11 +3916,10 @@ pub fn cors(handler: Handler, options: Cors) -> (Request) -> Response {
                 cors_origin(response.headers, options, o)
                 |> set_listed("Access-Control-Expose-Headers", options.exposed_headers)
 
-            _ ->
-                response.headers
+            _ -> response.headers
         }
 
-        #{..response, headers: Headers.add(headers, "Vary", "Origin")}
+        .{..response, headers: Headers.add(headers, "Vary", "Origin")}
     }
 }
 
@@ -3978,7 +3962,7 @@ fn set_listed(headers: Headers, name: String, values: List<String>) -> Headers {
 //! got = log_testing.run(fn logger -> {
 //!     app = hello |> http.log_requests(logger) |> http.request_id()
 //!     request = http_testing.request(Method.Post, "/items?x=1")
-//!     app(#{..request, headers: Headers[("X-Request-Id", "req-7")]})
+//!     app(.{..request, headers: Headers[("X-Request-Id", "req-7")]})
 //! })
 //!
 //! record = List.head(got.records)!
@@ -4134,7 +4118,7 @@ pub fn security_headers(handler: Handler, options: SecurityHeaders = SecurityHea
 //! assert String.length(id) == 36
 //! assert Response.text(made) == Ok(id)
 //!
-//! given = fn id: String -> #{
+//! given = fn id: String -> .{
 //!     ..http_testing.request(Method.Get, "/"),
 //!     headers: Headers[("X-Request-Id", id)],
 //! }
@@ -4165,12 +4149,11 @@ pub fn request_id(
 
         case id {
             Some(text) -> {
-                tagged = #{..request, headers: Headers.set(request.headers, header, text)}
+                tagged = .{..request, headers: Headers.set(request.headers, header, text)}
                 Response.with_headers(handler(tagged), Headers[(header, text)])
             }
 
-            None ->
-                ToResponse.to_response(handler(request))
+            None -> ToResponse.to_response(handler(request))
         }
     }
 }
@@ -4181,7 +4164,7 @@ fn is_request_id(text: String) -> Bool {
 
     count >= 1
         and count <= 128
-        and Iter.all(codes, fn c -> {
+        and Iter.all_match(codes, fn c -> {
             (c >= 48 and c <= 57)
                 or (c >= 65 and c <= 90)
                 or (c >= 97 and c <= 122)
@@ -4229,7 +4212,7 @@ pub struct Compress {
 //!
 //! asking = fn accept: String -> {
 //!     r = http_testing.request(Method.Get, "/")
-//!     #{..r, headers: Headers[("Accept-Encoding", accept)]}
+//!     .{..r, headers: Headers[("Accept-Encoding", accept)]}
 //! }
 //!
 //! zipped = app(asking("gzip, br"))
@@ -4255,11 +4238,11 @@ pub fn compress(handler: Handler, options: Compress = Compress{}) -> (Request) -
 fn compressed(request: Request, response: Response, options: Compress) -> Response {
     code = Status.code(response.status)
     if code < 200 { return response }
-    varied = #{..response, headers: vary_on(response.headers, "Accept-Encoding")}
+    varied = .{..response, headers: vary_on(response.headers, "Accept-Encoding")}
 
     no_transform =
         Headers.values(response.headers, "Cache-Control")
-        |> Iter.any(fn v -> String.contains(String.lowercase(v), "no-transform"))
+        |> Iter.any_match(fn v -> String.contains(String.lowercase(v), "no-transform"))
 
     skip = code == 204
         or code == 206
@@ -4281,11 +4264,8 @@ fn compressed(request: Request, response: Response, options: Compress) -> Respon
     headers = typed(varied.headers, varied.body)
 
     case varied.body {
-        .Empty ->
-            varied
-
-        .Multipart(_) ->
-            varied
+        .Empty -> varied
+        .Multipart(_) -> varied
 
         .Stream(r) ->
             if Headers.has(headers, "Content-Type") and compressible(headers) {
@@ -4352,7 +4332,7 @@ fn gzip_response(response: Response, headers: Headers, body: Body) -> Response {
         |> Headers.remove("Content-Length")
         |> Headers.set("Content-Encoding", "gzip")
 
-    #{..response, headers: sent, body, content_length: None}
+    .{..response, headers: sent, body, content_length: None}
 }
 
 /// Whether the `Content-Type` in `headers` names a type gzip shrinks: not
@@ -4382,7 +4362,10 @@ fn compressible(headers: Headers) -> Bool {
         "font/woff2",
     ]
 
-    media_class = Iter.any(["image/", "audio/", "video/"], fn p -> String.starts_with(media, p))
+    media_class = Iter.any_match(["image/", "audio/", "video/"], fn p -> {
+        String.starts_with(media, p)
+    })
+
     not (media_class and media != "image/svg+xml") and not List.contains(packed, media)
 }
 
@@ -4394,7 +4377,7 @@ fn vary_on(headers: Headers, name: String) -> Headers {
         |> Iter.map(fn t -> String.lowercase(String.trim(t)))
         |> Iter.to_list()
 
-    if Iter.any(listed, fn t -> t == "*" or t == String.lowercase(name)) {
+    if Iter.any_match(listed, fn t -> t == "*" or t == String.lowercase(name)) {
         headers
     } else {
         Headers.add(headers, "Vary", name)
@@ -4525,14 +4508,13 @@ pub fn method_override(handler: Handler) -> (Request) -> Response {
                     _ -> Method.Post
                 }
 
-                ToResponse.to_response(handler(#{..request, method, body: Body.Bytes(data)}))
+                ToResponse.to_response(handler(.{..request, method, body: Body.Bytes(data)}))
             }
 
             Err(Error.BodyTooLarge{limit: _}) ->
                 Response.error(Status.request_entity_too_large, "413 Request Entity Too Large")
 
-            Err(_) ->
-                Response.error(Status.bad_request, "400 Bad Request")
+            Err(_) -> Response.error(Status.bad_request, "400 Bad Request")
         }
     }
 }
@@ -4592,8 +4574,7 @@ pub fn serve_file(request: Request, file: String) -> Response {
                         directory(request, file)
                     }
 
-                _ ->
-                    disk_file(request, file, meta)
+                _ -> disk_file(request, file, meta)
             }
 
         Err(e) ->
@@ -4633,8 +4614,7 @@ fn disk_page(asked: String, file: String) -> Maybe<(String, fs.Metadata)> {
                     _ -> Some((page, meta))
                 }
 
-            Err(_) ->
-                None
+            Err(_) -> None
         }
     })
 }
@@ -4650,8 +4630,7 @@ fn embedded_page(asked: String, files: Files, file: String) -> Maybe<String> {
                     _ -> Some(page)
                 }
 
-            Err(_) ->
-                None
+            Err(_) -> None
         }
     })
 }
@@ -4674,7 +4653,7 @@ fn embedded_page(asked: String, files: Files, file: String) -> Maybe<String> {
 //!
 //! site = file_server("site", single_page: True)
 //! page = http_testing.request(Method.Get, "/settings")
-//! page = #{..page, headers: Headers.set(page.headers, "Accept", "text/html")}
+//! page = .{..page, headers: Headers.set(page.headers, "Accept", "text/html")}
 //!
 //! ran = fs_testing.run(Sandbox{files: %{"site/index.html" => "<div id=root></div>"}}, fn -> {
 //!     (site(page), site(http_testing.request(Method.Get, "/app.js")))
@@ -4746,7 +4725,7 @@ pub fn file_server(root: String, single_page = False) -> (Request) -> Response {
 //! assert Headers.get(js.headers, "Vary") == Some("Accept-Encoding")
 //! assert Response.text(js) == Ok("go()")
 //!
-//! gzip = #{..get, headers: Headers.set(get.headers, "Accept-Encoding", "gzip, deflate")}
+//! gzip = .{..get, headers: Headers.set(get.headers, "Accept-Encoding", "gzip, deflate")}
 //! zipped = serve_embedded(gzip, files, "assets/app-3f9a1b2c.js")
 //! assert Headers.get(zipped.headers, "Content-Encoding") == Some("gzip")
 //! assert Headers.get(zipped.headers, "Content-Type") == Some("text/javascript; charset=utf-8")
@@ -4757,7 +4736,7 @@ pub fn file_server(root: String, single_page = False) -> (Request) -> Response {
 //! assert Headers.get(home.headers, "Cache-Control") == Some("no-cache")
 //!
 //! again = http_testing.request(Method.Get, "/")
-//! again = #{..again, headers: Headers.set(again.headers, "If-None-Match", etag)}
+//! again = .{..again, headers: Headers.set(again.headers, "If-None-Match", etag)}
 //! assert serve_embedded(again, files, ".").status == Status.not_modified
 //!
 //! pages = Files.from_bytes([
@@ -4771,7 +4750,7 @@ pub fn file_server(root: String, single_page = False) -> (Request) -> Response {
 //! assert Headers.get(about.headers, "Vary") == Some("Accept-Encoding")
 //!
 //! brotli = http_testing.request(Method.Get, "/about")
-//! brotli = #{..brotli, headers: Headers.set(brotli.headers, "Accept-Encoding", "br")}
+//! brotli = .{..brotli, headers: Headers.set(brotli.headers, "Accept-Encoding", "br")}
 //! squeezed = serve_embedded(brotli, pages, "about")
 //! assert Headers.get(squeezed.headers, "Content-Encoding") == Some("br")
 //! assert Response.text(squeezed) == Ok("squeezed")
@@ -4807,8 +4786,7 @@ pub fn serve_embedded(
                         }
                     }
 
-                _ ->
-                    embedded_file(request, files, file, immutable)
+                _ -> embedded_file(request, files, file, immutable)
             }
 
         Err(e) ->
@@ -4865,7 +4843,7 @@ pub fn serve_embedded(
 //!
 //! visit = fn target: String -> {
 //!     r = http_testing.request(Method.Get, target)
-//!     #{..r, headers: Headers.set(r.headers, "Accept", "text/html,*/*;q=0.8")}
+//!     .{..r, headers: Headers.set(r.headers, "Accept", "text/html,*/*;q=0.8")}
 //! }
 //!
 //! assert Response.text(app(visit("/settings/profile"))) == Ok("<div id=root></div>")
@@ -4883,7 +4861,7 @@ pub fn serve_embedded(
 //! assert Response.text(app(visit("/users/jane.doe"))) == Ok("<div id=root></div>")
 //!
 //! missing = http_testing.request(Method.Get, "/assets/gone-0a1b2c3d.js")
-//! missing = #{..missing, headers: Headers.set(missing.headers, "Accept", "*/*")}
+//! missing = .{..missing, headers: Headers.set(missing.headers, "Accept", "*/*")}
 //! assert app(missing).status == Status.not_found
 //
 pub fn file_server_embedded(
@@ -4917,7 +4895,7 @@ pub fn file_server_embedded(
 //!
 //! asked = fn method: Method, target: String, accept: String -> {
 //!     r = http_testing.request(method, target)
-//!     #{..r, headers: Headers.set(r.headers, "Accept", accept)}
+//!     .{..r, headers: Headers.set(r.headers, "Accept", accept)}
 //! }
 //!
 //! html = "text/html,application/xhtml+xml,*/*;q=0.8"
@@ -4931,7 +4909,7 @@ pub fn file_server_embedded(
 pub fn is_page_route(request: Request) -> Bool {
     takes_html =
         Headers.values(request.headers, "Accept")
-        |> Iter.any(fn v -> String.contains(String.lowercase(v), "text/html"))
+        |> Iter.any_match(fn v -> String.contains(String.lowercase(v), "text/html"))
 
     (request.method == Method.Get or request.method == Method.Head) and takes_html
 }
@@ -4940,7 +4918,7 @@ pub fn is_page_route(request: Request) -> Bool {
 /// (`path.matches`), or with no wildcard the file itself or every file
 /// under the directory it names.
 fn immutable_match(pattern: String, file: String) -> Bool {
-    if Iter.any(["*", "?", "["], fn w -> String.contains(pattern, w)) {
+    if Iter.any_match(["*", "?", "["], fn w -> String.contains(pattern, w)) {
         path.matches(pattern, file)
     } else {
         named = path.clean(pattern)
@@ -4979,7 +4957,7 @@ fn embedded_file(
         |> Maybe.map(fn (coding, sibling) -> (sibling, Some(coding)))
         |> Maybe.with_default((file, None))
 
-    cache = if Iter.any(immutable, fn pattern -> immutable_match(pattern, file)) {
+    cache = if Iter.any_match(immutable, fn pattern -> immutable_match(pattern, file)) {
         "public, max-age=31536000, immutable"
     } else {
         "no-cache"
@@ -5007,8 +4985,7 @@ fn embedded_file(
             Response.content(request, path.base(file), None, data, headers: headers)
         }
 
-        Err(e) ->
-            failed(e)
+        Err(e) -> failed(e)
     }
 }
 
@@ -5019,7 +4996,7 @@ fn accepted_codings(request: Request) -> List<String> {
     |> Iter.flat_map(fn v -> String.split(v, ","))
     |> Iter.reject(fn item -> {
         Iter.drop(String.split(item, ";"), 1)
-        |> Iter.any(fn p -> {
+        |> Iter.any_match(fn p -> {
             case String.strip_prefix(String.trim(p), "q=") {
                 Some(q) -> String.replace(q, "0", "") == "" or String.replace(q, "0", "") == "."
                 None -> False
@@ -5066,8 +5043,7 @@ fn directory(request: Request, dir: String) -> Response {
                     )
                 }
 
-                Err(e) ->
-                    failed(e)
+                Err(e) -> failed(e)
             }
     }
 }
@@ -5239,11 +5215,8 @@ impl Cookie {
                     expires: String.to_int(expires) |> Maybe.map(Instant.from_nanos),
                     raw_expires: some(raw_expires),
                     max_age: case max_age {
-                        "" ->
-                            MaxAge.Unset
-
-                        "-1" ->
-                            MaxAge.DeleteNow
+                        "" -> MaxAge.Unset
+                        "-1" -> MaxAge.DeleteNow
 
                         n ->
                             MaxAge.Seconds(
@@ -5266,8 +5239,7 @@ impl Cookie {
                 }
             }
 
-            _ ->
-                Cookie{name: "", value: ""}
+            _ -> Cookie{name: "", value: ""}
         }
     }
 }
@@ -5369,8 +5341,7 @@ fn take_requests(
             take_requests(listener, handler, [task, ..taken])
         }
 
-        None ->
-            taken
+        None -> taken
     }
 }
 
@@ -5395,7 +5366,7 @@ impl ProxyRequest {
             (_, b) -> b
         }
 
-        url = #{
+        url = .{
             ..incoming_url,
             scheme: target.scheme,
             host: target.host,
@@ -5404,7 +5375,7 @@ impl ProxyRequest {
             query,
         }
 
-        #{..proxy, outgoing: #{..out, url, host: None}}
+        .{..proxy, outgoing: .{..out, url, host: None}}
     }
 
     /// Sets `X-Forwarded-For` to the client's address (added to what an
@@ -5434,7 +5405,7 @@ impl ProxyRequest {
                 },
             )
 
-        #{..proxy, outgoing: #{..proxy.outgoing, headers}}
+        .{..proxy, outgoing: .{.., headers}}
     }
 }
 
@@ -5508,7 +5479,7 @@ fn without_hop_headers(headers: Headers) -> Headers {
 /// arrives, flushed as `flush_interval` says.
 pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response {
     fn request -> {
-        outgoing = #{
+        outgoing = .{
             ..request,
             headers: without_hop_headers(request.headers),
             request_uri: "",
@@ -5519,7 +5490,7 @@ pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response {
 
         answered =
             forward(options, rewritten.outgoing)
-            |> Result.map(fn r -> #{..r, headers: without_hop_headers(r.headers)})
+            |> Result.map(fn r -> .{..r, headers: without_hop_headers(r.headers)})
             |> Result.flat_map(fn r -> {
                 case options.modify_response {
                     Some(modify) -> modify(r)
@@ -5528,8 +5499,7 @@ pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response {
             })
 
         case answered {
-            Ok(response) ->
-                response
+            Ok(response) -> response
 
             Err(error) -> {
                 proxy_log(options, "${error}")
@@ -5545,8 +5515,7 @@ pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response {
 
 fn proxy_log(options: ReverseProxy, text: String) -> Unit {
     case options.on_error_log {
-        Some(told) ->
-            told(text)
+        Some(told) -> told(text)
 
         None -> {
             _ = io.Writer.write_text(io.stderr, "http: proxy error: ${text}\n")
@@ -5577,7 +5546,7 @@ fn forward(options: ReverseProxy, outgoing: Request) -> Result<Response, Error> 
         None -> None
     }
 
-    Ok(#{
+    Ok(.{
         ..head,
         body: Body.Produce(fn w -> {
             defer http_host.close_body(exchange)
@@ -5593,8 +5562,7 @@ fn forward(options: ReverseProxy, outgoing: Request) -> Result<Response, Error> 
 
 fn pump(r: Reader, w: Writer, every: Maybe<Duration>, flushed: Instant) -> Result<Unit, io.Error> {
     case Reader.read(r)? {
-        None ->
-            Writer.flush(w)
+        None -> Writer.flush(w)
 
         Some(chunk) -> {
             Writer.write(w, chunk)?
@@ -5668,8 +5636,7 @@ impl TraceEvent {
         error = fn text: String -> if text == "" { None } else { Some(text) }
 
         case parts {
-            [["GetConnection", address]] ->
-                Some(TraceEvent.GetConnection{address})
+            [["GetConnection", address]] -> Some(TraceEvent.GetConnection{address})
 
             [["GotConnection", reused, was_idle, idle]] ->
                 Some(TraceEvent.GotConnection{
@@ -5681,14 +5648,9 @@ impl TraceEvent {
                     ),
                 })
 
-            [["PutIdleConnection", e]] ->
-                Some(TraceEvent.PutIdleConnection{error: error(e)})
-
-            [["FirstResponseByte"]] ->
-                Some(TraceEvent.FirstResponseByte)
-
-            [["Continue"]] ->
-                Some(TraceEvent.Continue)
+            [["PutIdleConnection", e]] -> Some(TraceEvent.PutIdleConnection{error: error(e)})
+            [["FirstResponseByte"]] -> Some(TraceEvent.FirstResponseByte)
+            [["Continue"]] -> Some(TraceEvent.Continue)
 
             [["Informational", code, ..headers]] ->
                 Some(TraceEvent.Informational{
@@ -5699,40 +5661,28 @@ impl TraceEvent {
                     headers: Headers(pairs(headers)),
                 })
 
-            [["DnsStart", host]] ->
-                Some(TraceEvent.DnsStart{host})
+            [["DnsStart", host]] -> Some(TraceEvent.DnsStart{host})
 
             [["DnsDone", coalesced, e, ..addresses]] ->
                 Some(TraceEvent.DnsDone{addresses, error: error(e), coalesced: coalesced == "true"})
 
-            [["ConnectStart", network, address]] ->
-                Some(TraceEvent.ConnectStart{network, address})
+            [["ConnectStart", network, address]] -> Some(TraceEvent.ConnectStart{network, address})
 
             [["ConnectDone", network, address, e]] ->
                 Some(TraceEvent.ConnectDone{network, address, error: error(e)})
 
-            [["TlsStart"]] ->
-                Some(TraceEvent.TlsStart)
+            [["TlsStart"]] -> Some(TraceEvent.TlsStart)
 
             [["TlsDone", e], ..state] ->
                 Some(
                     TraceEvent.TlsDone{state: tls.ConnectionState.of_parts(state), error: error(e)}
                 )
 
-            [["WroteHeader", name, ..values]] ->
-                Some(TraceEvent.WroteHeader{name, values})
-
-            [["WroteHeaders"]] ->
-                Some(TraceEvent.WroteHeaders)
-
-            [["WaitContinue"]] ->
-                Some(TraceEvent.WaitContinue)
-
-            [["WroteRequest", e]] ->
-                Some(TraceEvent.WroteRequest{error: error(e)})
-
-            _ ->
-                None
+            [["WroteHeader", name, ..values]] -> Some(TraceEvent.WroteHeader{name, values})
+            [["WroteHeaders"]] -> Some(TraceEvent.WroteHeaders)
+            [["WaitContinue"]] -> Some(TraceEvent.WaitContinue)
+            [["WroteRequest", e]] -> Some(TraceEvent.WroteRequest{error: error(e)})
+            _ -> None
         }
     }
 }
@@ -5876,11 +5826,8 @@ fn parts_of(reader: http_host.Handle) -> Iter<Result<Part, Error>> {
                     handle: part,
                 })
 
-            Ok(None) ->
-                break
-
-            Err(reason) ->
-                Err(Error.Form{reason})
+            Ok(None) -> break
+            Err(reason) -> Err(Error.Form{reason})
         }
     })
 }

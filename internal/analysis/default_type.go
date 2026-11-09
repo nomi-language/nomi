@@ -223,7 +223,7 @@ func attachInferredParam(fa *FileAnalysis, p ast.Param, t Type) {
 		return
 	}
 	sym.Type = t
-	if k := fa.kept; k != nil && k.definitions[pos] != sym {
+	if k := fa.keptDecls(); k != nil && k.definitions[pos] != sym {
 		k.typed = append(k.typed, keptType{pos, sym.Name, sym.Kind, t})
 	}
 }

@@ -290,8 +290,7 @@ pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String {
     input = "${part(Json.Obj(header))}.${part(Json.Obj(claims))}"
 
     signature = case key.signer {
-        .Hmac(secret) ->
-            hash.hmac_sha256(secret, String.to_bytes(input))
+        .Hmac(secret) -> hash.hmac_sha256(secret, String.to_bytes(input))
 
         .Key(private) ->
             signatures.sign_with(private, scheme(key.algorithm), String.to_bytes(input))!
@@ -303,10 +302,9 @@ pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String {
 /// A token holding `claims` as their `ToJson` writes them, signed by
 /// `key`. The claims must be a JSON object, as a struct's derived `ToJson`
 /// is; anything else is a runtime error.
-pub fn sign_as<T>(claims: T, key: SigningKey) -> String where T: ToJson {
-    case T.to_json(claims) {
-        .Obj(fields) ->
-            sign(fields, key)
+pub fn sign_as(claims: ToJson, key: SigningKey) -> String {
+    case ToJson.to_json(claims) {
+        .Obj(fields) -> sign(fields, key)
 
         other -> {
             refused: Result<String, String> = Err(
@@ -342,7 +340,7 @@ pub fn sign_as<T>(claims: T, key: SigningKey) -> String where T: ToJson {
 //!
 //! after = Validation{now: Some(Instant.from_seconds(1_300_819_500))}
 //! assert jwt.verify(token, key, after) == Err(JwtError.Expired)
-//! assert jwt.verify(token, key, #{..before, issuer: Some("ann")}) == Err(JwtError.WrongIssuer)
+//! assert jwt.verify(token, key, .{..before, issuer: Some("ann")}) == Err(JwtError.WrongIssuer)
 //
 pub fn verify(
     token: String,
@@ -361,7 +359,7 @@ pub fn verify(
 
     valid = case key.checker {
         .Hmac(secret) -> hash.equal_in_constant_time(hash.hmac_sha256(secret, input), signature)
-        .Key(public) -> signatures.verify_with(public, scheme(key.algorithm), input, signature)
+        .Key(public) -> signatures.is_valid_with(public, scheme(key.algorithm), input, signature)
     }
 
     if not valid { return Err(JwtError.BadSignature) }
@@ -464,8 +462,7 @@ fn object(text: String, what: String) -> Result<Map<String, Json>, JwtError> {
             Json.decode(utf8)
             |> Result.map_err(fn e -> JwtError.Malformed("the ${what} is not JSON: ${e}"))?
 
-        Err(_) ->
-            return Err(JwtError.Malformed("the ${what} is not UTF-8"))
+        Err(_) -> return Err(JwtError.Malformed("the ${what} is not UTF-8"))
     }
 
     case json {
@@ -486,8 +483,7 @@ fn check_header(header: Map<String, Json>, algorithm: Algorithm) -> Result<Unit,
     want = Display.to_string(algorithm)
 
     case Map.get(header, "alg") {
-        Some(.String(alg)) when alg == want ->
-            Ok(Unit)
+        Some(.String(alg)) when alg == want -> Ok(Unit)
 
         Some(.String("none")) ->
             Err(JwtError.WrongAlgorithm("an unsigned token (`alg` none) is refused"))
@@ -497,8 +493,7 @@ fn check_header(header: Map<String, Json>, algorithm: Algorithm) -> Result<Unit,
                 JwtError.WrongAlgorithm("the token's algorithm is ${alg}, and the key's is ${want}")
             )
 
-        _ ->
-            Err(JwtError.Malformed("the header has no `alg`"))
+        _ -> Err(JwtError.Malformed("the header has no `alg`"))
     }
 }
 
@@ -526,41 +521,29 @@ fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Uni
         Some(issuer) when Map.get(claims, "iss") != Some(Json.String(issuer)) ->
             return Err(JwtError.WrongIssuer)
 
-        _ ->
-            Unit
+        _ -> Unit
     }
 
     case (validation.audience, Map.get(claims, "aud")) {
-        (_, None) when validation.audience |> Maybe.is_some() ->
-            Err(JwtError.WrongAudience)
+        (_, None) when validation.audience |> Maybe.is_some() -> Err(JwtError.WrongAudience)
+        (None, Some(_)) -> Err(JwtError.WrongAudience)
+        (Some(audience), Some(.String(aud))) when aud == audience -> Ok(Unit)
 
-        (None, Some(_)) ->
-            Err(JwtError.WrongAudience)
-
-        (Some(audience), Some(.String(aud))) when aud == audience ->
-            Ok(Unit)
-
-        (Some(audience), Some(.Arr(list))) when Iter.any(list, fn a -> {
+        (Some(audience), Some(.Arr(list))) when Iter.any_match(list, fn a -> {
             a == Json.String(audience)
         }) ->
             Ok(Unit)
 
-        (Some(_), Some(_)) ->
-            Err(JwtError.WrongAudience)
-
-        _ ->
-            Ok(Unit)
+        (Some(_), Some(_)) -> Err(JwtError.WrongAudience)
+        _ -> Ok(Unit)
     }
 }
 
 /// A NumericDate claim, whole seconds since the Unix epoch, rounded down.
 fn seconds(claims: Map<String, Json>, name: String) -> Result<Maybe<Int>, JwtError> {
     case Map.get(claims, name) {
-        None ->
-            Ok(None)
-
-        Some(.Int(n)) ->
-            Ok(Some(n))
+        None -> Ok(None)
+        Some(.Int(n)) -> Ok(Some(n))
 
         Some(.Float(f)) ->
             case Float.to_int(Float.floor(f)) {
@@ -568,7 +551,6 @@ fn seconds(claims: Map<String, Json>, name: String) -> Result<Maybe<Int>, JwtErr
                 None -> Err(JwtError.Malformed("`${name}` is not a finite number"))
             }
 
-        Some(_) ->
-            Err(JwtError.Malformed("`${name}` is not a number"))
+        Some(_) -> Err(JwtError.Malformed("`${name}` is not a number"))
     }
 }

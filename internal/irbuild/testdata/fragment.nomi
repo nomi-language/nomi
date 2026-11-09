@@ -45,8 +45,7 @@ fn describe_bool(f: Fragment<Bool>) -> String {
 // that is itself an instance rather than a scalar.
 fn describe_nested(f: Fragment<Maybe<Int>>) -> String {
     case f {
-        .Static(s) ->
-            "static/" + s
+        .Static(s) -> "static/" + s
 
         .Dynamic(m) ->
             case m {

@@ -78,7 +78,7 @@ func TestTypeName_AsAValueIsRejected(t *testing.T) {
 		{`x = Bytes`, "`Bytes` is a type, not a value"},
 		{`x: List<String> = Iter.map([1], String) |> Iter.to_list()`, "`String` is a type, not a value"},
 		{`x: List<Int> = Iter.map([Id(1)], Int) |> Iter.to_list()`, "`Int` is a type, not a value"},
-		{`x = Iter.map([#{x: 1}], Point) |> Iter.to_list()`, "`Point` is a type, not a value"},
+		{`x = Iter.map([.{x: 1}], Point) |> Iter.to_list()`, "`Point` is a type, not a value"},
 		{`x = Iter.map([1], Named) |> Iter.to_list()`, "`Named` is an interface, not a value"},
 		// A generic constructor with nothing to solve its type parameter
 		// from is rejected as a generic function is.
@@ -163,7 +163,7 @@ func TestTypeName_DistinctDestructuringIsAccepted(t *testing.T) {
 // values stay accepted.
 func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 	for _, stmt := range []string{
-		`x = Point(#{x: 1})`,
+		`x = Point(.{x: 1})`,
 		`x = Point{x: 1}`,
 		`x = Id(4)`,
 		`x = 4 |> Id()`,
@@ -228,7 +228,7 @@ func TestConstructorValue_RejectedForms(t *testing.T) {
 		stmt string
 		want string
 	}{
-		{`x = Iter.map([#{w: 1}], Shape.Rect) |> Iter.to_list()`, "Shape.Rect is a struct-shaped variant and is not a function value"},
+		{`x = Iter.map([.{w: 1}], Shape.Rect) |> Iter.to_list()`, "Shape.Rect is a struct-shaped variant and is not a function value"},
 		{`x: (Float) -> Shape = .Circle`, ".Circle resolves only to enum variants, but the expected type at this position is (Float) -> Shape\nhelp: a constructor as a function value is written qualified, `Shape.Circle`"},
 	} {
 		src := decls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
@@ -271,10 +271,10 @@ func TestTypeName_PipedIntoAStructIsTheCallForm(t *testing.T) {
 		want    string
 	}{
 		{"", `00 |> Range()`, "constructor of opaque type 'Range' is private to its defining module"},
-		{"", `00 |> Range()`, "Range expects an anonymous struct literal #{...} matching its fields, got Int"},
-		{"", `1 |> Point()`, "Point expects an anonymous struct literal #{...} matching its fields, got Int"},
-		{"", `#{x: 1} |> Point(2)`, "Point takes the piped record as its only argument, got 1 more"},
-		{"", `#{y: 1} |> Point()`, "Point has no field 'y'"},
+		{"", `00 |> Range()`, "Range expects an anonymous struct literal .{...} matching its fields, got Int"},
+		{"", `1 |> Point()`, "Point expects an anonymous struct literal .{...} matching its fields, got Int"},
+		{"", `.{x: 1} |> Point(2)`, "Point takes the piped record as its only argument, got 1 more"},
+		{"", `.{y: 1} |> Point()`, "Point has no field 'y'"},
 		{"import std::instant.Instant\n\n", `1 |> Instant()`, "constructor of opaque type 'Instant' is private to its defining module"},
 	} {
 		src := tc.imports + typeNameDecls + "fn main() {\n  _ = " + tc.expr + "\n}\n"
@@ -290,8 +290,8 @@ func TestTypeName_PipedIntoAStructIsTheCallForm(t *testing.T) {
 		}
 	}
 	for _, stmt := range []string{
-		`x = #{x: 1} |> Point()`,
-		"r = #{x: 1}\n  x = r |> Point()",
+		`x = .{x: 1} |> Point()`,
+		"r = .{x: 1}\n  x = r |> Point()",
 	} {
 		src := typeNameDecls + "fn main() {\n  " + stmt + "\n  _ = x.x\n}\n"
 		_, errs := checkSourceWithStdlib(src)

@@ -37,8 +37,7 @@ pub fn count(lines: List<String>) -> Int {
 
     corners
     |> Iter.flat_map(fn top_left -> Iter.map(corners, &(top_left, &1)))
-    |> Iter.filter(fn (top_left, bottom_right) -> is_rectangle(grid, top_left, bottom_right))
-    |> Iter.count()
+    |> Iter.count_by(fn (top_left, bottom_right) -> is_rectangle(grid, top_left, bottom_right))
 }
 
 /// Whether `top_left` and `bottom_right` are opposite corners of a
@@ -51,21 +50,21 @@ fn is_rectangle(
 ) -> Bool {
     bottom > top
         and right > left
-        and Iter.all([(top, right), (bottom, left)], fn (row, column) -> {
+        and Iter.all_match([(top, right), (bottom, left)], fn (row, column) -> {
             symbol_at(grid, row, column) == Some("+")
         })
-        and Iter.all([top, bottom], &is_line_across(grid, &1, left, right))
-        and Iter.all([left, right], &is_line_down(grid, &1, top, bottom))
+        and Iter.all_match([top, bottom], &is_line_across(grid, &1, left, right))
+        and Iter.all_match([left, right], &is_line_down(grid, &1, top, bottom))
 }
 
 /// Whether row `row` is a side from column `left` to column `right`.
 fn is_line_across(grid: Vector<Vector<String>>, row: Int, left: Int, right: Int) -> Bool {
-    Iter.all(left..=right, fn column -> symbol_at(grid, row, column) is Some("-" or "+"))
+    Iter.all_match(left..=right, fn column -> symbol_at(grid, row, column) is Some("-" or "+"))
 }
 
 /// Whether column `column` is a side from row `top` to row `bottom`.
 fn is_line_down(grid: Vector<Vector<String>>, column: Int, top: Int, bottom: Int) -> Bool {
-    Iter.all(top..=bottom, fn row -> symbol_at(grid, row, column) is Some("|" or "+"))
+    Iter.all_match(top..=bottom, fn row -> symbol_at(grid, row, column) is Some("|" or "+"))
 }
 
 /// The symbol at `row` and `column`, or `None` off the diagram: a line may
@@ -212,6 +211,6 @@ test result: ok. 14 passed, 0 failed
 ## How it's written
 
 - The diagram is a `Vector` of rows, each a `Vector` of one-grapheme strings, and `symbol_at` reads a cell as a `Maybe`, so a line shorter than the others, as in "two rectangles without shared parts", reads as no symbol rather than a trap.
-- `count` lists every `+` once, pairs every corner with every other, and counts the pairs that are the top left and bottom right of a rectangle. `is_rectangle` asks that the second is below and right of the first, that the other two corners are `+`, and that the two rows and two columns between them are whole sides, each an `Iter.all` over the corners or the sides.
+- `count` lists every `+` once, pairs every corner with every other, and counts the pairs that are the top left and bottom right of a rectangle. `is_rectangle` asks that the second is below and right of the first, that the other two corners are `+`, and that the two rows and two columns between them are whole sides, each an `Iter.all_match` over the corners or the sides.
 - `is_line_across` and `is_line_down` walk one side and accept `-` or `+` along a row and `|` or `+` down a column, each symbol an `is` test whose pattern joins the two with `or` (`symbol_at(grid, row, column) is Some("-" or "+")`). A `+` in the middle of a side is where another line crosses it, which "rectangles must have four sides" and the large input rely on.
 - The 14 canonical cases are one `subtests` table named by the description column, each diagram written one line per row so it reads as the picture.

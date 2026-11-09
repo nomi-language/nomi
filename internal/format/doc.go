@@ -29,9 +29,9 @@
 // share one surface syntax, so they share one width rule. The break decision
 // is made at the braces, not at the enclosing list, so a long parameter
 // annotation breaks its own anonymous struct rather than the parameter list,
-// and `Map<String, List<#{...}>>` keeps the outer containers inline. The
+// and `Map<String, List<.{...}>>` keeps the outer containers inline. The
 // exception is an anonymous struct in a function type's parameter list
-// (`(#{...}) -> R`): the whole signature including `-> R` is fit-checked as
+// (`(.{...}) -> R`): the whole signature including `-> R` is fit-checked as
 // one unit, so a too-long signature breaks at the parameter list and the
 // struct sits flat at the inner indent.
 //
@@ -88,6 +88,21 @@
 // 50-column limit (singleLineValueIfMaxWidth), like rustfmt's
 // single_line_if_else_max_width. A form holding a forced break (a `case`,
 // a block of several statements, a stacked pipe) is never one line.
+//
+// # Case arms
+//
+// A `case` always breaks, one arm per line, and each arm is laid out on its
+// own (emitCaseArms): one that fits as `<pattern> -> <body>` stays on its
+// line, and one that does not, or whose body is a block, a triple-quoted
+// literal or holds a forced break such as a stacked pipeline, breaks. So a
+// `case` of short arms can end in a four-stage pipeline written one stage
+// per line without moving the short arms' bodies below their `->`. A broken
+// arm has a blank line before and after it, the rule for a statement that
+// spans lines in a block: arms that all fit sit on consecutive lines, and
+// arms that all break have a blank line between every two. A binding `else`
+// with arms uses the same layout. An `if`/`else` chain differs: its branches
+// are braced blocks joined by `} else {`, so one broken branch breaks them
+// all, as gofmt and rustfmt write them.
 //
 // # A line break after a literal's opening bracket
 //

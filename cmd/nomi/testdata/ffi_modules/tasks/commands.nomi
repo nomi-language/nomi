@@ -40,20 +40,11 @@ pub fn parse(line: String) -> Result<Command, String> {
         |> Iter.to_list()
 
     case words {
-        [] ->
-            Ok(Command.Blank)
-
-        ["help"] ->
-            Ok(Command.Help)
-
-        ["quit"] ->
-            Ok(Command.Quit)
-
-        ["add", first, ..rest] ->
-            Ok(Command.Add{title: String.join([first, ..rest], " ")})
-
-        ["list"] ->
-            Ok(Command.List{status: None})
+        [] -> Ok(Command.Blank)
+        ["help"] -> Ok(Command.Help)
+        ["quit"] -> Ok(Command.Quit)
+        ["add", first, ..rest] -> Ok(Command.Add{title: String.join([first, ..rest], " ")})
+        ["list"] -> Ok(Command.List{status: None})
 
         ["list", status] ->
             status
@@ -61,17 +52,10 @@ pub fn parse(line: String) -> Result<Command, String> {
             |> Maybe.map(fn status -> Command.List{status: Some(status)})
             |> Maybe.to_result("unknown status '${status}'")
 
-        ["start", id] ->
-            parse_id(id) |> Result.map(&Command.Mark{id: &1, status: Status.Started})
-
-        ["done", id] ->
-            parse_id(id) |> Result.map(&Command.Mark{id: &1, status: Status.Done})
-
-        ["delete", id] ->
-            parse_id(id) |> Result.map(&Command.Delete{id: &1})
-
-        _ ->
-            Err("unknown command '${line}', try 'help'")
+        ["start", id] -> parse_id(id) |> Result.map(&Command.Mark{id: &1, status: Status.Started})
+        ["done", id] -> parse_id(id) |> Result.map(&Command.Mark{id: &1, status: Status.Done})
+        ["delete", id] -> parse_id(id) |> Result.map(&Command.Delete{id: &1})
+        _ -> Err("unknown command '${line}', try 'help'")
     }
 }
 
@@ -85,8 +69,7 @@ pub fn run(
     clock: Clock,
 ) -> Result<(Map<Int, Task>, List<String>), String> {
     case command {
-        Command.Help ->
-            Ok((tasks, help))
+        Command.Help -> Ok((tasks, help))
 
         Command.Add{title} -> {
             task = Task{id: next_id(tasks), title, created: Clock.now(clock)}
@@ -94,11 +77,10 @@ pub fn run(
             Ok((Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
         }
 
-        Command.List{status} ->
-            Ok((tasks, list(tasks, status)))
+        Command.List{status} -> Ok((tasks, list(tasks, status)))
 
         Command.Mark{id, status} -> {
-            task = #{..find(tasks, id)?, status}
+            task = .{..find(tasks, id)?, status}
             Store.save(store, task)?
             Ok((Map.put(tasks, id, task), [Task.render(task)]))
         }
@@ -109,11 +91,8 @@ pub fn run(
             Ok((Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))
         }
 
-        Command.Quit ->
-            Ok((tasks, []))
-
-        Command.Blank ->
-            Ok((tasks, []))
+        Command.Quit -> Ok((tasks, []))
+        Command.Blank -> Ok((tasks, []))
     }
 }
 

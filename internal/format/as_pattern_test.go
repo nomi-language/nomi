@@ -36,6 +36,6 @@ func TestFormat_AsPatternNormalizesSpacingAndParens(t *testing.T) {
 // breaks does.
 func TestFormat_AsPatternNameFollowsABrokenPattern(t *testing.T) {
 	src := "fn f(r: Result<Transaction, String>) -> Int {\n    case r {\n        Ok(Transaction{transaction_type: .Deposit, starting_balance, ending_balance, account_number} as t) -> 1\n        _ -> 0\n    }\n}\n"
-	want := "fn f(r: Result<Transaction, String>) -> Int {\n    case r {\n        Ok(Transaction{\n            transaction_type: .Deposit,\n            starting_balance,\n            ending_balance,\n            account_number,\n        } as t) ->\n            1\n\n        _ ->\n            0\n    }\n}\n"
+	want := "fn f(r: Result<Transaction, String>) -> Int {\n    case r {\n        Ok(Transaction{\n            transaction_type: .Deposit,\n            starting_balance,\n            ending_balance,\n            account_number,\n        } as t) ->\n            1\n\n        _ -> 0\n    }\n}\n"
 	formatsKeepingMeaning(t, src, want)
 }

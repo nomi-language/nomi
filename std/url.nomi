@@ -288,7 +288,7 @@ impl Url {
     //! assert "${u}" == "https://example.com/s?q=tea+%26+cake&n=2"
     //
     pub fn with_query(url: Url, query: Query) -> Url {
-        #{..url, query: Some(Query.encode(query))}
+        .{..url, query: Some(Query.encode(query))}
     }
 
     /// `reference` resolved against `base`, as RFC 3986 section 5.2 does:
@@ -387,7 +387,7 @@ impl Query {
     /// Whether `key` has a value.
     pub fn has(query: Query, key: String) -> Bool {
         Query(pairs) = query
-        Iter.any(pairs, fn (k, _) -> k == key)
+        Iter.any_match(pairs, fn (k, _) -> k == key)
     }
 
     /// The query with `key`'s values replaced by `value`, in the place of
@@ -519,7 +519,7 @@ impl CheckedLiteral<Display, Url> for Url {
     //!     Url.build,
     //! )
     //!
-    //! assert Iter.all(urls, fn v -> v.host == "example.com")
+    //! assert Iter.all_match(urls, fn v -> v.host == "example.com")
     //! assert Err(_) = build_each<Display, Url>(["https://", "/"], ["x"], Url.check, Url.build)
     //
     fn check(statics: List<String>) -> Result<Unit, LiteralError> {
@@ -535,8 +535,7 @@ impl CheckedLiteral<Display, Url> for Url {
             after = place_after(place, s)
 
             refused = case refused {
-                Some(_) ->
-                    refused
+                Some(_) -> refused
 
                 None ->
                     if i < last and not escapable(after) {
@@ -558,8 +557,7 @@ impl CheckedLiteral<Display, Url> for Url {
         // The rest of the text must be a URL whatever the slots hold, so it
         // is parsed with a stand-in for each slot.
         case refused {
-            Some(e) ->
-                Err(e)
+            Some(e) -> Err(e)
 
             None ->
                 case Url.parse(String.join(statics, "x")) {
@@ -689,11 +687,8 @@ fn place_after(place: Place, text: String) -> Place {
                         p
                     }
 
-                .InQuery ->
-                    if c == "#" { Place.InFragment } else { p }
-
-                .InFragment ->
-                    p
+                .InQuery -> if c == "#" { Place.InFragment } else { p }
+                .InFragment -> p
             }
 
             (next, seen)
@@ -727,8 +722,7 @@ fn to_parts(url: Url) -> List<String> {
         Some(u) ->
             ("1", u.name, flag(Maybe.is_some(u.password)), Maybe.with_default(u.password, ""))
 
-        None ->
-            ("", "", "", "")
+        None -> ("", "", "", "")
     }
 
     [
@@ -798,7 +792,6 @@ fn from_parts(parts: List<String>) -> Url {
             }
         }
 
-        _ ->
-            todo
+        _ -> todo
     }
 }

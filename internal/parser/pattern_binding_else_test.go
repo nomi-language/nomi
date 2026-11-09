@@ -124,7 +124,7 @@ func TestPatternBindingElse_DestructuresWithoutElseUnchanged(t *testing.T) {
 	for src, want := range map[string]string{
 		"Some(x) = m":  "*ast.DistinctDestructure",
 		"(a, b) = p":   "*ast.TupleDestructure",
-		"#{a, b} = p":  "*ast.StructDestructure",
+		".{a, b} = p":  "*ast.StructDestructure",
 		"x = 5":        "*ast.Binding",
 		"io.print(x)":  "*ast.ExprStmt",
 		"[1, 2] |> f":  "*ast.ExprStmt",

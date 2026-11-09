@@ -289,11 +289,8 @@ impl Files {
                     |> Iter.to_list()
                 )
 
-            None when Map.get(files.files, k) is Some(_) ->
-                Err(Error.NotADirectory{path: dir})
-
-            None ->
-                Err(Error.NotFound{path: dir})
+            None when Map.get(files.files, k) is Some(_) -> Err(Error.NotADirectory{path: dir})
+            None -> Err(Error.NotFound{path: dir})
         }
     }
 
@@ -337,8 +334,7 @@ impl Files {
             None when Map.get(files.dirs, k) is Some(_) ->
                 Ok(Metadata{kind: Kind.Directory, size: 0, modified: zero_time, mode: 0o555})
 
-            None ->
-                Err(Error.NotFound{path: p})
+            None -> Err(Error.NotFound{path: p})
         }
     }
 
@@ -469,8 +465,7 @@ fn walk_dir(files: Files, dir: String, yield: (Result<Entry, Error>) -> Bool) ->
 
 fn walk_entries(files: Files, entries: List<Entry>, yield: (Result<Entry, Error>) -> Bool) -> Bool {
     case entries {
-        [] ->
-            True
+        [] -> True
 
         [entry, ..rest] ->
             if not yield(Ok(entry)) {
@@ -487,8 +482,7 @@ fn walk_entries(files: Files, entries: List<Entry>, yield: (Result<Entry, Error>
 /// UTF-8 sequence, in data that is not all UTF-8.
 fn invalid_at(data: Bytes, at: Int) -> Int {
     case Bytes.get(data, at) {
-        None ->
-            at
+        None -> at
 
         Some(lead) -> {
             b = Byte.to_int(lead)

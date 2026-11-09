@@ -106,7 +106,7 @@ fn serve(
 ) -> Response {
     request = http_testing.request(method, "/files/${key}")
 
-    request = #{
+    request = .{
         ..Request.with_path_value(request, "key", key),
         headers: Headers(headers),
     }

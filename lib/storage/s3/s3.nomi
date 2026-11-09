@@ -123,7 +123,7 @@ pub struct Config {
 //! }
 //!
 //! assert Result.is_ok(store(config))
-//! assert store(#{..config, bucket: "No"}) is Err(.Backend{code: "InvalidConfig"})
+//! assert store(.{..config, bucket: "No"}) is Err(.Backend{code: "InvalidConfig"})
 pub fn store(config: Config) -> Result<Store, storage.Error> {
     check_config(config)?
     client = Client.new(ClientOptions{timeout: Some(config.timeout)})
@@ -200,7 +200,7 @@ pub fn sign(
         |> Headers.set("x-amz-date", stamp)
         |> Headers.set("x-amz-content-sha256", hashed)
 
-    signing = #{..request, headers}
+    signing = .{..request, headers}
     (names, canonical) = canonical_request(signing, Url.query_values(request.url), hashed)
     signature = signature_of(credentials.secret_key, region, stamp, canonical)
 
@@ -209,7 +209,7 @@ pub fn sign(
         region,
     )}, " + "SignedHeaders=${names}, Signature=${signature}"
 
-    #{..signing, headers: Headers.set(headers, "Authorization", authorization)}
+    .{..signing, headers: Headers.set(headers, "Authorization", authorization)}
 }
 
 /// The query-string form of `sign`: `url` with the `X-Amz-*` parameters
@@ -240,7 +240,7 @@ pub fn presign(
 
     (_, canonical) = canonical_request(request, Query(query), "UNSIGNED-PAYLOAD")
     signature = signature_of(credentials.secret_key, region, stamp, canonical)
-    #{..url, query: Some("${canonical_query(Query(query))}&X-Amz-Signature=${signature}")}
+    .{..url, query: Some("${canonical_query(Query(query))}&X-Amz-Signature=${signature}")}
 }
 
 // A store over one bucket.
@@ -289,8 +289,7 @@ impl Store for Bucket {
         case send(bucket, Method.Head, key) {
             Ok(response) -> {
                 size = case response.content_length {
-                    Some(n) ->
-                        n
+                    Some(n) -> n
 
                     None ->
                         Headers.get(response.headers, "Content-Length")
@@ -301,11 +300,8 @@ impl Store for Bucket {
                 Ok(Some(info_of(response, size)))
             }
 
-            Err(.NotFound{}) ->
-                Ok(None)
-
-            Err(e) ->
-                Err(e)
+            Err(.NotFound{}) -> Ok(None)
+            Err(e) -> Err(e)
         }
     }
 
@@ -351,7 +347,7 @@ impl Store for Bucket {
             ]
             |> Maybe.values()
 
-        url = #{..bucket_url(config), query: Some(canonical_query(Query(pairs)))}
+        url = .{..bucket_url(config), query: Some(canonical_query(Query(pairs)))}
         response = attempt(bucket, Request{method: Method.Get, url}, options.prefix, 0)?
         body = Response.text(response) |> Result.map_err(fn e -> from_http(e))?
         listing_of(body)
@@ -444,8 +440,7 @@ fn attempt(
             attempt(bucket, request, key, tried + 1)
         }
 
-        _ ->
-            outcome
+        _ -> outcome
     }
 }
 
@@ -485,11 +480,8 @@ fn failure(key: String, response: Response) -> storage.Error {
     }
 
     case status {
-        404 when code != "NoSuchBucket" ->
-            storage.Error.NotFound{key}
-
-        403 ->
-            storage.Error.Denied{message: joined(code, message)}
+        404 when code != "NoSuchBucket" -> storage.Error.NotFound{key}
+        403 -> storage.Error.Denied{message: joined(code, message)}
 
         400 when code == "AuthorizationHeaderMalformed" -> {
             wanted = case parsed |> Maybe.flat_map(fn e -> e.region) {
@@ -500,11 +492,8 @@ fn failure(key: String, response: Response) -> storage.Error {
             storage.Error.Backend{code, message: "${message}${wanted}"}
         }
 
-        429 or 500 or 502 or 503 or 504 ->
-            storage.Error.Unavailable{message: joined(code, message)}
-
-        _ ->
-            storage.Error.Backend{code, message}
+        429 or 500 or 502 or 503 or 504 -> storage.Error.Unavailable{message: joined(code, message)}
+        _ -> storage.Error.Backend{code, message}
     }
 }
 
@@ -624,8 +613,7 @@ fn bucket_url(config: Config) -> Url {
     endpoint = config.endpoint
 
     case config.addressing {
-        .Path ->
-            Url{scheme: endpoint.scheme, host: endpoint.host, path: "/${config.bucket}"}
+        .Path -> Url{scheme: endpoint.scheme, host: endpoint.host, path: "/${config.bucket}"}
 
         .VirtualHost ->
             Url{scheme: endpoint.scheme, host: "${config.bucket}.${endpoint.host}", path: "/"}

@@ -33,7 +33,7 @@ fn sum(Point{x, y}) -> Int { x + y }`
 
 func TestParamDestructure_AnonStruct_Annotated(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
-fn sum(#{x, y}: Point) -> Int { x + y }`
+fn sum(.{x, y}: Point) -> Int { x + y }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -124,7 +124,7 @@ func TestParamDestructure_Reject_TupleNoAnnotation(t *testing.T) {
 }
 
 func TestParamDestructure_Reject_AnonStructNoAnnotation(t *testing.T) {
-	src := `fn f(#{x, y}) -> Int { x + y }`
+	src := `fn f(.{x, y}) -> Int { x + y }`
 	_, errs := checkSource(src)
 	expectErrorCount(t, errs, "needs a type annotation", 1)
 }

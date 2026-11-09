@@ -47,7 +47,7 @@ var sweepTypes = []sweepType{
 	{"Vector", "Vector<Int>", "#[1]", "#[2]", true, true, false},
 	{"Map", "Map<String, Int>", `%{"k" => 1}`, `%{"k" => 2}`, false, true, false},
 	{"Set", "Set<Int>", "%[1]", "%[2]", false, true, false},
-	{"Record", "#{x: Int}", "#{x: 1}", "#{x: 2}", false, false, false},
+	{"Record", ".{x: Int}", ".{x: 1}", ".{x: 2}", false, false, false},
 	// A struct whose hand-written Equatable and Hashable ignore its `note`.
 	{"Hand", "H", `H{k: 1, note: "a"}`, `H{k: 2, note: "a"}`, false, true, false},
 }
@@ -74,7 +74,7 @@ var sweepConstructs = []sweepConstruct{
 	{"list head", sweepAll, "assert List.head([$A, $B]) == Some($A)"},
 	{"maybe", sweepAll, "assert Maybe.with_default(Some($A), $B) == $A"},
 	{"result", sweepAll, "r: Result<$T, String> = Ok($A)\n  assert r == Ok($A)"},
-	{"tuple destructure", sweepAll, "(x, y) = ($A, $B)\n  assert x == $A\n  assert y == $B"},
+	{"tuple destructure", sweepAll, "(x, y) = ($A, $B as $T)\n  assert x == $A\n  assert y == $B"},
 	{"generic struct field", sweepAll, "box = Box{inner: $A}\n  assert box.inner == $A"},
 	{"generic fn", sweepAll, "assert same($A) == $A"},
 	{"generic list fn", sweepAll, "assert first_or([$B, $A], $A) == $B"},

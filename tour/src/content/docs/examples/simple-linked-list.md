@@ -89,8 +89,6 @@ enum Step {
     Reverse
 }
 
-derive Equatable for Step
-
 /// Runs each step's operation on the list built from `values`, in turn, and
 /// answers the steps as they happened. A list that does what every step
 /// says answers the steps it was given.
@@ -99,8 +97,7 @@ fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
         steps
         |> Iter.map_reduce(LinkedList.from(values), fn list, step -> {
             case step {
-                .Count(_) ->
-                    (list, Step.Count(Iter.count(list)))
+                .Count(_) -> (list, Step.Count(Iter.count(list)))
 
                 .Pop(_) or .PopFails -> {
                     case LinkedList.pop(list) {
@@ -109,8 +106,7 @@ fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
                     }
                 }
 
-                .Push(value) ->
-                    (LinkedList.push(list, value), .Push(value))
+                .Push(value) -> (LinkedList.push(list, value), .Push(value))
 
                 .Peek(_) or .PeekFails -> {
                     case LinkedList.peek(list) {
@@ -119,11 +115,8 @@ fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
                     }
                 }
 
-                .ToList(_) ->
-                    (list, .ToList(Iter.to_list(list)))
-
-                .Reverse ->
-                    (LinkedList.reverse(list), .Reverse)
+                .ToList(_) -> (list, .ToList(Iter.to_list(list)))
+                .Reverse -> (LinkedList.reverse(list), .Reverse)
             }
         })
 

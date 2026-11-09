@@ -12,3 +12,10 @@ import _ "embed"
 //
 //go:embed stdiface.bin
 var embeddedStdInterfaces []byte
+
+// embeddedStdState is the base modules' state built from
+// embeddedStdInterfaces (state.go), which stdbundlegen wrote with StdState
+// in a process of its own, supplied the same way as std/stdstate.bin.
+//
+//go:embed stdstate.bin
+var embeddedStdState []byte
