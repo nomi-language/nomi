@@ -1401,6 +1401,9 @@ impl Response {
     //! assert r.status == Status.partial_content
     //! assert Response.text(r) == Ok("el")
     //!
+    //! head = .{..request, method: Method.Head}
+    //! assert Response.content(head, "f.txt", None, String.to_bytes("hello")).content_length == Some(5)
+    //!
     //! tagged = Headers[("ETag", "\"v1\"")]
     //! again = .{..request, headers: Headers.set(request.headers, "If-None-Match", "\"v1\"")}
     //!
@@ -3425,15 +3428,25 @@ impl Router {
 
 fn from_go(parts: List<String>) -> Response {
     case parts {
-        ["answer", code, body, ..headers] ->
-            Response{
-                status: Status(
-                    String.to_int(code)
-                    |> Maybe.with_default(500)
-                ),
-                headers: Headers(pairs(headers)),
-                body: Body.Text(body),
+        ["answer", code, body, ..headers] -> {
+            answer = Headers(pairs(headers))
+
+            status = Status(
+                String.to_int(code)
+                |> Maybe.with_default(500)
+            )
+
+            // A HEAD answer has no body and keeps the length the GET's would
+            // have, as Go's ServeContent sends it.
+            length = Headers.get(answer, "Content-Length") |> Maybe.flat_map(String.to_int)
+
+            case length {
+                Some(n) when body == "" and n > 0 ->
+                    Response{status, headers: answer, body: Body.Empty, content_length: Some(n)}
+
+                _ -> Response{status, headers: answer, body: Body.Text(body)}
             }
+        }
 
         _ -> Response{status: Status.internal_server_error}
     }

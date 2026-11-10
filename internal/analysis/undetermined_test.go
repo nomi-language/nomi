@@ -169,3 +169,60 @@ func TestUndeterminedTypeArgs_BindingErrorIsNotRepeated(t *testing.T) {
 		t.Fatalf("the binding error is repeated at the call:\n  %s", describeErrors(got))
 	}
 }
+
+// A `!` or `?` makes a value of the payload type, and a callee whose result
+// is the type argument itself makes one too, so an empty literal there needs
+// its element type even when the value is discarded or only printed.
+func TestUndeterminedTypeArgs_ResultMakesAValue(t *testing.T) {
+	const pick = "fn pick<T>(xs: List<T>) -> T { todo }\n\nfn f() -> Maybe<Int> {\n  "
+	cases := []struct {
+		name, body, want string
+	}{
+		{"`!` over Vector.get of an empty vector, discarded", "_a = Vector.get(#[], 0)!", "the element type of `#[]` is not determined"},
+		{"`!` bound to `_`", "_ = Vector.get(#[], 0)!", "the element type of `#[]` is not determined"},
+		{"`!` over List.head of an empty list", "dbg List.head([])!", "the element type of `[]` is not determined"},
+		{"`!` over Map.get of an empty map", "_a = Map.get(%{}, 1)!", "the element type of `%{}` is not determined: annotate it, as in `xs: Map<Int, V> = %{}`"},
+		{"`!` on a pipe stage", "_a = #[] |> Vector.get(0)!", "the element type of `#[]` is not determined"},
+		{"`?` over Vector.get of an empty vector", "_a = Vector.get(#[], 0)?", "the element type of `#[]` is not determined"},
+		{"a callee returning T", "_a = pick([])", "the element type of `[]` is not determined"},
+		{"`!` over None", "dbg None!", "the type this `!` unwraps to is not determined"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := checkWithStdlib(pick + tc.body + "\n  None\n}\n")
+			got := undeterminedErrors(errs)
+			if len(got) != 1 || len(errs) != 1 {
+				t.Fatalf("want one undetermined error and no other, got:\n  %s", describeErrors(errs))
+			}
+			if !strings.Contains(got[0].Message, tc.want) {
+				t.Fatalf("message = %q, want it to contain %q", got[0].Message, tc.want)
+			}
+			if got[0].Line != 4 {
+				t.Fatalf("at %d:%d, want line 4", got[0].Line, got[0].Col)
+			}
+		})
+	}
+
+	accepted := []string{
+		"_a = Vector.get(#[], 0)",
+		"x: Int = Vector.get(#[], 0)!\n  dbg x",
+		"dbg Vector.get(#[], 0)! + 1",
+		"x: Int = List.head([])?\n  dbg x",
+		"dbg pick([]) == 1",
+		"_a = Vector.get<Int>(#[], 0)!",
+		// An interface's function returns its Out bare, and the impl the
+		// arguments select fixes it.
+		"dbg Divide.divide(1.0, 2.0)",
+		"dbg 9 |> Divide.divide(2)",
+		"dbg Add.add(1, 2)",
+		"dbg 1 |> Add.add(2)",
+		"dbg Multiply.multiply(3, 4)",
+		"dbg 3 |> Multiply.multiply(4)",
+		"_ = Divide.divide(20, 4)",
+	}
+	for _, body := range accepted {
+		t.Run(body, func(t *testing.T) {
+			expectNoErrorsT(t, checkWithStdlib(pick+body+"\n  None\n}\n"))
+		})
+	}
+}

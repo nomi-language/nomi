@@ -1,0 +1,2 @@
+go test fuzz v1
+string("fn a00() {   _a= Vector.get(#[],0)! }")

@@ -49,8 +49,10 @@ import (
 // bound checks, dispatch and `==`
 // (TestSameNamedDeclarationsInTwoFilesStayApart); a bare type name a file
 // binds to nothing names nothing, so `Box.inspect` in a file that neither
-// declares nor imports `Box` is not typed through another file's impl
-// (TestUndefinedTypeOwnerReadsNoOtherFile); and a file's own impl wins for
+// declares nor imports `Box`, or imports it from a module that does not
+// exist, is not typed through another file's impl
+// (TestUndefinedTypeOwnerReadsNoOtherFile, and the fuzz seed cf2695906d536d71
+// for the failed import); and a file's own impl wins for
 // the receiver its impl header names, so `List.size` in a file with its
 // own `impl Sized for List<Int>` does not resolve through another file's
 // `Sized`, and under a block import of std's `Duration` a file's own

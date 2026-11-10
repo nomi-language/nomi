@@ -2281,6 +2281,11 @@ wherever the call stands. A function makes values of a type parameter when:
   (`Iter.sum`'s `Summable` has `empty_sum()`). A bound whose every function
   takes a value of the type, such as `Comparable`, makes none.
 
+A call's own result is a value too: a function whose result is the type
+parameter itself makes a value of it, and so does a `!` or `?` that
+unwraps the parameter out of the call's `Maybe` or `Result`. Discarding
+the value or only printing it does not change that.
+
 A type argument nothing in the enclosing declaration fixes is an error at
 the argument that carries it:
 
@@ -2290,6 +2295,8 @@ dbg Result.collect([]) // error: the element type of `[]` is not determined
 dbg Maybe.values([None]) // error: the type argument T of `Maybe.values` is not determined
 
 dbg Iter.sum([]) // error: the element type of `[]` is not determined
+
+_ = Vector.get(#[], 0)! // error: the element type of `#[]` is not determined
 ```
 
 An unsolved type argument that no value has is not an error: the element of

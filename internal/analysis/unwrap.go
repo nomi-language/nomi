@@ -42,6 +42,7 @@ func (c *checker) unwrapBang(n *ast.Unwrap, expr ast.Node, ty Type) Type {
 				TryOp: &TryOpInfo{InputTy: et, Bang: true},
 			}
 		}
+		c.noteUnwrapped(n, "!", et.TypeArgs[0])
 		return et.TypeArgs[0]
 	}
 	source := UnwrapSource(expr)

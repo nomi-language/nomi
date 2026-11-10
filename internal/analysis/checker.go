@@ -153,6 +153,9 @@ type checker struct {
 	// not determined (undetermined.go).
 	undetermined         []undeterminedCall
 	undeterminedReported []ast.Node
+	// unwrapped is each `!` and `?` whose value is checked for a
+	// determined type once every body is checked (undetermined.go).
+	unwrapped []unwrappedValue
 	// calledFuncs is each function type a call made of an open variable
 	// (solveCalledTypeVar), with the variables it holds: one of them still
 	// open leaves the type argument the function solved undetermined.
@@ -7232,6 +7235,8 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 				}
 				right = sel.ft
 				defer c.recordSelectedImpl(pipeCall, sel)
+			} else if ty, handled := c.checkPipedOperatorInterfaceCall(pipeCall, n.Left, left, expected); handled {
+				return ty
 			}
 		}
 		ty := c.checkPipe(n, left, right, pipeCall, expected)
@@ -9201,6 +9206,31 @@ func (c *checker) checkOperatorInterfaceCall(n *ast.Call, expected Type) (Type, 
 		return nil, true
 	}
 	return c.finishOperatorInterfaceCall(n, opIface, left, right, expected)
+}
+
+// checkPipedOperatorInterfaceCall types the stage `a |> Divide.divide(b)`
+// as checkOperatorInterfaceCall types `Divide.divide(a, b)`: the impl is
+// selected from both operands, and its result is the stage's. Without it
+// the interface's Out would stay open, since only the impl fixes it.
+func (c *checker) checkPipedOperatorInterfaceCall(stage *ast.Call, piped ast.Node, left, expected Type) (Type, bool) {
+	if len(stage.Args) != 1 || left == nil {
+		return nil, false
+	}
+	switch stage.Args[0].(type) {
+	case *ast.Placeholder, *ast.NamedArg:
+		return nil, false
+	}
+	opIface, ok := c.operatorInterfaceForCall(stage.Func)
+	if !ok {
+		return nil, false
+	}
+	right := c.checkNode(stage.Args[0])
+	if right == nil {
+		return nil, true
+	}
+	full := *stage
+	full.Args = []ast.Node{piped, stage.Args[0]}
+	return c.finishOperatorInterfaceCall(&full, opIface, left, right, expected)
 }
 
 // concreteOperand is t when it names a type with no open variable or type
@@ -13997,8 +14027,10 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	// type or its impls answer it: that would read a type the file cannot
 	// see. The access stays untyped, as with no such type in the program.
 	// A type parameter is no such name: checking it reports nothing, so
-	// the owner counts as unbound only when checking it reported so.
-	if ident, bare := n.Object.(*ast.TypeIdent); bare && tqTypeName != "" && c.reportedUndefinedOwner(ident) {
+	// the owner counts as unbound only when checking it reported so. An
+	// import that brought in nothing (`users.{Admin}` with no module
+	// `users`) binds the name to no type either.
+	if ident, bare := n.Object.(*ast.TypeIdent); bare && tqTypeName != "" && (c.reportedUndefinedOwner(ident) || c.importedNothing(ident.Name)) {
 		tqTypeName = ""
 	}
 	if tqTypeName != "" && !c.dottedInterfaceFunction(n) {
@@ -14877,6 +14909,7 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 	if line, col := nodeLineCol(at); c.rejectExitlessExit("?", line, col) {
 		return et.TypeArgs[0]
 	}
+	c.noteUnwrapped(at, "?", et.TypeArgs[0])
 	// A `?` contributes an early exit to the enclosing `?`-boundary. Record
 	// it so an INFERRING boundary (concurrent block, lambda) can check its
 	// result against what the site propagates and resolve its error side. The
@@ -19946,6 +19979,21 @@ func (c *checker) lookupTypeMethodSymbol(typeName, method, origin string) *Symbo
 		c.recordTypeMethodModule(typeName, method)
 	}
 	return sym
+}
+
+// importedNothing reports whether name is bound at module scope by an
+// import that resolved to no symbol: one from a module that does not exist
+// or that exports no such name. The import reports the failure.
+func (c *checker) importedNothing(name string) bool {
+	if c.fa.ModuleScope == nil {
+		return false
+	}
+	sym := c.fa.ModuleScope.Lookup(name)
+	if sym == nil || sym.Resolved != nil || sym.Kind != SymbolBinding {
+		return false
+	}
+	_, imported := sym.Node.(*ast.ImportStmt)
+	return imported
 }
 
 // reportedUndefinedOwner reports whether checking ident, the owner of a

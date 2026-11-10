@@ -36,6 +36,17 @@ import (
 // the type (`Comparable`, `Display`) is called only on the elements, so
 // `Iter.max([])` makes none.
 //
+// A call's own result is a value too. A callee whose result is the type
+// argument itself makes a value of it (`fn pick<T>(xs: List<T>) -> T`, so
+// `pick([])` does), and so does a `!` or `?` over a call whose result
+// holds it as the payload: `Vector.get(#[], 0)!` is a value of the vector's
+// element type, where `Vector.get(#[], 0)` alone is a `Maybe` that can only
+// be None. A discarded or `dbg`'d value counts as much as a bound one: the
+// builder has no representation for a value of no type, so `_ =
+// Vector.get(#[], 0)!` is refused as `dbg Iter.sum([])` is. A `!` or `?`
+// whose unsolved payload no queued call carries (`dbg None!`) is reported
+// at the `!` or `?`.
+//
 // Such a type argument still unsolved once every body in the file is
 // checked is an error. Variables are checked at the end because a later
 // statement may still fix them: `r = Result.collect([])` followed by
@@ -66,6 +77,23 @@ func (c *checker) noteUndeterminedCall(callee, at ast.Node, ft *FuncType, subs m
 	c.undetermined = append(c.undetermined, undeterminedCall{
 		callee: callee, at: at, ft: ft, subs: subs, slotArgs: slotArgs, keep: c.fnTypeParams,
 	})
+}
+
+// unwrappedValue is one `!` or `?`, at, whose value has type ty: the
+// payload of the Result or Maybe it unwraps.
+type unwrappedValue struct {
+	at ast.Node
+	op string
+	ty Type
+}
+
+// noteUnwrapped queues the `!` or `?` at, whose value has type ty, for
+// checkUndeterminedTypeArgs.
+func (c *checker) noteUnwrapped(at ast.Node, op string, ty Type) {
+	if at == nil || IsSynthesizedLine(at.LineNum()) {
+		return
+	}
+	c.unwrapped = append(c.unwrapped, unwrappedValue{at: at, op: op, ty: ty})
 }
 
 // markUndeterminedReported records value, the right-hand side of a binding
@@ -102,7 +130,18 @@ func (c *checker) insideReportedBinding(n ast.Node) bool {
 // that is still unsolved and that its callee's signature uses as a value's
 // type (see the comment at the top of this file).
 func (c *checker) checkUndeterminedTypeArgs() {
+	// earlier is whether the file had an error before this pass: an
+	// unwrapped value left open after one most often follows from it.
+	earlier := len(c.errors) > 0
 	reported := map[*TypeVar]bool{}
+	// unwrappedVars is the unsolved variable each `!` and `?` makes a
+	// value of.
+	unwrappedVars := map[*TypeVar]bool{}
+	for _, w := range c.unwrapped {
+		if v, ok := resolveTypeVar(w.ty).(*TypeVar); ok {
+			unwrappedVars[v] = true
+		}
+	}
 	for _, u := range c.undetermined {
 		if c.insideReportedBinding(u.at) {
 			continue
@@ -132,7 +171,7 @@ func (c *checker) checkUndeterminedTypeArgs() {
 			}
 			names[v] = tp.Name_
 			unsolved = append(unsolved, tp)
-			if !typeParamUsedAsValue(u.ft, tp) {
+			if !typeParamUsedAsValue(u.ft, tp) && !c.resultMakesValueOf(u, tp, v, unwrappedVars) {
 				continue
 			}
 			bad = append(bad, tp)
@@ -155,6 +194,37 @@ func (c *checker) checkUndeterminedTypeArgs() {
 		}
 		c.report(c.undeterminedError(u, bad, unsolved, names))
 	}
+	if earlier {
+		return
+	}
+	for _, w := range c.unwrapped {
+		v, ok := resolveTypeVar(w.ty).(*TypeVar)
+		if !ok || reported[v] || c.insideReportedBinding(w.at) {
+			continue
+		}
+		reported[v] = true
+		c.report(errAt(w.at, fmt.Sprintf(
+			"the type this `%s` unwraps to is not determined: annotate the value it unwraps (`v: T = …`) or give a call a type argument (`f<T>(…)`)",
+			w.op)))
+	}
+}
+
+// resultMakesValueOf reports whether u's own result makes a value of tp,
+// whose solution is the open variable v: the callee returns tp itself and
+// the call's result is still open, or a `!` or `?` unwraps v out of the
+// result. The type argument must be one an argument carries, so the error
+// has a place to go.
+//
+// The call's recorded result, not subs, says whether a bare tp is open: a
+// call of an interface's function is resolved to the impl the arguments
+// select, which fixes the result (`9 |> Divide.divide(2)` is an Int) while
+// the interface's own Out stays unsolved in subs.
+func (c *checker) resultMakesValueOf(u undeterminedCall, tp *TypeParam_, v *TypeVar, unwrappedVars map[*TypeVar]bool) bool {
+	if !unwrappedVars[v] && !(u.ft.Return == Type(tp) && isUnresolvedVar(c.fa.ExprTypes[u.at])) {
+		return false
+	}
+	arg, _ := undeterminedArg(u, tp)
+	return arg != nil
 }
 
 // openVarOf is the unsolved variable a type argument's solution leaves

@@ -383,7 +383,17 @@ func (in *incoming) writeHead(status int64, headers, trailerNames *rt.List[strin
 		return false
 	}
 	h := in.w.Header()
+	// The wire carries one Content-Length. Respond sets it from the body it
+	// writes; a response's own (Response.content's, or one a handler set)
+	// is used only when the server set none, as for a HEAD answer.
+	_, lengthSet := h["Content-Length"]
 	for l := headers; l != nil && l.Tail != nil; l = l.Tail.Tail {
+		if http.CanonicalHeaderKey(l.Head) == "Content-Length" {
+			if !lengthSet {
+				h.Set("Content-Length", l.Tail.Head)
+			}
+			continue
+		}
 		h.Add(l.Head, l.Tail.Head)
 	}
 	for l := trailerNames; l != nil; l = l.Tail {
