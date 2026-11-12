@@ -1,0 +1,5 @@
+fn bump(p: {n: Int, s: String}) -> {n: Int, s: String}
+    {..p, n: .. + 1, s: String.trim(..)}
+    //       ^ operator
+    //                               ^ operator
+end

@@ -167,7 +167,7 @@ func (bl *irScalarBuilder) structMergeVals(k kind, base ir.Temp, lit *ast.Struct
 		if !found {
 			return nil, nil, false
 		}
-		if ast.UpdateHole(f.Value) != nil {
+		if readsCurrent(f.Value) {
 			sub, ok := bl.updateBaseField(f.Value, k, base, f.Name, fk)
 			if !ok {
 				return nil, nil, false

@@ -18,6 +18,24 @@ end
 `)
 }
 
+// A `..` operand writes its `..` as an operand: spaced around a binary
+// operator and a pipe, bare in an argument list.
+func TestFormat_CurrentValueOperand(t *testing.T) {
+	roundTrip(t, `fn main()
+    a = {..user, visits: .. + 1, name: String.trim(..), tags: .. |> List.reverse()}
+    b = {..user, address: {.., street: Maybe.map(m, fn s -> s + ..)}}
+    c = {..counts, "a" => .. - 1}
+end
+`)
+	migrates(t, `fn main()
+    a = {..user, visits: ..+1, name: String.trim( .. ), n: ..-1}
+end
+`, `fn main()
+    a = {..user, visits: .. + 1, name: String.trim(..), n: .. - 1}
+end
+`)
+}
+
 func TestFormat_CurrentValueSpacing(t *testing.T) {
 	migrates(t, `fn main()
     a = {..user, address: { .. , city : "NYC" }}

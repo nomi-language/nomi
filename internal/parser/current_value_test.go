@@ -212,3 +212,64 @@ func TestParseVectorNamedSpread(t *testing.T) {
 		}
 	}
 }
+
+// operandDots is the `..` operands of n.
+func operandDots(n ast.Node) []*ast.CurrentValue {
+	var out []*ast.CurrentValue
+	ast.Inspect(n, func(n ast.Node) bool {
+		if cv, ok := n.(*ast.CurrentValue); ok && cv.Operand {
+			out = append(out, cv)
+		}
+		return true
+	})
+	return out
+}
+
+// A `..` followed by no operand, where an operand goes, is one: the value
+// already at the field or key of an update it is written in. What follows
+// it decides: a closing bracket, a comma, a binary operator, a pipe or a
+// line end.
+func TestParseCurrentValue_Operand(t *testing.T) {
+	for _, tc := range []struct {
+		src  string
+		want int
+	}{
+		{`{..p, visits: .. + 1}`, 1},
+		{`{..p, visits: .. - 1}`, 1},
+		{`{..p, visits: ..-1}`, 1},
+		{`{..p, name: String.trim(..)}`, 1},
+		{`{..p, tags: .. |> List.reverse()}`, 1},
+		{`{..p, ok: .. == 1 or .. > 9}`, 2},
+		{`{..p, address: {.., street: rename(..)}}`, 1},
+		{`{..p, street: Maybe.map(m, fn s -> s + ..)}`, 1},
+		{`{..p, n: ..}`, 1},
+		{"{..p, n: f(\n  ..\n)}", 1},
+		{`{..m, "k" => .. + 1}`, 1},
+		{`[.. |> List.reverse()]`, 1},
+		{`[f(..), ..]`, 1},
+	} {
+		t.Run(tc.src, func(t *testing.T) {
+			if got := operandDots(parseExpr(t, tc.src)); len(got) != tc.want {
+				t.Fatalf("%d operand `..`s, want %d", len(got), tc.want)
+			}
+		})
+	}
+}
+
+// A `..` followed by an operand keeps its old meanings: a literal's spread,
+// a range's operator, and no open range.
+func TestParseCurrentValue_NotAnOperand(t *testing.T) {
+	for _, src := range []string{`[..xs, 1]`, `[..-1]`, `[1, ..]`, `{..p, a: 1}`, `{.., a: 1}`} {
+		if got := operandDots(parseExpr(t, src)); len(got) != 0 {
+			t.Errorf("%q: parsed %d operand `..`s", src, len(got))
+		}
+	}
+	if _, ok := parseExpr(t, `a..b`).(*ast.RangeLit); !ok {
+		t.Errorf("a..b is not a range")
+	}
+	for _, src := range []string{`..5`, `f(..x)`} {
+		if err := parseError(t, src); !strings.Contains(err.Error(), "open-ended ranges have been removed") {
+			t.Errorf("%q: %v", src, err)
+		}
+	}
+}

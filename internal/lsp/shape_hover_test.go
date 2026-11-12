@@ -204,6 +204,14 @@ func TestHover_LiteralSpreads(t *testing.T) {
 			"map spread: `..m` puts every entry of `m`, a `Map<String, Int>`, here; a later key replaces an earlier one"},
 		{"a spread of a call", "fn main()\n  older = [▮..0..3, 9]\n  io.inspect(older)\nend\n",
 			"list spread: `..` puts every element of the value after it, a `Range<Int>`, here, in order"},
+		{"a .. operand", in(alice, "older = {..alice, age: ▮.. + 1}"), "the current value of `age`, a `Int`"},
+		{"a .. operand's second dot", in(alice, "older = {..alice, age: .▮. + 1}"), "the current value of `age`, a `Int`"},
+		{"a .. operand in a nested update", "fn main()\n  h = Home{owner: User{name: \"A\", age: 1}, rooms: 2}\n  older = {..h, owner: {.., name: String.trim(▮..)}}\n  io.inspect(older)\nend\n",
+			"the current value of `name`, a `String`"},
+		{"a .. operand in a lambda", in(alice, "older = {..alice, name: Some(\"x\") |> Maybe.map(fn s -> s + ▮..) |> Maybe.with_default(\"\")}"),
+			"the current value of `name`, a `String`"},
+		{"a .. operand at a map key", "fn main()\n  m = {\"a\" => [1]}\n  older = {..m, \"a\" => ▮.. + [2]}\n  io.inspect(older)\nend\n",
+			"the current value of the key `\"a\"`, a `List<Int>`"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

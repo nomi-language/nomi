@@ -5387,11 +5387,15 @@ func TestParseRange_NoEndRejected(t *testing.T) {
 	}
 }
 
-func TestParseRange_FullFormRejected(t *testing.T) {
-	tokens := lexer.Lex("(..)")
-	_, err := Parse(tokens)
-	if err == nil {
-		t.Fatalf("expected parse error for `(..)`, got nil")
+// `(..)` is no full range: a `..` with no operand after it is the value
+// already at a field of an update, which the checker refuses outside one.
+func TestParseRange_FullFormIsTheCurrentValue(t *testing.T) {
+	g, ok := parseExpr(t, "(..)").(*ast.GroupedExpr)
+	if !ok {
+		t.Fatalf("`(..)` parsed as %T, want *ast.GroupedExpr", parseExpr(t, "(..)"))
+	}
+	if cv, ok := g.Expr.(*ast.CurrentValue); !ok || !cv.Operand {
+		t.Fatalf("`(..)` holds %T, want an operand *ast.CurrentValue", g.Expr)
 	}
 }
 

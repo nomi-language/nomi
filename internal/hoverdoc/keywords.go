@@ -110,7 +110,7 @@ var keywordDocs = []keywordDoc{
 		link: "/bindings-and-expressions/#ifelse-and-case-are-expressions"},
 	{word: "else", context: "binding", form: "Pattern = value else\n    ...\nend",
 		text: "Runs when the value does not match the binding's pattern; on a match, the pattern's names are bound for the rest of the block. Every path through it leaves, or produces a fallback that stands in for the one variant's payload.",
-		link: "/pattern-matching/#binding-with-else"},
+		link: "/spec/patterns/#bindings-with-else", existing: ownKeyword},
 	{word: "enum", form: "enum Shape\n    Circle {r: Float}\n    Point\nend",
 		text: "Declares a type whose value is one of its variants. A variant has no payload, one payload type, a tuple or named fields, and `embeds T` makes a struct or distinct type a variant.",
 		link: "/structs-enums-distinct/#enums"},
@@ -135,6 +135,12 @@ var keywordDocs = []keywordDoc{
 	{word: "if", form: "if condition then\n    ...\nelse\n    ...\nend",
 		text: "An expression that branches on a `Bool`, written without parentheses; `if Pattern = value` branches on a match. Without `else`, a branch with a value makes the `if` a `Maybe`.",
 		link: "/bindings-and-expressions/#ifelse-and-case-are-expressions", existing: typedKeyword},
+	{word: "if", context: "maybe", form: "if condition then value",
+		text: "An `if` without `else` is a `Maybe`: `Some` of the branch's value when the condition holds, `None` when it doesn't.",
+		link: "/spec/expressions/#ifelse", existing: ownKeyword},
+	{word: "if", context: "statement", form: "if condition then\n    ...\nend",
+		text: "An `if` without `else` whose branch is `Unit` or leaves is a statement: it has no value.",
+		link: "/spec/expressions/#ifelse", existing: ownKeyword},
 	{word: "if", context: "stage", form: "value |> if f() then\n    ...\nelse\n    ...\nend",
 		text: "A pipe stage: branches on the piped value, a `Bool`. Written before a call stage (`|> if Status.is_ready() then`), it branches on that call's result.",
 		link: "/pipes/#other-stages"},
@@ -345,7 +351,7 @@ func KeywordAt(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos 
 	}
 	tok := toks[i]
 	start = analysis.Pos{Line: tok.Line, Col: tok.Col}
-	k := keywordSite{fa: fa, nodes: nodes, toks: toks, i: i, at: start}
+	k := keywordSite{fa: fa, nodes: nodes, toks: toks, i: i, at: start, content: content}
 	k.path = pathTo(nodes, start)
 	context, extra, isKeyword := k.context()
 	if !isKeyword {
@@ -357,6 +363,9 @@ func KeywordAt(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos 
 	}
 	if k.form != "" {
 		doc.form = k.form
+	}
+	if k.text != "" {
+		doc.text = k.text
 	}
 	return renderKeyword(doc, extra, k.analysisHover()), start, len(tok.Lexeme), true
 }
@@ -472,8 +481,11 @@ type keywordSite struct {
 	// path holds the nodes whose extent holds the keyword, outermost first.
 	path []ast.Node
 	// form, when set, replaces the table's form with the construct as
-	// this file writes it.
-	form string
+	// this file writes it, and text the table's text with what this
+	// construct does (rules.go).
+	form, text string
+	// content is the file's text.
+	content string
 }
 
 func (k *keywordSite) word() string { return k.toks[k.i].Lexeme }
@@ -574,6 +586,11 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 		if k.prev().Type == token.PIPE {
 			return "stage", "", true
 		}
+		if w == "if" {
+			if context, ok := k.ifRule(); ok {
+				return context, "", true
+			}
+		}
 		return "", "", true
 	case "then":
 		if k.prev().Type != token.PIPE {
@@ -587,6 +604,7 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 			}
 			return 0, 0
 		}) {
+			k.bindingElseRule()
 			return "binding", "", true
 		}
 		return "", "", true

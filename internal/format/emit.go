@@ -589,8 +589,11 @@ func withDangling(n ast.Node, d Doc) Doc {
 func emitNode(n ast.Node) Doc {
 	switch v := n.(type) {
 	case *ast.CurrentValue:
-		// A bare `..`: the spread's `..` is written by the literal, and
-		// nothing follows it.
+		// A bare `..` spread: the spread's `..` is written by the literal,
+		// and nothing follows it. An operand writes its own.
+		if v.Operand {
+			return Text("..")
+		}
 		return Nil()
 	case *ast.ExprStmt:
 		return emit(v.Expr)

@@ -1376,6 +1376,44 @@ end
 `{.., city: "York"}`. A diagnostic names the type the mistake is in:
 `{..ada, address: {.., zip: 1}}` is `Address has no field 'zip'`.
 
+A `..` is also an operand anywhere in a field's or key's new value, and it
+is then the value already there, with the field's type: `visits: .. + 1`,
+`name: String.trim(..)`, `tags: .. |> Iter.filter(keep) |> Iter.to_list()`.
+It belongs to the innermost field or key whose value holds it, so in
+`address: {.., street: rename(..)}` the first `..` is `address` and the one
+in `rename(..)` is `street`. It keeps that meaning inside a lambda written in
+the value (`street: Maybe.map(m, fn s -> s + ..)`). The update's base is
+evaluated once, however many `..`s read it.
+
+```nomi
+struct Address
+    street: String
+    city: String
+end
+
+struct Account
+    owner: String
+    visits: Int
+    address: Address
+end
+
+fn main()
+    a = Account{owner: " Ada ", visits: 2, address: Address{street: "Main", city: "Bath"}}
+    b = {..a, owner: String.trim(..), visits: .. + 1, address: {.., street: .. + " St"}}
+    dbg b // Account{owner: "Ada", visits: 3, address: Address{street: "Main St", city: "Bath"}}
+end
+```
+
+A `..` is an operand when what follows it is not one: `)`, `,`, `]`, `}`, a
+binary operator, `|>` or a line end. `..e` at the start of a literal's
+element is still a spread, and `a..b` still a range; a range needs both
+bounds and a call takes no spread, so `f(..)` means only this. A field whose
+whole value is `..` is
+`` a field or key whose value is `..` keeps the value it holds; leave it out ``.
+A `..` operand outside a field's or key's value in an update, such as
+`x = .. + 1` or in a named literal `Address{street: .., ...}`, is
+`` `..` means the value already at a field or key of an update, and this `..` is not in one ``.
+
 The `..` is the one way to write the value already there. A nested struct
 update whose spread names that value as a path, the enclosing update's base
 followed by the field it is written at, is
@@ -1387,7 +1425,10 @@ enclosing `..` is `ada.address`. The same holds in the literal patch of
 their text. A spread naming another value (`{..bob.address, city: "York"}`)
 is a value like any other. A base that is not a binding or a chain of field
 reads of one, such as a call (`{..load(), address: {..load().address, ...}}`),
-has no such path, since a `..` would not run the call again.
+has no such path, since a `..` would not run the call again. An operand
+that reads the field by its path, `street: rename(ada.address.street)` in
+an update of `ada.address`, means the same as `rename(..)` and is no error;
+the editor marks it with a hint that `..` writes it.
 
 | At a field or key holding | Write | Means |
 |---|---|---|
@@ -1404,8 +1445,8 @@ spread may, beside other spreads, and a literal takes one: a second is
 (`[..]`) is
 `` an update with nothing after `..` changes nothing; leave this field or key out ``.
 
-A bare `..` is legal only as the spread of a literal written at a field or
-key of a literal that is itself an update: one with a named spread
+A bare `..`, as a spread or an operand, is legal only in the value of a
+field or key of a literal that is itself an update: one with a named spread
 (`{..base, ...}`, `{..base, ...}`), one with a bare `..`, or the literal
 patch of a `Struct.update` call. Anywhere else, at the top of a plain
 literal, in a list element, in an operand of `+` or `Map.merge`, in a call
@@ -1427,6 +1468,11 @@ entries written, or a struct from the fields written and its defaults.
 Positions inside a missing value are missing too. A struct whose left-out
 field has no default is a compile error, never a trap:
 `` a missing key leaves `..` no Geo to update, and field 'city' has no default ``.
+A `..` operand there is the empty collection when the value is one
+(`{..lists, "a" => .. + [1]}`), and otherwise an error, since there is no
+value to read: `{..counts, "a" => .. + 1}` is
+`` a missing key leaves `..` no Int to read ``, whose help suggests
+`Map.update(m, key, default, f)`.
 
 ```nomi
 fn main()

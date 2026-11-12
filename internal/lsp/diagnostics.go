@@ -326,6 +326,7 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 		diags = append(diags, s.lowering.diagnostics(snap.URI)...)
 	}
 	hints := redundantAscriptionDiagnostics(snap.Analysis, snap.Nodes)
+	hints = append(hints, restatedPathDiagnostics(snap.Analysis, snap.Nodes)...)
 	hints = append(hints, interfaceValueDiagnostics(snap.URI, snapInterfaceValueHints(snap, tokens))...)
 	if len(hints) > 0 {
 		lines := newLineIndex(snap.Content)
@@ -591,6 +592,55 @@ func interfaceValueDiagnostics(uri string, hints []analysis.TypeError) []protoco
 	for i := range diags {
 		diags[i].Severity = &severity
 		diags[i].Source = &source
+	}
+	return diags
+}
+
+// restatedPathDiagnostics reports each operand in a field's new value that
+// reads the field's current value by its path
+// (analysis.FileAnalysis.RestatedPaths) as a hint that `..` writes it: the
+// program means the same either way. The range is the path.
+func restatedPathDiagnostics(fa *analysis.FileAnalysis, nodes []ast.Node) []protocol.Diagnostic {
+	if fa == nil || len(fa.RestatedPaths) == 0 {
+		return nil
+	}
+	var diags []protocol.Diagnostic
+	severity := protocol.DiagnosticSeverityHint
+	source := "nomi"
+	code := "restated-current-value"
+	for _, node := range nodes {
+		ast.Inspect(node, func(n ast.Node) bool {
+			p, ok := n.(*ast.FieldAccess)
+			if !ok {
+				return true
+			}
+			name, restated := fa.RestatedPaths[p]
+			if !restated || p.Field == nil {
+				return true
+			}
+			root := ast.Node(p)
+			for {
+				inner, ok := root.(*ast.FieldAccess)
+				if !ok {
+					break
+				}
+				root = inner.Object
+			}
+			id, ok := root.(*ast.Ident)
+			if !ok || id.Line <= 0 || p.Field.Line != id.Line {
+				return false
+			}
+			start := protocol.Position{Line: uint32(id.Line - 1), Character: uint32(id.Col - 1)}
+			end := protocol.Position{Line: start.Line, Character: uint32(p.Field.Col - 1 + len(p.Field.Name))}
+			diags = append(diags, protocol.Diagnostic{
+				Range:    protocol.Range{Start: start, End: end},
+				Severity: &severity,
+				Source:   &source,
+				Code:     &protocol.IntegerOrString{Value: code},
+				Message:  fmt.Sprintf("this reads the value `%s` already holds here, which `..` writes", name),
+			})
+			return false
+		})
 	}
 	return diags
 }

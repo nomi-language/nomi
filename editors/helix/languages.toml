@@ -53,4 +53,4 @@ language-servers = ["nomi-lsp"]
 
 [[grammar]]
 name = "nomi"
-source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "6132b5ceaa6c87afb66be3ee06e88998f049110f" }
+source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "2dbd18aed99833a6f580ca6c12fab748245fe779" }

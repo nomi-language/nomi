@@ -309,12 +309,17 @@ five minutes, so neither is a per-change check:
   (`scripts/check-full.sh`: gofmt, the tour wasm, build and vet, every package with
   vmhost, rt and the whole irbuild package each on its own, `TestLibModules`,
   the tree-sitter tests, every recorded program linked through objects, the
-  expectation suites with every file checked again against interfaces, the
-  race detector, and each fuzz target for
-  `FUZZTIME`, 5m by default; `STEPS="pkgs fuzz-FuzzFormatKeepsMeaning"` runs
-  only the steps named). It prints each step's exit status and fails when any
-  failed. A failure there is attributed to the batch's changes by rerunning
-  narrow tests on each. Then `make publish-main` (see "Docs discipline").
+  expectation suites with every file checked again against interfaces, and
+  the race detector; the fuzz targets' saved inputs replay as ordinary tests;
+  `STEPS="pkgs race"` runs only the steps named). It prints each step's exit
+  status and fails when any failed. A failure there is attributed to the
+  batch's changes by rerunning narrow tests on each. Then `make publish-main`
+  (see "Docs discipline").
+- **After a push:** `make fuzz`, each fuzz target at the same time for
+  `FUZZTIME`, 5m by default (`FUZZ=1 make check-full` runs them with the rest).
+  A fuzzer finds inputs no program the batch changed relies on, so it does not
+  hold a push; what it finds is fixed on `next`, with the failing input kept
+  under the target's `testdata/fuzz`, for the following batch.
 - When running several suites, capture each exit status separately; a chain
   reports only the last one.
 - For concurrency changes, also run

@@ -82,6 +82,66 @@ end
 		"Bath\n")
 }
 
+// A `..` operand in a field's or key's new value is the value already
+// there, read from the update's base, which runs once: at a struct field,
+// nested, inside a lambda, in a Struct.update patch, at a record field, and
+// at a map key, where a missing key's list is the empty one.
+func TestIRNestedStruct_CurrentValueOperands(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+struct Address
+  street: String
+  city: String
+end
+
+struct Place
+  at: Address
+  year: Int
+end
+
+struct Person
+  name: String
+  address: Address
+  born: Place
+  visits: Int
+  tags: List<String>
+end
+
+fn rename(s: String) -> String
+  s + " Road"
+end
+
+fn load() -> Person
+  io.print("load")
+  a = Address{street: "1 Main", city: "Bath"}
+  Person{name: " Ada ", address: a, born: Place{at: a, year: 1815}, visits: 2, tags: ["old", "new"]}
+end
+
+fn main()
+  p = {
+    ..load(),
+    born: {.., at: {.., street: rename(..)}},
+    address: {.., street: rename(..)},
+    visits: .. + 1,
+    name: String.trim(..),
+    tags: .. |> Iter.filter(fn t -> t != "old") |> Iter.to_list(),
+  }
+  dbg p
+  dbg {..p, address: {.., city: Some("!") |> Maybe.map(fn s -> .. + s) |> Maybe.with_default("")}}.address
+  dbg Struct.update(p, {visits: .. * 10, address: {.., city: String.uppercase(..)}}).visits
+  record = {n: 1, s: "a"}
+  dbg {..record, n: .. + 1, s: .. + ..}
+  counts = {"a" => [1]}
+  dbg {..counts, "a" => .. + [2], "b" => .. + [3]}
+end
+`, "load\n"+
+		"dbg line 40: p = Person{name: \"Ada\", address: Address{street: \"1 Main Road\", city: \"Bath\"}, born: Place{at: Address{street: \"1 Main Road\", city: \"Bath\"}, year: 1815}, visits: 3, tags: [\"new\"]}\n"+
+		"dbg line 41: {..p, address: {.., city: Some(\"!\") |> Maybe.map(fn s -> .. + s) |> Maybe.with_default(\"\")}}.address = Address{street: \"1 Main Road\", city: \"Bath!\"}\n"+
+		"dbg line 42: Struct.update(p, {visits: .. * 10, address: {.., city: String.uppercase(..)}}).visits = 30\n"+
+		"dbg line 44: {..record, n: .. + 1, s: .. + ..} = {n: 2, s: \"aa\"}\n"+
+		"dbg line 46: {..counts, \"a\" => .. + [2], \"b\" => .. + [3]} = {\"a\" => [1, 2], \"b\" => [3]}\n")
+}
+
 // A `..` literal at a record field projects the field from the record base.
 func TestIRNestedStruct_RecordPatch(t *testing.T) {
 	verifyLambdaProgram(t, `fn main()

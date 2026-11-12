@@ -176,3 +176,97 @@ once u = {
             field_name: (identifier)
             (string
               (string_content))))))))
+
+================================================================================
+A `..` operand in a field's value
+================================================================================
+
+once u = {..user, visits: .. + 1, name: String.trim(..), tags: .. |> List.reverse(), address: {.., street: rename(..)}}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (identifier))
+      (struct_update_field
+        field_name: (identifier)
+        (binary_expression
+          (current_value)
+          (integer)))
+      (struct_update_field
+        field_name: (identifier)
+        (call_expression
+          function: (field_access
+            (type_identifier)
+            (identifier))
+          (current_value)))
+      (struct_update_field
+        field_name: (identifier)
+        (pipe_expression
+          (current_value)
+          (call_expression
+            function: (field_access
+              (type_identifier)
+              (identifier)))))
+      (struct_update_field
+        field_name: (identifier)
+        (struct_update
+          (struct_update_spread)
+          (struct_update_field
+            field_name: (identifier)
+            (call_expression
+              function: (identifier)
+              (current_value))))))))
+
+================================================================================
+A `..` operand at a map key, in a list and in a lambda
+================================================================================
+
+once u = {..m, "a" => .. + [1], "b" => [.. |> f(), 2], "c" => [.., 3], "d" => Maybe.map(x, fn s -> s + ..)}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (map_construction
+      (map_update_spread
+        head: (identifier))
+      (map_entry
+        (string
+          (string_content))
+        (binary_expression
+          (current_value)
+          (list
+            (integer))))
+      (map_entry
+        (string
+          (string_content))
+        (list
+          (pipe_expression
+            (current_value)
+            (call_expression
+              function: (identifier)))
+          (integer)))
+      (map_entry
+        (string
+          (string_content))
+        (list
+          (integer)))
+      (map_entry
+        (string
+          (string_content))
+        (call_expression
+          function: (field_access
+            (type_identifier)
+            (identifier))
+          (identifier)
+          (lambda
+            (lambda_parameter
+              name: (identifier))
+            body: (binary_expression
+              (identifier)
+              (current_value))))))))

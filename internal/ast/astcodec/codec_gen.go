@@ -2691,6 +2691,7 @@ func (d *Decoder) StructContinue(x *ast.Continue) { d.structContinue(x) }
 func (e *Encoder) structCurrentValue(x *ast.CurrentValue) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
+	e.bool(x.Operand)
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
 }
@@ -2698,6 +2699,7 @@ func (e *Encoder) structCurrentValue(x *ast.CurrentValue) {
 func (d *Decoder) structCurrentValue(x *ast.CurrentValue) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
+	x.Operand = bool(d.bool())
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
@@ -8515,4 +8517,4 @@ var forms = []any{
 
 // CodecDigest is a digest of the code above it: a reader keys bytes this
 // codec wrote by it when the writer may be another binary.
-const CodecDigest = "9d47ee7ceaba678f"
+const CodecDigest = "7d9ad2537c91b8b6"

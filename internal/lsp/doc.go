@@ -99,9 +99,34 @@
 // operators), ignores it for `self` in an interface, and otherwise appends
 // its text (a declaration's `fn`).
 //
+// An `if` with no final `else` and a binding's `else` answer with the rule
+// the text does not show (hoverdoc rules.go): the `if`'s type and that it
+// is a Maybe (`Some(digits)` when `total == 0` holds) or a statement, read
+// from analysis.FileAnalysis.ElselessIfs; when the `else` runs, and whether
+// it leaves or gives a fallback for the pattern's payload, read from the
+// types the checker recorded on its paths. Each quotes the condition, value
+// and pattern from the source when they fit on a line.
+//
 // TestKeywordDocsCoverTheLexer fails when a reserved or contextual word has
 // no main-use row, TestContextualWordsAreListed (internal/parser) when the
 // parser recognizes a lexeme lexer.ContextualWords lacks, and
 // TestKeywordHoverLinksResolve (cmd/nomi-docgen) when a row links a page or
 // anchor the generated pages and tour chapters lack (siteAnchors).
+//
+// # Hovers on punctuation and puns
+//
+// hoverdoc.SyntaxAt answers for the punctuation of literals and patterns.
+// The `[` or `{` of an unnamed collection literal names the collection the
+// checker made it (ast.ListLit's Kind) and what expected that type: the
+// parameter it fills, the annotated binding, the field, the function's
+// result, or the expected type alone (hoverdoc literal_kinds.go).
+//
+// A punned `name:` is a label and a binding at one position
+// (analysis.FileAnalysis.PunnedFieldLabels beside References or
+// Definitions). hoverdoc.PunAt finds it in a struct literal, an update, a
+// struct pattern or a named argument. Hover shows the field or parameter
+// and the binding; go-to-definition (definition.go) offers the field's or
+// parameter's declaration and the binding's, except on a pattern's pun,
+// which declares the binding and offers the field; rename of either side
+// unpuns it (rename.go).
 package lsp

@@ -21,8 +21,12 @@
 # Then the race detector, its parts at the same time: rt and the language
 # server's concurrent tests whole or filtered, internal/vm's and vmhost's
 # task, channel, cancellation and synctest tests, and a race-built `nomi
-# test` over the corpus directories whose programs run tasks. Last, every
-# fuzz target at the same time for FUZZTIME, two workers each.
+# test` over the corpus directories whose programs run tasks. The fuzz
+# targets' saved inputs replay in pkgs and vmhost as ordinary tests. The
+# fuzz targets themselves run only when asked (FUZZ=1, or STEPS naming them;
+# `make fuzz`), every one at the same time for FUZZTIME, two workers each:
+# they run after a push, not before it, and what they find is fixed on next
+# for the following batch.
 # Every step runs even when an earlier one fails; each prints its output,
 # its exit status and its time, and the script exits 1 when any step
 # failed.
@@ -30,6 +34,7 @@
 # Usage:
 #   scripts/check-full.sh
 #
+#   FUZZ=1            also run the fuzz targets (`make fuzz` runs only them)
 #   FUZZTIME=5m       how long each fuzz target runs (default 5m)
 #   STEPS="a b ..."   run only the named steps: gofmt tourwasm buildvet pkgs
 #                     vmhost rt irbuild lib treesitter, cmdnomi-<part>
@@ -40,13 +45,15 @@
 #                     race-lsp race-vm race-vmhost race-corpus) and
 #                     fuzz-<Target> (fuzz-FuzzFormatKeepsMeaning);
 #                     `cmdnomi`, `interfaces`, `objects`, `race` and `fuzz`
-#                     name every part. Empty runs every step.
+#                     name every part. Empty runs every step but the fuzz
+#                     targets, which FUZZ=1 adds.
 
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FUZZTIME="${FUZZTIME:-5m}"
 STEPS="${STEPS:-}"
+FUZZ="${FUZZ:-0}"
 T0=$SECONDS
 failed=()
 
@@ -65,7 +72,11 @@ done
 # selected NAME: STEPS is empty, names NAME, or names NAME's group (`race`
 # for race-vm, `fuzz` for fuzz-FuzzX).
 selected() {
-  [[ -z "$STEPS" || " $STEPS " == *" $1 "* || " $STEPS " == *" ${1%%-*} "* ]]
+  if [[ -z "$STEPS" ]]; then
+    [[ "$1" != fuzz-* || "$FUZZ" == 1 ]]
+    return
+  fi
+  [[ " $STEPS " == *" $1 "* || " $STEPS " == *" ${1%%-*} "* ]]
 }
 
 # step NAME CMD...: run CMD now when NAME is selected.

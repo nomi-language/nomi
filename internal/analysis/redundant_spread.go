@@ -107,11 +107,12 @@ func (c *checker) checkRedundantSpread(lit *ast.StructLit, f ast.StructFieldVal)
 	if !ok {
 		return
 	}
+	want := base.child(f.Name)
+	c.noteRestatedPaths(f.Value, want, f.Name)
 	nested, ok := f.Value.(*ast.StructLit)
 	if !ok || nested.TypeName != nil || nested.Spread == nil {
 		return
 	}
-	want := base.child(f.Name)
 	if cv, bare := nested.Spread.(*ast.CurrentValue); bare {
 		if c.currentPaths == nil {
 			c.currentPaths = map[*ast.CurrentValue]namePath{}
@@ -141,6 +142,34 @@ func (c *checker) checkRedundantSpread(lit *ast.StructLit, f ast.StructFieldVal)
 		}
 	}
 	c.report(e.WithHint("a bare `..` at a field of an update stands for the value the field already holds"))
+}
+
+// noteRestatedPaths records each operand in value, the new value of the
+// field name of an update, that reads the field's current value by its
+// path, want: `street: rename(ada.address.street)` in an update of
+// `ada.address`. The program means the same either way, so it is no error;
+// the editor shows a hint that `..` writes it (FileAnalysis.RestatedPaths).
+// A nested update's spread naming the path is the error
+// checkRedundantSpread reports, and is skipped here.
+func (c *checker) noteRestatedPaths(value ast.Node, want namePath, name string) {
+	var spread ast.Node
+	if lit, ok := value.(*ast.StructLit); ok {
+		spread = lit.Spread
+	}
+	ast.InspectPosition(value, func(n ast.Node) bool {
+		fa, ok := n.(*ast.FieldAccess)
+		if !ok || n == spread {
+			return true
+		}
+		if p, ok := c.namePathOf(fa); ok && p.equal(want) {
+			if c.fa.RestatedPaths == nil {
+				c.fa.RestatedPaths = map[*ast.FieldAccess]string{}
+			}
+			c.fa.RestatedPaths[fa] = name
+			return false
+		}
+		return true
+	})
 }
 
 // pathEnd is the position one past the last byte of a path namePathOf

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -43,6 +44,18 @@ func TestEmptyImportBlockOnOneLineIsABlock(t *testing.T) {
 		}
 		if _, ok := nodes[0].(*ast.ImportBlock); !ok {
 			t.Errorf("%q: got %T, want *ast.ImportBlock", src, nodes[0])
+		}
+	}
+}
+
+// `group` alone as a file's last word is a group missing its name, as it is
+// with a line break after it, so formatting (which adds the line break) keeps
+// its meaning (FuzzFormatKeepsMeaning's 12a435194b09e809).
+func TestGroupAloneAtTheEndOfTheInputIsAGroup(t *testing.T) {
+	for _, src := range []string{"group", "group\n"} {
+		_, errs := ParseAll(lexer.Lex(src))
+		if len(errs) == 0 || !strings.Contains(errs[0].Message, "a `group` needs a name") {
+			t.Errorf("%q: got %v, want the missing-name error", src, errs)
 		}
 	}
 }

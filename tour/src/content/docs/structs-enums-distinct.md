@@ -185,7 +185,8 @@ dbg line 13: {..ada, address: {.., city: "NYC"}} = Person{name: "Ada", address: 
 
 The `..` means the value the field already holds, so this changes the city and
 keeps the street. Spelling that value out, `{..ada.address, city: "NYC"}`, is
-an error that asks for the `..`.
+an error that asks for the `..`. Inside a field's new value, `..` is that
+value too: `{..ada, name: String.trim(..), address: {.., city: .. + "!"}}`.
 
 [`Struct.update`](/reference/structs/) does the same as a function call. It
 takes the changes as an argument:

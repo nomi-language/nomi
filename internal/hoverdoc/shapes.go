@@ -31,6 +31,10 @@ func SyntaxAt(fa *analysis.FileAnalysis, nodes []ast.Node, pos analysis.Pos) (co
 	if fa == nil {
 		return "", analysis.Pos{}, 0, false
 	}
+	// A punned `name:` is a label and a binding (puns.go).
+	if p, ok := PunAt(fa, nodes, pos); ok {
+		return p.Render(), p.Pos, len(p.Name), true
+	}
 	s := shapeSearch{fa: fa, pos: pos, nodes: nodes}
 	for _, n := range nodes {
 		ast.Inspect(n, func(n ast.Node) bool {
@@ -83,6 +87,12 @@ type shapeSearch struct {
 	// bareRests are the `_`s the parser stands at a bare `..` of a bracket
 	// pattern (`[a, ..]`), which ignore the rest and have no hover.
 	bareRests map[*ast.WildcardPattern]bool
+	// literalSources are what expected each unnamed collection literal's
+	// type (literal_kinds.go).
+	literalSources map[ast.Node]literalSource
+	// positions names the field or key each `..` belongs to, built on
+	// the first hover of a `..` operand (currentPositions).
+	positions map[*ast.CurrentValue]string
 }
 
 // claim offers the text at (line, col) of length n for the node n of extent
@@ -137,6 +147,7 @@ func spanSize(sp ast.Span) int {
 }
 
 func (s *shapeSearch) visit(n ast.Node) {
+	s.noteLiteralSites(n)
 	switch n := n.(type) {
 	case *ast.StructLit:
 		s.shape(n, n.Line, n.Col, n.TypeName, n.TypeName == nil, func() string { return s.structLit(n) })
@@ -155,6 +166,8 @@ func (s *shapeSearch) visit(n ast.Node) {
 		s.collectionSpreads(n, "map", n.Spreads)
 	case *ast.TupleLit:
 		s.shape(n, n.Line, n.Col, nil, true, func() string { return s.collectionLit(n, nil) })
+	case *ast.CurrentValue:
+		s.currentValue(n)
 	case *ast.ListPattern:
 		s.shape(n, n.Line, n.Col, n.TypeName, true, func() string { return s.pattern(n) })
 		if rest, ok := n.TailSpread.(*ast.IdentPattern); ok {
@@ -480,7 +493,18 @@ func (s *shapeSearch) collectionLit(n ast.Node, name ast.TypeExpr) string {
 		if ty == nil {
 			return ""
 		}
-		return fence(shapeWord(displayValueType(ty)))
+		out := fence(shapeWord(displayValueType(ty)))
+		switch l := n.(type) {
+		case *ast.ListLit:
+			if l.TypeName == nil {
+				return out + "\n\n" + s.literalKind(n, ty) + ".\n\n" + listLiteralRule
+			}
+		case *ast.MapLit:
+			if l.TypeName == nil {
+				return out + "\n\n" + s.literalKind(n, ty) + "."
+			}
+		}
+		return out
 	}
 	sym := s.nameSymbol(name)
 	if sym == nil {

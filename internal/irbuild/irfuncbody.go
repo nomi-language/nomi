@@ -94,6 +94,9 @@ type irScalarBuilder struct {
 	literalCell *ast.TaggedString
 	captures    []ir.Temp
 	captured    map[string]irLambdaCapture
+	// capturedCurrent are the `..`s of an enclosing update this closure
+	// captured (captureCurrent).
+	capturedCurrent map[*ast.CurrentValue]irLambdaCapture
 	// capturedPlans are the plans of captured lambdas, by the capture's
 	// temporary (capturedPlan).
 	capturedPlans map[ir.Temp]*irLambdaPlan

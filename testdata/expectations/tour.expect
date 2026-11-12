@@ -235,35 +235,35 @@ T example.com/search tags=[go, nomi]
 T a+b%2Bc
 T Err(invalid URL escape "%zz")
 T
-C cheat-sheet.md:L136
+C cheat-sheet.md:L140
 E 0
 N 1
 H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
 T ok literals
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L215
+C cheat-sheet.md:L220
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L337
+C cheat-sheet.md:L342
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L424
+C cheat-sheet.md:L429
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L466
+C cheat-sheet.md:L471
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
@@ -277,7 +277,7 @@ H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L530
+C cheat-sheet.md:L535
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -286,7 +286,7 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L594
+C cheat-sheet.md:L599
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
@@ -333,7 +333,7 @@ T dbg line 6: not 9 in s = True
 T dbg line 7: s + [4, 5] = Set[1, 2, 3, 4, 5]
 T dbg line 8: s - [1] = Set[2, 3]
 T
-C collections.md:L296
+C collections.md:L297
 E 0
 N 0
 H a1be7f941cd64b875d7a473604080e0793afffa3ab21f2aa5828241a24d94609
@@ -343,20 +343,20 @@ T dbg line 9: ["Ada", ..v] = Vector["Ada", "Bo"]
 T dbg line 10: [..s, "blue"] = Set["red", "blue"]
 T dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
 T
-C collections.md:L328
+C collections.md:L329
 E 0
 N 0
 H b82743e0315237f416683a7f78267848de5a16f962872141c741e4dfeefa89c5
 T dbg line 3: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
 T
-C collections.md:L372
+C collections.md:L373
 E 0
 N 0
 H c8f5ef79c794b5fbe24b98617b4b8789477d23925944b939527b2267f97fc26f
 T dbg line 2: Iter.to_list(1..5) = [1, 2, 3, 4]
 T dbg line 3: Iter.to_list(1..=5) = [1, 2, 3, 4, 5]
 T
-C collections.md:L386
+C collections.md:L387
 E 0
 N 0
 H bbbf1aebc5d22a08b3e3cf28439beb79c4a286b179f64c381b2f3049483e95ee
@@ -366,14 +366,14 @@ T   |> Iter.map(Codepoint.to_string)
 T   |> Iter.to_list()
 T   = ["a", "b", "c", "d"]
 T
-C collections.md:L406
+C collections.md:L407
 E 0
 N 0
 H a38009fe2b3a466329c1eb82003fc43f40e3edd7fa2c08340f6f2c0214485fae
 T dbg line 2: Range.contains("a".."m", "h") = True
 T dbg line 3: Range.contains(0.0..=1.0, 1.0) = True
 T
-C collections.md:L422
+C collections.md:L423
 E 0
 N 0
 H 4f0bc3c39691320e70722484e57aa754e382d71d460b84477ce557632ad7943e
@@ -2830,7 +2830,7 @@ N 0
 H 9699ddac9013cc68d4ef4c1fa5f7b9115d51c6d5fd4634138d92bc67115848dd
 T dbg line 13: {..ada, address: {.., city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
 T
-C structs-enums-distinct.md:L205
+C structs-enums-distinct.md:L206
 E 0
 N 0
 H 767d5168d373f4b87f0cd342cc02f02e263d7ce2e2f330fadb66c3eaebeb51ae
@@ -2847,7 +2847,7 @@ T dbg line 9: alice.age = 30
 T dbg line 13: bob.age = 0
 T dbg line 20: carol = User{name: "Carol", age: 28}
 T
-C structs-enums-distinct.md:L235
+C structs-enums-distinct.md:L236
 E 0
 N 0
 H 96b9697e94d58a32b955a7aec8e4503295c4ec4bbc14daef77220f66ef39b634
@@ -2858,7 +2858,7 @@ T   |> Iter.map(.name)
 T   |> Iter.to_list()
 T   = ["Ada", "Alan"]
 T
-C structs-enums-distinct.md:L284
+C structs-enums-distinct.md:L285
 E 0
 N 0
 H 3d6ac3fcbf0c99996365e81d5df22af7ccc3df35694c74d9a23623be6559400f
@@ -2866,7 +2866,7 @@ T dbg line 10: id = Id(42)
 T dbg line 14: n = 42
 T dbg line 16: raw(id) = 42
 T
-C structs-enums-distinct.md:L325
+C structs-enums-distinct.md:L326
 E 0
 N 0
 H edeec9f36fce93e30a2ad06fa601f08464717debea17fd1d2e629e4e8c58d74c
@@ -2877,14 +2877,14 @@ T dbg line 12: Path[3, 1, 4] = Path(Vector[3, 1, 4])
 T dbg line 13: Scores{"ada" => 3} = Scores({"ada" => 3})
 T dbg line 16: home = Path(Vector[0, 0])
 T
-C structs-enums-distinct.md:L395
+C structs-enums-distinct.md:L396
 E 0
 N 0
 H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
 T dbg line 7: state = Expired
 T dbg line 8: Online = Online
 T
-C structs-enums-distinct.md:L431
+C structs-enums-distinct.md:L432
 E 0
 N 0
 H dc5d10561384c90bcfd162c700b3d04eea6cc2ac5744299c64bb221a7d67fb62
@@ -2892,27 +2892,27 @@ T dbg line 14: Direction.North = North
 T dbg line 17: c = Circle(3.0)
 T dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
 T
-C structs-enums-distinct.md:L466
+C structs-enums-distinct.md:L467
 E 0
 N 0
 H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
 T dbg line 21: describe(.North) = "up"
 T dbg line 22: describe(.West) = "left"
 T
-C structs-enums-distinct.md:L532
+C structs-enums-distinct.md:L533
 E 0
 N 0
 H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
 T dbg line 18: User.full_name(alice) = "Ada Lovelace"
 T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
-C structs-enums-distinct.md:L572
+C structs-enums-distinct.md:L573
 E 0
 N 0
 H c2c34c1d0c53993b4411a413b1e27710756f1df5b9d9a071651a1687086dcf10
 T dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L639
+C structs-enums-distinct.md:L640
 E 0
 N 0
 H c8932939bd73e5e38067353020fbad97d8f74a71182f19275da8da3952966258

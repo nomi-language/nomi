@@ -16,14 +16,22 @@ import (
 //	.{..user, address: .{.., city: "NYC"}}
 //
 // changes `address.city` and keeps the rest of `address`. A nested literal
-// without `..` is a whole new value of the field's type.
+// without `..` is a whole new value of the field's type. A `..` written as
+// an operand anywhere in a field's value, a lambda's body included, is the
+// value itself: `visits: .. + 1`, `street: rename(..)`. Each `..` belongs to
+// the innermost field or key whose value holds it (ast.CurrentValuesOf), and
+// its type is that position's.
 //
 // A bare `..` has a value only at a field or key of a literal that is itself
 // an update: one with a named `..base`, one with a bare `..` of its own, or
 // the literal patch of a `Struct.update` call. The update that owns the
-// position records what the `..` stands for (atUpdatePosition) before it
-// checks the value, and checking the `..` reads that record. Anywhere else
-// the record is missing and the `..` is an error.
+// position records what each of its `..`s stands for (atUpdatePosition)
+// before it checks the value, and checking a `..` reads that record; an
+// update nested in the value records its own positions later, so the
+// innermost wins. Anywhere else the record is missing and the `..` is an
+// error. At a map key the base may lack, an operand `..` is the empty
+// collection when the value is one, and an error otherwise: there is no
+// value to read and a missing key never traps.
 
 // currentAt is what one bare `..` stands for.
 type currentAt struct {
@@ -41,11 +49,17 @@ type currentAt struct {
 // A bare-`..` literal there gets its current value; a plain brace literal
 // there is a whole new value, remembered so its errors can suggest `..`.
 func (c *checker) atUpdatePosition(value ast.Node, ty Type, missing bool) {
-	if cv := ast.UpdateHole(value); cv != nil {
+	for _, cv := range ast.CurrentValuesOf(value) {
 		if c.currentValues == nil {
 			c.currentValues = map[*ast.CurrentValue]currentAt{}
 		}
 		c.currentValues[cv] = currentAt{ty: ty, missing: missing}
+	}
+	if cv, ok := value.(*ast.CurrentValue); ok && cv.Operand {
+		c.report(errAt(cv, "a field or key whose value is `..` keeps the value it holds; leave it out"))
+		return
+	}
+	if ast.UpdateHole(value) != nil {
 		return
 	}
 	if lit, ok := value.(*ast.StructLit); ok && lit.TypeName == nil && lit.Spread == nil && len(lit.Fields) > 0 {
@@ -60,12 +74,35 @@ func (c *checker) atUpdatePosition(value ast.Node, ty Type, missing bool) {
 // position, or an error when the position has none.
 func (c *checker) checkCurrentValue(n *ast.CurrentValue) Type {
 	at, ok := c.currentValues[n]
+	if !ok && n.Operand {
+		c.report(errAt(n, "`..` means the value already at a field or key of an update, and this `..` is not in one").
+			WithHint("write `..` in a field's new value, as in `{..user, visits: .. + 1}`, or name the value here"))
+		return nil
+	}
 	if !ok {
 		c.report(errAt(n, "a bare `..` has no value to update here").
 			WithHint("a bare `..` stands for the value already at a field or key of an update, as in `{..user, address: {.., city: \"NYC\"}}`; anywhere else, name the base: `{..base, field: value}`"))
 		return nil
 	}
+	if n.Operand && at.missing && !emptyCollectionType(at.ty) {
+		c.report(errAt(n, c.typef("a missing key leaves `..` no %s to read", at.ty)).
+			WithHint("the map may lack the key, and only a collection has a value to start from there, the empty one; to give a missing key a value, use `Map.update(m, key, default, f)`"))
+		return at.ty
+	}
 	return at.ty
+}
+
+// emptyCollectionType reports whether ty is a list, set, map or vector:
+// a type whose empty value a `..` at a missing key stands for.
+func emptyCollectionType(ty Type) bool {
+	if isListType(ty) || isMapType(ty) {
+		return true
+	}
+	if _, ok := setElemType(ty); ok {
+		return true
+	}
+	_, ok := vectorElemType(ty)
+	return ok
 }
 
 // updateMissing reports whether lit is a bare-`..` update whose position may

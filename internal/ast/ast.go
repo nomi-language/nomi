@@ -2806,22 +2806,122 @@ func (n *Tap) Fn() Node {
 func (*Tap) NodeType() string { return "Tap" }
 func (n *Tap) LineNum() int   { return n.Line }
 
-// CurrentValue is a bare `..` written as the spread of an update literal:
-// `{.., city: "NYC"}`, `{.., "k" => v}`, `[.., x]` or `[t, ..]`. It stands
-// for the value already at the field or key the literal is written at, so
-// `{..user, address: {.., city: "NYC"}}` changes only `address.city`. It is
-// only ever the Spread of a StructLit or the head of a Spread of a list,
-// vector, set or map literal; the checker decides whether that position has
-// a current value.
+// CurrentValue is a bare `..`: the value already at the field or key of an
+// update that it is written in. As the spread of an update literal,
+// `{.., city: "NYC"}`, `{.., "k" => v}`, `[.., x]` or `[t, ..]`, it is the
+// value the literal updates, so `{..user, address: {.., city: "NYC"}}`
+// changes only `address.city`; it is then the Spread of a StructLit or the
+// head of a Spread of a list, vector, set or map literal. As an operand
+// (Operand), `{..user, visits: .. + 1}` or `street: rename(..)`, it is that
+// value itself. Either way it belongs to the innermost field or key whose
+// value holds it (CurrentValuesOf); the checker decides whether that
+// position has a current value.
 type CurrentValue struct {
 	TriviaCarrier
 	SpanCarrier
-	Line int
-	Col  int
+	// Operand is set for a `..` written where an operand goes, not as the
+	// spread of a literal.
+	Operand bool
+	Line    int
+	Col     int
 }
 
 func (*CurrentValue) NodeType() string { return "CurrentValue" }
 func (n *CurrentValue) LineNum() int   { return n.Line }
+
+// InspectPosition is Inspect over the nodes that belong to the field or key
+// of an update whose value is value: every node in it, a lambda's body
+// included, except those in the value of a field or key of an update nested
+// in it, which belong to that field or key. A nested update is a struct
+// literal with a spread (in `{.., street: rename(..)}` the first `..` is
+// value's and the one in `rename(..)` is `street`'s), a map literal's
+// entries after its first spread, or the literal patch of a `Struct.update`
+// call. f is not called for a nested update itself.
+func InspectPosition(value Node, f func(Node) bool) {
+	var walk func(Node)
+	walk = func(n Node) {
+		if n == nil {
+			return
+		}
+		Inspect(n, func(n Node) bool {
+			switch v := n.(type) {
+			case *StructLit:
+				if v.Spread == nil {
+					break
+				}
+				walk(v.Spread)
+				return false
+			case *MapLit:
+				if len(v.Spreads) == 0 {
+					break
+				}
+				for _, sp := range v.Spreads {
+					walk(sp.Head)
+				}
+				for i, e := range v.Entries {
+					walk(e.Key)
+					if i < v.Spreads[0].At {
+						walk(e.Value)
+					}
+				}
+				return false
+			case *Call:
+				patch := StructUpdatePatch(v)
+				if patch == nil {
+					break
+				}
+				walk(v.Func)
+				for _, arg := range v.Args {
+					if na, ok := arg.(*NamedArg); ok {
+						arg = na.Value
+					}
+					if arg != Node(patch) {
+						walk(arg)
+					}
+				}
+				return false
+			}
+			return f(n)
+		})
+	}
+	walk(value)
+}
+
+// CurrentValuesOf returns the bare `..`s that belong to the field or key of
+// an update whose value is value (InspectPosition): the spread of an update
+// literal written there, and each `..` operand in it.
+func CurrentValuesOf(value Node) []*CurrentValue {
+	var out []*CurrentValue
+	InspectPosition(value, func(n Node) bool {
+		if cv, ok := n.(*CurrentValue); ok {
+			out = append(out, cv)
+		}
+		return true
+	})
+	return out
+}
+
+// StructUpdatePatch is the literal patch of call when call is
+// `Struct.update(original, {...})`: the anonymous brace literal without a
+// spread passed to it, positionally or by name. Nil otherwise.
+func StructUpdatePatch(call *Call) *StructLit {
+	fa, ok := call.Func.(*FieldAccess)
+	if !ok || fa.Field == nil || fa.Field.Name != "update" {
+		return nil
+	}
+	if ti, ok := fa.Object.(*TypeIdent); !ok || ti.Name != "Struct" {
+		return nil
+	}
+	for _, arg := range call.Args {
+		if na, ok := arg.(*NamedArg); ok {
+			arg = na.Value
+		}
+		if lit, ok := arg.(*StructLit); ok && lit.TypeName == nil && lit.Spread == nil {
+			return lit
+		}
+	}
+	return nil
+}
 
 // UpdateHole returns the bare `..` of n when n is a literal that updates the
 // value at its position: an anonymous struct literal whose spread is a bare

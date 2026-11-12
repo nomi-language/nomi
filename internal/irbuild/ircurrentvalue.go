@@ -11,7 +11,13 @@ package irbuild
 // for the `..` (bl.current) before it lowers the literal, which then lowers as
 // the update it is: a struct spread (structSpread), a map spread (mapUpdate),
 // a set spread (setUpdate) or a list spread (listMake), each with the old
-// value as its base. There is no second lowering of any of them.
+// value as its base. There is no second lowering of any of them. A `..`
+// operand in the value (`visits: .. + 1`, `street: rename(..)`) reads the
+// same record, so the base is evaluated once however many `..`s there are;
+// each `..` belongs to the innermost field or key whose value holds it
+// (ast.CurrentValuesOf), whose update records it later and so wins. A `..`
+// in a lambda written in the value is captured from the builder that holds
+// it, as a captured name is (captureCurrent).
 //
 // A struct field always has an old value, projected from the base. A map key
 // may not: the old value is `Map.get(base, key)`, and the literal is lowered
@@ -23,6 +29,8 @@ package irbuild
 // traps.
 
 import (
+	"strconv"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -36,17 +44,23 @@ type irCurrent struct {
 	missing bool
 }
 
-// setCurrent records what the bare `..` of value stands for, when value is
-// an update literal (ast.UpdateHole).
+// setCurrent records what each bare `..` that belongs to the field or key
+// whose value is value stands for (ast.CurrentValuesOf): the spread of an
+// update literal there, and every `..` operand in it.
 func (bl *irScalarBuilder) setCurrent(value ast.Node, c irCurrent) {
-	hole := ast.UpdateHole(value)
-	if hole == nil {
-		return
+	for _, cv := range ast.CurrentValuesOf(value) {
+		if bl.current == nil {
+			bl.current = map[*ast.CurrentValue]irCurrent{}
+		}
+		bl.current[cv] = c
 	}
-	if bl.current == nil {
-		bl.current = map[*ast.CurrentValue]irCurrent{}
-	}
-	bl.current[hole] = c
+}
+
+// readsCurrent reports whether value, written at a field or key of an
+// update, holds a bare `..` of its own, so the update reads the old value
+// there before lowering it.
+func readsCurrent(value ast.Node) bool {
+	return len(ast.CurrentValuesOf(value)) > 0
 }
 
 // currentMissing reports whether lit's bare `..` stands for a position that
@@ -64,6 +78,9 @@ func (bl *irScalarBuilder) currentMissing(spread ast.Node) (irCurrent, bool) {
 // the position holds none, the empty collection of its kind.
 func (bl *irScalarBuilder) currentValue(t *ast.CurrentValue) (ir.Temp, kind, bool, bool) {
 	c, ok := bl.current[t]
+	if !ok && bl.parent != nil {
+		return bl.captureCurrent(t)
+	}
 	if !ok {
 		bl.g.dc.note("a bare `..` with no current value recorded")
 		return ir.NoTemp, kindInvalid, false, false
@@ -72,6 +89,35 @@ func (bl *irScalarBuilder) currentValue(t *ast.CurrentValue) (ir.Temp, kind, boo
 		return c.v, c.k, false, true
 	}
 	return bl.emptyOf(t, c.k)
+}
+
+// captureCurrent lowers a `..` written in a lambda inside a field's value
+// (`street: Maybe.map(m, fn s -> s + ..)`): the value the enclosing builder
+// holds for it, made a parameter of this closure as a captured name is
+// (capture), once per `..`.
+func (bl *irScalarBuilder) captureCurrent(t *ast.CurrentValue) (ir.Temp, kind, bool, bool) {
+	if held, ok := bl.capturedCurrent[t]; ok {
+		return held.temp, held.k, true, true
+	}
+	src, k, _, ok := bl.parent.currentValue(t)
+	if !ok {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	if k == kindUnit {
+		u := ir.NewUnit(bl.g.irNodePos(t), bl.f.NewTemp())
+		bl.b.Append(u)
+		return u.Dst(), kindUnit, true, true
+	}
+	if !irCallableValueKind(k) {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	dst := bl.g.irAddParam(bl.f, bl.sh.localSym(".."+strconv.Itoa(t.Line)+":"+strconv.Itoa(t.Col)), k)
+	bl.captures = append(bl.captures, src)
+	if bl.capturedCurrent == nil {
+		bl.capturedCurrent = map[*ast.CurrentValue]irLambdaCapture{}
+	}
+	bl.capturedCurrent[t] = irLambdaCapture{temp: dst, k: k, src: src}
+	return dst, k, true, true
 }
 
 // emptyOf builds the empty collection of kind k: a list, set, map or vector.
@@ -214,7 +260,7 @@ func (bl *irScalarBuilder) updateEntry(value ast.Node, key, base ir.Temp, bk kin
 // patchHasHole reports whether a field of the patch lit is an update literal.
 func patchHasHole(lit *ast.StructLit) bool {
 	for _, f := range lit.Fields {
-		if ast.UpdateHole(f.Value) != nil {
+		if readsCurrent(f.Value) {
 			return true
 		}
 	}
@@ -280,7 +326,7 @@ func (bl *irScalarBuilder) structUpdateHoles(t *ast.Call, ops structUpdateArgs, 
 	pre := map[int]irLowered{}
 	if ops.patchFirst {
 		for i, f := range lit.Fields {
-			if ast.UpdateHole(f.Value) != nil {
+			if readsCurrent(f.Value) {
 				continue
 			}
 			v, k, mobile, ok := bl.lower(f.Value)

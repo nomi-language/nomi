@@ -3219,7 +3219,15 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		return p.parseUnreachable()
 
 	case token.DOTDOT, token.DOTDOTEQ:
-		// Open-ended range forms (`..5`, `..=5`, `5..`, `..`) have been
+		// A `..` followed by no operand is one: the value already at the
+		// field or key of an update it is written in (`visits: .. + 1`,
+		// `street: rename(..)`). A range needs both bounds, and a call
+		// takes no spread, so nothing else is written so.
+		if tok.Type == token.DOTDOT && p.currentValueOperandAhead() {
+			p.advance()
+			return &ast.CurrentValue{Operand: true, Line: tok.Line, Col: tok.Col}, nil
+		}
+		// Open-ended range forms (`..5`, `..=5`, `5..`) have been
 		// removed. Bare `..` in element position of a list literal is now
 		// the spread token, handled by parseListLit before parsePrefix is
 		// reached. Anywhere else, `..` without a left operand is an error.
@@ -3546,7 +3554,7 @@ func (p *Parser) parseCollectionItems(tok token.Token, close token.TokenType, wh
 			return items, endTrivia, spreads, nil
 		}
 		var item ast.Node
-		if !p.atEnd() && p.peek().Type == token.DOTDOT && refuseSpread != "" {
+		if !p.atEnd() && p.peek().Type == token.DOTDOT && refuseSpread != "" && !p.currentValueOperandStartsItem() {
 			if refuseSpread != spreadsAnywhere {
 				return nil, nil, nil, errorAt(p.peek().Line, p.peek().Col, "%s", refuseSpread)
 			}
@@ -3900,6 +3908,33 @@ func canStartRangeOperand(tt token.TokenType) bool {
 		return false
 	}
 	return true
+}
+
+// currentValueOperandAhead reports whether the `..` at the cursor is an
+// operand, the value already at a field or key of an update: what follows
+// it is no operand, but a closing bracket, a comma, a binary operator, a
+// pipe or a line end (`visits: .. + 1`, `rename(..)`). A `..` followed by an
+// operand is a spread or an open range.
+func (p *Parser) currentValueOperandAhead() bool {
+	switch next := p.peekAt(1).Type; next {
+	case token.PLUS, token.MINUS, token.STAR, token.SLASH, token.PERCENT, token.AS:
+		return true
+	default:
+		return !canStartRangeOperand(next)
+	}
+}
+
+// currentValueOperandStartsItem reports whether the `..` at the cursor,
+// at the start of a bracket literal's element, is the left operand of a
+// binary operator or pipe (`[.. |> List.reverse()]`) rather than a spread.
+// A `-` after it starts the spread's head: `[..-1]` is not read as a
+// subtraction.
+func (p *Parser) currentValueOperandStartsItem() bool {
+	next := p.peekAt(1).Type
+	if next == token.MINUS || next == token.DOTDOT || next == token.DOTDOTEQ || !p.currentValueOperandAhead() {
+		return false
+	}
+	return infixPrecedence(next) > 0 || next == token.IS || next == token.IN
 }
 
 func infixPrecedence(tt token.TokenType) int {
@@ -4794,7 +4829,10 @@ func isGroupStart(tok, next token.Token) bool {
 	if tok.Type != token.IDENT || tok.Lexeme != "group" || next.Line != tok.Line {
 		return false
 	}
-	return next.Type == token.STRING_LITERAL || next.Type == token.STRING_START || next.Type == token.NEWLINE
+	// The end of the input ends the line as a newline does, so `group` as a
+	// file's last word means what it means with a line break after it.
+	return next.Type == token.STRING_LITERAL || next.Type == token.STRING_START ||
+		next.Type == token.NEWLINE || next.Type == token.EOF
 }
 
 // tryParseSubtests parses `subtests rows, pattern`, its body and `end`, at

@@ -129,6 +129,12 @@ module.exports = grammar({
     // `if [.., z] = xs` and `if [.., z] == xs`: a bare `..` is a list
     // pattern's rest or a list literal's spread until the `=` or `==` decides.
     [$.list_pattern, $._collection_items],
+    // A `..` at the start of a bracket literal's element is its spread or,
+    // before an operator, the value at the field the literal is written at
+    // (`[.. |> List.reverse()]`), until what follows it decides; the spread
+    // wins where both read (current_value's dynamic precedence).
+    [$.current_value, $.list_pattern, $._collection_items],
+    [$.current_value, $._collection_items],
     // `if a or b then` is the boolean `or` of two names, and `if A or B = v`
     // an or pattern, until the `=` or the `then` decides.
     [$._case_pattern, $._expression],
@@ -1144,6 +1150,7 @@ module.exports = grammar({
 
     _lambda_body_expression: $ => choice(
       $.identifier,
+      $.current_value,
       $.type_identifier,
       $.dot_variant,
       $.field_accessor,
@@ -1525,6 +1532,7 @@ module.exports = grammar({
     // Expressions
     _expression: $ => choice(
       $.identifier,
+      $.current_value,
       alias($._full_module_path, $.module_path),
       $.placeholder,
       $.capture,
@@ -1717,6 +1725,13 @@ module.exports = grammar({
     escape_sequence: $ => token.immediate(seq('\\', choice('n', 'r', 't', '\\', '"', '${', /u\{[0-9a-fA-F]+\}/))),
 
     boolean: $ => choice('true', 'false'),
+
+    // A `..` where an operand goes, followed by no operand: the value
+    // already at the field or key of an update it is written in
+    // (`visits: .. + 1`, `street: rename(..)`). A bare `..` at the start of
+    // a literal's element is its spread instead, so this one ranks below
+    // every spread.
+    current_value: $ => prec.dynamic(-1, prec(-1, '..')),
 
     // A `..` with no tail (`[t, ..]`) is the bare spread: the list already at
     // the field or key the literal is written at.

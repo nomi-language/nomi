@@ -775,7 +775,7 @@ fn divide(x: Int, y: Int) -> (Int, Int)
 end
 
 fn step(point: {x: Int, y: Int}) -> {x: Int, y: Int}
-    {..point, y: point.y + 1}
+    {..point, y: .. + 1}
 end
 ```
 
@@ -783,7 +783,10 @@ To change part of a nested value inside an update (spec §4 *Struct
 Updates*), write the bare `..`
 (`{..user, address: {.., city: "NYC"}}`; repeating the path as a base,
 `{..user.address, city: "NYC"}`, is a compile error). Write a literal
-without `..` only when the field gets a whole new value.
+without `..` only when the field gets a whole new value. A new value
+computed from the old one reads it as `..` too: `{..user, visits: .. + 1}`
+and `address: {.., street: rename(..)}`, not `rename(user.address.street)`,
+which repeats the path the field already names.
 
 ### 18. Read a distinct's value by destructuring
 

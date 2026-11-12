@@ -186,13 +186,16 @@ func (fa *FileAnalysis) Revision() int {
 type FileBodies struct {
 	// References maps each identifier's position to the symbol it refers to.
 	References map[Pos]*Symbol
-	// PunnedFieldLabels maps the position of a punned struct-literal field,
-	// the `context` of `App{context:}` or `{context:}`, to the field it
-	// labels, and of a punned named argument, the `status` of
-	// `f(status:)`, to its argument hint. One name there is both the label
-	// and a read of the variable, and References holds the variable. Find
-	// References and rename read this map for the label. Nil until a punned
-	// label is recorded (setPunnedFieldLabel).
+	// PunnedFieldLabels maps the position of a punned struct-literal or
+	// update field, the `context` of `App{context:}`, `{context:}` or
+	// `{..app, context:}`, to the field it labels, and of a punned named
+	// argument, the `status` of `f(status:)`, to its argument hint. One name
+	// there is both the label and a read of the variable, and References
+	// holds the variable. A punned struct-pattern field, the `on` of
+	// `Birth{on:} = b`, maps to its field too, and Definitions holds the
+	// binding it makes. Find References, rename, hover and go-to-definition
+	// read this map for the label. Nil until a punned label is recorded
+	// (setPunnedFieldLabel).
 	PunnedFieldLabels map[Pos]*Symbol
 	// TodoPlaceholders maps each bare `todo` that names no binding in scope to
 	// the placeholder it is (spec §2 *Keywords*). The parser reads a bare
@@ -262,6 +265,12 @@ type FileBodies struct {
 	// type without it (ascription.go), which the editor marks as
 	// unnecessary. Nil until the first record.
 	RedundantAscriptions map[*ast.Ascription]bool
+	// RestatedPaths holds each operand in the new value of a field of an
+	// update that reads the field's current value by its path,
+	// `street: rename(ada.address.street)`, with the field's name
+	// (noteRestatedPaths). The editor shows a hint that `..` writes it.
+	// Nil until the first record.
+	RestatedPaths map[*ast.FieldAccess]string
 	// CheckedLiterals holds each typed literal whose tag implements
 	// CheckedLiteral (spec §18 *Checked literals*): its type is build's
 	// result in every quote style, and its check runs when the program is

@@ -5662,6 +5662,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "current_value"
+        },
+        {
+          "type": "SYMBOL",
           "name": "type_identifier"
         },
         {
@@ -7609,6 +7613,10 @@
           "name": "identifier"
         },
         {
+          "type": "SYMBOL",
+          "name": "current_value"
+        },
+        {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
@@ -8292,6 +8300,18 @@
           "value": "false"
         }
       ]
+    },
+    "current_value": {
+      "type": "PREC_DYNAMIC",
+      "value": -1,
+      "content": {
+        "type": "PREC",
+        "value": -1,
+        "content": {
+          "type": "STRING",
+          "value": ".."
+        }
+      }
     },
     "list": {
       "type": "SEQ",
@@ -13216,6 +13236,15 @@
     ],
     [
       "list_pattern",
+      "_collection_items"
+    ],
+    [
+      "current_value",
+      "list_pattern",
+      "_collection_items"
+    ],
+    [
+      "current_value",
       "_collection_items"
     ],
     [

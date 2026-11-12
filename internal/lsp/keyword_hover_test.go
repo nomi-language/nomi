@@ -58,7 +58,7 @@ func TestHover_KeywordsFollowTheirContext(t *testing.T) {
 		{"else of an if", "fn f(b: Bool) -> Int\n  if b { 1 } ▮else { 2 }\nend\n",
 			[]string{"The branch that runs when the `if` condition is `False`"}, []string{"binding's pattern"}},
 		{"else of a binding", "fn f(m: Maybe<Int>) -> Int\n  Some(n) = m ▮else return 0\n  n\nend\n",
-			[]string{"```nomi\nPattern = value else", "does not match the binding's pattern", "/pattern-matching/#binding-with-else"}, nil},
+			[]string{"```nomi\nSome(n) = m else …", "Runs when `m` doesn't match `Some(n)`", "/spec/patterns/#bindings-with-else"}, nil},
 		{"fn of a declaration answers with the function", "▮fn twice(n: Int) -> Int\n  n * 2\nend\n",
 			[]string{"```nomi\nfn twice(n: Int) -> Int\n```\n\n---\n\nDeclares a function.", "/functions-and-lambdas/#defining-a-function"}, []string{"A lambda"}},
 		{"fn of an interface's required function", "fn main() {}\n\ninterface Named\n  ▮fn name(n: self) -> String\nend\n",

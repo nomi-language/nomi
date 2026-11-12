@@ -204,6 +204,8 @@ func (s *shapeSearch) noteLambdaArgs(call *ast.Call) {
 			continue
 		}
 		switch fn := fn.(type) {
+		case *ast.ListLit, *ast.MapLit:
+			s.noteLiteral(fn, literalSource{arg: &lambdaArg{call: call, slot: slot}})
 		case *ast.Lambda:
 			if s.lambdaArgs == nil {
 				s.lambdaArgs = map[*ast.Lambda]lambdaArg{}

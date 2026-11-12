@@ -1,6 +1,6 @@
 NODE22_BIN ?= /opt/homebrew/opt/node@22/bin
 
-.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks check-full publish-main
+.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks check-full fuzz publish-main
 
 test: test-std test-programs test-go
 
@@ -42,6 +42,10 @@ test-tour:
 # built from next-notes.txt.
 check-full:
 	./scripts/check-full.sh
+
+# The fuzz targets on their own, run after a push (scripts/check-full.sh).
+fuzz:
+	STEPS=fuzz ./scripts/check-full.sh
 
 publish-main:
 	./scripts/publish-main.sh

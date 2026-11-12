@@ -75,6 +75,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -364,6 +368,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -678,6 +686,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -895,6 +907,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -1145,6 +1161,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -1426,6 +1446,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -1650,6 +1674,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -1871,6 +1899,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -2184,6 +2216,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -2400,6 +2436,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -2643,6 +2683,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -2965,6 +3009,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -3277,6 +3325,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -3486,6 +3538,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -3789,6 +3845,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -4088,6 +4148,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -4327,6 +4391,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -4553,6 +4621,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -4740,6 +4812,11 @@
     }
   },
   {
+    "type": "current_value",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "dbg_expression",
     "named": true,
     "fields": {
@@ -4797,6 +4874,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -5094,6 +5175,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -5351,6 +5436,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -5728,6 +5817,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -5936,6 +6029,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -6170,6 +6267,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -6437,6 +6538,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -6673,6 +6778,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -6898,6 +7007,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -7473,6 +7586,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -7749,6 +7866,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -8302,6 +8423,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -8554,6 +8679,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -8774,6 +8903,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -8982,6 +9115,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -9199,6 +9336,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -9410,6 +9551,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -9728,6 +9873,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -10506,6 +10655,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -10826,6 +10979,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -11048,6 +11205,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -11235,6 +11396,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -11419,6 +11584,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -11672,6 +11841,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -11900,6 +12073,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -12239,6 +12416,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -12474,6 +12655,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -12713,6 +12898,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -13000,6 +13189,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -13380,6 +13573,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -13626,6 +13823,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -13837,6 +14038,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -14040,6 +14245,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -14270,6 +14479,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -14583,6 +14796,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -14806,6 +15023,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -15021,6 +15242,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -15304,6 +15529,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -15556,6 +15785,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -15774,6 +16007,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -15998,6 +16235,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -16339,6 +16580,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -16615,6 +16860,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -16939,6 +17188,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -17147,6 +17400,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -17369,6 +17626,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -17621,6 +17882,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -18095,6 +18360,10 @@
             "named": true
           },
           {
+            "type": "current_value",
+            "named": true
+          },
+          {
             "type": "dbg_expression",
             "named": true
           },
@@ -18326,6 +18595,10 @@
         },
         {
           "type": "continue_statement",
+          "named": true
+        },
+        {
+          "type": "current_value",
           "named": true
         },
         {
@@ -18776,6 +19049,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -19098,6 +19375,10 @@
           "named": true
         },
         {
+          "type": "current_value",
+          "named": true
+        },
+        {
           "type": "dbg_expression",
           "named": true
         },
@@ -19330,6 +19611,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {
@@ -19643,6 +19928,10 @@
           },
           {
             "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "current_value",
             "named": true
           },
           {

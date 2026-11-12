@@ -229,7 +229,7 @@ Spec: [Hashing and keys](/spec/type-relations/#hashing-and-keys),
 
 ```nomi-run
 fn main()
-    s = Iter.to_set([1, 2, 3, 2, 1])
+    s = Set[1, 2, 3]
 
     dbg Set.size(s)
     dbg 2 in s
@@ -247,10 +247,11 @@ dbg line 8: s - [1] = Set[2, 3]
 -->
 
 You write a set as `[a, b, c]` wherever one is expected, as beside `s`
-above, and as `Set[a, b, c]` where nothing expects one. A set holds each
-value once, so the set built
-from `[1, 2, 3, 2, 1]` has three values. It keeps them in the order each one
-first appeared.
+above or for a binding, parameter or field of type `Set<Int>`, and as
+`Set[a, b, c]` where nothing expects one, as for `s`. A set holds each value
+once: [`Iter.to_set`](/reference/iter/#iterto_set) builds one from any `Iter`,
+so `Iter.to_set([1, 2, 3, 2, 1])` has three values. It keeps them in the order
+each one first appeared.
 
 `x in c` tests whether a collection holds a value, for a list, vector, set,
 range, string and map alike (a map holds its keys): it is

@@ -92,6 +92,10 @@ test result: ok. 1 passed, 0 failed
 - A `{` always opens data, never code. Its first entry decides: `name:` is
   a struct, `key =>` a map. `{}` is the empty map, since an anonymous struct
   has at least one field.
+- An update copies a struct with fields changed: `{..p, y: 5}`. In a field's
+  new value, `..` is the value already there: `{..user, address: {..,
+  city: "NYC"}}` changes only the city, and `{..user, visits: .. + 1}` counts
+  one more. Write `..`, not the path again (`user.visits`).
 - A field or a named argument whose value is a binding of its own name is
   punned with its colon: `Point{x:, y:}`, `{name:}`, `Response.json(body,
   status:)`. The name alone is no field: `Point{x}` is an error.
@@ -146,6 +150,7 @@ test "literals"
     pair = (2, "Ada")
 
     assert moved == Point{x: 1, y: 5}
+    assert {..moved, y: .. + 1} == Point{x: 1, y: 6}
     assert {"a" => 1, "b" => 2} == {"b" => 2, "a" => 1}
     assert "${name} has ${count}" == "Ada has 2"
     assert pair.second == name

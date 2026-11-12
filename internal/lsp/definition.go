@@ -69,6 +69,15 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 	}
 	_, tokenStart, _, tokenOK := doc.Analysis.TokenAt(pos)
 
+	// A punned label that reads a binding (`Birth{on:}`, `{..b, on:}`,
+	// `json(status:)`) is two names: it offers the field's or parameter's
+	// declaration and the binding's.
+	if pun, ok := hoverdoc.PunAt(doc.Analysis, doc.Nodes, pos); ok && pun.Kind != hoverdoc.PunPattern {
+		if locs := s.punDefinitions(uri, pun); len(locs) > 0 {
+			return s.toUTF16Locations(locs), nil
+		}
+	}
+
 	// A punned pattern field (`{home:} = routes.public`) defines the
 	// binding it names: its definition is the field it reads.
 	if field := doc.Analysis.PunnedFieldLabels[tokenStart]; tokenOK && field != nil && doc.Analysis.DefinitionAt(tokenStart) == sym {
@@ -120,6 +129,34 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 	}
 
 	return s.toUTF16Location(s.definitionLocationForSymbol(uri, defSym, sym)), nil
+}
+
+// punDefinitions are a punned label's two declarations: the field's or
+// parameter's, then the binding's it reads.
+func (s *Server) punDefinitions(uri string, pun hoverdoc.Pun) []protocol.Location {
+	var locs []protocol.Location
+	label := pun.Field
+	if pun.Kind == hoverdoc.PunArgument && pun.HasParam && pun.Callee != nil {
+		// The parameter is declared in the callee's file, at its position
+		// in the parameter list.
+		param := *pun.Callee
+		if param.Resolved != nil {
+			param = *param.Resolved
+		}
+		param.Name = pun.Param.Name
+		param.Pos = analysis.Pos{Line: pun.Param.Line, Col: pun.Param.Col}
+		param.DefinitionFile = ""
+		label = &param
+	}
+	if label != nil && !label.Undeclared && label.Kind != analysis.SymbolArgHint {
+		if loc := s.definitionLocationForSymbol(uri, label, label); loc != nil {
+			locs = append(locs, *loc)
+		}
+	}
+	if loc := s.definitionLocationForSymbol(uri, pun.Binding, pun.Binding); loc != nil {
+		locs = append(locs, *loc)
+	}
+	return locs
 }
 
 func (s *Server) foreignGoAliasDefinitionLocation(nodes []ast.Node, pos analysis.Pos, currentURI string) (*protocol.Location, bool) {

@@ -12597,6 +12597,7 @@ func (c *checker) checkStructUpdateLit(n *ast.StructLit) Type {
 		if c.updateMissing(n) {
 			c.checkUpdateBuildable(n, h)
 		}
+		c.recordUpdateFieldDecls(n, h)
 		return h
 	case *AnonStructType:
 		c.checkStructLitAgainstStruct(n, &StructType{Name: h.String(), Fields: h.Fields}, true)
@@ -16895,6 +16896,9 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		var fields []FieldDef
 		var structName string
 		var subs map[*TypeParam_]Type
+		// declared is the struct whose declaration names the fields, for a
+		// key's reference to its field.
+		var declared *StructType
 		switch st := expectedTy.(type) {
 		case *StructType:
 			// Opaque-types: destructuring an opaque struct (inline-body
@@ -16912,6 +16916,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			}
 			fields = st.Fields
 			structName = st.Name
+			declared = st
 			if len(st.TypeParamDefs) > 0 && len(st.TypeArgs) == len(st.TypeParamDefs) {
 				subs = make(map[*TypeParam_]Type, len(st.TypeParamDefs))
 				for i, def := range st.TypeParamDefs {
@@ -17045,17 +17050,44 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 					sym.Type = fieldType
 				}
 			}
-			// Hover on the field-name key (`x` in `case p { {x: a} -> ...}`).
-			// Skip punning bindings to avoid colliding with the binding's
-			// SymbolBinding at the same position.
+			// The field-name key (`x` in `case p { {x: a} -> ...}`) refers
+			// to the field: its declaration when the struct's is known, so
+			// hover, references and rename reach it, else a symbol at the
+			// key for hover. A punned key (`{x:}`, `Name == Binding` at the
+			// same position) is the binding's definition too: its field
+			// goes beside it in PunnedFieldLabels, as a punned literal
+			// label's does.
 			bindingLine := structPatternFieldBindingLine(f, n.Line)
 			punning := f.Binding == f.Name && f.NameLine == bindingLine && f.NameCol == f.BindingCol
-			if f.NameLine > 0 && fieldType != nil && !punning {
-				c.fa.References[Pos{Line: f.NameLine, Col: f.NameCol}] = &Symbol{
-					Name: f.Name,
-					Kind: SymbolField,
-					Pos:  Pos{Line: f.NameLine, Col: f.NameCol},
-					Type: fieldType,
+			if f.NameLine > 0 && fieldType != nil && !IsSynthesizedLine(f.NameLine) {
+				keyPos := Pos{Line: f.NameLine, Col: f.NameCol}
+				var ref *Symbol
+				if declared != nil {
+					if structSym := c.structDeclSymbol(declared); structSym != nil {
+						real := structSym
+						if real.Resolved != nil {
+							real = real.Resolved
+						}
+						if fieldSym, ok := real.Members[f.Name]; ok && fieldSym.Kind == SymbolField {
+							proxy := *fieldSym
+							proxy.Type = fieldType
+							ref = &proxy
+						}
+					}
+				}
+				switch {
+				case punning && ref != nil:
+					c.fa.setPunnedFieldLabel(keyPos, ref)
+				case punning:
+				case ref != nil:
+					c.fa.References[keyPos] = ref
+				default:
+					c.fa.References[keyPos] = &Symbol{
+						Name: f.Name,
+						Kind: SymbolField,
+						Pos:  keyPos,
+						Type: fieldType,
+					}
 				}
 			}
 		}

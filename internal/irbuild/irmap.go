@@ -293,7 +293,7 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 // update literal.
 func mapHasHole(t *ast.MapLit) bool {
 	for _, e := range t.Entries {
-		if ast.UpdateHole(e.Value) != nil {
+		if readsCurrent(e.Value) {
 			return true
 		}
 	}
@@ -329,7 +329,7 @@ func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, wants []kind, base ir.T
 			var v ir.Temp
 			var k kind
 			var ok bool
-			if j == 1 && base != ir.NoTemp && ast.UpdateHole(node) != nil {
+			if j == 1 && base != ir.NoTemp && readsCurrent(node) {
 				v, k, ok = bl.updateEntry(node, key, base, bk)
 				if !ok {
 					return no()
@@ -345,7 +345,7 @@ func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, wants []kind, base ir.T
 			if !ok {
 				return no()
 			}
-			if j == 0 && base != ir.NoTemp && ast.UpdateHole(entry.Value) != nil {
+			if j == 0 && base != ir.NoTemp && readsCurrent(entry.Value) {
 				// The key is read by the entry's update and by the map.
 				v = bl.holdTemp(node, v, k)
 				key = v
